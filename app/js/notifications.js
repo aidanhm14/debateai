@@ -1770,6 +1770,9 @@
     }
 
     // Card state after accepting: their clock is the one still running.
+    // This state MUST keep an exit. It used to render text only, so a
+    // peer who never answered (and a missed server ghost-cancel) left
+    // the user staring at a card with nothing to press.
     function showWaitingForPeer(d) {
       if (!overlay) return;
       if (overlay.__tick) { clearInterval(overlay.__tick); overlay.__tick = null; }
@@ -1779,7 +1782,22 @@
       card.innerHTML =
         '<div class="da-match-eyebrow">You’re in</div>' +
         '<div class="da-match-name">Waiting for ' + escHtml(nm) + '</div>' +
-        '<div class="da-match-sub">The round opens as soon as they answer.</div>';
+        '<div class="da-match-sub">The round opens as soon as they answer.</div>' +
+        '<div class="da-match-btns">' +
+          '<button type="button" class="da-match-btn da-match-btn--decline">Cancel</button>' +
+        '</div>';
+      var cancelBtn = card.querySelector('.da-match-btn--decline');
+      if (cancelBtn) cancelBtn.addEventListener('click', function () {
+        decline(d, false);
+        sparNote('Cancelled. You are back in the queue.');
+      });
+      // Backstop: the server ghost-cancels a silent peer at ~25s, but if
+      // that sweep is ever missed this card must not hold the page
+      // forever. clearInterval in closeOverlay also clears timeouts.
+      overlay.__tick = setTimeout(function () {
+        decline(d, true);
+        sparNote('No answer from ' + nm + '. Back in the queue.');
+      }, 45000);
     }
 
     function goToRound(d) {
