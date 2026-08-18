@@ -49,10 +49,32 @@ export const TIERS = [
 export const MIN_CERT_SCORE = 27.0;
 export const MAX_CERT_SCORE = 30.0;
 
+// 2026-08-18: speaker points moved to a 1-100 scale (the same scale the
+// Communication Score already published). A score above 30 is on the new
+// scale; at or below 30 is a legacy 25-30 score. The 100-scale tier
+// floors are the comm-score values the old floors already mapped to
+// (27.0→75, 27.5→82, 28.3→88, 29.0→94), so a tier means the same thing
+// on either scale.
+export const MIN_CERT_SCORE_100 = 75;
+export const MAX_CERT_SCORE_100 = 100;
+export function isScale100(score) {
+  const n = Number(score);
+  return Number.isFinite(n) && n > 30;
+}
+const TIER_MIN_100 = { champion: 94, circuit: 88, varsity: 82, novice: 75 };
+
 // Returns one of TIERS or null if the score doesn't qualify.
 export function tierForScore(score) {
   const n = Number(score);
-  if (!Number.isFinite(n) || n < MIN_CERT_SCORE || n > MAX_CERT_SCORE) return null;
+  if (!Number.isFinite(n)) return null;
+  if (isScale100(n)) {
+    if (n < MIN_CERT_SCORE_100 || n > MAX_CERT_SCORE_100) return null;
+    for (const t of TIERS) {
+      if (n >= TIER_MIN_100[t.key]) return t;
+    }
+    return null;
+  }
+  if (n < MIN_CERT_SCORE || n > MAX_CERT_SCORE) return null;
   for (const t of TIERS) {
     if (n >= t.min) return t;
   }
@@ -86,6 +108,8 @@ const COMM_ANCHORS = [
 export function commScoreForSpeaks(score) {
   const n = Number(score);
   if (!Number.isFinite(n)) return null;
+  // 1-100 scale scores ARE the comm scale already; clamp and round.
+  if (isScale100(n)) return Math.round(Math.max(0, Math.min(100, n)));
   if (n <= COMM_ANCHORS[0][0]) return COMM_ANCHORS[0][1];
   const last = COMM_ANCHORS[COMM_ANCHORS.length - 1];
   if (n >= last[0]) return last[1];

@@ -571,18 +571,83 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       room: roomName,
       roundId: roomName,
       sessionId: localSessionId,
+      // 2026-08-18: a machine flag no longer removes anyone. Cut the
+      // outgoing camera (harm mitigation, reversible), stay in the
+      // room, and ask the OPPONENT to confirm. The server logs the
+      // flag as evidence only; removal takes a human report.
       onTrip: function(){
         try { cam.setMode('off'); } catch(e){}
         try { callFrame && callFrame.setLocalVideo(false); } catch(e){}
         camMode = 'off';
-        showOpponentBanner(
-          'Removed by the safety system.',
-          'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
+        if (modBar) Array.prototype.forEach.call(modBar.querySelectorAll('button'), function(b){
+          b.classList.toggle('on', b.getAttribute('data-m') === 'off');
+        });
+        showGuardNotice(
+          'Camera paused by the safety check',
+          'Our on-device detector flagged your camera feed, so your video was cut before it reached the room. Nobody was removed and nothing was recorded. Your opponent is being asked to confirm; if they say it was a false alarm you can turn your camera back on.'
         );
-        setTimeout(function(){ try { callFrame && callFrame.leave(); } catch(e){} }, 400);
+        sendGuardMsg({ t: 'guard-review' });
         try { gtag('event', 'casual_room_guard_trip'); } catch(e){}
       },
     });
+  }
+
+  // ── Machine-flag review flow (2026-08-18) ─────────────────────────
+  // The flagged side pauses its own camera and pings the room; the
+  // opponent gets this confirm card. Report → the normal peer-report
+  // path (ejects, and with the machine flag as corroboration, strikes).
+  // All good → tell the flagged side to re-arm and re-enable.
+  function sendGuardMsg(obj){
+    try { callFrame && callFrame.sendAppMessage(obj, '*'); } catch(e){}
+  }
+  function showGuardNotice(title, sub){
+    var old = stage.querySelector('.guard-notice'); if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = 'guard-notice';
+    d.style.cssText = 'position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:40;width:min(430px,calc(100vw - 24px));background:#131317;border:1px solid rgba(245,158,11,.5);border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.55)';
+    d.innerHTML = '<div style="font-weight:800;color:#fff;font-size:.95rem;margin-bottom:6px">' + escHtml(title) + '</div>' +
+      '<div style="font-size:.84rem;color:rgba(255,255,255,.75);line-height:1.5">' + escHtml(sub) + '</div>' +
+      '<button type="button" style="margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:6px 14px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.76rem;cursor:pointer">Got it</button>';
+    d.querySelector('button').addEventListener('click', function(){ d.remove(); });
+    stage.appendChild(d);
+  }
+  function showGuardReviewCard(){
+    if (stage.querySelector('.guard-review')) return;
+    var d = document.createElement('div');
+    d.className = 'guard-review';
+    d.style.cssText = 'position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:41;width:min(430px,calc(100vw - 24px));background:#131317;border:1px solid rgba(239,68,68,.5);border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.55)';
+    d.innerHTML = '<div style="font-weight:800;color:#fff;font-size:.95rem;margin-bottom:6px">Safety check</div>' +
+      '<div style="font-size:.84rem;color:rgba(255,255,255,.78);line-height:1.5">Our on-device detector flagged your opponent’s camera and paused their video. Is your opponent behaving inappropriately?</div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button type="button" data-g="report" style="background:#dc2626;border:1px solid #dc2626;border-radius:999px;padding:7px 14px;color:#fff;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">Yes, report them</button>' +
+        '<button type="button" data-g="clear" style="background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 14px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">No, all good</button>' +
+      '</div>';
+    var timer = setTimeout(function(){ try { d.remove(); } catch(e){} }, 60000);
+    d.querySelector('[data-g="report"]').addEventListener('click', function(){
+      clearTimeout(timer); d.remove();
+      if (!window.DebateGuard) return;
+      window.DebateGuard.report({
+        room: roomName, roundId: roomName, category: 'nsfw',
+        sessionId: localSessionId(),
+        offender: remotePeer ? { sessionId: remotePeer.sessionId, userName: remotePeer.userName } : {},
+      }).then(function(res){
+        if (res && res.ejected) showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find a new debater?');
+      });
+      try { gtag('event', 'casual_room_guard_confirm', { confirmed: true }); } catch(e){}
+    });
+    d.querySelector('[data-g="clear"]').addEventListener('click', function(){
+      clearTimeout(timer); d.remove();
+      sendGuardMsg({ t: 'guard-clear' });
+      try { gtag('event', 'casual_room_guard_confirm', { confirmed: false }); } catch(e){}
+    });
+    stage.appendChild(d);
+  }
+  function onGuardCleared(){
+    if (camGuard) { try { camGuard.reset(); } catch(e){} }
+    showGuardNotice(
+      'False alarm, cleared',
+      'Your opponent confirmed nothing inappropriate is going on. You can turn your camera back on from the bar above.'
+    );
   }
 
   function openReportSheet(){
@@ -691,6 +756,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             }
           });
           callFrame.on('participant-updated', reassertMask);
+          callFrame.on('app-message', function(ev){
+            var data = ev && ev.data;
+            if (!data || typeof data !== 'object') return;
+            if (data.t === 'guard-review') showGuardReviewCard();
+            else if (data.t === 'guard-clear') onGuardCleared();
+          });
           callFrame.on('left-meeting', teardownSafety);
           callFrame.on('participant-left', function(ev){
             // Don't fire the banner if WE already left (the "Leave" /

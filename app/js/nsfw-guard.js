@@ -4,8 +4,11 @@
  * TF.js bundled inside nsfwjs.min.js) over the debater's OWN outgoing
  * camera feed while it is live in Camera mode. Everything stays on the
  * device: no frames, no pixels, and no images ever leave the browser —
- * on a trip, only the score numbers are sent to /api/video-moderate so
- * the server can record the strike and eject the session.
+ * on a trip, only the score numbers are sent to /api/video-moderate as
+ * EVIDENCE. Nothing punitive happens from a machine flag alone
+ * (2026-08-18: the classifier false-positived on normal webcams and was
+ * auto-banning people): the page cuts its own outgoing video and asks
+ * the OPPONENT to confirm; a confirming peer report is what removes.
  *
  * The guard only needs to watch the LOCAL feed because Avatar and Off
  * modes never transmit camera pixels at all (cam-avatar.js draws a
@@ -139,8 +142,10 @@
       try { gtag('event', 'video_guard_trip'); } catch (e) {}
     }
 
+    var loadedModel = null;
     loadModel().then(function (model) {
       if (!running) return;
+      loadedModel = model;
       timer = setInterval(function () { tick(model); }, SAMPLE_MS);
       try { gtag('event', 'video_guard_on'); } catch (e) {}
     }).catch(function () { /* inert */ });
@@ -148,6 +153,14 @@
     return {
       stop: function () { running = false; if (timer) clearInterval(timer); },
       tripped: function () { return tripped; },
+      // Re-arm after the opponent cleared a flag as a false positive, so
+      // the camera can come back WITH the watchdog still running.
+      reset: function () {
+        if (!running || !tripped) return;
+        tripped = false; streak = 0;
+        if (timer) clearInterval(timer);
+        if (loadedModel) timer = setInterval(function () { tick(loadedModel); }, SAMPLE_MS);
+      },
     };
   }
 

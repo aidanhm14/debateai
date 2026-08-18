@@ -337,6 +337,8 @@ const TIER_LEVELS = {
 const COMM_ANCHORS = [[25,50],[26,62],[27,75],[27.5,82],[28.3,88],[29,94],[30,100]];
 function commScore(speaks){
   const n = Number(speaks); if (!isFinite(n)) return null;
+  // Scores above 30 are on the 1-100 scale (2026-08-18+): identity.
+  if (n > 30) return Math.round(Math.max(0, Math.min(100, n)));
   if (n <= 25) return 50; if (n >= 30) return 100;
   for (let i = 1; i < COMM_ANCHORS.length; i++){
     const a = COMM_ANCHORS[i-1], b = COMM_ANCHORS[i];
@@ -455,12 +457,15 @@ function deriveDimensions(cert){
   // Fallback derivation: composite ± small deterministic jitter.
   const base = Number(cert && cert.score) || 27;
   const h = hashStr((cert && cert.certId) || (cert && cert.id) || '0');
+  // Jitter and clamp follow the composite's scale: legacy certs store
+  // 25-30 speaks, 2026-08-18+ certs store 1-100.
+  const is100 = base > 30;
   const out = {};
   DIMENSIONS.forEach((d, i) => {
     const slice = (h >> (i * 4)) & 0xff;
-    const jitter = ((slice / 255) - 0.5) * 0.6; // ±0.3 around composite
+    const jitter = ((slice / 255) - 0.5) * (is100 ? 6 : 0.6); // ±3 or ±0.3 around composite
     const v = base + jitter;
-    out[d.key] = Math.max(25, Math.min(30, v));
+    out[d.key] = is100 ? Math.max(1, Math.min(100, v)) : Math.max(25, Math.min(30, v));
   });
   return { dimensions: out, derived: true };
 }
@@ -479,7 +484,11 @@ function averageDimensions(certs){
     const { dimensions, derived } = deriveDimensions(c);
     if (derived) anyDerived = true;
     DIMENSIONS.forEach(d => {
-      const v = Number(dimensions[d.key]);
+      // Normalize to the 0-100 comm scale BEFORE averaging so certs on
+      // the legacy 25-30 scale and the 1-100 scale can share a mean.
+      // commScore is identity for values already above 30, so the
+      // downstream commScore() display calls stay correct.
+      const v = commScore(Number(dimensions[d.key]));
       if (Number.isFinite(v)) { totals[d.key].sum += v; totals[d.key].n += 1; }
     });
   });
@@ -494,7 +503,9 @@ function trendForAxis(certs, axisKey){
   // Returns the chronological series of per-axis scores oldest → newest.
   if (!certs || !certs.length) return [];
   const sorted = certs.slice().sort((a,b) => (a.issuedAtMs||0) - (b.issuedAtMs||0));
-  return sorted.map(c => Number(deriveDimensions(c).dimensions[axisKey])).filter(Number.isFinite);
+  // Comm-scale normalization so a trend spanning the 2026-08-18 scale
+  // flip doesn't render as a fake jump (commScore is idempotent >30).
+  return sorted.map(c => commScore(Number(deriveDimensions(c).dimensions[axisKey]))).filter(Number.isFinite);
 }
 
 function deltaSinceFirst(series){
@@ -571,7 +582,7 @@ function renderEmpty(user){
   root.innerHTML = '';
   const card = el('div', { class:'state' }, [
     el('h2', null, 'No assessments yet.'),
-    el('p', null, 'Your communication profile builds itself as you take judged voice rounds. The first assessment seeds your five-axis baseline; each subsequent round refines it. Score 27.0+ on any round to mint your first credential.'),
+    el('p', null, 'Your communication profile builds itself as you take judged voice rounds. The first assessment seeds your five-axis baseline; each subsequent round refines it. Score 75+ on any round to mint your first credential.'),
     el('div', null, [
       el('a', { class:'btn btn-primary', href:'/voice-debate' }, 'Take your first assessment'),
       el('a', { class:'btn btn-ghost', href:'/credentials' }, 'About the certificate'),

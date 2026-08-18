@@ -8,17 +8,24 @@
 //
 // Actions (POST JSON):
 //   { action:'self_flag', room, sessionId?, scores:{porn,sexy,hentai,neutral,drawing} }
-//       The caller's own client tripped the detector. Always a strike
-//       (machine-corroborated, from the offender's own device+IP).
-//       Server ejects the session from Daily as belt-and-braces.
+//       The caller's own client tripped the detector. 2026-08-18: this
+//       is EVIDENCE, not a verdict — the classifier false-positives on
+//       real webcams (a raised hand, bad lighting) and it was auto
+//       striking + banning + ejecting real people. The client cuts its
+//       own video and asks the OPPONENT to confirm; the server only
+//       logs the flag. No strike, no ban, no eject from a machine flag
+//       alone. A machine flag DOES count as one corroborator when a
+//       human report arrives for the same room within the window, so
+//       flag + one peer report = strike (was: two peer reports).
 //   { action:'report', room, category, offender:{sessionId?, userName?}, sessionId?, note? }
 //       Peer report. category 'nsfw' ejects immediately; behavior
 //       categories ('not_serious'|'harassment'|'other') eject at 2+
 //       distinct reporters within 15 min. Strikes only land when the
 //       offender's identity is attributed (they joined with a meeting
 //       token minted by create-daily-room, so presence.userId is set)
-//       AND 2+ distinct reporters agree — a single angry opponent can
-//       eject-from-room but can never ban.
+//       AND 2+ corroborators agree (two humans, or one human + a
+//       machine flag) — a single angry opponent can eject-from-room
+//       but can never ban.
 //   { action:'check' }
 //       → { banned, until, reason } for the caller's identity.
 //
@@ -184,25 +191,23 @@ export default async (req) => {
   if (!room || room.length < 3) return jsonResponse({ error: 'room required' }, 400, req);
 
   // ── self_flag: the caller's own detector tripped ──────────────────
+  // Evidence only (see header). The client has already cut its own
+  // outgoing video; the opponent gets asked to confirm before anything
+  // punitive happens. The flag is logged so a subsequent peer report
+  // inside the window gets machine corroboration.
   if (action === 'self_flag') {
     if (limited('sf:' + who.ipKey, 4)) return jsonResponse({ error: 'rate limited' }, 429, req);
     const scores = body.scores && typeof body.scores === 'object' ? body.scores : {};
     const keys = who.uid ? [who.key, who.ipKey] : [who.ipKey];
-    let ban = null;
     if (db) {
       await db.collection('video_reports').add({
         kind: 'self_flag', room, roundId: String(body.roundId || '').slice(0, 120),
-        offenderKeys: keys, scores, action: 'ejected',
+        offenderKeys: keys, offenderSession: body.sessionId ? String(body.sessionId).slice(0, 80) : '',
+        scores, action: 'pending_review',
         createdAt: FieldValue.serverTimestamp(), at: Date.now(),
       }).catch(() => {});
-      ban = await strike(db, keys, { reason: 'nsfw_auto', room, scores });
     }
-    // The client already cut its own video and leaves the call; the
-    // eject makes it stick even if that client is tampered with.
-    const ids = body.sessionId ? [String(body.sessionId).slice(0, 80)] : [];
-    const userIds = who.uid ? [who.uid] : [who.ipKey];
-    await eject(room, ids, userIds).catch(() => {});
-    return jsonResponse({ ok: true, removed: true, banned: !!ban, until: ban ? ban.until : 0 }, 200, req);
+    return jsonResponse({ ok: true, pendingReview: true }, 200, req);
   }
 
   // ── report: a peer filed a report ─────────────────────────────────
@@ -220,7 +225,11 @@ export default async (req) => {
     const offKey = hit && hit.userId ? (hit.userId.indexOf('ip:') === 0 ? hit.userId : 'uid:' + hit.userId) : null;
 
     // Count distinct reporters for this room+offender inside the window.
+    // A machine self_flag from the offender's own device counts as one
+    // extra corroborator (it can never strike alone, but it means one
+    // human report is enough to confirm it).
     let distinct = 1;
+    let machineFlag = false;
     if (db) {
       await db.collection('video_reports').add({
         kind: 'report', room, roundId: String(body.roundId || '').slice(0, 120), category,
@@ -238,31 +247,34 @@ export default async (req) => {
         const reporters = new Set();
         q.forEach(d => {
           const r = d.data();
-          if (r.kind !== 'report') return;
           // same target: match on session, key, or name — whichever exists
           const sameTarget =
             (hit && r.offenderSession && r.offenderSession === hit.id) ||
             (offKey && (r.offenderKeys || []).includes(offKey)) ||
             (!hit && r.offenderName && r.offenderName === (offender.userName || ''));
-          if (sameTarget) reporters.add(r.reporterKey);
+          if (!sameTarget) return;
+          if (r.kind === 'report') reporters.add(r.reporterKey);
+          else if (r.kind === 'self_flag') machineFlag = true;
         });
         reporters.add(who.key);
         distinct = reporters.size;
       } catch (e) { /* keep distinct = 1 */ }
     }
 
-    const shouldEject = category === 'nsfw' || distinct >= 2;
+    const corroborators = distinct + (machineFlag ? 1 : 0);
+    const shouldEject = category === 'nsfw' || corroborators >= 2;
     let ejected = false;
     if (shouldEject && hit) {
       ejected = await eject(room, hit.id ? [hit.id] : [], offKey ? [offKey.replace(/^uid:/, '')] : []).catch(() => false);
     }
-    // Strikes need identity attribution + corroboration.
+    // Strikes need identity attribution + corroboration (two humans, or
+    // one human confirming a machine flag).
     let struck = false;
-    if (db && offKey && distinct >= 2) {
-      await strike(db, [offKey], { reason: 'peer_' + category, room });
+    if (db && offKey && corroborators >= 2) {
+      await strike(db, [offKey], { reason: machineFlag && distinct < 2 ? 'peer_confirmed_machine_' + category : 'peer_' + category, room });
       struck = true;
     }
-    return jsonResponse({ ok: true, ejected, struck, reports: distinct }, 200, req);
+    return jsonResponse({ ok: true, ejected, struck, reports: distinct, machineFlag }, 200, req);
   }
 
   return jsonResponse({ error: 'unknown action' }, 400, req);

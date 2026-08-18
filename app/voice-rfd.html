@@ -678,7 +678,7 @@ body{
 
   function demoPayload(){
     return {
-      rfd: 'SPEAKER POINTS: 27.8\n\nDECISION\nUSER wins on the flow.\n\nBEST MOMENT\nWhen you pinned the AI on the reversibility test in your second turn; they conceded that irreversible coercion is the bright line, which collapsed half their case.\n\nCOSTLIEST MOMENT\nYou dropped the legitimacy framing in your third turn and never picked it back up. The AI re-extended on it twice without engagement; in a tight round that\'s an easy win for them.\n\nTWO FIXES FOR NEXT ROUND\n1. Carry your framework explicitly into every turn; even a single sentence reminding the judge "this is why reversibility outweighs" keeps the offense alive.\n2. After you pin a concession, name it in the next turn ("they conceded reversibility") so the judge writes it on the flow.',
+      rfd: 'SPEAKER POINTS: 71.5\n\nDECISION\nUSER wins on the flow.\n\nBEST MOMENT\nWhen you pinned the AI on the reversibility test in your second turn; they conceded that irreversible coercion is the bright line, which collapsed half their case.\n\nCOSTLIEST MOMENT\nYou dropped the legitimacy framing in your third turn and never picked it back up. The AI re-extended on it twice without engagement; in a tight round that\'s an easy win for them.\n\nTWO FIXES FOR NEXT ROUND\n1. Carry your framework explicitly into every turn; even a single sentence reminding the judge "this is why reversibility outweighs" keeps the offense alive.\n2. After you pin a concession, name it in the next turn ("they conceded reversibility") so the judge writes it on the flow.',
       motion: 'This house, given the choice, would prefer a world that prioritizes individual freedom over collective security.',
       modeLabel: 'Full Round',
       sideLabel: 'Government',
@@ -815,7 +815,14 @@ body{
     var talkYou = stats.talkSplit && typeof stats.talkSplit.you === 'number' ? Math.round(stats.talkSplit.you) : null;
     var talkAI  = stats.talkSplit && typeof stats.talkSplit.ai  === 'number' ? Math.round(stats.talkSplit.ai)  : null;
     var sp = sections.speakerPoints;
-    var spClass = sp && parseFloat(sp) >= 28 ? 'good' : sp && parseFloat(sp) < 26 ? 'low' : '';
+    // Speaks flipped to a 1-100 scale on 2026-08-18. A stored payload
+    // can still carry the old 25-30 scale, so thresholds and the unit
+    // label branch on which scale the number is on.
+    var spNum = sp ? parseFloat(sp) : NaN;
+    var spIs100 = isFinite(spNum) && spNum > 30;
+    var spClass = !isFinite(spNum) ? ''
+      : spIs100 ? (spNum >= 75 ? 'good' : spNum < 50 ? 'low' : '')
+      : (spNum >= 28 ? 'good' : spNum < 26 ? 'low' : '');
     var weakestLabel = isViva ? 'Lowest viva stage' : 'Costliest moment';
     var weakestText = sections.costliest || sections.fixes[0] || '';
     if (isViva && viva && viva.stages.length){
@@ -882,7 +889,7 @@ body{
         + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
         + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
         + '<div class="verdict-stats">'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ 30</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ ' + (spIs100 ? '100' : '30') + '</span>' : '') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
@@ -946,6 +953,8 @@ body{
       var CR_ANCHORS = [[25,50],[26,62],[27,75],[27.5,82],[28.3,88],[29,94],[30,100]];
       var crComm = function(s){
         var n = +s; if (!isFinite(n)) return null;
+        // 1-100 scale scores (2026-08-18+) ARE the comm scale already.
+        if (n > 30) return Math.round(Math.max(0, Math.min(100, n)));
         if (n <= 25) return 50; if (n >= 30) return 100;
         for (var i = 1; i < CR_ANCHORS.length; i++){
           var a = CR_ANCHORS[i-1], b = CR_ANCHORS[i];

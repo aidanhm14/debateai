@@ -515,7 +515,10 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
    someone actually wants the deck, and it disappears the moment the
    panel is open (the panel's own × is the way back, at any width). */
 #audFab{
-  position:fixed;right:0;top:50%;z-index:58;
+  /* Above the sticky .round-guide (z 90): at overlay widths the open
+     rail must cover the page chrome, not have LISTEN + PREP pills and
+     the prep card poking through it (screenshot 2026-08-18). */
+  position:fixed;right:0;top:50%;z-index:120;
   transform:translateY(-50%);
   display:inline-flex;flex-direction:column;align-items:center;gap:7px;
   padding:14px 8px;border-radius:10px 0 0 10px;cursor:pointer;
@@ -555,7 +558,7 @@ body.lr-mini #audPops,body.lr-pip #audPops{display:none}
      wraps taller on narrow widths and a hardcoded offset would either
      tuck the rail under it or leave a gap. 64px matches .bar min-height
      as the pre-measurement default. */
-  position:fixed;right:0;top:var(--lr-bar-h,64px);bottom:0;z-index:58;
+  position:fixed;right:0;top:var(--lr-bar-h,64px);bottom:0;z-index:120;
   width:var(--aud-w,336px);
   display:flex;flex-direction:column;overflow:hidden;
   /* 2026-08-11: was a flat var(--surface,#141417) — reads as a dead
@@ -5894,19 +5897,89 @@ html.stage-mode .stage-ov{display:block}
       room: state.room,
       roundId: state.room,
       sessionId: localSessionId,
+      // 2026-08-18: a machine flag no longer removes anyone from the
+      // round. Cut the outgoing camera (reversible), stay in the room,
+      // and ask the OPPONENT to confirm. Server logs evidence only.
       onTrip: function(){
         try { cam.setMode('off'); } catch(e){}
         try { state.dailyFrame && state.dailyFrame.setLocalVideo(false); } catch(e){}
         markCamMode('off');
         hideSelfPip();
-        showModerationCard(
-          'Removed by the safety system',
-          'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
+        showGuardNotice(
+          'Camera paused by the safety check',
+          'Our on-device detector flagged your camera feed, so your video was cut before it reached the room. You are still in the round and nothing was recorded. Your opponent is being asked to confirm; if they say it was a false alarm you can turn your camera back on.'
         );
-        setTimeout(function(){ try { state.dailyFrame && state.dailyFrame.leave(); } catch(e){} }, 400);
+        sendGuardMsg({ t: 'guard-review' });
         try { gtag('event', 'live_round_guard_trip'); } catch(e){}
       },
     });
+  }
+  // ── Machine-flag review flow (2026-08-18). The flagged side pauses
+  // its own camera and pings the room; the opponent confirms or clears.
+  function sendGuardMsg(obj){
+    try { state.dailyFrame && state.dailyFrame.sendAppMessage(obj, '*'); } catch(e){}
+  }
+  function guardCardShell(cls, borderColor){
+    var shell = $('callShell') || $('jitsiPane');
+    if (!shell) return null;
+    var old = shell.querySelector('.' + cls); if (old) old.remove();
+    var d = document.createElement('div');
+    d.className = cls;
+    d.style.cssText = 'position:absolute;left:50%;bottom:60px;transform:translateX(-50%);z-index:62;width:min(430px,calc(100% - 24px));background:#131317;border:1px solid ' + borderColor + ';border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.55)';
+    shell.appendChild(d);
+    return d;
+  }
+  function showGuardNotice(title, sub){
+    var d = guardCardShell('guard-notice', 'rgba(245,158,11,.5)');
+    if (!d) return;
+    d.innerHTML = '<div style="font-weight:800;color:#fff;font-size:.95rem;margin-bottom:6px">' + escHtml(title) + '</div>' +
+      '<div style="font-size:.84rem;color:rgba(255,255,255,.75);line-height:1.5">' + escHtml(sub) + '</div>' +
+      '<button type="button" style="margin-top:10px;background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:6px 14px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.76rem;cursor:pointer">Got it</button>';
+    d.querySelector('button').addEventListener('click', function(){ d.remove(); });
+  }
+  function showGuardReviewCard(){
+    var d = guardCardShell('guard-review', 'rgba(239,68,68,.5)');
+    if (!d) return;
+    d.innerHTML = '<div style="font-weight:800;color:#fff;font-size:.95rem;margin-bottom:6px">Safety check</div>' +
+      '<div style="font-size:.84rem;color:rgba(255,255,255,.78);line-height:1.5">Our on-device detector flagged your opponent&#39;s camera and paused their video. Is your opponent behaving inappropriately?</div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button type="button" data-g="report" style="background:#dc2626;border:1px solid #dc2626;border-radius:999px;padding:7px 14px;color:#fff;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">Yes, report them</button>' +
+        '<button type="button" data-g="clear" style="background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 14px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">No, all good</button>' +
+      '</div>';
+    var timer = setTimeout(function(){ try { d.remove(); } catch(e){} }, 60000);
+    d.querySelector('[data-g="report"]').addEventListener('click', function(){
+      clearTimeout(timer); d.remove();
+      if (!window.DebateGuard){ toast('Reporting is unavailable right now'); return; }
+      var target = null;
+      try {
+        var all = state.dailyFrame.participants();
+        Object.keys(all).some(function(k){
+          if (k === 'local') return false;
+          target = { sessionId: all[k].session_id, userName: all[k].user_name || 'Debater' };
+          return true;
+        });
+      } catch(e){}
+      window.DebateGuard.report({
+        room: state.room, roundId: state.room, category: 'nsfw',
+        sessionId: localSessionId(),
+        offender: target || {},
+      }).then(function(res){
+        toast(res && res.ejected ? 'Removed from the room.' : 'Report filed.');
+      });
+      try { gtag('event', 'live_round_guard_confirm', { confirmed: true }); } catch(e){}
+    });
+    d.querySelector('[data-g="clear"]').addEventListener('click', function(){
+      clearTimeout(timer); d.remove();
+      sendGuardMsg({ t: 'guard-clear' });
+      try { gtag('event', 'live_round_guard_confirm', { confirmed: false }); } catch(e){}
+    });
+  }
+  function onGuardCleared(){
+    if (modGuard){ try { modGuard.reset(); } catch(e){} }
+    showGuardNotice(
+      'False alarm, cleared',
+      'Your opponent confirmed nothing inappropriate is going on. You can turn your camera back on from the camera bar.'
+    );
   }
   function showModerationCard(title, body){
     var shell = $('callShell') || $('jitsiPane');
@@ -6551,6 +6624,12 @@ html.stage-mode .stage-ov{display:block}
     });
     call.on('participant-joined', paintRoom);
     call.on('participant-updated', function(ev){ paintRoom(); reassertMask(ev); });
+    call.on('app-message', function(ev){
+      var data = ev && ev.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.t === 'guard-review'){ try { showGuardReviewCard(); } catch(e){} }
+      else if (data.t === 'guard-clear'){ try { onGuardCleared(); } catch(e){} }
+    });
     call.on('participant-left', paintRoom);
     call.on('track-started', paintRoom);
     call.on('track-stopped', paintRoom);
@@ -7289,12 +7368,13 @@ html.stage-mode .stage-ov{display:block}
       ...(JUDGE_RULES[state.formatKey] || []),
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
       "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
-      "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END — the leaderboard has been inflated because every AI defaults to 28+; recalibrate):",
-      "    APDA/Worlds/Parli 22–30: 22-23 incoherent, 24 struggling (no link chain, key drops), 25 below average (weak warrants, missed framework, LLM filler), 26 average (basic warrants, no weighing), 27 good (real warrants, some weighing), 28 excellent — would clear at most tournaments, 28.5 late-out-rounds, 29 top-of-field (1 in 50), 30 essentially never given.",
-      "    PF/LD 24–30 same shape, default mid scale.",
-      "    Policy 25–29 (Policy's range compresses tight).",
-      "    General (open format) 1–10 effort.",
-      "  DEFAULT TO 25-27. If a speaker dropped a contention, had no real weighing, used generic LLM phrasing, or never warranted a key claim, score them 25 or below. If a speech was fundamentally unfinished, 24 or below — yes, 24-25 happens, it is what an honest ballot looks like when someone is over their head. Do NOT cluster both speakers at 28+ to be encouraging. If one debater clearly outclassed the other, separate by 1.5-3 points, not 0.5.",
+      "- SPEAKER POINTS — 1-100 scale, ALL formats. Ignore any format-native 30-point or letter scale mentioned in the format rules above; on this platform every ballot scores speakers 1-100 so scores compare across formats. Points are DERIVED, not vibes:",
+      "    Step 1 — score the six axes in \"dimensions\" (1-10 each) strictly from the flow.",
+      "    Step 2 — base score out of 100 = weighted blend of the axes: reasoning ×2.5, responsiveness ×2.0, weighing ×2.0, clarity ×1.5, strategy ×1.0, persuasion ×1.0 (weights sum to 10, so a speaker who is 6s across the board bases at 60).",
+      "    Step 3 — holistic adjustment of AT MOST ±5 for what the axes miss (a landed POI, a genuinely memorable crystallization, rudeness, serious time abuse). If you adjust, name the exact moment in that speaker's feedback.",
+      "  Calibration bands (USE THE LOW END — the old ballots inflated because every AI defaulted to the top quartile): 90+ once a season, cite the exact moments that earned it · 80-89 top speaker at a strong tournament · 70-79 excellent, breaks at most tournaments · 60-69 good, real warrants and some weighing · 50-59 average, arguments present but underdeveloped or unweighed · 40-49 below average, key drops, unwarranted claims, filler · 25-39 struggling, little clash, no link chains · 1-24 collapse or near-forfeit.",
+      "  DEFAULT BAND IS 50-65. If a speech was fundamentally unfinished, 40 or below — an honest ballot goes low when someone is over their head. Do NOT cluster both speakers at 75+ to be encouraging. If one debater clearly outclassed the other, separate by 8-15 points, not 2. One decimal place allowed.",
+      "  Speaker points score the SPEAKER; the ballot scores the FLOW. A low-point win is legitimate — when the winner has lower points, say so in the RFD and explain it.",
       "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
@@ -7312,9 +7392,9 @@ html.stage-mode .stage-ov{display:block}
       '  "rfd": "<8–14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2–3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
       '  "proFeedback": "<5–8 sentences for the Pro speaker: 1) one specific strategic strength (what worked + why), 2) one technical area to fix with a concrete example from their speech, 3) one big-picture observation about their approach to this format.>",',
       '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>",',
-      '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>} }',
+      '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>}, "strategy": {"pro": <n>, "con": <n>}, "persuasion": {"pro": <n>, "con": <n>} }',
       "}",
-      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. Score axes independently from the flow; they should differ where the round differed. These do NOT need to average to the speaker points.",
+      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = command of language and rhetorical control as read from the transcript — never a substitute for warrants. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
       "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, and weak warrants. If a side ran no real arguments, say so plainly.",
@@ -8288,6 +8368,10 @@ html.stage-mode .stage-ov{display:block}
         photoURL: (state.user.photoURL || '').slice(0, 500),
         avatarIdentity: currentPublicAvatarIdentity(),
         score: myPoints,
+        // Speaks moved to the 1-100 scale 2026-08-18; older entries
+        // (no scoreScale field) are on the 30-point scale. Any future
+        // aggregation must split on this before averaging.
+        scoreScale: 100,
         won: myWon,
         kind: 'live',
         motion: state.motion || '',
@@ -8346,6 +8430,13 @@ html.stage-mode .stage-ov{display:block}
     stopBallotReadAloud();
     var text = buildBallotReadAloudScript(b);
     if (!text || text.length < 4){ console.warn('[read-aloud] empty script'); return; }
+    // Keep under the server's 5000-char cap, cutting at a sentence
+    // boundary so a long RFD never ends mid-word.
+    if (text.length > 4800){
+      var cut = text.slice(0, 4800);
+      var dot = cut.lastIndexOf('. ');
+      text = dot > 3000 ? cut.slice(0, dot + 1) : cut;
+    }
     fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -8354,9 +8445,11 @@ html.stage-mode .stage-ov{display:block}
         voice: 'professor',
         intensity: 0.35,
         speed: 1,
-        // No premium flag — the TTS function defaults to the free
-        // OpenAI path which is fine here. Paid users get ElevenLabs
-        // routing automatically server-side.
+        // Route through ElevenLabs: the verdict read is the emotional
+        // peak of the round and the free OpenAI voice reads it flat.
+        // One short read per ballot, so the spend is bounded; tts.mjs
+        // still falls back to OpenAI automatically if ElevenLabs errors.
+        premium: true,
       }),
     }).then(function(r){
       if (!r.ok) return r.text().then(function(t){
@@ -8410,10 +8503,14 @@ html.stage-mode .stage-ov{display:block}
     if (!state.ballotAudio) return;
     var el = document.createElement('div');
     el.id = 'ballotAudioCtrl';
-    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:200;background:rgba(20,20,22,.94);border:1px solid var(--border-strong);border-radius:999px;padding:10px 16px 10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.55);font-size:.78rem;font-weight:700;letter-spacing:.04em;color:var(--text);backdrop-filter:blur(8px)';
+    // The pill surface is near-black in every theme, so the text is
+    // pinned light — var(--text) is dark ink on the light ballot theme
+    // and rendered "Judge reading" / "Stop" invisible (screenshot
+    // 2026-08-18). Fully opaque background; no blur needed.
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:250;background:#141417;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:10px 16px 10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 16px 48px rgba(0,0,0,.55);font-size:.78rem;font-weight:700;letter-spacing:.04em;color:#f4f4f2';
     el.innerHTML =
-      '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(239,68,68,.7);animation:pulse 1.4s ease-in-out infinite"></span>Judge reading</span>' +
-      '<button type="button" id="ballotAudioStop" style="background:transparent;border:1px solid var(--border-strong);border-radius:999px;padding:5px 12px;color:var(--text);font-family:inherit;font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Stop</button>';
+      '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.7);animation:pulse 1.4s ease-in-out infinite"></span>Judge reading</span>' +
+      '<button type="button" id="ballotAudioStop" style="background:transparent;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:5px 12px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer">Stop</button>';
     document.body.appendChild(el);
     var stop = document.getElementById('ballotAudioStop');
     if (stop) stop.addEventListener('click', stopBallotReadAloud);
@@ -8594,12 +8691,20 @@ html.stage-mode .stage-ov{display:block}
     try {
       var dm = b && b.dimensions;
       if (!dm) return '';
-      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing']];
+      // Core 4 axes must all validate or nothing renders (old-ballot
+      // degrade). strategy/persuasion arrived with the 1-100 speaks
+      // rework and render only when the ballot carries them, so
+      // pre-rework ballots keep their exact 4-row scorecard.
+      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['strategy','Strategy'],['persuasion','Persuasion']];
       var rows = [];
       for (var i = 0; i < AXES.length; i++){
+        var optional = i >= 4;
         var a = dm[AXES[i][0]];
         var pv = a && Number(a.pro), cv = a && Number(a.con);
-        if (!a || !isFinite(pv) || !isFinite(cv)) return '';
+        if (!a || !isFinite(pv) || !isFinite(cv)){
+          if (optional) continue;
+          return '';
+        }
         pv = Math.max(0, Math.min(10, pv)); cv = Math.max(0, Math.min(10, cv));
         var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
         rows.push(
@@ -8746,16 +8851,19 @@ html.stage-mode .stage-ov{display:block}
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
+      // "of 100" renders only when the ballot is on the 1-100 scale
+      // (points above 30); pre-rework ballots re-rendered from Firestore
+      // are on the old 30-point scale and keep the bare label.
       '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
           '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : ', ') + '</div>' +
-          '<div class="pts-label">Speaker points</div>' +
+          '<div class="pts-label">Speaker points' + (Math.max(b.proPoints || 0, b.conPoints || 0) > 30 ? ' · of 100' : '') + '</div>' +
         '</div>' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.conName) + ' · ' + escHtml(f.sideLabels[f.sides[1]]) + '</div>' +
           '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : ', ') + '</div>' +
-          '<div class="pts-label">Speaker points</div>' +
+          '<div class="pts-label">Speaker points' + (Math.max(b.proPoints || 0, b.conPoints || 0) > 30 ? ' · of 100' : '') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="rfd ballot-section" data-stage="2">' +
@@ -10499,11 +10607,14 @@ html.stage-mode .stage-ov{display:block}
           return (p && p.local && p.local.session_id) || '';
         } catch(e){ return ''; }
       },
+      // Audience cams just switch off on a trip — no confirm flow (the
+      // round is not theirs) and, since 2026-08-18, no strike or ban
+      // from the machine flag alone.
       onTrip: function(){
         stopAudienceCam('guard');
-        showModerationCard(
-          'Removed by the safety system',
-          'The on-device detector flagged explicit content on your camera. The feed was cut before it reached the room, and this counts as a strike. Repeat strikes suspend video access.'
+        showGuardNotice(
+          'Camera paused by the safety check',
+          'Our on-device detector flagged your camera feed, so your video was cut before it reached the room. Nothing was recorded and you can keep watching.'
         );
         try { gtag('event', 'aud_cam_guard_trip'); } catch(e){}
       },

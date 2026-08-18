@@ -1,7 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE } from './lib/cert-tiers.mjs';
+import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE, MIN_CERT_SCORE_100, MAX_CERT_SCORE_100, isScale100 } from './lib/cert-tiers.mjs';
 
 // Server-side certificate issuance. Client (voice-debate.html) posts the
 // parsed RFD score + round metadata after the judge ballot lands. We
@@ -83,14 +83,18 @@ function sanitizeDisplayName(name) {
 
 const DIMENSION_KEYS = ['clarity', 'reasoning', 'responsiveness', 'listening', 'persuasion'];
 
-function parseDimensions(rfdText) {
+function parseDimensions(rfdText, scale100) {
   if (typeof rfdText !== 'string' || !rfdText) return null;
+  // Band follows the composite's scale: legacy 25-30 ballots score axes
+  // 25-30; 1-100 ballots (2026-08-18+) score axes 1-100.
+  const lo = scale100 ? 1 : MIN_CERT_SCORE - 2;
+  const hi = scale100 ? MAX_CERT_SCORE_100 : MAX_CERT_SCORE;
   const out = {};
   for (const key of DIMENSION_KEYS) {
-    const m = rfdText.match(new RegExp('^\\s*' + key + '\\s*[:\\-]\\s*([0-9]{2}(?:\\.[0-9])?)\\s*$', 'im'));
+    const m = rfdText.match(new RegExp('^\\s*' + key + '\\s*[:\\-]\\s*([0-9]{1,3}(?:\\.[0-9])?)\\s*$', 'im'));
     if (!m) return null;
     const v = parseFloat(m[1]);
-    if (!Number.isFinite(v) || v < MIN_CERT_SCORE - 2 || v > MAX_CERT_SCORE) return null;
+    if (!Number.isFinite(v) || v < lo || v > hi) return null;
     out[key] = Math.round(v * 10) / 10;
   }
   return out;
@@ -223,19 +227,14 @@ export default async (request) => {
   } = body;
 
   // Re-validate the score band server-side. The client tier preview is
-  // for UX; this is the authority.
+  // for UX; this is the authority. tierForScore is scale-aware (legacy
+  // 25-30 vs the 1-100 scale live since 2026-08-18), so it is the one
+  // band check; minScore in the refusal names the scale the score used.
   const numScore = Number(score);
-  if (!Number.isFinite(numScore) || numScore < MIN_CERT_SCORE || numScore > MAX_CERT_SCORE) {
-    return jsonResponse(
-      { ok: false, reason: 'below_threshold', minScore: MIN_CERT_SCORE },
-      200,
-      request
-    );
-  }
-  const tier = tierForScore(numScore);
+  const tier = Number.isFinite(numScore) ? tierForScore(numScore) : null;
   if (!tier) {
     return jsonResponse(
-      { ok: false, reason: 'below_threshold', minScore: MIN_CERT_SCORE },
+      { ok: false, reason: 'below_threshold', minScore: isScale100(numScore) ? MIN_CERT_SCORE_100 : MIN_CERT_SCORE },
       200,
       request
     );
@@ -260,7 +259,7 @@ export default async (request) => {
     const issuedAtMs = Date.now();
 
     const verificationBlock = validateVerification(verification);
-    const dimensions = parseDimensions(rfdText);
+    const dimensions = parseDimensions(rfdText, isScale100(numScore));
 
     const certDoc = {
       certId,

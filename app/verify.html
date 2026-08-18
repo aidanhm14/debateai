@@ -576,7 +576,7 @@ body{
       <div class="cert-name" id="cName">—</div>
 
       <p class="cert-statement">
-        Demonstrated <strong id="cLevelInline">elite</strong>-level live communication in English by debating an AI opponent under time pressure, taking interruptions, and responding under judge evaluation. Communication Score <strong id="cScore">91</strong> / 100, calibrated to the academic 25-30 speaker-points scale (<span id="cAcademic">28.6</span> / 30).
+        Demonstrated <strong id="cLevelInline">elite</strong>-level live communication in English by debating an AI opponent under time pressure, taking interruptions, and responding under judge evaluation. Communication Score <strong id="cScore">91</strong> / 100, calibrated to the academic speaker-points scale (<span id="cAcademic">28.6</span><span id="cAcademicUnit"> / 30</span>).
       </p>
 
       <blockquote class="cert-motion" id="cMotion">"—"</blockquote>
@@ -825,6 +825,8 @@ body{
   var COMM_ANCHORS = [[25,50],[26,62],[27,75],[27.5,82],[28.3,88],[29,94],[30,100]];
   function commScoreFromSpeaks(s){
     var n = Number(s); if (!isFinite(n)) return null;
+    // Scores above 30 are on the 1-100 scale (2026-08-18+): identity.
+    if (n > 30) return Math.round(Math.max(0, Math.min(100, n)));
     if (n <= 25) return 50; if (n >= 30) return 100;
     for (var i = 1; i < COMM_ANCHORS.length; i++){
       var a = COMM_ANCHORS[i-1], b = COMM_ANCHORS[i];
@@ -887,6 +889,9 @@ body{
     document.getElementById('cName').textContent = c.displayName || 'Anonymous';
     document.getElementById('cScore').textContent = commStr;
     document.getElementById('cAcademic').textContent = (c.score != null) ? c.score.toFixed(1) : '—';
+    // Certs issued 2026-08-18+ store speaks on the 1-100 scale.
+    var unitEl = document.getElementById('cAcademicUnit');
+    if (unitEl) unitEl.textContent = (c.score != null && c.score > 30) ? ' / 100' : ' / 30';
     document.getElementById('cScore2').textContent = (commScore != null) ? (commStr + ' / 100') : '—';
     document.getElementById('cMotion').textContent = c.motion ? ('"' + c.motion + '"') : '— (impromptu motion)';
     document.getElementById('cFormat').textContent = fmtFormat(c.formatLabel, c.format);
@@ -1055,7 +1060,8 @@ body{
     doc.setFontSize(11);
     doc.setTextColor(60, 60, 60);
     var scoreStr = (c.score != null) ? c.score.toFixed(1) : '—';
-    var stmt = 'Demonstrated ' + (c.levelKey || c.tier || 'novice') + '-level live communication in English by debating an AI opponent under time pressure, taking interruptions, and responding under judge evaluation. Communication Score ' + pCommStr + ' / 100 (' + pPct + ' worldwide), calibrated to the academic 25-30 speaker-points scale (' + scoreStr + ' / 30).';
+    var scoreUnit = (c.score != null && c.score > 30) ? ' / 100' : ' / 30';
+    var stmt = 'Demonstrated ' + (c.levelKey || c.tier || 'novice') + '-level live communication in English by debating an AI opponent under time pressure, taking interruptions, and responding under judge evaluation. Communication Score ' + pCommStr + ' / 100 (' + pPct + ' worldwide), calibrated to the academic speaker-points scale (' + scoreStr + scoreUnit + ').';
     var stmtLines = doc.splitTextToSize(stmt, W - margin*2 - 40);
     doc.text(stmtLines, W/2, margin + 244, { align:'center' });
 
