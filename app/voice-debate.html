@@ -4478,6 +4478,12 @@ function App() {
   // Connection state machine: idle → connecting → live → ended
   var [status, setStatus] = useState('idle');
   var [connectStep, setConnectStep] = useState('');
+  // The assigned judge for this round, drawn fresh per round from the
+  // roster (js/judge-roster.js). State drives the deliberation overlay;
+  // the ref is what the start/RFD callbacks read so no dependency list
+  // has to change. Viva keeps its own examiner frame and never draws.
+  var [roundJudge, setRoundJudge] = useState(null);
+  var roundJudgeRef = useRef(null);
 
   // Floating player: 'full' = normal arena, 'mini' = docked corner widget
   // (in-page), 'pip' = popped out into a Document Picture-in-Picture window.
@@ -4931,6 +4937,7 @@ function App() {
       mode: mode || 'quickclash',
       side: side || 'opp',
       personaKey: personaKey || '',
+      judgeKey: roundJudgeRef.current && roundJudgeRef.current.key || '',
       smartness: smartness || 1,
       playbackRate: playbackRate || 1.45,
       elapsed: Math.max(0, Number(elapsedRef.current) || 0),
@@ -5704,6 +5711,28 @@ function App() {
     setStatus('connecting');
     statusRef.current = 'connecting';
     setConnectStep('Minting session…');
+    // The judge walks in while the connection is built. Resumed rounds
+    // keep the judge the intro card already promised; fresh rounds draw
+    // a new one, never repeating the previous round's. Viva is exempt:
+    // that surface is an examiner, not a ballot.
+    try {
+      if (window.JudgeRoster && mode !== 'viva') {
+        var rj = resumeSnapshotRef.current && roundJudgeRef.current ? roundJudgeRef.current : null;
+        if (!rj) {
+          var lastJKey = '';
+          try {lastJKey = localStorage.getItem('debateos-last-judge') || '';} catch (e) {}
+          var jPool = JudgeRoster.ROSTER.filter(function (j) {return j.key !== lastJKey;});
+          rj = jPool[Math.floor(Math.random() * jPool.length)] || JudgeRoster.ROSTER[0];
+          try {localStorage.setItem('debateos-last-judge', rj.key);} catch (e) {}
+          roundJudgeRef.current = rj;
+          setRoundJudge(rj);
+          if (window.JudgeIntro) JudgeIntro.show(rj, { eyebrow: 'Your judge this round', foot: 'A different judge hears every round', autoMs: 12000 });
+        }
+      } else if (mode === 'viva') {
+        roundJudgeRef.current = null;
+        setRoundJudge(null);
+      }
+    } catch (e) {}
     // Round-entry storage consent, asked once before the first stored
     // round. Non-blocking: the modal overlays the connecting screen and
     // the answer is read again at flush time in stop(). Unanswered or
@@ -6569,6 +6598,13 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
     if (snap.mode && MODES.some((m) => m.key === snap.mode)) setMode(snap.mode);
     if (snap.side === 'gov' || snap.side === 'opp') setSide(snap.side);
     if (snap.personaKey && PERSONALITIES.some((p) => p.key === snap.personaKey)) setPersonaKey(snap.personaKey);
+    // Restore the round's judge so a resumed round is heard by the judge
+    // the intro card promised, not a re-roll.
+    try {
+      var snapJudge = snap.judgeKey && window.JudgeRoster ? JudgeRoster.byKey(snap.judgeKey) : null;
+      roundJudgeRef.current = snapJudge;
+      setRoundJudge(snapJudge);
+    } catch (e) {}
     if (snap.smartness) setSmartness(Math.max(1, Math.min(5, Number(snap.smartness) || 1)));
     if (snap.playbackRate) setPlaybackRate(Math.max(.85, Math.min(3, Number(snap.playbackRate) || 1.45)));
     setError('');
@@ -6908,9 +6944,16 @@ TWO THINGS TO STUDY
 2. ...
 
 Tone: measured examiner register, precise, never cruel. Cite the student's actual answers. No em-dashes. No debate jargon. If the student barely spoke, say the viva was too short to assess fully and score conservatively.`;
+      // The assigned judge writes this ballot in their own paradigm.
+      // Guard-wrapped: emphasis only, never the winner, and the output
+      // shape stays exactly as specified. Viva keeps the examiner frame.
+      var rfdJudge = mode !== 'viva' ? roundJudgeRef.current : null;
+      var judgeBlock = rfdJudge && window.JudgeRoster ?
+      'ASSIGNED JUDGE — write this ballot as ' + rfdJudge.name + '. ' + rfdJudge.lens + '\n' + JudgeRoster.GUARD + ' The required output format below still applies exactly.\n\n' :
+      '';
       var sys = mode === 'viva' ? vivaRfdSys : `You are a debate judge giving a Reason for Decision after a live voice debate. Mode: ${modeLabel}. Motion: "${motion}". Side the user took: ${side === 'gov' ? 'Government' : 'Opposition'}.
 
-${modeLens ? 'MODE LENS — judge through this:\n' + modeLens + '\n\n' : ''}Format the RFD exactly as:
+${modeLens ? 'MODE LENS — judge through this:\n' + modeLens + '\n\n' : ''}${judgeBlock}Format the RFD exactly as:
 
 SPEAKER POINTS: NN.N
 (a single number for the USER between 1 and 100, one decimal allowed. Derive it, don't vibe it: silently score five axes 1-10 from the flow — reasoning (warrants and link chains), responsiveness (clash with what the AI actually said), weighing (impact comparison), clarity (structure and signposting), persuasion (command of language, never a substitute for warrants) — then blend: reasoning x2.5, responsiveness x2.5, weighing x2.0, clarity x1.5, persuasion x1.5, which lands you at 10-100, and adjust at most plus or minus 5 for what the axes miss. Calibration: 90+ once a season, name the exact moments; 80-89 top speaker at a strong tournament; 70-79 excellent, breaks at most tournaments; 60-69 good, real warrants and some weighing; 50-59 average, arguments present but underdeveloped; 40-49 below average, key drops or unwarranted claims; 25-39 struggling; under 25 collapse. DEFAULT BAND IS 50-65 and USE THE LOW END when earned — this score is the leaderboard rank; be honest, not generous.)
@@ -7109,6 +7152,9 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
           var payload = {
             rfd: text,
             motion: motion || '',
+            judgeKey: rfdJudge && rfdJudge.key || '',
+            judgeName: rfdJudge && rfdJudge.name || '',
+            judgeGlyph: rfdJudge && rfdJudge.glyph || '',
             mode: mode || '',
             modeLabel: modeLabel || mode || '',
             side: side || '',
@@ -8795,7 +8841,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // into /voice-rfd without a raw page-reload flash.
   handingOff && el('div', { className: 'rfd-handoff', key: 'rfd-handoff' },
   el('div', { className: 'rfd-handoff__orb', 'aria-hidden': 'true' }),
-  el('div', { className: 'rfd-handoff__title' }, 'The judge is deliberating'),
+  el('div', { className: 'rfd-handoff__title' }, roundJudge ? roundJudge.name + ' is deliberating' : 'The judge is deliberating'),
   el('div', { className: 'rfd-handoff__sub' }, 'Reading the flow'),
   el('div', { className: 'rfd-handoff__bar' }, el('span', null))
   ),
@@ -9168,6 +9214,8 @@ root.render(el(App));</script>
 <script defer src="/js/onboarding.js"></script>
 <script defer src="/js/corpus-nudge.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/judge-roster.js"></script>
+<script defer src="/js/judge-intro.js"></script>
 
 <!-- Floating Feedback pill. Surface parity with landing.html and
      pricing.html. Links straight to the Google Form rather than
