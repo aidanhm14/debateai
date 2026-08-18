@@ -1,162 +1,113 @@
 // ─────────────────────────────────────────────────────────────
-// Writing a finished round into a drop-in tournament's ledger.
+// Writing a judged round into a tournament's ledger.
 //
-// The decision rules live in lib/tournament-live.mjs and are pure. This
-// file is the I/O half: claim a pairing, and post a result onto both
-// entries so the board moves.
+// One job: when live-judge produces a server-side verdict for a room
+// that verifyTournamentPairing confirmed belongs to a tournament, post
+// that result onto the round document and both entry documents, in the
+// SAME shape the director's manual entry writes.
 //
-// WHY THE ROOM ID IS THE KEY TO EVERYTHING
-// Each drop-in pairing writes a real `tournaments/{tid}/rounds/r{n}`
-// document with a single pairing in it, using the SAME room-id shape the
-// scheduled engine uses. That is not cosmetic. `lib/tournament-round.mjs`
-// verifies a live round belongs to a tournament by walking the room id
-// back to that record, and `live-judge.mjs` uses that verification to
-// treat tournament entry as consent to a public competitive record. Pair
-// outside that shape and every drop-in round silently stops rating.
+// FIELD SHAPE HAS EXACTLY ONE AUTHORITY: resultPatch in
+// lib/tournament.mjs. This module used to carry its own entry model
+// (results[] / points / available / waitingSince / pairedRoom), built
+// on 2026-08-11 for a drop-in queue that was never wired to a page,
+// while a second session wired the queue that IS live
+// (tournament-dropin.mjs: availableAt / inPairing) a day later. Two
+// write paths with two field models against one standings read is a
+// split brain, and the standings are what pays $850, so the orphan
+// model is gone: this now folds results with resultPatch exactly like
+// tournament-admin's report action, and the two paths guard against
+// each other (see idempotency).
 //
-// IDEMPOTENCY
-// A result is keyed by ROOM. The judge can retry, a director can
-// re-enter, the sweep can run twice; the second write is a no-op rather
-// than a second helping of points. Same discipline as rating_changes.
+// IDEMPOTENCY, IN BOTH DIRECTIONS
+// The judge can retry, and the director can hand-enter a result the
+// judge already applied (or vice versa). Two guards, both inside the
+// transaction: a results/{roomId} receipt doc (stops a judge retry),
+// and the pairing's own status === 'complete' on the round document
+// (stops the second path, whichever went first). The director's amend
+// flow stays the single way to CORRECT a result: it reverses model
+// fields resultPatch wrote, which is the other reason both paths must
+// write identical shapes.
+//
+// RELEASE TO IDLE, NOT RE-QUEUE
+// Completing a result clears inPairing and leaves availableAt at 0,
+// matching the deliberate call in tournament-admin: rejoining the
+// drop-in pool is an act by someone still at the keyboard, never an
+// automatic re-entry that could seat a person who already walked away
+// (the 2026-08-11 empty-chair lesson).
 // ─────────────────────────────────────────────────────────────
-import { roundPoints } from './tournament-live.mjs';
-
-// Mirrors roomFor() in tournament-admin.mjs. Drop-in pairings are keyed
-// r1, r2, r3... off a rolling counter rather than a round number,
-// because a drop-in day has no rounds. The parser in
-// lib/tournament-round.mjs accepts up to r999, which is the real ceiling
-// on pairings in a day and far above any plausible field.
-export function liveRoomFor(tid, n) {
-  return 'Debatable-' + String(tid).slice(0, 12) + '-r' + n + '-1';
-}
-
-export const MAX_LIVE_PAIRINGS = 999;
+import { resultPatch } from './tournament.mjs';
 
 /**
- * Claim a pairing: both entries must still be waiting when the
- * transaction commits, or the whole thing rolls back.
+ * Post a judged round onto the tournament. All ids come from
+ * verifyTournamentPairing, so the caller never re-derives them.
  *
- * Two clients polling at the same instant will both compute the same
- * pairing from the same pool, which is correct and is exactly why the
- * claim has to be transactional. The loser of the race sees its entries
- * already taken and simply polls again.
+ * gov/opp: { entryId, won, speaks }. `speaks` is the ballot's per-side
+ * score; missing speaks record as 0 rather than blocking the win.
  */
-export async function claimPairing(db, { tid, pairing, now }) {
+export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, opp, now }) {
   const at = Number(now) || Date.now();
   const tRef = db.collection('tournaments').doc(tid);
-  const govRef = tRef.collection('entries').doc(pairing.govEntry);
-  const oppRef = tRef.collection('entries').doc(pairing.oppEntry);
-
-  return db.runTransaction(async (tx) => {
-    const [tSnap, gov, opp] = await Promise.all([tx.get(tRef), tx.get(govRef), tx.get(oppRef)]);
-    if (!tSnap.exists) return { ok: false, reason: 'no_tournament' };
-    if (!gov.exists || !opp.exists) return { ok: false, reason: 'entry_gone' };
-
-    const g = gov.data();
-    const o = opp.data();
-    // The re-read is the whole point: available may have flipped since
-    // the pool was read, and a pairing built on a stale read would seat
-    // someone who is already in another room.
-    if (g.available !== true || o.available !== true) return { ok: false, reason: 'taken' };
-    if (g.pairedRoom || o.pairedRoom) return { ok: false, reason: 'taken' };
-
-    const n = Math.min(MAX_LIVE_PAIRINGS, (Number(tSnap.data().livePairCount) || 0) + 1);
-    const room = liveRoomFor(tid, n);
-
-    // The rounds document is what `verifyTournamentPairing` reads, so its
-    // shape is load-bearing rather than bookkeeping.
-    tx.set(tRef.collection('rounds').doc('r' + n), {
-      key: 'r' + n,
-      live: true,
-      createdAt: at,
-      pairings: [{
-        govEntry: pairing.govEntry,
-        oppEntry: pairing.oppEntry,
-        room,
-        rematch: !!pairing.rematch,
-        pointsGap: Number(pairing.pointsGap) || 0,
-      }],
-    });
-    tx.update(tRef, { livePairCount: n, lastPairedAt: at });
-
-    const seat = { available: false, pairedRoom: room, pairedAt: at, waitingSince: 0 };
-    tx.update(govRef, { ...seat, currentSide: 'gov' });
-    tx.update(oppRef, { ...seat, currentSide: 'opp' });
-
-    return {
-      ok: true, room, roundKey: 'r' + n,
-      gov: { entryId: pairing.govEntry, members: g.members || [], name: g.name || '' },
-      opp: { entryId: pairing.oppEntry, members: o.members || [], name: o.name || '' },
-      rematch: !!pairing.rematch,
-    };
-  });
-}
-
-/**
- * Post a finished round onto both entries.
- *
- * `speaks` is the ballot's 23-30 score per side; `room` (the entertainment
- * read) is optional and is stored but NEVER folded into points. See the
- * fence comment in lib/tournament-live.mjs: a cash ladder carrying a
- * watchability score would walk through the judge rubric's own guard
- * against scoring fluency and accent.
- */
-export async function applyTournamentResult(db, { tid, roomId, gov, opp, now }) {
-  const at = Number(now) || Date.now();
-  const tRef = db.collection('tournaments').doc(tid);
+  const roundRef = tRef.collection('rounds').doc(String(roundKey || ''));
   const doneRef = tRef.collection('results').doc(roomId);
 
   return db.runTransaction(async (tx) => {
-    const done = await tx.get(doneRef);
+    const [done, rSnap] = await Promise.all([tx.get(doneRef), tx.get(roundRef)]);
     if (done.exists) return { applied: false, reason: 'already_applied' };
+    if (!rSnap.exists) return { applied: false, reason: 'no_round' };
 
-    const govRef = tRef.collection('entries').doc(gov.entryId);
-    const oppRef = tRef.collection('entries').doc(opp.entryId);
+    const pairings = Array.isArray(rSnap.data().pairings) ? rSnap.data().pairings.slice() : [];
+    const idx = pairings.findIndex((p) => p && p.room === roomId);
+    if (idx === -1) return { applied: false, reason: 'no_pairing' };
+    const p = pairings[idx];
+    // The director got there first. Their entry stands; correcting it
+    // is the amend flow's job, never a second automatic write.
+    if (p.status === 'complete') return { applied: false, reason: 'already_reported' };
+
+    const govRef = tRef.collection('entries').doc(String(p.govEntry));
+    const oppRef = tRef.collection('entries').doc(String(p.oppEntry));
     const [g, o] = await Promise.all([tx.get(govRef), tx.get(oppRef)]);
     if (!g.exists || !o.exists) return { applied: false, reason: 'entry_gone' };
 
-    const post = (snap, side, other) => {
-      const d = snap.data();
-      const result = {
-        won: !!side.won,
-        speaks: Number.isFinite(Number(side.speaks)) ? Number(side.speaks) : null,
-        room: Number.isFinite(Number(side.room)) ? Number(side.room) : null,
-        opponentEntryId: other.entryId,
-        roomId,
-        at,
-      };
-      const results = (Array.isArray(d.results) ? d.results : []).concat([result]);
-      const opponents = (Array.isArray(d.opponents) ? d.opponents : []);
-      return {
-        results,
-        points: (Number(d.points) || 0) + roundPoints(result),
-        wins: (Number(d.wins) || 0) + (side.won ? 1 : 0),
-        losses: (Number(d.losses) || 0) + (side.won ? 0 : 1),
-        speaks: (Number(d.speaks) || 0) + (Number(side.speaks) || 0),
-        roundsPlayed: results.length,
-        // The opponent list is what keeps the next pairing rematch-free,
-        // so it has to be written here rather than at pairing time: a
-        // pairing that never produced a round should not block a future
-        // one against the same person.
-        opponents: opponents.includes(other.entryId) ? opponents : opponents.concat([other.entryId]),
-        sideCount: {
-          gov: (d.sideCount?.gov || 0) + (side.side === 'gov' ? 1 : 0),
-          opp: (d.sideCount?.opp || 0) + (side.side === 'opp' ? 1 : 0),
-        },
-        // Back into the pool, still checked in. Someone who finished a
-        // round on a drop-in day is the likeliest next pairing, and
-        // making them re-queue by hand loses exactly that person.
-        available: true,
-        waitingSince: at,
-        pairedRoom: null,
-        currentSide: null,
-        updatedAt: at,
-      };
-    };
+    const govSpeaks = Number.isFinite(Number(gov.speaks)) ? Number(gov.speaks) : 0;
+    const oppSpeaks = Number.isFinite(Number(opp.speaks)) ? Number(opp.speaks) : 0;
 
-    tx.update(govRef, post(g, { ...gov, side: 'gov' }, opp));
-    tx.update(oppRef, post(o, { ...opp, side: 'opp' }, gov));
-    tx.set(doneRef, { roomId, at, gov: gov.entryId, opp: opp.entryId });
+    const govPatch = resultPatch({ entryId: p.govEntry, ...g.data() }, {
+      won: !!gov.won, speaks: govSpeaks, side: 'gov', opponentEntryId: p.oppEntry,
+    });
+    const oppPatch = resultPatch({ entryId: p.oppEntry, ...o.data() }, {
+      won: !!opp.won, speaks: oppSpeaks, side: 'opp', opponentEntryId: p.govEntry,
+    });
+    // A rematch would double an opponent id; keep the list a set, same
+    // as the director path.
+    govPatch.opponents = Array.from(new Set(govPatch.opponents));
+    oppPatch.opponents = Array.from(new Set(oppPatch.opponents));
+    // Release both sides back to IDLE (see header).
+    govPatch.inPairing = '';
+    oppPatch.inPairing = '';
+    govPatch.availableAt = 0;
+    oppPatch.availableAt = 0;
+    // An elim loser leaves the bracket, same as the director path's
+    // post-transaction update. It has to happen HERE because a judge
+    // result marks the pairing complete, which makes the director's
+    // own entry answer 'already_reported' — without this line an
+    // auto-applied elim would leave the loser alive in later draws.
+    if (String(roundKey).startsWith('e')) {
+      (gov.won ? oppPatch : govPatch).status = 'eliminated';
+    }
+
+    tx.update(govRef, govPatch);
+    tx.update(oppRef, oppPatch);
+
+    pairings[idx] = {
+      ...p,
+      status: 'complete',
+      winner: gov.won ? 'gov' : 'opp',
+      govSpeaks,
+      oppSpeaks,
+      reportedBy: 'ai-judge',
+    };
+    tx.update(roundRef, { pairings });
+    tx.set(doneRef, { roomId, roundKey, at, gov: String(p.govEntry), opp: String(p.oppEntry) });
     return { applied: true };
   });
 }

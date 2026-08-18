@@ -27,6 +27,12 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
   ok(p.index === 2, 'the pairing index is extracted');
 
   ok(parseTournamentRoom('Debatable-abc123XYZ789-e1-1').roundKey === 'e1', 'elim rounds parse too');
+  // Drop-in pairings (tournament-dropin.mjs) key their rounds 'd<seq>'.
+  // This arm was missing until 2026-08-18, so every drop-in round failed
+  // the parse, fell back to casual consent, and never auto-recorded a
+  // result. The assertion pins the arm so it cannot silently regress
+  // before an event that runs entirely on drop-in rounds.
+  ok(parseTournamentRoom('Debatable-abc123XYZ789-d7-1').roundKey === 'd7', 'drop-in rounds parse too');
 
   // Everything that is NOT a tournament room must parse to null, because
   // a null here is what keeps a casual round on the checkbox path.

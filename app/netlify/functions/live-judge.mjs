@@ -287,6 +287,7 @@ export default async (request, context) => {
         const oppSpeaks = proIsGov ? pts.b : pts.a;
         await applyTournamentResult(db, {
           tid: tourney.tid,
+          roundKey: tourney.roundKey,
           roomId: room,
           gov: { entryId: tourney.govEntry, won: govWon, speaks: govSpeaks },
           opp: { entryId: tourney.oppEntry, won: !govWon, speaks: oppSpeaks },

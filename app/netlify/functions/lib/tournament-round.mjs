@@ -30,10 +30,16 @@
 // The parse is pure and tested; the verification does the reads.
 // ─────────────────────────────────────────────────────────────
 
-// Mirrors roomFor() in tournament-admin.mjs:
+// Mirrors roomFor() in tournament-admin.mjs and tournament-dropin.mjs:
 //   'Debatable-' + tid.slice(0, 12) + '-' + key + '-' + (index + 1)
-// where key is 'r<n>' for prelims or 'e<n>' for elims.
-const ROOM_RE = /^Debatable-([A-Za-z0-9]{1,12})-([re]\d{1,3})-(\d{1,3})$/;
+// where key is 'r<n>' for prelims, 'e<n>' for elims, or 'd<n>' for
+// drop-in pairings. The 'd' arm was MISSING until 2026-08-18, which
+// meant every drop-in round failed this parse, fell back to casual
+// consent, and never auto-recorded a result — the exact silent failure
+// the header of this file warns about ("pair outside that shape and
+// every drop-in round silently stops rating"), reached by the queue
+// that shipped three days after the warning was written.
+const ROOM_RE = /^Debatable-([A-Za-z0-9]{1,12})-([red]\d{1,3})-(\d{1,3})$/;
 
 /**
  * Pull the tournament prefix, round key and pairing index out of a room
