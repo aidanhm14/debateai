@@ -420,11 +420,9 @@
     return '<div class="arc-grid" data-cols="3">' + cards + '</div>'
       + '<p class="arc-locked-why" style="margin:12px 0 0">'
       + 'Pinned for the season' + (season ? ' (' + esc(season) + ')' : '') + '. '
-      + 'You cannot choose your judges and neither can we, which is the point. '
-      + 'Read them instead. A majority carries. ' + split
-      + 'This panel decides ranked async rounds. A live round is written by one judge in the room, '
-      + 'through the lens the two of you agreed on, from the same published method. ' 
-      + '<a href="/judge-integrity" style="color:inherit;text-decoration:underline">Read the criteria before you speak.</a>'
+      + 'Nobody picks your judges, us included; read them instead. A majority carries. ' + split
+      + 'This panel decides ranked async rounds; a live round is written by one judge in the room, from the same published method. '
+      + '<a href="/judge-integrity" style="color:inherit;text-decoration:underline">Read the criteria.</a>'
       + '</p>';
   }
 
@@ -518,9 +516,7 @@
           + '</button>';
       }).join('')
       + '</div>'
-      + '<p class="jb-strip-note">One AI judge writes the ballot in your round. This is the lens it reads through, '
-      + 'and it only counts if your opponent lands on the same card once you are in the room. '
-      + 'Tap any of them to read the paradigm first.</p>';
+      + '<p class="jb-strip-note">Tap a card to read it. Your pick counts only if your opponent lands on the same one.</p>';
   }
 
   function paintLenses() {
