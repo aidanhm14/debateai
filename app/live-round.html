@@ -3195,6 +3195,9 @@ html.stage-mode .stage-ov{display:block}
     fcDisabled: false,     // server said the checker is unconfigured; stop asking
     fcLoop: null,
     lastBallot: null,      // latest rendered ballot (stage overlay)
+    rfdDeep: null,         // long-form full ballot text, synced via round doc
+    deepRfdPending: false, // deep-ballot call in flight (shows the writing note)
+    deepRfdRequested: false, // guard so the generating client fires it once
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     paradigm: prefill.paradigm, // agreed judge instructions from /spar consent
     // ── Judge draft. Each bench nominates an archetype; the lens only
@@ -7668,6 +7671,125 @@ html.stage-mode .stage-ov{display:block}
     }).catch(function(){ corpusFlushed = false; });
   }
 
+  // ── The full ballot (long-form RFD) ─────────────────────────────
+  // The panel / client verdict is deliberately fast and compact so the
+  // round resolves inside the Netlify function time budget (three
+  // concurrent jurors can't each write 1,000 words without the whole
+  // call dying at ~26s). The deep ballot is the second beat: one
+  // dedicated Sonnet call, fired by the generating client AFTER the
+  // verdict renders, that writes the long-form RFD debaters actually
+  // keep — every argument walked, rulings named, quotes pulled,
+  // weighing done out loud. It never changes the verdict; it explains
+  // it. The text syncs through the round doc (rfdDeep) so the opponent
+  // and spectators render the same full ballot.
+  function deepRfdSlotHtml(){
+    if (state.rfdDeep){
+      return '<h3 style="margin-top:18px">The full ballot</h3>' +
+        '<div style="white-space:pre-wrap;font-size:.92rem;line-height:1.65">' + escHtml(state.rfdDeep) + '</div>';
+    }
+    if (state.deepRfdPending){
+      return '<div style="margin-top:16px;font-size:.78rem;color:var(--text-dim)">' +
+        'The judge is still writing the full ballot. It lands here in under a minute; the verdict above is final.</div>';
+    }
+    return '';
+  }
+
+  function renderDeepRfd(){
+    var slot = document.getElementById('deepRfdSlot');
+    if (slot) slot.innerHTML = deepRfdSlotHtml();
+  }
+
+  function generateDeepRfd(b){
+    if (state.deepRfdRequested || state.rfdDeep) return;
+    state.deepRfdRequested = true;
+    state.deepRfdPending = true;
+    renderDeepRfd();
+    var f = FORMATS[state.formatKey];
+    var fourTeam = isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4;
+    var transcript = state.log.map(function(l){
+      return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
+        + (l.overran ? ' [OVERRAN]' : '') + (l.skipped ? ' [SKIPPED]' : '')
+        + '\n' + l.text;
+    }).join('\n\n');
+    var verdictLines;
+    if (fourTeam){
+      verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate):\n'
+        + b.teamRanking.map(function(t){ return t.rank + '. ' + (t.label || t.side); }).join('\n')
+        + '\nWinning bench: ' + (b.winningBench || '') + '.'
+        + (b.rfd ? '\nShort RFD already shown to the room: ' + b.rfd : '');
+    } else {
+      verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate): winner = '
+        + (b.winner === 'pro' ? state.proName + ' (' + f.sideLabels[f.sides[0]] + ')' : state.conName + ' (' + f.sideLabels[f.sides[1]] + ')')
+        + '. Speaker points: ' + state.proName + ' ' + (b.proPoints != null ? b.proPoints : '?')
+        + ', ' + state.conName + ' ' + (b.conPoints != null ? b.conPoints : '?') + '.'
+        + (b.rfd ? '\nShort RFD already shown to the room: ' + b.rfd : '');
+    }
+    var system = [
+      'You are the tournament judge who just issued the verdict in a ' + f.name + ' round between real people. The verdict is FINAL. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner, the points, or the ranking.',
+      '',
+      'FORMAT LENS:',
+    ].concat(JUDGE_RULES[state.formatKey] || []).concat(paradigmBallotLines()).concat([
+      '',
+      'HARD RULES:',
+      '- MINIMUM 700 words. Target 900 to 1300. A ballot under 700 words means you summarized instead of adjudicating; go deeper, not longer-winded — depth comes from covering more of the flow, not from restating the same rulings.',
+      '- Walk EVERY substantive argument either side ran, one at a time, not just the two or three biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).',
+      '- Quote short verbatim lines from the transcript so every ruling points at the exact moment it happened.',
+      fourTeam
+        ? '- Resolve the half-calls explicitly: OG vs CG, OO vs CO, and both diagonals, each with its own stated reason, then show how the 1-2-3-4 reads off that geometry.'
+        : '- Then THE WEIGHING: which won arguments outweigh which, on what named axis (certainty, magnitude, prerequisite, proximity), and why that ordering decides the ballot.',
+      '- Then THE DROPS: every consequential dropped argument, named as it appeared in the round.',
+      fourTeam
+        ? '- Then THE TEAMS: one tight paragraph per team — strongest contribution (quoted), costliest moment (quoted), one concrete fix for their next round.'
+        : '- Then THE SPEAKERS: one tight paragraph per speaker — strongest moment (quoted), costliest moment (quoted), one concrete fix for their next round.',
+      '- Close with HOW THIS FLIPS: the two or three specific moves that would have flipped this ballot.',
+      '',
+      'OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / ' + (fourTeam ? 'THE HALF-CALLS' : 'THE WEIGHING') + ' / THE DROPS / ' + (fourTeam ? 'THE TEAMS' : 'THE SPEAKERS') + ' / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.',
+    ]).join('\n');
+    var user = 'MOTION: ' + state.motion + '\n\nFORMAT: ' + f.name + '\n\n' + verdictLines
+      + '\n\nFULL ROUND TRANSCRIPT:\n\n' + transcript
+      + '\n\nWrite the full ballot now.';
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        stream: false,
+        system: system,
+        messages: [{ role: 'user', content: user }],
+        _feature: 'live-round',
+      }),
+    }).then(function(r){
+      if (!r.ok) throw new Error('deep ballot API ' + r.status);
+      return r.text();
+    }).then(function(raw){
+      var text = raw || '';
+      try {
+        var wrap = JSON.parse(raw);
+        if (wrap && Array.isArray(wrap.content)){
+          text = wrap.content.map(function(c){ return (c && typeof c.text === 'string') ? c.text : ''; }).join('');
+        }
+      } catch(e){ /* already plain text */ }
+      text = String(text || '').trim();
+      if (!text) throw new Error('deep ballot empty');
+      state.deepRfdPending = false;
+      state.rfdDeep = text;
+      renderDeepRfd();
+      // Sync so the opponent and spectators render the same full
+      // ballot. Participants may update the round doc; spectators
+      // never reach this function.
+      var dref = getRoundDocRef();
+      if (dref && !isSpectator()){
+        dref.update({ rfdDeep: text }).catch(function(e){ console.warn('[deep ballot] sync failed', e); });
+      }
+      try { gtag('event', 'live_round_deep_rfd', { format: state.formatKey, chars: text.length }); } catch(e){}
+    }).catch(function(err){
+      console.warn('[deep ballot]', err);
+      state.deepRfdPending = false;
+      renderDeepRfd();
+    });
+  }
+
   function generateBallot(attempt){
     attempt = attempt || 1;
     // Pull audience evals once before the first prompt build so
@@ -7716,6 +7838,7 @@ html.stage-mode .stage-ov{display:block}
         if (!res || !res.ok || !res.ballot) throw new Error((res && res.code) || 'server_judge_unavailable');
         renderBallot(res.ballot);
         try { pmSettleVerdict(res.ballot.winner); } catch(e){}
+        try { generateDeepRfd(res.ballot); } catch(e){ console.warn('[deep ballot]', e); }
         // Deliberately NOT publishBallot(): the server already wrote it,
         // and a client write here would replace a panel-stamped ballot
         // with an identical-looking one carrying no provenance.
@@ -7782,6 +7905,7 @@ html.stage-mode .stage-ov{display:block}
       }
       renderBallot(parsed);
       try { pmSettleVerdict(parsed.winner); } catch(e){}
+      try { generateDeepRfd(parsed); } catch(e){ console.warn('[deep ballot]', e); }
       // Push to Firestore so the other speaker's screen flips to the
       // ballot view automatically, no manual share, no refresh.
       publishBallot(parsed);
@@ -8212,6 +8336,7 @@ html.stage-mode .stage-ov{display:block}
         + '<div class="ballot-section"' + (staged ? ' data-stage="2"' : '') + '>'
           + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Reason for decision</h3>'
           + '<div class="bp-rfd">' + escHtml(b.rfd || '(no RFD)') + '</div>'
+          + '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>'
         + '</div>'
         + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
             + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
@@ -8339,6 +8464,7 @@ html.stage-mode .stage-ov{display:block}
         '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
         (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
+        '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>' +
       '</div>' +
       '<div class="ballot-section" data-stage="3">' +
       lbBlock +
@@ -8559,6 +8685,7 @@ html.stage-mode .stage-ov{display:block}
         '',
         state.proName + ': ' + (b.proFeedback || ''),
         state.conName + ': ' + (b.conFeedback || ''),
+        state.rfdDeep ? '\nFULL BALLOT:\n' + state.rfdDeep : '',
       ].join('\n');
       try { navigator.clipboard.writeText(lines); toast('Ballot copied to clipboard.'); } catch(e){ toast('Couldn\'t copy.'); }
     });
@@ -11375,6 +11502,15 @@ html.stage-mode .stage-ov{display:block}
       // Ballot is in, so the crowd split is no longer a herding risk and
       // spectators can restate where they actually landed.
       try { svOnBallot(); } catch(e){}
+    }
+
+    // Full ballot (long-form RFD) — written by the generating client a
+    // beat after the verdict and synced through the round doc so every
+    // screen in the room renders the same text.
+    if (d.rfdDeep && d.rfdDeep !== state.rfdDeep){
+      state.rfdDeep = d.rfdDeep;
+      state.deepRfdPending = false;
+      try { renderDeepRfd(); } catch(e){}
     }
 
     // Leaderboard dual-consent reconciliation. Once both proUid and

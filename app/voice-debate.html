@@ -6918,6 +6918,9 @@ SPEAKER POINTS: NN.N
 DECISION
 (one line — who would win on the flow if this were a competitive round, "USER" or "AI")
 
+THE BALLOT
+(the full written Reason for Decision. MINIMUM 450 words, target 550-800. This is the part the debater rereads a week later, so it is a real ballot, not a summary. Walk EVERY substantive argument that was run in the session, one at a time: state it the way its side ran it, trace what happened to it across the turns (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, missing burden, stated default). Quote short verbatim lines from the transcript so every ruling points at the exact moment. Then do the weighing out loud: which won arguments outweigh which, on what axis, and why that ordering decides the call. Name every consequential drop. Plain paragraphs separated by blank lines. No bullets, no markdown, no headers inside this section.)
+
 BEST MOMENT
 (1-2 sentences — name the specific exchange and why it landed)
 
@@ -6933,10 +6936,13 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
 
       // RFD goes through /api/claude (free-tier accessible) instead of
       // /api/openai-chat (which is paid-plan-gated and returned 401 to
-      // signed-in-but-tokenless callers). Haiku is fast and cheap; the
-      // judge ballot doesn't need the bigger models. Bearer token is
-      // opportunistic so signed-in users get the learning-loop hooks
-      // (fingerprint / exemplars) without blocking anonymous RFD writes.
+      // signed-in-but-tokenless callers). Sonnet, not Haiku: the ballot
+      // now carries a full argument-by-argument THE BALLOT section, and
+      // Haiku's flow-tracking over a long transcript is what made
+      // verdicts read arbitrary (real user feedback, 2026-08-18).
+      // Bearer token is opportunistic so signed-in users get the
+      // learning-loop hooks (fingerprint / exemplars) without blocking
+      // anonymous RFD writes.
       var authHeader = {};
       try {
         if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
@@ -6948,8 +6954,8 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1200,
+          model: mode === 'viva' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
+          max_tokens: 3000,
           system: sys,
           messages: [{ role: 'user', content: user }],
           stream: false,

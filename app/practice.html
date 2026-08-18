@@ -7683,6 +7683,10 @@ function App() {
 
   // Judge feedback. structured ballot
   var [ballot, setBallot] = useState(null); // parsed structured ballot
+  // Long-form written ballot (fullWrittenBallot prompt). Fired after
+  // the JSON ballot lands; streams in under the verdict.
+  var [deepBallot, setDeepBallot] = useState('');
+  var [deepBallotLoading, setDeepBallotLoading] = useState(false);
   // Id of the `generations` row written for this round, and the rating
   // the user gave it. Both reset with the round.
   var [roundGenId, setRoundGenId] = useState(null);
@@ -8091,8 +8095,38 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     setMultiPanelLoading(false);
   };
 
+  // Long-form written ballot. Fired AFTER the JSON ballot lands so the
+  // verdict is fixed before the deep RFD explains it. Always routed to
+  // Claude regardless of the judge brain: a slower brain writing 1,000
+  // words in a single Netlify call is how ballots time out, and the
+  // fullWrittenBallot prompt is told the verdict is final either way.
+  var genDeepBallot = async (allLog, parsed) => {
+    setDeepBallot('');
+    setDeepBallotLoading(true);
+    var tx = allLog.map((l) => `[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
+    var sp = parsed.speakerPoints || {};
+    var verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate): winner = ' + (
+    parsed.winner === 'user' ? 'the user' : 'the AI') + (
+    sp.user != null || sp.ai != null ? '. Speaker points: user ' + (sp.user != null ? sp.user : '?') + ', AI ' + (sp.ai != null ? sp.ai : '?') : '') + (
+    parsed.keyClash ? '. Key clash: ' + parsed.keyClash : '') + (
+    parsed.rfd ? '.\nShort RFD already shown: ' + parsed.rfd : '.');
+    try {
+      var raw = '';
+      var fb = await callAI('', verdictLines + '\n\nFull round transcript:\n\n' + tx, (chunk) => {raw = chunk;setDeepBallot(chunk);}, 'claude', {
+        promptId: 'fullWrittenBallot',
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, formatJudgingCriteria: fmt.judging || '' }
+      });
+      setDeepBallot((fb || '').trim());
+    } catch (e) {
+      console.warn('[deep ballot]', e);
+      setDeepBallot('');
+    }
+    setDeepBallotLoading(false);
+  };
+
   var genFeedback = async (allLog) => {
     setFbLoading(true);setBallot(null);
+    setDeepBallot('');setDeepBallotLoading(false);
     var tx = allLog.map((l) => `[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
     // Prompt lives server-side as PROMPT_LIBRARY.singleJudgeBallot
     try {
@@ -8131,6 +8165,9 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         setBallot(parsed);
         saveRound(allLog, fb, parsed.winner === 'user', parsed.speakerPoints || null);
         logRoundGeneration(allLog, fb, parsed);
+        // Fire the long-form written ballot now that the verdict is
+        // fixed. Fire-and-forget; the card streams in when it lands.
+        try {genDeepBallot(allLog, parsed);} catch (e) {}
       } catch {
         // Fallback: save as unstructured. The round still happened and is
         // still rateable, so it is still worth capturing.
@@ -12483,6 +12520,15 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     b.keyClash && el('div', { style: { padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },
     el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#f59e0b', marginBottom: 6 } }, audienceCopy('Key Clash', 'Main Disagreement')),
     el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5 } }, b.keyClash)
+    ),
+
+    // The full written ballot — long-form RFD (fullWrittenBallot
+    // prompt). Fired after the JSON ballot lands; streams in here.
+    (deepBallot || deepBallotLoading) && el('div', { style: { padding: '18px 22px', background: 'var(--c-surface)', border: '1px solid rgba(212,175,55,.28)', borderRadius: 14, marginBottom: 20 } },
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#d4af37', marginBottom: 8 } }, 'The Full Ballot'),
+    deepBallot ?
+    el('div', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.65, whiteSpace: 'pre-wrap' } }, deepBallot) :
+    el('p', { style: { fontSize: '.8rem', color: 'var(--c-muted)' } }, 'The judge is writing the full ballot. It lands here in under a minute; the verdict above is final.')
     ),
 
     // Per-speech breakdown
