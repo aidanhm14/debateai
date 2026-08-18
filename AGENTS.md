@@ -308,16 +308,19 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   in copy that tells a stranger who the site is for. The landing and
   `topbar.js` were swept; the rest of the site has NOT been. Don't
   "restore" the old framing from a stale doc.
-- **No faces on the first-screen rounds board** (Aidan, 2026-08-12,
-  "no faces should be circulating here"). Tiles show a camera-off
-  initial disc. The board captions every seat with an invented name, a
-  fabricated score and an AI-written ballot, so a photograph there
-  asserts a round that never happened about a face that belongs to
-  someone. Never put an unlicensed photo of a real person on any
+- **First-screen rounds board faces: consented stills only** (updated
+  2026-08-18). The 2026-08-12 "no faces should be circulating here"
+  rule was partially reversed by Aidan himself: he supplied a batch of
+  real webcam stills (face46-49 and face51, plus the face50 Anonymous
+  avatar) and
+  confirmed on record that everyone shown is 18+ and consented to
+  appearing as example-round debaters. Those, and the pre-existing
+  stock bank, may ride ROUNDS entries. The underlying bar is unchanged
+  and absolute: never put an unlicensed photo of a real person on any
   surface; the creator-watchlist portraits are CC or public domain with
   attribution in `app/img/creator-watchlist/README.md`, and that is the
-  bar. NOTE: `#face-wall` further down the landing still runs ~41
-  portraits off a separate bank; that surface has not been cut.
+  bar. New board faces require the same explicit consent + 18+
+  confirmation from Aidan before they ship.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
