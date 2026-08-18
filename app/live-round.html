@@ -4026,14 +4026,10 @@ html.stage-mode .stage-ov{display:block}
     // already shown this index, so re-renders from snapshot updates
     // won't double-fire it.
     flashTurnOverlay();
-    // Auto-start countdown for turn handoffs. When the off-side becomes
-    // the active side mid-round (not the opener), count 3-2-1 then call
-    // startSpeechTimer which engages mic + clock — removes the dead-air
-    // beat between the previous End-speech and the new speaker actually
-    // being able to talk. Gated on: real two-player round (mySide set),
-    // not the first speech, autoMic pref on, mic supported, and ready
-    // state (the user hasn't already hit Start or paused). The token
-    // counter invalidates older countdowns when renderRound runs again.
+    // Cancel any in-flight auto-start countdown from an earlier render.
+    // 2026-08-18 (Aidan): no speech starts on its own. The 3-2-1
+    // handoff countdown used to engage mic + clock mid-round; now every
+    // speech, opener and handoff alike, waits for ▶ Start speech.
     scheduleAutoStart(myTurn, ms, spectator);
     // Sync the auto-mic toggle visibility/state — handles the case
     // where renderRound runs before the auto-mic init block.
@@ -4046,65 +4042,11 @@ html.stage-mode .stage-ov{display:block}
     // Clear any leftover countdown styling from a prior render so a
     // ready-state speech doesn't carry over a flash class.
     clearCountdownUi();
-    var ok = state.phase === 'round'
-      && state.speechIdx > 0
-      && myTurn
-      && !!ms
-      && !spectator
-      && !!state.autoMic
-      && state.micSupport && state.micSupport.available
-      && state.timerState === 'ready';
-    if (!ok) return;
-    var myToken = state.autoStartTokens;
-    var hintEl = $('readyHint');
-    var numEl = $('timerNum');
-    var targetEl = $('timerTarget');
-    function tick(remaining){
-      if (state.autoStartTokens !== myToken){ clearCountdownUi(); return; }
-      if (state.phase !== 'round'){ clearCountdownUi(); return; }
-      if (state.timerState !== 'ready'){ clearCountdownUi(); return; }
-      if (!isMyTurn()){ clearCountdownUi(); return; }
-      if (remaining <= 0){
-        // Clear the flash before startSpeechTimer's drawTimer paints the
-        // real elapsed value back into the same element.
-        clearCountdownUi();
-        startSpeechTimer();
-        return;
-      }
-      if (numEl){
-        // Force a reflow so the keyframe animation restarts cleanly on
-        // every digit change (otherwise the second/third tick reuses
-        // the prior animation cycle and looks static).
-        numEl.classList.remove('countdown');
-        // eslint-disable-next-line no-unused-expressions
-        void numEl.offsetWidth;
-        numEl.textContent = String(remaining);
-        numEl.classList.add('countdown');
-      }
-      if (targetEl) targetEl.classList.add('dim');
-      if (hintEl){
-        hintEl.innerHTML =
-          '<strong>Your turn.</strong> Mic + clock engage on <strong>0</strong>. ' +
-          '<button type="button" id="cancelAutoStartBtn" style="background:transparent;border:0;color:var(--amber);font-weight:700;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 0 0 4px;text-decoration:underline;text-underline-offset:3px">Hold up</button>';
-        var cb = document.getElementById('cancelAutoStartBtn');
-        if (cb){
-          cb.addEventListener('click', function(){
-            state.autoStartTokens++;
-            clearCountdownUi();
-            if (hintEl){
-              hintEl.innerHTML = '<strong>Your turn.</strong> Hit <strong>▶ Start speech</strong> when you\'re ready.';
-            }
-            // Re-paint the static 0:00 / target readout that the
-            // countdown digits overwrote.
-            drawTimer();
-          });
-        }
-      }
-      setTimeout(function(){ tick(remaining - 1); }, 1000);
-    }
-    // 800ms head-start so the turn-change overlay reveal doesn't step
-    // on the first countdown digit.
-    setTimeout(function(){ tick(3); }, 800);
+    // 2026-08-18 (Aidan): retired. A speech never starts itself; the
+    // speaker presses ▶ Start speech when they are ready. The token
+    // bump + clear above still cancel a countdown mid-flight, and the
+    // ready-state hint ("Your turn. Hit ▶ Start speech.") covers the
+    // handoff. Auto-mic still engages when Start is pressed.
   }
 
   // Strip countdown styling off the big clock readout. Called from
