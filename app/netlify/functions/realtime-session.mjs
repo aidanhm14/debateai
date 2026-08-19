@@ -258,9 +258,15 @@ function getCorsHeaders(request) {
 // mints are the abuse surface, so they stay capped per IP. 6/hour was the
 // only gate until 2026-05-18; 10/day was added on the credit-burn audit
 // because 6×24 = 144 mints/day per IP was bot territory.
+// Raised 2026-08-18 alongside APP_CHECK_REQUIRED=true, for the same reason
+// the named-user lane below moved to per-UID: one NAT'd address is a whole
+// building, and 6/hour meant the 7th anonymous visitor from a school was
+// refused. App Check now gates the caller before this counter runs. Voice
+// costs materially more per call than text, so this rises less than the
+// text lane in claude.mjs, and named accounts still get the per-UID lane.
 const VOICE_LAYERS_ANON = [
-  { window: 60 * 60_000,    max: 6,  label: 'hour' },
-  { window: 86_400_000,     max: 10, label: 'day'  },
+  { window: 60 * 60_000,    max: 15, label: 'hour' },
+  { window: 86_400_000,     max: 40, label: 'day'  },
 ];
 
 // NAMED signed-in callers are metered per UID instead (2026-07-28). Keying

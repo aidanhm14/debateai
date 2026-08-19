@@ -120,10 +120,34 @@ const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers (per minute)
 // credit-burn audit. The user-facing soft cap is 5/anon and 10/signed-in,
 // so legit users hit the friendly paywall well before these layers fire;
 // the hour + day caps exist only to throttle bot abuse rotating on a single IP.
+// Anonymous callers have no identity but their IP, so the IP is the only
+// thing to meter them on. The numbers below were set on the 2026-05-18
+// credit-burn audit, when App Check was soft-passing and this counter was
+// therefore the ONLY thing between a script and the Anthropic bill. That
+// made them necessarily brutal.
+//
+// Raised 2026-08-18, together with APP_CHECK_REQUIRED=true. With App Check
+// hard-enforcing, a caller must be a real browser on a real origin clearing
+// a reCAPTCHA Enterprise score before it ever reaches this counter, so the
+// IP layer no longer has to carry the anti-bot job alone. It goes back to
+// being a blast-radius limit.
+//
+// Why it had to move: an IP is not a person. A school, a campus, or a
+// mobile carrier on CGNAT puts hundreds of people behind one address. At
+// 15/hour, and roughly 5 requests per free round, that was three anonymous
+// visitors per hour for an entire building — the fourth was told they had
+// hit a "free-trial cap" they had never used. realtime-session.mjs hit the
+// same wall on 2026-07-28 and fixed it by moving NAMED users to per-UID
+// metering; that escape hatch does not exist here, because this lane is
+// anonymous by definition. So the ceiling itself had to rise.
+//
+// Sized for a school: 30/min absorbs a class starting together, 200/hour is
+// ~40 anonymous visitors an hour from one address, 800/day is ~160 a day.
+// Signed-in users are metered per-uid below and never touch these.
 const ANON_LAYERS = [
-  { window: 60_000,    max: 5,   label: 'minute' },
-  { window: 3_600_000, max: 15,  label: 'hour'   },
-  { window: 86_400_000,max: 30,  label: 'day'    },
+  { window: 60_000,    max: 30,  label: 'minute' },
+  { window: 3_600_000, max: 200, label: 'hour'   },
+  { window: 86_400_000,max: 800, label: 'day'    },
 ];
 const anonHistory = new Map(); // ip → array of request timestamps
 const SIGNED_IN_BETA_DAILY_MAX = Number(process.env.SIGNED_IN_BETA_DAILY_MAX || 20);
