@@ -55,16 +55,31 @@ async function dailyRecording(room, action){
   // same rule applies: verify a property against the live API before
   // adding it, because one bad key kills the whole feature and the error
   // it produces points at the room rather than at the request.
-  const body = action === 'start' ? {
+  //
+  // The custom layout below records ONLY the round board (the canvas
+  // screen share carrying both camera feeds and the overlay), instead of
+  // the default composite that duplicated the cameras as small corner
+  // tiles next to it. `mode: 'single'` + `preferScreenshare` = whichever
+  // screen share is live fills the frame; with no share up it falls back
+  // to one camera. Verified against the live API 2026-08-19: this body
+  // passes validation on a real room (failed only on "no call live"),
+  // while the max_cam_streams control still 400s. If Daily rejects it at
+  // start time anyway (plan without VCS), retry once on the default
+  // preset so a layout problem can never cost the recording itself.
+  const startBody = (layout) => ({
     type: 'cloud',
     width: 1280,
     height: 720,
     fps: 30,
     minIdleTimeOut: 120,
     maxDuration: 10800,
-    layout: { preset: 'default' },
-  } : { type: 'cloud' };
-  try {
+    layout,
+  });
+  const boardLayout = {
+    preset: 'custom',
+    composition_params: { mode: 'single', 'videoSettings.preferScreenshare': true },
+  };
+  const send = async (body) => {
     const response = await fetch(path, {
       method: 'POST',
       headers: {
@@ -75,6 +90,14 @@ async function dailyRecording(room, action){
     });
     let data = null;
     try { data = await response.json(); } catch {}
+    return { response, data };
+  };
+  try {
+    let { response, data } = await send(action === 'start' ? startBody(boardLayout) : { type: 'cloud' });
+    if (action === 'start' && response.status === 400){
+      console.warn('[round-recording] custom layout rejected, retrying with default preset:', String(data?.info || data?.error || '').slice(0, 240));
+      ({ response, data } = await send(startBody({ preset: 'default' })));
+    }
     // A duplicate stop returns 400. Treat it as complete so two clients
     // finishing together cannot turn a successful stop into a UI error.
     if (action === 'stop' && response.status === 400){
