@@ -916,9 +916,16 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
 .ui-topbar-more-panel{
   position:fixed;top:calc(100% + 14px);left:50%;right:auto;z-index:1001;
-  width:min(1480px,calc(100vw - 40px));
+  width:min(1660px,calc(100vw - 40px));
   display:none;
-  grid-template-columns:250px repeat(4,minmax(0,1fr));
+  /* Five product columns since 2026-08-19. The ceiling went 1480 -> 1660
+     at the same time: splitting the 15-deep column into two only buys
+     height if the columns that remain are still wide enough to keep a
+     label and its description on one line each. Below ~1400 the fifth
+     column wraps to a second row rather than squeezing all five, which
+     is the lesser evil: a wrapped row is readable, a 150px column is
+     not. */
+  grid-template-columns:220px repeat(5,minmax(0,1fr));
   column-gap:10px;row-gap:0;
   padding:20px 22px 14px;border-radius:20px;
   /* Solid, not --bg-elev: inside the blurred topbar, backdrop-filter
@@ -932,6 +939,16 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 }
 .ui-topbar-more-panel::before{
   content:"";position:absolute;left:0;right:0;bottom:100%;height:18px;
+}
+/* The fold points. Five columns need real width; rather than let them
+   compress until "Find a 2v2 partner" wraps to three lines (which would
+   give the height straight back), drop to four and then three columns
+   and let the grid run to a second row. */
+@media (max-width:1400px){
+  .ui-topbar-more-panel{grid-template-columns:220px repeat(4,minmax(0,1fr))}
+}
+@media (max-width:1150px){
+  .ui-topbar-more-panel{grid-template-columns:220px repeat(3,minmax(0,1fr))}
 }
 .ui-topbar-more-panel.is-open{
   display:grid;
@@ -1044,8 +1061,9 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
    The light-theme block further down darkens all four for white. */
 .ui-topbar-more-col.ui-col-1{--col:var(--accent,#ef4444)}  /* Debate  · red    */
 .ui-topbar-more-col.ui-col-2{--col:#6ea0f7}                /* Improve · blue   */
-.ui-topbar-more-col.ui-col-3{--col:#a78bfa}                /* Watch   · violet */
-.ui-topbar-more-col.ui-col-4{--col:#3ecfbb}                /* Train   · teal   */
+.ui-topbar-more-col.ui-col-3{--col:#a78bfa}                /* Compete · violet */
+.ui-topbar-more-col.ui-col-4{--col:#f472b6}                /* Watch   · pink   */
+.ui-topbar-more-col.ui-col-5{--col:#3ecfbb}                /* Train   · teal   */
 /* Light theme: the panel goes solid white (--bg-elev-solid), where the
    bright values above sit around 2:1 on body text and read washed out.
    Verified against #ffffff, not assumed from the dark pair — a light and
@@ -1056,7 +1074,9 @@ body.light-theme .ui-topbar-more-col.ui-col-2{--col:#1d4ed8}
 [data-theme="light"] .ui-topbar-more-col.ui-col-3,
 body.light-theme .ui-topbar-more-col.ui-col-3{--col:#6d28d9}
 [data-theme="light"] .ui-topbar-more-col.ui-col-4,
-body.light-theme .ui-topbar-more-col.ui-col-4{--col:#0f766e}
+body.light-theme .ui-topbar-more-col.ui-col-4{--col:#be185d}
+[data-theme="light"] .ui-topbar-more-col.ui-col-5,
+body.light-theme .ui-topbar-more-col.ui-col-5{--col:#0f766e}
 /* --col-text: the same accent, but at a strength that clears 4.5:1 as
    TYPE on this theme's panel. Column 1 is the one that actually needed
    splitting: brand red is 4.26:1 on the dark panel, so an active label
@@ -1064,7 +1084,8 @@ body.light-theme .ui-topbar-more-col.ui-col-4{--col:#0f766e}
 .ui-topbar-more-col.ui-col-1{--col-text:#f87171}
 .ui-topbar-more-col.ui-col-2{--col-text:#6ea0f7}
 .ui-topbar-more-col.ui-col-3{--col-text:#a78bfa}
-.ui-topbar-more-col.ui-col-4{--col-text:#3ecfbb}
+.ui-topbar-more-col.ui-col-4{--col-text:#f472b6}
+.ui-topbar-more-col.ui-col-5{--col-text:#3ecfbb}
 [data-theme="light"] .ui-topbar-more-col.ui-col-1,
 body.light-theme .ui-topbar-more-col.ui-col-1{--col-text:#b91c1c}
 [data-theme="light"] .ui-topbar-more-col.ui-col-2,
@@ -1072,7 +1093,9 @@ body.light-theme .ui-topbar-more-col.ui-col-2{--col-text:#1d4ed8}
 [data-theme="light"] .ui-topbar-more-col.ui-col-3,
 body.light-theme .ui-topbar-more-col.ui-col-3{--col-text:#6d28d9}
 [data-theme="light"] .ui-topbar-more-col.ui-col-4,
-body.light-theme .ui-topbar-more-col.ui-col-4{--col-text:#0f766e}
+body.light-theme .ui-topbar-more-col.ui-col-4{--col-text:#be185d}
+[data-theme="light"] .ui-topbar-more-col.ui-col-5,
+body.light-theme .ui-topbar-more-col.ui-col-5{--col-text:#0f766e}
 /* Secondary text in the panel, light theme only.
    The alphas below were tuned against the DARK panel, where white at 46
    to 52% still clears 4.5:1. The same alphas of near-black on white land
@@ -1147,10 +1170,26 @@ body.light-theme .ui-topbar-more-spot-proof>span{
 .ui-topbar-more-item-label>span:first-child{
   min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+/* Flagship tiles set their label a size or two larger, so at the
+   narrower five-column width "Competitive Voice AI" was the one label
+   that hit the ellipsis (needed 167px, had 120). Ellipsising the name of
+   a destination is worse than a second line, and only the big tiles are
+   long enough to need it. */
+.ui-topbar-more-item.is-big .ui-topbar-more-item-label>span:first-child{
+  white-space:normal;overflow:visible;text-overflow:clip;
+}
 .ui-topbar-more-item-desc{
   font-size:11.3px;font-weight:500;line-height:1.25;
   color:color-mix(in srgb,var(--text,#fff) 50%,transparent);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  /* Wraps to a second line rather than truncating. Five columns are
+     narrower than the old four, and measured at 1440 the nowrap version
+     clipped 20 of 33 descriptions where the four-column layout clipped
+     2. A cut-off description is a worse defect than a tall menu, which
+     is the whole thing this split was trying to fix, so the ellipsis
+     comes off and the few long ones take a second line. Capped at two so
+     one wordy entry cannot stretch its column. */
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;
 }
 .ui-topbar-more-item:hover,
 .ui-topbar-more-item:focus-visible{

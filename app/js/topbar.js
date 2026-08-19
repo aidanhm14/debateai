@@ -332,7 +332,19 @@
   // mobile sheet. App pages carry no footer, so these links are the quiet
   // discovery surface for pages that do not need permanent topbar space.
   var MORE_GROUPS = [
-    { head: 'Watch & compete', links: [
+    // 2026-08-19 (Aidan: "its too crowded - distribute across to take
+    // less space on Y axis"). This was ONE 15-item "Watch & compete"
+    // column against 4 / 6 / 9 in the others. A CSS grid is as tall as
+    // its tallest child, so that single column set the height of the
+    // whole panel and left the flagship card and the three short columns
+    // standing beside a column of empty space.
+    //
+    // Split along the seam the old name was already admitting to:
+    // entering a contest is a different intent from watching one or
+    // finding people to do it with. Nothing was dropped and no link
+    // changed; the rows moved with their own notes. Tallest column is
+    // now Train at 9, so the panel loses about a third of its height.
+    { head: 'Compete', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
       { href: '/rounds',      label: 'Async rounds', strong: true },
@@ -341,40 +353,6 @@
       // something, take the other side. It is `big` because it is the
       // shortest path from landing on the site to being in a round.
       { href: '/challenges',  label: 'Challenges', big: true },
-      { href: '/spectate',    label: 'Spectate live rounds' },
-      // 2026-08-10: the debate shows people already watch (Surrounded,
-      // Middle Ground, full Oxford Union debates) plus the standing
-      // opinion panel measuring whether any of it moves anyone. Sits in
-      // Watch rather than Site because a visitor arriving on it is
-      // looking for rounds to watch, not for company pages.
-      { href: '/debate-shows', label: 'Debate shows' },
-      // 2026-07-27: standalone lobby prototype. It gathers the public
-      // network signals into one venue without replacing the landing.
-      // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
-      // page. It stays off the main bar because the primary product is
-      // still debate practice; Explore is the right discovery surface.
-      // 2026-08-19 (later same day, per Aidan: the prediction angle "can
-      // stay in some way"): PARTIALLY reverses the de-surfacing logged
-      // above. /predict returns, and only /predict — /floor settles on
-      // Math.random() and calls itself a demo, /ladder has no rankable
-      // debaters to trade yet, and /get-paid-to-debate is indexed so it
-      // is already findable without a nav slot.
-      //
-      // Two deliberate constraints on the restore:
-      //   - It lives in MORE_GROUPS, not LINKS. The rail only draws rows
-      //     flagged hot/cta/rail, and MORE_GROUPS rows are never rail
-      //     candidates, so this cannot drift back into permanent chrome
-      //     on every page. That was the whole objection in the 2026-07-30
-      //     and 2026-08-19 notes above.
-      //   - Not `big`. The flagship tiles are the scale bets; a points
-      //     market that is still finding its footing does not need to be
-      //     the largest thing in the column.
-      //
-      // Sits in Watch & compete rather than the Debate group the restore
-      // note above predicted, because Leaderboard moved here on
-      // 2026-08-14 and a market settled from a live round's ballot
-      // belongs with the round you watch, not with going to debate one.
-      { href: '/predict',     label: 'Predict' },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
@@ -410,6 +388,48 @@
       // time-critical in a way no other row here is.
       { href: '/claim',       label: 'Import your record', strong: true },
       { href: '/debate-rating', label: 'How rating works' },
+    ]},
+    // The other half of the old "Watch & compete". Spectating and
+    // finding people are the same visit: someone here is not trying to
+    // enter anything, they are looking for a round to watch or a person
+    // to talk to. /predict sits here rather than in Compete for the
+    // reason its own note below gives: a market settled from a live
+    // round's ballot belongs with the round you watch.
+    { head: 'Watch & community', links: [
+      { href: '/spectate',    label: 'Spectate live rounds' },
+      // 2026-08-10: the debate shows people already watch (Surrounded,
+      // Middle Ground, full Oxford Union debates) plus the standing
+      // opinion panel measuring whether any of it moves anyone. Sits in
+      // Watch rather than Site because a visitor arriving on it is
+      // looking for rounds to watch, not for company pages.
+      { href: '/debate-shows', label: 'Debate shows' },
+      // 2026-07-27: standalone lobby prototype. It gathers the public
+      // network signals into one venue without replacing the landing.
+      // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
+      // page. It stays off the main bar because the primary product is
+      // still debate practice; Explore is the right discovery surface.
+      // 2026-08-19 (later same day, per Aidan: the prediction angle "can
+      // stay in some way"): PARTIALLY reverses the de-surfacing logged
+      // above. /predict returns, and only /predict — /floor settles on
+      // Math.random() and calls itself a demo, /ladder has no rankable
+      // debaters to trade yet, and /get-paid-to-debate is indexed so it
+      // is already findable without a nav slot.
+      //
+      // Two deliberate constraints on the restore:
+      //   - It lives in MORE_GROUPS, not LINKS. The rail only draws rows
+      //     flagged hot/cta/rail, and MORE_GROUPS rows are never rail
+      //     candidates, so this cannot drift back into permanent chrome
+      //     on every page. That was the whole objection in the 2026-07-30
+      //     and 2026-08-19 notes above.
+      //   - Not `big`. The flagship tiles are the scale bets; a points
+      //     market that is still finding its footing does not need to be
+      //     the largest thing in the column.
+      //
+      // Sits in Watch & compete rather than the Debate group the restore
+      // note above predicted, because Leaderboard moved here on
+      // 2026-08-14 and a market settled from a live round's ballot
+      // belongs with the round you watch, not with going to debate one.
+      { href: '/predict',     label: 'Predict' },
       // 2026-08-10: moved up out of the "Site" group, which is pricing,
       // story and vision — pages about the company. The Atlas is a
       // product surface (a live map of real programs), and it lost its
