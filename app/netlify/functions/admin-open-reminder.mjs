@@ -32,7 +32,7 @@ import { FOUNDING_CUTOFF_LABEL, FOUNDING_CUTOFF_MS } from './lib/founding-comp.m
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Aidan at Debatable <aidan@debateai.com>';
-const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || undefined;
+const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 const SUBJECT     = 'Speak money into existence: The Debatable Open';
@@ -49,10 +49,9 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Your free entry to ${esc(tournamentName)} expires at 11:59 PM Eastern
-    on ${esc(FOUNDING_CUTOFF_LABEL)}.</strong> After that, playing for the cash
-    costs $20. Claiming takes about a minute: open the entry page, claim the
-    waived entry, tick the 18 or older box the prizes require.
+    <strong>Free entry to ${esc(tournamentName)} ends
+    ${esc(FOUNDING_CUTOFF_LABEL)} at 11:59 PM Eastern.</strong> After that,
+    playing for the cash costs $20. Entering takes about a minute:
   </p>
 
   <p style="margin:0 0 22px">
@@ -60,27 +59,31 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    The tournament runs Saturday, August 29, online, all day. Doors open 10 AM
-    Eastern and stay open: show up whenever suits you, get paired with a real
-    person, and argue. The style is built for anyone, not just debate kids.
-    No jargon, no prepared case. You make a point, back it up, and answer
-    theirs. An AI judge writes out who won and why after every round.
+    The short version: I built a site where you get matched with a real person,
+    argue it out, and an AI judge writes up who won and why. Saturday, August 29
+    is its first real tournament. All online, doors open 10 AM Eastern, drop in
+    whenever. Every round you play counts on the standings, and the top of the
+    board goes into a streamed bracket that evening. $500 for first, $250 for
+    second, $100 for third.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Every round you play posts to the public standings, so one round puts you
-    on the board and more rounds is more chances. In the evening the top of
-    the standings goes into a streamed single-elimination bracket, and the
-    audience votes the final. $500 for first, $250 for second, $100 for third.
+    You don't need debate experience. No jargon, no prepared case. Make a
+    point, back it up, answer theirs. And the field is still small, so your
+    odds are honestly good.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    Know someone who likes to argue? Forward them this. Questions about
+    anything? Just reply, it's me reading.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
 
   <p style="font-size:.88rem;line-height:1.6;margin:0 0 14px">
-    P.S. New this week: if you competed and have a record on Tabroom, you can
-    import it and start with a rating that matches it, instead of starting
-    from zero. Takes two minutes at
-    <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>.
+    P.S. If you competed and have a record on Tabroom, you can import it and
+    start with a rating that matches, instead of starting from zero. Two
+    minutes: <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>
   </p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
