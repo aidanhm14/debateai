@@ -11862,11 +11862,13 @@ html.stage-mode .stage-ov{display:block}
   // for 1.7 seconds while people are still sorting out mic and camera,
   // and after that the only cue is a grey hint line above a button below
   // the video fold. Two humans sit in a call with no idea whose move it
-  // is. This strip stays up until the clock actually runs: the opener's
-  // strip carries the start button itself (routed through playPauseBtn so
-  // the judge-lock guard in startSpeechTimer still applies), the other
-  // side is told who opens so they stop waiting for a cue that is not
-  // coming. Presence-gated the same way as the no-show flow: with a known
+  // is. This strip stays up until the clock actually runs: the opener is
+  // told the round is theirs to open, the other side is told who opens
+  // so they stop waiting for a cue that is not coming. Informational
+  // only, both sides get the same dismiss. the start control lives on
+  // the transport row below the video and stays the one place a speech
+  // begins, so this strip can never read as a second start button.
+  // Presence-gated the same way as the no-show flow: with a known
   // opposing uid it waits for their seat beat, so it can never tell
   // someone to start a round against an empty chair.
   var kickoffEl = null, kickoffMode = '', kickoffDismissed = false;
@@ -11904,7 +11906,7 @@ html.stage-mode .stage-ov{display:block}
           '<b style="font-weight:800">You’re both here. You open the round.</b> ' +
           '<span style="color:var(--text-dim,rgba(255,255,255,.62))">' + escHtml(sp.name) + (mins ? ' · ' + mins + ' min' : '') + '. The clock starts when you do.</span>' +
         '</span>' +
-        '<button type="button" id="kickoffStart" style="flex:none;padding:11px 18px;border-radius:10px;border:1px solid var(--green,#22c55e);background:var(--green,#22c55e);color:#06240f;font-family:inherit;font-size:.82rem;font-weight:800;cursor:pointer">▶ Start Speech 1</button>';
+        '<button type="button" id="kickoffDismiss" aria-label="Dismiss" style="flex:none;width:30px;height:30px;border-radius:9px;border:1px solid var(--border,rgba(255,255,255,.18));background:transparent;color:var(--text-dim,rgba(255,255,255,.6));font-family:inherit;font-size:.9rem;cursor:pointer">×</button>';
     } else {
       el.innerHTML =
         '<span style="flex:1;min-width:0;font-size:.87rem;line-height:1.5;color:var(--text,#fff)">' +
@@ -11914,12 +11916,6 @@ html.stage-mode .stage-ov{display:block}
         '<button type="button" id="kickoffDismiss" aria-label="Dismiss" style="flex:none;width:30px;height:30px;border-radius:9px;border:1px solid var(--border,rgba(255,255,255,.18));background:transparent;color:var(--text-dim,rgba(255,255,255,.6));font-family:inherit;font-size:.9rem;cursor:pointer">×</button>';
     }
     document.body.appendChild(el);
-    var sb = el.querySelector('#kickoffStart');
-    if (sb) sb.addEventListener('click', function(){
-      var pp = document.getElementById('playPauseBtn');
-      if (pp) pp.click();
-      try { gtag('event', 'live_kickoff_start', { format: state.formatKey }); } catch(e){}
-    });
     var db2 = el.querySelector('#kickoffDismiss');
     if (db2) db2.addEventListener('click', function(){ kickoffDismissed = true; hideKickoff(); });
     kickoffEl = el;
