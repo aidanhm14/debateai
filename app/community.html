@@ -6,17 +6,17 @@
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
 <title>Community · Debatable</title>
-<meta name="description" content="The Debatable community: public case disclosures, threaded discussion, vote on what's good. Read how other people tackled motions across APDA, BP, Worlds, Asian Parli, LD, PF, Policy. Import any case." />
+<meta name="description" content="The Debatable community feed: takes, clips, published rounds, disclosed cases, and debaters posting for an opponent. Post a take, share a clip, or say you want a round and someone takes it. APDA, BP, Worlds, Asian Parli, LD, PF, Policy." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/community">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/community">
 <meta property="og:title" content="Community · Debatable">
-<meta property="og:description" content="Public case disclosures + threaded discussion. Read, vote, post. Import any case across formats.">
+<meta property="og:description" content="A feed of takes, clips, and published rounds, plus debaters posting for an opponent. Post something, or take a round.">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Community · Debatable">
-<meta name="twitter:description" content="Public case disclosures + threaded discussion. Read, vote, post.">
+<meta name="twitter:description" content="Takes, clips, published rounds, and debaters looking for an opponent.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -954,6 +954,194 @@ body::before{
 .bar-meta{font-size:.82rem}
 .build-link{font-size:.86rem}
 .join-history-list li .jh-date{font-size:.84rem}
+
+/* ══ FEED TAB ═══════════════════════════════════════════════════════
+   (2026-08-19) The room used to open on Cases: a filter bar over a
+   list of disclosed case documents. That is a library, and it asks a
+   newcomer to have a case before they can take part. The Feed is the
+   front door instead — one scrollable column where a take, a clip, a
+   published round, a case, and an "anyone want to debate?" all sit in
+   the same timeline and all cost one line to post.
+
+   Everything here is real: takes and looking-for-a-round posts are
+   `forum_posts` docs (kind:'take'|'lfr', so they never pollute the
+   long-form Discussions tab), clips come from /api/clips, rounds from
+   public_rounds, cases from shared_cases. Nothing is invented to make
+   the column look busy; when a source is empty its items are simply
+   absent. All colors are tokens — this page carries a full dual
+   palette and the feed has to read in both. */
+
+/* ── Composer ─────────────────────────────────────────────────── */
+.composer{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:14px 16px;margin-bottom:14px;
+}
+.composer-top{display:flex;gap:12px;align-items:flex-start}
+.composer-ava{
+  flex:0 0 auto;width:40px;height:40px;border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;background:var(--accent-solid,#b91c1c);color:#fff;
+  font-weight:800;font-size:.82rem;letter-spacing:.02em;
+}
+.composer-ava svg,.composer-ava img{width:100%;height:100%;display:block}
+.composer-main{flex:1;min-width:0}
+.composer-modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.cmode{
+  padding:5px 12px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-family:inherit;
+  font-size:.7rem;font-weight:800;letter-spacing:.05em;cursor:pointer;
+  transition:all .15s;
+}
+.cmode:hover{color:var(--text);border-color:var(--border-strong)}
+.cmode.on{background:var(--accent-solid,#b91c1c);border-color:var(--accent);color:#fff}
+.composer textarea{
+  width:100%;min-height:62px;resize:vertical;
+  background:transparent;border:0;outline:none;
+  color:var(--text);font-family:inherit;font-size:1rem;line-height:1.5;
+}
+.composer textarea::placeholder{color:var(--text-ghost)}
+.composer-extra{display:none;gap:8px;flex-wrap:wrap;margin-top:8px}
+.composer-extra.on{display:flex}
+.composer-extra select,.composer-extra input{
+  padding:7px 11px;border-radius:9px;border:1px solid var(--border);
+  background:var(--bg-elev);color:var(--text);font-family:inherit;font-size:.78rem;
+  outline:none;max-width:100%;
+}
+.composer-extra input{flex:1 1 190px;min-width:0}
+.composer-extra select:focus,.composer-extra input:focus{border-color:var(--accent)}
+.composer-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;
+}
+.composer-hint{font-size:.7rem;color:var(--text-ghost);font-weight:600;flex:1;min-width:120px}
+.composer-count{font-size:.7rem;color:var(--text-ghost);font-weight:700;font-variant-numeric:tabular-nums}
+.composer-count.warn{color:var(--amber)}
+
+/* ── Type filter chips above the column ───────────────────────── */
+.feed-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{
+  padding:6px 13px;border-radius:999px;border:1px solid var(--border);
+  background:var(--bg-card);color:var(--text-dim);font-family:inherit;
+  font-size:.72rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;
+}
+.fchip:hover{color:var(--text);border-color:var(--border-strong)}
+.fchip.on{background:var(--accent-solid,#b91c1c);border-color:var(--accent);color:#fff}
+.fchip .fchip-n{opacity:.65;font-variant-numeric:tabular-nums;margin-left:5px}
+
+/* ── The column itself ────────────────────────────────────────── */
+.feed{
+  display:flex;flex-direction:column;
+  border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-card);
+}
+.fitem{
+  display:flex;gap:12px;padding:15px 17px;
+  border-bottom:1px solid var(--border);transition:background .15s;
+}
+.fitem:last-child{border-bottom:0}
+.fitem:hover{background:var(--bg-hover,rgba(127,127,127,.045))}
+[data-theme="light"] .fitem:hover{background:rgba(0,0,0,.022)}
+.fitem-ava{
+  flex:0 0 auto;width:42px;height:42px;border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;font-weight:800;font-size:.8rem;
+  background:var(--bg-elev);border:1px solid var(--border);color:var(--text-dim);
+}
+.fitem-ava svg,.fitem-ava img{width:100%;height:100%;display:block}
+.fitem-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.fitem-head{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:.82rem}
+.fitem-name{font-weight:800;color:var(--text);letter-spacing:-.01em}
+a.fitem-name{text-decoration:none}
+a.fitem-name:hover{color:var(--accent);text-decoration:underline}
+.fitem-handle,.fitem-time{color:var(--text-ghost);font-size:.75rem;font-weight:600}
+.fitem-text{font-size:.94rem;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.fitem-text.clamped{display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
+.fitem-more{
+  align-self:flex-start;background:none;border:0;padding:0;cursor:pointer;
+  color:var(--accent);font-family:inherit;font-size:.75rem;font-weight:800;
+}
+
+/* Kind pill — one glance tells you what you are looking at. */
+.fkind{
+  display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;
+  font-size:.58rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  border:1px solid var(--border);color:var(--text-dim);white-space:nowrap;
+}
+.fkind-take{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#f87171}
+.fkind-lfr{background:rgba(34,197,94,.11);border-color:rgba(34,197,94,.34);color:#4ade80}
+.fkind-clip{background:rgba(168,85,247,.11);border-color:rgba(168,85,247,.34);color:#c084fc}
+.fkind-round{background:rgba(59,130,246,.10);border-color:rgba(59,130,246,.32);color:#93c5fd}
+.fkind-case{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.32);color:#fbbf24}
+.fkind-thread{background:rgba(127,127,127,.10)}
+[data-theme="light"] .fkind-take{color:#b91c1c}
+[data-theme="light"] .fkind-lfr{color:#15803d}
+[data-theme="light"] .fkind-clip{color:#7e22ce}
+[data-theme="light"] .fkind-round{color:#1d4ed8}
+[data-theme="light"] .fkind-case{color:#b45309}
+
+/* Attached media / quoted object (clip, round, case). */
+.fcard{
+  display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;
+  border:1px solid var(--border);border-radius:12px;padding:11px 13px;
+  background:var(--bg-elev);transition:border-color .15s,transform .15s;
+}
+[data-theme="light"] .fcard{background:#faf9f6}
+.fcard:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.fcard-thumb{
+  flex:0 0 auto;width:56px;height:56px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(135deg,rgba(239,68,68,.16),rgba(168,85,247,.14));
+  border:1px solid var(--border);font-size:1.15rem;
+}
+.fcard-main{flex:1;min-width:0}
+.fcard-kicker{
+  font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-ghost);margin-bottom:3px;
+}
+.fcard-title{
+  font-size:.86rem;font-weight:700;line-height:1.35;color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.fcard-meta{font-size:.7rem;color:var(--text-ghost);font-weight:600;margin-top:3px}
+
+/* Looking-for-a-round callout — the one item type with a real, live
+   destination, so it gets the loudest affordance in the column. */
+.flfr{
+  border:1px solid rgba(34,197,94,.34);border-radius:12px;padding:11px 13px;
+  background:rgba(34,197,94,.06);display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.flfr-facts{flex:1;min-width:140px;display:flex;gap:7px;flex-wrap:wrap}
+.flfr-fact{
+  font-size:.66rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;border:1px solid rgba(34,197,94,.3);color:#4ade80;
+}
+[data-theme="light"] .flfr-fact{color:#15803d}
+.flfr .btn.go{background:#16a34a;border-color:#16a34a;color:#fff;white-space:nowrap}
+.flfr .btn.go:hover{background:#15803d;border-color:#15803d}
+
+/* Action row. Counts are real: replies and votes come off the doc. */
+.fact-row{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:1px;margin-left:-7px}
+.fact{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;
+  background:none;border:0;cursor:pointer;font-family:inherit;
+  font-size:.74rem;font-weight:700;color:var(--text-ghost);transition:all .13s;
+}
+.fact:hover{color:var(--text);background:rgba(127,127,127,.10)}
+.fact.on{color:var(--accent)}
+.fact.up:hover{color:var(--accent);background:rgba(239,68,68,.10)}
+.fact-n{font-variant-numeric:tabular-nums}
+
+.feed-end{
+  padding:18px;text-align:center;font-size:.76rem;color:var(--text-ghost);
+  font-weight:600;border-top:1px solid var(--border);
+}
+.feed-more-btn{display:block;width:100%;padding:14px;border:0;background:none;cursor:pointer;
+  font-family:inherit;font-size:.78rem;font-weight:800;letter-spacing:.05em;color:var(--accent);
+  border-top:1px solid var(--border);transition:background .15s}
+.feed-more-btn:hover{background:rgba(239,68,68,.06)}
+
+@media (max-width:560px){
+  .fitem{padding:13px 13px;gap:10px}
+  .fitem-ava{width:36px;height:36px}
+  .composer{padding:12px 13px}
+  .fcard-thumb{width:46px;height:46px}
+}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
@@ -1010,13 +1198,13 @@ body::before{
     <h1>Read an argument. <em>Argue back.</em></h1>
     <div class="intro-copy">
       <p class="intro-lede">About <strong id="memberCount" data-baseline="101">101</strong> visits in the last 30 days.</p>
-      <p class="intro-lede">Read published cases. Reply to an argument. Or run a full round.</p>
-      <p class="intro-lede">Some early threads are written by AI. They are always labeled.</p>
+      <p class="intro-lede">Post a take. Share a clip. Say you want a round and someone takes it.</p>
+      <p class="intro-lede">Some early posts are written by AI. They are always labeled.</p>
       <p class="intro-lede">I am building and funding this myself. Try it, then tell me what is broken.</p>
     </div>
     <div class="intro-you" id="memberYou">+ you, here today</div>
     <div class="cta-row">
-      <a class="cta primary" href="/practice">Publish a case</a>
+      <a class="cta primary" href="#feed" data-goto="feed">Post something</a>
       <a class="cta primary" href="/spar" style="background:transparent;border:1px solid rgba(185,28,28,.5);color:#b91c1c">Find an opponent now →</a>
       <a class="cta fund" href="mailto:aidandavidhollinger@gmail.com?subject=Help%20fund%20Debatable">Help fund the build</a>
     </div>
@@ -1122,7 +1310,8 @@ body::before{
   </div>
 
   <div class="tabs">
-    <button class="tab on" data-tab="cases">Cases</button>
+    <button class="tab on" data-tab="feed">Feed</button>
+    <button class="tab" data-tab="cases">Cases</button>
     <button class="tab" data-tab="discussion">Discussions</button>
     <button class="tab" data-tab="rounds">Rounds</button>
     <button class="tab" data-tab="live">Chat <span class="tab-dot"></span></button>
@@ -1130,8 +1319,79 @@ body::before{
     <button class="tab" data-tab="personas">AI Personas</button>
   </div>
 
+  <!-- ── FEED TAB ─────────────────────────────────────────────────
+       The default surface as of 2026-08-19. One scrollable column that
+       merges every real thing happening in the room: takes, clips,
+       published rounds, disclosed cases, forum threads, and "anyone
+       want to debate?" posts. Composer sits on top so posting is the
+       first thing available rather than something you find in a modal
+       behind a tab. Built by the feed IIFE further down the page. -->
+  <div id="feedPane">
+    <div class="composer" id="feedComposer">
+      <div class="composer-top">
+        <div class="composer-ava" id="composerAva">?</div>
+        <div class="composer-main">
+          <div class="composer-modes">
+            <button class="cmode on" data-cmode="take">Take</button>
+            <button class="cmode" data-cmode="lfr">Anyone want to debate?</button>
+            <button class="cmode" data-cmode="clip">Share a clip</button>
+          </div>
+          <textarea id="composerText" maxlength="1200"
+                    placeholder="What is the argument? Post a take, a hot motion, a bad RFD you got."></textarea>
+
+          <!-- Looking-for-a-round fields. Format + when ride on the doc
+               so the card can render facts instead of making the reader
+               parse them out of prose, and so Accept can deep-link into
+               /spar already pointed at the right format. -->
+          <div class="composer-extra" id="composerLfr">
+            <select id="lfrFormat" aria-label="Format">
+              <option value="">Any format</option>
+              <option value="quick">Quick Clash</option>
+              <option value="apda">APDA</option>
+              <option value="bp">British Parliamentary</option>
+              <option value="worlds">Worlds / WSDC</option>
+              <option value="asian">Asian Parliamentary</option>
+              <option value="ld">Lincoln-Douglas</option>
+              <option value="pf">Public Forum</option>
+              <option value="policy">Policy</option>
+            </select>
+            <input id="lfrWhen" type="text" maxlength="60" placeholder="When? e.g. tonight after 8 ET" />
+          </div>
+
+          <!-- Clip / round attachment. Populated from the viewer's own
+               published rounds plus the recent public clip feed, so the
+               only things attachable are things that actually exist. -->
+          <div class="composer-extra" id="composerClip">
+            <select id="clipPick" aria-label="Clip or round to attach" style="flex:1 1 260px">
+              <option value="">Loading clips and rounds…</option>
+            </select>
+          </div>
+
+          <div class="composer-foot">
+            <span class="composer-hint" id="composerHint">Sign in to post. Reading is open to everyone.</span>
+            <span class="composer-count" id="composerCount">0/1200</span>
+            <button class="btn primary" id="composerPost">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feed-filters" id="feedFilters">
+      <button class="fchip on" data-feed="all">Everything</button>
+      <button class="fchip" data-feed="take">Takes</button>
+      <button class="fchip" data-feed="lfr">Looking for a round</button>
+      <button class="fchip" data-feed="clip">Clips</button>
+      <button class="fchip" data-feed="round">Rounds</button>
+      <button class="fchip" data-feed="case">Cases</button>
+    </div>
+
+    <div id="feedList" class="feed"></div>
+  </div>
+
   <!-- ── CASES TAB ────────────────────────────────────────────── -->
-  <div id="casesPane">
+  <!-- Hidden on load since 2026-08-19: the Feed is the default tab, and
+       without this both panes paint until tabSwitch runs. -->
+  <div id="casesPane" style="display:none">
     <div class="filters">
       <input id="search" class="search" type="text" placeholder="Search motions or argument text…" autocomplete="off" />
       <div class="group" id="sideFilters">
@@ -1829,6 +2089,7 @@ body::before{
       }
       allCases = docs;
       applyFilters();
+      renderFeedSafe();
     }, function(err){
       console.warn('[disclosures] ' + label + ' snapshot error', err);
       // Index-not-ready or missing → quietly retry with the where-only
@@ -2031,6 +2292,8 @@ body::before{
     firebaseAuth.onAuthStateChanged(function(user){
       currentUser = user || null;
       currentUserVerified = false;
+      try { syncComposerAuth(); } catch(e){}
+      renderFeedSafe();
       if (user){
         // Fetch verified status from /users/{uid} doc (admin-set field).
         try {
@@ -2152,18 +2415,524 @@ body::before{
     host.dataset.rendered = '1';
   }
 
+  /* ══ FEED ══════════════════════════════════════════════════════════
+     (2026-08-19) The default tab. One scrollable column merging every
+     real signal in the room into a single timeline:
+
+       take    forum_posts kind:'take'   — commentary, hot motions, bad RFDs
+       lfr     forum_posts kind:'lfr'    — "anyone want to debate?" + Accept
+       clip    forum_posts kind:'clip'   — a take with a clip/round attached
+       thread  forum_posts (no kind)     — the long-form Discussions posts
+       round   public_rounds             — a published round transcript
+       case    shared_cases              — a disclosed case
+
+     Design constraints this page has always held, kept here:
+       · Nothing is invented to fill the column. Every row is a real doc.
+         An empty source contributes zero rows, and the empty state says
+         the room is quiet rather than faking a crowd.
+       · AI-authored seeds stay labeled (identityBadges) and sort below
+         real humans, the same real-above-seed invariant the Cases and
+         Discussions tabs use.
+       · Feed-kind posts are EXCLUDED from the Discussions tab. A take is
+         not a thread; mixing them would wreck both surfaces.
+
+     Storage note: takes/lfr/clips are `forum_posts` docs, which already
+     have rules (author-only writes, vote-only field updates by others)
+     and already stream into `allThreads` through the live snapshot. No
+     new collection and no rules deploy. */
+
+  var feedFilter = 'all';         // all | take | lfr | clip | round | case
+  var feedPageSize = 14;
+  var feedShown = feedPageSize;
+  var allRounds = [];             // filled by renderPublicRounds
+  var allClips = [];              // filled from /api/clips
+  var composerMode = 'take';
+  var _feedBooted = false;
+
+  var FEED_KINDS = { take:1, lfr:1, clip:1 };
+  function isFeedKind(t){ return !!(t && t.kind && FEED_KINDS[t.kind]); }
+
+  var FORMAT_LABEL = {
+    quick:'Quick Clash', apda:'APDA', bp:'British Parliamentary',
+    worlds:'Worlds / WSDC', asian:'Asian Parliamentary',
+    ld:'Lincoln-Douglas', pf:'Public Forum', policy:'Policy'
+  };
+
+  // ── Faces ────────────────────────────────────────────────────────
+  // DBAvatar.randomConfig(seed) is deterministic, so the same author
+  // keeps the same face across every row and across reloads without us
+  // storing anything. Falls back to initials if avatar.js didn't load.
+  var _faceCache = {};
+  function faceFor(name, size){
+    if (!_faceCache) _faceCache = {};
+    var key = String(name || '?') + '|' + size;
+    if (_faceCache[key]) return _faceCache[key];
+    var out;
+    try {
+      if (window.DBAvatar && typeof window.DBAvatar.randomConfig === 'function'){
+        out = window.DBAvatar.svg(window.DBAvatar.randomConfig(String(name || 'someone')), size);
+      }
+    } catch(e){}
+    if (!out) out = escHtml(initialsOf(name));
+    _faceCache[key] = out;
+    return out;
+  }
+  function myFace(size){
+    try {
+      if (window.DBAvatar){
+        var saved = window.DBAvatar.getUser && window.DBAvatar.getUser();
+        if (saved) return window.DBAvatar.svg(saved, size);
+        if (currentUser) return faceFor(shortName(currentUser), size);
+      }
+    } catch(e){}
+    return currentUser ? escHtml(initialsOf(shortName(currentUser))) : '?';
+  }
+
+  function feedTime(ms){
+    if (!ms) return '';
+    var s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 60) return 'now';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    if (s < 604800) return Math.floor(s / 86400) + 'd';
+    try { return new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric' }); }
+    catch(e){ return Math.floor(s / 86400) + 'd'; }
+  }
+  function msOf(t){
+    if (!t) return 0;
+    if (typeof t === 'number') return t;
+    if (t.seconds) return t.seconds * 1000;
+    if (typeof t.toDate === 'function'){ try { return t.toDate().getTime(); } catch(e){ return 0; } }
+    if (t instanceof Date) return t.getTime();
+    return 0;
+  }
+
+  // ── Source merge ─────────────────────────────────────────────────
+  // Each source maps into one item shape so the renderer stays a single
+  // switch instead of six near-duplicate card functions.
+  function buildFeed(){
+    var items = [];
+
+    (allThreads || []).forEach(function(t){
+      var kind = isFeedKind(t) ? t.kind : 'thread';
+      items.push({
+        kind: kind,
+        id: t.id,
+        ts: msOf(t.createdAt),
+        name: t.authorName || 'Member',
+        text: t.content || '',
+        title: t.title || '',
+        votes: t.voteScore || 0,
+        replies: t.replyCount || 0,
+        lfr: kind === 'lfr' ? { format: t.lfrFormat || '', when: t.lfrWhen || '' } : null,
+        ref: t.refType ? { type:t.refType, id:t.refId, title:t.refTitle || '', meta:t.refMeta || '' } : null,
+        votable: true,
+        raw: t
+      });
+    });
+
+    (allRounds || []).forEach(function(r){
+      items.push({
+        kind:'round', id:r.id, ts: r.publishedAt ? r.publishedAt.getTime() : 0,
+        name: r.displayName || 'Anonymous', text:'',
+        ref: { type:'round', id:r.id, title:r.motion || '',
+               meta:[r.formatName, r.sideLabel, r.voiceName ? 'vs ' + r.voiceName : '']
+                      .filter(Boolean).join(' · ') },
+        winner: r.winner || null, raw:r
+      });
+    });
+
+    (allClips || []).forEach(function(c){
+      items.push({
+        kind:'clip', id:'clip-' + c.id, ts: c.createdAt || 0,
+        name: c.name || 'Someone', text:'',
+        ref: { type:'clip', id:c.id, title:c.title || 'Clip',
+               meta:[c.recordingTitle, clipLen(c)].filter(Boolean).join(' · ') },
+        raw:c
+      });
+    });
+
+    (allCases || []).forEach(function(c){
+      items.push({
+        kind:'case', id:'case-' + c.id, ts: msOf(c.createdAt),
+        name: c.sharedBy || 'Anonymous',
+        text:'',
+        ref: { type:'case', id:c.id, title:c.motion || 'Untitled motion',
+               meta:[c.side, c.format].filter(Boolean).join(' · ') },
+        votes: c.voteScore || 0,
+        raw:c
+      });
+    });
+
+    // Real humans above AI seeds, then newest first. Same invariant the
+    // other two boards use, so the room never opens on a wall of bots.
+    items.sort(function(a, b){
+      var ai = (isAiAccount(a.raw) ? 1 : 0) - (isAiAccount(b.raw) ? 1 : 0);
+      if (ai !== 0) return ai;
+      return (b.ts || 0) - (a.ts || 0);
+    });
+    return items;
+  }
+
+  function clipLen(c){
+    var n = Math.max(0, Math.round((Number(c.end) || 0) - (Number(c.start) || 0)));
+    if (!n) return '';
+    var m = Math.floor(n / 60), s = n % 60;
+    return m ? (m + 'm ' + s + 's') : (s + 's');
+  }
+
+  // ── Render ───────────────────────────────────────────────────────
+  function feedKindPill(kind){
+    var label = { take:'Take', lfr:'Looking for a round', clip:'Clip',
+                  round:'Round', case:'Case', thread:'Thread' }[kind] || kind;
+    return '<span class="fkind fkind-' + kind + '">' + escHtml(label) + '</span>';
+  }
+
+  function refCard(ref){
+    if (!ref) return '';
+    var href = ref.type === 'clip'  ? '/watch?clip=' + encodeURIComponent(ref.id)
+             : ref.type === 'round' ? '/r/' + encodeURIComponent(ref.id)
+             : '#case=' + encodeURIComponent(ref.id);
+    var thumb  = ref.type === 'clip' ? '▶' : (ref.type === 'round' ? '⚖' : '▤');
+    var kicker = ref.type === 'clip' ? 'Clip' : (ref.type === 'round' ? 'Published round' : 'Disclosed case');
+    var tag = ref.type === 'case' ? 'button' : 'a';
+    var attrs = ref.type === 'case'
+      ? ' data-feed-case="' + escHtml(ref.id) + '" style="text-align:left;width:100%;font-family:inherit;cursor:pointer"'
+      : ' href="' + escHtml(href) + '"';
+    return '<' + tag + ' class="fcard"' + attrs + '>' +
+        '<span class="fcard-thumb">' + thumb + '</span>' +
+        '<span class="fcard-main">' +
+          '<span class="fcard-kicker">' + kicker + '</span>' +
+          '<span class="fcard-title">' + escHtml(ref.title || '') + '</span>' +
+          (ref.meta ? '<span class="fcard-meta">' + escHtml(ref.meta) + '</span>' : '') +
+        '</span>' +
+      '</' + tag + '>';
+  }
+
+  function lfrBlock(it){
+    var fmt = it.lfr && it.lfr.format ? (FORMAT_LABEL[it.lfr.format] || it.lfr.format) : 'Any format';
+    var when = it.lfr && it.lfr.when ? it.lfr.when : '';
+    var href = '/spar' + (it.lfr && it.lfr.format ? '?format=' + encodeURIComponent(it.lfr.format) : '');
+    return '<div class="flfr">' +
+        '<span class="flfr-facts">' +
+          '<span class="flfr-fact">' + escHtml(fmt) + '</span>' +
+          (when ? '<span class="flfr-fact">' + escHtml(when) + '</span>' : '') +
+        '</span>' +
+        '<a class="btn go" href="' + escHtml(href) + '">Take the round →</a>' +
+      '</div>';
+  }
+
+  function feedRow(it){
+    var isLong = (it.text || '').length > 460;
+    var head =
+      '<div class="fitem-head">' +
+        '<span class="fitem-name">' + authorLink(it.name, it.raw) + '</span>' +
+        identityBadges(it.raw) +
+        feedKindPill(it.kind) +
+        (it.ts ? '<span class="fitem-time">· ' + escHtml(feedTime(it.ts)) + '</span>' : '') +
+      '</div>';
+
+    var body = '';
+    if (it.kind === 'thread' && it.title){
+      body += '<div class="fitem-text" style="font-weight:800;font-size:1rem;cursor:pointer" data-feed-thread="' +
+              escHtml(it.id) + '">' + escHtml(it.title) + '</div>';
+    }
+    if (it.text){
+      body += '<div class="fitem-text' + (isLong ? ' clamped' : '') + '">' + escHtml(it.text) + '</div>' +
+              (isLong ? '<button class="fitem-more" data-feed-expand="1">Show more</button>' : '');
+    }
+    if (it.kind === 'lfr') body += lfrBlock(it);
+    if (it.ref) body += refCard(it.ref);
+
+    // Actions. Only rows backed by a forum_posts doc get vote/reply,
+    // because those are the only ones with a place to put the write.
+    var acts = '';
+    if (it.votable){
+      var mine = myThreadVotes[it.id] || 0;
+      acts += '<button class="fact up' + (mine === 1 ? ' on' : '') + '" data-feed-vote="' + escHtml(it.id) + '">' +
+                '▲ <span class="fact-n">' + (it.votes || 0) + '</span></button>' +
+              '<button class="fact" data-feed-thread="' + escHtml(it.id) + '">' +
+                '↩ <span class="fact-n">' + (it.replies || 0) + '</span></button>';
+    }
+    acts += '<button class="fact" data-feed-share="' + escHtml(it.id) + '">↗ Share</button>';
+    if (it.kind !== 'lfr'){
+      var motion = (it.ref && it.ref.title) || it.title || '';
+      acts += '<a class="fact" href="/practice' + (motion ? '?motion=' + encodeURIComponent(motion.slice(0,200)) : '') +
+              '">⚔ Debate this</a>';
+    }
+    body += '<div class="fact-row">' + acts + '</div>';
+
+    return '<article class="fitem" data-fid="' + escHtml(it.id) + '">' +
+        '<span class="fitem-ava">' + faceFor(it.name, 42) + '</span>' +
+        '<div class="fitem-body">' + head + body + '</div>' +
+      '</article>';
+  }
+
+  // Every caller outside this block uses renderFeedSafe.
+  function renderFeedSafe(){
+    try { renderFeed(); } catch(e){ console.warn('[feed] render failed', e); }
+  }
+
+  function renderFeed(){
+    var host = $('feedList');
+    if (!host) return;
+    var all = buildFeed();
+    var f = feedFilter || 'all';
+    var shown = feedShown || 14;
+    var items = f === 'all' ? all : all.filter(function(i){ return i.kind === f; });
+
+    // Live counts on the chips, so the filters describe the room.
+    var counts = {};
+    all.forEach(function(i){ counts[i.kind] = (counts[i.kind] || 0) + 1; });
+    document.querySelectorAll('#feedFilters .fchip').forEach(function(c){
+      var k = c.getAttribute('data-feed');
+      var n = k === 'all' ? all.length : (counts[k] || 0);
+      var span = c.querySelector('.fchip-n');
+      if (!span){ span = document.createElement('span'); span.className = 'fchip-n'; c.appendChild(span); }
+      span.textContent = n ? String(n) : '';
+    });
+
+    if (!items.length){
+      host.innerHTML = '<div class="feed-end">' +
+        (f === 'all'
+          ? 'Quiet in here. Post the first take and it lands at the top.'
+          : 'Nothing of this kind yet. Post one and it shows up here.') +
+        '</div>';
+      return;
+    }
+
+    var page = items.slice(0, shown);
+    var html = page.map(feedRow).join('');
+    if (items.length > shown){
+      html += '<button class="feed-more-btn" id="feedMoreBtn">Show more (' +
+              (items.length - shown) + ' more)</button>';
+    } else {
+      html += '<div class="feed-end">That is the whole room so far.</div>';
+    }
+    host.innerHTML = html;
+  }
+
+  // ── Composer ─────────────────────────────────────────────────────
+  var COMPOSER_COPY = {
+    take: { ph:'What is the argument? Post a take, a hot motion, a bad RFD you got.',
+            hint:'Takes show up in the feed. Long-form goes in Discussions.' },
+    lfr:  { ph:'Anyone want to debate? Say what you are looking for.',
+            hint:'People can take the round straight from your post.' },
+    clip: { ph:'Say something about the clip. What is worth watching?',
+            hint:'Attach one of your published rounds or a clip from the watch page.' }
+  };
+
+  function setComposerMode(mode){
+    composerMode = mode;
+    document.querySelectorAll('.cmode').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-cmode') === mode);
+    });
+    var lfrBox = $('composerLfr'), clipBox = $('composerClip');
+    if (lfrBox) lfrBox.classList.toggle('on', mode === 'lfr');
+    if (clipBox) clipBox.classList.toggle('on', mode === 'clip');
+    var ta = $('composerText'), hint = $('composerHint');
+    var copy = COMPOSER_COPY[mode] || COMPOSER_COPY.take;
+    if (ta) ta.placeholder = copy.ph;
+    if (hint && currentUser) hint.textContent = copy.hint;
+    if (mode === 'clip') loadAttachables();
+  }
+
+  // Only real, existing objects are attachable: the public clip feed
+  // plus the published rounds already loaded for the Rounds tab.
+  var _attachablesLoaded = false;
+  function loadAttachables(){
+    var sel = $('clipPick');
+    if (!sel || _attachablesLoaded) return;
+    _attachablesLoaded = true;
+    loadPublicRounds();
+    fetch('/api/clips').then(function(r){ return r && r.ok ? r.json() : null; })
+      .then(function(d){ if (d && Array.isArray(d.clips)) allClips = d.clips; })
+      .catch(function(){})
+      .then(function(){
+        var opts = ['<option value="">No attachment</option>'];
+        allClips.slice(0, 30).forEach(function(c){
+          opts.push('<option value="clip:' + escHtml(c.id) + '">Clip · ' +
+                    escHtml((c.title || 'Clip').slice(0, 70)) + '</option>');
+        });
+        allRounds.slice(0, 30).forEach(function(r){
+          opts.push('<option value="round:' + escHtml(r.id) + '">Round · ' +
+                    escHtml((r.motion || '').slice(0, 70)) + '</option>');
+        });
+        if (opts.length === 1) opts.push('<option value="" disabled>No clips or rounds published yet</option>');
+        sel.innerHTML = opts.join('');
+        renderFeed();
+      });
+  }
+
+  function syncComposerAuth(){
+    var ava = $('composerAva'), hint = $('composerHint'), btn = $('composerPost');
+    if (ava) ava.innerHTML = myFace(40);
+    if (currentUser){
+      if (hint) hint.textContent = (COMPOSER_COPY[composerMode] || COMPOSER_COPY.take).hint;
+      if (btn) btn.textContent = 'Post';
+    } else {
+      if (hint) hint.textContent = 'Sign in to post. Reading is open to everyone.';
+      if (btn) btn.textContent = 'Sign in to post';
+    }
+  }
+
+  function submitComposer(){
+    if (!currentUser){
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+      try { firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+      catch(e){ toast('Sign in to post.'); }
+      return;
+    }
+    if (!firebaseDb){ toast('Cannot reach the server right now.'); return; }
+    var ta = $('composerText');
+    var text = (ta ? ta.value : '').trim();
+    if (text.length < 2){ toast('Say something first.'); return; }
+
+    var doc = {
+      parentId: null,
+      kind: composerMode,
+      authorUid: currentUser.uid,
+      authorName: shortName(currentUser),
+      content: text,
+      title: '',
+      category: 'general',
+      voteScore: 0,
+      voteCount: 0,
+      replyCount: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (composerMode === 'lfr'){
+      doc.lfrFormat = ($('lfrFormat') || {}).value || '';
+      doc.lfrWhen   = (($('lfrWhen') || {}).value || '').trim();
+    }
+    if (composerMode === 'clip'){
+      var picked = (($('clipPick') || {}).value || '');
+      if (picked){
+        var parts = picked.split(':');
+        doc.refType = parts[0];
+        doc.refId = parts.slice(1).join(':');
+        var match = parts[0] === 'clip'
+          ? allClips.filter(function(c){ return c.id === doc.refId; })[0]
+          : allRounds.filter(function(r){ return r.id === doc.refId; })[0];
+        doc.refTitle = match ? (match.title || match.motion || '') : '';
+        doc.refMeta  = match ? (match.recordingTitle || match.formatName || '') : '';
+      }
+    }
+
+    var btn = $('composerPost');
+    if (btn){ btn.disabled = true; btn.textContent = 'Posting…'; }
+    firebaseDb.collection('forum_posts').add(doc).then(function(){
+      if (ta) ta.value = '';
+      if ($('lfrWhen')) $('lfrWhen').value = '';
+      updateComposerCount();
+      toast(composerMode === 'lfr' ? 'Posted. People can take the round from your post.' : 'Posted.');
+      try { gtag('event', 'community_post', { kind: composerMode }); } catch(e){}
+    }).catch(function(err){
+      console.warn('[feed] post failed', err);
+      toast('Could not post. Try again.');
+    }).finally(function(){
+      if (btn){ btn.disabled = false; btn.textContent = 'Post'; }
+    });
+  }
+
+  function updateComposerCount(){
+    var ta = $('composerText'), c = $('composerCount');
+    if (!ta || !c) return;
+    var n = ta.value.length;
+    c.textContent = n + '/1200';
+    c.classList.toggle('warn', n > 1080);
+  }
+
+  // ── Wiring ───────────────────────────────────────────────────────
+  function bootFeed(){
+    if (_feedBooted) return;
+    _feedBooted = true;
+
+    document.querySelectorAll('.cmode').forEach(function(b){
+      b.addEventListener('click', function(){ setComposerMode(b.getAttribute('data-cmode')); });
+    });
+    document.querySelectorAll('#feedFilters .fchip').forEach(function(b){
+      b.addEventListener('click', function(){
+        feedFilter = b.getAttribute('data-feed');
+        feedShown = feedPageSize;
+        document.querySelectorAll('#feedFilters .fchip').forEach(function(x){ x.classList.remove('on'); });
+        b.classList.add('on');
+        renderFeed();
+        try { gtag('event', 'community_feed_filter', { filter: feedFilter }); } catch(e){}
+      });
+    });
+
+    var ta = $('composerText');
+    if (ta){
+      ta.addEventListener('input', updateComposerCount);
+      // Cmd/Ctrl+Enter posts, the shortcut every composer has.
+      ta.addEventListener('keydown', function(e){
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter'){ e.preventDefault(); submitComposer(); }
+      });
+    }
+    var post = $('composerPost');
+    if (post) post.addEventListener('click', submitComposer);
+
+    // One delegated handler for the whole column.
+    var host = $('feedList');
+    if (host) host.addEventListener('click', function(e){
+      var el;
+      if ((el = e.target.closest('#feedMoreBtn'))){
+        feedShown += feedPageSize; renderFeed(); return;
+      }
+      if ((el = e.target.closest('[data-feed-expand]'))){
+        var wrap = el.previousElementSibling;
+        if (wrap){ wrap.classList.remove('clamped'); el.remove(); }
+        return;
+      }
+      if ((el = e.target.closest('[data-feed-vote]'))){
+        castThreadVote(el.getAttribute('data-feed-vote'), 'up'); return;
+      }
+      if ((el = e.target.closest('[data-feed-thread]'))){
+        openThread(el.getAttribute('data-feed-thread')); return;
+      }
+      if ((el = e.target.closest('[data-feed-case]'))){
+        openCase(el.getAttribute('data-feed-case')); return;
+      }
+      if ((el = e.target.closest('[data-feed-share]'))){
+        var id = el.getAttribute('data-feed-share');
+        var url = location.origin + '/community#thread=' + encodeURIComponent(id);
+        try {
+          navigator.clipboard.writeText(url);
+          toast('Link copied.');
+        } catch(err){ toast(url); }
+        return;
+      }
+    });
+
+    setComposerMode('take');
+    syncComposerAuth();
+    updateComposerCount();
+    // Rounds and clips enrich the column, so pull them on first paint
+    // rather than waiting for someone to click into those tabs.
+    loadPublicRounds();
+    fetch('/api/clips').then(function(r){ return r && r.ok ? r.json() : null; })
+      .then(function(d){
+        if (d && Array.isArray(d.clips) && d.clips.length){ allClips = d.clips; renderFeed(); }
+      }).catch(function(){});
+    renderFeed();
+  }
+
   function tabSwitch(tab){
     var casesPane = $('casesPane'), discPane = $('discussionPane'), livePane = $('livePane'), roundsPane = $('roundsPane');
-    var peoplePane = $('peoplePane'), personasPane = $('personasPane');
+    var peoplePane = $('peoplePane'), personasPane = $('personasPane'), feedPane = $('feedPane');
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
     var active = document.querySelector('.tab[data-tab="' + tab + '"]');
     if (active) active.classList.add('on');
+    if (feedPane) feedPane.style.display = (tab === 'feed') ? '' : 'none';
     casesPane.style.display = (tab === 'cases') ? '' : 'none';
     discPane.style.display  = (tab === 'discussion') ? '' : 'none';
     if (roundsPane) roundsPane.style.display = (tab === 'rounds') ? '' : 'none';
     if (livePane) livePane.style.display = (tab === 'live') ? '' : 'none';
     if (peoplePane) peoplePane.style.display = (tab === 'people') ? '' : 'none';
     if (personasPane) personasPane.style.display = (tab === 'personas') ? '' : 'none';
+    if (tab === 'feed') renderFeedSafe();
     if (tab === 'people') renderPeople();
     if (tab === 'personas') renderPersonas();
     // Lazy-load published rounds on first activation. We don't fetch
@@ -2175,13 +2944,16 @@ body::before{
   document.querySelectorAll('.tab').forEach(function(b){
     b.addEventListener('click', function(){ tabSwitch(b.getAttribute('data-tab')); });
   });
+  bootFeed();
   // Anchor links: /community#discussion deep-links to the forum tab,
   // /community#rounds deep-links to the published-rounds tab (also
   // serves as the landing spot when the old /rounds URL is redirected
   // here), /community#live deep-links to the chat tab. Useful when
   // sharing "come hang out" links from Discord or in-app nudges.
   var hash = (location.hash || '').toLowerCase();
-  if (hash === '#discussion') tabSwitch('discussion');
+  if (hash === '#feed') tabSwitch('feed');
+  else if (hash === '#cases') tabSwitch('cases');
+  else if (hash === '#discussion') tabSwitch('discussion');
   else if (hash === '#rounds') tabSwitch('rounds');
   else if (hash === '#live')   tabSwitch('live');
   else if (hash === '#people') tabSwitch('people');
@@ -2207,6 +2979,7 @@ body::before{
         if (++threadTries < 30) setTimeout(pollThread, 200);
       })();
     } else if (caseMatch) {
+      tabSwitch('cases');
       var caseId = decodeURIComponent(caseMatch[1]);
       var caseTries = 0;
       (function pollCase(){
@@ -2263,6 +3036,10 @@ body::before{
   }
 
   function renderPublicRounds(rounds){
+    // The Feed reads the same fetch rather than issuing its own — one
+    // public_rounds query serves both surfaces.
+    allRounds = rounds || [];
+    renderFeedSafe();
     var loadingEl = $('roundsLoading');
     var cardsEl = $('roundsCards');
     var emptyEl = $('roundsEmpty');
@@ -2308,6 +3085,11 @@ body::before{
     var empty = $('threadsEmpty');
     var q = threadSearch.toLowerCase().trim();
     var matched = allThreads.filter(function(t){
+      // Takes / looking-for-a-round / clip posts are Feed items. They
+      // share the forum_posts collection (same rules, same snapshot)
+      // but they are one-liners, and letting them into the thread list
+      // would bury the long-form posts this tab exists for.
+      if (isFeedKind(t)) return false;
       if (threadFilter && (t.category || 'general') !== threadFilter) return false;
       if (q){
         var hay = ((t.title || '') + ' ' + (t.content || '')).toLowerCase();
@@ -2388,6 +3170,7 @@ body::before{
         var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
         allThreads = mergeThreadSeeds(docs);
         renderThreads();
+        renderFeedSafe();
       }, function(err){
         // Index-not-ready fallback — pull where-only and sort client-side.
         if (err && /FAILED_PRECONDITION|index/i.test(err.message || '')){
@@ -2403,6 +3186,7 @@ body::before{
               });
               allThreads = mergeThreadSeeds(docs);
               renderThreads();
+              renderFeedSafe();
             });
           return;
         }
@@ -2448,6 +3232,7 @@ body::before{
     var t = allThreads.find(function(x){ return x.id === threadId; });
     if (t) t.voteScore = (t.voteScore || 0) + delta;
     renderThreads();
+    renderFeedSafe();
     // Seed threads have no Firestore parent — keep optimistic UI, skip
     // the increment that would otherwise fail-and-rollback.
     if (t && t.seed){ return; }
@@ -2464,6 +3249,7 @@ body::before{
       myThreadVotes[threadId] = prev;
       if (t) t.voteScore = (t.voteScore || 0) - delta;
       renderThreads();
+      renderFeedSafe();
       toast('Vote failed: ' + (err.message || 'unknown'));
     });
   }
@@ -2587,9 +3373,9 @@ body::before{
         '<div class="modal-card">' +
           '<div class="modal-head">' +
             '<div style="min-width:0;flex:1">' +
-              '<h2>' + escHtml(t.title || 'Untitled') + '</h2>' +
+              '<h2>' + escHtml(t.title || (t.content || '').split('\n')[0].slice(0, 120) || 'Untitled') + '</h2>' +
               '<div class="meta">' +
-                '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(t.category || 'general') + '</span>' +
+                '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(isFeedKind(t) ? (t.kind === 'lfr' ? 'looking for a round' : t.kind) : (t.category || 'general')) + '</span>' +
                 authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) +
               '</div>' +
             '</div>' +
