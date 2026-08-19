@@ -35,7 +35,7 @@ const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || undefined;
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
-const SUBJECT     = 'Free entry to The Debatable Open ends Friday night';
+const SUBJECT     = 'Speak money into existence: The Debatable Open';
 
 // Short on purpose: the announcement made the case, this one carries the
 // clock. Voice rules bind: no em-dashes, no preface, one ask. Prizes and
@@ -60,17 +60,26 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    The tournament runs Saturday, August 29, online, all day: drop in when it
-    suits you, debate a real opponent, and get a written verdict on every round.
-    $500 for first, $250 for second, $100 for third.
+    The tournament runs Saturday, August 29, online, all day. Doors open 10 AM
+    Eastern and stay open: show up whenever suits you, get paired with a real
+    person, and argue. The style is built for anyone, not just debate kids.
+    No jargon, no prepared case. You make a point, back it up, and answer
+    theirs. An AI judge writes out who won and why after every round.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    Every round you play posts to the public standings, so one round puts you
+    on the board and more rounds is more chances. In the evening the top of
+    the standings goes into a streamed single-elimination bracket, and the
+    audience votes the final. $500 for first, $250 for second, $100 for third.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
 
   <p style="font-size:.88rem;line-height:1.6;margin:0 0 14px">
-    P.S. New this week: if you have competed on Tabroom, you can import your
-    real tournament record and start with a rating that matches it, instead of
-    starting from zero. Takes two minutes at
+    P.S. New this week: if you competed and have a record on Tabroom, you can
+    import it and start with a rating that matches it, instead of starting
+    from zero. Takes two minutes at
     <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>.
   </p>
 
