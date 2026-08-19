@@ -30,10 +30,26 @@ import { FieldValue } from './firestore.mjs';
 import { getAuthUserByUid } from './auth-admin.mjs';
 
 // Accounts created at or before this instant qualify. EDT, end of day.
-export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-22T23:59:59-04:00');
+//
+// Moved 2026-08-19 from Friday Aug 22 to the day of the event, because
+// the original cutoff made the bracket-fill push impossible. The push
+// runs Aug 19-29; the comp expired on day 3, so for seven of the ten
+// days every stranger it reached would have met a $20 door with "email
+// the organizer and ask" as the only way past it. No stranger takes
+// that step. Meanwhile the door had earned nothing at all: eight days
+// after entry opened, `paidEntries` was 0 against a field of 7.
+//
+// This does not invent a new policy. The rules already promise the fee
+// "is waived for anyone else who asks, on identical terms"; widening
+// the automatic window only removes an email round-trip from a waiver
+// that was already universal on request. The pot is untouched (prizes
+// are funded, not raised from fees) and comps still count separately
+// on `compedEntries`, so nothing here makes the money look bigger than
+// it is. Full reasoning in soul.md's decision log.
+export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-29T23:59:59-04:00');
 // Human label for copy. One constant so the page, the email and the
 // rules cannot drift apart from the code that enforces it.
-export const FOUNDING_CUTOFF_LABEL = 'Friday, August 22';
+export const FOUNDING_CUTOFF_LABEL = 'Saturday, August 29';
 
 export function qualifiesByCreation(createdMs) {
   return Number.isFinite(createdMs) && createdMs > 0 && createdMs <= FOUNDING_CUTOFF_MS;

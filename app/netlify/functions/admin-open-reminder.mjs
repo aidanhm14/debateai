@@ -1,7 +1,7 @@
 /* admin-open-reminder.mjs  ·  POST /api/admin/open-reminder
  *
  * The SECOND touch on The Debatable Open: a short deadline email sent in
- * the final days before the founding cutoff (Friday, August 22), to the
+ * the final days before the founding cutoff (Saturday, August 29), to the
  * same list the announcement reached plus everyone who joined since.
  * Same two-press button shape as admin-open-announce.mjs: POST {} is a
  * dry run, POST {confirm:'SEND'} sends one batch and reports remaining.

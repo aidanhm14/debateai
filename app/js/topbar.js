@@ -2030,16 +2030,20 @@
   try { if (sessionStorage.getItem('da-open-strip-dismissed') === '1') return; } catch (e) {}
 
   // All boundaries in ET (UTC-4 in August).
+  //
+  // The Friday free-entry deadline is gone (2026-08-19): the comp now
+  // runs to entries close, so this strip must not keep counting down to
+  // a cutoff that no longer bites. It is the only tournament surface on
+  // every page, so during a bracket-fill push it says the one fact that
+  // moves someone, which is that entering costs nothing.
   var now = Date.now();
-  var FREE_ENDS  = Date.parse('2026-08-21T23:59:59-04:00'); // Friday, the deadline the emails promised
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
   var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
   if (now > EVENT_OVER) return;
 
-  var tail;
-  if (now >= EVENT_DAY) tail = 'Live today, doors open 10 AM ET';
-  else if (now <= FREE_ENDS) tail = 'Free entry ends Friday';
-  else tail = 'Online, drop in any time';
+  var tail = (now >= EVENT_DAY)
+    ? 'Live today, doors open 10 AM ET'
+    : 'Free to enter';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
