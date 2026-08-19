@@ -192,6 +192,79 @@
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) daStopFlashTitle(); });
   window.addEventListener('focus', daStopFlashTitle);
 
+  // ── Audible alerts ──────────────────────────────────────────────────
+  // /js/sfx.js is lazy site-wide (topbar only injects it once someone
+  // touches the speaker toggle, which almost nobody does). This module
+  // ships on 49 pages and fires the most important pings on the site —
+  // and 44 of those 49 carried no sfx.js at all, /spar and /live-round
+  // among them. On every one of those, window.SFX was undefined, so each
+  // `window.SFX && SFX.notify()` guard silently no-opped: the match card
+  // appeared, the countdown ran, and the round was lost in total silence.
+  // So load it ourselves, on demand, and arm the audio context while the
+  // user is still interacting — browsers only unlock audio on a gesture,
+  // and an alert by definition fires when nobody is interacting.
+  // In-round / matchmaking pages have their own louder surfaces; a
+  // background "someone is live" ping on top of a live round is noise.
+  var DA_ON_ROUND_PAGE = /\/(live-round|voice-debate|exhibition|casual-room|spar)/.test(location.pathname);
+  function daMatchCardUp(){ try { return !!document.querySelector('.da-match-overlay'); } catch (_) { return false; } }
+
+  var _daSfxLoad = null;
+  function daEnsureSfx(){
+    if (window.SFX && window.SFX.alert) { try { window.SFX.arm(); } catch (_) {} return Promise.resolve(window.SFX); }
+    if (_daSfxLoad) return _daSfxLoad;
+    _daSfxLoad = new Promise(function (resolve) {
+      function done(){ try { window.SFX && window.SFX.arm && window.SFX.arm(); } catch (_) {} resolve(window.SFX || null); }
+      var existing = document.querySelector('script[src*="/js/sfx.js"]');
+      if (existing) {
+        // Already in the document (eager tag, or topbar's on-demand load).
+        // It may still be parsing — wait for load, but don't hang forever
+        // if it fired before we attached.
+        if (window.SFX && window.SFX.alert) { done(); return; }
+        existing.addEventListener('load', done, { once: true });
+        existing.addEventListener('error', done, { once: true });
+        setTimeout(done, 3000);
+        return;
+      }
+      var el = document.createElement('script');
+      el.src = '/js/sfx.js';
+      el.async = true;
+      el.addEventListener('load', done, { once: true });
+      el.addEventListener('error', done, { once: true });
+      document.head.appendChild(el);
+    });
+    return _daSfxLoad;
+  }
+  // Play the urgent cue. Async on first call (script fetch), which is fine:
+  // an alert landing 80ms late still lands. `times` is the repeat count —
+  // more repeats for a longer decision window.
+  function daAlert(times){
+    daEnsureSfx().then(function (sfx) {
+      if (!sfx) return;
+      try {
+        if (sfx.alert) sfx.alert(times);
+        else if (sfx.notify) sfx.notify();
+        else if (sfx.success) sfx.success();
+      } catch (_) {}
+    }).catch(function () {});
+  }
+  // Soft cue. Inbound DM / group message: audible, but never the urgent
+  // repeating alert — a chat ping mid-task should not read like a round
+  // is starting.
+  function daPing(){
+    daEnsureSfx().then(function (sfx) {
+      if (!sfx) return;
+      try { (sfx.notify || sfx.success || function(){})(); } catch (_) {}
+    }).catch(function () {});
+  }
+  try { window.daEnsureSfx = daEnsureSfx; window.daAlert = daAlert; window.daPing = daPing; } catch (_) {}
+
+  // The matchmaking + in-round pages fire SFX from their own inline code
+  // (spar.html's match chime at the foreground matcher, live-round.html's
+  // join-request ping) and none of them ship /js/sfx.js. Load it up front
+  // there so those existing call sites stop no-opping; everywhere else it
+  // stays lazy until an alert is actually possible.
+  if (DA_ON_ROUND_PAGE) { try { daEnsureSfx(); } catch (_) {} }
+
   var FIRESTORE_SDK_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
   // Self-bootstrap firebase so the Available pill + DM bell work on ANY
   // page that loads this script, including marketing/content sub-pages
@@ -546,6 +619,12 @@
     // from /api/live-now. The actionable presence signal vs the generic
     // online count. { count, debaters:[{uid,name,format}] }.
     var liveNow = null;
+    // Who was live at the last poll, so a rising count can be told apart
+    // from the same two people still sitting in the queue. Null until the
+    // first poll lands — a page-load baseline must not ping.
+    var liveSeenUids = null;
+    var lastLivePing = 0;
+    var LIVE_PING_COOLDOWN_MS = 5 * 60 * 1000;
     // Next scheduled round from /api/schedule-round (community scheduling,
     // 2026-07-14). Soonest upcoming round or null; rendered as a bell row
     // so scheduled rounds advertise themselves on every page.
@@ -658,8 +737,25 @@
     loadOnlineCount();
     loadLiveNow();
     loadNextRound();
+    var hiddenTicks = 0;
     var activityIv = setInterval(function () {
-      if (!document.hidden) { loadActivity(); loadOnlineCount(); loadLiveNow(); loadNextRound(); }
+      if (!document.hidden) {
+        hiddenTicks = 0;
+        loadActivity(); loadOnlineCount(); loadLiveNow(); loadNextRound();
+        return;
+      }
+      // Hidden tab. The feed / online count / next round are all cosmetic
+      // and can wait for the user to come back. "Someone just went live"
+      // cannot — being alerted while you are looking at something else is
+      // the entire point of it. So poll that ONE endpoint (15s server
+      // cache, shared) at a third of the rate, and only for people who
+      // explicitly turned live alerts on. Web Push covers this population
+      // too, but only where a push subscription exists: iOS Safari outside
+      // an installed PWA has none, and this is their only path.
+      if (!signedInReal || !daGetLiveAlerts()) return;
+      if (++hiddenTicks < 2) return;   // ~3 min while hidden
+      hiddenTicks = 0;
+      loadLiveNow();
     }, 90 * 1000);
     function loadNextRound() {
       fetch('/api/schedule-round', { cache: 'no-cache' })
@@ -681,10 +777,43 @@
         .then(function (j) {
           if (!j || typeof j.count !== 'number') return;
           liveNow = j;
+          announceNewlyLive(j);
           if (panel || pageEl) paintPanel();
         })
         .catch(function () { /* function down — live row stays hidden */ });
     }
+    // Someone new just joined the queue. Until now this only repainted a
+    // row inside a closed bell panel, so a debater going live while you
+    // were reading another tab was completely silent — you found out by
+    // opening the bell, by which point they had usually timed out.
+    // Sound + tab-title + OS notification, with a cooldown so a busy
+    // queue can't turn into a metronome.
+    function announceNewlyLive(j) {
+      var ids = {};
+      var rows = (j && j.debaters) || [];
+      for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].uid) ids[rows[i].uid] = rows[i];
+      var prev = liveSeenUids;
+      liveSeenUids = ids;
+      if (!prev) return;                       // first poll = baseline, not news
+      if (!signedInReal) return;               // no queue to join, no ping
+      if (DA_ON_ROUND_PAGE || daMatchCardUp()) return;
+      if (Date.now() - lastLivePing < LIVE_PING_COOLDOWN_MS) return;
+      var fresh = [];
+      for (var uid in ids) if (!prev[uid] && uid !== myUid) fresh.push(ids[uid]);
+      if (!fresh.length) return;
+      lastLivePing = Date.now();
+      var who = String(fresh[0].name || 'A debater');
+      var more = fresh.length > 1 ? ' and ' + (fresh.length - 1) + ' more' : '';
+      daAlert(daAway() ? 3 : 1);
+      daFlashTitle(who + ' is live');
+      try {
+        if (daCanOsNotify()) {
+          var ln = new Notification(who + more + ' is looking to spar', { body: 'Tap to find your match.', icon: '/favicon.svg', tag: 'da-live-now' });
+          ln.onclick = function () { window.focus(); try { location.href = '/spar'; } catch (_) {} ln.close(); };
+        }
+      } catch (_) {}
+    }
+
     function loadActivity() {
       fetch('/api/recent-activity', { cache: 'no-cache' })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -1219,7 +1348,7 @@
 
     function announce(disp, preview) {
       showToast(disp, preview);
-      try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (_) {}
+      daPing();
       daFlashTitle('New message'); // cross-platform (incl. iOS) tab-title ping
       try {
         if (daCanOsNotify()) {
@@ -1473,6 +1602,11 @@
     };
     function goAvailable() {
       if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;
+      // Going available is a click. That click is the last user gesture we
+      // are guaranteed before a match lands, and browsers only unlock audio
+      // on a gesture — so load + unlock the sound bank here, not at ping
+      // time when the tab may already be in the background.
+      daEnsureSfx();
       ensureFirestore(function () {
         if (!available) return; // toggled off while the SDK was still loading
         try { db = window.firebase.firestore(); } catch (e) { return; }
@@ -1677,7 +1811,7 @@
     function showMatch(d) {
       stopTimers();
       closeOverlay();
-      try { window.SFX && (window.SFX.notify ? window.SFX.notify() : (window.SFX.success && window.SFX.success())); } catch (e) {}
+      daAlert(daAway() ? 4 : 2); // repeats, so it carries from another tab/room
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
         if (daCanOsNotify()) {
@@ -1820,6 +1954,20 @@
           escHtml(nm) + ' already accepted';
         ring.parentNode.insertBefore(chip, ring.nextSibling);
       }
+      // The most expensive moment to miss on the whole site: someone is
+      // sitting in a room waiting, and the only thing between them and a
+      // round is this user pressing a button they cannot see. Ping harder
+      // than the initial match card and re-flash the title even if the
+      // match-found flash was already dismissed by a focus event.
+      daAlert(5);
+      daStopFlashTitle();
+      daFlashTitle(nm + ' is waiting.');
+      try {
+        if (daCanOsNotify()) {
+          var an = new Notification(nm + ' accepted', { body: 'The room opens the moment you do.', icon: '/favicon.svg', tag: 'da-spar-match' });
+          an.onclick = function () { window.focus(); accept(d); an.close(); };
+        }
+      } catch (e) {}
       try { if (window.gtag) gtag('event', 'spar_bg_peer_accepted_shown'); } catch (e) {}
     }
 
@@ -1933,7 +2081,24 @@
         room: d.room,
         source: 'spar-bg'
       });
-      location.href = '/live-round.html?' + params.toString();
+      var href = '/live-round.html?' + params.toString();
+      // Both sides are in and this tab is about to navigate itself into a
+      // live round. That used to happen in total silence: someone who
+      // stepped away during the wait came back to a round already running.
+      //
+      // Navigation tears down the AudioContext, so the ping has to finish
+      // BEFORE we leave. Hold the jump while the user is away — they are
+      // not watching, so the delay costs nothing, and it is the difference
+      // between hearing the round start and walking into a dead clock.
+      if (!daAway()) { location.href = href; return; }
+      daAlert(4);
+      try {
+        if (daCanOsNotify()) {
+          var rn = new Notification('Your round is starting', { body: 'vs ' + ((d && d.matchedWithName) || 'your opponent') + '. Tap to join.', icon: '/favicon.svg', tag: 'da-spar-match' });
+          rn.onclick = function () { window.focus(); rn.close(); };
+        }
+      } catch (e) {}
+      setTimeout(function () { location.href = href; }, 2200);
     }
     // Release the current match back to the queue (the peer returns to
     // 'waiting' via the admin SDK, so their card closes instead of landing in

@@ -52,13 +52,23 @@
   //   'missing'      → 404 or decode failed, permanent synth fallback
   var mp3 = Object.create(null);
 
+  // Explicit user toggle only. The one switch that silences everything,
+  // alerts included: if someone pressed the speaker button they meant it.
+  function isSilenced(){
+    try { if (localStorage.getItem(STORAGE_KEY) === '1') return true; } catch(e){}
+    return false;
+  }
   function isMuted(){
     // Two ways to be muted: explicit user toggle, or system-level
     // reduced-motion preference (we treat that as a strong signal that
     // the user doesn't want UI flourish, sound included). Either wins.
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === '1') return true;
-    } catch(e){}
+    //
+    // Reduced-motion does NOT silence urgent cues (opts.urgent, SFX.alert).
+    // "No decorative animation" is not "don't tell me my opponent is
+    // waiting in the room" — a debater who misses the match ping forfeits
+    // a live round, and Reduce Motion is on for plenty of people who never
+    // meant to turn sound off.
+    if (isSilenced()) return true;
     try {
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
     } catch(e){}
@@ -94,14 +104,18 @@
   //   peak        — peak gain (multiplied by MASTER_GAIN)
   //   type        — 'sine' (default) | 'triangle' | 'square' | 'sawtooth'
   //   delayMs     — when to start, ms from now (for arpeggios)
+  //   urgent      — bypass the reduced-motion mute (explicit mute still
+  //                 wins). Alerts only.
+  //   gain        — override MASTER_GAIN. Alerts need to carry from the
+  //                 next room; UI ticks do not.
   function tone(opts){
-    if (isMuted()) return;
+    if (opts.urgent ? isSilenced() : isMuted()) return;
     var c = getCtx();
     if (!c) return;
     ensureRunning();
     var t0 = c.currentTime + (opts.delayMs || 0) / 1000;
     var dur = opts.dur || 0.12;
-    var peak = (opts.peak || 0.18) * MASTER_GAIN;
+    var peak = (opts.peak || 0.18) * (opts.gain || MASTER_GAIN);
     try {
       var o = c.createOscillator();
       var g = c.createGain();
@@ -242,6 +256,73 @@
     // Low peaks so a notification mid-task isn't startling.
     tone({ freq: 660, dur: 0.12, peak: 0.08, type: 'sine', delayMs: 0 });
     tone({ freq: 880, dur: 0.18, peak: 0.08, type: 'sine', delayMs: 90 });
+  }
+
+  // ── Attention alert ────────────────────────────────────────────────
+  // For the handful of moments where the user is NOT looking at the tab
+  // and missing the moment costs them something real: a match landed, the
+  // opponent already accepted and the room is waiting on them, the round
+  // is starting, a debater just went live.
+  //
+  // Deliberately unlike every other cue here:
+  //   - it repeats (a single 200ms blip from another room is not heard),
+  //   - it is louder (ALERT_GAIN, not the quiet MASTER_GAIN ceiling),
+  //   - it survives prefers-reduced-motion (see isMuted's note),
+  //   - it stays a clean rising fourth, not a klaxon. This fires while
+  //     someone is working in another tab; it should read as a doorbell.
+  // `times` (default 3) is the number of repeats. Callers with a longer
+  // window (round starting) can ask for more.
+  // The loudest cue on the site by design, but bounded: the two
+  // simultaneous tones sum to (0.30 + 0.42) * 0.45 ≈ 0.32 peak, roughly
+  // 6x the DM ping and ~3x the end-of-speech buzzer, nowhere near clipping.
+  // Loud enough to carry from the next room, quiet enough not to make
+  // someone sitting at the machine jump.
+  var ALERT_GAIN = 0.45;
+  function alert(times){
+    var n = Math.max(1, Math.min(6, times || 3));
+    for (var i = 0; i < n; i++) {
+      var at = i * 520;
+      // Low body so the ping has weight through laptop speakers.
+      tone({ freq: 330, dur: 0.16, peak: 0.30, type: 'triangle', gain: ALERT_GAIN, urgent: true, delayMs: at });
+      // Rising fourth on top — the part that actually carries.
+      tone({ freq: 880,  dur: 0.16, peak: 0.42, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: at });
+      tone({ freq: 1174.66, dur: 0.30, peak: 0.46, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: at + 150 });
+    }
+  }
+
+  // ── Autoplay priming ───────────────────────────────────────────────
+  // Chrome/Safari suspend a fresh AudioContext until the page has seen a
+  // user gesture, and an alert fires by definition when the user is NOT
+  // interacting. So the context has to be created and resumed on the LAST
+  // gesture before they wander off, not at play() time.
+  //
+  // Not auto-run on import: an AudioContext on every page that never makes
+  // a sound is the exact cost the lazy sfx load was avoiding. Callers that
+  // know an alert is possible (notifications.js when a user goes available
+  // or a DM listener attaches) call arm() and pay for it then.
+  var armed = false;
+  function arm(){
+    if (armed) return;
+    if (isSilenced()) return;   // don't leave armed: a later unmute re-arms
+    armed = true;
+    function primeNow(){
+      try { getCtx(); ensureRunning(); } catch(e){}
+    }
+    if (ctx && ctx.state === 'running') return;         // already unlocked
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){
+      try { window.addEventListener(ev, primeNow, { once: true, capture: true, passive: true }); } catch(e){
+        try { window.addEventListener(ev, primeNow, true); } catch(_){}
+      }
+    });
+    primeNow(); // if a gesture already happened this page, this succeeds now
+  }
+  // Can we actually make a sound right now? Callers use this to decide
+  // whether to lean harder on the visual/OS fallbacks (tab-title flash,
+  // Notification) instead of assuming the ping was heard.
+  function canSound(){
+    if (isSilenced()) return false;
+    var c = getCtx();
+    return !!(c && c.state !== 'suspended');
   }
 
   // ── Round-clock sounds ─────────────────────────────────────────────
@@ -421,6 +502,9 @@
     error: error,
     confirm: confirm,
     notify: notify,
+    alert: alert,
+    arm: arm,
+    canSound: canSound,
     timeWarning: timeWarning,
     timeUp: timeUp,
     rfdReveal: rfdReveal,
@@ -428,9 +512,15 @@
     ambient: ambient,
     preload: preload,
     isMuted: isMuted,
+    isSilenced: isSilenced,
     mute: function(){ setMuted(true); },
     unmute: function(){ setMuted(false); },
-    toggleMute: function(){ var m = !isMuted(); setMuted(m); return m; },
+    // Toggles the EXPLICIT preference, not the effective one. Reading
+    // isMuted() here meant a user on prefers-reduced-motion could never
+    // turn sound off: isMuted() was already true, so every press wrote
+    // false. Harmless while reduced-motion silenced everything anyway;
+    // not harmless now that alerts deliberately ignore it.
+    toggleMute: function(){ var m = !isSilenced(); setMuted(m); return m; },
   };
   window.SFX = Object.assign({}, sharedSFX, window.SFX || {});
 })();

@@ -3643,9 +3643,21 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function pingMatchFound(name){
-    try { if (window.SFX){ if (SFX.success) SFX.success(); else if (SFX.notify) SFX.notify(); } } catch(e){}
+    // "Away" is not just a hidden tab. The common desktop case is this tab
+    // still being the active one in its own window while the user works in
+    // a different window or app — document.hidden is false there, so the
+    // notification below never fired for them.
+    var away = true;
+    try { away = document.hidden || !document.hasFocus(); } catch(e){}
+    // window.daAlert (notifications.js) loads /js/sfx.js on demand. This
+    // page never shipped that script, so the SFX.success call this replaces
+    // was a no-op for everyone who had not manually touched the topbar
+    // speaker toggle — i.e. the match chime on the matchmaking page itself
+    // was silent. Keep the old call as the fallback path.
+    if (window.daAlert) window.daAlert(away ? 4 : 2);
+    else { try { if (window.SFX){ if (SFX.success) SFX.success(); else if (SFX.notify) SFX.notify(); } } catch(e){} }
     try {
-      if (document.hidden && window.Notification && Notification.permission === 'granted'){
+      if (away && window.Notification && Notification.permission === 'granted'){
         var n = new Notification('Opponent ready', {
           body: 'vs ' + (name || 'your opponent') + '. Jump back in to start.',
           icon: '/favicon.svg',
