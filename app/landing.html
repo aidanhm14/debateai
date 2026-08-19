@@ -20763,7 +20763,10 @@ window.addEventListener('load', function(){
     // state used to keep the full 84px offset and left a tall black shelf.
     '#homeLiveBand{background:#0b0b0d;border-bottom:1px solid rgba(239,68,68,.35);padding:64px 20px 14px}' +
     '#homeLiveBand.hlb-is-wall{padding:64px clamp(14px,3vw,28px) 12px}' +
-    'body.has-beta-strip #homeLiveBand.hlb-is-wall{padding-top:96px}' +
+    // The band's own top already sits below the beta strip, so its
+    // clearance only has to cover the fixed topbar. The old 96px override
+    // added the strip's height a second time and left 44px of dead black
+    // above the row against 13px below it.
     // The band already clears the fixed topbar. Drop the first screen's
     // duplicate 84-120px clearance and, on desktop, subtract the band's
     // measured height so the two pieces still fit in one viewport.
@@ -20776,7 +20779,8 @@ window.addEventListener('load', function(){
     // The strip head: LIVE pill, the scrollable room row, the watch link.
     // No title line — the chips say what is live, and a sentence above
     // them would double the height to repeat them.
-    '#homeLiveBand .hlb-strip{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-width:0}' +
+    '#homeLiveBand .hlb-strip{display:grid;grid-template-columns:auto minmax(0,auto) auto;' +
+      'justify-content:center;align-items:center;gap:12px;min-width:0}' +
     '#homeLiveBand .hlb-pill{display:inline-flex;align-items:center;gap:7px;background:#b91c1c;color:#fff;font-weight:800;font-size:13px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}' +
     '#homeLiveBand .hlb-strip .hlb-pill{flex:0 0 auto;font-size:11.5px;padding:4px 10px;letter-spacing:.1em}' +
     '#homeLiveBand .hlb-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:hlbPulse 1.4s infinite}' +
@@ -20793,15 +20797,19 @@ window.addEventListener('load', function(){
     // fill it; two rooms share it; a longer list scrolls. This preserves
     // the compact one-row behavior without marooning the controls at
     // opposite ends of an empty black band.
-    '#homeLiveBand .hlb-wall{display:flex;gap:8px;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;' +
+    '#homeLiveBand .hlb-wall{display:flex;gap:8px;width:auto;min-width:0;overflow-x:auto;overflow-y:hidden;' +
       'scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity;padding:1px 0}' +
     '#homeLiveBand .hlb-wall::-webkit-scrollbar{display:none}' +
     // Only fades while there is actually more to the right, so a cut-off
     // chip reads as "keep scrolling" instead of as a broken edge.
     '#homeLiveBand .hlb-wall.hlb-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent);' +
       'mask-image:linear-gradient(to right,#000 calc(100% - 34px),transparent)}' +
-    '#homeLiveBand .hlb-wall .hlb-tile{flex:1 0 280px;max-width:420px;scroll-snap-align:start}' +
-    '#homeLiveBand .hlb-wall .hlb-tile:only-child{max-width:none}' +
+    // Chips take their own width and never shrink: a longer list runs past
+    // the edge and scrolls, which is the behaviour the mask is drawn for.
+    // A lone room gets more room than a chip in a list, but not the whole
+    // rail, so the strip stays a row rather than one wide empty rectangle.
+    '#homeLiveBand .hlb-wall .hlb-tile{flex:0 0 auto;max-width:min(420px,100%);scroll-snap-align:start}' +
+    '#homeLiveBand .hlb-wall .hlb-tile:only-child{max-width:min(620px,100%)}' +
     // A chip: the room's own still when there is one, the motion, and
     // one muted line of format, names, and where the round has got to.
     '#homeLiveBand .hlb-tile{display:flex;align-items:center;gap:9px;padding:5px 11px 5px 5px;min-width:0;' +
@@ -20823,14 +20831,13 @@ window.addEventListener('load', function(){
     '@media(max-width:520px){' +
       '#homeLiveBand{padding-top:56px}' +
       '#homeLiveBand.hlb-is-wall{padding:56px 12px 9px}' +
-      'body.has-beta-strip #homeLiveBand.hlb-is-wall{padding-top:84px}' +
       '#homeLiveBand .hlb-open{margin-left:auto;padding:6px 11px;font-size:13.5px}' +
       '#homeLiveBand .hlb-strip .hlb-open{padding:5px 9px;font-size:12px}' +
       '#homeLiveBand .hlb-open-rest{display:none}' +
       '#homeLiveBand .hlb-strip{gap:8px}' +
       '#homeLiveBand .hlb-strip .hlb-pill{font-size:10px;padding:4px 8px;gap:5px}' +
-      '#homeLiveBand .hlb-wall .hlb-tile{flex-basis:210px;max-width:230px}' +
-      '#homeLiveBand .hlb-wall .hlb-tile:only-child{max-width:none}' +
+      '#homeLiveBand .hlb-wall .hlb-tile{max-width:min(230px,100%)}' +
+      '#homeLiveBand .hlb-wall .hlb-tile:only-child{max-width:100%}' +
       '#homeLiveBand .hlb-shot{width:56px;height:32px}' +
       '#homeLiveBand .hlb-rail .hlb-tile:nth-child(n+3){display:none}' +
     '}';
