@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /debate-rating — the indexable explainer for the rating system.
+     SEO target: "debate elo", "elo for debate", "debate rating system",
+     "chess elo for debate". The system lives in lib/rating.mjs
+     (Glicko-2) and lib/record-seed.mjs (imported seeds); every number
+     here mirrors those modules. Update the prose if constants change.
+     Built visual-first per Aidan (2026-08-19): the site reads as dense
+     black/white/red text, so this page explains with inline SVG (tier
+     ladder, delta diagram, uncertainty chart) and short captions. All
+     graphics are theme-aware via CSS vars; no external libraries. -->
+<title>The Debate Rating · an Elo for arguing · Debatable</title>
+<meta name="description" content="Debatable gives every debater one skill rating, like chess Elo but built for debate: it moves when you win or lose against real people, carries honest uncertainty, and can be seeded from your Tabroom record.">
+<link rel="canonical" href="https://itsdebatable.com/debate-rating">
+<link rel="icon" href="/icons/icon-192.png">
+<meta property="og:type" content="article">
+<meta property="og:title" content="The Debate Rating · an Elo for arguing · Debatable">
+<meta property="og:description" content="One number that says how you argue. How the Glicko-based Debate Rating works, why it is not plain Elo, and how to start with your real record.">
+<meta property="og:url" content="https://itsdebatable.com/debate-rating">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is the Debate Rating the same as chess Elo?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Same idea, different math. Elo assumes you play often enough for noise to average out. Debate rounds are sparser, so Debatable uses Glicko-2, which tracks a rating and how certain the system is about it. A new account and a proven account can both sit at 1500 and mean very different things." }
+    },
+    {
+      "@type": "Question",
+      "name": "What moves the rating?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Winning and losing rated rounds against real people. Beating a stronger opponent moves it more than beating a weaker one. The AI judge's speaker points never rank you; only results against people do." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I start with a rating that matches my experience?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. If you have competed before, you can look up your published Tabroom results and seed your rating from your actual record. The seed carries wide uncertainty and tightens as you debate." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is my rating marked provisional?",
+      "acceptedAnswer": { "@type": "Answer", "text": "A rating stays provisional until the system is confident: you need at least 3 rated rounds and enough results for the uncertainty to narrow. Provisional ratings display and matchmake but do not hold a numbered place on the public board." }
+    },
+    {
+      "@type": "Question",
+      "name": "What are the tiers?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Newcomer, Rookie from 1300, Regular from 1450, Contender from 1550, Varsity from 1650, Elite from 1750, and Titan from 1900. Everyone starts at 1500 with high uncertainty." }
+    }
+  ]
+}
+</script>
+
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+html[data-lightweb="web"]{background:var(--paper)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
+:root{
+  --ink-rgb:20,22,28;
+  --paper:#f4f2ea; --panel:#fffffe; --rule:rgba(20,22,28,.13); --rule-hard:rgba(20,22,28,.26);
+  --tx:rgb(var(--ink-rgb)); --dim:rgba(var(--ink-rgb),.72); --faint:rgba(var(--ink-rgb),.52);
+  --ghost:rgba(20,22,28,.07);
+  --brand:#c02626; --brand-hi:#e03535; --up:#12693f;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --head:'Archivo',Georgia,serif;
+}
+html[data-theme="crimson"]{
+  --ink-rgb:236,235,232;
+  --paper:#141210; --panel:#1c1917; --rule:rgba(236,235,232,.14); --rule-hard:rgba(236,235,232,.28);
+  --ghost:rgba(236,235,232,.08);
+  --up:#3fae72;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--tx);min-height:100vh}
+.wrap{max-width:920px;margin:0 auto;padding:96px 20px 80px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600}
+h1{font-family:var(--head);font-weight:800;font-size:clamp(30px,5vw,46px);line-height:1.05;margin:10px 0 14px;max-width:640px}
+h2{font-family:var(--head);font-weight:700;font-size:23px;margin:0 0 4px}
+p{color:var(--dim);font-size:16px;line-height:1.6;margin:0 0 12px}
+strong{color:var(--tx)}
+a{color:var(--brand)}
+.lede{font-size:17.5px;max-width:620px}
+
+/* Visual cards: each concept is one graphic + a short caption. */
+.viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:36px 0 0}
+.viz-card{border:1px solid var(--rule);border-radius:16px;background:var(--panel);padding:22px 22px 18px;overflow:hidden}
+.viz-card.full{grid-column:1 / -1}
+.viz-card .cap{font-size:14.5px;color:var(--faint);line-height:1.55;margin:10px 0 0}
+.viz-card svg{width:100%;height:auto;display:block}
+svg text{font-family:Inter,system-ui,sans-serif}
+svg .mono{font-family:ui-monospace,Menlo,monospace}
+@media (max-width:760px){ .viz-grid{grid-template-columns:1fr} .wrap{padding-top:84px} }
+
+/* hero number */
+.hero-row{display:flex;gap:34px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.hero-num{flex:none;text-align:center}
+.hero-num .n{font-family:var(--head);font-weight:800;font-size:76px;line-height:1}
+.hero-num .band{font-family:var(--mono);font-size:12.5px;color:var(--faint);margin-top:4px}
+.hero-num .t{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--rule-hard);border-radius:6px;padding:3px 9px;color:var(--dim)}
+
+.cta-row{display:flex;gap:10px;flex-wrap:wrap;margin:34px 0 0}
+.btn{font:600 15px Inter,sans-serif;border-radius:10px;padding:13px 24px;text-decoration:none;display:inline-block}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-hi)}
+.btn-ghost{color:var(--dim);border:1px solid var(--rule-hard)}
+.note{font-size:13.5px;color:var(--faint);line-height:1.55;margin-top:26px}
+
+/* compact FAQ (kept for the FAQPage markup, visually quiet) */
+.faq{margin-top:44px;border-top:1px solid var(--rule);padding-top:26px}
+.faq h3{font-family:var(--head);font-weight:700;font-size:15.5px;margin:16px 0 3px}
+.faq p{font-size:14.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">The Debate Rating</div>
+  <h1>An Elo for arguing.</h1>
+  <div class="hero-row">
+    <div class="hero-num">
+      <div class="n">1500</div>
+      <div class="band">everyone starts here</div>
+      <span class="t">Provisional</span>
+    </div>
+    <p class="lede">One number that follows you from round to round, like a chess rating. It moves when you <strong>win or lose against real people</strong>, and only then. The judge writes your ballot; the people you beat write your rating.</p>
+  </div>
+
+  <div class="viz-grid">
+
+    <!-- ── The ladder ──────────────────────────────────────────── -->
+    <div class="viz-card">
+      <h2>The ladder</h2>
+      <svg viewBox="0 0 400 330" role="img" aria-label="Tier ladder from Rookie at 1300 to Titan at 1900, with the 1500 start marked">
+        <!-- bands, top = Titan. x: bar 90→330, labels left/right -->
+        <g font-size="14">
+          <rect x="90" y="10"  width="240" height="42" rx="7" fill="var(--brand)" opacity="0.92"/>
+          <rect x="90" y="56"  width="240" height="42" rx="7" fill="var(--brand)" opacity="0.62"/>
+          <rect x="90" y="102" width="240" height="42" rx="7" fill="var(--brand)" opacity="0.42"/>
+          <rect x="90" y="148" width="240" height="42" rx="7" fill="var(--ghost)"/>
+          <rect x="90" y="194" width="240" height="42" rx="7" fill="var(--ghost)"/>
+          <rect x="90" y="240" width="240" height="42" rx="7" fill="var(--ghost)"/>
+          <rect x="90" y="286" width="240" height="34" rx="7" fill="var(--ghost)" opacity="0.6"/>
+          <text x="104" y="37"  fill="#fff" font-weight="700">Titan</text>
+          <text x="104" y="83"  fill="#fff" font-weight="700">Elite</text>
+          <text x="104" y="129" fill="var(--tx)" font-weight="700">Varsity</text>
+          <text x="104" y="175" fill="var(--tx)" font-weight="700">Contender</text>
+          <text x="104" y="221" fill="var(--tx)" font-weight="700">Regular</text>
+          <text x="104" y="267" fill="var(--tx)" font-weight="700">Rookie</text>
+          <text x="104" y="309" fill="var(--faint)" font-weight="600" font-size="12.5">Newcomer</text>
+          <g class="mono" font-size="12" fill="var(--faint)" text-anchor="end">
+            <text x="82" y="37">1900+</text>
+            <text x="82" y="83">1750</text>
+            <text x="82" y="129">1650</text>
+            <text x="82" y="175">1550</text>
+            <text x="82" y="221">1450</text>
+            <text x="82" y="267">1300</text>
+          </g>
+          <!-- start marker at 1500: between Contender(1550) and Regular(1450) bands -->
+          <line x1="90" y1="192" x2="330" y2="192" stroke="var(--tx)" stroke-width="2" stroke-dasharray="5 4"/>
+          <text x="338" y="196" fill="var(--tx)" font-size="12" font-weight="700">you</text>
+          <text x="338" y="210" fill="var(--faint)" font-size="11">1500</text>
+        </g>
+      </svg>
+      <p class="cap">Six tiers. Everyone starts at 1500, between Regular and Contender. The top of the ladder is earned against people, never against the AI.</p>
+    </div>
+
+    <!-- ── What moves it ───────────────────────────────────────── -->
+    <div class="viz-card">
+      <h2>What moves it</h2>
+      <svg viewBox="0 0 400 330" role="img" aria-label="Beating a stronger opponent gains more points than beating a weaker one; losing up costs little">
+        <g font-size="13.5">
+          <!-- row 1: beat stronger -->
+          <text x="10" y="30" fill="var(--tx)" font-weight="700">You 1500</text>
+          <text x="10" y="48" fill="var(--faint)" font-size="12">beat 1700</text>
+          <rect x="150" y="18" width="170" height="26" rx="6" fill="var(--up)"/>
+          <text x="160" y="36" fill="#fff" font-weight="700" class="mono">+24</text>
+          <text x="330" y="36" fill="var(--up)" font-weight="700" font-size="12">big jump</text>
+
+          <!-- row 2: beat equal -->
+          <text x="10" y="105" fill="var(--tx)" font-weight="700">You 1500</text>
+          <text x="10" y="123" fill="var(--faint)" font-size="12">beat 1500</text>
+          <rect x="150" y="93" width="100" height="26" rx="6" fill="var(--up)" opacity="0.75"/>
+          <text x="160" y="111" fill="#fff" font-weight="700" class="mono">+14</text>
+
+          <!-- row 3: beat weaker -->
+          <text x="10" y="180" fill="var(--tx)" font-weight="700">You 1500</text>
+          <text x="10" y="198" fill="var(--faint)" font-size="12">beat 1300</text>
+          <rect x="150" y="168" width="48" height="26" rx="6" fill="var(--up)" opacity="0.55"/>
+          <text x="160" y="186" fill="#fff" font-weight="700" class="mono">+6</text>
+
+          <!-- row 4: lose up -->
+          <text x="10" y="255" fill="var(--tx)" font-weight="700">You 1500</text>
+          <text x="10" y="273" fill="var(--faint)" font-size="12">lost to 1700</text>
+          <rect x="150" y="243" width="44" height="26" rx="6" fill="var(--brand)" opacity="0.55"/>
+          <text x="160" y="261" fill="#fff" font-weight="700" class="mono">&#8722;5</text>
+          <text x="206" y="261" fill="var(--faint)" font-size="12">losing up barely dents you</text>
+
+          <line x1="10" y1="300" x2="390" y2="300" stroke="var(--rule)"/>
+          <text x="10" y="322" fill="var(--faint)" font-size="12.5">Speaker points never rank you. Only results against people do.</text>
+        </g>
+      </svg>
+      <p class="cap">Beating a stronger opponent moves you more. Practice rounds against the AI sharpen you without touching the number.</p>
+    </div>
+
+    <!-- ── Uncertainty narrows ─────────────────────────────────── -->
+    <div class="viz-card full">
+      <h2>The number comes with honesty built in</h2>
+      <svg viewBox="0 0 840 240" role="img" aria-label="A rating line with a confidence band that narrows over ten rounds">
+        <!-- band polygon: wide at round 0, narrow at round 10 -->
+        <polygon points="60,40 60,200 780,145 780,105" fill="var(--brand)" opacity="0.12"/>
+        <path d="M60,40 L780,105 M60,200 L780,145" stroke="var(--brand)" stroke-width="1" opacity="0.35" fill="none"/>
+        <!-- rating line drifting up -->
+        <polyline points="60,120 132,132 204,112 276,122 348,104 420,112 492,96 564,102 636,92 708,96 780,88"
+                  fill="none" stroke="var(--tx)" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="60" cy="120" r="5" fill="var(--tx)"/>
+        <circle cx="780" cy="88" r="5" fill="var(--brand)"/>
+        <g font-size="12.5" fill="var(--faint)">
+          <text x="60" y="225" text-anchor="middle">round 1</text>
+          <text x="420" y="225" text-anchor="middle">round 5</text>
+          <text x="780" y="225" text-anchor="middle">round 10</text>
+          <text x="66" y="34">wide range: the system admits it does not know you yet</text>
+          <text x="774" y="80" text-anchor="end" fill="var(--tx)" font-weight="700">settled: now it ranks</text>
+        </g>
+      </svg>
+      <p class="cap">Plain Elo would move you 30 points on a coin flip and call it skill. The Debate Rating is <strong>Glicko-2</strong>: it carries a confidence range that narrows as you play and widens if you vanish for months. Until 3 rated rounds settle it, your rating is provisional: it shows on your profile and drives matchmaking but holds no numbered place on the <a href="/leaderboard">public board</a>.</p>
+    </div>
+
+    <!-- ── Seeded start ────────────────────────────────────────── -->
+    <div class="viz-card full">
+      <h2>Debated before? Skip the blank 1500.</h2>
+      <svg viewBox="0 0 840 150" role="img" aria-label="A blank start sits at 1500; importing a Tabroom record can seed you higher with a wide range">
+        <g font-size="13">
+          <!-- axis -->
+          <line x1="60" y1="100" x2="780" y2="100" stroke="var(--rule-hard)"/>
+          <g class="mono" font-size="11.5" fill="var(--faint)" text-anchor="middle">
+            <text x="60"  y="120">1200</text><text x="266" y="120">1400</text>
+            <text x="472" y="120">1600</text><text x="678" y="120">1800</text>
+          </g>
+          <!-- blank start marker at 1500 (x=369) -->
+          <line x1="369" y1="55" x2="369" y2="100" stroke="var(--faint)" stroke-width="2"/>
+          <text x="369" y="44" text-anchor="middle" fill="var(--faint)">blank start · 1500</text>
+          <!-- seeded: band 1478-1962 clipped visually, marker 1720 (x=595) -->
+          <rect x="470" y="66" width="250" height="20" rx="10" fill="var(--brand)" opacity="0.18"/>
+          <line x1="595" y1="55" x2="595" y2="100" stroke="var(--brand)" stroke-width="3"/>
+          <text x="595" y="44" text-anchor="middle" fill="var(--brand)" font-weight="700">seeded from your record · ~1720</text>
+        </g>
+      </svg>
+      <p class="cap"><a href="/claim">Look yourself up and claim your record</a>: the index covers hundreds of tournaments of published Tabroom results, and your rating seeds from your real wins, losses, and elim runs. Wide range on purpose, once ever, and only before your first rated round, so nobody re-rolls a bad start.</p>
+    </div>
+
+  </div>
+
+  <div class="cta-row">
+    <a class="btn btn-primary" href="/claim">Claim your record</a>
+    <a class="btn btn-ghost" href="/spar">Find a rated round</a>
+    <a class="btn btn-ghost" href="/practice">Practice against the AI</a>
+  </div>
+
+  <div class="faq">
+    <h2>Questions</h2>
+    <h3>Is the Debate Rating the same as chess Elo?</h3>
+    <p>Same idea, different math. Elo assumes you play often enough for noise to average out. Debate rounds are sparser, so Debatable uses Glicko-2, which tracks a rating and how certain the system is about it. A new account and a proven account can both sit at 1500 and mean very different things.</p>
+    <h3>What moves the rating?</h3>
+    <p>Winning and losing rated rounds against real people. Beating a stronger opponent moves it more than beating a weaker one. The AI judge's speaker points never rank you; only results against people do.</p>
+    <h3>Can I start with a rating that matches my experience?</h3>
+    <p>Yes. If you have competed before, you can <a href="/claim">look up your published Tabroom results</a> and seed your rating from your actual record. The seed carries wide uncertainty and tightens as you debate.</p>
+    <h3>Why is my rating marked provisional?</h3>
+    <p>A rating stays provisional until the system is confident: you need at least 3 rated rounds and enough results for the uncertainty to narrow. Provisional ratings display and matchmake but do not hold a numbered place on the public board.</p>
+    <h3>What are the tiers?</h3>
+    <p>Newcomer, Rookie from 1300, Regular from 1450, Contender from 1550, Varsity from 1650, Elite from 1750, and Titan from 1900. Everyone starts at 1500 with high uncertainty.</p>
+    <p class="note">The rating runs server-side and every change is recorded with a before and after, so a rating can always explain itself.</p>
+  </div>
+</div>
+<script defer src="/js/track.js"></script>
+<script src="/js/topbar.js" defer></script>
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+</body>
+</html>

@@ -200,6 +200,7 @@ const URLS = [
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   // Record import: the arrival door for debaters with a Tabroom history.
   { path: '/claim',           changefreq: 'weekly',  priority: '0.84', lastmod: '2026-08-19' },
+  { path: '/debate-rating',   changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-19' },
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
   { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-08-11' },
