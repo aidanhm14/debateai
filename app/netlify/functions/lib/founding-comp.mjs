@@ -58,7 +58,7 @@ export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-19T13:00:00-04:00');
 // rules cannot drift apart from the code that enforces it. Carries the
 // hour because the cutoff falls inside a day people are still signing
 // up on.
-export const FOUNDING_CUTOFF_LABEL = '1:00 PM Eastern on Tuesday, August 19';
+export const FOUNDING_CUTOFF_LABEL = '1:00 PM Eastern on Wednesday, August 19';
 
 export function qualifiesByCreation(createdMs) {
   return Number.isFinite(createdMs) && createdMs > 0 && createdMs <= FOUNDING_CUTOFF_MS;
