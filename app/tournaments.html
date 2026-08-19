@@ -553,6 +553,7 @@ h1,h2,h3,p{margin-top:0}
 @media(max-width:640px){.host-card{padding:24px 20px}}
 </style>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/meta-pixel.js"></script>
 <!-- This page has no topbar, so nothing pulls the sign-in chooser in for
      it. Same pattern /atlas, /floor and /live-round already use. Without
      it withUser() falls back to the Google-only popup. -->
@@ -1070,6 +1071,11 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   // non-prize entry in the bracket.
   try{
     var q=new URLSearchParams(location.search);
+    if(q.get('entry')==='success'){
+      // Deduped in meta-pixel.js, so refreshing this URL cannot
+      // count the same $5 twice.
+      if(window.metaTrack)window.metaTrack('Purchase',{content_name:'open-prize-entry',currency:'USD',value:5});
+    }
     if(q.get('entry')==='success')say('Payment received. Your entry is eligible for cash prizes after confirmation.','good');
     if(q.get('entry')==='canceled')say('Payment was canceled. Your free entry remains registered, but it is not eligible for cash prizes.',null);
   }catch(e){}
@@ -1380,6 +1386,10 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
             return null;
           }
           if(mode==='free'){
+            // The conversion the ad account should be optimising toward.
+            // No-ops entirely while no pixel id is configured.
+            if(!(res.j&&res.j.already)&&window.metaTrack)
+              window.metaTrack('CompleteRegistration',{content_name:'open-free',currency:'USD',value:0});
             say(res.j&&res.j.already
               ? 'You are already in. Come back any time on the day and you will be paired.'
               : 'You are in. Come back any time on the day and you will be paired.','good');
@@ -1389,6 +1399,8 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
           if(mode==='founding'){
             var f=res.j&&res.j.founding;
             if(f&&f.ok){
+              if(window.metaTrack)
+                window.metaTrack('CompleteRegistration',{content_name:'open-comped',currency:'USD',value:0});
               say(f.status==='paid'
                 ? 'You are in, and you were already eligible for the cash prizes.'
                 : 'You are in, and eligible for the cash prizes. Nothing to pay. Come back any time on the day.','good');
