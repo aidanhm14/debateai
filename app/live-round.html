@@ -237,6 +237,17 @@ button{font-family:inherit}
 .cv-stage[data-n="3"],.cv-stage[data-n="4"]{grid-auto-flow:row;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr)}
 .cv-stage.has-screen{grid-auto-flow:row;grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
 .cv-tile{position:relative;min-width:0;min-height:0;border-radius:14px;overflow:hidden;background:#0b0b0f;border:1px solid rgba(255,255,255,.09)}
+/* Self view as a corner thumbnail (2026-08-19). The tile leaves the grid,
+   so the opponent gets the whole stage; paintParticipants drops it from
+   data-n to match, or the grid holds an empty column for it. */
+.cv-stage.self-mini{position:relative}
+.cv-stage.self-mini .cv-tile.is-self{position:absolute;right:12px;bottom:12px;
+  width:min(25%,208px);height:auto;aspect-ratio:16/9;z-index:6;
+  border-color:rgba(255,255,255,.22);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.cv-stage.self-off .cv-tile.is-self{display:none}
+@media(max-width:820px){
+  .cv-stage.self-mini .cv-tile.is-self{width:34%;right:8px;bottom:8px}
+}
 .cv-tile video{width:100%;height:100%;object-fit:cover;display:block;background:#0b0b0f}
 .cv-tile.is-mirror video{transform:scaleX(-1)}
 .cv-tile.is-screen video{object-fit:contain;background:#000}
@@ -6634,6 +6645,13 @@ html.stage-mode .stage-ov{display:block}
         else call.startScreenShare();
       } catch(e){ toast('Screen sharing is unavailable in this browser'); }
     });
+    var self = trayBtn('cvSelf', 'Hide me', 'Hide or show your own camera thumbnail');
+    self.addEventListener('click', function(){
+      room.selfHidden = !room.selfHidden;
+      try { localStorage.setItem('lr-self-hidden', room.selfHidden ? '1' : '0'); } catch(e){}
+      paintParticipants();
+      paintTray();
+    });
     var leave = trayBtn('cvLeave', 'Leave', 'Leave the video room');
     leave.className = 'cv-btn cv-btn--leave';
     leave.addEventListener('click', function(){
@@ -6666,8 +6684,16 @@ html.stage-mode .stage-ov{display:block}
     if (flip) flip.style.display = room.canFlip ? '' : 'none';
     var share = document.getElementById('cvShare');
     if (share){
+      // Daily gives a participant one screen track and the board is using
+      // it, so there is nothing truthful this button can offer meanwhile.
+      share.style.display = room.boardLocal ? 'none' : '';
       share.textContent = room.sharing ? 'Stop sharing' : 'Share screen';
       share.classList.toggle('is-on', room.sharing);
+    }
+    var self = document.getElementById('cvSelf');
+    if (self){
+      self.textContent = room.selfHidden ? 'Show me' : 'Hide me';
+      self.classList.toggle('is-off', !!room.selfHidden);
     }
     var leave = document.getElementById('cvLeave');
     if (leave) leave.textContent = room.joined ? 'Leave' : 'Rejoin';
@@ -6703,6 +6729,42 @@ html.stage-mode .stage-ov{display:block}
     if (t.el.parentNode !== host) host.appendChild(t.el);
     return t;
   }
+  /* ── The round board is published, never displayed ── 2026-08-19 ──────
+     The board (the canvas carrying motion, clock and speech count) is a
+     SCREEN SHARE, so it came back into the room as a tile and every
+     debater sat looking at a second copy of the round they were already
+     in, with the "Waiting for the other debater" note painted over the
+     motion. Aidan, on seeing it: get rid of this, make it a simple
+     screen.
+
+     It is hidden rather than stopped, and that distinction is the whole
+     fix: Daily records the PUBLISHED track server side, so what a client
+     chooses to paint has no effect on the recording. Replays and clips
+     keep the produced layout; only the live room stops duplicating it.
+
+     Every client can identify it without new plumbing. create-daily-room
+     mints a token carrying uid as user_id, and the driver is picked by
+     the same rule shouldDriveReel() uses, so the board's owner is
+     computable from state both sides already hold.
+
+     A driver cannot be sharing slides at the same time: Daily gives a
+     participant ONE screen track and the board occupies it. So while the
+     board is up there is no real share to hide by mistake, and a genuine
+     share from anyone else still renders. */
+  try { room.selfHidden = localStorage.getItem('lr-self-hidden') === '1'; } catch(e){}
+  function boardDriverUid(){
+    var d = cloudRec.doc || {};
+    if (d.recordingStatus !== 'recording') return '';
+    var uids = [state.proUid, state.conUid].filter(Boolean).sort();
+    return uids.length ? uids[0] : '';
+  }
+  function isBoardShare(p){
+    if (!p) return false;
+    // Our own board needs no inference: we know we are publishing it.
+    if (p.local && reel.sharing && reel.phase) return true;
+    var drv = boardDriverUid();
+    return !!drv && !!p.user_id && p.user_id === drv;
+  }
   function paintTile(t, p, opts){
     var name = (opts.screen ? 'Screen · ' : '') + (p.user_name || (p.local ? 'You' : 'Debater'));
     if (p.local && !opts.screen){
@@ -6719,6 +6781,7 @@ html.stage-mode .stage-ov{display:block}
     attachTrack(t.video, track);
     t.el.classList.toggle('is-dark', !track);
     t.el.classList.toggle('is-screen', !!opts.screen);
+    t.el.classList.toggle('is-self', !!p.local && !opts.screen);
     t.el.classList.toggle('is-speaking', !opts.screen && !!room.active && room.active === p.session_id);
     // The local tile mirrors in camera mode because a self-view that does
     // not mirror reads as someone else. The avatar canvas carries baked
@@ -6764,7 +6827,7 @@ html.stage-mode .stage-ov{display:block}
       if (!p || !p.session_id) return;
       list.push(p);
       if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
-      if (trackOf(p.tracks && p.tracks.screenVideo)) screens.push(p);
+      if (trackOf(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
     });
     // Local last so the opponent holds the first, largest cell.
     seats.sort(function(a, b){
@@ -6788,11 +6851,30 @@ html.stage-mode .stage-ov{display:block}
       paintTile(ensureTile(room.aud, key, p.local), p, {});
     });
     Object.keys(room.tiles).forEach(function(key){ if (!keep[key]) dropTile(key); });
-    room.stage.setAttribute('data-n', String(seats.length + screens.length));
+    /* Self view, 2026-08-19 per Aidan ("make it small or hideable"): in a
+       plain 1v1 with nothing shared, the local tile leaves the grid and
+       becomes a corner thumbnail so the opponent holds the whole stage.
+       It is left in the grid for 2v2, for a real screen share, and in the
+       mini/pip shells, all of which have their own cramped layouts.
+       Because the tile goes out of flow, it also comes out of data-n, or
+       the grid keeps a column open for a tile that is no longer in it. */
+    var mini = seats.length === 2 && screens.length === 0 && !room.selfHidden
+      && !document.body.classList.contains('lr-mini')
+      && !document.body.classList.contains('lr-pip');
+    room.stage.classList.toggle('self-mini', mini);
+    room.stage.classList.toggle('self-off', !!room.selfHidden);
+    var inFlow = seats.length + screens.length
+      - ((mini || room.selfHidden) ? seats.filter(function(p){ return p.local; }).length : 0);
+    room.stage.setAttribute('data-n', String(Math.max(1, inFlow)));
     room.stage.classList.toggle('has-screen', screens.length > 0);
     paintAudio(list);
     var local = ps.local;
-    room.sharing = !!(local && trackOf(local.tracks && local.tracks.screenVideo));
+    // The board publishes through the local screen track, so this used to
+    // read true whenever a recording was running and the tray offered
+    // "Stop sharing" for a share the debater never started. Pressing it
+    // would have torn the layout out of the recording mid-round.
+    room.boardLocal = !!(local && trackOf(local.tracks && local.tracks.screenVideo) && isBoardShare(local));
+    room.sharing = !!(local && trackOf(local.tracks && local.tracks.screenVideo)) && !room.boardLocal;
     if (local && local.tracks && local.tracks.audio) room.micOn = local.audio !== false;
     paintTray();
     if (room.joined) setRoomNote(seats.length > 1 ? '' : 'Waiting for the other debater to join.');
