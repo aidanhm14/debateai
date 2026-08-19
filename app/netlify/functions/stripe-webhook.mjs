@@ -85,9 +85,19 @@ export default async (request) => {
               payout: { status: 'none' },
               createdAt: FieldValue.serverTimestamp(),
             }, { merge: true });
+            // Entry fees are counted, NOT added to the prize pool.
+            // prizePoolCents is what /tournaments advertises ("$850 in
+            // cash prizes") and what the fixed 500/250/100 ladder pays.
+            // Incrementing it by the fee made every paid entry inflate
+            // the advertised prize by $5 while the payout stayed put:
+            // measured on the first real payment, the page went to $855
+            // for a ladder that still totals $850. It also contradicted
+            // the page's own promise that prizes are funded by us and
+            // not raised from a pot of entry fees. The money collected
+            // is real and worth knowing, so it gets its own field.
             await tRef.set({
               paidEntries: FieldValue.increment(1),
-              prizePoolCents: FieldValue.increment(session.amount_total || 0),
+              entryFeesCents: FieldValue.increment(session.amount_total || 0),
             }, { merge: true });
             // Stamp the debater's engine entry when it already exists,
             // so the tab can show payout eligibility without a second
