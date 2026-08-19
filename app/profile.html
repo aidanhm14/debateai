@@ -934,6 +934,27 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
   background:rgba(239,68,68,.12);color:#fca5a5;
   font-size:.62rem;font-weight:800;letter-spacing:.12em;margin-left:8px;
 }
+/* Tabroom import card (2026-08-19). Rides the .style-card chrome so it
+   reads as part of the dashboard; only the tournament rows and the
+   paste-a-link input are new. */
+.tb-rows{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.tb-row{
+  padding:11px 14px;background:var(--bg-elev);
+  border:1px solid var(--border);border-radius:10px;
+}
+.tb-row-top{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  font-size:.86rem;color:var(--text);font-weight:600;
+}
+.tb-row-year{color:var(--text-ghost);font-weight:500;font-size:.74rem;white-space:nowrap}
+.tb-row-sub{margin-top:4px;font-size:.76rem;color:var(--text-dim);line-height:1.5}
+.tb-import-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.tb-import-row input{
+  flex:1;min-width:220px;
+  background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font:.82rem/1.4 Archivo,Georgia,serif;padding:9px 12px;
+}
+.tb-import-row input:focus{outline:none;border-color:var(--accent)}
 .rank-card .badge{
   width:46px;height:46px;border-radius:50%;
   background:linear-gradient(135deg, #fbbf24, var(--accent));
@@ -2129,9 +2150,12 @@ function renderEmpty(user, profileData){
          them from exactly the people most likely to have them. -->
     ${savedRoundsSectionHtml()}
 
+    ${tabroomCardHtml(user, profileData)}
+
     ${renderSettings(user, profileData)}
   `;
   try { wireSettings(user, []); } catch(e){ console.warn('[profile] wireSettings (empty) failed:', e && e.message); }
+  try { wireTabroom(user); } catch(e){ console.warn('[profile] wireTabroom (empty) failed:', e && e.message); }
   hydrateSavedRounds(user);
   hydrateProfileAvatar();
 }
@@ -2292,6 +2316,8 @@ function renderDashboard(user, rows, profileData){
       <div class="sc-body" style="color:var(--text-dim)">The AI is checking how it has been reading you. One moment.</div>
     </div>
 
+    ${tabroomCardHtml(user, profileData)}
+
     <div class="section"><h2>Format mastery</h2><div class="right">${fmtRows.length} format${fmtRows.length===1?'':'s'} touched</div></div>
     <div class="format-grid">${fmtBars || `<div class="state" style="grid-column:1/-1"><h3>No format data yet</h3><p>Run a round and your strongest formats will surface here, ranked by reps.</p></div>`}</div>
 
@@ -2339,6 +2365,7 @@ function renderDashboard(user, rows, profileData){
   // Both run after innerHTML so the DOM nodes exist; both are
   // best-effort and never block first paint.
   try { wireSettings(user, rows); } catch(e){ console.warn('[profile] wireSettings failed:', e && e.message); }
+  try { wireTabroom(user); } catch(e){ console.warn('[profile] wireTabroom failed:', e && e.message); }
   fillRank(s);
   hydrateStyleProfile(user, s);
   hydrateCerts(user);
@@ -2964,6 +2991,131 @@ async function resetStyleProfile(slot, user, data){
   } catch (err) {
     if (status) { status.className = 'sc-status err'; status.textContent = (err && err.message) || 'Could not reset.'; }
     if (resetBtn) resetBtn.disabled = false;
+  }
+}
+
+/* ── Tabroom import card ────────────────────────────────────────────
+   Paste a tabroom.com link, the server resolves the record through
+   Tabroom's public per-tournament data export and stores it at
+   user_profiles/{uid}.tabroom (admin SDK writes it; the owner-only
+   read rule is what lets this page render it back). One import covers
+   one tournament; imports accumulate, and re-importing a tournament
+   replaces that row. Named accounts only: the server refuses anonymous
+   tokens, so the card shows a sign-in nudge instead of an input that
+   would 403. */
+function tabroomEntriesHtml(tb){
+  const entries = (tb && Array.isArray(tb.entries)) ? tb.entries : [];
+  if (!entries.length) return '';
+  return `<div class="tb-rows">${entries.map(e => {
+    const sub = [e.event, e.record].concat(Array.isArray(e.results) ? e.results : [])
+      .filter(Boolean).map(escapeHtml).join(' · ');
+    return `<div class="tb-row">
+      <div class="tb-row-top">
+        <span>${escapeHtml(e.tourn || 'Tournament')}</span>
+        <span class="tb-row-year">${escapeHtml(e.year || '')}</span>
+      </div>
+      ${sub ? `<div class="tb-row-sub">${sub}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function tabroomCardInner(user, tb){
+  if (user && user.isAnonymous){
+    return `
+      <div class="sc-eyebrow"><span>Competitive record</span><span class="sc-eyebrow-tag">Tabroom</span></div>
+      <div class="sc-empty">Compete on the circuit? Create an account and you can import your Tabroom record onto your profile.</div>
+      <div class="sc-actions"><button type="button" class="sc-btn primary" id="tbSignInBtn">Sign in to import</button></div>
+    `;
+  }
+  const has = tb && Array.isArray(tb.entries) && tb.entries.length;
+  const who = has && (tb.name || tb.school)
+    ? `<div class="sc-body">${escapeHtml([tb.name, tb.school].filter(Boolean).join(' · '))}</div>`
+    : '';
+  const meta = has
+    ? `<div class="sc-meta">
+        <span>Imported from <a href="${escapeHtml(tb.url || 'https://www.tabroom.com')}" target="_blank" rel="noopener">Tabroom</a></span>
+        ${tb.importedAt ? `<span class="sc-meta-dot">·</span><span>Last import ${escapeHtml(new Date(tb.importedAt).toLocaleDateString())}</span>` : ''}
+      </div>`
+    : '';
+  const intro = has
+    ? ''
+    : `<div class="sc-empty">Compete on the circuit? Paste a <strong>tabroom.com</strong> link from one of your tournaments and your record lands here: school, event, prelim record, and placements.</div>`;
+  return `
+    <div class="sc-eyebrow"><span>Competitive record</span><span class="sc-eyebrow-tag">${has ? 'Imported from Tabroom' : 'Tabroom'}</span></div>
+    ${who}
+    ${intro}
+    ${tabroomEntriesHtml(tb)}
+    ${meta}
+    <div class="tb-import-row">
+      <input type="url" id="tbUrlInput" placeholder="https://www.tabroom.com/... link from one of your tournaments" maxlength="300">
+      <button type="button" class="sc-btn primary" id="tbImportBtn">${has ? 'Import another tournament' : 'Import'}</button>
+    </div>
+    <div class="sc-edit-hint">On Tabroom, open your results for a tournament and copy that page's link. A link to your own entry works best; any link for the tournament works if your Tabroom name matches your account name here.</div>
+    <div class="sc-status" id="tbStatus"></div>
+  `;
+}
+
+function tabroomCardHtml(user, profileData){
+  const tb = (profileData && profileData.tabroom) || null;
+  return `<section id="tabroomCard" class="style-card" aria-label="Competitive record imported from Tabroom">${tabroomCardInner(user, tb)}</section>`;
+}
+
+function wireTabroom(user){
+  const card = document.getElementById('tabroomCard');
+  if (!card) return;
+  const signIn = document.getElementById('tbSignInBtn');
+  if (signIn){
+    signIn.addEventListener('click', () => {
+      if (window.openAuthModal) window.openAuthModal();
+    });
+    return;
+  }
+  const btn = document.getElementById('tbImportBtn');
+  const input = document.getElementById('tbUrlInput');
+  if (!btn || !input) return;
+  const go = () => runTabroomImport(user, card);
+  btn.addEventListener('click', go);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+}
+
+async function runTabroomImport(user, card){
+  const input = document.getElementById('tbUrlInput');
+  const btn = document.getElementById('tbImportBtn');
+  const status = document.getElementById('tbStatus');
+  if (!input || !status) return;
+  const url = input.value.trim();
+  if (!url){
+    status.className = 'sc-status err';
+    status.textContent = 'Paste a tabroom.com link first.';
+    return;
+  }
+  if (btn) btn.disabled = true;
+  status.className = 'sc-status';
+  status.textContent = 'Importing your record from Tabroom…';
+  let token;
+  try { token = await user.getIdToken(); }
+  catch(e){
+    status.className = 'sc-status err';
+    status.textContent = 'Could not authenticate. Refresh and try again.';
+    if (btn) btn.disabled = false;
+    return;
+  }
+  try {
+    const resp = await fetch('/api/tabroom-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+    card.innerHTML = tabroomCardInner(user, data.tabroom);
+    wireTabroom(user);
+    const s2 = document.getElementById('tbStatus');
+    if (s2){ s2.className = 'sc-status ok'; s2.textContent = 'Imported. This now shows on your profile.'; }
+  } catch(e){
+    status.className = 'sc-status err';
+    status.textContent = (e && e.message) || 'Import failed. Try again in a minute.';
+    if (btn) btn.disabled = false;
   }
 }
 
