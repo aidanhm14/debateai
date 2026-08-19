@@ -830,6 +830,11 @@
     // The off tile (and camera mode before video is ready) is a still
     // image: repaint it at 1fps as a keep-alive heartbeat instead of
     // burning a full-rate draw on pixels that never change.
+    // Passthrough: in camera mode the room now receives the RAW device
+    // track, not this canvas (see publishTrackFor in live-round.html).
+    // The canvas still feeds the 25s room-shot thumbnail, so it is kept
+    // warm at 1fps rather than stopped outright.
+    let passthrough = false, lastPass = 0;
     let staticAt = 0, staticKey = '';
     function paintStatic() {
       const key = 'off|' + label;
@@ -844,6 +849,14 @@
       const dt = Math.min(1000, now - lastTick); lastTick = now;
       if (mode === 'camera' && videoEl.readyState >= 2) {
         staticKey = '';
+        // A 24fps main-thread draw that nothing publishes is pure jank:
+        // it competed with the page's own work and, when the canvas WAS
+        // the published surface, handed that jank straight to the other
+        // debater as dropped frames.
+        if (passthrough) {
+          if (now - lastPass < 1000) return;
+          lastPass = now;
+        }
         drawCameraFrame(ctx, OUT_W, OUT_H, videoEl);
       } else if (mode === 'avatar') {
         staticKey = '';
@@ -886,6 +899,10 @@
       videoEl: videoEl,
       srcStream: mediaStream,
       setMode: function (m) { if (['camera', 'avatar', 'off'].indexOf(m) >= 0) mode = m; },
+      // True when the room is receiving the raw camera track instead of
+      // this canvas. Only meaningful in camera mode; avatar always
+      // publishes the canvas, because the canvas IS the mask.
+      setPassthrough: function (on) { passthrough = !!on; lastPass = 0; },
       mode: function () { return mode; },
       setLabel: function (s) { label = String(s || '').slice(0, 3).toUpperCase(); },
       setDesign: function (d) { design = saveDesign(d); return Object.assign({}, design); },

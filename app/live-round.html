@@ -4730,6 +4730,47 @@ html.stage-mode .stage-ov{display:block}
     setMicActive(false);
     if (msg) toast(msg);
   }
+  // Can we fall back from Web Speech to the server engine right now?
+  function micCanServer(){
+    if ((state.micSupport && state.micSupport.engine) !== 'browser') return false;
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+      && window.MediaRecorder && window.MediaRecorder.isTypeSupported);
+  }
+  // Web Speech failed. Switch engines instead of ending the round.
+  //
+  // detectMicSupport picks 'browser' the moment SpeechRecognition merely
+  // EXISTS, and nothing ever reconsidered that. So when the API existed
+  // but could not actually deliver audio, the round died with "Mic
+  // stopped" and a suggestion to type, while MediaRecorder and
+  // /api/transcribe sat there working. The transcript is the only thing
+  // the judge reads, so that was a round nobody could score.
+  //
+  // Live rounds are where this bites: the page already holds the mic for
+  // the video room (the camera pipeline's capture plus Daily's own), and
+  // Chrome's recogniser runs its own separate capture that does not
+  // reliably survive that. The server engine reuses a track we already
+  // have, so it has nothing to contend for.
+  function micDemoteToServer(why){
+    if (!micCanServer()) return false;
+    console.warn('[Mic] falling back to server transcription:', why);
+    var wasActive = state.micActive;
+    try { state.recognition && state.recognition.abort(); } catch(e){}
+    try { state.recognition && state.recognition.stop(); } catch(e){}
+    state.recognition = null;
+    mic.running = false;
+    state.micSupport = { available: true, engine: 'server', demotedFrom: why || 'browser' };
+    // Keep whatever was already captured: setMicActive adopts the
+    // textarea as the new base, so nothing spoken so far is lost.
+    state.micActive = false;
+    if (mic.timer){ clearInterval(mic.timer); mic.timer = 0; }
+    syncAutoMicToggle();
+    try { gtag('event', 'live_round_mic_fallback', { reason: String(why || '') }); } catch(e){}
+    if (wasActive){
+      setMicActive(true);
+      toast('Switched to backup transcription. Your words keep landing in the box, a few seconds behind.');
+    }
+    return true;
+  }
   function micRestart(){
     if (!state.micActive || !state.recognition) return;
     try {
@@ -4738,7 +4779,14 @@ html.stage-mode .stage-ov{display:block}
       // InvalidStateError means it is already running or still tearing
       // down. Back off rather than hammering, and give up loudly.
       mic.restarts++;
-      if (mic.restarts > 8){ micFail('Mic stopped. Press Start mic to pick it back up.'); return; }
+      if (mic.restarts > 8){
+        // Eight straight refusals is the recogniser telling us it cannot
+        // run here, not a transient teardown. Change engines rather than
+        // hand the debater a dead box.
+        if (micDemoteToServer('restart-exhausted')) return;
+        micFail('Mic stopped. Press Start mic to pick it back up.');
+        return;
+      }
       setTimeout(micRestart, Math.min(2000, 150 * mic.restarts));
     }
   }
@@ -4759,6 +4807,11 @@ html.stage-mode .stage-ov{display:block}
     // gets a longer fuse because its text arrives a segment behind.
     var deafAfter = (state.micSupport && state.micSupport.engine) === 'server' ? 30000 : 18000;
     if (!mic.everHeard && quiet > deafAfter){
+      // Running, permitted, and not one word in 18 seconds of a speech.
+      // This is the failure that used to look identical to working: the
+      // pill said "Not hearing you" for the whole round and the ballot
+      // got nothing. Try the other engine before blaming the room.
+      if (micDemoteToServer('no-audio')) return;
       micState('deaf', 'Not hearing you');
     } else if (mic.everHeard && quiet > 6000){
       micState('idle', 'Listening');
@@ -4809,6 +4862,9 @@ html.stage-mode .stage-ov{display:block}
       // from the user agent. Deliberately does NOT re-render the round:
       // that would rebuild the panel and wipe the text mid-speech.
       if (e.error === 'service-not-allowed' || e.error === 'language-not-supported' || e.error === 'audio-capture'){
+        // audio-capture in particular is what a contended microphone
+        // looks like, and this page contends for it by design.
+        if (micDemoteToServer(e.error)) return;
         state.micSupport = { available: false, reason: e.error };
         micFail('Speech to text is unavailable here. Type the speech instead.');
         syncAutoMicToggle();
@@ -4830,7 +4886,21 @@ html.stage-mode .stage-ov{display:block}
   // every rule above (full rewrite, user-edit rebaselining, per-speech
   // reset) applies unchanged.
   var SEG_MS = 10000;   // shorter than /judge's 25s: a live speech wants text sooner
-  var srv = { stream:null, rec:null, mime:'', seq:0, timer:0, on:false, fails:0 };
+  var srv = { stream:null, rec:null, mime:'', seq:0, timer:0, on:false, fails:0, borrowed:false };
+  // The video room already opened the microphone (the camera pipeline's
+  // capture, which Daily then publishes). Opening a third one to record
+  // segments is a capture the browser does not need to give us, and on
+  // phones it is one it may refuse outright. Borrow the live track
+  // instead. Returns null off the live-round surface, where the
+  // pipeline never ran and a fresh getUserMedia is correct.
+  function srvBorrowTrack(){
+    try {
+      var src = camConv && camConv.cam && camConv.cam.srcStream;
+      var t = src && src.getAudioTracks && src.getAudioTracks()[0];
+      if (t && t.readyState === 'live') return t;
+    } catch(e){}
+    return null;
+  }
   function srvMime(){
     var c = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
     for (var i = 0; i < c.length; i++) if (MediaRecorder.isTypeSupported(c[i])) return c[i];
@@ -4892,6 +4962,15 @@ html.stage-mode .stage-ov{display:block}
     srv.fails = 0;
     srv.mime = srvMime();
     micState('idle', 'Starting mic');
+    var lent = srvBorrowTrack();
+    if (lent){
+      srv.borrowed = true;
+      srv.stream = new MediaStream([lent]);
+      micState('idle', 'Listening');
+      srvSegment();
+      return;
+    }
+    srv.borrowed = false;
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(function(s){
         if (!srv.on){ try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} return; }
@@ -4910,9 +4989,14 @@ html.stage-mode .stage-ov{display:block}
     try { if (srv.rec && srv.rec.state === 'recording') srv.rec.stop(); } catch(e){}
     srv.rec = null;
     if (srv.stream){
-      try { srv.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      // Stopping a BORROWED track would take the camera pipeline's audio
+      // and the video room's outgoing sound down with the transcript.
+      if (!srv.borrowed){
+        try { srv.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+      }
       srv.stream = null;
     }
+    srv.borrowed = false;
   }
 
   function setMicActive(on){
@@ -5931,6 +6015,35 @@ html.stage-mode .stage-ov{display:block}
     var pip = document.getElementById('camSelfPip');
     if (pip) pip.style.display = 'none';
   }
+  // Which track the room actually receives, per mode.
+  //
+  // Avatar MUST be the canvas: the canvas IS the mask, and publishing
+  // anything else would send the real face under an Avatar label.
+  //
+  // Camera must NOT be. Routing the plain camera through the canvas put
+  // every outgoing frame behind a main-thread setInterval draw, so any
+  // hitch on this page (a round-doc snapshot, a tile repaint, a mic
+  // result landing) dropped frames for the person watching. That is the
+  // stutter. The raw device track rides the browser's own capture path
+  // and is immune to all of it, and it is still ONE capture: we hand
+  // Daily the track we already opened rather than letting it open a
+  // second camera, which is what phones refuse.
+  //
+  // The safety watchdog is unaffected. It reads cam.videoEl, the raw
+  // camera element, and in camera mode the canvas was only ever a pixel
+  // copy of that element.
+  function publishTrackFor(c, mode){
+    if (!c) return null;
+    if (mode === 'camera'){
+      var raw = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks()[0];
+      if (raw && raw.readyState === 'live'){
+        if (c.setPassthrough) try { c.setPassthrough(true); } catch(e){}
+        return raw;
+      }
+    }
+    if (c.setPassthrough) try { c.setPassthrough(false); } catch(e){}
+    return c.videoTrack;
+  }
   function ensureAvatarCam(mode){
     // Single-flight on the PROMISE, not the resolved instance: the
     // joined-meeting unify call and a quick Avatar tap otherwise race
@@ -6211,7 +6324,7 @@ html.stage-mode .stage-ov{display:block}
       }).catch(function(){});
       ensureAvatarCam('avatar').then(function(c){
         c.setMode('avatar');
-        return frame.setInputDevicesAsync({ videoSource: c.videoTrack });
+        return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'avatar') });
       }).then(function(){
         frame.setLocalVideo(true);
         markCamMode('avatar');
@@ -6238,7 +6351,7 @@ html.stage-mode .stage-ov{display:block}
           var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
           if (!hasVideo) throw new Error('no parent camera');
           c.setMode('camera');
-          return frame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
+          return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'camera') }).then(function(){
             frame.setLocalVideo(true);
             markCamMode('camera');
             hideSelfPip();
@@ -6607,7 +6720,7 @@ html.stage-mode .stage-ov{display:block}
         camConv.cam = c;
         camConv.camP = Promise.resolve(c);
         room.facing = want;
-        return state.dailyFrame.setInputDevicesAsync({ videoSource: c.videoTrack }).then(function(){
+        return state.dailyFrame.setInputDevicesAsync({ videoSource: publishTrackFor(c, mode) }).then(function(){
           if (camConv.mode !== 'off') state.dailyFrame.setLocalVideo(true);
           if (camConv.mode === 'avatar') showSelfPip();
           if (old && old !== c) try { old.stop(); } catch(e){}
@@ -6653,7 +6766,7 @@ html.stage-mode .stage-ov{display:block}
     ensureAvatarCam('camera')
       .then(function(c){
         var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
-        return joinWith(hasVideo ? c.videoTrack : false);
+        return joinWith(hasVideo ? publishTrackFor(c, 'camera') : false);
       })
       .catch(function(e){
         // No camera, or permission denied. Joining audio-only is the
