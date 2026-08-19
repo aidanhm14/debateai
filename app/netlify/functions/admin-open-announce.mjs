@@ -40,7 +40,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL,
          verifiedSenderDomains, senderDomain } from './lib/email.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
-import { FOUNDING_CUTOFF_LABEL, FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
+import { FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 
 // A From on an unverified domain does not bounce, it 403s at the Resend API
 // and the run reports errors nobody reads, which is how the Spar Night
@@ -112,10 +112,9 @@ function renderEmail({ firstName, uid, tournamentName, startsAt }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    Anyone who signs up before <strong>${esc(FOUNDING_CUTOFF_LABEL)}</strong> gets the
-    same free entry, so forward this to whoever you want in your bracket. After
-    that date the fee is back, and the waiver goes back to being something you
-    have to email me for.
+    Forward this to whoever you want in your bracket. Your own entry is free
+    because you were here first; theirs is $5, and I will waive it for anyone
+    who asks me, no reason needed.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>

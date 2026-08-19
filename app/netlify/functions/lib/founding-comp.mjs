@@ -29,30 +29,30 @@
 import { FieldValue } from './firestore.mjs';
 import { getAuthUserByUid } from './auth-admin.mjs';
 
-// Accounts created at or before this instant qualify. EDT, end of day.
+// Accounts created at or before this instant qualify.
 //
-// Moved 2026-08-19 (second move, same day) from the day of the event
-// back to the day of the price cut. The first move widened the window
-// to Aug 29 because a $20 door was unpayable by a stranger: for seven
-// of the push's ten days every newcomer would have met a $20 wall with
-// "email the organizer and ask" as the only way past it. That argument
-// was about $20, not about paying at all. The fee is now $5, which is
-// a door a stranger will actually walk through, so the blanket waiver
-// has nothing left to protect and the headline it contradicted ("win
-// $500 for $5") becomes true.
+// Moved 2026-08-19 (third move) from end of Aug 19 back to end of Aug 18,
+// ahead of the first paid-traffic push. The second move had stopped the
+// window at "today", which on the day of the push meant every stranger
+// arriving from the LinkedIn post created an account inside the window
+// and was comped. That made the headline the push is built on ("$5 to
+// enter, $500 to win") false for exactly the audience it was written
+// for, and it gave the campaign a knife-edge nobody could see: free if
+// you clicked before midnight, $5 if you clicked after.
 //
-// The window is not retracted, only stopped where it stands. Everyone
-// who already holds an account, including the seven entries on the
-// field and everyone the announcement email reached, keeps the comp
-// they were promised in full: same prize eligibility, nothing to pay,
-// nothing to ask for. Only accounts created after today meet the $5
-// door. The pot is untouched either way (prizes are funded, not raised
-// from fees) and comps still count separately on `compedEntries`, so
-// nothing here makes the money look bigger than it is.
-export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-19T23:59:59-04:00');
+// Aug 18 is the last instant that predates the push. Everyone who
+// already held an account keeps the comp they were promised, in full and
+// with nothing to claim differently. Nobody had claimed it yet when this
+// moved (compedEntries was unset and paidEntries was 0 on the live doc),
+// so this retracts no promise that anyone had acted on. New arrivals
+// meet the $5 door, which is the point of having one.
+//
+// The ask-and-it-is-waived route in the rules is untouched. That is the
+// no-purchase-necessary path and it must never depend on a date.
+export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-18T23:59:59-04:00');
 // Human label for copy. One constant so the page, the email and the
 // rules cannot drift apart from the code that enforces it.
-export const FOUNDING_CUTOFF_LABEL = 'Tuesday, August 19';
+export const FOUNDING_CUTOFF_LABEL = 'Monday, August 18';
 
 export function qualifiesByCreation(createdMs) {
   return Number.isFinite(createdMs) && createdMs > 0 && createdMs <= FOUNDING_CUTOFF_MS;

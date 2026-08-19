@@ -4,11 +4,14 @@
  * final days before the event (Saturday, August 29), to the same list
  * the announcement reached plus everyone who joined since.
  *
- * It stopped being a DEADLINE email on 2026-08-19, when the automatic
- * fee waiver was extended to entries close. There is no cutoff left to
- * beat, so it now carries the event being days away. Do not reintroduce
- * countdown copy without checking FOUNDING_CUTOFF_MS still describes a
- * date that arrives before the event does.
+ * It stopped being a DEADLINE email on 2026-08-19 and it stays that way.
+ * The clock it carries is the EVENT (Aug 29), never the founding-comp
+ * cutoff: this list is entirely accounts that predate that cutoff, so
+ * every recipient is already comped for good and has no deadline to
+ * beat. Wiring the send guard or the copy back to FOUNDING_CUTOFF_MS is
+ * what broke it on 2026-08-19, when the cutoff moved into the past and
+ * silently dead-buttoned the send with an "entries closed" message that
+ * was not true. Guard on ENTRIES_CLOSE_MS.
  * Same two-press button shape as admin-open-announce.mjs: POST {} is a
  * dry run, POST {confirm:'SEND'} sends one batch and reports remaining.
  *
@@ -34,7 +37,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL,
          verifiedSenderDomains, senderDomain } from './lib/email.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
-import { FOUNDING_CUTOFF_LABEL, FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
+import { FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
@@ -43,11 +46,14 @@ const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@g
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 const SUBJECT     = 'Speak money into existence: The Debatable Open';
-// Event day, for copy. Separate from FOUNDING_CUTOFF_LABEL: since the
-// 2026-08-19 cutoff move those two describe the same day, and reusing
-// the cutoff label here would quietly resurrect deadline framing the
-// moment the cutoff moves again.
+// Event day, for copy. Deliberately NOT FOUNDING_CUTOFF_LABEL: that
+// constant tracks who gets comped, this one tracks when the thing
+// happens, and collapsing them resurrects deadline framing every time
+// the cutoff moves.
 const EVENT_LABEL = 'Saturday, August 29';
+// Entries close when the doors close. This, not the comp cutoff, is the
+// only date that can make this email a false claim.
+const ENTRIES_CLOSE_MS = Date.parse('2026-08-29T23:59:59-04:00');
 
 // Short on purpose: the announcement made the case, this one carries the
 // clock. Voice rules bind: no em-dashes, no preface, one ask. Prizes and
@@ -61,9 +67,10 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Free entry to ${esc(tournamentName)} ends
-    ${esc(FOUNDING_CUTOFF_LABEL)} at 11:59 PM Eastern.</strong> After that,
-    playing for the cash costs $5. Entering takes about a minute:
+    <strong>${esc(EVENT_LABEL)}. Your entry to ${esc(tournamentName)} is
+    free.</strong> You had an account before this went on sale, so the $5 prize
+    entry is waived for you and stays waived. Everyone arriving now pays it.
+    Entering takes about a minute:
   </p>
 
   <p style="margin:0 0 22px">
@@ -121,12 +128,12 @@ export default async (request) => {
   let body = {};
   try { body = await request.json(); } catch { /* empty body = dry run */ }
 
-  // A deadline email sent past its deadline is a false claim. Refuse,
+  // "Come and enter" mailed after entries close is a false claim. Refuse,
   // including the dry run, so the button reads dead once the hook is.
-  if (Date.now() >= FOUNDING_CUTOFF_MS) {
+  if (Date.now() >= ENTRIES_CLOSE_MS) {
     return jsonResponse({
-      error: 'CUTOFF_PASSED',
-      message: `Entries closed (${FOUNDING_CUTOFF_LABEL}). This reminder asks people to enter an event they can no longer enter; do not send it.`,
+      error: 'ENTRIES_CLOSED',
+      message: `Entries closed (${EVENT_LABEL}). This reminder asks people to enter an event they can no longer enter; do not send it.`,
     }, 409, request);
   }
 
@@ -253,7 +260,8 @@ export default async (request) => {
     verifiedSource,
     subject: SUBJECT,
     tournament: { id: tourn.id, name: tourn.name || '', startsAt: tourn.startsAt || '' },
-    cutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
+    compCutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
+    entriesClose: new Date(ENTRIES_CLOSE_MS).toISOString(),
     accounts: authUsers.length,
     eligible, sent, remaining, errors,
     skipped: { noEmail, optedOut, alreadySent, alreadyEntered },

@@ -33,7 +33,8 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL,
          verifiedSenderDomains, senderDomain } from './lib/email.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
-import { FOUNDING_CUTOFF_LABEL } from './lib/founding-comp.mjs';
+// FOUNDING_CUTOFF_LABEL intentionally not imported: this email no longer
+// quotes the comp cutoff as a deadline recipients can send a friend to beat.
 
 // Sender resolution is copied verbatim from admin-open-announce.mjs, and
 // the reasoning travels with it: a From on an unverified domain does not
@@ -80,10 +81,9 @@ function renderEmail({ firstName, uid }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>1. Bring a friend.</strong> The Debatable Open runs Saturday,
     August 29: $850 in cash prizes, online, drop in whenever suits you.
-    Any account created before <strong>${esc(FOUNDING_CUTOFF_LABEL)}</strong>
-    plays for the money free. Forward this to whoever you want in your
-    bracket; if they sign up by the cutoff, their $5 entry is waived the same
-    way yours is.
+    Your account predates the entry fee, so you play for the money free.
+    Forward this to whoever you want in your bracket; their entry is $5, and
+    I will waive it for anyone who asks.
   </p>
 
   <p style="margin:0 0 18px">
