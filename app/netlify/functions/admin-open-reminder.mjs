@@ -59,23 +59,21 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    The short version: I built a site where you get matched with a real person,
-    argue it out, and an AI judge writes up who won and why. Saturday, August 29
-    is its first real tournament. All online, doors open 10 AM Eastern, drop in
-    whenever. Every round you play counts on the standings, and the top of the
-    board goes into a streamed bracket that evening. $500 for first, $250 for
-    second, $100 for third.
+    If you haven't been on in a while, the site matches you with a real person,
+    you argue it out, and an AI judge writes up who won and why. Saturday,
+    August 29 is the first real tournament on it. All online, doors open 10 AM
+    Eastern, come and go whenever. Rounds you play count on the standings, the
+    top of the board goes into a streamed bracket that evening, and first place
+    takes $500 ($250 and $100 behind it). You don't need debate experience,
+    and the field is still small, so your odds are genuinely good.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    You don't need debate experience. No jargon, no prepared case. Make a
-    point, back it up, answer theirs. And the field is still small, so your
-    odds are honestly good.
-  </p>
-
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Know someone who likes to argue? Forward them this. Questions about
-    anything? Just reply, it's me reading.
+    Being honest with you, the whole thing is early and I'm building it mostly
+    on my own. So if something breaks, confuses you, or you think it should
+    work differently, reply and tell me. I read every reply and I ship fixes
+    fast. Same if you just have a question. And if you know someone who likes
+    to argue, forward them this.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
