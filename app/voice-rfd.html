@@ -898,6 +898,28 @@ body{
       + '</div></section>';
     }
 
+    // Rating widget shell, directly under the verdict. Hidden by default;
+    // wireRatingWidget shows it when payload.generationId is set. Signed-in
+    // users rate with their Firebase token; anonymous users rate with the
+    // same browser-session id that created the generation row. The 'rate'
+    // signal feeds scheduled-distill.mjs, which has NEVER once run for want
+    // of labels (3 signals ever, none from this widget), so the widget sits
+    // at the one moment the reader is guaranteed to be looking: right after
+    // they learn whether they won. Do not move it back below the ballot.
+    if (payload.generationId){
+      html +=
+        '<section class="rate-card" id="rateCard" style="display:none;margin-top:14px">'
+          + '<div class="rate-eyebrow" id="rateEyebrow">How was that round?</div>'
+          + '<div class="rate-stars" id="rateStars" role="radiogroup" aria-label="Rate this round 1 to 5">'
+            + [1,2,3,4,5].map(function(n){
+                return '<button class="rate-star" type="button" data-rate="' + n + '" aria-label="' + n + ' star' + (n>1?'s':'') + '">☆</button>';
+              }).join('')
+          + '</div>'
+          + '<div><button class="rate-boring" id="rateBoring" type="button"><span aria-hidden="true">○</span>Generic / boring</button></div>'
+          + '<textarea class="rate-notes" id="rateNotes" placeholder="What didn\'t land? (optional)" maxlength="600" style="display:none"></textarea>'
+        + '</section>';
+    }
+
     // Build the next-round choices before the long ballot. The user sees
     // the decision and immediately gets four concrete ways forward.
     var roundQ = new URLSearchParams();
@@ -1046,26 +1068,11 @@ body{
         + '</section>';
     }
 
-    // Rating widget shell. Hidden by default; the wiring below shows it
-    // when payload.generationId is set. Signed-in users rate with their
-    // Firebase token; anonymous users rate with the same browser-session
-    // id that created the generation row. Stars / boring / notes all route
-    // to the same /api/log-generation 'rate' signal that the nightly
-    // distill in scheduled-distill.mjs reads to pick which rounds become
-    // PATTERNS-THAT-WORK reference material.
-    if (payload.generationId){
-      html +=
-        '<section class="rate-card" id="rateCard" style="display:none">'
-          + '<div class="rate-eyebrow" id="rateEyebrow">How was that round?</div>'
-          + '<div class="rate-stars" id="rateStars" role="radiogroup" aria-label="Rate this round 1 to 5">'
-            + [1,2,3,4,5].map(function(n){
-                return '<button class="rate-star" type="button" data-rate="' + n + '" aria-label="' + n + ' star' + (n>1?'s':'') + '">☆</button>';
-              }).join('')
-          + '</div>'
-          + '<div><button class="rate-boring" id="rateBoring" type="button"><span aria-hidden="true">○</span>Generic / boring</button></div>'
-          + '<textarea class="rate-notes" id="rateNotes" placeholder="What didn\'t land? (optional)" maxlength="600" style="display:none"></textarea>'
-        + '</section>';
-    }
+    // (Rating widget used to render here, below the full ballot and the
+    // transcript. Measured 2026-08-18: in the widget's entire life since
+    // 2026-05-24 it produced ZERO signals; ~20 people reached this page in
+    // August alone and none scrolled to ~2900px to find it. It now renders
+    // directly under the verdict block, where the reader actually is.)
 
     // Opinion panel, post-round. This is the single best elicitation
     // moment on the site: the respondent has just argued a real motion
@@ -1357,18 +1364,31 @@ body{
     var notesEl = document.getElementById('rateNotes');
     var state = { rating: 0, boring: false, notes: '', notesTimer: null };
 
+    // Every path that reveals the card goes through here, once, so
+    // shown-vs-clicked is measurable. Until 2026-08-18 only the click was
+    // instrumented, which could not distinguish "nobody saw it" from
+    // "everybody ignored it"; the whole widget went three months at zero
+    // and the data could not say why.
+    var shownFired = false;
+    function revealCard(){
+      card.style.display = '';
+      if (shownFired) return;
+      shownFired = true;
+      try { gtag('event', 'voice_rfd_rate_shown', { format: payload.format || '', anonymous: payload.anonymous === true }); } catch(e){}
+      try { if (typeof window.track === 'function') window.track('voice_rfd_rate_shown', { format: payload.format || '' }); } catch(e){}
+    }
     function showIfRateable(){
       if (!payload.generationId) return;
       if (payload.anonymous === true) {
-        card.style.display = '';
+        revealCard();
         return;
       }
       try {
         if (typeof firebase === 'undefined' || !firebase.auth) return;
         var u = firebase.auth().currentUser;
-        if (u && !u.isAnonymous) { card.style.display = ''; return; }
+        if (u && !u.isAnonymous) { revealCard(); return; }
         var unsub = firebase.auth().onAuthStateChanged(function(user){
-          if (user && !user.isAnonymous) card.style.display = '';
+          if (user && !user.isAnonymous) revealCard();
           try { unsub && unsub(); } catch(e){}
         });
         setTimeout(function(){ try { unsub && unsub(); } catch(e){} }, 2500);
