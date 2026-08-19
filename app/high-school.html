@@ -35,6 +35,36 @@
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-192.png">
+<!-- App Check. This page calls /api/claude anonymously, and that route
+     hard-enforces once APP_CHECK_REQUIRED is on, so it needs to mint a
+     token like every other calling surface. The reCAPTCHA bundle itself
+     is not fetched until the visitor interacts (see js/app-check.js), so
+     the cost here is the two compat SDKs, not the 804KB. -->
+<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<script>
+  /* defer does nothing on an inline script, so this waits for
+     DOMContentLoaded: deferred externals (the two compat SDKs above) are
+     guaranteed to have run by then, and app-check.js polls for the app
+     for several seconds, so it picks this up whichever way the race
+     lands. */
+  document.addEventListener('DOMContentLoaded', function () {
+    var CONFIG = {
+      apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+      authDomain: 'debateos-78ac5.firebaseapp.com',
+      projectId: 'debateos-78ac5',
+      storageBucket: 'debateos-78ac5.firebasestorage.app',
+      messagingSenderId: '860359449192',
+      appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd'
+    };
+    try {
+      if (window.firebase && firebase.initializeApp && !firebase.apps.length) {
+        firebase.initializeApp(CONFIG);
+      }
+    } catch (e) {}
+  });
+</script>
+<script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/usage-banner.js"></script>
