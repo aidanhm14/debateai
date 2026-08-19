@@ -7380,13 +7380,55 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    for a taller stack than the page now has, which pushed the whole
    first screen down. Trimmed so the hero sits higher without landing
    under the bar. */
-  .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) clamp(18px,5vw,72px) clamp(20px,3vh,36px)}
-  .fscreen-wrap{width:100%;max-width:1200px;display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(32px,4.2vw,64px);align-items:center}
-  /* Optical correction: the copy block is much shorter than the board, so
-     dead-center reads as "floating low." A -5vh lift overshot and left a
-     dead bottom-left corner; -2vh is enough. Desktop only. */
-  @media(min-width:941px){.fscreen-copy{margin-top:-2vh}}
-  @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}.fscreen{min-height:0}}
+  .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) 0 clamp(20px,3vh,36px)}
+  /* 2026-08-19 (simple-UI pass): ONE centered container for the whole
+     first screen. Everything inside it is placed by the grid, so extra
+     room on a wide monitor lands OUTSIDE the composition instead of
+     pushing the two columns apart. The copy column is capped at 560 and
+     the board at 760 so the pair reads as one hero rather than as two
+     objects drifting toward opposite edges. */
+  .fscreen-wrap{width:min(calc(100% - 64px),1400px);margin-inline:auto;display:grid;
+    grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(40px,5vw,72px);align-items:center}
+  body.has-beta-strip .fscreen{min-height:calc(100svh - 32px)}
+  .fscreen-copy{max-width:560px;position:relative}
+  /* 2026-08-19 (simple-UI pass): the constellation is a fixed full-viewport
+     canvas, so its lines ran straight through the headline and the CTA
+     labels and read as connectors between the copy and the board. Rather
+     than dim the web everywhere (it was deliberately taken to full
+     strength earlier the same day), the copy column carries a soft scrim
+     in the page colour: the web stays at full strength as page texture
+     and stops crossing type at contrast. var(--bg) so it tracks every
+     theme. */
+  .fscreen-copy::before{content:"";position:absolute;z-index:0;
+    top:-40px;right:-56px;bottom:-40px;left:-56px;pointer-events:none;
+    background:radial-gradient(72% 58% at 42% 48%,
+      var(--bg,#fafaf7) 0%,
+      color-mix(in srgb,var(--bg,#fafaf7) 72%,transparent) 58%,
+      transparent 100%)}
+  .fscreen-copy > *{position:relative;z-index:1}
+  .fscreen-wrap > .fs-board{max-width:760px;width:100%;justify-self:end}
+  /* Single column: the copy runs the full width, so the desktop ellipse
+     leaves the top corners uncovered and the web crosses the headline
+     again. Page colour flat across the block, feathered at the edges. */
+  @media(max-width:940px){
+    .fscreen-copy::before{top:-28px;right:-24px;bottom:-24px;left:-24px;
+      background:radial-gradient(135% 78% at 50% 42%,
+        var(--bg,#fafaf7) 0%,
+        var(--bg,#fafaf7) 58%,
+        color-mix(in srgb,var(--bg,#fafaf7) 62%,transparent) 80%,
+        transparent 100%)}
+  }
+  @media(max-width:940px){
+    /* Single column. DOM order already gives the brief's stack: headline,
+       supporting line, the two actions, the walkthrough link, then the
+       proof card. #storyGlobeBlock is hidden below 940px by its own rule
+       further down, so the globe can never precede the card it would be
+       competing with. */
+    .fscreen-wrap{grid-template-columns:1fr;gap:32px}.fscreen{min-height:0}
+    .fscreen-copy{max-width:none}
+    .fscreen-wrap > .fs-board{max-width:none;justify-self:stretch}
+  }
+  @media(max-width:640px){.fscreen-wrap{width:calc(100% - 36px)}}
 
   /* The prediction eyebrow links directly to the points board. */
   .fs-slogan{margin:0 0 17px;font-size:clamp(.82rem,1.1vw,.95rem);font-weight:800;
@@ -7412,98 +7454,61 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-copy-practice{display:none}
   :root[data-first-copy="practice"] .fs-copy-stranger{display:none}
   :root[data-first-copy="practice"] .fs-copy-practice{display:block}
-  /* 2026-08-19 per Aidan: the left stack read as crowded. Column gap
-     stays 14px (the two CTAs sit tight as a pair); the ROW gap is what
-     opens, so the walkthrough link stops crowding the buttons. */
-  .fs-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:24px 14px}
-  /* ── The Debatable Open, one line ── 2026-08-19 ──────────────────
-     Sized deliberately against the band that was removed on 08-12 for
-     running 1285px on a phone. This is a single row plus a fine-print
-     line, so the reason that band came off does not apply to it. */
-  .fs-open-card{margin:32px 0 0;padding:12px 16px 11px;border-radius:14px;
-    border:1px solid rgba(220,38,38,.38);background:#fffdfa;
-    box-shadow:0 6px 20px rgba(26,26,31,.07);
-    transition:border-color .15s,background .15s,transform .15s}
-  .fs-open-card:hover{border-color:rgba(220,38,38,.7);background:#fff;transform:translateY(-1px)}
-  .fs-open{display:flex;align-items:center;gap:12px;text-decoration:none;
-    color:rgba(26,26,31,.88)}
-  .fs-open-tag{flex:0 0 auto;font-size:.74rem;font-weight:800;letter-spacing:.09em;
-    text-transform:uppercase;color:#fff;background:#dc2626;border-radius:999px;padding:5px 10px}
-  .fs-open-main{flex:1 1 auto;min-width:0;font-size:1rem;line-height:1.35}
-  .fs-open-main b{font-weight:800}
-  .fs-open-go{flex:0 0 auto;color:#dc2626;font-weight:800}
-  /* The strip carries its OWN light surface rather than sitting on the page
-     background, so its text stays a dark literal in every theme. The page
-     convention (light literal + a :root:not([data-theme="light"]) cream
-     override) is right for text on the page surface and wrong here: on this
-     card cream would land on near-white. Measured across light, grey, stone,
-     dark and system before and after. Only the fine print, which sits on the
-     page surface rather than the card, follows the page convention. */
-
-  @media(max-width:560px){
-    .fs-open-card{padding:11px 13px 10px}
-    .fs-open{align-items:flex-start;flex-wrap:wrap;gap:9px}
-    .fs-open-main{flex:1 1 100%;font-size:.95rem}
-    .fs-open-go{display:none}
-  }
-  /* 2026-08-19: with the visible headline cut, the two CTAs are the first
-     thing on the screen, so both scale up to carry the hero on their own.
-     The h1 survives screen-reader-only so the page keeps its h1. */
-  .fs-h1--sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;
-    overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
-  /* 2026-08-19 per Aidan: the two CTAs are the SAME size, two equal
-     doors; color alone (solid red vs outline) says which one leads.
-     Equal boxes also keep the centered row symmetric. */
+  .fs-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  /* 2026-08-19 (simple-UI pass): the pair was sized to carry the hero on
+     its own while the headline was cut. With the headline back they are
+     buttons again: one control height, a 14px radius rather than a full
+     pill, content-sized, and Debate is the only large red object in the
+     composition. Both keep the same height; the difference between them
+     is colour, not scale. */
   .fs-cta{display:inline-flex;align-items:center;justify-content:center;
-    gap:10px;border-radius:999px;text-decoration:none;transition:transform .15s,box-shadow .15s;
-    padding:23px 30px;font-size:1.32rem}
-  /* The pair flex-shares the row, so the two are pixel-equal and always
-     fit on ONE row whatever the column width; the walkthrough button
-     (flex auto) wraps under them. */
-  .fs-cta--primary,.fs-cta--ghost{flex:1 1 150px;max-width:300px;min-width:0}
+    gap:9px;height:54px;padding:0 26px;border-radius:14px;font-size:1.02rem;
+    text-decoration:none;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s}
+  .fs-cta--primary,.fs-cta--ghost{flex:0 0 auto;max-width:300px}
   .fs-cta--primary{font-weight:800;
-    background:#dc2626;color:#fff;box-shadow:0 14px 34px rgba(220,38,38,.3)}
-  .fs-cta--primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(220,38,38,.38)}
+    background:#dc2626;color:#fff;box-shadow:0 8px 20px rgba(220,38,38,.22)}
+  .fs-cta--primary:hover{transform:translateY(-1px);background:#c81e1e;box-shadow:0 12px 26px rgba(220,38,38,.3)}
+  /* Neutral border, no shadow: it is the quiet half of the pair. */
   .fs-cta--ghost{font-weight:700;
-    color:rgba(26,26,31,.72);border:1px solid rgba(26,26,31,.22)}
-  .fs-cta--ghost:hover{border-color:rgba(26,26,31,.5);color:#1a1a1f}
+    color:rgba(26,26,31,.74);border:1px solid rgba(26,26,31,.2);background:transparent}
+  .fs-cta--ghost:hover{border-color:rgba(26,26,31,.46);color:#1a1a1f}
   /* 2026-08-10: the walkthrough video used to live only in the hero,
      then moved down to chapter 2 (livenow stage) on 2026-08-05, which
      buried it below the fold for anyone who doesn't scroll. This pill
      puts a low-key "watch the demo" door back in the hero without
      competing with the two real CTAs — text-link weight, not a third
      button. Opens the same #guideVideoEl modal via data-guide-open. */
+  /* Tertiary action. Quiet text ink with a small red play disc, on its
+     own row 16px under the CTAs and on the headline's left edge. The
+     pinging ring came off with the resize: a third pulsing red object
+     was competing with Debate for the same glance. */
   .fs-cta-video{
     display:inline-flex;align-items:center;gap:9px;
-    padding:8px 6px;margin-left:2px;
+    margin:16px 0 0;padding:4px 0;
     background:none;border:none;cursor:pointer;
     font-family:inherit;font-size:.9rem;font-weight:700;
-    color:var(--accent,#dc2626);white-space:nowrap;
+    color:rgba(26,26,31,.7);white-space:nowrap;
+    transition:color .15s;
   }
-  .fs-cta-video:hover{text-decoration:underline;text-underline-offset:3px}
+  .fs-cta-video:hover{color:#1a1a1f;text-decoration:underline;text-underline-offset:3px}
   .fs-cta-video-play{
-    position:relative;flex:none;width:26px;height:26px;border-radius:50%;
+    position:relative;flex:none;width:19px;height:19px;border-radius:50%;
     background:var(--accent,#dc2626);
   }
-  .fs-cta-video-play::before{
-    content:"";position:absolute;inset:0;border-radius:50%;
-    background:var(--accent,#dc2626);opacity:.4;
-    animation:fsVideoPing 2.2s ease-out infinite;
-  }
   .fs-cta-video-play::after{
-    content:"";position:absolute;top:50%;left:54%;
+    content:"";position:absolute;top:50%;left:55%;
     transform:translate(-50%,-50%);
-    border-style:solid;border-width:5px 0 5px 8px;
+    border-style:solid;border-width:4px 0 4px 6px;
     border-color:transparent transparent transparent #fff;
   }
-  .fs-cta-video-min{font-weight:600;opacity:.7}
-  @keyframes fsVideoPing{
-    0%{transform:scale(1);opacity:.4}
-    75%,100%{transform:scale(1.7);opacity:0}
+  .fs-cta-video-min{font-weight:600;opacity:.72}
+  /* Mobile: the two actions go full-width and stack; the walkthrough
+     stays a left-aligned text link rather than becoming a third bar. */
+  @media(max-width:640px){
+    .fs-ctas{flex-direction:column;align-items:stretch;gap:12px}
+    .fs-cta--primary,.fs-cta--ghost{width:100%;max-width:none;height:50px}
+    .fs-cta-video{margin-top:14px}
   }
-  @media(prefers-reduced-motion:reduce){.fs-cta-video-play::before{animation:none}}
-  @media(max-width:640px){.fs-cta-video{width:100%;justify-content:center;padding:10px 6px}
-    .fs-cta--primary,.fs-cta--ghost{width:100%;max-width:none;padding-left:24px;padding-right:24px}}
   /* Sign-in row (2026-08-11, per Aidan: "advertise google sign in much
      earlier and quicker to a new visitor"). Sits directly under the two
      hero CTAs, on the first screen, so the account ask arrives with the
@@ -7589,6 +7594,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   :root:not([data-theme="light"]) .fs-h1{color:#f5efe7}
   :root:not([data-theme="light"]) .fs-sub{color:rgba(245,239,231,.68)}
   :root:not([data-theme="light"]) .fs-cta--ghost{color:rgba(245,239,231,.78);border-color:rgba(245,239,231,.28)}
+  /* The walkthrough link moved from accent red to quiet page ink in the
+     08-19 simple-UI pass, so it now needs the same dark twin every
+     other ink on this column has. Without it the label vanished on
+     dark/crimson/grey/stone and left a bare play disc. */
+  :root:not([data-theme="light"]) .fs-cta-video{color:rgba(245,239,231,.76)}
+  :root:not([data-theme="light"]) .fs-cta-video:hover{color:#f5efe7}
   :root:not([data-theme="light"]) .fs-cta--ghost:hover{border-color:rgba(245,239,231,.6);color:#fff}
   :root:not([data-theme="light"]) .fs-globe .story-globe-caption{color:rgba(245,239,231,.68)}
   :root:not([data-theme="light"]) .fs-globe .story-globe-caption .globe-map-link{color:#f5efe7}
@@ -7696,17 +7707,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   /* 2026-08-05: live presence globe in the hero (swapped with the
      walkthrough card, which now lives in the livenow stage). */
-  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:430px;margin-top:30px}
-  /* 2026-08-19: with the headline cut, the stranger arm is buttons +
-     walkthrough + globe. Left-ragged rows over a centered globe read as
-     two competing axes, so the whole stack shares one centered axis.
-     The practice arm keeps authored text and stays left-aligned. */
-  .fs-copy-stranger .fs-ctas{justify-content:center}
-  /* The globe block sits OUTSIDE the copy arms (shared by both), so it
-     is centered at the column level, not per-arm. */
-  .fscreen-copy .fs-globe{align-items:center;margin-left:auto;margin-right:auto}
-  .fs-globe .hero-globe-canvas-wrap{margin:0;max-width:330px;min-width:200px;min-height:200px}
-  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:center;width:100%;max-width:330px;margin-top:-14px;text-align:center;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
+  /* 2026-08-19 (simple-UI pass): the globe was a third focal point under
+     the actions, at 330px competing with both the CTA row and the board,
+     with its count floating loose underneath. It is now ONE component:
+     a 150px globe with the count beside it, on the column's left edge,
+     reading as a live signal rather than as an illustration. */
+  .fs-globe{display:flex;flex-direction:row;align-items:center;gap:14px;
+    width:100%;max-width:430px;margin-top:32px}
+  /* 2026-08-19 (simple-UI pass): the centered axis went with the
+     headline's return. Headline, sub, CTAs, walkthrough and the live
+     row all share ONE left edge, so the column reads as a stack rather
+     than as four separately-placed objects. */
+  .fs-copy-stranger .fs-ctas{justify-content:flex-start}
+  .fs-globe .hero-globe-canvas-wrap{flex:0 0 auto;margin:0;width:150px;max-width:150px;min-width:150px;min-height:150px}
+  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;
+    width:auto;max-width:none;margin-top:0;text-align:left;font-size:.82rem;line-height:1.4;color:rgba(26,26,31,.64)}
   .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
   /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
      column was authored with hardcoded light-surface ink, so each ink
@@ -7731,13 +7746,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="grey"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="stone"] .fs-globe .story-globe-caption .globe-map-link{
     color:#f5efe7}
   @media(min-width:941px) and (max-height:860px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:270px}}
-  /* Short desktop windows already shrink the globe to keep the stack on
-     one screen, so the widened rhythm above winds back down with it. */
-  @media(min-width:941px) and (max-height:820px){
-    .fs-ctas{gap:18px 14px}
-    .fs-open-card{margin-top:22px}
-    .fs-globe{margin-top:18px}
-  }
   @media(min-width:941px) and (max-height:760px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:225px}}
   @media(max-width:940px){
     .fs-globe{margin:22px auto 0;align-items:center}
@@ -7765,25 +7773,29 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      is now the default paint, same as every other card on the page;
      [data-theme="light"] pins the original white-tab treatment back
      for visitors on the light theme, unchanged. */
+  /* 2026-08-19 (simple-UI pass): one radius, one shadow, and internal
+     padding that matches the rest of the composition's spacing scale.
+     Sections inside are separated by space and a thin rule, not by
+     further nested cards. */
   .fs-board{background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
-    border:1px solid rgba(245,239,231,.14);border-radius:18px;
-    padding:clamp(15px,1.7vw,21px);
-    box-shadow:0 28px 62px rgba(0,0,0,.5),0 3px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.06);
+    border:1px solid rgba(245,239,231,.14);border-radius:16px;
+    padding:clamp(16px,2vw,28px);
+    box-shadow:0 18px 44px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.06);
     color:#f5efe7;overflow:hidden;position:relative;
     transform-origin:center;
     transition:transform .2s cubic-bezier(.2,.75,.2,1),border-color .2s ease,box-shadow .2s ease}
   .fs-board:hover,.fs-board:focus-within{
-    transform:scale(1.02);
+    transform:translateY(-2px);
     border-color:rgba(245,239,231,.24);
-    box-shadow:0 36px 76px rgba(0,0,0,.6),0 5px 14px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);
+    box-shadow:0 24px 56px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);
     z-index:2}
   [data-theme="light"] .fs-board{background:linear-gradient(168deg,#ffffff 0%,#fdfdfc 58%,#f8f7f5 100%);
     border-color:rgba(26,26,31,.1);
-    box-shadow:0 28px 62px rgba(24,22,28,.1),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff;
+    box-shadow:0 18px 44px rgba(24,22,28,.09),inset 0 1px 0 #fff;
     color:#1a1a1f}
   [data-theme="light"] .fs-board:hover,[data-theme="light"] .fs-board:focus-within{
     border-color:rgba(26,26,31,.18);
-    box-shadow:0 36px 76px rgba(24,22,28,.16),0 5px 14px rgba(24,22,28,.08),inset 0 1px 0 #fff}
+    box-shadow:0 24px 56px rgba(24,22,28,.14),inset 0 1px 0 #fff}
   /* A native link covers the board so navigation still works if the
      animation script does not run. The pager sits above it and keeps
      browsing the examples without navigating away. */
@@ -7792,7 +7804,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board-hit:focus-visible{outline:2px solid #dc2626;outline-offset:-4px}
   .fs-board .fs-pager{cursor:default;position:relative;z-index:4}
   .fs-board .fs-nav{cursor:pointer}
-  .fs-board-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  /* The carousel index is metadata, not a header: the people and the
+     motion lead, and this sits under the ballot behind a thin rule. */
+  .fs-board-top{display:flex;align-items:center;gap:10px;margin:18px 0 0;padding-top:12px;
+    border-top:1px solid rgba(245,239,231,.13)}
+  [data-theme="light"] .fs-board-top{border-top-color:rgba(26,26,31,.1)}
   .fs-board .fs-sample{font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(245,239,231,.68);white-space:nowrap}
   [data-theme="light"] .fs-board .fs-sample{color:rgba(26,26,31,.64)}
   @media(max-width:430px){.fs-board .fs-sample{letter-spacing:.06em;font-size:.54rem}}
@@ -7812,7 +7828,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-board .fs-nav{border-color:rgba(26,26,31,.22);color:rgba(26,26,31,.64)}
   .fs-nav:hover{border-color:#f5efe7;color:#f5efe7}
   [data-theme="light"] .fs-nav:hover{border-color:#1a1a1f;color:#1a1a1f}
-  .fs-board .fs-motion{margin:0 0 13px;font-family:var(--font-display);font-weight:700;
+  .fs-board .fs-motion{margin:0 0 20px;font-family:var(--font-display);font-weight:700;
     font-size:clamp(1.08rem,1.65vw,1.4rem);line-height:1.22;letter-spacing:-.015em;color:#f5efe7;
     /* min-height holds two lines so a shorter motion does not bounce the
        whole board on every swap. */
@@ -7820,23 +7836,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-board .fs-motion{color:#1a1a1f}
 
 
+  /* 2026-08-19 (simple-UI pass): on a 720-or-shorter desktop viewport the
+     card ran past the fold and took the sign-in row with it. Same spacing
+     scale, one step down, so the whole proof card stays in the first
+     viewport instead of being cropped. */
+  @media(min-width:941px) and (max-height:800px){
+    /* Same wind-back on the left stack (pattern from the 08-19 "open up
+       the vertical rhythm" pass): the column breathes on a tall window
+       and tightens one step on a short one, so both halves of the hero
+       stay whole on the first screen. */
+    .fs-cta-video{margin-top:12px}
+    .fs-globe{margin-top:22px}
+    .fs-tile{aspect-ratio:16/10}
+    .fs-stage{margin-bottom:18px}
+    .fs-board .fs-motion{margin-bottom:16px}
+    .fs-odds{margin-bottom:18px}
+    .fs-ballot{padding-top:16px}
+    .fs-board-top{margin-top:14px;padding-top:10px}
+  }
+
   /* Round panel: two tiles, the speaking one ringed. */
-  .fs-stage{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
-  .fs-tile{position:relative;aspect-ratio:16/11;border-radius:11px;overflow:hidden;background:#000;
+  .fs-stage{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+  .fs-tile{position:relative;aspect-ratio:16/11;border-radius:10px;overflow:hidden;background:#000;
     border:1px solid rgba(245,239,231,.16)}
   [data-theme="light"] .fs-tile{border-color:rgba(26,26,31,.14)}
   .fs-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .fs-tile--speaking{box-shadow:inset 0 0 0 2px rgba(239,68,68,.85)}
   .fs-board .fs-tile-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
-    padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
-    font-size:.6rem;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap}
+    padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);
+    font-size:.6rem;font-weight:700;color:rgba(255,255,255,.92);white-space:nowrap}
   .fs-board .fs-tile-nm i{width:5px;height:5px;border-radius:50%;background:#ef4444;animation:fsMic 1.5s ease-in-out infinite}
   @keyframes fsMic{50%{opacity:.3}}
   .fs-board .fs-clock{position:absolute;right:8px;top:8px;z-index:2;padding:3px 7px;border-radius:6px;
     background:rgba(0,0,0,.6);font-size:.6rem;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
 
   /* Hot/cold scale. */
-  .fs-odds{margin-bottom:12px}
+  .fs-odds{margin-bottom:22px}
   .fs-odds-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .fs-board .fs-odds-k{font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(245,239,231,.68)}
   [data-theme="light"] .fs-board .fs-odds-k{color:rgba(26,26,31,.64)}
@@ -7929,7 +7964,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board .fs-mkt{display:none}
 
   /* Ballot payoff. */
-  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:64px}
+  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:20px;min-height:64px}
   [data-theme="light"] .fs-ballot{border-top-color:rgba(26,26,31,.12)}
   .fs-board .fs-ballot-wait{display:flex;align-items:center;gap:4px;font-size:.66rem;font-weight:800;
     letter-spacing:.1em;text-transform:uppercase;color:rgba(245,239,231,.68)}
@@ -7942,7 +7977,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-ballot-card{display:none}
   .fs-ballot.is-in .fs-ballot-card{display:block;animation:fsRise .34s ease both}
   @keyframes fsRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .fs-ballot-top{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}
+  .fs-ballot-top{display:flex;align-items:baseline;gap:10px;margin-bottom:11px}
   .fs-board .fs-ballot-top b{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#4ade80}
   [data-theme="light"] .fs-board .fs-ballot-top b{color:#16a34a}
   .fs-board .fs-ballot-top span{display:none}
@@ -8101,11 +8136,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            and the /debatable entity page keeps its internal link in the
            footer ("About Debatable"). -->
       <div class="fs-copy-variant fs-copy-stranger" data-nosnippet>
-        <!-- 2026-08-19: the visible headline was cut per Aidan; the two
-             CTAs plus the globe ARE the first screen now. The h1 stays in
-             the DOM screen-reader-only so the page keeps its h1 for
-             search and assistive tech. -->
-        <h1 class="fs-h1 fs-h1--sr">Debate a stranger right now.</h1>
+        <!-- 2026-08-19 (simple-UI pass): the headline is VISIBLE again.
+             It was cut earlier the same day, which left the left column
+             opening on a button row with nothing anchoring it, and the
+             page leaning on the background web for texture. The h1 is the
+             anchor the rest of the column aligns to, and it renders in
+             both the signed-out and signed-in states. -->
+        <h1 class="fs-h1">Debate a stranger right now.</h1>
+        <p class="fs-sub">Pick a topic, get matched, and settle it out loud.</p>
         <!-- The AI judge link was cut from the first screen per Aidan
              (2026-08-12). Real people arguing is the product; the judge
              is the tool underneath it and does not belong in the first
@@ -8118,8 +8156,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Debate <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
-          <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         </div>
+        <!-- Tertiary. Its own row under the CTAs, on the same left
+             edge as the headline, at text-link weight. -->
+        <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         <div class="fs-signin">
           <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-google">
             <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -8135,8 +8175,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
           <a class="fs-cta fs-cta--ghost" href="/spectate" data-cta="first-screen-spectate" data-ab-test="first_screen_copy_v1" data-ab-target="watch">Spectate <span class="fs-cta-live" data-live-count></span></a>
-          <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         </div>
+        <!-- Tertiary. Its own row under the CTAs, on the same left
+             edge as the headline, at text-link weight. -->
+        <button type="button" class="fs-cta-video" data-guide-open data-cta="first-screen-video"><span class="fs-cta-video-play" aria-hidden="true"></span>Watch the walkthrough <span class="fs-cta-video-min">&middot; 3 min</span></button>
         <div class="fs-signin">
           <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-google">
             <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -8167,56 +8209,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         })();
       </script>
 
-      <!-- ── The Debatable Open ── 2026-08-19 ──────────────────────────
-           Measured the same day: 274 unique devices landed on / and 18
-           reached /tournaments. The first screen's only link to it was
-           cut on 08-12 and every other route (the FAQ answer, the
-           footer, the creator section, the More menu) sits behind the
-           one-pager gate, so the page most arrivals see had no path to
-           the event at all. The coach and announcement emails point at
-           the root, which is exactly where that traffic stops.
-
-           This does NOT reverse the 08-12 removal. What came off was the
-           full band: poster, prize ladder, CTA row and share rail, 1285px
-           on a phone for a dated event with its own page. That judgement
-           stands. This is one row and a fine-print line.
-
-           Sits outside both copy arms and carries no data-ab-test, so
-           first_screen_copy_v1 sees an identical page in either bucket.
-           Same rule the audience chooser follows.
-
-           It retires itself the morning after the event, so the landing
-           cannot carry a stale date, which was the other stated reason
-           the band came off. Rendered VISIBLE and hidden by script when
-           expired, rather than the reverse, so a JS-off visitor still
-           sees a true line instead of nothing.
-
-           Money leads per Aidan 2026-08-11. The fine-print line under the
-           row came off 2026-08-19 per Aidan: three sentences of entry
-           terms on the front page for an event most arrivals have not
-           heard of yet. The terms themselves are not gone, they are on
-           the page this row links to, which is also where entry actually
-           happens: /tournaments states the 18-and-over prize rule, the
-           waived fee, and the account cutoff, and its JSON-LD carries
-           the same. Nothing on this row makes a claim those terms
-           qualify beyond the price, which the row still states. -->
-      <div class="fs-open-card" id="fsOpen">
-        <a class="fs-open" href="/tournaments" data-cta="first-screen-open">
-          <span class="fs-open-tag">Sat Aug 29</span>
-          <span class="fs-open-main">Win <b>$500</b> for winning an argument. <b>The Debatable Open</b>, $5 to enter.</span>
-          <span class="fs-open-go" aria-hidden="true">&rarr;</span>
-        </a>
-      </div>
-      <script>
-        (function(){
-          /* 04:00 UTC on 30 Aug is the morning after the event in every
-             timezone the doors are open in. Past it, both nodes go. */
-          var ENDS = Date.UTC(2026, 7, 30, 4, 0, 0);
-          if (Date.now() < ENDS) return;
-          var a = document.getElementById('fsOpen');
-          if (a) a.hidden = true;
-        })();
-      </script>
+      <!-- 2026-08-19 (simple-UI pass): the in-hero Debatable Open row
+           came off. It promoted the event a SECOND time on a screen
+           that already carries the sitewide strip, and after the fine
+           print moved to /tournaments earlier today the two said the
+           same thing: same event, same date, same $500 for $5, same
+           link. The strip keeps the path from / to the event that this
+           node was added for, and retires on the same schedule. -->
 
       <!-- 2026-08-05 swap per Aidan: the live presence globe (real 24h
            pins from /api/presence-live) sits under the hero CTAs so the
@@ -8244,21 +8243,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
     <div class="fs-board" id="fsBoard">
       <a class="fs-board-hit" href="/spar" aria-label="Open live debate matchmaking" data-cta="first-screen-board" data-ab-test="first_screen_copy_v1" data-ab-target="example_board"></a>
-      <div class="fs-board-top">
-        <!-- 2026-08-10: the per-round format chip ("World Schools", "British
-             Parli") was cut. A cold visitor does not know the formats yet, so
-             naming one on the first screen asked them to decode a label before
-             they had seen what a round is. 2026-08-12: the "Example rounds"
-             label went too, per Aidan. The pager is the whole header now, and
-             it sits right because .fs-pager already carries margin-left:auto.
-             The format still rides each ROUNDS entry and shows up where it
-             means something (the motion, /practice). -->
-        <span class="fs-pager">
-          <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
-          <span id="fsCount">1 of 24</span>
-          <button type="button" class="fs-nav" id="fsNext" aria-label="Next example round">&rsaquo;</button>
-        </span>
-      </div>
 
       <!-- The round itself: two tiles, a clock, the resolution. The
            resolution swaps on every round so the panel is adaptive rather
@@ -8342,6 +8326,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
           <p id="fsRfd"></p>
         </div>
+      </div>
+      <div class="fs-board-top">
+        <!-- 2026-08-10: the per-round format chip ("World Schools", "British
+             Parli") was cut. A cold visitor does not know the formats yet, so
+             naming one on the first screen asked them to decode a label before
+             they had seen what a round is. 2026-08-12: the "Example rounds"
+             label went too, per Aidan. The pager is the whole header now, and
+             it sits right because .fs-pager already carries margin-left:auto.
+             The format still rides each ROUNDS entry and shows up where it
+             means something (the motion, /practice). -->
+        <span class="fs-pager">
+          <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
+          <span id="fsCount">1 of 24</span>
+          <button type="button" class="fs-nav" id="fsNext" aria-label="Next example round">&rsaquo;</button>
+        </span>
       </div>
     </div>
 
