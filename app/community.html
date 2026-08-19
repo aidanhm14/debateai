@@ -3031,6 +3031,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       })
       .catch(function(err){
         console.warn('[rounds] firestore query failed', err);
+        // Release the latch so a later Rounds-tab click retries. The
+        // Feed now fires this at boot, so a transient failure used to
+        // strand the Rounds tab empty for the rest of the page view.
+        _roundsLoaded = false;
         renderPublicRounds([]);
       });
   }
