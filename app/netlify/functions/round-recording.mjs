@@ -114,7 +114,9 @@ async function dailyRecording(room, action){
   }
 }
 
-async function stopIfStarted(room){
+// Exported for the reaper: an abandoned room's capture has to be stopped
+// by something other than the tab that walked away.
+export async function stopIfStarted(room){
   const stopped = await dailyRecording(room, 'stop');
   if (!stopped.ok) console.warn('[round-recording] cleanup stop failed:', stopped.status, stopped.detail);
 }

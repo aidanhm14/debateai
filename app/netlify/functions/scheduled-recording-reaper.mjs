@@ -1,0 +1,95 @@
+// Close out recordings whose round walked away.
+//
+// Capture starts on its own now (round-recording's `autostart`), so every
+// live round enters `recording` and the only thing that ends it cleanly is
+// the client calling `finish`. A closed tab, a crashed browser or a round
+// nobody bothered to finish never sends that call, which used to leave the
+// round doc reading `recording` forever: measured 2026-08-19, four rounds
+// were stuck that way, one of them for eleven hours.
+//
+// That was cosmetic while capture needed consent first. It is not cosmetic
+// now. The deletion promise in the privacy policy ("a round that ends
+// without every seat agreeing has its recording deleted") is carried by
+// `recordingDeleteRequested`, and `finish` is what sets it. No finish, no
+// flag, and an unconsented capture sits at Daily indefinitely. This job is
+// what makes that promise true for rounds that end badly, which is most of
+// the ways a round ends.
+//
+// Liveness comes from `lastSeenAt`, the seat heartbeat both debaters write
+// every 30 seconds (WATCH_HB_MS in live-round.html). Ten minutes of
+// silence is twenty missed beats: the room is empty, not slow. Long rounds
+// are safe precisely because a long round is still beating.
+
+import { FieldValue } from 'firebase-admin/firestore';
+import { getDb } from './lib/firestore.mjs';
+import { stopIfStarted } from './round-recording.mjs';
+
+const OPEN_STATES = ['starting', 'recording', 'stopping', 'stop_failed'];
+const STALE_MS = 10 * 60 * 1000;
+const MAX_PER_RUN = 25;
+
+function lastActivityMs(d){
+  const beats = [
+    d.lastSeenAt?.toMillis?.() || 0,
+    d.recordingUpdatedAtMs || 0,
+    d.recordingStartedAtMs || 0,
+    Number(d.roundStartedAt) || 0,
+  ];
+  return Math.max(...beats);
+}
+
+export async function reapAbandonedRecordings(db, nowMs = Date.now()){
+  const snap = await db.collection('live_rounds')
+    .where('recordingStatus', 'in', OPEN_STATES)
+    .limit(100)
+    .get();
+
+  let reaped = 0, purged = 0, skipped = 0;
+  for (const doc of snap.docs){
+    if (reaped >= MAX_PER_RUN) break;
+    const d = doc.data() || {};
+    const idle = nowMs - lastActivityMs(d);
+    if (idle < STALE_MS){ skipped++; continue; }
+
+    // Best effort, and deliberately before the write: if Daily refuses,
+    // the doc still closes and the file still gets flagged for deletion.
+    // A recording we could not stop is a stronger reason to mark it, not
+    // a reason to leave the round open another fifteen minutes.
+    try { await stopIfStarted(doc.id); } catch (e) {
+      console.warn('[recording-reaper] stop failed for', doc.id, e?.message || e);
+    }
+
+    const consented = d.recordingPublishAllowed === true;
+    const update = {
+      recordingStatus: consented ? 'processing' : 'stopped',
+      recordingClosed: true,
+      recordingStopReason: 'abandoned',
+      recordingStoppedAt: FieldValue.serverTimestamp(),
+      recordingStoppedAtMs: nowMs,
+      recordingUpdatedAt: FieldValue.serverTimestamp(),
+      recordingUpdatedAtMs: nowMs,
+    };
+    // Nobody completed the consent, and nobody is left in the room to
+    // complete it. The file goes on the next sync pass.
+    if (!consented){ update.recordingDeleteRequested = true; purged++; }
+    await doc.ref.set(update, { merge: true });
+    reaped++;
+    console.log('[recording-reaper]', doc.id, 'idle', Math.round(idle / 60000) + 'm', consented ? 'kept for publish' : 'marked for deletion');
+  }
+  return { open: snap.size, reaped, purged, skipped };
+}
+
+export default async () => {
+  try {
+    const result = await reapAbandonedRecordings(getDb());
+    console.log('[recording-reaper]', JSON.stringify(result));
+  } catch (error) {
+    console.error('[recording-reaper] failed:', error?.message || error);
+  }
+};
+
+// Five minutes ahead of the recordings sync it feeds, on the same */15
+// cadence the other operational crons settled on after the 2026-05-18
+// credit audit. Worst case a walked-away capture is stopped ~25 minutes
+// after the room empties, and deleted on the sync pass after that.
+export const config = { schedule: '5,20,35,50 * * * *' };
