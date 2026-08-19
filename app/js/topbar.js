@@ -2003,3 +2003,70 @@
   s.defer = true;
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
+
+/* ── The Debatable Open countdown strip ─────────────────────────
+   One-line dismissible strip pinned above the topbar on every page
+   that loads this file. Uses the dormant .ui-beta-strip CSS in
+   ui.css (fixed top, 32px) — .ui-topbar already offsets itself when
+   body carries .has-beta-strip, and native-bridge.js already hides
+   .ui-beta-strip inside the iOS shell, which is wanted: cash-prize
+   copy stays out of the App Store build.
+
+   Self-retiring: the strip renders nothing after the event day ends
+   (Aug 29, 11:59 PM ET), and the free-entry clause swaps out on its
+   own once the publicly promised Friday deadline passes. Dismiss is
+   sessionStorage, so it stays gone for the visit but returns next
+   session — a 10-day campaign strip, not a permanent banner.
+   Skipped on /tournaments and /tournament-rules (no self-ads). */
+(function(){
+  if (window.__daOpenStrip) return;
+  window.__daOpenStrip = 1;
+
+  var path = (location.pathname || '/').replace(/\/$/, '') || '/';
+  if (/^\/(tournaments|tournament-rules)(\.html)?$/.test(path)) return;
+  try { if (sessionStorage.getItem('da-open-strip-dismissed') === '1') return; } catch (e) {}
+
+  // All boundaries in ET (UTC-4 in August).
+  var now = Date.now();
+  var FREE_ENDS  = Date.parse('2026-08-21T23:59:59-04:00'); // Friday, the deadline the emails promised
+  var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
+  var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
+  if (now > EVENT_OVER) return;
+
+  var tail;
+  if (now >= EVENT_DAY) tail = 'Live today, doors open 10 AM ET';
+  else if (now <= FREE_ENDS) tail = 'Free entry ends Friday';
+  else tail = 'Online, drop in any time';
+
+  function mount(){
+    if (document.querySelector('.ui-beta-strip')) return;
+    var strip = document.createElement('div');
+    strip.className = 'ui-beta-strip';
+    strip.setAttribute('role', 'region');
+    strip.setAttribute('aria-label', 'Tournament announcement');
+    var msg = 'The Debatable Open · Sat Aug 29 · $850 in prizes';
+    strip.innerHTML =
+      '<a href="/tournaments" data-cta="open-strip">' + msg +
+      '<span class="ui-open-strip-tail"> · ' + tail + '</span> →</a>' +
+      '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">×</button>';
+    var css = document.createElement('style');
+    css.textContent =
+      '.ui-beta-strip a{text-decoration:none}' +
+      '.ui-beta-strip a:hover{text-decoration:underline}' +
+      '@media (max-width:560px){.ui-open-strip-tail{display:none}}';
+    document.head.appendChild(css);
+    document.body.appendChild(strip);
+    document.body.classList.add('has-beta-strip');
+    strip.querySelector('.ui-beta-strip-dismiss').addEventListener('click', function(){
+      try { sessionStorage.setItem('da-open-strip-dismissed', '1'); } catch (e) {}
+      strip.remove();
+      document.body.classList.remove('has-beta-strip');
+    });
+    strip.querySelector('a').addEventListener('click', function(){
+      try { if (typeof gtag === 'function') gtag('event', 'open_strip_click', { path: path }); } catch (e) {}
+    });
+  }
+
+  if (document.body) mount();
+  else document.addEventListener('DOMContentLoaded', mount);
+})();

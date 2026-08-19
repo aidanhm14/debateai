@@ -205,6 +205,11 @@ h1,h2,h3,p{margin-top:0}
 .btn:hover{transform:translateY(-1px);border-color:var(--ink)}
 .hero-share{margin-top:20px;padding-top:16px;border-top:1px solid var(--line,rgba(0,0,0,.1))}
 .hero-share:empty{display:none;margin:0;padding:0;border:0}
+.enter-share{margin-top:14px;padding:14px 16px;border:1px solid var(--line,rgba(0,0,0,.12));border-radius:12px;background:var(--card,rgba(0,0,0,.03))}
+.enter-share p{margin:0 0 10px;font-size:.92rem;line-height:1.5}
+.enter-share button{padding:9px 16px;border:0;border-radius:9px;background:#dc2626;color:#fff;font-weight:700;font-size:.9rem;cursor:pointer}
+.enter-share button:hover{background:#b91c1c}
+.enter-share .enter-share-done{margin:8px 0 0;font-size:.82rem;color:var(--muted,#666)}
 .btn-primary{border-color:var(--red);background:var(--red);color:#fff;box-shadow:0 10px 24px rgba(217,47,47,.17)}
 .btn-primary:hover{border-color:var(--red-dark);background:var(--red-dark)}
 .arrow{font-family:var(--sans);font-size:1rem}
@@ -1129,6 +1134,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     if(typeof window.openAuthModal==='function'){
       window.openAuthModal('signin',{onDone:function(user){
         if(user&&!user.isAnonymous){fn(user);return}
+        try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
         say('Sign-in did not complete. Try again when ready.',null);
       }});
       return;
@@ -1138,7 +1144,18 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     // leaving the button dead.
     auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(function(res){
       if(res&&res.user)fn(res.user);
-    }).catch(function(){say('Sign-in was closed. Try again when ready.',null)});
+    }).catch(function(err){
+      var code=(err&&err.code)||'';
+      // Popups die silently in embedded webviews and under strict
+      // blockers. A full-page redirect works in most of them, and the
+      // pending-intent stash written in enter() survives the round
+      // trip, so the registration resumes when they land back here.
+      if(code==='auth/popup-blocked'||code==='auth/operation-not-supported-in-this-environment'||code==='auth/web-storage-unsupported'){
+        try{auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());return}catch(e2){}
+      }
+      try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
+      say('Sign-in was closed. Try again when ready.',null);
+    });
   }
   function registerFree(user,token,opts){
     var payload={action:'register',tid:current.tid,name:user.displayName||''};
@@ -1155,13 +1172,59 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   // A refused comp is not a dead end: reveal the card door so the
   // person who does not qualify still has a way to be prize-eligible.
   function revealPayDoor(){if(paidBtn)paidBtn.hidden=false}
+
+  // Post-registration share ask. A field this small grows fastest
+  // through the people already in it, so the moment someone is in the
+  // bracket they get a one-tap way to pull a teammate in. Renders
+  // once, directly under the confirmation status.
+  function showShareAsk(){
+    if(!statusEl||document.getElementById('enterShare'))return;
+    var SHARE_URL='https://itsdebatable.com/tournaments';
+    var SHARE_TEXT='I am in The Debatable Open, Saturday August 29. All online, $850 in cash prizes, every round gets a written ballot. Enter here:';
+    var box=document.createElement('div');
+    box.className='enter-share';
+    box.id='enterShare';
+    var p=document.createElement('p');
+    p.textContent='Rounds are better with people you know. Send this to a teammate.';
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.textContent=(navigator.share?'Share the tournament':'Copy the link');
+    var done=document.createElement('p');
+    done.className='enter-share-done';
+    done.hidden=true;
+    btn.addEventListener('click',function(){
+      try{if(typeof gtag==='function')gtag('event','tournament_entrant_share',{method:navigator.share?'native':'copy'})}catch(e){}
+      if(navigator.share){
+        navigator.share({title:'The Debatable Open',text:SHARE_TEXT,url:SHARE_URL}).catch(function(){});
+        return;
+      }
+      var copied=function(){done.textContent='Link copied. Paste it anywhere.';done.hidden=false};
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(SHARE_TEXT+' '+SHARE_URL).then(copied).catch(function(){
+          done.textContent=SHARE_URL;done.hidden=false;
+        });
+      }else{
+        done.textContent=SHARE_URL;done.hidden=false;
+      }
+    });
+    box.appendChild(p);box.appendChild(btn);box.appendChild(done);
+    statusEl.insertAdjacentElement('afterend',box);
+  }
   function enter(mode){
     if(!current)return;
     if((mode==='paid'||mode==='founding')&&(!ageBox||!ageBox.checked)){
       say('Tick the 18+ box first. Prize entry is adults only.','bad');
       return;
     }
+    // A sign-in that leaves the page (signInWithRedirect in a webview,
+    // or any modal path that reloads) loses this click. Stash the
+    // intent so the return trip finishes the registration instead of
+    // stranding a signed-in user on an unregistered page. Cleared the
+    // moment a signed-in session proceeds, and on every sign-in
+    // failure; expires after 15 minutes (see the resume block below).
+    try{sessionStorage.setItem('da-tourney-pending',JSON.stringify({mode:mode,age:!!(ageBox&&ageBox.checked),t:Date.now()}))}catch(e){}
     withUser(function(user){
+      try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
       var btn=mode==='paid'?paidBtn:(mode==='founding'?foundingBtn:freeBtn);
       if(btn)btn.disabled=true;
       say(mode==='paid'?'Opening secure checkout…':'Registering…',null);
@@ -1180,6 +1243,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
             say(res.j&&res.j.already
               ? 'You are already in. Come back any time on the day and you will be paired.'
               : 'You are in. Come back any time on the day and you will be paired.','good');
+            showShareAsk();
             return null;
           }
           if(mode==='founding'){
@@ -1188,6 +1252,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
               say(f.status==='paid'
                 ? 'You are in, and you were already eligible for the cash prizes.'
                 : 'You are in, and eligible for the cash prizes. Nothing to pay. Come back any time on the day.','good');
+              showShareAsk();
             }else if(f&&f.reason==='not-founding'){
               say('Your entry is registered, but this account was created after the free-entry cutoff, so it is not eligible for the cash prizes yet. Pay in below, or email to have the fee waived.',null);
               revealPayDoor();
@@ -1219,6 +1284,44 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   if(freeBtn)freeBtn.addEventListener('click',function(){enter('free')});
   if(paidBtn)paidBtn.addEventListener('click',function(){enter('paid')});
   if(foundingBtn)foundingBtn.addEventListener('click',function(){enter('founding')});
+
+  // Finish a registration interrupted by a redirect sign-in. The stash
+  // is written on the entry click, cleared when a signed-in session
+  // proceeds or a sign-in fails, and expires after 15 minutes so a
+  // stale intent never registers anyone silently later. Resume needs
+  // both a named user AND the tournament payload, which arrive on
+  // independent async paths, so a short poll covers whichever lands
+  // second. The 18+ box is restored from the stash: the person ticked
+  // it themselves before the redirect.
+  (function(){
+    if(!auth)return;
+    var raw=null;
+    try{raw=sessionStorage.getItem('da-tourney-pending')}catch(e){}
+    if(!raw)return;
+    var pending=null;
+    try{pending=JSON.parse(raw)}catch(e){}
+    if(!pending||!pending.mode||(Date.now()-(pending.t||0))>15*60*1000){
+      try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
+      return;
+    }
+    var fired=false;
+    function tryResume(){
+      if(fired)return;
+      var u=auth.currentUser;
+      if(!u||u.isAnonymous||!current)return;
+      fired=true;
+      try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
+      if(pending.age&&ageBox)ageBox.checked=true;
+      enter(pending.mode);
+    }
+    auth.onAuthStateChanged(function(){tryResume()});
+    var waits=0;
+    var iv=setInterval(function(){
+      waits+=1;
+      tryResume();
+      if(fired||waits>40)clearInterval(iv);
+    },500);
+  })();
 })();
 </script>
 <script>
