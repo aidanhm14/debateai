@@ -528,27 +528,43 @@
       if (window.__DB_NATIVE) return;
       if (getConfig().skip) return;
       if (typeof firebase === 'undefined' || !firebase.auth) return;
-      if (isRealUser(firebase.auth().currentUser)) return;
-      var s = document.createElement('script');
-      s.src = 'https://accounts.google.com/gsi/client';
-      s.async = true;
-      s.defer = true;
-      s.onload = function(){
-        try {
-          if (isRealUser(firebase.auth().currentUser)) return;
-          window.google.accounts.id.initialize({
-            client_id: ONE_TAP_CLIENT_ID,
-            callback: onOneTapCredential,
-            cancel_on_tap_outside: false,
-            context: 'signin'
-          });
-          // FedCM owns the prompt UI. Do not depend on legacy display/skip
-          // moment callbacks, which Google is removing from the API.
-          window.google.accounts.id.prompt();
-          try { if (window.gtag) gtag('event', 'one_tap_attempted', { path: location.pathname }); } catch (e) {}
-        } catch (e) {}
-      };
-      document.head.appendChild(s);
+      // Someone whose last sign-in on this device was Apple has picked
+      // their provider. Google's chip on top of that reads as a second
+      // ask for an account they already have; it's one or the other.
+      try { if ((localStorage.getItem(LAST_METHOD_KEY) || '') === 'apple') return; } catch (e) {}
+      // Wait for the first auth-state emission instead of reading
+      // currentUser synchronously. Right after the reload that follows a
+      // completed sign-in (Apple included), currentUser is still null
+      // while Firebase hydrates from storage, so the old synchronous
+      // check let One Tap ask a freshly signed-in user to also sign in
+      // with Google.
+      var decided = false;
+      var unsub = firebase.auth().onAuthStateChanged(function(user){
+        if (decided) return;
+        decided = true;
+        try { if (typeof unsub === 'function') unsub(); } catch (e) {}
+        if (isRealUser(user)) return;
+        var s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.defer = true;
+        s.onload = function(){
+          try {
+            if (isRealUser(firebase.auth().currentUser)) return;
+            window.google.accounts.id.initialize({
+              client_id: ONE_TAP_CLIENT_ID,
+              callback: onOneTapCredential,
+              cancel_on_tap_outside: false,
+              context: 'signin'
+            });
+            // FedCM owns the prompt UI. Do not depend on legacy display/skip
+            // moment callbacks, which Google is removing from the API.
+            window.google.accounts.id.prompt();
+            try { if (window.gtag) gtag('event', 'one_tap_attempted', { path: location.pathname }); } catch (e) {}
+          } catch (e) {}
+        };
+        document.head.appendChild(s);
+      });
     } catch (e) {}
   }
   // Opening the shared auth modal supersedes One Tap; retract the chip
@@ -801,6 +817,10 @@
     // surface while the nudge is up (or queued), drop it.
     var unsub = firebase.auth().onAuthStateChanged(function(user){
       if (isRealUser(user)) {
+        // Retract a One Tap chip already on screen: a completed sign-in
+        // (e.g. Apple via the shared modal's no-reload handOff path)
+        // must not leave Google still asking.
+        try { window.google.accounts.id.cancel(); } catch (e) {}
         unmount();
         if (typeof unsub === 'function') unsub();
       }
