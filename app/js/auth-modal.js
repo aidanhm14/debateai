@@ -67,7 +67,7 @@
       if (document.querySelector('link[href*="family=Crimson"]')) return;
       var link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Schibsted+Grotesk:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap';
+      link.href = 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Hanken+Grotesk:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap';
       link.setAttribute('data-da-font', '1');
       document.head.appendChild(link);
     } catch (e) {}
