@@ -20,8 +20,12 @@
 // silence is twenty missed beats: the room is empty, not slow. Long rounds
 // are safe precisely because a long round is still beating.
 
-import { FieldValue } from 'firebase-admin/firestore';
-import { getDb } from './lib/firestore.mjs';
+// firebase-admin is NOT a dependency of this project: lib/firestore.mjs
+// wraps @google-cloud/firestore and re-exports FieldValue. Importing from
+// 'firebase-admin/firestore' threw at module load, so the schedule fired
+// into a function that could not start and the nine stuck rounds sat
+// there through four slots looking exactly like a cron that never ran.
+import { FieldValue, getDb } from './lib/firestore.mjs';
 import { stopIfStarted } from './round-recording.mjs';
 
 const OPEN_STATES = ['starting', 'recording', 'stopping', 'stop_failed'];
