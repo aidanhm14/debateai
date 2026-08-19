@@ -433,19 +433,49 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: NAMED accounts only (2026-08-18). The /spar gate and
-      //    spar-pair.mjs both refuse anonymous callers; this is the third
-      //    layer, so a hand-rolled SDK write cannot put an unaccountable
-      //    opponent in front of a real person. delete stays open to any
-      //    signed-in owner so a stale anonymous doc can still be cleaned
-      //    up by the client that wrote it before the gate landed.
+      //  - create: any signed-in owner, guests included (2026-08-19). This
+      //    reverses the named-only create from 2026-08-18, which was the
+      //    third of three layers refusing guests. Guests now get a metered
+      //    allowance of live rounds instead of a wall, so the queue has to
+      //    accept their doc.
+      //
+      //    The layer this gives up is real, so say what replaces it. The
+      //    2026-08-18 concern was that anonymous uids are free and unlimited
+      //    to mint, so an ungated guest lane is an unbounded queue-filler and
+      //    an unaccountable opponent. A queue doc on its own does neither: it
+      //    puts nobody in front of anybody until spar-pair.mjs pairs them, and
+      //    spar-pair is where the allowance lives (GUEST_FREE_ROUNDS, metered
+      //    against the anonymous uid in guest_rounds/, which a client cannot
+      //    write). Rules cannot count rounds, so the count has to live there
+      //    regardless; what rules can do is refuse the write, and refusing it
+      //    is exactly the wall we are removing. Enforcement moves to the
+      //    chokepoint rather than disappearing.
       allow read:   if isSignedIn();
-      allow create: if isNamedAccount()
+      allow create: if isSignedIn()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'waiting';
       allow update: if isSignedIn() && queueUid == request.auth.uid;
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
+    }
+
+    // ── guest_rounds ─────────────────────────────────────────────────
+    // The guest allowance for /spar (2026-08-19). One doc per anonymous uid:
+    // { anonymous, rounds, firstSeenAt, lastRoundAt }. Written ONLY by
+    // spar-pair.mjs on the admin SDK, which bypasses these rules — so no
+    // client write allowance is listed here, and the default deny is the
+    // point rather than an oversight. A client that could increment its own
+    // counter could also reset it, which is the whole failure mode this
+    // collection exists to fix (the localStorage counter it replaces).
+    //
+    // Owner read is allowed because /spar needs to know how many rounds are
+    // left BEFORE queueing, so it can say "last free round" honestly and put
+    // the sign-in card up in place of a search that would be refused at the
+    // pair. Reading your own count tells you nothing you could not learn by
+    // trying, and about nobody else.
+    match /guest_rounds/{guestUid} {
+      allow read:  if isOwner(guestUid);
+      allow write: if false;
     }
 
     // ── partner_pool ─────────────────────────────────────────────────

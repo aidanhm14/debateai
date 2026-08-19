@@ -197,6 +197,125 @@ function joinedAtMs(data) {
   return data ? tsMs(data.joinedAt) : Date.now();
 }
 
+// ── The guest lane ────────────────────────────────────────────────
+//
+// 2026-08-19 (Aidan): the live queue takes guests again, for their first
+// GUEST_FREE_ROUNDS rounds. The 2026-08-18 rule was named accounts only,
+// three layers deep (the /spar gate, the 403 that used to live below, and
+// the firestore.rules create). That is the right shape for an account
+// system and the wrong shape for the top of the funnel: /debate-online
+// carries the "debate omegle" traffic, those visitors arrive wanting a
+// stranger and a motion, and a sign-in wall at the door asks them to make
+// an account for a thing they have not seen yet. Let them play, then ask.
+//
+// What is NOT reversed from 2026-08-18: an anonymous uid is free and
+// unlimited to mint, so an ungated guest lane is an unbounded queue-filler
+// and an unaccountable opponent. The allowance is what keeps that bounded.
+// A guest gets two rounds against real people, ever, and the third one is
+// a sign-in.
+//
+// Metered here rather than in the client because the client cannot hold a
+// limit: localStorage clears, and the counter it used to keep was the same
+// counter /practice's free round used to keep, which is why that one moved
+// server-side this morning (e874e61e). The identity being metered is the
+// anonymous Firebase uid js/notifications.js already mints on every page —
+// it survives a storage clear, and linking it to a real account on sign-in
+// KEEPS the uid, so a guest who converts keeps their rounds and their
+// record. That is the point of the lane.
+const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 2);
+
+// One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
+// `anonymous` is written from the VERIFIED token, never from the queue doc,
+// which is client-written and therefore forgeable. That matters because the
+// side that finalizes a match has to charge the other side too, and the only
+// thing it can trust about them is what the server itself recorded on one of
+// their own authenticated calls. Every guest makes such a call before a room
+// can open: the consent handshake is mandatory (needsConsent is true for all
+// pairs), so both sides POST here with their own token before anyone walks
+// into a round.
+const GUEST_COLLECTION = 'guest_rounds';
+
+function guestRef(db, uid) {
+  return db.collection(GUEST_COLLECTION).doc(uid);
+}
+
+// Rounds this uid has spent as a guest. Returns 0 for a uid with no doc,
+// which is every named account and every guest who has not matched yet.
+// Fails OPEN (0): if Firestore is unreachable the pair should still happen.
+// Undercounting a guest costs us one round; refusing on a read error costs
+// us the visitor.
+async function guestRoundsUsed(db, uid) {
+  if (!uid) return 0;
+  try {
+    const snap = await guestRef(db, uid).get();
+    if (!snap.exists) return 0;
+    return Number(snap.data()?.rounds || 0);
+  } catch (err) {
+    console.warn('[spar-pair] guest read failed:', err?.message || err);
+    return 0;
+  }
+}
+
+// Record that this uid is a guest, so the peer side can find that out later
+// without trusting a client-written field. Best-effort and unawaited by
+// callers: it only has to land before the round opens, and the consent
+// handshake gives us several round-trips of slack.
+function markGuest(db, uid) {
+  return guestRef(db, uid).set({
+    anonymous: true,
+    firstSeenAt: FieldValue.serverTimestamp(),
+  }, { merge: true }).catch(function (err) {
+    console.warn('[spar-pair] guest mark failed:', err?.message || err);
+  });
+}
+
+// Charge one round. Called only when a room actually opens, never when a
+// proposal is merely accepted: a guest who accepts and then gets stood up by
+// a no-show peer has not had their round, and burning the allowance on that
+// would spend both free rounds without the guest ever meeting anybody.
+function chargeGuestRound(db, uid) {
+  return guestRef(db, uid).set({
+    anonymous: true,
+    rounds: FieldValue.increment(1),
+    lastRoundAt: FieldValue.serverTimestamp(),
+  }, { merge: true }).catch(function (err) {
+    console.warn('[spar-pair] guest charge failed:', err?.message || err);
+  });
+}
+
+// Charge both sides of a match that just opened a room. My own side is known
+// from the verified token. The peer's side is read from the server's own
+// record, written by markGuest on one of THEIR authenticated calls — never
+// from their queue doc, whose `anonymous` field the client writes and could
+// therefore lie about to buy extra rounds.
+async function chargeMatchedGuests(db, myUid, iAmGuest, peerUid) {
+  const jobs = [];
+  if (iAmGuest) jobs.push(chargeGuestRound(db, myUid));
+  try {
+    const snap = await guestRef(db, peerUid).get();
+    if (snap.exists && snap.data()?.anonymous) jobs.push(chargeGuestRound(db, peerUid));
+  } catch (err) {
+    console.warn('[spar-pair] peer charge lookup failed:', err?.message || err);
+  }
+  await Promise.allSettled(jobs);
+}
+
+// True when the server has recorded this uid as a guest AND their allowance
+// is gone. Used on the PEER side, so it must read the server's own record
+// rather than the peer's queue doc.
+async function guestSpent(db, uid) {
+  if (!uid) return false;
+  try {
+    const snap = await guestRef(db, uid).get();
+    if (!snap.exists) return false;
+    const data = snap.data() || {};
+    return !!data.anonymous && Number(data.rounds || 0) >= GUEST_FREE_ROUNDS;
+  } catch (err) {
+    console.warn('[spar-pair] guest peer read failed:', err?.message || err);
+    return false;
+  }
+}
+
 // Dead-tab detection inside a consent handshake. The DECIDING side's
 // client auto-passes at 20s; if a proposal is older than this and the
 // peer still hasn't acted, their tab is gone (tab close no longer
@@ -278,18 +397,11 @@ export default async (request) => {
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
 
-  // Named accounts only, matching the /spar gate (2026-08-18). The client
-  // gate is a product decision; this is the enforcement, because a
-  // hand-rolled POST with an anonymous token would otherwise still pair.
-  // Anonymous accounts are free and unlimited to mint (the 2026-07-28
-  // rate-limit lesson), so an anonymous lane is an unaccountable opponent
-  // and an unbounded queue-filler. Same guard as tournament-dropin.mjs.
-  if (decoded.firebase?.sign_in_provider === 'anonymous') {
-    return errorResponse('Create an account to join the live queue.', 403, request);
-  }
-
   const myUid = decoded.sub;
   if (!myUid) return errorResponse('Invalid token subject', 401, request);
+
+  const db = getDb();
+  const iAmGuest = decoded.firebase?.sign_in_provider === 'anonymous';
 
   let body;
   try { body = await request.json(); }
@@ -311,11 +423,39 @@ export default async (request) => {
   if (!peerUid || peerUid === myUid) {
     return errorResponse('Invalid peerUid', 400, request);
   }
+
+  // The guest lane (see GUEST_FREE_ROUNDS above). Replaces the flat 403 that
+  // stood here from 2026-08-18 to 2026-08-19. A guest is metered, not
+  // refused, until the allowance is gone; then the refusal is a 403 the
+  // client turns into the sign-in card, tagged so the wall's conversion rate
+  // is measured rather than assumed.
+  //
+  // Placed BELOW the throttle on purpose: this is the one check in the
+  // function that costs a Firestore read, and above the throttle a POST loop
+  // would buy one read per request from an identity that is free to mint.
+  //
+  // 403 and not 429 for the same reason /api/claude's wall is 401 and not
+  // 429: waiting does not clear it. Nothing about tomorrow gives this uid
+  // another free round, so the response has to say "make an account" rather
+  // than imply patience.
+  if (iAmGuest) {
+    const used = await guestRoundsUsed(db, myUid);
+    if (used >= GUEST_FREE_ROUNDS) {
+      return jsonResponse({
+        error: 'Your free guest rounds are used. Create an account to keep debating.',
+        code: 'SIGN_IN_REQUIRED',
+        guestRoundsUsed: used,
+        guestFreeRounds: GUEST_FREE_ROUNDS,
+      }, 403, request);
+    }
+    // Unawaited: this only has to land before a room opens, and the mandatory
+    // consent handshake is several round-trips long.
+    markGuest(db, myUid);
+  }
   if (action === 'pair' && !VALID_FORMATS.has(format)) {
     return errorResponse('Invalid format', 400, request);
   }
 
-  const db = getDb();
   const queue = db.collection('matchmaking_queue');
   const myRef = queue.doc(myUid);
   const peerRef = queue.doc(peerUid);
@@ -436,6 +576,12 @@ export default async (request) => {
         tx.update(peerRef, finals);
         return { ok: true, matched: true, room: mine.room };
       });
+      // The room just opened, so this is where guest rounds are spent — one
+      // per guest side, charged once. Only the second acceptor's request
+      // reaches this line (the first got pending:'peer' above, and a re-POST
+      // after the flip fails the status guard inside the transaction), so
+      // there is exactly one charge per side per match.
+      if (result?.matched) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
       return jsonResponse(result, 200, request);
     } catch (err) {
       console.error('[spar-pair] consent transaction error:', err?.message || err);
@@ -447,6 +593,16 @@ export default async (request) => {
   // clients converge on the same /live-round room. Mirrors the
   // client-side fallback path so existing live-round consumers don't
   // need updating.
+  // Don't propose to a guest whose allowance is gone. Their client should
+  // have stopped queueing, but a doc can outlive the tab that wrote it, and
+  // the cost of not checking is a real debater spending a 20-second consent
+  // window on somebody who cannot be let into a room. `skipPeer` rather than
+  // an error: this is a bad peer, not a bad request, and the caller's polling
+  // loop should move to the next one.
+  if (await guestSpent(db, peerUid)) {
+    return jsonResponse({ ok: false, reason: 'peer_ineligible', skipPeer: peerUid }, 200, request);
+  }
+
   const pair = [myUid, peerUid].sort();
   const room = 'SparMatch-' + pair[0].slice(0, 8) + '-' + pair[1].slice(0, 8);
   const proUid = pair[0];
@@ -664,6 +820,12 @@ export default async (request) => {
         pairedFormat,
       };
     });
+
+    // Same charge as the consent finalize above. needsConsent is currently
+    // true for every pair so this path is unreachable today, but it is the
+    // branch that opens a room without a second POST, so it has to charge or
+    // the lane leaks the day that flag changes.
+    if (result?.ok && !result.pending) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
 
     // Web Push on a completed direct (background "Spar live") match. This is
     // exactly the away/closed case: a debater went available and walked off,
