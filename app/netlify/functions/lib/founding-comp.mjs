@@ -31,28 +31,34 @@ import { getAuthUserByUid } from './auth-admin.mjs';
 
 // Accounts created at or before this instant qualify.
 //
-// Moved 2026-08-19 (third move) from end of Aug 19 back to end of Aug 18,
-// ahead of the first paid-traffic push. The second move had stopped the
-// window at "today", which on the day of the push meant every stranger
-// arriving from the LinkedIn post created an account inside the window
-// and was comped. That made the headline the push is built on ("$5 to
-// enter, $500 to win") false for exactly the audience it was written
-// for, and it gave the campaign a knife-edge nobody could see: free if
-// you clicked before midnight, $5 if you clicked after.
+// Moved 2026-08-19 (fourth move, same day as the third) to 1:00 PM
+// Eastern that day, on Aidan's call: "free entry to any currently
+// existing accounts, anyone new is subject to pay". The Open had 7 real
+// entrants ten days out, every one of them comped and none paid, so the
+// binding constraint is field size, not fee revenue.
 //
-// Aug 18 is the last instant that predates the push. Everyone who
-// already held an account keeps the comp they were promised, in full and
-// with nothing to claim differently. Nobody had claimed it yet when this
-// moved (compedEntries was unset and paidEntries was 0 on the live doc),
-// so this retracts no promise that anyone had acted on. New arrivals
-// meet the $5 door, which is the point of having one.
+// The third move's reasoning still holds and this does not undo it. What
+// it fixed was a cutoff sitting in the FUTURE: at "end of Aug 19" every
+// stranger arriving from the push that day landed inside the window, so
+// the "$5 to enter" headline was false for the audience it was written
+// for and the campaign had an invisible knife-edge at midnight. This
+// cutoff is in the PAST at the moment it ships. Everyone who already
+// held an account is in, including the twelve who signed up earlier
+// today, and every arrival from here meets the $5 door. There is no
+// window left open for a new account to walk through.
+//
+// A same-day cutoff has to state its hour or the copy lies to anyone who
+// signs up that evening, so the label carries the time and the rules
+// pages say it in full.
 //
 // The ask-and-it-is-waived route in the rules is untouched. That is the
 // no-purchase-necessary path and it must never depend on a date.
-export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-18T23:59:59-04:00');
+export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-19T13:00:00-04:00');
 // Human label for copy. One constant so the page, the email and the
-// rules cannot drift apart from the code that enforces it.
-export const FOUNDING_CUTOFF_LABEL = 'Monday, August 18';
+// rules cannot drift apart from the code that enforces it. Carries the
+// hour because the cutoff falls inside a day people are still signing
+// up on.
+export const FOUNDING_CUTOFF_LABEL = '1:00 PM Eastern on Tuesday, August 19';
 
 export function qualifiesByCreation(createdMs) {
   return Number.isFinite(createdMs) && createdMs > 0 && createdMs <= FOUNDING_CUTOFF_MS;
