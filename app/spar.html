@@ -2290,15 +2290,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // Phase 1 (through Fri Aug 22, 11:59 PM ET): the free-entry hook,
   // which is also a signup reason on the gate. Phase 2 (through the
   // Saturday): the event without the expired hook. After: nothing.
+  // One sentence, true on both sides of any cutoff, so it cannot go stale
+  // the way the old copy did. It carried its own hardcoded 23 Aug date and
+  // went on promising free prize entry after the real founding comp closed
+  // at 1 PM ET on 19 Aug. Do not reintroduce a deadline clause here: the
+  // authority is FOUNDING_CUTOFF_MS in lib/founding-comp.mjs, server side,
+  // and a second copy of a date in client JS is what broke this.
   function openNudgeHtml(cls){
-    var now = Date.now();
-    var CUTOFF = Date.parse('2026-08-23T03:59:59Z');   // Fri 11:59 PM ET
     var EVENT_END = Date.parse('2026-08-30T04:00:00Z'); // Sat night ET
-    if (now >= EVENT_END) return '';
-    var copy = now < CUTOFF
-      ? 'Saturday: The Debatable Open, $850 in prizes. Accounts created by Friday enter the prize bracket free.'
-      : 'Saturday: The Debatable Open, $850 in prizes. Drop in any time.';
-    return '<a class="' + cls + '" href="/tournaments" data-cta="spar-open-nudge">' + copy + ' <span aria-hidden="true">&rarr;</span></a>';
+    if (Date.now() >= EVENT_END) return '';
+    return '<a class="' + cls + '" href="/tournaments" data-cta="spar-open-nudge">'
+      + 'Saturday: The Debatable Open. $850 in prizes, $5 to enter.'
+      + ' <span aria-hidden="true">&rarr;</span></a>';
   }
 
   // The gate is standing because a guest ran out, not because they arrived
@@ -2331,21 +2334,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '</div>' +
         '</div>' +
         '<h2>' + (gateSpent()
-          ? 'That was your last free round. Keep going with an account.'
+          ? 'That was your last free round.'
           : 'Sign in to join the live queue.') + '</h2>' +
         '<p>' + (gateSpent()
-          ? 'Signing in keeps the rounds you just debated. Same account, same record, '
-            + 'plus messages, invites, and a place on the leaderboard.'
-          : 'Debate a real person on video. An AI judge writes the ballot at the end. '
-            + 'Sign in with Google or email so opponents see a real name, and your rounds, messages, and invites follow you.') + '</p>' +
+          ? 'Sign in and the rounds you just debated stay yours.'
+          : 'Debate a real person on video. An AI judge writes the ballot.') + '</p>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Continue with Google' +
         '</button>' +
         '<button class="gate-guest" id="emailStartBtn" type="button">Sign in with email</button>' +
         '<div class="gate-disclaimer">' + (gateSpent()
-          ? 'Your rounds carry over. Your name and photo appear to opponents and in messages.'
-          : 'Your name and photo appear to opponents and in messages. One account across every device.') + '</div>' +
+          ? 'Your rounds carry over. Your name and photo show to opponents.'
+          : 'Your name and photo show to opponents.') + '</div>' +
         openNudgeHtml('gate-open-line') +
         '<a class="discord-schedule-link" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="dot" aria-hidden="true"></span>Discord for times and forum threads</a>' +
         '<a class="ai-alt" href="/voice-debate?mode=quickclash&handoff=spar-gate">Start Realtime Voice AI instead →</a>' +
@@ -2370,12 +2371,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // crossfade while the gate is open, matching the per-load shuffle
   // /debate-strangers and the other doorway pages already run.
   //
-  // Pool is deliberately restricted to portraits ALREADY shipped on
-  // live surfaces (the shared [3,8,12,17,21,29,33,41] bank plus the
-  // pairs /debate-online rotates and the two this gate used). New
-  // imagery is an ask-first call, so this rotates what is approved
-  // rather than reaching into the full 51-file directory.
-  var GATE_FACE_POOL = [1,2,3,6,7,8,11,12,16,17,18,20,21,24,29,31,33,34,37,41,43];
+  // Pool is the consented batch ONLY: real webcam stills Aidan supplied on
+  // 2026-08-18, everyone 18+ and confirmed on record as happy to appear as
+  // an example-round debater. The generated bank is deliberately out. This
+  // is the one face surface a signed-out visitor meets, and it sits behind
+  // a LIVE chip next to the words "Debate a real person", so a synthetic
+  // face here is the caption doing the lying. face50 stays out: it is the
+  // illustrated Anonymous avatar, not a person.
+  // Known limit: the batch is 8 men and 1 woman, so most pairs read male.
+  // The fix is more consented stills, never topping it up with generated
+  // ones.
+  var GATE_FACE_POOL = [46,47,48,49,51,52,53,54,55];
   var GATE_FACE_MS = 4500;
   var gateFaceTimer = null;
 
