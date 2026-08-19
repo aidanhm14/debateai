@@ -5579,6 +5579,7 @@ html.stage-mode .stage-ov{display:block}
       reel.stream = null;
     }
     reel.canvas = null; reel.ctx = null; reel.ballot = null; reel.phase = '';
+    releaseBoardVids();
     finishCloudRecording();
   }
   // ── Reel drawing helpers
@@ -5813,66 +5814,155 @@ html.stage-mode .stage-ov{display:block}
       reel.stream = null;
     }
     reel.canvas = null; reel.ctx = null; reel.phase = '';
+    releaseBoardVids();
+  }
+  // The board draws the debaters' CAMERA FEEDS into the canvas itself,
+  // large. Daily's recording composite pins the screen share big and
+  // shrinks the camera tiles to a corner, so without this a replay is
+  // mostly chrome with postage-stamp faces. Hidden <video> elements per
+  // side; tracks re-checked on a throttle rather than per frame because
+  // participants() walks the whole roster.
+  var boardVids = { pro:null, con:null, at:0 };
+  function boardVideoEl(side){
+    var el = boardVids[side];
+    if (!el){
+      el = document.createElement('video');
+      el.muted = true;
+      el.autoplay = true;
+      el.setAttribute('playsinline', '');
+      boardVids[side] = el;
+    }
+    return el;
+  }
+  function refreshBoardTracks(){
+    var now = Date.now();
+    if (now - boardVids.at < 600) return;
+    boardVids.at = now;
+    var ps = {};
+    try { ps = (room.call && room.call.participants()) || {}; } catch(e){}
+    var bySide = { pro:null, con:null };
+    var mySide = state.mySideHint === 'con' ? 'con' : 'pro';
+    Object.keys(ps).forEach(function(k){
+      var p = ps[k];
+      if (!p || !p.session_id || isAudienceName(p.user_name)) return;
+      var side = p.user_name === state.proName ? 'pro'
+               : p.user_name === state.conName ? 'con'
+               : p.local ? mySide : (mySide === 'pro' ? 'con' : 'pro');
+      if (!bySide[side]) bySide[side] = trackOf(p.tracks && p.tracks.video);
+    });
+    attachTrack(boardVideoEl('pro'), bySide.pro);
+    attachTrack(boardVideoEl('con'), bySide.con);
+  }
+  // The MediaStreams here wrap the room's own tracks, so release means
+  // dropping the reference, never stopping the tracks.
+  function releaseBoardVids(){
+    ['pro','con'].forEach(function(s){
+      var el = boardVids[s];
+      if (el && el.srcObject) el.srcObject = null;
+    });
+    boardVids.at = 0;
+  }
+  function boardCover(ctx, el, x, y, w, h){
+    var vw = el.videoWidth, vh = el.videoHeight;
+    if (!vw || !vh) return false;
+    var scale = Math.max(w / vw, h / vh);
+    var sw = w / scale, sh = h / scale;
+    ctx.drawImage(el, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h);
+    return true;
+  }
+  function boardPanelPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   }
   function drawRoundBoard(ctx, t){
     reelBg(ctx, t);
     var f = FORMATS[state.formatKey] || FORMATS.quick;
-    ctx.textAlign = 'center';
+    refreshBoardTracks();
+    // Motion: at most two quiet lines up top. The frame belongs to the faces.
     ctx.globalAlpha = 1;
-    ctx.font = '800 18px Georgia, serif';
-    ctx.fillStyle = 'rgba(240,237,230,.55)';
-    ctx.fillText(String(f.name || 'Live round').toUpperCase() + ' · LIVE ROUND', REEL_W / 2, 78);
-    ctx.font = '700 36px Georgia, serif';
-    ctx.fillStyle = '#f0ede6';
-    var ml = reelWrap(ctx, state.motion || '', REEL_W - 240).slice(0, 3);
-    for (var i = 0; i < ml.length; i++) ctx.fillText(ml[i], REEL_W / 2, 128 + i * 46);
-    var y0 = 128 + ml.length * 46 + 26;
+    ctx.textAlign = 'center';
+    ctx.font = '700 24px "Schibsted Grotesk", "Archivo", sans-serif';
+    ctx.fillStyle = 'rgba(240,237,230,.88)';
+    var ml = reelWrap(ctx, state.motion || '', REEL_W - 160);
+    if (ml.length > 2){ ml = ml.slice(0, 2); ml[1] += '…'; }
+    for (var i = 0; i < ml.length; i++) ctx.fillText(ml[i], REEL_W / 2, 44 + i * 30);
+    // Two camera panels, head-to-head. Active speaker carries the red edge.
+    var gap = 16, mx = 36, py = 92, pw = (REEL_W - mx * 2 - gap) / 2, ph = 436;
+    var speakerNow = '';
+    try { speakerNow = speakerNameFor(f, state.speechIdx) || ''; } catch(e){}
+    var sides = f.sides || ['pro','con'];
+    var seats = [
+      { side:'pro', name: state.proName || 'Proposition', label: ((f.sideLabels && f.sideLabels[sides[0]]) || 'Pro').toUpperCase(), x: mx },
+      { side:'con', name: state.conName || 'Opposition', label: ((f.sideLabels && f.sideLabels[sides[1]]) || 'Con').toUpperCase(), x: mx + pw + gap },
+    ];
+    for (var s = 0; s < 2; s++){
+      var seat = seats[s];
+      var active = speakerNow && seat.name === speakerNow;
+      ctx.save();
+      boardPanelPath(ctx, seat.x, py, pw, ph, 14);
+      ctx.clip();
+      ctx.fillStyle = '#101014';
+      ctx.fillRect(seat.x, py, pw, ph);
+      ctx.globalAlpha = (active || !speakerNow) ? 1 : 0.82;
+      if (!boardCover(ctx, boardVideoEl(seat.side), seat.x, py, pw, ph)){
+        // Camera off: an initial holds the slot.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(221,46,46,.08)';
+        ctx.fillRect(seat.x, py, pw, ph);
+        ctx.textAlign = 'center';
+        ctx.font = '800 150px "Schibsted Grotesk", "Archivo", sans-serif';
+        ctx.fillStyle = 'rgba(240,237,230,.26)';
+        ctx.fillText((seat.name || '?').charAt(0).toUpperCase(), seat.x + pw / 2, py + ph / 2 + 52);
+      }
+      // Name chip inside the panel.
+      ctx.globalAlpha = 1;
+      ctx.font = '700 22px "Archivo", sans-serif';
+      var nw = ctx.measureText(seat.name).width;
+      ctx.font = '700 13px "Archivo", sans-serif';
+      var cw = Math.max(nw, ctx.measureText(seat.label).width) + 36;
+      ctx.fillStyle = 'rgba(8,8,10,.72)';
+      ctx.fillRect(seat.x, py + ph - 64, cw, 64);
+      ctx.textAlign = 'left';
+      ctx.font = '700 22px "Archivo", sans-serif';
+      ctx.fillStyle = '#f0ede6';
+      ctx.fillText(seat.name, seat.x + 18, py + ph - 34);
+      ctx.font = '700 13px "Archivo", sans-serif';
+      ctx.fillStyle = active ? '#dd2e2e' : 'rgba(240,237,230,.55)';
+      ctx.fillText(seat.label, seat.x + 18, py + ph - 13);
+      ctx.restore();
+      ctx.lineWidth = active ? 3 : 1;
+      ctx.strokeStyle = active ? '#dd2e2e' : 'rgba(240,237,230,.12)';
+      boardPanelPath(ctx, seat.x + ctx.lineWidth / 2, py + ctx.lineWidth / 2, pw - ctx.lineWidth, ph - ctx.lineWidth, 13);
+      ctx.stroke();
+    }
+    // One compact timer block under the panels.
     var sp = f.speeches && f.speeches[state.speechIdx];
     if (sp){
-      var speaker = '';
-      try { speaker = speakerNameFor(f, state.speechIdx) || ''; } catch(e){}
-      ctx.font = '650 22px Georgia, serif';
-      ctx.fillStyle = 'rgba(240,237,230,.66)';
-      ctx.fillText('Speech ' + (state.speechIdx + 1) + ' of ' + f.speeches.length + ' · ' + (sp.name || '') + (speaker ? ' · ' + speaker : ''), REEL_W / 2, y0 + 8);
       var totalSec = state.timerTotalSec || sp.time || 0;
       var elapsed = 0;
       try { elapsed = getElapsed(); } catch(e){}
       var remaining = Math.max(0, totalSec - elapsed);
-      ctx.font = '900 84px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.font = '700 14px "Archivo", sans-serif';
+      ctx.fillStyle = 'rgba(240,237,230,.5)';
+      ctx.fillText(('Speech ' + (state.speechIdx + 1) + ' of ' + f.speeches.length + ' · ' + (sp.name || '')).toUpperCase(), REEL_W / 2, 576);
+      ctx.font = '800 62px "Archivo", sans-serif';
       ctx.fillStyle = (remaining < 30 && state.timerState === 'running') ? '#dd2e2e' : '#f0ede6';
-      ctx.fillText(fmtTime(Math.ceil(remaining)), REEL_W / 2, y0 + 108);
-      var pw = 520, px = REEL_W / 2 - pw / 2, py = y0 + 132;
+      ctx.fillText(fmtTime(Math.ceil(remaining)), REEL_W / 2, 648);
+      var bw = 360, bx = REEL_W / 2 - bw / 2, by = 668;
       ctx.fillStyle = 'rgba(240,237,230,.13)';
-      ctx.fillRect(px, py, pw, 8);
+      ctx.fillRect(bx, by, bw, 6);
       ctx.fillStyle = '#dd2e2e';
-      ctx.fillRect(px, py, pw * Math.min(1, elapsed / Math.max(1, totalSec)), 8);
-    }
-    // Speakers, current one lit.
-    var sides = f.sides || ['pro','con'];
-    var names = [state.proName || 'Proposition', state.conName || 'Opposition'];
-    var labels = [
-      (f.sideLabels && f.sideLabels[sides[0]]) || 'Pro',
-      (f.sideLabels && f.sideLabels[sides[1]]) || 'Con'
-    ];
-    var speakerNow = '';
-    try { speakerNow = speakerNameFor(f, state.speechIdx) || ''; } catch(e){}
-    var xs = [REEL_W / 2 - 240, REEL_W / 2 + 240];
-    for (var s = 0; s < 2; s++){
-      var active = speakerNow && names[s] === speakerNow;
-      ctx.font = (active ? '800' : '650') + '  24px "Archivo", sans-serif';
-      ctx.fillStyle = active ? '#f0ede6' : 'rgba(240,237,230,.55)';
-      ctx.fillText(names[s], xs[s], REEL_H - 116);
-      ctx.font = '600 16px Georgia, serif';
-      ctx.fillStyle = active ? '#dd2e2e' : 'rgba(240,237,230,.4)';
-      ctx.fillText(labels[s].toUpperCase(), xs[s], REEL_H - 90);
-      if (active){
-        ctx.fillStyle = '#dd2e2e';
-        ctx.fillRect(xs[s] - 60, REEL_H - 80, 120, 4);
-      }
+      ctx.fillRect(bx, by, bw * Math.min(1, elapsed / Math.max(1, totalSec)), 6);
     }
     if (reelWatchers > 0){
       ctx.textAlign = 'right';
-      ctx.font = '600 18px Georgia, serif';
+      ctx.font = '600 18px "Archivo", sans-serif';
       ctx.fillStyle = 'rgba(240,237,230,.5)';
       ctx.fillText(reelWatchers + ' watching', REEL_W - 56, REEL_H - 44);
     }
