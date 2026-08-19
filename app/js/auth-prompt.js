@@ -155,7 +155,7 @@
         'opacity:0;transition:opacity .24s ease}' +
       '.dit-authprompt-back.is-in{opacity:1}' +
       '.dit-authprompt{width:100%;max-width:384px;box-sizing:border-box;background:#fff;color:#1a1a1f;border-radius:20px;' +
-        'padding:26px 24px 22px;box-shadow:0 26px 80px rgba(0,0,0,.4);font-family:"Crimson Pro","Inter",system-ui,sans-serif;' +
+        'padding:26px 24px 22px;box-shadow:0 26px 80px rgba(0,0,0,.4);font-family:"Archivo","Inter",system-ui,sans-serif;' +
         'transform:translateY(12px) scale(.98);transition:transform .26s cubic-bezier(.2,.7,.3,1)}' +
       '.dit-authprompt-back.is-in .dit-authprompt{transform:none}' +
       '.dit-authprompt .ap-x{position:absolute;top:12px;right:14px;border:none;background:transparent;color:rgba(0,0,0,.64);' +

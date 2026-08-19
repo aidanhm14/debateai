@@ -56,7 +56,7 @@
       }
       addLink('preconnect', 'https://fonts.googleapis.com');
       addLink('preconnect', 'https://fonts.gstatic.com', { crossorigin: true });
-      var BRAND_FONT = 'https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap';
+      var BRAND_FONT = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap';
       if (!document.querySelector('link[href*="family=Crimson"]')) {
         addLink('stylesheet', BRAND_FONT);
       }
@@ -2010,7 +2010,7 @@
     scrim.id = 'ditMailChooser';
     scrim.style.cssText = 'position:fixed;inset:0;background:rgba(20,16,12,.5);z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px';
     var card = document.createElement('div');
-    card.style.cssText = "background:#faf9f4;color:#1d1915;border-radius:14px;padding:20px 20px 16px;max-width:340px;width:100%;font-family:'Crimson Pro',Georgia,serif;box-shadow:0 18px 50px rgba(0,0,0,.3)";
+    card.style.cssText = "background:#faf9f4;color:#1d1915;border-radius:14px;padding:20px 20px 16px;max-width:340px;width:100%;font-family:'Archivo',Georgia,serif;box-shadow:0 18px 50px rgba(0,0,0,.3)";
     var gmail = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + esc(info.to) + (info.subject ? '&su=' + esc(info.subject) : '') + (info.body ? '&body=' + esc(info.body) : '');
     var outlook = 'https://outlook.live.com/mail/0/deeplink/compose?to=' + esc(info.to) + (info.subject ? '&subject=' + esc(info.subject) : '') + (info.body ? '&body=' + esc(info.body) : '');
     var row = 'display:block;width:100%;text-align:left;padding:11px 14px;margin:8px 0 0;border:1px solid rgba(29,25,21,.15);border-radius:10px;background:#fff;color:#1d1915;font:inherit;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;box-sizing:border-box';

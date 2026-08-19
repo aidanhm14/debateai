@@ -93,7 +93,7 @@
       // parking here means the nudge can pop later without stacking on us.
       '.lpull{position:fixed;left:18px;bottom:88px;z-index:12000;width:min(340px,calc(100vw - 28px));' +
         'background:#fffdf8;border:1px solid #e8e2dc;border-radius:18px;padding:18px 18px 16px;' +
-        'box-shadow:0 24px 60px rgba(31,26,23,.22);font-family:"Crimson Pro",Georgia,serif;color:#1d1d22;' +
+        'box-shadow:0 24px 60px rgba(31,26,23,.22);font-family:"Archivo",Georgia,serif;color:#1d1d22;' +
         'transform:translateY(14px);opacity:0;transition:transform .28s ease,opacity .28s ease}' +
       '.lpull.on{transform:none;opacity:1}' +
       '.lpull-kicker{display:inline-flex;align-items:center;gap:7px;color:#d32929;font-weight:900;' +
@@ -106,10 +106,10 @@
       '.lpull-row{display:flex;gap:8px;align-items:center}' +
       '.lpull-cta{flex:1;display:inline-flex;align-items:center;justify-content:center;appearance:none;cursor:pointer;' +
         'border:1px solid #ef4444;background:#b91c1c;color:#fff;border-radius:999px;padding:11px 16px;' +
-        'font:800 .95rem "Crimson Pro",Georgia,serif;text-decoration:none;transition:background .15s}' +
+        'font:800 .95rem "Archivo",Georgia,serif;text-decoration:none;transition:background .15s}' +
       '.lpull-cta:hover{background:#d32929}' +
       '.lpull-later{appearance:none;border:none;background:transparent;color:#68625f;cursor:pointer;' +
-        'font:700 .85rem "Crimson Pro",Georgia,serif;padding:10px 8px}' +
+        'font:700 .85rem "Archivo",Georgia,serif;padding:10px 8px}' +
       '.lpull-later:hover{color:#68625f}' +
       '@media(prefers-reduced-motion:reduce){.lpull{transition:none}.lpull-kicker i{animation:none}}';
     document.head.appendChild(s);

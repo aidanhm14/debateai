@@ -273,7 +273,7 @@
     var s = document.createElement('style');
     s.id = 'signupNudgeStyle';
     s.textContent =
-      '.signup-nudge{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Crimson Pro","Inter",system-ui,-apple-system,sans-serif;opacity:0;transition:opacity .22s ease}' +
+      '.signup-nudge{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;opacity:0;transition:opacity .22s ease}' +
       '.signup-nudge.is-in{opacity:1}' +
       '.signup-nudge .su-veil{position:absolute;inset:0;background:rgba(12,8,9,.44);backdrop-filter:blur(9px) saturate(.9);-webkit-backdrop-filter:blur(9px) saturate(.9)}' +
       // Browsers without backdrop-filter (older Firefox) get a heavier dim so
@@ -319,7 +319,7 @@
       // so the comparison is against what was actually live, not a
       // reconstruction of it. Its own root class, so none of the modal
       // rules above reach it.
-      '.signup-pill{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:14px;background:rgba(20,10,12,.94);color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 14px 36px rgba(0,0,0,.32);font-family:"Crimson Pro","Inter",system-ui,-apple-system,sans-serif;font-size:.82rem;line-height:1.35;max-width:calc(100vw - 36px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translateY(14px);opacity:0;transition:transform .26s ease,opacity .26s ease}' +
+      '.signup-pill{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:14px;background:rgba(20,10,12,.94);color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 14px 36px rgba(0,0,0,.32);font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;font-size:.82rem;line-height:1.35;max-width:calc(100vw - 36px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:translateY(14px);opacity:0;transition:transform .26s ease,opacity .26s ease}' +
       '.signup-pill.is-in{transform:translateY(0);opacity:1}' +
       '.signup-pill .su-line{flex:1;color:rgba(255,255,255,.82)}' +
       '.signup-pill .su-line strong{color:#fff;font-weight:700}' +
@@ -328,7 +328,7 @@
       '.signup-pill .su-cta:hover{background:#f3f3f0}' +
       '.signup-pill .su-close{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;font-family:inherit}' +
       '.signup-pill .su-close:hover{color:#fff}' +
-      '.signup-pill .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Crimson Pro,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.68);cursor:pointer}' +
+      '.signup-pill .su-optin{display:flex;align-items:flex-start;gap:8px;flex:1 1 100%;font-family:Archivo,Georgia,serif;font-size:.68rem;line-height:1.35;color:rgba(255,255,255,.68);cursor:pointer}' +
       '.signup-pill .su-optin input{width:15px;height:15px;margin:1px 0 0;accent-color:#dc2626;flex:none}' +
       '.signup-pill--prominent{width:min(390px,calc(100vw - 36px));flex-wrap:wrap;padding:18px;border-radius:18px}' +
       '.signup-pill--prominent .su-line{flex:1 1 100%;font-size:.9rem;line-height:1.45}' +

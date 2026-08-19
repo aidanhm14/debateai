@@ -206,7 +206,7 @@
     '.sn-card--banner:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,#ef4444)}' +
     '.sn-card--banner.sn-live:before{background:#22c55e}' +
     '.sn-card--banner .sn-main{text-align:left;min-width:0;align-self:center}' +
-    '.sn-card--banner .sn-title{font-family:"Crimson Pro","Fraunces",Georgia,serif;' +
+    '.sn-card--banner .sn-title{font-family:"Archivo","Fraunces",Georgia,serif;' +
       'font-size:clamp(1.25rem,1.6vw,1.5rem);letter-spacing:-.015em;margin:6px 0 4px}' +
     '.sn-card--banner .sn-sub{font-size:.9rem;margin:0;max-width:560px}' +
     '.sn-card--banner .sn-right{display:grid;grid-template-columns:minmax(118px,auto) 1fr;' +

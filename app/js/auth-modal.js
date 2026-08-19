@@ -67,7 +67,7 @@
       if (document.querySelector('link[href*="family=Crimson"]')) return;
       var link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap';
+      link.href = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap';
       link.setAttribute('data-da-font', '1');
       document.head.appendChild(link);
     } catch (e) {}
@@ -88,7 +88,7 @@
     var s = document.createElement('style');
     s.id = 'ditAuthCss';
     s.textContent =
-      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:"Crimson Pro","Fraunces",Georgia,"Times New Roman",serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
+      '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:"Archivo","Fraunces",Georgia,"Times New Roman",serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
       '#ditAuth *{box-sizing:border-box}' +
       '#ditAuth.on{display:flex}' +
       '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(408px,100%);max-height:calc(100vh - 32px);max-height:min(720px,calc(100dvh - 32px));overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:30px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
