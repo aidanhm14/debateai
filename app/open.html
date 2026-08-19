@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-lightweb="web">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Debatable Open · live</title>
+<meta name="description" content="The event page for The Debatable Open. Check in, get paired, find your room, follow the standings and the bracket.">
+<!-- The search target for tournament intent is /tournaments, which holds
+     the Event markup and the entry funnel. This is the operational page
+     people are pointed AT on the day, from that page, from the emails and
+     from wherever the link gets posted. Indexing both splits the same
+     intent, so this one carries noindex and passes its links on. -->
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://itsdebatable.com/open">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Debatable">
+<meta property="og:title" content="The Debatable Open">
+<meta property="og:description" content="Doors open 10 AM ET. Turn up, get paired, debate, and every round ends with a written verdict.">
+<meta property="og:url" content="https://itsdebatable.com/open">
+<meta property="og:image" content="https://itsdebatable.com/img/tournament/debatable-open.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Debatable Open">
+<meta name="twitter:description" content="Doors open 10 AM ET. Turn up, get paired, debate, and every round ends with a written verdict.">
+<meta name="twitter:image" content="https://itsdebatable.com/img/tournament/debatable-open.jpg">
+<link rel="icon" href="/icons/icon-192.png">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<script>
+(function(){
+  try{
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='crimson';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','crimson'); }
+})();
+</script>
+<link rel="stylesheet" href="/css/ui.css">
+<script defer src="/js/track.js"></script>
+
+<style>
+/* Neural constellation, same recipe as /tournament and /pricing: the
+   shared canvas is position:fixed, so the page background moves to
+   <html>, <body> goes transparent, and the canvas drops behind. */
+html[data-lightweb="web"]{background:radial-gradient(900px 460px at 50% -180px,rgba(239,68,68,.13),transparent 64%) no-repeat,var(--bg)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0b0d; --panel:#131317; --panel-2:#1a1a20;
+    --fg:#f4f4f6; --dim:rgba(244,244,246,.68); --faint:rgba(244,244,246,.68);
+    /* --text and --border are the shared tokens ui.css paints the fixed
+       topbar from. This page names its own ink --fg and overrides --bg,
+       so without declaring the pair the nav renders near-black on
+       near-black. Same contract /tournament carries. */
+    --text:#f4f4f6; --border:rgba(244,244,246,.14);
+    --line:rgba(244,244,246,.11);
+    --red:#ef4444; --red-dark:#dc2626; --green:#22c55e; --amber:#f59e0b;
+    --serif:'Archivo',Georgia,serif;
+    --sans:Archivo,Georgia,serif;
+  }
+  html{background:var(--bg)}
+  body{
+    background:radial-gradient(900px 460px at 50% -180px,rgba(239,68,68,.13),transparent 64%) no-repeat,var(--bg);
+    color:var(--fg);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;min-height:100vh;padding-bottom:80px;
+  }
+  a{color:inherit}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  input,select,textarea{font:inherit;color:inherit}
+
+  .wrap{width:min(1040px,calc(100% - 32px));margin:0 auto}
+  .head{padding:104px 0 4px}
+  @media(max-width:760px){.head{padding-top:88px}}
+  .kicker{font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:10px;
+    display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  h1{font-family:var(--serif);font-size:clamp(2rem,5.4vw,3rem);font-weight:700;line-height:1.06;letter-spacing:-.015em}
+  .lede{margin-top:12px;color:var(--dim);font-size:1rem;line-height:1.6;max-width:62ch}
+
+  /* Countdown / status band. The first question is always "is it on
+     right now, and if not, when". This answers it above everything. */
+  .band{margin-top:20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    padding:16px 20px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+  .band .clock{font-family:var(--serif);font-size:clamp(1.5rem,4vw,2.1rem);font-weight:700;
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+  .band .clock small{font-size:.44em;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-left:3px}
+  .band .when{flex:1 1 220px;font-size:.88rem;color:var(--dim);line-height:1.5}
+  .band.is-live{border-color:rgba(34,197,94,.34);background:rgba(34,197,94,.07)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:16px}
+  .card h2{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+  .card p.sub{color:var(--dim);font-size:.9rem;line-height:1.55}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:10px 16px;border-radius:11px;background:rgba(244,244,246,.07);
+    border:1px solid var(--line);font-size:.86rem;font-weight:700;text-decoration:none;
+    transition:background .15s ease,transform .12s ease}
+  .btn:hover{background:rgba(244,244,246,.12)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .btn-primary{background:var(--red);border-color:var(--red);color:#fff}
+  .btn-primary:hover{background:var(--red-dark)}
+  .btn-lg{padding:14px 22px;font-size:.95rem;border-radius:12px}
+  .btn-sm{padding:7px 12px;font-size:.79rem;border-radius:9px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
+  .btn.is-busy{opacity:.7;pointer-events:none}
+  .btn.is-busy::after{content:'';width:11px;height:11px;border-radius:50%;
+    border:2px solid currentColor;border-top-color:transparent;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .pill-live{background:rgba(34,197,94,.14);color:#4ade80}
+  .pill-soon{background:rgba(239,68,68,.14);color:#fca5a5}
+  .pill-done{background:rgba(244,244,246,.08);color:var(--dim)}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media(prefers-reduced-motion:reduce){.dot{animation:none}}
+
+  /* The one block that answers "what do I do right now". Everything
+     else on the page is reference. */
+  .now{margin-top:0;padding:20px 22px;border-radius:14px;
+    background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.28)}
+  .now b{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:#fca5a5;margin-bottom:6px}
+  .now .say{font-size:1.02rem;color:var(--fg);line-height:1.5;font-weight:600}
+  .now .why{font-size:.85rem;color:var(--dim);line-height:1.55;margin-top:8px}
+
+  .stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px}
+  .stat .n{font-family:var(--serif);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .k{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+
+  /* Run of show. A list of times, not prose. */
+  .sched{list-style:none;margin-top:6px}
+  .sched li{display:flex;gap:16px;padding:12px 0;border-top:1px solid var(--line);align-items:flex-start}
+  .sched li:first-child{border-top:0}
+  .sched .t{flex:0 0 128px;font-size:.76rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--red);padding-top:2px}
+  .sched .d{font-size:.92rem;line-height:1.5}
+  .sched .d span{display:block;font-size:.82rem;color:var(--dim);margin-top:3px}
+  @media(max-width:560px){.sched li{flex-direction:column;gap:4px}.sched .t{flex:none}}
+
+  .pairing{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .pairing:first-of-type{border-top:0}
+  .side{font-size:.9rem;font-weight:700}
+  .vs{color:var(--faint);font-size:.76rem;font-weight:800;letter-spacing:.08em}
+  .pairing .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mine{border-left:3px solid var(--red);padding-left:12px;margin-left:-15px}
+
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.87rem}
+  th{text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--faint);padding:0 10px 8px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  td.num{font-variant-numeric:tabular-nums;color:var(--dim)}
+  .tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  .empty{color:var(--faint);font-size:.88rem;padding:20px 0;text-align:center}
+  .note{font-size:.79rem;color:var(--faint);margin-top:10px;line-height:1.5}
+  .err{margin-top:12px;padding:10px 13px;border-radius:10px;background:rgba(239,68,68,.12);
+    border:1px solid rgba(239,68,68,.34);color:#fca5a5;font-size:.85rem}
+  .ok{margin-top:12px;padding:10px 13px;border-radius:10px;background:rgba(34,197,94,.12);
+    border:1px solid rgba(34,197,94,.34);color:#86efac;font-size:.85rem}
+  .hidden{display:none !important}
+
+  .prize{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+  .prize div{flex:1 1 150px;padding:14px 16px;border-radius:12px;background:var(--panel-2);border:1px solid var(--line)}
+  .prize .amt{font-family:var(--serif);font-size:1.45rem;font-weight:700;line-height:1}
+  .prize .pl{font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:6px}
+
+  .host-zone{border-color:rgba(245,158,11,.32)}
+  .host-zone h2{color:#fbbf24}
+
+  .foot{margin-top:26px;display:flex;gap:10px;flex-wrap:wrap}
+
+  .modal-back{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);
+    display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+  .modal{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);
+    border-radius:16px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .modal h3{font-size:1.05rem;font-weight:800;margin-bottom:8px}
+  .modal p{font-size:.9rem;color:var(--dim);line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="daTopbar"></div>
+
+<main class="wrap">
+
+  <header class="head">
+    <div class="kicker">
+      <span id="statusPill" class="pill pill-done">Loading</span>
+      <span id="kickerText">Saturday 29 August</span>
+    </div>
+    <h1 id="title">The Debatable Open</h1>
+    <p class="lede" id="lede">One day, real opponents, and a written verdict on every round.</p>
+
+    <div class="band" id="band">
+      <div class="clock" id="clock">&nbsp;</div>
+      <div class="when" id="when">Checking the schedule.</div>
+    </div>
+  </header>
+
+  <div id="err" class="err hidden"></div>
+  <div id="ok" class="ok hidden"></div>
+
+  <!-- What now. The whole point of the page. -->
+  <section class="card" id="nowCard">
+    <div class="now" id="nowBox">
+      <b>What now</b>
+      <div class="say">Loading the tournament.</div>
+    </div>
+    <div class="btn-row" id="nowActions"></div>
+    <div id="entryMeta"></div>
+  </section>
+
+  <!-- Live rounds anyone can watch. Fed by /api/watch-live, the same
+       honest feed /tournaments uses: empty means nothing is live. -->
+  <section class="card hidden" id="liveCard">
+    <h2>Happening right now</h2>
+    <p class="sub" id="liveSub">Rounds under way. Anyone can watch.</p>
+    <div id="liveBody"></div>
+  </section>
+
+  <section class="card">
+    <h2>The day</h2>
+    <p class="sub">Drop in whenever suits you. There is no start time to miss.</p>
+    <ul class="sched">
+      <li><div class="t">10 AM ET</div><div class="d">Doors open<span>Check in, say you are ready, and the queue pairs you with whoever else is free.</span></div></li>
+      <li><div class="t">All day</div><div class="d">Rounds, back to back<span id="schedRounds">Play as many as you like. Every round ends with a written verdict.</span></div></li>
+      <li><div class="t">Evening</div><div class="d">Entries close<span id="schedBreak">The top of the standings goes into single elimination.</span></div></li>
+      <li><div class="t">Then</div><div class="d">The final, streamed<span>It runs on the watch page and the room votes it. The AI ballot is published beside the vote.</span></div></li>
+    </ul>
+    <div class="prize" id="prizeBox"></div>
+    <p class="note" id="prizeNote"></p>
+  </section>
+
+  <section class="card">
+    <h2 id="tabTitle">The standings</h2>
+    <p class="sub" id="tabSub">Wins first, then speaker points. This is the same table the elimination bracket is cut from.</p>
+    <div class="tbl-scroll"><table id="tabTable"><tbody></tbody></table></div>
+    <p class="note hidden" id="tabNote"></p>
+  </section>
+
+  <section class="card hidden" id="bracketCard">
+    <h2>The bracket</h2>
+    <div id="bracketBody"></div>
+  </section>
+
+  <section class="card host-zone hidden" id="hostCard">
+    <h2>Running the day</h2>
+    <p class="sub">Only you see this. State changes here are live for everyone on the page.</p>
+    <div class="stats" id="hostStats"></div>
+    <div class="btn-row" id="hostActions"></div>
+    <p class="note">Pairing a fixed round, reporting results, breaking to elims and per entrant admin live in the full control room.</p>
+  </section>
+
+  <div class="foot">
+    <a class="btn" href="/tournaments">Entry and the money</a>
+    <a class="btn" href="/tournament-rules">Official rules</a>
+    <a class="btn" href="/watch">Watch</a>
+  </div>
+
+</main>
+
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+<script defer src="/js/topbar.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── The Debatable Open, on the day ────────────────────────────────
+  //
+  // /tournaments sells the entry. /tournament is the generic operational
+  // draw and tab UI for any host. This is the one link to post on the
+  // day: pinned to the Open, phase aware, and it opens on the single
+  // sentence telling the reader what to do right now.
+  //
+  // Every fact on the page comes from /api/tournament, so the page
+  // cannot drift from the tournament document. The only hardcoded thing
+  // is the slug.
+
+  var SLUG = 'the-debatable-open';
+  var qs = new URLSearchParams(location.search);
+  // ?t= is for rehearsing this page against a test tournament before
+  // the day. It is not linked from anywhere.
+  var TKEY = (qs.get('t') || '').trim() || SLUG;
+
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  var auth = null;
+  try {
+    if (typeof firebase !== 'undefined'){
+      if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+    }
+  } catch(e){ console.warn('[open] firebase init failed', e); }
+
+  var state = { user: null, data: null, affInput: null };
+
+  function $(id){ return document.getElementById(id); }
+  function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function flash(id, msg){
+    var el = $(id); if (!el) return;
+    el.textContent = msg; el.classList.remove('hidden');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.classList.add('hidden'); }, 6000);
+  }
+  var fail = function(m){ flash('err', m); };
+  var good = function(m){ flash('ok', m); };
+
+  function busy(el, on, label){
+    if (!el) return;
+    if (on){
+      el._label = el._label || el.textContent;
+      if (label) el.textContent = label;
+      el.classList.add('is-busy');
+    } else {
+      el.classList.remove('is-busy');
+      if (el._label){ el.textContent = el._label; el._label = null; }
+    }
+  }
+
+  function confirmAction(opts){
+    return new Promise(function(resolve){
+      var back = document.createElement('div');
+      back.className = 'modal-back';
+      back.innerHTML =
+        '<div class="modal" role="dialog" aria-modal="true">' +
+          '<h3>' + esc(opts.title) + '</h3><p>' + esc(opts.body) + '</p>' +
+          '<div class="btn-row">' +
+            '<button class="btn btn-primary" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
+            '<button class="btn" data-no>Cancel</button>' +
+          '</div></div>';
+      function close(v){ back.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
+      function onKey(e){ if (e.key === 'Escape') close(false); }
+      back.querySelector('[data-yes]').addEventListener('click', function(){ close(true); });
+      back.querySelector('[data-no]').addEventListener('click', function(){ close(false); });
+      back.addEventListener('click', function(e){ if (e.target === back) close(false); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(back);
+      back.querySelector('[data-yes]').focus();
+    });
+  }
+
+  function api(path, body){
+    if (!auth || !auth.currentUser) return Promise.reject(new Error('Sign in first.'));
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify(body || {}),
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; }).then(function(j){
+        if (!res.ok || j.error) throw new Error(j.error || ('Request failed (' + res.status + ')'));
+        return j;
+      });
+    });
+  }
+
+  // ── Load ──────────────────────────────────────────────────────────
+  function load(){
+    return fetch('/api/tournament?t=' + encodeURIComponent(TKEY), { cache: 'no-cache' })
+      .then(function(r){
+        // A failing API can answer with an HTML error page, and handing
+        // that to res.json() surfaces "Unexpected token '<'", which
+        // tells the reader nothing.
+        return r.text().then(function(txt){
+          var j = null;
+          try { j = JSON.parse(txt); } catch(e){ j = null; }
+          if (!j || !j.ok) throw new Error(r.status === 404
+            ? 'The Open is not open yet. Entry is on the tournaments page.'
+            : 'Could not reach the tournament service. Trying again shortly.');
+          return j;
+        });
+      })
+      .then(function(j){ state.data = j; render(); })
+      .catch(function(e){ fail(e.message); });
+  }
+
+  // ── Derived state ─────────────────────────────────────────────────
+  function myEntry(){
+    if (!state.user || !state.data) return null;
+    var me = state.user.uid;
+    return (state.data.entries || []).filter(function(e){
+      return (e.members || []).indexOf(me) >= 0;
+    })[0] || null;
+  }
+  function isHost(){
+    return !!(state.user && state.data && state.data.tournament.hostUid === state.user.uid);
+  }
+  function doorsMs(){
+    var iso = state.data && state.data.tournament.startsAtISO;
+    var ms = iso ? Date.parse(iso) : NaN;
+    return isNaN(ms) ? 0 : ms;
+  }
+  // Phase is what the HOST has set, with the clock only used to word the
+  // wait. A status of 'running' means doors are open whatever the clock
+  // says, because the host is the one who opens them.
+  function phase(){
+    var t = state.data && state.data.tournament;
+    if (!t) return 'loading';
+    if (t.status === 'cancelled') return 'cancelled';
+    if (t.status === 'complete') return 'done';
+    if (t.status === 'elims' || t.status === 'break') return 'elims';
+    if (t.status === 'running') return 'live';
+    if (t.status === 'registration') return 'before';
+    return 'draft';
+  }
+
+  function money(cents){
+    var n = Number(cents) || 0;
+    return '$' + (n / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────
+  function render(){
+    var t = state.data.tournament;
+    document.title = t.name + ' · live';
+    $('title').textContent = t.name;
+    if (t.description) $('lede').textContent = firstSentence(t.description);
+
+    var p = phase();
+    var pill = $('statusPill');
+    var live = (p === 'live' || p === 'elims');
+    pill.className = 'pill ' + (live ? 'pill-live' : p === 'before' ? 'pill-soon' : 'pill-done');
+    pill.innerHTML = (live ? '<span class="dot"></span>' : '') + esc({
+      before: 'Entries open', live: 'Doors open', elims: 'Elimination rounds',
+      done: 'Finished', cancelled: 'Cancelled', draft: 'Not open yet', loading: 'Loading',
+    }[p] || p);
+    $('kickerText').textContent = [t.startsAt || '', t.entryCount + ' entered'].filter(Boolean).join(' · ');
+
+    $('schedRounds').textContent = 'Play as many as you like. ' + t.prelimRounds +
+      ' count towards the standings, and every round ends with a written verdict.';
+    if (t.breakSize){
+      $('schedBreak').textContent = 'The top ' + t.breakSize + ' of the standings go into single elimination.';
+    }
+
+    renderBand();
+    renderNow();
+    renderPrizes();
+    renderTab();
+    renderBracket();
+    renderHost();
+  }
+
+  function firstSentence(s){
+    var m = String(s || '').match(/^[^.]{20,180}\./);
+    return m ? m[0] : String(s || '').slice(0, 180);
+  }
+
+  // ── Countdown band ────────────────────────────────────────────────
+  var bandTimer = 0;
+  function renderBand(){
+    clearTimeout(bandTimer);
+    var band = $('band'), clock = $('clock'), when = $('when');
+    var t = state.data.tournament;
+    var p = phase();
+
+    band.classList.toggle('is-live', p === 'live' || p === 'elims');
+
+    if (p === 'live'){
+      clock.innerHTML = 'Doors are open';
+      when.textContent = 'Turn up now, say you are ready, and you get paired with whoever else is free.';
+      return;
+    }
+    if (p === 'elims'){
+      clock.innerHTML = 'Elimination rounds';
+      when.textContent = 'The bracket is running. The final streams on the watch page.';
+      return;
+    }
+    if (p === 'done'){
+      var champ = t.champion;
+      clock.innerHTML = champ ? esc(champ.name) : 'Finished';
+      when.textContent = champ ? 'Won The Debatable Open.' : 'This one is over. The standings below are final.';
+      return;
+    }
+    if (p === 'cancelled'){
+      clock.innerHTML = 'Cancelled';
+      when.textContent = 'This tournament is not running.';
+      return;
+    }
+
+    var target = doorsMs();
+    if (!target){
+      clock.innerHTML = 'Entries open';
+      when.textContent = (t.startsAt || 'A start time goes up here once it is set') + '.';
+      return;
+    }
+    var left = target - Date.now();
+    if (left <= 0){
+      // Past the hour on the clock but the host has not flipped the
+      // switch. Say that, rather than counting down to a moment that
+      // already passed.
+      clock.innerHTML = 'Starting shortly';
+      when.textContent = 'Doors open as soon as the host opens them. Enter now and you are in the first draw.';
+      return;
+    }
+    var s = Math.floor(left / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
+        m = Math.floor((s % 3600) / 60), sec = s % 60;
+    clock.innerHTML = d > 0
+      ? d + '<small>d</small> ' + h + '<small>h</small> ' + m + '<small>m</small>'
+      : h + '<small>h</small> ' + String(m).padStart(2,'0') + '<small>m</small> ' + String(sec).padStart(2,'0') + '<small>s</small>';
+    when.textContent = 'Until doors open. ' + (t.startsAt || '') + '.';
+    // Tick every second inside the last hour, every minute before that.
+    bandTimer = setTimeout(renderBand, left < 3600000 ? 1000 : 30000);
+  }
+
+  // ── What now ──────────────────────────────────────────────────────
+  function renderNow(){
+    var box = $('nowBox'), acts = $('nowActions'), meta = $('entryMeta');
+    var t = state.data.tournament;
+    var mine = myEntry();
+    var p = phase();
+    acts.innerHTML = '';
+    meta.innerHTML = '';
+
+    var say = '', why = '';
+
+    // Terminal phases first. Everything below assumes there is still
+    // something to do, and on a finished tournament there is not: a
+    // "sign in to compete" prompt on a closed event is just wrong.
+    if (p === 'done'){
+      var champ = t.champion;
+      say = champ ? (champ.name + ' won it.') : 'This one is finished.';
+      why = mine
+        ? 'You finished ' + mine.wins + ' and ' + mine.losses + '. The standings below are final.'
+        : 'The standings below are final. The next one goes up on the tournaments page.';
+      addLink(acts, 'The next tournament', '/tournaments');
+      box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div><div class="why">' + esc(why) + '</div>';
+      if (mine) renderMyRecord(meta, mine);
+      return;
+    }
+    if (p === 'cancelled' || p === 'draft'){
+      say = p === 'cancelled' ? 'This one is not running.' : 'Entries are not open yet.';
+      why = 'The tournaments page has whatever is next.';
+      addLink(acts, 'Tournaments', '/tournaments');
+      box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div><div class="why">' + esc(why) + '</div>';
+      return;
+    }
+
+    if (!state.user){
+      say = p === 'before' ? 'Sign in and enter.' : 'Sign in to compete.';
+      why = 'You can read the standings and the bracket without an account. Entering needs one.';
+      addBtn(acts, 'Sign in', signIn, true);
+    } else if (!mine){
+      if (p === 'before'){
+        say = 'You are not entered yet.';
+        why = 'One click and you are in. Then turn up whenever suits you on the day.';
+        state.affInput = affiliationField(acts);
+        addBtn(acts, 'Enter the Open', function(b){ register(b); }, true);
+      } else if (p === 'live'){
+        say = 'You are not entered, and doors are open.';
+        why = 'Entries are still taken while the tournament runs. Enter and you are in the next pairing.';
+        state.affInput = affiliationField(acts);
+        addBtn(acts, 'Enter now', function(b){ register(b); }, true);
+      } else {
+        say = 'You are watching this one.';
+        why = 'Entries are closed. The standings and the bracket update as rounds land.';
+        addLink(acts, 'Watch the rounds', '/watch');
+      }
+    } else if (mine.status === 'withdrawn'){
+      say = 'You have withdrawn.';
+      why = 'If that was a mistake, say so and the host can put you back in.';
+    } else if (mine.status === 'eliminated'){
+      say = 'Your run is over.';
+      why = 'The bracket below plays out without you. The final streams on the watch page.';
+      addLink(acts, 'Watch the final', '/watch');
+    } else if (p === 'before'){
+      say = mine.status === 'checked_in' ? 'You are checked in. Come back when doors open.' : 'You are in.';
+      why = 'Nothing else to do until Saturday. Check in on the day so the queue knows you turned up.';
+      if (mine.status === 'registered' && Date.now() > doorsMs() - 3600000) addCheckIn(acts, t);
+      addWithdraw(acts, t);
+    } else if (p === 'live' && mine.status === 'registered'){
+      say = 'Check in and you are in the queue.';
+      why = 'Checking in tells the pairing engine you are actually at your desk.';
+      addCheckIn(acts, t, true);
+      addWithdraw(acts, t);
+    } else if (p === 'live' && queueEligible()){
+      // Checked in, running, and the queue is on: the queue is the whole
+      // interface from here and renderQueue owns this block.
+      renderQueue(box, acts);
+      renderMyRecord(meta, mine);
+      return;
+    } else if (p === 'live'){
+      // Running with the drop-in queue switched off. Offering a Ready
+      // button here would post to an endpoint that refuses it.
+      say = 'You are in. Wait for the draw.';
+      why = 'This one pairs fixed rounds rather than running a queue. Your pairing appears here when the host releases it.';
+      addWithdraw(acts, t);
+    } else {
+      // Break or elims. Their pairing is in a released elim round.
+      var r = latestReleased();
+      var pr = r && (r.pairings || []).filter(function(x){
+        return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
+      })[0];
+      if (pr && pr.status !== 'complete'){
+        var side = pr.govEntry === mine.entryId ? 'Gov' : 'Opp';
+        var opp = pr.govEntry === mine.entryId ? pr.oppName : pr.govName;
+        say = 'You are up. ' + side + ' against ' + opp + '.';
+        why = r.motion ? ('Motion: ' + r.motion) : (r.label || '');
+        addLink(acts, 'Join your room', roomUrl(pr, r), true);
+      } else if (pr){
+        var won = (pr.winner === 'gov' && pr.govEntry === mine.entryId) || (pr.winner === 'opp' && pr.oppEntry === mine.entryId);
+        say = won ? 'You won that one.' : 'You lost that one.';
+        why = won ? 'Wait here for the next bracket round.' : 'The bracket plays out below.';
+      } else {
+        say = 'Waiting on the next bracket round.';
+        why = 'It appears here the moment the host releases it.';
+      }
+    }
+
+    box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '');
+    if (mine) renderMyRecord(meta, mine);
+  }
+
+  function renderMyRecord(host, mine){
+    if (!mine) return;
+    var played = Number(mine.wins || 0) + Number(mine.losses || 0);
+    if (!played) return;
+    var row = (state.data.standings || []).filter(function(r){ return r.entryId === mine.entryId; })[0];
+    host.innerHTML = '<div class="stats">' +
+      '<div class="stat"><div class="n">' + mine.wins + '&ndash;' + mine.losses + '</div><div class="k">Your record</div></div>' +
+      '<div class="stat"><div class="n">' + mine.speaks + '</div><div class="k">Speaker points</div></div>' +
+      (row ? '<div class="stat"><div class="n">' + row.rank + '</div><div class="k">Place</div></div>' : '') +
+      '</div>';
+  }
+
+  function addBtn(host, label, fn, primary){
+    var b = document.createElement('button');
+    b.className = 'btn btn-lg' + (primary ? ' btn-primary' : '');
+    b.textContent = label;
+    b.addEventListener('click', function(){ fn(b); });
+    host.appendChild(b);
+    return b;
+  }
+  function addLink(host, label, href, primary){
+    var a = document.createElement('a');
+    a.className = 'btn btn-lg' + (primary ? ' btn-primary' : '');
+    a.href = href; a.textContent = label;
+    host.appendChild(a);
+    return a;
+  }
+  function addCheckIn(host, t, primary){
+    var b = document.createElement('button');
+    b.className = 'btn btn-lg' + (primary ? ' btn-primary' : '');
+    b.textContent = 'Check in';
+    b.addEventListener('click', function(){
+      busy(b, true, 'Checking in');
+      api('/api/tournament', { action: 'check-in', tid: t.tid })
+        .then(function(){ good('Checked in.'); return load(); })
+        .catch(function(e){ fail(e.message); })
+        .then(function(){ busy(b, false); });
+    });
+    host.appendChild(b);
+  }
+  function addWithdraw(host, t){
+    var b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = 'Withdraw';
+    b.addEventListener('click', function(){
+      confirmAction({
+        title: 'Withdraw from ' + t.name + '?',
+        body: 'You come out of every remaining pairing. Getting back in means asking the host.',
+        confirmLabel: 'Withdraw',
+      }).then(function(yes){
+        if (!yes) return;
+        busy(b, true, 'Withdrawing');
+        api('/api/tournament', { action: 'withdraw', tid: t.tid })
+          .then(function(){ good('Withdrawn.'); return load(); })
+          .catch(function(e){ fail(e.message); })
+          .then(function(){ busy(b, false); });
+      });
+    });
+    host.appendChild(b);
+  }
+
+  // Who you debate for. Free text on purpose: the communities worth
+  // reaching are Discords and informal circuits, not a list we can
+  // enumerate in advance.
+  function affiliationField(host){
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 60;
+    input.placeholder = 'School, club, or community (optional)';
+    input.setAttribute('aria-label', 'School, club, or community');
+    input.style.cssText = 'flex:0 1 300px;min-width:0;padding:12px 14px;border-radius:11px;' +
+      'border:1px solid var(--line);background:var(--panel-2);color:var(--fg);font:inherit;font-size:.9rem';
+    host.appendChild(input);
+    return input;
+  }
+
+  function register(btn){
+    var t = state.data.tournament;
+    busy(btn, true, 'Entering');
+    api('/api/tournament', {
+      action: 'register',
+      tid: t.tid,
+      name: (state.user.displayName || 'Debater'),
+      affiliation: state.affInput ? state.affInput.value.trim() : '',
+    })
+      .then(function(){
+        good('You are in.');
+        try { gtag('event', 'open_entered', { tid: t.tid }); } catch(e){}
+        return load();
+      })
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
+  }
+
+  // ── Drop-in queue ─────────────────────────────────────────────────
+  //
+  // The queue slot expires after six minutes and is deliberately not
+  // refreshed by polling: `availableAt` is the same field the pairing
+  // engine measures accrued waiting time from, so a heartbeat would
+  // reset the wait and the rematch patience gate would never release.
+  // It is also the presence check. A tab nobody is sitting at cannot
+  // press "still here", so it stops being paired instead of opening a
+  // room onto an empty chair.
+  var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
+
+  function queueEligible(){
+    var t = state.data && state.data.tournament;
+    if (!t || t.dropIn === false || t.status !== 'running') return false;
+    var mine = myEntry();
+    return !!(state.user && mine && mine.status !== 'withdrawn' && mine.status !== 'eliminated');
+  }
+
+  function queueCall(action){
+    dropIn.busy = true; dropIn.err = '';
+    return api('/api/tournament/dropin', { action: action, t: TKEY })
+      .then(function(j){ dropIn.state = j; return j; })
+      .catch(function(e){ dropIn.err = e.message || 'That did not go through.'; })
+      .then(function(){ dropIn.busy = false; renderNow(); });
+  }
+
+  function queuePoll(){
+    if (!queueEligible()){ dropIn.polling = false; return; }
+    queueCall('poll').then(function(){
+      var self = dropIn.state && dropIn.state.self;
+      // A seated entrant keeps polling, because their round ending is
+      // what puts them back in the pool and the page should notice.
+      if (self && (self.queued || self.inPairing)){
+        dropIn.polling = true;
+        clearTimeout(dropIn.timer);
+        dropIn.timer = setTimeout(queuePoll, 5000);
+      } else {
+        dropIn.polling = false;
+      }
+    });
+  }
+
+  function fmtWait(ms){
+    var s = Math.round(Math.max(0, ms) / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    return m + 'm ' + (s - m * 60) + 's';
+  }
+
+  function renderQueue(box, acts){
+    var self = dropIn.state && dropIn.state.self;
+    var pool = dropIn.state ? Number(dropIn.state.poolSize || 0) : 0;
+    var mine = myEntry();
+    var say, why = '', action = null;
+
+    if (self && self.inPairing && self.pairing){
+      var p = self.pairing;
+      var side = p.govEntry === (mine && mine.entryId) ? 'Gov' : 'Opp';
+      var opp = p.govEntry === (mine && mine.entryId) ? p.oppName : p.govName;
+      say = 'You are up. ' + side + ' against ' + opp + '.';
+      why = 'Your room is open. The verdict lands when the round ends.';
+      action = { kind: 'link', href: roomUrl(p, { label: 'Drop-in', motion: '' }), label: 'Join your room' };
+    } else if (self && self.queued){
+      say = 'In the queue, ' + fmtWait(self.waitingMs) + '.';
+      why = (pool > 1 ? pool + ' ready right now. ' : 'Waiting for someone else to be free. ');
+      // Say why a pairable looking pool is not pairing, rather than
+      // spinning silently.
+      if (dropIn.state && dropIn.state.held){
+        why += 'Holding briefly to avoid pairing you with someone you have already debated. ';
+      }
+      why += 'Your slot lasts ' + fmtWait(self.expiresInMs) + ' longer.';
+      action = { kind: 'btn', label: 'Leave the queue', act: 'leave' };
+    } else if (self && self.slotExpired){
+      say = 'Your queue slot ran out.';
+      why = 'It expires so the engine never opens a room onto an empty chair. Still there?';
+      action = { kind: 'btn', label: "I'm still here", act: 'ready', primary: true };
+    } else {
+      say = 'Say you are ready and you get paired.';
+      why = pool > 0 ? (pool + ' waiting in the queue right now.') : 'Play as many rounds as you like.';
+      action = { kind: 'btn', label: 'Ready to debate', act: 'ready', primary: true };
+    }
+
+    box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '') +
+      (dropIn.err ? '<div class="why" style="color:#fca5a5">' + esc(dropIn.err) + '</div>' : '');
+
+    if (action.kind === 'link'){
+      addLink(acts, action.label, action.href, true);
+    } else {
+      var b = document.createElement('button');
+      b.className = 'btn btn-lg' + (action.primary ? ' btn-primary' : '');
+      b.textContent = dropIn.busy ? 'Working' : action.label;
+      b.disabled = !!dropIn.busy;
+      b.addEventListener('click', function(){
+        queueCall(action.act).then(function(){
+          if (action.act === 'ready' && !dropIn.polling) queuePoll();
+        });
+      });
+      acts.appendChild(b);
+    }
+    addWithdraw(acts, state.data.tournament);
+  }
+
+  function roomUrl(p, r){
+    var t = state.data.tournament;
+    var entries = {};
+    (state.data.entries || []).forEach(function(e){ entries[e.entryId] = e; });
+    var gov = entries[p.govEntry] || {}, opp = entries[p.oppEntry] || {};
+    var params = new URLSearchParams({
+      room: p.room,
+      format: t.format,
+      motion: (r && r.motion) || '',
+      source: 'tournament',
+      pro: (gov.memberNames || [])[0] || gov.name || 'Gov',
+      con: (opp.memberNames || [])[0] || opp.name || 'Opp',
+      proUid: (gov.members || [])[0] || '',
+      conUid: (opp.members || [])[0] || '',
+    });
+    return '/live-round.html?' + params.toString();
+  }
+
+  // ── Live rounds anyone can watch ──────────────────────────────────
+  var FORMATS = { quick:'Quick Clash', apda:'APDA', bp:'BP', worlds:'Worlds', asian:'Asian Parli',
+    ld:'LD', pf:'Public Forum', policy:'Policy', congress:'Congress' };
+
+  function loadLive(){
+    fetch('/api/watch-live', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var rounds = (j && j.rounds) || [];
+        show('liveCard', rounds.length > 0);
+        if (!rounds.length) return;
+        $('liveSub').textContent = rounds.length === 1
+          ? 'One round under way. Anyone can watch.'
+          : rounds.length + ' rounds under way. Anyone can watch.';
+        var host = $('liveBody');
+        host.innerHTML = '';
+        rounds.forEach(function(r){
+          var row = document.createElement('div');
+          row.className = 'pairing';
+          row.innerHTML =
+            '<div><div class="side">' + esc(r.proName || 'Gov') + ' vs ' + esc(r.conName || 'Opp') + '</div>' +
+            '<div class="note" style="margin-top:2px">' + esc(FORMATS[r.format] || r.format) +
+            (r.motion ? ' &middot; ' + esc(r.motion) : '') + '</div></div>' +
+            '<div class="sp"><a class="btn btn-sm" href="/live-round.html?room=' +
+              encodeURIComponent(r.room) + '&spectate=1">Watch</a></div>';
+          host.appendChild(row);
+        });
+      })
+      .catch(function(){ /* a missing watch feed is not an error worth showing */ });
+  }
+
+  // ── Prizes ────────────────────────────────────────────────────────
+  function renderPrizes(){
+    var t = state.data.tournament;
+    var split = t.prizeSplit || [];
+    var box = $('prizeBox');
+    if (!split.length){ box.innerHTML = ''; $('prizeNote').textContent = ''; return; }
+    var places = ['First', 'Second', 'Third', 'Fourth'];
+    box.innerHTML = split.map(function(c, i){
+      return '<div><div class="amt">' + money(c) + '</div><div class="pl">' + (places[i] || ('Place ' + (i+1))) + '</div></div>';
+    }).join('');
+    $('prizeNote').innerHTML = 'Prizes are funded by us, not raised from entry fees, so the pot does not shrink if fewer people enter. ' +
+      'Eligibility, payouts and refunds are on the <a href="/tournament-rules" style="text-decoration:underline">official rules</a>. ' +
+      'The entry path is on <a href="/tournaments" style="text-decoration:underline">the tournaments page</a>.';
+  }
+
+  // ── Standings ─────────────────────────────────────────────────────
+  function renderTab(){
+    var rows = state.data.standings || [];
+    var tb = $('tabTable').querySelector('tbody');
+    if (!rows.length){
+      tb.innerHTML = '<tr><td class="empty">Nobody has entered yet.</td></tr>';
+      return;
+    }
+    // Before a single round has been debated the tab is every entrant on
+    // nil, and the engine still hands back rank 1 through N. Printing
+    // that reads as a standing, which it is not: it is entry order
+    // dressed up as a result. Show the field instead, alphabetically, so
+    // the ordering claims nothing.
+    var played = rows.some(function(r){ return (Number(r.wins) || 0) + (Number(r.losses) || 0) > 0; });
+    if (!played){
+      $('tabTitle').textContent = 'The field';
+      $('tabSub').textContent = 'Everyone entered so far. The standings replace this the moment the first result lands.';
+      show('tabNote', false);
+      var mineEarly = myEntry();
+      tb.innerHTML = '<tr><th>Who has entered</th></tr>' +
+        rows.slice().sort(function(a, b){ return String(a.name).localeCompare(String(b.name)); })
+          .map(function(r){
+            var me = mineEarly && r.entryId === mineEarly.entryId;
+            return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '><td>' + esc(r.name) +
+              (r.affiliation ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>' : '') +
+              '</td></tr>';
+          }).join('');
+      return;
+    }
+    $('tabTitle').textContent = 'The standings';
+    $('tabSub').textContent = 'Wins first, then speaker points. This is the same table the elimination bracket is cut from.';
+    var mine = myEntry();
+    var breakLine = Number(state.data.tournament.breakSize) || 0;
+    show('tabNote', breakLine > 0);
+    if (breakLine > 0){
+      $('tabNote').textContent = 'The red line is the break. The top ' + breakLine +
+        ' when entries close go into the elimination bracket. It moves as results land.';
+    }
+    tb.innerHTML = '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+      rows.map(function(r){
+        var me = mine && r.entryId === mine.entryId;
+        var aff = r.affiliation
+          ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
+          : '';
+        // A line under the break marks where the bracket cuts. It is the
+        // single number every competitor is actually reading for.
+        var cut = (breakLine && r.rank === breakLine) ? ' style="border-bottom:2px solid var(--red)"' : '';
+        return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
+          '<td class="num"' + cut + '>' + r.rank + '</td>' +
+          '<td' + cut + '>' + esc(r.name) + aff + '</td>' +
+          '<td class="num"' + cut + '>' + r.wins + '</td>' +
+          '<td class="num"' + cut + '>' + r.losses + '</td>' +
+          '<td class="num"' + cut + '>' + r.speaks + '</td></tr>';
+      }).join('');
+  }
+
+  function latestReleased(){
+    var rounds = (state.data.rounds || []).filter(function(r){ return r.released; });
+    return rounds.length ? rounds[rounds.length - 1] : null;
+  }
+
+  function renderBracket(){
+    var elims = (state.data.rounds || []).filter(function(r){ return r.kind === 'elim' && r.released; });
+    show('bracketCard', elims.length > 0);
+    if (!elims.length) return;
+    var host = $('bracketBody');
+    host.innerHTML = '';
+    var mine = myEntry();
+    elims.forEach(function(r){
+      var h = document.createElement('div');
+      h.style.cssText = 'margin-top:14px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
+      h.textContent = r.label;
+      host.appendChild(h);
+      (r.pairings || []).forEach(function(p){
+        var isMine = mine && (p.govEntry === mine.entryId || p.oppEntry === mine.entryId);
+        var row = document.createElement('div');
+        row.className = 'pairing' + (isMine ? ' mine' : '');
+        row.innerHTML =
+          '<div class="side">' + (p.govSeed ? '<span class="note" style="margin-top:0">' + p.govSeed + '</span> ' : '') + esc(p.govName) + '</div>' +
+          '<div class="vs">VS</div>' +
+          '<div class="side">' + (p.oppSeed ? '<span class="note" style="margin-top:0">' + p.oppSeed + '</span> ' : '') + esc(p.oppName) + '</div>' +
+          '<div class="sp">' + (p.status === 'complete'
+            ? '<span class="pill pill-done">' + esc(p.winner === 'gov' ? p.govName : p.oppName) + '</span>' : '') + '</div>';
+        if (p.room && p.status !== 'complete'){
+          var w = document.createElement('a');
+          w.className = 'btn btn-sm';
+          w.textContent = 'Watch';
+          w.href = '/live-round.html?room=' + encodeURIComponent(p.room) + '&spectate=1';
+          row.querySelector('.sp').appendChild(w);
+        }
+        host.appendChild(row);
+      });
+    });
+    var champ = state.data.tournament.champion;
+    if (champ){
+      var c = document.createElement('p');
+      c.className = 'sub';
+      c.style.marginTop = '14px';
+      c.innerHTML = '<strong>Champion: ' + esc(champ.name) + '</strong>';
+      host.appendChild(c);
+    }
+  }
+
+  // ── Running the day ───────────────────────────────────────────────
+  //
+  // The day level switches only: open the doors, close them, call it
+  // finished. Pairing a fixed round, reporting results, breaking and
+  // advancing the bracket stay in the full control room on /tournament,
+  // which is where they are already built and tested. Forking those
+  // flows across two pages is how two admin surfaces drift apart on the
+  // one day nobody has time to notice.
+  function renderHost(){
+    show('hostCard', isHost());
+    if (!isHost()) return;
+    var t = state.data.tournament;
+    var entries = state.data.entries || [];
+    var checkedIn = entries.filter(function(e){ return e.status === 'checked_in'; }).length;
+    var rounds = (state.data.rounds || []);
+    var played = rounds.reduce(function(n, r){
+      return n + (r.pairings || []).filter(function(p){ return p.status === 'complete'; }).length;
+    }, 0);
+
+    $('hostStats').innerHTML = [
+      ['Entered', t.entryCount],
+      ['Checked in', checkedIn],
+      ['Rounds done', played],
+      ['Paid entries', Number(t.paidEntries || 0)],
+    ].map(function(s){
+      return '<div class="stat"><div class="n">' + s[1] + '</div><div class="k">' + s[0] + '</div></div>';
+    }).join('');
+
+    var acts = $('hostActions');
+    acts.innerHTML = '';
+    var p = phase();
+
+    if (p === 'before'){
+      hostBtn(acts, 'Open the doors', 'running',
+        'Everyone checked in goes into the drop-in queue and rounds start pairing.', true);
+    } else if (p === 'live'){
+      hostBtn(acts, 'Close entries', 'break',
+        'The queue stops pairing new rounds and the standings freeze for the break.');
+      hostBtn(acts, 'Back to entries only', 'registration',
+        'Stops the queue and puts the tournament back in registration.');
+    } else if (p === 'elims'){
+      hostBtn(acts, 'Reopen the doors', 'running', 'Puts the drop-in queue back on.');
+      hostBtn(acts, 'Call it finished', 'complete', 'Closes the tournament. The standings become final.');
+    }
+
+    var full = document.createElement('a');
+    full.className = 'btn';
+    full.href = '/tournament?t=' + encodeURIComponent(t.slug || t.tid);
+    full.textContent = 'Full control room';
+    acts.appendChild(full);
+  }
+
+  function hostBtn(host, label, status, body, primary){
+    var b = document.createElement('button');
+    b.className = 'btn' + (primary ? ' btn-primary' : '');
+    b.textContent = label;
+    b.addEventListener('click', function(){
+      confirmAction({ title: label + '?', body: body, confirmLabel: label }).then(function(yes){
+        if (!yes) return;
+        busy(b, true, 'Working');
+        api('/api/tournament-admin', {
+          action: 'set-status', tid: state.data.tournament.tid, status: status,
+        })
+          .then(function(){ good('Done. Everyone on the page sees it within half a minute.'); return load(); })
+          .catch(function(e){ fail(e.message); })
+          .then(function(){ busy(b, false); });
+      });
+    });
+    host.appendChild(b);
+  }
+
+  // ── Sign in ───────────────────────────────────────────────────────
+  function signIn(){
+    if (!auth){ fail('Sign in is unavailable right now. Try reloading.'); return; }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function(e){
+      // A blocked popup is the single most common failure here, and
+      // "auth/popup-blocked" means nothing to the person reading it.
+      fail(e && e.code === 'auth/popup-blocked'
+        ? 'Your browser blocked the sign-in window. Allow popups for this site and try again.'
+        : (e && e.message) || 'Sign in did not go through.');
+    });
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────
+  if (auth){
+    auth.onAuthStateChanged(function(u){
+      // notifications.js signs everyone in anonymously, so a truthy
+      // currentUser is not a signed-in person. Only a named account
+      // can enter, check in, or queue.
+      state.user = (u && !u.isAnonymous) ? u : null;
+      if (state.data) render();
+      if (queueEligible() && !dropIn.polling) queuePoll();
+    });
+  }
+
+  load().then(function(){
+    if (queueEligible() && !dropIn.polling) queuePoll();
+  });
+  loadLive();
+
+  // The tournament document is shared-cached for eight seconds server
+  // side, so polling faster than this buys nothing and costs reads.
+  setInterval(function(){ if (!document.hidden) load(); }, 25000);
+  setInterval(function(){ if (!document.hidden) loadLive(); }, 30000);
+  // A tab left open through a phase change should be right when someone
+  // comes back to it, not stale by however long they were away.
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){ load(); loadLive(); }
+  });
+})();
+</script>
+
+</body>
+</html>

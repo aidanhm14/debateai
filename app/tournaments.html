@@ -807,6 +807,11 @@ h1,h2,h3,p{margin-top:0}
             </div>
           </div>
           <p class="enter-status" id="enterStatus" hidden></p>
+          <!-- Revealed the moment someone is in the bracket. Until this
+               shipped, "come back any time on the day" named no place to
+               come back to, and the only page that could pair them was
+               reachable by knowing a URL nobody had been given. -->
+          <a class="enter-btn" id="enterOpenLink" href="/open" hidden style="margin-top:14px;align-self:flex-start">Open your event page</a>
           <p class="enter-note" id="enterNote">No purchase is necessary to compete or to climb the leaderboard. Cash prizes go to prize-eligible entrants aged 18 or over and are void where prohibited. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent. A human confirms the final ballots before any money moves.</p>
         </div>
       </div>
@@ -1244,7 +1249,15 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   // through the people already in it, so the moment someone is in the
   // bracket they get a one-tap way to pull a teammate in. Renders
   // once, directly under the confirmation status.
+  // The page to be on come Saturday: check in, join the queue, get the
+  // room. /tournaments is the door, /open is the room behind it.
+  function showEventLink(){
+    var el=document.getElementById('enterOpenLink');
+    if(el)el.hidden=false;
+  }
+
   function showShareAsk(){
+    showEventLink();
     if(!statusEl||document.getElementById('enterShare'))return;
     var SHARE_URL='https://itsdebatable.com/tournaments';
     var SHARE_TEXT='I am in The Debatable Open, Saturday August 29. All online, $850 in cash prizes, every round gets a written ballot. Enter here:';
@@ -1322,10 +1335,10 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
               showShareAsk();
             }else if(f&&f.reason==='not-founding'){
               say('Your entry is registered, but this account was created after the free-entry cutoff, so it is not eligible for the cash prizes yet. Pay in below, or email to have the fee waived.',null);
-              revealPayDoor();
+              showEventLink();revealPayDoor();
             }else{
               say('Your entry is registered. We could not confirm free prize eligibility, so pay in below or email to have the fee waived.',null);
-              revealPayDoor();
+              showEventLink();revealPayDoor();
             }
             return null;
           }
