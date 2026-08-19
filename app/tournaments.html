@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-lightweb="web">
 <head>
 <script>
 /* Theme: resolve the visitor's saved `da-theme` before first paint. This
@@ -153,6 +153,34 @@
 }
 </script>
 <style>
+/* ── Neural constellation on this surface (sitewide recipe; same as
+   /schools and /pricing). The animation already had a light arm and was
+   gated behind the data-lightweb opt-in on <html>, so this page rendered
+   flat while its neighbours had depth.
+
+   The canvas is position:fixed, and a fixed element at z-index 0 painted
+   late in the body sits ON TOP of ordinary static content. Rather than
+   restack this page, the whole background stack (radial wash + paper)
+   moves to <html> and <body> goes transparent, which lets the canvas sit
+   at z-index -1: behind every element, still in front of the paper. Both
+   halves are load-bearing; drop either and the constellation either
+   covers the text or disappears under the paper.
+
+   This page does not load /css/ui.css, which is where .ui-neural-canvas
+   is normally positioned, so the base rule is restated here rather than
+   pulling in a stylesheet that would also restyle the topbar. */
+html[data-lightweb="web"]{
+  background:
+    radial-gradient(800px 440px at 84% -6%,rgba(217,47,47,.08),transparent 65%),
+    var(--paper);
+}
+html[data-lightweb="web"] body{background:transparent}
+.ui-neural-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;
+  opacity:.45;transition:opacity 1s ease}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
+
 :root{--link-red:#b91c1c;/* Paper surfaces, named so dark can restate them. */--surf-rgb-1:247,243,234;--surf-rgb-2:255,254,250;--surf-3:#fff;--surf-4:#fff6f5;--ink-rgb:23,23,22;
   --paper:#f7f3ea;
   --paper-2:#eee8dc;
@@ -177,9 +205,9 @@
 html{scroll-behavior:smooth}
 body{
   margin:0;
-  background:
-    radial-gradient(800px 440px at 84% -6%,rgba(217,47,47,.08),transparent 65%),
-    var(--paper);
+  /* Background lives on <html> so the constellation can sit at
+     z-index -1. See the neural block above. */
+  background:transparent;
   color:var(--ink);
   font-family:var(--serif);
   -webkit-font-smoothing:antialiased
@@ -697,7 +725,7 @@ h1,h2,h3,p{margin-top:0}
        empty state. -->
   <section class="enter" id="enter">
     <style>
-      .enter{padding:72px 0;border-top:1px solid var(--line);background:linear-gradient(180deg,var(--paper),var(--paper-2))}
+      .enter{padding:72px 0;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(var(--surf-rgb-1),.5),rgba(var(--surf-rgb-1),.86))}
       .enter .section-head p{max-width:56ch}
       .enter-card{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);padding:30px;max-width:900px}
       .enter-name{font-family:var(--serif);font-size:2.1rem;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
@@ -1325,5 +1353,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   })();
 })();
 </script>
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
 </body>
 </html>
