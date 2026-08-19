@@ -327,6 +327,12 @@ body::before{
 .side-links{display:flex;gap:14px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border)}
 .side-links a{font-size:.76rem;font-weight:700;color:var(--text-dim)}
 .side-links a:hover{color:var(--accent)}
+.side-slot{margin-bottom:14px}
+.side-slot .sn-card{margin:0;width:100%;box-sizing:border-box}
+.side-open{border-color:rgba(239,68,68,.38)}
+.side-open:hover{border-color:var(--accent)}
+.side-open-title{font-weight:800;font-size:.98rem;letter-spacing:-.01em;margin-bottom:4px}
+.side-open-sub{font-size:.78rem;color:var(--text-dim);line-height:1.45}
 .side-discord{border-color:rgba(88,101,242,.4)}
 .side-discord:hover{border-color:rgba(88,101,242,.75)}
 .side-discord-top{display:flex;align-items:center;gap:9px}
@@ -1201,6 +1207,12 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
      /community, /pricing, /spar, /voice-debate, /high-school. -->
 <div id="daTopbar"></div>
 <script defer src="/js/topbar.js"></script>
+<!-- Open Spar Night countdown. Client-side only, no server dependency;
+     mounts into any [data-spar-night] slot. The room is the one page
+     that was missing it, which is backwards: 878 queue joins in 12 days
+     produced 148 matches, and the fix for that is everyone arriving in
+     the same hour, not more arrivals. -->
+<script defer src="/js/spar-night.js"></script>
 
 <div class="wrap" style="padding-top:70px">
  <!-- Two-column shell: narrative/build-log (left) + live forum (right).
@@ -1477,6 +1489,39 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
        hooks (#communityPulse, #communitySchedule), just parked beside the
        column instead of on top of it. -->
   <aside class="col-side" aria-label="About this room">
+
+    <!-- Next concentration event. The queue only pairs people who are in
+         it at the same time, so the standing weekly hour outranks
+         everything else in this rail. -->
+    <!-- Wrapped, not classed directly: spar-night.js overwrites the
+         slot's className when it mounts, so spacing has to live on a
+         parent it does not touch. -->
+    <div class="side-slot"><div data-spar-night="rail"></div></div>
+
+    <!-- The Debatable Open. Self-retiring off the client clock so the card
+         disappears on its own once the bracket has run, rather than
+         advertising a finished tournament. Same copy discipline as the
+         /spar gate line. -->
+    <a class="side-card side-open" id="sideOpen" href="/tournaments" data-cta="community-open" hidden>
+      <div class="side-head">Saturday</div>
+      <div class="side-open-title">The Debatable Open</div>
+      <div class="side-open-sub" id="sideOpenSub">$850 in prizes.</div>
+    </a>
+    <script>
+    (function(){
+      // Aug 29 2026, 10:00 ET = 14:00 UTC. Free-entry cutoff is Fri Aug 22.
+      var START = Date.UTC(2026,7,29,14,0,0), FREE_UNTIL = Date.UTC(2026,7,22,4,0,0);
+      var el = document.getElementById('sideOpen'), sub = document.getElementById('sideOpenSub');
+      if (!el) return;
+      var now = Date.now();
+      // 6h grace so the card survives the round itself, then retires.
+      if (now > START + 6*3600*1000) return;
+      sub.textContent = now < FREE_UNTIL
+        ? '$850 in prizes. Accounts created by Friday enter the prize bracket free.'
+        : '$850 in prizes. Drop in any time.';
+      el.hidden = false;
+    })();
+    </script>
 
   <!-- Live pulse: real presence + spar queue + latest chat line.
        Rendered by community-pulse.js; whole strip hidden until at
