@@ -2449,6 +2449,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   var composerMode = 'take';
   var _feedBooted = false;
 
+  function isRealUser(){ return !!(currentUser && !currentUser.isAnonymous); }
+
   var FEED_KINDS = { take:1, lfr:1, clip:1 };
   function isFeedKind(t){ return !!(t && t.kind && FEED_KINDS[t.kind]); }
 
@@ -2482,10 +2484,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       if (window.DBAvatar){
         var saved = window.DBAvatar.getUser && window.DBAvatar.getUser();
         if (saved) return window.DBAvatar.svg(saved, size);
-        if (currentUser) return faceFor(shortName(currentUser), size);
+        if (isRealUser()) return faceFor(shortName(currentUser), size);
       }
     } catch(e){}
-    return currentUser ? escHtml(initialsOf(shortName(currentUser))) : '?';
+    return isRealUser() ? escHtml(initialsOf(shortName(currentUser))) : '?';
   }
 
   function feedTime(ms){
@@ -2733,7 +2735,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     var ta = $('composerText'), hint = $('composerHint');
     var copy = COMPOSER_COPY[mode] || COMPOSER_COPY.take;
     if (ta) ta.placeholder = copy.ph;
-    if (hint && currentUser) hint.textContent = copy.hint;
+    if (hint && isRealUser()) hint.textContent = copy.hint;
     if (mode === 'clip') loadAttachables();
   }
 
@@ -2767,7 +2769,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   function syncComposerAuth(){
     var ava = $('composerAva'), hint = $('composerHint'), btn = $('composerPost');
     if (ava) ava.innerHTML = myFace(40);
-    if (currentUser){
+    if (isRealUser()){
       if (hint) hint.textContent = (COMPOSER_COPY[composerMode] || COMPOSER_COPY.take).hint;
       if (btn) btn.textContent = 'Post';
     } else {
@@ -2777,7 +2779,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   }
 
   function submitComposer(){
-    if (!currentUser){
+    if (!isRealUser()){
       if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
       try { firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
       catch(e){ toast('Sign in to post.'); }
