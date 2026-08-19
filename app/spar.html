@@ -813,6 +813,118 @@ h1 em{color:var(--accent);font-style:normal}
   .mf-drain{animation-name:mf-drain}
 }
 
+/* ── Waiting on the opponent ──────────────────────────────────────
+   The other half of the match-found moment, and until now the poor
+   one: a face, a headline, and a Withdraw button on a page with no
+   motion, no clock, and no statement of what happens if the other
+   person never answers. So the reflex it invited was Withdraw, which
+   dissolves a real pair.
+
+   Same faceoff as the match card, with the roles inverted: I am
+   settled, they are the live thing. Their side carries the decide
+   window as a ring that empties, a caption that steps through what
+   is actually happening, and a promise underneath that leaving is
+   not the only way out of the wait. No number counts down at me —
+   the wait is on them, and a digit ticking toward zero on my screen
+   reads as my deadline. */
+.mf-wait .mf-side.them .mf-face{
+  box-shadow:0 0 0 5px var(--accent-glow),0 10px 30px var(--accent-glow);
+  animation:mf-wait-breathe 2.4s ease-in-out infinite;
+}
+@keyframes mf-wait-breathe{
+  0%,100%{transform:none}
+  50%{transform:scale(1.04)}
+}
+/* My own side goes quiet: I am the settled one in this frame. */
+.mf-wait .mf-side.me .mf-face{opacity:.62}
+.mf-wait .mf-side.me .mf-tag{color:var(--text-ghost)}
+
+/* Their decide window, drawn as a ring emptying around their face.
+   Stroke-dashoffset over the real CONSENT_DECIDE_SEC, set inline. */
+.mf-window{
+  position:absolute;top:-7px;left:50%;width:100px;height:100px;margin-left:-50px;
+  pointer-events:none;transform:rotate(-90deg);
+}
+.mf-window circle{
+  fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;opacity:.85;
+  stroke-dasharray:302;
+  animation:mf-window var(--mf-dur,15s) linear forwards;
+}
+@keyframes mf-window{from{stroke-dashoffset:0}to{stroke-dashoffset:302}}
+
+/* Step captions under their name. One line, swapped in place by
+   startWaitPhases() — never stacked, so the card never grows. */
+.mf-phase{
+  display:block;margin:-6px auto 14px;font-size:.72rem;font-weight:600;
+  letter-spacing:.02em;color:var(--text-dim);min-height:1.15em;
+  animation:mf-phase-in .3s ease both;
+}
+@keyframes mf-phase-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+/* The promise. This is the line that stops the Withdraw reflex: the
+   wait has a floor, and hitting it costs the user nothing. */
+.mf-hold{
+  max-width:400px;margin:2px auto 0;padding:10px 14px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  font-size:.76rem;line-height:1.5;color:var(--text-dim);
+}
+.mf-hold strong{color:var(--text);font-weight:700}
+
+/* ── "They already said yes" ──────────────────────────────────────
+   The strongest honest reason to accept a match, and the card was
+   throwing it away: consents[peer] is already in the doc, so we know
+   when the other person has committed and is standing in an empty
+   room waiting on this click. Same card either way until now.
+
+   Green, not red: this is a state fact about them, not a deadline
+   aimed at me. Amber stays reserved per the 2026-05-19 rule; green
+   is already the alerts colour on this page. */
+/* --mf-ok rides the page's own --green so the light theme gets its
+   darker #16a34a instead of a neon that washes out on cream. --mf-ok-*
+   are the tints, defined per theme rather than as one alpha, because
+   the same alpha over #0a0a0c and over #fafaf7 are not the same wash. */
+:root,[data-theme="grey"],[data-theme="crimson"]{
+  --mf-ok:#22c55e;
+  --mf-ok-fill:rgba(34,197,94,.10);
+  --mf-ok-line:rgba(34,197,94,.34);
+  --mf-ok-halo:rgba(34,197,94,.16);
+  --mf-ok-cast:rgba(34,197,94,.20);
+}
+[data-theme="light"]{
+  /* Text sits a step darker than --green: the badge line is 11.5px and
+     #16a34a on cream measures ~3.4:1, under AA. The rings and tints keep
+     --green, where contrast is not carrying meaning. */
+  --mf-ok:#15803d;
+  --mf-ok-fill:rgba(22,163,74,.09);
+  --mf-ok-line:rgba(22,163,74,.38);
+  --mf-ok-halo:rgba(22,163,74,.14);
+  --mf-ok-cast:rgba(22,163,74,.16);
+}
+.mf-locked{
+  display:inline-flex;align-items:center;gap:7px;
+  margin:0 auto 12px;padding:6px 13px;border-radius:999px;
+  background:var(--mf-ok-fill);border:1px solid var(--mf-ok-line);
+  color:var(--mf-ok);font-size:.72rem;font-weight:700;letter-spacing:.01em;
+}
+.mf-locked svg{flex-shrink:0}
+.mf-side.them.has-locked .mf-face{
+  border-color:var(--green);
+  box-shadow:0 0 0 5px var(--mf-ok-halo),0 10px 30px var(--mf-ok-cast);
+}
+.mf-side.them.has-locked::before{border-color:var(--green)}
+.mf-side.them.has-locked .mf-tag{color:var(--mf-ok)}
+
+@media (max-width:520px){
+  .mf-window{width:82px;height:82px;margin-left:-41px;top:-7px}
+  .mf-window circle{stroke-dasharray:245}
+  @keyframes mf-window{from{stroke-dashoffset:0}to{stroke-dashoffset:245}}
+}
+@media (prefers-reduced-motion:reduce){
+  .mf-wait .mf-side.them .mf-face{animation:none}
+  .mf-phase{animation:none}
+  .mf-window circle{animation-name:mf-window}
+}
+
 /* Live waitlist tile — shows other available debaters, with avatars,
    short names, proposed formats, and how long they've been waiting.
    Replaces the older single-line "X in your queue" text. */
@@ -1954,18 +2066,48 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // You against them, so the opponent lands as a face rather than as a
   // name inside a sentence. My own side reads "You" on purpose: my
   // display name tells me nothing I don't know.
-  function faceoffMarkup(peerIdentity, peerUid, peerName){
+  //
+  // opts.window   draw their decide window as a ring emptying around
+  //               their face (the waiting-on-them card; the deciding
+  //               card already has the drain bar on its button).
+  // opts.phase    render an empty caption slot under their name for
+  //               startWaitPhases() to write into.
+  // opts.locked   they have already accepted — recolour their side
+  //               green so the fact reads before the sentence does.
+  function faceoffMarkup(peerIdentity, peerUid, peerName, opts){
+    opts = opts || {};
     var me = state.user || {};
+    var ring = opts.window
+      ? '<svg class="mf-window" viewBox="0 0 100 100" aria-hidden="true" style="--mf-dur:' + CONSENT_DECIDE_SEC + 's">' +
+          '<circle cx="50" cy="50" r="48"></circle></svg>'
+      : '';
     return '<div class="mf-faceoff">' +
         '<div class="mf-side me">' +
           faceMarkup(currentPublicAvatarIdentity(), me.uid || '', me.displayName || 'You') +
           '<span class="mf-tag">You</span>' +
         '</div>' +
         '<div class="mf-vs" aria-hidden="true">VS</div>' +
-        '<div class="mf-side them">' +
+        '<div class="mf-side them' + (opts.locked ? ' has-locked' : '') + '">' +
+          ring +
           faceMarkup(peerIdentity, peerUid || '', peerName) +
           '<span class="mf-tag">' + peerName + '</span>' +
         '</div>' +
+      '</div>' +
+      // Sibling of the faceoff, not a child of their column: .mf-side is
+      // 120px wide, which wrapped this to two lines and made their side
+      // taller than mine, tipping the whole face-off off its axis.
+      (opts.phase ? '<div class="mf-phase" id="mfPhase" aria-live="polite"></div>' : '');
+  }
+
+  // "They already said yes." The doc has carried consents[peerUid]
+  // since the handshake shipped and the card never read it, so a
+  // debater standing in an empty room waiting on one click looked
+  // exactly like a debater who had not answered either. This is the
+  // most persuasive true thing we can put on the accept card.
+  function lockedBadge(peerName){
+    return '<div class="mf-locked">' +
+        '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' +
+        peerName + ' already accepted' +
       '</div>';
   }
 
@@ -3793,6 +3935,49 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   function clearConsentTimer(){
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
+    clearWaitPhases();
+  }
+
+  // Captions for the waiting-on-them card, stepped against their real
+  // decide window rather than invented. Everything here is something
+  // we actually know: the proposal is on their screen, their window is
+  // CONSENT_DECIDE_SEC wide, and past it we are into the ghost net.
+  // The point is that the screen moves and stays honest while it does;
+  // a still card for thirty seconds is the thing that reads as broken.
+  var WAIT_PHASES = [
+    { until: 4,  text: 'Card is on their screen' },
+    { until: 10, text: 'Reading it' },
+    { until: CONSENT_DECIDE_SEC, text: 'Their window is almost up' },
+    { until: 1e9, text: 'No answer yet. Holding your place.' },
+  ];
+
+  function clearWaitPhases(){
+    if (state.waitPhaseTimer){ clearInterval(state.waitPhaseTimer); state.waitPhaseTimer = null; }
+  }
+
+  function startWaitPhases(){
+    clearWaitPhases();
+    var t0 = Date.now();
+    var last = '';
+    function tick(){
+      var el = document.getElementById('mfPhase');
+      if (!el) return;
+      var secs = (Date.now() - t0) / 1000;
+      var text = '';
+      for (var i = 0; i < WAIT_PHASES.length; i++){
+        if (secs < WAIT_PHASES[i].until){ text = WAIT_PHASES[i].text; break; }
+      }
+      if (text === last) return;
+      last = text;
+      el.textContent = text;
+      // Re-trigger the entrance so a swapped line reads as a change
+      // rather than as text that was always there.
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
+    }
+    tick();
+    state.waitPhaseTimer = setInterval(tick, 500);
   }
 
   // secs → timeout. pass showNum=false for the silent safety net on the
@@ -3910,20 +4095,37 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
 
     if (myConsent){
-      // My half of the handshake is in (their note was empty, or I
-      // already accepted). The wait is on them reading my note.
+      // My half of the handshake is in. The wait is on them.
+      //
+      // This used to be the flattest screen on the site: a face, a
+      // sentence, and Withdraw, held still for up to thirty seconds
+      // with no clock and no statement of what happens at the end of
+      // it. A still screen with one button is a screen that gets that
+      // button pressed, and pressing it dissolves a real pair, which
+      // is the scarcest thing this page produces.
+      //
+      // So it becomes the staredown instead: the same faceoff as the
+      // match card with the roles inverted (they are the live side, I
+      // am settled), their decide window drawn as a ring emptying
+      // around their face, a caption stepping through what is actually
+      // happening, and the guarantee spelled out underneath. Nothing
+      // here is invented; every element is read off the doc or off
+      // their real window.
       shell.innerHTML =
-        '<div class="consent-wrap">' +
-          '<div class="eyebrow"><span class="pip"></span>Match found · awaiting opponent</div>' +
-          peerAvatar +
+        '<div class="consent-wrap mf mf-wait" id="consentCard">' +
+          '<div class="eyebrow"><span class="pip"></span>Awaiting opponent</div>' +
+          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { window: true, phase: true }) +
           '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
           '<p class="lede">' + (crossFmt
-            ? 'They\'re confirming the <strong>' + fmtLabel + '</strong> round. It starts the moment they accept.'
+            ? 'You\'re in. They\'re confirming the <strong>' + fmtLabel + '</strong> round, and it starts the second they do.'
             : (myNote
-              ? 'They\'re reading your judge instructions. The round starts the moment they accept.'
-              : 'Checking they\'re still at their desk. The round starts the moment they confirm.')) + '</p>' +
+              ? 'You\'re in. They\'re reading your judge instructions, and the round starts the second they accept.'
+              : 'You\'re in. The round starts the second they confirm they\'re at their desk.')) + '</p>' +
           (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
+          // The line that makes Withdraw a choice instead of a reflex.
+          '<div class="mf-hold">If they have walked away, <strong>you lose nothing.</strong> ' +
+            'We put you back at the front of the queue on our own and start looking again, so there is no wait you have to sit out.</div>' +
           '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
         '</div>';
       var wb = document.getElementById('consentPassBtn');
@@ -3935,6 +4137,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // of waiting forever. Stays auto-PASS (autoAccept=false) — I've
       // already accepted; this net only exists to free me from a ghost.
       startConsentCountdown(peerUid, CONSENT_WAIT_SEC, false, false);
+      // AFTER the countdown, never before: startConsentCountdown opens
+      // with clearConsentTimer(), which sweeps the phase interval too.
+      // Starting the phases first would have them cleared a line later.
+      startWaitPhases();
       return;
     }
 
@@ -3953,17 +4159,32 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // start" invites reading and weighing; this one wants a reflex, and
     // the count is framed as the match expiring rather than as a
     // deadline to decide by, because there is nothing to decide.
+    //
+    // peerConsent splits it in two. Both sides start at false, so for
+    // the first seconds neither of us has answered and the honest line
+    // is the empty-room warning. The moment they accept, the doc says
+    // so and this card should stop being a symmetric ready-check: a
+    // person is now standing in a room waiting on one click of mine.
+    // That fact was already in the snapshot and the card threw it away,
+    // showing the same screen either way. It is the most persuasive
+    // true thing available here, so it leads.
     if (d.readyCheck && !theirNote && !myNote && !crossFmt){
       shell.innerHTML =
         '<div class="consent-wrap mf" id="consentCard">' +
           '<span class="mf-burst" aria-hidden="true"></span>' +
           '<div class="eyebrow"><span class="pip"></span>Match found</div>' +
-          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName) +
-          '<h1><em>' + peerName + '</em> is ready.</h1>' +
-          '<p class="lede">Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.</p>' +
+          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { locked: peerConsent }) +
+          (peerConsent ? lockedBadge(peerName) : '') +
+          '<h1>' + (peerConsent
+            ? '<em>' + peerName + '</em> is waiting on you.'
+            : '<em>' + peerName + '</em> is ready.') + '</h1>' +
+          '<p class="lede">' + (peerConsent
+            ? 'They said yes and the room is open. One click puts you in the <strong>' + fmtLabel + '</strong> round. Leave it and they sit in an empty room, then go back to the queue.'
+            : 'Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.') + '</p>' +
           '<div class="btn-row">' +
             '<button class="btn primary mf-go" id="consentAcceptBtn" style="--mf-dur:' + CONSENT_DECIDE_SEC + 's">' +
-              'I\'m here, start the round<span class="mf-drain" aria-hidden="true"></span>' +
+              (peerConsent ? 'Join them, start the round' : 'I\'m here, start the round') +
+              '<span class="mf-drain" aria-hidden="true"></span>' +
             '</button>' +
             '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
           '</div>' +
@@ -3995,10 +4216,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     } else {
       lede = 'The judge applies the instructions below on top of the standard ballot method. Accept to start, pass to keep searching.';
     }
+    // Same peerConsent read as the ready-check above: if they have
+    // already accepted the terms they proposed, say so. On this card it
+    // also answers the question the notes raise ("are they actually
+    // going to run this?") before the user has to wonder about it.
     shell.innerHTML =
       '<div class="consent-wrap">' +
         '<div class="eyebrow"><span class="pip"></span>Match found · needs your OK</div>' +
         peerAvatar +
+        (peerConsent ? lockedBadge(peerName) : '') +
         '<h1>' + peerName + ' proposes a <em>' + fmtLabel + '</em> round.</h1>' +
         '<p class="lede">' + lede + '</p>' +
         formatBlock +
