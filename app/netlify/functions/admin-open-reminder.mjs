@@ -67,6 +67,13 @@ function renderEmail({ firstName, uid, tournamentName }) {
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
 
+  <p style="font-size:.88rem;line-height:1.6;margin:0 0 14px">
+    P.S. New this week: if you have competed on Tabroom, you can import your
+    real tournament record and start with a rating that matches it, instead of
+    starting from zero. Takes two minutes at
+    <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>.
+  </p>
+
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
     Cash prizes go to prize-eligible entrants aged 18 or over and are void where
     prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
