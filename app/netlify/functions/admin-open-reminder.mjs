@@ -132,14 +132,20 @@ export default async (request) => {
   const docs = openSnap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
   const tourn = docs.find(t => t.status === 'registration') || docs[0];
 
-  // People who already entered do not need to be told to enter.
+  // People who already entered do not need to be told to enter. Entry
+  // docs are auto-id'd and carry their uids in a `members` ARRAY (a 1v1
+  // entry is a one-member team; verified against the live docs
+  // 2026-08-19, which is how the first cut's `uid` read counted zero
+  // entrants against six real entries). Doc id and `uid` stay as
+  // fallbacks for any older shape.
   const entered = new Set();
   try {
     const entriesSnap = await db.collection(`tournaments/${tourn.id}/entries`).get();
     entriesSnap.docs.forEach(d => {
       entered.add(d.id);
-      const u = (d.data() || {}).uid;
-      if (u) entered.add(u);
+      const data = d.data() || {};
+      if (data.uid) entered.add(data.uid);
+      (Array.isArray(data.members) ? data.members : []).forEach(m => { if (m) entered.add(m); });
     });
   } catch (err) {
     console.error('[open-reminder] entries read failed:', err.message);
