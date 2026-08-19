@@ -818,6 +818,26 @@
      loader handles the rare-path Firestore need on demand. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
+<!-- Shared /api/watch-live reader. Three separate blocks on this page
+     wanted the live-round list; each one used to run its own poller, so a
+     single visitor opened three requests a minute for one 12s-cached
+     answer. They now share one in-flight promise and one 45s window, which
+     also keeps the hero count and the live band from disagreeing. -->
+<script>
+window.watchLive = (function () {
+  var TTL = 45000, cache = null;
+  return function () {
+    var now = Date.now();
+    if (cache && now - cache.t < TTL) return cache.p;
+    var p = fetch('/api/watch-live')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    cache = { t: now, p: p };
+    return p;
+  };
+})();
+</script>
+<script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/track.js"></script>
 <!-- Audience mode: stamps data-debate-experience on <html> and swaps
      data-plain copy for visitors who said they are new to debate.
@@ -17135,7 +17155,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
     }
     function poll(){
-      fetch('/api/watch-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      window.watchLive().then(function(d){
         paint(d && typeof d.count === 'number' ? d.count : 0);
       }).catch(function(){});
     }
@@ -19789,29 +19809,33 @@ window.addEventListener('load', function(){
     document.getElementById('ljJoinBtn').addEventListener('click', onJoinClick);
   }
 
-  function recentEnough(d){
-    if (d.completedAt || d.isPrivate || d.status !== 'round') return false;
-    // Require a live participant heartbeat: live-round.html writes lastSeenAt
-    // every 30s while a debater is seated. Kills ghost rooms — an abandoned
-    // round stops beating and drops within ~100s, instead of showing on the
-    // hero "live now" strip for up to 3 hours on createdAt alone.
-    var hb = d.lastSeenAt;
-    var ms = (hb && hb.toMillis) ? hb.toMillis() : 0;
-    if (!ms) return false;
-    return (Date.now() - ms) < 100000;
+  /* This band used to open a live_rounds onSnapshot on every visitor,
+     which meant lazy-loading firestore-compat (~100KB gzipped, ~50KB heap)
+     and holding an open realtime listener per person just to print a
+     count. At a few hundred concurrent visitors that is a few hundred
+     listeners fanning out on every write to the collection.
+
+     /api/watch-live answers the same question off a 12s shared server
+     cache and applies the same liveness rule (lastSeenAt inside ~100s),
+     so the whole room reads it for roughly the cost of one. Firestore is
+     now loaded only when someone actually clicks Join. */
+  function startFeed(){
+    pullFeed();
+    setInterval(function(){ if (!document.hidden) pullFeed(); }, 60000);
   }
 
-  function startFeed(){
-    loadFS(function(){
-      ensureApp();
-      if (!window.firebase || !firebase.firestore) return;
-      db = firebase.firestore();
-      db.collection('live_rounds').where('status','==','round').limit(20).onSnapshot(function(snap){
-        var rooms = [];
-        snap.forEach(function(doc){ var d = doc.data()||{}; if (recentEnough(d)) rooms.push({ id: doc.id, motion: d.motion||'' }); });
-        liveRooms = rooms; renderBand();
-      }, function(){});
-    });
+  function pullFeed(){
+    window.watchLive().then(function(d){
+      var rounds = (d && d.rounds) || [];
+      var rooms = [];
+      for (var i = 0; i < rounds.length; i++){
+        // The endpoint also reports rounds sitting on the ballot. The
+        // band only ever advertised rounds still being debated.
+        if (rounds[i].status !== 'round') continue;
+        rooms.push({ id: rounds[i].room, motion: rounds[i].motion || '' });
+      }
+      liveRooms = rooms; renderBand();
+    }).catch(function(){});
   }
 
   function isRealUser(u){
@@ -19854,8 +19878,18 @@ window.addEventListener('load', function(){
   }
 
   function onJoinClick(){
-    if (!liveRooms.length || !db) return;
+    if (!liveRooms.length) return;
     var room = liveRooms[0];
+    // Firestore arrives here, on intent, instead of on every page load.
+    loadFS(function(){
+      ensureApp();
+      if (!window.firebase || !firebase.firestore) return;
+      db = firebase.firestore();
+      askToJoin(room);
+    });
+  }
+
+  function askToJoin(room){
     authThen(function(u){
       card('<div class="lj-h">Join a live debate</div><div class="lj-p">Asking a debater in the room to let you in. They have 20 seconds.</div><div class="lj-count" id="ljCountdown">20</div>' + (room.motion ? '<div class="lj-p" style="margin:0;font-size:.82rem">Motion: ' + esc(room.motion.slice(0,120)) + '</div>' : ''));
       sendRequest(room, u, null);
@@ -20658,7 +20692,7 @@ window.addEventListener('load', function(){
     // should never take a running stream off the page.
     Promise.all([
       fetch('/api/stream-status').then(function(r){ return r.json(); }).catch(function(){ return null; }),
-      fetch('/api/watch-live').then(function(r){ return r.json(); }).catch(function(){ return null; })
+      window.watchLive()
     ]).then(function(out){
       var s = out[0];
       var live = out[1];

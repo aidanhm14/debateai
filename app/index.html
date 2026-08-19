@@ -2857,6 +2857,7 @@ if ('serviceWorker' in navigator) {
        until the file lands; display=swap avoids invisible text. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap" media="print" onload="this.media='all';this.onload=null">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;500;600;700;800;900&display=swap"></noscript>
+<script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/track.js"></script>
 </head>
 <!-- voice-guidelines.js is a 1.4KB no-op stub (the real voice bank lives
@@ -4286,6 +4287,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4301,13 +4303,12 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {
-    if (btnEl) {
-      var orig = btnEl.textContent;
-      btnEl.textContent = 'Copied!';
-      setTimeout(function () {btnEl.textContent = orig;}, 1500);
-    }
-  });
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {
+        var orig = btnEl.textContent;
+        btnEl.textContent = 'Copied!';
+        setTimeout(function () {btnEl.textContent = orig;}, 1500);
+      }
+    });
 }
 
 /* ── Clean markdown artifacts from AI output ────── */
@@ -8876,7 +8877,7 @@ function DebateChat() {
   // is what keeps a random roll current. TopicPulse never throws and
   // returns [] until its fetch lands, so a failure costs freshness only.
   var randomMotion = () => {
-    var live = (window.TopicPulse && window.TopicPulse.motions()) || [];
+    var live = window.TopicPulse && window.TopicPulse.motions() || [];
     var pool = RANDOM_MOTIONS.concat(live);
     var pick = pool[Math.floor(Math.random() * pool.length)];
     setMotion(pick.motion);
@@ -12253,7 +12254,7 @@ function useAuth() {
     // Every sign-in surface offers the same choices. The shared modal
     // carries Google, an emailed link, and email/password; this Google
     // popup stays as the fallback for a page that loads without it.
-    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+    if (typeof window.openAuthModal === 'function') {window.openAuthModal();return;}
     var provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     // Try popup first (better UX. no full page reload). Fall back to redirect
