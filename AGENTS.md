@@ -321,6 +321,17 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   attribution in `app/img/creator-watchlist/README.md`, and that is the
   bar. New board faces require the same explicit consent + 18+
   confirmation from Aidan before they ship.
+  **2026-08-19:** Aidan asked for the real stills to circulate more, so
+  they now also ride the shared `.rot-cam` pool (`window.__faceRotPool`)
+  that drives the live-debates wall and the `#face-wall` mosaic, at five
+  copies each against the generated bank's one. `face50` stays out of that
+  pool: it is the illustrated Anonymous avatar, cast by hand on one motion.
+  The batch is 8 men and 1 woman, so any push for more real faces on these
+  surfaces tilts the cast male until more consented stills exist.
+  Note that `#live-now` and `#face-wall` are the pool's only consumers and
+  BOTH are `display:none` on the shipped hero arm, so the pool change is
+  latent. The first-screen ROUNDS board is the one face surface a visitor
+  actually sees; re-cast that if you want a visible change.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
