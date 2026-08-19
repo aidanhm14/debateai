@@ -56,10 +56,37 @@ const STREAM_DOC = 'current';
 const RTMP_URL = process.env.STREAM_RTMP_URL || '';
 const YT_CHANNEL = process.env.STREAM_YOUTUBE_CHANNEL_ID || '';
 
-function youtubeEmbedUrl(){
-  if (!RTMP_URL || !YT_CHANNEL) return null;
-  return 'https://www.youtube.com/embed/live_stream?channel='
-       + encodeURIComponent(YT_CHANNEL) + '&autoplay=1&mute=1&playsinline=1';
+// Twitch restream. YouTube refuses to serve LIVE embeds on external
+// sites unless the channel is monetized with a linked AdSense account,
+// which this one is not, so the YouTube path above cannot actually put
+// a player on the homepage today. Twitch has no such gate: the player
+// embeds freely as long as every domain that serves it is named as a
+// `parent` query param. Set STREAM_TWITCH_CHANNEL to the channel LOGIN
+// (the twitch.tv/<this> part) and point STREAM_RTMP_URL at Twitch
+// ingest (rtmp://live.twitch.tv/app/<stream key>).
+const TWITCH_CHANNEL = process.env.STREAM_TWITCH_CHANNEL || '';
+const TWITCH_PARENTS = (process.env.STREAM_TWITCH_PARENTS
+  || 'itsdebatable.com,www.itsdebatable.com,debateos1.netlify.app')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+// Escape hatch for any other HLS provider (Cloudflare Stream, Mux, a
+// self-hosted player page): a full player URL, embedded verbatim.
+const EMBED_URL = process.env.STREAM_EMBED_URL || '';
+
+function watchEmbedUrl(){
+  // An embed only makes sense when a restream is actually feeding it.
+  if (!RTMP_URL) return null;
+  if (EMBED_URL) return EMBED_URL;
+  if (TWITCH_CHANNEL){
+    return 'https://player.twitch.tv/?channel=' + encodeURIComponent(TWITCH_CHANNEL)
+         + TWITCH_PARENTS.map((p) => '&parent=' + encodeURIComponent(p)).join('')
+         + '&autoplay=true&muted=true';
+  }
+  if (YT_CHANNEL){
+    return 'https://www.youtube.com/embed/live_stream?channel='
+         + encodeURIComponent(YT_CHANNEL) + '&autoplay=1&mute=1&playsinline=1';
+  }
+  return null;
 }
 
 function dailyHeaders(){
@@ -196,7 +223,7 @@ export default async (req) => {
       // room, which is the difference between an audience capped at
       // max_participants and an uncapped one. Null means "no restream,
       // fall back to joining the room".
-      watchEmbedUrl: youtubeEmbedUrl(),
+      watchEmbedUrl: watchEmbedUrl(),
       restream: !!RTMP_URL,
       startedAt: FieldValue.serverTimestamp(),
       startedBy: uid,
@@ -211,7 +238,7 @@ export default async (req) => {
       token,
       recording: created.recording,
       restream: !!RTMP_URL,
-      watchEmbedUrl: youtubeEmbedUrl(),
+      watchEmbedUrl: watchEmbedUrl(),
       studioUrl: '/studio?' + studioQuery.toString(),
       rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
     }, 200, req);

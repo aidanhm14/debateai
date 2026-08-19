@@ -483,7 +483,7 @@ footer a{color:var(--dim)}
       <span class="live-pill"><span class="live-dot"></span>LIVE</span>
       <span class="live-title" id="liveTitle">Live from the arena</span>
     </div>
-    <iframe class="live-frame" id="liveFrame" title="Live tournament stream" allow="autoplay; clipboard-write"></iframe>
+    <iframe class="live-frame" id="liveFrame" title="Live tournament stream" allow="autoplay; clipboard-write; fullscreen" allowfullscreen></iframe>
   </section>
 
   <!-- Replay player -->
@@ -805,12 +805,16 @@ footer a{color:var(--dim)}
       // viewport, shift scroll by the same delta so the page doesn't
       // yank under them.
       var wasOn = band.classList.contains('on');
-      var willBeOn = !!(s && s.live && s.url);
+      var willBeOn = !!(s && s.live && (s.watchEmbedUrl || s.url));
       var preH = band.offsetHeight;
       if (willBeOn){
         $('liveTitle').textContent = s.title || 'Live from the arena';
         var frame = $('liveFrame');
-        var want = s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+        // A restream embed (Twitch/YouTube player) beats joining the
+        // Daily room: uncapped audience, zero participant minutes.
+        var want = s.watchEmbedUrl
+          ? s.watchEmbedUrl
+          : s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
         if (frame.src !== want) frame.src = want;
         band.classList.add('on');
         if (!liveWasOn){ try { gtag('event', 'watch_live_shown'); } catch(e){} }
