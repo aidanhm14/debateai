@@ -6,9 +6,17 @@
  *
  * It stopped being a DEADLINE email on 2026-08-19 and it stays that way.
  * The clock it carries is the EVENT (Aug 29), never the founding-comp
- * cutoff: this list is entirely accounts that predate that cutoff, so
- * every recipient is already comped for good and has no deadline to
- * beat. Wiring the send guard or the copy back to FOUNDING_CUTOFF_MS is
+ * cutoff: a comped recipient is comped for good and has no deadline to
+ * beat.
+ *
+ * It is NO LONGER true that every recipient is comped. That held while
+ * this list was frozen behind an Aug 18 cutoff; the cohort is "the
+ * announcement list plus everyone who joined since", the cutoff moved to
+ * 1 PM on Aug 19, and the coach wave puts new accounts on this list
+ * daily. So the fee line is resolved PER RECIPIENT from their own Auth
+ * creation time. Telling a coach their entry is free and then charging
+ * them $5 at the door is the version of this email that costs more than
+ * sending nothing. Wiring the send guard or the copy back to FOUNDING_CUTOFF_MS is
  * what broke it on 2026-08-19, when the cutoff moved into the past and
  * silently dead-buttoned the send with an "entries closed" message that
  * was not true. Guard on ENTRIES_CLOSE_MS.
@@ -58,23 +66,29 @@ const ENTRIES_CLOSE_MS = Date.parse('2026-08-29T23:59:59-04:00');
 // Short on purpose: the announcement made the case, this one carries the
 // clock. Voice rules bind: no em-dashes, no preface, one ask. Prizes and
 // dates are the ones published on /tournaments and /tournament-rules.
-function renderEmail({ firstName, uid, tournamentName }) {
+function renderEmail({ firstName, uid, tournamentName, comped }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
   const rules = `${SITE_URL}/tournament-rules`;
+  const feeLine = comped
+    ? `<strong>${esc(EVENT_LABEL)}. Your entry to ${esc(tournamentName)} is
+    free.</strong> You had an account before this went on sale, so the $5 prize
+    entry is waived for you and stays waived. Everyone arriving now pays it.
+    Entering takes about a minute:`
+    : `<strong>${esc(EVENT_LABEL)}. ${esc(tournamentName)} is open to you.</strong>
+    Prize entry is $5, and I waive it for anyone who asks me, no reason needed.
+    Entering takes about a minute:`;
+  const ctaLabel = comped ? 'Claim your free entry &rarr;' : 'Enter the Open &rarr;';
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>${esc(EVENT_LABEL)}. Your entry to ${esc(tournamentName)} is
-    free.</strong> You had an account before this went on sale, so the $5 prize
-    entry is waived for you and stays waived. Everyone arriving now pays it.
-    Entering takes about a minute:
+    ${feeLine}
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Claim your free entry &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">${ctaLabel}</a>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -226,6 +240,11 @@ export default async (request) => {
         firstName,
         uid: user.uid,
         tournamentName: tourn.name || 'The Debatable Open',
+        // Their own account age decides which fee sentence they read.
+        // Unparseable creation time falls to the PAID copy: quoting $5 to
+        // someone who turns out to be comped is a pleasant surprise at the
+        // door, the reverse is a broken promise.
+        comped: Date.parse(user.metadata?.creationTime || '') <= FOUNDING_CUTOFF_MS,
       }),
       uid: user.uid,
       stream: STREAM,

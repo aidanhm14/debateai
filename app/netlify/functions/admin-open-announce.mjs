@@ -66,14 +66,21 @@ const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || undefined;
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
-const SUBJECT     = `The Debatable Open, August 29. Your entry is free.`;
+// Two subjects, because the old one asserted "your entry is free" to every
+// inbox it reached, including the accounts arriving now that have to pay.
+const SUBJECT_COMPED = `The Debatable Open, August 29. Your entry is free.`;
+const SUBJECT_PAID   = `The Debatable Open, August 29. $500 for winning an argument.`;
 
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, one ask, no
 // traction numbers. Prizes and dates are the ones published on
 // /tournaments and /tournament-rules; if those change, change these.
 
-function renderEmail({ firstName, uid, tournamentName, startsAt }) {
+// `comped` is resolved per recipient from their Auth creation time. The
+// list is no longer frozen behind a past cutoff: new accounts arrive every
+// day from the coach wave, and each one that lands here would otherwise be
+// told the $5 fee is waived when it is not.
+function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
   const rules = `${SITE_URL}/tournament-rules`;
   const when  = startsAt ? esc(startsAt) : 'Saturday, August 29';
@@ -89,14 +96,18 @@ function renderEmail({ firstName, uid, tournamentName, startsAt }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Competing for that money costs $5. <strong>It costs you nothing.</strong>
-    You signed up before this was on the calendar, so the fee is waived and you
-    play for the cash on identical terms. Nothing to pay and nothing to ask for.
-    Claim it on the entry page and tick the 18 or older box the prizes require.
+    ${comped
+      ? `Competing for that money costs $5. <strong>It costs you nothing.</strong>
+         You signed up before this was on the calendar, so the fee is waived and you
+         play for the cash on identical terms. Nothing to pay and nothing to ask for.
+         Claim it on the entry page and tick the 18 or older box the prizes require.`
+      : `Competing for that money costs $5, and I waive it for anyone who asks me,
+         no reason needed. Enter on the tournaments page and tick the 18 or older
+         box the prizes require.`}
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Claim your free entry &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">${comped ? 'Claim your free entry &rarr;' : 'Enter the Open &rarr;'}</a>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -112,9 +123,12 @@ function renderEmail({ firstName, uid, tournamentName, startsAt }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    Forward this to whoever you want in your bracket. Your own entry is free
-    because you were here first; theirs is $5, and I will waive it for anyone
-    who asks me, no reason needed.
+    ${comped
+      ? `Forward this to whoever you want in your bracket. Your own entry is free
+         because you were here first; theirs is $5, and I will waive it for anyone
+         who asks me, no reason needed.`
+      : `Forward this to whoever you want in your bracket. Entry is $5 and I will
+         waive it for anyone who asks me, no reason needed.`}
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
@@ -226,14 +240,16 @@ export default async (request) => {
     // directly here. Auth still carries a display name for a Google sign-in,
     // and 'debater' is the floor.
     const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
+    const comped = Date.parse(user.metadata?.creationTime || '') <= FOUNDING_CUTOFF_MS;
     const res = await sendEmail({
       to: user.email,
-      subject: SUBJECT,
+      subject: comped ? SUBJECT_COMPED : SUBJECT_PAID,
       html: renderEmail({
         firstName,
         uid: user.uid,
         tournamentName: tourn.name || 'The Debatable Open',
         startsAt: tourn.startsAt || '',
+        comped,
       }),
       uid: user.uid,
       stream: STREAM,
@@ -274,7 +290,7 @@ export default async (request) => {
     senderVerified: senderOk,
     verifiedDomains: allowed,
     verifiedSource,
-    subject: SUBJECT,
+    subject: { comped: SUBJECT_COMPED, paid: SUBJECT_PAID },
     tournament: { id: tourn.id, name: tourn.name || '', startsAt: tourn.startsAt || '' },
     cutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
     accounts: authUsers.length,
