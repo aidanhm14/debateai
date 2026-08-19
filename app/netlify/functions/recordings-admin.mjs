@@ -52,6 +52,10 @@ async function roundMeta(db, roomName){
       && d.recordingPublishAllowed === true
       && /^round-recording-v1-/.test(d.recordingConsentVersion || '');
     return {
+      // Read by the caller and stripped before the rest is written to the
+      // recording doc. A round asks for this when a seated debater
+      // declined, or when the round ended without the yeses ever landing.
+      deleteRequested: d.recordingDeleteRequested === true,
       motion: d.motion || '',
       format: d.formatKey || d.format || '',
       proName: d.proName || (d.teamNames && d.teamNames.og) || '',
@@ -87,7 +91,7 @@ export async function syncFromDaily(db, limit = 100){
   const data = await resp.json();
   const items = Array.isArray(data.data) ? data.data : [];
   const gone = await deletedIds(db);
-  let created = 0, updated = 0, skipped = 0;
+  let created = 0, updated = 0, skipped = 0, purged = 0;
   for (const rec of items){
     if (!rec.id) continue;
     // Deleted on purpose. If the mp4 delete failed at Daily, this is the
@@ -96,7 +100,21 @@ export async function syncFromDaily(db, limit = 100){
     const ref = db.collection('recordings').doc(rec.id);
     const existing = await ref.get();
     const isStream = /^debatable-live-/.test(rec.room_name || '');
-    const meta = isStream ? {} : await roundMeta(db, rec.room_name || '');
+    const { deleteRequested = false, ...meta } = isStream ? {} : await roundMeta(db, rec.room_name || '');
+    // Capture now starts before anyone has agreed, so this is the arm
+    // that makes a no mean something. The round flagged it; here is the
+    // only place the Daily recording id is known, so here is where the
+    // file dies. destroyRecording also tombstones the id, which stops the
+    // next sync from re-indexing it.
+    if (deleteRequested){
+      try {
+        await destroyRecording(db, rec.id);
+        purged++;
+        continue;
+      } catch (e) {
+        console.error('[recordings-sync] purge failed for', rec.id, e?.message || e);
+      }
+    }
     const finished = (rec.status === 'finished') && (rec.duration || 0) >= AUTO_PUBLISH_MIN_SEC;
     // Streams no longer auto-publish. They used to, which meant every
     // studio camera test over 45 seconds landed on the public watch page
@@ -152,7 +170,7 @@ export async function syncFromDaily(db, limit = 100){
     });
     created++;
   }
-  return { total: items.length, created, updated, skipped };
+  return { total: items.length, created, updated, skipped, purged };
 }
 
 // Destroy a recording everywhere it exists. Order matters: the mp4 goes

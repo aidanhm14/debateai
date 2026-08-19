@@ -5416,16 +5416,16 @@ html.stage-mode .stage-ov{display:block}
     bd.className = 'rec-consent-backdrop';
     bd.innerHTML =
       '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle">' +
-        '<div class="rec-consent-kicker">Optional, all-party consent</div>' +
-        '<h2 id="cloudRecTitle">Record this round?</h2>' +
-        '<p>If every seated debater agrees, Debatable will store this round\'s <strong>video, audio, display names, and motion</strong>. The full replay will appear on Watch so signed-in users can make and share clips.</p>' +
-        '<p>Declining does not affect the debate. Anyone who agreed can stop recording later.</p>' +
+        '<div class="rec-consent-kicker">Recording now, publishing only if you both agree</div>' +
+        '<h2 id="cloudRecTitle">Publish this round?</h2>' +
+        '<p>This round is being recorded so a replay exists if you want one. Publishing it needs <strong>every seated debater</strong> to agree. Published means the <strong>video, audio, display names, and motion</strong> appear on Watch, where signed-in users can make and share clips.</p>' +
+        '<p>Say no and recording stops now and the file is deleted. Nobody is asked to justify it, it does not affect the debate, and the answer is not remembered: the next round asks again.</p>' +
         '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
           '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
         '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
         '<div class="rec-consent-actions">' +
-          '<button type="button" class="rec-consent-no" id="cloudRecNo">No recording</button>' +
-          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>I agree, record it</button>' +
+          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, stop and delete</button>' +
+          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, publish it</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(bd);
@@ -5461,7 +5461,11 @@ html.stage-mode .stage-ov{display:block}
 
     if (active){
       label.textContent = seated ? 'Stop recording' : 'Recording';
-      detail.textContent = fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now())));
+      // Capture running is not permission to publish. While the yeses are
+      // outstanding the pill says so, so nobody reads a red dot as "this
+      // is going public".
+      detail.textContent = fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now()))) +
+        (d.recordingPublishAllowed === true ? '' : ' · not publishing yet');
       if (!cloudRec.tick){
         cloudRec.tick = setInterval(function(){ if (cloudRec.doc) setCloudRecordingUi(cloudRec.doc); }, 1000);
       }
@@ -5473,7 +5477,8 @@ html.stage-mode .stage-ov{display:block}
         label.textContent = d.recordingPublishAllowed === true ? 'Preparing replay' : 'Recording stopped';
         detail.textContent = d.recordingPublishAllowed === true ? 'Watch and clips soon' : 'Not publishing';
       } else if (status === 'stopped' || status === 'closed'){
-        label.textContent = 'Recording stopped'; detail.textContent = 'Not publishing';
+        label.textContent = 'Recording stopped';
+        detail.textContent = d.recordingDeleteRequested === true ? 'File deleted' : 'Not publishing';
       } else if (status === 'failed' || status === 'stop_failed'){
         label.textContent = 'Recording unavailable'; detail.textContent = 'Try again'; btn.disabled = !seated;
       } else if (status === 'declined'){
@@ -5488,7 +5493,11 @@ html.stage-mode .stage-ov{display:block}
     }
 
     if (status !== cloudRec.lastStatus){
-      if (status === 'recording') toast('Recording started. The replay and clips will appear on Watch.');
+      if (status === 'recording'){
+        toast(cloudRec.doc && cloudRec.doc.recordingPublishAllowed === true
+          ? 'Recording. The replay and clips will appear on Watch.'
+          : 'Recording. It is published only if every debater agrees.');
+      }
       if (status === 'processing') toast('Recording stopped. The replay is being prepared.');
       cloudRec.lastStatus = status;
     }
@@ -5503,8 +5512,40 @@ html.stage-mode .stage-ov{display:block}
     } catch(e){}
   }
 
+  // Capture starts on its own once two debaters are seated. A replay
+  // that was never captured cannot be published later however the vote
+  // goes, so the choice people are actually asked to make is whether the
+  // thing gets published, not whether it exists. Publication stays gated
+  // on every seated yes, server side.
+  //
+  // The lowest seated uid drives it, the same rule the verdict reel uses,
+  // so two clients do not race two Daily start calls. The other side is a
+  // backstop four seconds later in case the driver never loaded. The
+  // server transaction is idempotent either way.
+  function maybeAutoStartRecording(d){
+    if (cloudRec.autoTried || !state.user || isSpectator() || state.phase !== 'round') return;
+    var participants = cloudRecordingParticipants(d || {});
+    if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
+    var consents = (d && d.recordingConsents) || {};
+    // Someone already said no in this round. Auto-start must never be the
+    // thing that walks over that; the server refuses it too.
+    if (participants.some(function(uid){ return consents[uid] === false; })) return;
+    var st = (d && d.recordingStatus) || 'idle';
+    if (d && d.recordingClosed) return;
+    if (['starting','recording','stopping','processing','stopped','closed','stop_failed','failed'].indexOf(st) >= 0) return;
+    var driver = participants.slice().sort()[0] === state.user.uid;
+    cloudRec.autoTried = true;
+    setTimeout(function(){
+      var now = cloudRec.doc || {};
+      var st2 = now.recordingStatus || 'idle';
+      if (now.recordingClosed || ['starting','recording','stopping','processing','stopped','closed','stop_failed','failed'].indexOf(st2) >= 0) return;
+      cloudRecordingPost({ action: 'autostart' }).catch(function(){ cloudRec.autoTried = false; });
+    }, driver ? 400 : 4000);
+  }
+
   function maybePromptCloudRecording(d){
     setCloudRecordingUi(d);
+    maybeAutoStartRecording(d);
     if (cloudRec.prompted || state.phase !== 'round' || !state.user || isSpectator()) return;
     var participants = cloudRecordingParticipants(d || {});
     var consents = (d && d.recordingConsents) || {};
