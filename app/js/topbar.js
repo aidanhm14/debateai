@@ -372,6 +372,18 @@
       // deviation. Promoting the page is fine; quoting a standing off it
       // is not.
       { href: '/leaderboard', label: 'Leaderboard' },
+      // 2026-08-19: /claim and /debate-rating join Leaderboard so the
+      // three surfaces that answer "where do I stand" sit together. The
+      // board is the question, the rating page is how the number works,
+      // and /claim is the only action a competitive debater can take
+      // about it. Claim had exactly one nav-adjacent entry point (a body
+      // link on /leaderboard), which is thin for a surface that only
+      // works ONCE, and only before a debater's first rated round: a
+      // debater who plays a round before finding it is locked out for
+      // good. `strong` because that ordering constraint makes discovery
+      // time-critical in a way no other row here is.
+      { href: '/claim',       label: 'Import your record', strong: true },
+      { href: '/debate-rating', label: 'How rating works' },
       // 2026-08-10: moved up out of the "Site" group, which is pricing,
       // story and vision — pages about the company. The Atlas is a
       // product surface (a live map of real programs), and it lost its
@@ -426,6 +438,10 @@
       // the layer yields "Browse topics" with casing intact.
       { href: '/topics',       label: 'Browse motions' },
       { href: '/argument-coach', label: 'Argument coach' },
+      // 2026-08-19: indexed, live, and reachable from no nav surface.
+      // Sits in Train rather than Improve because it is prep reading
+      // (what a judge rewards before you speak), not the /judge tool.
+      { href: '/judge-paradigms', label: 'Judge paradigms' },
       { href: '/oral-exam-prep', label: 'Oral exam prep' },
     ]},
     { head: 'Site', links: [
@@ -619,6 +635,13 @@
     '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
     '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
     '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },
+    // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
+    // but never got a MENU_META row, so the largest tile in the column
+    // was the only one rendering with no sentence under it.
+    '/challenges':     { desc: 'Post a claim, someone takes it', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
+    '/claim':          { desc: 'Seed your rating from Tabroom', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
+    '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
+    '/judge-paradigms': { desc: 'What judges actually reward', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
     '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M4.6 19.4V13M9.5 19.4V6.6M14.5 19.4V10M19.4 19.4V4.6"/>' },
     '/atlas':          { desc: 'Map of real debate programs', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.2 2.4 3.4 5.4 3.4 8.6s-1.2 6.2-3.4 8.6c-2.2-2.4-3.4-5.4-3.4-8.6s1.2-6.2 3.4-8.6z"/>' },
     '/community':      { desc: 'Find people and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
