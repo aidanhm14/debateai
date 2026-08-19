@@ -7380,13 +7380,38 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    for a taller stack than the page now has, which pushed the whole
    first screen down. Trimmed so the hero sits higher without landing
    under the bar. */
+  /* ── First screen layout tokens ── 2026-08-19 (structural pass) ──
+     Three values drive the whole screen. Before this, spacing lived on
+     the individual blocks (a 20px margin on the Open card, a 7px one on
+     the globe) and was re-declared in three max-height arms that
+     disagreed with the base and with each other, and the globe was three
+     widths at once (a 430px box, a 300px canvas, a 300px caption) held
+     together by a -10px pull. Those arms are gone; these clamps replace
+     them, so the screen scales by height instead of stepping at three
+     breakpoints. */
+  .fscreen{
+    --fs-rhythm:clamp(16px,3vh,28px);  /* between blocks in the copy column */
+    --fs-globe:clamp(200px,29vh,300px); /* the globe, one size, no arms */
+  }
   .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) clamp(18px,5vw,72px) clamp(20px,3vh,36px)}
+  /* The section starts under a 32px in-flow strip (ui.css gives the body
+     that padding whenever .has-beta-strip is set), so a flat 100svh made
+     it 32px taller than the space it actually occupies and it centred its
+     contents against a box whose bottom was below the fold. */
+  /* Desktop only: the mobile arm below deliberately drops min-height to 0
+     so the stacked column is content-height, and `body.has-beta-strip
+     .fscreen` would otherwise out-specify it and pin a 100svh floor back
+     on phones. */
+  @media(min-width:941px){body.has-beta-strip .fscreen{min-height:calc(100svh - 32px)}}
   .fscreen-wrap{width:100%;max-width:1200px;display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(32px,4.2vw,64px);align-items:center}
-  /* Was a -2vh optical lift correcting a dead-centred copy column against
-     a taller board. 2026-08-19 (spacing pass): the two columns now start
-     on the same line instead of centring against each other, so the
-     correction has nothing left to correct. See the align-items rule in
-     the desktop block below. */
+  /* The copy column is a flex column with ONE gap, so its three blocks
+     (the CTA cluster, the Open card, the globe) are evenly spaced by the
+     container instead of each carrying its own margin. The hidden copy
+     arm and the two inline <script> tags are display:none and so
+     contribute no gap. Was a -2vh optical lift correcting a dead-centred
+     column against a taller board; the two columns now start on the same
+     line, so there is nothing left to correct. */
+  .fscreen-copy{display:flex;flex-direction:column;align-items:stretch;gap:var(--fs-rhythm)}
   @media(min-width:941px){.fscreen-copy{margin-top:0}}
   @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}.fscreen{min-height:0}}
 
@@ -7424,7 +7449,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Sized deliberately against the band that was removed on 08-12 for
      running 1285px on a phone. This is a single row plus a fine-print
      line, so the reason that band came off does not apply to it. */
-  .fs-open-card{margin:28px 0 0;padding:12px 16px 11px;border-radius:14px;
+  .fs-open-card{margin:0;padding:12px 16px 11px;border-radius:14px;
     border:1px solid rgba(220,38,38,.38);background:#fffdfa;
     box-shadow:0 6px 20px rgba(26,26,31,.07);
     transition:border-color .15s,background .15s,transform .15s}
@@ -7556,12 +7581,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      one visible sign-in is the wrap-level row after the board, which
      also matches DOM order, so screen-reader order equals visual order. */
   .fscreen-copy .fs-signin{display:none}
-  .fs-signin--side{display:flex;gap:14px;margin:14px 0 0}
+  /* No margin: the wrap's row-gap spaces this off the board, so the
+     desktop and mobile grids each state that distance once. */
+  .fs-signin--side{display:flex;gap:14px;margin:0}
   @media(min-width:941px){
     /* The wrap's `gap` was authored for ONE row, so it was only ever a
        column gap; adding a second row made it a 64px trench between the
-       board and the sign-in row under it. Column gap stays. */
-    .fscreen-wrap{row-gap:0;align-items:start}
+       board and the sign-in row under it. The column gap stays; the row
+       gap is now the real distance between the board and the sign-in row
+       under it, rather than 0 plus a margin on the row itself. */
+    .fscreen-wrap{row-gap:14px;align-items:start}
     .fscreen-copy{grid-column:1;grid-row:1 / span 2}
     .fscreen-wrap > .fs-signin--side{grid-column:2;grid-row:2;align-self:start}
     /* start, not end: the copy column and the board begin on the same
@@ -7702,7 +7731,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   /* 2026-08-05: live presence globe in the hero (swapped with the
      walkthrough card, which now lives in the livenow stage). */
-  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:430px;margin-top:28px}
+  /* gap, not a negative pull. The canvas paints its floor shadow all the
+     way down (measured: content ends at 99.1% of the square box), so the
+     old -10px on the caption sat the line on top of the shadow. The
+     caption now clears the box entirely and the globe reads as sphere,
+     ground, line. */
+  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:none;margin:0;gap:6px}
   /* 2026-08-19 (second pass, per Aidan: position it more strategically,
      and no headline or descriptor line). The centered-axis version this
      replaces had three axes on screen at once: the button pair centered,
@@ -7713,8 +7747,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      left edge does the work instead and everything starts at the same x. */
   .fs-copy-stranger .fs-ctas{justify-content:flex-start}
   .fscreen-copy .fs-globe{align-items:flex-start;margin-left:0;margin-right:auto}
-  .fs-globe .hero-globe-canvas-wrap{margin:0;max-width:300px;min-width:190px;min-height:190px}
-  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:300px;margin-top:-10px;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
+  .fs-globe .hero-globe-canvas-wrap{margin:0;width:100%;max-width:var(--fs-globe);min-width:190px;min-height:190px}
+  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:340px;margin-top:0;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
   .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
   /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
      column was authored with hardcoded light-surface ink, so each ink
@@ -7738,17 +7772,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="dark"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="crimson"] .fs-globe .story-globe-caption .globe-map-link,
   [data-theme="grey"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="stone"] .fs-globe .story-globe-caption .globe-map-link{
     color:#f5efe7}
-  @media(min-width:941px) and (max-height:860px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:270px}}
-  /* Short desktop windows already shrink the globe to keep the stack on
-     one screen, so the widened rhythm above winds back down with it. */
-  @media(min-width:941px) and (max-height:820px){
-    .fs-ctas{gap:12px 12px}
-    .fs-open-card{margin-top:22px}
-    .fs-globe{margin-top:22px}
-  }
-  @media(min-width:941px) and (max-height:760px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:225px}}
+  /* The three max-height arms that used to sit here (860px stepped the
+     globe to 270, 820px re-declared both block margins, 760px stepped the
+     globe to 225) are folded into --fs-globe and --fs-rhythm, which scale
+     continuously instead of jumping at three heights. The CTA cluster's
+     own internal gap is the one thing the tokens do not cover, since it
+     spaces the walkthrough link off the button pair rather than spacing
+     the blocks, so it keeps a short-window arm of its own. */
+  @media(min-width:941px) and (max-height:820px){.fs-ctas{gap:12px 12px}}
   @media(max-width:940px){
-    .fs-globe{margin:22px auto 0;align-items:center}
+    /* Spacing comes from .fscreen-copy's gap at every width; this arm
+       only centres the block. (#storyGlobeBlock is display:none under
+       940px, so this is what the tablet band between 941 and the phone
+       breakpoint inherits if that ever changes.) */
+    .fs-globe{align-items:center}
     .fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:250px}
   }
 
