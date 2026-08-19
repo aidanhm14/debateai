@@ -87,7 +87,7 @@
         G=lightWeb?64:(isLight?130:68),
         B=lightWeb?68:(isLight?180:68);
     var rgb=R+','+G+','+B;
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.21:(isLight?.07:.18))+')';
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.24:(isLight?.07:.18))+')';
     NODE_COLOR='rgba('+rgb+','+(lightWeb?.55:(isLight?.2:.4))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
