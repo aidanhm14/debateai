@@ -106,6 +106,9 @@
       '#ditAuth .da-btn--primary{background:#b91c1c;color:#fff;border-color:#ef4444}' +
       '#ditAuth .da-btn--primary:hover{background:#dc2626;border-color:#dc2626}' +
       '#ditAuth .da-btn--hero{min-height:54px;padding:14px 16px;font-size:17px;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.08)}' +
+      /* Warning, not decoration: amber is the state colour per the
+         2026-05-19 brand rule, red is reserved for actions. */
+      '#ditAuth .da-inapp{font-size:13.5px;line-height:1.5;margin:0 0 14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(245,158,11,.38);background:rgba(245,158,11,.10);color:' + sub + '}' +
       '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:' + sub + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}' +
       '#ditAuth .da-or::before,#ditAuth .da-or::after{content:"";flex:1;height:1px;background:' + line + '}' +
       '#ditAuth .da-form{margin-top:8px}' +
@@ -147,6 +150,39 @@
     if (lastFocus && lastFocus.focus) {
       try { lastFocus.focus(); } catch (e) {}
     }
+  }
+
+  // In-app browsers (the webview you get tapping a link inside Instagram,
+  // Facebook, TikTok, Snapchat, LinkedIn, Threads, X) cannot complete a
+  // Google or Apple sign-in. This is not our bug and not fixable from here:
+  // Google refuses OAuth in embedded webviews outright, returning
+  // `disallowed_useragent`. The popup fails, the code falls back to
+  // signInWithRedirect, and that fails too — our authDomain is on
+  // firebaseapp.com, a different domain to the site, and third-party
+  // storage partitioning broke cross-domain redirect sign-in.
+  //
+  // So a visitor arriving from a social link used to tap the biggest button
+  // on the modal, get "Google sign-in failed. Try again.", and try again
+  // forever. Email and password works perfectly in these webviews; it just
+  // sat below the fold under two buttons that could not work.
+  // "Try again" is the wrong instruction when the thing cannot succeed on
+  // this browser however many times it is tried.
+  function providerFailMsg() {
+    return isInAppBrowser()
+      ? 'This app\'s browser blocks Google sign-in. Use your email below, or open the site in Safari or Chrome.'
+      : 'Google sign-in failed. Try again.';
+  }
+
+  function isInAppBrowser() {
+    try {
+      var ua = navigator.userAgent || '';
+      // FBAN/FBAV = Facebook, Instagram ships "Instagram" in the UA,
+      // Line/MicroMessenger/Snapchat/LinkedIn/Threads/TikTok all self-identify.
+      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      // iOS webviews that do not self-identify: Safari's UA without "Safari".
+      if (/iPhone|iPad|iPod/i.test(ua) && !/Safari/i.test(ua) && !/CriOS|FxiOS/i.test(ua)) return true;
+      return false;
+    } catch (e) { return false; }
   }
 
   var GOOGLE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
@@ -197,11 +233,19 @@
     // doAppleSignIn; the __DB_NATIVE gate only decided visibility.
     var nativeButtons =
       '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>';
+    // See isInAppBrowser(). Google and Apple are still rendered rather than
+    // hidden, because the detector is a user-agent guess and hiding the
+    // button a user was looking for is worse than showing one that warns.
+    var inApp = isInAppBrowser();
+    var inAppNote = inApp
+      ? '<p class="da-inapp">Google and Apple sign-in do not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome.</p>'
+      : '';
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
       '<h2>' + (creating ? 'Create your account' : 'Welcome back') + '</h2>' +
       '<p class="da-sub">' + (creating ? 'Save your rounds, ballots, and style profile across devices.' : 'Sign in to pick up your rounds, rank, and style profile.') + '</p>' +
       lastHint +
+      inAppNote +
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
       '<div class="da-or">or use email</div>' +
@@ -317,7 +361,7 @@
           }).then(function () { finishSignIn('google_native'); }).catch(function (err) {
             var code = (err && (err.code || err.message)) || 'unknown';
             if (/cancel|closed/i.test(code)) return;
-            setErr('Google sign-in failed. Try again.');
+            setErr(providerFailMsg());
           });
           return;
         }
@@ -370,8 +414,8 @@
             var redirect = canLink
               ? current.linkWithRedirect(provider)
               : auth.signInWithRedirect(provider);
-            Promise.resolve(redirect).catch(function () { setErr('Google sign-in failed. Try again.'); });
-          } catch (e) { setErr('Google sign-in failed. Try again.'); }
+            Promise.resolve(redirect).catch(function () { setErr(providerFailMsg()); });
+          } catch (e) { setErr(providerFailMsg()); }
         });
       } catch (e) { setErr('Sign-in unavailable, try again.'); }
     });
@@ -457,7 +501,7 @@
     if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Email or password is incorrect.';
     if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
     if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
-    if (code === 'auth/operation-not-allowed') return 'Email sign-in is temporarily unavailable. Continue with Google.';
+    if (code === 'auth/operation-not-allowed') return isInAppBrowser() ? 'Email sign-in is temporarily unavailable. Open the site in Safari or Chrome and try Google.' : 'Email sign-in is temporarily unavailable. Continue with Google.';
     return mode === 'signup' ? 'Could not create the account. Try again.' : 'Could not sign in. Try again.';
   }
 
@@ -528,7 +572,7 @@
       } catch (e) {
         btn.disabled = false;
         btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in with email';
-        setErr('Email sign-in is unavailable. Continue with Google.');
+        setErr(isInAppBrowser() ? 'Email sign-in is unavailable. Open the site in Safari or Chrome and try Google.' : 'Email sign-in is unavailable. Continue with Google.');
       }
     });
   }
@@ -591,7 +635,7 @@
       } catch (e) {
         btn.disabled = false;
         btn.textContent = 'Email me a sign-in link';
-        setErr('Could not send the link. Continue with Google or a password.');
+        setErr(isInAppBrowser() ? 'Could not send the link. Try a password instead.' : 'Could not send the link. Continue with Google or a password.');
       }
     });
   }
