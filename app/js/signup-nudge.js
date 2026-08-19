@@ -5,7 +5,7 @@
    page where you want a soft "sign up to save your stuff" prompt
    for unsigned users. The script:
 
-     1. Waits 10 seconds of VISIBLE-tab time and at least one
+     1. Waits 7 seconds of VISIBLE-tab time and at least one
         scroll (see armInitial). Tool pages that were already
         deliberately patient keep their longer delay.
      2. Reads Firebase auth state. If a user is already signed
@@ -66,8 +66,8 @@
   // dismissed it three separate times (they've heard us).
   var DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
   var DISMISS_TTL_LONG_MS = 14 * 24 * 60 * 60 * 1000;
-  // Seconds of visible-tab time before the first prompt (2026-08-12).
-  var TRIGGER_SECONDS = 10;
+  // Seconds of visible-tab time before the first prompt (2026-08-19, was 10).
+  var TRIGGER_SECONDS = 7;
 
   // ── A/B signup_nudge_surface_v1 (2026-08-12) ──────────────────────
   // The centred modal shipped as a straight replacement for the corner
@@ -151,7 +151,7 @@
 
   // Per-path config. First match wins. Generic fallback at the end.
   // `delay` is now a FLOOR that only applies when it is 30s or more (see
-  // armInitial): everything faster than that is normalised to the 10-second
+  // armInitial): everything faster than that is normalised to the 7-second
   // scroll trigger, and the patient tool-page delays are kept because a
   // full-screen modal cannot interrupt a spoken round.
   // `variant` no longer changes the styling, only the GA4 label.
@@ -167,8 +167,9 @@
     { match: /^\/(landing|index)?(\.html)?($|\?)/,
       // 2026-08-11 this was 3s, put deliberately early while intent was
       // fresh. 2026-08-12 the surface became a full-screen modal and the
-      // trigger moved to 10 seconds plus a scroll: at 3 seconds the modal
-      // would cover the hero before anyone had read it. The hero still
+      // trigger moved to a scroll gate plus a timer (10s, tightened to 7s
+      // on 2026-08-19): at 3 seconds the modal would cover the hero before
+      // anyone had read it. The hero still
       // carries its own Google row, so this stays the second touch, and the
       // copy still leads with what an account buys.
       delay: 3,
@@ -837,8 +838,8 @@
     armInitial(cfg);
   }
 
-  // 2026-08-12, per Aidan: the prompt arrives "10 seconds into site
-  // scrolling". Two conditions, not one timer. Seconds are counted only while
+  // 2026-08-19, per Aidan: the prompt arrives "7 seconds into site
+  // scrolling" (was 10 on 2026-08-12). Two conditions, not one timer. Seconds are counted only while
   // the tab is VISIBLE, so a background tab left open all afternoon does not
   // greet the visitor with a modal the moment they return to it. And on a page
   // long enough to scroll, at least one scroll is required, so the modal
@@ -847,7 +848,7 @@
   // suppressing the prompt forever.
   function armInitial(cfg){
     // Tool pages that were already deliberately patient (voice rounds at 60s,
-    // /learn at 30s) keep their delay: a full-screen modal 10 seconds into a
+    // /learn at 30s) keep their delay: a full-screen modal 7 seconds into a
     // spoken round would interrupt the product mid-sentence.
     var seconds = (cfg.delay && cfg.delay >= 30) ? cfg.delay : TRIGGER_SECONDS;
     var scrollable = (document.documentElement.scrollHeight - window.innerHeight) > 120;
