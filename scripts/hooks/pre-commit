@@ -151,6 +151,27 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Record-seed guard. A seed can be revised by ADDING records and only by
+# adding: the rating recomputes over the union of every row ever
+# claimed, so nobody can drop the tournament that dragged their number
+# down and re-seed on the good half. That one property is the whole
+# reason revision is safe, and it lives in two places that can drift
+# apart (the pure merge in lib/record-seed.mjs and the transaction in
+# record-import.mjs), so the suite asserts both and reads the endpoint
+# source to prove the helper is actually on the path. Verified
+# non-vacuous against six deliberate mutations. Same posture.
+# ──────────────────────────────────────────────────────────────────
+SEED_GUARD="$REPO_ROOT/scripts/test-record-seed.mjs"
+if [ -f "$SEED_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-record-seed.mjs >/tmp/seed-guard.log 2>&1); then
+    echo "[seed-guard] commit blocked - the record-seed guarantees no longer hold:" >&2
+    tail -20 /tmp/seed-guard.log >&2
+    echo "[seed-guard] see scripts/test-record-seed.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Brain-health guard. The probe redacts the provider's raw error before
 # publishing, because that text names an account's billing state and the
 # endpoint is public. It also has to stay in lockstep with the /judge

@@ -39,7 +39,43 @@ function monthsBetween(yyyymm, nowMs) {
   return (nowMs - then) / (30.44 * 24 * 3600 * 1000);
 }
 
-// rows: [{ pw, pl, ew, el, d: 'YYYY-MM', t, f }]
+// ── Revising a seed ──────────────────────────────────────────────
+// A seed can be revised by ADDING records, never by dropping them. The
+// rating is always recomputed over the union of every row the account
+// has ever claimed, deduped by row id, so nobody can unselect the
+// tournament that dragged their number down and re-seed on the good
+// half. Adding evidence moves the number in whichever direction the
+// evidence points, which is the property that makes revision safe at
+// all; without it, "revise" is just "re-roll until you like it".
+//
+// Pure: the caller supplies both sides and decides what to persist.
+export function mergeClaimedRows(prevRows, nextRows) {
+  const byId = new Map();
+  for (const r of prevRows || []) {
+    const id = String((r && r.i) || '');
+    if (id) byId.set(id, r);
+  }
+  const kept = byId.size;
+  for (const r of nextRows || []) {
+    const id = String((r && r.i) || '');
+    if (!id || byId.has(id)) continue;
+    byId.set(id, r);
+  }
+  const rows = [...byId.values()];
+  return { rows, added: rows.length - kept, kept };
+}
+
+// Seeds written before revisions existed stored `rows` and `rowIds` as
+// two parallel arrays. Zip them back together so an old claim can take
+// part in a merge; rows that carry their own id are passed through.
+export function normalizeClaimedRows(rows, rowIds) {
+  const ids = Array.isArray(rowIds) ? rowIds : [];
+  return (rows || []).map((r, k) => (
+    r && r.i ? r : { ...r, i: String(ids[k] || '') }
+  )).filter((r) => r.i);
+}
+
+// rows: [{ i, pw, pl, ew, el, d: 'YYYY-MM', t, f }]
 export function aggregateRows(rows) {
   const agg = { pw: 0, pl: 0, ew: 0, el: 0, tournaments: 0, newest: '' };
   for (const r of rows || []) {

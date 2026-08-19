@@ -194,6 +194,18 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
 .done .num{font-family:var(--head);font-weight:800;font-size:64px;line-height:1;margin:6px 0}
 .done .tier{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);font-weight:600}
 .done p{color:var(--dim);font-size:14.5px;line-height:1.55;max-width:480px;margin:12px auto 18px}
+.revise{margin-top:16px;background:none;border:0;padding:6px 4px;font:inherit;font-size:13.5px;color:var(--dim);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.revise:hover{color:var(--brand)}
+.kept{margin:0 0 18px;border:1px solid var(--rule-hard);border-radius:14px;background:var(--panel);padding:14px 16px}
+.kept[hidden]{display:none!important}
+.kept-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.kept-head strong{font-size:14.5px}
+.kept-head span{font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.kept-rows{display:flex;flex-direction:column;gap:5px}
+.kept-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--dim)}
+.kept-row b{font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kept-row span{font-family:var(--mono);font-size:12.5px;flex:none}
+.kept-note{margin:10px 0 0;font-size:12.5px;color:var(--dim);line-height:1.5}
 [hidden]{display:none!important}
 @media (max-width:560px){ .rowrec{font-size:12px} .wrap{padding-top:84px} }
 </style>
@@ -204,7 +216,21 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     <div class="eyebrow">Bring your record with you</div>
     <h1>Debated before? Start with a rating that shows it.</h1>
     <p class="lede">Look yourself up. The index covers <span id="statTourns">300+</span> tournaments of published Tabroom results. Select the entries that are you and your Debate Rating seeds from your actual record, not from a blank 1500.</p>
-    <p class="honest">Straight about what a seed is: your number appears on your profile immediately with wide uncertainty, and it tightens as you debate here. The public leaderboard still takes 3 rated rounds on Debatable. Importing works once, and only before your first rated round.</p>
+    <p class="honest">Straight about what a seed is: your number appears on your profile immediately with wide uncertainty, and it tightens as you debate here. The public leaderboard still takes 3 rated rounds on Debatable. You can come back and add more tournaments to your record at any time before your first rated round; a revision only ever adds, so nothing you have already claimed drops off.</p>
+
+    <!-- Shown only when this account already has a claimed record and
+         is adding to it. It exists to make the additive rule visible
+         rather than merely enforced: these rows stay in the maths
+         whatever gets selected below, so the page should say so before
+         someone goes looking for a way to deselect one. -->
+    <div class="kept" id="kept" hidden>
+      <div class="kept-head">
+        <strong>Already in your record</strong>
+        <span id="keptCount"></span>
+      </div>
+      <div class="kept-rows" id="keptRows"></div>
+      <p class="kept-note">These stay. Adding more can move your rating either way, the same as the record itself does.</p>
+    </div>
 
     <div class="searchbox">
       <input id="q" type="search" placeholder="Your last name (add your partner's for team events)" autocomplete="off" autofocus>
@@ -280,6 +306,9 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
       <a class="btn btn-primary" href="/spar" style="text-decoration:none">Find a round</a>
       <a class="btn btn-ghost" href="/profile" style="text-decoration:none">See my profile</a>
     </div>
+    <!-- Hidden once a rated round exists: seeding closes for good at
+         that point, so offering the button would be offering a 409. -->
+    <button class="revise" id="reviseBtn" type="button" hidden>Add more tournaments to my record</button>
   </div>
 </div>
 
@@ -287,7 +316,8 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var S = { token: '', shards: {}, rows: [], selected: {}, shown: 0 };
+  var S = { token: '', shards: {}, rows: [], selected: {}, shown: 0,
+            claimed: null, canRevise: true, revising: false };
 
   // Mirrors lib/record-seed.mjs for PREVIEW only; the server recomputes
   // from its own index copy and its number is the one that lands.
@@ -393,18 +423,63 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
 
   // ── basket + preview ──────────────────────────────────────────────
   function renderBasket() {
-    var rows = Object.values(S.selected);
+    var picked = Object.values(S.selected);
     var basket = $('basket');
-    if (!rows.length) { basket.hidden = true; return; }
+    if (!picked.length) { basket.hidden = true; return; }
     basket.hidden = false;
+    // The preview seeds over the union, because that is what the server
+    // does. Previewing the selection alone would quote a number a
+    // revision can never produce.
+    var rows = unionRows();
     var p = previewSeed(rows);
-    $('selCount').textContent = rows.length;
-    $('selNoun').textContent = rows.length === 1 ? 'entry' : 'entries';
-    $('selAgg').textContent = p.wins + 'W ' + p.losses + 'L over ' + p.t + (p.t === 1 ? ' tournament' : ' tournaments');
+    $('selCount').textContent = picked.length;
+    $('selNoun').textContent = picked.length === 1 ? 'entry' : 'entries';
+    $('claimBtn').textContent = S.claimed ? 'Add to my record' : 'Claim this record';
+    $('selAgg').textContent = p.wins + 'W ' + p.losses + 'L over ' + p.t + (p.t === 1 ? ' tournament' : ' tournaments')
+      + (S.claimed ? ' (including what you already claimed)' : '');
     $('selRating').textContent = '~' + p.rating;
     $('selRange').textContent = '±' + p.rd + ' uncertainty · tightens as you debate here';
   }
+
+  // ── what a revision keeps ─────────────────────────────────────────
+  function renderKept() {
+    var box = $('kept');
+    var rows = keptRows();
+    if (!S.revising || !rows.length) { box.hidden = true; return; }
+    box.hidden = false;
+    $('keptCount').textContent = rows.length + (rows.length === 1 ? ' entry' : ' entries');
+    $('keptRows').innerHTML = '';
+    rows.forEach(function (r) {
+      var el = document.createElement('div');
+      el.className = 'kept-row';
+      var b = document.createElement('b');
+      b.textContent = (r.t || 'Tournament') + (r.d ? ' · ' + r.d : '');
+      var sp = document.createElement('span');
+      var w = (Number(r.pw) || 0) + (Number(r.ew) || 0);
+      var l = (Number(r.pl) || 0) + (Number(r.el) || 0);
+      sp.textContent = w + 'W ' + l + 'L';
+      el.appendChild(b); el.appendChild(sp);
+      $('keptRows').appendChild(el);
+    });
+  }
   $('clearBtn').addEventListener('click', function () { S.selected = {}; renderBasket(); render(); });
+
+  // Back to the search, carrying the existing claim with it. Nothing is
+  // unclaimed here: the strip above the search says what stays.
+  $('reviseBtn').addEventListener('click', function () {
+    S.revising = true;
+    S.selected = {};
+    $('done').hidden = true;
+    $('intro').hidden = false;
+    $('claimStatus').textContent = '';
+    $('consentBox').checked = false;
+    renderKept();
+    renderBasket();
+    render();
+    try { if (window.track) window.track('record_import_revise_open', {}); } catch (e) {}
+    $('q').focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   // ── claim ─────────────────────────────────────────────────────────
   function post(body, statusEl, onOk) {
@@ -428,20 +503,49 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
       .catch(function () { statusEl.textContent = 'Network error. Try again.'; });
   }
 
+  // Rows already claimed, in the same shape search results use, so the
+  // preview and the name check both see the union the server will see.
+  function keptRows() {
+    if (!S.claimed || !S.claimed.rows) return [];
+    var ids = S.claimed.rowIds || [];
+    return S.claimed.rows.map(function (r, k) {
+      var o = {}; for (var key in r) o[key] = r[key];
+      if (!o.i) o.i = ids[k];
+      return o;
+    }).filter(function (r) { return r.i; });
+  }
+  function unionRows() {
+    var seen = {}, out = [];
+    keptRows().concat(Object.values(S.selected)).forEach(function (r) {
+      if (!r.i || seen[r.i]) return;
+      seen[r.i] = 1; out.push(r);
+    });
+    return out;
+  }
+
   $('claimBtn').addEventListener('click', function () {
-    var rows = Object.values(S.selected);
+    var picked = Object.values(S.selected);
+    var rows = unionRows();
     var st = $('claimStatus');
-    if (!rows.length) { st.textContent = 'Select the entries that are you.'; return; }
+    if (!picked.length) {
+      st.textContent = S.claimed ? 'Select the tournaments you want to add.' : 'Select the entries that are you.';
+      return;
+    }
     if (!$('consentBox').checked) { st.textContent = 'Tick the consent box first.'; return; }
-    // Every selected row carries the claimer's surname, so the shared
-    // token names the shard the server should re-read.
+    // Checked over the union, matching the server: on a revision the
+    // new rows have to share a name with what is already claimed.
     var common = rows.map(function (r) { return toks(r.n); })
       .reduce(function (a, b) { return a.filter(function (t) { return b.indexOf(t) >= 0; }); });
-    if (!common.length) { st.textContent = 'Those entries do not share a name. Select only rows that are you.'; return; }
+    if (!common.length) {
+      st.textContent = S.claimed
+        ? 'Those entries do not share a name with your existing record. Select only rows that are you.'
+        : 'Those entries do not share a name. Select only rows that are you.';
+      return;
+    }
     post({
       mode: 'tabroom',
       shard: common[0][0],
-      rowIds: rows.map(function (r) { return r.i; }),
+      rowIds: picked.map(function (r) { return r.i; }),
       claimedName: rows[0].n,
       consent: true,
     }, st, showDone);
@@ -468,18 +572,39 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     $('intro').hidden = true;
     var d = $('done');
     d.hidden = false;
+    S.revising = false;
+    if (res.claimed) S.claimed = res.claimed;
+    if (typeof res.canRevise === 'boolean') S.canRevise = res.canRevise;
     var r = res.rating || {};
     $('doneRating').textContent = r.rating || '';
     var unc = r.rd ? ' Uncertainty is ±' + r.rd + ' for now.' : '';
+    var tail = ' It tightens with every rated round you debate here; three rated rounds put you on the public board.';
+    var added = res.seeded && Number(res.seeded.added) || 0;
+    var isTabroom = !res.seeded || res.seeded.source === 'tabroom';
+
     if (returning) {
       $('doneTier').textContent = 'Your Debate Rating';
-      $('doneBody').textContent = (res.seeded ? 'Seeded from your imported record. A seed applies once.' : '') + unc +
-        ' It tightens with every rated round you debate here; three rated rounds put you on the public board.';
+      $('doneBody').textContent = (res.seeded ? 'Seeded from your imported record.' : '') + unc + tail;
+    } else if (res.seeded && res.seeded.revision > 0) {
+      $('doneTier').textContent = 'Your Debate Rating';
+      $('doneBody').textContent = 'Rebuilt over your whole record, now ' + added +
+        (added === 1 ? ' more tournament' : ' more tournaments') + ' wider.' + unc + tail;
+      try { if (window.track) window.track('record_import_revised', { added: added, revision: res.seeded.revision }); } catch (e) {}
     } else {
-      $('doneBody').textContent = 'This is your Debate Rating now, seeded from your record.' + unc +
-        ' It tightens with every rated round you debate here, and three rated rounds put you on the public board.';
+      $('doneTier').textContent = 'Your Debate Rating';
+      $('doneBody').textContent = 'This is your Debate Rating now, seeded from your record.' + unc + tail;
       try { if (window.track) window.track('record_import', { source: res.seeded && res.seeded.source }); } catch (e) {}
     }
+
+    // Offered on both sources, and the wording is the difference. A
+    // level pick cannot be revised by another level pick, but real
+    // records supersede it outright, which is the single most useful
+    // thing a self-reported account can do next. Only a rated round
+    // takes the path away.
+    $('reviseBtn').hidden = !S.canRevise;
+    $('reviseBtn').textContent = isTabroom
+      ? 'Add more tournaments to my record'
+      : 'Claim your actual tournament record';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -496,7 +621,10 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
           fetch('/api/record-import', { headers: { Authorization: 'Bearer ' + t } })
             .then(function (r) { return r.json(); })
             .then(function (j) {
-              if (j && j.ok && j.exists && (j.seeded || (j.rating && j.rating.games > 0))) showDone(j, true);
+              if (!j || !j.ok || !j.exists) return;
+              if (j.claimed) S.claimed = j.claimed;
+              if (typeof j.canRevise === 'boolean') S.canRevise = j.canRevise;
+              if (j.seeded || (j.rating && j.rating.games > 0)) showDone(j, true);
             })
             .catch(function () {});
         });
