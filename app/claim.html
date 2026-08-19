@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /claim — import your competitive record, start with a real rating.
+
+     WHAT THIS IS
+     A debater arriving here has usually spent seasons building a record
+     on Tabroom. Starting them at an anonymous 1500 throws that away and
+     makes the first week feel like proving the obvious. This page lets
+     them look themselves up in a records index built from Tabroom's
+     PUBLIC per-tournament JSON (results tournaments chose to publish),
+     select the rows that are them, and seed their Glicko rating from
+     that record.
+
+     THE INTEGRITY STORY (mirrors lib/record-seed.mjs)
+     A seed moves the MEAN and keeps the DEVIATION wide. Seeded accounts
+     show their number immediately (profile, matchmaking) but the seed
+     RD floor sits far above the rankable line, so nobody appears on the
+     public board until they play real rated rounds here. Seeding is
+     once-ever and refused after any rated platform round, so a loss can
+     never be re-rolled into a fresh import. The server recomputes the
+     seed from its own copy of the index; the client only names rows.
+
+     THE INDEX
+     /records-index/{a..z,0}.json, sharded by surname letter, built by
+     ~/debateit-outreach/build_records_index.py from the pull_tabroom
+     cache. Rows are ENTRY x TOURNAMENT, never auto-merged across
+     tournaments; the person selects what is theirs. Rebuild + redeploy
+     to refresh coverage.
+
+     Not on Tabroom (parli circuits, international, APDA)? The
+     self-report path seeds conservatively from a five-level ladder. -->
+<title>Claim your record · start with a real rating · Debatable</title>
+<meta name="description" content="Debated before? Look up your Tabroom record, claim your results, and start on Debatable with a rating that matches your skill instead of a blank 1500.">
+<link rel="canonical" href="https://itsdebatable.com/claim">
+<link rel="icon" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Claim your record · start with a real rating · Debatable">
+<meta property="og:description" content="Look up your Tabroom record, claim your results, and start with a rating that matches your skill.">
+<meta property="og:url" content="https://itsdebatable.com/claim">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Early-load theme restore, matching the sitewide pattern. -->
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[claim] firebase init skipped:', e.message); }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+/* Neural constellation, same recipe as /ladder and /pricing. */
+html[data-lightweb="web"]{background:var(--paper)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:.75}
+
+:root{
+  --ink-rgb:20,22,28;
+  --paper:#f4f2ea; --panel:#fffffe; --sunken:#eae7dc; --rule:rgba(20,22,28,.13);
+  --rule-hard:rgba(20,22,28,.26);
+  --tx:rgb(var(--ink-rgb));
+  --dim:rgba(var(--ink-rgb),.70); --faint:rgba(var(--ink-rgb),.50);
+  --up:#12693f; --down:#b3221f; --brand:#c02626; --brand-hi:#e03535;
+  --row-hover:rgba(20,22,28,.035);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --head:'Archivo',Georgia,serif;
+}
+html[data-theme="crimson"]{
+  --ink-rgb:236,235,232;
+  --paper:#141210; --panel:#1c1917; --sunken:#100e0c; --rule:rgba(236,235,232,.14);
+  --rule-hard:rgba(236,235,232,.28);
+  --row-hover:rgba(236,235,232,.05);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--tx);min-height:100vh}
+.wrap{max-width:880px;margin:0 auto;padding:96px 20px 80px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600}
+h1{font-family:var(--head);font-weight:800;font-size:clamp(30px,5vw,44px);line-height:1.05;margin:10px 0 14px}
+.lede{color:var(--dim);font-size:17px;line-height:1.55;max-width:640px;margin:0 0 8px}
+.honest{color:var(--faint);font-size:14px;line-height:1.5;max-width:640px;margin:0 0 30px}
+
+.searchbox{display:flex;gap:10px;margin:0 0 8px}
+.searchbox input{flex:1;font:16px Inter,sans-serif;padding:14px 16px;border:1px solid var(--rule-hard);border-radius:10px;background:var(--panel);color:var(--tx);outline:none}
+.searchbox input:focus{border-color:var(--brand)}
+.hint{font-size:13px;color:var(--faint);margin:0 0 18px}
+
+.rows{border:1px solid var(--rule);border-radius:12px;background:var(--panel);overflow:hidden}
+.rows:empty{display:none}
+.rowline{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--rule);cursor:pointer}
+.rowline:first-child{border-top:0}
+.rowline:hover{background:var(--row-hover)}
+.rowline input{width:17px;height:17px;accent-color:var(--brand);flex:none}
+.rowmain{flex:1;min-width:0}
+.rowname{font-weight:600;font-size:15px}
+.rowmeta{font-size:12.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rowrec{font-family:var(--mono);font-size:13px;color:var(--dim);flex:none;text-align:right}
+.rowrec b{color:var(--tx)}
+.fmt{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rule-hard);border-radius:5px;padding:1px 6px;margin-right:7px;color:var(--dim)}
+.morebar{padding:10px 14px;font-size:13px;color:var(--faint);border-top:1px solid var(--rule)}
+.empty{padding:22px 16px;color:var(--faint);font-size:14px}
+
+.basket{position:sticky;bottom:14px;margin-top:18px;border:1px solid var(--rule-hard);border-radius:14px;background:var(--panel);padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.14)}
+.basket[hidden]{display:none!important}
+.basket-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.basket-title{font-weight:700;font-size:15px}
+.basket-agg{font-family:var(--mono);font-size:13px;color:var(--dim)}
+.preview{display:flex;align-items:baseline;gap:14px;margin:10px 0 4px;flex-wrap:wrap}
+.preview .num{font-family:var(--head);font-weight:800;font-size:38px;line-height:1}
+.preview .rng{font-family:var(--mono);font-size:13px;color:var(--faint)}
+.consent{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--dim);margin:12px 0;line-height:1.45}
+.consent input{width:16px;height:16px;accent-color:var(--brand);flex:none;margin-top:1px}
+.cta-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font:600 15px Inter,sans-serif;border:0;border-radius:10px;padding:12px 22px;cursor:pointer}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:var(--brand-hi)}
+.btn-primary:disabled{opacity:.45;cursor:default}
+.btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--rule-hard)}
+.status{font-size:13.5px;color:var(--down);min-height:18px;margin-top:8px}
+.status.ok{color:var(--up)}
+
+.selfreport{margin-top:44px;padding-top:28px;border-top:1px solid var(--rule)}
+h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
+.sub{color:var(--faint);font-size:14px;margin:0 0 16px;max-width:600px;line-height:1.5}
+.levels{display:grid;gap:8px}
+.level{display:flex;gap:11px;align-items:center;border:1px solid var(--rule);border-radius:10px;padding:11px 14px;cursor:pointer;background:var(--panel)}
+.level:hover{background:var(--row-hover)}
+.level input{accent-color:var(--brand)}
+.level .lab{font-size:14.5px;font-weight:600}
+.level .est{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+
+.done{border:1px solid var(--rule-hard);border-radius:16px;background:var(--panel);padding:30px 28px;text-align:center}
+.done[hidden]{display:none!important}
+.done .num{font-family:var(--head);font-weight:800;font-size:64px;line-height:1;margin:6px 0}
+.done .tier{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);font-weight:600}
+.done p{color:var(--dim);font-size:14.5px;line-height:1.55;max-width:480px;margin:12px auto 18px}
+[hidden]{display:none!important}
+@media (max-width:560px){ .rowrec{font-size:12px} .wrap{padding-top:84px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="intro">
+    <div class="eyebrow">Bring your record with you</div>
+    <h1>Debated before? Start with a rating that shows it.</h1>
+    <p class="lede">Look yourself up. The index covers <span id="statTourns">300+</span> tournaments of published Tabroom results. Select the entries that are you and your Debate Rating seeds from your actual record, not from a blank 1500.</p>
+    <p class="honest">Straight about what a seed is: your number appears on your profile immediately with wide uncertainty, and it tightens as you debate here. The public leaderboard still takes 3 rated rounds on Debatable. Importing works once, and only before your first rated round.</p>
+
+    <div class="searchbox">
+      <input id="q" type="search" placeholder="Your last name (add your partner's for team events)" autocomplete="off" autofocus>
+    </div>
+    <p class="hint">Team entries list two last names, so either partner can search. Example: "Georgatos Miller".</p>
+
+    <div class="rows" id="results"></div>
+
+    <div class="basket" id="basket" hidden>
+      <div class="basket-head">
+        <span class="basket-title"><span id="selCount">0</span> <span id="selNoun">entries</span> selected</span>
+        <span class="basket-agg" id="selAgg"></span>
+      </div>
+      <div class="preview">
+        <span class="num" id="selRating">–</span>
+        <span class="rng" id="selRange"></span>
+      </div>
+      <label class="consent">
+        <input type="checkbox" id="consentBox">
+        <span>These results are mine. I understand my seeded rating and record become part of my public competitive profile on Debatable.</span>
+      </label>
+      <div class="cta-row">
+        <button class="btn btn-primary" id="claimBtn">Claim this record</button>
+        <button class="btn btn-ghost" id="clearBtn">Clear</button>
+      </div>
+      <div class="status" id="claimStatus"></div>
+    </div>
+
+    <div class="selfreport">
+      <h2>Not in the index?</h2>
+      <p class="sub">APDA, BP, international circuits, and tournaments that never published results will not show up here. Pick the level that matches your experience and seed conservatively instead.</p>
+      <div class="levels" id="levels"></div>
+      <label class="consent" style="margin-top:12px">
+        <input type="checkbox" id="consentSelf">
+        <span>This is accurate. I understand my seeded rating becomes part of my public competitive profile on Debatable.</span>
+      </label>
+      <div class="cta-row">
+        <button class="btn btn-primary" id="selfBtn" disabled>Seed my rating</button>
+      </div>
+      <div class="status" id="selfStatus"></div>
+    </div>
+  </div>
+
+  <div class="done" id="done" hidden>
+    <div class="tier" id="doneTier">Seeded rating</div>
+    <div class="num" id="doneRating">1500</div>
+    <p id="doneBody"></p>
+    <div class="cta-row" style="justify-content:center">
+      <a class="btn btn-primary" href="/spar" style="text-decoration:none">Find a round</a>
+      <a class="btn btn-ghost" href="/profile" style="text-decoration:none">See my profile</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var S = { token: '', shards: {}, rows: [], selected: {}, shown: 0 };
+
+  // Mirrors lib/record-seed.mjs for PREVIEW only; the server recomputes
+  // from its own index copy and its number is the one that lands.
+  function previewSeed(rows) {
+    var pw = 0, pl = 0, ew = 0, el = 0, newest = '';
+    rows.forEach(function (r) {
+      pw += r.pw; pl += r.pl; ew += r.ew; el += r.el;
+      if ((r.d || '') > newest) newest = r.d || '';
+    });
+    var games = pw + pl + ew + el;
+    if (!games) return null;
+    var wr = (pw + ew + 3) / (games + 6);
+    var rating = 1500 + 600 * (wr - 0.5) + Math.min(80, 14 * ew);
+    var rd = 330 - 3.5 * games;
+    var m = /^(\d{4})-(\d{2})$/.exec(newest);
+    var ageMonths = m ? (Date.now() - new Date(+m[1], +m[2] - 1, 15).getTime()) / (30.44 * 24 * 3600e3) : Infinity;
+    if (ageMonths > 24) { rating = 1500 + (rating - 1500) * 0.8; rd += 40; }
+    rating = Math.round(Math.min(1900, Math.max(1200, rating)));
+    rd = Math.round(Math.min(330, Math.max(240, rd)));
+    return { rating: rating, rd: rd, games: games, wins: pw + ew, losses: pl + el, t: rows.length };
+  }
+
+  var LEVELS = [
+    ['new', 'New to competitive debate', 1450],
+    ['local', 'Local or school circuit', 1500],
+    ['regional', 'Regional competitor, some elim rounds', 1550],
+    ['circuit', 'National circuit, regular breaks', 1600],
+    ['national', 'Late elims at national tournaments', 1650],
+  ];
+
+  // ── search ────────────────────────────────────────────────────────
+  function toks(s) { return (String(s || '').toLowerCase().match(/[a-z]+/g) || []).filter(function (t) { return t.length >= 2; }); }
+
+  function getShard(letter, cb) {
+    if (S.shards[letter]) return cb(S.shards[letter]);
+    fetch('/records-index/' + letter + '.json')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (j) { S.shards[letter] = j || []; cb(S.shards[letter]); })
+      .catch(function () { cb([]); });
+  }
+
+  var debounce;
+  $('q').addEventListener('input', function () {
+    clearTimeout(debounce);
+    debounce = setTimeout(runSearch, 180);
+  });
+
+  function runSearch() {
+    var qt = toks($('q').value);
+    var box = $('results');
+    if (!qt.length) { box.innerHTML = ''; return; }
+    // The shard of the longest token: surnames beat initials.
+    var anchor = qt.slice().sort(function (a, b) { return b.length - a.length; })[0];
+    getShard(anchor[0], function (rows) {
+      var hits = rows.filter(function (r) {
+        var rt = toks(r.n + ' ' + r.c);
+        return qt.every(function (q) {
+          return rt.some(function (t) { return t.indexOf(q) === 0; });
+        });
+      });
+      S.rows = hits;
+      S.shown = 40;
+      render();
+    });
+  }
+
+  function recStr(r) {
+    var s = '<b>' + r.pw + '–' + r.pl + '</b> prelims';
+    if (r.ew + r.el > 0) s += ' · ' + r.ew + '–' + r.el + ' elims';
+    return s;
+  }
+
+  function render() {
+    var box = $('results');
+    if (!S.rows.length) {
+      box.innerHTML = '<div class="empty">No published results match. Try just your last name, or use the level picker below.</div>';
+      return;
+    }
+    var html = S.rows.slice(0, S.shown).map(function (r) {
+      var checked = S.selected[r.i] ? ' checked' : '';
+      return '<label class="rowline"><input type="checkbox" data-id="' + r.i + '"' + checked + '>' +
+        '<span class="rowmain"><span class="rowname">' + esc(r.n) + '</span>' +
+        '<span class="rowmeta"><span class="fmt">' + esc(r.f) + '</span>' + esc(r.t) + ' · ' + esc(r.d) + (r.c ? ' · ' + esc(r.c) : '') + '</span></span>' +
+        '<span class="rowrec">' + recStr(r) + '</span></label>';
+    }).join('');
+    if (S.rows.length > S.shown) {
+      html += '<div class="morebar"><a href="#" id="moreLink">Show ' + Math.min(40, S.rows.length - S.shown) + ' more</a> of ' + S.rows.length + '</div>';
+    }
+    box.innerHTML = html;
+    var more = $('moreLink');
+    if (more) more.addEventListener('click', function (e) { e.preventDefault(); S.shown += 40; render(); });
+    box.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var row = S.rows.find(function (r) { return r.i === cb.dataset.id; });
+        if (!row) return;
+        if (cb.checked) S.selected[row.i] = row; else delete S.selected[row.i];
+        renderBasket();
+      });
+    });
+  }
+
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  // ── basket + preview ──────────────────────────────────────────────
+  function renderBasket() {
+    var rows = Object.values(S.selected);
+    var basket = $('basket');
+    if (!rows.length) { basket.hidden = true; return; }
+    basket.hidden = false;
+    var p = previewSeed(rows);
+    $('selCount').textContent = rows.length;
+    $('selNoun').textContent = rows.length === 1 ? 'entry' : 'entries';
+    $('selAgg').textContent = p.wins + 'W ' + p.losses + 'L over ' + p.t + (p.t === 1 ? ' tournament' : ' tournaments');
+    $('selRating').textContent = '~' + p.rating;
+    $('selRange').textContent = '±' + p.rd + ' uncertainty · tightens as you debate here';
+  }
+  $('clearBtn').addEventListener('click', function () { S.selected = {}; renderBasket(); render(); });
+
+  // ── claim ─────────────────────────────────────────────────────────
+  function post(body, statusEl, onOk) {
+    statusEl.className = 'status';
+    if (!S.token) {
+      statusEl.textContent = 'Sign in to claim your rating.';
+      if (typeof window.openAuthModal === 'function') window.openAuthModal();
+      else if (firebase && firebase.auth) firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function () {});
+      return;
+    }
+    statusEl.textContent = 'Saving…';
+    fetch('/api/record-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (res) {
+        if (res.j && res.j.ok) { onOk(res.j); return; }
+        statusEl.textContent = (res.j && (res.j.message || res.j.error)) || 'Something failed. Try again.';
+      })
+      .catch(function () { statusEl.textContent = 'Network error. Try again.'; });
+  }
+
+  $('claimBtn').addEventListener('click', function () {
+    var rows = Object.values(S.selected);
+    var st = $('claimStatus');
+    if (!rows.length) { st.textContent = 'Select the entries that are you.'; return; }
+    if (!$('consentBox').checked) { st.textContent = 'Tick the consent box first.'; return; }
+    // Every selected row carries the claimer's surname, so the shared
+    // token names the shard the server should re-read.
+    var common = rows.map(function (r) { return toks(r.n); })
+      .reduce(function (a, b) { return a.filter(function (t) { return b.indexOf(t) >= 0; }); });
+    if (!common.length) { st.textContent = 'Those entries do not share a name. Select only rows that are you.'; return; }
+    post({
+      mode: 'tabroom',
+      shard: common[0][0],
+      rowIds: rows.map(function (r) { return r.i; }),
+      claimedName: rows[0].n,
+      consent: true,
+    }, st, showDone);
+  });
+
+  // ── self report ───────────────────────────────────────────────────
+  $('levels').innerHTML = LEVELS.map(function (l) {
+    return '<label class="level"><input type="radio" name="lvl" value="' + l[0] + '">' +
+      '<span class="lab">' + l[1] + '</span><span class="est">~' + l[2] + '</span></label>';
+  }).join('');
+  function selfReady() {
+    $('selfBtn').disabled = !(document.querySelector('input[name=lvl]:checked') && $('consentSelf').checked);
+  }
+  document.querySelectorAll('input[name=lvl]').forEach(function (r) { r.addEventListener('change', selfReady); });
+  $('consentSelf').addEventListener('change', selfReady);
+  $('selfBtn').addEventListener('click', function () {
+    var lvl = document.querySelector('input[name=lvl]:checked');
+    if (!lvl) return;
+    post({ mode: 'self', level: lvl.value, consent: true }, $('selfStatus'), showDone);
+  });
+
+  // ── done ──────────────────────────────────────────────────────────
+  function showDone(res, returning) {
+    $('intro').hidden = true;
+    var d = $('done');
+    d.hidden = false;
+    var r = res.rating || {};
+    $('doneRating').textContent = r.rating || '';
+    var unc = r.rd ? ' Uncertainty is ±' + r.rd + ' for now.' : '';
+    if (returning) {
+      $('doneTier').textContent = 'Your Debate Rating';
+      $('doneBody').textContent = (res.seeded ? 'Seeded from your imported record. A seed applies once.' : '') + unc +
+        ' It tightens with every rated round you debate here; three rated rounds put you on the public board.';
+    } else {
+      $('doneBody').textContent = 'This is your Debate Rating now, seeded from your record.' + unc +
+        ' It tightens with every rated round you debate here, and three rated rounds put you on the public board.';
+      try { if (window.track) window.track('record_import', { source: res.seeded && res.seeded.source }); } catch (e) {}
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── auth + stats ──────────────────────────────────────────────────
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged(function (u) {
+      // Anonymous Firebase users are not signed in (notifications.js
+      // mints one on every page); gate on !isAnonymous.
+      if (u && !u.isAnonymous) {
+        u.getIdToken().then(function (t) {
+          S.token = t;
+          // Already seeded or already rated? This page becomes the
+          // "here is your number" surface instead of a second import.
+          fetch('/api/record-import', { headers: { Authorization: 'Bearer ' + t } })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (j && j.ok && j.exists && (j.seeded || (j.rating && j.rating.games > 0))) showDone(j, true);
+            })
+            .catch(function () {});
+        });
+      } else S.token = '';
+    });
+  }
+  fetch('/records-index/meta.json').then(function (r) { return r.json(); }).then(function (m) {
+    if (m && m.tournaments) $('statTourns').textContent = m.tournaments;
+  }).catch(function () {});
+})();
+</script>
+<script defer src="/js/track.js"></script>
+<script src="/js/topbar.js" defer></script>
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+</body>
+</html>
