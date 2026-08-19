@@ -56,7 +56,13 @@
   // endpoints that call isNamedAccount() belong on this list.
   var AUTH_ROUTES = [
     '/api/claude', '/api/gemini', '/api/grok',
-    '/api/openai-chat', '/api/deepseek', '/api/openlab'
+    '/api/openai-chat', '/api/deepseek', '/api/openlab',
+    // Added 2026-08-19 with the per-caller metering pass. /api/tts in
+    // particular MUST get the token: it now resolves the paid plan from the
+    // account rather than trusting body.premium, so a tokenless call means a
+    // paying user silently drops to the free voice.
+    '/api/tts', '/api/transcribe', '/api/translate',
+    '/api/flow', '/api/extract-claims'
   ];
 
   function needsAuth(url) {

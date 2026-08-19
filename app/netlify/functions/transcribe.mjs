@@ -22,6 +22,8 @@
 // mic kills that.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { resolveCaller } from './lib/caller.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
 
 const MODEL = process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-transcribe';
 
@@ -63,29 +65,19 @@ function getCorsHeaders(request) {
 // listener sits near 2.4/min — the minute cap only bites on something
 // hammering the endpoint. The hour cap bounds a stuck client that never
 // stops recording: 400 segments is roughly 2.8 hours of audio per IP.
-const hits = new Map();
-const LAYERS = [
-  { window: 60_000, max: 30, code: 'RATE_MINUTE' },
-  { window: 3_600_000, max: 400, code: 'RATE_HOUR' },
+// Moved onto lib/rate-limit.mjs and keyed by caller on 2026-08-19. The old
+// counter was a module-scope Map, so it counted per Netlify isolate rather
+// than per caller, and it keyed on an x-forwarded-for read BEFORE the
+// Netlify-set address — a client-settable header, so rotating it walked
+// straight past the cap. A signed-in user now gets their own, larger budget.
+const LAYERS_ANON = [
+  { window: 60_000, max: 30, label: 'minute' },
+  { window: 3_600_000, max: 400, label: 'hour' },
 ];
-
-function checkRate(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < 3_600_000);
-  for (const layer of LAYERS) {
-    if (arr.filter((t) => now - t < layer.window).length >= layer.max) {
-      return { ok: false, code: layer.code };
-    }
-  }
-  arr.push(now);
-  hits.set(ip, arr);
-  if (hits.size > 5000) {
-    const keep = Array.from(hits.entries()).slice(-2500);
-    hits.clear();
-    for (const [k, v] of keep) hits.set(k, v);
-  }
-  return { ok: true };
-}
+const LAYERS_USER = [
+  { window: 60_000, max: 45, label: 'minute' },
+  { window: 3_600_000, max: 900, label: 'hour' },
+];
 
 // Domain hint. Transcription models guess badly at debate jargon left cold
 // ("POI" → "poi", "Opp" → "op", "turn the case" → "turn to case"), and the
@@ -118,14 +110,12 @@ export default async (request) => {
       }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    const ip = request.headers.get('x-forwarded-for')
-      || request.headers.get('x-nf-client-connection-ip')
-      || 'anon';
-    const rate = checkRate(ip);
+    const caller = await resolveCaller(request);
+    const rate = await checkLayers('transcribe', caller.key, caller.named ? LAYERS_USER : LAYERS_ANON);
     if (!rate.ok) {
       return new Response(JSON.stringify({
         error: 'Too many audio segments. Give it a minute.',
-        code: rate.code,
+        code: 'RATE_' + String(rate.layer || '').toUpperCase(),
       }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 

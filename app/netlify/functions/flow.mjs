@@ -7,6 +7,8 @@
 // Analyze. Raw audio goes through /api/transcribe and is never retained here.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { resolveCaller } from './lib/caller.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
 
 const MODEL = process.env.FLOW_MODEL || 'claude-sonnet-4-6';
 const MAX_TOKENS = 5200;
@@ -31,28 +33,19 @@ function corsHeaders(request) {
   };
 }
 
-const hits = new Map();
-const RATE_LAYERS = [
-  { window: 60_000, max: 5, code: 'RATE_MINUTE' },
-  { window: 3_600_000, max: 20, code: 'RATE_HOUR' },
+// Moved onto lib/rate-limit.mjs and keyed by caller on 2026-08-19. Same two
+// defects as the other per-IP counters: a module-scope Map counts per Netlify
+// isolate rather than per caller, and keying on a client-settable
+// x-forwarded-for read before the Netlify-set address means rotating one
+// header walks past the cap. Signed-in users get their own, larger budget.
+const RATE_LAYERS_ANON = [
+  { window: 60_000, max: 5, label: 'minute' },
+  { window: 3_600_000, max: 20, label: 'hour' },
 ];
-function checkRate(ip) {
-  const now = Date.now();
-  const recent = (hits.get(ip) || []).filter((time) => now - time < 3_600_000);
-  for (const layer of RATE_LAYERS) {
-    if (recent.filter((time) => now - time < layer.window).length >= layer.max) {
-      return { ok: false, code: layer.code };
-    }
-  }
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) {
-    const keep = Array.from(hits.entries()).slice(-2500);
-    hits.clear();
-    for (const [key, value] of keep) hits.set(key, value);
-  }
-  return { ok: true };
-}
+const RATE_LAYERS_USER = [
+  { window: 60_000, max: 10, label: 'minute' },
+  { window: 3_600_000, max: 60, label: 'hour' },
+];
 
 const SYSTEM_PROMPT = `You are a tournament debate flow analyst. Convert supplied speech material into a precise, format-aware flow and response plan.
 
@@ -275,15 +268,16 @@ export default async (request) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  const ip = request.headers.get('x-forwarded-for')
-    || request.headers.get('x-nf-client-connection-ip') || 'anon';
-  const rate = checkRate(ip);
+  const caller = await resolveCaller(request);
+  const rate = await checkLayers('flow', caller.key, caller.named ? RATE_LAYERS_USER : RATE_LAYERS_ANON);
   if (!rate.ok) {
     return new Response(JSON.stringify({
-      error: rate.code === 'RATE_MINUTE'
+      error: rate.layer === 'minute'
         ? 'Too many flow analyses. Give it a minute.'
-        : 'Flow analysis limit reached for this hour. Try again later.',
-      code: rate.code,
+        : caller.named
+          ? 'Flow analysis limit reached for this hour. Try again later.'
+          : 'Flow analysis limit reached for this hour. Sign in for a higher limit.',
+      code: 'RATE_' + String(rate.layer || '').toUpperCase(),
     }), { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 

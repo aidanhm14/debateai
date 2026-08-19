@@ -7,6 +7,8 @@
 //   Override the model with env OPENAI_TTS_MODEL=tts-1 if a rollback is needed.
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { humanizeForTTS } from './lib/tts-humanize.mjs';
+import { resolveCaller } from './lib/caller.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -32,38 +34,38 @@ function getCorsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Firebase-AppCheck',
   };
 }
 
-// Layered per-IP caps. The minute cap was the only gate until 2026-05-18;
-// added a day layer on the credit-burn audit because a bot hammering at
-// 60/min under the threshold could rack up 60×60 = 3,600 TTS calls/hour =
-// 86K/day per IP, which is meaningful ElevenLabs/OpenAI spend. 100/day
-// reflects realistic legit use (a heavy human session is ~30-50 TTS calls).
-const TTS_LAYERS = [
+// Layered caps. The minute cap was the only gate until 2026-05-18; a day
+// layer landed on the credit-burn audit because a bot hammering at 60/min
+// under the threshold racks up 3,600 TTS calls/hour, which is meaningful
+// ElevenLabs/OpenAI spend.
+//
+// Two things changed on 2026-08-19.
+//
+// (1) These moved off a module-scope Map and onto lib/rate-limit.mjs. Netlify
+// runs each concurrent invocation in its own isolate, so the old Map was
+// per-instance: "100/day" actually meant 100 per warm instance, and a cold
+// start wiped the count entirely. Under light traffic that reads as a working
+// limit. It is the exact bug the shared lib was written to fix for
+// realtime-session.mjs; tts.mjs just never got moved over.
+//
+// (2) They are keyed by CALLER, not by IP. An IP is not a person (a school on
+// one NAT is hundreds of people sharing a 100/day cap) and it is not an
+// account either (a paying user counted against the guest on the next desk).
+// A signed-in user now gets their own counter and a much higher ceiling,
+// which is what "sign in for higher limits" in the old error message
+// promised and never delivered.
+const TTS_LAYERS_ANON = [
   { window: 60_000,    max: 60,  label: 'minute' },
   { window: 86_400_000,max: 100, label: 'day'    },
 ];
-const rateLimitHistory = new Map(); // key → array of request timestamps
-
-function checkRateLimit(key) {
-  const now = Date.now();
-  const maxWindow = Math.max(...TTS_LAYERS.map(l => l.window));
-  const history = (rateLimitHistory.get(key) || []).filter(t => now - t < maxWindow);
-  for (const layer of TTS_LAYERS) {
-    const count = history.filter(t => now - t < layer.window).length;
-    if (count >= layer.max) return { ok: false, layer: layer.label };
-  }
-  history.push(now);
-  rateLimitHistory.set(key, history);
-  if (rateLimitHistory.size > 5000) {
-    const entries = Array.from(rateLimitHistory.entries());
-    rateLimitHistory.clear();
-    entries.slice(-2500).forEach(([k, v]) => rateLimitHistory.set(k, v));
-  }
-  return { ok: true };
-}
+const TTS_LAYERS_USER = [
+  { window: 60_000,    max: 90,  label: 'minute' },
+  { window: 86_400_000,max: 600, label: 'day'    },
+];
 
 const MAX_TEXT_LENGTH = 5000;
 
@@ -826,12 +828,17 @@ export default async (request, context) => {
     );
   }
 
-  const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
-  const ttsCheck = checkRateLimit('tts_' + ip);
+  // needPlan: the premium providers are the expensive ones, and body.premium
+  // is client-supplied. This is the only thing standing between an anonymous
+  // curl and the ElevenLabs bill.
+  const caller = await resolveCaller(request, { needPlan: true });
+  const ttsCheck = await checkLayers('tts', caller.key, caller.named ? TTS_LAYERS_USER : TTS_LAYERS_ANON);
   if (!ttsCheck.ok) {
     const msg = ttsCheck.layer === 'minute'
       ? 'Too many TTS requests, wait a moment.'
-      : 'Daily TTS cap reached on this IP. Come back tomorrow or sign in for higher limits.';
+      : caller.named
+        ? 'Daily voice cap reached. It resets tomorrow.'
+        : 'Daily voice cap reached. Sign in for a much higher limit.';
     return new Response(
       JSON.stringify({ error: 'RATE_LIMIT_' + ttsCheck.layer.toUpperCase() + ': ' + msg }),
       { status: 429, headers: { 'Content-Type': 'application/json', ...CORS } }
@@ -867,7 +874,13 @@ export default async (request, context) => {
       : { text: rawText, intensity: callerIntensity || 0 };
     const text = humanized.text;
     const intensity = Math.max(0, Math.min(1, humanized.intensity || 0));
-    const premium = !!body.premium;
+    // `body.premium` is a REQUEST, not a fact: it arrived in the JSON and
+    // anyone can set it. Until 2026-08-19 it was trusted verbatim, so an
+    // anonymous caller with no token at all could POST {premium:true} and be
+    // routed to ElevenLabs. Entitlement now comes from the verified account.
+    // Downgrade silently rather than erroring — a free user should still get
+    // their round, just on the OpenAI voice.
+    const premium = !!body.premium && caller.paid;
     const provider = (body.provider || '').toLowerCase(); // 'cartesia' opts into the A/B flag
     // Language hint. ElevenLabs (turbo_v2_5) and OpenAI (gpt-4o-mini-tts)
     // auto-detect from the input text, so language is only load-bearing
@@ -884,11 +897,16 @@ export default async (request, context) => {
     }
 
     let response;
+    // Which provider actually served. Surfaced as X-TTS-Provider on the way
+    // out: without it there is no way to tell a premium response from a free
+    // one, so "is the paid-voice gate working" was unanswerable from outside.
+    let served = 'none';
 
     // Premium + explicit opt-in → Cartesia Sonic (A/B flag, not default)
     if (premium && provider === 'cartesia' && cartesiaKey) {
       try {
         response = await cartesiaTTS(text, voice, speed, cartesiaKey, intensity, language);
+        served = 'cartesia';
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('Cartesia TTS error:', response.status, errText);
@@ -904,6 +922,7 @@ export default async (request, context) => {
     if (!response && premium && provider === 'inworld' && inworldKey) {
       try {
         response = await inworldTTS(text, voice, speed, inworldKey, language);
+        served = 'inworld';
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('Inworld TTS error:', response.status, errText);
@@ -919,6 +938,7 @@ export default async (request, context) => {
     if (!response && premium && elevenKey) {
       try {
         response = await elevenLabsTTS(text, voice, speed, elevenKey, intensity, language);
+        served = 'elevenlabs';
         if (!response.ok) {
           const errText = await response.text().catch(() => '');
           console.error('ElevenLabs TTS error:', response.status, errText);
@@ -944,6 +964,7 @@ export default async (request, context) => {
         ? body.instructions.slice(0, 600)
         : null;
       response = await openAITTS(text, voice, speed, openaiKey, intensity, customInstr);
+      served = 'openai';
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error('OpenAI TTS error:', response.status, errText);
@@ -973,6 +994,8 @@ export default async (request, context) => {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-cache',
         'Transfer-Encoding': 'chunked',
+        'X-TTS-Provider': served,
+        'Access-Control-Expose-Headers': 'X-TTS-Provider',
         ...CORS,
       },
     });

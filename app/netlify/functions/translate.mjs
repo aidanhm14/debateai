@@ -18,6 +18,8 @@
 // scoring bug, not a nicety.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { resolveCaller } from './lib/caller.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
 
 const MODEL = process.env.TRANSLATE_MODEL || 'gpt-4o-mini';
 const MAX_INPUT_CHARS = 4000;
@@ -60,21 +62,22 @@ const json = (body, status, request) =>
 // Per-IP throttle. Captions fire every couple of seconds during a live
 // speech, so the ceiling is deliberately higher than the brain
 // endpoints, but a rotating bot still gets stopped.
-const HITS = new Map();
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 90;
-
-function throttled(ip) {
-  const now = Date.now();
-  const rec = HITS.get(ip) || { n: 0, reset: now + WINDOW_MS };
-  if (now > rec.reset) { rec.n = 0; rec.reset = now + WINDOW_MS; }
-  rec.n += 1;
-  HITS.set(ip, rec);
-  if (HITS.size > 5000) {
-    for (const [k, v] of HITS) if (now > v.reset) HITS.delete(k);
-  }
-  return rec.n > MAX_PER_WINDOW;
-}
+// Moved onto lib/rate-limit.mjs and keyed by caller on 2026-08-19, with an
+// hour and a day layer added. The old counter had a 60-second window and
+// NOTHING above it, so a caller pinned just under 90/min could run all day
+// unbounded; it also lived in a module-scope Map, which counts per Netlify
+// isolate rather than per caller. Captions fire every couple of seconds
+// during a live speech, so the minute ceiling stays deliberately high.
+const TRANSLATE_LAYERS_ANON = [
+  { window: 60_000, max: 90, label: 'minute' },
+  { window: 3_600_000, max: 1200, label: 'hour' },
+  { window: 86_400_000, max: 4000, label: 'day' },
+];
+const TRANSLATE_LAYERS_USER = [
+  { window: 60_000, max: 120, label: 'minute' },
+  { window: 3_600_000, max: 2400, label: 'hour' },
+  { window: 86_400_000, max: 12000, label: 'day' },
+];
 
 export default async (request) => {
   // 204 must have a null body. new Response('') throws in undici and the
@@ -82,10 +85,9 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, request);
 
-  const ip = request.headers.get('x-nf-client-connection-ip')
-    || request.headers.get('x-forwarded-for')
-    || 'unknown';
-  if (throttled(ip)) return json({ error: 'Too many translation requests.' }, 429, request);
+  const caller = await resolveCaller(request);
+  const rate = await checkLayers('translate', caller.key, caller.named ? TRANSLATE_LAYERS_USER : TRANSLATE_LAYERS_ANON);
+  if (!rate.ok) return json({ error: 'Too many translation requests.', code: 'RATE_' + String(rate.layer || '').toUpperCase() }, 429, request);
 
   let body;
   try { body = await request.json(); }

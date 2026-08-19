@@ -8,7 +8,8 @@
 
 import { jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
-import { callerIp, checkLayers } from './lib/rate-limit.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
+import { resolveCaller } from './lib/caller.mjs';
 
 // Model is env-overridable so an expensive default can be rolled back without
 // a redeploy. Defaults to Haiku, not Opus — this endpoint summarizes a speech,
@@ -34,18 +35,26 @@ export default async (request) => {
     return errorResponse('POST only', 405, request);
   }
 
-  // App Check (soft until APP_CHECK_REQUIRED=true) + a hard per-IP rate limit
-  // so this LLM proxy can't be looped for free credit burn.
+  // App Check + a hard rate limit so this LLM proxy can't be looped for free
+  // credit burn. Keyed by caller rather than by IP since 2026-08-19: an IP is
+  // a whole school on one NAT sharing 60/hour, and it is also not an account,
+  // so a signed-in user was metered against the guest on the next desk.
   const appCheck = await checkAppCheck(request);
   if (!appCheck.ok) {
     return errorResponse('App verification failed. Reload and try again.', 401, request);
   }
-  const rl = await checkLayers('extract-claims', callerIp(request), [
-    { label: 'min', window: 60_000, max: 10 },
-    { label: 'hour', window: 3_600_000, max: 60 },
-  ]);
+  const caller = await resolveCaller(request);
+  const rl = await checkLayers('extract-claims', caller.key, caller.named
+    ? [
+        { label: 'min', window: 60_000, max: 20 },
+        { label: 'hour', window: 3_600_000, max: 180 },
+      ]
+    : [
+        { label: 'min', window: 60_000, max: 10 },
+        { label: 'hour', window: 3_600_000, max: 60 },
+      ]);
   if (!rl.ok) {
-    return errorResponse('Too many requests — give it a moment.', 429, request);
+    return errorResponse('Too many requests, give it a moment.', 429, request);
   }
 
   let body;
