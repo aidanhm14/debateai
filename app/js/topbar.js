@@ -15,10 +15,12 @@
    markup should remove it before mounting this. The CSS lives in
    /css/ui.css under .ui-topbar* — every page already loads ui.css. */
 (function(){
-  /* DARK MODE RE-ENABLED as an OPT-IN (2026-08-10, Aidan). The sun/moon
-     toggle is back on the topbar sitewide. Everyone defaults to the
-     light surface; dark is a deliberate click, never a random bucket
-     (the 2026-06-01 70/30 split stays retired). Prefs parked by the
+  /* DARK MODE is on sitewide via the sun/moon toggle (re-enabled as an
+     opt-in 2026-08-10). Since 2026-08-19 it is ALSO an assignment: new
+     visitors are bucketed 70% light / 30% crimson, per Aidan, which
+     revives the 2026-06-01 split that 08-10 had retired. The toggle
+     still overrides the assignment permanently on the first click, so
+     nobody is stuck in an arm. Prefs parked by the
      2026-07-09 disable are restored once from da-theme-saved-pref.
      Pair with the same flag in landing.html (early-paint script +
      lighting-nudge toast). Pages with data-force-theme (hardcoded dark
@@ -1488,12 +1490,46 @@
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) {
-      // No explicit pick yet: light, always. Dark is opt-in via the
-      // toggle, never a random bucket (2026-08-10, supersedes the
-      // 2026-06-01 70/30 split).
+      /* 2026-08-19 per Aidan: 70% light / 30% crimson for visitors with
+         no pick yet, restoring the split retired on 2026-08-10. The
+         landing runs the same assignment in its own <head> script so its
+         visitors are bucketed before first paint; this covers everyone
+         whose first page is one of the other topbar pages. Those pages
+         paint before topbar.js runs, so a crimson-bucketed visitor can
+         see one light frame on that first load only, then never again.
+         da-theme is the live pick and the toggle overwrites it;
+         da-theme-ab keeps the ASSIGNED arm so the GA4 property below
+         still segments a visitor who later toggles away.
+         ?themeAb=light|crimson forces an arm for QA. */
       saved = 'light';
-      try { localStorage.setItem('da-theme', saved); } catch(e){}
+      try {
+        var q = (location.search || '').toLowerCase();
+        if (/[?&]themeab=crimson(?:&|$)/.test(q)) saved = 'crimson';
+        else if (/[?&]themeab=light(?:&|$)/.test(q)) saved = 'light';
+        else saved = (Math.random() < 0.3) ? 'crimson' : 'light';
+      } catch(e){ saved = 'light'; }
+      try {
+        localStorage.setItem('da-theme', saved);
+        localStorage.setItem('da-theme-ab', saved);
+      } catch(e){}
     }
+    /* Report the arm on every topbar page, not just the landing, so
+       conversions anywhere in the funnel segment by theme. Reads the
+       assigned arm and falls back to the live pick for the visitors who
+       predate this key. */
+    try {
+      var abArm = localStorage.getItem('da-theme-ab') || saved;
+      var abAssigned = !!window.__themeAbAssigned;
+      window.__themeAb = abArm;
+      /* The landing's early-paint script reports the arm itself when
+         gtag happens to be ready by then; this only covers the case it
+         could not, plus every other topbar page. */
+      if (window.gtag && !window.__themeAbSent) {
+        gtag('set', 'user_properties', { theme_ab: abArm });
+        gtag('event', 'theme_ab_view', { variant: abArm, assigned: abAssigned });
+        window.__themeAbSent = true;
+      }
+    } catch(e){}
     document.documentElement.setAttribute('data-theme', saved);
     // Auto-sync data-lighting from data-theme on every page load. Fixes
     // the legacy out-of-sync state where /practice set data-lighting
