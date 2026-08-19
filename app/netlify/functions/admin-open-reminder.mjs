@@ -72,8 +72,8 @@ function renderEmail({ firstName, uid, tournamentName }) {
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     If you haven't been on in a while, the site matches you with a real person,
-    you argue it out, and an AI judge writes up who won and why. Saturday,
-    August 29 is the first real tournament on it. All online, doors open 10 AM
+    you argue it out, and an AI judge writes up who won and why.
+    ${esc(EVENT_LABEL)} is the first real tournament on it. All online, doors open 10 AM
     Eastern, come and go whenever. Rounds you play count on the standings, the
     top of the board goes into a streamed bracket that evening, and first place
     takes $500 ($250 and $100 behind it). You don't need debate experience,
