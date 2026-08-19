@@ -2151,12 +2151,14 @@ function renderEmpty(user, profileData){
          them from exactly the people most likely to have them. -->
     ${savedRoundsSectionHtml()}
 
+    ${tournamentCardHtml()}
     ${tabroomCardHtml(user, profileData)}
 
     ${renderSettings(user, profileData)}
   `;
   try { wireSettings(user, []); } catch(e){ console.warn('[profile] wireSettings (empty) failed:', e && e.message); }
   try { wireTabroom(user); } catch(e){ console.warn('[profile] wireTabroom (empty) failed:', e && e.message); }
+  try { mountTournamentCard(user); } catch(e){ console.warn('[profile] mountTournamentCard failed:', e && e.message); }
   hydrateSavedRounds(user);
   hydrateProfileAvatar();
 }
@@ -2317,6 +2319,7 @@ function renderDashboard(user, rows, profileData){
       <div class="sc-body" style="color:var(--text-dim)">The AI is checking how it has been reading you. One moment.</div>
     </div>
 
+    ${tournamentCardHtml()}
     ${tabroomCardHtml(user, profileData)}
 
     <div class="section"><h2>Format mastery</h2><div class="right">${fmtRows.length} format${fmtRows.length===1?'':'s'} touched</div></div>
@@ -2367,6 +2370,7 @@ function renderDashboard(user, rows, profileData){
   // best-effort and never block first paint.
   try { wireSettings(user, rows); } catch(e){ console.warn('[profile] wireSettings failed:', e && e.message); }
   try { wireTabroom(user); } catch(e){ console.warn('[profile] wireTabroom failed:', e && e.message); }
+  try { mountTournamentCard(user); } catch(e){ console.warn('[profile] mountTournamentCard failed:', e && e.message); }
   fillRank(s);
   hydrateStyleProfile(user, s);
   hydrateCerts(user);
@@ -3018,6 +3022,69 @@ function tabroomEntriesHtml(tb){
       ${sub ? `<div class="tb-row-sub">${sub}</div>` : ''}
     </div>`;
   }).join('')}</div>`;
+}
+
+/* ── Tournament entry card (2026-08-19) ───────────────────────────────
+   "Am I actually in?" was only answerable by going back to /tournaments
+   and reading the entrant list, so an entrant who paid had no surface
+   that told them it worked. This card is that receipt.
+
+   It is hidden until an entry is found, so a debater who has not
+   entered anything never sees an empty card asking them to.
+
+   The paid/free distinction is the point. Since the free-entry cutoff a
+   registration and a cash-prize slot are different things, and a card
+   that said only "you are in" would let a free entrant believe they are
+   playing for the pool. `me.prizeEligible` comes from the authenticated
+   `me` block on /api/tournament, never from the public entries array,
+   which withholds payment status by design. */
+function tournamentCardHtml(){
+  return `<section id="tournamentCard" class="style-card" hidden aria-label="Your tournament entry"></section>`;
+}
+
+function tournamentCardInner(t, me){
+  const when = t.startsAt ? escapeHtml(String(t.startsAt)) : '';
+  const eligible = me && me.prizeEligible;
+  const tag = eligible ? 'Prize eligible' : 'Entered';
+  const status = me && me.checkedIn
+    ? '<span>Checked in</span>'
+    : '<span>Check in on the day, then join a room</span>';
+  /* Free entrants are told plainly, with the fix next to the fact. */
+  const money = eligible
+    ? '<span>Playing for the cash pool</span>'
+    : '<span>Rounds and ranking only, not the cash pool</span>';
+  return `
+    <div class="sc-eyebrow"><span>Your tournament</span><span class="sc-eyebrow-tag">${escapeHtml(tag)}</span></div>
+    <div class="sc-body"><strong>You are in ${escapeHtml(t.name || 'the tournament')}.</strong>${when ? ' ' + when + '.' : ''}</div>
+    <div class="sc-meta">${status}<span class="sc-meta-dot">·</span>${money}</div>
+    <div class="sc-actions">
+      <a class="sc-btn primary" href="/open">Open the tournament page</a>
+      <a class="sc-btn" href="/tournaments">Rules and prizes</a>
+    </div>
+  `;
+}
+
+async function mountTournamentCard(user){
+  const card = document.getElementById('tournamentCard');
+  if (!card || !user) return;
+  let token = '';
+  try { token = await user.getIdToken(); } catch (_) { return; }
+  const headers = { Authorization: 'Bearer ' + token };
+  try {
+    const list = await (await fetch('/api/tournament', { headers })).json();
+    /* Finished events are not news on a dashboard; a cancelled one is
+       worse than silence. Only things a debater can still turn up to. */
+    const live = (list.tournaments || []).filter((t) =>
+      ['registration','running','break','elims'].indexOf(t.status) !== -1);
+    for (const t of live){
+      const d = await (await fetch('/api/tournament?t=' + encodeURIComponent(t.tid || t.slug), { headers })).json();
+      if (d && d.me){
+        card.innerHTML = tournamentCardInner(d.tournament || t, d.me);
+        card.hidden = false;
+        return;
+      }
+    }
+  } catch (e) { /* dashboard must render without this card */ }
 }
 
 function tabroomCardInner(user, tb){

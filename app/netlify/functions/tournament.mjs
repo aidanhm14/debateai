@@ -146,6 +146,43 @@ async function readTournament(db, key) {
   return null;
 }
 
+// ── `me`: the caller's own entry, including the fields publicEntry
+// deliberately withholds ────────────────────────────────────────────
+// publicEntry omits paidEntry / prizeEligible / entryKind because those
+// are one entrant's payment status and nobody else's business. But the
+// entrant themself needs them: since the free-entry cutoff, "I am
+// registered" and "I am eligible for the cash prize" are different
+// facts, and a dashboard that shows only the first would let a free
+// entrant believe they are playing for money.
+//
+// Unauthenticated callers get no `me` key at all, and a bad or expired
+// token is treated as absent rather than an error: this is a public
+// page that happens to know you, so a stale token should degrade to the
+// signed-out view, never 401 the whole tournament.
+async function withMine(db, payload, request) {
+  const token = extractBearerToken(request);
+  if (!token) return payload;
+  let uid;
+  try { uid = (await verifyIdToken(token)).sub; } catch { return payload; }
+  if (!uid) return payload;
+  try {
+    const snap = await db.collection('tournaments').doc(payload.tournament.tid)
+      .collection('entries').where('members', 'array-contains', uid).limit(1).get();
+    if (snap.empty) return { ...payload, me: null };
+    const d = snap.docs[0];
+    const e = d.data() || {};
+    return { ...payload, me: {
+      entryId: d.id,
+      name: e.name || '',
+      status: e.status || 'registered',
+      checkedIn: e.status === 'checked_in',
+      paidEntry: e.paidEntry === true,
+      prizeEligible: e.prizeEligible === true,
+      entryKind: e.entryKind || null,
+    } };
+  } catch { return payload; }
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   const db = getDb();
@@ -179,7 +216,7 @@ export default async (request) => {
     }
 
     const cached = cacheGet('t:' + key);
-    if (cached) return jsonResponse(cached, 200, request);
+    if (cached) return jsonResponse(await withMine(db, cached, request), 200, request);
 
     const t = await readTournament(db, key);
     if (!t) return errorResponse('No such tournament', 404, request);
@@ -218,7 +255,11 @@ export default async (request) => {
       rounds,
     };
     cacheSet('t:' + key, payload);
-    return jsonResponse(payload, 200, request);
+    // withMine runs AFTER cacheSet on purpose. `me` is per-caller, and
+    // this cache is shared across every visitor for this tournament, so
+    // folding it into the cached object would serve one entrant's
+    // payment status to everyone who loads the page next.
+    return jsonResponse(await withMine(db, payload, request), 200, request);
   }
 
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
