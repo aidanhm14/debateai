@@ -7391,7 +7391,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      breakpoints. */
   .fscreen{
     --fs-rhythm:clamp(16px,3vh,28px);  /* between blocks in the copy column */
-    --fs-globe:clamp(200px,29vh,300px); /* the globe, one size, no arms */
+    --fs-globe:clamp(240px,35vh,340px); /* the globe, one size, no arms */
   }
   .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) clamp(18px,5vw,72px) clamp(20px,3vh,36px)}
   /* The section starts under a 32px in-flow strip (ui.css gives the body
@@ -7485,11 +7485,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Equal boxes also keep the centered row symmetric. */
   .fs-cta{display:inline-flex;align-items:center;justify-content:center;
     gap:10px;border-radius:999px;text-decoration:none;transition:transform .15s,box-shadow .15s;
-    padding:16px 28px;font-size:1.08rem}
-  /* The pair flex-shares the row, so the two are pixel-equal and always
-     fit on ONE row whatever the column width; the walkthrough button
-     (flex auto) wraps under them. */
-  .fs-cta--primary,.fs-cta--ghost{flex:0 0 auto;min-width:158px;max-width:none}
+    padding:19px clamp(20px,2.4vw,34px);font-size:clamp(1.06rem,.9vw,1.16rem)}
+  /* Scaled up per Aidan 2026-08-19. The pair has to stay on ONE row at
+     every desktop width, and the column is only 371px at 941px wide, so
+     a fixed min-width big enough to read at 1440 wrapped the pair there.
+     Padding and type size scale with the viewport instead and the buttons
+     shrink to fit rather than dropping to two rows; they stay pixel-equal
+     because they share the same box. Under 640px an arm further down
+     takes over and makes each one full width. */
+  .fs-cta--primary,.fs-cta--ghost{flex:0 1 auto;min-width:0;max-width:none;white-space:nowrap}
   .fs-cta--primary{font-weight:800;
     background:#dc2626;color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.26)}
   .fs-cta--primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(220,38,38,.38)}
@@ -7590,19 +7594,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        board and the sign-in row under it. The column gap stays; the row
        gap is now the real distance between the board and the sign-in row
        under it, rather than 0 plus a margin on the row itself. */
-    .fscreen-wrap{row-gap:14px;align-items:start}
+    .fscreen-wrap{row-gap:14px;align-items:center}
     .fscreen-copy{grid-column:1;grid-row:1 / span 2}
     .fscreen-wrap > .fs-signin--side{grid-column:2;grid-row:2;align-self:start}
-    /* start, not end: the copy column and the board begin on the same
-       line. They were 51px apart, which read as a misalignment rather
-       than as a deliberate stagger, and it left the copy column's last
-       block (the globe) hanging below the board with nothing beside it. */
-    .fscreen-wrap > .fs-board{grid-column:2;grid-row:1;align-self:start}
+    /* centre, not start or end. Top-aligning was right while the two
+       columns were within 8px of each other, but the globe is now the
+       tallest thing on the screen and the copy column outruns the board
+       by ~70px signed in. Centring splits that difference evenly top and
+       bottom, so the mismatch reads as a composition rather than as a
+       ragged edge, and it self-corrects if either column changes height. */
+    .fscreen-wrap > .fs-board{grid-column:2;grid-row:1;align-self:center}
     /* SIGNED IN: the sign-in row under the board is display:none, so row
-       2 of column 2 holds nothing and the board takes both rows. It still
-       starts on the copy's line; the copy runs slightly longer and ends
-       on the globe caption, which is the lightest thing in the column. */
-    body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:start}
+       2 of column 2 holds nothing and the board takes both rows, centred
+       against the copy the same way. This is the state most returning
+       visitors see, and it is the one with the bigger height difference. */
+    body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:center}
   }
   /* Live-round count on Spectate. Filled by the watch-live poll near the
      end of the document; stays hidden until at least one public round is
@@ -7737,34 +7743,41 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      caption now clears the box entirely and the globe reads as sphere,
      ground, line. */
   .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:none;margin:0;gap:6px}
-  /* 2026-08-19 (second pass, per Aidan: position it more strategically,
-     and no headline or descriptor line). The centered-axis version this
-     replaces had three axes on screen at once: the button pair centered,
-     the walkthrough wrapping to a third inset under it (measured at 104px
-     in from the column edge), and the Open card running the full width
-     off its own left edge. Centering is what a headline anchors; with no
-     headline there is nothing holding a centered column together, so the
-     left edge does the work instead and everything starts at the same x. */
+  /* Axes. The button pair and the Open card sit on the column's left
+     edge; the globe centres. That reads as one composition rather than
+     two because the Open card directly above it runs the FULL column
+     width, so the card's centre and the globe's centre are the same line
+     and the globe hangs off it.
+     History: an earlier pass centred the buttons too and had three axes
+     at once (buttons centred, the walkthrough wrapping to a third inset
+     104px in, the card on its own left edge), which is what pushed
+     everything onto the left edge in the first place. The buttons stay
+     there. Only the globe moved, per Aidan 2026-08-19, together with the
+     size bump that makes it wide enough to carry a centred axis. */
   .fs-copy-stranger .fs-ctas{justify-content:flex-start}
   .fscreen-copy .fs-globe{align-items:flex-start;margin-left:0;margin-right:auto}
+  @media(min-width:941px){
+    .fscreen-copy .fs-globe{align-items:center;margin-left:0;margin-right:0}
+  }
   .fs-globe .hero-globe-canvas-wrap{margin:0;width:100%;max-width:var(--fs-globe);min-width:190px;min-height:190px}
   /* The canvas box is not the globe. world-globe.js draws the disc at
      R = min(W,H) * 0.42 about the box centre, so the square canvas carries
-     exactly 8% of empty margin on its left, right and top (the floor
-     shadow fills the bottom, which is why only two sides are offset here).
-     Left over the whole column that read as a 21px indent: the buttons,
-     the Open card and the caption all sit flush on the column edge and the
-     sphere alone stepped in. Vertically it read as a 48px gap under the
-     Open card where every other seam in the column is 27px. Offsetting the
-     box by the renderer's own inset puts the SPHERE on the column's left
-     edge and in the column's rhythm, instead of the padded box it is drawn
-     inside. The offset is a fraction of --fs-globe, so it tracks the globe
-     at every size. */
+     exactly 8% of empty margin on its left, right and top; the floor
+     shadow fills the bottom, which is why only the top is pulled back.
+     Horizontally the 8% now cancels, because the box is centred and the
+     margin is even on both sides. Vertically it does not: it read as a
+     48px gap under the Open card where every other seam in the column is
+     27px. Offsetting the top by the renderer's own inset puts the SPHERE
+     in the column's rhythm instead of the padded box it is drawn inside,
+     as a fraction of --fs-globe so it tracks the globe at every size. */
   @media(min-width:941px){
     .fs-globe .hero-globe-canvas-wrap{
-      margin:calc(var(--fs-globe) * -0.08) 0 0 calc(var(--fs-globe) * -0.08)}
+      margin:calc(var(--fs-globe) * -0.08) auto 0}
   }
   .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:340px;margin-top:0;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
+  @media(min-width:941px){
+    .fs-globe .story-globe-caption{align-items:center;text-align:center;max-width:none}
+  }
   .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
   /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
      column was authored with hardcoded light-surface ink, so each ink
