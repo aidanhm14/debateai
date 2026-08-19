@@ -7382,10 +7382,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    under the bar. */
   .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) clamp(18px,5vw,72px) clamp(20px,3vh,36px)}
   .fscreen-wrap{width:100%;max-width:1200px;display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(32px,4.2vw,64px);align-items:center}
-  /* Optical correction: the copy block is much shorter than the board, so
-     dead-center reads as "floating low." A -5vh lift overshot and left a
-     dead bottom-left corner; -2vh is enough. Desktop only. */
-  @media(min-width:941px){.fscreen-copy{margin-top:-2vh}}
+  /* Was a -2vh optical lift correcting a dead-centred copy column against
+     a taller board. 2026-08-19 (spacing pass): the two columns now start
+     on the same line instead of centring against each other, so the
+     correction has nothing left to correct. See the align-items rule in
+     the desktop block below. */
+  @media(min-width:941px){.fscreen-copy{margin-top:0}}
   @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}.fscreen{min-height:0}}
 
   /* The prediction eyebrow links directly to the points board. */
@@ -7413,14 +7415,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   :root[data-first-copy="practice"] .fs-copy-stranger{display:none}
   :root[data-first-copy="practice"] .fs-copy-practice{display:block}
   /* 2026-08-19 per Aidan: the left stack read as crowded. Column gap
-     stays 14px (the two CTAs sit tight as a pair); the ROW gap is what
-     opens, so the walkthrough link stops crowding the buttons. */
-  .fs-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px}
+     stays tight at 12px (the two CTAs sit as a pair); the ROW gap is what
+     opens, so the walkthrough link stops crowding the buttons. Measured
+     at 10px, which was the tightest seam in a column whose other two
+     seams are 28px; 14px reads as one cluster without the crowding. */
+  .fs-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:14px 12px}
   /* ── The Debatable Open, one line ── 2026-08-19 ──────────────────
      Sized deliberately against the band that was removed on 08-12 for
      running 1285px on a phone. This is a single row plus a fine-print
      line, so the reason that band came off does not apply to it. */
-  .fs-open-card{margin:20px 0 0;padding:12px 16px 11px;border-radius:14px;
+  .fs-open-card{margin:28px 0 0;padding:12px 16px 11px;border-radius:14px;
     border:1px solid rgba(220,38,38,.38);background:#fffdfa;
     box-shadow:0 6px 20px rgba(26,26,31,.07);
     transition:border-color .15s,background .15s,transform .15s}
@@ -7557,17 +7561,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     /* The wrap's `gap` was authored for ONE row, so it was only ever a
        column gap; adding a second row made it a 64px trench between the
        board and the sign-in row under it. Column gap stays. */
-    .fscreen-wrap{row-gap:0}
+    .fscreen-wrap{row-gap:0;align-items:start}
     .fscreen-copy{grid-column:1;grid-row:1 / span 2}
     .fscreen-wrap > .fs-signin--side{grid-column:2;grid-row:2;align-self:start}
-    /* end, not center: row 1 holds the leftover column height, so the
-       board hugs the sign-in row under it and the two read as one
-       column. */
-    .fscreen-wrap > .fs-board{grid-column:2;grid-row:1;align-self:end}
+    /* start, not end: the copy column and the board begin on the same
+       line. They were 51px apart, which read as a misalignment rather
+       than as a deliberate stagger, and it left the copy column's last
+       block (the globe) hanging below the board with nothing beside it. */
+    .fscreen-wrap > .fs-board{grid-column:2;grid-row:1;align-self:start}
     /* SIGNED IN: the sign-in row under the board is display:none, so row
-       2 of column 2 holds nothing and the board takes both rows,
-       centring against the copy. */
-    body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:center}
+       2 of column 2 holds nothing and the board takes both rows. It still
+       starts on the copy's line; the copy runs slightly longer and ends
+       on the globe caption, which is the lightest thing in the column. */
+    body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:start}
   }
   /* Live-round count on Spectate. Filled by the watch-live poll near the
      end of the document; stays hidden until at least one public round is
@@ -7696,7 +7702,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   /* 2026-08-05: live presence globe in the hero (swapped with the
      walkthrough card, which now lives in the livenow stage). */
-  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:430px;margin-top:7px}
+  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:430px;margin-top:28px}
   /* 2026-08-19 (second pass, per Aidan: position it more strategically,
      and no headline or descriptor line). The centered-axis version this
      replaces had three axes on screen at once: the button pair centered,
@@ -7707,8 +7713,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      left edge does the work instead and everything starts at the same x. */
   .fs-copy-stranger .fs-ctas{justify-content:flex-start}
   .fscreen-copy .fs-globe{align-items:flex-start;margin-left:0;margin-right:auto}
-  .fs-globe .hero-globe-canvas-wrap{margin:0;max-width:268px;min-width:190px;min-height:190px}
-  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:280px;margin-top:-10px;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
+  .fs-globe .hero-globe-canvas-wrap{margin:0;max-width:300px;min-width:190px;min-height:190px}
+  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:300px;margin-top:-10px;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
   .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
   /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
      column was authored with hardcoded light-surface ink, so each ink
@@ -7736,9 +7742,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Short desktop windows already shrink the globe to keep the stack on
      one screen, so the widened rhythm above winds back down with it. */
   @media(min-width:941px) and (max-height:820px){
-    .fs-ctas{gap:18px 14px}
+    .fs-ctas{gap:12px 12px}
     .fs-open-card{margin-top:22px}
-    .fs-globe{margin-top:18px}
+    .fs-globe{margin-top:22px}
   }
   @media(min-width:941px) and (max-height:760px){.fs-globe .hero-globe-canvas-wrap,.fs-globe .story-globe-caption{max-width:225px}}
   @media(max-width:940px){
