@@ -1,8 +1,14 @@
 /* admin-open-reminder.mjs  ·  POST /api/admin/open-reminder
  *
- * The SECOND touch on The Debatable Open: a short deadline email sent in
- * the final days before the founding cutoff (Saturday, August 29), to the
- * same list the announcement reached plus everyone who joined since.
+ * The SECOND touch on The Debatable Open: a short email sent in the
+ * final days before the event (Saturday, August 29), to the same list
+ * the announcement reached plus everyone who joined since.
+ *
+ * It stopped being a DEADLINE email on 2026-08-19, when the automatic
+ * fee waiver was extended to entries close. There is no cutoff left to
+ * beat, so it now carries the event being days away. Do not reintroduce
+ * countdown copy without checking FOUNDING_CUTOFF_MS still describes a
+ * date that arrives before the event does.
  * Same two-press button shape as admin-open-announce.mjs: POST {} is a
  * dry run, POST {confirm:'SEND'} sends one batch and reports remaining.
  *
@@ -10,10 +16,11 @@
  *  - Own stamp (`openReminderSentAt`), and it does NOT skip people the
  *    announcement reached. A reminder to the same list is the point.
  *  - SKIPS anyone who already holds an entry in the open tournament.
- *    "Enter before Friday" mailed to someone who entered is noise that
+ *    "Come and enter" mailed to someone who entered is noise that
  *    spends the one reminder this list will tolerate.
- *  - REFUSES to run after the cutoff it advertises. A deadline email
- *    sent past its deadline is a false claim, not a late one.
+ *  - REFUSES to run once entries have closed. An email asking people to
+ *    enter an event they can no longer enter is a false claim, not a
+ *    late one.
  *  - Accepts a bracket in `registration` OR `running` (the 2026-08-18
  *    drop-in fix: the Open holds both states at once on the day).
  *
@@ -36,6 +43,11 @@ const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@g
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 const SUBJECT     = 'Speak money into existence: The Debatable Open';
+// Event day, for copy. Separate from FOUNDING_CUTOFF_LABEL: since the
+// 2026-08-19 cutoff move those two describe the same day, and reusing
+// the cutoff label here would quietly resurrect deadline framing the
+// moment the cutoff moves again.
+const EVENT_LABEL = 'Saturday, August 29';
 
 // Short on purpose: the announcement made the case, this one carries the
 // clock. Voice rules bind: no em-dashes, no preface, one ask. Prizes and
@@ -49,9 +61,9 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Free entry to ${esc(tournamentName)} ends
-    ${esc(FOUNDING_CUTOFF_LABEL)} at 11:59 PM Eastern.</strong> After that,
-    playing for the cash costs $20. Entering takes about a minute:
+    <strong>${esc(tournamentName)} is on ${esc(EVENT_LABEL)}, and your entry
+    is free.</strong> There is no code to find and no card to enter. Playing
+    for the cash needs you to be 18 or over. Entering takes about a minute:
   </p>
 
   <p style="margin:0 0 22px">
@@ -114,7 +126,7 @@ export default async (request) => {
   if (Date.now() >= FOUNDING_CUTOFF_MS) {
     return jsonResponse({
       error: 'CUTOFF_PASSED',
-      message: `The free-entry cutoff (${FOUNDING_CUTOFF_LABEL}) has passed. This reminder promises a deadline that no longer exists; do not send it.`,
+      message: `Entries closed (${FOUNDING_CUTOFF_LABEL}). This reminder asks people to enter an event they can no longer enter; do not send it.`,
     }, 409, request);
   }
 
