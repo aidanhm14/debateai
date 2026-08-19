@@ -257,16 +257,35 @@ async function guestRoundsUsed(db, uid) {
 }
 
 // Record that this uid is a guest, so the peer side can find that out later
-// without trusting a client-written field. Best-effort and unawaited by
-// callers: it only has to land before the round opens, and the consent
-// handshake gives us several round-trips of slack.
-function markGuest(db, uid) {
-  return guestRef(db, uid).set({
-    anonymous: true,
-    firstSeenAt: FieldValue.serverTimestamp(),
-  }, { merge: true }).catch(function (err) {
+// without trusting a client-written field.
+//
+// AWAITED, deliberately. The first version fired this off unawaited on the
+// reasoning that it only had to land before the round opened, and the consent
+// handshake is several round-trips long. That reasoning is wrong on Lambda:
+// the execution context is frozen when the handler returns, so an unawaited
+// write is not deferred, it is abandoned. Observed on the first production
+// guest match, where the doc showed up only because a LATER request happened
+// to rewrite it. A missed mark is a peer that chargeMatchedGuests cannot
+// identify as a guest, which is a free uncharged round.
+//
+// The Set keeps the cost at one write per guest per warm instance rather than
+// one per POST. A cold start re-marks once; the write is a merge, so a repeat
+// is harmless.
+const markedGuests = new Set();
+
+async function markGuest(db, uid) {
+  if (markedGuests.has(uid)) return;
+  try {
+    await guestRef(db, uid).set({
+      anonymous: true,
+      firstSeenAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    markedGuests.add(uid);
+    if (markedGuests.size > 5000) markedGuests.clear();
+  } catch (err) {
+    // Fails open: not being able to record the mark must not refuse a round.
     console.warn('[spar-pair] guest mark failed:', err?.message || err);
-  });
+  }
 }
 
 // Charge one round. Called only when a room actually opens, never when a
@@ -448,9 +467,7 @@ export default async (request) => {
         guestFreeRounds: GUEST_FREE_ROUNDS,
       }, 403, request);
     }
-    // Unawaited: this only has to land before a room opens, and the mandatory
-    // consent handshake is several round-trips long.
-    markGuest(db, myUid);
+    await markGuest(db, myUid);
   }
   if (action === 'pair' && !VALID_FORMATS.has(format)) {
     return errorResponse('Invalid format', 400, request);
