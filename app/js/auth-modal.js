@@ -190,8 +190,13 @@
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
          last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
       : '';
-    var nativeButtons = window.__DB_NATIVE ?
-      '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>' : '';
+    // Apple is offered on web too as of 2026-08-18: the Services ID
+    // (com.debateai.debateit.web) + return URL were registered in the
+    // Apple Developer portal and wired into the Firebase provider, so
+    // the web popup flow works. Native keeps its plugin path in
+    // doAppleSignIn; the __DB_NATIVE gate only decided visibility.
+    var nativeButtons =
+      '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>';
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
       '<h2>' + (creating ? 'Create your account' : 'Welcome back') + '</h2>' +
@@ -405,7 +410,26 @@
         track('sign_in_start', { method: 'apple' });
         var t0 = Date.now();
         auth = firebase.auth();
-        auth.signInWithPopup(provider).then(function () {
+        // Same shape as the Google path: nearly every visitor is a truthy
+        // ANONYMOUS user (notifications.js), so link first to carry their
+        // local state; when the Apple account already exists Firebase
+        // rejects the link and hands back the proven credential, which
+        // signs in directly with no second popup (the gesture is spent).
+        var current = auth.currentUser;
+        var appleLinkRejected = false;
+        var attempt = current && current.isAnonymous && current.linkWithPopup
+          ? current.linkWithPopup(provider).catch(function (err) {
+              var code = (err && err.code) || '';
+              if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+                appleLinkRejected = true;
+                var cred = err && err.credential;
+                if (cred && auth.signInWithCredential) return auth.signInWithCredential(cred);
+                return auth.signInWithPopup(provider);
+              }
+              throw err;
+            })
+          : auth.signInWithPopup(provider);
+        attempt.then(function () {
           try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
           track('sign_in_complete', { method: 'apple' });
           if (handOff('apple')) return;
@@ -413,7 +437,11 @@
         }).catch(function (err) {
           var code = (err && err.code) || 'unknown';
           if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
-          try { auth.signInWithRedirect(provider); } catch (e) { setErr('Apple sign-in failed: ' + code); }
+          try {
+            var canLink = current && current.isAnonymous && current.linkWithRedirect && !appleLinkRejected;
+            var redirect = canLink ? current.linkWithRedirect(provider) : auth.signInWithRedirect(provider);
+            Promise.resolve(redirect).catch(function () { setErr('Apple sign-in failed. Try again.'); });
+          } catch (e) { setErr('Apple sign-in failed: ' + code); }
         });
       } catch (e) { setErr('Apple sign-in unavailable, try again.'); }
     });
