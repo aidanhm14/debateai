@@ -85,7 +85,7 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Cash prizes go to prize-eligible entrants aged 18 or over and are void where
+    Cash prizes go to entrants aged 18 or over with a prize entry and are void where
     prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
     carry eligibility and the payout ladder.
   </p>
