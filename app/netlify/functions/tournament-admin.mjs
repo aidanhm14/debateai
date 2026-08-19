@@ -194,6 +194,15 @@ export default async (request) => {
     if (body.breakSize != null) patch.breakSize = Math.max(0, Math.min(32, Number(body.breakSize) || 0));
     // Only a site admin can put a tournament on the public list.
     if (body.isPublic != null && siteAdmin) patch.isPublic = !!body.isPublic;
+    // The entry fee is data, not code (see entry-checkout.mjs), but until
+    // now nothing could write it, so changing a price meant a raw
+    // Firestore edit. Site-admin only, and clamped: 0 turns the paid door
+    // off entirely, and the ceiling stops a fat finger from turning a $5
+    // door into a $500 one. Never touches prizePoolCents, which the
+    // webhook owns.
+    if (body.entryFeeCents != null && siteAdmin) {
+      patch.entryFeeCents = Math.max(0, Math.min(50000, Math.round(Number(body.entryFeeCents) || 0)));
+    }
     // Changing team size after entries exist would invalidate every
     // registration, so it is settled at creation.
     await t.ref.update(patch);

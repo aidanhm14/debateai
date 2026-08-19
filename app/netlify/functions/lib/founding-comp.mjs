@@ -3,7 +3,7 @@
  * The founding-cohort comp for The Debatable Open (2026-08-11).
  *
  * Everyone who held a Debatable account before the cutoff enters the
- * prize bracket without paying the $20. This is not a new policy, it is
+ * prize bracket without paying the $5 entry. This is not a new policy, it is
  * the fee waiver the rules already promise ("the fee is waived for
  * anyone who asks, on identical terms") granted automatically to a
  * bounded, verifiable cohort instead of over email one at a time.
@@ -31,25 +31,28 @@ import { getAuthUserByUid } from './auth-admin.mjs';
 
 // Accounts created at or before this instant qualify. EDT, end of day.
 //
-// Moved 2026-08-19 from Friday Aug 22 to the day of the event, because
-// the original cutoff made the bracket-fill push impossible. The push
-// runs Aug 19-29; the comp expired on day 3, so for seven of the ten
-// days every stranger it reached would have met a $20 door with "email
-// the organizer and ask" as the only way past it. No stranger takes
-// that step. Meanwhile the door had earned nothing at all: eight days
-// after entry opened, `paidEntries` was 0 against a field of 7.
+// Moved 2026-08-19 (second move, same day) from the day of the event
+// back to the day of the price cut. The first move widened the window
+// to Aug 29 because a $20 door was unpayable by a stranger: for seven
+// of the push's ten days every newcomer would have met a $20 wall with
+// "email the organizer and ask" as the only way past it. That argument
+// was about $20, not about paying at all. The fee is now $5, which is
+// a door a stranger will actually walk through, so the blanket waiver
+// has nothing left to protect and the headline it contradicted ("win
+// $500 for $5") becomes true.
 //
-// This does not invent a new policy. The rules already promise the fee
-// "is waived for anyone else who asks, on identical terms"; widening
-// the automatic window only removes an email round-trip from a waiver
-// that was already universal on request. The pot is untouched (prizes
-// are funded, not raised from fees) and comps still count separately
-// on `compedEntries`, so nothing here makes the money look bigger than
-// it is. Full reasoning in soul.md's decision log.
-export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-29T23:59:59-04:00');
+// The window is not retracted, only stopped where it stands. Everyone
+// who already holds an account, including the seven entries on the
+// field and everyone the announcement email reached, keeps the comp
+// they were promised in full: same prize eligibility, nothing to pay,
+// nothing to ask for. Only accounts created after today meet the $5
+// door. The pot is untouched either way (prizes are funded, not raised
+// from fees) and comps still count separately on `compedEntries`, so
+// nothing here makes the money look bigger than it is.
+export const FOUNDING_CUTOFF_MS = Date.parse('2026-08-19T23:59:59-04:00');
 // Human label for copy. One constant so the page, the email and the
 // rules cannot drift apart from the code that enforces it.
-export const FOUNDING_CUTOFF_LABEL = 'Saturday, August 29';
+export const FOUNDING_CUTOFF_LABEL = 'Tuesday, August 19';
 
 export function qualifiesByCreation(createdMs) {
   return Number.isFinite(createdMs) && createdMs > 0 && createdMs <= FOUNDING_CUTOFF_MS;

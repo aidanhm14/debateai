@@ -61,9 +61,9 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>${esc(tournamentName)} is on ${esc(EVENT_LABEL)}, and your entry
-    is free.</strong> There is no code to find and no card to enter. Playing
-    for the cash needs you to be 18 or over. Entering takes about a minute:
+    <strong>Free entry to ${esc(tournamentName)} ends
+    ${esc(FOUNDING_CUTOFF_LABEL)} at 11:59 PM Eastern.</strong> After that,
+    playing for the cash costs $5. Entering takes about a minute:
   </p>
 
   <p style="margin:0 0 22px">

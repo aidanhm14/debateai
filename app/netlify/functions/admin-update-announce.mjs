@@ -82,7 +82,7 @@ function renderEmail({ firstName, uid }) {
     August 29: $850 in cash prizes, online, drop in whenever suits you.
     Any account created before <strong>${esc(FOUNDING_CUTOFF_LABEL)}</strong>
     plays for the money free. Forward this to whoever you want in your
-    bracket; if they sign up by Friday, their $20 entry is waived the same
+    bracket; if they sign up by the cutoff, their $5 entry is waived the same
     way yours is.
   </p>
 

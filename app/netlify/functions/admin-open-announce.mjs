@@ -2,7 +2,7 @@
  *
  * The one-time announcement of The Debatable Open to everyone who
  * already holds an account, carrying the founding comp: sign up before
- * the cutoff and the $20 prize entry is waived (lib/founding-comp.mjs).
+ * the cutoff and the $5 prize entry is waived (lib/founding-comp.mjs).
  *
  * Not a cron. A cron that mails your whole list is a machine deciding
  * to do the single most irreversible thing this codebase can do, so
@@ -89,7 +89,7 @@ function renderEmail({ firstName, uid, tournamentName, startsAt }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Competing for that money costs $20. <strong>It costs you nothing.</strong>
+    Competing for that money costs $5. <strong>It costs you nothing.</strong>
     You signed up before this was on the calendar, so the fee is waived and you
     play for the cash on identical terms. Nothing to pay and nothing to ask for.
     Claim it on the entry page and tick the 18 or older box the prizes require.

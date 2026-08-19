@@ -2031,11 +2031,19 @@
 
   // All boundaries in ET (UTC-4 in August).
   //
-  // The Friday free-entry deadline is gone (2026-08-19): the comp now
-  // runs to entries close, so this strip must not keep counting down to
-  // a cutoff that no longer bites. It is the only tournament surface on
-  // every page, so during a bracket-fill push it says the one fact that
-  // moves someone, which is that entering costs nothing.
+  // Said "Free to enter" until 2026-08-19, when the entry dropped from
+  // $20 to $5 and the blanket comp stopped at the accounts that already
+  // held it. Free was true for the few days the comp was universal, and
+  // is now false for every new visitor this strip reaches, so it leads
+  // with the trade instead: $5 in, $500 at the top. Existing accounts
+  // still pay nothing, which /tournaments says on arrival.
+  //
+  // The price is deliberately NOT read from /api/tournament here. This
+  // runs on every page in the site's most render-critical script, and a
+  // network read to decorate a ribbon is not worth the request; the
+  // in-content promo on the landing (js/open-promo.js) is the surface
+  // that stays in sync with the doc. If the fee changes, change it here
+  // too, or drop the figure and keep the event line.
   var now = Date.now();
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
   var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
@@ -2043,7 +2051,7 @@
 
   var tail = (now >= EVENT_DAY)
     ? 'Live today, doors open 10 AM ET'
-    : 'Free to enter';
+    : '$850 in prizes';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2051,10 +2059,16 @@
     strip.className = 'ui-beta-strip';
     strip.setAttribute('role', 'region');
     strip.setAttribute('aria-label', 'Tournament announcement');
-    var msg = 'The Debatable Open · Sat Aug 29 · $850 in prizes';
+    // Only the hook survives on a phone. Everything else rides the
+    // .ui-open-strip-tail span, which is hidden under 560px, because
+    // body.has-beta-strip reserves a fixed 32px and this bar is 48px
+    // the moment it wraps to a second line, which clips the wordmark
+    // underneath it. One line on mobile is also the better hook.
+    var msg = 'Win $500 for $5';
+    var rest = ' · The Debatable Open, Sat Aug 29 · ' + tail;
     strip.innerHTML =
       '<a href="/tournaments" data-cta="open-strip">' + msg +
-      '<span class="ui-open-strip-tail"> · ' + tail + '</span> →</a>' +
+      '<span class="ui-open-strip-tail">' + rest + '</span> →</a>' +
       '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">×</button>';
     var css = document.createElement('style');
     css.textContent =
