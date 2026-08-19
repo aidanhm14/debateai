@@ -273,7 +273,12 @@
     // AI ballot, so 'Predict' names the route it already points at and
     // stops the one word on every page of the site from reading as a
     // gambling product to anyone scanning the nav.
-    { href: '/predict',       label: 'Predict', big: true },
+    // 2026-08-19: Predict removed from every topbar surface per Aidan
+    // ("remove the betting / point system from website for now"). The
+    // page stays live at /predict for direct links; it just is not
+    // surfaced in the nav. Restore by re-adding:
+    //   { href: '/predict', label: 'Predict', big: true },
+    // plus its entry in the Explore "Debate" group filter below.
     // 2026-07-30 (later same day, per Aidan): these three came OFF the
     // rail and into the Explore menu. The `rail: true` flag is gone from
     // all of them. Reason is optics, not clutter: "Money" sitting in the
@@ -298,7 +303,9 @@
     //                 Explore. "How does the judging work" and "judge my
     //                 round" are different questions.
     //   Leaderboard-> off the bar since 2026-07-02, and staying off.
-    { href: '/get-paid-to-debate', label: 'Money'       },
+    // 2026-08-19: Money (/get-paid-to-debate) removed from the nav in the
+    // same betting/points de-surfacing pass as Predict above. Page stays
+    // live for direct links.
     { href: '/judge-integrity',    label: 'Judging'     },
     // 2026-08-12: Leaderboard removed from every topbar surface. The
     // ranking system is not strong enough yet to deserve a permanent
@@ -782,8 +789,7 @@
       var primaryGroups = [
         // /spar lives in the spotlight card, so it is not repeated here.
         { head: 'Debate', links: pageLinks.filter(function(L){
-          return ['/app#case', '/live', '/watch', '/room-judge', '/predict',
-                  '/get-paid-to-debate'].indexOf(L.href) !== -1;
+          return ['/app#case', '/live', '/watch', '/room-judge'].indexOf(L.href) !== -1;
         })},
         { head: 'Improve', links: pageLinks.filter(function(L){
           return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach',
@@ -1122,32 +1128,15 @@
       right.appendChild(socialWrap);
     }
 
-    // ── Points chip ───────────────────────────────────────────────────
-    // 2026-08-12: 38 people had a Predict wallet and 37 of them sat at
-    // exactly the 1,000 opening grant, untouched. One bet had ever been
-    // placed, across 300 open markets. So the market was not failing to
-    // convince anyone, it was failing to be NOTICED: /predict is one
-    // click deep inside Explore, and nothing anywhere else on the site
-    // told a signed-in person they were holding a balance.
-    //
-    // This is the smallest thing that fixes that. It shows YOUR points,
-    // on all 63 pages, and routes to the board. Deliberately a wallet
-    // and not a nav tab: the 2026-07-28 and 07-30 notes above took the
-    // word "Bet" and the "Money" tile off the bar so the nav would stop
-    // scanning as a betting product to someone skimming, and a balance
-    // reads as a score you already have rather than an invitation to
-    // stake. Signed-out visitors get nothing here at all.
-    var pointsChip = el('a', {
-      href: '/predict',
-      class: 'ui-topbar-points',
-      title: 'Your prediction points',
-      hidden: 'hidden',
-    });
-    pointsChip.addEventListener('click', function(){
-      navTrack('points_chip_click', { from: location.pathname });
-    });
-    right.appendChild(pointsChip);
-    mountPointsChip(pointsChip);
+    // ── Points chip (removed 2026-08-19) ─────────────────────────────
+    // The 2026-08-12 "your prediction points" wallet chip (the 1,000 pts
+    // pill on every page) is gone per Aidan: "remove the betting / point
+    // system from website for now". The whole points economy is
+    // de-surfaced sitewide in this pass (this chip, the Predict tile,
+    // the Money link); /predict itself stays live for direct links. The
+    // 08-12 rationale (37 of 38 wallets untouched at the opening grant)
+    // still reads as the history of why the chip existed; see git for
+    // the mountPointsChip implementation if it comes back.
 
     // DM notification bell is mounted by /js/notifications.js (a
     // standalone module included site-wide, including on pages without
@@ -1838,75 +1827,10 @@
     if (u) paintUserName(document.getElementById('barUser'), u);
   });
 
-  // ── Points chip: fetch + paint ──────────────────────────────────────
-  // Balance comes from the same endpoint /predict itself reads. Two
-  // rules keep this from costing anything on a bar that renders on
-  // every page: it is cached in sessionStorage so a browsing session
-  // makes ONE call, and it never fires for a signed-out or anonymous
-  // visitor. `state` runs ensureBalance, which WRITES a wallet on first
-  // read, so calling it per pageview would mint rows for people who
-  // never opened the board.
-  var POINTS_CACHE = 'da-predict-balance';
-
-  function paintPointsChip(chip, balance){
-    if (balance == null || isNaN(balance)) return;
-    chip.innerHTML = '';
-    chip.appendChild(el('span', { class: 'ui-topbar-points-v' }, Number(balance).toLocaleString()));
-    chip.appendChild(el('span', { class: 'ui-topbar-points-k' }, 'pts'));
-    chip.removeAttribute('hidden');
-  }
-
-  function mountPointsChip(chip){
-    // Paint from cache first so the chip does not pop in late on a
-    // page the visitor has already loaded once this session.
-    var cached = null;
-    try { cached = sessionStorage.getItem(POINTS_CACHE); } catch(e){}
-    if (cached !== null && fbRealUser()) paintPointsChip(chip, Number(cached));
-
-    function load(u){
-      if (!u) { chip.setAttribute('hidden', 'hidden'); return; }
-      if (cached !== null){ paintPointsChip(chip, Number(cached)); return; }
-      u.getIdToken().then(function(tok){
-        return fetch('/.netlify/functions/predict', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-          body: JSON.stringify({ action: 'state' }),
-        });
-      }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-        if (!d || d.balance == null) return;
-        try { sessionStorage.setItem(POINTS_CACHE, String(d.balance)); } catch(e){}
-        paintPointsChip(chip, d.balance);
-      }).catch(function(){ /* a missing chip is the correct failure here */ });
-    }
-
-    function idle(fn){
-      if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 3000 });
-      else setTimeout(fn, 1200);
-    }
-
-    function attach(){
-      try {
-        window.firebase.auth().onAuthStateChanged(function(u){
-          var real = u && !u.isAnonymous ? u : null;
-          if (!real){
-            chip.setAttribute('hidden', 'hidden');
-            try { sessionStorage.removeItem(POINTS_CACHE); } catch(e){}
-            return;
-          }
-          idle(function(){ load(real); });
-        });
-      } catch(e){}
-    }
-    if (fbAuthReady()) attach(); else fbBootstrap(attach);
-  }
-
-  // Let a page that changes the balance (the board itself) push the new
-  // number straight into the bar instead of waiting for a reload.
-  window.daPointsChanged = function(balance){
-    try { sessionStorage.setItem(POINTS_CACHE, String(balance)); } catch(e){}
-    var chip = document.querySelector('.ui-topbar-points');
-    if (chip) paintPointsChip(chip, balance);
-  };
+  // Points-chip fetch/paint helpers removed 2026-08-19 with the chip
+  // itself (betting/points de-surfacing pass). /predict calls
+  // window.daPointsChanged behind an existence guard, so its absence is
+  // safe.
 
   function hydrateUser(slot){
     var cachedSignedIn = false;
