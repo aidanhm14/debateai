@@ -226,6 +226,13 @@ const URLS = [
   // motions by subject, age, and format, then start a prefilled round.
   { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-12' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
+  // Network-access page for school IT. Indexable on purpose: when a
+  // district's filter blocks the domain, the coach's first move is a
+  // search, and this is the page that has to be findable. It also gives
+  // filter-vendor reviewers an unambiguous Education-category landing
+  // page to judge the domain on. Added 2026-08-19 after a Salt Lake City
+  // debate coach reported the domain blocked at the school firewall.
+  { path: '/unblock',         changefreq: 'monthly', priority: '0.70', lastmod: '2026-08-19' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
   { path: '/uwc',             changefreq: 'monthly', priority: '0.68', lastmod: '2026-08-10' },

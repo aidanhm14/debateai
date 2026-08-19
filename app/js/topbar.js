@@ -2017,13 +2017,16 @@
    own once the publicly promised Friday deadline passes. Dismiss is
    sessionStorage, so it stays gone for the visit but returns next
    session — a 10-day campaign strip, not a permanent banner.
-   Skipped on /tournaments and /tournament-rules (no self-ads). */
+   Skipped on /tournaments and /tournament-rules (no self-ads), and on
+   /unblock: that page exists to convince a school filter reviewer the
+   domain is Education, and a cash-prize strip above the fold is the
+   exact signal that got the domain miscategorized in the first place. */
 (function(){
   if (window.__daOpenStrip) return;
   window.__daOpenStrip = 1;
 
   var path = (location.pathname || '/').replace(/\/$/, '') || '/';
-  if (/^\/(tournaments|tournament-rules)(\.html)?$/.test(path)) return;
+  if (/^\/(tournaments|tournament-rules|unblock)(\.html)?$/.test(path)) return;
   try { if (sessionStorage.getItem('da-open-strip-dismissed') === '1') return; } catch (e) {}
 
   // All boundaries in ET (UTC-4 in August).
