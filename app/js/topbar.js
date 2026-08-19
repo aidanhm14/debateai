@@ -276,9 +276,11 @@
     // 2026-08-19: Predict removed from every topbar surface per Aidan
     // ("remove the betting / point system from website for now"). The
     // page stays live at /predict for direct links; it just is not
-    // surfaced in the nav. Restore by re-adding:
-    //   { href: '/predict', label: 'Predict', big: true },
-    // plus its entry in the Explore "Debate" group filter below.
+    // surfaced in the nav. PARTIALLY REVERSED later the same day: see the
+    // note on the /predict row in MORE_GROUPS below. It is back in the
+    // Explore menu only, via MORE_GROUPS, so it can never reach the rail.
+    // The rest of the cluster (/floor, /ladder, /get-paid-to-debate)
+    // stays off.
     // 2026-07-30 (later same day, per Aidan): these three came OFF the
     // rail and into the Explore menu. The `rail: true` flag is gone from
     // all of them. Reason is optics, not clutter: "Money" sitting in the
@@ -349,6 +351,28 @@
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
+      // 2026-08-19 (later same day, per Aidan: the prediction angle "can
+      // stay in some way"): PARTIALLY reverses the de-surfacing logged
+      // above. /predict returns, and only /predict — /floor settles on
+      // Math.random() and calls itself a demo, /ladder has no rankable
+      // debaters to trade yet, and /get-paid-to-debate is indexed so it
+      // is already findable without a nav slot.
+      //
+      // Two deliberate constraints on the restore:
+      //   - It lives in MORE_GROUPS, not LINKS. The rail only draws rows
+      //     flagged hot/cta/rail, and MORE_GROUPS rows are never rail
+      //     candidates, so this cannot drift back into permanent chrome
+      //     on every page. That was the whole objection in the 2026-07-30
+      //     and 2026-08-19 notes above.
+      //   - Not `big`. The flagship tiles are the scale bets; a points
+      //     market that is still finding its footing does not need to be
+      //     the largest thing in the column.
+      //
+      // Sits in Watch & compete rather than the Debate group the restore
+      // note above predicted, because Leaderboard moved here on
+      // 2026-08-14 and a market settled from a live round's ballot
+      // belongs with the round you watch, not with going to debate one.
+      { href: '/predict',     label: 'Predict' },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
