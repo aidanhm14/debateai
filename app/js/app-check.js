@@ -38,6 +38,59 @@
     '/.netlify/functions/counter-doc', '/.netlify/functions/docs-agent'
   ];
 
+  // Routes that meter per account. These get the Firebase ID token attached
+  // too, for BOTH named and anonymous users.
+  //
+  // Why anonymous users need to send a token: the free round used to be
+  // metered in localStorage, which any visitor can reset, so nothing
+  // server-side actually enforced it. The server now meters the free round
+  // against the anonymous Firebase uid that js/notifications.js already mints
+  // on nearly every page, and tells the two apart via the token's
+  // sign_in_provider claim. No token means no identity to meter, so the
+  // free round leaks again.
+  //
+  // Deliberately NOT the whole /api/* surface. Sending an anonymous token to
+  // the account endpoints is what produced the /api/teams/usage 404 and
+  // /api/user/style-summary 500 documented in practice.html — those read it
+  // as a signed-in user and go looking for records that cannot exist. Only
+  // endpoints that call isNamedAccount() belong on this list.
+  var AUTH_ROUTES = [
+    '/api/claude', '/api/gemini', '/api/grok',
+    '/api/openai-chat', '/api/deepseek', '/api/openlab'
+  ];
+
+  function needsAuth(url) {
+    for (var i = 0; i < AUTH_ROUTES.length; i++) {
+      if (url.indexOf(AUTH_ROUTES[i]) >= 0) return true;
+    }
+    return false;
+  }
+
+  // Read the CURRENT Firebase user's token. Never mints one: if auth has not
+  // settled (or the page never loaded it) this resolves null and the call
+  // goes out tokenless, landing in the per-IP lane. Degrading is correct —
+  // stalling a round on an auth handshake is not.
+  function currentIdToken() {
+    try {
+      if (typeof firebase === 'undefined' || !firebase.auth) return Promise.resolve(null);
+      if (!firebase.apps || !firebase.apps.length) return Promise.resolve(null);
+      var u = firebase.auth().currentUser;
+      if (!u || typeof u.getIdToken !== 'function') return Promise.resolve(null);
+      return u.getIdToken().catch(function () { return null; });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  function hasAuthHeader(h) {
+    try {
+      if (!h) return false;
+      if (typeof Headers !== 'undefined' && h instanceof Headers) return !!h.get('Authorization');
+      for (var k in h) { if (String(k).toLowerCase() === 'authorization') return true; }
+    } catch (e) {}
+    return false;
+  }
+
   var activated = false;
   var activating = null;   // non-null once activation has been kicked off
 
@@ -188,6 +241,22 @@
           h.set('X-Firebase-AppCheck', token);
         } else {
           init.headers = Object.assign({}, h || {}, { 'X-Firebase-AppCheck': token });
+        }
+      }
+    } catch (e) {}
+    // Identity, for the endpoints that meter per account. Never clobbers an
+    // Authorization header a call site set for itself.
+    try {
+      if (needsAuth(url) && !hasAuthHeader(init && init.headers)) {
+        var idToken = await currentIdToken();
+        if (idToken) {
+          init = init || {};
+          var ah = init.headers;
+          if (typeof Headers !== 'undefined' && ah instanceof Headers) {
+            ah.set('Authorization', 'Bearer ' + idToken);
+          } else {
+            init.headers = Object.assign({}, ah || {}, { Authorization: 'Bearer ' + idToken });
+          }
         }
       }
     } catch (e) {}

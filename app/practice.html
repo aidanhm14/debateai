@@ -3766,6 +3766,24 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // hiccup or rate limit hits, and a "Paste your Anthropic API key" modal
   // shoves into their face. The friendly inline notice is the right
   // failure mode; a hostile modal is not.
+  // A spent free round is not a backend outage. The server sends 401 +
+  // SIGN_IN_REQUIRED once the anonymous free round is used up; without this
+  // check the offline fallback below reads the 401 as "every server brain is
+  // dead", tries to spend the user's own BYOK key on it, and finally tells
+  // them the AI is offline. Wrong on all three counts, and it buries the one
+  // action that actually fixes it.
+  if (r.status === 401) {
+    var gateRaw = await r.clone().text().catch(() => '');
+    var gateCode = '',gateMsg = '';
+    try {var gateJson = JSON.parse(gateRaw);gateCode = gateJson.code || '';gateMsg = typeof gateJson.error === 'string' ? gateJson.error : '';} catch (e) {}
+    if (gateCode === 'SIGN_IN_REQUIRED') {
+      try {if (window.gtag) gtag('event', 'anon_round_gate', { page: 'practice' });} catch (e) {}
+      try {if (window.openAuthModal) window.openAuthModal('signup');} catch (e) {}
+      var gateErr = new Error(gateMsg || 'Make an account to keep debating.');
+      gateErr.code = 'SIGN_IN_REQUIRED';
+      throw gateErr;
+    }
+  }
   var finalCt = r.headers.get('content-type') || '';
   if ((!r.ok || finalCt.includes('text/html')) && currentEndpoint === '/api/claude') {
     var storedKey = getStoredKey();
@@ -6991,7 +7009,11 @@ function App() {
       try {
         fetch(ep, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // X-Warm is answered before the server's metering lanes. The body
+          // `warm` flag is only read after a request has been charged, which
+          // on the anonymous lane spends one of the free-round calls on a
+          // ping that never generates anything.
+          headers: { 'Content-Type': 'application/json', 'X-Warm': '1' },
           body: JSON.stringify({ warm: true }),
           keepalive: true
         }).catch(() => {});

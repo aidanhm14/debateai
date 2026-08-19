@@ -1,5 +1,5 @@
 // Claude API proxy — strips _feature before forwarding to Anthropic
-import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS, withDeadline } from './lib/firestore.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
@@ -60,7 +60,7 @@ function getCorsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Firebase-AppCheck, X-Warm',
   };
 }
 
@@ -144,12 +144,48 @@ const RATE_LIMIT_MAX_ANON = 5; // unauthenticated callers (per minute)
 // Sized for a school: 30/min absorbs a class starting together, 200/hour is
 // ~40 anonymous visitors an hour from one address, 800/day is ~160 a day.
 // Signed-in users are metered per-uid below and never touch these.
+//
+// Day cap cut 800 -> 300 on 2026-08-19, when the anonymous-uid lane below
+// took over the job of metering the free round. This lane is now the
+// exception path, not the main one: App Check is hard-enforced, App Check
+// needs the Firebase SDK, and any page that loaded the Firebase SDK has
+// already minted an anonymous uid via js/notifications.js. So a caller who
+// clears App Check but carries no token is mostly a timing race, not a
+// population. The minute and hour caps are untouched, because those are what
+// absorb a class starting a round together.
 const ANON_LAYERS = [
   { window: 60_000,    max: 30,  label: 'minute' },
   { window: 3_600_000, max: 200, label: 'hour'   },
-  { window: 86_400_000,max: 800, label: 'day'    },
+  { window: 86_400_000,max: 300, label: 'day'    },
 ];
 const anonHistory = new Map(); // ip → array of request timestamps
+
+// One free round, then sign in. -------------------------------------------
+//
+// The IP layers above are a blast-radius limit, not a free tier. The free
+// tier was supposed to be the client-side counter (ANON_LIMIT = 1 round in
+// practice.html), but that counter lives in localStorage: clear it, open a
+// private window, or just call the endpoint directly and you are a brand new
+// visitor with a fresh round, forever. Nothing server-side ever said no
+// until the 800/day IP ceiling, which is ~160 rounds. That is the drain.
+//
+// The fix is to meter the free round against an identity the client cannot
+// reset by clearing storage. Every visitor already has one: js/notifications
+// .js calls signInAnonymously() on nearly every page, so a guest is holding a
+// real Firebase uid before they ever reach a round. js/app-check.js now sends
+// that token on brain calls, and isNamedAccount() below tells the two apart.
+//
+// So there are three lanes now, tightest first:
+//   named account   → per-uid metering, team plan, the real product
+//   anonymous uid   → ANON_FREE_CALLS, then 401 SIGN_IN_REQUIRED
+//   no token at all → IP layers only (see below)
+//
+// Sized at 6 because a round is roughly 5 calls: one full round with slack,
+// which is exactly the taste the client already promises at ANON_LIMIT = 1.
+const ANON_FREE_CALLS = Number(process.env.ANON_FREE_CALLS || 6);
+const ANON_FREE_WINDOW_MS = 86_400_000;
+const anonUidHistory = new Map(); // anon uid → array of request timestamps
+
 const SIGNED_IN_BETA_DAILY_MAX = Number(process.env.SIGNED_IN_BETA_DAILY_MAX || 20);
 const signedInBetaHistory = new Map(); // uid -> array of request timestamps
 
@@ -215,6 +251,30 @@ async function checkAnonLayers(ip) {
     entries.slice(-2500).forEach(([k, v]) => anonHistory.set(k, v));
   }
   return { ok: true };
+}
+
+// The free round, metered against the anonymous Firebase uid. Returns
+// {ok, count}; ok:false means the taste is spent and the caller has to make
+// an account. Mirrors checkSignedInBetaLimit's shape (Upstash first, in-memory
+// fallback) so both lanes behave the same across cold starts.
+async function checkAnonFreeRound(anonUid) {
+  if (!anonUid) return { ok: true, count: 0 };
+
+  if (HAS_UPSTASH) {
+    const count = await upstashIncr(`rl:anon-uid:day:${anonUid}`, Math.ceil(ANON_FREE_WINDOW_MS / 1000));
+    if (count !== null) return { ok: count <= ANON_FREE_CALLS, count };
+  }
+
+  const now = Date.now();
+  const history = (anonUidHistory.get(anonUid) || []).filter(t => now - t < ANON_FREE_WINDOW_MS);
+  history.push(now);
+  anonUidHistory.set(anonUid, history);
+  if (anonUidHistory.size > 5000) {
+    const entries = Array.from(anonUidHistory.entries());
+    anonUidHistory.clear();
+    entries.slice(-2500).forEach(([k, v]) => anonUidHistory.set(k, v));
+  }
+  return { ok: history.length <= ANON_FREE_CALLS, count: history.length };
 }
 
 async function checkSignedInBetaLimit(userId) {
@@ -303,6 +363,20 @@ export default async (request, context) => {
     return new Response(null, { status: 204, headers: CORS });
   }
 
+  // Prep-time warm ping from the client (see the prewarm effect in
+  // practice.html). Same intent as X-Keepalive, but it has to be answered
+  // BEFORE the metering lanes below, not after: the body-level `warm` check
+  // further down only runs once the request has already been charged, and on
+  // the anonymous lane that spends one of ANON_FREE_CALLS on a request that
+  // never reaches Anthropic. Forging this header buys nothing — it returns
+  // here without generating anything.
+  if (request.headers.get('X-Warm') === '1') {
+    return new Response(JSON.stringify({ ok: true, warm: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
+
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -318,14 +392,33 @@ export default async (request, context) => {
     );
   }
 
-  // Check for authenticated path (team subscription)
+  // Three lanes: named account, anonymous uid, no token. See ANON_FREE_CALLS.
   const bearerToken = extractBearerToken(request);
   let teamId = null;
   let userId = null;
+  let anonUid = null;
 
+  // Decode first, branch second. A token that fails verification falls DOWN
+  // to the anonymous lane rather than 401-ing: js/app-check.js now attaches a
+  // token automatically, so a stale one would hard-fail a round that used to
+  // work, and the lane it falls into is the tighter one anyway. App Check
+  // still has to pass there.
+  let decoded = null;
   if (bearerToken) {
     try {
-      const decoded = await verifyIdToken(bearerToken);
+      decoded = await verifyIdToken(bearerToken);
+    } catch (err) {
+      console.warn('[claude] id token rejected, falling to anon lane:', err && err.message);
+      decoded = null;
+    }
+    if (decoded && !isNamedAccount(decoded)) {
+      anonUid = decoded.sub;
+      decoded = null;
+    }
+  }
+
+  if (decoded) {
+    try {
       userId = decoded.sub;
 
       // Rate limit per user
@@ -402,15 +495,21 @@ export default async (request, context) => {
         }
       }
     } catch (err) {
+      // The token already verified above, so this is no longer an auth
+      // failure — it is the metering layer (Upstash, the beta counter)
+      // throwing. Telling a signed-in user to sign in again sends them to
+      // fix something that is not broken.
+      console.warn('[claude] signed-in metering failed:', err && err.message);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed. Please sign in again.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
+        JSON.stringify({ error: 'Could not check your usage just now. Try again in a moment.', code: 'METERING_UNAVAILABLE' }),
+        { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
   } else {
-    // Anonymous path — allow limited unauthenticated access for HS/practice/learn pages.
+    // Anonymous path — one free round, then sign in.
     // App Check first (blocks scripted abuse from non-browser callers), then
-    // layered rate limits (minute/hour/day) per client IP.
+    // the free-round budget on the anonymous uid when we have one, then the
+    // layered per-IP limits as the blast-radius backstop.
     const appCheckResult = await checkAppCheck(request);
     if (!appCheckResult.ok) {
       return new Response(
@@ -418,6 +517,23 @@ export default async (request, context) => {
         { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
       );
     }
+    // The free round. 401 rather than 429 because this is not congestion and
+    // waiting will not clear it — there is exactly one thing the caller can do
+    // about it, and SIGN_IN_REQUIRED tells the client to open the auth modal
+    // instead of rendering a dead-end "try again later".
+    const freeRound = await checkAnonFreeRound(anonUid);
+    if (!freeRound.ok) {
+      return new Response(
+        JSON.stringify({
+          error: 'Your free round is done. Make an account to keep debating. Your rounds, ballots, and record start saving from here.',
+          code: 'SIGN_IN_REQUIRED',
+          usage: freeRound.count,
+          limit: ANON_FREE_CALLS,
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } }
+      );
+    }
+
     const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
     const check = await checkAnonLayers(ip);
     if (!check.ok) {

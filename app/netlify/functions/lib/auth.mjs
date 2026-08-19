@@ -122,6 +122,26 @@ export function isOwnerEmail(email) {
 }
 
 /**
+ * Is this token a real account, or the signInAnonymously() shadow user?
+ *
+ * js/notifications.js mints an anonymous Firebase user on nearly every page
+ * for the background "Spar live" pill, so a guest arrives holding a valid,
+ * signature-checking ID token while the topbar still says SIGN IN. A server
+ * that only asks "did verifyIdToken pass?" hands that guest the signed-in
+ * lane, and because minting anonymous uids is free and unlimited, the free
+ * tier becomes uncapped for anyone who calls signInAnonymously() in a loop.
+ *
+ * Firebase puts the provider on the token itself. An absent claim is treated
+ * as anonymous so this fails closed onto the tighter lane.
+ *
+ * Lifted from realtime-session.mjs, which has enforced this since 2026-07-28.
+ */
+export function isNamedAccount(decoded) {
+  const provider = decoded && decoded.firebase && decoded.firebase.sign_in_provider;
+  return !!provider && provider !== 'anonymous';
+}
+
+/**
  * Admin-account allowlist. These verified Firebase emails can open the
  * internal admin dashboard and Atlas operator layer without requiring a
  * pre-existing user_profiles.isAdmin flag.
