@@ -278,6 +278,25 @@ button{font-family:inherit}
 .cv-btn--leave:hover{background:rgba(239,68,68,.9);border-color:rgba(239,68,68,.9);color:#fff}
 .cv-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;
   font:600 .84rem/1.5 Archivo,Georgia,serif;color:rgba(255,255,255,.6);max-width:min(320px,80%)}
+/* Leaving or dropping the call used to leave a black rectangle with one
+   line of 60%-white text in the middle of it. That reads as a dead end:
+   nothing on screen said whether the ROUND was still running, and the
+   only route back was a tray button that looks like chrome. Leaving the
+   video is not leaving the round, so the state that says so is the one
+   that has to carry both exits at full contrast. */
+.cv-note--card{max-width:min(340px,86%);padding:20px 22px;border-radius:16px;
+  background:rgba(18,18,20,.94);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 18px 48px rgba(0,0,0,.5);color:#fff}
+.cv-exit-h{font:800 1.02rem/1.3 Archivo,Georgia,serif;color:#fff;margin:0 0 6px}
+.cv-exit-p{font:600 .78rem/1.5 Archivo,Georgia,serif;color:rgba(255,255,255,.68);margin:0 0 14px}
+.cv-exit-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.cv-exit-btn{display:inline-flex;align-items:center;justify-content:center;min-height:38px;
+  padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.24);
+  background:transparent;color:#fff;font:800 .76rem/1 Archivo,Georgia,serif;
+  cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s}
+.cv-exit-btn:hover{background:rgba(255,255,255,.09)}
+.cv-exit-btn--go{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444)}
+.cv-exit-btn--go:hover{background:#dc2626;border-color:#dc2626}
 @media (max-width:900px){
   .cv-stage{grid-auto-flow:row;grid-auto-columns:auto}
   .cv-stage[data-n="2"]{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
@@ -1098,6 +1117,15 @@ body.lr-pip .lr-pip-notice{display:block}
 /* Round panel */
 .panel{
   background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;
+  /* #audFab is a 34px rail pinned to the right edge at z-index 120, over
+     this column at its vertical middle. Nothing reserved room for it, so
+     whatever right-aligned content happened to land in that band rendered
+     underneath it and read as truncated: the speech clock lost its
+     "/ 5:00" target and the roster lost the Message button (screenshot
+     2026-08-19). Reserve the rail's width once, here, rather than
+     patching every child that pads against the edge and then re-patching
+     the next one that gets added. */
+  padding-right:var(--aud-dock-w,34px);
 }
 .panel-section{padding:24px 26px;border-bottom:1px solid var(--border)}
 .panel-section:last-child{border-bottom:none}
@@ -1789,7 +1817,7 @@ body.speech-live .transcript-area{margin-top:4px}
   border-bottom:1px solid var(--border);
 }
 .roster-card{
-  flex:1;display:flex;align-items:center;gap:11px;
+  flex:1;display:flex;align-items:center;gap:11px;flex-wrap:wrap;
   min-height:52px;padding:8px 13px;border-radius:12px;
   border:1px solid var(--border);background:var(--ui-surface);
   transition:background .25s,border-color .25s,box-shadow .25s;
@@ -3890,8 +3918,7 @@ html.stage-mode .stage-ov{display:block}
     var ms = mySide();
     var spectator = isSpectator();
     document.body.classList.toggle('spectator-mode', spectator);
-    var youTag = spectator ? '' : (myTurn && ms ? ' · YOUR TURN' : ms ? ' · OPPONENT\'S TURN' : '');
-    $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')' + youTag);
+    $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')');
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
@@ -4140,8 +4167,8 @@ html.stage-mode .stage-ov{display:block}
       if (hint){
         if (myTurn && ms){
           hint.innerHTML = noMic
-            ? '<strong>Your turn.</strong> Type your speech in the box below. Hit <strong>▶ Start speech</strong> to start the clock.'
-            : '<strong>Your turn.</strong> Hit <strong>▶ Start speech</strong>. The mic engages automatically so the AI captures your speech for the ballot.';
+            ? 'Type your speech in the box below. Hit <strong>▶ Start speech</strong> to start the clock.'
+            : 'Hit <strong>▶ Start speech</strong>. The mic engages automatically so the AI captures your speech for the ballot.';
         } else {
           hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
         }
@@ -6564,8 +6591,38 @@ html.stage-mode .stage-ov{display:block}
 
   function setRoomNote(msg){
     if (!room.note) return;
+    room.note.classList.remove('cv-note--card');
     room.note.textContent = msg || '';
     room.note.style.display = msg ? '' : 'none';
+  }
+  /* The end-state of a call, with the two things someone in it actually
+     wants next. Both are stated because the pane going black is exactly
+     when a debater cannot tell whether they just quit the tournament. */
+  function setRoomExit(title, sub){
+    if (!room.note) return;
+    room.note.innerHTML = '';
+    room.note.classList.add('cv-note--card');
+    var h = document.createElement('div');
+    h.className = 'cv-exit-h'; h.textContent = title;
+    var p = document.createElement('p');
+    p.className = 'cv-exit-p'; p.textContent = sub;
+    var row = document.createElement('div');
+    row.className = 'cv-exit-row';
+    var again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'cv-exit-btn cv-exit-btn--go';
+    again.textContent = 'Rejoin the room';
+    again.addEventListener('click', function(){
+      setRoomNote('Connecting to the video room.');
+      joinRoomCall();
+    });
+    var back = document.createElement('a');
+    back.className = 'cv-exit-btn';
+    back.href = '/live';
+    back.textContent = 'Back to the board';
+    row.appendChild(again); row.appendChild(back);
+    room.note.appendChild(h); room.note.appendChild(p); room.note.appendChild(row);
+    room.note.style.display = '';
   }
   function isAudienceName(n){ return String(n || '').indexOf('Audience · ') === 0; }
   function myRoomName(){
@@ -6654,6 +6711,7 @@ html.stage-mode .stage-ov{display:block}
     });
     var leave = trayBtn('cvLeave', 'Leave', 'Leave the video room');
     leave.className = 'cv-btn cv-btn--leave';
+    leave.title = 'Leave the video room. This does not end your round.';
     leave.addEventListener('click', function(){
       var call = room.call; if (!call) return;
       if (room.joined){
@@ -6696,7 +6754,7 @@ html.stage-mode .stage-ov{display:block}
       self.classList.toggle('is-off', !!room.selfHidden);
     }
     var leave = document.getElementById('cvLeave');
-    if (leave) leave.textContent = room.joined ? 'Leave' : 'Rejoin';
+    if (leave) leave.textContent = room.joined ? 'Leave call' : 'Rejoin call';
   }
   function dropTile(key){
     var t = room.tiles[key];
@@ -6924,7 +6982,8 @@ html.stage-mode .stage-ov{display:block}
     if (typeof room.token === 'string' && room.token) props.token = room.token;
     return room.call.join(props).catch(function(e){
       console.warn('[Daily join]', e);
-      setRoomNote('Could not join the video room. Press Rejoin to try again.');
+      setRoomExit('Could not join the video room.',
+        'Your round is unaffected. The speeches and the ballot do not run through the video.');
       room.joined = false;
       paintTray();
     });
@@ -7001,7 +7060,8 @@ html.stage-mode .stage-ov{display:block}
     call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
     call.on('error', function(ev){
       console.warn('[Daily]', ev);
-      setRoomNote('The video room dropped. Press Rejoin to reconnect.');
+      setRoomExit('The video room dropped.',
+        'Your round is still running. Rejoin when you are ready, or carry on from the board.');
       room.joined = false;
       paintTray();
     });
@@ -7009,7 +7069,8 @@ html.stage-mode .stage-ov{display:block}
       room.joined = false;
       teardownRoom();
       teardownCamPipeline();
-      setRoomNote('You left the video room.');
+      setRoomExit('You left the video room.',
+        'You are still in the round. Your speeches, the clock and the ballot are unaffected.');
       paintTray();
     });
     wireAudienceReceiveSettings(call);
