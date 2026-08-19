@@ -379,6 +379,28 @@
       '.da-match-btn--accept:hover{filter:brightness(1.08)}' +
       '.da-match-btn--decline{background:transparent;border-color:var(--border,rgba(255,255,255,.16));color:var(--text-dim,#9aa)}' +
       '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
+      // "They already said yes." consents[peer] has been on this doc
+      // since the ready-check shipped and the card never read it, so a
+      // debater standing in an open room waiting on one click looked
+      // exactly like one who had not answered either. This is the
+      // population least likely to accept (they are mid-task on another
+      // page), so it is the population that most needs the true reason.
+      // The card is already green, so the state cannot be signalled by
+      // colour alone: it gets a filled chip and a brighter ring.
+      '.da-match-locked{display:inline-flex;align-items:center;gap:6px;margin:0 auto 10px;padding:5px 12px;border-radius:999px;background:#22c55e;color:#06210f;font-size:.7rem;font-weight:800;letter-spacing:.01em}' +
+      '.da-match-locked svg{flex:none}' +
+      '.da-match-card.is-locked{border-color:#22c55e;box-shadow:0 24px 70px rgba(0,0,0,.6),0 0 0 1px rgba(34,197,94,.35)}' +
+      '.da-match-card.is-locked .da-match-av{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.22)}' +
+      // Waiting-on-them card. Text only until now: no motion, no sense
+      // of a window, nothing but a Cancel button to press. Same fix as
+      // /spar's consent wait — say what is happening as it happens, and
+      // say that leaving is not the only way out.
+      '.da-match-phase{font-size:.76rem;font-weight:600;color:var(--text-dim,#9aa);min-height:1.1em;margin-bottom:10px;animation:daMatchPhase .3s ease both}' +
+      '@keyframes daMatchPhase{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}' +
+      '.da-match-hold{font-size:.74rem;line-height:1.5;color:var(--text-dim,#9aa);background:rgba(127,127,127,.09);border:1px solid var(--border,rgba(255,255,255,.14));border-radius:11px;padding:9px 12px;margin-bottom:14px}' +
+      '.da-match-hold b{color:var(--text,#fff);font-weight:800}' +
+      '.da-match-ring.is-wait .da-match-ring__bar{stroke-dasharray:60 141;transition:none;animation:daMatchSpin 1.4s linear infinite;transform-origin:50% 50%}' +
+      '@keyframes daMatchSpin{to{transform:rotate(360deg)}}' +
       // Stand down while a sign-in modal is open so mobile never stacks
       // modal + go-live card + signup-nudge at the same time.
       // Webcam preview strip — shows a cold visitor what a live round
@@ -389,7 +411,7 @@
       // white-walled bedroom) on purpose — seat-you / seat-opp share a
       // shoot and read as AI-clone (see landing.html's SKIP/same-shoot
       // note for the same fix on the hero).
-      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
+      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-match-phase,.da-match-ring.is-wait .da-match-ring__bar,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
     var style = document.createElement('style');
     style.id = 'da-bell-styles';
     style.textContent = css;
@@ -1563,10 +1585,20 @@
         var pending = d.status === 'consent' && d.room && d.matchedWith;
         var matched = d.status === 'matched' && d.room && d.matchedWith;
         if (pending) {
-          if (consentRoom === d.room || navigating) return;
+          if (consentRoom === d.room || navigating) {
+            // Same proposal, another snapshot. Re-rendering is still
+            // banned (it would restart the countdown and re-chime), but
+            // one thing on this snapshot IS worth reading: whether they
+            // have now accepted. Patch that in place instead.
+            if (consentRoom === d.room && !navigating) markPeerAccepted(d);
+            return;
+          }
           if (Date.now() < declineUntil) { sendConsent(d.matchedWith, false, true); return; }
           consentRoom = d.room;
           showMatch(d);
+          // Their accept can already be on the first snapshot we see, if
+          // they answered before this listener attached.
+          markPeerAccepted(d);
           return;
         }
         if (matched) {
@@ -1699,6 +1731,11 @@
       }, 1000);
     }
     function closeOverlay() {
+      // Sweep the phase stepper here too, not only where the card is
+      // swapped: every teardown path (decline, timeout, peer passed,
+      // navigation) goes through this one function, and an interval
+      // holding a detached card would outlive all of them.
+      stopWaitPhases();
       if (overlay) {
         if (overlay.__tick) clearInterval(overlay.__tick);
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -1756,6 +1793,36 @@
       } catch (e) { /* auth missing: the peer's own timeout backstops us */ }
     }
 
+    // Patch the live invite card to say they have already committed.
+    // In place, never a re-render: the countdown belongs to my window
+    // and restarting it here would hand a stalling user free seconds.
+    // Idempotent, because snapshots repeat.
+    function markPeerAccepted(d) {
+      if (!overlay || awaitingPeer || navigating) return;
+      var peer = d && d.matchedWith;
+      if (!peer || !d.consents || !d.consents[peer]) return;
+      var card = overlay.querySelector('.da-match-card');
+      if (!card || card.classList.contains('is-locked')) return;
+      card.classList.add('is-locked');
+      var nm = (d.matchedWithName || 'They');
+      var eyebrow = card.querySelector('.da-match-eyebrow');
+      if (eyebrow) eyebrow.textContent = 'Waiting on you';
+      var sub = card.querySelector('.da-match-sub');
+      if (sub) sub.textContent = 'They said yes. The room opens the moment you do.';
+      var acceptBtn = card.querySelector('.da-match-btn--accept');
+      if (acceptBtn) acceptBtn.textContent = 'Join them';
+      var ring = card.querySelector('.da-match-ring');
+      if (ring && !card.querySelector('.da-match-locked')) {
+        var chip = document.createElement('div');
+        chip.className = 'da-match-locked';
+        chip.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" ' +
+          'stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' +
+          escHtml(nm) + ' already accepted';
+        ring.parentNode.insertBefore(chip, ring.nextSibling);
+      }
+      try { if (window.gtag) gtag('event', 'spar_bg_peer_accepted_shown'); } catch (e) {}
+    }
+
     function accept(d) {
       if (navigating || awaitingPeer) return;
       try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
@@ -1769,6 +1836,43 @@
       sendConsent(d && d.matchedWith, true, false);
     }
 
+    // Captions for the waiting card, stepped against their real window
+    // rather than invented. Everything here is something we know: the
+    // proposal is on their screen, their window is COUNTDOWN_S wide,
+    // and past it we are into the ghost sweep. Cleared by closeOverlay
+    // via waitPhaseTimer.
+    var waitPhaseTimer = null;
+    var WAIT_PHASES = [
+      { until: 4, text: 'Card is on their screen' },
+      { until: 12, text: 'Reading it' },
+      { until: COUNTDOWN_S, text: 'Their window is almost up' },
+      { until: Infinity, text: 'No answer yet. Holding your place.' },
+    ];
+    function stopWaitPhases() {
+      if (waitPhaseTimer) { clearInterval(waitPhaseTimer); waitPhaseTimer = null; }
+    }
+    function startWaitPhases(card) {
+      stopWaitPhases();
+      var t0 = Date.now(), last = '';
+      function tick() {
+        var el = card && card.querySelector('#daMatchPhase');
+        if (!el) { stopWaitPhases(); return; }
+        var secs = (Date.now() - t0) / 1000, text = '';
+        for (var i = 0; i < WAIT_PHASES.length; i++) {
+          if (secs < WAIT_PHASES[i].until) { text = WAIT_PHASES[i].text; break; }
+        }
+        if (text === last) return;
+        last = text;
+        el.textContent = text;
+        // Replay the entrance so a swapped line reads as a change.
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+      }
+      tick();
+      waitPhaseTimer = setInterval(tick, 500);
+    }
+
     // Card state after accepting: their clock is the one still running.
     // This state MUST keep an exit. It used to render text only, so a
     // peer who never answered (and a missed server ghost-cancel) left
@@ -1779,13 +1883,28 @@
       var card = overlay.querySelector('.da-match-card');
       if (!card) return;
       var nm = (d && d.matchedWithName) || 'them';
+      // A still card with one button gets that button pressed, and the
+      // button here dissolves a real pair. So: a spinner that says the
+      // wait is live, a caption stepping through what is happening on
+      // their side, and the guarantee spelled out — Cancel becomes a
+      // choice rather than the only visible exit. Their window is
+      // COUNTDOWN_S; past it we are into the server's ghost sweep and
+      // the 45s backstop below.
+      card.classList.remove('is-locked');
       card.innerHTML =
         '<div class="da-match-eyebrow">You’re in</div>' +
+        '<div class="da-match-ring is-wait">' +
+          '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
+          '<circle class="da-match-ring__bar" cx="36" cy="36" r="32"/></svg>' +
+        '</div>' +
         '<div class="da-match-name">Waiting for ' + escHtml(nm) + '</div>' +
-        '<div class="da-match-sub">The round opens as soon as they answer.</div>' +
+        '<div class="da-match-phase" id="daMatchPhase"></div>' +
+        '<div class="da-match-hold">If they have walked away, <b>you lose nothing.</b> ' +
+          'We put you back in the queue on our own and keep looking.</div>' +
         '<div class="da-match-btns">' +
           '<button type="button" class="da-match-btn da-match-btn--decline">Cancel</button>' +
         '</div>';
+      startWaitPhases(card);
       var cancelBtn = card.querySelector('.da-match-btn--decline');
       if (cancelBtn) cancelBtn.addEventListener('click', function () {
         decline(d, false);
