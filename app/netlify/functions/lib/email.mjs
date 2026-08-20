@@ -197,10 +197,15 @@ export function senderDomain(from) {
 }
 
 // ── Send via Resend ──────────────────────────────────────────────────────────
-// from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidandavidhollinger@gmail.com>'
-//          (the pre-lib prod default for the scheduled senders; do NOT swap
-//          in an @itsdebatable.com address here unless it is a verified Resend
-//          sender, or every unset-env send starts 403ing)
+// from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidan@itsdebatable.com>'
+//          The warning this comment used to carry was right and is now
+//          satisfied: itsdebatable.com was verified in Resend on 2026-08-19
+//          and immediately carried the 1,276-address coach send, so it is a
+//          proven sender rather than an aspiration. The rule behind the
+//          warning still stands. Never point this default at a domain that
+//          is not verified, because an unverified From does not error where
+//          anyone looks, it 403s silently, which is how every Spar Night
+//          email between Jul 22 and Aug 5 was lost.
 // replyTo: explicit arg > EMAIL_REPLY_TO env > 'aidandavidhollinger@gmail.com'
 // text:    when omitted, derived from html via toText().
 // For digest/winback/onboarding with a computable unsub URL, RFC 8058
@@ -212,7 +217,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   if (!key) return { ok: false, reason: 'no-key' };
   if (!to) return { ok: false, reason: 'no-recipient' };
 
-  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidan@debateai.com>';
+  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidan@itsdebatable.com>';
   const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'aidandavidhollinger@gmail.com';
   const resolvedText = text || toText(html);
 
