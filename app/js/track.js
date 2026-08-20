@@ -314,11 +314,58 @@
     }
   }
 
+  /* Campaign attribution (2026-08-19).
+   *
+   * Every event carried `path: location.pathname`, which drops the query
+   * string, and /tournaments carries no GA4 tag at all. So a utm-tagged
+   * link was invisible to BOTH pipelines: nothing on the page could say
+   * where a visitor came from, which makes any ad spend unmeasurable
+   * rather than merely unoptimised.
+   *
+   * Captured once per session and held in sessionStorage, not read from
+   * the URL each time: attribution belongs to the SESSION, and a visitor
+   * who lands on a tagged link and then clicks through to /tournaments
+   * would otherwise lose the source on the second page, which is exactly
+   * the page where the entry happens.
+   *
+   * Two fields, not five, and only when present, so an organic visitor
+   * adds zero bytes to every event. utm_content and utm_term are read
+   * into the stash for the session_start row but are not carried on
+   * every heartbeat; source and campaign are what answer "which channel
+   * produced entrants", which is the whole question.
+   */
+  const UTM_KEY = '_da_utm';
+  let campaign = null;
+  try {
+    const stashed = sessionStorage.getItem(UTM_KEY);
+    if (stashed) {
+      campaign = JSON.parse(stashed);
+    } else {
+      const q = new URLSearchParams(location.search);
+      const src = (q.get('utm_source') || '').slice(0, 40);
+      if (src) {
+        campaign = {
+          utm_source: src,
+          utm_medium: (q.get('utm_medium') || '').slice(0, 40),
+          utm_campaign: (q.get('utm_campaign') || '').slice(0, 60),
+          utm_content: (q.get('utm_content') || '').slice(0, 60),
+        };
+        sessionStorage.setItem(UTM_KEY, JSON.stringify(campaign));
+      }
+    }
+  } catch (e) {
+    campaign = null; // storage blocked, or a malformed stash: attribution is not worth an exception
+  }
+
   function baseMeta(extra) {
     const m = {
       session_id: sessionId,
       path: location.pathname,
     };
+    if (campaign && campaign.utm_source) {
+      m.utm_source = campaign.utm_source;
+      if (campaign.utm_campaign) m.utm_campaign = campaign.utm_campaign;
+    }
     if (anonId) m.anon_id = anonId;
     if (extra) {
       for (const k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) m[k] = extra[k];
