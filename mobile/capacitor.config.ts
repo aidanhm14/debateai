@@ -22,6 +22,11 @@ const config: CapacitorConfig = {
       'js.stripe.com',
       'checkout.stripe.com',
     ],
+    // Shown when the remote load fails (no signal, DNS, origin down).
+    // Without this the WebView renders a blank page offline. The target
+    // is bundled in www/ and must stay self-contained.
+    errorPath: 'index.html',
+
     // We still let the WebView negotiate https; never override.
     androidScheme: 'https',
     iosScheme: 'https',

@@ -50,8 +50,15 @@ xcrun altool --upload-app -f ~/mobile/build/v7/Debatable.ipa -t ios -u <your-app
 
 Then wait 10-30 minutes for processing. Apple emails you.
 
-Rebuilding later? Bump `CURRENT_PROJECT_VERSION` past 7 first. App Store
-Connect rejects a build number it has already seen.
+Rebuilding later? Bump `CURRENT_PROJECT_VERSION` first. App Store Connect
+rejects a build number it has already seen.
+
+**2026-08-19 correction: `build/v8/Debatable.ipa` exists and is build 8**,
+exported 2026-08-11, one day after this section was written. The Xcode
+project had been left back at `CURRENT_PROJECT_VERSION = 7`, so anyone
+rebuilding would have produced build 7 a second time and been rejected on
+upload. The project is now at **9**, which is clear of both. Confirm what
+App Store Connect has already accepted before assuming 8 is free.
 
 ## Step 2: TestFlight (~10 min, no Apple review)
 
@@ -101,16 +108,32 @@ is a good answer, but the name invites the question. Editable in App Store
 Connect right up to submission; dropping "Bet" is cheap insurance.
 
 ### Demo account for App Review
-Three of the five tabs (Coach, Me, and parts of Live) show a sign-in wall
-when signed out. Give the reviewer credentials in the App Review notes, or
+The tab bar is **Watch / Debate / Me** as of 2026-08-19, not the five tabs
+this line used to describe, and signed-out states were not re-checked
+against the current build. Walk the app signed out before writing the review
+notes rather than trusting this paragraph. Where a wall does appear, Give the reviewer credentials in the App Review notes, or
 they will see empty states and may judge the app on them.
 
-### Known gap, not fixed
-The app cannot work offline. `www/` carries no bundled build, so with no
-network the app shows a branded offline screen and nothing else. If a
-reviewer tests on a throttled connection, that screen is the app. Fixing
-it properly means a real build pipeline from `app/` into `www/`. Do not
-attempt that inside a review appeal window.
+### Offline behaviour (fixed 2026-08-19, but still not an offline app)
+This section used to say the app "shows a branded offline screen". It did
+not. `server.errorPath` was never set, so a failed load left WKWebView on a
+blank page, and `www/index.html` was a 93-byte black document still carrying
+the retired brand name. It could never render.
+
+`www/index.html` is now a real self-contained offline screen (mark, "No
+connection", a Try again button that re-navigates, and an `online` listener
+that retries by itself), and `server.errorPath` in `capacitor.config.ts`
+points at it. Verified in the simulator by pointing `server.url` at an
+unreachable host and watching the screen render.
+
+**The app still cannot work offline**, which is the part that has not
+changed. There is no bundled build of the product, so with no network a user
+gets that screen and nothing else. Fixing it properly means a real build
+pipeline from `app/` into `www/`. Do not attempt that inside a review appeal
+window.
+
+Anything touching `www/` or `capacitor.config.ts` needs `npx cap copy ios`
+before the next build, or the app ships the previous copy.
 
 ## Corrections to the 2026-07-22 version
 
