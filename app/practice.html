@@ -1541,6 +1541,18 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
 var { useState, useEffect, useRef, useCallback, useMemo } = React;
 var el = React.createElement;
 
+/* Touch devices open the on-screen keyboard the instant a field autofocuses.
+   On the prep screen that ate roughly half the viewport the moment the clock
+   started, hiding the motion and pushing the notes box behind the app's tab
+   bar, so prep began by covering the two things prep is for. Desktop keeps
+   autofocus, where a focused field costs nothing. Measured on an iPhone 17
+   Pro Max simulator, 2026-08-19. */
+function isCoarsePointer() {
+  try {
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  } catch (e) {return false;}
+}
+
 /* ═══════════════════════════════════════════════════
    FIREBASE AUTH
    ═══════════════════════════════════════════════════ */
@@ -11617,7 +11629,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('span', null, 'Your prep notes'),
     el('span', { className: 'prep-notes-private' }, 'Private to you')
     ),
-    el('textarea', { className: 'float-input prep-notes-input', rows: 6, placeholder: 'Brainstorm your arguments...', value: notes, onChange: (e) => {setNotes(e.target.value);try {localStorage.setItem('debateos-prep-notes', e.target.value);} catch {};setNotesSaved(true);setTimeout(() => setNotesSaved(false), 1200);}, autoFocus: true, style: { width: '100%' } }),
+    el('textarea', { className: 'float-input prep-notes-input', rows: 6, placeholder: 'Brainstorm your arguments...', value: notes, onChange: (e) => {setNotes(e.target.value);try {localStorage.setItem('debateos-prep-notes', e.target.value);} catch {};setNotesSaved(true);setTimeout(() => setNotesSaved(false), 1200);}, autoFocus: !isCoarsePointer(), style: { width: '100%' } }),
     notesSaved && el('div', { className: 'prep-notes-saved' }, 'Saved')
     ),
 
@@ -11736,7 +11748,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }()
     ),
     el('div', { className: 't-dim', style: { marginBottom: 12 } },
-    isUser ? rec.micAvailable ? 'Speak now. your voice is being transcribed' : rec.micError :
+    isUser ? rec.micAvailable ? 'Speak now. Your voice is being transcribed.' : rec.micError :
     aiLoading === 'voice' ? tts.streamStatus || 'Preparing HD voice...' :
     aiLoading ? 'Writing argument via ' + (BRAINS[brain] || BRAINS.claude).name + (isPro() ? ' Pro' : '') + ' ... ' + aiPct + '%' :
     aiError ? 'AI couldn\'t respond. Advancing in a moment...' :

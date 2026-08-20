@@ -194,6 +194,30 @@
     } catch (e) {}
   }
 
+  // ── Keyboard: stand the tab bar down ───────────────────────────────
+  // Keyboard.resize is 'native', so the webview shrinks to the space above
+  // the keyboard and every fixed-bottom element rides up with it. The tab
+  // bar then sits directly on the keyboard and spends 82px of a viewport
+  // that just lost half its height. Worst on /practice, where prep notes
+  // are written against a running clock: the notes box was down to a couple
+  // of visible lines with the motion scrolled off screen.
+  //
+  // Nothing needs the tab bar while someone is typing, and the keyboard's
+  // own dismiss returns it, so hide it for the duration and give the body
+  // its padding back. Web is untouched: no Capacitor, no listener, no class.
+  function watchKeyboard() {
+    var kb = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard;
+    if (!kb || !kb.addListener) return;
+    function set(open) {
+      try { document.documentElement.classList.toggle('dbnative-kb', !!open); } catch (e) {}
+    }
+    try {
+      kb.addListener('keyboardWillShow', function () { set(true); });
+      kb.addListener('keyboardWillHide', function () { set(false); });
+    } catch (e) {}
+  }
+  try { watchKeyboard(); } catch (e) {}
+
   window.DBShareLandingPayload = function (text) {
     try {
       if (window.gtag) gtag('event', 'share_created', {});
