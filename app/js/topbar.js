@@ -360,6 +360,11 @@
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
       { href: '/tournament',  label: 'Enter a tournament' },
+      // 2026-08-19: a round nobody can stumble into. Same clock, same
+      // transcript, same AI judge; the room is just kept off the live
+      // board, the homepage band and the spectator feed. Sits here
+      // rather than in Train because it pairs two real people.
+      { href: '/private',     label: 'Private round' },
       // 2026-08-14 (Aidan: "bring leaderboard back"): REVERSES the rule
       // that used to sit here, which kept Leaderboard out of navigation
       // "until the ranking system is strong enough to promote". It sits
@@ -478,6 +483,11 @@
       // whole round and keeps true drops distinct from unanswered excerpts.
       { href: '/flow',        label: 'Flow a speech' },
       { href: '/coaches',      label: 'Coaches' },
+      // 2026-08-19: the coach's own surface, not the directory next to
+      // it. A roster joined by code, each member's judged rounds, and
+      // private rounds the coach sets for pairs. `strong` because
+      // /coaches is where a coach lands by mistake looking for this.
+      { href: '/squad',        label: 'Coach a squad', strong: true },
       // 2026-07-27: was "Topics and motions", which the landing's plain-
       // audience jargon layer (motion -> topic, lowercase) rendered as
       // the shipped "Topics and topics". The jargon word sits second so

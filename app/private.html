@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /private — set up a private round and invite one person to it.
+
+     The round itself is an ordinary live round: same clock, same
+     transcript, same AI judge, same ballot. The only difference is that
+     it is created with `isPrivate:true`, which keeps it off /spar's
+     watch panel, the landing live band, /api/watch-live and the
+     /api/room-shot preview. Nobody stumbles into it.
+
+     THERE IS NO SERVER CALL HERE. The room id is unguessable and the
+     link IS the invitation, which is the same entry control live rounds
+     have always used. A backend invite record would let us restrict the
+     second seat to one named account, and that is worth building the day
+     someone asks for it; today it would only add a failure mode between
+     a coach and a room they want opened in the next thirty seconds.
+
+     `private=1` has to be on BOTH links, because both clients write the
+     round init and the last writer would otherwise flip it public. -->
+<title>Private round · invite one person, get a judged ballot · Debatable</title>
+<meta name="description" content="Set up a private debate round, send one invite link, and get a full AI judge ballot at the end. It never appears on a public board.">
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://itsdebatable.com/private">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Private round · Debatable">
+<meta property="og:description" content="Set a motion, send one link, get a judged ballot. Off every public board.">
+<meta property="og:url" content="https://itsdebatable.com/private">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+html[data-lightweb="web"]{background:var(--paper)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
+
+:root{
+  --ink-rgb:20,22,28;
+  --paper:#f4f2ea; --panel:#fffffe; --sunken:#eae7dc; --rule:rgba(20,22,28,.13);
+  --rule-hard:rgba(20,22,28,.26);
+  --tx:rgb(var(--ink-rgb));
+  --dim:rgba(var(--ink-rgb),.70); --faint:rgba(var(--ink-rgb),.50);
+  --up:#12693f; --brand:#c02626; --brand-hi:#e03535;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --head:'Archivo',Georgia,serif;
+}
+html[data-theme="crimson"]{
+  --ink-rgb:236,235,232;
+  --paper:#141210; --panel:#1c1917; --sunken:#100e0c; --rule:rgba(236,235,232,.14);
+  --rule-hard:rgba(236,235,232,.28);
+  --up:#4ade80;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--tx);min-height:100vh}
+.wrap{max-width:760px;margin:0 auto;padding:96px 20px 90px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600}
+h1{font-family:var(--head);font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.05;margin:10px 0 14px}
+h2{font-family:var(--head);font-weight:700;font-size:19px;margin:0 0 4px}
+.lede{color:var(--dim);font-size:17px;line-height:1.55;margin:0 0 30px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:22px;margin:0 0 18px}
+.sub{color:var(--faint);font-size:14px;line-height:1.5;margin:2px 0 0}
+label{display:block;font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+input,select,textarea{width:100%;font:15px Inter,sans-serif;padding:11px 13px;border:1px solid var(--rule-hard);border-radius:9px;background:var(--panel);color:var(--tx);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+textarea{resize:vertical;min-height:64px}
+.field{margin:0 0 14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.row2{grid-template-columns:1fr}}
+button{font:600 15px Inter,sans-serif;padding:11px 18px;border-radius:9px;border:1px solid var(--rule-hard);background:var(--panel);color:var(--tx);cursor:pointer}
+button:hover{background:rgba(128,128,128,.08)}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+button.primary:hover{background:var(--brand-hi)}
+button.tiny{font-size:13px;padding:7px 12px}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.linkbox{background:var(--sunken);border:1px solid var(--rule);border-radius:10px;padding:13px 15px;margin:0 0 12px}
+.linkbox h3{font:600 13px Inter,sans-serif;margin:0 0 6px}
+.linkbox code{display:block;font-family:var(--mono);font-size:12px;word-break:break-all;color:var(--dim);margin:0 0 9px;line-height:1.5}
+.msg{font-size:14px;margin:10px 0 0;min-height:18px}
+.msg.err{color:var(--brand)}
+.msg.ok{color:var(--up)}
+.hidden{display:none !important}
+.foot{color:var(--faint);font-size:13px;line-height:1.6;margin:26px 0 0}
+.foot a{color:var(--brand)}
+ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Private round</p>
+  <h1>Set a round, invite one person</h1>
+  <p class="lede">Pick a motion and a format, send the link, and argue it out. The AI judge writes a full ballot at the end. The room never shows up on the live board, the homepage, or the spectator feed.</p>
+
+  <div class="card" id="setup">
+    <div class="field">
+      <label for="motionIn">Motion</label>
+      <input id="motionIn" maxlength="300" placeholder="This House would ban targeted advertising to minors" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div class="field"><label for="fmtSel">Format</label><select id="fmtSel"></select></div>
+      <div class="field"><label for="sideSel">You argue</label><select id="sideSel">
+        <option value="pro">Pro</option><option value="con">Con</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="meIn">Your name</label><input id="meIn" maxlength="40" placeholder="Alex" autocomplete="off"></div>
+      <div class="field"><label for="themIn">Their name</label><input id="themIn" maxlength="40" placeholder="Sam" autocomplete="off"></div>
+    </div>
+    <div class="field">
+      <label for="noteIn">Note for the judge (optional)</label>
+      <textarea id="noteIn" maxlength="240" placeholder="Weigh probability before magnitude. Punish dropped responses."></textarea>
+      <p class="sub" style="margin-top:6px">A lens on top of the standard method. It cannot name a winner or set the scores.</p>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="makeBtn">Create the round</button>
+      <button id="rollBtn">Random motion</button>
+    </div>
+    <p class="msg" id="setupMsg"></p>
+  </div>
+
+  <div class="card hidden" id="out">
+    <h2>Your round is ready</h2>
+    <p class="sub">Send the invite link to the person you are debating. Open yours when you are both there.</p>
+    <div style="margin-top:16px">
+      <div class="linkbox">
+        <h3>Invite link, send this one</h3>
+        <code id="themLink"></code>
+        <div class="btnrow">
+          <button class="tiny" id="copyThem">Copy invite link</button>
+          <button class="tiny hidden" id="shareThem">Share</button>
+        </div>
+      </div>
+      <div class="linkbox">
+        <h3>Your link</h3>
+        <code id="meLink"></code>
+        <div class="btnrow">
+          <button class="primary tiny" id="openMe">Open my room</button>
+          <button class="tiny" id="copyMe">Copy</button>
+        </div>
+      </div>
+    </div>
+    <p class="msg" id="outMsg"></p>
+    <div class="btnrow" style="margin-top:14px"><button class="tiny" id="againBtn">Set another round</button></div>
+  </div>
+
+  <div class="card">
+    <h2>What private means here</h2>
+    <ul class="plain">
+      <li>The room is hidden from the live rounds board, the homepage band, and the spectator feed.</li>
+      <li>The link is the invitation. Anyone you send it to can take the other seat, so send it to one person.</li>
+      <li>Everything else is a normal round: the clock, the transcript, the full judge ballot, and speaker points.</li>
+      <li>Either of you can flip the round public from inside the room if you want an audience after all.</li>
+    </ul>
+    <p class="foot">Coaching a whole roster? <a href="/squad">Open a squad</a> and set rounds for pairs from one page.</p>
+  </div>
+</div>
+
+<script defer src="/js/track.js"></script>
+<script src="/js/topbar.js" defer></script>
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+
+<script>
+(function(){
+  'use strict';
+  var FORMATS = [
+    ['quick',  'General'],
+    ['apda',   'APDA Parliamentary'],
+    ['bp',     'British Parliamentary'],
+    ['worlds', 'Worlds (WUDC)'],
+    ['asian',  'Asian Parliamentary'],
+    ['ld',     'Lincoln-Douglas'],
+    ['pf',     'Public Forum'],
+    ['policy', 'Policy (CX)'],
+  ];
+  var MOTIONS = [
+    'This House would ban targeted advertising to minors',
+    'This House regrets the rise of the gig economy',
+    'This House would make voting compulsory',
+    'This House believes social media platforms should be liable for what their users post',
+    'This House would abolish private schools',
+    'This House would let cities set their own immigration policy',
+    'This House would tax automation that displaces workers',
+    'This House would give teenagers the vote at sixteen',
+    'This House believes anonymity online does more harm than good',
+    'This House would ban single-use plastics outright'
+  ];
+  var $ = function(id){ return document.getElementById(id); };
+  function say(el, t, k){ el.textContent = t || ''; el.className = 'msg' + (k ? ' ' + k : ''); }
+
+  $('fmtSel').innerHTML = FORMATS.map(function(f){
+    return '<option value="' + f[0] + '">' + f[1] + '</option>';
+  }).join('');
+
+  try {
+    var saved = localStorage.getItem('debateos-display-name') || '';
+    if (saved) $('meIn').value = saved;
+  } catch(e){}
+
+  function roomId(){
+    var s = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var out = '';
+    for (var i = 0; i < 12; i++) out += s[Math.floor(Math.random() * s.length)];
+    return 'Private-' + out;
+  }
+
+  function build(cfg, mySide){
+    var q = new URLSearchParams();
+    q.set('room', cfg.room);
+    q.set('motion', cfg.motion);
+    q.set('format', cfg.format);
+    q.set('pro', cfg.pro);
+    q.set('con', cfg.con);
+    q.set('mySide', mySide);
+    if (cfg.note) q.set('paradigm', cfg.note);
+    // Both links carry it: each client writes the round init, so a link
+    // without it would flip the round public on arrival.
+    q.set('private', '1');
+    q.set('source', 'private');
+    return location.origin + '/live-round?' + q.toString();
+  }
+
+  function copy(text, el, done){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        say(el, done, 'ok');
+        setTimeout(function(){ say(el, ''); }, 2600);
+      }).catch(function(){ say(el, 'Copy failed. Select the link above.', 'err'); });
+    } else {
+      say(el, 'Select the link above to copy it.', '');
+    }
+  }
+
+  $('rollBtn').addEventListener('click', function(){
+    $('motionIn').value = MOTIONS[Math.floor(Math.random() * MOTIONS.length)];
+  });
+
+  $('makeBtn').addEventListener('click', function(){
+    var motion = $('motionIn').value.trim();
+    if (!motion){ say($('setupMsg'), 'Set a motion first, or roll a random one.', 'err'); return; }
+    var me = $('meIn').value.trim() || 'You';
+    var them = $('themIn').value.trim() || 'Opponent';
+    var mySide = $('sideSel').value === 'con' ? 'con' : 'pro';
+    var cfg = {
+      room: roomId(),
+      motion: motion,
+      format: $('fmtSel').value,
+      note: $('noteIn').value.trim(),
+      pro: mySide === 'pro' ? me : them,
+      con: mySide === 'pro' ? them : me
+    };
+    try { localStorage.setItem('debateos-display-name', me); } catch(e){}
+
+    var mine = build(cfg, mySide);
+    var theirs = build(cfg, mySide === 'pro' ? 'con' : 'pro');
+    $('meLink').textContent = mine;
+    $('themLink').textContent = theirs;
+    $('openMe').onclick = function(){ location.href = mine; };
+    $('copyMe').onclick = function(){ copy(mine, $('outMsg'), 'Your link copied.'); };
+    $('copyThem').onclick = function(){ copy(theirs, $('outMsg'), 'Invite link copied. Send it to them.'); };
+    if (navigator.share){
+      $('shareThem').classList.remove('hidden');
+      $('shareThem').onclick = function(){
+        navigator.share({ title: 'Debate this with me', text: cfg.motion, url: theirs }).catch(function(){});
+      };
+    }
+    $('setup').classList.add('hidden');
+    $('out').classList.remove('hidden');
+    say($('setupMsg'), '');
+    try { gtag('event', 'private_round_created', { format: cfg.format }); } catch(e){}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  $('againBtn').addEventListener('click', function(){
+    $('out').classList.add('hidden');
+    $('setup').classList.remove('hidden');
+    $('motionIn').value = '';
+    say($('outMsg'), '');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- /squad — a coach's roster, and the private rounds they set for it.
+
+     WHAT THIS IS
+     A coach opens a squad, hands out a six-character code, and everyone
+     who joins shows up on one roster with the rounds they have actually
+     completed. From the same page the coach pairs two people against a
+     motion; each of them gets a link into a private room where the AI
+     judge writes the ballot at the end.
+
+     WHY IT IS NOT THE `teams` COLLECTION
+     `teams` is the BILLING object: Stripe customer, seat count, usage
+     cap, one team per account. A coach making a roster should not open a
+     billing record to do it, and a debater on a school squad and a club
+     squad at once breaks the one-team rule. Squads carry no money.
+
+     WHERE THE STATE LIVES
+     `squads`, `squad_members`, `squad_assignments`, all admin-SDK only
+     through /api/squad. No client touches them directly, so they sit
+     under firestore.rules' terminal default-deny with no rule of their
+     own. This page polls; there is no realtime listener to pay for.
+
+     PRIVATE ROUNDS
+     An assignment is a room id plus a per-person link carrying side,
+     names, uids and `private=1`. live-round.html reads that param and
+     opens the round with `isPrivate:true`, which is what keeps it off
+     /spar's watch list, the landing live band, /api/watch-live and
+     /api/room-shot. Nothing else about the round changes: same clock,
+     same transcript, same judge. -->
+<title>Squad · coach a roster on Debatable</title>
+<meta name="description" content="Open a squad, invite your roster with a code, and set private rounds two people can play against the AI judge.">
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://itsdebatable.com/squad">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Squad · coach a roster on Debatable">
+<meta property="og:description" content="One roster, one code, and private rounds the AI judge scores.">
+<meta property="og:url" content="https://itsdebatable.com/squad">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script>
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[squad] firebase init skipped:', e.message); }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&display=swap">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+html[data-lightweb="web"]{background:var(--paper)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
+
+:root{
+  --ink-rgb:20,22,28;
+  --paper:#f4f2ea; --panel:#fffffe; --sunken:#eae7dc; --rule:rgba(20,22,28,.13);
+  --rule-hard:rgba(20,22,28,.26);
+  --tx:rgb(var(--ink-rgb));
+  --dim:rgba(var(--ink-rgb),.70); --faint:rgba(var(--ink-rgb),.50);
+  --up:#12693f; --brand:#c02626; --brand-hi:#e03535;
+  --row-hover:rgba(20,22,28,.035);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --head:'Archivo',Georgia,serif;
+}
+html[data-theme="crimson"]{
+  --ink-rgb:236,235,232;
+  --paper:#141210; --panel:#1c1917; --sunken:#100e0c; --rule:rgba(236,235,232,.14);
+  --rule-hard:rgba(236,235,232,.28);
+  --row-hover:rgba(236,235,232,.05);
+  --up:#4ade80;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--tx);min-height:100vh}
+.wrap{max-width:1020px;margin:0 auto;padding:96px 20px 90px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600}
+h1{font-family:var(--head);font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.05;margin:10px 0 14px}
+h2{font-family:var(--head);font-weight:700;font-size:20px;margin:0 0 4px}
+.lede{color:var(--dim);font-size:17px;line-height:1.55;max-width:660px;margin:0 0 30px}
+
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:22px;margin:0 0 18px}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 14px}
+.sub{color:var(--faint);font-size:14px;line-height:1.5;margin:2px 0 0}
+
+label{display:block;font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+input,select,textarea{width:100%;font:15px Inter,sans-serif;padding:11px 13px;border:1px solid var(--rule-hard);border-radius:9px;background:var(--panel);color:var(--tx);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+textarea{resize:vertical;min-height:64px}
+.field{margin:0 0 14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.row2{grid-template-columns:1fr}}
+
+button{font:600 15px Inter,sans-serif;padding:11px 18px;border-radius:9px;border:1px solid var(--rule-hard);background:var(--panel);color:var(--tx);cursor:pointer}
+button:hover{background:var(--row-hover)}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+button.primary:hover{background:var(--brand-hi)}
+button.tiny{font-size:13px;padding:6px 11px}
+button[disabled]{opacity:.5;cursor:default}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.code{font-family:var(--mono);font-size:30px;font-weight:700;letter-spacing:.22em;color:var(--tx)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;padding:3px 9px;border-radius:99px;border:1px solid var(--rule-hard);color:var(--dim)}
+.pill.on{color:var(--up);border-color:currentColor}
+.pill.live{color:var(--brand);border-color:currentColor}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:0 10px 8px 0;border-bottom:1px solid var(--rule)}
+td{padding:11px 10px 11px 0;border-bottom:1px solid var(--rule);font-size:15px;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.who{font-weight:600}
+.mail{display:block;color:var(--faint);font-size:12px;font-family:var(--mono)}
+
+.asn{border:1px solid var(--rule);border-radius:12px;padding:15px 16px;margin:0 0 11px;background:var(--sunken)}
+.asn-motion{font-family:var(--head);font-weight:700;font-size:16px;line-height:1.35;margin:0 0 6px}
+.asn-meta{color:var(--faint);font-size:13px;margin:0 0 11px}
+.asn-note{color:var(--dim);font-size:14px;line-height:1.5;margin:0 0 11px;padding-left:10px;border-left:2px solid var(--rule-hard)}
+a.link{color:var(--brand);font-weight:600;text-decoration:none}
+a.link:hover{text-decoration:underline}
+
+.empty{color:var(--faint);font-size:15px;line-height:1.55;padding:8px 0}
+.msg{font-size:14px;margin:10px 0 0;min-height:18px}
+.msg.err{color:var(--brand)}
+.msg.ok{color:var(--up)}
+.hidden{display:none !important}
+.switcher{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px}
+.switcher button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.foot{color:var(--faint);font-size:13px;line-height:1.6;margin:26px 0 0;max-width:660px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Squad</p>
+  <h1 id="pageTitle">Coach a roster</h1>
+  <p class="lede" id="pageLede">Open a squad, hand out the code, and set rounds two people play in a private room. The AI judge writes the ballot when they finish.</p>
+
+  <!-- Signed out -->
+  <div class="card hidden" id="gate">
+    <h2>Sign in to open a squad</h2>
+    <p class="sub">A roster needs real accounts on both sides, so a squad takes a Google, Apple, or email account. It is free.</p>
+    <div class="btnrow" style="margin-top:14px"><button class="primary" id="gateBtn">Sign in</button></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="card" id="loading"><p class="empty">Loading your squads.</p></div>
+
+  <!-- No squad yet -->
+  <div class="hidden" id="onboard">
+    <div class="card">
+      <h2>Start a squad</h2>
+      <p class="sub">You become the coach. Everyone else joins with the code you get next.</p>
+      <div class="row2" style="margin-top:14px">
+        <div class="field"><label for="newName">Squad name</label><input id="newName" maxlength="60" placeholder="Lincoln High Varsity" autocomplete="off"></div>
+        <div class="field"><label for="newProgram">School or club (optional)</label><input id="newProgram" maxlength="80" placeholder="Lincoln High School" autocomplete="off"></div>
+      </div>
+      <div class="btnrow"><button class="primary" id="createBtn">Create squad</button></div>
+      <p class="msg" id="createMsg"></p>
+    </div>
+    <div class="card">
+      <h2>Join a squad</h2>
+      <p class="sub">Your coach gives you six characters. Type them here once.</p>
+      <div class="field" style="max-width:280px;margin-top:14px"><label for="joinCode">Join code</label><input id="joinCode" maxlength="7" placeholder="H4K2QP" style="font-family:var(--mono);letter-spacing:.18em;text-transform:uppercase"></div>
+      <div class="btnrow"><button class="primary" id="joinBtn">Join</button></div>
+      <p class="msg" id="joinMsg"></p>
+    </div>
+  </div>
+
+  <!-- A squad -->
+  <div class="hidden" id="squadView">
+    <div class="switcher" id="switcher"></div>
+
+    <!-- Invite (coach only) -->
+    <div class="card hidden" id="inviteCard">
+      <div class="card-head">
+        <div><h2>Invite the roster</h2><p class="sub">Anyone with this code joins as a debater. Roll it if it leaks.</p></div>
+        <span class="pill" id="memberPill"></span>
+      </div>
+      <div class="btnrow" style="align-items:center">
+        <span class="code" id="codeText"></span>
+        <button class="tiny" id="copyCodeBtn">Copy code</button>
+        <button class="tiny" id="copyLinkBtn">Copy join link</button>
+        <button class="tiny" id="rollBtn">New code</button>
+      </div>
+      <p class="msg" id="inviteMsg"></p>
+    </div>
+
+    <!-- Set a round (coach only) -->
+    <div class="card hidden" id="assignCard">
+      <h2>Set a round</h2>
+      <p class="sub">Pick two people, a motion, and a format. Each of them gets their own link into a private room.</p>
+      <div class="row2" style="margin-top:14px">
+        <div class="field"><label for="aSel">Pro side</label><select id="aSel"></select></div>
+        <div class="field"><label for="bSel">Con side</label><select id="bSel"></select></div>
+      </div>
+      <div class="field">
+        <label for="motionIn">Motion</label>
+        <input id="motionIn" maxlength="300" placeholder="This House would ban targeted advertising to minors" autocomplete="off">
+      </div>
+      <div class="row2">
+        <div class="field"><label for="fmtSel">Format</label><select id="fmtSel"></select></div>
+        <div class="field"><label for="dueIn">Play by (optional)</label><input id="dueIn" type="date"></div>
+      </div>
+      <div class="field">
+        <label for="noteIn">Note for the judge (optional)</label>
+        <textarea id="noteIn" maxlength="240" placeholder="Weigh probability before magnitude. Punish dropped responses."></textarea>
+        <p class="sub" style="margin-top:6px">This rides the ballot as a lens on top of the standard method. It cannot name a winner or set scores.</p>
+      </div>
+      <div class="btnrow"><button class="primary" id="assignBtn">Set the round</button><button id="rollMotionBtn">Random motion</button></div>
+      <p class="msg" id="assignMsg"></p>
+    </div>
+
+    <!-- Rounds -->
+    <div class="card">
+      <div class="card-head">
+        <div><h2 id="roundsHead">Rounds</h2><p class="sub" id="roundsSub">Open one to play it. The room stays private and off every public board.</p></div>
+        <button class="tiny" id="refreshBtn">Refresh</button>
+      </div>
+      <div id="asnList"></div>
+    </div>
+
+    <!-- Roster -->
+    <div class="card">
+      <div class="card-head"><div><h2>Roster</h2><p class="sub">Rounds counted are judged rounds that reached the leaderboard, on the 1-100 speaker scale.</p></div></div>
+      <div style="overflow-x:auto"><table id="roster"></table></div>
+      <p class="msg" id="rosterMsg"></p>
+      <div class="btnrow" style="margin-top:16px">
+        <button class="tiny hidden" id="leaveBtn">Leave squad</button>
+        <button class="tiny hidden" id="closeBtn">Close squad</button>
+        <button class="tiny" id="newSquadBtn">Start another squad</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">A private round is a normal round with one difference: it never appears on the live board, the landing page, or the spectator feed. Both people still get the full ballot, and it still counts toward their record.</p>
+</div>
+
+<script defer src="/js/track.js"></script>
+<script src="/js/topbar.js" defer></script>
+<script defer src="/js/auth-modal.js"></script>
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script defer src="/js/ui-neural.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  // Two-bench formats plus the four-team ones /spar offers. Kept in sync
+  // with FORMATS in squad.mjs by hand; a key the server rejects would
+  // silently fall back to 'quick', which is a confusing way to fail.
+  var FORMATS = [
+    ['quick',  'General'],
+    ['apda',   'APDA Parliamentary'],
+    ['bp',     'British Parliamentary'],
+    ['worlds', 'Worlds (WUDC)'],
+    ['asian',  'Asian Parliamentary'],
+    ['ld',     'Lincoln-Douglas'],
+    ['pf',     'Public Forum'],
+    ['policy', 'Policy (CX)'],
+  ];
+
+  var MOTIONS = [
+    'This House would ban targeted advertising to minors',
+    'This House regrets the rise of the gig economy',
+    'This House would make voting compulsory',
+    'This House believes that social media platforms should be liable for what their users post',
+    'This House would abolish private schools',
+    'This House would let cities set their own immigration policy',
+    'This House regrets the celebrity endorsement of political candidates',
+    'This House would ban single-use plastics outright',
+    'This House believes universities should stop using standardised test scores',
+    'This House would tax automation that displaces workers',
+    'This House would give teenagers the vote at sixteen',
+    'This House believes that anonymity online does more harm than good'
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { user:null, token:null, squads:[], current:null, detail:null };
+
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function show(el, on){ if (el) el.classList.toggle('hidden', !on); }
+  function say(el, text, kind){
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+  function fmtName(key){
+    for (var i = 0; i < FORMATS.length; i++) if (FORMATS[i][0] === key) return FORMATS[i][1];
+    return 'General';
+  }
+  function ago(iso){
+    if (!iso) return 'never';
+    var ms = Date.now() - new Date(iso).getTime();
+    if (!isFinite(ms) || ms < 0) return 'just now';
+    var d = Math.floor(ms / 86400000);
+    if (d === 0) return 'today';
+    if (d === 1) return 'yesterday';
+    if (d < 30) return d + ' days ago';
+    var mo = Math.floor(d / 30);
+    return mo + (mo === 1 ? ' month ago' : ' months ago');
+  }
+
+  // ── API ────────────────────────────────────────────────────────────
+  function api(method, body, query){
+    var url = '/api/squad' + (query || '');
+    var opts = { method: method, headers: { 'Authorization': 'Bearer ' + state.token } };
+    if (body){
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(url, opts).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        if (!r.ok) throw new Error(j.error || j.message || ('Request failed (' + r.status + ')'));
+        return j;
+      });
+    });
+  }
+
+  // ── Private round links ────────────────────────────────────────────
+  // The room is opened by whoever arrives first; live-round.html creates
+  // the doc from these params. `private=1` is what makes it private, and
+  // BOTH links carry it because both clients write the round init.
+  function roundLink(a, forUid){
+    var meIsA = forUid === a.aUid;
+    var q = new URLSearchParams();
+    q.set('room', a.room);
+    q.set('motion', a.motion);
+    q.set('format', a.format);
+    q.set('pro', a.aSide === 'pro' ? a.aName : a.bName);
+    q.set('con', a.aSide === 'pro' ? a.bName : a.aName);
+    q.set('proUid', a.aSide === 'pro' ? a.aUid : a.bUid);
+    q.set('conUid', a.aSide === 'pro' ? a.bUid : a.aUid);
+    if (forUid){
+      var side = meIsA ? a.aSide : (a.aSide === 'pro' ? 'con' : 'pro');
+      q.set('mySide', side);
+    }
+    if (a.note) q.set('paradigm', 'Coach: ' + a.note);
+    q.set('private', '1');
+    q.set('source', 'squad');
+    return location.origin + '/live-round?' + q.toString();
+  }
+
+  function copy(text, el, done){
+    var fin = function(){ say(el, done, 'ok'); setTimeout(function(){ say(el, ''); }, 2600); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(fin).catch(function(){ say(el, text, ''); });
+    } else {
+      say(el, text, '');
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────
+  function paintSwitcher(){
+    var host = $('switcher');
+    if (state.squads.length < 2){ host.innerHTML = ''; return; }
+    host.innerHTML = state.squads.map(function(s){
+      return '<button data-sq="' + esc(s.id) + '"' + (s.id === state.current ? ' class="on"' : '') + '>' +
+             esc(s.name) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(host.querySelectorAll('[data-sq]'), function(b){
+      b.addEventListener('click', function(){ selectSquad(b.getAttribute('data-sq')); });
+    });
+  }
+
+  function paintRoster(d){
+    var coach = d.me.canManage;
+    var head = '<tr><th>Name</th><th>Role</th><th class="num">Rounds</th><th class="num">Best</th><th>Last round</th>' +
+               (coach ? '<th></th>' : '') + '</tr>';
+    var rows = d.members.map(function(m){
+      var st = m.stats || {};
+      var best = st.best == null ? '&mdash;' :
+        (Math.round(st.best * 10) / 10) + '<span style="color:var(--faint)"> / ' + (st.scale || 100) + '</span>';
+      var role = m.role === 'coach' ? 'Coach' : (m.role === 'assistant' ? 'Assistant' : 'Debater');
+      var actions = '';
+      if (coach && m.role !== 'coach' && m.uid !== d.me.uid){
+        actions = '<button class="tiny" data-drop="' + esc(m.uid) + '">Remove</button>';
+      }
+      return '<tr>' +
+        '<td class="who">' + esc(m.name) + (m.email ? '<span class="mail">' + esc(m.email) + '</span>' : '') + '</td>' +
+        '<td>' + role + '</td>' +
+        '<td class="num">' + (st.rounds || 0) + '</td>' +
+        '<td class="num">' + best + '</td>' +
+        '<td style="color:var(--dim)">' + ago(st.last) + '</td>' +
+        (coach ? '<td style="text-align:right">' + actions + '</td>' : '') +
+      '</tr>';
+    }).join('');
+    $('roster').innerHTML = head + rows;
+    Array.prototype.forEach.call($('roster').querySelectorAll('[data-drop]'), function(b){
+      b.addEventListener('click', function(){
+        var uid = b.getAttribute('data-drop');
+        if (!confirm('Remove this person from the squad? Their rounds are not deleted.')) return;
+        b.disabled = true;
+        api('POST', { action:'remove', squadId: state.current, uid: uid })
+          .then(function(){ loadDetail(state.current); })
+          .catch(function(e){ b.disabled = false; say($('rosterMsg'), e.message, 'err'); });
+      });
+    });
+  }
+
+  function paintAssignments(d){
+    var host = $('asnList');
+    if (!d.assignments.length){
+      host.innerHTML = '<p class="empty">' + (d.me.canManage
+        ? 'No rounds set yet. Pick two people above and give them a motion.'
+        : 'Your coach has not set you a round yet.') + '</p>';
+      return;
+    }
+    host.innerHTML = d.assignments.map(function(a){
+      var r = a.round || {};
+      var pill = r.state === 'judged'
+        ? '<span class="pill on">Judged</span>'
+        : (r.state === 'live' ? '<span class="pill live">In progress</span>' : '<span class="pill">Not started</span>');
+      var proName = a.aSide === 'pro' ? a.aName : a.bName;
+      var conName = a.aSide === 'pro' ? a.bName : a.aName;
+      var meIn = a.aUid === d.me.uid || a.bUid === d.me.uid;
+      var links = '';
+      if (meIn){
+        links += '<a class="link" href="' + esc(roundLink(a, d.me.uid)) + '">Open your room</a>';
+      }
+      if (d.me.canManage){
+        if (links) links += ' &nbsp;·&nbsp; ';
+        links += '<a class="link" href="#" data-copy="' + esc(a.id) + '" data-for="a">Copy ' + esc(a.aName) + '’s link</a>' +
+                 ' &nbsp;·&nbsp; <a class="link" href="#" data-copy="' + esc(a.id) + '" data-for="b">Copy ' + esc(a.bName) + '’s link</a>' +
+                 ' &nbsp;·&nbsp; <a class="link" href="#" data-cancel="' + esc(a.id) + '">Cancel</a>';
+      }
+      if (r.state === 'judged'){
+        if (links) links += ' &nbsp;·&nbsp; ';
+        links += '<a class="link" href="' + esc(roundLink(a, '')) + '&spectate=1">Read the ballot</a>';
+      }
+      return '<div class="asn">' +
+        '<p class="asn-motion">' + esc(a.motion) + '</p>' +
+        '<p class="asn-meta">' + esc(proName) + ' (Pro) against ' + esc(conName) + ' (Con) &nbsp;·&nbsp; ' +
+          esc(fmtName(a.format)) + ' &nbsp;·&nbsp; ' + pill +
+          (a.dueAt ? ' &nbsp;·&nbsp; play by ' + new Date(a.dueAt).toLocaleDateString() : '') + '</p>' +
+        (a.note ? '<p class="asn-note">' + esc(a.note) + '</p>' : '') +
+        '<p style="margin:0;font-size:14px">' + links + '</p>' +
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(host.querySelectorAll('[data-copy]'), function(el){
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var id = el.getAttribute('data-copy');
+        var which = el.getAttribute('data-for');
+        var a = d.assignments.filter(function(x){ return x.id === id; })[0];
+        if (!a) return;
+        copy(roundLink(a, which === 'a' ? a.aUid : a.bUid), $('rosterMsg'), 'Link copied. Send it to them.');
+      });
+    });
+    Array.prototype.forEach.call(host.querySelectorAll('[data-cancel]'), function(el){
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        if (!confirm('Cancel this round? Anyone already in the room stays there.')) return;
+        api('POST', { action:'unassign', squadId: state.current, id: el.getAttribute('data-cancel') })
+          .then(function(){ loadDetail(state.current); })
+          .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
+      });
+    });
+  }
+
+  function paintDetail(d){
+    state.detail = d;
+    var coach = d.me.canManage;
+
+    $('pageTitle').textContent = d.squad.name;
+    $('pageLede').textContent = coach
+      ? 'Your roster and the rounds you have set. Everything here stays off the public boards.'
+      : 'Your squad and the rounds your coach has set for you.';
+
+    show($('inviteCard'), coach);
+    show($('assignCard'), coach);
+    show($('leaveBtn'), !coach);
+    show($('closeBtn'), d.me.role === 'coach');
+    $('roundsHead').textContent = coach ? 'Rounds you have set' : 'Your rounds';
+    $('roundsSub').textContent = coach
+      ? 'Open one to play it yourself, or send each person their link. The room stays off every public board.'
+      : 'Open your room when you are both ready. The AI judge writes the ballot at the end.';
+
+    if (coach){
+      $('codeText').textContent = d.squad.joinCode || '';
+      $('memberPill').textContent = d.squad.memberCount + (d.squad.memberCount === 1 ? ' member' : ' members');
+      var opts = d.members.map(function(m){
+        return '<option value="' + esc(m.uid) + '">' + esc(m.name) + (m.role === 'coach' ? ' (you)' : '') + '</option>';
+      }).join('');
+      $('aSel').innerHTML = opts;
+      $('bSel').innerHTML = opts;
+      if (d.members.length > 1) $('bSel').selectedIndex = 1;
+      if (!$('fmtSel').options.length){
+        $('fmtSel').innerHTML = FORMATS.map(function(f){
+          return '<option value="' + f[0] + '">' + f[1] + '</option>';
+        }).join('');
+      }
+    }
+
+    paintRoster(d);
+    paintAssignments(d);
+    paintSwitcher();
+  }
+
+  function loadDetail(id){
+    state.current = id;
+    try { history.replaceState(null, '', '/squad?s=' + encodeURIComponent(id)); } catch(e){}
+    return api('GET', null, '?id=' + encodeURIComponent(id))
+      .then(paintDetail)
+      .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
+  }
+
+  function selectSquad(id){
+    show($('onboard'), false);
+    show($('squadView'), true);
+    loadDetail(id);
+  }
+
+  function loadList(){
+    return api('GET').then(function(res){
+      state.squads = res.squads || [];
+      show($('loading'), false);
+      if (!state.squads.length){
+        show($('onboard'), true);
+        show($('squadView'), false);
+        return;
+      }
+      var wanted = new URLSearchParams(location.search).get('s');
+      var pick = state.squads.filter(function(s){ return s.id === wanted; })[0] || state.squads[0];
+      selectSquad(pick.id);
+    }).catch(function(e){
+      show($('loading'), false);
+      show($('onboard'), true);
+      say($('createMsg'), e.message, 'err');
+    });
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────
+  $('createBtn').addEventListener('click', function(){
+    var name = $('newName').value.trim();
+    if (!name){ say($('createMsg'), 'Give the squad a name.', 'err'); return; }
+    this.disabled = true;
+    var btn = this;
+    say($('createMsg'), 'Creating.', '');
+    api('POST', { action:'create', name: name, program: $('newProgram').value.trim() })
+      .then(function(res){
+        return api('GET').then(function(list){
+          state.squads = list.squads || [];
+          selectSquad(res.squadId);
+          say($('createMsg'), '');
+        });
+      })
+      .catch(function(e){ btn.disabled = false; say($('createMsg'), e.message, 'err'); });
+  });
+
+  $('joinBtn').addEventListener('click', function(){
+    var code = $('joinCode').value.trim().toUpperCase();
+    if (code.length !== 6){ say($('joinMsg'), 'A join code is six characters.', 'err'); return; }
+    var btn = this;
+    btn.disabled = true;
+    say($('joinMsg'), 'Joining.', '');
+    api('POST', { action:'join', code: code })
+      .then(function(res){
+        return api('GET').then(function(list){
+          state.squads = list.squads || [];
+          selectSquad(res.squadId);
+          say($('joinMsg'), '');
+        });
+      })
+      .catch(function(e){ btn.disabled = false; say($('joinMsg'), e.message, 'err'); });
+  });
+
+  $('copyCodeBtn').addEventListener('click', function(){
+    copy($('codeText').textContent, $('inviteMsg'), 'Code copied.');
+  });
+  $('copyLinkBtn').addEventListener('click', function(){
+    copy(location.origin + '/squad?join=' + $('codeText').textContent, $('inviteMsg'), 'Join link copied.');
+  });
+  $('rollBtn').addEventListener('click', function(){
+    if (!confirm('Make a new code? The old one stops working immediately.')) return;
+    var btn = this;
+    btn.disabled = true;
+    api('POST', { action:'code', squadId: state.current })
+      .then(function(res){
+        btn.disabled = false;
+        $('codeText').textContent = res.joinCode;
+        say($('inviteMsg'), 'New code. Send it round.', 'ok');
+      })
+      .catch(function(e){ btn.disabled = false; say($('inviteMsg'), e.message, 'err'); });
+  });
+
+  $('rollMotionBtn').addEventListener('click', function(){
+    $('motionIn').value = MOTIONS[Math.floor(Math.random() * MOTIONS.length)];
+  });
+
+  $('assignBtn').addEventListener('click', function(){
+    var body = {
+      action: 'assign',
+      squadId: state.current,
+      aUid: $('aSel').value,
+      bUid: $('bSel').value,
+      motion: $('motionIn').value.trim(),
+      format: $('fmtSel').value,
+      aSide: 'pro',
+      note: $('noteIn').value.trim()
+    };
+    if ($('dueIn').value){
+      var t = new Date($('dueIn').value + 'T23:59:00').getTime();
+      if (isFinite(t)) body.dueAt = t;
+    }
+    if (!body.motion){ say($('assignMsg'), 'Set a motion.', 'err'); return; }
+    if (body.aUid === body.bUid){ say($('assignMsg'), 'Pick two different people.', 'err'); return; }
+    var btn = this;
+    btn.disabled = true;
+    say($('assignMsg'), 'Setting the round.', '');
+    api('POST', body)
+      .then(function(){
+        $('motionIn').value = '';
+        $('noteIn').value = '';
+        say($('assignMsg'), 'Round set. Send them their links below.', 'ok');
+        btn.disabled = false;
+        return loadDetail(state.current);
+      })
+      .catch(function(e){ btn.disabled = false; say($('assignMsg'), e.message, 'err'); });
+  });
+
+  $('refreshBtn').addEventListener('click', function(){ loadDetail(state.current); });
+
+  $('leaveBtn').addEventListener('click', function(){
+    if (!confirm('Leave this squad? Your rounds and ballots stay with you.')) return;
+    api('POST', { action:'leave', squadId: state.current })
+      .then(function(){ location.href = '/squad'; })
+      .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
+  });
+
+  $('closeBtn').addEventListener('click', function(){
+    if (!confirm('Close this squad? The roster is deleted. Rounds already played keep their ballots.')) return;
+    api('POST', { action:'close', squadId: state.current })
+      .then(function(){ location.href = '/squad'; })
+      .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
+  });
+
+  $('newSquadBtn').addEventListener('click', function(){
+    show($('squadView'), false);
+    show($('onboard'), true);
+    $('pageTitle').textContent = 'Coach a roster';
+    window.scrollTo(0, 0);
+  });
+
+  $('gateBtn').addEventListener('click', function(){
+    if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+    else location.href = '/practice';
+  });
+
+  // ── Boot ───────────────────────────────────────────────────────────
+  // A join code can arrive by link (/squad?join=CODE). Prefill it so the
+  // person only presses one button; joining still requires the account,
+  // because the roster row IS the account.
+  (function prefill(){
+    var code = new URLSearchParams(location.search).get('join');
+    if (code) $('joinCode').value = String(code).toUpperCase().slice(0, 6);
+  })();
+
+  function isNamed(u){
+    // The same trap as everywhere else on this site: js/notifications.js
+    // signs nearly every visitor in anonymously, so a truthy currentUser
+    // means "has a browser", not "has an account".
+    return !!u && !u.isAnonymous;
+  }
+
+  if (typeof firebase === 'undefined' || !firebase.auth){
+    show($('loading'), false);
+    show($('gate'), true);
+  } else {
+    firebase.auth().onAuthStateChanged(function(u){
+      if (!isNamed(u)){
+        state.user = null;
+        show($('loading'), false);
+        show($('squadView'), false);
+        show($('onboard'), false);
+        show($('gate'), true);
+        return;
+      }
+      state.user = u;
+      show($('gate'), false);
+      show($('loading'), true);
+      u.getIdToken().then(function(t){
+        state.token = t;
+        loadList();
+      }).catch(function(){
+        show($('loading'), false);
+        show($('gate'), true);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

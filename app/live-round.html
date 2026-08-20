@@ -3180,6 +3180,14 @@ html.stage-mode .stage-ov{display:block}
     // motion band and lower-third overlay.
     spectate: qs.get('spectate') === '1',
     stage: qs.get('stage') === '1',
+    // Private round. Set by /private and by a coach's /squad assignment.
+    // Seeds `isPrivate:true` on the round doc, which is what keeps the
+    // room off /spar's watch panel, the landing live band,
+    // /api/watch-live and /api/room-shot. Nothing else changes: same
+    // clock, same transcript, same ballot. BOTH invite links carry it,
+    // because both clients write publishRoundInit and a link without it
+    // would flip the round public on arrival.
+    isPrivate: qs.get('private') === '1',
     room:   qs.get('room')   || ('Debatable-Round-' + Math.random().toString(36).slice(2,10)),
     source: qs.get('source') || '',
     // Lens nominated on /spar before the match resolved. Seeds THIS
@@ -3406,6 +3414,10 @@ html.stage-mode .stage-ov{display:block}
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
     lookingEl: null,         // the calm "looking for your debater" strip
     participantAvatars: {}, // uid -> compact public avatar renderer config
+    // Seeded from ?private=1; the round-doc snapshot overrides it the
+    // moment the doc reveals the real value (either debater can flip it
+    // from the visibility menu mid-round).
+    isPrivate: prefill.isPrivate,
   };
 
   function publicNameOf(user){
@@ -12718,7 +12730,9 @@ html.stage-mode .stage-ov{display:block}
       // Spar rounds are watchable by default; the /spar "Watch a live
       // round" panel lists public rounds. A debater can flip this to
       // drop the round from that list (go-private toggle, follow-up).
-      isPrivate: false,
+      // A round opened from /private or a coach's /squad assignment
+      // arrives with ?private=1 and starts hidden instead.
+      isPrivate: !!state.isPrivate,
     };
     var ownAvatar = currentPublicAvatarIdentity();
     if (ownAvatar && state.user && state.user.uid){
