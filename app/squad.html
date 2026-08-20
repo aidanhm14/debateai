@@ -98,6 +98,9 @@ html[data-theme="crimson"]{
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--tx);min-height:100vh}
 .wrap{max-width:1020px;margin:0 auto;padding:96px 20px 90px}
+/* The native shell hides the topbar and supplies its own safe-area
+   inset, so the bar clearance comes back off. */
+html.dbnative .wrap{padding-top:20px}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600}
 h1{font-family:var(--head);font-weight:800;font-size:clamp(28px,5vw,42px);line-height:1.05;margin:10px 0 14px}
 h2{font-family:var(--head);font-weight:700;font-size:20px;margin:0 0 4px}
@@ -151,20 +154,40 @@ a.link:hover{text-decoration:underline}
 .switcher{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px}
 .switcher button.on{background:var(--brand);border-color:var(--brand);color:#fff}
 .foot{color:var(--faint);font-size:13px;line-height:1.6;margin:26px 0 0;max-width:660px}
+.gains{list-style:none;margin:18px 0 0;padding:16px 0 0;border-top:1px solid var(--rule);color:var(--dim);font-size:15px;line-height:1.5}
+.gains li{margin:0 0 10px;padding-left:16px;position:relative}
+.gains li:last-child{margin-bottom:0}
+.gains li:before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--brand)}
+.gains b{color:var(--tx);font-weight:600}
+.pill.late{color:var(--brand);border-color:currentColor}
 </style>
 </head>
 <body>
 
+<!-- Shared topbar. It was loaded from the start and never rendered,
+     because topbar.js returns silently when #daTopbar is absent: a coach
+     landing here from /coaches got a page with no wordmark, no nav and no
+     sign-in slot, and exactly one link on it. The 96px of .wrap padding
+     was already written to clear the bar. -->
+<div id="daTopbar"></div>
+
 <div class="wrap">
-  <p class="eyebrow">Squad</p>
+  <p class="eyebrow" id="pageEyebrow">Squad</p>
   <h1 id="pageTitle">Coach a roster</h1>
   <p class="lede" id="pageLede">Open a squad, hand out the code, and set rounds two people play in a private room. The AI judge writes the ballot when they finish.</p>
 
   <!-- Signed out -->
   <div class="card hidden" id="gate">
-    <h2>Sign in to open a squad</h2>
-    <p class="sub">A roster needs real accounts on both sides, so a squad takes a Google, Apple, or email account. It is free.</p>
+    <h2 id="gateHead">Sign in to open a squad</h2>
+    <p class="sub" id="gateSub">A roster needs real accounts on both sides, so a squad takes a Google, Apple, or email account. It is free.</p>
     <div class="btnrow" style="margin-top:14px"><button class="primary" id="gateBtn">Sign in</button></div>
+    <!-- What a coach actually gets, before they are asked for anything.
+         The page used to answer that with one sign-in button. -->
+    <ul class="gains" id="gateGains">
+      <li><b>One code, one roster.</b> Everyone who joins shows up in a table with the judged rounds they have actually completed.</li>
+      <li><b>You set the rounds.</b> Pick two people, a motion and a format, and each of them gets their own link.</li>
+      <li><b>Nobody can stumble in.</b> A squad round never reaches the live board, the homepage or the spectator feed.</li>
+    </ul>
   </div>
 
   <!-- Loading -->
@@ -172,6 +195,9 @@ a.link:hover{text-decoration:underline}
 
   <!-- No squad yet -->
   <div class="hidden" id="onboard">
+    <!-- Pressing "Start another squad" used to be one-way: the roster
+         vanished until a reload. -->
+    <div class="btnrow hidden" id="backRow" style="margin:0 0 18px"><button class="tiny" id="backBtn">Back to the squad</button></div>
     <div class="card">
       <h2>Start a squad</h2>
       <p class="sub">You become the coach. Everyone else joins with the code you get next.</p>
@@ -233,6 +259,7 @@ a.link:hover{text-decoration:underline}
       </div>
       <div class="btnrow"><button class="primary" id="assignBtn">Set the round</button><button id="rollMotionBtn">Random motion</button></div>
       <p class="msg" id="assignMsg"></p>
+      <p class="empty hidden" id="assignEmpty" style="padding:0">Nobody has joined yet. Send the code above, then come back and pair two people.</p>
     </div>
 
     <!-- Rounds -->
@@ -242,6 +269,7 @@ a.link:hover{text-decoration:underline}
         <button class="tiny" id="refreshBtn">Refresh</button>
       </div>
       <div id="asnList"></div>
+      <p class="msg" id="asnMsg"></p>
     </div>
 
     <!-- Roster -->
@@ -258,6 +286,8 @@ a.link:hover{text-decoration:underline}
   </div>
 
   <p class="foot">A private round is a normal round with one difference: it never appears on the live board, the landing page, or the spectator feed. Both people still get the full ballot, and it still counts toward their record.</p>
+
+  <p class="foot"><a class="link" href="/coaches">For coaches</a> &nbsp;·&nbsp; <a class="link" href="/private">One-off private round</a> &nbsp;·&nbsp; <a class="link" href="/practice">Practice against the AI</a> &nbsp;·&nbsp; <a class="link" href="/live">Live rounds</a></p>
 </div>
 
 <script defer src="/js/track.js"></script>
@@ -301,6 +331,17 @@ a.link:hover{text-decoration:underline}
 
   var $ = function(id){ return document.getElementById(id); };
   var state = { user:null, token:null, squads:[], current:null, detail:null };
+
+  // A code arriving by link (/squad?join=CODE) means the visitor was
+  // INVITED. The page's whole first screen was written for the coach, so
+  // an invited debater landed on "Coach a roster" and a card offering to
+  // start a squad, with the join box below the fold. Held here so the
+  // copy, the gate and the boot path can all answer the right person.
+  var invited = (function(){
+    var c = new URLSearchParams(location.search).get('join');
+    return c ? String(c).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : '';
+  })();
+  var joinTried = false;
 
   function esc(s){
     return String(s == null ? '' : s)
@@ -429,9 +470,13 @@ a.link:hover{text-decoration:underline}
   function paintAssignments(d){
     var host = $('asnList');
     if (!d.assignments.length){
-      host.innerHTML = '<p class="empty">' + (d.me.canManage
-        ? 'No rounds set yet. Pick two people above and give them a motion.'
-        : 'Your coach has not set you a round yet.') + '</p>';
+      var line = 'Your coach has not set you a round yet.';
+      if (d.me.canManage){
+        line = d.members.length < 2
+          ? 'Nothing set yet. Send the code above; you can pair people once someone joins.'
+          : 'No rounds set yet. Pick two people above and give them a motion.';
+      }
+      host.innerHTML = '<p class="empty">' + line + '</p>';
       return;
     }
     host.innerHTML = d.assignments.map(function(a){
@@ -439,6 +484,9 @@ a.link:hover{text-decoration:underline}
       var pill = r.state === 'judged'
         ? '<span class="pill on">Judged</span>'
         : (r.state === 'live' ? '<span class="pill live">In progress</span>' : '<span class="pill">Not started</span>');
+      // A play-by date nothing ever reacts to is a date nobody keeps.
+      var late = a.dueAt && r.state !== 'judged' && new Date(a.dueAt).getTime() < Date.now();
+      if (late) pill += ' <span class="pill late">Overdue</span>';
       var proName = a.aSide === 'pro' ? a.aName : a.bName;
       var conName = a.aSide === 'pro' ? a.bName : a.aName;
       var meIn = a.aUid === d.me.uid || a.bUid === d.me.uid;
@@ -450,7 +498,8 @@ a.link:hover{text-decoration:underline}
         if (links) links += ' &nbsp;·&nbsp; ';
         links += '<a class="link" href="#" data-copy="' + esc(a.id) + '" data-for="a">Copy ' + esc(a.aName) + '’s link</a>' +
                  ' &nbsp;·&nbsp; <a class="link" href="#" data-copy="' + esc(a.id) + '" data-for="b">Copy ' + esc(a.bName) + '’s link</a>' +
-                 ' &nbsp;·&nbsp; <a class="link" href="#" data-cancel="' + esc(a.id) + '">Cancel</a>';
+                 ' &nbsp;·&nbsp; <a class="link" href="#" data-cancel="' + esc(a.id) + '">' +
+                 (r.state === 'judged' ? 'Clear from the board' : 'Cancel') + '</a>';
       }
       if (r.state === 'judged'){
         if (links) links += ' &nbsp;·&nbsp; ';
@@ -460,7 +509,7 @@ a.link:hover{text-decoration:underline}
         '<p class="asn-motion">' + esc(a.motion) + '</p>' +
         '<p class="asn-meta">' + esc(proName) + ' (Pro) against ' + esc(conName) + ' (Con) &nbsp;·&nbsp; ' +
           esc(fmtName(a.format)) + ' &nbsp;·&nbsp; ' + pill +
-          (a.dueAt ? ' &nbsp;·&nbsp; play by ' + new Date(a.dueAt).toLocaleDateString() : '') + '</p>' +
+          (a.dueAt ? ' &nbsp;·&nbsp; ' + (late ? 'was due ' : 'play by ') + new Date(a.dueAt).toLocaleDateString() : '') + '</p>' +
         (a.note ? '<p class="asn-note">' + esc(a.note) + '</p>' : '') +
         '<p style="margin:0;font-size:14px">' + links + '</p>' +
       '</div>';
@@ -473,16 +522,18 @@ a.link:hover{text-decoration:underline}
         var which = el.getAttribute('data-for');
         var a = d.assignments.filter(function(x){ return x.id === id; })[0];
         if (!a) return;
-        copy(roundLink(a, which === 'a' ? a.aUid : a.bUid), $('rosterMsg'), 'Link copied. Send it to them.');
+        copy(roundLink(a, which === 'a' ? a.aUid : a.bUid), $('asnMsg'), 'Link copied. Send it to them.');
       });
     });
     Array.prototype.forEach.call(host.querySelectorAll('[data-cancel]'), function(el){
       el.addEventListener('click', function(ev){
         ev.preventDefault();
-        if (!confirm('Cancel this round? Anyone already in the room stays there.')) return;
+        if (!confirm(el.textContent.indexOf('Clear') === 0
+          ? 'Take this round off the board? The ballot is not deleted.'
+          : 'Cancel this round? Anyone already in the room stays there.')) return;
         api('POST', { action:'unassign', squadId: state.current, id: el.getAttribute('data-cancel') })
           .then(function(){ loadDetail(state.current); })
-          .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
+          .catch(function(e){ say($('asnMsg'), e.message, 'err'); });
       });
     });
   }
@@ -514,6 +565,13 @@ a.link:hover{text-decoration:underline}
       $('aSel').innerHTML = opts;
       $('bSel').innerHTML = opts;
       if (d.members.length > 1) $('bSel').selectedIndex = 1;
+      // Alone on the roster there is no round to set, and the old page
+      // only said so after the button had been pressed.
+      var alone = d.members.length < 2;
+      show($('assignEmpty'), alone);
+      $('assignBtn').disabled = alone;
+      $('aSel').disabled = alone;
+      $('bSel').disabled = alone;
       if (!$('fmtSel').options.length){
         $('fmtSel').innerHTML = FORMATS.map(function(f){
           return '<option value="' + f[0] + '">' + f[1] + '</option>';
@@ -530,22 +588,67 @@ a.link:hover{text-decoration:underline}
     state.current = id;
     try { history.replaceState(null, '', '/squad?s=' + encodeURIComponent(id)); } catch(e){}
     return api('GET', null, '?id=' + encodeURIComponent(id))
-      .then(paintDetail)
+      .then(function(d){ paintDetail(d); schedulePoll(d); })
       .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
   }
 
+  // Poll only while something can still change, and only while the tab
+  // is in front. A board where every round is judged is finished, so
+  // re-reading it forever would be one Firestore read per member per
+  // minute for nothing.
+  var pollTimer = 0;
+  function schedulePoll(d){
+    if (pollTimer){ clearTimeout(pollTimer); pollTimer = 0; }
+    var pending = (d.assignments || []).some(function(a){
+      return !a.round || a.round.state !== 'judged';
+    });
+    if (!pending) return;
+    pollTimer = setTimeout(function(){
+      pollTimer = 0;
+      if (document.hidden){ schedulePoll(d); return; }
+      if (state.current) loadDetail(state.current);
+    }, 30000);
+  }
+  document.addEventListener('visibilitychange', function(){
+    // Coming back to the tab is the moment the board is most likely to
+    // be stale, so read it then rather than waiting out the interval.
+    if (!document.hidden && state.current && state.detail) loadDetail(state.current);
+  });
+
   function selectSquad(id){
     show($('onboard'), false);
+    show($('backRow'), false);
     show($('squadView'), true);
-    loadDetail(id);
+    $('pageEyebrow').textContent = 'Squad';
+    return loadDetail(id);
   }
 
   function loadList(){
     return api('GET').then(function(res){
       state.squads = res.squads || [];
       show($('loading'), false);
+      // Redeem the invitation rather than making them press a button
+      // under a code they did not type. `join` is idempotent: someone
+      // already on the roster comes back with the same squadId.
+      if (invited && !joinTried){
+        joinTried = true;
+        return api('POST', { action: 'join', code: invited })
+          .then(function(r){
+            try { history.replaceState(null, '', '/squad?s=' + encodeURIComponent(r.squadId)); } catch(e){}
+            return api('GET').then(function(list){
+              state.squads = list.squads || [];
+              return selectSquad(r.squadId);
+            });
+          })
+          .catch(function(e){
+            // A bad or rolled code is not a dead end: fall through to the
+            // normal page with the code filled in and the reason shown.
+            openOnboard();
+            say($('joinMsg'), e.message, 'err');
+          });
+      }
       if (!state.squads.length){
-        show($('onboard'), true);
+        openOnboard();
         show($('squadView'), false);
         return;
       }
@@ -554,7 +657,7 @@ a.link:hover{text-decoration:underline}
       selectSquad(pick.id);
     }).catch(function(e){
       show($('loading'), false);
-      show($('onboard'), true);
+      openOnboard();
       say($('createMsg'), e.message, 'err');
     });
   }
@@ -664,11 +767,29 @@ a.link:hover{text-decoration:underline}
       .catch(function(e){ say($('rosterMsg'), e.message, 'err'); });
   });
 
+  function openOnboard(){
+    show($('squadView'), false);
+    show($('onboard'), true);
+    show($('backRow'), !!state.current);
+    $('pageEyebrow').textContent = invited ? 'Invitation' : 'Squad';
+    $('pageTitle').textContent = invited ? 'Join your squad' : 'Coach a roster';
+    $('pageLede').textContent = invited
+      ? 'Your coach invited you. The code is filled in below; joining puts you on their roster and shows you the rounds they set.'
+      : 'Open a squad, hand out the code, and set rounds two people play in a private room. The AI judge writes the ballot when they finish.';
+    window.scrollTo(0, 0);
+  }
+
   $('newSquadBtn').addEventListener('click', function(){
     show($('squadView'), false);
     show($('onboard'), true);
+    show($('backRow'), !!state.current);
+    $('pageEyebrow').textContent = 'Squad';
     $('pageTitle').textContent = 'Coach a roster';
     window.scrollTo(0, 0);
+  });
+
+  $('backBtn').addEventListener('click', function(){
+    if (state.current) selectSquad(state.current);
   });
 
   $('gateBtn').addEventListener('click', function(){
@@ -681,8 +802,17 @@ a.link:hover{text-decoration:underline}
   // person only presses one button; joining still requires the account,
   // because the roster row IS the account.
   (function prefill(){
-    var code = new URLSearchParams(location.search).get('join');
-    if (code) $('joinCode').value = String(code).toUpperCase().slice(0, 6);
+    if (!invited) return;
+    $('joinCode').value = invited;
+    $('pageEyebrow').textContent = 'Invitation';
+    $('pageTitle').textContent = 'Join your squad';
+    $('pageLede').textContent = 'Your coach invited you. Sign in and you are on the roster.';
+    $('gateHead').textContent = 'Sign in to join';
+    $('gateSub').textContent = 'The roster row IS the account, so joining takes a Google, Apple, or email account. It is free, and you keep every ballot you earn.';
+    $('gateGains').innerHTML =
+      '<li><b>You get the rounds your coach sets.</b> Motion, format, side, and your own link into the room.</li>' +
+      '<li><b>The AI judge writes the ballot.</b> Same method as every other round on the site.</li>' +
+      '<li><b>Nobody watches.</b> A squad round stays off the live board and the spectator feed.</li>';
   })();
 
   function isNamed(u){
