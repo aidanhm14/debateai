@@ -83,6 +83,8 @@
     for (let i = 0; i < opts.length; i++) if (opts[i].key === key) return opts[i];
     return opts[0];
   }
+  function invalidateScene() { sceneCache.clear(); }
+
   function normalizeDesign(input) {
     input = input || {};
     const out = {};
@@ -320,10 +322,75 @@
   }
 
   // ── Drawing ───────────────────────────────────────────────────────────
+  // A soft brush: one radial ellipse that fades to nothing at its edge.
+  // Every plane of the face is painted with this, so a whole sculpted head
+  // costs one fill per plane and no per-pixel work.
+  function soft(ctx, x, y, rx, ry, rgb, a) {
+    rx = Math.max(0.01, rx); ry = Math.max(0.01, ry);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx, ry);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+    g.addColorStop(0.55, 'rgba(' + rgb + ',' + (a * 0.42) + ')');
+    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+  }
+  const LIT = '255,248,238', DARK = '0,0,0';
+
+  // The scene behind the head is static: skyline redraws 15 buildings and
+  // 120 windows, library 64 books, orbit 70 stars. At 24fps that was the
+  // biggest single cost in the loop and none of it moves. Bake it once per
+  // (scene, accent, size) and blit; only the reactive glow and the spinning
+  // arcs are still drawn per frame.
+  // A MAP, not one slot: the design preview renders a draft design at its
+  // own canvas size while the live tile renders the saved one at 960x540, so
+  // a single slot would be invalidated by the other every frame and repaint
+  // the whole scene twice per frame with the designer open. Capped so a user
+  // clicking through scenes cannot grow it without bound.
+  const sceneCache = new Map();
+  const SCENE_CACHE_MAX = 6;
+  function sceneCanvas(w, h, design) {
+    const key = design.scene + '|' + design.accent + '|' + w + 'x' + h;
+    const hit = sceneCache.get(key);
+    if (hit) return hit;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    paintScene(c.getContext('2d'), w, h, design);
+    if (sceneCache.size >= SCENE_CACHE_MAX) sceneCache.delete(sceneCache.keys().next().value);
+    sceneCache.set(key, c);
+    return c;
+  }
+
   function drawBackdrop(ctx, w, h, now, talk, design) {
+    const accent = findOption('accent', design.accent).color;
+    const horizon = h * 0.70;
+    ctx.drawImage(sceneCanvas(w, h, design), 0, 0);
+
+    // Every scene shares a low reactive floor glow. It ties custom scenes
+    // back to the mask and makes speaking energy legible on small tiles.
+    const glow = ctx.createRadialGradient(w / 2, horizon, 0, w / 2, horizon, w * 0.54);
+    glow.addColorStop(0, rgba(accent, 0.07 + talk * 0.08));
+    glow.addColorStop(0.55, rgba(accent, 0.018));
+    glow.addColorStop(1, rgba(accent, 0));
+    ctx.fillStyle = glow; ctx.fillRect(0, h * 0.38, w, h * 0.62);
+
+    const spin = now * 0.00008;
+    ctx.save(); ctx.translate(w / 2, h * 0.46); ctx.rotate(spin);
+    ctx.strokeStyle = rgba(accent, 0.14 + talk * 0.16); ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, h * 0.39, -2.65, -0.38); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, h * 0.39, 0.52, 2.48); ctx.stroke();
+    ctx.restore();
+  }
+
+  function paintScene(ctx, w, h, design) {
+
     const accent = findOption('accent', design.accent).color;
     const scene = design.scene;
     const horizon = h * 0.70;
+    const talk = 0; // baked at rest; the reactive layer rides on top per frame
     let grad = ctx.createRadialGradient(w / 2, h * 0.38, h * 0.06, w / 2, h * 0.52, h * 0.92);
     grad.addColorStop(0, scene === 'studio' ? '#17304a' : scene === 'forest' ? '#18343b' : scene === 'orbit' ? '#171633' : '#202026');
     grad.addColorStop(0.48, scene === 'skyline' ? '#10172c' : scene === 'library' ? '#241611' : '#111114');
@@ -408,14 +475,6 @@
       }
     }
 
-    // Every scene shares a low reactive floor glow. It ties custom scenes
-    // back to the mask and makes speaking energy legible on small tiles.
-    const glow = ctx.createRadialGradient(w / 2, horizon, 0, w / 2, horizon, w * 0.54);
-    glow.addColorStop(0, rgba(accent, 0.07 + talk * 0.08));
-    glow.addColorStop(0.55, rgba(accent, 0.018));
-    glow.addColorStop(1, rgba(accent, 0));
-    ctx.fillStyle = glow; ctx.fillRect(0, h * 0.38, w, h * 0.62);
-
     if (scene === 'arena') {
       ctx.save(); ctx.strokeStyle = 'rgba(240,237,230,0.035)'; ctx.lineWidth = 1;
       for (let i = -7; i <= 7; i++) {
@@ -428,12 +487,6 @@
       ctx.restore();
     }
 
-    const spin = now * 0.00008;
-    ctx.save(); ctx.translate(w / 2, h * 0.46); ctx.rotate(spin);
-    ctx.strokeStyle = rgba(accent, 0.14 + talk * 0.16); ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(0, 0, h * 0.39, -2.65, -0.38); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, h * 0.39, 0.52, 2.48); ctx.stroke();
-    ctx.restore();
   }
 
   function drawAvatar(ctx, w, h, label, f, level, now, design) {
@@ -512,100 +565,206 @@
     const jawDrop = openAmt * R * 0.075;
 
     const headW = R * 0.88 * squash;
+
+    // The head's own shadow on the hood, then a neck. Without these the head
+    // is a badge floating in front of a garment; with them it is a mass
+    // sitting on a body, which is most of what sells depth at tile size.
+    soft(ctx, -R * 0.06, R * 1.22, headW * 1.25, R * 0.34, DARK, 0.55);
+    const neckW = headW * 0.34;
+    ctx.beginPath();
+    ctx.moveTo(-neckW, R * 0.72);
+    ctx.bezierCurveTo(-neckW * 1.05, R * 1.02, -neckW * 1.25, R * 1.18, -neckW * 1.5, R * 1.30);
+    ctx.lineTo(neckW * 1.5, R * 1.30);
+    ctx.bezierCurveTo(neckW * 1.25, R * 1.18, neckW * 1.05, R * 1.02, neckW, R * 0.72);
+    ctx.closePath();
+    const neckGrad = ctx.createLinearGradient(0, R * 0.72, 0, R * 1.30);
+    neckGrad.addColorStop(0, shade(HEAD, -0.30));
+    neckGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = neckGrad; ctx.fill();
+    ctx.save(); ctx.clip();
+    soft(ctx, -neckW * 0.5, R * 0.95, neckW * 0.5, R * 0.32, LIT, 0.09);  // lit side of the throat
+    soft(ctx, 0, R * 0.70 + jawDrop, neckW * 1.9, R * 0.40, DARK, 0.85);  // jaw casting down
+    ctx.restore();
+
     function headPath() {
       ctx.beginPath();
       ctx.moveTo(0, -R * 1.01);
       ctx.bezierCurveTo(headW * 0.72, -R * 1.00, headW, -R * 0.55, headW * 0.96, -R * 0.08);
-      ctx.bezierCurveTo(headW * 0.93, R * 0.48, headW * 0.62, R * 0.90, 0, R * 1.04 + jawDrop);
-      ctx.bezierCurveTo(-headW * 0.62, R * 0.90, -headW * 0.93, R * 0.48, -headW * 0.96, -R * 0.08);
+      ctx.bezierCurveTo(headW * 0.90, R * 0.42, headW * 0.74, R * 0.68, headW * 0.50, R * 0.88);
+      ctx.bezierCurveTo(headW * 0.32, R * 1.01 + jawDrop, headW * 0.17, R * 1.05 + jawDrop, 0, R * 1.05 + jawDrop);
+      ctx.bezierCurveTo(-headW * 0.17, R * 1.05 + jawDrop, -headW * 0.32, R * 1.01 + jawDrop, -headW * 0.50, R * 0.88);
+      ctx.bezierCurveTo(-headW * 0.74, R * 0.68, -headW * 0.90, R * 0.42, -headW * 0.96, -R * 0.08);
       ctx.bezierCurveTo(-headW, -R * 0.55, -headW * 0.72, -R * 1.00, 0, -R * 1.01);
       ctx.closePath();
     }
-    headPath(); ctx.fillStyle = HEAD; ctx.fill();
-    ctx.lineWidth = Math.max(3, R * 0.034); ctx.strokeStyle = accent; ctx.stroke();
-    // soft top light so the head reads as a form, not a flat disc
-    const hl = ctx.createRadialGradient(-R * 0.3, -R * 0.55, R * 0.1, 0, 0, R * 1.15);
-    hl.addColorStop(0, 'rgba(240,237,230,0.07)');
-    hl.addColorStop(0.55, 'rgba(240,237,230,0.015)');
-    hl.addColorStop(1, 'rgba(240,237,230,0)');
-    headPath(); ctx.fillStyle = hl; ctx.fill();
-    // Side shade moves opposite the turn, a cheap but effective depth cue.
+
+    // ---- head form ------------------------------------------------------
+    // A vertical gradient first (lit crown, shadowed jaw) instead of a flat
+    // fill, then the planes of a skull painted as soft brushes, then a rim.
+    // On a head this dark the rim is what separates it from the backdrop.
+    headPath();
+    const skull = ctx.createLinearGradient(0, -R * 1.05, 0, R * 1.10);
+    skull.addColorStop(0, shade(HEAD, 0.15));
+    skull.addColorStop(0.42, shade(HEAD, 0.02));
+    skull.addColorStop(1, shade(HEAD, -0.52));
+    ctx.fillStyle = skull; ctx.fill();
+
     ctx.save(); headPath(); ctx.clip();
+    soft(ctx, -headW * 0.40, -R * 0.66, headW * 0.80, R * 0.56, LIT, 0.13);   // key light
+    soft(ctx, -headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.40);  // temples
+    soft(ctx, headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.50);
+    soft(ctx, -headW * 0.58, R * 0.04, headW * 0.32, R * 0.18, LIT, 0.10);    // cheekbone
+    soft(ctx, headW * 0.60, R * 0.08, headW * 0.30, R * 0.18, LIT, 0.06);
+    soft(ctx, -headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.38);   // cheek hollow
+    soft(ctx, headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.46);
+    soft(ctx, 0, R * 0.84 + jawDrop, headW * 0.36, R * 0.22, LIT, 0.09);      // chin
+    soft(ctx, 0, R * 1.10 + jawDrop, headW * 0.78, R * 0.26, DARK, 0.55);     // under the jaw
+    soft(ctx, fx, -R * 0.50 + fy, headW * 0.72, R * 0.16, DARK, 0.34);        // brow ridge
+    // Side shade moves opposite the turn, a cheap but effective depth cue.
     const side = ctx.createLinearGradient(-headW, 0, headW, 0);
     side.addColorStop(0, f.yaw < 0 ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.34)');
     side.addColorStop(0.52, 'rgba(0,0,0,0)');
     side.addColorStop(1, f.yaw > 0 ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.34)');
-    ctx.fillStyle = side; ctx.fillRect(-R, -R * 1.1, R * 2, R * 2.3); ctx.restore();
+    ctx.fillStyle = side; ctx.fillRect(-R, -R * 1.1, R * 2, R * 2.3);
+    ctx.restore();
+
+    // Rim: the head path stroked again, offset up-left and clipped to the
+    // head, so only the far edge lights. This is the single strongest 3D
+    // cue available on a dark subject.
+    headPath();
+    ctx.lineWidth = Math.max(2.4, R * 0.026); ctx.strokeStyle = rgba(accent, 0.62); ctx.stroke();
+
+    // Rim: the head stroked again, offset up-left and clipped to itself, so
+    // only the far edge lights. Two passes, a bloom then a hot line. This is
+    // the single strongest depth cue available on a subject this dark.
+    ctx.save(); headPath(); ctx.clip();
+    ctx.translate(-R * 0.055, -R * 0.035);
+    for (let pass = 0; pass < 2; pass++) {
+      headPath();
+      ctx.lineWidth = pass ? Math.max(1.6, R * 0.018) : Math.max(4, R * 0.085);
+      const rim = ctx.createLinearGradient(-headW * 0.4, -R * 0.9, headW, R * 0.95);
+      rim.addColorStop(0, rgba(accent, 0));
+      rim.addColorStop(0.40, rgba(accent, 0));
+      rim.addColorStop(1, pass ? 'rgba(255,236,232,0.92)' : rgba(accent, 0.42));
+      ctx.strokeStyle = rim; ctx.stroke();
+    }
+    ctx.restore();
 
     // Three silhouettes let the avatar feel owned without weakening the
     // shared anonymous-mask identity.
     const my = -R * 0.20 + fy, mw = R * 1.13 * squash, mh = R * 0.48;
-    const maskGrad = ctx.createLinearGradient(fx - mw, my, fx + mw, my);
-    maskGrad.addColorStop(0, shade(accent, -0.24)); maskGrad.addColorStop(0.5, shade(accent, 0.08)); maskGrad.addColorStop(1, shade(accent, -0.24));
-    ctx.beginPath();
-    if (design.mask === 'classic') {
-      ctx.moveTo(fx - mw * 0.66, my - mh * 0.10);
-      ctx.bezierCurveTo(fx - mw * 0.58, my - mh * 0.58, fx - mw * 0.22, my - mh * 0.66, fx, my - mh * 0.24);
-      ctx.bezierCurveTo(fx + mw * 0.22, my - mh * 0.66, fx + mw * 0.58, my - mh * 0.58, fx + mw * 0.66, my - mh * 0.10);
-      ctx.bezierCurveTo(fx + mw * 0.61, my + mh * 0.56, fx + mw * 0.24, my + mh * 0.62, fx, my + mh * 0.18);
-      ctx.bezierCurveTo(fx - mw * 0.24, my + mh * 0.62, fx - mw * 0.61, my + mh * 0.56, fx - mw * 0.66, my - mh * 0.10);
-    } else if (design.mask === 'visor') {
-      ctx.moveTo(fx - mw * 0.70, my - mh * 0.42);
-      ctx.quadraticCurveTo(fx, my - mh * 0.68, fx + mw * 0.70, my - mh * 0.42);
-      ctx.lineTo(fx + mw * 0.58, my + mh * 0.42);
-      ctx.quadraticCurveTo(fx + mw * 0.24, my + mh * 0.58, fx, my + mh * 0.22);
-      ctx.quadraticCurveTo(fx - mw * 0.24, my + mh * 0.58, fx - mw * 0.58, my + mh * 0.42);
+    const maskGrad = ctx.createLinearGradient(fx - mw, my - mh, fx + mw, my + mh);
+    maskGrad.addColorStop(0, shade(accent, -0.34));
+    maskGrad.addColorStop(0.34, shade(accent, 0.14));
+    maskGrad.addColorStop(0.62, shade(accent, -0.06));
+    maskGrad.addColorStop(1, shade(accent, -0.40));
+    function maskPath() {
+      ctx.beginPath();
+      if (design.mask === 'classic') {
+        ctx.moveTo(fx - mw * 0.66, my - mh * 0.10);
+        ctx.bezierCurveTo(fx - mw * 0.58, my - mh * 0.58, fx - mw * 0.22, my - mh * 0.66, fx, my - mh * 0.24);
+        ctx.bezierCurveTo(fx + mw * 0.22, my - mh * 0.66, fx + mw * 0.58, my - mh * 0.58, fx + mw * 0.66, my - mh * 0.10);
+        ctx.bezierCurveTo(fx + mw * 0.61, my + mh * 0.56, fx + mw * 0.24, my + mh * 0.62, fx, my + mh * 0.18);
+        ctx.bezierCurveTo(fx - mw * 0.24, my + mh * 0.62, fx - mw * 0.61, my + mh * 0.56, fx - mw * 0.66, my - mh * 0.10);
+      } else if (design.mask === 'visor') {
+        ctx.moveTo(fx - mw * 0.70, my - mh * 0.42);
+        ctx.quadraticCurveTo(fx, my - mh * 0.68, fx + mw * 0.70, my - mh * 0.42);
+        ctx.lineTo(fx + mw * 0.58, my + mh * 0.42);
+        ctx.quadraticCurveTo(fx + mw * 0.24, my + mh * 0.58, fx, my + mh * 0.22);
+        ctx.quadraticCurveTo(fx - mw * 0.24, my + mh * 0.58, fx - mw * 0.58, my + mh * 0.42);
+        ctx.closePath();
+      } else {
+        ctx.moveTo(fx - mw * 0.62, my - mh * 0.12);
+        ctx.quadraticCurveTo(fx - mw * 0.38, my - mh * 0.65, fx - mw * 0.08, my - mh * 0.24);
+        ctx.quadraticCurveTo(fx, my - mh * 0.08, fx + mw * 0.08, my - mh * 0.24);
+        ctx.quadraticCurveTo(fx + mw * 0.38, my - mh * 0.65, fx + mw * 0.62, my - mh * 0.12);
+        ctx.lineTo(fx + mw * 0.54, my + mh * 0.36);
+        ctx.quadraticCurveTo(fx + mw * 0.30, my + mh * 0.63, fx + mw * 0.08, my + mh * 0.22);
+        ctx.quadraticCurveTo(fx, my + mh * 0.09, fx - mw * 0.08, my + mh * 0.22);
+        ctx.quadraticCurveTo(fx - mw * 0.30, my + mh * 0.63, fx - mw * 0.54, my + mh * 0.36);
+      }
       ctx.closePath();
-    } else {
-      ctx.moveTo(fx - mw * 0.62, my - mh * 0.12);
-      ctx.quadraticCurveTo(fx - mw * 0.38, my - mh * 0.65, fx - mw * 0.08, my - mh * 0.24);
-      ctx.quadraticCurveTo(fx, my - mh * 0.08, fx + mw * 0.08, my - mh * 0.24);
-      ctx.quadraticCurveTo(fx + mw * 0.38, my - mh * 0.65, fx + mw * 0.62, my - mh * 0.12);
-      ctx.lineTo(fx + mw * 0.54, my + mh * 0.36);
-      ctx.quadraticCurveTo(fx + mw * 0.30, my + mh * 0.63, fx + mw * 0.08, my + mh * 0.22);
-      ctx.quadraticCurveTo(fx, my + mh * 0.09, fx - mw * 0.08, my + mh * 0.22);
-      ctx.quadraticCurveTo(fx - mw * 0.30, my + mh * 0.63, fx - mw * 0.54, my + mh * 0.36);
     }
-    ctx.closePath(); ctx.fillStyle = maskGrad; ctx.fill();
-    ctx.strokeStyle = 'rgba(240,237,230,0.18)'; ctx.lineWidth = Math.max(1.5, R * 0.012); ctx.stroke();
+
+    // The mask casts onto the face it sits on. Drawn before the mask and
+    // clipped to the head, so it is the face that darkens, not the backdrop.
+    ctx.save(); headPath(); ctx.clip();
+    soft(ctx, fx, my + mh * 0.72, mw * 0.62, mh * 0.42, DARK, 0.5);
+    ctx.restore();
+
+    maskPath(); ctx.fillStyle = maskGrad; ctx.fill();
+    // Bevel: the top edge catches the key light, the underside falls away,
+    // which is what gives a flat band physical thickness.
+    ctx.save(); maskPath(); ctx.clip();
+    soft(ctx, fx - mw * 0.30, my - mh * 0.34, mw * 0.62, mh * 0.30, LIT, 0.30);   // specular sweep
+    soft(ctx, fx, my + mh * 0.52, mw * 0.78, mh * 0.30, DARK, 0.36);             // underside
+    soft(ctx, fx + mw * 0.66, my, mw * 0.26, mh * 0.6, DARK, 0.30);              // far edge
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,248,238,0.26)'; ctx.lineWidth = Math.max(1.5, R * 0.011); ctx.stroke();
 
     // Eye shape is cosmetic; gaze and independent blink tracking stay live.
     const ex = mw * 0.30, eyeW = mw * 0.122;
-    const drawEye = function (side, blink) {
-      const cxE = fx + side * ex, open = Math.max(0.04, 1 - blink);
+    const drawEye = function (side2, blink) {
+      const cxE = fx + side2 * ex, open = Math.max(0.04, 1 - blink);
       const eyeScale = design.eyes === 'open' ? 1.28 : design.eyes === 'calm' ? 0.58 : design.eyes === 'sharp' ? 0.76 : 1;
       const eyeH = mh * 0.19 * eyeScale * open;
-      const angle = design.eyes === 'sharp' ? side * -0.12 : 0;
+      const angle = design.eyes === 'sharp' ? side2 * -0.12 : 0;
       ctx.save(); ctx.translate(cxE, my); ctx.rotate(angle);
+      // socket: the eye sits IN the mask rather than on it
+      soft(ctx, 0, eyeH * 0.1, eyeW * 1.5, eyeH * 2.0, DARK, 0.55);
       const eyePath = function () {
         ctx.beginPath(); ctx.moveTo(-eyeW, 0);
         ctx.bezierCurveTo(-eyeW * 0.46, -eyeH, eyeW * 0.46, -eyeH, eyeW, 0);
         ctx.bezierCurveTo(eyeW * 0.46, eyeH, -eyeW * 0.46, eyeH, -eyeW, 0);
         ctx.closePath();
       };
-      eyePath(); ctx.fillStyle = BONE; ctx.fill();
+      const sclera = ctx.createLinearGradient(0, -eyeH, 0, eyeH);
+      sclera.addColorStop(0, '#9d938c');
+      sclera.addColorStop(0.38, BONE);
+      sclera.addColorStop(1, '#cfc7bf');
+      eyePath(); ctx.fillStyle = sclera; ctx.fill();
       if (open > 0.25) {
         ctx.save(); eyePath(); ctx.clip();
         const px = (f.gazeX + f.yaw * 0.4) * eyeW * 0.40;
         const py = (-f.gazeY + f.pitch * 0.4) * eyeH * 0.45;
         const pupilR = Math.min(eyeW * 0.38, eyeH * 0.76);
-        ctx.beginPath(); ctx.arc(px, py, pupilR, 0, Math.PI * 2);
+        // iris as a sphere: lit from below-front, dark limbal ring
+        const iris = ctx.createRadialGradient(px, py + pupilR * 0.35, pupilR * 0.1, px, py, pupilR * 1.5);
+        iris.addColorStop(0, shade(accent, 0.30));
+        iris.addColorStop(0.55, shade(accent, -0.34));
+        iris.addColorStop(1, '#0b0b0c');
+        ctx.beginPath(); ctx.arc(px, py, pupilR * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = iris; ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, pupilR * 0.62, 0, Math.PI * 2);
         ctx.fillStyle = INK; ctx.fill();
-        ctx.beginPath(); ctx.arc(px - pupilR * 0.26, py - pupilR * 0.30, pupilR * 0.18, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(240,237,230,0.8)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px - pupilR * 0.52, py - pupilR * 0.58, pupilR * 0.30, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,252,246,0.92)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px + pupilR * 0.55, py + pupilR * 0.5, pupilR * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,252,246,0.42)'; ctx.fill();
+        // upper lid shadow across the ball
+        soft(ctx, 0, -eyeH * 1.05, eyeW, eyeH * 0.85, DARK, 0.5);
         ctx.restore();
       }
-      ctx.strokeStyle = 'rgba(11,11,12,0.42)'; ctx.lineWidth = Math.max(1.5, R * 0.012);
+      // lash line above, lit lower lid below
+      ctx.strokeStyle = 'rgba(11,11,12,0.55)'; ctx.lineWidth = Math.max(1.5, R * 0.013);
       ctx.beginPath(); ctx.moveTo(-eyeW * 0.86, -eyeH * 0.12);
       ctx.quadraticCurveTo(0, -eyeH * 1.08, eyeW * 0.86, -eyeH * 0.12); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,248,238,0.30)'; ctx.lineWidth = Math.max(1, R * 0.007);
+      ctx.beginPath(); ctx.moveTo(-eyeW * 0.7, eyeH * 0.5);
+      ctx.quadraticCurveTo(0, eyeH * 1.12, eyeW * 0.7, eyeH * 0.5); ctx.stroke();
       ctx.restore();
     };
     drawEye(-1, f.blinkL);
     drawEye(1, f.blinkR);
 
-    // Nose bridge is deliberately minimal. It anchors the moving features
-    // without making the anonymous face look like a blank sticker.
-    ctx.strokeStyle = 'rgba(240,237,230,0.16)'; ctx.lineWidth = Math.max(1.5, R * 0.012); ctx.lineCap = 'round';
+    // Nose: a lit bridge with a shadow down one side and a tip, all restrained
+    // enough to stay a mask rather than becoming a portrait.
+    ctx.save(); headPath(); ctx.clip();
+    soft(ctx, fx - R * 0.03, my + mh * 0.62, R * 0.055, mh * 0.44, LIT, 0.16);
+    soft(ctx, fx + R * 0.075, my + mh * 0.70, R * 0.06, mh * 0.42, DARK, 0.34);
+    soft(ctx, fx, my + mh * 1.02, R * 0.075, R * 0.05, LIT, 0.13);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,248,238,0.18)'; ctx.lineWidth = Math.max(1.5, R * 0.011); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(fx + R * 0.015, my + mh * 0.24); ctx.quadraticCurveTo(fx + R * 0.09, my + mh * 0.68, fx - R * 0.015, my + mh * 0.78); ctx.stroke();
 
     // brows: above the mask, raise with browUp, pinch with browDown
@@ -729,7 +888,7 @@
     let mode = ['camera', 'avatar', 'off'].indexOf(opts.mode) >= 0 ? opts.mode : 'avatar';
     let label = (opts.label || '').slice(0, 3).toUpperCase();
     let design = normalizeDesign(opts.design || getSavedDesign());
-    const syncDesign = function (ev) { design = normalizeDesign(ev && ev.detail); };
+    const syncDesign = function (ev) { design = normalizeDesign(ev && ev.detail); invalidateScene(); };
     window.addEventListener(DESIGN_EVENT, syncDesign);
 
     const canvas = document.createElement('canvas');
@@ -905,7 +1064,7 @@
       setPassthrough: function (on) { passthrough = !!on; lastPass = 0; },
       mode: function () { return mode; },
       setLabel: function (s) { label = String(s || '').slice(0, 3).toUpperCase(); },
-      setDesign: function (d) { design = saveDesign(d); return Object.assign({}, design); },
+      setDesign: function (d) { design = saveDesign(d); invalidateScene(); return Object.assign({}, design); },
       design: function () { return Object.assign({}, design); },
       level: function () { return meter.level(); },
       debugFace: function (sig) { demoFace = sig ? Object.assign(zeroFace(), sig) : null; },
