@@ -917,37 +917,143 @@
     if (value.kind === 'portrait' && value.config) return { kind:'portrait', config:norm(value.config) };
     return null;
   }
-  function maskScene(design, accent) {
-    if (design.scene === 'skyline') return '<path d="M0 68h100v32H0z" fill="#070b14"/><path d="M2 68V42h13v26h5V32h16v36h6V48h12v20h7V38h17v30h5V28h14v40" fill="#0c1425"/><g fill="' + accent + '" opacity=".32"><path d="M8 50h3v4H8zM25 40h3v5h-3zM48 55h3v4h-3zM69 46h3v5h-3zM88 36h3v4h-3z"/></g>';
-    if (design.scene === 'library') return '<path d="M0 0h100v100H0z" fill="#21130f"/><g stroke="#70442f" stroke-width="3"><path d="M0 25h100M0 49h100M0 73h100"/></g><g fill="' + accent + '" opacity=".35"><path d="M7 9h6v14H7zM28 32h7v15h-7zM76 55h6v16h-6zM87 8h5v15h-5z"/></g>';
-    if (design.scene === 'studio') return '<path d="M0 0h100v100H0z" fill="#07121d"/><path d="M7 0l30 100H15zM93 0L63 100h22z" fill="' + accent + '" opacity=".16"/><path d="M18 14h64v48H18z" fill="none" stroke="' + accent + '" opacity=".35" stroke-width="2"/>';
-    if (design.scene === 'orbit') return '<path d="M0 0h100v100H0z" fill="#08091a"/><g fill="#f0ede6" opacity=".5"><circle cx="12" cy="16" r="1"/><circle cx="29" cy="8" r=".7"/><circle cx="78" cy="42" r=".8"/><circle cx="91" cy="12" r="1"/><circle cx="68" cy="20" r=".6"/></g><circle cx="82" cy="21" r="12" fill="' + accent + '" opacity=".68"/><ellipse cx="82" cy="21" rx="18" ry="5" fill="none" stroke="#f0ede6" opacity=".3"/>';
-    if (design.scene === 'forest') return '<path d="M0 0h100v100H0z" fill="#0d201f"/><circle cx="80" cy="18" r="10" fill="#dbe7df" opacity=".28"/><g fill="#071110"><path d="M0 80l14-38 14 38zM18 84l16-48 16 48zM58 82l14-43 15 43zM75 85l14-37 14 37z"/></g>';
-    return '<path d="M0 0h100v100H0z" fill="#0b0b0e"/><g fill="none" stroke="' + accent + '" opacity=".24"><circle cx="50" cy="48" r="38"/><path d="M0 84h100M14 100l36-16 36 16M31 100l19-16 19 16"/></g>';
+  // ---- live identity mask ----------------------------------------------
+  // The compact, static twin of the camera mask (js/cam-avatar.js). It rides
+  // profile, leaderboard, match and ballot surfaces, so it is the version of
+  // a debater's identity most people actually see. It is lit exactly like
+  // the canvas one: warm key upper left, accent rim down the shadow side,
+  // and the same soft brushes for the planes of the head. Two reusable brush
+  // gradients carry all of it, so there are no SVG filters here either.
+  function maskScene(design, accent, id) {
+    var sky = '<rect width="100" height="100" fill="url(#' + id + 'sky)"/>';
+    var floor = '<ellipse cx="50" cy="92" rx="62" ry="26" fill="' + accent + '" opacity=".13"/>';
+    if (design.scene === 'skyline') {
+      return sky +
+        '<g fill="#0a101d" opacity=".85"><path d="M0 62h9v38H0zM12 55h11v45H12zM26 66h8v34h-8zM38 49h13v51H38zM54 60h9v40h-9zM66 44h12v56H66zM81 58h8v42h-8zM92 51h8v49h-8z"/></g>' +
+        '<g fill="#141d2e"><path d="M4 70h7v30H4zM17 64h9v36h-9zM41 58h9v42h-9zM69 54h8v46h-8zM94 60h6v40h-6z"/></g>' +
+        '<g fill="' + accent + '" opacity=".55"><path d="M6 74h2.4v3H6zM19 68h2.4v3H19zM43 62h2.4v3H43zM47 70h2.4v3H47zM71 58h2.4v3H71zM71 66h2.4v3H71zM95 64h2.4v3H95zM29 72h2.4v3H29z"/></g>' +
+        '<g fill="#f0ede6" opacity=".3"><path d="M14 60h2v2.4h-2zM57 66h2v2.4h-2zM84 63h2v2.4h-2z"/></g>' + floor;
+    }
+    if (design.scene === 'library') {
+      return sky +
+        '<g fill="#1a0f0b"><rect x="0" y="8" width="27" height="70"/><rect x="73" y="8" width="27" height="70"/></g>' +
+        '<g fill="#5a3524"><rect x="0" y="27" width="27" height="2.6"/><rect x="0" y="48" width="27" height="2.6"/><rect x="0" y="69" width="27" height="2.6"/><rect x="73" y="27" width="27" height="2.6"/><rect x="73" y="48" width="27" height="2.6"/><rect x="73" y="69" width="27" height="2.6"/></g>' +
+        '<g><rect x="3" y="16" width="3.4" height="11" fill="#6b3f2c"/><rect x="7.4" y="14" width="3" height="13" fill="' + accent + '" opacity=".6"/><rect x="11.4" y="17" width="3.6" height="10" fill="#2b3a40"/><rect x="16" y="15" width="3" height="12" fill="#6b3f2c"/><rect x="20" y="18" width="3.4" height="9" fill="#43302a"/>' +
+        '<rect x="76" y="37" width="3.2" height="11" fill="#6b3f2c"/><rect x="80" y="39" width="3" height="9" fill="' + accent + '" opacity=".55"/><rect x="84" y="36" width="3.4" height="12" fill="#2b3a40"/><rect x="88.4" y="38" width="3" height="10" fill="#6b3f2c"/></g>' +
+        '<ellipse cx="18" cy="30" rx="26" ry="24" fill="#ffd18f" opacity=".1"/>' + floor;
+    }
+    if (design.scene === 'studio') {
+      return sky +
+        '<g opacity=".5"><path d="M12 0 L34 100 H24 L6 0Z" fill="' + accent + '" opacity=".16"/><path d="M88 0 L66 100 H76 L94 0Z" fill="#b4dcff" opacity=".10"/></g>' +
+        '<rect x="17" y="12" width="66" height="50" fill="none" stroke="' + accent + '" stroke-width="1.6" opacity=".38"/>' +
+        '<g fill="#f0ede6" opacity=".07"><rect x="0" y="0" width="9" height="72"/><rect x="22" y="0" width="9" height="72"/><rect x="69" y="0" width="9" height="72"/><rect x="91" y="0" width="9" height="72"/></g>' + floor;
+    }
+    if (design.scene === 'orbit') {
+      return sky +
+        '<g fill="#f0ede6"><circle cx="12" cy="16" r="1.1" opacity=".8"/><circle cx="29" cy="8" r=".7" opacity=".5"/><circle cx="44" cy="20" r=".6" opacity=".45"/><circle cx="63" cy="12" r=".8" opacity=".6"/><circle cx="8" cy="38" r=".7" opacity=".45"/><circle cx="24" cy="30" r=".5" opacity=".4"/><circle cx="93" cy="34" r=".9" opacity=".55"/><circle cx="76" cy="6" r=".6" opacity=".45"/></g>' +
+        '<circle cx="80" cy="20" r="13" fill="url(#' + id + 'pl)"/>' +
+        '<ellipse cx="80" cy="20" rx="19" ry="5.4" fill="none" stroke="#f0ede6" stroke-width="1.1" opacity=".26" transform="rotate(-16 80 20)"/>' + floor;
+    }
+    if (design.scene === 'forest') {
+      return sky +
+        '<circle cx="79" cy="17" r="9.5" fill="#dbe7df" opacity=".22"/>' +
+        '<g fill="#0a1a18"><path d="M-4 84l16-40 16 40zM20 88l17-46 17 46zM56 86l16-44 16 44zM78 90l15-38 15 38z"/></g>' +
+        '<g fill="#061110"><path d="M6 92l12-30 12 30zM44 94l13-32 13 32zM86 92l12-28 12 28z"/></g>' + floor;
+    }
+    return sky +
+      '<g fill="none" stroke="' + accent + '" opacity=".2"><circle cx="50" cy="46" r="40"/><circle cx="50" cy="46" r="30"/></g>' +
+      '<g fill="none" stroke="#f0ede6" opacity=".07"><path d="M0 82h100M10 100l40-18 40 18M28 100l22-16 22 16"/></g>' + floor;
   }
   function maskShape(design) {
     if (design.mask === 'classic') return 'M22 38C25 27 39 27 50 36c11-9 25-9 28 2-2 14-16 16-28 6-12 10-26 8-28-6Z';
     if (design.mask === 'visor') return 'M20 31Q50 23 80 31l-4 18q-16 7-26-2-10 9-26 2Z';
     return 'M23 37q10-16 26-5l1 3 1-3q16-11 26 5l-4 13q-12 7-22-3h-2q-10 10-22 3Z';
   }
+  // Head with a jaw, matching the sculpted canvas mask. Cranium 28..72,
+  // cheekbone at y44, jaw angle y58, chin y75.
+  var MASK_HEAD = 'M50 14.2 C63.6 14.2 71.6 21.6 72 33.4 C72.4 43 71.6 49.6 69.6 55.6 C67.6 61.6 63.4 68.4 56.6 72.6 C54.2 74.1 52 74.6 50 74.6 C48 74.6 45.8 74.1 43.4 72.6 C36.6 68.4 32.4 61.6 30.4 55.6 C28.4 49.6 27.6 43 28 33.4 C28.4 21.6 36.4 14.2 50 14.2 Z';
   function maskSvg(input, size) {
     var design = normLiveDesign(input);
     var accent = LIVE_ACCENTS[design.accent];
     var outfit = LIVE_OUTFITS[design.outfit];
     var id = 'dbmask' + (++maskSeq);
-    var eyeRy = design.eyes === 'open' ? 4.8 : design.eyes === 'calm' ? 2.2 : design.eyes === 'sharp' ? 2.8 : 3.6;
+    var eyeRy = design.eyes === 'open' ? 4.6 : design.eyes === 'calm' ? 2.2 : design.eyes === 'sharp' ? 2.8 : 3.5;
     var eyeRot = design.eyes === 'sharp' ? 7 : 0;
     var sz = size == null ? 100 : size;
+    var head = '#1b1b1f';
+    var fine = !(typeof sz === 'number' && sz <= 54);
+    function eye(cx, rot) {
+      var lidY = 39 - eyeRy;
+      return '<g transform="rotate(' + rot + ' ' + cx + ' 39)">' +
+        '<ellipse cx="' + cx + '" cy="39" rx="8.4" ry="' + (eyeRy + 2.4) + '" fill="url(#' + id + 'sh)" opacity=".85"/>' +
+        '<ellipse cx="' + cx + '" cy="39" rx="6.2" ry="' + eyeRy + '" fill="url(#' + id + 'sc)"/>' +
+        '<circle cx="' + cx + '" cy="39.3" r="' + Math.min(3.1, eyeRy * 0.92) + '" fill="url(#' + id + 'ir)"/>' +
+        '<circle cx="' + cx + '" cy="39.3" r="' + Math.min(1.5, eyeRy * 0.44) + '" fill="#0b0b0c"/>' +
+        '<circle cx="' + (cx - 1.1) + '" cy="' + (39.3 - 1.1) + '" r=".95" fill="#fff" opacity=".95"/>' +
+        (fine ? '<circle cx="' + (cx + 1.3) + '" cy="' + (39.3 + 1.2) + '" r=".45" fill="#fff" opacity=".5"/>' +
+          '<path d="M' + (cx - 5.6) + ' ' + (lidY + 0.9) + ' Q' + cx + ' ' + (lidY - 1.5) + ' ' + (cx + 5.6) + ' ' + (lidY + 0.9) + '" fill="none" stroke="#0b0b0c" stroke-width="1.5" stroke-linecap="round" opacity=".75"/>' +
+          '<path d="M' + (cx - 4.4) + ' ' + (39 + eyeRy * 0.72) + ' Q' + cx + ' ' + (39 + eyeRy + 1.1) + ' ' + (cx + 4.4) + ' ' + (39 + eyeRy * 0.72) + '" fill="none" stroke="#fff" stroke-width=".6" stroke-linecap="round" opacity=".3"/>' : '') +
+        '</g>';
+    }
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="avatar" style="display:block">' +
-      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath><radialGradient id="' + id + 'h" cx="36%" cy="25%"><stop stop-color="' + shade(outfit[0],.12) + '"/><stop offset="1" stop-color="' + outfit[1] + '"/></radialGradient><linearGradient id="' + id + 'm"><stop stop-color="' + shade(accent,-.22) + '"/><stop offset=".5" stop-color="' + shade(accent,.1) + '"/><stop offset="1" stop-color="' + shade(accent,-.22) + '"/></linearGradient></defs>' +
-      '<g clip-path="url(#' + id + ')">' + maskScene(design,accent) +
-      '<path d="M5 106Q10 72 34 69l16 11 16-11q24 3 29 37Z" fill="url(#' + id + 'h)" stroke="' + accent + '" stroke-width="1.3"/>' +
-      '<path d="M22 70Q13 33 30 14q20-19 40 0 17 19 8 56l-10 8H32Z" fill="url(#' + id + 'h)" stroke="' + accent + '" stroke-width="1.8"/>' +
-      '<path d="M50 15c18 0 24 15 22 32-1 20-10 29-22 34-12-5-21-14-22-34-2-17 4-32 22-32Z" fill="#1b1b1f" stroke="' + accent + '" stroke-width="1.8"/>' +
+      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
+      '<clipPath id="' + id + 'hc"><path d="' + MASK_HEAD + '"/></clipPath>' +
+      '<clipPath id="' + id + 'mc"><path d="' + maskShape(design) + '"/></clipPath>' +
+      '<radialGradient id="' + id + 'sky" cx="34%" cy="20%" r="92%"><stop offset="0%" stop-color="' + shade(outfit[0], 0.16) + '"/><stop offset="52%" stop-color="' + outfit[1] + '"/><stop offset="100%" stop-color="#050508"/></radialGradient>' +
+      '<linearGradient id="' + id + 'hd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(head, 0.5) + '"/><stop offset="45%" stop-color="' + shade(head, 0.08) + '"/><stop offset="100%" stop-color="' + shade(head, -0.62) + '"/></linearGradient>' +
+      '<radialGradient id="' + id + 'hl"><stop offset="0%" stop-color="#fff8ee" stop-opacity=".8"/><stop offset="55%" stop-color="#fff8ee" stop-opacity=".26"/><stop offset="100%" stop-color="#fff8ee" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + id + 'sh"><stop offset="0%" stop-color="#000" stop-opacity=".72"/><stop offset="55%" stop-color="#000" stop-opacity=".28"/><stop offset="100%" stop-color="#000" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="' + id + 'rim" x1=".3" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="' + accent + '" stop-opacity="0"/><stop offset="46%" stop-color="' + accent + '" stop-opacity="0"/><stop offset="100%" stop-color="#fff" stop-opacity=".8"/></linearGradient>' +
+      '<linearGradient id="' + id + 'm" x1="0" y1="0" x2=".85" y2="1"><stop offset="0%" stop-color="' + shade(accent, -0.36) + '"/><stop offset="34%" stop-color="' + shade(accent, 0.18) + '"/><stop offset="66%" stop-color="' + shade(accent, -0.04) + '"/><stop offset="100%" stop-color="' + shade(accent, -0.42) + '"/></linearGradient>' +
+      '<linearGradient id="' + id + 'ho" x1=".2" y1="0" x2=".9" y2="1"><stop offset="0%" stop-color="' + shade(outfit[0], 0.22) + '"/><stop offset="55%" stop-color="' + outfit[0] + '"/><stop offset="100%" stop-color="' + outfit[1] + '"/></linearGradient>' +
+      '<radialGradient id="' + id + 'ir" cx="50%" cy="66%" r="62%"><stop offset="0%" stop-color="' + shade(accent, 0.4) + '"/><stop offset="52%" stop-color="' + shade(accent, -0.3) + '"/><stop offset="100%" stop-color="#0b0b0c"/></radialGradient>' +
+      '<linearGradient id="' + id + 'sc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a49a92"/><stop offset="36%" stop-color="#f2ede8"/><stop offset="100%" stop-color="#d3cac2"/></linearGradient>' +
+      '<radialGradient id="' + id + 'pl" cx="34%" cy="30%"><stop offset="0%" stop-color="' + shade(accent, 0.34) + '"/><stop offset="62%" stop-color="' + accent + '" stop-opacity=".8"/><stop offset="100%" stop-color="' + shade(accent, -0.6) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'vg" cx="50%" cy="44%" r="64%"><stop offset="56%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".34"/></radialGradient>' +
+      '</defs>' +
+      '<g clip-path="url(#' + id + ')">' + maskScene(design, accent, id) +
+      // shoulders, then the head's shadow onto them
+      '<path d="M2 108 Q8 72 33 68.5 L50 79 L67 68.5 Q92 72 98 108 Z" fill="url(#' + id + 'ho)"/>' +
+      '<path d="M6 100 Q13 76 34 72 M94 100 Q87 76 66 72" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="1.2"/>' +
+      '<ellipse cx="50" cy="76" rx="17" ry="7.5" fill="url(#' + id + 'sh)" opacity=".9"/>' +
+      // hood
+      '<path d="M22 70 Q13 33 30 14 q20 -19 40 0 17 19 8 56 l-10 8 H32 Z" fill="url(#' + id + 'ho)"/>' +
+      '<path d="M22 70 Q13 33 30 14 q20 -19 40 0 17 19 8 56" fill="none" stroke="' + accent + '" stroke-width="1.5" opacity=".55"/>' +
+      '<path d="M27 64 Q20 34 33 18" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.4"/>' +
+      // neck, with the jaw casting onto it
+      '<path d="M42.6 63 h14.8 v10 q-7.4 5.6 -14.8 0 Z" fill="' + shade(head, -0.32) + '"/>' +
+      '<ellipse cx="50" cy="65.5" rx="10" ry="5.6" fill="url(#' + id + 'sh)" opacity=".9"/>' +
+      // head
+      '<path d="' + MASK_HEAD + '" fill="url(#' + id + 'hd)"/>' +
+      '<g clip-path="url(#' + id + 'hc)">' +
+      '<ellipse cx="40" cy="26" rx="16" ry="11" fill="url(#' + id + 'hl)" opacity=".22"/>' +
+      '<ellipse cx="69" cy="42" rx="11" ry="24" fill="url(#' + id + 'sh)" opacity=".55"/>' +
+      '<ellipse cx="50" cy="76" rx="18" ry="10" fill="url(#' + id + 'sh)" opacity=".7"/>' +
+      (fine ? '<ellipse cx="30.5" cy="38" rx="5" ry="9" fill="url(#' + id + 'sh)" opacity=".4"/>' +
+        '<ellipse cx="37.5" cy="49" rx="6.4" ry="4.4" fill="url(#' + id + 'hl)" opacity=".12"/>' +
+        '<ellipse cx="63.5" cy="55" rx="7" ry="5.4" fill="url(#' + id + 'sh)" opacity=".38"/>' +
+        '<ellipse cx="50" cy="70" rx="5.6" ry="3.6" fill="url(#' + id + 'hl)" opacity=".1"/>' : '') +
+      '</g>' +
+      // rim down the shadow side, the strongest depth cue on a head this dark
+      '<g clip-path="url(#' + id + 'hc)"><path d="' + MASK_HEAD + '" transform="translate(-2.6 -1.6)" fill="none" stroke="url(#' + id + 'rim)" stroke-width="3.4"/></g>' +
+      '<path d="' + MASK_HEAD + '" fill="none" stroke="' + accent + '" stroke-width="1.5" opacity=".62"/>' +
+      // the mask casts onto the face it sits on
+      '<g clip-path="url(#' + id + 'hc)"><ellipse cx="50" cy="55" rx="20" ry="7" fill="url(#' + id + 'sh)" opacity=".55"/></g>' +
       '<path d="' + maskShape(design) + '" fill="url(#' + id + 'm)"/>' +
-      '<g fill="#f0ede6"><ellipse cx="38" cy="39" rx="6.2" ry="' + eyeRy + '" transform="rotate(' + (-eyeRot) + ' 38 39)"/><ellipse cx="62" cy="39" rx="6.2" ry="' + eyeRy + '" transform="rotate(' + eyeRot + ' 62 39)"/></g>' +
-      '<g fill="#0b0b0c"><circle cx="38" cy="39" r="2.1"/><circle cx="62" cy="39" r="2.1"/></g>' +
-      '<path d="M40 63q10 5 20 0" fill="none" stroke="#dd2e2e" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<g clip-path="url(#' + id + 'mc)">' +
+      '<ellipse cx="38" cy="30" rx="20" ry="7" fill="url(#' + id + 'hl)" opacity=".32"/>' +
+      '<ellipse cx="50" cy="52" rx="26" ry="7" fill="url(#' + id + 'sh)" opacity=".4"/>' +
+      '</g>' +
+      '<path d="' + maskShape(design) + '" fill="none" stroke="#fff" stroke-opacity=".26" stroke-width=".8"/>' +
+      eye(38, -eyeRot) + eye(62, eyeRot) +
+      // nose and lips: a lit lower lip instead of a single red scratch
+      (fine ? '<g clip-path="url(#' + id + 'hc)"><ellipse cx="48.6" cy="55.5" rx="1.7" ry="4.6" fill="url(#' + id + 'hl)" opacity=".14"/>' +
+        '<ellipse cx="52.4" cy="56.5" rx="1.9" ry="4.4" fill="url(#' + id + 'sh)" opacity=".4"/></g>' : '') +
+      '<path d="M44.6 62.8 Q50 61.3 55.4 62.8 Q52.8 64 50 64 Q47.2 64 44.6 62.8 Z" fill="' + shade(accent, -0.5) + '"/>' +
+      '<path d="M44.6 62.8 Q47.2 63.5 50 63.5 Q52.8 63.5 55.4 62.8 Q53.6 66.3 50 66.3 Q46.4 66.3 44.6 62.8 Z" fill="' + shade(accent, -0.16) + '"/>' +
+      (fine ? '<path d="M47.2 64.4 Q50 65.3 52.8 64.4" fill="none" stroke="#fff" stroke-width=".8" stroke-linecap="round" opacity=".3"/>' : '') +
+      '<rect width="100" height="100" fill="url(#' + id + 'vg)"/>' +
+      '<circle cx="50" cy="50" r="48.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".8"/>' +
       '</g></svg>';
   }
   function publicSvg(value, size, fallback) {
