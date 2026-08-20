@@ -264,7 +264,25 @@ async function attemptPairing(db, t, now) {
 
       tx.set(t.ref.collection('rounds').doc(key), {
         kind: 'dropin',
-        roundNo: 0,
+        // `roundNo` carries the SEQUENCE for a drop-in round, which is
+        // the contract roundKey() in tournament-admin.mjs already
+        // states: `if (kind === 'dropin') return 'd' + roundNo`. It was
+        // written as 0 here, so the control room's report-result — which
+        // sends the round's own roundNo — resolved every drop-in result
+        // to a document named 'd0' that does not exist, and came back
+        // no_round. The director's amend path is the human check on an
+        // auto-posted verdict in a cash tournament, so it has to land.
+        roundNo: seq,
+        // A drop-in round is released by construction. The pending →
+        // released gate exists so a director can look at a prelim draw
+        // before anyone sees it and regenerate a bad one; there is no
+        // such moment here, because the two people were seated the
+        // instant this document was written and are already in the
+        // room. Leaving the field unset meant publicRound withheld the
+        // pairings, so the tab showed a live round with nobody in it and
+        // the control room, which filters on `released`, did not render
+        // the round at all.
+        status: 'released',
         seq,
         key,
         label: 'Drop-in',

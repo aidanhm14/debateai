@@ -119,7 +119,12 @@ function publicEntry(e) {
 // prepping against a pairing they were not supposed to see yet is the
 // oldest way to lose trust in a tab.
 function publicRound(id, d) {
-  const released = d.status === 'released' || d.status === 'complete';
+  // A drop-in round has no staged state to protect: it is created at
+  // the moment two entrants are seated, so it is released the instant
+  // it exists. `kind` is checked as well as `status` so a round written
+  // by the queue before it started stamping `status` still renders,
+  // rather than showing a live round with no pairings in it forever.
+  const released = d.status === 'released' || d.status === 'complete' || d.kind === 'dropin';
   return {
     key: id,
     roundNo: Number(d.roundNo) || 0,
