@@ -170,52 +170,213 @@
     return { back: '', front: '' };
   }
 
-  function eyesPath(kind, irisCol) {
-    var L = 40, R = 60, y = 45, ink = '#2a2320';
-    irisCol = irisCol || IRIS[0];
-    var irisDark = shade(irisCol, -0.25);
-    function orb(cx, rIris, rPupil) {
-      return '<circle cx="' + cx + '" cy="' + (y + 0.4) + '" r="' + rIris + '" fill="' + irisCol + '"/>' +
-             '<circle cx="' + cx + '" cy="' + (y + 0.4) + '" r="' + rIris + '" fill="none" stroke="' + irisDark + '" stroke-width=".55"/>' +
-             '<circle cx="' + cx + '" cy="' + (y + 0.5) + '" r="' + rPupil + '" fill="' + ink + '"/>' +
-             '<circle cx="' + (cx - 0.9) + '" cy="' + (y - 0.9) + '" r=".8" fill="#fff"/>' +
-             '<circle cx="' + (cx + 1.1) + '" cy="' + (y + 1.3) + '" r=".4" fill="#fff" opacity=".7"/>';
-    }
-    switch (kind) {
-      case 0: // chill — small, but still colored
-        return '<circle cx="' + L + '" cy="' + y + '" r="2.6" fill="' + irisDark + '"/><circle cx="' + R + '" cy="' + y + '" r="2.6" fill="' + irisDark + '"/>' +
-               '<circle cx="' + (L - 0.8) + '" cy="' + (y - 0.8) + '" r=".6" fill="#fff" opacity=".9"/><circle cx="' + (R - 0.8) + '" cy="' + (y - 0.8) + '" r=".6" fill="#fff" opacity=".9"/>';
-      case 1: // big and bright (young default)
-        return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.4" ry="4" fill="#fff"/><ellipse cx="' + R + '" cy="' + y + '" rx="3.4" ry="4" fill="#fff"/>' +
-               orb(L, 2.3, 1.25) + orb(R, 2.3, 1.25) +
-               '<path d="M36.6 42.2 Q40 40.6 43.4 42.2" stroke="' + ink + '" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"/>' +
-               '<path d="M56.6 42.2 Q60 40.6 63.4 42.2" stroke="' + ink + '" stroke-width="1" fill="none" stroke-linecap="round" opacity=".55"/>';
-      case 2: // relaxed half-lids
-        return '<path d="M36.5 45 Q40 47.8 43.5 45" stroke="' + ink + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>' +
-               '<path d="M56.5 45 Q60 47.8 63.5 45" stroke="' + ink + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
-      case 3: // sharp / locked-in
-        return '<circle cx="' + L + '" cy="' + y + '" r="3.2" fill="#fff"/><circle cx="' + R + '" cy="' + y + '" r="3.2" fill="#fff"/>' +
-               orb(L, 2.05, 1.15) + orb(R, 2.05, 1.15) +
-               '<path d="M36.4 43 L43.6 44.4" stroke="' + ink + '" stroke-width="2" stroke-linecap="round"/>' +
-               '<path d="M63.6 43 L56.4 44.4" stroke="' + ink + '" stroke-width="2" stroke-linecap="round"/>';
-    }
-    return '';
+  // ---- dimensional face plate -------------------------------------------
+  // One light: a warm key from the upper left, a cool fill from the lower
+  // right. Every soft shape below is painted with two reusable brush
+  // gradients (a highlight brush and a shadow brush) in objectBoundingBox
+  // space, so a whole face of soft form costs ZERO SVG filters. Filters
+  // blur on the CPU and a leaderboard renders dozens of these at once.
+
+  // Head silhouette. The cranium keeps the exact envelope every hair style
+  // is drawn against (x 26.5..73.5 at the temples, apex ~y19); the lower
+  // half is a real face: zygomatic width at y48, jaw angle at y56, chin at
+  // y69.9. Do NOT reshape the top without redrawing all 12 hair styles.
+  // Level of detail. A roster or a leaderboard paints dozens of these at
+  // once, and none of the fine work (iris fibres, lid creases, ear helix,
+  // strands, the head's drop shadow) survives a 34px render anyway. Below
+  // ~54px those shapes are dropped: same face, roughly half the nodes and
+  // no CPU-side blur. Set from svg()/talkingSvg() before any helper runs;
+  // string building here is synchronous, so a module flag is safe.
+  var FINE = true;
+  function setLod(size) { FINE = !(typeof size === 'number' && size <= 54); return FINE; }
+
+  var SKULL = 'M26.6 41.5 C26.6 26.4 35.8 18.8 50 18.8 C64.2 18.8 73.4 26.4 73.4 41.5 C73.4 47.8 72.4 52 70.6 56.2 C67.2 63.2 59.2 70.2 50 70.2 C40.8 70.2 32.8 63.2 29.4 56.2 C27.6 52 26.6 47.8 26.6 41.5 Z';
+
+  function faceDefs(id, skin, bg, outfit, iris) {
+    var deep = shade(skin, -0.62);
+    return '<clipPath id="' + id + 'c"><circle cx="50" cy="50" r="50"/></clipPath>' +
+      '<clipPath id="' + id + 'h"><path d="' + SKULL + '"/></clipPath>' +
+      '<radialGradient id="' + id + 'bg" cx="26%" cy="14%" r="96%"><stop offset="0%" stop-color="' + shade(bg, 0.40) + '"/><stop offset="46%" stop-color="' + bg + '"/><stop offset="100%" stop-color="' + shade(bg, -0.34) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'sk" cx="34%" cy="20%" r="80%"><stop offset="0%" stop-color="' + shade(skin, 0.32) + '"/><stop offset="44%" stop-color="' + shade(skin, 0.09) + '"/><stop offset="74%" stop-color="' + skin + '"/><stop offset="100%" stop-color="' + shade(skin, -0.28) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'hl"><stop offset="0%" stop-color="#fff" stop-opacity=".85"/><stop offset="58%" stop-color="#fff" stop-opacity=".26"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + id + 'sh"><stop offset="0%" stop-color="' + deep + '" stop-opacity=".74"/><stop offset="56%" stop-color="' + deep + '" stop-opacity=".26"/><stop offset="100%" stop-color="' + deep + '" stop-opacity="0"/></radialGradient>' +
+      (FINE ? '<linearGradient id="' + id + 'rim" x1="1" y1="0" x2="0" y2=".55"><stop offset="0%" stop-color="#fff" stop-opacity=".5"/><stop offset="34%" stop-color="#fff" stop-opacity="0"/></linearGradient>' : '') +
+      '<linearGradient id="' + id + 'ot" x1=".16" y1="0" x2=".92" y2="1"><stop offset="0%" stop-color="' + shade(outfit, 0.24) + '"/><stop offset="52%" stop-color="' + outfit + '"/><stop offset="100%" stop-color="' + shade(outfit, -0.28) + '"/></linearGradient>' +
+      '<radialGradient id="' + id + 'ir" cx="50%" cy="64%" r="64%"><stop offset="0%" stop-color="' + shade(iris, 0.44) + '"/><stop offset="50%" stop-color="' + iris + '"/><stop offset="100%" stop-color="' + shade(iris, -0.5) + '"/></radialGradient>' +
+      '<linearGradient id="' + id + 'sc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a9988f"/><stop offset="34%" stop-color="#f6f1ed"/><stop offset="100%" stop-color="#dcd0c8"/></linearGradient>' +
+      '<radialGradient id="' + id + 'vg" cx="50%" cy="46%" r="62%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".30"/></radialGradient>' +
+      (FINE ? '<filter id="' + id + 'ds" x="-32%" y="-32%" width="172%" height="182%"><feDropShadow dx="0" dy="3" stdDeviation="2.8" flood-color="#1b1210" flood-opacity=".34"/></filter>' : '');
   }
 
-  function browsPath(kind, browCol) {
-    var ink = browCol || '#3a2c22';
-    switch (kind) {
-      case 0: // soft
-        return '<path d="M35.5 38.6 Q40 36.8 44.5 38.6" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
-               '<path d="M55.5 38.6 Q60 36.8 64.5 38.6" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>';
-      case 1: // raised
-        return '<path d="M35.5 37 Q40 34.2 44.5 37" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
-               '<path d="M55.5 37 Q60 34.2 64.5 37" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>';
-      case 2: // sharp
-        return '<path d="M35.5 37.6 L44.5 39.4" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-               '<path d="M64.5 37.6 L55.5 39.4" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  // The planes of a face, painted as soft brushes and clipped to the skull.
+  // Read top to bottom: key light, then the form shadow that turns the head,
+  // then the local hollows that make it read as bone under skin.
+  function faceForm(id) {
+    if (!FINE) {
+      return '<g clip-path="url(#' + id + 'h)">' +
+        '<ellipse cx="40" cy="31" rx="15" ry="11" fill="url(#' + id + 'hl)" opacity=".28"/>' +
+        '<ellipse cx="69.5" cy="45" rx="12.5" ry="24" fill="url(#' + id + 'sh)" opacity=".55"/>' +
+        '<ellipse cx="50" cy="71" rx="18.5" ry="9.5" fill="url(#' + id + 'sh)" opacity=".6"/>' +
+        '<ellipse cx="50" cy="28.6" rx="22" ry="7" fill="url(#' + id + 'sh)" opacity=".34"/>' +
+        '</g>';
     }
-    return '';
+    return '<g clip-path="url(#' + id + 'h)">' +
+      '<ellipse cx="40" cy="30.5" rx="15" ry="11" fill="url(#' + id + 'hl)" opacity=".30"/>' +
+      '<ellipse cx="37.4" cy="48.6" rx="7.6" ry="5" fill="url(#' + id + 'hl)" opacity=".26" transform="rotate(-14 37.4 48.6)"/>' +
+      '<ellipse cx="50" cy="64.6" rx="5.4" ry="3.4" fill="url(#' + id + 'hl)" opacity=".24"/>' +
+      '<ellipse cx="69.5" cy="45" rx="12.5" ry="24" fill="url(#' + id + 'sh)" opacity=".55"/>' +
+      '<ellipse cx="30.4" cy="43" rx="5.4" ry="9" fill="url(#' + id + 'sh)" opacity=".32"/>' +
+      '<ellipse cx="50" cy="71" rx="18.5" ry="9.5" fill="url(#' + id + 'sh)" opacity=".62"/>' +
+      '<ellipse cx="62.8" cy="56.8" rx="7" ry="5.4" fill="url(#' + id + 'sh)" opacity=".34"/>' +
+      '<ellipse cx="37.2" cy="57.2" rx="6.4" ry="5" fill="url(#' + id + 'sh)" opacity=".24"/>' +
+      '<ellipse cx="40" cy="41.6" rx="7.6" ry="3.4" fill="url(#' + id + 'sh)" opacity=".32"/>' +
+      '<ellipse cx="60" cy="41.6" rx="7.6" ry="3.4" fill="url(#' + id + 'sh)" opacity=".40"/>' +
+      '<ellipse cx="54.4" cy="52.6" rx="3" ry="3.2" fill="url(#' + id + 'sh)" opacity=".3"/>' +
+      '<ellipse cx="50" cy="28.6" rx="22" ry="7" fill="url(#' + id + 'sh)" opacity=".34"/>' +
+      '</g>' +
+      '<path d="' + SKULL + '" fill="url(#' + id + 'rim)" opacity=".5"/>';
+  }
+
+  // Ears: helix, concha, lobe. A circle reads as a bolt, not an ear.
+  function earsPath(skin) {
+    var deep = shade(skin, -0.42), lit = shade(skin, 0.14);
+    function ear(x, s) {
+      return '<g transform="translate(' + x + ' 0) scale(' + s + ' 1)">' +
+        '<path d="M.4 42.2 C-4.2 41 -6.6 44.8 -5.8 49 C-5.1 52.8 -2.8 55.6 -.2 55 Z" fill="' + skin + '"/>' +
+        (FINE ? '<path d="M-.6 43.8 C-4 43.6 -5.2 46.6 -4.6 49.4" stroke="' + lit + '" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".75"/>' +
+        '<path d="M-1.2 46.4 C-3.4 47.4 -3.6 50.4 -2.2 52.2" stroke="' + deep + '" stroke-width="1" fill="none" stroke-linecap="round" opacity=".7"/>' +
+        '<path d="M-3.4 52.4 C-3.9 54.2 -2.4 55.4 -.8 54.8" fill="' + deep + '" opacity=".22"/>' : '') +
+        '</g>';
+    }
+    return ear(28.4, 1) + ear(71.6, -1);
+  }
+
+  // Nose: bridge highlight, shadow side, ball, wings, nostrils. It is the
+  // one feature that carries depth on a front-facing head, so it gets five
+  // shapes rather than the single stroke this used to be.
+  function nosePath(skin) {
+    var deep = shade(skin, -0.44), dark = shade(skin, -0.66);
+    if (!FINE) {
+      return '<ellipse cx="50" cy="52.4" rx="3.5" ry="2.6" fill="' + deep + '" opacity=".2"/>' +
+        '<ellipse cx="47.9" cy="54" rx=".9" ry=".64" fill="' + dark + '" opacity=".6"/>' +
+        '<ellipse cx="52.1" cy="54" rx=".9" ry=".64" fill="' + dark + '" opacity=".6"/>';
+    }
+    return '<path d="M49.1 45.6 C48.8 47.8 48.7 49.6 48.9 51.2" stroke="#fff" stroke-opacity=".12" stroke-width="1.1" fill="none" stroke-linecap="round"/>' +
+      '<path d="M51.3 46 C51.9 48.2 52.6 50.2 53.2 51.6" stroke="' + deep + '" stroke-opacity=".34" stroke-width="1.15" fill="none" stroke-linecap="round"/>' +
+      '<ellipse cx="50" cy="52.4" rx="3.5" ry="2.6" fill="' + deep + '" opacity=".17"/>' +
+      '<ellipse cx="49" cy="51.5" rx="1.7" ry="1.2" fill="#fff" opacity=".24"/>' +
+      '<path d="M46.9 52.9 C46.5 54.1 47.5 54.8 48.7 54.6" stroke="' + deep + '" stroke-width="1.05" fill="none" stroke-linecap="round" opacity=".75"/>' +
+      '<path d="M53.1 52.9 C53.5 54.1 52.5 54.8 51.3 54.6" stroke="' + deep + '" stroke-width="1.05" fill="none" stroke-linecap="round" opacity=".88"/>' +
+      '<ellipse cx="47.9" cy="54" rx=".88" ry=".62" fill="' + dark + '" opacity=".55" transform="rotate(-18 47.9 54)"/>' +
+      '<ellipse cx="52.1" cy="54" rx=".88" ry=".62" fill="' + dark + '" opacity=".55" transform="rotate(18 52.1 54)"/>';
+  }
+
+  // Hair finish that rides on top of any style: a specular band where the
+  // key light lands, plus a couple of strands off the silhouette so the
+  // mass does not read as a solid helmet. Shaved skips both.
+  function hairFinish(id, top, hairCol) {
+    if (top === 0) return '<ellipse cx="42" cy="26" rx="11" ry="6" fill="url(#' + id + 'hl)" opacity=".16"/>';
+    var hl = shade(hairCol, 0.34);
+    var sheen = '<ellipse cx="40.5" cy="25.5" rx="11.5" ry="5.4" fill="url(#' + id + 'hl)" opacity=".30" transform="rotate(-16 40.5 25.5)"/>' +
+                '<ellipse cx="63" cy="27.5" rx="6" ry="3" fill="url(#' + id + 'hl)" opacity=".16" transform="rotate(22 63 27.5)"/>';
+    var strands = '<path d="M31.5 30 C34.5 22.5 41 18.4 48 17.6 M69 31 C67 25 63 21.4 58 19.6" fill="none" stroke="' + hl + '" stroke-width=".7" stroke-linecap="round" opacity=".5"/>';
+    return sheen + (FINE ? strands : '');
+  }
+
+  // ---- eyes -------------------------------------------------------------
+  // Built as an eye, not a symbol: socket shadow, almond opening, an
+  // eyeball that is a sphere (lid shadow across the top), an iris with
+  // fibres and a limbal ring, a lash line that thickens toward the outer
+  // corner, a lit lower lid, and a tear duct. One unit serves the static
+  // face and the talking face, so they can never drift apart.
+  var eyeSeq = 0;
+  function eyeStyle(kind) {
+    switch (kind) {
+      case 0: return { open: 0.62, w: 4.0, tilt: 0, lash: 1.3 };   // chill
+      case 2: return { open: 0.42, w: 4.2, tilt: 0, lash: 1.5 };   // relaxed
+      case 3: return { open: 0.82, w: 4.5, tilt: 4, lash: 1.9 };   // locked in
+      default: return { open: 1, w: 4.4, tilt: 0, lash: 1.5 };     // bright
+    }
+  }
+  function eyeUnit(id, cx, st, irisCol, gx, gy) {
+    var ink = '#241b18', y = 45, w = st.w, open = st.open;
+    var inner = cx < 50 ? 1 : -1;           // +1 means the inner corner is to the right
+    var upper = 3.0 * open + 0.25, lower = 1.5 + 1.0 * open;
+    var xo = cx - w * inner, xi = cx + w * inner;   // outer / inner corner x
+    var tilt = (st.tilt || 0) * (cx < 50 ? 1 : -1);
+    var eid = id + 'e' + (++eyeSeq);
+    var almond = 'M' + xo.toFixed(2) + ' ' + (y - tilt * 0.12).toFixed(2) +
+      ' C' + (cx - w * 0.55 * inner).toFixed(2) + ' ' + (y - upper - 0.5 - tilt * 0.3).toFixed(2) +
+      ' ' + (cx + w * 0.45 * inner).toFixed(2) + ' ' + (y - upper + 0.1).toFixed(2) +
+      ' ' + xi.toFixed(2) + ' ' + (y + 0.35 + tilt * 0.1).toFixed(2) +
+      ' C' + (cx + w * 0.45 * inner).toFixed(2) + ' ' + (y + lower).toFixed(2) +
+      ' ' + (cx - w * 0.5 * inner).toFixed(2) + ' ' + (y + lower).toFixed(2) +
+      ' ' + xo.toFixed(2) + ' ' + (y - tilt * 0.12).toFixed(2) + ' Z';
+    if (open < 0.16) {
+      return '<path d="M' + (cx - w + 0.4) + ' ' + y + ' Q' + cx + ' ' + (y + 1.5) + ' ' + (cx + w - 0.4) + ' ' + y + '" stroke="' + ink + '" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
+             '<path d="M' + (cx - w + 0.8) + ' ' + (y + 1.6) + ' Q' + cx + ' ' + (y + 2.6) + ' ' + (cx + w - 0.8) + ' ' + (y + 1.4) + '" stroke="#fff" stroke-opacity=".22" stroke-width=".7" fill="none"/>';
+    }
+    var ix = (cx + (gx || 0)).toFixed(2), iy = (y + 0.4 + (gy || 0)).toFixed(2);
+    var fibres = '';
+    for (var f = 0; FINE && f < 8; f++) {
+      var a = f * Math.PI / 4 + 0.4;
+      fibres += '<path d="M' + (Number(ix) + Math.cos(a) * 0.85).toFixed(2) + ' ' + (Number(iy) + Math.sin(a) * 0.85).toFixed(2) +
+                'L' + (Number(ix) + Math.cos(a) * 2.15).toFixed(2) + ' ' + (Number(iy) + Math.sin(a) * 2.15).toFixed(2) + '"/>';
+    }
+    return '<g>' +
+      '<defs><clipPath id="' + eid + '"><path d="' + almond + '"/></clipPath></defs>' +
+      '<path d="' + almond + '" fill="url(#' + id + 'sc)"/>' +
+      '<g clip-path="url(#' + eid + ')">' +
+      '<circle cx="' + ix + '" cy="' + iy + '" r="2.45" fill="url(#' + id + 'ir)"/>' +
+      '<g stroke="' + shade(irisCol, -0.42) + '" stroke-width=".26" opacity=".5" fill="none">' + fibres + '</g>' +
+      '<circle cx="' + ix + '" cy="' + iy + '" r="2.45" fill="none" stroke="' + shade(irisCol, -0.66) + '" stroke-width=".6"/>' +
+      '<circle cx="' + ix + '" cy="' + iy + '" r="1.08" fill="#140d0c"/>' +
+      '<ellipse cx="' + (Number(ix) - 0.95).toFixed(2) + '" cy="' + (Number(iy) - 1.05).toFixed(2) + '" rx=".82" ry=".68" fill="#fff" opacity=".95" transform="rotate(-25 ' + (Number(ix) - 0.95).toFixed(2) + ' ' + (Number(iy) - 1.05).toFixed(2) + ')"/>' +
+      '<circle cx="' + (Number(ix) + 1.05).toFixed(2) + '" cy="' + (Number(iy) + 1.2).toFixed(2) + '" r=".38" fill="#fff" opacity=".55"/>' +
+      (FINE ? '<ellipse cx="' + cx + '" cy="' + (y - upper - 0.9).toFixed(2) + '" rx="' + (w + 0.6).toFixed(2) + '" ry="2.5" fill="#2b1f1a" opacity=".30"/>' +
+      '<ellipse cx="' + (cx + 0.6 * inner).toFixed(2) + '" cy="' + (y + lower + 0.5).toFixed(2) + '" rx="' + (w * 0.8).toFixed(2) + '" ry="1.2" fill="#fff" opacity=".22"/>' : '') +
+      '</g>' +
+      '<path d="M' + xo.toFixed(2) + ' ' + (y - tilt * 0.12).toFixed(2) +
+        ' C' + (cx - w * 0.55 * inner).toFixed(2) + ' ' + (y - upper - 0.5 - tilt * 0.3).toFixed(2) +
+        ' ' + (cx + w * 0.45 * inner).toFixed(2) + ' ' + (y - upper + 0.1).toFixed(2) +
+        ' ' + xi.toFixed(2) + ' ' + (y + 0.35 + tilt * 0.1).toFixed(2) +
+        '" fill="none" stroke="' + ink + '" stroke-width="' + st.lash + '" stroke-linecap="round"/>' +
+      (FINE ? '<path d="M' + (xo + 0.5 * inner).toFixed(2) + ' ' + (y - upper - 2.1).toFixed(2) +
+        ' Q' + cx.toFixed(2) + ' ' + (y - upper - 3.1).toFixed(2) + ' ' + (xi - 0.7 * inner).toFixed(2) + ' ' + (y - upper - 1.3).toFixed(2) +
+        '" fill="none" stroke="#4a3730" stroke-opacity=".34" stroke-width=".85" stroke-linecap="round"/>' +
+      '<path d="M' + (cx - w * 0.55 * inner).toFixed(2) + ' ' + (y + lower + 0.25).toFixed(2) +
+        ' Q' + (cx + w * 0.2 * inner).toFixed(2) + ' ' + (y + lower + 0.85).toFixed(2) + ' ' + (xi - 0.5 * inner).toFixed(2) + ' ' + (y + lower - 0.35).toFixed(2) +
+        '" fill="none" stroke="#fff" stroke-opacity=".34" stroke-width=".7" stroke-linecap="round"/>' +
+      '<circle cx="' + (xi - 0.35 * inner).toFixed(2) + '" cy="' + (y + 0.9).toFixed(2) + '" r=".55" fill="#c2827a" opacity=".55"/>' : '') +
+      '</g>';
+  }
+  function eyesPath(kind, irisCol, id) {
+    var st = eyeStyle(kind);
+    irisCol = irisCol || IRIS[0];
+    id = id || 'dbav0';
+    var socket = '<ellipse cx="40" cy="44.6" rx="7" ry="5" fill="url(#' + id + 'sh)" opacity=".30"/>' +
+                 '<ellipse cx="60" cy="44.6" rx="7" ry="5" fill="url(#' + id + 'sh)" opacity=".36"/>';
+    return socket + eyeUnit(id, 40, st, irisCol, 0, 0) + eyeUnit(id, 60, st, irisCol, 0, 0);
+  }
+
+  // Brows are a filled, tapered shape with a couple of hairs over the top.
+  // A single stroked arc reads as a cartoon; the taper is what makes it a brow.
+  function browsPath(kind, browCol) {
+    var ink = browCol || '#3a2c22', lit = shade(ink, 0.28);
+    var rise = kind === 1 ? 1.9 : 0, inner = kind === 2 ? 1.5 : 0;
+    function brow(s) {
+      var f = function (x) { return (50 + (x - 50) * s).toFixed(2); };
+      return '<g>' +
+        '<path d="M' + f(35.2) + ' ' + (40.2 - rise).toFixed(2) +
+        ' C' + f(37.4) + ' ' + (36.9 - rise).toFixed(2) + ' ' + f(41.8) + ' ' + (35.8 - rise).toFixed(2) + ' ' + f(45.1) + ' ' + (37.6 - rise + inner).toFixed(2) +
+        ' L' + f(44.7) + ' ' + (38.9 - rise + inner).toFixed(2) +
+        ' C' + f(41.6) + ' ' + (37.6 - rise).toFixed(2) + ' ' + f(38.2) + ' ' + (38.6 - rise).toFixed(2) + ' ' + f(36.4) + ' ' + (41.1 - rise).toFixed(2) + ' Z" fill="' + ink + '"/>' +
+        (FINE ? '<path d="M' + f(37.4) + ' ' + (38.6 - rise).toFixed(2) + ' L' + f(39.2) + ' ' + (37.5 - rise).toFixed(2) +
+        ' M' + f(40.4) + ' ' + (37.4 - rise).toFixed(2) + ' L' + f(42.2) + ' ' + (36.8 - rise).toFixed(2) +
+        '" stroke="' + lit + '" stroke-width=".6" stroke-linecap="round" opacity=".7"/>' : '') +
+        '</g>';
+    }
+    return brow(1) + brow(-1);
   }
 
   // Skin details — cheap charm. 0 none / 1 blush / 2 freckles.
@@ -234,40 +395,93 @@
     return '';
   }
 
-  function mouthPath(kind) {
-    var lip = '#c26b5e';
+  // ---- mouth ------------------------------------------------------------
+  // Two lips, not one line: an upper lip that faces away from the light and
+  // stays darker, a lower lip that catches it, a philtrum, corner shadows
+  // and a shelf of shadow underneath. lipsUnit is shared with the talking
+  // face so a live avatar and a still avatar have the same mouth.
+  function lipsUnit(id, open, lift, asym, shape) {
+    var cx = 50, y = 58, hw = 5.9 + (shape || 0) * 0.9;
+    open = open || 0;
+    lift = lift || 0;
+    asym = asym || 0;
+    var up = '#a35c53', low = '#c47a6d', lit = '#dda294', dark = '#6b2f2a';
+    var lY = y - lift, rY = y - lift - asym;
+    var drop = open * 4.4;
+    var upperLip = 'M' + (cx - hw) + ' ' + lY.toFixed(2) +
+      ' C' + (cx - 4.3) + ' ' + (y - 2.1 - open * 0.9).toFixed(2) + ' ' + (cx - 2.5) + ' ' + (y - 2.5 - open * 1.1).toFixed(2) + ' ' + (cx - 1.05) + ' ' + (y - 1.4 - open * 0.9).toFixed(2) +
+      ' C' + (cx - 0.45) + ' ' + (y - 0.85 - open * 0.8).toFixed(2) + ' ' + (cx + 0.45) + ' ' + (y - 0.85 - open * 0.8).toFixed(2) + ' ' + (cx + 1.05) + ' ' + (y - 1.4 - open * 0.9).toFixed(2) +
+      ' C' + (cx + 2.5) + ' ' + (y - 2.5 - open * 1.1).toFixed(2) + ' ' + (cx + 4.3) + ' ' + (y - 2.1 - open * 0.9).toFixed(2) + ' ' + (cx + hw) + ' ' + rY.toFixed(2) +
+      ' C' + (cx + 3) + ' ' + (y + 0.2).toFixed(2) + ' ' + (cx - 3) + ' ' + (y + 0.2).toFixed(2) + ' ' + (cx - hw) + ' ' + lY.toFixed(2) + ' Z';
+    var lowerLip = 'M' + (cx - hw) + ' ' + lY.toFixed(2) +
+      ' C' + (cx - 3) + ' ' + (y + 0.5 + drop * 0.35).toFixed(2) + ' ' + (cx + 3) + ' ' + (y + 0.5 + drop * 0.35).toFixed(2) + ' ' + (cx + hw) + ' ' + rY.toFixed(2) +
+      ' C' + (cx + 4.6) + ' ' + (y + 3.5 + drop).toFixed(2) + ' ' + (cx + 2.3) + ' ' + (y + 4.6 + drop).toFixed(2) + ' ' + cx + ' ' + (y + 4.6 + drop).toFixed(2) +
+      ' C' + (cx - 2.3) + ' ' + (y + 4.6 + drop).toFixed(2) + ' ' + (cx - 4.6) + ' ' + (y + 3.5 + drop).toFixed(2) + ' ' + (cx - hw) + ' ' + lY.toFixed(2) + ' Z';
+    var cavity = open > 0.05
+      ? '<path d="M' + (cx - hw + 0.9) + ' ' + ((lY + rY) / 2).toFixed(2) +
+        ' C' + (cx - 3) + ' ' + (y - 1.1 - open * 1.4).toFixed(2) + ' ' + (cx + 3) + ' ' + (y - 1.1 - open * 1.4).toFixed(2) + ' ' + (cx + hw - 0.9) + ' ' + ((lY + rY) / 2).toFixed(2) +
+        ' C' + (cx + 3.4) + ' ' + (y + 1.4 + drop * 0.9).toFixed(2) + ' ' + (cx - 3.4) + ' ' + (y + 1.4 + drop * 0.9).toFixed(2) + ' ' + (cx - hw + 0.9) + ' ' + ((lY + rY) / 2).toFixed(2) + ' Z" fill="' + dark + '"/>' +
+        (open > 0.3 ? '<path d="M' + (cx - hw + 1.6) + ' ' + (y - 0.9 - open * 1.1).toFixed(2) + ' Q' + cx + ' ' + (y - 1.9 - open * 1.3).toFixed(2) + ' ' + (cx + hw - 1.6) + ' ' + (y - 0.9 - open * 1.1).toFixed(2) + ' Z" fill="#f7f1ec" opacity=".95"/>' : '') +
+        (open > 0.55 ? '<path d="M' + (cx - 2.6) + ' ' + (y + 1.2).toFixed(2) + ' Q' + cx + ' ' + (y + 2.4 + drop * 0.6).toFixed(2) + ' ' + (cx + 2.6) + ' ' + (y + 1.2).toFixed(2) + ' Z" fill="#c07268" opacity=".85"/>' : '')
+      : '';
+    return '<g>' +
+      (FINE ? '<path d="M48.8 54.9 L48.5 56.4 M51.2 54.9 L51.5 56.4" stroke="#fff" stroke-opacity=".15" stroke-width=".8" stroke-linecap="round"/>' : '') +
+      (FINE ? '<ellipse cx="50" cy="' + (y + 6.4 + drop * 0.8).toFixed(2) + '" rx="4.8" ry="1.7" fill="url(#' + id + 'sh)" opacity=".38"/>' : '') +
+      '<path d="' + lowerLip + '" fill="' + low + '"/>' +
+      (FINE ? '<path d="M' + (cx - 3.6) + ' ' + (y + 2 + drop * 0.5).toFixed(2) + ' Q' + cx + ' ' + (y + 3.4 + drop * 0.6).toFixed(2) + ' ' + (cx + 3.6) + ' ' + (y + 2 + drop * 0.5).toFixed(2) + '" fill="none" stroke="' + lit + '" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>' : '') +
+      cavity +
+      '<path d="' + upperLip + '" fill="' + up + '"/>' +
+      '<path d="M' + (cx - hw) + ' ' + lY.toFixed(2) + ' C' + (cx - 3) + ' ' + (y + 0.35).toFixed(2) + ' ' + (cx + 3) + ' ' + (y + 0.35).toFixed(2) + ' ' + (cx + hw) + ' ' + rY.toFixed(2) + '" fill="none" stroke="' + dark + '" stroke-width=".8" stroke-linecap="round" opacity=".55"/>' +
+      (FINE ? '<circle cx="' + (cx - hw) + '" cy="' + lY.toFixed(2) + '" r=".85" fill="' + dark + '" opacity=".45"/>' +
+      '<circle cx="' + (cx + hw) + '" cy="' + rY.toFixed(2) + '" r=".85" fill="' + dark + '" opacity=".5"/>' : '') +
+      '</g>';
+  }
+  function mouthPath(kind, id) {
+    id = id || 'dbav0';
     switch (kind) {
-      case 0: return '<path d="M45.5 56 L54.5 56" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>'; // neutral
-      case 1: return '<path d="M44 55 Q50 61.5 56 55" stroke="' + lip + '" stroke-width="2" fill="none" stroke-linecap="round"/>'; // smile
-      case 2: return '<path d="M44.5 56.6 Q49 58.2 55.5 54.8" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>'; // smirk
-      case 3: return '<path d="M44.5 57.6 Q50 54 55.5 57.6" stroke="' + lip + '" stroke-width="1.9" fill="none" stroke-linecap="round"/>'; // serious
-      case 4: return '<ellipse cx="50" cy="56.5" rx="3.6" ry="2.8" fill="#8a3f38"/><path d="M46.6 55.4 Q50 54.2 53.4 55.4" stroke="#fff" stroke-width="1" fill="none"/>'; // open
+      case 0: return lipsUnit(id, 0, 0, 0, 0);         // neutral
+      case 1: return lipsUnit(id, 0.30, 1.5, 0, 0.7);  // smile
+      case 2: return lipsUnit(id, 0.06, 0.2, 1.7, 0.2);// smirk
+      case 3: return lipsUnit(id, 0, -0.9, 0, -0.2);   // set / serious
+      case 4: return lipsUnit(id, 0.82, 0.4, 0, 0.3);  // open
     }
-    return '';
+    return lipsUnit(id, 0, 0, 0, 0);
   }
 
   function facialPath(kind, hairCol) {
+    // Follows the SKULL jawline: sides at x31.5/68.5 by y50, chin at y69.4.
     switch (kind) {
       case 0: return '';
       case 1: // light stubble
-        return '<path d="M32 51 C32 67 42 73 50 73 C58 73 68 67 68 51 C65 63 58 67 50 67 C42 67 35 63 32 51 Z" fill="' + shade(hairCol, -0.08) + '" opacity=".2"/>';
+        return '<path d="M31.6 50 C31.6 62 39 69.4 50 69.4 C61 69.4 68.4 62 68.4 50 C65.4 60.4 58.4 64.6 50 64.6 C41.6 64.6 34.6 60.4 31.6 50 Z" fill="' + shade(hairCol, -0.08) + '" opacity=".22"/>' +
+               '<path d="M44 55.6 Q50 53.6 56 55.6" stroke="' + shade(hairCol, -0.04) + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".3"/>';
       case 2: // mustache
-        return '<path d="M43 53 Q50 50.5 57 53 Q52 56 50 55.4 Q48 56 43 53 Z" fill="' + shade(hairCol, -0.04) + '"/>';
+        return '<path d="M43.4 55.8 Q50 53 56.6 55.8 Q52 58.4 50 57.8 Q48 58.4 43.4 55.8 Z" fill="' + shade(hairCol, -0.04) + '"/>' +
+               '<path d="M45 55.4 Q50 53.9 55 55.4" stroke="' + shade(hairCol, 0.22) + '" stroke-width=".6" fill="none" opacity=".5"/>';
       case 3: // short beard (trim, young)
-        return '<path d="M33 50 C33 66 42 74 50 74 C58 74 67 66 67 50 C64 60 60 62 60 57 C56 61 44 61 40 57 C40 62 36 60 33 50 Z" fill="' + hairCol + '"/>' +
-               '<path d="M43 53 Q50 51 57 53 Q52 55.4 50 55 Q48 55.4 43 53 Z" fill="' + shade(hairCol, -0.06) + '"/>';
+        return '<path d="M31.8 49 C31.8 62 39.4 70 50 70 C60.6 70 68.2 62 68.2 49 C65.6 59 61 61.4 60.4 57.6 C56.4 61.6 43.6 61.6 39.6 57.6 C39 61.4 34.4 59 31.8 49 Z" fill="' + hairCol + '"/>' +
+               '<path d="M43.4 55.8 Q50 53.2 56.6 55.8 Q52 58 50 57.6 Q48 58 43.4 55.8 Z" fill="' + shade(hairCol, -0.1) + '"/>' +
+               '<path d="M36.5 57 C38.5 63 43.5 66.4 50 66.4 C56.5 66.4 61.5 63 63.5 57" fill="none" stroke="' + shade(hairCol, 0.2) + '" stroke-width=".8" opacity=".35"/>';
     }
     return '';
   }
 
-  function glassesPath(kind) {
+  function glassesPath(kind, id) {
     var c = '#22242c';
+    id = id || 'dbav0';
+    var gloss = '<path d="M35.4 49.4 L42.6 40.6 M56.4 49.4 L62 42.6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".22"/>';
     switch (kind) {
       case 0: return '';
       case 1: // thin round
-        return '<g fill="none" stroke="' + c + '" stroke-width="1.5"><circle cx="40" cy="45" r="5.6"/><circle cx="60" cy="45" r="5.6"/><path d="M45.6 44.4 Q50 43.2 54.4 44.4"/><path d="M34.4 44 L30 43" stroke-linecap="round"/><path d="M65.6 44 L70 43" stroke-linecap="round"/></g>';
+        return '<g><ellipse cx="50" cy="51.4" rx="20" ry="2.6" fill="url(#' + id + 'sh)" opacity=".26"/>' +
+          '<circle cx="40" cy="45" r="5.8" fill="#cfe0ef" opacity=".13"/><circle cx="60" cy="45" r="5.8" fill="#cfe0ef" opacity=".13"/>' + gloss +
+          '<g fill="none" stroke="' + c + '" stroke-width="1.5"><circle cx="40" cy="45" r="5.8"/><circle cx="60" cy="45" r="5.8"/><path d="M45.8 44.4 Q50 43.2 54.2 44.4"/><path d="M34.2 44 L29.4 43" stroke-linecap="round"/><path d="M65.8 44 L70.6 43" stroke-linecap="round"/></g>' +
+          '<circle cx="40" cy="45" r="5.8" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".5"/><circle cx="60" cy="45" r="5.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".5"/></g>';
       case 2: // bold square
-        return '<g fill="none" stroke="' + c + '" stroke-width="2"><rect x="33.5" y="40" width="11.5" height="9.5" rx="2.4"/><rect x="55" y="40" width="11.5" height="9.5" rx="2.4"/><path d="M45 43.8 Q50 42.6 55 43.8"/><path d="M33.5 42.8 L29 41.6" stroke-linecap="round"/><path d="M66.5 42.8 L71 41.6" stroke-linecap="round"/></g>';
+        return '<g><ellipse cx="50" cy="52" rx="20" ry="2.6" fill="url(#' + id + 'sh)" opacity=".3"/>' +
+          '<rect x="33.4" y="39.8" width="11.8" height="9.8" rx="2.5" fill="#cfe0ef" opacity=".13"/><rect x="54.8" y="39.8" width="11.8" height="9.8" rx="2.5" fill="#cfe0ef" opacity=".13"/>' + gloss +
+          '<g fill="none" stroke="' + c + '" stroke-width="2"><rect x="33.4" y="39.8" width="11.8" height="9.8" rx="2.5"/><rect x="54.8" y="39.8" width="11.8" height="9.8" rx="2.5"/><path d="M45.2 43.6 Q50 42.4 54.8 43.6"/><path d="M33.4 42.6 L28.6 41.4" stroke-linecap="round"/><path d="M66.6 42.6 L71.4 41.4" stroke-linecap="round"/></g>' +
+          '<path d="M33.4 40.4 h11.8 M54.8 40.4 h11.8" stroke="#fff" stroke-opacity=".26" stroke-width=".7" stroke-linecap="round"/></g>';
     }
     return '';
   }
@@ -296,60 +510,60 @@
   function svg(config, size) {
     var c = norm(config);
     size = size || 96;
+    setLod(size);
     var skinCol = SKIN[c.skin], hairCol = HAIR[c.hair], bgCol = BG[c.bg], outCol = OUTFIT[c.outfit];
-    var skinShade = shade(skinCol, -0.13);
+    var skinShade = shade(skinCol, -0.24);
     var irisCol = IRIS[c.iris];
     var browCol = shade(hairCol, c.hair >= 4 ? -0.38 : -0.2); // light/dyed hair still needs readable brows
     var id = 'dbav' + (++uid);
     var hair = hairPaths(c.top, hairCol);
     var sz = (size === '100%') ? '100%' : size;
     var earring = (c.accessory === 3)
-      ? '<circle cx="29" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/><circle cx="71" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/>'
+      ? '<g fill="none" stroke="#f0c14b" stroke-width="1.4"><circle cx="25.4" cy="55.4" r="2.2"/><circle cx="74.6" cy="55.4" r="2.2"/></g>' +
+        '<circle cx="24.7" cy="54.7" r=".6" fill="#fff" opacity=".7"/><circle cx="73.9" cy="54.7" r=".6" fill="#fff" opacity=".7"/>'
       : '';
 
     return '' +
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="avatar" style="display:block">' +
-      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
-      '<radialGradient id="' + id + 'g" cx="28%" cy="18%" r="92%"><stop offset="0%" stop-color="' + shade(bgCol, 0.34) + '"/><stop offset="48%" stop-color="' + bgCol + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.24) + '"/></radialGradient>' +
-      '<radialGradient id="' + id + 'skin" cx="31%" cy="19%" r="82%"><stop offset="0%" stop-color="' + shade(skinCol, 0.30) + '"/><stop offset="52%" stop-color="' + skinCol + '"/><stop offset="100%" stop-color="' + shade(skinCol, -0.18) + '"/></radialGradient>' +
-      '<linearGradient id="' + id + 'rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".72"/><stop offset="42%" stop-color="#fff" stop-opacity="0"/><stop offset="100%" stop-color="#111827" stop-opacity=".20"/></linearGradient>' +
-      '<filter id="' + id + 'shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#201713" flood-opacity=".28"/></filter></defs>' +
-      '<g clip-path="url(#' + id + ')">' +
-      '<rect width="100" height="100" fill="url(#' + id + 'g)"/>' +
-      '<path d="M-8 74 C18 28 59 8 111 30" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="12" stroke-linecap="round"/>' +
-      '<path d="M-2 82 C23 57 62 49 108 65" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.2"/>' +
-      '<circle cx="82" cy="22" r="2" fill="#fff" opacity=".55"/><circle cx="16" cy="66" r="1.2" fill="#fff" opacity=".35"/>' +
+      '<defs>' + faceDefs(id, skinCol, bgCol, outCol, irisCol) + '</defs>' +
+      '<g clip-path="url(#' + id + 'c)">' +
+      '<rect width="100" height="100" fill="url(#' + id + 'bg)"/>' +
+      '<path d="M-8 74 C18 28 59 8 111 30" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="12" stroke-linecap="round"/>' +
+      '<path d="M-2 82 C23 57 62 49 108 65" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="1.2"/>' +
+      '<circle cx="82" cy="22" r="2" fill="#fff" opacity=".5"/><circle cx="16" cy="66" r="1.2" fill="#fff" opacity=".32"/>' +
       '<g transform="translate(50 50) scale(1.10) translate(-50 -50)">' +
       hair.back +
-      // hoodie
-      '<ellipse cx="50" cy="80" rx="29" ry="7" fill="#211713" opacity=".18"/>' +
-      '<path d="M12 102 C13 77 30 69 50 69 C70 69 87 77 88 102 Z" fill="' + outCol + '"/>' +
-      '<path d="M18 96 C25 79 35 74 50 74 C65 74 75 79 82 96" fill="none" stroke="' + shade(outCol, 0.16) + '" stroke-width="1.2" opacity=".52"/>' +
-      '<path d="M38 72 Q50 80 62 72 L63 76 Q50 84 37 76 Z" fill="' + shade(outCol, -0.16) + '"/>' +
-      '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
-      '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
-      '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/>' +
-      // neck
-      '<path d="M43 60 h14 v9 q-7 5 -14 0 Z" fill="' + skinShade + '"/>' +
+      // torso: contact shadow, shaded hoodie, collar, the head's shadow on the chest
+      '<ellipse cx="50" cy="79" rx="30" ry="7.5" fill="#170f0d" opacity=".24"/>' +
+      '<path d="M11 103 C12 78 29.5 68.5 50 68.5 C70.5 68.5 88 78 89 103 Z" fill="url(#' + id + 'ot)"/>' +
+      '<path d="M14 97 C17 79.5 31 71.5 50 71.5 C69 71.5 83 79.5 86 97" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.3"/>' +
+      '<path d="M37.5 70 Q50 79.5 62.5 70 L64 74.6 Q50 85.5 36 74.6 Z" fill="' + shade(outCol, -0.3) + '"/>' +
+      '<ellipse cx="50" cy="74.5" rx="14" ry="6.5" fill="url(#' + id + 'sh)" opacity=".5"/>' +
+      '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.26) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.26) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.26) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.26) + '"/>' +
+      // neck: a cylinder with the jaw casting down onto it
+      '<path d="M42.4 57 h15.2 v9.8 c0 6.2 -15.2 6.2 -15.2 0 Z" fill="' + skinShade + '"/>' +
+      '<path d="M44.3 59.6 v7.4" stroke="#fff" stroke-opacity=".13" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<ellipse cx="50" cy="60.5" rx="9.5" ry="5" fill="url(#' + id + 'sh)" opacity=".7"/>' +
       // head
-      '<g filter="url(#' + id + 'shadow)"><ellipse cx="50" cy="44" rx="23.5" ry="25" fill="url(#' + id + 'skin)"/>' +
-      '<ellipse cx="50" cy="44" rx="22.9" ry="24.4" fill="url(#' + id + 'rim)" opacity=".42"/></g>' +
-      // ears
-      '<circle cx="27" cy="47" r="4.1" fill="' + skinCol + '"/><circle cx="73" cy="47" r="4.1" fill="' + skinCol + '"/>' +
+      (FINE ? '<g filter="url(#' + id + 'ds)">' : '<g>') + '<path d="' + SKULL + '" fill="url(#' + id + 'sk)"/></g>' +
+      earsPath(skinCol) +
       earring +
+      faceForm(id) +
       facialPath(c.facial, hairCol) +
-      '<ellipse cx="38" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/><ellipse cx="62" cy="51.5" rx="5" ry="2.5" fill="#fff" opacity=".10"/>' +
-      // nose
-      '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+      nosePath(skinCol) +
       detailPath(c.detail, skinCol) +
       browsPath(c.brows, browCol) +
-      eyesPath(c.eyes, irisCol) +
-      mouthPath(c.mouth) +
+      eyesPath(c.eyes, irisCol, id) +
+      mouthPath(c.mouth, id) +
       hair.front +
-      glassesPath(c.glasses) +
+      hairFinish(id, c.top, hairCol) +
+      glassesPath(c.glasses, id) +
       accessoryOver(c.accessory, outCol) +
       '</g>' +
-      '<circle cx="50" cy="50" r="48.8" fill="none" stroke="#fff" stroke-opacity=".26" stroke-width=".8"/>' +
+      '<rect width="100" height="100" fill="url(#' + id + 'vg)"/>' +
+      '<circle cx="50" cy="50" r="48.8" fill="none" stroke="#fff" stroke-opacity=".24" stroke-width=".8"/>' +
       '</g></svg>';
   }
 
@@ -361,55 +575,42 @@
   // (setState / setEmotion / setAmplitude / attachAudio / destroy), so a
   // photoreal video head can implement the same shape and drop in later.
 
-  function talkingMouth(open, emotion, shape) {
-    var lip = '#b65b4f', cav = '#5f241f', tongue = '#d88478', cy = 56;
-    var corner = emotion === 'encouraging' ? -1.7 : (emotion === 'pushing' ? 1.5 : 0);
+  function talkingMouth(open, emotion, shape, id) {
+    FINE = true; // the talking head is always rendered large
+    var corner = emotion === 'encouraging' ? 1.5 : (emotion === 'pushing' ? -0.9 : 0);
     open = open < 0 ? 0 : open > 1 ? 1 : open;
     shape = shape == null ? 0.5 : (shape < 0 ? 0 : shape > 1 ? 1 : shape);
-    if (open < 0.06) {
-      return '<path d="M43.6 ' + (cy - corner * 0.15).toFixed(2) + ' C47.2 ' + (cy + corner).toFixed(2) + ' 52.8 ' + (cy + corner).toFixed(2) + ' 56.4 ' + (cy - corner * 0.15).toFixed(2) + '" stroke="' + lip + '" stroke-width="2.15" fill="none" stroke-linecap="round"/>';
-    }
     // Shape follows spectral character: rounded vowels stay narrow, brighter
     // consonants pull the corners wider. Open follows actual waveform energy.
-    var rx = 4.5 + shape * 3.1 + open * 1.8, ry = 1.0 + open * 6.1;
-    var teeth = open > 0.34
-      ? '<path d="M' + (50 - rx + 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + ' Q50 ' + (cy - ry - 0.2).toFixed(2) + ' ' + (50 + rx - 1).toFixed(2) + ' ' + (cy - ry + 1.1).toFixed(2) + '" stroke="#fff" stroke-width="1.6" fill="none" opacity=".92"/>'
-      : '';
-    var tonguePath = open > 0.58
-      ? '<path d="M' + (50 - rx * 0.46).toFixed(2) + ' ' + (cy + ry * 0.2).toFixed(2) + ' Q50 ' + (cy + ry * 0.95).toFixed(2) + ' ' + (50 + rx * 0.46).toFixed(2) + ' ' + (cy + ry * 0.2).toFixed(2) + '" fill="' + tongue + '" opacity=".82"/>'
-      : '';
-    return '<ellipse cx="50" cy="' + cy + '" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="' + cav + '"/>' + tonguePath + teeth +
-      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy - ry - 1.4 + corner).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
-      '<path d="M' + (50 - rx - 1).toFixed(2) + ' ' + cy + ' Q50 ' + (cy + ry + 1.8).toFixed(2) + ' ' + (50 + rx + 1).toFixed(2) + ' ' + cy + '" stroke="' + lip + '" stroke-width="2.05" fill="none" stroke-linecap="round"/>';
+    return lipsUnit(id || 'tav0', open, corner, 0, (shape - 0.5) * 1.4);
   }
 
-  function talkingEyes(openFrac, gx, gy, irisCol) {
-    var L = 40, R = 60, y = 45, ink = '#2a2320';
-    gx = gx || 0; gy = gy || 0;
+  function talkingEyes(openFrac, gx, gy, irisCol, id) {
+    FINE = true; // the talking head is always rendered large
+    id = id || 'tav0';
+    var st = { open: openFrac, w: 4.4, tilt: 0, lash: 1.5 };
     irisCol = irisCol || IRIS[0];
-    var irisDark = shade(irisCol, -0.25);
-    if (openFrac < 0.12) {
-      return '<path d="M36.6 ' + y + ' Q40 ' + (y + 0.7) + ' 43.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
-             '<path d="M56.6 ' + y + ' Q60 ' + (y + 0.7) + ' 63.4 ' + y + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
-    }
-    var ry = (3.9 * openFrac + 0.3).toFixed(2);
-    function orb(cx) {
-      return '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2.15" fill="' + irisCol + '"/>' +
-             '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.4 + gy).toFixed(2) + '" r="2.15" fill="none" stroke="' + irisDark + '" stroke-width=".5"/>' +
-             '<circle cx="' + (cx + gx).toFixed(2) + '" cy="' + (y + 0.5 + gy).toFixed(2) + '" r="1.2" fill="' + ink + '"/>' +
-             '<circle cx="' + (cx + gx - 0.85).toFixed(2) + '" cy="' + (y - 0.9 + gy).toFixed(2) + '" r=".75" fill="#fff"/>';
-    }
-    return '<ellipse cx="' + L + '" cy="' + y + '" rx="3.35" ry="' + ry + '" fill="#fff"/>' +
-           '<ellipse cx="' + R + '" cy="' + y + '" rx="3.35" ry="' + ry + '" fill="#fff"/>' +
-           orb(L) + orb(R);
+    return '<ellipse cx="40" cy="44.6" rx="7" ry="5" fill="url(#' + id + 'sh)" opacity=".30"/>' +
+           '<ellipse cx="60" cy="44.6" rx="7" ry="5" fill="url(#' + id + 'sh)" opacity=".36"/>' +
+           eyeUnit(id, 40, st, irisCol, gx || 0, gy || 0) + eyeUnit(id, 60, st, irisCol, gx || 0, gy || 0);
   }
 
   function talkingBrows(raise, angle, browCol) {
-    var ink = browCol || '#3a2c22', base = 38.6 - raise;
-    var innerL = base + angle, innerR = base + angle;
-    var outerL = base - raise * 0.25, outerR = base - raise * 0.25;
-    return '<path d="M35.5 ' + outerL.toFixed(2) + ' Q40 ' + (base - 1.7).toFixed(2) + ' 44.5 ' + innerL.toFixed(2) + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>' +
-           '<path d="M64.5 ' + outerR.toFixed(2) + ' Q60 ' + (base - 1.7).toFixed(2) + ' 55.5 ' + innerR.toFixed(2) + '" stroke="' + ink + '" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+    var ink = browCol || '#3a2c22', lit = shade(ink, 0.28);
+    function brow(s) {
+      var f = function (x) { return (50 + (x - 50) * s).toFixed(2); };
+      var r = raise, a = angle;
+      return '<g>' +
+        '<path d="M' + f(35.2) + ' ' + (40.2 - r).toFixed(2) +
+        ' C' + f(37.4) + ' ' + (36.9 - r).toFixed(2) + ' ' + f(41.8) + ' ' + (35.8 - r).toFixed(2) + ' ' + f(45.1) + ' ' + (37.6 - r + a).toFixed(2) +
+        ' L' + f(44.7) + ' ' + (38.9 - r + a).toFixed(2) +
+        ' C' + f(41.6) + ' ' + (37.6 - r).toFixed(2) + ' ' + f(38.2) + ' ' + (38.6 - r).toFixed(2) + ' ' + f(36.4) + ' ' + (41.1 - r).toFixed(2) + ' Z" fill="' + ink + '"/>' +
+        '<path d="M' + f(37.4) + ' ' + (38.6 - r).toFixed(2) + ' L' + f(39.2) + ' ' + (37.5 - r).toFixed(2) +
+        ' M' + f(40.4) + ' ' + (37.4 - r).toFixed(2) + ' L' + f(42.2) + ' ' + (36.8 - r).toFixed(2) +
+        '" stroke="' + lit + '" stroke-width=".6" stroke-linecap="round" opacity=".7"/>' +
+        '</g>';
+    }
+    return brow(1) + brow(-1);
   }
 
   // A near-copy of svg() with the animatable parts in named groups and the
@@ -417,49 +618,51 @@
   function talkingSvg(config, size) {
     var c = norm(config);
     var skinCol = SKIN[c.skin], hairCol = HAIR[c.hair], bgCol = BG[c.bg], outCol = OUTFIT[c.outfit];
-    var skinShade = shade(skinCol, -0.13);
+    var skinShade = shade(skinCol, -0.24);
     var irisCol = IRIS[c.iris];
     var browCol = shade(hairCol, c.hair >= 4 ? -0.38 : -0.2); // light/dyed hair still needs readable brows
     var id = 'tav' + (++uid);
     var hair = hairPaths(c.top, hairCol);
     var sz = (size === '100%') ? '100%' : (size || 200);
+    setLod(sz);
     var earring = (c.accessory === 3)
-      ? '<circle cx="29" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/><circle cx="71" cy="52.5" r="2.3" fill="none" stroke="#f0c14b" stroke-width="1.5"/>'
+      ? '<g fill="none" stroke="#f0c14b" stroke-width="1.4"><circle cx="25.4" cy="55.4" r="2.2"/><circle cx="74.6" cy="55.4" r="2.2"/></g>'
       : '';
     return '' +
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="talking avatar" style="display:block">' +
-      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>' +
-      '<radialGradient id="' + id + 'g" cx="32%" cy="24%" r="82%"><stop offset="0%" stop-color="' + shade(bgCol, 0.28) + '"/><stop offset="62%" stop-color="' + bgCol + '"/><stop offset="100%" stop-color="' + shade(bgCol, -0.10) + '"/></radialGradient>' +
-      '<radialGradient id="' + id + 'skin" cx="34%" cy="22%" r="78%"><stop offset="0%" stop-color="' + shade(skinCol, 0.26) + '"/><stop offset="58%" stop-color="' + skinCol + '"/><stop offset="100%" stop-color="' + shade(skinCol, -0.16) + '"/></radialGradient>' +
-      '<radialGradient id="' + id + 'gloss" cx="30%" cy="18%" r="54%"><stop offset="0%" stop-color="#fff" stop-opacity=".58"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
-      '<g clip-path="url(#' + id + ')">' +
-      '<rect width="100" height="100" fill="url(#' + id + 'g)"/>' +
-      '<path d="M9 69 C24 31 58 9 91 28" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="10" stroke-linecap="round"/>' +
-      '<path d="M12 76 C34 52 57 45 90 58" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2" stroke-linecap="round"/>' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="' + sz + '" height="' + sz + '" role="img" aria-label="talking avatar" data-av-id="' + id + '" style="display:block">' +
+      '<defs>' + faceDefs(id, skinCol, bgCol, outCol, irisCol) + '</defs>' +
+      '<g clip-path="url(#' + id + 'c)">' +
+      '<rect width="100" height="100" fill="url(#' + id + 'bg)"/>' +
+      '<path d="M9 69 C24 31 58 9 91 28" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="10" stroke-linecap="round"/>' +
+      '<path d="M12 76 C34 52 57 45 90 58" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="2" stroke-linecap="round"/>' +
       hair.back +
-      '<ellipse cx="50" cy="76" rx="31" ry="8" fill="#1a1412" opacity=".14"/>' +
-      '<path d="M13 104 C13 78 30 69 50 69 C70 69 87 78 87 104 Z" fill="' + outCol + '"/>' +
-      '<path d="M37 70 Q50 81 63 70 L64 75 Q50 85 36 75 Z" fill="' + shade(outCol, -0.16) + '"/>' +
-      '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
-      '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.2) + '" stroke-width="1.7" stroke-linecap="round"/>' +
-      '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.2) + '"/>' +
+      '<ellipse cx="50" cy="79" rx="31" ry="8" fill="#170f0d" opacity=".2"/>' +
+      '<path d="M11 103 C12 78 29.5 68.5 50 68.5 C70.5 68.5 88 78 89 103 Z" fill="url(#' + id + 'ot)"/>' +
+      '<path d="M14 97 C17 79.5 31 71.5 50 71.5 C69 71.5 83 79.5 86 97" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="1.3"/>' +
+      '<path d="M37.5 70 Q50 79.5 62.5 70 L64 74.6 Q50 85.5 36 74.6 Z" fill="' + shade(outCol, -0.3) + '"/>' +
+      '<ellipse cx="50" cy="74.5" rx="14" ry="6.5" fill="url(#' + id + 'sh)" opacity=".5"/>' +
+      '<path d="M47 77 L46 90" stroke="' + shade(outCol, 0.26) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<path d="M53 77 L54 90" stroke="' + shade(outCol, 0.26) + '" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<circle cx="46" cy="90.5" r="1.5" fill="' + shade(outCol, 0.26) + '"/><circle cx="54" cy="90.5" r="1.5" fill="' + shade(outCol, 0.26) + '"/>' +
       '<g class="ta-face">' +
-      '<path d="M43 60 h14 v9 q-7 5 -14 0 Z" fill="' + skinShade + '"/>' +
-      '<ellipse cx="50" cy="45" rx="21.5" ry="22.5" fill="url(#' + id + 'skin)"/>' +
-      '<ellipse cx="42" cy="37" rx="12" ry="15" fill="url(#' + id + 'gloss)" opacity=".62"/>' +
-      '<circle cx="28.5" cy="47" r="3.9" fill="' + skinCol + '"/><circle cx="71.5" cy="47" r="3.9" fill="' + skinCol + '"/>' +
+      '<path d="M42.4 57 h15.2 v9.8 c0 6.2 -15.2 6.2 -15.2 0 Z" fill="' + skinShade + '"/>' +
+      '<ellipse cx="50" cy="60.5" rx="9.5" ry="5" fill="url(#' + id + 'sh)" opacity=".7"/>' +
+      (FINE ? '<g filter="url(#' + id + 'ds)">' : '<g>') + '<path d="' + SKULL + '" fill="url(#' + id + 'sk)"/></g>' +
+      earsPath(skinCol) +
       earring +
+      faceForm(id) +
       facialPath(c.facial, hairCol) +
-      '<ellipse cx="38.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/><ellipse cx="61.5" cy="52.2" rx="4.2" ry="2.1" fill="#fff" opacity=".10"/>' +
+      nosePath(skinCol) +
       detailPath(c.detail, skinCol) +
-      '<path d="M50 47 Q52.2 51.4 49 52.2" stroke="' + skinShade + '" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
       '<g class="ta-brows">' + talkingBrows(0, 0, browCol) + '</g>' +
-      '<g class="ta-eyes">' + talkingEyes(1, 0, 0, irisCol) + '</g>' +
-      '<g class="ta-mouth">' + talkingMouth(0, 'neutral', 0.5) + '</g>' +
+      '<g class="ta-eyes">' + talkingEyes(1, 0, 0, irisCol, id) + '</g>' +
+      '<g class="ta-mouth">' + talkingMouth(0, 'neutral', 0.5, id) + '</g>' +
       hair.front +
-      glassesPath(c.glasses) +
+      hairFinish(id, c.top, hairCol) +
+      glassesPath(c.glasses, id) +
       accessoryOver(c.accessory, outCol) +
       '</g>' +
+      '<rect width="100" height="100" fill="url(#' + id + 'vg)"/>' +
       '</g></svg>';
   }
 
@@ -475,6 +678,10 @@
     var mBrow = shade(HAIR[mcfg.hair], mcfg.hair >= 4 ? -0.38 : -0.2);
     container.innerHTML = talkingSvg(config, opts.size || '100%');
     var svgEl = container.querySelector('svg');
+    // The gradient ids are minted per render, and the animated parts are
+    // re-rendered by this controller, so it has to reuse the same ids or the
+    // eyes and mouth lose every soft shadow the moment the face moves.
+    var gid = (svgEl && svgEl.getAttribute('data-av-id')) || 'tav0';
     var faceEl = container.querySelector('.ta-face');
     var browsEl = container.querySelector('.ta-brows');
     var eyesEl = container.querySelector('.ta-eyes');
@@ -540,7 +747,7 @@
       var mo = (state === 'talking') ? Math.max(0, Math.min(1, Math.pow(amp, 0.68) * 1.12)) : 0;
       var emo = effEmotion();
       var mk = Math.round(mo * 48) + '|' + Math.round(mouthShape * 18) + '|' + emo;
-      if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo, mouthShape); lastMouth = mk; }
+      if (mk !== lastMouth) { mouthEl.innerHTML = talkingMouth(mo, emo, mouthShape, gid); lastMouth = mk; }
 
       var eyeOpen = 1;
       if (blinkStart < 0 && now >= nextBlink) blinkStart = now;
@@ -551,7 +758,7 @@
       }
       var g = gaze();
       var ek = Math.round(eyeOpen * 10) + '|' + g.x + '|' + g.y;
-      if (ek !== lastEyes) { eyesEl.innerHTML = talkingEyes(eyeOpen, g.x, g.y, mIris); lastEyes = ek; }
+      if (ek !== lastEyes) { eyesEl.innerHTML = talkingEyes(eyeOpen, g.x, g.y, mIris, gid); lastEyes = ek; }
 
       var bp = browParams();
       var bk = bp.raise + '|' + bp.angle;
