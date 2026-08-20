@@ -5,10 +5,13 @@ directly from the exported IPA on this Mac.
 
 ## The artifact
 
-**`~/mobile/build/v7/Debatable.ipa`**. Version 1.0, **build 7**, 6.9 MB.
+**`~/mobile/build/v9/Debatable.ipa`**. Version 1.0, **build 9**, 6.9 MB.
 
-- SHA-256: `05ad6d33bf0c3dcedff211682362b9e16367074c76091a8f7e5e2c896f47b0bc`.
-- Archive and App Store export both completed successfully on 2026-08-10.
+- SHA-256: `f5923b2554f68e590be97a80fb4ffa61a12e662e4839441e5b573e86a229c05f`.
+- Archive and App Store export both completed successfully on 2026-08-19.
+- First build carrying the offline screen (see below). Supersedes v7 and v8,
+  neither of which had one, and v8 also collides with a build number that may
+  already be on App Store Connect.
 - Points at `https://itsdebatable.com/native`.
 - Uses `DebatableApp/1.0`; no legacy domain is present in the navigation allowlist.
 - Camera, microphone, and photo-library permission copy all says Debatable.
@@ -23,7 +26,7 @@ permission labels and the old user-agent. Build 7 fixes those release defects.
 Repeat the release audit at any time:
 
 ```bash
-node scripts/verify-ios-release.mjs ~/mobile/build/v7/Debatable.ipa 7
+node scripts/verify-ios-release.mjs ~/mobile/build/v9/Debatable.ipa 9
 ```
 
 The verifier checks ZIP integrity, identifiers, build number, permission copy,
@@ -38,14 +41,14 @@ App Store Connect record already exists: app ID `6791712877`, bundle
 **Transporter** (installed at `/Applications/Transporter.app`):
 
 1. Open it, sign in with your Apple ID (normal 2FA)
-2. Drag in `~/mobile/build/v7/Debatable.ipa`
+2. Drag in `~/mobile/build/v9/Debatable.ipa`
 3. Let it validate, then **Deliver**
 
 CLI alternative, using an app-specific password from appleid.apple.com.
 Type the password yourself, never paste it into a chat:
 
 ```bash
-xcrun altool --upload-app -f ~/mobile/build/v7/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
+xcrun altool --upload-app -f ~/mobile/build/v9/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
 ```
 
 Then wait 10-30 minutes for processing. Apple emails you.
