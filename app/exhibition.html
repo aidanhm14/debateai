@@ -331,6 +331,9 @@ body{
 <script defer src="/js/track.js"></script>
 </head>
 <body>
+
+<!-- Shared topbar, so this page is not a dead end. -->
+<div id="daTopbar"></div>
 <div id="topbar-host"></div>
 <div id="root"></div>
 
@@ -874,6 +877,8 @@ function App() {
 
 
 
+
+
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
     }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur, // 4-team: dispatch by the team's brain. 2-side: the side that
@@ -881,9 +886,7 @@ function App() {
         brainKey: fourTeam ? teamBrains[s.side] || brainA : s.side === sideA ? brainA : brainB, text: '', status: 'queued', error: null }));setSpeeches(queue);speechesRef.current = queue;var transcript = '';var _loop = async function (i) {if (abortRef.current) return 1; // break
       setCurrentIdx(i);setSpeeches((prev) => prev.map((s, idx) => idx === i ? { ...s, status: 'running' } : s));var sp = queue[i];var { sys, userPrompt } = buildSpeechPrompt(sp, fmt, motion, transcript);try {// Live-paint the card as tokens stream in, throttled so React
         // isn't re-rendering on every delta.
-        var lastPaint = 0;var text = await callBrain(sp.brainKey, sys, userPrompt, function (partial) {var now = Date.now();if (now - lastPaint < 200) return;
-            lastPaint = now;
-            queue[i].text = partial;
+        var lastPaint = 0;var text = await callBrain(sp.brainKey, sys, userPrompt, function (partial) {var now = Date.now();if (now - lastPaint < 200) return;lastPaint = now;queue[i].text = partial;
             setSpeeches([...queue]);
           });
         queue[i].text = text;
