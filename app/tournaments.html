@@ -1048,6 +1048,23 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   var ageBox=document.getElementById('enterAge');
   var current=null;
 
+  /* Entry-funnel instrumentation. The page had exactly ONE analytics
+     event on it and it fired AFTER someone was already registered, so
+     between a page view and an entry there was no signal at all: on
+     2026-08-19 the sitewide strip delivered 94 unique visitors here and
+     produced 3 entries, and nothing recorded which step lost the other
+     91. These events split it into never-clicked / clicked a dead
+     button / blocked by the 18+ box / bounced at the sign-in wall /
+     signed in and failed / entered.
+     Routed through window.track as well as gtag on purpose: track.js
+     writes to the `events` collection, which is readable without GA4
+     access, and gtag is not. Both calls are defensive; telemetry must
+     never break an entry. */
+  function ev(name,meta){
+    try{if(typeof window.track==='function')window.track(name,meta||{})}catch(e){}
+    try{if(typeof gtag==='function')gtag('event',name,meta||{})}catch(e){}
+  }
+
   function say(msg,tone){
     if(!statusEl)return;
     statusEl.hidden=!msg;
@@ -1255,13 +1272,15 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   // It runs with {onDone} so the entry survives: the modal's default is
   // to reload the page, which would drop the click mid-flow. That is the
   // reason this page was left on the popup during the 2026-08-12 sweep.
-  function withUser(fn){
-    if(!auth){say('Sign-in is unavailable in this browser.','bad');return}
+  function withUser(fn,mode){
+    if(!auth){ev('tournament_signin_unavailable',{mode:mode||''});say('Sign-in is unavailable in this browser.','bad');return}
     var u=auth.currentUser;
     if(u&&!u.isAnonymous){fn(u);return}
+    ev('tournament_signin_wall',{mode:mode||'',chooser:typeof window.openAuthModal==='function'});
     if(typeof window.openAuthModal==='function'){
       window.openAuthModal('signin',{onDone:function(user){
-        if(user&&!user.isAnonymous){fn(user);return}
+        if(user&&!user.isAnonymous){ev('tournament_signin_done',{mode:mode||'',ok:true});fn(user);return}
+        ev('tournament_signin_done',{mode:mode||'',ok:false});
         try{sessionStorage.removeItem('da-tourney-pending')}catch(e){}
         say('Sign-in did not complete. Try again when ready.',null);
       }});
@@ -1271,7 +1290,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     // behaviour as before, so a missing script degrades instead of
     // leaving the button dead.
     auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(function(res){
-      if(res&&res.user)fn(res.user);
+      if(res&&res.user){ev('tournament_signin_done',{mode:mode||'',ok:true,via:'popup'});fn(res.user);}
     }).catch(function(err){
       var code=(err&&err.code)||'';
       // Popups die silently in embedded webviews and under strict
@@ -1351,8 +1370,15 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     statusEl.insertAdjacentElement('afterend',box);
   }
   function enter(mode){
+    // Logged ABOVE the readiness guard on purpose: a click that lands
+    // before the bracket read resolves, or after it fails, does nothing
+    // at all for the person clicking, and a silently dead button is the
+    // one failure here worth catching early rather than never.
+    var namedNow=!!(auth&&auth.currentUser&&!auth.currentUser.isAnonymous);
+    ev('tournament_enter_click',{mode:mode,signed_in:namedNow,age_ticked:!!(ageBox&&ageBox.checked),ready:!!current});
     if(!current)return;
     if((mode==='paid'||mode==='founding')&&(!ageBox||!ageBox.checked)){
+      ev('tournament_age_block',{mode:mode});
       say('Tick the 18+ box first. Prize entry is adults only.','bad');
       return;
     }
@@ -1376,9 +1402,11 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
           ageAttested:!!(ageBox&&ageBox.checked)
         }).then(function(res){
           if(!res.ok&&!(res.j&&res.j.already)){
+            ev('tournament_entry_failed',{mode:mode,reason:String((res.j&&(res.j.error||res.j.message))||'unknown').slice(0,40)});
             say((res.j&&(res.j.error||res.j.message))||'Registration failed. Try again.','bad');
             return null;
           }
+          ev('tournament_entry_done',{mode:mode,already:!!(res.j&&res.j.already)});
           if(mode==='free'){
             // The conversion the ad account should be optimising toward.
             // No-ops entirely while no pixel id is configured.
@@ -1413,7 +1441,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
             headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
             body:JSON.stringify({tid:current.tid,ageAttested:!!(ageBox&&ageBox.checked)})
           }).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(out){
-            if(out.ok&&out.j&&out.j.url){location.href=out.j.url;return}
+            if(out.ok&&out.j&&out.j.url){ev('tournament_checkout_start',{mode:mode});location.href=out.j.url;return}
             var code=out.j&&out.j.error;
             if(code==='ALREADY_PAID')say('You already paid in. You are prize-eligible.','good');
             else if(code==='ALREADY_ELIGIBLE')say('Your entry is already eligible for the cash prizes. There is nothing to pay.','good');
@@ -1422,10 +1450,10 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
             else say((out.j&&(out.j.message||out.j.error))||'Payment could not start. Your free entry is registered, but it is not eligible for cash prizes.','bad');
           });
         });
-      }).catch(function(){say('Network error. Try again.','bad')}).finally(function(){
+      }).catch(function(){ev('tournament_entry_error',{mode:mode});say('Network error. Try again.','bad')}).finally(function(){
         if(btn)btn.disabled=false;
       });
-    });
+    },mode);
   }
   if(freeBtn)freeBtn.addEventListener('click',function(){enter('free')});
   if(paidBtn)paidBtn.addEventListener('click',function(){enter('paid')});
