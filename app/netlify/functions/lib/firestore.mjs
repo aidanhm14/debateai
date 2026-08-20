@@ -1,4 +1,4 @@
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { Firestore, FieldValue, FieldPath } from '@google-cloud/firestore';
 import { PROJECT_ID as BAKED_PROJECT_ID, CLIENT_EMAIL as BAKED_CLIENT_EMAIL, PRIVATE_KEY_B64 as BAKED_PRIVATE_KEY_B64 } from './_firestore-creds.mjs';
 
 let db = null;
@@ -128,7 +128,13 @@ export async function logUsage(teamId, userId, feature, inputTokens = 0, outputT
   });
 }
 
-export { FieldValue };
+// FieldPath rides alongside FieldValue for the same reason: this project
+// does NOT depend on firebase-admin, so `import('firebase-admin/firestore')`
+// throws ERR_MODULE_NOT_FOUND. That has now cost two subsystems — the
+// recording reaper, which could not start at all, and tournament result
+// verification, which failed silently inside a catch and quietly stopped
+// every tournament round reaching the board. Import it from here.
+export { FieldValue, FieldPath };
 
 // Fast-fail wrapper for OPTIONAL Firestore reads (caches, pollers,
 // prompt enrichment). With the read quota blown the admin SDK retries

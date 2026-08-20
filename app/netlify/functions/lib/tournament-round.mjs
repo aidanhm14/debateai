@@ -39,6 +39,8 @@
 // the header of this file warns about ("pair outside that shape and
 // every drop-in round silently stops rating"), reached by the queue
 // that shipped three days after the warning was written.
+import { FieldPath } from './firestore.mjs';
+
 const ROOM_RE = /^Debatable-([A-Za-z0-9]{1,12})-([red]\d{1,3})-(\d{1,3})$/;
 
 /**
@@ -96,7 +98,18 @@ export async function verifyTournamentPairing(db, room, proUid, conUid) {
     // id, so this is a prefix scan over document ids. Limited to 2 so an
     // ambiguous prefix is detected rather than silently resolved to
     // whichever document sorted first.
-    const { FieldPath } = await import('firebase-admin/firestore');
+    // FieldPath comes from lib/firestore.mjs, which wraps the package
+    // this project actually depends on. It used to be a dynamic import
+    // of 'firebase-admin/firestore', which is NOT a dependency here, so
+    // it threw ERR_MODULE_NOT_FOUND on every call, the catch below
+    // swallowed it as "treating as casual", and NO tournament round has
+    // ever verified. Measured 2026-08-20: a real drop-in round judged
+    // by the real panel wrote its ballot and left the board at 0-0,
+    // with no tournamentId on the round and no consent stamped. This is
+    // exactly the silent failure this file's header warns about,
+    // reached through the import rather than the room shape. A static
+    // import is deliberate: it fails at bundling, where someone sees
+    // it, instead of at runtime inside a catch, where nobody does.
     // A tournament id is 20 characters and the room carries only the
     // first 12, so this is a PREFIX scan, not an equality lookup. The
     // upper bound appends \uf8ff (above every ordinary code point) so the
