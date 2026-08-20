@@ -1263,6 +1263,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     if(t.startsAt)bits.push('Starts '+t.startsAt);
     document.getElementById('enterMeta').textContent=bits.join(' · ')||(t.status==='running'?'Running now, doors still open':'Registration open');
     try{hydrateHero(t)}catch(e){console.warn('[tournaments] hero hydrate failed:',e)}
+    reflectExistingEntry();
   }).catch(function(e){
     console.warn('[tournaments] bracket read failed:',e);
     empty.textContent='Could not load brackets. Refresh to retry.';
@@ -1341,6 +1342,45 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   function showEventLink(){
     var el=document.getElementById('enterOpenLink');
     if(el)el.hidden=false;
+  }
+
+  // A registered entrant coming back on the day is not a stranger, and
+  // until 2026-08-20 this page could not tell the difference. The
+  // hydration read is the UNAUTHENTICATED list route, so `me` never
+  // arrived, and the single link to /open shipped `hidden` and was
+  // revealed only by completing a registration click in the same
+  // session. /open is where the drop-in queue lives, and on a drop-in
+  // day the queue is the entire mechanism. So everyone who entered last
+  // week would land here on the morning of the event, be shown the
+  // entry doors again as though they had never registered, and have no
+  // path to the room. /tournaments is the URL in the announcement
+  // email, the sitewide strip and the landing card, so that is the path
+  // nearly everyone takes.
+  //
+  // One authenticated detail read answers it. It never overwrites a
+  // status line that is already saying something, because a live
+  // registration in flight owns that line.
+  var reflected=false;
+  function reflectExistingEntry(){
+    if(reflected||!current||!auth)return;
+    var u=auth.currentUser;
+    if(!u||u.isAnonymous)return;
+    reflected=true;
+    u.getIdToken().then(function(token){
+      return fetch('/api/tournament?t='+encodeURIComponent(current.tid),{cache:'no-cache',headers:{'Authorization':'Bearer '+token}});
+    }).then(function(r){return r&&r.ok?r.json():null}).then(function(j){
+      var me=j&&j.me;
+      if(!me||me.status==='withdrawn'){reflected=false;return}
+      showEventLink();
+      ev('tournament_entrant_return',{eligible:!!me.prizeEligible,status:String(me.status||'')});
+      if(statusEl&&!statusEl.hidden&&statusEl.textContent)return;
+      if(me.prizeEligible){
+        say('You are in, and eligible for the cash prizes. On the day, open your event page to join the queue.','good');
+      }else{
+        say('You are in, but this entry is not eligible for the cash prizes yet. Pay in below, or email to have the fee waived.',null);
+        revealPayDoor();
+      }
+    }).catch(function(){reflected=false});
   }
 
   function showShareAsk(){
@@ -1490,7 +1530,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
       if(pending.age&&ageBox)ageBox.checked=true;
       enter(pending.mode);
     }
-    auth.onAuthStateChanged(function(){tryResume()});
+    auth.onAuthStateChanged(function(){tryResume();reflectExistingEntry()});
     var waits=0;
     var iv=setInterval(function(){
       waits+=1;
