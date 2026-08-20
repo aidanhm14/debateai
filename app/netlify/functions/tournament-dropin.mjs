@@ -136,7 +136,8 @@ export default async (request) => {
   if (decoded.firebase?.sign_in_provider === 'anonymous') {
     return errorResponse('Create an account to enter the queue.', 403, request);
   }
-  const myUid = decoded.uid;
+  // `sub` is the ID token's own name for the subject. See lib/auth.mjs.
+  const myUid = decoded.sub;
 
   let body;
   try { body = await request.json(); } catch { return errorResponse('Bad request', 400, request); }

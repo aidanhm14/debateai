@@ -90,7 +90,19 @@ export async function verifyIdToken(idToken) {
 
   if (!valid) throw new Error('Invalid token signature');
 
-  return payload;
+  // A Firebase ID token names its subject `sub` (and mirrors it as
+  // `user_id`). It does NOT carry a `uid` claim — that spelling comes
+  // from the Admin SDK's DecodedIdToken, which this hand-rolled verifier
+  // is not. `uid` is mirrored on here because the difference is one word
+  // and it fails SILENTLY: `decoded.uid` is undefined, the caller reads
+  // it as "no such user", and the endpoint answers with a plausible
+  // business error instead of an auth error. Measured 2026-08-20 by
+  // running a real tournament day end to end: the drop-in queue told
+  // every registered entrant "Register for this tournament first," and
+  // the value market told every signed-in trader "Sign in required."
+  // Both were one word. Prefer `sub`; `uid` exists so the next file to
+  // reach for it is right rather than quietly broken.
+  return { ...payload, uid: payload.sub };
 }
 
 /**

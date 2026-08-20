@@ -531,7 +531,7 @@ export default async (request, context) => {
     const token = extractBearerToken(request);
     if (token) {
       const decoded = await verifyIdToken(token);
-      if (decoded) { uid = decoded.uid; email = decoded.email || ''; name = decoded.name || ''; }
+      if (decoded) { uid = decoded.sub || ''; email = decoded.email || ''; name = decoded.name || ''; }
     }
   } catch { /* an unreadable token is the same as no token */ }
 
