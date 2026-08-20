@@ -281,10 +281,24 @@ export default async (request, context) => {
       try {
         const proIsGov = (tourney.govMembers || []).includes(d.proUid);
         const govWon = proIsGov ? ballot.winner === 'pro' : ballot.winner === 'con';
+        // The per-side scores live on the BALLOT as proPoints/conPoints.
+        // runPanel puts the medians there and its `panel` object has
+        // never carried a `points` key, so the old read of
+        // `ballot.panel.points` was undefined on every round. The ledger
+        // records a missing speak as 0 rather than blocking the win, so
+        // this failed the quiet way: an AI-judged tournament round moved
+        // the win and left the speaker score at zero. Speaks are the
+        // tiebreak the break is sorted on, so a day of judged rounds
+        // would have produced a bracket ordered on wins with the
+        // tiebreak flat, and the break decides who plays for the money.
+        // Measured 2026-08-20: a real 2-1 panel returned 28.7 / 27.8 and
+        // both entries recorded spk 0.
         const pts = (ballot.panel && ballot.panel.points) || {};
-        // panel points are keyed a=pro, b=con.
-        const govSpeaks = proIsGov ? pts.a : pts.b;
-        const oppSpeaks = proIsGov ? pts.b : pts.a;
+        const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
+        const proPts = num(ballot.proPoints) ?? num(pts.a);
+        const conPts = num(ballot.conPoints) ?? num(pts.b);
+        const govSpeaks = proIsGov ? proPts : conPts;
+        const oppSpeaks = proIsGov ? conPts : proPts;
         await applyTournamentResult(db, {
           tid: tourney.tid,
           roundKey: tourney.roundKey,
