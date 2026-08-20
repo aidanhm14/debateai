@@ -84,7 +84,11 @@ check('display name is Debatable', info.CFBundleDisplayName === 'Debatable', inf
 check('bundle identifier is stable', info.CFBundleIdentifier === 'com.debateai.debateit', info.CFBundleIdentifier);
 check('build number matches', String(info.CFBundleVersion) === expectedBuild, info.CFBundleVersion);
 check('release version is 1.0', info.CFBundleShortVersionString === '1.0', info.CFBundleShortVersionString);
-check('minimum iOS is 13.0', info.MinimumOSVersion === '13.0', info.MinimumOSVersion);
+// Apple warns on upload (90068) below 15.0 and refuses it outright from
+// Spring 2027, so 15.0 is the floor. Raised from 13.0 on 2026-08-19 after
+// build 9 drew the warning in Transporter. iOS 15 reaches the iPhone 6s, so
+// nothing anyone still debates on is excluded.
+check('minimum iOS is 15.0', info.MinimumOSVersion === '15.0', info.MinimumOSVersion);
 check('iPhone orientation is portrait only',
   Array.isArray(info.UISupportedInterfaceOrientations)
   && info.UISupportedInterfaceOrientations.length === 1

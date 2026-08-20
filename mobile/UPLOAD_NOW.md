@@ -5,13 +5,16 @@ directly from the exported IPA on this Mac.
 
 ## The artifact
 
-**`~/mobile/build/v9/Debatable.ipa`**. Version 1.0, **build 9**, 6.9 MB.
+**`~/mobile/build/v10/Debatable.ipa`**. Version 1.0, **build 10**, 6.9 MB.
 
-- SHA-256: `f5923b2554f68e590be97a80fb4ffa61a12e662e4839441e5b573e86a229c05f`.
+- SHA-256: `39a3a64ec0376e180995039a0ea07c531167a9e68dc82da6175ed5a414f903e8`.
 - Archive and App Store export both completed successfully on 2026-08-19.
-- First build carrying the offline screen (see below). Supersedes v7 and v8,
-  neither of which had one, and v8 also collides with a build number that may
-  already be on App Store Connect.
+- Minimum iOS **15.0**. Build 9 was 13.0 and drew Transporter warning 90068
+  on upload: Apple refuses anything under 15.0 from Spring 2027. It is only a
+  warning today, so build 9 still delivered, but every later build should be
+  15.0 and the verifier now enforces it. iOS 15 reaches the iPhone 6s, so
+  nothing anyone still debates on is excluded.
+- Carries the offline screen (see below). Supersedes v7, v8 and v9.
 - Points at `https://itsdebatable.com/native`.
 - Uses `DebatableApp/1.0`; no legacy domain is present in the navigation allowlist.
 - Camera, microphone, and photo-library permission copy all says Debatable.
@@ -26,7 +29,7 @@ permission labels and the old user-agent. Build 7 fixes those release defects.
 Repeat the release audit at any time:
 
 ```bash
-node scripts/verify-ios-release.mjs ~/mobile/build/v9/Debatable.ipa 9
+node scripts/verify-ios-release.mjs ~/mobile/build/v10/Debatable.ipa 10
 ```
 
 The verifier checks ZIP integrity, identifiers, build number, permission copy,
@@ -41,14 +44,14 @@ App Store Connect record already exists: app ID `6791712877`, bundle
 **Transporter** (installed at `/Applications/Transporter.app`):
 
 1. Open it, sign in with your Apple ID (normal 2FA)
-2. Drag in `~/mobile/build/v9/Debatable.ipa`
+2. Drag in `~/mobile/build/v10/Debatable.ipa`
 3. Let it validate, then **Deliver**
 
 CLI alternative, using an app-specific password from appleid.apple.com.
 Type the password yourself, never paste it into a chat:
 
 ```bash
-xcrun altool --upload-app -f ~/mobile/build/v9/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
+xcrun altool --upload-app -f ~/mobile/build/v10/Debatable.ipa -t ios -u <your-apple-id> -p <app-specific-password>
 ```
 
 Then wait 10-30 minutes for processing. Apple emails you.
@@ -88,17 +91,24 @@ Two prepared sets:
 
 | ASC slot | Use |
 |---|---|
-| iPhone 6.5" | `appstore-screenshots/upload-6.5/` (6 files, 1284x2778) |
-| iPhone 6.9" | `appstore-screenshots/new-2026-07/` (6 files, 1320x2868) |
+| iPhone 6.9" | `appstore-screenshots/2026-08-19/` (6 files, 1320x2868) |
 
-Filling only the 6.5" slot is fine; Apple scales it. Never upload `new/`
-or `archive/`, both stale. `_contact-sheet.png` is a contact sheet, not an
-upload.
+**Use the 2026-08-19 set.** Captured from build 10 on an iPhone 17 Pro Max
+simulator with the status bar pinned to Apple's 9:41 convention, ordered
+strongest first:
 
-**Re-shoot before submitting.** Both sets were captured 2026-07-22/23 and
-the app has moved ~1000 commits since, including a redesign of the Live
-tab. Screenshots that no longer match the app are a review risk and a
-worse store listing.
+1. `01-live-round.png` a live round, P1 Pro Constructive, running clock
+2. `02-home.png` the Debate home
+3. `03-watch.png` the Watch tab
+4. `04-me.png` the Me training room
+5. `05-setup-opponent.png` choosing AI or a stranger
+6. `06-setup-confirm.png` the round summary before it starts
+
+Filling only the 6.9" slot is fine; Apple scales down. Every earlier
+directory (`upload-6.5/`, `new-2026-07/`, `new/`, `archive/`, `2026-07-28/`)
+is from 2026-07-22/23, predates ~1000 commits including the move to a three
+tab bar, and should not be uploaded. `_contact-sheet.png` is a contact
+sheet, not an upload.
 
 ### Listing fields + privacy labels
 Prepared in `APP_STORE_LISTING.md`. Paste as-is.
