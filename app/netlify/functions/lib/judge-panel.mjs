@@ -43,7 +43,22 @@ export function normalizeVote(juror, ballot, aKey, bKey) {
   const a = Number(ballot[aKey + 'Points']);
   const b = Number(ballot[bKey + 'Points']);
   return {
-    jurorId: juror.id,
+    // `jurorId` first, `id` second, and both are load-bearing. A season
+    // config names a juror `id`; the object callJuror returns names the
+    // same thing `jurorId`, and judge-run passes the RESULT here, not
+    // the config. Reading only `id` therefore stamped every production
+    // vote with jurorId undefined, which had two consequences and no
+    // error message. tally.dissent became an array of undefined, so the
+    // moment a panel actually split, writing the ballot threw "Cannot
+    // use undefined as a Firestore value" and the whole request died
+    // with a truncated response. And leadJurorId could not match any
+    // vote, so the ballot fell back to votes[0] and could show the
+    // DISSENTER'S reasoning under the majority's winner.
+    //
+    // The test suite passed a config object here while production
+    // passed a result, which is why 207 assertions went green over a
+    // bug that broke every split panel on the site.
+    jurorId: juror.jurorId || juror.id || '',
     provider: juror.provider,
     model: juror.model,
     winner,
@@ -214,7 +229,10 @@ export function tallyPanel(votes, panel) {
     // Share of cast votes behind the recorded winner. 1.0 unanimous,
     // 0.67 on a 2-1, and reported even when the panel failed to decide.
     agreement: cast.length ? Math.round((topCount / cast.length) * 100) / 100 : 0,
-    dissent: decided ? cast.filter((v) => v.winner !== winner).map((v) => v.jurorId) : [],
+    // filter(Boolean) is defence, not decoration: this array is written
+    // straight into Firestore, and one undefined in it takes down the
+    // entire ballot write rather than degrading the dissent record.
+    dissent: decided ? cast.filter((v) => v.winner !== winner).map((v) => v.jurorId).filter(Boolean) : [],
     missing: Math.max(0, size - cast.length),
     points: {
       a: median(cast.map((v) => v.points && v.points.a)),

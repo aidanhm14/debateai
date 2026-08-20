@@ -314,6 +314,26 @@ function t(label, cond) {
 
   t('surface labels normalize to a', vote(jurors[0], 'prop', 28, 27).winner === 'a');
   t('surface labels normalize to b', vote(jurors[0], 'opp', 27, 28).winner === 'b');
+  // The shape production actually passes. judge-run calls
+  // normalizeVote(r, ...) with the object callJuror RETURNS, which names
+  // the juror `jurorId`, not `id`. Every assertion above builds a config
+  // object instead, which is how a bug that broke every split panel on
+  // the site sat under a green suite: the two shapes disagree and each
+  // one looks correct on its own.
+  {
+    const asResult = { jurorId: 'j-result', provider: 'anthropic', model: 'm', ok: true, ballot: {} };
+    const v = normalizeVote(asResult, ballot('prop', 28, 27), 'prop', 'opp');
+    t('a juror RESULT keeps its id through normalizeVote', v && v.jurorId === 'j-result');
+    const split = tallyPanel([
+      normalizeVote({ jurorId: 'j1' }, ballot('prop', 28, 27), 'prop', 'opp'),
+      normalizeVote({ jurorId: 'j2' }, ballot('prop', 28, 27), 'prop', 'opp'),
+      normalizeVote({ jurorId: 'j3' }, ballot('opp', 27, 28), 'prop', 'opp'),
+    ], { size: 3, quorum: 2 });
+    t('a 2-1 split names its dissenter', split.dissent.length === 1 && split.dissent[0] === 'j3');
+    t('no undefined can reach Firestore in dissent', split.dissent.every((x) => typeof x === 'string' && x));
+    t('the lead juror is one of the majority', split.leadJurorId === 'j1' || split.leadJurorId === 'j2');
+  }
+
   t('a garbage winner is not a vote', normalizeVote(jurors[0], ballot('maybe', 28, 27), 'prop', 'opp') === null);
   t('a missing ballot is not a vote', normalizeVote(jurors[0], null, 'prop', 'opp') === null);
   t('margin is signed from a', vote(jurors[0], 'prop', 28.5, 27).margin === 1.5);
