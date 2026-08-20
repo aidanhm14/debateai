@@ -14,6 +14,10 @@
 //        → toggle a recording's public visibility.
 //   POST /api/admin/recordings { action: 'meta', id, title }
 //        → set a display title (overrides the derived one).
+//   POST /api/admin/recordings { action: 'thumb', id, image, t }
+//        → set the card image to a frame the owner chose. `image` is a
+//          data:image/jpeg the browser cut off the playing video; empty
+//          clears it and hands the recording back to the auto-cut.
 //   POST /api/admin/recordings { action: 'delete', id }
 //        → destroy it: the mp4 in Daily's storage, every clip cut from
 //          it, and the Firestore doc. A tombstone in `recordings_deleted`
@@ -25,12 +29,17 @@
 //   { roomName, startTs, duration, status, published, title,
 //     motion, format, proName, conName, isStream, syncedAt }
 
+import { getStore } from '@netlify/blobs';
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const AUTO_PUBLISH_MIN_SEC = 45;
+const SITE = 'https://itsdebatable.com';
+// A 640-wide JPEG off the player lands around 40-80KB. 2MB is a wide
+// ceiling that still refuses anything that is not a card image.
+const MAX_THUMB_BYTES = 2 * 1024 * 1024;
 
 function dailyHeaders(){
   return { 'Authorization': 'Bearer ' + process.env.DAILY_API_KEY };
@@ -249,6 +258,70 @@ export default async (req) => {
     return jsonResponse({ id, deleted: true, ...result }, 200, req);
   }
 
+  // Choose the frame that represents a round.
+  //
+  // recording-thumb cuts one automatically at ~60% of the first 16MB,
+  // which is a guess: it regularly lands on the connect screen, a head
+  // turned away, or the half second somebody was adjusting a laptop.
+  // This lets an owner play to the moment that IS the round and set it.
+  //
+  // The frame arrives already decoded, from the browser that is playing
+  // the video: Daily's CDN serves the mp4 with Access-Control-Allow-
+  // Origin: *, so /watch can read the <video> onto a canvas without
+  // tainting it. Cutting it here instead would mean seeking a
+  // fragmented mp4 by byte range, which is the exact cost the header of
+  // recording-thumb explains is unaffordable (~27s and a 502).
+  //
+  // It is written to the SAME blob key recording-thumb serves, so the
+  // cards, /w/{id}'s og:image and VideoObject.thumbnailUrl all follow
+  // with no second code path. `thumbV` is what makes the change visible:
+  // the served image is cached immutable for a year at the edge, so
+  // without a version in the URL the old still would outlive the choice.
+  //
+  // Above the DAILY_API_KEY gate on purpose: nothing here touches Daily.
+  if (body.action === 'thumb'){
+    const id = String(body.id || '');
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) return errorResponse('id required', 400, req);
+    const snap = await db.collection('recordings').doc(id).get();
+    if (!snap.exists) return errorResponse('Not found', 404, req);
+    const store = getStore('recording-thumbs');
+    const raw = String(body.image || '');
+
+    // Empty clears it: the blob goes, the doc fields go, and the next
+    // card render re-runs the auto-cut. A chosen frame you regret has to
+    // be undoable or nobody presses the button.
+    if (!raw){
+      await store.delete(id).catch(() => {});
+      await db.collection('recordings').doc(id).set({
+        thumbnailUrl: '', thumbV: 0, thumbAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return jsonResponse({ id, thumbV: 0, cleared: true }, 200, req);
+    }
+
+    const m = raw.match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return errorResponse('Expected a data:image/jpeg', 400, req);
+    let bytes;
+    try { bytes = Buffer.from(m[1], 'base64'); } catch { return errorResponse('Bad image data', 400, req); }
+    if (!bytes.length) return errorResponse('Empty image', 400, req);
+    if (bytes.length > MAX_THUMB_BYTES) return errorResponse('Image too large', 413, req);
+    // The declared mime is client copy; the magic bytes are the check.
+    if (bytes[0] !== 0xFF || bytes[1] !== 0xD8 || bytes[2] !== 0xFF){
+      return errorResponse('Not a JPEG', 400, req);
+    }
+
+    const thumbV = Date.now();
+    await store.set(id, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    await db.collection('recordings').doc(id).set({
+      thumbnailUrl: SITE + '/api/recording-thumb?id=' + encodeURIComponent(id) + '&v=' + thumbV,
+      thumbV,
+      thumbAt: FieldValue.serverTimestamp(),
+      // Recorded so a later look can tell which second of the round the
+      // card is showing without opening the file.
+      thumbSeek: Math.max(0, Math.round(Number(body.t) || 0)),
+    }, { merge: true });
+    return jsonResponse({ id, thumbV, bytes: bytes.length }, 200, req);
+  }
+
   // Attach (or clear) the YouTube id for a recording that has also been
   // uploaded to the channel. Deliberately ABOVE the DAILY_API_KEY gate:
   // this touches nothing at Daily, and needing a Daily key to record the
@@ -312,7 +385,7 @@ export default async (req) => {
     return jsonResponse({ id }, 200, req);
   }
 
-  return errorResponse('Unknown action (sync | publish | meta | youtube | delete)', 400, req);
+  return errorResponse('Unknown action (sync | publish | meta | thumb | youtube | delete)', 400, req);
 };
 
 export const config = {

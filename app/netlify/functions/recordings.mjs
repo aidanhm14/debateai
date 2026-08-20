@@ -38,6 +38,10 @@ function publicShape(id, d){
     proName: d.proName || '',
     conName: d.conName || '',
     isStream: !!d.isStream,
+    // Names the frame the card should ask for. The served image is
+    // cached immutable at the edge, so a thumbnail an owner changed on
+    // /watch only reaches a card that carries the version with it.
+    thumbV: Number(d.thumbV) || 0,
   };
 }
 

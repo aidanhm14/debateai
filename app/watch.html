@@ -227,6 +227,13 @@ video{width:100%;max-height:66vh;display:block;background:#000}
    rule, so the button could never be revealed that way. */
 #deleteBtn{display:none}
 #deleteBtn.on{display:inline-block}
+/* Owner thumbnail picker. Same row shape as the clip maker below it,
+   because it is the same gesture: play to a moment, then act on it. */
+.thumb-tools{display:none;padding:14px 18px;border-top:1px solid var(--border);gap:10px;align-items:center;flex-wrap:wrap}
+.thumb-tools.on{display:flex}
+.thumb-tools .hint{color:var(--faint);font-size:14px;width:100%}
+.thumb-preview{width:96px;aspect-ratio:16/9;border-radius:8px;border:1px solid var(--border);object-fit:cover;display:none}
+.thumb-preview.on{display:block}
 .mark{font-variant-numeric:tabular-nums;color:var(--dim);font-size:15px}
 /* Reserve the marks' widest text ("start 1:02:33") so setting one
    doesn't rewrap the clip toolbar onto an extra line. */
@@ -276,21 +283,53 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .sec{margin-top:44px}
 .sec-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sec-sub{color:var(--faint);font-size:15px;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+
+/* ── The feed (2026-08-20, Aidan: "make it like the youtube homepage,
+   it'll be promoted more later").
+   The page used to open on copy and put the videos two screens down,
+   which is the wrong shape for a page whose job is "watch this". The
+   feed is the page now and it borrows the layout every video site has
+   converged on, because a stranger already knows how to read it: a wide
+   thumbnail-first grid with NO card chrome (the still is the card),
+   title on two lines, then who argued and when. Rounds and clips share
+   one grid with filter chips instead of sitting in two sections nobody
+   scrolled between. The prose that used to sit above the grid is
+   unchanged and still crawlable, it just sits underneath now. */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(288px,1fr));gap:32px 16px;align-items:start}
 /* display+text-decoration so the replay cards can be anchors (they carry a
    real /w/{id} href for crawlers) without losing the button look. */
-.card{display:block;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s;text-align:left;font-family:inherit;color:var(--text);box-shadow:var(--shadow)}
-.card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.4)}
-.card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
-.card-body{padding:12px 15px 14px}
+.card{display:block;text-decoration:none;background:none;border:0;border-radius:0;padding:0;cursor:pointer;text-align:left;font-family:inherit;color:var(--text);box-shadow:none;transition:none}
+.card:focus-visible{outline:2px solid var(--red);outline-offset:4px;border-radius:14px}
+.card .thumb{border-radius:12px}
+.card:hover .thumb{border-radius:6px;transition:border-radius .12s}
+.card-body{display:flex;gap:12px;padding:12px 2px 0}
+.card-ident{flex:none;display:flex;padding-top:2px}
+/* Two discs, overlapped, where a video site puts the channel avatar. A
+   round has two authors, so one disc would be a lie about whose it is. */
+.card-ident .th-av{width:34px;max-width:none;font-size:14px;border-width:2px;box-shadow:none}
+.card-ident .th-av + .th-av{margin-left:-12px}
+.card-text{flex:1;min-width:0}
 .card .kicker{display:flex;gap:8px;align-items:center;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
 /* --dim, not the inherited --faint: a chip sits on --surface2 rather
    than on the card, and faint-on-surface2 measured 3.3:1 in light. */
 .chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.06em;color:var(--dim)}
 .chip.stream{border-color:rgba(239,68,68,.4);color:var(--red)}
-.card h3{font-size:17px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.card .foot{margin-top:10px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:8px}
-.card .foot span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card h3{font-size:16px;font-weight:700;line-height:1.36;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Stacked, not spread: a video card reads as title, then who, then when,
+   down the left edge. Spread across the row it read as a table. */
+.card .foot{margin-top:5px;color:var(--faint);font-size:13.5px;display:flex;flex-direction:column;gap:1px}
+.card .foot span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Filter chips. Client-side only, over whatever the feed already
+   holds, so no chip can ever ask the server for a second list. */
+.feed-chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:14px;scrollbar-width:none}
+.feed-chips::-webkit-scrollbar{display:none}
+.fchip{flex:none;font-family:inherit;font-size:14px;font-weight:700;padding:7px 14px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;white-space:nowrap;
+  transition:background .14s,color .14s,border-color .14s}
+.fchip:hover{background:var(--surface-hover)}
+.fchip.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+.fchip:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.feed-empty{color:var(--faint);font-size:15px;padding:26px 0}
 
 /* ── Card thumbnails.
    There is no frame to grab: recordings live behind short-lived Daily
@@ -337,12 +376,12 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .thumb.clip .th-play{opacity:.92;transform:scale(.7)}
 .thumb.clip:hover .th-play{transform:scale(.85)}
 @media(prefers-reduced-motion:reduce){.th-play{transition:none}}
-/* Still cards: the static round photos that fill the replay grid while
-   no recordings are published. Not playable, so no pointer, no lift,
-   no red hover ring, and the frame img renders directly (no initials
-   stage underneath, no play mark, no duration badge implying video). */
+/* Still cards: the static round photos that fill the feed while no
+   recordings are published. Not playable, so no pointer, no hover
+   squaring, and the frame img renders directly (no initials stage
+   underneath, no play mark, no duration badge implying video). */
 .card.still{cursor:default}
-.card.still:hover{transform:none;border-color:var(--border)}
+.card.still:hover .thumb{border-radius:12px}
 .empty{color:var(--faint);font-size:16px;padding:26px;border:1px dashed var(--border);border-radius:var(--radius);text-align:center}
 
 /* ── STATIC EXPLAINER BLOCKS ───────────────────────────────────────
@@ -465,18 +504,8 @@ footer a{color:var(--dim)}
       <a class="cta-ghost" id="ctaWatch" href="/live">Watch a live round</a>
     </div>
     <p class="hero-cta-note">Debating gets you matched with an opponent in about a minute. Watching takes a viewer seat in a scheduled round.</p>
-    <p class="vote-thesis"><strong>Mass-viewed rounds will become audience-voted rounds.</strong> The judge will say who argued better. Viewers will vote before and after to show how the room moved. <a href="/future#publish">See the plan &rarr;</a></p>
   </header>
 
-  <section class="culture" aria-label="Watching argument">
-    <p class="culture-line">People already watch strangers argue for hours, on a stage, on a stream, in a room holding up cards. <b>The part nobody gets is the ballot.</b> Every round here ends with a written decision, so watching a debate tells you who actually won it.</p>
-    <div class="culture-grid">
-      <figure><img src="/img/culture/creator-vs-stranger.jpg" alt="A one on one debate at a table with a countdown clock between the speakers and an audience seated around them" width="964" height="563" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/room-votes.jpg" alt="A speaker at a table in the middle of a circle of seated people holding coloured cards" width="678" height="452" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/televised-debate.jpg" alt="Two candidates at podiums on a televised debate stage" width="1100" height="825" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/stream-chat.jpg" alt="A debate playing on a livestream with viewer chat running down the side of the screen" width="738" height="414" loading="lazy" decoding="async"></figure>
-    </div>
-  </section>
 
   <!-- Live stream, shown only while the owner is broadcasting -->
   <section class="live-band" id="liveBand" aria-live="polite">
@@ -514,6 +543,13 @@ footer a{color:var(--dim)}
       <input class="clip-title" id="clipTitle" maxlength="120" placeholder="Name the clip (the turn, the POI, the collapse)">
       <button class="btn primary" id="saveClip" type="button">Save clip</button>
     </div>
+    <div class="thumb-tools" id="thumbTools">
+      <span class="hint">Thumbnail: play to the frame you want on screen, then set it. That frame becomes the card here and the preview on every shared link.</span>
+      <img class="thumb-preview" id="thumbPreview" alt="">
+      <button class="btn" id="setThumbBtn" type="button">Use this frame</button>
+      <button class="btn" id="autoThumbBtn" type="button">Reset to auto</button>
+      <span class="mark" id="thumbMark"></span>
+    </div>
   </section>
 
   <!-- Clips of the open recording -->
@@ -526,10 +562,14 @@ footer a{color:var(--dim)}
   <!-- Replay library. The grid ships pre-filled with static stills from
        recent rounds, so the section is never a spinner: with no published
        recordings the stills ARE the section (and what a crawler reads),
-       and when recordings exist loadReplays swaps in the real cards. -->
+       and when recordings exist loadFeed swaps in the real cards. -->
   <section class="sec" id="replaysSec">
     <h2 class="sec-title">Round replays</h2>
-    <div class="sec-sub" id="replaysSub">Stills from recent rounds. Recording is opt in, so a full replay publishes here when both debaters agree to it. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a> &nbsp;·&nbsp; <a href="/spar" style="color:var(--red);font-weight:700;text-decoration:none">Get in a round yourself</a></div>
+    <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
+      <button class="fchip on" type="button" data-filter="all">All</button>
+      <button class="fchip" type="button" data-filter="round">Rounds</button>
+      <button class="fchip" type="button" data-filter="clip">Clips</button>
+    </div>
     <div class="grid" id="replaysGrid">
       <div class="card still">
         <div class="thumb" aria-hidden="true">
@@ -622,13 +662,18 @@ footer a{color:var(--dim)}
         </div>
       </div>
     </div>
+    <p class="sec-sub" id="replaysSub" style="margin:16px 0 0">Stills from recent rounds. Recording is opt in, so a full replay publishes here when both debaters agree to it. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a> &nbsp;·&nbsp; <a href="/spar" style="color:var(--red);font-weight:700;text-decoration:none">Get in a round yourself</a></p>
   </section>
 
-  <!-- Recent clips across all rounds -->
-  <section class="sec" id="recentClipsSec" style="display:none">
-    <h2 class="sec-title">Recent clips</h2>
-    <div class="sec-sub">Short moments, straight to the point.</div>
-    <div class="grid" id="recentClipsGrid"></div>
+  <section class="culture" aria-label="Watching argument">
+    <p class="culture-line">People already watch strangers argue for hours, on a stage, on a stream, in a room holding up cards. <b>The part nobody gets is the ballot.</b> Every round here ends with a written decision, so watching a debate tells you who actually won it.</p>
+    <p class="vote-thesis"><strong>Mass-viewed rounds will become audience-voted rounds.</strong> The judge will say who argued better. Viewers will vote before and after to show how the room moved. <a href="/future#publish">See the plan &rarr;</a></p>
+    <div class="culture-grid">
+      <figure><img src="/img/culture/creator-vs-stranger.jpg" alt="A one on one debate at a table with a countdown clock between the speakers and an audience seated around them" width="964" height="563" loading="lazy" decoding="async"></figure>
+      <figure><img src="/img/culture/room-votes.jpg" alt="A speaker at a table in the middle of a circle of seated people holding coloured cards" width="678" height="452" loading="lazy" decoding="async"></figure>
+      <figure><img src="/img/culture/televised-debate.jpg" alt="Two candidates at podiums on a televised debate stage" width="1100" height="825" loading="lazy" decoding="async"></figure>
+      <figure><img src="/img/culture/stream-chat.jpg" alt="A debate playing on a livestream with viewer chat running down the side of the screen" width="738" height="414" loading="lazy" decoding="async"></figure>
+    </div>
   </section>
 
   <!-- ── STATIC EXPLAINER ────────────────────────────────────────────
@@ -760,6 +805,21 @@ footer a{color:var(--dim)}
       return new Date(unixSec * 1000).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
     } catch(e){ return ''; }
   }
+  // Relative for anything recent, absolute once "43 weeks ago" stops
+  // meaning anything. Same shape every video site prints under a title.
+  function timeAgo(unixSec){
+    if (!unixSec) return '';
+    var d = (Date.now() / 1000) - unixSec;
+    if (d < 90) return 'just now';
+    var m = Math.round(d / 60);
+    if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+    var h = Math.round(d / 3600);
+    if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    var day = Math.round(d / 86400);
+    if (day < 7) return day + (day === 1 ? ' day ago' : ' days ago');
+    if (day < 35){ var w = Math.round(day / 7); return w + (w === 1 ? ' week ago' : ' weeks ago'); }
+    return fmtDate(unixSec);
+  }
   function esc(s){
     return String(s || '').replace(/[&<>"']/g, function(c){
       return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
@@ -782,16 +842,20 @@ footer a{color:var(--dim)}
   // server has confirmed the signed-in user is an admin; the delete
   // itself is gated server-side regardless.
   var isAdmin = false;
-  function syncDeleteBtn(){
+  // False once a CORS load has failed: the thumbnail picker reads the
+  // playing frame off a canvas, and a tainted element cannot be read.
+  var canGrabFrame = true;
+  function syncOwnerUI(){
     $('deleteBtn').classList.toggle('on', !!(isAdmin && current));
+    $('thumbTools').classList.toggle('on', !!(isAdmin && current && canGrabFrame && !current.isStream));
   }
   function checkAdmin(user){
-    if (!user || user.isAnonymous) { isAdmin = false; syncDeleteBtn(); return; }
+    if (!user || user.isAnonymous) { isAdmin = false; syncOwnerUI(); return; }
     user.getIdToken().then(function(token){
       return fetch('/api/admin/recordings?probe=1', { headers: { 'Authorization': 'Bearer ' + token } });
     }).then(function(r){
       isAdmin = r.ok;
-      syncDeleteBtn();
+      syncOwnerUI();
     }).catch(function(){});
   }
   if (auth) auth.onAuthStateChanged(checkAdmin);
@@ -974,6 +1038,11 @@ footer a{color:var(--dim)}
     var player = $('player');
     player.pause();
     player.removeAttribute('src');
+    corsRetried = false;
+    canGrabFrame = true;
+    $('thumbMark').textContent = '';
+    $('thumbPreview').classList.remove('on');
+    $('thumbPreview').removeAttribute('src');
     // The list shape has no ballot: attaching one per card would be an
     // extra Firestore read for every card on the page. Pull the full
     // recording alongside the link so the reveal has something to play.
@@ -989,6 +1058,14 @@ footer a{color:var(--dim)}
     }
     fetchLink(rec.id).then(function(l){
       currentLink = l;
+      // Anonymous CORS mode, so the owner thumbnail picker can read the
+      // frame on screen onto a canvas instead of the server having to
+      // seek a fragmented mp4 by byte range. Daily's CDN answers with
+      // Access-Control-Allow-Origin: *, verified against a live
+      // recording; crossOrigin must be set BEFORE src or it is ignored,
+      // and the error handler below drops back to a plain load if a
+      // source ever refuses, because playback outranks the frame grab.
+      player.crossOrigin = 'anonymous';
       player.src = l.link;
       if (clip){
         player.addEventListener('loadedmetadata', function seekOnce(){
@@ -1002,10 +1079,28 @@ footer a{color:var(--dim)}
       $('playerMeta').textContent = 'Playback is not available for this recording right now. Try again in a minute.';
     });
     loadClips(rec.id);
-    syncDeleteBtn();
+    syncOwnerUI();
     $('playerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     try { gtag('event', clip ? 'watch_clip_play' : 'watch_replay_play', { id: rec.id }); } catch(e){}
   }
+
+  // A CORS-mode load that fails takes the whole replay with it, so this
+  // is the safety net under the crossOrigin above: retry once, plainly,
+  // and give up the frame picker rather than the video. Guarded on a
+  // src actually being set, since clearing one also fires error.
+  var corsRetried = false;
+  $('player').addEventListener('error', function(){
+    var p = $('player');
+    if (corsRetried || !p.crossOrigin || !p.getAttribute('src') || !currentLink) return;
+    corsRetried = true;
+    canGrabFrame = false;
+    p.removeAttribute('crossorigin');
+    p.crossOrigin = null;
+    p.src = currentLink.link;
+    p.load();
+    syncOwnerUI();
+    console.warn('[watch] replay reloaded without CORS; thumbnail picker unavailable');
+  });
 
   // Clamp clip playback: stop at the clip's end. Seeking away exits
   // clip mode and turns into normal full-round playback.
@@ -1033,7 +1128,7 @@ footer a{color:var(--dim)}
     $('playerCard').classList.remove('on');
     $('clipsSec').style.display = 'none';
     current = null; activeClip = null;
-    syncDeleteBtn();
+    syncOwnerUI();
     try { history.replaceState(null, '', '/watch'); } catch(e){}
   }
   $('closePlayer').addEventListener('click', closePlayer);
@@ -1068,8 +1163,7 @@ footer a{color:var(--dim)}
           alert('Removed from the site, but the video file is still in Daily: ' + (res.body.dailyError || 'unknown reason'));
         }
         closePlayer();
-        loadReplays();
-        loadRecentClips();
+        loadFeed();
         try { gtag('event', 'watch_recording_deleted', { id: rec.id }); } catch(e){}
       }).catch(function(e){
         btn.disabled = false;
@@ -1091,6 +1185,84 @@ footer a{color:var(--dim)}
       $('shareBtn').textContent = 'Copied';
       setTimeout(function(){ $('shareBtn').textContent = 'Copy link'; }, 1600);
     }).catch(function(){});
+  });
+
+  // ── Thumbnail picker (owner) ─────────────────────────────────────
+  // The automatic thumbnail is cut at roughly 60% of the first 16MB of
+  // the file, which is a guess and often lands on the connect screen or
+  // a head turned away. The person watching the round can see the frame
+  // that IS the round, so let them hand it over: the browser already
+  // holds the decoded pixels, and the server would otherwise have to
+  // seek a fragmented mp4 by byte range to reach the same second.
+  function grabFrame(){
+    var p = $('player');
+    if (!p.videoWidth || p.readyState < 2) return null;
+    var w = Math.min(1280, p.videoWidth);
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = Math.round(w * (p.videoHeight / p.videoWidth));
+    c.getContext('2d').drawImage(p, 0, 0, c.width, c.height);
+    // Throws SecurityError if the element was ever loaded without CORS.
+    return c.toDataURL('image/jpeg', 0.82);
+  }
+
+  function postThumb(image, btn, doneLabel){
+    if (!current || !auth || !auth.currentUser) return;
+    var rec = current;
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    auth.currentUser.getIdToken().then(function(token){
+      return fetch('/api/admin/recordings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          action: 'thumb', id: rec.id, image: image,
+          t: Math.round($('player').currentTime || 0),
+        }),
+      });
+    }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
+      .then(function(res){
+        if (!res.ok) throw new Error((res.body && res.body.error) || 'save failed');
+        // Carry the new version so the card asks for the new frame; the
+        // served image is cached immutable, so without this the grid
+        // would keep painting the old one.
+        rec.thumbV = res.body.thumbV || 0;
+        if (recCache[rec.id]) recCache[rec.id].thumbV = rec.thumbV;
+        btn.disabled = false;
+        btn.textContent = doneLabel;
+        $('thumbMark').textContent = image ? 'Card updated' : 'Back to the automatic frame';
+        setTimeout(function(){ btn.textContent = label; }, 2000);
+        renderFeed();
+        try { gtag('event', 'watch_thumb_set', { id: rec.id, auto: !image }); } catch(e){}
+      }).catch(function(e){
+        btn.disabled = false;
+        btn.textContent = label;
+        $('thumbMark').textContent = 'Could not save that frame';
+        console.warn('[watch] thumbnail save failed:', e);
+      });
+  }
+
+  $('setThumbBtn').addEventListener('click', function(){
+    var image;
+    try {
+      image = grabFrame();
+    } catch (e) {
+      canGrabFrame = false;
+      syncOwnerUI();
+      console.warn('[watch] frame read blocked:', e);
+      return;
+    }
+    if (!image){ $('thumbMark').textContent = 'Play it to a frame first'; return; }
+    $('thumbPreview').src = image;
+    $('thumbPreview').classList.add('on');
+    postThumb(image, this, 'Thumbnail set');
+  });
+
+  $('autoThumbBtn').addEventListener('click', function(){
+    $('thumbPreview').classList.remove('on');
+    $('thumbPreview').removeAttribute('src');
+    postThumb('', this, 'Reset');
   });
 
   // ── Clip maker ───────────────────────────────────────────────────
@@ -1168,6 +1340,17 @@ footer a{color:var(--dim)}
     return s ? s.charAt(0).toUpperCase() : '?';
   }
   var TH_PLAY_SVG = '<svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M1 1.5v15l14-7.5z" fill="#fff"/></svg>';
+  // Two overlapped initial discs where a video site puts the channel
+  // avatar. A round has two authors, so one disc would name the wrong
+  // person; a clip has one, the person who cut it.
+  function identHTML(names){
+    var out = '';
+    for (var i = 0; i < names.length; i++){
+      if (!names[i]) continue;
+      out += '<span class="th-av" style="--av:' + thHue(names[i]) + '">' + esc(thInitial(names[i])) + '</span>';
+    }
+    return out ? '<div class="card-ident" aria-hidden="true">' + out + '</div>' : '';
+  }
   function thumbHTML(rec){
     var stage;
     if (rec.proName && rec.conName){
@@ -1182,7 +1365,7 @@ footer a{color:var(--dim)}
       : '<span class="th-tag">' + esc((rec.format || 'round').toUpperCase()) + '</span>';
     return '<div class="thumb" aria-hidden="true">' +
         '<div class="th-stage">' + stage + '</div>' +
-        thFrameImg(rec.id) +
+        thFrameImg(rec.id, rec.thumbV) +
         tag +
         (rec.duration ? '<span class="th-dur">' + fmtTime(rec.duration) + '</span>' : '') +
         '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
@@ -1192,9 +1375,16 @@ footer a{color:var(--dim)}
   // request) by /api/recording-thumb. Loads over the initials stage;
   // if the server has no frame for this recording the img removes
   // itself and the stage underneath is the card.
-  function thFrameImg(recordingId){
+  //
+  // `v` is the version an owner's chosen frame stamps on the recording.
+  // The image is cached immutable at the edge, so a card WITHOUT the
+  // version keeps painting whatever it was first served; a clip card
+  // has no version to pass, which is why the unversioned response is
+  // deliberately short-lived instead of immutable.
+  function thFrameImg(recordingId, v){
     return '<img class="th-img" alt="" loading="lazy" decoding="async" ' +
-      'src="/api/recording-thumb?id=' + encodeURIComponent(recordingId) + '" ' +
+      'src="/api/recording-thumb?id=' + encodeURIComponent(recordingId) +
+      (v ? '&amp;v=' + encodeURIComponent(v) : '') + '" ' +
       'onerror="this.remove()">';
   }
   // No avatar on clip thumbs: a lone centered disc sits exactly under the
@@ -1217,9 +1407,14 @@ footer a{color:var(--dim)}
     btn.innerHTML =
       clipThumbHTML(clip) +
       '<div class="card-body">' +
-        '<h3>' + esc(clip.title) + '</h3>' +
-        '<div class="foot"><span>' + esc(clip.name) + '</span>' +
-        (withSource ? '<span>' + esc(clip.recordingTitle || '') + '</span>' : '<span>' + fmtTime(clip.start) + ' to ' + fmtTime(clip.end) + '</span>') +
+        identHTML([clip.name]) +
+        '<div class="card-text">' +
+          '<h3>' + esc(clip.title) + '</h3>' +
+          '<div class="foot"><span>' + esc(clip.name) + '</span>' +
+          '<span>' + (withSource && clip.recordingTitle
+            ? esc(clip.recordingTitle)
+            : fmtTime(clip.start) + ' to ' + fmtTime(clip.end)) + '</span>' +
+          '</div>' +
         '</div>' +
       '</div>';
     btn.addEventListener('click', function(){ openClipById(clip); });
@@ -1261,70 +1456,133 @@ footer a{color:var(--dim)}
       }).catch(function(){});
   }
 
-  function loadRecentClips(){
-    fetch('/api/clips').then(function(r){ return r.json(); }).then(function(j){
-      var clips = (j && j.clips) || [];
-      var grid = $('recentClipsGrid');
-      grid.innerHTML = '';
-      // Hide on empty, not just skip: deleting the last clip's source
-      // round otherwise left a section of stale cards behind.
-      if (!clips.length){ $('recentClipsSec').style.display = 'none'; return; }
-      $('recentClipsSec').style.display = '';
-      clips.slice(0, 12).forEach(function(c){ grid.appendChild(clipCard(c, true)); });
-    }).catch(function(){});
+  // ── The feed ─────────────────────────────────────────────────────
+  // Rounds and clips in one grid, newest first, with chips over the top.
+  // They used to be two sections, which meant the clips were below a
+  // grid nobody had a reason to scroll past. Filtering is client-side
+  // over what is already loaded, so no chip can ask the server for a
+  // second list.
+  var recCache = {};
+  var feedItems = [];      // { kind:'round'|'clip', ts, format, data }
+  var feedFilter = 'all';
+  // The static round stills the grid ships with. Held so a thin feed can
+  // keep them UNDER the real cards rather than replacing a full-looking
+  // grid with two: one published clip should not empty the page.
+  var stillsHTML = '';
+
+  function replayCard(rec){
+    // An ANCHOR, not a button. The grid is filled by fetch, so a crawler
+    // that does not run it sees nothing, and one that does saw only click
+    // handlers with no href to follow: /w/{id} existed and nothing on the
+    // site pointed at it. A real href also means cmd-click and
+    // middle-click open the standalone page, which a button swallowed.
+    var a = document.createElement('a');
+    a.className = 'card';
+    a.href = '/w/' + encodeURIComponent(rec.id);
+    // Format tag and duration live on the thumbnail, so the body carries
+    // what a video card carries: title, then who argued, then when.
+    a.innerHTML =
+      thumbHTML(rec) +
+      '<div class="card-body">' +
+        identHTML([rec.proName, rec.conName]) +
+        '<div class="card-text">' +
+          '<h3>' + esc(rec.title) + '</h3>' +
+          '<div class="foot">' +
+            '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : 'Debatable') + '</span>' +
+            '<span>' + timeAgo(rec.startTs) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    a.addEventListener('click', function(e){
+      // Let the browser have any click that asks for a new context:
+      // modified, middle, or a click the page cannot improve on.
+      // Everything else stays on the hub and plays inline, which is the
+      // faster path when someone is browsing several replays.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      openRecording(rec, null);
+      try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e2){}
+    });
+    return a;
   }
 
-  // ── Replay library ───────────────────────────────────────────────
-  var recCache = {};
-  function loadReplays(){
-    fetch('/api/recordings').then(function(r){ return r.json(); }).then(function(j){
-      var recs = (j && j.recordings) || [];
-      if (!recs.length){
-        // The grid ships pre-filled with static round stills, and with
-        // nothing published those stay up. Don't blank a full-looking
-        // section into an empty state.
-        return;
-      }
-      var grid = $('replaysGrid');
-      grid.innerHTML = '';
-      $('replaysSub').textContent = 'Newest first. Recordings publish shortly after a round ends.';
+  var STILL_FLOOR = 8;
+  function renderFeed(){
+    if (!feedItems.length) return;   // nothing published: the stills are the grid
+    var grid = $('replaysGrid');
+    var list = feedItems.filter(function(it){
+      if (feedFilter === 'all') return true;
+      if (feedFilter === 'round' || feedFilter === 'clip') return it.kind === feedFilter;
+      return it.format === feedFilter;
+    });
+    grid.innerHTML = '';
+    list.forEach(function(it){
+      grid.appendChild(it.kind === 'clip' ? clipCard(it.data, true) : replayCard(it.data));
+    });
+    // Top up a thin feed with the stills, which are what this grid shows
+    // when nothing is published anyway. Not under the clip filter: a
+    // still is a round, and a filter that returns rounds is broken.
+    if (feedFilter !== 'clip' && list.length < STILL_FLOOR && stillsHTML){
+      grid.insertAdjacentHTML('beforeend', stillsHTML);
+    } else if (!list.length){
+      grid.innerHTML = '<p class="feed-empty">Nothing under that filter yet.</p>';
+    }
+  }
+
+  // One chip per format actually present. A chip for a format with
+  // nothing behind it is a filter that can only disappoint.
+  function syncChips(){
+    var chips = $('feedChips');
+    var seen = {};
+    feedItems.forEach(function(it){ if (it.kind === 'round' && it.format) seen[it.format] = true; });
+    Object.keys(seen).sort().forEach(function(f){
+      if (chips.querySelector('[data-filter="' + f + '"]')) return;
+      var b = document.createElement('button');
+      b.className = 'fchip';
+      b.type = 'button';
+      b.setAttribute('data-filter', f);
+      b.textContent = f.toUpperCase();
+      chips.appendChild(b);
+    });
+  }
+  $('feedChips').addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('.fchip') : null;
+    if (!b) return;
+    feedFilter = b.getAttribute('data-filter');
+    Array.prototype.forEach.call(this.querySelectorAll('.fchip'), function(c){
+      c.classList.toggle('on', c === b);
+    });
+    renderFeed();
+    try { gtag('event', 'watch_feed_filter', { filter: feedFilter }); } catch(e2){}
+  });
+
+  function loadFeed(){
+    stillsHTML = $('replaysGrid').innerHTML;
+    Promise.all([
+      fetch('/api/recordings').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/clips').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+    ]).then(function(res){
+      var recs = (res[0] && res[0].recordings) || [];
+      var clips = (res[1] && res[1].clips) || [];
+      feedItems = [];
       recs.forEach(function(rec){
         recCache[rec.id] = rec;
-        // An ANCHOR, not a button. The grid is filled by this fetch, so a
-        // crawler that does not run it sees nothing, and one that does saw
-        // only click handlers with no href to follow: /w/{id} existed and
-        // nothing on the site pointed at it. A real href also means
-        // cmd-click and middle-click open the standalone page, which a
-        // button silently swallowed.
-        var btn = document.createElement('a');
-        btn.className = 'card';
-        btn.href = '/w/' + encodeURIComponent(rec.id);
-        // Format tag and duration live on the thumbnail now, so the body
-        // carries what a video card carries: title, then names and date.
-        btn.innerHTML =
-          thumbHTML(rec) +
-          '<div class="card-body">' +
-            '<h3>' + esc(rec.title) + '</h3>' +
-            '<div class="foot">' +
-              '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : '') + '</span>' +
-              '<span>' + fmtDate(rec.startTs) + '</span>' +
-            '</div>' +
-          '</div>';
-        btn.addEventListener('click', function(e){
-          // Let the browser have any click that asks for a new context:
-          // modified, middle, or a click the page cannot improve on.
-          // Everything else stays on the hub and plays inline, which is
-          // the faster path when someone is browsing several replays.
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-          e.preventDefault();
-          openRecording(rec, null);
-          try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e2){}
+        feedItems.push({
+          kind: 'round', ts: rec.startTs || 0,
+          format: String(rec.format || '').toLowerCase(), data: rec,
         });
-        grid.appendChild(btn);
       });
+      clips.forEach(function(c){
+        feedItems.push({ kind: 'clip', ts: Math.round((c.createdAt || 0) / 1000), format: '', data: c });
+      });
+      feedItems.sort(function(a, b){ return b.ts - a.ts; });
+      if (!feedItems.length) return;
+      $('replaysSub').textContent = 'Newest first. Recordings publish shortly after a round ends.';
+      syncChips();
+      renderFeed();
     }).catch(function(){
-      // Fetch failed: the static stills are already in the grid and are
-      // a better face than an error box.
+      // The static stills are already in the grid and are a better face
+      // than an error box.
     });
   }
 
@@ -1346,8 +1604,7 @@ footer a{color:var(--dim)}
     }
   }
 
-  loadReplays();
-  loadRecentClips();
+  loadFeed();
   handleDeepLink();
 })();
 </script>

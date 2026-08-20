@@ -1,6 +1,6 @@
 // Real video-frame thumbnails for published recordings.
 //
-//   GET /api/recording-thumb?id=<recordingId>  → image/jpeg
+//   GET /api/recording-thumb?id=<recordingId>[&v=<n>]  → image/jpeg
 //
 // The mp4s live behind short-lived Daily access links, so there is no
 // stable image URL to point a card at. This endpoint makes one: the
@@ -31,6 +31,14 @@
 // Docs that already carry a thumbnailUrl or a youtubeId are left
 // alone: an explicit value or YouTube's own still wins.
 //
+// An owner can override the auto-cut with a frame they picked on
+// /watch; that writes the same blob key through recordings-admin's
+// `thumb` action and stamps `thumbV` on the doc. `v` in the URL is
+// never read here, it only names a version to the caches: WITH one the
+// image is immutable for a year, WITHOUT one it holds for ten minutes,
+// so an unversioned link (a clip card, an old share) still catches up
+// with a changed choice instead of serving last week's frame forever.
+//
 // Only published recordings are served; everything else 404s
 // identically, same posture as recordings.mjs. Failures return a
 // short-lived 404 so a broken recording cannot stampede ffmpeg runs.
@@ -49,16 +57,20 @@ export const config = { path: '/api/recording-thumb' };
 const DAILY_API = 'https://api.daily.co/v1';
 const SITE = 'https://itsdebatable.com';
 
-function imageResponse(bytes){
+function imageResponse(bytes, versioned){
   return new Response(bytes, {
     status: 200,
     headers: {
       'Content-Type': 'image/jpeg',
-      // The frame never changes once cut; let browsers and the CDN
-      // keep it. Netlify-CDN-Cache-Control makes the edge copy stick
-      // so the function is not even invoked for repeat viewers.
-      'Cache-Control': 'public, max-age=604800, immutable',
-      'Netlify-CDN-Cache-Control': 'public, max-age=31536000, immutable',
+      // A versioned URL names one exact frame and can never mean a
+      // different one, so browsers and the edge keep it (the function is
+      // not even invoked for repeat viewers). An unversioned one is a
+      // standing request for "this recording's current frame", so it
+      // gets a short life and revalidates in the background.
+      'Cache-Control': versioned ? 'public, max-age=604800, immutable' : 'public, max-age=600',
+      'Netlify-CDN-Cache-Control': versioned
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=600, stale-while-revalidate=86400',
     },
   });
 }
@@ -100,12 +112,14 @@ function extractFrame(inPath, seekSec, outPath){
 
 export default async (req) => {
   if (req.method !== 'GET') return errorResponse('GET only', 405, req);
-  const id = new URL(req.url).searchParams.get('id') || '';
+  const params = new URL(req.url).searchParams;
+  const id = params.get('id') || '';
   if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) return errorResponse('Bad id', 400, req);
+  const versioned = !!params.get('v');
 
   const store = getStore('recording-thumbs');
   const cached = await store.get(id, { type: 'arrayBuffer' });
-  if (cached && cached.byteLength) return imageResponse(cached);
+  if (cached && cached.byteLength) return imageResponse(cached, versioned);
 
   const db = getDb();
   const snap = await db.collection('recordings').doc(id).get();
@@ -160,7 +174,7 @@ export default async (req) => {
         .set({ thumbnailUrl: SITE + '/api/recording-thumb?id=' + encodeURIComponent(id) }, { merge: true })
         .catch(() => {});
     }
-    return imageResponse(bytes);
+    return imageResponse(bytes, versioned);
   } catch (e) {
     console.warn('[recording-thumb] extract failed for', id, e && e.message);
     return softFail(req);
