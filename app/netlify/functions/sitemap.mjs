@@ -386,6 +386,7 @@ const URLS = [
   { path: '/privacy-extension', changefreq: 'yearly',  priority: '0.30' },
   { path: '/privacy',           changefreq: 'yearly',  priority: '0.30' },
   { path: '/terms',             changefreq: 'yearly',  priority: '0.30' },
+  { path: '/support',           changefreq: 'yearly',  priority: '0.30' },
 ];
 
 // Every motion in the library, generated from the bank. These are

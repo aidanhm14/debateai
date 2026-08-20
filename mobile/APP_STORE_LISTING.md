@@ -9,15 +9,18 @@ em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
 - **App name:** Debatable
 - **Subtitle (30 char max):** Voice debate coach + rounds
 - **Bundle ID:** com.debateai.debateit
-- **Primary category:** Education
-- **Secondary category:** Productivity
+- **Primary category:** see the note below. Education reaches people
+  searching "debate"; Social Networking matches the 2026-08-16 decision that
+  this is a social app, and invites heavier guideline 1.2 review on a first
+  submission. Both are editable after release.
+- **Secondary category:** the other one.
 - **Age rating:** Complete the App Store Connect questionnaire honestly. The
   app includes live user interaction and direct messages, so do not submit it
   as a passive 4+ utility.
 
 ## Promotional text (170 char, updatable anytime)
-Argue out loud against an AI that pushes back, takes POIs, and grades you like
-a real judge. Fifteen formats, six brains, a live coach in your pocket.
+Pick a motion, take a side, and argue out loud against an opponent that fights
+back and takes your points. Every round ends with a written verdict.
 
 ## Description
 Debatable is a voice-first debate trainer. Pick a motion, take a side, and
@@ -35,7 +38,7 @@ What you get:
 - Real speeches against a real timer, with pushback and POIs.
 - A judge that flows the round and gives you a written ballot with reasons.
 - Six AI brains and HD voices so no two opponents sound the same.
-- A style profile that learns how you argue and sharpens every round.
+- Live rounds against real people, with replays and a public ladder.
 
 Whether you compete, coach, or just want to think faster on your feet,
 Debatable gives you reps you cannot get anywhere else.
@@ -44,7 +47,7 @@ Debatable gives you reps you cannot get anywhere else.
 debate,speech,coach,APDA,parliamentary,argument,forensics,public speaking,LD,PF,MUN,rebuttal
 
 ## URLs
-- **Support URL:** https://itsdebatable.com/coach
+- **Support URL:** https://itsdebatable.com/contact (must reach a human; /coach is a product page, not support)
 - **Marketing URL:** https://itsdebatable.com
 - **Privacy Policy URL:** https://itsdebatable.com/privacy
 
