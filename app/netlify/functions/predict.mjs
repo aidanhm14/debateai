@@ -27,6 +27,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { checkWagerEligibility, checkWagerAge, invalidateWagerEligibility, MINOR_AGE_RANGES } from './lib/wager-eligibility.mjs';
 import { judgmentId } from './lib/judgment.mjs';
+import { asMarketBank } from './lib/hot-motions.mjs';
 
 const START_BALANCE = 1000;          // seed for a new predictor
 const MAX_STAKE = 5000;              // sanity cap per bet
@@ -80,7 +81,19 @@ function publicMarket(m, id) {
 // Each market = a motion with two framed sides; the AI judge resolves it at
 // lockAt. The outcome is genuinely unknown until resolution (you predict the
 // judge's call), so no sealing is needed; bets just lock before resolution.
-const MOTION_BANK = [
+//
+// 2026-08-20: the bank below was written entirely in tournament register
+// (abolish tenure, wealth taxes, the filibuster). Those are good debates
+// and they are not a good BOOK: a market needs a stranger to have an
+// instant take and a room to split near the middle, and almost nobody
+// outside competitive debate has an instant take on tenure.
+//
+// `hot-motions.mjs` is the bank for everyone else, sorted so the most
+// evenly split motions surface first, because a lopsided motion makes a
+// dead market however good the argument is. It leads here and the
+// policy set rides behind it as range. To go pure, drop LEGACY_MOTIONS
+// from the concat on one line; nothing else reads it.
+const LEGACY_MOTIONS = [
   { m:'This house would ban targeted political advertising.', pro:'Microtargeting fractures the shared public square and lets campaigns lie privately to narrow slices of voters.', con:'A ban hands incumbents and big brands the advantage; small challengers rely on cheap targeted reach to be heard.' },
   { m:'This house believes social media has done more harm than good.', pro:'Engagement-maximizing feeds trade teen mental health and shared truth for time-on-app.', con:'It collapsed the cost of organizing, learning, and reaching an audience for billions with no other platform.' },
   { m:'This house would require AI systems to disclose their training data.', pro:'Without provenance you cannot audit bias, theft, or safety; disclosure is the floor for accountability.', con:'Forced disclosure leaks trade secrets and entrenches incumbents who can afford the compliance and litigation.' },
@@ -104,6 +117,9 @@ const MOTION_BANK = [
   { m:'This house believes sports betting should be banned.', pro:'Legal betting turned every game into a vector for addiction and quietly corrupts the players inside it.', con:'Prohibition just hands the market to offshore books with zero protections; regulation beats a black market.' },
   { m:'This house would require a license to become a parent.', pro:'We license far lower-stakes acts than raising a human; screening could prevent foreseeable abuse.', con:'Reproductive licensing is the door to eugenics and hands the state power no government should hold.' },
 ];
+
+const MOTION_BANK = [...asMarketBank(), ...LEGACY_MOTIONS];
+
 function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
 const AI_TARGET_OPEN = 7;
 const HOUSE_SEED = 100;        // opening liquidity per side so a fresh market isn't an empty 0-pool book
