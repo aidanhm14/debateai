@@ -168,6 +168,25 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# AI-use screen guard. The report-triggered transcript screen is
+# EVIDENCE for a human reviewer, never a verdict: no strike/ban/eject
+# path may exist off it, style alone can never produce a 'strong'
+# verdict (that cap is the whole fairness argument for second-language
+# debaters), and the judge never sees the analysis. Those promises are
+# printed to users in the report modal, so breaking one is a lie on a
+# safety surface. Same hard-fail, soft-skip posture.
+# ──────────────────────────────────────────────────────────────────
+AIUSE_GUARD="$REPO_ROOT/scripts/test-ai-use.mjs"
+if [ -f "$AIUSE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ai-use.mjs >/tmp/ai-use-guard.log 2>&1); then
+    echo "[ai-use-guard] commit blocked - the AI-use screen promises no longer hold:" >&2
+    tail -20 /tmp/ai-use-guard.log >&2
+    echo "[ai-use-guard] see scripts/test-ai-use.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Record-seed guard. A seed can be revised by ADDING records and only by
 # adding: the rating recomputes over the union of every row ever
 # claimed, so nobody can drop the tournament that dragged their number

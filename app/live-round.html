@@ -1728,8 +1728,20 @@ body.speech-live .transcript-area{margin-top:4px}
 .round-motion-bar .rmb-eyebrow{
   font-size:.7rem;font-weight:800;letter-spacing:.14em;
   text-transform:uppercase;color:var(--accent,#ef4444);
-  margin-bottom:5px;display:block;
+  margin-bottom:5px;display:flex;align-items:center;gap:8px;
 }
+/* Inline motion tools on the resolution itself. Quiet chrome: the
+   resolution is the headline, the button is an affordance. Hidden for
+   spectators and once the first speech locks the motion. */
+.rmb-change{
+  font:inherit;font-size:.62rem;font-weight:800;letter-spacing:.08em;
+  padding:3px 9px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--border,rgba(255,255,255,.22));
+  background:transparent;color:var(--text-dim,rgba(255,255,255,.62));
+  text-transform:none;
+}
+.rmb-change:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.4))}
+body.speech-live .rmb-change{display:none}
 .round-motion-bar .rmb-motion{
   font-family:'Archivo','Fraunces',Georgia,serif;
   font-size:clamp(1.55rem,2.5vw,2.15rem);
@@ -2635,7 +2647,13 @@ html.stage-mode .stage-ov{display:block}
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
       <div class="round-motion-bar" id="roundMotionBar">
         <div class="rmb-text">
-          <span class="rmb-eyebrow">Resolution</span>
+          <span class="rmb-eyebrow">Resolution
+            <!-- The edit tools used to live only behind Options ▾, which
+                 nobody found. This is the same inline editor + consent
+                 flow, surfaced on the resolution itself. -->
+            <button type="button" class="rmb-change" id="rmbChangeBtn" hidden title="Suggest a different resolution. Your opponent has to agree before it changes.">✎ Change</button>
+            <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">🎲</button>
+          </span>
           <div class="rmb-motion" id="rmbMotion">—</div>
           <div class="rmb-brief" id="rmbBrief" hidden></div>
         </div>
@@ -2803,6 +2821,7 @@ html.stage-mode .stage-ov{display:block}
               <span class="rc-side" id="rosterOppSide">—</span>
               <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
               <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
+              <button type="button" class="rc-safety" id="rosterOppAiReport" hidden title="Report suspected AI use. The transcript gets screened and a human reviews; a report never decides the round.">🤖 AI?</button>
             </div>
           </div>
           <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
@@ -4183,6 +4202,8 @@ html.stage-mode .stage-ov{display:block}
       if (_dmBtn){ var _me = state.user && state.user.uid; _dmBtn.hidden = !(_me && _oppUid && _oppUid !== _me && !spectator); }
       var _reportBtn = $('rosterOppReport');
       if (_reportBtn){ var _reportMe = state.user && state.user.uid; _reportBtn.hidden = !(_reportMe && _oppUid && _oppUid !== _reportMe && !spectator); }
+      var _aiBtn = $('rosterOppAiReport');
+      if (_aiBtn){ var _aiMe = state.user && state.user.uid; _aiBtn.hidden = !(_aiMe && _oppUid && _oppUid !== _aiMe && !spectator); }
     }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     document.body.classList.remove('speech-live');
@@ -4575,6 +4596,9 @@ html.stage-mode .stage-ov{display:block}
     // Runs on every timer transition, local and remote-mirrored, which is
     // exactly when the speech-1 kickoff strip must appear or clear.
     try { checkKickoffPrompt(); } catch(e){}
+    // Same moment the motion lock flips, so the inline ✎ Change control
+    // appears and disappears with it (wired in the motion-editor IIFE).
+    try { if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns(); } catch(e){}
     var btn = $('playPauseBtn');
     if (!btn) return;
     if (state.phase === 'round' && isSpectator()){
@@ -10159,12 +10183,38 @@ html.stage-mode .stage-ov{display:block}
       rebOpts.setAttribute('aria-expanded', open ? 'true' : 'false');
       rebOpts.textContent = open ? 'Options ▴' : 'Options ▾';
     });
-    var rebBtn = $('rebMotionBtn');
-    if (rebBtn) rebBtn.addEventListener('click', function(){
+    function openInlineMotionEditor(){
       var rmb = $('rmbMotion'); if (!rmb) return;
       rmb.setAttribute('contenteditable', 'true');
       rmb.focus();
       try { var rng = document.createRange(); rng.selectNodeContents(rmb); rng.collapse(false); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch(e){}
+    }
+    var rebBtn = $('rebMotionBtn');
+    if (rebBtn) rebBtn.addEventListener('click', openInlineMotionEditor);
+    // The visible ✎ / 🎲 on the resolution band: same editor and same
+    // consent flow as the Options tools, one click closer. State sync is
+    // exposed on window because updatePlayPauseBtn (the timer-transition
+    // hook) lives outside this closure and is what knows when the lock
+    // flips.
+    var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn');
+    function syncMotionChangeBtns(){
+      var show = state.phase === 'round' && !isSpectator() && !motionLocked();
+      if (rmbChange) rmbChange.hidden = !show;
+      if (rmbRoll) rmbRoll.hidden = !show;
+    }
+    window.__lrSyncMotionBtns = syncMotionChangeBtns;
+    if (rmbChange) rmbChange.addEventListener('click', function(){
+      if (motionLocked()){ toast('The resolution locked when the first speech started.'); syncMotionChangeBtns(); return; }
+      openInlineMotionEditor();
+      toast(bothSeatsIdentified()
+        ? 'Type the new resolution. It goes to your opponent to approve.'
+        : 'Type the new resolution.');
+      try { gtag('event', 'live_round_motion_change_inline'); } catch(e){}
+    });
+    if (rmbRoll) rmbRoll.addEventListener('click', function(){
+      if (motionLocked()){ toast('The resolution locked when the first speech started.'); syncMotionChangeBtns(); return; }
+      var gm = $('rebGenMotion'); if (gm) gm.click();
+      try { gtag('event', 'live_round_motion_roll_inline'); } catch(e){}
     });
     var rmbEl = $('rmbMotion');
     if (rmbEl) rmbEl.addEventListener('blur', function(){
@@ -13712,8 +13762,10 @@ html.stage-mode .stage-ov{display:block}
       <option value="hate_or_threats">Hate speech or threats</option>
       <option value="sexual_content">Sexual content</option>
       <option value="spam">Spam or impersonation</option>
+      <option value="ai_use">Using AI to debate</option>
       <option value="other">Something else</option>
     </select>
+    <p class="dm-hint" id="safetyAiNote" hidden>Their transcript gets an automatic screen for AI-written text, and a human reviews the report with that evidence attached. The screen is advisory: it never decides this round or applies a penalty on its own, and the judge never sees it.</p>
     <textarea id="safetyDetails" class="dm-text" maxlength="1000" placeholder="Add a short note for the reviewer. Optional."></textarea>
     <label class="safety-check"><input id="safetyBlock" type="checkbox" checked /><span>Block this person from future matches on this device.</span></label>
     <div class="dm-row">
@@ -13732,11 +13784,22 @@ html.stage-mode .stage-ov{display:block}
     try { return (window.firebase && firebase.auth && firebase.auth().currentUser) || null; }
     catch(e){ return null; }
   }
-  function openSafety(){
+  function syncAiNote(){
+    var note = byId('safetyAiNote');
+    if (note) note.hidden = byId('safetyReason').value !== 'ai_use';
+  }
+  function openSafety(presetReason){
     var opp = target();
     if (!opp.uid) return;
     byId('safetyOppName').textContent = opp.name || 'your opponent';
     byId('safetyStatus').textContent = '';
+    // The 🤖 AI? quick button lands here with the reason already picked,
+    // so reporting AI use is one open + one send.
+    if (typeof presetReason === 'string' && presetReason){
+      var sel = byId('safetyReason');
+      if (sel && sel.querySelector('option[value="' + presetReason + '"]')) sel.value = presetReason;
+    }
+    syncAiNote();
     var modal = byId('safetyModal');
     modal.hidden = false;
     modal.classList.add('is-open');
@@ -13778,13 +13841,29 @@ html.stage-mode .stage-ov{display:block}
     }).then(function(response){ if (!response.ok) throw new Error('report-failed'); return response.json(); })
       .then(function(result){
         if (result.blocked) rememberBlock(opp.uid);
-        status.textContent = result.blocked ? 'Reported and blocked.' : 'Report sent.';
-        setTimeout(function(){ closeSafety(); if (result.blocked) location.href = '/spar'; }, 900);
+        if (reason === 'ai_use'){
+          // Tell the reporter what the screen found, honestly calibrated:
+          // "no signal" is worth hearing before they escalate mid-round,
+          // and "signals found" tells them the report is not into a void.
+          // The modal stays open so the line is actually readable.
+          var v = result.aiVerdict || 'unscreened';
+          status.textContent =
+            v === 'none' ? 'Report sent. The transcript screen found no clear AI signal; a human still reviews it.'
+            : (v === 'weak' || v === 'moderate') ? 'Report sent with transcript signals attached. A human reviews it.'
+            : v === 'strong' ? 'Report sent. The screen found strong signals; a human reviews it with that evidence.'
+            : 'Report sent. A human reviews it.';
+          if (result.blocked) setTimeout(function(){ closeSafety(); location.href = '/spar'; }, 4000);
+        } else {
+          status.textContent = result.blocked ? 'Reported and blocked.' : 'Report sent.';
+          setTimeout(function(){ closeSafety(); if (result.blocked) location.href = '/spar'; }, 900);
+        }
       }).catch(function(){ status.textContent = 'Could not send. Try again.'; })
       .finally(function(){ button.disabled = false; });
   }
   function wire(){
-    var open = byId('rosterOppReport'); if (open) open.addEventListener('click', openSafety);
+    var open = byId('rosterOppReport'); if (open) open.addEventListener('click', function(){ openSafety(); });
+    var openAi = byId('rosterOppAiReport'); if (openAi) openAi.addEventListener('click', function(){ openSafety('ai_use'); });
+    var sel = byId('safetyReason'); if (sel) sel.addEventListener('change', syncAiNote);
     var send = byId('safetySend'); if (send) send.addEventListener('click', sendSafety);
     document.querySelectorAll('[data-safety-close]').forEach(function(node){ node.addEventListener('click', closeSafety); });
   }
