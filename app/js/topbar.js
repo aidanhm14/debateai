@@ -530,7 +530,11 @@
   // ── Social accounts ────────────────────────────────────────────────
   // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch, TikTok
   // and X the same day once those handles were claimed (all five are
-  // trydebatable). Only accounts that ACTUALLY EXIST go in here: a nav
+  // trydebatable). 2026-08-22, per the founder: INSTAGRAM IS OUT of the nav
+  // rail. The handle still exists and the footer and the JSON-LD `sameAs`
+  // still carry it; this is a nav demotion, not a retired account, so
+  // restoring it is re-adding one entry to this array and nothing else.
+  // Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
   // entry; the topbar rail, the mobile sheet row, and the hover colour all
   // read this array.
@@ -549,30 +553,14 @@
   // its mark IS monochrome, so `brand` is `var(--text)` and the glyph
   // inherits the theme's text colour, black on the light bar and white on
   // the dark one. That is the platform's real palette, not a fallback.
-  // The rail is five wide at 30px a slot, so 158px. Measured rather than
-  // assumed, because this bar has overflowed at laptop widths before: at
-  // 901px, one pixel above the breakpoint that hides the rail entirely,
-  // the right group ends 230px clear of the wordmark and neither the bar
-  // nor the document scrolls sideways. So width is not what caps this.
-  // Attention is. A sixth network is a rethink of the rail, not another
-  // entry.
+  // The rail is four wide at 30px a slot, so ~126px, down from five and
+  // 158px. Width was never what capped this: measured at 901px, one pixel
+  // above the breakpoint that hides the rail entirely, the five-wide right
+  // group still ended 230px clear of the wordmark with neither the bar nor
+  // the document scrolling sideways. Attention is what caps it, which is
+  // why the count went DOWN rather than a sixth being added. A fifth
+  // network is a rethink of the rail, not another entry.
   var SOCIALS = [
-    {
-      key: 'instagram',
-      label: 'Instagram',
-      handle: '@trydebatable',
-      href: 'https://instagram.com/trydebatable',
-      brand: '#E1306C',
-      // Instagram's own mark runs the warm-to-violet sweep from the
-      // bottom-left corner, which is why the stops are ordered this way and
-      // the gradient is diagonal rather than vertical.
-      gradient: ['#F9CE34', '#EE2A7B', '#6228D7'],
-      // Rounded-square + lens + flash dot. Stroke-only so it inherits
-      // currentColor like every other topbar glyph (no brand fill at rest).
-      icon: '<rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5"/>'
-          + '<circle cx="12" cy="12" r="4.1"/>'
-          + '<path d="M17.1 6.9h.01"/>',
-    },
     {
       key: 'youtube',
       label: 'YouTube',
@@ -613,9 +601,9 @@
       gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
       // 2026-08-12, per the founder ("hard to see"): the note head is FILLED and
       // the strokes are heavier than the rail default. This mark carries
-      // far less ink than its three neighbours by construction. Instagram
-      // is a rounded square with a lens inside it, YouTube a plate with a
-      // triangle, Twitch a bevelled panel, and TikTok is one open ring and
+      // far less ink than its neighbours by construction. YouTube is a
+      // plate with a triangle, Twitch a bevelled panel, X a filled slab,
+      // and TikTok is one open ring and
       // one thin curve. At 16px an open ring next to three enclosed shapes
       // reads as the faint one no matter what colour it is, and the real
       // mark's head is solid anyway, so outlining it was both weaker and
