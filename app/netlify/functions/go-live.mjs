@@ -10,7 +10,7 @@
 //   - The notification text is SERVER-CONSTRUCTED, never caller-supplied, so
 //     there's no phishing/spoofing vector.
 //   - No-ops cleanly when push isn't configured (VAPID unset).
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { sendToManyUsers, pushConfigured } from './lib/webpush.mjs';
@@ -21,6 +21,14 @@ const FORMAT_LABEL = {
   ld: 'LD', pf: 'PF', policy: 'Policy', congress: 'Congress', casual: 'a casual round',
 };
 const BROADCAST_COOLDOWN_MS = 10 * 60 * 1000; // one broadcast per debater per 10 min
+// Guests broadcast too (2026-08-22): most queue joiners are anonymous, and a
+// broadcast only named accounts can fire almost never fires. But anonymous
+// uids are free and unlimited to mint, so a per-uid cooldown alone would be
+// no cooldown at all — anonymous broadcasts share ONE global gate on top of
+// the per-uid one, bounding worst-case spam to a pool member at 12/hour no
+// matter how many guest accounts exist.
+const ANON_GLOBAL_COOLDOWN_MS = 5 * 60 * 1000;
+const ANON_META_DOC = '_anon_broadcast_meta';  // live_now/{doc} — gate, not presence
 const MAX_RECIPIENTS = 500;                    // hard cap on a single fan-out
 
 export default async (request) => {
@@ -37,7 +45,12 @@ export default async (request) => {
   try { body = await request.json(); } catch (e) { body = {}; }
   let format = String((body && body.format) || 'quick').toLowerCase();
   if (VALID_FORMATS.indexOf(format) < 0) format = 'quick';
-  const name = String((decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40);
+  const named = isNamedAccount(decoded);
+  // The notification text is server-constructed, and for a guest the name is
+  // too — a client-supplied name here would be a phishing surface.
+  const name = named
+    ? String((decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40)
+    : 'Someone';
 
   const db = getDb();
   const liveRef = db.collection('live_now').doc(uid);
@@ -53,6 +66,23 @@ export default async (request) => {
       if (lastMs && (Date.now() - lastMs) < BROADCAST_COOLDOWN_MS) canBroadcast = false;
     }
   } catch (e) {}
+
+  // Anonymous callers additionally share one global gate (see the constant's
+  // comment). A transaction so two guests joining in the same second cannot
+  // both claim the slot.
+  if (canBroadcast && !named) {
+    try {
+      const metaRef = db.collection('live_now').doc(ANON_META_DOC);
+      canBroadcast = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(metaRef);
+        const last = snap.exists && snap.data() && snap.data().lastAnonBroadcastAt;
+        const lastMs = last && last.toMillis ? last.toMillis() : 0;
+        if (lastMs && (Date.now() - lastMs) < ANON_GLOBAL_COOLDOWN_MS) return false;
+        tx.set(metaRef, { lastAnonBroadcastAt: FieldValue.serverTimestamp() }, { merge: true });
+        return true;
+      });
+    } catch (e) { canBroadcast = false; } // fail closed: no gate read, no guest blast
+  }
 
   const presence = {
     uid,
@@ -88,7 +118,10 @@ export default async (request) => {
     title: name + ' is live on Debatable',
     body: 'Looking for a ' + (FORMAT_LABEL[format] || format) + ' round. Tap to jump in.',
     url: '/spar?from=live-alert',
-    tag: 'da-live-' + uid,
+    // Guests share one tag so back-to-back guest broadcasts replace the
+    // notification instead of stacking (sw.js sets renotify:true, so a
+    // replaced notification still alerts).
+    tag: named ? 'da-live-' + uid : 'da-live-guest',
   };
   const r = await sendToManyUsers(targets, payload);
   return jsonResponse({ ok: true, broadcast: true, ...r }, 200, request);

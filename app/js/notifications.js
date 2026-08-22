@@ -158,18 +158,26 @@
   }
   // Broadcast side: tell the pool a debater just went live. Server enforces a
   // per-debater cooldown, so calling this on every "Available" flip is safe.
-  function daBroadcastGoLive(format, mode) {
+  // Guests broadcast too (2026-08-22) — most queue joiners are anonymous, and
+  // a broadcast only named accounts can fire almost never fires. The server
+  // holds the anti-spam line (per-uid cooldown for named accounts, one shared
+  // global cooldown for all anonymous callers, server-constructed text).
+  // Optional cb receives the server response ({broadcast, recipients, sent})
+  // or null, so /spar can tell the waiter how many people were pinged.
+  function daBroadcastGoLive(format, mode, cb) {
     try {
       var user = daCurrentUser();
-      if (!user || user.isAnonymous) return; // named accounts only broadcast
+      if (!user) { if (cb) cb(null); return; }
       user.getIdToken().then(function (tok) {
         return fetch('/.netlify/functions/go-live', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
           body: JSON.stringify({ format: format || 'apda', mode: mode || 'spar' }),
         });
-      }).catch(function () {});
-    } catch (_) {}
+      }).then(function (r) { return r && r.json ? r.json() : null; })
+        .then(function (j) { if (cb) cb(j || null); })
+        .catch(function () { if (cb) cb(null); });
+    } catch (_) { if (cb) cb(null); }
   }
   // Exposed so the /spar foreground matchmaker (which suppresses the
   // background matcher) can still fire the go-live broadcast on queue join.
