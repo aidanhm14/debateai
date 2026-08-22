@@ -44,9 +44,9 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 // tally. The fallback only covers a failed lookup, never a failed match.
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.UPDATE_ANNOUNCE_FROM || process.env.EMAIL_FROM
-                 || 'Aidan at Debatable <aidan@debateai.com>';
+                 || 'Debatable <hello@debateai.com>';
 // Replies ARE the point of beat two, so they should land in the inbox
-// Aidan actually reads (the 2026-07-04 contact-email decision).
+// the founder actually reads (the 2026-07-04 contact-email decision).
 const REPLY_TO    = process.env.UPDATE_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.UPDATE_ANNOUNCE_BATCH || '20', 10) || 20);
 // Rides the 'open' stream end to end: bulk product/tournament news,
@@ -106,7 +106,7 @@ function renderEmail({ firstName, uid }) {
     run a round and read the new ballot.
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
     Cash prizes go to prize-eligible entrants aged 18 or over and are void where

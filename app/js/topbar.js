@@ -17,7 +17,7 @@
 (function(){
   /* DARK MODE is on sitewide via the sun/moon toggle (re-enabled as an
      opt-in 2026-08-10). Since 2026-08-19 it is ALSO an assignment: new
-     visitors are bucketed 70% light / 30% crimson, per Aidan, which
+     visitors are bucketed 70% light / 30% crimson, per the founder, which
      revives the 2026-06-01 split that 08-10 had retired. The toggle
      still overrides the assignment permanently on the first click, so
      nobody is stuck in an arm. Prefs parked by the
@@ -113,7 +113,7 @@
   }
 
   // 2026-06-23: the site-wide Coach FAB (floating orb + in-tab drawer/
-  // iframe session) was RETIRED per Aidan — the in-tab popup was glitchy.
+  // iframe session) was RETIRED per the founder — the in-tab popup was glitchy.
   // Coach now lives only on its own page at /coach (the "Coach" nav link
   // below routes there). /js/coach-fab.js is now a no-op stub; the
   // auto-injector that used to mount the orb on every topbar page is gone.
@@ -189,7 +189,7 @@
   // 2026-05-22: /today removed from the topbar nav. The daily-motion
   // pages stay live + crawlable for SEO, but the weekly motion in /app
   // (the "Debate of the week" card) is the front-and-center surface now.
-  // 2026-05-26: Spar added per Aidan "have the button for this somewhere
+  // 2026-05-26: Spar added per the founder "have the button for this somewhere
   // early on the nav." /spar is the live-human matchmaker + DM waitlist
   // marketplace ("Finding you a debater" page). Positioned right after
   // Voice so the two real-time-entry actions sit adjacent at the front
@@ -216,7 +216,7 @@
     // 2026-08-20: Bet returns to the rail, and the label goes back to
     // the word two earlier passes took off it. Every note above about
     // keeping this out of permanent chrome was written to stop the site
-    // scanning as a betting product to someone skimming. Aidan has since
+    // scanning as a betting product to someone skimming. the founder has since
     // moved the product to exactly that ("betting is here", "bring more
     // betting obviously into the app"), so the objection is retired
     // rather than overruled: it was optics protecting a different
@@ -224,15 +224,15 @@
     // pill treatment, which nothing else currently uses.
     { href: '/predict',       label: 'Bet', hot: true, compactKeep: true },
 
-    // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
+    // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
     { href: '/app#case',      label: 'Prep', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
-    // Aidan (still reachable at /float and /exhibition directly).
+    // the founder (still reachable at /float and /exhibition directly).
     { href: '/judge',         label: 'Judge', strong: true },
-    // 2026-07-02: Certificate + Schedule restored per Aidan ("add more
+    // 2026-07-02: Certificate + Schedule restored per the founder ("add more
     // back ... not too much") — high-intent product pillars: proof you
     // can earn, and the organized-round board when random live matching
     // is quiet. Held Coaches/Messages/Leaderboard off so the bar does
@@ -240,20 +240,20 @@
     // sessions both restored the pair, so the entries were briefly
     // duplicated on the live bar — deduped same day.)
     { href: '/live',          label: 'Schedule'    },
-    // 2026-08-10 (later, per Aidan): the Watch button came OFF the rail
+    // 2026-08-10 (later, per the founder): the Watch button came OFF the rail
     // the same day it landed there — the bar was carrying one tab too
     // many. Same demotion shape as Money/Leaderboard on 2026-07-30: no
     // rail flag, so it lives in Explore's Debate group and the mobile
     // sheet. Its promoted home is now the landing's opened section (the
     // Watch CTA beside "Match me with a stranger" in #live-now).
-    // 2026-08-10 (again, per Aidan): `big` renders the Explore-menu row
+    // 2026-08-10 (again, per the founder): `big` renders the Explore-menu row
     // as a large flagship tile. Sized by venture weight, not traffic:
     // Watch (the audience surface), Predict (the market) and Tournaments
     // (the event engine) are the scale bets; utility rows stay small so
     // the hierarchy means something.
     { href: '/watch',         label: 'Watch', big: true },
     { href: '/credentials',   label: 'Certificate' },
-    // 2026-06-15: Coach surfaced into the bar per Aidan. /coach is the
+    // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint.
     { href: '/coach',         label: 'Coach'        },
@@ -263,17 +263,17 @@
     // FAQ stays off the bar; the landing carries it in-page.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
-    // 2026-07-02: Leaderboard removed from the top bar per Aidan — it's
+    // 2026-07-02: Leaderboard removed from the top bar per the founder — it's
     // promoted contextually near the landing "who's here" section instead
     // of holding a top-nav slot. Page stays live + crawlable at
     // /leaderboard. (Community was folded into Leaderboard on 2026-06-14;
     // both are now off the bar.)
-    // 2026-07-02: Coaches + Messages removed from the bar per Aidan
+    // 2026-07-02: Coaches + Messages removed from the bar per the founder
     // (declutter — the bar overflowed at laptop widths and the VOICE AI
     // button was getting cut off). Both pages stay live: /messages is
     // still reachable via the notifications bell, /coaches from
     // community surfaces. They can return when they fit.
-    // 2026-06-24: The Floor surfaced into the bar per Aidan ("advertise
+    // 2026-06-24: The Floor surfaced into the bar per the founder ("advertise
     // it more ... have it in a tab"). 2026-07-19: label Floor -> Bet.
     // 2026-07-23: route moved /floor -> /predict. Bet pointed at a page
     // that cannot take a bet — floor.html sets PREVIEW = true and hard
@@ -286,7 +286,7 @@
     // AI ballot, so 'Predict' names the route it already points at and
     // stops the one word on every page of the site from reading as a
     // gambling product to anyone scanning the nav.
-    // 2026-08-19: Predict removed from every topbar surface per Aidan
+    // 2026-08-19: Predict removed from every topbar surface per the founder
     // ("remove the betting / point system from website for now"). The
     // page stays live at /predict for direct links; it just is not
     // surfaced in the nav. PARTIALLY REVERSED later the same day: see the
@@ -294,7 +294,7 @@
     // Explore menu only, via MORE_GROUPS, so it can never reach the rail.
     // The rest of the cluster (/floor, /ladder, /get-paid-to-debate)
     // stays off.
-    // 2026-07-30 (later same day, per Aidan): these three came OFF the
+    // 2026-07-30 (later same day, per the founder): these three came OFF the
     // rail and into the Explore menu. The `rail: true` flag is gone from
     // all of them. Reason is optics, not clutter: "Money" sitting in the
     // permanent top nav of every page makes the site scan as a betting
@@ -327,14 +327,14 @@
     // rail tab, an Explore tile or a mobile-sheet entry. The page stays
     // live for direct and contextual links while the ranking improves.
     // 2026-07-05 (later same day): Free vs Paid removed from the bar per
-    // Aidan ("advertise this somehow else - remove it from top tab").
+    // the founder ("advertise this somehow else - remove it from top tab").
     // Promoted contextually instead: the free-tier usage banner CTA
     // (js/usage-banner.js) reads "Free vs Paid" -> /pricing at the
     // moment metering matters, and the landing hero secondary pill rail
     // carries a "Free vs Paid" pill (data-cta="hero-free-vs-paid").
     // /pricing stays live + crawlable; just not a top-nav slot.
     // 2026-08-10: the global "Debate an AI" pill came off the rail per
-    // Aidan. AI sparring now lives in Explore and on /spar when the queue
+    // the founder. AI sparring now lives in Explore and on /spar when the queue
     // is quiet, where choosing AI reads as intentional instead of global
     // chrome.
   ];
@@ -343,7 +343,7 @@
   // mobile sheet. App pages carry no footer, so these links are the quiet
   // discovery surface for pages that do not need permanent topbar space.
   var MORE_GROUPS = [
-    // 2026-08-19 (Aidan: "its too crowded - distribute across to take
+    // 2026-08-19 (the founder: "its too crowded - distribute across to take
     // less space on Y axis"). This was ONE 15-item "Watch & compete"
     // column against 4 / 6 / 9 in the others. A CSS grid is as tall as
     // its tallest child, so that single column set the height of the
@@ -376,7 +376,7 @@
       // board, the homepage band and the spectator feed. Sits here
       // rather than in Train because it pairs two real people.
       { href: '/private',     label: 'Private round' },
-      // 2026-08-14 (Aidan: "bring leaderboard back"): REVERSES the rule
+      // 2026-08-14 (the founder: "bring leaderboard back"): REVERSES the rule
       // that used to sit here, which kept Leaderboard out of navigation
       // "until the ranking system is strong enough to promote". It sits
       // in the competition cluster because that is the question it
@@ -430,7 +430,7 @@
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
       // page. It stays off the main bar because the primary product is
       // still debate practice; Explore is the right discovery surface.
-      // 2026-08-19 (later same day, per Aidan: the prediction angle "can
+      // 2026-08-19 (later same day, per the founder: the prediction angle "can
       // stay in some way"): PARTIALLY reverses the de-surfacing logged
       // above. /predict returns, and only /predict — /floor settles on
       // Math.random() and calls itself a demo, /ladder has no rankable
@@ -528,7 +528,7 @@
   ];
 
   // ── Social accounts ────────────────────────────────────────────────
-  // 2026-08-12: Instagram surfaced per Aidan, then YouTube, Twitch, TikTok
+  // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch, TikTok
   // and X the same day once those handles were claimed (all five are
   // trydebatable). Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
@@ -539,7 +539,7 @@
   // may also carry `gradient`, which paints the glyph itself in the
   // platform's real colours at rest: one stop paints solid, two or more
   // sweep diagonally. The earlier note here said a second network was the
-  // moment to revisit colour and go back to monochrome. Aidan asked for the
+  // moment to revisit colour and go back to monochrome. the founder asked for the
   // opposite, and he is right for one reason: at 16px these marks are read
   // by colour before shape, and a monochrome Twitch glyph next to a
   // monochrome TikTok note is a row of grey smudges. Colour is what makes
@@ -611,7 +611,7 @@
       // against a white bar, and a two-stop version rendered visibly
       // fainter than its three neighbours at icon size.
       gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
-      // 2026-08-12, per Aidan ("hard to see"): the note head is FILLED and
+      // 2026-08-12, per the founder ("hard to see"): the note head is FILLED and
       // the strokes are heavier than the rail default. This mark carries
       // far less ink than its three neighbours by construction. Instagram
       // is a rounded square with a lens inside it, YouTube a plate with a
@@ -780,7 +780,7 @@
       : LINKS;
 
     // ── Wordmark: "Debatable" in accent red ────────────────────────────
-    // 2026-07-22, per Aidan: the red-vs-black A/B (2026-07-19, weighted
+    // 2026-07-22, per the founder: the red-vs-black A/B (2026-07-19, weighted
     // 90/10 to red) is CLOSED and red is the wordmark, everywhere, for
     // everyone. The bucketing, the sticky localStorage assignment and the
     // ab_exposure ping are all gone. Stale 'debateos-ab:wordmark_color'
@@ -1030,7 +1030,7 @@
     // menus and contextually on /spar, not as a permanent pill.
     // "How this works" sits directly beside the Explore trigger, as a
     // button rather than one more text link in a rail of text links.
-    // Rationale (Aidan, 2026-08-11): a first-time visitor's actual first
+    // Rationale (the founder, 2026-08-11): a first-time visitor's actual first
     // question is "what is this and what do I do", and the answer was a
     // low-contrast nav word competing with nine siblings. A stranger
     // should be able to find the explanation without reading the menu.
@@ -1148,7 +1148,7 @@
     // from window.SFX.isMuted() (localStorage da-sfx-muted) so it
     // picks up whatever the user set on a previous page.
     // 2026-05-26: SFX mute toggle retired from the topbar everywhere
-    // per Aidan. JS button construction skipped so the DOM node never
+    // per the founder. JS button construction skipped so the DOM node never
     // exists, ui.css display:none guards as a second layer in case a
     // future commit revives this block without removing the CSS rule.
     // window.SFX still loads + reads localStorage so existing per-page
@@ -1166,7 +1166,7 @@
     // `da-theme=grey` is honored on load and treated as dark-family
     // for cycle purposes (click → light). CSS lives in /css/ui.css
     // under .theme-toggle.
-    // 2026-05-27 plane session: theme toggle REVIVED per Aidan's
+    // 2026-05-27 plane session: theme toggle REVIVED per the founder's
     // request ("have the option to change lighting here"). Single
     // sun/moon button — sun shows when current theme is dark-family,
     // moon shows when current is light. The sun↔moon swap is a pure
@@ -1228,7 +1228,7 @@
 
     // ── Points chip (removed 2026-08-19) ─────────────────────────────
     // The 2026-08-12 "your prediction points" wallet chip (the 1,000 pts
-    // pill on every page) is gone per Aidan: "remove the betting / point
+    // pill on every page) is gone per the founder: "remove the betting / point
     // system from website for now". The whole points economy is
     // de-surfaced sitewide in this pass (this chip, the Predict tile,
     // the Money link); /predict itself stays live for direct links. The
@@ -1539,7 +1539,7 @@
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
     if (!saved) {
-      /* 2026-08-19 per Aidan: 70% light / 30% crimson for visitors with
+      /* 2026-08-19 per the founder: 70% light / 30% crimson for visitors with
          no pick yet, restoring the split retired on 2026-08-10. The
          landing runs the same assignment in its own <head> script so its
          visitors are bucketed before first paint; this covers everyone

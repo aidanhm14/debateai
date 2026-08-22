@@ -184,7 +184,7 @@ export async function speechToMp3(text) {
 export async function sendEmail(to, subject, html) {
   const key = process.env.RESEND_API_KEY;
   if (!key || !to) return false;
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <aidan@debateai.com>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <hello@debateai.com>';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',

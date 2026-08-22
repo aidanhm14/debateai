@@ -1,7 +1,7 @@
 /* coach-fab.js — RETIRED 2026-06-23.
  *
  * The floating in-tab Coach orb + slide-up drawer (and its embedded
- * /coach session iframe, the "in-session" mode) were removed per Aidan:
+ * /coach session iframe, the "in-session" mode) were removed per the founder:
  * the in-tab popup was glitchy. Coach now lives ONLY on its own page at
  * /coach, reached from the topbar "Coach" link.
  *

@@ -2,7 +2,7 @@
 // debate coaches + programs the admin can contact directly, surfaced on
 // the /admin dashboard next to Subscribers / Prospects. Distinct from
 // those two: subscribers = "notify me" signups, prospects = soft leads
-// captured at a wall, coaches = an outbound contact list Aidan builds by
+// captured at a wall, coaches = an outbound contact list the founder builds by
 // hand (paired with the coach Outreach Desk).
 //
 // GET    /api/admin/coaches       → list, newest-first

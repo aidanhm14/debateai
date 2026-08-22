@@ -376,7 +376,7 @@
 
       // ── Outer atmospheric glow ring ──
       // 2026-05-26 (rev16): shadowBlur 28 -> 52 + double-pass with
-      // wider outer halo per Aidan "make this a higher quality globe."
+      // wider outer halo per the founder "make this a higher quality globe."
       // Single 28px glow read as a faint edge fade; the two-layer halo
       // makes the sphere feel atmosphere-wrapped, not pasted on. Wider
       // outer halo is brand-tinted at low alpha so it bleeds into the

@@ -180,7 +180,7 @@
     // round, then offer to claim the ballot that now exists. A timer-based
     // prompt during prep competes with the round before the value is real.
     { match: /^\/practice/, skip: true },
-    // 2026-08-11, per Aidan: the voice surfaces are the ONLY ones whose
+    // 2026-08-11, per the founder: the voice surfaces are the ONLY ones whose
     // rounds are ranked (typed rounds never write a leaderboard entry),
     // so their nudge sells the thing signing in actually buys here: a
     // score that counts, XP, a place on a public board. The
@@ -838,7 +838,7 @@
     armInitial(cfg);
   }
 
-  // 2026-08-19, per Aidan: the prompt arrives "7 seconds into site
+  // 2026-08-19, per the founder: the prompt arrives "7 seconds into site
   // scrolling" (was 10 on 2026-08-12). Two conditions, not one timer. Seconds are counted only while
   // the tab is VISIBLE, so a background tab left open all afternoon does not
   // greet the visitor with a modal the moment they return to it. And on a page

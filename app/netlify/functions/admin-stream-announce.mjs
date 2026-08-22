@@ -45,7 +45,7 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 // own From and REFUSES rather than discovering it in an error tally.
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL = process.env.STREAM_ANNOUNCE_FROM || process.env.EMAIL_FROM
-                || 'Aidan at Debatable <aidan@debateai.com>';
+                || 'Debatable <hello@debateai.com>';
 const REPLY_TO   = process.env.STREAM_ANNOUNCE_REPLY_TO || undefined;
 const BATCH_MAX  = Math.min(60, parseInt(process.env.STREAM_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM     = 'stream';
@@ -79,7 +79,7 @@ function renderEmail({ firstName, uid, title }){
     and take a side yourself.
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   ${renderFooter({ uid, stream: STREAM, reason: 'You get these because you have a Debatable account.' })}
 </div>`;

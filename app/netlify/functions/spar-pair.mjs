@@ -199,7 +199,7 @@ function joinedAtMs(data) {
 
 // ── The guest lane ────────────────────────────────────────────────
 //
-// 2026-08-19 (Aidan): the live queue takes guests again, for their first
+// 2026-08-19 (the founder): the live queue takes guests again, for their first
 // GUEST_FREE_ROUNDS rounds. The 2026-08-18 rule was named accounts only,
 // three layers deep (the /spar gate, the 403 that used to live below, and
 // the firestore.rules create). That is the right shape for an account

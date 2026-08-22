@@ -24,7 +24,7 @@
 // npm dependency (tweetnacl is the usual answer and is not worth a
 // dependency for one verify call).
 //
-// SETUP, which is Aidan's to do once:
+// SETUP, which is the founder's to do once:
 //   1. discord.com/developers → New Application
 //   2. copy the Public Key into Netlify env as DISCORD_PUBLIC_KEY
 //   3. set Interactions Endpoint URL to

@@ -15,7 +15,7 @@
 //     runnerName?: string,        // optional, same rule
 //     motion: string,             // the impromptu/prepared motion
 //     formatName: string,         // 'APDA', 'BP', etc
-//     rfdSnippet?: string,        // 2-3 sentences from Aidan's live RFD
+//     rfdSnippet?: string,        // 2-3 sentences from the founder's live RFD
 //     roundId?: string,           // optional link to /r/{roundId}
 //     uid?: string,               // server-only, never rendered
 //   }
@@ -86,7 +86,7 @@ function prettyDate(d) {
   } catch { return ''; }
 }
 
-// Hardcoded "next Final" config — bumps as Aidan schedules each one.
+// Hardcoded "next Final" config — bumps as the founder schedules each one.
 // Living here (not in env vars or Firestore) so the page renders the
 // same for every visitor without an extra read; flip-and-deploy when
 // the next bracket lands.

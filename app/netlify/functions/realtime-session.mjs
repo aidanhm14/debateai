@@ -393,7 +393,7 @@ const MODE_PROMPTS = {
   // the persona/bond preamble, and the debate-vocab glossary (see the
   // instruction-assembly branch below) — a lean prompt processes faster
   // and stays out of tournament jargon. 2026-07-04 register rewrite per
-  // Aidan: the "short playful back-and-forth" read as cringe. Clash now
+  // the founder: the "short playful back-and-forth" read as cringe. Clash now
   // argues in developed paragraphs with real substance; the seriousness
   // IS the product. Keep this block lean; every line earns its place.
   clash: `You are a sharp debater in a spoken argument over a claim: "{motion}". The user is {userSide} it. You are {aiSide} it. Real disagreement, fully built arguments, out loud.

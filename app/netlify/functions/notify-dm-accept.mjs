@@ -19,7 +19,7 @@
 // Env vars (same as notify-accepted):
 //   RESEND_API_KEY  — from resend.com (free tier: 100/day, 3k/mo)
 //   RESEND_FROM     — verified sender; when unset: EMAIL_FROM env, then the
-//                     hardcoded verified sender 'Debatable <aidan@debateai.com>'.
+//                     hardcoded verified sender 'Debatable <hello@debateai.com>'.
 //                     Never fall back to onboarding@resend.dev: it only
 //                     delivers to the account owner, so every send to a real
 //                     user 403s silently.
@@ -78,7 +78,7 @@ export default async (req) => {
   // RESEND_FROM > EMAIL_FROM > the resend.dev dev sender (this file's
   // historical zero-env fallback; works on any Resend account with no
   // domain verification, unlike the lib's gmail default).
-  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <aidan@debateai.com>';
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Debatable <hello@debateai.com>';
   if (!apiKey) {
     return jsonResponse(503, {
       error: 'Email not configured',

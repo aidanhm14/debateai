@@ -3,7 +3,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
-// The PAID door into a tournament, per Aidan (2026-08-10): "pay in to
+// The PAID door into a tournament, per the founder (2026-08-10): "pay in to
 // get payouts or compete for free." The free door is the tournament
 // engine's own register action (POST /api/tournament); this endpoint
 // only mints the Stripe Checkout session that makes an entry

@@ -32,7 +32,7 @@ import { getAuthUserByUid } from './auth-admin.mjs';
 // Accounts created at or before this instant qualify.
 //
 // Moved 2026-08-19 (fourth move, same day as the third) to 1:00 PM
-// Eastern that day, on Aidan's call: "free entry to any currently
+// Eastern that day, on the founder's call: "free entry to any currently
 // existing accounts, anyone new is subject to pay". The Open had 7 real
 // entrants ten days out, every one of them comped and none paid, so the
 // binding constraint is field size, not fee revenue.

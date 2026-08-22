@@ -197,7 +197,7 @@ export function senderDomain(from) {
 }
 
 // ── Send via Resend ──────────────────────────────────────────────────────────
-// from:    explicit arg > EMAIL_FROM env > 'Aidan @ Debatable <aidan@itsdebatable.com>'
+// from:    explicit arg > EMAIL_FROM env > 'Debatable <hello@itsdebatable.com>'
 //          The warning this comment used to carry was right and is now
 //          satisfied: itsdebatable.com was verified in Resend on 2026-08-19
 //          and immediately carried the 1,276-address coach send, so it is a
@@ -217,7 +217,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   if (!key) return { ok: false, reason: 'no-key' };
   if (!to) return { ok: false, reason: 'no-recipient' };
 
-  const resolvedFrom = from || process.env.EMAIL_FROM || 'Aidan @ Debatable <aidan@itsdebatable.com>';
+  const resolvedFrom = from || process.env.EMAIL_FROM || 'Debatable <hello@itsdebatable.com>';
   const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'aidandavidhollinger@gmail.com';
   const resolvedText = text || toText(html);
 

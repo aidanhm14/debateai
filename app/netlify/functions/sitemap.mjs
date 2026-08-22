@@ -64,7 +64,7 @@ const URLS = [
   { path: '/contested',       changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-11' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
-  // Aidan's brief ("promote exhibition debate via SEO improvements
+  // the founder's brief ("promote exhibition debate via SEO improvements
   // strategy"). The page now ships HowTo + SoftwareApplication
   // JSON-LD targeting "ai vs ai debate" + "watch ai debate" intents.
   { path: '/exhibition',      changefreq: 'weekly',  priority: '0.85' },
@@ -235,7 +235,6 @@ const URLS = [
   { path: '/unblock',         changefreq: 'monthly', priority: '0.70', lastmod: '2026-08-19' },
   { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
-  { path: '/uwc',             changefreq: 'monthly', priority: '0.68', lastmod: '2026-08-10' },
   { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   // Company context. /investors distinguishes current product status
   // from the longer vision board; /future carries the full philosophy.

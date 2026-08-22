@@ -35,7 +35,9 @@ for anyone. Copy rules that follow from it, and they are enforceable:
   head, leaderboard column, JSON-LD descriptions, plus `topbar.js`
   "Find debaters and clubs" which rides ~85 pages). "Debater" survives
   only where it names a ROLE inside a round, and in the founder's own
-  credential, which is a bio fact rather than a gate.
+  credential. **That carve-out was retired 2026-08-22:** the founder's
+  credential is gone from every public surface along with the name, so
+  "Debater" now survives only as a role inside a round.
 - **Never gate the reader on knowing a format.** A stranger should not
   have to decode "Asian Parli" before they understand what a round is.
   Formats are what the product is good at; they are not the invitation.
@@ -83,7 +85,7 @@ Five things, in order of importance:
 
 2. **Voice round + judge RFD.** You can run a timed speech, hear pushback, take POIs, and get a judge ballot. That's the moat against ChatGPT. voice + timer + format-specific structure.
 
-3. **Built by someone who won.** The creator is a national APDA champion. Most AI-product founders can say "I used AI to build this"; very few can say "I actually argued in this format at the top of the country." Surface this on the landing, not just the footer.
+3. **Built from inside the activity.** The product was written by someone who competed, and it shows in the format rules, the voice banks, and the judge paradigms. **The founder is ANONYMOUS on every public surface as of 2026-08-22** (see the decision log): no name, no school, no title, no year, no photo. Sell the depth, never the credential. "Built from inside competitive debate" is the sanctioned phrasing; "a national APDA champion at UChicago" is not, anywhere.
 
 4. **Six brains + HD voice on paid.** Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. DeepSeek (added 2026-05-15) routes direct to the DeepSeek API and pins to `deepseek-chat`; Open Lab (added same day) routes through OpenRouter and defaults to Nous Hermes 4 405B with an env-overrideable pool that also covers Mistral Large, Qwen3-235B, and Llama 4 Maverick/Scout. The $10/year Individual tier is where users get the full engine. BYOK is Anthropic-only and labeled as such. (Currently in beta — every tier is $0 while we figure out pricing; see §7.)
 
@@ -177,6 +179,16 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 5. **Community features.** Live Debates / calendar / scheduled-judge sign-ups. Mentioned in Reddit post but thinly implemented. (2026-05-20: first real async community surface shipped — the /spar waitlist + DM marketplace, see decision log. Lets debaters advertise "looking for a round" and DM to organize, instead of only the synchronous random matchmaker. Still thin on the scheduled-judge / calendar side.)
 
 ## 10. Decision log (major decisions with why)
+
+- **The founder goes anonymous: name, credential, school and photo off every public surface** (2026-08-22, Aidan: "get rid of all mentions of my name aidan and the whole apda pro ams champion uchicago stuff. i want to be more anonymous for the site"). **This supersedes §3 wedge #3 and the §2 "bio fact" carve-out**, both of which told agents to SURFACE the credential on the landing. What went: every "APDA Pro-Ams champion, 2025" and "UChicago parliamentary debater" line (24 files, meta descriptions, JSON-LD, footers, FAQ answers, the /judge byline, llms.txt, the extension store listing), the name in the /team and /story founder cards, both founder photos (`img/team/aidan.jpg`, `img/reviews/aidan.jpg` deleted), the decorative corner portrait on /reviews and both landings, the "APDA / UChicago" testimonial chip, the personal handles in the changelog byline and the extension issue link, the "Aidan" sign-off on five admin email templates, the `aidan@` local part on every Resend From default, and ~420 `per Aidan` source comments across 115 files (view-source is a real leak, so the comments were swept too). **/uwc was deleted rather than anonymized**: the page was first-person as "a UWC-USA alum, Class of 2024, now a sophomore at the University of Chicago", so anonymizing it removes its entire premise. It 301s to /schools in both netlify.toml mirrors, which keeps every link in the UWC outreach emails alive. **Two dormant narration MP3s were re-synthesized**, not just re-scripted: /story and /team both SPOKE the credential aloud, and a corrected manifest beside stale audio would have left the claim live at a public URL. Same voice, same settings; `uwc.mp3` deleted with its page.
+
+  **The replacement is product facts, not a vaguer credential.** Aidan's call, given the option of "a college parliamentary debater": drop it entirely. So the trust signal now rides the published rubric, the human appeal, and per-format depth. Where a builder had to be referenced at all, the line is "built from inside competitive debate" with no person attached.
+
+  **The contact email STAYS `aidandavidhollinger@gmail.com`, deliberately, and it still carries the name.** Aidan chose that over standing up a new mailbox; it is one click away in ~140 footers, FAQs and mailto links. **So this sweep is a real reduction in exposure, not anonymity.** Anyone who clicks Contact learns the full name. Closing that gap needs a mailbox at `contact@itsdebatable.com` and is his call, not a code change.
+
+  **Three leaks survive because they need his account, not an edit:** the Donate links point at `buymeacoffee.com/8idanhm`, `index.html` loads `aidanhm31.goatcounter.com/count`, and the Resend From addresses now read `hello@` on domains that **no Resend domain is currently verified for** (the API returns an empty domain list, which means outbound mail is failing for reasons that predate this sweep). Renaming the first two is a settings change in those two products.
+
+  **Standing rule for anyone editing copy from here: do not restore the credential from a stale doc.** It reads as a factual correction and it is the opposite of one.
 
 - **The Aug 29 day was run end to end nine days early, and six things were broken, every one of them silent** (2026-08-20). Nothing here was findable by reading code. All six answered a request with a plausible sentence, logged nothing, and left a screen that looked like it was working. The method was the finding: a real tournament day driven through the REAL production endpoints with five real accounts against an isolated test tournament, then torn down.
   - **(1) The drop-in queue refused every entrant.** `tournament-dropin.mjs` read `decoded.uid`. A Firebase ID token names its subject `sub` and mirrors it as `user_id`; there is no `uid` claim, because that spelling belongs to the Admin SDK's DecodedIdToken and `lib/auth.mjs` is a hand-rolled verifier returning the raw payload. So `myUid` was undefined, `members.includes(undefined)` was false for every entry, and ready / leave / poll answered every registered person with **409 "Register for this tournament first."** The drop-in queue IS the mechanism of a drop-in day. The same one word had `value-market.mjs` answering **401 "Sign in required"** to every signed-in trader, so the Ladder was inert for a second reason nobody had found. Closed at the source: `verifyIdToken` now mirrors `sub` onto `uid`.

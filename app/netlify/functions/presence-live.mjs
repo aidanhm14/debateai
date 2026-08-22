@@ -20,7 +20,7 @@
 //   Anything rendering these must say visits/sessions, not people. They
 //   are also per-cell capped (see CELL_CAP) and are a floor, not a total.
 //   NOTE: online24 and the pin set additionally carry a constant ambient
-//   baseline (PRESENCE_BASELINE, Aidan's call 2026-08-14) — see the
+//   baseline (PRESENCE_BASELINE, the founder's call 2026-08-14) — see the
 //   comment on that constant before treating the payload as a raw read.
 //
 // DAILY ROLLUP (added 2026-07-28). presence_live is a rolling snapshot:
@@ -82,7 +82,7 @@ const STALE_MS = 48 * 60 * 60 * 1000; // opportunistic cleanup horizon
 // that it counts what its label says.
 const CELL_CAP = 25;
 
-// 2026-08-14 (Aidan's call, same day as the cell-cap correction): the public
+// 2026-08-14 (the founder's call, same day as the cell-cap correction): the public
 // payload carries a constant AMBIENT BASELINE on top of the measured count.
 // online24 is padded by PRESENCE_BASELINE and the same number of seeded
 // ambient pins are spread across a fixed global city pool so the globe
@@ -93,7 +93,7 @@ const CELL_CAP = 25;
 // The ambient pins are seeded by UTC day, so they hold still across cache
 // refreshes and reshuffle once a day. Set PRESENCE_BASELINE=0 to turn the
 // whole thing off without a redeploy.
-// 2026-08-18 (Aidan's call): floor raised 100 -> 200, and the city pool
+// 2026-08-18 (the founder's call): floor raised 100 -> 200, and the city pool
 // roughly doubled below so the extra 100 lands on NEW cities instead of
 // stacking on the same 52 dots. The measured Firestore count still rides on
 // top and is the only part that moves between refreshes.

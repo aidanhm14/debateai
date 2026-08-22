@@ -246,7 +246,7 @@
     });
     row.appendChild(copy);
 
-    // 2026-08-11: the Download poster button was removed per Aidan. The
+    // 2026-08-11: the Download poster button was removed per the founder. The
     // `image` argument is still accepted and still rides the share intents
     // (it is what a link unfurls with), so restoring the button is adding
     // this block back rather than re-threading the poster through.

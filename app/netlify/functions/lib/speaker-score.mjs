@@ -11,7 +11,7 @@
 // the two disagree in public. Measured on a real published round on
 // 2026-08-21: the axes read 8/8/8/7/8 against 4/3/3/2/3, which is a
 // rout, and the headline read 28.5 against 25.4, which reads as a
-// squeaker. Aidan looked at that card and said the round was not close.
+// squeaker. the founder looked at that card and said the round was not close.
 // He was right, and the ballot was arguing with itself on screen.
 //
 // So the headline is no longer an opinion. It is the weighted mean of

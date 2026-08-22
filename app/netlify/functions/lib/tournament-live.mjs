@@ -14,7 +14,7 @@
 // assumes everyone plays the same number of rounds, which is the exact
 // assumption a drop-in day breaks.
 //
-// THE POINTS MODEL (Aidan's call, 2026-08-11)
+// THE POINTS MODEL (the founder's call, 2026-08-11)
 // Standings are cumulative points, not a win count. Each round pays a
 // win bonus plus the speaker score above a baseline, so nine strong
 // rounds beat two thin wins and a much better speaker who lost a close

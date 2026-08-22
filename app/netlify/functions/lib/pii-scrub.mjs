@@ -32,7 +32,7 @@ const PATTERNS = [
   // Explicit self-identification. Conservative: only fires on a clear cue verb
   // followed by a Capitalized token (optionally First Last). Catches the most
   // common real-name leak in voice rounds ("my name is Priya Sharma", "I'm
-  // Aidan") without touching "I am arguing", "this is true", etc.
+  // the founder") without touching "I am arguing", "this is true", etc.
   [/\b(?:[Mm]y name is|[Ii] am|[Ii]'m|[Tt]his is|[Nn]ame's)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g, (m, name) => {
     // Don't redact if the "name" is a sentence-continuation common word.
     const STOP = /^(I|A|The|This|That|We|They|You|It|He|She|Going|Here|Now|Not|Just|Really|Actually|Arguing|Saying|Talking|Trying|About|Sure|Certain|Right|Wrong|Confident|Glad|Happy|Sorry|Afraid)$/;

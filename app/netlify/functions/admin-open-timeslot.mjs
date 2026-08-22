@@ -54,7 +54,7 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
-                 || 'Aidan at Debatable <aidan@debateai.com>';
+                 || 'Debatable <hello@debateai.com>';
 // The ask IS the reply, so this has to reach a person who reads it.
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
@@ -95,7 +95,7 @@ function renderEmail({ firstName, uid, tournamentName }) {
     say what does and I'll try to match it.
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Aidan</p>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   ${renderFooter({
     uid,

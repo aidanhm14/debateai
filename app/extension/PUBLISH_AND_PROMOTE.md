@@ -56,7 +56,7 @@ each lives in the numbered sections below; this is the spine.
 1. **Pay the $5 developer fee.**
    - Go to https://chrome.google.com/webstore/devconsole/register
    - Sign in with a Google account you want associated with the publisher
-     identity. Aidan's main is fine; the publisher name shows on the
+     identity. the founder's main is fine; the publisher name shows on the
      listing as "Debatable" (set in the developer profile).
    - Pay the one-time $5 USD fee. Approval is instant.
 
@@ -293,7 +293,7 @@ After each post, watch for:
 - [ ] **YouTube Short, Hindi variant** — same day. Different title:
   "Apne notes par viva practice kar — ekdam page se."
 - [ ] **X / Twitter** — pin the demo as a tweet on @Debatable.
-  Quote-tweet from Aidan's personal handle with the founder angle
+  Quote-tweet from the founder's personal handle with the founder angle
   ("built this because I lost a viva I had nailed in writing.").
 - [ ] **Producthunt** — schedule a Tuesday launch (Tue/Wed get the
   best traction). Hunter outreach 5 days before launch day.

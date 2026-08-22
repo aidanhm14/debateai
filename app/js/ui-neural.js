@@ -12,7 +12,7 @@
   var ctx=c.getContext('2d');
   var nodes=[],edges=[],pulses=[];
   // Render at full Retina (DPR=2) for the wide, high-resolution look.
-  // Chrome-specific density cuts were rolled back — Aidan's read is
+  // Chrome-specific density cuts were rolled back — the founder's read is
   // that the constellation isn't the FPS bottleneck, and the lower
   // density made the field feel sparse at desktop widths. Zero-cost
   // wins (frame cap, offscreen pause, single-stroke batching) stay in.

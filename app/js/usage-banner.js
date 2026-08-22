@@ -63,10 +63,10 @@
     rootEl.id = 'da-usage-banner';
     // 2026-05-26 (rev2): banner moved off center entirely. At top:60
     // center the cap-reached pill was overlapping the hero headline
-    // (the old repeated brand mantra) in Aidan's screenshot,
+    // (the old repeated brand mantra) in the founder's screenshot,
     // both were center-anchored, both at similar vertical positions
     // on a 1440x900 viewport. Moved to top-right corner so it sits
-    // contextually near the user-avatar / "Aidan OUT" cluster in the
+    // contextually near the user-avatar / "the founder OUT" cluster in the
     // topbar (which is where "your usage" mentally belongs) and out
     // of the hero headline column entirely.
     rootEl.style.cssText = [
