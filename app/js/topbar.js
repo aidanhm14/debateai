@@ -2131,6 +2131,21 @@
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
+/* The chooser that feeds audience-mode.js. It reads
+   debateos-experience and, until 2026-08-22, nothing on a page a
+   stranger actually lands on ever set it: the only prompts were one
+   line below the fold on the landing and the post-signup onboarding
+   card. Injected here so the question reaches every topbar page;
+   experience-ask.js decides on its own whether to render (already
+   answered, already dismissed, or a page where a round is running). */
+(function(){
+  if (window.__daExperienceAsk || document.querySelector('script[src*="/js/experience-ask.js"]')) return;
+  var s = document.createElement('script');
+  s.src = '/js/experience-ask.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();
+
 /* ── The Debatable Open countdown strip ─────────────────────────
    One-line dismissible strip pinned above the topbar on every page
    that loads this file. Uses the dormant .ui-beta-strip CSS in
