@@ -4338,7 +4338,10 @@ html.stage-mode .stage-ov{display:block}
   // segments so multiple pauses still produce a correct durationSec.
   function getElapsed(){
     if (state.timerState === 'running'){
-      return state.timerElapsed + (Date.now() - state.timerStart) / 1000;
+      // Never negative: a mirrored timer whose startMs came from a peer
+      // clock ahead of ours would otherwise render MORE time than the
+      // speech has (a real round showed 5:14 / 5:00 on the off-side).
+      return Math.max(0, state.timerElapsed + (Date.now() - state.timerStart) / 1000);
     }
     return state.timerElapsed;
   }
@@ -4432,11 +4435,11 @@ html.stage-mode .stage-ov{display:block}
 
   // Mirror the active speaker's timer to the round doc so the off-side
   // (and spectators) can render the same elapsed clock locally. We use
-  // client-clock timestamps; both browsers are usually within a couple
-  // of seconds and this isn't latency-sensitive enough for a server
-  // timestamp round-trip. Off-side reconstructs elapsed = accumulatedMs
-  // + (Date.now() - startMs) when state==='running', accumulatedMs
-  // alone when state==='paused' or 'ready'.
+  // client-clock timestamps; real machines have been measured 22s apart,
+  // so the off-side rebases startMs against updatedAtMs on receipt (see
+  // applyRemoteTimer) instead of trusting the raw value. Off-side
+  // reconstructs elapsed = accumulatedMs + (Date.now() - rebased start)
+  // when state==='running', accumulatedMs alone when 'paused'/'ready'.
   function publishTimerState(){
     if (isSpectator()) return;
     if (!isMyTurn()) return;
@@ -4464,10 +4467,29 @@ html.stage-mode .stage-ov{display:block}
   function applyRemoteTimer(t){
     if (!t || typeof t !== 'object') return;
     if (t.speechIdx !== state.speechIdx) return; // stale from a prior speech
+    // startMs/updatedAtMs are the ACTIVE SPEAKER'S Date.now(), and real
+    // client clocks disagree by more than the "couple of seconds" the
+    // publish comment hopes for: a live round shipped a 22-second skew,
+    // so the off-side clock read 5:14 / 5:00 and ran 22s apart from the
+    // recording board all speech. updatedAtMs was stamped in the same
+    // write as startMs, so (our now - updatedAtMs) AT DELIVERY is that
+    // skew plus snapshot latency; rebasing startMs by it cancels the
+    // skew to within the latency. Measured once per DISTINCT payload —
+    // the round snapshot re-delivers the same currentTimer on every
+    // unrelated doc write, and re-measuring against an aged stamp would
+    // grow the "skew" by the age of the payload.
+    var tKey = [t.speechIdx, t.state, t.startMs, t.accumulatedMs, t.updatedAtMs].join('|');
+    if (tKey !== state.remoteTimerKey){
+      state.remoteTimerKey = tKey;
+      state.remoteTimerSkewMs = (t.state === 'running' && typeof t.updatedAtMs === 'number' && t.updatedAtMs > 0 && t.startMs)
+        ? (Date.now() - t.updatedAtMs) : 0;
+    }
     state.timerTotalSec = t.totalSec || state.timerTotalSec;
     state.timerState = t.state || 'ready';
     state.timerElapsed = (t.accumulatedMs || 0) / 1000;
-    state.timerStart = t.state === 'running' ? (t.startMs || Date.now()) : 0;
+    state.timerStart = t.state === 'running'
+      ? (t.startMs ? t.startMs + (state.remoteTimerSkewMs || 0) : Date.now())
+      : 0;
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
     if (state.timerState === 'running'){
       state.timerInterval = setInterval(drawTimer, 200);
@@ -6697,6 +6719,7 @@ html.stage-mode .stage-ov{display:block}
     call:null, wrap:null, stage:null, aud:null, tray:null, note:null,
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
     micOn:true, sharing:false, canFlip:false, facing:'user',
+    remoteSeats:0, everHadRemote:false,
   };
 
   function setRoomNote(msg){
@@ -7045,7 +7068,24 @@ html.stage-mode .stage-ov{display:block}
     room.sharing = !!(local && trackOf(local.tracks && local.tracks.screenVideo)) && !room.boardLocal;
     if (local && local.tracks && local.tracks.audio) room.micOn = local.audio !== false;
     paintTray();
-    if (room.joined) setRoomNote(seats.length > 1 ? '' : 'Waiting for the other debater to join.');
+    // Live participant truth feeds the presence prompts: the round doc's
+    // 30s seat beat can lag a real join by several seconds, and the
+    // "Looking for your debater" strip has sat on screen while the
+    // opponent was already on camera. Audience cams were split out of
+    // `seats` above, so a remote seat here is a debater.
+    var remoteSeats = seats.filter(function(p){ return !p.local; }).length;
+    if (remoteSeats > 0) room.everHadRemote = true;
+    if (room.remoteSeats !== remoteSeats){
+      room.remoteSeats = remoteSeats;
+      try { checkOpponentPresence(); } catch(e){}
+    }
+    // "Waiting to join" is wrong once someone HAS been here: an opponent
+    // who drops mid-round gets a message that says what happened instead
+    // of the fresh-room copy.
+    if (room.joined) setRoomNote(seats.length > 1 ? ''
+      : (room.everHadRemote
+        ? 'Your opponent’s connection dropped. Their seat is held; they can rejoin from the same link.'
+        : 'Waiting for the other debater to join.'));
   }
   // Front/rear switch. The published track is the DebateCam canvas, so a
   // flip cannot go through Daily's device picker: it has to rebuild the
@@ -9708,6 +9748,19 @@ html.stage-mode .stage-ov{display:block}
       return 'the other debater';
     }
 
+    // "Either side can edit until Speech 1" means until the first speech
+    // STARTS, and the old gate (speechIdx > 0) only locked after it
+    // ENDED: a real round had its motion swapped mid-constructive when
+    // the opponent accepted a proposal while the proposer's speech was
+    // already on the clock, so the speaker was arguing a resolution the
+    // board no longer showed. timerState mirrors to the off-side via
+    // applyRemoteTimer, so both benches and spectators agree on the lock.
+    function motionLocked(){
+      if (state.phase !== 'round') return false;
+      if (state.speechIdx > 0) return true;
+      return state.timerState !== 'ready';
+    }
+
     // Ask for a change. The proposer's own acceptance is implied by
     // proposing, so it is stamped here rather than making them press
     // accept on their own idea.
@@ -9715,6 +9768,10 @@ html.stage-mode .stage-ov{display:block}
       var ref = proposalRef();
       var uid = myUid();
       if (!ref || !uid) return false;
+      if (motionLocked()){
+        toast('The resolution locked when the first speech started.');
+        return false;
+      }
       var accepts = {};
       accepts[uid] = true;
       var payload = {
@@ -9751,6 +9808,14 @@ html.stage-mode .stage-ov{display:block}
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         }).catch(function(){});
         try { gtag('event', 'live_round_motion_declined'); } catch(e){}
+        return;
+      }
+      // Accepting after the first speech started would commit a motion
+      // change onto a contest already underway; the proposal is dropped
+      // instead (renderMotionProposal clears it) and the round keeps the
+      // resolution both sides walked in arguing.
+      if (motionLocked()){
+        toast('The speech already started, so the round keeps the current resolution.');
         return;
       }
       var patch = {};
@@ -9794,6 +9859,26 @@ html.stage-mode .stage-ov{display:block}
       var accepts = (d && d.motionProposalAccepts) || {};
       var seats = seatUids();
       var pending = seats.filter(function(u){ return accepts[u] !== true; });
+
+      // A proposal still open when the first speech starts is DROPPED,
+      // not parked: leaving the banner up under a running speech offers
+      // an accept that must no longer be honoured, and a late second
+      // acceptance would swap the motion mid-speech (it happened in a
+      // real round). Either participant observing clears it; the write
+      // is the same one decline makes, so it is idempotent.
+      if (motionLocked()){
+        box.hidden = true;
+        if (!isSpectator() && myUid()){
+          var lockRef = proposalRef();
+          if (lockRef) lockRef.update({
+            motionProposal: firebase.firestore.FieldValue.delete(),
+            motionProposalAccepts: {},
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }).catch(function(){});
+          try { gtag('event', 'live_round_motion_dropped_at_start'); } catch(e){}
+        }
+        return;
+      }
 
       // Both in: commit. Only one client needs to win this race; the
       // write is idempotent, so a double-commit is harmless.
@@ -9857,6 +9942,11 @@ html.stage-mode .stage-ov{display:block}
     // when there is not.
     function setMotion(text, source){
       if (!text || text === state.motion) return;
+      if (motionLocked()){
+        toast('The resolution locked when the first speech started.');
+        var mdL = $('rmbMotion'); if (mdL) mdL.textContent = state.motion || '(motion not set)';
+        return;
+      }
       if (bothSeatsIdentified() && !isSpectator() && myUid()){
         proposeMotion(text, source);
         toast('Change proposed. It takes effect when ' + nameForUid(
@@ -9903,7 +9993,7 @@ html.stage-mode .stage-ov{display:block}
     });
     var rfs = $('roundFormatSel');
     if (rfs) rfs.addEventListener('change', function(){
-      if (isSpectator() || state.speechIdx > 0 || !FORMATS[this.value]){ this.value = state.formatKey; return; }
+      if (isSpectator() || motionLocked() || !FORMATS[this.value]){ this.value = state.formatKey; return; }
       state.formatKey = this.value;
       var fsMain = $('formatSel'); if (fsMain) fsMain.value = this.value;
       var pl = $('phaseLabel');
@@ -9939,7 +10029,7 @@ html.stage-mode .stage-ov{display:block}
     }
     var gmBtn = $('rebGenMotion');
     if (gmBtn) gmBtn.addEventListener('click', function(){
-      if (isSpectator() || state.speechIdx > 0) return;
+      if (isSpectator() || motionLocked()) return;
       var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
       var m = pool[Math.floor(Math.random()*pool.length)] || SPAR_MOTIONS[0];
       // Rolling a fresh motion is the same change of contest as typing
@@ -9957,7 +10047,7 @@ html.stage-mode .stage-ov{display:block}
     });
     var gbBtn = $('rebGenBrief');
     if (gbBtn) gbBtn.addEventListener('click', function(){
-      if (isSpectator() || state.speechIdx > 0) return;
+      if (isSpectator() || motionLocked()) return;
       if (!state.motion){ toast('Set a resolution first.'); return; }
       genBriefRound(state.motion, gbBtn);
       try { gtag('event','live_round_gen_brief_inround'); } catch(e){}
@@ -12246,6 +12336,11 @@ html.stage-mode .stage-ov{display:block}
     // everyone. This makes the feature degrade safely.
     if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); hideLooking(); return; }
     if (state.seatSeen[oppUid]) { hideNoShow(); hideLooking(); return; }
+    // The Daily room is ground truth ahead of the doc beat: a remote
+    // debater already on camera is present, whatever the 30s seat
+    // heartbeat has round-tripped so far. Without this the strip said
+    // "Looking for your debater" over a live picture of them.
+    if (room && room.remoteSeats > 0) { hideNoShow(); hideLooking(); return; }
     // Opponent genuinely not here yet. The first ~28s is the normal case
     // (they are still navigating in from /spar), so it gets a calm
     // "still looking" strip rather than the alarm. Only after the grace

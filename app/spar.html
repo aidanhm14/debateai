@@ -2028,6 +2028,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+  // Display names routinely end in a period ("Ren D."), so a heading
+  // that appends its own sentence punctuation renders "Ren D..". Use
+  // this instead of a literal '.' after any name slot.
+  function nameDot(n){
+    return /[.!?]\s*$/.test(String(n||'')) ? '' : '.';
+  }
   function currentPublicAvatarIdentity(){
     try {
       if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
@@ -3617,7 +3623,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       shell.innerHTML =
         '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80;opacity:0;transition:opacity .4s ease"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
         avatarMarkup(peerAvatar, 'match-avatar', '', peerName || 'Debater', '') +
-        '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'your opponent') + '</em>.</h1>' +
+        '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'your opponent') + '</em>' + nameDot(peerName || 'your opponent') + '</h1>' +
         '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
         '<div class="orb-wrap matched" id="orbWrap" style="opacity:0;transition:opacity .4s ease .24s"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
         '<div class="status" style="opacity:0;transition:opacity .4s ease .32s">Loading round…</div>';
@@ -4212,7 +4218,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="consent-wrap mf mf-wait" id="consentCard">' +
           '<div class="eyebrow"><span class="pip"></span>Awaiting opponent</div>' +
           faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { window: true, phase: true }) +
-          '<h1>Waiting on <em>' + peerName + '.</em></h1>' +
+          '<h1>Waiting on <em>' + peerName + '</em>' + nameDot(peerName) + '</h1>' +
           '<p class="lede">' + (crossFmt
             ? 'You\'re in. They\'re confirming the <strong>' + fmtLabel + '</strong> round, and it starts the second they do.'
             : (myNote
