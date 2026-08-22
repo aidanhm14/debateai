@@ -567,7 +567,13 @@ button,input,select,textarea{font-family:inherit}
    "Sign out" treatment. The prior red-filled pill stole hierarchy
    from the actual primary CTAs (Teach AI / MANAGE) and made the
    whole right edge of the bar feel red-heavy. */
-.topbar-signout{background:transparent;border:none;color:var(--text-dim,rgba(255,255,255,.6));font-size:.68rem;font-weight:500;padding:0 0 0 4px;cursor:pointer;font-family:inherit;letter-spacing:.04em;transition:color .2s}
+/* nowrap + no shrink, for the same reason the beta strip needed it:
+   .app-topbar-right is a nowrap flex row, so a cramped bar shrinks
+   this button below its text, "Sign Out" wraps to two lines, and
+   the 52px bar clips the first one. What renders is the word
+   "Out" sitting next to the account name, which reads as a status
+   label rather than an action. Seen on production 2026-08-22. */
+.topbar-signout{background:transparent;border:none;color:var(--text-dim,rgba(255,255,255,.6));font-size:.68rem;font-weight:500;padding:0 0 0 4px;cursor:pointer;font-family:inherit;letter-spacing:.04em;transition:color .2s;white-space:nowrap;flex-shrink:0}
 .topbar-signout:hover{color:var(--text,#fff)}
 .topbar-signin{font-size:.75rem;font-weight:500;color:rgba(255,255,255,.68);cursor:pointer;padding:4px 8px;border-radius:10px;transition:.2s;background:none;border:none;font-family:inherit}
 .topbar-signin:hover{color:rgba(255,255,255,.7);background:rgba(255,255,255,.06)}
@@ -4301,6 +4307,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4316,8 +4323,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');
-  t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');
   t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');
   t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');
   t = t.replace(/\n/g, '<br>');
@@ -17778,6 +17784,11 @@ function App() {
       transition: '.2s',
       display: 'inline-flex',
       alignItems: 'center',
+      // Same nowrap rule as .topbar-signout beside it: this sits in a
+      // nowrap flex row, and a pill that shrinks wraps "Manage" off the
+      // name and gets half of it clipped by the 52px bar.
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
       gap: 6
     },
     onMouseEnter: (e) => {e.currentTarget.style.background = 'linear-gradient(135deg,#ef444428,#f59e0b28)';e.currentTarget.style.borderColor = 'rgba(239,68,68,.55)';},

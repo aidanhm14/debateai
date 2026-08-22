@@ -185,9 +185,27 @@ time,table,[class*="timer"],[class*="score"],[class*="count"],[class*="stat"],[c
 ::selection{background:var(--accent-solid,#b91c1c);color:#fff}
 
 /* ── Beta strip (fixed, top of every page) ───────────────── */
+/* HEIGHT IS PINNED AND THE TEXT NEVER WRAPS, and both halves of that
+   are load-bearing rather than tidy. body.has-beta-strip reserves
+   exactly 32px below, and this strip had no height and no nowrap, so
+   the moment the copy was a few characters too long for the viewport it
+   wrapped to two lines, stood ~45px tall, and overflowed its own
+   reservation. What a visitor saw was the SECOND line, starting
+   mid-word: "ebatable Open · Free to enter..." with the prize and the
+   date, the two facts the strip exists to carry, scrolled off above the
+   top of the bar. Measured on production 2026-08-22.
+
+   So: one line, always, clipped at the END. The anchor is an
+   inline-block capped at the strip width, which truncates from the tail
+   with an ellipsis instead of centring an over-wide line and cutting
+   both ends off it. The hook (prize, then date) is authored first
+   precisely so it is the part that survives. */
 .ui-beta-strip{
   position:fixed;top:0;left:0;right:0;z-index:10000;
-  padding:6px 36px 6px 14px;text-align:center;
+  height:32px;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 36px 0 14px;text-align:center;
+  overflow:hidden;white-space:nowrap;
   font-size:.72rem;color:#fff;font-weight:600;letter-spacing:.02em;
   /* Fully opaque — earlier alpha of `dd` let hero content bleed through when it scrolled under */
   background:#b91c1c;
@@ -195,7 +213,11 @@ time,table,[class*="timer"],[class*="score"],[class*="count"],[class*="stat"],[c
   font-family:var(--font-body);line-height:1.4;
   box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
-.ui-beta-strip a{color:#fff;text-decoration:underline;font-weight:800}
+.ui-beta-strip a{
+  color:#fff;text-decoration:underline;font-weight:800;
+  display:inline-block;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .ui-beta-strip-dismiss{
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
   background:transparent;border:none;color:#fff;opacity:.7;
