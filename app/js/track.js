@@ -564,6 +564,25 @@
     return false;
   }
 
+  // GA4 knows nothing about Firebase accounts unless we tell it: no
+  // page ever set a user_id or a user property, so every GA4 report
+  // reads as 100% anonymous cookies and "new users" means first-time
+  // device, not new account. Stamp every hit with a user-scoped
+  // account_type (named account vs anonymous/guest device) and, for
+  // named accounts, the Firebase uid as user_id. The uid is a
+  // pseudonymous id, never an email. Pages without the GA snippet
+  // no-op (the wrapped gtag forwards to nothing). account_type must
+  // also be registered once in GA4 admin as a user-scoped custom
+  // dimension before it appears in reports.
+  function stampGaIdentity(user) {
+    try {
+      if (typeof window.gtag !== 'function') return;
+      var named = !!(user && !user.isAnonymous);
+      window.gtag('set', 'user_properties', { account_type: named ? 'named' : 'anon' });
+      window.gtag('set', { user_id: named ? user.uid : null });
+    } catch (e) {}
+  }
+
   async function init() {
     // Fire end on tab close / navigate away. Registered BEFORE the
     // await so a page unloaded during the Firebase fetch still closes
@@ -582,6 +601,7 @@
     await ensureFirebase();
     firebase.auth().onAuthStateChanged(function (user) {
       currentUser = user && !user.isAnonymous ? user : null;
+      stampGaIdentity(user);
       fireLifecycle();
       // Heartbeat stays signed-in only. See the note above.
       if (!currentUser) return;

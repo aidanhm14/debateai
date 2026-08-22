@@ -310,6 +310,21 @@
       localStorage.setItem('debateos-last-signin-method', fam);
     } catch (e) {}
     track('sign_in_complete', { method: method });
+    // Fire sign_up when this completion created the account, so GA4
+    // can tell a new account from a returning sign-in (nothing else on
+    // the shared modal ever fired one). The signup method string is
+    // explicit for email/password; every other provider is detected
+    // from Auth metadata: an account created within the last 10
+    // minutes is new. That window also catches an anonymous uid minted
+    // this visit and then linked, which IS a new account. Known
+    // undercount, accepted: a days-old guest who finally links records
+    // only sign_in_complete.
+    try {
+      var u = firebase.auth().currentUser;
+      var createdMs = u && u.metadata && u.metadata.creationTime ? Date.parse(u.metadata.creationTime) : NaN;
+      var isNew = /signup/.test(method) || (isFinite(createdMs) && (Date.now() - createdMs) < 10 * 60 * 1000);
+      if (isNew) track('sign_up', { method: method });
+    } catch (e) {}
     if (handOff(method)) return;
     window.location.href = window.__DB_NATIVE ? '/native' : destination();
   }
