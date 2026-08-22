@@ -2232,3 +2232,208 @@
   if (document.body) mount();
   else document.addEventListener('DOMContentLoaded', mount);
 })();
+
+/* ── The Debatable Open: one modal, 30 seconds in ────────────────
+   Aidan, 2026-08-22: "advertise it as a pop up 30 seconds in to all
+   users." Shipped alongside the removal of the landing's first-screen
+   Open card, which he retired in the same breath ("the line at the top
+   resolves it"), so the event now reaches people through the passive
+   strip above and this one active interruption, and not at all on the
+   first screen.
+
+   A modal is the most expensive thing a site can spend on a visitor, so
+   every rule below is about spending it once and spending it on the
+   right moment. Read them before loosening any of them.
+
+   NEVER fires:
+   - more than once per person, ever. sessionStorage would make it a
+     nag that returns tomorrow; localStorage makes it an announcement.
+     Dismissing IS the answer, and it is remembered.
+   - on a surface where the visitor is mid-task. A round, a voice call,
+     a queue, the tab room, checkout: covering any of those with a
+     tournament ad is worse than not advertising at all.
+   - to somebody who already entered (the entry page stamps
+     `da-open-entered`), or who dismissed the strip about this same
+     event in this session. Both are people who have already answered.
+   - in the iOS shell. Same reason the strip is hidden there: cash-prize
+     copy stays out of the App Store build (Apple 3.1.1).
+   - while the visitor is typing. A modal that steals focus mid-sentence
+     costs a sentence.
+
+   The 30 seconds are VISIBLE seconds. A backgrounded tab accrues
+   nothing, so a page left open in another window does not "read" for
+   half an hour and get interrupted the moment it is looked at. Same
+   discipline as the presence gate (2026-08-14): dwell means dwell.
+
+   Self-retiring on the same clock as the strip. */
+(function(){
+  if (window.__daOpenModal) return;
+  window.__daOpenModal = 1;
+
+  var DWELL_MS = 30000;
+  var SEEN_KEY = 'da-open-modal-seen';
+  var ENTERED_KEY = 'da-open-entered';
+  var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
+  var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
+
+  // Surfaces where an interruption lands on top of something the person
+  // is actually doing. Wider than the strip's skip list on purpose: the
+  // strip is a line they can ignore, this takes the screen.
+  var SKIP = /^\/(tournaments|tournament-rules|tournament|open|unblock|live-round|voice-debate|newvoice|room-judge|casual-room|spar|debate-chat|partners|exhibition|coach|watch|w|pricing|admin)(\/|$)/;
+
+  if (Date.now() > EVENT_OVER) return;
+  if (document.documentElement.classList.contains('dbnative')) return;
+
+  var path = (location.pathname || '/').replace(/\.html$/, '').replace(/\/$/, '') || '/';
+  if (SKIP.test(path)) return;
+
+  try {
+    if (localStorage.getItem(SEEN_KEY) === '1') return;
+    if (localStorage.getItem(ENTERED_KEY) === '1') return;
+  } catch (e) {}
+
+  function ev(name, meta){
+    try { if (typeof window.track === 'function') window.track(name, meta || {}); } catch (e) {}
+    try { if (typeof gtag === 'function') gtag('event', name, meta || {}); } catch (e) {}
+  }
+
+  // Someone who closed the ribbon about this event 20 seconds ago has
+  // answered the question. Checked at fire time rather than at load,
+  // because the dismissal usually happens during the wait.
+  function stripDismissed(){
+    try { return sessionStorage.getItem('da-open-strip-dismissed') === '1'; } catch (e) { return false; }
+  }
+  function isTyping(){
+    var el = document.activeElement;
+    if (!el) return false;
+    var tag = (el.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable === true;
+  }
+
+  var visibleMs = 0, last = Date.now(), timer = null, fired = false;
+
+  function tick(){
+    var now = Date.now();
+    if (!document.hidden) visibleMs += now - last;
+    last = now;
+    if (visibleMs < DWELL_MS) return;
+    // Ready, but not at any cost: a person mid-sentence keeps the floor
+    // and gets it on the next tick after they stop.
+    if (isTyping()) return;
+    clearInterval(timer);
+    if (stripDismissed()) return;
+    show();
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    var now = Date.now();
+    if (!document.hidden) { last = now; return; }
+    visibleMs += now - last;
+    last = now;
+  });
+
+  function show(){
+    if (fired || document.querySelector('.ui-open-modal')) return;
+    fired = true;
+    try { localStorage.setItem(SEEN_KEY, '1'); } catch (e) {}
+
+    var reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+    var css = document.createElement('style');
+    css.textContent =
+      '.ui-open-modal{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;' +
+        'background:rgba(12,12,14,.62);backdrop-filter:blur(3px);' + (reduce ? '' : 'animation:uiOpenFade .18s ease-out') + '}' +
+      '@keyframes uiOpenFade{from{opacity:0}to{opacity:1}}' +
+      '@keyframes uiOpenRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}' +
+      // max-height + scroll rather than a shorter card: a landscape
+      // phone or a short window would otherwise push the CTA off the
+      // bottom, which turns a modal into a dead end with no visible way
+      // out except Escape.
+      '.ui-open-card{position:relative;width:100%;max-width:432px;background:#fdfbf7;color:#1a1a1c;border-radius:18px;' +
+        'max-height:calc(100vh - 40px);overflow-y:auto;' +
+        'padding:30px 28px 24px;box-shadow:0 24px 64px rgba(0,0,0,.34);' +
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-align:left;' +
+        (reduce ? '' : 'animation:uiOpenRise .22s cubic-bezier(.2,.7,.3,1)') + '}' +
+      '.ui-open-tag{display:inline-block;background:#b91c1c;color:#fff;font-size:.7rem;font-weight:800;letter-spacing:.11em;' +
+        'text-transform:uppercase;padding:6px 12px;border-radius:999px;margin:0 0 16px}' +
+      '.ui-open-h{margin:0 0 10px;font-size:1.6rem;line-height:1.16;font-weight:800;letter-spacing:-.02em}' +
+      '.ui-open-p{margin:0 0 8px;font-size:.98rem;line-height:1.55;color:#4a4a52}' +
+      '.ui-open-fine{margin:0 0 20px;font-size:.8rem;line-height:1.5;color:#6f6f79}' +
+      '.ui-open-go{display:block;width:100%;box-sizing:border-box;text-align:center;background:#b91c1c;color:#fff;' +
+        'font-size:1rem;font-weight:800;padding:14px 18px;border-radius:12px;text-decoration:none;border:0;cursor:pointer}' +
+      '.ui-open-go:hover{background:#991b1b}' +
+      '.ui-open-no{display:block;width:100%;margin-top:10px;background:none;border:0;color:#6f6f79;' +
+        'font-size:.88rem;font-weight:600;padding:9px;cursor:pointer;font-family:inherit}' +
+      '.ui-open-no:hover{color:#1a1a1c;text-decoration:underline}' +
+      '.ui-open-x{position:absolute;top:12px;right:12px;width:32px;height:32px;border:0;background:none;' +
+        'color:#8a8a94;font-size:1.35rem;line-height:1;cursor:pointer;border-radius:8px}' +
+      '.ui-open-x:hover{background:rgba(0,0,0,.06);color:#1a1a1c}' +
+      '@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ui-open-card{background:#1c1c1f;color:#f5efe7}' +
+        ':root:not([data-theme="light"]) .ui-open-p{color:rgba(245,239,231,.76)}' +
+        ':root:not([data-theme="light"]) .ui-open-fine{color:rgba(245,239,231,.58)}' +
+        ':root:not([data-theme="light"]) .ui-open-no{color:rgba(245,239,231,.6)}' +
+        ':root:not([data-theme="light"]) .ui-open-no:hover{color:#f5efe7}}' +
+      ':root[data-theme="dark"] .ui-open-card{background:#1c1c1f;color:#f5efe7}' +
+      ':root[data-theme="dark"] .ui-open-p{color:rgba(245,239,231,.76)}' +
+      ':root[data-theme="dark"] .ui-open-fine{color:rgba(245,239,231,.58)}' +
+      ':root[data-theme="dark"] .ui-open-no{color:rgba(245,239,231,.6)}' +
+      'html.dbnative .ui-open-modal{display:none !important}' +
+      '@media (max-width:420px){.ui-open-card{padding:26px 20px 20px}.ui-open-h{font-size:1.42rem}}';
+    document.head.appendChild(css);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'ui-open-modal';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'uiOpenH');
+    var today = Date.now() >= EVENT_DAY;
+    wrap.innerHTML =
+      '<div class="ui-open-card">' +
+        '<button type="button" class="ui-open-x" aria-label="Close">&times;</button>' +
+        '<span class="ui-open-tag">' + (today ? 'Today' : 'Sat Aug 29') + '</span>' +
+        '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
+        '<p class="ui-open-p">The Debatable Open is a one day online tournament. You turn up whenever suits you, get paired with a real person, and every round ends with a written verdict. $100 for first, $50 for second, $25 for third.</p>' +
+        '<p class="ui-open-fine">Free to enter, no card at any point. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
+        '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
+        '<button type="button" class="ui-open-no">Not interested</button>' +
+      '</div>';
+
+    var prevFocus = document.activeElement;
+    var prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.appendChild(wrap);
+
+    var go = wrap.querySelector('.ui-open-go');
+    go.focus({ preventScroll: true });
+    ev('open_modal_shown', { path: path });
+
+    function close(how){
+      document.removeEventListener('keydown', onKey, true);
+      document.body.style.overflow = prevOverflow;
+      wrap.remove();
+      try { if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true }); } catch (e) {}
+      ev('open_modal_dismiss', { path: path, how: how });
+    }
+    // Focus stays inside while it is open, and Escape always closes it.
+    // A modal you cannot tab out of and cannot escape is a trap; one you
+    // can tab behind is a modal in name only.
+    function onKey(e){
+      if (e.key === 'Escape') { e.preventDefault(); close('escape'); return; }
+      if (e.key !== 'Tab') return;
+      var f = wrap.querySelectorAll('a[href],button');
+      if (!f.length) return;
+      var first = f[0], lastEl = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastEl.focus(); }
+      else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener('keydown', onKey, true);
+
+    wrap.querySelector('.ui-open-x').addEventListener('click', function(){ close('x'); });
+    wrap.querySelector('.ui-open-no').addEventListener('click', function(){ close('no'); });
+    wrap.addEventListener('click', function(e){ if (e.target === wrap) close('backdrop'); });
+    go.addEventListener('click', function(){ ev('open_modal_click', { path: path }); });
+  }
+
+  timer = setInterval(tick, 1000);
+})();

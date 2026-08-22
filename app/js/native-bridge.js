@@ -124,6 +124,7 @@
       'html.dbnative [data-native-hide],' +
       'html.dbnative .upgrade-cta,' +
       'html.dbnative .ui-beta-strip,' +
+      'html.dbnative .ui-open-modal,' +
       'html.dbnative .beta-strip,' +
       'html.dbnative a[href*="/pricing"],' +
       'html.dbnative a[href*="checkout"],' +
