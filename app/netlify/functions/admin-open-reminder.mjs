@@ -4,6 +4,28 @@
  * final days before the event (Saturday, August 29), to the same list
  * the announcement reached plus everyone who joined since.
  *
+ * 2026-08-22, Aidan: send a reminder "saying reward has gone down bc
+ * lack of participants, unless it goes above 50. help spread the word,
+ * any ideas, feedback for product etc". So this is no longer only a
+ * reminder. It carries a prize change, an ask to bring one person, and
+ * an open question about the product, in that order.
+ *
+ * Three things that follow from carrying a prize change, and each is
+ * the reason for a line of code below:
+ *   - ENTRANTS ARE MAILED. This function used to skip them, on the
+ *     sound reasoning that "come and enter" is noise to someone who
+ *     entered. A pot that moved is not noise to them, it is the news
+ *     they have the most standing to hear, so they get their own
+ *     opening and their own ask instead of being dropped.
+ *   - THE NUMBERS ARE READ, NOT TYPED. The field size and the pot come
+ *     off the live tournament doc at send time, which is the same doc
+ *     /tournaments renders. An email is the one surface that cannot be
+ *     corrected after the fact, so it must not be able to quote a
+ *     figure the page disagrees with.
+ *   - ITS OWN STAMP (`openStatusSentAt`). The August 19 reminder run
+ *     already stamped most of the list, and reusing that key would have
+ *     silently skipped nearly everyone this one is for.
+ *
  * It stopped being a DEADLINE email on 2026-08-19 and it stays that way.
  * The clock it carries is the EVENT (Aug 29), never the founding-comp
  * cutoff: a comped recipient is comped for good and has no deadline to
@@ -51,7 +73,20 @@ const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
-const SUBJECT     = 'Speak money into existence: The Debatable Open';
+// 2026-08-22: the subject states the ask rather than teasing it. The
+// number in it is read live from the tournament doc at send time, so
+// this email can never quote a field size the page contradicts.
+const SUBJECT_FN  = (n) => `${n} people have entered the Open. It needs 50.`;
+// Own stamp, separate from openReminderSentAt. The August 19 run reached
+// most of the list, so reusing that key would skip nearly everyone, and
+// this is not the same email: it carries a prize change, which is news
+// the people it affects are entitled to hear once.
+const STAMP       = 'openStatusSentAt';
+// The threshold that restores the pot, and what it restores it to. Both
+// are published on /tournaments, /tournament-rules and the live
+// tournament doc. If one moves they all move, together, or the email
+// becomes the odd one out that someone screenshots.
+const RALLY_TARGET = 50;
 // Event day, for copy. Deliberately NOT FOUNDING_CUTOFF_LABEL: that
 // constant tracks who gets comped, this one tracks when the thing
 // happens, and collapsing them resurrects deadline framing every time
@@ -64,60 +99,102 @@ const ENTRIES_CLOSE_MS = Date.parse('2026-08-29T23:59:59-04:00');
 // Short on purpose: the announcement made the case, this one carries the
 // clock. Voice rules bind: no em-dashes, no preface, one ask. Prizes and
 // dates are the ones published on /tournaments and /tournament-rules.
-function renderEmail({ firstName, uid, tournamentName, comped }) {
+/* Two audiences, one send, because the news is the same and only the
+ * ask changes. Someone already entered needs to hear that the pot
+ * moved and that bringing people moves it back; someone who has not
+ * needs that plus the door. Skipping entrants, which this function did
+ * until today, would have meant the ten people with the most reason to
+ * care about the prize being the ten who never heard it changed.
+ *
+ * Voice rules bind: no em-dashes, no preface, one ask per paragraph.
+ * Every number here is read from the live tournament doc or from the
+ * published rules, never typed in twice. */
+function renderEmail({ firstName, uid, tournamentName, entered, entryCount, potNow }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
   const rules = `${SITE_URL}/tournament-rules`;
-  // One version of this email now. Entry is free for everyone as of
-  // 2026-08-22, so the comped fork it used to carry describes a price
-  // nobody meets. `comped` stays on the caller's row as history.
-  const feeLine = `<strong>${esc(EVENT_LABEL)}. ${esc(tournamentName)} is free to
-    enter.</strong> No fee, no card, nothing to ask me for. Entering takes about
-    a minute:`;
-  const ctaLabel = 'Enter the Open &rarr;';
+  const short = 'itsdebatable.com/tournaments';
+
+  const opening = entered
+    ? `You are already entered in ${esc(tournamentName)} on ${esc(EVENT_LABEL)}, so
+       this is not a nudge to sign up. It is where things actually stand, because
+       one number changed and it is one you should hear from me rather than
+       notice on the page.`
+    : `${esc(tournamentName)} runs ${esc(EVENT_LABEL)}. It is free to enter, there is
+       no card and nothing to ask me for, and entering takes about a minute.`;
+
+  const ask = entered
+    ? `So the useful thing you can do is not play more rounds, it is bring one
+       person. Forward this, or send them ${esc(short)}. The field is the
+       constraint, not the format.`
+    : `And if you know one person who likes to argue, send them this. Forward it,
+       or give them ${esc(short)}. Getting to fifty is a people problem and I do
+       not have a marketing budget to throw at it.`;
+
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${opening}</p>
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    ${feeLine}
+    <strong>The prize pot came down.</strong> It was $850. It is now ${esc(potNow)}:
+    $100 for first, $50 for second, $25 for third. The reason is plain, and it is
+    not a good one to dress up. ${esc(String(entryCount))} people have entered so far,
+    and I am funding the prizes myself. An $850 pot across a field that size is not
+    a tournament, it is me handing money to whoever turns up.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>It goes back to $850 if more than ${esc(String(RALLY_TARGET))} people
+    enter.</strong> That is written into the official rules, not just this email:
+    past ${esc(String(RALLY_TARGET))} entrants, first place is $500 again, second is
+    $250, third is $100. Nothing else about the day changes, and no entry fee is
+    involved at any point.
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">${ctaLabel}</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">${entered ? 'See where it stands &rarr;' : 'Enter the Open &rarr;'}</a>
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${ask}</p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${entered
+    ? `How the day runs, in case it has been a while since you entered: all online,
+       doors open 10 AM Eastern and stay open until the evening, and you turn up
+       whenever suits you. There is no round one to miss. Every round you play
+       counts on the standings, and the top of the board goes into a streamed
+       bracket that night.`
+    : `If you have not been on in a while: the site matches you with a real person,
+       you argue it out on a clock, and an AI judge writes up who won and why. The
+       Open is all online, doors open 10 AM Eastern and stay open all day, you come
+       and go whenever suits you, and rounds you play count on the standings. The
+       top of the board goes into a streamed bracket that evening. No debate
+       experience needed.`}
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    If you haven't been on in a while, the site matches you with a real person,
-    you argue it out, and an AI judge writes up who won and why.
-    ${esc(EVENT_LABEL)} is the first real tournament on it. All online, doors open 10 AM
-    Eastern, come and go whenever. Rounds you play count on the standings, the
-    top of the board goes into a streamed bracket that evening, and first place
-    takes $100 ($50 and $25 behind it). You don't need debate experience,
-    and the field is still small, so your odds are genuinely good.
-  </p>
-
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Being honest with you, the whole thing is early and I'm building it mostly
-    on my own. So if something breaks, confuses you, or you think it should
-    work differently, reply and tell me. I read every reply and I ship fixes
-    fast. Same if you just have a question. And if you know someone who likes
-    to argue, forward them this.
+    One more ask, and it is the one I actually want most. Reply to this and tell me
+    what would make you use this thing. What is broken, what is confusing, what you
+    expected to be here and could not find, or why you signed up and then did not
+    come back. That last one especially. I read every reply myself and I ship fixes
+    the same day more often than not.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   <p style="font-size:.88rem;line-height:1.6;margin:0 0 14px">
-    P.S. If you competed and have a record on Tabroom, you can import it and
-    start with a rating that matches, instead of starting from zero. Two
-    minutes: <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>
+    P.S. If you competed and have a record on Tabroom, you can import it and start
+    with a rating that matches instead of from zero. Two minutes:
+    <a href="${SITE_URL}/claim" style="color:#dc2626;text-decoration:underline">itsdebatable.com/claim</a>
   </p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
-    age when entering, and are void where prohibited. An entrant under 18 plays
-    the same field for the placement and the ranking. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
-    carry eligibility and the payout ladder.
+    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their age
+    when entering, and are void where prohibited. An entrant under 18 plays the same
+    field for the placement and the ranking. Prize amounts are as published on the
+    <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>,
+    which carry eligibility and the payout ladder.
   </p>
 
   ${renderFooter({
@@ -179,6 +256,13 @@ export default async (request) => {
   const docs = openSnap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
   const tourn = docs.find(t => t.status === 'registration') || docs[0];
 
+  /* Both figures in the copy come from the doc the page renders, so the
+     email cannot quote a field size or a pot the site contradicts. The
+     pot formats from prizePoolCents rather than being typed, which is
+     what stops this email repeating the old $850 after a repricing. */
+  const entryCount = Math.max(0, Number(tourn.entryCount) || 0);
+  const potNow = '$' + Math.round((Number(tourn.prizePoolCents) || 0) / 100).toLocaleString('en-US');
+
   // People who already entered do not need to be told to enter. Entry
   // docs are auto-id'd and carry their uids in a `members` ARRAY (a 1v1
   // entry is a one-member team; verified against the live docs
@@ -213,14 +297,19 @@ export default async (request) => {
   const errorReasons = {};
   const sample = [];
 
+  // Entrants are NOT skipped any more (they were until 2026-08-22).
+  // This send carries a prize change, and the ten people it affects most
+  // directly are exactly the ten the old skip would have excluded. They
+  // get a different opening and a different ask; see renderEmail.
   for (const user of authUsers) {
     if (!user.email) { noEmail++; continue; }
-    if (entered.has(user.uid)) { alreadyEntered++; continue; }
+    const isEntrant = entered.has(user.uid);
+    if (isEntrant) alreadyEntered++;
     const prof = profByUid.get(user.uid) || null;
     // Same posture as the announcement (measured 2026-08-12): a missing
     // profile doc is not an opt-out, because opting out CREATES the doc.
     if (prof && isOptedOut(prof, STREAM)) { optedOut++; continue; }
-    if (prof && prof.openReminderSentAt) { alreadySent++; continue; }
+    if (prof && prof[STAMP]) { alreadySent++; continue; }
 
     eligible++;
     if (dryRun) {
@@ -232,16 +321,14 @@ export default async (request) => {
     const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
     const res = await sendEmail({
       to: user.email,
-      subject: SUBJECT,
+      subject: SUBJECT_FN(entryCount),
       html: renderEmail({
         firstName,
         uid: user.uid,
         tournamentName: tourn.name || 'The Debatable Open',
-        // Their own account age decides which fee sentence they read.
-        // Unparseable creation time falls to the PAID copy: quoting $5 to
-        // someone who turns out to be comped is a pleasant surprise at the
-        // door, the reverse is a broken promise.
-        comped: Date.parse(user.metadata?.creationTime || '') <= FOUNDING_CUTOFF_MS,
+        entered: isEntrant,
+        entryCount,
+        potNow,
       }),
       uid: user.uid,
       stream: STREAM,
@@ -254,7 +341,7 @@ export default async (request) => {
       // that fails is a person who gets mailed twice, so it is an error.
       try {
         await db.doc(`user_profiles/${user.uid}`)
-          .set({ openReminderSentAt: FieldValue.serverTimestamp() }, { merge: true });
+          .set({ [STAMP]: FieldValue.serverTimestamp() }, { merge: true });
       } catch (stampErr) {
         errors++;
         errorReasons['stamp-failed'] = (errorReasons['stamp-failed'] || 0) + 1;
@@ -274,13 +361,17 @@ export default async (request) => {
     senderVerified: senderOk,
     verifiedDomains: allowed,
     verifiedSource,
-    subject: SUBJECT,
+    subject: SUBJECT_FN(entryCount),
     tournament: { id: tourn.id, name: tourn.name || '', startsAt: tourn.startsAt || '' },
     compCutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
     entriesClose: new Date(ENTRIES_CLOSE_MS).toISOString(),
     accounts: authUsers.length,
     eligible, sent, remaining, errors,
-    skipped: { noEmail, optedOut, alreadySent, alreadyEntered },
+    // alreadyEntered is now a COUNT, not a skip: those people are
+    // mailed the entrant variant. Kept on the row because the split
+    // between the two copies is the thing worth seeing in a dry run.
+    entrantsMailed: alreadyEntered,
+    skipped: { noEmail, optedOut, alreadySent },
     errorReasons,
     sample: dryRun ? sample : [],
   };
