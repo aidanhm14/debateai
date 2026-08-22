@@ -350,20 +350,31 @@ const URLS = [
   { path: '/india',           changefreq: 'monthly', priority: '0.90', lastmod: '2026-08-10' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-10' },
-  // debateprep.com — STAGED, DELIBERATELY NOT ENABLED (2026-07-23).
-  // app/prep.html and the host rules in netlify.toml shipped in
-  // 3ea56578, but the domain still answers on GoDaddy's parking lander:
-  // its zone carries two parking A records (15.197.148.33, 3.33.130.190)
-  // beside the correct 75.2.60.5, and the host is not a Netlify domain
-  // alias yet, so there is no TLS cert for it. Submitting the URL in
-  // that state earns a soft 404 on the one page that host owns, which is
-  // worse than not submitting it. Cross-host entries are valid here
-  // because both properties are verified under the same Search Console
-  // account. Note this needs an absolute URL — every other entry is a
-  // path joined onto the canonical origin, so enabling it means adding
-  // an `absolute: true` branch in the builder below, not just a path.
-  // ENABLE once `dig +short A debateprep.com` returns only 75.2.60.5
-  // and the alias is on the cert.
+  // The prep page. Listed as a path on the canonical host, not as the
+  // cross-host debateprep.com URL the 2026-07-23 note staged below.
+  //
+  // That note withheld the entry for one stated reason: submitting the
+  // URL while debateprep.com had no TLS cert would earn a soft 404 on
+  // the one page that host owns. That reason is now void, because the
+  // page is served at https://itsdebatable.com/prep — a 200 on a host
+  // that already has a cert — and self-canonicals there. It is also the
+  // only way anyone finds it: nothing on the site links to /prep, so
+  // without this line the page stays an orphan.
+  { path: '/prep',            changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-22' },
+  // debateprep.com — STILL STAGED, DELIBERATELY NOT ENABLED. The 2026-07-23
+  // reading has WORSENED rather than improved: the zone no longer carries
+  // 75.2.60.5 at all, only GoDaddy Domain Forwarding (15.197.225.128,
+  // 3.33.251.168) which 301s to itsdebatable.com before Netlify sees the
+  // request, and the host is still not a Netlify domain alias, so there is
+  // still no TLS cert. Cross-host entries are valid here because both
+  // properties are verified under the same Search Console account. Note
+  // this needs an absolute URL — every other entry is a path joined onto
+  // the canonical origin, so enabling it means adding an `absolute: true`
+  // branch in the builder below, not just a path.
+  // ENABLE once `dig +short A debateprep.com` returns only 75.2.60.5 and
+  // the alias is on the cert. At that point the /prep entry above becomes
+  // the duplicate and should be dropped in the same change that restores
+  // the 301s and the canonical (see app/netlify.toml).
   // { path: 'https://debateprep.com/', absolute: true, changefreq: 'weekly', priority: '0.80' },
   // Motion library hub (/motions). The per-motion URLs are appended
   // below from the bank rather than listed here, so adding a motion to

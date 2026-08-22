@@ -383,18 +383,40 @@
   status = 301
   force = true
 
-# The other half of "one host owns this URL": /prep on the canonical
-# host sends people to the front door instead of serving a second copy.
-[[redirects]]
-  from = "https://itsdebatable.com/prep"
-  to = "https://debateprep.com/"
-  status = 301
-  force = true
-[[redirects]]
-  from = "https://itsdebatable.com/prep.html"
-  to = "https://debateprep.com/"
-  status = 301
-  force = true
+# /prep on the canonical host serves prep.html IN PLACE. There is no
+# rule here on purpose: Netlify's pretty-URL handling already resolves
+# /prep to prep.html, the same way /india and /report resolve today.
+#
+# 2026-08-22: this REPLACES a pair of 301s that sent /prep and
+# /prep.html to https://debateprep.com/. That was the correct other
+# half of "one host owns this URL" only while debateprep.com actually
+# reached Netlify, and it never has. The host was never added as a
+# Netlify domain alias, so it has no TLS cert, and its apex still
+# answers on GoDaddy Domain Forwarding (15.197.225.128 / 3.33.251.168)
+# which 301s to itsdebatable.com before Netlify sees the request. The
+# 75.2.60.5 record that sitemap.mjs's staging note recorded on
+# 2026-07-23 has since been REMOVED from the zone, so the host block
+# above has been unreachable for its whole life and DNS moved further
+# away, not closer.
+#
+# Net effect of the old pair: prep.html was reachable at no public URL
+# at all. /prep 301'd to a dead host that forwarded to the landing
+# page, and the keyword domain served the landing page too. A keyword
+# domain being misconfigured must never be able to make the page
+# unreachable everywhere, so the canonical host now serves it
+# unconditionally and depends on nothing external.
+#
+# The debateprep.com host block above is left exactly as written. It
+# is correct and simply inert until DNS moves; it costs nothing to
+# keep and starts working the moment the host reaches Netlify.
+#
+# WHEN THE DNS MOVE LANDS (GoDaddy Forwarding off, apex A -> 75.2.60.5,
+# then debateprep.com + www added as Netlify domain aliases so a cert
+# issues), the one-host topology can be restored by re-adding the two
+# 301s above and pointing prep.html's canonical, og:url and JSON-LD url
+# back at https://debateprep.com/. Do it in that order: alias before
+# DNS resolves to Netlify can stall cert renewal for every domain on
+# this site. Mirrors netlify.toml.
 
 # Public round pages (/r/{id}). Each published round becomes its own
 # indexable page rendered server-side by app/netlify/functions/r.mjs.
