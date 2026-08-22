@@ -37,7 +37,7 @@
 // Requires: ffmpeg on PATH or at FFMPEG_BIN, a logged-in firebase CLI (its
 // refresh token is exchanged for a GCP access token), and DAILY_API_KEY.
 
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { readFile, stat, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
@@ -74,9 +74,25 @@ async function gcpToken(){
   return (await r.json()).access_token;
 }
 
+// The key lives in the Netlify env, not in anyone's shell, and the whole
+// point of this script is that it is one command. Fall back to asking the
+// Netlify CLI rather than making the operator go and export it by hand.
+let cachedDailyKey = '';
+function dailyKey(){
+  if (cachedDailyKey) return cachedDailyKey;
+  if (process.env.DAILY_API_KEY) return (cachedDailyKey = process.env.DAILY_API_KEY);
+  try {
+    const out = execFileSync('netlify', ['env:get', 'DAILY_API_KEY', '--context', 'production'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    // A miss prints a human sentence rather than failing, so sanity-check it.
+    if (out && !/\s/.test(out)) return (cachedDailyKey = out);
+  } catch { /* fall through to the throw below */ }
+  throw new Error('DAILY_API_KEY is not set and the Netlify CLI could not supply it. '
+    + 'Either export it, or run `netlify link` in this repo first.');
+}
+
 async function dailyLink(id){
-  const key = process.env.DAILY_API_KEY;
-  if (!key) throw new Error('DAILY_API_KEY is not set');
+  const key = dailyKey();
   const r = await fetch(`${DAILY_API}/recordings/${encodeURIComponent(id)}/access-link`, {
     headers: { Authorization: 'Bearer ' + key },
   });
