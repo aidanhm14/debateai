@@ -577,6 +577,39 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   function mediaUrl(id){
     return '/api/async/media/' + encodeURIComponent(String(id || '')).replace(/%3A/gi, ':');
   }
+
+  /* MediaRecorder writes a LIVE-STREAM WebM: no Duration element and no Cues,
+     because at record time the length is genuinely unknown. So every recorded
+     turn arrives with duration === Infinity and seekable.length === 0, which
+     gives the visitor a scrubber that never fills and a video they cannot skip
+     through. Measured on the one real recorded round: the video reported
+     Infinity while the server-made MP3 beside it reported a clean 90.8s.
+
+     Seeking past the end forces the browser to scan for the real end, after
+     which duration resolves and the bar works. That scan pulls the WHOLE file,
+     so it is deferred to the first play rather than run on load: a page of
+     turns would otherwise download every recording (up to the 24MB upload cap
+     each) for somebody who came to read the ballot. Until then the known
+     length from the server is on the card, so the duration is never a mystery,
+     it is just not in the browser's scrubber yet. */
+  function fixWebmDuration(el){
+    if (!el || el.__durFixed) return;
+    el.__durFixed = true;
+    if (isFinite(el.duration) && el.duration > 0) return;
+    var restore = el.currentTime || 0;
+    var done = function(){
+      el.removeEventListener('seeked', done);
+      // Seeking back to 0 while paused is silent; doing it after the scan is
+      // what stops the element from sitting at the end of the file.
+      try { el.currentTime = restore; } catch (e) {}
+    };
+    el.addEventListener('seeked', done);
+    try { el.currentTime = 1e101; } catch (e) { el.removeEventListener('seeked', done); }
+  }
+  document.addEventListener('play', function(e){
+    var el = e.target;
+    if (el && el.tagName === 'VIDEO' && el.hasAttribute('data-webm')) fixWebmDuration(el);
+  }, true);
   async function api(path, opts, needAuth){
     opts = opts || {};
     opts.headers = opts.headers || {};
@@ -613,7 +646,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   function shell(inner){
     $('app').innerHTML =
       '<div class="hero">' +
-        '<div><h1>Async rounds</h1>' +
+        '<div><h1>Record now. They answer later.</h1>' +
         '<p>Record a 90-second opening on any motion. A real debater answers on their own time, you reply, and the AI judge writes the ballot. Nobody waits in a queue.</p></div>' +
         '<span class="spacer"></span>' +
         '<button class="btn btn-red" id="startBtn">Start a challenge</button>' +
@@ -649,10 +682,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       var aiProp = r.prop && r.prop.uid === 'ai';
       return '<div class="card" style="--i:'+Math.min(i,9)+'">' +
         '<div class="chiprow"><span class="chip">'+esc(r.formatName)+'</span>' +
-        (aiProp ? '<span class="chip hot">AI opened · you take Opp</span>'
+        (aiProp ? '<span class="chip hot" data-plain="AI opened · you argue against">AI opened · you take Opp</span>'
                 : '<span class="chip hot">AI answers in '+fmtLeft((r.deadlineAt||0)-now)+'</span>') + '</div>' +
         '<div class="motion">'+esc(r.motion)+'</div>' +
-        '<div class="who">'+avatar(r.prop)+'<span><b>'+esc(r.prop && r.prop.name || 'A debater')+'</b><br><i>opened for Prop</i></span></div>' +
+        '<div class="who">'+avatar(r.prop)+'<span><b>'+esc(r.prop && r.prop.name || 'A debater')+'</b><br><i data-plain="argued for the motion">opened for Prop</i></span></div>' +
         '<div class="foot"><button class="go" data-answer="'+r.id+'">Answer this &rarr;</button>' +
         '<button class="go" style="color:var(--ink-ghost)" data-open="'+r.id+'">Watch</button></div></div>';
     }).join('');
@@ -665,7 +698,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         '<div class="motion">'+esc(r.motion)+'</div>' +
         '<div class="who">'+avatar(r.prop)+avatar(r.opp)+'<span><b>'+esc(r.prop&&r.prop.name||'')+'</b> vs <b>'+esc(r.opp&&r.opp.name||'')+'</b></span></div>' +
         '<div class="foot"><button class="go" data-open="'+r.id+'">Watch the round &rarr;</button>' +
-        '<span style="font-size:.78rem;color:var(--ink-ghost)">'+(((r.votes||{}).prop||0)+((r.votes||{}).opp||0))+' votes</span></div></div>';
+        // A finished round with nobody watching yet said "0 votes", which reads
+        // as a dead room rather than a new one. Show the count once it exists.
+        (function(){ var nv=((r.votes||{}).prop||0)+((r.votes||{}).opp||0);
+          return nv ? '<span style="font-size:.78rem;color:var(--ink-ghost)">'+nv+(nv===1?' vote':' votes')+'</span>' : ''; })() +
+        '</div></div>';
     }).join('');
     shell(
       '<div class="sec-h">Open challenges</div>' +
@@ -884,8 +921,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     var turnsHtml = (r.turns||[]).map(function(t, ti){
       var spec = TURN_SPEC[t.n] || {};
+      // data-dur carries the duration the SERVER recorded at upload. A browser
+      // recording arrives as a live-stream WebM with no Duration element, so
+      // the element reports Infinity and exposes no seekable range until
+      // fixWebmDuration runs. See that function for why the fix is deferred.
       var media = t.kind === 'video'
-        ? '<video controls playsinline preload="metadata" src="'+mediaUrl(t.mediaId)+'"></video>'
+        ? '<video controls playsinline preload="metadata" data-webm data-dur="'+(t.durationSec||0)+'" src="'+mediaUrl(t.mediaId)+'"></video>'
         : '<audio controls preload="metadata" src="'+mediaUrl(t.mediaId)+'"></audio>';
       return '<div class="turn" style="--i:'+ti+'">' +
         '<div class="t-head">'+avatar(t)+'<span><b>'+esc(t.name)+'</b> <i style="font-style:normal;color:var(--ink-ghost);font-size:.78rem">· '+(spec.label||('Turn '+t.n))+'</i></span>' +
