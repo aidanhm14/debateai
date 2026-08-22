@@ -157,6 +157,58 @@ export const HOT_MOTIONS = [
   { m:'Most arguments are about status, not truth.', split:52, heat:4, tag:'ethics',
     pro:'Watch what happens when someone is offered a face saving exit from a losing position. They take it, every time, and the truth was never the currency.',
     con:'This is unfalsifiable and lazy. It lets you dismiss any argument you are losing by declaring that your opponent only wanted to win.' },
+
+  // ── Politics, the charged tier ──────────────────────────────────
+  //
+  // Named public figures appear as the SUBJECT of a motion, never as
+  // participants in a round. "THW rather have had Harris" is an argument
+  // about a public record, which is ordinary debate and ordinary market
+  // copy. A card showing Trump at 54% against Harris at 46% on a round
+  // neither of them was in is a fabricated record for a real person, and
+  // that is the line this repo already drew for the creator watchlist.
+  // Motions here, never mock rounds.
+  //
+  // The identity line from the header holds harder in this tier, not
+  // softer. Motions about a minority's standing are deliberately absent:
+  // there is no shortage of genuinely 50/50 politics, and putting a
+  // vulnerable group's status up for a public vote with money on it
+  // recruits an audience that ends the product.
+  { m:'America would be better off today if Kamala Harris had won in 2024.', split:49, heat:5, tag:'politics',
+    pro:'Judge it on the record rather than the vibe: the tariffs, the institutional damage and the alliances spent are costs that land on people who never voted for either of them.',
+    con:'The counterfactual is doing all the work, and every problem being charged to the winner was already in motion under the administration she served in.' },
+  { m:'Donald Trump has been good for the American economy.', split:47, heat:5, tag:'politics',
+    pro:'Deregulation and an energy posture the previous administration would not take are why the headline numbers held while Europe stalled.',
+    con:'A tariff is a sales tax you do not get to vote on, and the bill arrives on the people with the least room to absorb it.' },
+  { m:'The Electoral College should be abolished.', split:52, heat:4, tag:'politics',
+    pro:'One person one vote is not a controversial principle anywhere else in the system, and twice this century it has produced a president most voters voted against.',
+    con:'It forces a coalition across a continent instead of a campaign that only ever visits nine cities, and the small states never ratify their own irrelevance.' },
+  { m:'Illegal border crossings should be met with immediate deportation, no hearing.', split:46, heat:5, tag:'politics',
+    pro:'A queue only means something if jumping it fails, and a hearing backlog measured in years IS the incentive.',
+    con:'Skipping the hearing is how you deport the person with a valid claim, and a country that will not check first has stopped being able to say it made a mistake.' },
+  { m:'Universities should be legally required to host speakers most students find offensive.', split:48, heat:5, tag:'politics',
+    pro:'A campus that only hears what it already believes is a very expensive echo, and the heckler stops needing an argument once he knows he can win with volume.',
+    con:'Nobody is owed a lecture hall, and a legal requirement to platform hands the loudest bad-faith operator a permanent invitation nobody can withdraw.' },
+  { m:'Billionaires should not exist.', split:50, heat:5, tag:'politics',
+    pro:'A fortune that size is never earned in a lifetime of work, it is captured, and every one of them is a policy failure with a face on it.',
+    con:'The sentence is about the person rather than the mechanism, and every state that has removed them ended up with the same concentration wearing a government badge.' },
+  { m:'Social media should be banned for under sixteens.', split:53, heat:5, tag:'politics',
+    pro:'We already draw this line for alcohol, driving and tattoos on far weaker evidence than we now have about adolescent mental health.',
+    con:'It will be enforced by handing everyone\'s identity documents to the platforms, and the kids who most need the community online are the ones it cuts off first.' },
+  { m:'Political leaders should face a maximum age limit.', split:57, heat:4, tag:'politics',
+    pro:'Every other safety-critical job in the country has one, and the people voting on the next fifty years should have to live in some of them.',
+    con:'It is an eligibility test nobody has to justify case by case, and the voters can already apply it and repeatedly choose not to.' },
+  { m:'Your country should keep funding Ukraine at current levels.', split:49, heat:5, tag:'politics',
+    pro:'It is the cheapest deterrence ever bought: no soldiers of yours, and the alternative is discovering what the next border costs.',
+    con:'There is no stated end condition, and open-ended funding with no definition of winning is not a strategy, it is a subscription.' },
+  { m:'Protest that blocks roads and disrupts ordinary people should be prosecuted harder.', split:51, heat:4, tag:'politics',
+    pro:'Your cause does not entitle you to hold a stranger\'s ambulance, and the person missing work for your point never got a vote on it.',
+    con:'Every protest now respectable was illegal and inconvenient at the time, and a protest that troubles nobody is a parade.' },
+  { m:'Guns should be substantially harder to buy in the United States.', split:54, heat:5, tag:'politics',
+    pro:'Every comparable country made the change and stopped having the problem, and the argument that it cannot work here is the only part that is uniquely American.',
+    con:'The proposals mostly restrict the people who already follow the law, and the enforcement lands hardest in the places that trust the police least.' },
+  { m:'Legacy admissions should be illegal.', split:61, heat:4, tag:'politics',
+    pro:'It is affirmative action for people who already own the building, and it survives only because the beneficiaries write the cheques.',
+    con:'A private institution choosing its own community is the thing making it private, and the donations it buys pay for the aid that admits everyone else.' },
 ];
 
 // Sorted best-first for a market board: closest to an even split, then

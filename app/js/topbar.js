@@ -213,6 +213,17 @@
     // eye had nowhere to land. "How it works" is the first question a
     // stranger asks, so it is the one that gets the weight.
     { href: '/how-it-works',  label: 'How it works', compactKeep: true, strong: true },
+    // 2026-08-20: Bet returns to the rail, and the label goes back to
+    // the word two earlier passes took off it. Every note above about
+    // keeping this out of permanent chrome was written to stop the site
+    // scanning as a betting product to someone skimming. Aidan has since
+    // moved the product to exactly that ("betting is here", "bring more
+    // betting obviously into the app"), so the objection is retired
+    // rather than overruled: it was optics protecting a different
+    // positioning, and the positioning changed. `hot` gives it the red
+    // pill treatment, which nothing else currently uses.
+    { href: '/predict',       label: 'Bet', hot: true, compactKeep: true },
+
     // 2026-07-01: /scale removed from the topbar per Aidan (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
@@ -408,6 +419,12 @@
       // Watch rather than Site because a visitor arriving on it is
       // looking for rounds to watch, not for company pages.
       { href: '/debate-shows', label: 'Debate shows' },
+      // 2026-08-20: Money returns alongside the rail's Bet tab. It was
+      // pulled in the same de-surfacing pass and comes back for the same
+      // reason: it is the page that answers "how does money work here",
+      // which is now the first question the product invites.
+      { href: '/get-paid-to-debate', label: 'Money' },
+
       // 2026-07-27: standalone lobby prototype. It gathers the public
       // network signals into one venue without replacing the landing.
       // 2026-07-25: /tournaments is now the indexable Tournament OS pilot
@@ -434,7 +451,9 @@
       // note above predicted, because Leaderboard moved here on
       // 2026-08-14 and a market settled from a live round's ballot
       // belongs with the round you watch, not with going to debate one.
-      { href: '/predict',     label: 'Predict' },
+      // 2026-08-20: moved OUT of Explore and onto the rail as 'Bet'.
+      // A row cannot be in both without rendering twice.
+
       // 2026-08-10: moved up out of the "Site" group, which is pricing,
       // story and vision — pages about the company. The Atlas is a
       // product surface (a live map of real programs), and it lost its
