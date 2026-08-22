@@ -365,6 +365,13 @@
       // shortest path from landing on the site to being in a round.
       { href: '/challenges',  label: 'Challenges', big: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
+      // 2026-08-22: the two real-money surfaces get a way in. Both take
+      // a card today and neither was reachable from the nav, so the
+      // only people who could find them were the ones already holding a
+      // link. Cash rounds sit under /predict, which is on the rail, so
+      // this row is the bounty board: somebody else pays to watch a
+      // debate happen and the pot goes to the two people who have it.
+      { href: '/bounties',    label: 'Bounties' },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist
