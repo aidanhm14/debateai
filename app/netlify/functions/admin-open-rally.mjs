@@ -32,7 +32,7 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL = process.env.OPEN_RALLY_FROM || process.env.EMAIL_FROM
-                || 'Aidan at Debatable <hello@debateai.com>';
+                || 'Debatable <hello@debateai.com>';
 // Reply-To is the point of this email: "reply and it reaches me" is only
 // true if replies actually land in the founder's inbox rather than at a
 // send-only address on the verified domain.
@@ -81,19 +81,19 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Then tell me what to fix.</strong> Reply to this email. It goes
-    straight to me, not a support queue, and I read every reply. What you
-    send decides what gets built next.
+    <strong>Then tell us what to fix.</strong> Reply to this email. It lands
+    in the founder's inbox, not a support queue, and every reply gets read.
+    What you send decides what gets built next.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>One more thing: you are early, and it is on the record.</strong>
-    You signed up before this was a company. I am keeping a note of who was
-    here first and the part each of you played, so when Debatable grows into
-    one, that history comes with it.
+    You signed up before this was a company. We are keeping a note of who
+    was here first and the part each of you played, so when Debatable grows
+    into one, your role in that history comes with it.
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">See you Saturday,<br>Aidan</p>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">See you Saturday.<br>Debatable</p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
     Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
