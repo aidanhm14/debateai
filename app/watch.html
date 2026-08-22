@@ -151,6 +151,17 @@ html.dbnative .page-head{padding-top:20px}
    moment the video finishes. That covers every recording ever made
    rather than only rounds recorded after the in-room reel shipped. */
 .player-wrap{position:relative}
+/* Buffering note. A media element that cannot keep up does not error, it
+   just sits at readyState 0 with the native spinner and no explanation,
+   which reads as a broken page. Measured 2026-08-22: an uncapped replay
+   was 3.1 Mbps and stalled indefinitely on a 2.4 Mbps connection with
+   nothing on screen to say so. Colours are pinned light-on-dark rather
+   than themed, because the video pane is black in every theme. */
+.buffer-note{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);
+  z-index:5;display:none;max-width:min(88%,440px);text-align:center;
+  padding:10px 16px;border-radius:10px;background:rgba(12,12,14,.86);
+  color:#f5efe7;font-size:.92rem;line-height:1.45;pointer-events:none}
+.buffer-note.on{display:block}
 .verdict-reveal{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
   /* flex-start + .vr-inner{margin:auto}, NOT justify-content:center:
      centering an overflowing flex column clips its top edge, which is
@@ -544,6 +555,7 @@ footer a{color:var(--dim)}
     </div>
     <div class="player-wrap">
       <video id="player" controls playsinline preload="metadata"></video>
+      <div class="buffer-note" id="bufferNote" aria-live="polite"></div>
       <div class="verdict-reveal" id="verdictReveal" aria-live="polite"></div>
     </div>
     <div class="clip-note" id="clipNote">
@@ -937,6 +949,55 @@ footer a{color:var(--dim)}
       .then(function(r){ if (!r.ok) throw new Error('link'); return r.json(); });
   }
 
+  // ── Buffering feedback.
+  // The player used to give a stalled viewer nothing: no error fires when a
+  // media element simply cannot pull bytes fast enough, so the native
+  // spinner sits over a black frame forever and the page looks broken.
+  // These listeners are attached once and say what is actually happening.
+  var bufTimer = 0, bufSince = 0;
+  function bufNote(msg){
+    var el = $('bufferNote');
+    if (!el) return;
+    if (!msg){ el.classList.remove('on'); el.textContent = ''; return; }
+    el.textContent = msg;
+    el.classList.add('on');
+  }
+  function bufClear(){
+    if (bufTimer){ clearInterval(bufTimer); bufTimer = 0; }
+    bufSince = 0;
+    bufNote('');
+  }
+  function bufWatch(){
+    var player = $('player');
+    if (bufTimer || !player) return;
+    bufSince = Date.now();
+    bufTimer = setInterval(function(){
+      // readyState >= 3 (HAVE_FUTURE_DATA) means it can actually play on.
+      if (player.readyState >= 3 || player.error){ bufClear(); return; }
+      var secs = (Date.now() - bufSince) / 1000;
+      if (secs > 20){
+        bufNote('Still loading. This replay is a large file and needs a steady connection.');
+      } else if (secs > 5){
+        bufNote('Loading the round.');
+      }
+    }, 1000);
+  }
+  (function wireBuffering(){
+    var player = $('player');
+    if (!player) return;
+    ['waiting','stalled','loadstart'].forEach(function(e){
+      player.addEventListener(e, bufWatch);
+    });
+    ['playing','canplay','loadeddata'].forEach(function(e){
+      player.addEventListener(e, bufClear);
+    });
+    player.addEventListener('error', function(){
+      bufClear();
+      bufNote('This replay would not play. Reopen it, or try again in a minute.');
+      $('bufferNote').classList.add('on');
+    });
+  })();
+
   // ── Verdict reveal, played when a replay finishes.
   // Recordings stop at the last speech, so a replay used to end on a
   // frozen frame of two people who had just stopped talking, with the
@@ -1086,6 +1147,7 @@ footer a{color:var(--dim)}
     var player = $('player');
     player.pause();
     player.removeAttribute('src');
+    bufClear();
     corsRetried = false;
     canGrabFrame = true;
     $('thumbMark').textContent = '';
