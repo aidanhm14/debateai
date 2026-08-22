@@ -176,6 +176,76 @@ export default async (request) => {
           break;
         }
 
+        // Cash-round buy-in (cash-round-checkout.mjs). The seat is
+        // marked paid HERE and nowhere else, so a browser that never
+        // came back from Stripe cannot claim to have funded a seat.
+        //
+        // The round flips to `funded` only when BOTH seats have paid,
+        // decided inside the transaction from the entrants array rather
+        // than by counting payments, because the entrants array is the
+        // thing every other rule reads.
+        //
+        // Idempotency key is the SESSION ID, matching the bounty branch:
+        // Stripe redelivers an event it did not get a 2xx for, and a
+        // "has this person paid" check would read a redelivery and a
+        // genuine second payment as the same thing.
+        if (session.metadata?.kind === 'cash_round_buyin') {
+          const { uid, roundId } = session.metadata;
+          const amount = session.amount_total ?? 0;
+          if (uid && roundId && amount > 0) {
+            const rRef = db.collection('cash_rounds').doc(roundId);
+            try {
+              await db.runTransaction(async (tx) => {
+                const rSnap = await tx.get(rRef);
+                if (!rSnap.exists) throw new Error(`cash round ${roundId} is gone`);
+                const d = rSnap.data();
+                const seen = Array.isArray(d.sessionIds) ? d.sessionIds : [];
+                if (seen.includes(session.id)) return;
+
+                const entrants = (Array.isArray(d.entrants) ? d.entrants : []).map((e) => {
+                  if (!e || e.uid !== uid) return e;
+                  return {
+                    ...e,
+                    paid: true,
+                    // What Stripe actually took, which is what a refund
+                    // has to give back. Never the quoted price.
+                    paidCents: (Number(e.paidCents) || 0) + amount,
+                    paidAt: Date.now(),
+                  };
+                });
+                const allPaid = entrants.length >= 2
+                  && entrants.every((e) => e && e.paid === true && Number(e.paidCents) > 0);
+                // Pot and platform split are computed from what was
+                // collected, so the two always sum to the collected
+                // total no matter what the price was when posted.
+                const collected = entrants.reduce((s, e) => s + (Number(e && e.paidCents) || 0), 0);
+                const feePerSeat = Math.round((Number(d.buyInCents) || 0) * (Number(d.feeBps) || 2000) / 10000);
+                const platform = entrants.filter((e) => e && e.paid).length * feePerSeat;
+
+                tx.update(rRef, {
+                  entrants,
+                  sessionIds: seen.concat([session.id]),
+                  paymentIntentIds: (Array.isArray(d.paymentIntentIds) ? d.paymentIntentIds : [])
+                    .concat([typeof session.payment_intent === 'string'
+                      ? session.payment_intent
+                      : (session.payment_intent?.id ?? null)].filter(Boolean)),
+                  collectedCents: collected,
+                  platformCents: platform,
+                  potCents: collected - platform,
+                  ...(allPaid && d.status === 'open'
+                    ? { status: 'funded', fundedAt: Date.now() }
+                    : {}),
+                  updatedAt: Date.now(),
+                });
+              });
+              console.log(`Cash round buy-in: ${roundId} by ${uid} (${amount})`);
+            } catch (e) {
+              console.error('cash round buy-in failed:', e.message);
+            }
+          }
+          break;
+        }
+
         // Handle lifetime one-time payment
         if (session.mode === 'payment') {
           const paymentIntentId = session.payment_intent;

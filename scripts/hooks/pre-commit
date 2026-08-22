@@ -244,6 +244,22 @@ if [ -f "$BOUNTY_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Cash-round money guard. A cash round is the one surface where real
+# money moves on the result of an argument, so its four promises (fee
+# at the door only, winner takes the whole pot, no verdict means a full
+# refund, nothing pays before the appeal window closes) are asserted
+# rather than reviewed.
+CASH_GUARD="$REPO_ROOT/scripts/test-cash-round.mjs"
+if [ -f "$CASH_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-cash-round.mjs >/tmp/cash-guard.log 2>&1); then
+    echo "[cash-guard] commit blocked - the cash-round money rules no longer hold:" >&2
+    tail -20 /tmp/cash-guard.log >&2
+    echo "[cash-guard] see scripts/test-cash-round.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Send-quota guard. The sender guard below catches a wrong From. This
 # one catches the other half of the same 2026-08-12 failure: the day's
 # allowance running out mid-cohort while the run kept going and still
