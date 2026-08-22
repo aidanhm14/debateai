@@ -199,30 +199,28 @@ function joinedAtMs(data) {
 
 // ── The guest lane ────────────────────────────────────────────────
 //
-// 2026-08-19 (the founder): the live queue takes guests again, for their first
-// GUEST_FREE_ROUNDS rounds. The 2026-08-18 rule was named accounts only,
-// three layers deep (the /spar gate, the 403 that used to live below, and
-// the firestore.rules create). That is the right shape for an account
-// system and the wrong shape for the top of the funnel: /debate-online
-// carries the "debate omegle" traffic, those visitors arrive wanting a
-// stranger and a motion, and a sign-in wall at the door asks them to make
-// an account for a thing they have not seen yet. Let them play, then ask.
+// 2026-08-22 (the founder, ahead of a paid push): the guest allowance is
+// ZERO. Live pairing requires a named account again, which restores the
+// 2026-08-18 posture and closes the 2026-08-19 two-round trial. The call
+// this time is about sign-ups, not abuse: an ad push lands strangers on
+// the queue, and a guest who plays two rounds and bounces leaves nothing —
+// no account, no way to reach them, no record they can come back to. The
+// gate now shows who is waiting live (see /api/spar-queue) so the ask is
+// "sign in and meet them", not a wall in front of an empty room.
 //
-// What is NOT reversed from 2026-08-18: an anonymous uid is free and
-// unlimited to mint, so an ungated guest lane is an unbounded queue-filler
-// and an unaccountable opponent. The allowance is what keeps that bounded.
-// A guest gets two rounds against real people, ever, and the third one is
-// a sign-in.
+// The metering machinery below is deliberately KEPT, not deleted: setting
+// GUEST_FREE_ROUNDS=2 in the Netlify env re-opens the trial with no deploy,
+// and guest_rounds/ keeps its history. With the allowance at 0 a guest is
+// refused before any Firestore read (see the handler), so the lane costs
+// nothing while it is off.
 //
 // Metered here rather than in the client because the client cannot hold a
 // limit: localStorage clears, and the counter it used to keep was the same
 // counter /practice's free round used to keep, which is why that one moved
-// server-side this morning (e874e61e). The identity being metered is the
-// anonymous Firebase uid js/notifications.js already mints on every page —
-// it survives a storage clear, and linking it to a real account on sign-in
-// KEEPS the uid, so a guest who converts keeps their rounds and their
-// record. That is the point of the lane.
-const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 2);
+// server-side (e874e61e). The identity metered is the anonymous Firebase
+// uid, which survives a storage clear, and linking it to a real account on
+// sign-in KEEPS the uid, so a guest who converts keeps their record.
+const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 0);
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -458,10 +456,12 @@ export default async (request) => {
   // another free round, so the response has to say "make an account" rather
   // than imply patience.
   if (iAmGuest) {
-    const used = await guestRoundsUsed(db, myUid);
+    // Allowance 0 (the 2026-08-22 default): refuse before the Firestore
+    // read, so a guest POST loop costs the throttle and nothing else.
+    const used = GUEST_FREE_ROUNDS > 0 ? await guestRoundsUsed(db, myUid) : 0;
     if (used >= GUEST_FREE_ROUNDS) {
       return jsonResponse({
-        error: 'Your free guest rounds are used. Create an account to keep debating.',
+        error: 'Live rounds need an account. Sign in to join the queue.',
         code: 'SIGN_IN_REQUIRED',
         guestRoundsUsed: used,
         guestFreeRounds: GUEST_FREE_ROUNDS,

@@ -433,25 +433,22 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: any signed-in owner, guests included (2026-08-19). This
-      //    reverses the named-only create from 2026-08-18, which was the
-      //    third of three layers refusing guests. Guests now get a metered
-      //    allowance of live rounds instead of a wall, so the queue has to
-      //    accept their doc.
+      //  - create: NAMED accounts only (restored 2026-08-22, the founder's
+      //    call ahead of a paid push: live pairing requires sign-in, full
+      //    stop). This closes the 2026-08-19 guest-trial create, whose
+      //    allowance now defaults to 0 in spar-pair.mjs anyway; the rule
+      //    and the chokepoint agree again, three layers deep like
+      //    2026-08-18 (the /spar gate, spar-pair's 403, this create). If
+      //    the guest trial ever comes back (GUEST_FREE_ROUNDS env), this
+      //    line has to widen to isSignedIn() with it — the two move
+      //    together or guests get a doc nothing will pair, or no doc for
+      //    an allowance they hold.
       //
-      //    The layer this gives up is real, so say what replaces it. The
-      //    2026-08-18 concern was that anonymous uids are free and unlimited
-      //    to mint, so an ungated guest lane is an unbounded queue-filler and
-      //    an unaccountable opponent. A queue doc on its own does neither: it
-      //    puts nobody in front of anybody until spar-pair.mjs pairs them, and
-      //    spar-pair is where the allowance lives (GUEST_FREE_ROUNDS, metered
-      //    against the anonymous uid in guest_rounds/, which a client cannot
-      //    write). Rules cannot count rounds, so the count has to live there
-      //    regardless; what rules can do is refuse the write, and refusing it
-      //    is exactly the wall we are removing. Enforcement moves to the
-      //    chokepoint rather than disappearing.
+      //  - update/delete stay isSignedIn() on purpose: they only touch a
+      //    doc the caller already owns, so a stale ANONYMOUS doc left by
+      //    the trial era can still be released rather than stranded.
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
+      allow create: if isNamedAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'waiting';

@@ -1015,9 +1015,8 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .waitlist-empty strong{color:var(--text);font-weight:700}
 
-/* Guest recovery gate. Normal visitors are placed into anonymous Firebase
-   auth automatically; this only appears if that bootstrap fails or the user
-   explicitly chooses Google. */
+/* The sign-in gate. Since 2026-08-22 this is the front door for every
+   signed-out visitor: live pairing requires a named account. */
 .gate{
   background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
   padding:32px 28px;max-width:440px;width:100%;text-align:center;
@@ -1047,6 +1046,14 @@ h1 em{color:var(--accent);font-style:normal}
 .gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
+/* Live-count line on the gate: who is actually waiting in the queue
+   right now (/api/spar-queue), so signing in is an ask with a person on
+   the other side of it. Green pulse only when the count is real and
+   nonzero; the quiet state dims to grey like the meta-strip dot. */
+.gate-live{display:flex;align-items:center;justify-content:center;gap:8px;margin:-6px 0 16px;font-size:.86rem;font-weight:650;color:var(--text)}
+.gate-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.7);animation:gateLivePulse 1.6s ease-in-out infinite;flex-shrink:0}
+.gate-live[data-quiet] .gate-live-dot{background:#6b7280;box-shadow:none;animation:none;opacity:.55}
+@keyframes gateLivePulse{0%,100%{opacity:1}50%{opacity:.45}}
 /* Tournament nudge on the gate and the searching rail. Compact by
    design: the gate's fold position is load-bearing (2026-08-18 note),
    so this is one quiet line, never a card. */
@@ -2124,21 +2131,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-08-19 (the founder): guests get GUEST_FREE_ROUNDS live rounds against
-  // real people before the queue asks for an account. The 2026-08-18 rule
-  // was a sign-in wall at the door, which asks a visitor to make an account
-  // for a thing they have not seen. /debate-online is the page carrying the
-  // stranger-matching search traffic, and it lands here, so the door is the
-  // conversion surface: play first, sign in second.
+  // 2026-08-22 (the founder, ahead of a paid push): the allowance is ZERO.
+  // Live pairing requires a named account, which restores the 2026-08-18
+  // posture and closes the 2026-08-19 two-round guest trial. The gate now
+  // leads with who is actually waiting live (/api/spar-queue) so the ask
+  // is "sign in and meet them", not a wall in front of an unknown room.
   //
-  // The number here is COSMETIC. spar-pair.mjs owns the real allowance and
-  // meters it against the anonymous Firebase uid, because a client-side
-  // count is a localStorage entry and a localStorage entry is not a limit
-  // (the lesson from /practice's free round, moved server-side the same
-  // morning). This copy exists so the searching screen can say "1 round
-  // left" without a round-trip, and so the gate can render before the read
-  // lands. Firestore is read on boot and overwrites it.
-  var GUEST_FREE_ROUNDS = 2;
+  // The guest machinery below is KEPT dormant, not deleted: spar-pair.mjs
+  // owns the real allowance (GUEST_FREE_ROUNDS env, default 0 there too),
+  // and re-opening the trial is an env flip plus raising this constant.
+  // The number here is COSMETIC either way — a client-side count is a
+  // localStorage entry and a localStorage entry is not a limit.
+  var GUEST_FREE_ROUNDS = 0;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -2218,6 +2222,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
   }
   function mintGuestSession(){
+    // Allowance 0 (2026-08-22): never mint a guest session this page
+    // cannot use. A signed-out visitor goes straight to the gate.
+    if (GUEST_FREE_ROUNDS <= 0) return false;
     if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
     if (wantsInbox()) return false;
     guestMintTried = true;
@@ -2373,10 +2380,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       + ' <span aria-hidden="true">&rarr;</span></a>';
   }
 
-  // The gate is standing because a guest ran out, not because they arrived
-  // signed out. Drives every piece of copy above.
+  // The gate is standing because a guest actually PLAYED rounds and ran
+  // out, not because they arrived signed out. Drives every piece of copy
+  // above. `used > 0` matters with the allowance at 0: an anonymous
+  // session minted by another page (practice, live) would otherwise read
+  // as spent and be told "that was your last free round" about rounds
+  // they never had.
   function gateSpent(){
-    return !!(state.user && !state.named && guestRoundsLeft() <= 0);
+    return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
 
   function renderGate(){
@@ -2408,6 +2419,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<p>' + (gateSpent()
           ? 'Sign in and the rounds you just debated stay yours.'
           : 'Debate a real person on video. An AI judge writes the ballot.') + '</p>' +
+        '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Continue with Google' +
@@ -2433,10 +2445,70 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
     startGateFaces();
+    startGateLiveCount();
     // Split the two gates in GA4. They are different asks with different
     // audiences, so one blended conversion rate would hide whichever is
     // working. `spent` is the post-round wall; the other is the fallback.
     try { gtag('event', 'spar_gate_view', { required: 1, reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
+  }
+
+  // ── Gate live count: who is waiting on the other side ────────
+  // "3 others are waiting live right now" above the sign-in buttons, so
+  // the account ask has a person attached to it. The queue number is
+  // REAL (/api/spar-queue, no floor, no padding): whoever signs in off
+  // it has to actually meet somebody. When the queue is quiet it falls
+  // back to the last-24h visit figure from /api/presence-live, worded
+  // as visits, the same honesty rule as the globe caption. Refreshes
+  // every 30s while the gate is up; both endpoints are shared-cached
+  // server-side, so an ad-spike of gates costs a handful of reads a
+  // minute total.
+  var gateLiveTimer = null;
+  var gateLiveLogged = false;
+  function paintGateLiveCount(){
+    var host = document.getElementById('gateLive');
+    if (!host){
+      if (gateLiveTimer){ clearInterval(gateLiveTimer); gateLiveTimer = null; }
+      return;
+    }
+    fetch('/api/spar-queue').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      var el = document.getElementById('gateLive');
+      var txt = document.getElementById('gateLiveText');
+      if (!el || !txt) return;
+      var waiting = (d && Number(d.waiting)) || 0;
+      if (waiting > 0){
+        txt.textContent = waiting === 1
+          ? 'Someone is waiting live right now.'
+          : waiting + ' others are waiting live right now.';
+        el.removeAttribute('data-quiet');
+        el.hidden = false;
+      } else {
+        // Quiet queue: fall back to the ambient figure rather than
+        // claiming a waiter who is not there.
+        var n = presenceLive && presenceLive.online24;
+        if (n > 0){
+          txt.textContent = n + ' visits in the last 24 hours. Sign in and get matched.';
+          el.setAttribute('data-quiet', '1');
+          el.hidden = false;
+        } else {
+          el.hidden = true;
+        }
+      }
+      if (!gateLiveLogged){
+        gateLiveLogged = true;
+        try { gtag('event', 'spar_gate_live_count', { waiting: waiting }); } catch(e){}
+      }
+    }).catch(function(){});
+  }
+  function startGateLiveCount(){
+    // The globe's presence fetch also feeds the quiet-queue fallback;
+    // kick it if it has not run yet.
+    if (!presenceLive) { try { fetchPresenceLive(); } catch(e){} }
+    paintGateLiveCount();
+    if (gateLiveTimer) clearInterval(gateLiveTimer);
+    gateLiveTimer = setInterval(function(){
+      if (document.hidden) return;
+      paintGateLiveCount();
+    }, 30000);
   }
 
   // ── Gate preview: circulate the two portraits ────────
@@ -5992,10 +6064,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. The two free rounds are the offer this page
-        // makes, so mint a guest identity and let the guest branch above
-        // run. Only when that cannot happen does the sign-in ask stand,
-        // which keeps the gate a statement of fact rather than of policy.
+        // No session at all. With the guest allowance at 0 (2026-08-22)
+        // mintGuestSession() refuses immediately and the sign-in gate is
+        // the front door; if the trial ever comes back, this line
+        // re-opens the guest lane with it.
         if (!mintGuestSession()) renderGate();
       }
     });
