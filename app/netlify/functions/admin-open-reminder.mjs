@@ -42,6 +42,13 @@
  * was not true. Guard on ENTRIES_CLOSE_MS.
  * Same two-press button shape as admin-open-announce.mjs: POST {} is a
  * dry run, POST {confirm:'SEND'} sends one batch and reports remaining.
+ * A third press exists for the author: POST {test:'SEND'} renders BOTH
+ * variants (entrant and not) through this exact code path, with the
+ * live entry count and pot, and mails them to REPLY_TO alone. No stamp
+ * is written and no recipient list is read, so it can be pressed any
+ * number of times while the copy is being edited. An email is the one
+ * surface that cannot be corrected after it lands, so the preview has
+ * to be the real render, not a screenshot of the source.
  *
  * Differences from the announcement, each deliberate:
  *  - Own stamp (`openReminderSentAt`), and it does NOT skip people the
@@ -262,6 +269,51 @@ export default async (request) => {
      what stops this email repeating the old $850 after a repricing. */
   const entryCount = Math.max(0, Number(tourn.entryCount) || 0);
   const potNow = '$' + Math.round((Number(tourn.prizePoolCents) || 0) / 100).toLocaleString('en-US');
+
+  // ── Test send: both variants, to the author only ──────────────────
+  // Runs the REAL render with the REAL numbers so what lands in the
+  // inbox is byte-what the list would get, but touches no stamp and
+  // reads no recipient list. `test` and `confirm` are mutually
+  // exclusive on purpose: a press cannot half-mean both.
+  if (body?.test === 'SEND') {
+    if (body?.confirm) return errorResponse('Pass test OR confirm, not both.', 400, request);
+    if (!process.env.RESEND_API_KEY) return errorResponse('RESEND_API_KEY is not set here; test sends need production.', 409, request);
+    if (!senderOk) {
+      return jsonResponse({ error: 'UNVERIFIED_SENDER', verifiedDomains: allowed, verifiedSource }, 409, request);
+    }
+    const testTo = REPLY_TO;
+    const variants = [
+      { entered: false, tag: 'not entered' },
+      { entered: true,  tag: 'already entered' },
+    ];
+    const results = [];
+    for (const v of variants) {
+      const res = await sendEmail({
+        to: testTo,
+        subject: `[TEST · ${v.tag}] ${SUBJECT_FN(entryCount)}`,
+        html: renderEmail({
+          firstName: 'Aidan',
+          uid: 'test',
+          tournamentName: tourn.name || 'The Debatable Open',
+          entered: v.entered,
+          entryCount,
+          potNow,
+        }),
+        uid: 'test',
+        stream: STREAM,
+        from: FROM_EMAIL,
+        replyTo: REPLY_TO,
+      });
+      results.push({ variant: v.tag, ok: !!res.ok, reason: res.ok ? undefined : (res.reason || res.status) });
+    }
+    return jsonResponse({
+      test: true, to: testTo,
+      subject: SUBJECT_FN(entryCount),
+      entryCount, potNow,
+      results,
+      note: 'Nothing was stamped. Edit the copy, redeploy, press test again; confirm:SEND is untouched.',
+    }, 200, request);
+  }
 
   // People who already entered do not need to be told to enter. Entry
   // docs are auto-id'd and carry their uids in a `members` ARRAY (a 1v1
