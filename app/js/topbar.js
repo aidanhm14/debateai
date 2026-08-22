@@ -2164,7 +2164,7 @@
 
   var tail = (now >= EVENT_DAY)
     ? 'Live today, doors open 10 AM ET'
-    : '$850 in prizes';
+    : 'Cash prizes, written ballot every round';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2177,7 +2177,7 @@
     // body.has-beta-strip reserves a fixed 32px and this bar is 48px
     // the moment it wraps to a second line, which clips the wordmark
     // underneath it. One line on mobile is also the better hook.
-    var msg = 'Win $500 for $5';
+    var msg = 'Win $100 for $5';
     var rest = ' · The Debatable Open, Sat Aug 29 · ' + tail;
     strip.innerHTML =
       '<a href="/tournaments" data-cta="open-strip">' + msg +

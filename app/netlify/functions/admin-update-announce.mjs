@@ -80,7 +80,7 @@ function renderEmail({ firstName, uid }) {
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>1. Bring a friend.</strong> The Debatable Open runs Saturday,
-    August 29: $850 in cash prizes, online, drop in whenever suits you.
+    August 29: cash prizes, online, drop in whenever suits you.
     Your account predates the entry fee, so you play for the money free.
     Forward this to whoever you want in your bracket; their entry is $5, and
     I will waive it for anyone who asks.

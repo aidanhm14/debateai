@@ -69,7 +69,7 @@ const STREAM      = 'open';
 // Two subjects, because the old one asserted "your entry is free" to every
 // inbox it reached, including the accounts arriving now that have to pay.
 const SUBJECT_COMPED = `The Debatable Open, August 29. Your entry is free.`;
-const SUBJECT_PAID   = `The Debatable Open, August 29. $500 for winning an argument.`;
+const SUBJECT_PAID   = `The Debatable Open, August 29. $100 for winning an argument.`;
 
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, one ask, no
@@ -90,8 +90,8 @@ function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Win $500 for winning an argument.</strong> ${esc(tournamentName)} puts
-    $850 on the line: $500 for first, $250 for second, $100 for third. It runs
+    <strong>Win $100 for winning an argument.</strong> ${esc(tournamentName)} puts
+    $175 on the line: $100 for first, $50 for second, $25 for third. It runs
     ${when}, online, from wherever you are.
   </p>
 

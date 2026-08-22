@@ -7,7 +7,7 @@
  *   <div data-share-poster
  *        data-share-url="https://itsdebatable.com/tournaments"
  *        data-share-title="The Debatable Open"
- *        data-share-text="One day, all online. $500 for first."
+ *        data-share-text="One day, all online. $100 for first."
  *        data-share-image="/img/tournament/debatable-open.jpg"></div>
  *
  * WHY THE IMAGE MATTERS. A link share is a link; a poster share is a post.
