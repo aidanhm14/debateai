@@ -41,6 +41,7 @@ import { marketId } from './lib/credits.mjs';
 import { applyRoundRating } from './lib/rating-apply.mjs';
 import { verifyTournamentPairing } from './lib/tournament-round.mjs';
 import { applyTournamentResult } from './lib/tournament-ledger.mjs';
+import { deriveSpeakerScores } from './lib/speaker-score.mjs';
 
 const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
 
@@ -84,12 +85,13 @@ function buildPrompt(d, room) {
     'Return ONE JSON object and nothing else:',
     '{',
     '  "winner": "pro" | "con",',
-    '  "proPoints": <number 25-30, one decimal>,',
-    '  "conPoints": <number 25-30, one decimal>,',
+    '  "proPoints": <number 1-100, one decimal>,',
+    '  "conPoints": <number 1-100, one decimal>,',
     '  "decidingIssue": "<8 words or fewer naming the ONE clash that decided it, the substantive question and not the outcome>",',
-    '  "rfd": "<8-14 sentences: the decision, by issue, on the flow, closing with the single thing the losing side needed to change>",',
-    '  "dimensions": { "clarity": {"pro":<1-10>,"con":<1-10>}, "reasoning": {...}, "responsiveness": {...}, "weighing": {...}, "persuasion": {...} }',
+    '  "rfd": "<14-22 sentences: the decision, issue by issue and on the flow. Name each clash that mattered, say who took it and on what, quote the line that settled it where a line settled it, then close with the single thing the losing side needed to change. Do not summarise the speeches back; a debater already knows what they said and is reading this to find out what it was worth.>",',
+    '  "dimensions": { "clarity": {"pro":<1-10>,"con":<1-10>}, "reasoning": {...}, "responsiveness": {...}, "weighing": {...}, "strategy": {...}, "persuasion": {...} }',
     '}',
+    'SCORE THE AXES HONESTLY AND USE THE WHOLE RANGE. The headline points are COMPUTED from your six axis scores at published weights, so the axes are the real ballot and there is no separate number to soften. A side that was outclassed on every axis should read as outclassed; a 3 means a 3. Do not compress toward the middle to be kind, and do not spread scores to manufacture a contest that did not happen.',
     'persuasion = whether the case moved a reasonable listener hearing it once: concrete stakes, a world you can picture, an argument built to be understood the first time. It is NOT confidence, fluency, accent, or polish. Score it only where you can name the argumentative move that earned it, and never let it override the flow.',
   ].filter(Boolean).join('\n\n');
 
@@ -170,8 +172,22 @@ export default async (request, context) => {
   }
 
   const judgedAt = Date.now();
+  // The headline is the weighted blend of the axes the judge just
+  // scored, not the number it volunteered. See lib/speaker-score.mjs:
+  // asked for a figure on a six-point band a model returns the middle
+  // of that band whatever happened, which is how a round whose axes
+  // read 8/8/8/7/8 against 4/3/3/2/3 was published as 28.5 to 25.4 and
+  // read as a coin flip. Falls back to the model's own numbers only
+  // when no axis is scorable.
+  const derived = deriveSpeakerScores(judged.ballot);
   const ballot = {
     ...judged.ballot,
+    proPoints: derived.pro != null ? derived.pro : judged.ballot.proPoints,
+    conPoints: derived.con != null ? derived.con : judged.ballot.conPoints,
+    // What the scoreboard is denominated in, so a renderer never has to
+    // guess whether 28 means a good round or a poor one.
+    scoreScale: 100,
+    pointsDerived: derived.derived === true,
     proName: d.proName || 'Pro',
     conName: d.conName || 'Con',
     panel: judged.panel,

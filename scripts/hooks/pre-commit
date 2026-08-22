@@ -116,6 +116,23 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Speaker-score guard. The headline points on every ballot are derived
+# from the scored axes at published weights, and those weights are a
+# claim about what winning an argument is made of. A silent change to
+# one re-scores every future round, so it is a rubric change and this
+# blocks it the same way the judge guard does.
+# ──────────────────────────────────────────────────────────────────
+SPEAKS_GUARD="$REPO_ROOT/scripts/test-speaker-score.mjs"
+if [ -f "$SPEAKS_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-speaker-score.mjs >/tmp/speaks-guard.log 2>&1); then
+    echo "[speaks-guard] commit blocked — the speaker score no longer holds:" >&2
+    grep '^FAIL' /tmp/speaks-guard.log >&2 || tail -20 /tmp/speaks-guard.log >&2
+    echo "[speaks-guard] see scripts/test-speaker-score.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Judge-roster guard. The rotating round judge exists in two files
 # (app/js/judge-roster.js client, lib/judge-roster.mjs server) and
 # the draw is (hash % length), so a one-sided edit or reorder makes

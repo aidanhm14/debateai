@@ -189,13 +189,30 @@ html.dbnative .page-head{padding-top:20px}
 .vr-bar b{font-variant-numeric:tabular-nums;font-size:.72rem;color:rgba(240,237,230,.8)}
 .vr-rfd{max-width:min(680px,94%);margin-top:8px;font-size:clamp(.86rem,1.6vw,.98rem);line-height:1.55;
   color:rgba(240,237,230,.86);opacity:0;animation:vrIn .6s ease 2.3s forwards}
+/* The margin verdict, landing right after the two numbers have
+   finished counting so the reader is told what the gap MEANS at the
+   moment they can see it. */
+.vr-band{margin-top:2px;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(240,237,230,.55);opacity:0;animation:vrIn .5s ease 2.15s forwards}
+/* The full ballot. Closed by default; the summary reads as a control
+   rather than as more prose, so the card still ends on the actions. */
+.vr-deep{max-width:min(680px,94%);width:min(680px,94%);margin-top:2px;text-align:left;
+  opacity:0;animation:vrIn .6s ease 2.5s forwards}
+.vr-deep>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:7px;
+  font-size:.76rem;font-weight:800;letter-spacing:.04em;color:rgba(240,237,230,.72);
+  padding:7px 13px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(255,255,255,.06)}
+.vr-deep>summary::-webkit-details-marker{display:none}
+.vr-deep>summary:hover{background:rgba(255,255,255,.13);color:#f0ede6}
+.vr-deep>summary::after{content:'\25BC';font-size:.6em;opacity:.7;transition:transform .2s ease}
+.vr-deep[open]>summary::after{transform:rotate(180deg)}
+.vr-deep p{margin:13px 0 0;font-size:clamp(.84rem,1.5vw,.94rem);line-height:1.65;color:rgba(240,237,230,.8)}
 .vr-acts{display:flex;gap:10px;margin-top:6px;opacity:0;animation:vrIn .5s ease 2.8s forwards}
 .vr-acts .btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:#f0ede6}
 .vr-acts .btn:hover{background:rgba(255,255,255,.16)}
 @keyframes vrIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 @keyframes vrGrow{to{width:var(--vw,50%)}}
 @media(prefers-reduced-motion:reduce){
-  .vr-eyebrow,.vr-winner,.vr-side,.vr-points,.vr-bar,.vr-rfd,.vr-acts{animation-duration:.01s;animation-delay:0s;animation-iteration-count:1}
+  .vr-eyebrow,.vr-winner,.vr-side,.vr-points,.vr-band,.vr-bar,.vr-rfd,.vr-deep,.vr-acts{animation-duration:.01s;animation-delay:0s;animation-iteration-count:1}
   .vr-track u{animation-duration:.01s;animation-delay:0s}
 }
 .player-card.on{display:block}
@@ -942,7 +959,10 @@ footer a{color:var(--dim)}
     var conName = rec.conName || 'Opposition';
     var winner  = b.winner === 'pro' ? proName : conName;
     var winSide = b.winner === 'pro' ? 'Proposition' : 'Opposition';
-    var AX = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['persuasion','Persuasion']];
+    // Six axes, in the order the weights rank them, so the card reads
+    // top-down as what actually decided it. Strategy joined the ballot
+    // on 2026-08-21; older rounds simply have no row for it.
+    var AX = [['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['clarity','Clarity'],['strategy','Strategy'],['persuasion','Persuasion']];
     var bars = '';
     if (b.dimensions){
       for (var i = 0; i < AX.length; i++){
@@ -958,6 +978,15 @@ footer a{color:var(--dim)}
              +  '<b>' + esc(pv) + ' &middot; ' + esc(cv) + '</b></div>';
       }
     }
+    // How far apart they finished, said out loud. A scoreboard that
+    // prints two numbers and no verdict on the GAP leaves the reader to
+    // work out whether 77 to 29 was a rout, and on the old 25-30 band
+    // nobody could tell. Bands match lib/speaker-score.mjs.
+    var gap = Math.abs(Number(b.proPoints) - Number(b.conPoints));
+    var band = !isFinite(gap) ? ''
+      : gap < 4 ? 'Razor thin' : gap < 10 ? 'Close round'
+      : gap < 20 ? 'A clear win' : gap < 35 ? 'Decisive' : 'One sided';
+    var scale100 = b.scoreScale === 100 || Number(b.proPoints) > 30 || Number(b.conPoints) > 30;
     var pts = '';
     if (b.proPoints != null || b.conPoints != null){
       // data-n is the count-up hook below; the final value is rendered
@@ -965,8 +994,23 @@ footer a{color:var(--dim)}
       pts = '<div class="vr-points">'
           + '<div class="vr-pt"><b' + (b.proPoints != null && isFinite(Number(b.proPoints)) ? ' data-n="' + Number(b.proPoints) + '"' : '') + '>' + esc(b.proPoints == null ? '—' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
           + '<div class="vr-pt"><b' + (b.conPoints != null && isFinite(Number(b.conPoints)) ? ' data-n="' + Number(b.conPoints) + '"' : '') + '>' + esc(b.conPoints == null ? '—' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
-          + '</div>';
+          + '</div>'
+          + (band ? '<div class="vr-band">' + esc(band) + (scale100 ? ' &middot; out of 100' : '') + '</div>' : '');
     }
+    // The long ballot. async-sweep and live-round have written a 700 to
+    // 1300 word reason for decision since 2026-08-18 and this surface
+    // has only ever shown the short one, so the deepest thing the judge
+    // wrote was unreadable on the page built for reading it. Collapsed
+    // by default: the summary is the verdict, the full text is for the
+    // person who wants to argue with it.
+    var deep = rec && (rec.rfdDeep || (rec.ballot && rec.ballot.rfdDeep));
+    var deepHtml = deep
+      ? '<details class="vr-deep"><summary>Read the full ballot</summary>'
+        + String(deep).split(/\n{2,}/).map(function(par){
+            return '<p>' + esc(par.trim()) + '</p>';
+          }).join('')
+        + '</details>'
+      : '';
     el.innerHTML =
       '<div class="vr-inner">' +
         '<span class="vr-eyebrow">The ballot</span>' +
@@ -975,6 +1019,7 @@ footer a{color:var(--dim)}
         pts +
         (bars ? '<div class="vr-bars">' + bars + '</div>' : '') +
         (b.rfd ? '<p class="vr-rfd">' + esc(b.rfd) + '</p>' : '') +
+        deepHtml +
         '<div class="vr-acts">' +
           '<button class="btn" type="button" data-vr="replay">Watch again</button>' +
           '<button class="btn" type="button" data-vr="close">Dismiss</button>' +
@@ -989,7 +1034,10 @@ footer a{color:var(--dim)}
       Array.prototype.forEach.call(el.querySelectorAll('.vr-pt b[data-n]'), function(node){
         var target = Number(node.getAttribute('data-n'));
         var dec = String(node.getAttribute('data-n')).indexOf('.') >= 0 ? 1 : 0;
-        var from = Math.max(0, target - 6);
+        // Ramp scaled to the scale. Starting six below the target is a
+        // twitch on a 100-point board; a quarter of the value reads as
+        // a count-up on either scale.
+        var from = Math.max(0, target - Math.max(6, target * 0.25));
         var D = 900;
         node.textContent = from.toFixed(dec);
         setTimeout(function(){
