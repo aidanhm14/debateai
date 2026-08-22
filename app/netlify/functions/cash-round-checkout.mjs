@@ -16,8 +16,10 @@ import { quote, formatCents, isExpired, SEATS } from './lib/cash-round.mjs';
 //   and be looked at before it can take a card.
 // - 18+ and a named account, checked here as well as at join, because
 //   this is the call that actually charges someone.
-// - Payouts do NOT auto-run. A verdict marks the winner owed and they
-//   are paid by hand until Connect and KYC exist. Money never moves on
+// - Payouts do NOT auto-run. A verdict marks the winner owed and an
+//   admin releases it. They used to be paid BY HAND for want of Connect
+//   and KYC; lib/payout.mjs is Connect and KYC, so the send is now a
+//   Stripe transfer to the winner's own account. Money never moves on
 //   an AI ballot alone.
 // - The fee is taken at the door, is the same for both sides, and is
 //   fixed before anyone knows the outcome, which is what keeps the
