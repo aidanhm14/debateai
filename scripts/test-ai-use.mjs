@@ -125,5 +125,21 @@ ok(/the judge never sees it/i.test(pageSrc), 'the modal states the judge never s
 // aiAnalysis in the page should be zero (it lives server-side only).
 ok(!/aiAnalysis/.test(pageSrc), 'the client never receives or renders the raw analysis');
 
+// ── The review bench (admin-safety-reports.mjs) ─────────────────────
+// Same constitution as admin-appeals: the queue where a human reads the
+// evidence must contain no model call and no cron, and it must never be
+// able to strike, ban, or eject from a dashboard button.
+const benchSrc = readFileSync(join(root, 'app/netlify/functions/admin-safety-reports.mjs'), 'utf8');
+ok(/requireAdmin/.test(benchSrc), 'the review bench is admin-gated');
+ok(!/api\.anthropic\.com|api\.openai\.com|generativelanguage|ANTHROPIC_API_KEY|OPENAI_API_KEY/.test(benchSrc), 'the review bench makes NO provider call — a model may not review a report about a model');
+ok(!/schedule\s*:/.test(benchSrc), 'no cron resolves a report on its own');
+ok(!/video_bans|banUntil|collection\(['"]strikes|['"]eject/i.test(benchSrc), 'resolving a report cannot strike, ban, or eject');
+ok(/note\.length < 10/.test(benchSrc), 'a resolution requires a written reason');
+ok(/already_resolved/.test(benchSrc), 'a resolved report stays resolved (no double-resolve)');
+
+const adminSrc = readFileSync(join(root, 'app/admin.html'), 'utf8');
+ok(/loadSafetyReports/.test(adminSrc) && /api\/admin\/safety-reports/.test(adminSrc), '/admin renders the queue');
+ok(/evidence for you, never a verdict/i.test(adminSrc), 'the card states the evidence-not-verdict posture');
+
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) process.exit(1);

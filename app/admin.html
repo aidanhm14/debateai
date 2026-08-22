@@ -940,6 +940,21 @@
     </div>
   </div>
 
+  <!-- Safety reports: the human review queue for /report and the one-tap
+       AI-use report. Reads /api/admin/safety-reports. The AI-use machine
+       screen renders here as EVIDENCE for the reviewer; resolving records
+       the human call and touches no strike, ban, or eject — enforcement
+       stays in the peer-report path with its corroboration rules. -->
+  <div class="section" data-pane="people">
+    <div class="card">
+      <div class="title">
+        <span title="Reports filed from live rounds. An ai_use report carries the transcript screen; a human decides, the machine never does.">Safety reports · human review</span>
+        <span class="meta" id="sr-meta">Loading…</span>
+      </div>
+      <div id="sr-body" class="ts" style="padding:6px 2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Clash-map corrections: every reader who disagreed with a mapping.
        Reads the clashDisputes collection group via /api/admin/clash-disputes.
        The confusion matrix is the actionable half: a heavy cell means the
@@ -1793,6 +1808,10 @@ async function loadAll(force){
       // reviews means the motion pool silently stops getting fresher, and
       // that failure is invisible from every other panel.
       loadPulse(),
+      // Eager because an unreviewed safety report is a promise breaking
+      // in real time, and this collection had NO reader anywhere until
+      // 2026-08-22. Bounded at 120 docs server-side.
+      loadSafetyReports(),
     ]).then(renderAttention);
     renderAttention();
 
@@ -2840,6 +2859,11 @@ function renderAttention(){
     items.push({ sev:'warn', pane:'product', go:'Corpus',
       h:'Corpus audit is stale', b:'The 05:00 UTC consent audit has not run in over 36 hours.' });
   }
+  if (health.safety && health.safety.open > 0){
+    items.push({ sev:'bad', pane:'people', go:'Safety reports',
+      h: health.safety.open + ' safety report' + (health.safety.open === 1 ? '' : 's') + ' waiting for review',
+      b:'Someone reported a person they were in a round with. A human reads it; the machine screen on an AI-use report is evidence, never the decision.' });
+  }
   if (health.clash && health.clash.rows > 0){
     items.push({ sev:'warn', pane:'product', go:'Clash map',
       h: health.clash.rows + ' contested clash mapping' + (health.clash.rows === 1 ? '' : 's'),
@@ -3632,6 +3656,91 @@ async function loadClashDisputes(){
       '<div class="meta" style="margin-top:10px">Advisory signal only. No ballot, score, or leaderboard entry moves when a row is contested.</div>';
   } catch (e) {
     body.innerHTML = '<div class="err-box">Clash disputes load failed: ' + esc(e.message || e) + '</div>';
+    meta.textContent = '';
+  }
+}
+
+// ── Safety reports: the human review bench ─────────────────────────
+// Every report filed from a round, oldest open first, with the AI-use
+// transcript screen rendered as evidence where one was attached. The
+// reviewer's outcome + note land back on the report doc; nothing here
+// can strike, ban, or eject — that stays in the peer-report path.
+const SR_REASON = { harassment:'Harassment', hate_or_threats:'Hate / threats', sexual_content:'Sexual content', spam:'Spam', ai_use:'Using AI', other:'Other' };
+const SR_VERDICT_STYLE = { strong:'background:rgba(220,38,38,.16);color:#b91c1c', moderate:'background:rgba(217,119,6,.14);color:#b45309', weak:'background:rgba(217,119,6,.08);color:#92400e', none:'background:rgba(22,163,74,.10);color:#15803d' };
+function srEvidence(a){
+  if (!a) return '';
+  if (a.skipped){
+    return '<div class="meta" style="font-size:12px;margin-top:6px">Machine screen skipped (' + esc(a.skipped) + ').' + (a.note ? ' ' + esc(a.note) : '') + '</div>';
+  }
+  const h = a.heuristics || {}; const m = a.model || {};
+  const pill = (label, v) => v ? '<span style="display:inline-block;margin:0 6px 4px 0;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;' + (SR_VERDICT_STYLE[v] || SR_VERDICT_STYLE.none) + '">' + esc(label) + ': ' + esc(v) + '</span>' : '';
+  const sigs = (h.signals || []).concat(m.signals || []).slice(0, 8);
+  return '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">'
+    + 'Machine screen — evidence for you, never a verdict '
+    + pill('combined', a.verdict) + pill('mechanical', h.verdict) + (h.hardArtifact ? '<span style="font-size:11px;font-weight:700;color:#b91c1c">hard artifact</span>' : '')
+    + '</summary><div style="padding:6px 0 0;font-size:12px;line-height:1.5">'
+    + (m.summary ? '<div style="margin-bottom:4px">' + esc(m.summary) + '</div>' : '')
+    + (sigs.length ? '<ul style="margin:0;padding-left:18px">' + sigs.map(s => '<li>' + esc(typeof s === 'string' ? s : (s && s.note) || '') + '</li>').join('') + '</ul>' : '<div class="meta">No individual signals recorded.</div>')
+    + '</div></details>';
+}
+async function loadSafetyReports(){
+  const meta = $('sr-meta');
+  const body = $('sr-body');
+  if (!body || !meta) return;
+  try {
+    const d = await fetchJson('/api/admin/safety-reports');
+    const open = d.open || [];
+    const resolved = d.resolved || [];
+    health.safety = { open: open.length };
+    meta.textContent = open.length + ' open · ' + resolved.length + ' resolved' + ((d.counts || {}).truncated ? ' · capped, older not shown' : '');
+    const age = (t) => { if (!t) return '—'; const hrs = Math.max(0, (Date.now() - t) / 36e5); return hrs < 1 ? Math.round(hrs * 60) + 'm' : hrs < 48 ? Math.round(hrs) + 'h' : Math.round(hrs / 24) + 'd'; };
+    const openHtml = open.length ? open.map(r =>
+      '<div style="border-top:1px solid var(--line);padding:10px 2px">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline">' +
+          '<span style="padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;' + (r.reason === 'ai_use' ? 'background:rgba(220,38,38,.12);color:#b91c1c' : 'background:rgba(0,0,0,.06);color:var(--muted)') + '">' + esc(SR_REASON[r.reason] || r.reason) + '</span>' +
+          '<b>' + esc(r.reportedName || r.reportedUid.slice(0, 10)) + '</b>' +
+          '<span class="meta" style="font-size:12px">reported by ' + esc(r.reporterEmail || r.reporterUid.slice(0, 10)) + ' · ' + age(r.createdAt) + ' ago' + (r.roomId ? ' · room ' + esc(r.roomId.slice(0, 14)) : '') + '</span>' +
+        '</div>' +
+        (r.details ? '<div style="font-size:13px;margin-top:4px">' + esc(r.details) + '</div>' : '') +
+        srEvidence(r.aiAnalysis) +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">' +
+          '<select id="sr-out-' + esc(r.id) + '" style="font-size:12px;padding:4px 6px">' +
+            '<option value="no_action">No action</option><option value="warned">Warned</option><option value="escalated">Escalated</option>' +
+          '</select>' +
+          '<input id="sr-note-' + esc(r.id) + '" placeholder="What you decided and why (required)" style="flex:1;min-width:200px;font-size:12px;padding:4px 8px">' +
+          '<button class="pill-btn" data-sr-resolve="' + esc(r.id) + '">Resolve</button>' +
+        '</div>' +
+      '</div>').join('')
+      : '<div class="meta">No open reports. The queue fills from the Report control and the 🤖 AI? button in live rounds.</div>';
+    const resolvedHtml = resolved.length
+      ? '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">' + resolved.length + ' resolved</summary>' +
+        resolved.slice(0, 20).map(r =>
+          '<div class="meta" style="border-top:1px solid var(--line);padding:6px 2px;font-size:12px">' +
+            esc(SR_REASON[r.reason] || r.reason) + ' · ' + esc(r.reportedName || r.reportedUid.slice(0, 10)) + ' · <b>' + esc(r.outcome || '') + '</b>' +
+            (r.reviewNote ? ' — ' + esc(r.reviewNote) : '') +
+          '</div>').join('') + '</details>'
+      : '';
+    body.innerHTML = openHtml + resolvedHtml;
+    body.querySelectorAll('[data-sr-resolve]').forEach(btn => btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-sr-resolve');
+      const outcome = ($('sr-out-' + id) || {}).value;
+      const note = (($('sr-note-' + id) || {}).value || '').trim();
+      if (note.length < 10){ alert('Say what you decided and why — at least 10 characters. The next report about this person gets read against it.'); return; }
+      btn.disabled = true;
+      try {
+        const token = await getToken();
+        const res = await fetch('/api/admin/safety-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ action: 'resolve', reportId: id, outcome, note }),
+        });
+        if (!res.ok){ const j = await res.json().catch(() => ({})); throw new Error(j.error || ('API ' + res.status)); }
+        await loadSafetyReports();
+        renderAttention();
+      } catch (e) { alert('Resolve failed: ' + (e.message || e)); btn.disabled = false; }
+    }));
+  } catch (e) {
+    body.innerHTML = '<div class="err-box">Safety reports load failed: ' + esc(e.message || e) + '</div>';
     meta.textContent = '';
   }
 }
