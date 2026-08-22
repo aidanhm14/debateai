@@ -279,6 +279,20 @@ if [ -f "$CASH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Payout guard. cash-round decides whether a pot is OWED; this covers
+# whether it can be SENT, which is the half where money actually
+# leaves the account. Double-send prevention lives here.
+PAYOUT_GUARD="$REPO_ROOT/scripts/test-payout.mjs"
+if [ -f "$PAYOUT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-payout.mjs >/tmp/payout-guard.log 2>&1); then
+    echo "[payout-guard] commit blocked - the payout rail rules no longer hold:" >&2
+    tail -20 /tmp/payout-guard.log >&2
+    echo "[payout-guard] see scripts/test-payout.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Send-quota guard. The sender guard below catches a wrong From. This
 # one catches the other half of the same 2026-08-12 failure: the day's
 # allowance running out mid-cohort while the run kept going and still

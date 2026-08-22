@@ -6,6 +6,8 @@ import { APPEAL_WINDOW_MS } from './lib/judge-appeals.mjs';
 import {
   awardPot, refundPlan, canSettle, canPay, canTransition, formatCents, publicRound,
 } from './lib/cash-round.mjs';
+import { canSendPayout, transferIdempotencyKey, publicAccount } from './lib/payout.mjs';
+import { sendCashRoundPayout } from './lib/send-payout.mjs';
 
 // /api/admin/cash-round — the operator controls for the two moments a
 // cash round owes somebody money.
@@ -28,7 +30,16 @@ import {
 //
 // Refunds DO run through the Stripe API, because the failure mode on
 // that side is a debater's money sitting in our account for a round
-// that never happened. Payouts stay manual until Connect and KYC exist.
+// that never happened.
+//
+// PAYOUTS NOW RUN THROUGH THE API TOO. The old comment here said they
+// stay manual "until Connect and KYC exist"; lib/payout.mjs is Connect
+// and KYC existing, so `pay` sends a real Stripe transfer to the
+// winner's connected account rather than recording that somebody sent
+// one by hand. What did NOT change is who starts it: an admin still
+// presses this, because a machine that both decides the round and
+// releases the money is the circularity /judge-integrity refuses. The
+// rail makes paying one click. It does not make it automatic.
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -46,17 +57,51 @@ export default async (request) => {
     const snap = await db.collection('cash_rounds')
       .orderBy('createdAt', 'desc').limit(60).get();
     const now = Date.now();
+
+    // A payout that is owed can still be unsendable because the WINNER
+    // has not onboarded, and that is the single most common reason a
+    // round sits in this queue. Reading it here means the operator sees
+    // "waiting on the winner" instead of pressing Pay and getting a
+    // refusal. One profile read per settled round, and only for settled
+    // rounds, so the queue does not pay for the ones it cannot act on.
+    const winners = [...new Set(snap.docs
+      .filter((doc) => doc.data().status === 'settled')
+      .map((doc) => {
+        const sp = doc.data().payout && doc.data().payout.splits;
+        return Array.isArray(sp) && sp[0] ? sp[0].uid : null;
+      })
+      .filter(Boolean))];
+    const accounts = {};
+    await Promise.all(winners.map(async (uid) => {
+      try {
+        const ps = await db.collection('user_profiles').doc(String(uid)).get();
+        accounts[uid] = (ps.exists && ps.data().payoutAccount) || null;
+      } catch { accounts[uid] = null; }
+    }));
+
     const rows = snap.docs.map((doc) => {
       const d = doc.data();
       const payable = canPay(d, APPEAL_WINDOW_MS, now);
+      const winnerUid = d.payout && Array.isArray(d.payout.splits) && d.payout.splits[0]
+        ? d.payout.splits[0].uid : null;
+      const acct = winnerUid ? accounts[winnerUid] : null;
+      const send = d.status === 'settled'
+        ? canSendPayout(d, acct, APPEAL_WINDOW_MS, now) : null;
       return {
         ...publicRound(doc.id, d),
         needs:
           d.status === 'funded' ? 'awaiting verdict'
-          : (d.status === 'settled' && payable.ok) ? 'PAYOUT OWED'
+          : (d.status === 'settled' && send && send.ok) ? 'PAYOUT OWED'
+          : (d.status === 'settled' && payable.ok) ? 'WAITING ON WINNER'
           : (d.status === 'settled') ? `appeal window until ${new Date(payable.opensAt || 0).toISOString()}`
           : (d.status === 'void') ? 'REFUNDS OWED'
           : '',
+        // Never the account id, only whether it can receive. The
+        // operator needs to know if they can press Pay, not who the
+        // winner banks with.
+        winnerPayout: d.status === 'settled' ? publicAccount(acct) : null,
+        payoutStatus: (d.payout && d.payout.status) || 'none',
+        payoutError: (d.payout && d.payout.error) || '',
         collectedCents: Number(d.collectedCents) || 0,
         platformCents: Number(d.platformCents) || 0,
       };
@@ -148,12 +193,22 @@ export default async (request) => {
     if (!canTransition(d.status, 'paid')) {
       return jsonResponse({ error: 'REFUSED', message: `Cannot pay from ${d.status}` }, 409, request);
     }
-    await ref.update({
-      status: 'paid',
-      payout: { ...(d.payout || {}), status: 'paid', paidAt: Date.now() },
-      updatedAt: Date.now(),
-    });
-    return jsonResponse({ ok: true }, 200, request);
+    const sent = await sendCashRoundPayout(db, id, { appealWindowMs: APPEAL_WINDOW_MS });
+    if (!sent.ok) {
+      return jsonResponse({
+        error: 'PAYOUT_NOT_SENT',
+        stage: sent.stage || '',
+        reason: sent.reason || '',
+        message: sent.message || 'The pot could not be sent.',
+        ...(sent.plan ? { owed: sent.plan } : {}),
+      }, 409, request);
+    }
+    return jsonResponse({
+      ok: true,
+      transferId: sent.transferId,
+      paid: sent.plan,
+      message: `${formatCents(sent.plan.cents)} sent to ${sent.plan.name || sent.plan.uid}.`,
+    }, 200, request);
   }
 
   // ── void: no verdict is coming ────────────────────────────────────

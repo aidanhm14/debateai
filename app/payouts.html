@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-force-theme="light" data-lightweb="web">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Payouts · Get paid what you win · Debatable</title>
+<meta name="description" content="Set up payouts so the pot from a cash round reaches your bank. Stripe handles the identity check and the bank details; Debatable never sees them." />
+<link rel="canonical" href="https://itsdebatable.com/payouts">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Debatable">
+<meta property="og:title" content="Payouts · Get paid what you win">
+<meta property="og:description" content="Set up payouts so the pot from a cash round reaches your bank.">
+<meta property="og:url" content="https://itsdebatable.com/payouts">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/ui.css">
+<script src="/js/native-bridge.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<!-- track.js is the only telemetry entry point and topbar.js does NOT
+     pull it, so a new page has to carry it by hand. -->
+<script defer src="/js/track.js"></script>
+<!-- App Check is hard-enforced on /api/*, and this page calls a gated
+     route, so the token has to be minted here. -->
+<script defer src="/js/app-check.js"></script>
+<script defer src="/js/topbar.js"></script>
+<style>
+html[data-lightweb="web"]{background:var(--paper)}
+html[data-lightweb="web"] body{background:transparent}
+.wrap{max-width:660px;margin:0 auto;padding:38px 20px 90px}
+h1{font-size:clamp(1.7rem,4vw,2.5rem);line-height:1.1;margin:0 0 10px}
+.lede{font-size:1.02rem;line-height:1.6;color:var(--text-dim);margin:0 0 28px;max-width:52ch}
+.card{border:1px solid var(--border);border-radius:16px;background:var(--bg-card);padding:20px 22px;margin-bottom:16px}
+.state{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--text-dim)}
+.dot.ok{background:#16a34a}
+.dot.warn{background:#d97706}
+.dot.off{background:var(--text-dim)}
+.state strong{font-size:.68rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase}
+.card p{margin:0 0 14px;font-size:.95rem;line-height:1.6;color:var(--text-dim)}
+.btn{display:inline-block;border:0;border-radius:12px;padding:13px 20px;cursor:pointer;
+  font:inherit;font-size:.92rem;font-weight:800;background:#dc2626;color:#fff}
+.btn:hover{background:#b91c1c}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn.quiet{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn.quiet:hover{background:var(--ui-surface)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.how{list-style:none;padding:0;margin:18px 0 0;counter-reset:s}
+.how li{counter-increment:s;position:relative;padding:0 0 14px 34px;font-size:.92rem;line-height:1.55;color:var(--text-dim)}
+.how li:before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;background:var(--ui-surface);border:1px solid var(--border);
+  font-size:.7rem;font-weight:900;color:var(--text)}
+.note{font-size:.84rem;line-height:1.6;color:var(--text-dim);border-left:3px solid var(--border);padding-left:14px;margin-top:22px}
+.err{color:#b91c1c;font-size:.88rem;margin-top:10px;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Getting paid</h1>
+  <p class="lede">Win a cash round and the pot is yours. This is where you tell us how to send it.</p>
+
+  <div class="card" id="card">
+    <div class="state"><span class="dot off" id="dot"></span><strong id="stateLabel">Checking…</strong></div>
+    <p id="stateBody">One moment.</p>
+    <div class="row" id="actions"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card">
+    <div class="state"><span class="dot off"></span><strong>How it works</strong></div>
+    <ol class="how">
+      <li><strong>Stripe collects the details, not us.</strong> You set up a Stripe account from the button above. Your bank details and ID go to Stripe directly. Debatable never sees them and never stores them.</li>
+      <li><strong>Win a round.</strong> The verdict marks the pot as owed to you.</li>
+      <li><strong>The appeal window runs.</strong> Either debater can appeal a verdict. Nothing is sent while that window is open, or while an appeal is being decided.</li>
+      <li><strong>The pot is sent.</strong> Once the window closes with no appeal open, it transfers to your account.</li>
+    </ol>
+    <p class="note">If you win before setting this up, nothing is lost. The pot stays owed to you and sends as soon as your account is ready.</p>
+  </div>
+
+  <p class="note">Payouts are 18 or over. A cash round is a contest of skill between the two people paying to compete, and the platform fee is taken when you enter, never out of the pot. <a href="/tournament-rules">The full rules</a>.</p>
+</div>
+
+<script>
+(function(){
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    measurementId: "G-0V4R5MY3BT"
+  };
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { user: null, busy: false };
+
+  function setState(kind, label, body){
+    $('dot').className = 'dot ' + kind;
+    $('stateLabel').textContent = label;
+    $('stateBody').textContent = body;
+  }
+  function setActions(list){
+    var host = $('actions');
+    host.innerHTML = '';
+    (list || []).forEach(function(a){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn' + (a.quiet ? ' quiet' : '');
+      b.textContent = a.label;
+      b.addEventListener('click', a.onClick);
+      host.appendChild(b);
+    });
+  }
+  function fail(msg){ $('err').textContent = msg || ''; }
+
+  async function api(action){
+    if (!state.user) throw new Error('Sign in first.');
+    var token = await state.user.getIdToken();
+    var r = await fetch('/api/payout-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ action: action }),
+    });
+    var j = null;
+    try { j = await r.json(); } catch(e){}
+    if (!r.ok) throw new Error((j && j.message) || 'Request failed (' + r.status + ')');
+    return j;
+  }
+
+  function go(action){
+    return function(){
+      if (state.busy) return;
+      state.busy = true;
+      fail('');
+      setState('off', 'Opening Stripe…', 'Taking you to Stripe to finish this.');
+      setActions([]);
+      api(action).then(function(j){
+        if (j && j.url) { window.location.href = j.url; return; }
+        state.busy = false; render(null);
+      }).catch(function(e){
+        state.busy = false;
+        fail(e.message || 'Could not open Stripe.');
+        render(state.lastAccount);
+      });
+    };
+  }
+
+  function render(acct){
+    state.lastAccount = acct;
+    if (!state.user){
+      setState('off', 'Sign in', 'Sign in to set up payouts.');
+      setActions([{ label: 'Sign in', onClick: function(){
+        if (window.openAuthModal) window.openAuthModal('signin');
+        else window.location.href = '/practice';
+      } }]);
+      return;
+    }
+    if (!acct || !acct.connected){
+      setState('off', 'Not set up', 'You have not connected a payout account. Do it now and any pot you win sends automatically.');
+      setActions([{ label: 'Set up payouts', onClick: go('onboard') }]);
+      return;
+    }
+    if (acct.ready){
+      setState('ok', 'Ready', 'Your account is set up. Any pot you win sends once the appeal window closes.');
+      setActions([{ label: 'Manage payout account', quiet: true, onClick: go('dashboard') }]);
+      return;
+    }
+    setState('warn', 'Almost there', acct.message || 'Stripe still needs a few details before it can pay you.');
+    setActions([
+      { label: 'Finish setup', onClick: go('onboard') },
+      { label: 'Open Stripe', quiet: true, onClick: go('dashboard') },
+    ]);
+  }
+
+  function load(){
+    if (!state.user){ render(null); return; }
+    setState('off', 'Checking…', 'Reading your payout account.');
+    setActions([]);
+    api('status').then(function(j){ render(j && j.account); })
+      .catch(function(e){ fail(e.message || ''); render(null); });
+  }
+
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+    var fbAuth = firebase.auth();
+    fbAuth.onAuthStateChanged(function(u){
+      // An anonymous session cannot hold a bank account, and the
+      // endpoint refuses one, so it reads as signed out here rather
+      // than showing a button that will fail.
+      state.user = (u && !u.isAnonymous) ? u : null;
+      load();
+    });
+  } catch(e){ render(null); }
+
+  // Coming back from Stripe. The status read is what actually decides
+  // what this page says; the query parameter only explains the trip.
+  try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('done') === '1' || q.get('refresh') === '1'){
+      history.replaceState(null, '', '/payouts');
+    }
+  } catch(e){}
+})();
+</script>
+</body>
+</html>
