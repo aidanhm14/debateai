@@ -598,9 +598,14 @@ h1,h2,h3,p{margin-top:0}
         <!-- Social proof at headline scale. Count and faces render from
              the live bracket read; see ENTRANTS_SHOWN in the entry
              script for how the number is resolved. -->
-        <div class="count">
+        <!-- Hidden until the real count arrives. This carried a
+             hardcoded 48, which painted on first frame and stayed put
+             if the bracket read failed, so the one number on the page
+             that had to be true was the one that could be shown
+             without ever being read. -->
+        <div class="count" id="entrantCountBlock" hidden>
           <div>
-            <div class="count-n" id="entrantCount">48</div>
+            <div class="count-n" id="entrantCount">0</div>
           </div>
           <div class="count-t">
             <span id="entrantLabelTop" style="display:block;font-family:var(--serif);font-size:1.1rem;font-weight:750;color:var(--ink)">debaters have signed up</span>
@@ -1104,44 +1109,35 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
      than to a wrong one. */
   /* ── Signed-up count ──────────────────────────────────────────────
      This renders at 4.4rem in the hero, so it is resolved in exactly
-     one place. `entryCount` from the bracket read counts completed
-     tournament registrations only; the signed-up pool it is describing
-     is larger than that (the announcement list and the Wednesday queue
-     are the same people, and plenty sign up in one place before
-     registering in the other), which is why the floor is stated rather
-     than derived. It is a claim on a public page: keep it TRUE, and
-     move it up as the real number passes it, never down. */
-  /* The floor alone made the number STUCK: it read 48 whether the real
-     registration count was 7 or 40, so a debater who signed up watched
-     it not move. It is now a floor PLUS growth. ENTRANT_FLOOR_BASE is
-     the registration count on the day the floor was stated (7, read off
-     /api/tournament on 2026-08-19), so every registration above that
-     baseline adds one to the displayed number: 48 today, 49 on the next
-     signup, and so on.
+     one place, and it is the REAL registration count and nothing else.
+     `entryCount` from the bracket read counts completed tournament
+     registrations.
 
-     The assumption this rests on, stated plainly because it is the part
-     that could go wrong: it treats a NEW tournament registration as a
-     NEW person. The floor's extra 41 are the announcement list and the
-     Wednesday queue, who have not all registered yet — if one of them
-     registers, they get counted twice. So the number drifts high in
-     proportion to how much of the floor converts rather than how much
-     genuinely new interest arrives. It stays a floor-plus claim, not a
-     headcount, and it must not be quoted as one. If that drift matters
-     more than the number moving, drop back to Math.max(n, FLOOR).
+     What was here until 2026-08-22, and why it went. The number was a
+     floor of 48 plus growth above a baseline of 7, reasoning that the
+     announcement list and the Wednesday queue are a larger pool than
+     the registrations, so a floor was the truer claim. With 10 real
+     registrations that printed 51, and Aidan read it back off his own
+     hero: make the number accurate. Both halves of that are worth
+     keeping straight. A floor is defensible on an ambient presence
+     dial, where nobody can count the thing being described; it is not
+     defensible on a roster for an event with a register button, where
+     the true number is one field away and a person could in principle
+     be asked to name the 51. The floor also fought the thing the page
+     now needs most: a stated field size of 51 makes "help us pass 50"
+     read as already done, while 10 makes it a real ask.
 
-     When the floor is next raised by hand, move the baseline to the
-     live `entryCount` in the same edit, or the raise gets counted
-     twice on top of everything above. */
-  var ENTRANT_FLOOR=48;
-  var ENTRANT_FLOOR_BASE=7;
+     Keep it derived. Do not reintroduce a floor, a pad, or a baseline
+     here. If the number needs to be bigger, get more entrants. */
   function renderEntrants(count){
     var el=document.getElementById('entrantCount');
     if(!el)return;
-    var n=Number(count)||0;
-    var shown=Math.max(n, ENTRANT_FLOOR + Math.max(0, n - ENTRANT_FLOOR_BASE));
-    el.textContent=String(shown);
+    var n=Math.max(0, Number(count)||0);
+    el.textContent=String(n);
     var top=document.getElementById('entrantLabelTop');
-    if(top)top.textContent=(shown===1?'debater has signed up':'debaters have signed up');
+    if(top)top.textContent=(n===1?'debater has signed up':'debaters have signed up');
+    var block=document.getElementById('entrantCountBlock');
+    if(block)block.hidden=false;
   }
 
   var PLACE=['First','Second','Third','Fourth','Fifth'];
