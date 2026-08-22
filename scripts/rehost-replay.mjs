@@ -4,7 +4,8 @@
 // serve it instead of the Daily original.
 //
 //   node scripts/rehost-replay.mjs <recordingId> [more ids...]
-//   node scripts/rehost-replay.mjs --all          # every published recording
+//   node scripts/rehost-replay.mjs --all          # every one not yet rehosted
+//   node scripts/rehost-replay.mjs --all --force  # redo ones already done
 //
 // WHY THIS EXISTS (measured 2026-08-22, on a real round a user reported as
 // "video is not loading"):
@@ -18,10 +19,15 @@
 // kb/s with no visible quality loss, because baseline has no CABAC and no
 // B-frames and the frame is mostly flat black around two webcam tiles.
 //
-// It also fixes seeking. Daily's file is a FRAGMENTED mp4 whose moov carries
-// duration 0, empty sample tables and no segment index, so a browser has to
-// scan to find anything. `+faststart` writes a real index at the front, which
-// is what /watch's clip tools need in order to seek at all.
+// It also cuts time-to-metadata by ~40x. Daily's file is a FRAGMENTED mp4
+// whose moov carries duration 0, empty sample tables and no segment index, so
+// a browser has to go looking before it knows the duration. Measured on the
+// same round: 14155ms to loadedmetadata on the Daily original against 352ms
+// on the faststart re-encode. Seeking itself DOES work on the original once
+// metadata lands (a seek to 10:00 completed in 241ms), so this is a
+// start-up-latency win, not a repair of a broken feature. Worth having
+// anyway, because /watch opens the player as soon as a card is clicked and
+// 14 seconds of nothing reads as a broken page.
 //
 // `round-recording.mjs` now caps NEW recordings at videoBitrate 1200, which
 // measured SSIM 0.994 (quiet round) and 0.985 (both cameras live) against the
@@ -165,10 +171,21 @@ async function rehost(id, token){
   await Promise.all([unlink(src).catch(()=>{}), unlink(out).catch(()=>{})]);
 }
 
-async function allPublishedIds(){
+// --all skips anything already carrying an mp4Url, because a re-encode means
+// downloading the whole original again. --force redoes them.
+async function allPublishedIds(force){
   const r = await fetch('https://itsdebatable.com/api/recordings');
   if (!r.ok) throw new Error('recordings index failed: ' + r.status);
-  return (await r.json()).recordings.map((x) => x.id);
+  const ids = (await r.json()).recordings.map((x) => x.id);
+  if (force) return ids;
+  const keep = [];
+  for (const id of ids){
+    const one = await fetch(`https://itsdebatable.com/api/recordings?id=${encodeURIComponent(id)}&link=1`);
+    const link = one.ok ? ((await one.json()).link || '') : '';
+    if (link.includes('firebasestorage.googleapis.com')) console.log(`  skipping ${id}, already rehosted`);
+    else keep.push(id);
+  }
+  return keep;
 }
 
 const args = process.argv.slice(2);
@@ -176,7 +193,11 @@ if (!args.length){
   console.error('usage: node scripts/rehost-replay.mjs <recordingId>... | --all');
   process.exit(1);
 }
-const ids = args[0] === '--all' ? await allPublishedIds() : args;
+const force = args.includes('--force');
+const ids = args[0] === '--all'
+  ? await allPublishedIds(force)
+  : args.filter((a) => !a.startsWith('--'));
+if (!ids.length){ console.log('nothing to do'); process.exit(0); }
 const token = await gcpToken();
 let failed = 0;
 for (const id of ids){
