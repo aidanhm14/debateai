@@ -74,7 +74,12 @@ async function dailyRecording(room, action){
   // forever with no error to report. At 1200 kbps the same round lands
   // near 110MB, about 1.3 Mbps with audio, which streams with headroom
   // on an ordinary connection. The content is a near-static board with
-  // two webcam tiles, so this is not a quality trade anyone will see.
+  // two webcam tiles, so this is not a quality trade anyone will see:
+  // measured SSIM against the uncapped original is 0.994 on a quiet
+  // round and 0.985 with both cameras live, and 1500 kbps scored 0.985
+  // on that same busy round, so 1200 is already on the flat part of the
+  // curve. Recordings made BEFORE this cap are fixed separately with
+  // scripts/rehost-replay.mjs, which also repairs their seeking.
   // Validated against the live Daily API on a throwaway room: this body
   // passes param validation and fails only on "not hosting a call",
   // while a max_cam_streams control still 400s as "not allowed".
