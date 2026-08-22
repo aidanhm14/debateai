@@ -165,7 +165,7 @@
       'position:sticky', 'top:0', 'z-index:2147482000',
       'display:flex', 'align-items:center', 'gap:8px',
       'padding:8px 14px',
-      'font:600 13px/1 Archivo,Georgia,serif',
+      'font:600 13px/1 DM Sans,Archivo,Georgia,serif',
       'color:#fff', 'background:#b91c1c',
       'box-shadow:0 1px 0 rgba(0,0,0,.10)'
     ].join(';');
@@ -293,7 +293,7 @@
       // the page usable. The wrapper therefore takes pointer-events:none
       // so the invisible full-screen box cannot swallow clicks meant for
       // the article underneath, and only the card takes them back.
-      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;pointer-events:none;font-family:Archivo,Georgia,serif}' +
+      '#ditHomePop{position:fixed;inset:0;z-index:2147483000;pointer-events:none;font-family:DM Sans,Archivo,Georgia,serif}' +
       '#ditHomePop .ditHP-card{position:absolute;right:20px;bottom:20px;pointer-events:auto;' +
         'width:min(380px,calc(100vw - 32px));background:' + card + ';color:' + ink + ';' +
         'border:1px solid ' + line + ';border-radius:18px;padding:22px 22px 20px;' +
