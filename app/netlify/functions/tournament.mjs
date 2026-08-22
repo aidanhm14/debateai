@@ -318,6 +318,18 @@ export default async (request) => {
   // evening, which is what the rules describe and what the control
   // room's own button now says.
   if (action === 'register') {
+    // Named accounts only, found by the 2026-08-22 dry run: this action
+    // accepted an anonymous token and even granted it prizeEligible on a
+    // client-sent flag, while tournament-dropin refused the same token
+    // one door later. Anonymous uids are free and unlimited to mint (the
+    // 2026-07-28 lesson), so an ungated register is an unbounded way to
+    // stuff entryCount, which the hero renders as "N debaters have
+    // signed up", and the cash-eligibility list. The client never sends
+    // this (withUser gates on a real sign-in), which is exactly why the
+    // hole was invisible: enforcement has to live here, not there.
+    if (decoded.firebase?.sign_in_provider === 'anonymous') {
+      return errorResponse('Create an account to enter a tournament.', 403, request);
+    }
     const OPEN_TO_ENTRY = new Set(['registration', 'running']);
     if (!OPEN_TO_ENTRY.has(String(t.data.status || ''))) {
       return errorResponse('Registration is not open for this tournament.', 409, request);
