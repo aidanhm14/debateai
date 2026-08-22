@@ -1,34 +1,25 @@
-import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
-// In-memory rate limiter. Resets on cold start, but Netlify lambdas warm up
-// per-region so this gives reasonable abuse protection between full freezes.
-// Authenticated callers use a per-user bucket; anon callers fall back to
-// per-IP. Anon limits are tighter because there's no team usage backstop.
-const rateLimitMap = new Map();
-const AUTH_WINDOW_MS  = 60_000;
-const AUTH_MAX_PER_WINDOW = 5;
-const ANON_WINDOW_MS  = 60 * 60_000; // 1 hour
-const ANON_MAX_PER_WINDOW = 6;       // ~6/hr per IP for unauthenticated
-
-function checkRateLimit(key, windowMs, max) {
-  const now = Date.now();
-  const entry = rateLimitMap.get(key);
-  if (!entry || now - entry.start > windowMs) {
-    rateLimitMap.set(key, { start: now, count: 1 });
-    return true;
-  }
-  entry.count++;
-  return entry.count <= max;
-}
-
-function getClientIp(request) {
-  const hdr = request.headers;
-  return (hdr.get('x-nf-client-connection-ip')
-       || hdr.get('x-forwarded-for')?.split(',')[0]?.trim()
-       || 'anon');
-}
+// Rate limits, shared-counter via lib/rate-limit.mjs (a module-scope Map is
+// per-isolate: the count resets on cold start and differs per instance).
+// NAMED accounts get the per-user lane; anonymous Firebase uids are free and
+// unlimited to mint, so an anonymous token meters against the IP like any
+// tokenless caller. Anon limits are tighter because there's no team usage
+// backstop.
+const USER_LAYERS = [
+  { window: 60_000, max: 10, label: 'minute' },
+  { window: 3_600_000, max: 60, label: 'hour' },
+  { window: 86_400_000, max: 200, label: 'day' },
+];
+const IP_LAYERS = [
+  { window: 60_000, max: 4, label: 'minute' },
+  { window: 3_600_000, max: 20, label: 'hour' },
+  { window: 86_400_000, max: 60, label: 'day' },
+];
 
 // Mode-specific prompt + model. 'news' is the legacy news-research path used
 // by the motion designer. 'evidence' is debate-research with cited sources,
@@ -52,11 +43,23 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
-  // Auth is optional. If a token is present and valid, the caller gets the
-  // higher per-user limit + their team's usage logger. Otherwise we fall
-  // back to anonymous per-IP limits. This keeps free-tier surfaces (Evidence
-  // Finder on /high-school, motion designer on /app news fetch) working.
+  // Every caller must be a real browser running our Firebase app; every
+  // request here is a paid Perplexity call. The calling pages (/app,
+  // /high-school) mint App Check tokens sitewide.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return jsonResponse({
+      error: 'App verification failed. Reload the page and try again.',
+      code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase(),
+    }, 401, request);
+  }
+
+  // Auth is optional. A NAMED account gets the higher per-user limit + its
+  // team's usage logger; an anonymous-uid token meters per IP like a
+  // tokenless caller. This keeps free-tier surfaces (Evidence Finder on
+  // /high-school, motion designer on /app news fetch) working.
   let userId = null;
+  let named = false;
   let userEmail = null;
   let team = null;
   const token = extractBearerToken(request);
@@ -64,21 +67,25 @@ export default async (request) => {
     try {
       const decoded = await verifyIdToken(token);
       userId = decoded.sub;
+      named = isNamedAccount(decoded);
       userEmail = decoded.email || null;
-      const teamResult = await getUserTeam(userId);
-      if (teamResult) team = teamResult.team;
+      if (named) {
+        const teamResult = await getUserTeam(userId);
+        if (teamResult) team = teamResult.team;
+      }
     } catch (_) { /* fall through to anon */ }
   }
 
   // Per-user / per-IP rate limit
-  if (userId) {
-    if (!checkRateLimit('u:' + userId, AUTH_WINDOW_MS, AUTH_MAX_PER_WINDOW)) {
+  if (named && userId) {
+    const limited = await checkLayers('perplexity', 'uid_' + userId, USER_LAYERS);
+    if (!limited.ok) {
       return errorResponse('Too many requests. Please wait a moment and try again.', 429, request);
     }
   } else {
-    const ip = getClientIp(request);
-    if (!checkRateLimit('ip:' + ip, ANON_WINDOW_MS, ANON_MAX_PER_WINDOW)) {
-      return errorResponse('Hourly research limit reached. Sign in for more searches.', 429, request);
+    const limited = await checkLayers('perplexity', 'ip_' + callerIp(request), IP_LAYERS);
+    if (!limited.ok) {
+      return errorResponse('Research limit reached. Sign in for more searches.', 429, request);
     }
   }
 

@@ -282,6 +282,11 @@
     clip_viewed: 1,
     clip_shared: 1,
     sponsor_cta_clicked: 1,
+    // round exit capture — anon rounds are two thirds of activity, so
+    // an abandonment signal that dropped them would measure the wrong
+    // population. Mirrors the server allowlist in log-event.mjs.
+    round_abandoned: 1,
+    round_exit_reason: 1,
   };
 
   async function post(event, metadata) {

@@ -19,7 +19,8 @@
 // (spectators never drive checks, participants are signed in) so their lane
 // is tight.
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 import {
@@ -103,16 +104,34 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('POST only', 405, request);
 
+  // Only real browsers running our Firebase app get to spend Perplexity
+  // and Anthropic calls. live-round.html mints tokens sitewide, so a
+  // missing token here is a script, not a round.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return jsonResponse({
+      error: 'App verification failed. Reload the page and try again.',
+      code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase(),
+    }, 401, request);
+  }
+
   const pplxKey = process.env.PERPLEXITY_API_KEY;
   const claudeKey = process.env.ANTHROPIC_API_KEY;
   // Neither key configured: tell the client to stop asking rather than
   // failing a request every 20 seconds for the rest of the round.
   if (!pplxKey && !claudeKey) return jsonResponse({ flags: [], disabled: true }, 200, request);
 
+  // Only a NAMED account earns the per-uid lane. Anonymous Firebase uids
+  // are free and unlimited to mint (the 2026-07-28 lesson), so keying a
+  // limit on one hands a rotating caller a fresh allowance per uid; they
+  // meter per IP instead.
   let uid = '';
   const token = extractBearerToken(request);
   if (token) {
-    try { uid = (await verifyIdToken(token)).sub || ''; } catch (_) { /* anon lane */ }
+    try {
+      const decoded = await verifyIdToken(token);
+      if (isNamedAccount(decoded)) uid = decoded.sub || '';
+    } catch (_) { /* anon lane */ }
   }
   const limited = uid
     ? await checkLayers('factcheck', 'u_' + uid, USER_LAYERS)

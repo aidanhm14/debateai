@@ -50,6 +50,17 @@ const VALID_EVENTS = new Set([
   'debate_joined',
   'debate_started',
   'debate_completed',
+
+  // ── Round exit capture (2026-08-22) ───────────────────────────────
+  // The round funnel says WHERE rounds die; these say WHY. First-class
+  // names (not app_event) so the admin scan can query them directly.
+  // round_abandoned  = passive pagehide beacon mid-round (stage, elapsed)
+  // round_exit_reason = the user answered the one-tap "what happened?"
+  //                     card, or a bail button whose reason is knowable
+  //                     (opponent no-show, forfeit) fired it for them.
+  'round_abandoned',
+  'round_exit_reason',
+
   'verdict_viewed',
   'profile_followed',
   'clip_viewed',
@@ -97,6 +108,12 @@ const VALID_EVENTS_ANON = new Set([
   'clip_viewed',
   'clip_shared',
   'sponsor_cta_clicked',
+
+  // Round exit capture. Two thirds of recent round activity is
+  // anonymous, so an auth-gated abandonment signal would measure the
+  // wrong population — the same rationale as battle_started above.
+  'round_abandoned',
+  'round_exit_reason',
 ]);
 
 // In-memory rate limiting: uid (or anon:<sid>:<ip>) -> { count, windowStart }

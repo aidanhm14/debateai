@@ -11,6 +11,7 @@ import { getDiscourseBlock } from './lib/discourse.mjs';
 import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
 import { getBrainBlock } from './lib/brain.mjs';
 import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
+import { recordTrip } from './lib/rate-limit.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 // Reasoning-model note that bit the async panel and will bite here next:
@@ -523,6 +524,7 @@ export default async (request, context) => {
     // instead of rendering a dead-end "try again later".
     const freeRound = await checkAnonFreeRound(anonUid);
     if (!freeRound.ok) {
+      recordTrip('claude', 'sign_in_wall', 'anon'); // Cost-guard visibility: how often the wall fires
       return new Response(
         JSON.stringify({
           error: 'Your free round is done. Make an account to keep debating. Your rounds, ballots, and record start saving from here.',
@@ -537,6 +539,7 @@ export default async (request, context) => {
     const ip = request.headers.get('x-nf-client-connection-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';  // nf ip is Netlify-set + unforgeable; XFF (client-settable) only as fallback
     const check = await checkAnonLayers(ip);
     if (!check.ok) {
+      recordTrip('claude', check.layer, 'ip');
       const msg = check.layer === 'minute'
         ? 'Too many requests — please wait a moment.'
         : check.layer === 'hour'

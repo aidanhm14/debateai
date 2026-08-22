@@ -81,7 +81,10 @@ export async function checkLayers(ns, key, layers) {
       const results = await upstashPipeline(commands);
       for (let i = 0; i < layers.length; i++) {
         const count = Number(results?.[i * 2]?.result ?? 0);
-        if (count > layers[i].max) return { ok: false, layer: layers[i].label };
+        if (count > layers[i].max) {
+          noteTrip(ns, layers[i].label, key);
+          return { ok: false, layer: layers[i].label };
+        }
       }
       return { ok: true };
     } catch (err) {
@@ -89,7 +92,69 @@ export async function checkLayers(ns, key, layers) {
       // fall through
     }
   }
-  return checkInMemory(ns, key, layers);
+  const res = checkInMemory(ns, key, layers);
+  if (!res.ok) noteTrip(ns, res.layer, key);
+  return res;
+}
+
+// ── Abuse visibility (2026-08-22) ────────────────────────────────────────
+// A rate limit that fires and tells nobody is a limit whose sizing can
+// never be judged: a trip is either a bot being correctly refused or a
+// real person being wrongly refused, and until now neither left a record
+// anywhere an admin looks. Every DENY increments a per-day counter doc,
+// abuse_daily/{YYYY-MM-DD}, read by /api/admin/abuse for the Cost guard
+// card on /admin.
+//
+// The logging itself is built not to become a drain: counts buffer in the
+// isolate and flush AT MOST once per 60s per isolate, as one merged
+// increment write. Under attack the write volume is bounded by instance
+// count, not request count. Firestore is imported lazily and every
+// failure is swallowed — visibility must never take the request path
+// down with it.
+const tripBuffer = new Map(); // field name → count
+let tripFlushAt = 0;
+let tripFlushing = false;
+
+function laneOf(key) {
+  if (key.startsWith('uid_')) return 'named';
+  if (key.startsWith('anon_')) return 'anon';
+  return 'ip';
+}
+
+// Public entry for endpoints that keep their own limiter (claude.mjs) or
+// want to count a refusal that is not a rate limit (the SIGN_IN_REQUIRED
+// wall). lane is 'named' | 'anon' | 'ip'.
+export function recordTrip(ns, label, lane) {
+  noteTrip(ns, label, lane === 'named' ? 'uid_x' : lane === 'anon' ? 'anon_x' : 'ip_x');
+}
+
+function noteTrip(ns, label, key) {
+  try {
+    // Flat field names (no dots) so the merge write needs no nested maps.
+    const field = `${ns}__${label}__${laneOf(key)}`.replace(/[.~/\[\]*]/g, '_').slice(0, 120);
+    tripBuffer.set(field, (tripBuffer.get(field) || 0) + 1);
+    const now = Date.now();
+    if (tripFlushing || now - tripFlushAt < 60_000) return;
+    tripFlushing = true;
+    flushTrips().finally(() => { tripFlushing = false; tripFlushAt = Date.now(); });
+  } catch (e) { /* never let visibility break the limiter */ }
+}
+
+async function flushTrips() {
+  if (!tripBuffer.size) return;
+  const batch = {};
+  for (const [f, n] of tripBuffer) batch[f] = n;
+  tripBuffer.clear();
+  try {
+    const { getDb, FieldValue } = await import('./firestore.mjs');
+    const db = getDb();
+    const day = new Date().toISOString().slice(0, 10);
+    const update = { updatedAt: FieldValue.serverTimestamp() };
+    for (const [f, n] of Object.entries(batch)) update[f] = FieldValue.increment(n);
+    await db.collection('abuse_daily').doc(day).set(update, { merge: true });
+  } catch (e) {
+    console.warn('[rate-limit] trip flush failed:', e?.message || e);
+  }
 }
 
 /**

@@ -47,6 +47,10 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script src="/js/judge-roster.js"></script>
 <script src="/js/judge-intro.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Round-exit capture: pagehide abandonment beacon + known-reason bail
+     events. Every call site guards on window.RoundExit so a blocked
+     script never breaks the round page. -->
+<script defer src="/js/round-exit.js"></script>
 <!-- Client-side floor for the publish-to-/disclosures flow: profanity
      word-list, min length, URL-spam ratio. Cheap pre-check before the
      Firestore write so junk never lands on the public board. -->
@@ -11153,6 +11157,29 @@ html.stage-mode .stage-ov{display:block}
         window.addEventListener('pagehide', function(){
           if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
         });
+        // Round-abandonment beacon: a debater leaving mid-round is the
+        // one exit nothing records. Fires only when the round genuinely
+        // started ('round' phase; 'ballot'/'ballot-rendered' mean it
+        // finished) so a normal post-ballot departure never counts.
+        // Registered here because this branch only runs for a seated
+        // debater with a synced round doc, which is exactly the
+        // population whose exits matter.
+        if (!state.exitBeaconWired){
+          state.exitBeaconWired = true;
+          window.addEventListener('pagehide', function(){
+            if (!window.RoundExit) return;
+            if (state.phase !== 'round') return;
+            var oppUid = (typeof noShowOpponentUid === 'function') ? noShowOpponentUid() : '';
+            RoundExit.beacon({
+              surface: 'live',
+              stage: state.phase || 'speech',
+              roundId: state.room,
+              speechIdx: state.speechIdx,
+              elapsed: state.roundStartedAt ? Math.round((Date.now() - state.roundStartedAt) / 1000) : 0,
+              oppSeen: !!(oppUid && state.seatSeen && state.seatSeen[oppUid]),
+            });
+          });
+        }
       }
     }
   }
@@ -12646,9 +12673,15 @@ html.stage-mode .stage-ov{display:block}
     var btns = el.querySelector('#nspBtns');
     var dmBtn = document.getElementById('rosterOppDm');
     if (dmBtn && !dmBtn.hidden && state.user && oppUid){ btns.appendChild(nsBtn('Message them', function(){ dmBtn.click(); })); }
-    if (fromSpar){ btns.appendChild(nsBtn('Find another', function(){ location.href = '/spar?format=' + encodeURIComponent(state.formatKey); }, true)); }
+    if (fromSpar){ btns.appendChild(nsBtn('Find another', function(){
+      if (window.RoundExit) RoundExit.known('opponent_no_show', { surface: 'live', stage: 'noshow', roundId: state.room, via: 'find_another' });
+      location.href = '/spar?format=' + encodeURIComponent(state.formatKey);
+    }, true)); }
     btns.appendChild(nsBtn('Leave', function(){ location.href = fromSpar ? '/spar' : '/'; }));
-    btns.appendChild(nsBtn('Keep waiting', function(){ hideNoShow(); state.noShowSnoozeUntil = Date.now() + 45000; }));
+    btns.appendChild(nsBtn('Keep waiting', function(){
+      try { gtag('event', 'live_noshow_wait', { format: state.formatKey }); } catch(e){}
+      hideNoShow(); state.noShowSnoozeUntil = Date.now() + 45000;
+    }));
     state.noShowEl = el;
     try { gtag('event', 'live_opponent_noshow_shown', { format: state.formatKey }); } catch(e){}
   }
@@ -12771,7 +12804,11 @@ html.stage-mode .stage-ov{display:block}
     }
     document.body.appendChild(el);
     var db2 = el.querySelector('#kickoffDismiss');
-    if (db2) db2.addEventListener('click', function(){ kickoffDismissed = true; hideKickoff(); });
+    if (db2) db2.addEventListener('click', function(){
+      kickoffDismissed = true;
+      try { gtag('event', 'live_kickoff_dismiss', { mode: mode }); } catch(e){}
+      hideKickoff();
+    });
     var goBtn = el.querySelector('#kickoffGo');
     if (goBtn) goBtn.addEventListener('click', function(){
       clearKickoffCountdown();
@@ -13204,7 +13241,11 @@ html.stage-mode .stage-ov{display:block}
   $('endSpeechBtn').addEventListener('click', function(){
     // Confirm-out if the timer was never started (likely accidental click).
     if (state.timerState === 'ready'){
-      if (!confirm('End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')) return;
+      if (!confirm('End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')){
+        try { gtag('event', 'live_endspeech_notimer_cancel', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
+        return;
+      }
+      try { gtag('event', 'live_endspeech_notimer_ok', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
     }
     // Confirm-out if the speech ran but captured no words. Transcription
     // runs on the SPEAKER'S OWN device, and the Web Speech API is absent
@@ -13218,9 +13259,11 @@ html.stage-mode .stage-ov{display:block}
     var taNow = $('speechText');
     if (taNow && !taNow.value.trim() && state.timerState !== 'ready'){
       if (!confirm('No transcript was captured for this speech.\n\nThe AI judge reads the transcript, so this speech will not count toward the ballot, and it will show as empty in the saved round. Paste or type what you argued to have it counted.\n\nEnd the speech with no transcript anyway?')){
+        try { gtag('event', 'live_endspeech_notranscript_cancel', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
         try { taNow.focus(); } catch(e){}
         return;
       }
+      try { gtag('event', 'live_endspeech_notranscript_ok', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
     }
     endSpeech();
   });
@@ -13236,7 +13279,10 @@ html.stage-mode .stage-ov{display:block}
       var msg = state.phase === 'round'
         ? 'Forfeit this round and queue for the next opponent? Your opponent will see you bailed.'
         : 'Queue for the next opponent?';
-      if (!confirm(msg)) return;
+      if (!confirm(msg)){
+        try { gtag('event', 'live_forfeit_cancelled', { format: state.formatKey, phase: state.phase }); } catch(e){}
+        return;
+      }
       // Mark forfeited so the opponent's snapshot listener can react.
       var ref = getRoundDocRef();
       if (ref){
@@ -13247,6 +13293,7 @@ html.stage-mode .stage-ov{display:block}
         }).catch(function(){});
       }
       try { gtag('event', 'spar_forfeit_next', { format: state.formatKey, phase: state.phase }); } catch(e){}
+      if (window.RoundExit) RoundExit.known('forfeit_next', { surface: 'live', stage: state.phase, roundId: state.room, via: 'forfeit_button' });
       location.href = '/spar?format=' + encodeURIComponent(state.formatKey);
     });
   })();

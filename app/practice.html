@@ -115,6 +115,7 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/round-exit.js"></script>
 <!-- A/B practice_publish_cta_v1 (2026-07-27): does a publish CTA inside
      the ballot (spotlight) out-convert the passive card far below it
      (card)? public_rounds has 0 docs after months of the passive card,
@@ -6899,6 +6900,8 @@ function App() {
       // reopens the free window rather than charging again or metering the
       // rest of its speeches call by call.
       __roundCreditOpen = true;
+      // A resumed round is live again for the abandonment beacon too.
+      window.__rxState = { active: true, startedAt: Date.now(), stage: 'speech', speechIdx: recoveryData.idx || 0, aiLoading: false, stuckShown: false };
       var savedLog = recoveryData.log || [];
       var savedIdx = recoveryData.idx || 0;
       var recFmt = FORMATS[recoveryData.format || 'apda'] || FORMATS.apda;
@@ -7184,6 +7187,11 @@ function App() {
       setQuotaCTA(isSignedIn() ? 'pro' : 'signin');
       return;
     }
+    // Round-abandonment mirror. The pagehide beacon (see the round-exit
+    // effects near the stuck-speech watchdog) cannot read React state, so
+    // round liveness rides window.__rxState. The ballot path in endSpeech
+    // flips active off so a completed round never beacons.
+    window.__rxState = { active: true, startedAt: Date.now(), stage: 'speech', speechIdx: 0, aiLoading: false, stuckShown: false };
     // Lazy background autogen: only fire if the user is actually entering
     // speeches (not at startDebate, which they might cancel during prep).
     // Saves a Claude call per round when users abort during prep.
@@ -7557,6 +7565,9 @@ function App() {
     var next = idx + 1;
     if (next >= SPEECHES.length) {
       clearSession();
+      // Ballot renders next: a completed round must never fire the
+      // round_abandoned pagehide beacon.
+      if (window.__rxState) window.__rxState.active = false;
       if (typeof gtag === 'function') gtag('event', 'round_complete', { format: fmt.name, side, speeches: SPEECHES.length });
       transition('feedback', () => genFeedback(newLog));
     } else {
@@ -7642,6 +7653,50 @@ function App() {
     var rot = setInterval(() => setPatienceIdx((i) => i < 0 ? i : (i + 1) % PATIENCE_MSGS.length), 7000);
     return () => {clearTimeout(start);clearInterval(rot);};
   }, [phase, isUser, aiLoading]);
+
+  // Round-exit mirror. The pagehide abandonment beacon below cannot read
+  // React state, so the few values it reports are kept current on
+  // window.__rxState as they change. active/startedAt are owned by
+  // goToSpeeches (on) and the ballot transition in endSpeech (off).
+  // Kept BELOW the stuckSpeech/aiLoading declarations on purpose: with
+  // var hoisting, a deps array evaluated above them would read undefined
+  // forever and the effect would never re-run.
+  React.useEffect(() => {
+    var rx = window.__rxState;
+    if (!rx) return;
+    rx.stage = phase === 'feedback' ? 'judging' : 'speech';
+    rx.speechIdx = idx;
+    // 'voice' means audio playback already started, not text-gen in
+    // flight (same distinction the stuck-speech watchdog draws).
+    rx.aiLoading = !!aiLoading && aiLoading !== 'voice';
+    if (stuckSpeech) rx.stuckShown = true;
+  }, [phase, idx, aiLoading, stuckSpeech]);
+
+  // Abandonment beacon: the #1 hypothesized abandonment cause is closing
+  // the tab during the silent AI-generation wait (see the patience cue
+  // above); this records that it happened and what the round looked like
+  // at that moment. pagehide, not beforeunload (fires more reliably on
+  // mobile); at most once per unload; never for a completed round.
+  React.useEffect(() => {
+    var fired = false;
+    var onHide = () => {
+      var rx = window.__rxState;
+      if (fired || !rx || !rx.active) return;
+      fired = true;
+      try {
+        if (window.RoundExit) window.RoundExit.beacon({
+          surface: 'practice',
+          stage: rx.stage || 'speech',
+          speechIdx: rx.speechIdx,
+          elapsed: rx.startedAt ? (Date.now() - rx.startedAt) / 1000 : undefined,
+          aiLoading: !!rx.aiLoading,
+          stuckShown: !!rx.stuckShown
+        });
+      } catch (e) {/* telemetry must never break unload */}
+    };
+    window.addEventListener('pagehide', onHide);
+    return () => window.removeEventListener('pagehide', onHide);
+  }, []);
 
   // Keyboard shortcuts help modal. Press `?` anywhere outside an input
   // to toggle. Documents the shortcuts that already exist so new users

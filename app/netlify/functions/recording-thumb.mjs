@@ -51,6 +51,7 @@ import { getStore } from '@netlify/blobs';
 import ffmpegPath from 'ffmpeg-static';
 import { getDb } from './lib/firestore.mjs';
 import { errorResponse } from './lib/response.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
 export const config = { path: '/api/recording-thumb' };
 
@@ -78,12 +79,25 @@ function imageResponse(bytes, versioned){
 function softFail(req){
   // 404 with a short public cache: a recording ffmpeg cannot read
   // should not be retried by every card render on every page view.
+  // The CDN header matters as much as the browser one: without it every
+  // viewer of a grid re-invokes the function, and each miss re-runs the
+  // whole mint-download-ffmpeg pipeline.
   const r = errorResponse('No thumbnail', 404, req);
   r.headers.set('Cache-Control', 'public, max-age=300');
+  r.headers.set('Netlify-CDN-Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
   return r;
 }
 
 const CHUNK_BYTES = 16 * 1024 * 1024;
+
+// A miss costs a Daily link mint, a 16MB download, and an ffmpeg run, so
+// misses are metered per IP. Generous: a grid of cards is dozens of
+// requests, but all but the first per recording are blob or CDN hits and
+// never reach this counter.
+const IP_LAYERS = [
+  { window: 60_000, max: 30, label: 'minute' },
+  { window: 3_600_000, max: 300, label: 'hour' },
+];
 
 function extractFrame(inPath, seekSec, outPath){
   return new Promise((resolve, reject) => {
@@ -120,6 +134,13 @@ export default async (req) => {
   const store = getStore('recording-thumbs');
   const cached = await store.get(id, { type: 'arrayBuffer' });
   if (cached && cached.byteLength) return imageResponse(cached, versioned);
+
+  const limited = await checkLayers('recthumb', 'ip_' + callerIp(req), IP_LAYERS);
+  if (!limited.ok) {
+    const r = errorResponse('Too many requests', 429, req);
+    r.headers.set('Cache-Control', 'public, max-age=60');
+    return r;
+  }
 
   const db = getDb();
   const snap = await db.collection('recordings').doc(id).get();

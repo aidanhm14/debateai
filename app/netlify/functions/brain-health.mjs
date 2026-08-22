@@ -41,13 +41,24 @@
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, wantsFresh } from './lib/admin-cache.mjs';
+import { getCachedShared, getStaleShared, setCachedShared, wantsFresh } from './lib/admin-cache.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 import { BRAINS, classify, usesCompletionTokens, publicView } from './lib/brain-health.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const CACHE_KEY = 'brain-health:v1';
 const TTL_MS = 15 * 60 * 1000;
 const PROBE_TIMEOUT_MS = 8000;
+
+// A cache MISS spends six provider calls, so who gets to cause one is
+// metered even though the endpoint stays public and keyless (charter
+// posture; do not add auth). A cache HIT costs nothing and stays
+// unmetered. Three misses an hour per IP is more than the 15-minute TTL
+// can even produce for one honest caller.
+const MISS_LAYERS = [
+  { window: 3_600_000, max: 3, label: 'hour' },
+  { window: 86_400_000, max: 10, label: 'day' },
+];
 
 async function probeOne(brain) {
   const key = process.env[brain.env];
@@ -120,6 +131,24 @@ async function probeAll() {
   };
 }
 
+// N concurrent cache misses on one warm instance must run ONE probe set,
+// not N. The promise is shared for exactly the duration of the probe; a
+// failure clears it so the next request can try again instead of
+// inheriting a rejected promise forever.
+let inflightProbe = null;
+
+function probeAllShared() {
+  if (!inflightProbe) {
+    inflightProbe = probeAll()
+      .then(async (payload) => {
+        await setCachedShared(CACHE_KEY, payload, TTL_MS).catch(() => {});
+        return payload;
+      })
+      .finally(() => { inflightProbe = null; });
+  }
+  return inflightProbe;
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
@@ -147,9 +176,24 @@ export default async (request) => {
   const cached = fresh ? null : await getCachedShared(CACHE_KEY);
   if (cached) return jsonResponse(isAdmin ? cached : publicView(cached), 200, request);
 
+  // The miss is the expensive path (6 provider probes), so it is what the
+  // per-IP meter guards. A limited caller gets the last expired payload,
+  // marked stale, rather than a dead picker; the admin's forced re-probe
+  // is already gated on being the admin and skips the meter.
+  if (!fresh) {
+    const limited = await checkLayers('brainhealth', 'ip_' + callerIp(request), MISS_LAYERS);
+    if (!limited.ok) {
+      const stale = await getStaleShared(CACHE_KEY);
+      if (stale && stale.value) {
+        const payload = { ...(isAdmin ? stale.value : publicView(stale.value)), stale: true, staleAgeMs: stale.ageMs };
+        return jsonResponse(payload, 200, request);
+      }
+      return errorResponse('Too many probe requests. Try again later.', 429, request);
+    }
+  }
+
   try {
-    const payload = await probeAll();
-    await setCachedShared(CACHE_KEY, payload, TTL_MS).catch(() => {});
+    const payload = await probeAllShared();
     return jsonResponse(isAdmin ? payload : publicView(payload), 200, request);
   } catch (err) {
     console.error('brain-health error:', err && err.message);

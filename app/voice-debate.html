@@ -88,6 +88,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/round-exit.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/prospect-capture.js"></script>
 <!-- Credential v1.0 lipsync capture. Module is inert (zero CPU, zero
@@ -4960,11 +4961,43 @@ function App() {
     save();
     var interval = setInterval(save, 1500);
     var onVisibility = () => {if (document.visibilityState !== 'visible') save();};
+    // Abandonment capture: closing the tab mid-round is the exit stop()
+    // never sees, so the funnel's 'end' step undercounts. Reuses the
+    // exact counters stop() reads (turnsRef + startedAtRef). At most
+    // once per unload; the effect only registers while status is live
+    // and statusRef re-checks at fire time.
+    var abandonFired = false;
+    var onAbandon = () => {
+      if (abandonFired || statusRef.current !== 'live') return;
+      abandonFired = true;
+      var realUserTurns = turnsRef.current.filter(
+        (t) => t.who === 'you' && (t.text || '').trim().length > 4
+      ).length;
+      var durationS = startedAtRef.current ? Math.round((Date.now() - startedAtRef.current) / 1000) : 0;
+      try {
+        funnel('abandon', {
+          user_turns: realUserTurns,
+          ai_turns: turnsRef.current.filter((t) => t.who === 'ai').length,
+          duration_s: durationS
+        }, true);
+      } catch (e) {}
+      try {
+        if (window.RoundExit) window.RoundExit.beacon({
+          surface: 'voice',
+          stage: 'live',
+          roundId: lastVoiceRoundIdRef.current || '',
+          speechIdx: speechIdxRef.current,
+          elapsed: durationS
+        });
+      } catch (e) {}
+    };
     window.addEventListener('pagehide', save);
+    window.addEventListener('pagehide', onAbandon);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       clearInterval(interval);
       window.removeEventListener('pagehide', save);
+      window.removeEventListener('pagehide', onAbandon);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [status, mode, motion, background, generatedBackground, side, personaKey, smartness, playbackRate]);

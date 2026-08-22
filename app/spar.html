@@ -45,6 +45,9 @@
 <script defer src="/js/avatar-account.js"></script>
 
 <script defer src="/js/track.js"></script>
+<!-- Round-exit capture: one-tap reason card on queue cancel. Guarded on
+     window.RoundExit everywhere so a blocked script never breaks the queue. -->
+<script defer src="/js/round-exit.js"></script>
 <script defer src="/js/topic-pulse.js"></script>
 <!-- The draft: menu behaviour plus the pinned-bench reveal in Round
      setup. Both are additive. If either fails to load the chips and the
@@ -4805,7 +4808,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }).catch(function(){});
     }
     try { gtag('event', 'spar_cancel', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
-    location.href = '/';
+    // Ask WHY before leaving. The card resolves on answer, skip, or 30s
+    // of nothing, so the navigation can never be lost; without the
+    // widget the original navigation runs unchanged.
+    if (window.RoundExit && typeof RoundExit.ask === 'function'){
+      RoundExit.ask({
+        surface: 'spar',
+        stage: 'queue',
+        elapsed: elapsed,
+        reasons: ['matching_too_long', 'not_now', 'tech_problem', 'confused', 'other'],
+        question: 'Leaving the queue: what happened?',
+      }).then(function(){ location.href = '/'; }, function(){ location.href = '/'; });
+    } else {
+      location.href = '/';
+    }
   }
 
   // Pull out of the queue without cancelQueue's side effects: no missed-match

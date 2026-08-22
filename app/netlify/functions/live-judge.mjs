@@ -27,8 +27,10 @@
 // worse provenance is acceptable; failing back to no ballot is not.
 // ─────────────────────────────────────────────────────────────
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
+import { checkAppCheck } from './lib/appcheck.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { buildAdjudicationBlock } from './lib/adjudication.mjs';
 import { assignedParadigmBlock } from './lib/judge-roster.mjs';
@@ -44,6 +46,25 @@ import { applyTournamentResult } from './lib/tournament-ledger.mjs';
 import { deriveSpeakerScores } from './lib/speaker-score.mjs';
 
 const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
+
+// One request here fans out into a multi-juror Anthropic panel, so the
+// caller is metered. Named limits are per-uid and sized so a tournament
+// day (the Open, Aug 29) never touches them: a debater triggers one
+// ballot per round plus the client's bounded retries. Anonymous uids are
+// real callers (metered spar guests are anonymous) but free to mint, so
+// their lane is tight and an IP backstop rides alongside it.
+const NAMED_LAYERS = [
+  { window: 3_600_000, max: 20, label: 'hour' },
+  { window: 86_400_000, max: 80, label: 'day' },
+];
+const ANON_LAYERS = [
+  { window: 3_600_000, max: 6, label: 'hour' },
+  { window: 86_400_000, max: 15, label: 'day' },
+];
+const IP_LAYERS = [
+  { window: 3_600_000, max: 30, label: 'hour' },
+  { window: 86_400_000, max: 100, label: 'day' },
+];
 
 // Four-team formats rank teams rather than picking a side, and
 // tallyPanel is two-sided by construction. Rather than fake a 2-way
@@ -112,11 +133,35 @@ export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('POST only', 405, request);
 
+  // live-round.html mints App Check tokens sitewide, so a request without
+  // one is a script aimed at the panel, not a round asking for its ballot.
+  const appCheck = await checkAppCheck(request);
+  if (!appCheck.ok) {
+    return jsonResponse({
+      error: 'App verification failed. Reload the page and try again.',
+      code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase(),
+    }, 401, request);
+  }
+
   const token = extractBearerToken(request);
   let decoded = null;
   if (token) { try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; } }
   const uid = decoded ? decoded.sub : null;
   if (!uid) return errorResponse('Sign in to do that', 401, request);
+
+  const rateDenied = async () => errorResponse(
+    'Judging is briefly rate limited. The transcript is saved and the ballot can be retried in a bit.',
+    429, request,
+  );
+  if (isNamedAccount(decoded)) {
+    const limited = await checkLayers('livejudge', 'uid_' + uid, NAMED_LAYERS);
+    if (!limited.ok) return rateDenied();
+  } else {
+    const limited = await checkLayers('livejudge', 'anon_' + uid, ANON_LAYERS);
+    if (!limited.ok) return rateDenied();
+    const ipLimited = await checkLayers('livejudge', 'ip_' + callerIp(request), IP_LAYERS);
+    if (!ipLimited.ok) return rateDenied();
+  }
 
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
