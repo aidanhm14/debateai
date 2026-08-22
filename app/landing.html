@@ -9861,6 +9861,116 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
   })();
 
+  /* 2026-08-22, per the founder: circulate the FACES too, not just the deck.
+     circulateRounds above reshuffles order and seats, but every character was
+     welded to one hand-cast portrait, so the same 24 faces appeared on every
+     load in the same pairs and the bank's other 30-odd stills were never seen
+     by anyone who did not open the hidden rotator wall. Now each load deals a
+     fresh portrait to each character from the bank.
+
+     Dealt per CHARACTER, not per seat, so a character keeps one face for the
+     whole session and paging through 34 rounds does not morph Mei between
+     cards. Names are load-bearing: they are written into the `rfd` strings, so
+     the name is fixed and the face is what moves.
+
+     Cast within FS_MALE / FS_FEMALE (already authored above for the opener
+     rule) because the names are gendered and the board prints the name beside
+     the portrait. Random across the whole bank would caption a bearded man
+     "Mei" a third of the time. This is apparent presentation only, which is
+     what the hand-cast already encoded; no attempt is made to match ethnicity
+     to a name, which would be a worse decision made more often.
+     A character in NEITHER map keeps its authored face. That is what pins the
+     Anonymous avatar to face50, so the illustrated mask can never be dealt to
+     a person or a person to the anonymous-accounts motion.
+
+     Real stills lead the men's deal (2026-08-19: the founder prefers them to
+     the generated bank). There are 8 real and 11 male characters, so all 8 are
+     always cast and only the last 3 seats come from the generated bank, which
+     holds the "at least one real person in nearly every round" property the
+     old hand-cast had. WHICH character wears which real face still moves every
+     load. The women's pool is generated-only because the real batch is all men
+     (face55, the one woman, was pulled 2026-08-20); that is also the bug this
+     fixes, since Elena has been running on face12, a man's face, since then.
+
+     FACE_ROOM is not decoration. Several stills were shot in the same room and
+     the board shows two portraits side by side, so an unguarded deal
+     eventually prints one room twice and the board reads staged. Same reason
+     the rotator's SKIP list drops duplicates; this is the two-up version. */
+  var FACE_W = [1,4,7,11,13,15,18,20,23,25,27,30,32,35,37,38,41,43,45,56,57,58,59,60,61,62];
+  var FACE_M_REAL = [46,47,48,49,51,52,53,54];
+  var FACE_M_GEN = [2,3,6,8,10,12,16,17,19,21,22,24,26,28,29,31,33,34,36,40,42,44];
+  var FACE_ROOM = {1:'stacks',45:'stacks',20:'tile',32:'tile',4:'campus',6:'campus',30:'campus'};
+  (function castFaces(){
+    function shuffle(a){
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+    function faceName(n){ return 'face' + (n < 10 ? '0' : '') + n; }
+
+    var men = [], women = [], seen = {}, i, r, seat;
+    for (i = 0; i < ROUNDS.length; i++) {
+      r = ROUNDS[i];
+      for (var k = 0; k < 2; k++) {
+        seat = k ? r.b : r.a;
+        if (seen[seat.nm]) continue;
+        seen[seat.nm] = 1;
+        if (FS_MALE[seat.nm]) men.push(seat.nm);
+        else if (FS_FEMALE[seat.nm]) women.push(seat.nm);
+      }
+    }
+
+    var cast = {};
+    var mPool = shuffle(FACE_M_REAL.slice()).concat(shuffle(FACE_M_GEN.slice()));
+    var wPool = shuffle(FACE_W.slice());
+    for (i = 0; i < men.length; i++) cast[men[i]] = mPool[i];
+    for (i = 0; i < women.length; i++) cast[women[i]] = wPool[i];
+
+    /* Repair same-room pairings by trading two characters' faces rather than
+       redealing, so the deal stays a permutation and no face appears twice.
+       A trade can seed a collision elsewhere, hence the bounded re-sweep;
+       it settles in one or two passes at this bank size, and if it somehow
+       does not, the board falls through wearing one repeated room, which is
+       a cosmetic miss rather than a broken card. */
+    var groupOf = {};
+    for (i = 0; i < men.length; i++) groupOf[men[i]] = men;
+    for (i = 0; i < women.length; i++) groupOf[women[i]] = women;
+    for (var pass = 0; pass < 12; pass++) {
+      var clashed = false;
+      for (i = 0; i < ROUNDS.length; i++) {
+        r = ROUNDS[i];
+        var ra = FACE_ROOM[cast[r.a.nm]], rb = FACE_ROOM[cast[r.b.nm]];
+        if (!ra || !rb || ra !== rb) continue;
+        clashed = true;
+        /* Trade with a peer holding a ROOMLESS face by preference. Trading
+           into another family member is what left a collision standing once
+           in 3000 measured deals: it clears this card and seeds a new clash
+           the sweep then has to chase. A roomless face cannot re-collide, so
+           the preferred branch terminates. The different-room branch stays as
+           a fallback for the deal where no roomless face is left. */
+        var peers = groupOf[r.b.nm] || [], p, other, tmp, pick = -1;
+        for (p = 0; p < peers.length; p++) {
+          other = peers[p];
+          if (other === r.b.nm || other === r.a.nm) continue;
+          if (!FACE_ROOM[cast[other]]) { pick = p; break; }
+          if (pick < 0 && FACE_ROOM[cast[other]] !== ra) pick = p;
+        }
+        if (pick >= 0) {
+          other = peers[pick];
+          tmp = cast[other]; cast[other] = cast[r.b.nm]; cast[r.b.nm] = tmp;
+        }
+      }
+      if (!clashed) break;
+    }
+
+    for (i = 0; i < ROUNDS.length; i++) {
+      r = ROUNDS[i];
+      if (cast[r.a.nm]) r.a.face = faceName(cast[r.a.nm]);
+      if (cast[r.b.nm]) r.b.face = faceName(cast[r.b.nm]);
+    }
+  })();
+
   var el = {};
   ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
