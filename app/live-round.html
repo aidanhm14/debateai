@@ -320,6 +320,16 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 .cam-modes button + button{border-left:1px solid rgba(255,255,255,.1)}
 .cam-modes button.on{background:var(--accent,#ef4444);color:#fff}
 .cam-modes button:not(.on):hover{color:#fff}
+/* One line under the pill saying what Avatar actually does. People do not
+   press a button called Avatar to find out; they keep the camera on and
+   feel watched, or they turn it off and disappear from the round. */
+.cam-hint{position:absolute;top:46px;left:50%;transform:translateX(-50%);z-index:30;max-width:min(88%,420px);text-align:center;
+  padding:6px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(10,10,14,.82);backdrop-filter:blur(8px);
+  color:rgba(255,255,255,.82);font:600 .68rem/1.4 DM Sans,Archivo,Georgia,serif;pointer-events:auto}
+.cam-hint b{color:#fff}
+.cam-hint button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.5);font:600 .68rem/1 DM Sans,Archivo,Georgia,serif;cursor:pointer;padding:0 0 0 6px}
+.cam-hint button:hover{color:#fff}
+@media(max-width:640px){.cam-hint{font-size:.62rem;top:44px}}
 /* Avatar self-check tile. While Avatar mode is on, the exact canvas that
    is published to the room renders here, so the debater sees the same
    mask the crowd sees. The prebuilt UI's self tile can keep showing the
@@ -1690,7 +1700,10 @@ body.speech-live .transcript-area{margin-top:4px}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
-/* Full-round cloud recording. Every seated debater must opt in for this
+/* Full-round cloud recording. OFF unless somebody asks for it: a seated
+   debater presses Record, and every other seated debater must agree before
+   capture starts (see maybeAutoStartRecording for why auto-capture went).
+   Every seated debater must opt in for this
    round before Daily starts capture. The pill stays visible throughout
    the round so nobody can miss whether recording is waiting, live, or
    stopped. */
@@ -2586,7 +2599,7 @@ html.stage-mode .stage-ov{display:block}
           <div class="rmb-brief" id="rmbBrief" hidden></div>
         </div>
         <div class="rmb-tools">
-          <div class="rmb-rec" id="rmbRec" title="Every seated debater must agree before recording starts">
+          <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
             <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
               <span class="rmb-rec-dot" aria-hidden="true"></span>
               <span id="rmbRecLabel">Ask to record</span>
@@ -5430,16 +5443,16 @@ html.stage-mode .stage-ov{display:block}
     bd.className = 'rec-consent-backdrop';
     bd.innerHTML =
       '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle">' +
-        '<div class="rec-consent-kicker">Recording now, publishing only if you both agree</div>' +
-        '<h2 id="cloudRecTitle">Publish this round?</h2>' +
-        '<p>This round is being recorded so a replay exists if you want one. Publishing it needs <strong>every seated debater</strong> to agree. Published means the <strong>video, audio, display names, and motion</strong> appear on Watch, where signed-in users can make and share clips.</p>' +
-        '<p>Say no and recording stops now and the file is deleted. Nobody is asked to justify it, it does not affect the debate, and the answer is not remembered: the next round asks again.</p>' +
+        '<div class="rec-consent-kicker">Nothing is recording yet</div>' +
+        '<h2 id="cloudRecTitle">Record this round?</h2>' +
+        '<p>Rounds are <strong>not recorded by default</strong>. Capture only starts if <strong>every seated debater</strong> says yes here, and it stops the moment anyone says no. If a replay is published it means the <strong>video, audio, display names, and motion</strong> appear on Watch, where signed-in users can make and share clips.</p>' +
+        '<p>Say no and nothing is captured. Nobody is asked to justify it, it does not affect the debate or the ballot, and the answer is not remembered: a later round asks again. If you want the round but not your face, close this and switch your camera to Avatar first.</p>' +
         '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
           '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
         '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
         '<div class="rec-consent-actions">' +
-          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, stop and delete</button>' +
-          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, publish it</button>' +
+          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, do not record</button>' +
+          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, record it</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(bd);
@@ -5498,7 +5511,7 @@ html.stage-mode .stage-ov{display:block}
       } else if (status === 'declined'){
         label.textContent = mine === false ? 'Allow recording' : 'Not recording'; detail.textContent = 'A debater declined';
       } else if (status === 'awaiting_consent'){
-        label.textContent = mine === true ? 'Withdraw request' : 'Choose recording';
+        label.textContent = mine === true ? 'Withdraw request' : 'Record round';
         var waiting = participants.filter(function(uid){ return consents[uid] !== true; });
         detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + ' agreed';
       } else {
@@ -5536,7 +5549,21 @@ html.stage-mode .stage-ov{display:block}
   // so two clients do not race two Daily start calls. The other side is a
   // backstop four seconds later in case the driver never loaded. The
   // server transaction is idempotent either way.
-  function maybeAutoStartRecording(d){
+  // RETIRED 2026-08-22 (Aidan: the recording scares people away). Rounds
+  // used to start capturing the moment two debaters were seated, and the
+  // consent card that followed asked whether to PUBLISH something that was
+  // already rolling. A stranger arriving for their first round met a red
+  // recording light before they had said a word.
+  //
+  // Recording is now entirely opt-in: nothing captures until a seated
+  // debater presses Record and every other seated debater agrees. The
+  // server needed no change, because the all-agreed branch in
+  // round-recording.mjs already starts capture on consent; this function
+  // is kept as a no-op so the call sites and the doc-snapshot flow stay
+  // intact, and so restoring it is one edit rather than an archaeology
+  // exercise. Do not re-enable it without a decision-log entry.
+  function maybeAutoStartRecording(){ return; }
+  function unusedAutoStartRecording(d){
     if (cloudRec.autoTried || !state.user || isSpectator() || state.phase !== 'round') return;
     var participants = cloudRecordingParticipants(d || {});
     if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
@@ -5557,15 +5584,19 @@ html.stage-mode .stage-ov{display:block}
     }, driver ? 400 : 4000);
   }
 
+  // The card appears for one reason only: the OTHER debater asked to
+  // record and is waiting on an answer. Nobody is interrupted about
+  // recording in a round where nobody wants one.
   function maybePromptCloudRecording(d){
     setCloudRecordingUi(d);
-    maybeAutoStartRecording(d);
     if (cloudRec.prompted || state.phase !== 'round' || !state.user || isSpectator()) return;
     var participants = cloudRecordingParticipants(d || {});
     var consents = (d && d.recordingConsents) || {};
     if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
     if (Object.prototype.hasOwnProperty.call(consents, state.user.uid)) return;
     if (d.recordingClosed || ['processing','stopped','closed'].indexOf(d.recordingStatus) >= 0) return;
+    var asked = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
+    if (!asked) return;
     cloudRec.prompted = true;
     setTimeout(showCloudRecordingConsent, 650);
   }
@@ -6088,7 +6119,7 @@ html.stage-mode .stage-ov{display:block}
   // debater's real head motion, blinks, brows, and mouth onto the mask,
   // and the avatar degrades to a mic-driven mouth plus idle sway if the
   // camera or tracker is unavailable.
-  var camConv = { cam:null, camP:null, savedVideoId:null, mode:'camera', bar:null, maskAsserted:false, reassertAt:0 };
+  var camConv = { cam:null, camP:null, savedVideoId:null, mode:'camera', bar:null, hint:null, maskAsserted:false, reassertAt:0 };
   // ── Can this room publish the avatar canvas? Only in CALL OBJECT mode.
   // Daily PREBUILT (createFrame) runs its call machine inside a
   // cross-origin iframe, and a MediaStreamTrack cannot cross that
@@ -6125,12 +6156,12 @@ html.stage-mode .stage-ov{display:block}
     bar.setAttribute('role', 'group');
     bar.setAttribute('aria-label', 'Your camera mode');
     bar.innerHTML =
-      '<button type="button" data-m="camera" class="on">Camera</button>' +
+      '<button type="button" data-m="camera" class="on" title="Publish your real camera">Camera</button>' +
       (CUSTOM_TRACK_OK
-        ? '<button type="button" data-m="avatar">Avatar</button>' +
+        ? '<button type="button" data-m="avatar" title="Debate anonymously: the room sees an animated mask that moves with you, never your camera">Avatar</button>' +
           '<button type="button" data-m="design" title="Design your avatar">Design</button>'
         : '') +
-      '<button type="button" data-m="off">Off</button>' +
+      '<button type="button" data-m="off" title="Publish no video at all">Off</button>' +
       '<button type="button" data-m="report" title="Report a debater">⚑ Report</button>';
     bar.addEventListener('click', function(ev){
       var b = ev.target.closest('button');
@@ -6141,6 +6172,26 @@ html.stage-mode .stage-ov{display:block}
     });
     shell.appendChild(bar);
     camConv.bar = bar;
+    buildCamHint(shell);
+  }
+  // Shown once per browser, and only while Avatar is actually available.
+  // Dismissed for good on the first press, because a permanent banner over
+  // someone's own video is its own kind of rude.
+  var CAM_HINT_KEY = 'debatable-cam-hint-v1';
+  function buildCamHint(shell){
+    if (!CUSTOM_TRACK_OK || camConv.hint) return;
+    try { if (localStorage.getItem(CAM_HINT_KEY) === '1') return; } catch(e){}
+    var hint = document.createElement('div');
+    hint.className = 'cam-hint';
+    hint.innerHTML = '<b>You can debate anonymously.</b> Press Avatar and the room sees a mask that moves with you, never your camera.' +
+      '<button type="button" aria-label="Dismiss">Got it</button>';
+    hint.addEventListener('click', function(ev){
+      if (!ev.target.closest('button')) return;
+      try { localStorage.setItem(CAM_HINT_KEY, '1'); } catch(e){}
+      hint.remove(); camConv.hint = null;
+    });
+    shell.appendChild(hint);
+    camConv.hint = hint;
   }
   function openAvatarDesigner(){
     if (!window.DebateCam || !window.DebateCam.openDesigner){
@@ -6158,6 +6209,10 @@ html.stage-mode .stage-ov{display:block}
   }
   function markCamMode(m){
     camConv.mode = m;
+    if (camConv.hint && m !== 'camera'){
+      try { localStorage.setItem(CAM_HINT_KEY, '1'); } catch(e){}
+      camConv.hint.remove(); camConv.hint = null;
+    }
     // Camera or Avatar publishes pixels, so the room can have a still.
     // Off publishes none, so it stops posting one.
     if (m === 'off') stopRoomShots(); else startRoomShots();
@@ -7957,7 +8012,7 @@ html.stage-mode .stage-ov{display:block}
     var locked=m.status!=='open', settled=m.status==='settled';
     var sides=pmPanel.querySelector('#pmSides');
     sides.innerHTML=[['pro',m.proName||'Pro',oPro],['con',m.conName||'Con',oCon]].map(function(x){
-      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:'Geist Mono',ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
+      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:\'Geist Mono\',ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
     }).join('');
     if(!locked){ [].forEach.call(sides.querySelectorAll('[data-pmside]'),function(c){ c.addEventListener('click',function(){ pmSelect(c.getAttribute('data-pmside')); }); }); pmUpdateSidesSelection(); }
     var st=pmPanel.querySelector('#pmStatus'), inp=pmPanel.querySelector('#pmStake'), bet=pmPanel.querySelector('#pmBet');
@@ -8170,7 +8225,7 @@ html.stage-mode .stage-ov{display:block}
       '<div data-sv-phase="during" style="display:none">' +
         '<button id="svTap" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-weight:800;font-size:.9rem;cursor:pointer">That moved me</button>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:.7rem;color:var(--text-dim)">' +
-          '<span>Your flags: <b id="svCount" style="color:var(--text)">0</b></span><span id="svLast" style="font-family:'Geist Mono',ui-monospace,monospace"></span>' +
+          '<span>Your flags: <b id="svCount" style="color:var(--text)">0</b></span><span id="svLast" style="font-family:\'Geist Mono\',ui-monospace,monospace"></span>' +
         '</div>' +
       '</div>' +
       '<div data-sv-phase="after" style="display:none">' +

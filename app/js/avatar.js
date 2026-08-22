@@ -30,11 +30,15 @@
   var LIVE_STORE_KEY = 'debatable-live-avatar-v1';
   var LIVE_LOOKS_KEY = 'debatable-avatar-looks-v1';
   var LIVE_EVT = 'debatable-avatar-design';
-  var LIVE_SCENES = ['arena','skyline','library','studio','orbit','forest'];
-  var LIVE_ACCENTS = { crimson:'#dd2e2e', electric:'#4f7cff', violet:'#9b5de5', teal:'#17b6a4', rose:'#e44878', silver:'#b8c1cf' };
-  var LIVE_OUTFITS = { ink:['#27272f','#09090b'], navy:['#20334d','#090e18'], plum:['#392942','#110b16'], pine:['#1f3a35','#08110f'], slate:['#414956','#101318'] };
-  var LIVE_MASKS = ['blade','classic','visor'];
-  var LIVE_EYES = ['focus','sharp','open','calm'];
+  // These five lists MUST stay in step with DESIGN_OPTIONS in
+  // js/cam-avatar.js. A key that exists there and not here is silently
+  // normalized away, so a debater's chosen look would render one way on
+  // their call tile and another way on every profile and ballot.
+  var LIVE_SCENES = ['arena','skyline','library','studio','orbit','forest','chamber','neon','void'];
+  var LIVE_ACCENTS = { crimson:'#dd2e2e', electric:'#4f7cff', violet:'#9b5de5', teal:'#17b6a4', rose:'#e44878', silver:'#b8c1cf', gold:'#e0a33a', lime:'#8fd14f', ice:'#6fd8ef' };
+  var LIVE_OUTFITS = { ink:['#27272f','#09090b'], navy:['#20334d','#090e18'], plum:['#392942','#110b16'], pine:['#1f3a35','#08110f'], slate:['#414956','#101318'], rust:['#4a2a20','#150a07'], bone:['#b9b1a4','#4a453d'], royal:['#2c2a63','#0b0a1c'] };
+  var LIVE_MASKS = ['blade','classic','visor','wing','oni','plate','slim'];
+  var LIVE_EYES = { focus:[3.5,0], sharp:[2.8,7], open:[4.6,0], calm:[2.2,0], round:[4.8,0], keen:[3.0,-8], hooded:[2.4,4] };
   var maskSeq = 0;
 
   // ---- palettes ---------------------------------------------------------
@@ -884,7 +888,7 @@
       accent: Object.prototype.hasOwnProperty.call(LIVE_ACCENTS, d.accent) ? d.accent : 'crimson',
       outfit: Object.prototype.hasOwnProperty.call(LIVE_OUTFITS, d.outfit) ? d.outfit : 'ink',
       mask: inList(d.mask, LIVE_MASKS, 'blade'),
-      eyes: inList(d.eyes, LIVE_EYES, 'focus')
+      eyes: Object.prototype.hasOwnProperty.call(LIVE_EYES, d.eyes) ? d.eyes : 'focus'
     };
   }
   function getLiveIdentity() {
@@ -960,6 +964,24 @@
         '<g fill="#0a1a18"><path d="M-4 84l16-40 16 40zM20 88l17-46 17 46zM56 86l16-44 16 44zM78 90l15-38 15 38z"/></g>' +
         '<g fill="#061110"><path d="M6 92l12-30 12 30zM44 94l13-32 13 32zM86 92l12-28 12 28z"/></g>' + floor;
     }
+    if (design.scene === 'chamber') {
+      return sky +
+        '<rect width="100" height="30" fill="#0a0604" opacity=".55"/>' +
+        '<g fill="#301f13"><path d="M-6 44Q50 28 106 44v9Q50 37 -6 53Z"/><path d="M-6 58Q50 42 106 58v9Q50 51 -6 67Z"/><path d="M-6 72Q50 56 106 72v10Q50 65 -6 82Z"/></g>' +
+        '<g fill="none" stroke="' + accent + '" stroke-width=".9" opacity=".22"><path d="M-6 44Q50 28 106 44M-6 58Q50 42 106 58M-6 72Q50 56 106 72"/></g>' +
+        '<ellipse cx="50" cy="12" rx="40" ry="22" fill="#ffd696" opacity=".1"/>' + floor;
+    }
+    if (design.scene === 'neon') {
+      return sky +
+        '<g><rect x="7" y="8" width="1.8" height="18" fill="' + accent + '" opacity=".7"/><rect x="5" y="8" width="6" height="18" fill="' + accent + '" opacity=".14"/>' +
+        '<rect x="90" y="16" width="1.8" height="14" fill="#78dcff" opacity=".6"/><rect x="88" y="16" width="6" height="14" fill="#78dcff" opacity=".12"/>' +
+        '<rect x="17" y="30" width="1.6" height="11" fill="#78dcff" opacity=".5"/><rect x="80" y="6" width="1.6" height="13" fill="' + accent + '" opacity=".6"/></g>' +
+        '<path d="M0 70h100" stroke="' + accent + '" stroke-width="1.4" opacity=".3"/>' +
+        '<g opacity=".22"><rect x="12" y="76" width="24" height="2.6" fill="' + accent + '"/><rect x="62" y="84" width="26" height="2.6" fill="#78dcff"/><rect x="30" y="92" width="22" height="2.6" fill="' + accent + '"/></g>' + floor;
+    }
+    if (design.scene === 'void') {
+      return sky + '<ellipse cx="50" cy="46" rx="46" ry="42" fill="' + accent + '" opacity=".07"/>' + floor;
+    }
     return sky +
       '<g fill="none" stroke="' + accent + '" opacity=".2"><circle cx="50" cy="46" r="40"/><circle cx="50" cy="46" r="30"/></g>' +
       '<g fill="none" stroke="#f0ede6" opacity=".07"><path d="M0 82h100M10 100l40-18 40 18M28 100l22-16 22 16"/></g>' + floor;
@@ -967,6 +989,10 @@
   function maskShape(design) {
     if (design.mask === 'classic') return 'M22 38C25 27 39 27 50 36c11-9 25-9 28 2-2 14-16 16-28 6-12 10-26 8-28-6Z';
     if (design.mask === 'visor') return 'M20 31Q50 23 80 31l-4 18q-16 7-26-2-10 9-26 2Z';
+    if (design.mask === 'wing') return 'M14 26q16 10 27 10 5 0 9 4 4-4 9-4 11 0 27-10-3 20-11 24-8 4-16-4-4-4-9 1-5-5-9-1-8 8-16 4-8-4-11-24Z';
+    if (design.mask === 'oni') return 'M21 37 27 6 34 33 50 40 66 33 73 6 79 37 74 52 55 47 50 44 45 47 26 52Z';
+    if (design.mask === 'plate') return 'M18 32Q50 21 82 32q3 18-6 30-8-5-13-7-6 4-13 4t-13-4q-5 2-13 7-9-12-6-30Z';
+    if (design.mask === 'slim') return 'M18 35Q50 30 82 35l-1 11Q50 51 19 46Z';
     return 'M23 37q10-16 26-5l1 3 1-3q16-11 26 5l-4 13q-12 7-22-3h-2q-10 10-22 3Z';
   }
   // Head with a jaw, matching the sculpted canvas mask. Cranium 28..72,
@@ -977,8 +1003,9 @@
     var accent = LIVE_ACCENTS[design.accent];
     var outfit = LIVE_OUTFITS[design.outfit];
     var id = 'dbmask' + (++maskSeq);
-    var eyeRy = design.eyes === 'open' ? 4.6 : design.eyes === 'calm' ? 2.2 : design.eyes === 'sharp' ? 2.8 : 3.5;
-    var eyeRot = design.eyes === 'sharp' ? 7 : 0;
+    var eyeSpec = LIVE_EYES[design.eyes] || LIVE_EYES.focus;
+    var eyeRy = eyeSpec[0];
+    var eyeRot = eyeSpec[1];
     var sz = size == null ? 100 : size;
     var head = '#1b1b1f';
     var fine = !(typeof sz === 'number' && sz <= 54);

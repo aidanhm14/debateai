@@ -71,7 +71,9 @@
   </div>
 
   <div class="note">
-    <b>What to check:</b> in Avatar mode the right side must never show camera pixels (it cannot; that mode never reads the camera), the mouth should open when you talk and rest when you stop, and it should blink now and then. Switching modes must be instant with no flicker or reconnect. Camera mode should mirror the left pane; Off should show the quiet tile.
+    <b>What to check:</b> the status line above has to say <b>driving from YOUR FACE</b>. If it says mic only, the mask is guessing from audio and nothing below will look right. Then: turn your head and the avatar turns. Raise one eyebrow and one brow rises. Look left without moving your head and the pupils travel. Blink and it blinks with you, one eye at a time if you wink. Say "ah", "ee", "oo" and the mouth should take three visibly different shapes, not one hinge. Smirk with one side of your mouth and the mask smirks back.
+    <br><br>
+    In Avatar mode the right side must never show camera pixels (it cannot; that mode never reads the camera). Switching modes must be instant with no flicker or reconnect. Camera mode should mirror the left pane; Off should show the quiet tile.
   </div>
 </div>
 <script src="/js/cam-avatar.js"></script>
@@ -94,7 +96,22 @@
       tick=setInterval(function(){
         var lv=cam.level();
         micBar.style.width=Math.round(lv*100)+'%';
-        setStatus('live · mode: <b>'+cam.mode().toUpperCase()+'</b> · mic '+(lv>0.05?'<b style="color:#3ecf6a">VOICE</b>':'quiet'));
+        // Say out loud which engine is driving the face. A tracker that
+        // failed to download degrades to a mic-driven mouth, which looks
+        // plausible for a second and lifeless over a sentence, and used
+        // to be invisible from here.
+        var tr = cam.tracking ? cam.tracking() : null;
+        var drive = !tr ? '' :
+          tr.source === 'face'
+            ? ' · driving from <b style="color:#3ecf6a">YOUR FACE</b>'
+            : tr.model === 'ready'
+              ? ' · <b style="color:#fbbf24">NO FACE FOUND</b>, mic only'
+              : tr.model === 'loading'
+                ? ' · tracker loading...'
+                : tr.model === 'failed'
+                  ? ' · <b style="color:#f87171">TRACKER FAILED</b>, mic only'
+                  : ' · tracker idle';
+        setStatus('live · mode: <b>'+cam.mode().toUpperCase()+'</b> · mic '+(lv>0.05?'<b style="color:#3ecf6a">VOICE</b>':'quiet')+drive);
       },120);
     }).catch(function(e){
       setStatus('failed: '+(e&&e.message||e));startBtn.disabled=false;

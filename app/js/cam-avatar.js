@@ -39,6 +39,7 @@
   const HEAD = '#1b1b1f';
   const DESIGN_KEY = 'debatable-live-avatar-v1';
   const LOOKS_KEY = 'debatable-avatar-looks-v1';
+  const DEFAULT_KEY = 'debatable-live-avatar-default-v1';
   const DESIGN_EVENT = 'debatable-avatar-design';
   const DEFAULT_DESIGN = { scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
   const DESIGN_OPTIONS = {
@@ -49,6 +50,9 @@
       { key: 'studio', label: 'Studio', sample: 'linear-gradient(135deg,#07121d,#18304b 48%,#090b11)' },
       { key: 'orbit', label: 'Orbit', sample: 'radial-gradient(circle at 68% 30%,#654676 0 12%,#10122a 13%,#04050b 65%)' },
       { key: 'forest', label: 'Forest', sample: 'linear-gradient(#142c34,#17262b 48%,#07100f)' },
+      { key: 'chamber', label: 'Chamber', sample: 'linear-gradient(#241a12,#2f2117 46%,#0d0907)' },
+      { key: 'neon', label: 'Neon', sample: 'linear-gradient(#1a0a24,#3a1150 42%,#07030c)' },
+      { key: 'void', label: 'Void', sample: 'radial-gradient(circle at 50% 40%,#1d1d22,#0a0a0c 62%,#050506)' },
     ],
     accent: [
       { key: 'crimson', label: 'Crimson', color: '#dd2e2e' },
@@ -57,6 +61,9 @@
       { key: 'teal', label: 'Teal', color: '#17b6a4' },
       { key: 'rose', label: 'Rose', color: '#e44878' },
       { key: 'silver', label: 'Silver', color: '#b8c1cf' },
+      { key: 'gold', label: 'Gold', color: '#e0a33a' },
+      { key: 'lime', label: 'Lime', color: '#8fd14f' },
+      { key: 'ice', label: 'Ice', color: '#6fd8ef' },
     ],
     outfit: [
       { key: 'ink', label: 'Ink', color: '#27272f', dark: '#09090b' },
@@ -64,17 +71,27 @@
       { key: 'plum', label: 'Plum', color: '#392942', dark: '#110b16' },
       { key: 'pine', label: 'Pine', color: '#1f3a35', dark: '#08110f' },
       { key: 'slate', label: 'Slate', color: '#414956', dark: '#101318' },
+      { key: 'rust', label: 'Rust', color: '#4a2a20', dark: '#150a07' },
+      { key: 'bone', label: 'Bone', color: '#b9b1a4', dark: '#4a453d' },
+      { key: 'royal', label: 'Royal', color: '#2c2a63', dark: '#0b0a1c' },
     ],
     mask: [
       { key: 'blade', label: 'Blade' },
       { key: 'classic', label: 'Classic' },
       { key: 'visor', label: 'Visor' },
+      { key: 'wing', label: 'Wing' },
+      { key: 'oni', label: 'Oni' },
+      { key: 'plate', label: 'Plate' },
+      { key: 'slim', label: 'Slim' },
     ],
     eyes: [
-      { key: 'focus', label: 'Focused' },
-      { key: 'sharp', label: 'Sharp' },
-      { key: 'open', label: 'Open' },
-      { key: 'calm', label: 'Calm' },
+      { key: 'focus', label: 'Focused', scale: 1, angle: 0, wide: 1 },
+      { key: 'sharp', label: 'Sharp', scale: 0.76, angle: -0.12, wide: 1.06 },
+      { key: 'open', label: 'Open', scale: 1.28, angle: 0, wide: 1 },
+      { key: 'calm', label: 'Calm', scale: 0.58, angle: 0, wide: 1.04 },
+      { key: 'round', label: 'Round', scale: 1.34, angle: 0, wide: 0.82 },
+      { key: 'keen', label: 'Keen', scale: 0.86, angle: 0.13, wide: 1.02 },
+      { key: 'hooded', label: 'Hooded', scale: 0.68, angle: -0.05, wide: 1.12 },
     ],
   };
 
@@ -94,9 +111,38 @@
     });
     return out;
   }
+  function randomDesign() {
+    const out = {};
+    Object.keys(DEFAULT_DESIGN).forEach(function (group) {
+      const opts = DESIGN_OPTIONS[group];
+      out[group] = opts[Math.floor(Math.random() * opts.length)].key;
+    });
+    return out;
+  }
+  // Somebody who never opens the designer should still not look like
+  // everybody else who never opened it. DEFAULT_DESIGN alone made every
+  // untouched avatar the identical crimson blade in the identical arena,
+  // which is the opposite of what an anonymous crowd should look like, so
+  // a first run picks a look and keeps it.
+  //
+  // It is stored under its OWN key on purpose. Writing DESIGN_KEY would
+  // make js/avatar.js read a live identity for someone who never chose
+  // one, which would silently replace their portrait avatar sitewide.
+  function deviceDefaultDesign() {
+    try {
+      const raw = localStorage.getItem(DEFAULT_KEY);
+      if (raw) return normalizeDesign(JSON.parse(raw));
+    } catch (e) {}
+    const fresh = randomDesign();
+    try { localStorage.setItem(DEFAULT_KEY, JSON.stringify(fresh)); } catch (e) {}
+    return fresh;
+  }
   function getSavedDesign() {
-    try { return normalizeDesign(JSON.parse(localStorage.getItem(DESIGN_KEY) || '{}')); }
-    catch (e) { return normalizeDesign(); }
+    try {
+      const raw = localStorage.getItem(DESIGN_KEY);
+      if (raw) return normalizeDesign(JSON.parse(raw));
+    } catch (e) { return normalizeDesign(); }
+    return deviceDefaultDesign();
   }
   function makeLookId() {
     try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -274,8 +320,9 @@
   // radians, expressions are 0..1. Everything is smoothed before drawing.
   function zeroFace() {
     return { x: 0, y: 0, s: 1, yaw: 0, pitch: 0, roll: 0,
-             jaw: 0, jawSide: 0, smile: 0, pucker: 0, wide: 0, press: 0,
-             browUp: 0, browDown: 0,
+             jaw: 0, jawSide: 0, smile: 0, smileL: 0, smileR: 0, pucker: 0, wide: 0, press: 0,
+             browUp: 0, browUpL: 0, browUpR: 0, browDown: 0,
+             squintL: 0, squintR: 0,
              blinkL: 0, blinkR: 0, gazeX: 0, gazeY: 0 };
   }
 
@@ -304,20 +351,39 @@
     f.pitch = clamp(((nose.y - top.y) / faceH - 0.53) * 4.5, -1, 1);
     f.roll = clamp(-Math.atan2(eyeL.y - eyeR.y, eyeL.x - eyeR.x), -0.4, 0.4);
 
-    f.jaw = clamp(g('jawOpen') * 1.7, 0, 1);
-    f.jawSide = clamp((g('jawLeft') - g('jawRight')) * 1.5, -1, 1);
-    f.smile = clamp((g('mouthSmileLeft') + g('mouthSmileRight')) * 0.75, 0, 1);
-    f.pucker = clamp(Math.max(g('mouthPucker'), g('mouthFunnel')) * 1.1, 0, 1);
-    f.wide = clamp((g('mouthStretchLeft') + g('mouthStretchRight')) * 0.7 +
-                   (g('mouthUpperUpLeft') + g('mouthUpperUpRight')) * 0.18, 0, 1);
-    f.press = clamp((g('mouthPressLeft') + g('mouthPressRight')) * 0.8, 0, 1);
-    f.browUp = clamp(g('browInnerUp') * 0.8 + (g('browOuterUpLeft') + g('browOuterUpRight')) * 0.35, 0, 1);
-    f.browDown = clamp((g('browDownLeft') + g('browDownRight')) * 0.7, 0, 1);
-    const bl = function (v) { return clamp((v - 0.22) / 0.38, 0, 1); };
+    // Gains, and why they are not 1.0. MediaPipe's blendshape scores sit
+    // low for ordinary speech: an unremarkable sentence peaks jawOpen near
+    // 0.35 and mouthStretch near 0.25, so a face driven at the raw score
+    // barely moves on a call tile the size of a playing card. These
+    // multipliers put a normal speaking range across most of the travel
+    // and let the clamp absorb a shout.
+    f.jaw = clamp(g('jawOpen') * 2.35, 0, 1);
+    f.jawSide = clamp((g('jawLeft') - g('jawRight')) * 1.8, -1, 1);
+    // Smile is read per corner. A face that smiles symmetrically on every
+    // frame is the single strongest tell that something is animated rather
+    // than tracked, and a smirk is most of what a debater's face does.
+    f.smileL = clamp(g('mouthSmileRight') * 1.5, 0, 1);         // mirrored swap
+    f.smileR = clamp(g('mouthSmileLeft') * 1.5, 0, 1);
+    f.smile = (f.smileL + f.smileR) / 2;
+    f.pucker = clamp(Math.max(g('mouthPucker'), g('mouthFunnel')) * 1.45, 0, 1);
+    f.wide = clamp((g('mouthStretchLeft') + g('mouthStretchRight')) * 1.05 +
+                   (g('mouthUpperUpLeft') + g('mouthUpperUpRight')) * 0.28, 0, 1);
+    f.press = clamp((g('mouthPressLeft') + g('mouthPressRight')) * 1.1, 0, 1);
+    // Brows per side too, same reason, and this is where scepticism lives:
+    // one brow up is a whole rebuttal.
+    f.browUpL = clamp(g('browInnerUp') * 0.7 + g('browOuterUpRight') * 1.1, 0, 1);
+    f.browUpR = clamp(g('browInnerUp') * 0.7 + g('browOuterUpLeft') * 1.1, 0, 1);
+    f.browUp = (f.browUpL + f.browUpR) / 2;
+    f.browDown = clamp((g('browDownLeft') + g('browDownRight')) * 1.0, 0, 1);
+    // Cheek squint. Eyes that stay perfectly round through a grin read as
+    // dead, because a real smile closes the eye from below.
+    f.squintL = clamp((g('cheekSquintRight') + g('eyeSquintRight')) * 0.75, 0, 1);
+    f.squintR = clamp((g('cheekSquintLeft') + g('eyeSquintLeft')) * 0.75, 0, 1);
+    const bl = function (v) { return clamp((v - 0.20) / 0.34, 0, 1); };
     f.blinkL = bl(g('eyeBlinkRight'));                          // mirrored swap
     f.blinkR = bl(g('eyeBlinkLeft'));
-    f.gazeX = clamp(((g('eyeLookOutLeft') + g('eyeLookInRight')) - (g('eyeLookOutRight') + g('eyeLookInLeft'))) * 0.9, -1, 1);
-    f.gazeY = clamp(((g('eyeLookUpLeft') + g('eyeLookUpRight')) - (g('eyeLookDownLeft') + g('eyeLookDownRight'))) * 0.7, -1, 1);
+    f.gazeX = clamp(((g('eyeLookOutLeft') + g('eyeLookInRight')) - (g('eyeLookOutRight') + g('eyeLookInLeft'))) * 1.25, -1, 1);
+    f.gazeY = clamp(((g('eyeLookUpLeft') + g('eyeLookUpRight')) - (g('eyeLookDownLeft') + g('eyeLookDownRight'))) * 1.0, -1, 1);
     return f;
   }
 
@@ -392,9 +458,11 @@
     const horizon = h * 0.70;
     const talk = 0; // baked at rest; the reactive layer rides on top per frame
     let grad = ctx.createRadialGradient(w / 2, h * 0.38, h * 0.06, w / 2, h * 0.52, h * 0.92);
-    grad.addColorStop(0, scene === 'studio' ? '#17304a' : scene === 'forest' ? '#18343b' : scene === 'orbit' ? '#171633' : '#202026');
-    grad.addColorStop(0.48, scene === 'skyline' ? '#10172c' : scene === 'library' ? '#241611' : '#111114');
-    grad.addColorStop(1, scene === 'forest' ? '#050d0c' : '#060607');
+    grad.addColorStop(0, scene === 'studio' ? '#17304a' : scene === 'forest' ? '#18343b' : scene === 'orbit' ? '#171633'
+      : scene === 'chamber' ? '#2b1e14' : scene === 'neon' ? '#2a1038' : '#202026');
+    grad.addColorStop(0.48, scene === 'skyline' ? '#10172c' : scene === 'library' ? '#241611'
+      : scene === 'chamber' ? '#1a120c' : scene === 'neon' ? '#160925' : '#111114');
+    grad.addColorStop(1, scene === 'forest' ? '#050d0c' : scene === 'neon' ? '#05030a' : '#060607');
     ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
 
     if (scene === 'skyline') {
@@ -473,6 +541,50 @@
         ctx.fillStyle = i % 2 ? '#07100f' : '#0a1715';
         ctx.beginPath(); ctx.moveTo(x, y - th); ctx.lineTo(x - th * 0.34, y); ctx.lineTo(x + th * 0.34, y); ctx.fill();
       }
+    } else if (scene === 'chamber') {
+      // A debating chamber seen from the floor: benches curving away and
+      // a lit despatch box. Warm wood against the accent, so the mask
+      // still separates from it.
+      ctx.fillStyle = 'rgba(10,6,4,.55)'; ctx.fillRect(0, 0, w, h * 0.30);
+      for (let row = 0; row < 4; row++) {
+        const y = h * (0.30 + row * 0.10), bh = h * 0.055;
+        ctx.fillStyle = row % 2 ? '#3a2618' : '#301f13';
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.06, y + bh);
+        ctx.quadraticCurveTo(w / 2, y - h * 0.05, w * 1.06, y + bh);
+        ctx.lineTo(w * 1.06, y + bh * 2.1);
+        ctx.quadraticCurveTo(w / 2, y - h * 0.05 + bh * 2.1, -w * 0.06, y + bh * 2.1);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = rgba(accent, 0.10); ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      const lamp = ctx.createRadialGradient(w * 0.5, h * 0.12, 0, w * 0.5, h * 0.12, h * 0.42);
+      lamp.addColorStop(0, 'rgba(255,214,150,.16)'); lamp.addColorStop(1, 'rgba(255,214,150,0)');
+      ctx.fillStyle = lamp; ctx.fillRect(0, 0, w, h * 0.6);
+    } else if (scene === 'neon') {
+      // Wet street at night. Vertical signage plus a reflected floor.
+      for (let i = 0; i < 6; i++) {
+        const x = (i % 2 ? w * 0.08 : w * 0.86) + (i % 3) * w * 0.03;
+        const y = h * (0.06 + (i % 3) * 0.14), sh = h * (0.10 + (i % 2) * 0.06);
+        ctx.fillStyle = i % 2 ? rgba(accent, 0.30) : 'rgba(120,220,255,.20)';
+        ctx.fillRect(x, y, w * 0.016, sh);
+        ctx.fillStyle = i % 2 ? rgba(accent, 0.10) : 'rgba(120,220,255,.07)';
+        ctx.fillRect(x - w * 0.012, y, w * 0.04, sh);
+      }
+      ctx.strokeStyle = rgba(accent, 0.16); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, horizon); ctx.lineTo(w, horizon); ctx.stroke();
+      for (let i = 0; i < 9; i++) {
+        const y = horizon + (i + 1) * (h - horizon) / 9;
+        ctx.strokeStyle = i % 2 ? rgba(accent, 0.07) : 'rgba(120,220,255,.05)';
+        ctx.lineWidth = 6; ctx.beginPath();
+        ctx.moveTo(w * (0.12 + i * 0.02), y); ctx.lineTo(w * (0.42 + i * 0.03), y); ctx.stroke();
+      }
+    } else if (scene === 'void') {
+      // Deliberately empty. Some people want no scenery at all, and a
+      // plain field is also the cheapest thing to paint on a weak machine.
+      const halo = ctx.createRadialGradient(w / 2, h * 0.44, h * 0.05, w / 2, h * 0.44, h * 0.62);
+      halo.addColorStop(0, rgba(accent, 0.09));
+      halo.addColorStop(1, rgba(accent, 0));
+      ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
     }
 
     if (scene === 'arena') {
@@ -555,14 +667,14 @@
     ctx.translate(hx, hy);
     ctx.rotate(f.roll * 0.85);
     const squash = 1 - Math.abs(f.yaw) * 0.10;
-    const fx = f.yaw * R * 0.34;                 // feature shift, x
-    const fy = f.pitch * R * 0.26;               // feature shift, y
+    const fx = f.yaw * R * 0.42;                 // feature shift, x
+    const fy = f.pitch * R * 0.32;               // feature shift, y
 
     // Openness drives the whole lower face, not just the lips. A real jaw
     // lengthens the head as it drops; without this the mouth reads as a hole
     // punched in a rigid mask.
     const openAmt = Math.pow(clamp(Math.max(f.jaw, level * 0.85), 0, 1), 0.75);
-    const jawDrop = openAmt * R * 0.075;
+    const jawDrop = openAmt * R * 0.105;
 
     const headW = R * 0.88 * squash;
 
@@ -650,8 +762,10 @@
     }
     ctx.restore();
 
-    // Three silhouettes let the avatar feel owned without weakening the
-    // shared anonymous-mask identity.
+    // Seven silhouettes let the avatar feel owned without weakening the
+    // shared anonymous-mask identity. Every one of them covers the eye
+    // band, because that is the part doing the anonymity work; they vary
+    // in how much of the face they take and how they read at tile size.
     const my = -R * 0.20 + fy, mw = R * 1.13 * squash, mh = R * 0.48;
     const maskGrad = ctx.createLinearGradient(fx - mw, my - mh, fx + mw, my + mh);
     maskGrad.addColorStop(0, shade(accent, -0.34));
@@ -673,6 +787,46 @@
         ctx.quadraticCurveTo(fx + mw * 0.24, my + mh * 0.58, fx, my + mh * 0.22);
         ctx.quadraticCurveTo(fx - mw * 0.24, my + mh * 0.58, fx - mw * 0.58, my + mh * 0.42);
         ctx.closePath();
+      } else if (design.mask === 'wing') {
+        // Swept corners that carry past the temples, so the silhouette
+        // reads at thumbnail size where a narrow band disappears.
+        ctx.moveTo(fx - mw * 0.92, my - mh * 0.62);
+        ctx.quadraticCurveTo(fx - mw * 0.52, my - mh * 0.30, fx - mw * 0.18, my - mh * 0.30);
+        ctx.quadraticCurveTo(fx, my - mh * 0.04, fx + mw * 0.18, my - mh * 0.30);
+        ctx.quadraticCurveTo(fx + mw * 0.52, my - mh * 0.30, fx + mw * 0.92, my - mh * 0.62);
+        ctx.quadraticCurveTo(fx + mw * 0.74, my + mh * 0.34, fx + mw * 0.40, my + mh * 0.44);
+        ctx.quadraticCurveTo(fx + mw * 0.16, my + mh * 0.48, fx, my + mh * 0.16);
+        ctx.quadraticCurveTo(fx - mw * 0.16, my + mh * 0.48, fx - mw * 0.40, my + mh * 0.44);
+        ctx.quadraticCurveTo(fx - mw * 0.74, my + mh * 0.34, fx - mw * 0.92, my - mh * 0.62);
+      } else if (design.mask === 'oni') {
+        // Two horns off the brow line. Angular, not cute.
+        ctx.moveTo(fx - mw * 0.72, my - mh * 0.18);
+        ctx.lineTo(fx - mw * 0.50, my - mh * 1.85);
+        ctx.lineTo(fx - mw * 0.34, my - mh * 0.50);
+        ctx.lineTo(fx, my - mh * 0.08);
+        ctx.lineTo(fx + mw * 0.34, my - mh * 0.50);
+        ctx.lineTo(fx + mw * 0.50, my - mh * 1.85);
+        ctx.lineTo(fx + mw * 0.72, my - mh * 0.18);
+        ctx.lineTo(fx + mw * 0.58, my + mh * 0.44);
+        ctx.lineTo(fx + mw * 0.14, my + mh * 0.24);
+        ctx.lineTo(fx, my + mh * 0.06);
+        ctx.lineTo(fx - mw * 0.14, my + mh * 0.24);
+        ctx.lineTo(fx - mw * 0.58, my + mh * 0.44);
+      } else if (design.mask === 'plate') {
+        // The most coverage on offer: a full upper face that wraps down
+        // over the cheekbones. For anyone who wants no read at all.
+        ctx.moveTo(fx - mw * 0.78, my - mh * 0.52);
+        ctx.quadraticCurveTo(fx, my - mh * 0.96, fx + mw * 0.78, my - mh * 0.52);
+        ctx.quadraticCurveTo(fx + mw * 0.86, my + mh * 0.40, fx + mw * 0.52, my + mh * 0.96);
+        ctx.quadraticCurveTo(fx + mw * 0.26, my + mh * 0.72, fx, my + mh * 0.60);
+        ctx.quadraticCurveTo(fx - mw * 0.26, my + mh * 0.72, fx - mw * 0.52, my + mh * 0.96);
+        ctx.quadraticCurveTo(fx - mw * 0.86, my + mh * 0.40, fx - mw * 0.78, my - mh * 0.52);
+      } else if (design.mask === 'slim') {
+        // A thin bar. Least material on the face, still covers the eyes.
+        ctx.moveTo(fx - mw * 0.80, my - mh * 0.30);
+        ctx.quadraticCurveTo(fx, my - mh * 0.44, fx + mw * 0.80, my - mh * 0.30);
+        ctx.lineTo(fx + mw * 0.76, my + mh * 0.28);
+        ctx.quadraticCurveTo(fx, my + mh * 0.40, fx - mw * 0.76, my + mh * 0.28);
       } else {
         ctx.moveTo(fx - mw * 0.62, my - mh * 0.12);
         ctx.quadraticCurveTo(fx - mw * 0.38, my - mh * 0.65, fx - mw * 0.08, my - mh * 0.24);
@@ -703,12 +857,16 @@
     ctx.strokeStyle = 'rgba(255,248,238,0.26)'; ctx.lineWidth = Math.max(1.5, R * 0.011); ctx.stroke();
 
     // Eye shape is cosmetic; gaze and independent blink tracking stay live.
-    const ex = mw * 0.30, eyeW = mw * 0.122;
-    const drawEye = function (side2, blink) {
-      const cxE = fx + side2 * ex, open = Math.max(0.04, 1 - blink);
-      const eyeScale = design.eyes === 'open' ? 1.28 : design.eyes === 'calm' ? 0.58 : design.eyes === 'sharp' ? 0.76 : 1;
-      const eyeH = mh * 0.19 * eyeScale * open;
-      const angle = design.eyes === 'sharp' ? side2 * -0.12 : 0;
+    const ex = mw * 0.30, eyeW = mw * 0.122 * (findOption('eyes', design.eyes).wide || 1);
+    const drawEye = function (side2, blink, squint) {
+      const cxE = fx + side2 * ex;
+      // A squint takes the eye down from BELOW; a blink takes it from
+      // above. Collapsing both into one number is why smiling faces used
+      // to look startled instead of amused.
+      const open = Math.max(0.04, 1 - blink) * (1 - clamp(squint, 0, 1) * 0.45);
+      const eyeSpec = findOption('eyes', design.eyes);
+      const eyeH = mh * 0.19 * (eyeSpec.scale || 1) * open;
+      const angle = side2 * -(eyeSpec.angle || 0);
       ctx.save(); ctx.translate(cxE, my); ctx.rotate(angle);
       // socket: the eye sits IN the mask rather than on it
       soft(ctx, 0, eyeH * 0.1, eyeW * 1.5, eyeH * 2.0, DARK, 0.55);
@@ -725,8 +883,10 @@
       eyePath(); ctx.fillStyle = sclera; ctx.fill();
       if (open > 0.25) {
         ctx.save(); eyePath(); ctx.clip();
-        const px = (f.gazeX + f.yaw * 0.4) * eyeW * 0.40;
-        const py = (-f.gazeY + f.pitch * 0.4) * eyeH * 0.45;
+        // The pupil is the smallest thing on the tile and the one people
+        // read first, so it gets most of the sclera to travel across.
+        const px = (f.gazeX + f.yaw * 0.5) * eyeW * 0.62;
+        const py = (-f.gazeY + f.pitch * 0.45) * eyeH * 0.62;
         const pupilR = Math.min(eyeW * 0.38, eyeH * 0.76);
         // iris as a sphere: lit from below-front, dark limbal ring
         const iris = ctx.createRadialGradient(px, py + pupilR * 0.35, pupilR * 0.1, px, py, pupilR * 1.5);
@@ -754,8 +914,8 @@
       ctx.quadraticCurveTo(0, eyeH * 1.12, eyeW * 0.7, eyeH * 0.5); ctx.stroke();
       ctx.restore();
     };
-    drawEye(-1, f.blinkL);
-    drawEye(1, f.blinkR);
+    drawEye(-1, f.blinkL, f.squintL);
+    drawEye(1, f.blinkR, f.squintR);
 
     // Nose: a lit bridge with a shadow down one side and a tip, all restrained
     // enough to stay a mask rather than becoming a portrait.
@@ -768,29 +928,35 @@
     ctx.beginPath(); ctx.moveTo(fx + R * 0.015, my + mh * 0.24); ctx.quadraticCurveTo(fx + R * 0.09, my + mh * 0.68, fx - R * 0.015, my + mh * 0.78); ctx.stroke();
 
     // brows: above the mask, raise with browUp, pinch with browDown
-    const by = my - mh * 0.62 - f.browUp * R * 0.11;
     const bw2 = eyeW * 1.5;
     ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, R * 0.034); ctx.strokeStyle = 'rgba(240,237,230,0.72)';
-    const browTilt = R * 0.03 + f.browDown * R * 0.05;
-    ctx.beginPath();
-    ctx.moveTo(fx - ex - bw2 * 0.5, by - R * 0.015);
-    ctx.quadraticCurveTo(fx - ex, by - R * 0.05 + f.browDown * R * 0.02, fx - ex + bw2 * 0.5, by + browTilt - R * 0.03);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(fx + ex + bw2 * 0.5, by - R * 0.015);
-    ctx.quadraticCurveTo(fx + ex, by - R * 0.05 + f.browDown * R * 0.02, fx + ex - bw2 * 0.5, by + browTilt - R * 0.03);
-    ctx.stroke();
+    const browTilt = R * 0.03 + f.browDown * R * 0.07;
+    // Each brow rides its own raise, so one can go up without the other.
+    const drawBrow = function (side2, raise) {
+      const by = my - mh * 0.62 - raise * R * 0.17 + f.browDown * R * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(fx + side2 * (ex + bw2 * 0.5), by - R * 0.015);
+      ctx.quadraticCurveTo(fx + side2 * ex, by - R * 0.05 - raise * R * 0.03 + f.browDown * R * 0.02,
+        fx + side2 * (ex - bw2 * 0.5), by + browTilt - R * 0.03);
+      ctx.stroke();
+    };
+    drawBrow(-1, f.browUpL);
+    drawBrow(1, f.browUpR);
 
     // Mouth. Camera blendshapes provide round, wide, pressed, smile, and
     // side-shift poses. The mic-only path estimates round vs wide from the
     // audio spectrum. Either way, speech changes silhouette, not just height.
-    const mouthX = fx + f.jawSide * R * 0.055;
+    const mouthX = fx + f.jawSide * R * 0.07;
     const round = clamp(f.pucker, 0, 1), wide = clamp(f.wide, 0, 1), pressed = clamp(f.press, 0, 1);
     const moY = R * 0.43 + fy * 0.9 + jawDrop * 0.76;
-    const openH = R * (0.048 + openAmt * 0.31) * (1 + round * 0.42) * (1 - pressed * 0.42);
-    const moW = R * (0.38 + f.smile * 0.14 + wide * 0.16 - round * 0.15 - openAmt * 0.05) * squash;
-    const cornerY = moY - f.smile * R * 0.09;
-    const upperY = moY - openH * (0.30 + wide * 0.06) - f.smile * R * 0.02;
+    const openH = R * (0.042 + openAmt * 0.40) * (1 + round * 0.48) * (1 - pressed * 0.46);
+    const moW = R * (0.38 + f.smile * 0.20 + wide * 0.24 - round * 0.20 - openAmt * 0.05) * squash;
+    // Corners lift independently. A one-sided lift is a smirk, and it is
+    // the expression this product's users make most.
+    const cornerYL = moY - f.smileL * R * 0.13;
+    const cornerYR = moY - f.smileR * R * 0.13;
+    const cornerY = (cornerYL + cornerYR) / 2;
+    const upperY = moY - openH * (0.30 + wide * 0.08) - f.smile * R * 0.02;
     const lowerY = moY + openH * (0.82 + round * 0.10) + f.smile * R * 0.04;
 
     // lip body: cupid's bow on top (two curves meeting at centre), one
@@ -799,11 +965,11 @@
     // corners close to a soft point. Pulling them to the lip extremes instead
     // darts the corners into spikes at wide openings.
     ctx.beginPath();
-    ctx.moveTo(mouthX - moW, cornerY);
-    ctx.bezierCurveTo(mouthX - moW * 0.70, cornerY - openH * 0.32, mouthX - moW * 0.30, upperY, mouthX, upperY + openH * 0.05);
-    ctx.bezierCurveTo(mouthX + moW * 0.30, upperY, mouthX + moW * 0.70, cornerY - openH * 0.32, mouthX + moW, cornerY);
-    ctx.bezierCurveTo(mouthX + moW * 0.74, cornerY + openH * 0.42, mouthX + moW * 0.34, lowerY, mouthX, lowerY);
-    ctx.bezierCurveTo(mouthX - moW * 0.34, lowerY, mouthX - moW * 0.74, cornerY + openH * 0.42, mouthX - moW, cornerY);
+    ctx.moveTo(mouthX - moW, cornerYL);
+    ctx.bezierCurveTo(mouthX - moW * 0.70, cornerYL - openH * 0.32, mouthX - moW * 0.30, upperY, mouthX, upperY + openH * 0.05);
+    ctx.bezierCurveTo(mouthX + moW * 0.30, upperY, mouthX + moW * 0.70, cornerYR - openH * 0.32, mouthX + moW, cornerYR);
+    ctx.bezierCurveTo(mouthX + moW * 0.74, cornerYR + openH * 0.42, mouthX + moW * 0.34, lowerY, mouthX, lowerY);
+    ctx.bezierCurveTo(mouthX - moW * 0.34, lowerY, mouthX - moW * 0.74, cornerYL + openH * 0.42, mouthX - moW, cornerYL);
     ctx.closePath();
     const lip = ctx.createLinearGradient(0, upperY, 0, lowerY);
     lip.addColorStop(0, '#ff4a4a'); lip.addColorStop(0.52, RED); lip.addColorStop(1, '#a9151d');
@@ -847,7 +1013,7 @@
       const labelY = hy + R * 1.29;
       ctx.strokeStyle = rgba(accent, 0.72); ctx.lineWidth = Math.max(2, R * 0.018);
       ctx.beginPath(); ctx.moveTo(hx - R * 0.28, labelY - R * 0.13); ctx.lineTo(hx + R * 0.28, labelY - R * 0.13); ctx.stroke();
-      ctx.font = '700 ' + Math.round(R * 0.18) + 'px 'Geist Mono',ui-monospace, Menlo, monospace';
+      ctx.font = '700 ' + Math.round(R * 0.18) + "px 'Geist Mono',ui-monospace, Menlo, monospace";
       ctx.fillStyle = 'rgba(240,237,230,0.86)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(label, hx, labelY);
     }
@@ -957,25 +1123,46 @@
       t.pucker = clamp(audio.round * 1.25 + Math.max(0, Math.sin(s * 9.1 + ph3)) * level * 0.08, 0, 0.82);
       t.wide = clamp(audio.wide * 1.18 + Math.max(0, Math.sin(s * 13.7 + ph2)) * level * 0.06, 0, 0.82);
       t.press = clamp(Math.max(0, Math.sin(s * 21.4 + ph1) - 0.72) * level * 0.34, 0, 0.25);
-      t.browUp = clamp(level * 0.5 - 0.05, 0, 0.5);
-      t.gazeX = t.yaw * 0.5;
+      // Even the no-camera fallback moves asymmetrically. Two detuned
+      // phases per side is the cheapest way to stop the idle face reading
+      // as a puppet with one string.
+      t.browUpL = clamp(level * 0.55 - 0.05 + Math.max(0, Math.sin(s * 0.9 + ph1)) * 0.16, 0, 0.6);
+      t.browUpR = clamp(level * 0.55 - 0.05 + Math.max(0, Math.sin(s * 0.7 + ph3)) * 0.16, 0, 0.6);
+      t.browUp = (t.browUpL + t.browUpR) / 2;
+      t.smileL = clamp(Math.max(0, Math.sin(s * 0.23 + ph2)) * 0.22, 0, 0.35);
+      t.smileR = clamp(Math.max(0, Math.sin(s * 0.19 + ph1)) * 0.22, 0, 0.35);
+      t.smile = (t.smileL + t.smileR) / 2;
+      // Eyes wander on their own clock rather than tracking the head, which
+      // is what a person reading a flow actually does.
+      t.gazeX = clamp(t.yaw * 0.4 + Math.sin(s * 0.62 + ph3) * 0.42, -1, 1);
+      t.gazeY = Math.sin(s * 0.41 + ph2) * 0.22;
       if (now > nextBlink) { blinkUntil = now + 150; nextBlink = now + 2500 + Math.random() * 4000; }
       t.blinkL = t.blinkR = now < blinkUntil ? 1 : 0;
       return t;
     }
 
     function smoothInto(dst, src, dt) {
-      // pose eases slower than expressions; jaw is faster than the rest of
-      // the face (speech is the fastest thing on a face, and a jaw eased at
-      // expression speed lags the audio enough to read as a dub); blinks snap
+      // Four speeds, because a face does not move at one. Pose eases
+      // slowest. Expressions (smile, brows) sit in the middle, since they
+      // hold for a beat. MOUTH SHAPE gets its own fast lane: consonants
+      // land in 60 to 120ms, so a lip pose eased at expression speed
+      // arrives after the sound it belongs to and the whole thing reads as
+      // a bad dub. Jaw is faster still opening than closing, which is how
+      // a jaw actually behaves. Blinks snap.
       const aPose = 1 - Math.exp(-dt / 110);
-      const aExpr = 1 - Math.exp(-dt / 65);
-      const aJaw = 1 - Math.exp(-dt / (src.jaw > dst.jaw ? 26 : 80));
-      const aBlink = 1 - Math.exp(-dt / 28);
+      const aExpr = 1 - Math.exp(-dt / 62);
+      const aShape = 1 - Math.exp(-dt / 34);
+      const aJaw = 1 - Math.exp(-dt / (src.jaw > dst.jaw ? 20 : 62));
+      const aGaze = 1 - Math.exp(-dt / 40);
+      const aBlink = 1 - Math.exp(-dt / 26);
       const P = ['x', 'y', 's', 'yaw', 'pitch', 'roll'];
-      const E = ['smile', 'pucker', 'wide', 'press', 'jawSide', 'browUp', 'browDown', 'gazeX', 'gazeY'];
+      const E = ['smile', 'smileL', 'smileR', 'browUp', 'browUpL', 'browUpR', 'browDown', 'squintL', 'squintR'];
+      const S = ['pucker', 'wide', 'press', 'jawSide'];
       for (let i = 0; i < P.length; i++) dst[P[i]] += (src[P[i]] - dst[P[i]]) * aPose;
       for (let i = 0; i < E.length; i++) dst[E[i]] += (src[E[i]] - dst[E[i]]) * aExpr;
+      for (let i = 0; i < S.length; i++) dst[S[i]] += (src[S[i]] - dst[S[i]]) * aShape;
+      dst.gazeX += (src.gazeX - dst.gazeX) * aGaze;
+      dst.gazeY += (src.gazeY - dst.gazeY) * aGaze;
       dst.jaw += (src.jaw - dst.jaw) * aJaw;
       dst.blinkL += (src.blinkL - dst.blinkL) * aBlink;
       dst.blinkR += (src.blinkR - dst.blinkR) * aBlink;
@@ -1068,6 +1255,20 @@
       design: function () { return Object.assign({}, design); },
       level: function () { return meter.level(); },
       debugFace: function (sig) { demoFace = sig ? Object.assign(zeroFace(), sig) : null; },
+      // Is the mask actually mimicking a face, or is it running on mic
+      // energy alone? These look nearly identical for a second or two and
+      // completely different over a sentence, so anything that shows the
+      // user their own avatar should say which one they are watching. The
+      // tracker is a 3MB CDN download; when it fails the fallback is
+      // deliberately silent in the room but must not be silent to the
+      // person deciding whether this thing works.
+      tracking: function () {
+        return {
+          model: tracker.status,                                  // idle|loading|ready|failed
+          face: performance.now() - lastFaceTs < 450,              // a face right now
+          source: (performance.now() - lastFaceTs < 450) ? 'face' : 'mic',
+        };
+      },
       stop: function () {
         running = false; clearInterval(drawTimer);
         window.removeEventListener(DESIGN_EVENT, syncDesign);
@@ -1092,7 +1293,7 @@
       '.dac-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:18px;background:rgba(2,2,4,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);font-family:DM Sans,Archivo,Georgia,serif;color:#f0ede6}' +
       '.dac-modal{width:min(760px,100%);max-height:min(860px,94vh);overflow:auto;border:1px solid rgba(255,255,255,.17);border-radius:22px;background:#0c0c0f;box-shadow:0 30px 90px rgba(0,0,0,.72)}' +
       '.dac-head{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;padding:21px 22px 15px}' +
-      '.dac-kicker{font:700 11px/1.2 'Geist Mono',ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:#dd2e2e}' +
+      '.dac-kicker{font:700 11px/1.2 \'Geist Mono\',ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:#dd2e2e}' +
       '.dac-title{margin:5px 0 4px;font-size:clamp(22px,4vw,31px);letter-spacing:-.035em;line-height:1.05}' +
       '.dac-sub{margin:0;color:rgba(240,237,230,.68);font-size:13px;line-height:1.45}' +
       '.dac-close{flex:0 0 auto;width:36px;height:36px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:rgba(255,255,255,.04);color:#f0ede6;font-size:22px;cursor:pointer}' +
@@ -1103,7 +1304,7 @@
       '.dac-private b{color:#67d7c8}' +
       '.dac-controls{min-width:0}' +
       '.dac-group{margin:0 0 16px}' +
-      '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.68);font:700 10px/1.2 'Geist Mono',ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
+      '.dac-label{display:block;margin:0 0 8px;color:rgba(240,237,230,.68);font:700 10px/1.2 \'Geist Mono\',ui-monospace,Menlo,monospace;letter-spacing:.15em;text-transform:uppercase}' +
       '.dac-look-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}' +
       '.dac-look-name{width:100%;height:38px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.04);color:#f0ede6;padding:0 11px;font:650 12px/1 DM Sans,Archivo,Georgia,serif;outline:none}' +
       '.dac-look-name:focus{border-color:var(--dac-accent,#dd2e2e);box-shadow:0 0 0 2px color-mix(in srgb,var(--dac-accent,#dd2e2e) 18%,transparent)}' +
@@ -1163,8 +1364,8 @@
     const overlay = document.createElement('div'); overlay.className = 'dac-overlay';
     overlay.innerHTML =
       '<section class="dac-modal" role="dialog" aria-modal="true" aria-labelledby="dacTitle">' +
-        '<header class="dac-head"><div><div class="dac-kicker">Live identity</div><h2 class="dac-title" id="dacTitle">Design your avatar</h2><p class="dac-sub">Build a look that follows you into every room.</p></div><button type="button" class="dac-close" aria-label="Close avatar designer">×</button></header>' +
-        '<div class="dac-body"><div class="dac-preview-wrap"><canvas class="dac-preview" width="960" height="540"></canvas><p class="dac-private"><b>PRIVATE</b><span>Only this animated canvas is sent to the room. Your real background stays hidden.</span></p></div><div class="dac-controls"></div></div>' +
+        '<header class="dac-head"><div><div class="dac-kicker">Anonymous mode</div><h2 class="dac-title" id="dacTitle">Debate without showing your face</h2><p class="dac-sub">Switch your camera to Avatar in a round and this is what the other debater, the audience, and any replay see instead of you. Your camera never reaches the room. It only drives the mask, on your own device. The look follows you into every future round.</p></div><button type="button" class="dac-close" aria-label="Close avatar designer">×</button></header>' +
+        '<div class="dac-body"><div class="dac-preview-wrap"><canvas class="dac-preview" width="960" height="540"></canvas><p class="dac-private"><b>PRIVATE</b><span>Only this canvas is sent. Your face, your room, and anything behind you are never transmitted, and no face data leaves this device.</span></p></div><div class="dac-controls"></div></div>' +
         '<footer class="dac-foot"><button type="button" data-action="surprise">Surprise me</button><button type="button" data-action="cancel">Cancel</button><button type="button" class="dac-save" data-action="save">Save avatar</button></footer>' +
       '</section>';
     const controls = overlay.querySelector('.dac-controls');
@@ -1224,7 +1425,14 @@
         f.pitch = Math.sin(s * 0.35) * 0.05; f.roll = Math.sin(s * 0.31) * 0.025;
         f.jaw = voice; f.wide = voice * (0.32 + Math.max(0, Math.sin(s * 3.4)) * 0.42);
         f.pucker = voice * Math.max(0, Math.sin(s * 2.7 + 1.4)) * 0.44;
-        f.smile = 0.13; f.browUp = voice * 0.28; f.gazeX = Math.sin(s * 0.67) * 0.16;
+        f.smileL = 0.13 + Math.max(0, Math.sin(s * 0.5)) * 0.18;
+        f.smileR = 0.13 + Math.max(0, Math.sin(s * 0.5 + 1.1)) * 0.12;
+        f.smile = (f.smileL + f.smileR) / 2;
+        f.browUpL = voice * 0.34 + Math.max(0, Math.sin(s * 0.8)) * 0.20;
+        f.browUpR = voice * 0.30 + Math.max(0, Math.sin(s * 0.6 + 2.1)) * 0.14;
+        f.browUp = (f.browUpL + f.browUpR) / 2;
+        f.squintL = f.smileL * 0.5; f.squintR = f.smileR * 0.5;
+        f.gazeX = Math.sin(s * 0.67) * 0.45; f.gazeY = Math.sin(s * 0.43) * 0.2;
         const blink = (now % 4200) > 4050 ? 1 : 0; f.blinkL = f.blinkR = blink;
         drawAvatar(ctx, canvas.width, canvas.height, String(opts.label || 'YOU').slice(0, 3).toUpperCase(), f, voice, now, draft);
       }
@@ -1284,5 +1492,8 @@
     deleteLook: deleteLook,
     openDesigner: openDesigner,
     designOptions: DESIGN_OPTIONS,
+    // QA hooks for the local preview harness. Harmless in production.
+    _draw: drawAvatar,
+    _zeroFace: zeroFace,
   };
 })();
