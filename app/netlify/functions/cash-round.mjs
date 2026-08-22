@@ -63,6 +63,19 @@ export default async (request, context) => {
   const action = String(body.action || 'list').trim();
   const db = getDb();
 
+  try {
+    return await handle(action, body, request, context, db);
+  } catch (err) {
+    // A thrown handler returns no body at all, and Netlify surfaces
+    // that as "error decoding lambda response", which reads as an
+    // outage rather than as our bug. Log it and answer in JSON.
+    console.error('cash-round ' + action + ' error:', err && err.message, err && err.stack);
+    return errorResponse('Something went wrong on the board. Try again.', 500, request);
+  }
+};
+
+async function handle(action, body, request, context, db) {
+
   // ── list: the public board ────────────────────────────────────────
   // Readable signed out, because a stranger deciding whether this is
   // worth an account should be able to see what is actually on offer.
@@ -72,15 +85,21 @@ export default async (request, context) => {
     if (token) {
       try { mine = (await verifyIdToken(token)).sub; } catch { mine = null; }
     }
+    // Single-field filter, sorted in memory on purpose. An `in` filter
+    // plus an orderBy on a different field needs a composite index, and
+    // a missing index throws FAILED_PRECONDITION at query time rather
+    // than at deploy time, which is how the first version of this
+    // shipped as a 500 that read as "error decoding lambda response".
+    // The board is capped at MAX_LIST anyway, so the sort is free.
     const snap = await db.collection('cash_rounds')
       .where('status', 'in', ['open', 'funded'])
-      .orderBy('createdAt', 'desc')
       .limit(MAX_LIST)
       .get();
     const now = Date.now();
     const rounds = snap.docs
       .map((d) => ({ id: d.id, data: d.data() }))
       .filter((r) => !isExpired(r.data, now))
+      .sort((a, b) => (Number(b.data.createdAt) || 0) - (Number(a.data.createdAt) || 0))
       .map((r) => publicRound(r.id, r.data));
     return jsonResponse({
       rounds,
@@ -222,7 +241,7 @@ export default async (request, context) => {
   }
 
   return errorResponse('Unknown action', 400, request);
-};
+}
 
 export const config = {
   path: '/api/cash-round',
