@@ -227,9 +227,12 @@
     // moved the product to exactly that ("betting is here", "bring more
     // betting obviously into the app"), so the objection is retired
     // rather than overruled: it was optics protecting a different
-    // positioning, and the positioning changed. `hot` gives it the red
-    // pill treatment, which nothing else currently uses.
-    { href: '/predict',       label: 'Bet', hot: true, compactKeep: true },
+    // positioning, and the positioning changed. 2026-08-22: `money`
+    // replaces `hot` on this row per the founder ("make the bet button on
+    // nav green actually, so it screams money") — a filled green pill,
+    // the one green in the bar, so money reads as money. `hot` (the
+    // faint-red treatment) stays available for a future headline tab.
+    { href: '/predict',       label: 'Bet', money: true, compactKeep: true },
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
@@ -1048,7 +1051,7 @@
     right.appendChild(howBtn);
 
     right.appendChild(buildExplore());
-    pageLinks.filter(function(L){ return L.hot || L.cta || L.rail; }).forEach(function(L){
+    pageLinks.filter(function(L){ return L.hot || L.money || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
@@ -1113,6 +1116,29 @@
           document.head.appendChild(hs);
         }
         a.appendChild(el('span', { class: 'ui-topbar-spar-dot', 'aria-hidden': 'true' }));
+      }
+      // `money` = the Bet tab (2026-08-22, founder: green "so it screams
+      // money"). Filled green pill, the only green in the bar, so money
+      // reads as money at a glance. The dollar-dot pulses green; red
+      // stays the brand-action color everywhere else.
+      if (L.money){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.gap = '6px';
+        a.style.fontWeight = '800';
+        a.style.color = '#fff';
+        a.style.background = '#16a34a';
+        a.style.border = '1px solid #15803d';
+        a.style.borderRadius = '999px';
+        a.style.padding = '5px 13px';
+        a.style.boxShadow = '0 6px 18px -8px rgba(22,163,74,.8)';
+        if (!document.getElementById('daMoneyPulseStyle')){
+          var ms = document.createElement('style');
+          ms.id = 'daMoneyPulseStyle';
+          ms.textContent = '@keyframes daMoneyPulse{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.6)}50%{box-shadow:0 0 0 5px rgba(74,222,128,0)}}.ui-topbar-money-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;animation:daMoneyPulse 1.8s ease-out infinite}@media (prefers-reduced-motion:reduce){.ui-topbar-money-dot{animation:none}}';
+          document.head.appendChild(ms);
+        }
+        a.appendChild(el('span', { class: 'ui-topbar-money-dot', 'aria-hidden': 'true' }));
       }
       // `cta` = the one filled pill on the rail. Solid red on white text,
       // deliberately heavier than `hot` so the rail has a single clear
