@@ -66,11 +66,24 @@ async function dailyRecording(room, action){
   // while the max_cam_streams control still 400s. If Daily rejects it at
   // start time anyway (plan without VCS), retry once on the default
   // preset so a layout problem can never cost the recording itself.
+  // videoBitrate caps the file so a replay can actually stream. Measured
+  // 2026-08-22 on a real recording: with no cap, Daily encoded an 11:54
+  // round at 277MB, which is 3.1 Mbps sustained. A viewer needs at least
+  // that much bandwidth for the whole length of the round or the player
+  // never leaves the spinner, and it does not fail, it just buffers
+  // forever with no error to report. At 1200 kbps the same round lands
+  // near 110MB, about 1.3 Mbps with audio, which streams with headroom
+  // on an ordinary connection. The content is a near-static board with
+  // two webcam tiles, so this is not a quality trade anyone will see.
+  // Validated against the live Daily API on a throwaway room: this body
+  // passes param validation and fails only on "not hosting a call",
+  // while a max_cam_streams control still 400s as "not allowed".
   const startBody = (layout) => ({
     type: 'cloud',
     width: 1280,
     height: 720,
     fps: 30,
+    videoBitrate: 1200,
     minIdleTimeOut: 120,
     maxDuration: 10800,
     layout,
