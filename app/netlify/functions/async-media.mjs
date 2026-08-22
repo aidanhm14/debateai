@@ -11,9 +11,24 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const m = new URL(request.url).pathname.match(/\/api\/async\/media\/([A-Za-z0-9:_-]+)$/);
-  const id = m ? m[1] : '';
-  if (!id) return errorResponse('Missing media id', 400, request);
+  // Every media id contains a colon: a person's is `uid:newId()` (minted by
+  // async-upload) and the AI's is `ai:newId()`. The old pattern matched the
+  // colon but not a PERCENT, so a caller that percent-encoded the path
+  // segment sent `%3A`, matched nothing, and got "Missing media id" — which
+  // is exactly what rounds.html did via encodeURIComponent, so no recording
+  // on that page has ever played. Capture the whole segment, decode it, and
+  // validate after. Decoding a raw id is a no-op, so both spellings work and
+  // clients holding the old HTML out of the service-worker cache heal
+  // without shipping anything to them.
+  //
+  // The charset test stays the security boundary, and it is doing real work:
+  // the id is interpolated into a blob key, so a slash or a dot segment here
+  // would read another namespace's object. Validate AFTER decoding, or
+  // `%2F` walks straight past it.
+  const m = new URL(request.url).pathname.match(/\/api\/async\/media\/(.+)$/);
+  let id = m ? m[1] : '';
+  try { id = decodeURIComponent(id); } catch { /* malformed escape: fall through to the charset test */ }
+  if (!id || !/^[A-Za-z0-9:_-]{1,120}$/.test(id)) return errorResponse('Missing media id', 400, request);
 
   const store = mediaStore();
   const meta = await readMediaMeta(store, id);

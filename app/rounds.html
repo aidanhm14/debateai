@@ -568,6 +568,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (!state.user) return null;
     return state.user.getIdToken();
   }
+  // Media ids always carry a colon (`uid:xxxx` for a person, `ai:xxxx` for
+  // the AI). encodeURIComponent turns that into %3A, which the media
+  // endpoint used to reject outright, so every clip on this page failed with
+  // MEDIA_ERR_SRC_NOT_SUPPORTED. The colon is legal unencoded in a path
+  // segment (RFC 3986 pchar), so put it back. Everything else stays encoded:
+  // the id is still untrusted, and a bare slash here would change the route.
+  function mediaUrl(id){
+    return '/api/async/media/' + encodeURIComponent(String(id || '')).replace(/%3A/gi, ':');
+  }
   async function api(path, opts, needAuth){
     opts = opts || {};
     opts.headers = opts.headers || {};
@@ -876,8 +885,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var turnsHtml = (r.turns||[]).map(function(t, ti){
       var spec = TURN_SPEC[t.n] || {};
       var media = t.kind === 'video'
-        ? '<video controls playsinline preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></video>'
-        : '<audio controls preload="metadata" src="/api/async/media/'+encodeURIComponent(t.mediaId)+'"></audio>';
+        ? '<video controls playsinline preload="metadata" src="'+mediaUrl(t.mediaId)+'"></video>'
+        : '<audio controls preload="metadata" src="'+mediaUrl(t.mediaId)+'"></audio>';
       return '<div class="turn" style="--i:'+ti+'">' +
         '<div class="t-head">'+avatar(t)+'<span><b>'+esc(t.name)+'</b> <i style="font-style:normal;color:var(--ink-ghost);font-size:.78rem">· '+(spec.label||('Turn '+t.n))+'</i></span>' +
         (t.ai ? '<span class="t-ai">AI opponent</span>' : '') +
