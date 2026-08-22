@@ -8550,6 +8550,89 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        tour row and sits to the left of #landing-more-toggle now. -->
 </section>
 
+<!-- ── Leaderboard teaser (2026-08-22) ─────────────────────────────
+     A minimal strip directly under the first screen: the top REAL
+     people on the board, then a link to /leaderboard. Real people
+     only is the whole point of the surface: it renders from the
+     `realRows` field of /api/leaderboard-top, which excludes the
+     seed bank and unnamed rows server-side, and the strip stays
+     hidden until at least three such rows exist. Never wire this to
+     the mixed `rows` field; a seed name printed here would be an
+     invented person one click from the real board that contradicts
+     it. Deliberately NOT in the one-pager hide list: it is part of
+     the collapsed page, above the Load more card. The full ranked
+     band inside the tour (#ranked-band) is a separate surface. -->
+<a class="lb-teaser" id="lbTeaser" href="/leaderboard" data-cta="landing-lb-teaser" hidden>
+  <span class="lb-teaser-head">
+    <span class="lb-teaser-k">Leaderboard</span>
+    <span class="lb-teaser-sub">Top scores from judged rounds</span>
+  </span>
+  <ol class="lb-teaser-rows" id="lbTeaserRows"></ol>
+  <span class="lb-teaser-cta">See the full board <span aria-hidden="true">&rarr;</span></span>
+</a>
+<style>
+  .lb-teaser{
+    display:block;
+    width:min(560px,calc(100% - 36px));
+    margin:clamp(20px,3vh,34px) auto 6px;
+    padding:16px 20px 14px;
+    border:1px solid color-mix(in srgb,var(--text,#1a1a1f) 12%,transparent);
+    border-radius:16px;
+    background:var(--bg,#faf9f5);
+    color:var(--text,#1a1a1f);
+    text-decoration:none;
+    transition:transform .18s ease,border-color .18s ease;
+  }
+  .lb-teaser:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--accent,#dc2626) 45%,transparent)}
+  .lb-teaser:focus-visible{outline:3px solid color-mix(in srgb,var(--accent,#dc2626) 34%,transparent);outline-offset:4px}
+  .lb-teaser-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .lb-teaser-k{
+    font-family:var(--font-body);
+    font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-solid,#b91c1c);
+  }
+  .lb-teaser-sub{font-family:var(--font-body);font-size:.74rem;font-weight:500;color:var(--text-ghost,rgba(0,0,0,.64))}
+  .lb-teaser-rows{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:6px}
+  .lb-teaser-row{display:flex;align-items:baseline;gap:10px;font-family:var(--font-body);font-size:.92rem;line-height:1.3}
+  .lb-teaser-rank{flex:none;width:1.1em;font-weight:700;color:var(--text-ghost,rgba(0,0,0,.64));font-variant-numeric:tabular-nums}
+  .lb-teaser-nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lb-teaser-score{margin-left:auto;flex:none;font-weight:600;color:var(--text-dim,rgba(0,0,0,.68));font-variant-numeric:tabular-nums}
+  .lb-teaser-cta{
+    display:inline-block;
+    font-family:var(--font-body);
+    font-size:.82rem;font-weight:700;
+    color:var(--accent-solid,#b91c1c);
+  }
+</style>
+<script>
+(function(){
+  var box = document.getElementById('lbTeaser');
+  var list = document.getElementById('lbTeaserRows');
+  if (!box || !list) return;
+  fetch('/api/leaderboard-top').then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+    var rows = (j && Array.isArray(j.realRows)) ? j.realRows : [];
+    if (rows.length < 3) return;   // nothing invented: under three real named people, no strip
+    rows.slice(0, 5).forEach(function(r, i){
+      if (!r || !r.name || typeof r.score !== 'number') return;
+      var li = document.createElement('li');
+      li.className = 'lb-teaser-row';
+      var rank = document.createElement('span');
+      rank.className = 'lb-teaser-rank';
+      rank.textContent = String(i + 1);
+      var nm = document.createElement('span');
+      nm.className = 'lb-teaser-nm';
+      nm.textContent = r.name;
+      var sc = document.createElement('span');
+      sc.className = 'lb-teaser-score';
+      sc.textContent = (Math.round(r.score * 10) / 10) + '';
+      li.appendChild(rank); li.appendChild(nm); li.appendChild(sc);
+      list.appendChild(li);
+    });
+    if (list.children.length >= 3) box.hidden = false;
+  }).catch(function(){});
+})();
+</script>
+
 <!-- ── Open challenges ── MOVED OFF THE LANDING 2026-08-14 ───────
      Lived here for a few hours as #open-challenges-band (and before
      that as a rail card inside the gated #ranked-band). the founder: the

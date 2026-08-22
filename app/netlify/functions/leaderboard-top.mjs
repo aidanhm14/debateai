@@ -16,10 +16,13 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top';
+const CACHE_KEY = 'leaderboard-top-v2'; // v2: payload gained realRows; the shared cache survives deploys, so the old key would serve the old shape for a TTL
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
-const QUERY_LIMIT = 60;               // enough to survive per-uid dedupe
+const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to reach real
+                                      // entries below the 48 seeds (realRows scans the same
+                                      // snapshot, and real people sit down-board today)
 const ROWS = 8;
+const REAL_ROWS = 5;                  // landing teaser: real, named people only
 
 function emptyPayload(error) {
   const out = { rows: [], total: 0, at: Date.now() };
@@ -131,6 +134,34 @@ export default async (request) => {
       });
     });
 
+    // Real people only, for the landing's leaderboard teaser (2026-08-22,
+    // Aidan: "use the real ppl on the leaderboard though"). Seeds are
+    // excluded outright, one best entry per person, and rows whose
+    // display name says nothing ("Anonymous", the "A debater" fallback)
+    // are skipped: a teaser of anonymous rows advertises nobody. Legacy
+    // 30-scale rows are skipped too, since a 25.8 printed beside a 84.3
+    // reads as a blowout that never happened.
+    const realSeen = new Set();
+    const realRows = [];
+    snap.forEach((doc) => {
+      if (realRows.length >= REAL_ROWS) return;
+      const d = doc.data() || {};
+      if (d.seed === true) return;
+      if (typeof d.score !== 'number') return;
+      if (d.scoreScale !== 100 && d.score <= 30) return;
+      const uid = d.uid || doc.id;
+      if (realSeen.has(uid)) return;
+      const name = String(d.displayName || '').trim();
+      if (!name || /^anonymous$/i.test(name) || /^a debater$/i.test(name)) return;
+      realSeen.add(uid);
+      realRows.push({
+        name: name.slice(0, 40),
+        score: d.score,
+        won: d.won === true,
+        format: String(d.formatName || d.format || '').slice(0, 24),
+      });
+    });
+
     // Rated debaters first, entries filling out a thin ladder. Pure and
     // asserted by scripts/test-judge-integrity.mjs: no speaker score,
     // however high, outranks a rated debater.
@@ -139,7 +170,7 @@ export default async (request) => {
     const total = ratingRows.length
       + [...seen].filter((uid) => !ratedUids.has(uid)).length;
 
-    const payload = { rows, total, at: Date.now() };
+    const payload = { rows, realRows, total, at: Date.now() };
     await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
     return jsonResponse(payload, 200, request);
   } catch (err) {
