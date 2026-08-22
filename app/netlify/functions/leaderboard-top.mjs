@@ -22,7 +22,11 @@ const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to
                                       // entries below the 48 seeds (realRows scans the same
                                       // snapshot, and real people sit down-board today)
 const ROWS = 8;
-const REAL_ROWS = 5;                  // landing teaser: real, named people only
+const REAL_ROWS = 5;                  // real, named people only. Its one consumer (the landing
+                                      // lb-teaser strip) was retired 2026-08-22, hours after
+                                      // shipping; the field stays because it is the correct
+                                      // source for any future real-names-only surface. Never
+                                      // build one on the mixed `rows` field.
 
 function emptyPayload(error) {
   const out = { rows: [], total: 0, at: Date.now() };
