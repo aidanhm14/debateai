@@ -164,6 +164,14 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
      actually renders on /rounds: one question, two bars, real counts.
      Illustration, not live data, and labelled as such. */
   .votecard{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 17px 14px}
+/* The hoisted live market. Sits above the example vote card and takes
+   the visual weight, because one real market with real odds teaches the
+   page faster than any explanation of what a market is. */
+.heromkt{margin-bottom:14px}
+.heromkt .mkt{margin:0}
+.heromkt .mkt::before{content:'LIVE MARKET';display:block;margin-bottom:9px;
+  font-size:.6rem;font-weight:900;letter-spacing:.15em;color:var(--pro,#16a34a)}
+.heromkt[hidden]{display:none}
   .votecard .vq{font-size:1.02rem;font-weight:800;letter-spacing:-.01em;margin-bottom:3px}
   .votecard .vsub{font-family:var(--mono);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
   .vrow{margin-bottom:11px}
@@ -576,12 +584,26 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         <span class="rung c"><span class="n">3</span><b>Compete</b><span>debaters win it</span></span>
       </div>
       <div class="head-actions">
-        <a class="primary" href="/spar">Start a round</a>
-        <a class="secondary" href="#lanes">Where the money is</a>
+        <!-- 2026-08-21: 'Bet' went onto the sitewide rail, so this page
+             stopped being somewhere people arrive on purpose and became
+             a front door. The primary action used to be Start a round,
+             which answered a question the visitor did not ask: they
+             clicked Bet, and the first button offered them a debate.
+             The board is the thing they came for. -->
+        <a class="primary" href="#markets">See the board</a>
+        <a class="secondary" href="/spar">Start a round</a>
       </div>
       <p class="pts">Lane 1 is live today. Lanes 2 and 3 open with published rules.</p>
       <div class="pts" id="signedOutNote" hidden>Sign in to predict and climb the ladder. <a href="#" id="inlineSignin">Sign in</a></div>
     </div>
+    <!-- A real open market, moved up here once the board renders. The
+         first live market used to sit at 2,648px, nearly four screens
+         down behind an explainer, so someone arriving from the rail
+         read three screens about betting before seeing anything they
+         could bet on. Empty stays empty: the node only appears when the
+         board actually has one, and the example card below carries the
+         page when it does not. -->
+    <div id="heroMarket" class="heromkt" hidden></div>
     <div class="votecard" aria-label="Example crowd vote on a finished round">
       <div class="vq">Who convinced you?</div>
       <div class="vsub">Example · every finished round ends here</div>
@@ -1092,6 +1114,24 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       $('lb').innerHTML=d.leaderboard.map(function(r,i){ return '<div class="lb-row'+(r.me?' me':'')+'"><span>'+(i+1)+'. '+(r.me?'<b>you</b>':esc(r.name))+'<span class="tier">'+esc(r.tier)+'</span></span><span class="rt">'+r.rating+'</span></div>'; }).join('');
     }
     wire();
+    hoistLiveMarket();
+  }
+
+  // Move (never clone) the first open market into the hero. Moving keeps
+  // the listeners wire() just attached; a clone would render a card whose
+  // buttons do nothing, which is worse than no card at all.
+  function hoistLiveMarket(){
+    var slot = $('heroMarket');
+    var board = $('openWrap');
+    if (!slot || !board) return;
+    // Put anything previously hoisted back before taking the next one,
+    // so a poll that returns a different top market cannot strand the
+    // old card out of the board.
+    while (slot.firstChild) board.insertBefore(slot.firstChild, board.firstChild);
+    var first = board.querySelector('.mkt');
+    if (!first){ slot.hidden = true; return; }
+    slot.appendChild(first);
+    slot.hidden = false;
   }
 
   function wire(){
