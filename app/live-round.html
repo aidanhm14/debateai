@@ -522,6 +522,47 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fc-meta a:hover{color:var(--text)}
 .fc-held{font-size:.72rem;color:var(--text-dim);padding:2px 0}
+/* Round notes: the AI's shared notes on each finished speech. Same quiet
+   chrome discipline as the fact-check band: an aide under the transcript,
+   never over the video. Symmetric on purpose: both benches and the
+   audience read the identical notes, so it can never be one side's coach.
+   No winner, no scores; the ballot stays the only verdict. */
+.round-notes{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
+.round-notes[hidden]{display:none}
+.rn-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:.72rem;color:var(--text-dim)}
+.rn-head strong{
+  font-size:.62rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--text);
+}
+.rn-head .rn-off{margin-left:auto;background:none;border:0;padding:0;cursor:pointer;
+  font:inherit;font-size:.68rem;color:var(--text-dim);text-decoration:underline;text-underline-offset:3px}
+.rn-head .rn-off:hover{color:var(--text)}
+#rnList{display:flex;flex-direction:column;gap:8px}
+.rn-speech{border:1px solid var(--border);border-radius:12px;background:var(--bg-card);overflow:hidden}
+.rn-speech summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+  padding:10px 14px;font-size:.74rem;font-weight:800;letter-spacing:.04em;color:var(--text)}
+.rn-speech summary::-webkit-details-marker{display:none}
+.rn-speech summary:after{content:'▾';margin-left:auto;color:var(--text-dim);font-size:.7rem}
+.rn-speech:not([open]) summary:after{content:'▸'}
+.rn-side{padding:2px 7px;border-radius:999px;font-size:.56rem;font-weight:900;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-dim);border:1px solid var(--border)}
+.rn-point{padding:10px 14px;border-top:1px solid var(--border)}
+.rn-tag{display:inline-block;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text);margin-bottom:4px}
+.rn-note{font-size:.88rem;line-height:1.5;color:var(--text)}
+.rn-answer{margin-top:5px;font-size:.8rem;line-height:1.5;color:var(--text-dim)}
+.rn-answer span{font-weight:800;text-transform:uppercase;font-size:.6rem;letter-spacing:.1em}
+/* Round details: the standing chrome (who is in the round, the full
+   speech order) folded behind one line, so the live panel reads motion,
+   clock, transcript, notes. Everything inside keeps its id and renderer. */
+.round-details{margin:0 22px 18px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.round-details > summary{cursor:pointer;list-style:none;padding:10px 14px;
+  font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim)}
+.round-details > summary::-webkit-details-marker{display:none}
+.round-details > summary:hover{color:var(--text)}
+.round-details[open] > summary{border-bottom:1px solid var(--border)}
+.round-details .rd-body{padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.round-details .round-roster{padding:0;border-bottom:0}
+.round-details .sequence{padding:0;border-top:0;background:none}
 /* Broadcast stage: the newest flag as a lower-third, above the judge card. */
 .sov-fact{
   position:absolute;left:3.2vw;right:3.2vw;bottom:15vh;z-index:26;display:none;
@@ -2646,31 +2687,6 @@ html.stage-mode .stage-ov{display:block}
           <span class="reb-lock">Either side can edit until Speech 1.</span>
         </div>
       </div>
-      <div class="round-roster" id="roundRoster">
-        <div class="roster-card" id="rosterYou">
-          <span class="rc-active-dot"></span>
-          <span class="rc-avatar" id="rosterYouAvatar" aria-hidden="true">Y</span>
-          <div class="rc-meta">
-            <span class="rc-eyebrow" id="rosterYouEyebrow">You</span>
-            <span class="rc-name" id="rosterYouName">—</span>
-          </div>
-          <span class="rc-side" id="rosterYouSide">—</span>
-        </div>
-        <div class="roster-card" id="rosterOpp">
-          <span class="rc-active-dot"></span>
-          <span class="rc-avatar" id="rosterOppAvatar" aria-hidden="true">O</span>
-          <div class="rc-meta">
-            <span class="rc-eyebrow" id="rosterOppEyebrow">Opponent</span>
-            <span class="rc-name" id="rosterOppName">—</span>
-          </div>
-          <span class="rc-side" id="rosterOppSide">—</span>
-          <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
-          <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
-        </div>
-      </div>
-      <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
-           instead of the 2-card roster when the format is 4-team. -->
-      <div class="round-roster-4" id="roundRoster4" hidden></div>
       <div class="speech-header">
         <div class="speech-primary">
           <div class="speech-progress" id="speechProgress">Speech 1 of 4 · then ballot</div>
@@ -2734,6 +2750,20 @@ html.stage-mode .stage-ov{display:block}
         </div>
       </div>
 
+      <!-- Round notes. After every speech the AI writes shared notes onto
+           the round doc: what was argued, and what a reply has to answer.
+           Both debaters and every spectator read the SAME notes, so it is
+           an aide, never one side's coach. No winner, no scores; the
+           ballot stays the only verdict. Rendered by renderRoundNotes. -->
+      <div class="round-notes" id="roundNotes" hidden>
+        <div class="rn-head">
+          <strong>Round notes</strong>
+          <span id="rnSub">The AI takes notes on each speech: what was argued, what a reply has to answer. Both sides see the same notes.</span>
+          <button type="button" class="rn-off" id="rnOffBtn">Hide</button>
+        </div>
+        <div id="rnList"></div>
+      </div>
+
       <!-- Live fact check. Populated by renderFactChecks from the round
            doc, so debaters and every spectator read the same cards. -->
       <div class="fact-checks" id="factChecks" hidden>
@@ -2746,10 +2776,44 @@ html.stage-mode .stage-ov{display:block}
         <div id="fcList"></div>
       </div>
 
-      <div class="sequence">
-        <div class="label" style="margin-bottom:6px">Speech sequence</div>
-        <div class="sequence-list" id="sequenceList"></div>
-      </div>
+      <!-- Round details: the standing chrome, folded behind one line so
+           the live panel stays motion, clock, transcript, notes. The
+           roster and the speech order keep their ids; every renderer
+           writes into them exactly as before. -->
+      <details class="round-details" id="roundDetails">
+        <summary>Round details · speakers and order</summary>
+        <div class="rd-body">
+          <div class="round-roster" id="roundRoster">
+            <div class="roster-card" id="rosterYou">
+              <span class="rc-active-dot"></span>
+              <span class="rc-avatar" id="rosterYouAvatar" aria-hidden="true">Y</span>
+              <div class="rc-meta">
+                <span class="rc-eyebrow" id="rosterYouEyebrow">You</span>
+                <span class="rc-name" id="rosterYouName">—</span>
+              </div>
+              <span class="rc-side" id="rosterYouSide">—</span>
+            </div>
+            <div class="roster-card" id="rosterOpp">
+              <span class="rc-active-dot"></span>
+              <span class="rc-avatar" id="rosterOppAvatar" aria-hidden="true">O</span>
+              <div class="rc-meta">
+                <span class="rc-eyebrow" id="rosterOppEyebrow">Opponent</span>
+                <span class="rc-name" id="rosterOppName">—</span>
+              </div>
+              <span class="rc-side" id="rosterOppSide">—</span>
+              <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
+              <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
+            </div>
+          </div>
+          <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
+               instead of the 2-card roster when the format is 4-team. -->
+          <div class="round-roster-4" id="roundRoster4" hidden></div>
+          <div class="sequence">
+            <div class="label" style="margin-bottom:6px">Speech sequence</div>
+            <div class="sequence-list" id="sequenceList"></div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <!-- ── BALLOT ── -->
@@ -7491,6 +7555,130 @@ html.stage-mode .stage-ov{display:block}
     });
   }
 
+  // ── Round notes ────────────────────────────────────────
+  // After every finished speech, the AI writes shared notes: each argument
+  // that carried weight, what was actually said, and what a reply has to
+  // answer. The acting debater's client generates (it holds the freshest
+  // transcript, same election as the floor judge); the notes sync through
+  // the round doc, so BOTH debaters and every spectator read the identical
+  // notes. Symmetry is the fairness argument: an aide only one side could
+  // see would be a thumb on the scale. It never calls a winner, never
+  // scores, and the ballot never reads it (same posture as the fact check
+  // and the clash map). Fails soft: no notes means the round runs exactly
+  // as before.
+  function roundNotesOn(){
+    try { return localStorage.getItem('lr-round-notes') !== '0'; } catch(e){ return true; }
+  }
+  var _rnGenerated = {};
+  function renderRoundNotes(){
+    var sec = $('roundNotes');
+    var list = $('rnList');
+    if (!sec || !list) return;
+    var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
+    if (!notes.length){ sec.hidden = true; return; }
+    sec.hidden = false;
+    if (!roundNotesOn()){ list.innerHTML = ''; return; }
+    var f = FORMATS[state.formatKey];
+    var maxIdx = notes[notes.length-1].idx;
+    list.innerHTML = notes.map(function(n){
+      var pts = (Array.isArray(n.points) ? n.points : []).map(function(p){
+        return '<div class="rn-point">'
+          + '<span class="rn-tag">' + escHtml(p.tag || '') + '</span>'
+          + '<div class="rn-note">' + escHtml(p.note || '') + '</div>'
+          + (p.answer ? '<div class="rn-answer"><span>To answer</span> ' + escHtml(p.answer) + '</div>' : '')
+          + '</div>';
+      }).join('');
+      var sideLabel = (f && f.sideLabels && f.sideLabels[n.side]) || n.side || '';
+      return '<details class="rn-speech"' + (n.idx === maxIdx ? ' open' : '') + '>'
+        + '<summary>' + escHtml(n.code || '') + ' · ' + escHtml(n.speakerName || sideLabel)
+        + '<span class="rn-side">' + escHtml(sideLabel) + '</span></summary>'
+        + pts + '</details>';
+    }).join('');
+  }
+  function wireRoundNotesToggle(){
+    var btn = $('rnOffBtn');
+    if (!btn) return;
+    var setLabel = function(){ btn.textContent = roundNotesOn() ? 'Hide' : 'Show'; };
+    btn.addEventListener('click', function(){
+      try { localStorage.setItem('lr-round-notes', roundNotesOn() ? '0' : '1'); } catch(e){}
+      setLabel();
+      renderRoundNotes();
+    });
+    setLabel();
+  }
+  try { wireRoundNotesToggle(); } catch(e){}
+  function generateRoundNotes(entry, idx){
+    if (isSpectator()) return; // acting debater generates; everyone renders via sync
+    if (!entry || entry.skipped || !entry.text || entry.text === '(skipped)' || entry.text === '(no transcript)') return;
+    if (entry.text.trim().split(/\s+/).length < 30) return; // nothing to note
+    if (_rnGenerated[idx]) return;
+    _rnGenerated[idx] = true;
+    var f = FORMATS[state.formatKey];
+    if (!f) return;
+    var system = [
+      "You take notes on a live " + f.name + " round between two humans. A speech just ended. Write shared notes on THAT SPEECH ONLY, read by both debaters between speeches.",
+      'Return STRICT JSON and nothing else: {"points":[{"tag":"...","note":"...","answer":"..."}]}',
+      "- 2 to 4 points: the arguments in the speech that actually carried weight.",
+      "- tag: 2 to 5 plain words naming the argument.",
+      "- note: one sentence stating what the speaker actually argued, warrant included.",
+      "- answer: one sentence naming what a reply has to engage. Name the point of clash, never supply the counter-argument.",
+      "- Only arguments the speaker actually made. Invent nothing; if unsure a point was made, leave it out.",
+      "- Never say who is winning, never score, never predict the ballot. Both sides read the same notes.",
+      "- Plain language a first-time debater can read.",
+    ].concat(roundLangs().some(function(c){ return c !== 'en'; })
+        ? ["- Speeches may be in any language; write the notes in English."] : []).join('\n');
+    var user = "MOTION: " + state.motion
+      + "\n\nTHE SPEECH THAT JUST ENDED (" + entry.code + " — " + entry.name + ", " + (entry.speakerName || entry.side) + "):\n\n" + entry.text
+      + "\n\nReturn the JSON now.";
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 700,
+        stream: false,
+        system: system,
+        messages: [{ role: 'user', content: user }],
+        _feature: 'live-round',
+      }),
+    }).then(function(r){
+      if (!r.ok) throw new Error('round notes ' + r.status);
+      return r.text();
+    }).then(function(raw){
+      var text = raw;
+      try {
+        var w = JSON.parse(raw);
+        if (w && Array.isArray(w.content)) text = w.content.map(function(c){ return (c && c.text) || ''; }).join('');
+      } catch(e){ /* plain text */ }
+      var m = String(text || '').match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('no json in notes');
+      var parsed = JSON.parse(m[0]);
+      var pts = (Array.isArray(parsed.points) ? parsed.points : []).map(function(p){
+        return {
+          tag: String((p && p.tag) || '').trim().slice(0, 60),
+          note: String((p && p.note) || '').trim().slice(0, 300),
+          answer: String((p && p.answer) || '').trim().slice(0, 300),
+        };
+      }).filter(function(p){ return p.tag && p.note; }).slice(0, 4);
+      if (!pts.length) throw new Error('no usable points');
+      // atMs, not serverTimestamp: serverTimestamp is illegal inside
+      // arrayUnion payloads (same constraint as factChecks rows).
+      var row = {
+        idx: idx, code: entry.code, name: entry.name, side: entry.side,
+        speakerName: entry.speakerName || '', points: pts, atMs: Date.now(),
+      };
+      state.roundNotes = (state.roundNotes || []).concat([row]);
+      renderRoundNotes();
+      var ref = getRoundDocRef();
+      if (ref) ref.update({
+        roundNotes: firebase.firestore.FieldValue.arrayUnion(row),
+      }).catch(function(){});
+      try { gtag('event', 'live_round_notes', { format: state.formatKey, idx: idx }); } catch(e){}
+    }).catch(function(e){
+      console.warn('[round notes]', e);
+    });
+  }
+
   // ── Live fact check ────────────────────────────────────
   // The AI listens to the speech as it is delivered and tells the AUDIENCE
   // when a speaker states something flatly, checkably wrong. It is not a
@@ -7737,6 +7925,9 @@ html.stage-mode .stage-ov{display:block}
       $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
       renderRound();
       try { floorJudgeComment(entry); } catch(e){}
+      // speechIdx already advanced: the speech that just ended is idx-1.
+      // Skipped on the final speech on purpose; the ballot covers it.
+      try { generateRoundNotes(entry, state.speechIdx - 1); } catch(e){}
     }
   }
 
@@ -12784,6 +12975,15 @@ html.stage-mode .stage-ov{display:block}
     if (Array.isArray(d.factChecks) && d.factChecks.length !== (state.factChecks || []).length){
       state.factChecks = d.factChecks.slice();
       try { renderFactChecks(); } catch(e){}
+    }
+
+    // Round-notes sync. The acting debater's client wrote the notes for
+    // the speech that just ended; this is how the opponent and every
+    // spectator read the same ones. Length check mirrors factChecks:
+    // arrayUnion rows only ever grow.
+    if (Array.isArray(d.roundNotes) && d.roundNotes.length !== (state.roundNotes || []).length){
+      state.roundNotes = d.roundNotes.slice();
+      try { renderRoundNotes(); } catch(e){}
     }
 
     // Ballot pending — other side shows 'Ballot generating…' the
