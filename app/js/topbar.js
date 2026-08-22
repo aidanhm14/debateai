@@ -2194,7 +2194,7 @@
 
   var tail = (now >= EVENT_DAY)
     ? 'Live today, doors open 10 AM ET'
-    : 'Free to enter, written ballot every round';
+    : 'Free to enter';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
