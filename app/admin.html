@@ -923,6 +923,10 @@
       <div id="or-body" class="ts" style="padding:6px 2px">Every account, entrants included. Says the pot came down to its live figure, that it goes back to $850 past 50 entrants, asks for one forward and for product feedback. Field size and pot are read from the tournament doc at send time. Refuses to run once entries close.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 2px 2px">
         <button class="pill-btn" id="or-preview">Preview cohort</button>
+        <!-- Sends BOTH variants (entrant and not) to the reply-to inbox
+             through the real render with the live numbers. No stamps, so
+             press it as many times as the copy takes. -->
+        <button class="pill-btn" id="or-test">Send test to me</button>
         <button class="pill-btn primary" id="or-send" disabled>Send</button>
         <button class="pill-btn" id="or-stop" hidden>Stop</button>
       </div>
@@ -3701,6 +3705,29 @@ function wireAnnounceCard(prefix, endpoint){
 wireAnnounceCard('oa', '/api/admin/open-announce');
 wireAnnounceCard('ua', '/api/admin/update-announce');
 wireAnnounceCard('or', '/api/admin/open-reminder');
+// Test press for the rally email: both variants land in the reply-to
+// inbox via the endpoint's {test:'SEND'} branch. Deliberately outside
+// wireAnnounceCard: the shared card's arm-then-confirm dance protects a
+// 200-person send, and a self-addressed test needs no ceremony.
+(function(){
+  const btn = $('or-test'), body = $('or-body');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Sending test…';
+    try {
+      const r = await adminPost('/api/admin/open-reminder', { test: 'SEND' });
+      const ok = (r.results || []).filter(x => x.ok).length;
+      body.innerHTML = '<div><b>' + ok + ' of ' + (r.results || []).length +
+        '</b> test emails sent to <b>' + String(r.to || '').replace(/[&<>"]/g,'') + '</b>' +
+        ' &middot; subject: &ldquo;' + String(r.subject || '').replace(/[&<>"]/g,'') + '&rdquo;</div>' +
+        '<div style="opacity:.7;margin-top:4px">Live figures in it right now: ' + r.entryCount +
+        ' entered, pot ' + String(r.potNow || '').replace(/[&<>"]/g,'') + '. Nothing was stamped.</div>';
+    } catch (e) {
+      body.innerHTML = '<span style="color:#dc2626">' + String(e.message || e).replace(/[&<>"]/g,'') + '</span>';
+    }
+    btn.disabled = false; btn.textContent = 'Send test to me';
+  });
+})();
 wireAnnounceCard('ot', '/api/admin/open-timeslot');
 
 async function refreshStreamStatus(){
