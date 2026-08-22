@@ -90,7 +90,11 @@
 
     var css = document.createElement('style');
     css.textContent = [
-      '#daExpAsk{position:fixed;left:16px;bottom:16px;z-index:99990;width:min(340px,calc(100vw - 32px));',
+      // Sits ABOVE the .fb-floating feedback button, which is 44px square at
+      // left:18px bottom:18px on every topbar page. At bottom:16px this card
+      // covered it completely, so the one control a confused visitor reaches
+      // for was hidden by the thing asking whether they were confused.
+      '#daExpAsk{position:fixed;left:16px;bottom:76px;z-index:99990;width:min(340px,calc(100vw - 32px));',
         'padding:16px 18px 14px;border-radius:14px;',
         'background:var(--bg-card,#15151a);color:var(--text,#fff);',
         'border:1px solid var(--border,rgba(255,255,255,.16));',
@@ -111,7 +115,7 @@
         'font:inherit;font-size:17px;line-height:1;color:var(--text-ghost,rgba(255,255,255,.55))}',
       '#daExpAsk .dea-x:hover{color:var(--text,#fff)}',
       '#daExpAsk .dea-note{margin:10px 0 0;font-size:11px;line-height:1.4;color:var(--text-ghost,rgba(255,255,255,.5))}',
-      '@media (max-width:640px){#daExpAsk{left:12px;right:12px;bottom:12px;width:auto}}',
+      '@media (max-width:640px){#daExpAsk{left:12px;right:12px;bottom:72px;width:auto}}',
     ].join('');
     document.head.appendChild(css);
 
