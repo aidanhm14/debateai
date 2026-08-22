@@ -69,12 +69,26 @@ export function getDb() {
 }
 
 // Plan tier definitions
+// 2026-08-22, Aidan: "subscription is so you can do everything on app
+// without limits." Paying now removes the request cap rather than
+// raising it, which is what the tier was always being sold as. 9999 is
+// the existing spelling of unlimited here (byok has used it since it
+// shipped), kept rather than replaced with null so every caller that
+// compares against a number keeps working.
+//
+// VOICE IS DELIBERATELY NOT COVERED BY THIS, and it is the one caveat
+// worth knowing before anybody widens it. The 2026-06-27 unit-economics
+// audit measured voice at roughly 80% of per-user variable cost, so an
+// unmetered voice round on a $10/year plan loses money on any engaged
+// user. Voice keeps its own meter (FREE_VOICE_LIFETIME_LIMIT plus the
+// token balance); this cap is the text lane, which is cheap and got
+// cheaper again when internal tasks moved to a cheap tier.
 export const PLANS = {
   trial:  { requests: 3,    members: 3,  priceMonthly: 0 },
   byok:       { requests: 9999, members: 1,  priceMonthly: 100 },
-  individual: { requests: 250,  members: 1,  priceMonthly: 500 },
-  lifetime:   { requests: 250,  members: 3,  priceMonthly: 0 },
-  team:       { requests: 1500, members: 50, priceMonthly: 3000 },
+  individual: { requests: 9999, members: 1,  priceMonthly: 500 },
+  lifetime:   { requests: 9999, members: 3,  priceMonthly: 0 },
+  team:       { requests: 9999, members: 50, priceMonthly: 3000 },
 };
 
 /**
