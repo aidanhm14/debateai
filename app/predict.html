@@ -107,7 +107,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   a{color:var(--blue);text-decoration:none}
 
   /* topbar */
-  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid var(--bd);position:sticky;top:0;background:rgba(241,238,228,.92);backdrop-filter:blur(10px);z-index:50}
+  /* 2026-08-22: was position:sticky;top:0, written before the sitewide
+     fixed topbar reached this page (Bet joined the rail 2026-08-21).
+     Sticky at 0 slid this strip underneath that bar on every scroll,
+     and pinning it below instead means tracking two chrome states
+     against a documented ui.css quirk where .ui-topbar top overrides
+     misbehave. The topbar already keeps brand and sign-in on screen
+     while scrolling; this strip's unique cargo (the Predict label, the
+     balance chip) can scroll away like any other page content. */
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-bottom:1px solid var(--bd);background:rgba(241,238,228,.92)}
   .brand{font-weight:800;letter-spacing:-.02em;font-size:1.12rem}.brand em{color:var(--con);font-style:normal}
   .brand .tag{font-size:.54rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);padding:2px 7px;border-radius:999px;margin-left:8px;vertical-align:middle}
   .top-right{display:flex;align-items:center;gap:10px}
@@ -604,7 +612,22 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 .cash-rules li:before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 @media(max-width:640px){.cp-v{font-size:24px}.cash-price{gap:10px;padding:16px}.cr-num{text-align:left}}
 </style>
-<style>body{padding-top:52px}</style>
+<style>
+/* 2026-08-22, per Aidan (the page's own bar was invisible): this page
+   needs to clear BOTH pieces of fixed chrome, and the old one-liner
+   only cleared the topbar. ui.css's body.has-beta-strip{padding-top:32px}
+   is more specific than a bare body rule, so while the Open strip is up
+   it silently won and left 32px of clearance for 84px of chrome: the
+   strip (32px) plus the fixed .ui-topbar (52px) painted straight over
+   this page's own .top strip, hiding the Predict brand, the balance
+   chip and the sign-in button. Both states are stated explicitly at the
+   winning specificity, and the sticky .top pins BELOW the chrome
+   instead of at 0, where it slid back under the topbar on scroll. The
+   strip self-retires after Aug 29 and on dismiss (the class comes off
+   body), so both cases are real. */
+body{padding-top:52px}
+body.has-beta-strip{padding-top:84px}
+</style>
 <script defer src="/js/track.js"></script>
 </head>
 <body>
