@@ -3,29 +3,38 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
-// The PAID door into a tournament, per the founder (2026-08-10): "pay in to
-// get payouts or compete for free." The free door is the tournament
-// engine's own register action (POST /api/tournament); this endpoint
-// only mints the Stripe Checkout session that makes an entry
-// payout-eligible. Payment lands as `tournaments/{tid}/payments/{uid}`
-// via stripe-webhook.mjs, so eligibility is a lookup, never a client
-// claim.
+// The TIP jar for a tournament, per the founder (2026-08-22): entry is free
+// for everybody and a $5 tip toward the prize pot is accepted. This was
+// the paid entry door until that call; what it mints is now a plain
+// voluntary contribution.
+//
+// The distinction is not cosmetic and the code has to hold it, because
+// the whole legal footing of a cash-prize event rests on it: a tip buys
+// NOTHING. It does not enter anyone, does not make anyone cash-eligible,
+// and no downstream code may read a payment as a competitive fact.
+// Eligibility is decided once, in the register action, by the 18+
+// attestation, and money never touches it.
 //
 // Money posture, deliberate:
-// - The fee is `entryFeeCents` on the tournament doc. No price is
-//   hardcoded anywhere in code or copy; turning money on is a data
-//   decision (set the field) plus an env decision (flip the flag
-//   below). 0 or missing = free-only tournament.
-// - ENTRY_PAYMENTS_LIVE defaults OFF. Until the operator flips it in
-//   the Netlify env, this endpoint refuses politely and free entry is
-//   the only door. Mirrors the BETA_NO_CHARGE posture in
-//   create-checkout.mjs.
-// - Paid entry is 18+; the client collects the attestation and the
-//   server refuses without it.
+// - `TIP_CENTS` is a constant here, NOT `entryFeeCents` on the doc.
+//   That field is the ENTRY price and it is 0; reading it would put the
+//   tip back on the same dial as the entry fee, which is exactly the
+//   confusion this split exists to remove. A tournament may override
+//   with `tipCents` on its doc.
+// - ENTRY_PAYMENTS_LIVE still gates it. With the flag off, the tip jar
+//   refuses politely and nothing about the event changes.
+// - One tip per person. A second attempt is refused rather than
+//   charged, because nobody should be able to be asked twice.
+// - No age attestation is collected here. A tip is not prize entry, so
+//   requiring one would be collecting a claim that decides nothing.
+// - Tips are refundable on request (published rules, section 6), by
+//   hand from the Stripe dashboard.
 // - Payouts do NOT auto-run. Settlement marks winners owed and they
 //   are paid manually from the Stripe dashboard until Connect + KYC
 //   exists. Per the judge-integrity layer, money never moves on the
 //   AI ballot alone.
+
+const TIP_CENTS = 500;
 
 const ENTRY_PAYMENTS_LIVE = ['true', '1'].includes(
   String(process.env.ENTRY_PAYMENTS_LIVE ?? 'false').toLowerCase()
@@ -44,7 +53,7 @@ export default async (request) => {
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   const token = extractBearerToken(request);
-  if (!token) return errorResponse('Sign in to pay in', 401, request);
+  if (!token) return errorResponse('Sign in to tip', 401, request);
 
   let decoded;
   try {
@@ -66,37 +75,26 @@ export default async (request) => {
   const t = await readTournament(db, key);
   if (!t) return errorResponse('No such tournament', 404, request);
 
-  if (t.data.status !== 'registration') {
-    return jsonResponse({ error: 'ENTRIES_CLOSED', message: 'Entries are closed for this tournament.' }, 409, request);
+  // 'running' is accepted alongside 'registration' because the day is
+  // drop-in: the doors are open while rounds are already going, and
+  // refusing a tip from someone mid-event would be refusing it from
+  // the people most likely to offer one.
+  if (!['registration', 'running'].includes(String(t.data.status || ''))) {
+    return jsonResponse({ error: 'ENTRIES_CLOSED', message: 'This tournament is closed.' }, 409, request);
   }
 
-  const feeCents = Number(t.data.entryFeeCents) || 0;
-  if (feeCents <= 0) {
-    return jsonResponse({ error: 'FREE_ONLY', message: 'This tournament has no paid entry. Register free.' }, 400, request);
-  }
-  if (!ENTRY_PAYMENTS_LIVE) {
+  const tipCents = Number(t.data.tipCents) || TIP_CENTS;
+  if (!ENTRY_PAYMENTS_LIVE || tipCents <= 0) {
     return jsonResponse({
-      error: 'ENTRY_PAYMENTS_OFF',
-      message: 'Paid entry is not open yet. Free entry works today and plays the same bracket, but it is not eligible for cash prizes.',
+      error: 'TIPS_OFF',
+      message: 'Tipping is not open right now. Your entry is free and complete without it.',
     }, 403, request);
-  }
-  if (body.ageAttested !== true) {
-    return jsonResponse({ error: 'AGE_ATTESTATION_REQUIRED', message: 'Paid entry requires confirming you are 18 or older.' }, 400, request);
   }
 
   const paidSnap = await db.collection('tournaments').doc(t.id)
     .collection('payments').doc(decoded.sub).get();
-  if (paidSnap.exists && paidSnap.data().status === 'paid') {
-    return jsonResponse({ error: 'ALREADY_PAID', message: 'You have already paid in to this tournament.' }, 409, request);
-  }
-  // A founding comp is already full prize eligibility. Taking the fee from
-  // someone who owes nothing is the one bug here that costs a person
-  // money, so it is refused before Stripe is ever reached.
-  if (paidSnap.exists && paidSnap.data().status === 'comp') {
-    return jsonResponse({
-      error: 'ALREADY_ELIGIBLE',
-      message: 'Your entry is already eligible for the cash prizes. There is nothing to pay.',
-    }, 409, request);
+  if (paidSnap.exists && ['paid', 'comp'].includes(paidSnap.data().status)) {
+    return jsonResponse({ error: 'ALREADY_PAID', message: 'You have already tipped this tournament. Thank you, and nothing more is owed.' }, 409, request);
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -110,21 +108,28 @@ export default async (request) => {
         quantity: 1,
         price_data: {
           currency,
-          unit_amount: feeCents,
-          product_data: { name: `Prize entry: ${String(t.data.name || t.id).slice(0, 120)}` },
+          unit_amount: tipCents,
+          product_data: {
+            name: `Tip: ${String(t.data.name || t.id).slice(0, 110)}`,
+            description: 'A voluntary contribution toward the prize pot. Entry is free and a tip buys nothing.',
+          },
         },
       }],
-      metadata: { kind: 'tournament_entry', uid: decoded.sub, tid: t.id },
-      payment_intent_data: { metadata: { kind: 'tournament_entry', uid: decoded.sub, tid: t.id } },
+      // `tip: '1'` is what the webhook branches on. The kind stays
+      // `tournament_entry` so any session minted before this change
+      // still settles the way it was sold; the flag is what tells the
+      // webhook this one bought nothing.
+      metadata: { kind: 'tournament_entry', tip: '1', uid: decoded.sub, tid: t.id },
+      payment_intent_data: { metadata: { kind: 'tournament_entry', tip: '1', uid: decoded.sub, tid: t.id } },
       ...(decoded.email ? { customer_email: decoded.email } : {}),
       client_reference_id: decoded.sub,
-      success_url: `${siteUrl}/tournaments?entry=success&t=${encodeURIComponent(t.id)}`,
-      cancel_url: `${siteUrl}/tournaments?entry=canceled&t=${encodeURIComponent(t.id)}`,
+      success_url: `${siteUrl}/tournaments?tip=success&t=${encodeURIComponent(t.id)}`,
+      cancel_url: `${siteUrl}/tournaments?tip=canceled&t=${encodeURIComponent(t.id)}`,
     });
     return jsonResponse({ url: session.url }, 200, request);
   } catch (err) {
     console.error('entry-checkout stripe error:', err);
-    return errorResponse('Payment error. Please try again.', 500, request);
+    return errorResponse('The card step could not start. Your entry is free and stands either way.', 500, request);
   }
 };
 

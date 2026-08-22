@@ -2,7 +2,7 @@
  *
  * The one-time announcement of The Debatable Open to everyone who
  * already holds an account, carrying the founding comp: sign up before
- * the cutoff and the $5 prize entry is waived (lib/founding-comp.mjs).
+ * the cutoff. That comp is retired: entry is free for everyone.
  *
  * Not a cron. A cron that mails your whole list is a machine deciding
  * to do the single most irreversible thing this codebase can do, so
@@ -76,10 +76,11 @@ const SUBJECT_PAID   = `The Debatable Open, August 29. $100 for winning an argum
 // traction numbers. Prizes and dates are the ones published on
 // /tournaments and /tournament-rules; if those change, change these.
 
-// `comped` is resolved per recipient from their Auth creation time. The
-// list is no longer frozen behind a past cutoff: new accounts arrive every
-// day from the coach wave, and each one that lands here would otherwise be
-// told the $5 fee is waived when it is not.
+// `comped` is resolved per recipient from their Auth creation time and is
+// now VESTIGIAL in the copy: entry is free for everyone as of 2026-08-22,
+// so there is no fee to be waived from and no two-version email to get
+// wrong. It stays on the row because the send log records who was comped
+// under the old model, and deleting it would rewrite that history.
 function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
   const rules = `${SITE_URL}/tournament-rules`;
@@ -96,18 +97,14 @@ function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    ${comped
-      ? `Competing for that money costs $5. <strong>It costs you nothing.</strong>
-         You signed up before this was on the calendar, so the fee is waived and you
-         play for the cash on identical terms. Nothing to pay and nothing to ask for.
-         Claim it on the entry page and tick the 18 or older box the prizes require.`
-      : `Competing for that money costs $5, and I waive it for anyone who asks me,
-         no reason needed. Enter on the tournaments page and tick the 18 or older
-         box the prizes require.`}
+    <strong>Entry is free.</strong> No fee, no card, nothing to ask me for.
+    Enter on the tournaments page and tick the 18 or older box the prizes
+    require, and you are playing for the money on the same terms as everyone
+    else in the field.
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">${comped ? 'Claim your free entry &rarr;' : 'Enter the Open &rarr;'}</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Enter the Open &rarr;</a>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -123,20 +120,15 @@ function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    ${comped
-      ? `Forward this to whoever you want in your bracket. Your own entry is free
-         because you were here first; theirs is $5, and I will waive it for anyone
-         who asks me, no reason needed.`
-      : `Forward this to whoever you want in your bracket. Entry is $5 and I will
-         waive it for anyone who asks me, no reason needed.`}
+    Forward this to whoever you want in your bracket. It is free for them too.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Cash prizes go to prize-eligible entrants aged 18 or over and are void where
-    prohibited. Free entry without the waiver plays the same field but cannot
-    receive cash. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
+    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
+    age when entering, and are void where prohibited. An entrant under 18 plays
+    the same field for the placement and the ranking. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
     carry eligibility and the payout ladder.
   </p>
 

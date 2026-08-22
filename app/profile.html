@@ -3032,12 +3032,12 @@ function tabroomEntriesHtml(tb){
    It is hidden until an entry is found, so a debater who has not
    entered anything never sees an empty card asking them to.
 
-   The paid/free distinction is the point. Since the free-entry cutoff a
-   registration and a cash-prize slot are different things, and a card
-   that said only "you are in" would let a free entrant believe they are
-   playing for the pool. `me.prizeEligible` comes from the authenticated
-   `me` block on /api/tournament, never from the public entries array,
-   which withholds payment status by design. */
+   The eligible/not distinction is the point. Entry is free (2026-08-22)
+   and the only thing standing between an entrant and the cash pool is
+   the 18+ confirmation, so a card that said only "you are in" would let
+   someone who skipped that box believe they are playing for the money.
+   `me.prizeEligible` comes from the authenticated `me` block on
+   /api/tournament, never from the public entries array. */
 function tournamentCardHtml(){
   return `<section id="tournamentCard" class="style-card" hidden aria-label="Your tournament entry"></section>`;
 }
@@ -3049,17 +3049,18 @@ function tournamentCardInner(t, me){
   const status = me && me.checkedIn
     ? '<span>Checked in</span>'
     : '<span>Check in on the day, then join a room</span>';
-  /* Free entrants are told plainly, with the fix next to the fact. */
+  /* Told plainly, with the fix next to the fact: this one is a checkbox
+     on the entry page, not a payment. */
   const money = eligible
     ? '<span>Playing for the cash pool</span>'
-    : '<span>Rounds and ranking only, not the cash pool</span>';
+    : '<span>Rounds and ranking only. Confirm you are 18 or over to play for the cash</span>';
   return `
     <div class="sc-eyebrow"><span>Your tournament</span><span class="sc-eyebrow-tag">${escapeHtml(tag)}</span></div>
     <div class="sc-body"><strong>You are in ${escapeHtml(t.name || 'the tournament')}.</strong>${when ? ' ' + when + '.' : ''}</div>
     <div class="sc-meta">${status}<span class="sc-meta-dot">·</span>${money}</div>
     <div class="sc-actions">
       <a class="sc-btn primary" href="/open">Open the tournament page</a>
-      <a class="sc-btn" href="/tournaments">Rules and prizes</a>
+      <a class="sc-btn" href="/tournaments#enter">${eligible ? 'Rules and prizes' : 'Confirm your age'}</a>
     </div>
   `;
 }

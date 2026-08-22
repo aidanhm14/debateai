@@ -33,8 +33,8 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL,
          verifiedSenderDomains, senderDomain } from './lib/email.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
-// FOUNDING_CUTOFF_LABEL intentionally not imported: this email no longer
-// quotes the comp cutoff as a deadline recipients can send a friend to beat.
+// FOUNDING_CUTOFF_LABEL intentionally not imported: there is no comp and no
+// cutoff to quote. Entry is free for everyone (2026-08-22).
 
 // Sender resolution is copied verbatim from admin-open-announce.mjs, and
 // the reasoning travels with it: a From on an unverified domain does not
@@ -57,7 +57,7 @@ const BATCH_MAX   = Math.min(60, parseInt(process.env.UPDATE_ANNOUNCE_BATCH || '
 // stream.
 const OPT_STREAM  = 'open';
 const STAMP       = 'updateAug18SentAt';
-const SUBJECT     = `Bring a friend. Free entry ends Friday.`;
+const SUBJECT     = `Bring a friend. The Open is free to enter.`;
 
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, short paragraphs,
@@ -80,14 +80,13 @@ function renderEmail({ firstName, uid }) {
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>1. Bring a friend.</strong> The Debatable Open runs Saturday,
-    August 29: cash prizes, online, drop in whenever suits you.
-    Your account predates the entry fee, so you play for the money free.
-    Forward this to whoever you want in your bracket; their entry is $5, and
-    I will waive it for anyone who asks.
+    August 29: cash prizes, online, drop in whenever suits you. Entry is free
+    for everyone, so forward this to whoever you want in your bracket and it
+    costs them nothing either.
   </p>
 
   <p style="margin:0 0 18px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Claim your free entry &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Enter the Open &rarr;</a>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -109,8 +108,8 @@ function renderEmail({ firstName, uid }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Cash prizes go to prize-eligible entrants aged 18 or over and are void where
-    prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
+    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
+    age when entering, and are void where prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
     carry eligibility and the payout ladder.
   </p>
 

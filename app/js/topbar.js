@@ -2163,19 +2163,13 @@
 
   // All boundaries in ET (UTC-4 in August).
   //
-  // Said "Free to enter" until 2026-08-19, when the entry dropped from
-  // $20 to $5 and the blanket comp stopped at the accounts that already
-  // held it. Free was true for the few days the comp was universal, and
-  // is now false for every new visitor this strip reaches, so it leads
-  // with the trade instead: $5 in, $500 at the top. Existing accounts
-  // still pay nothing, which /tournaments says on arrival.
-  //
-  // The price is deliberately NOT read from /api/tournament here. This
-  // runs on every page in the site's most render-critical script, and a
-  // network read to decorate a ribbon is not worth the request; the
-  // in-content promo on the landing (js/open-promo.js) is the surface
-  // that stays in sync with the doc. If the fee changes, change it here
-  // too, or drop the figure and keep the event line.
+  // Entry is FREE for everyone as of 2026-08-22, so the strip carries
+  // the prize and the date and nothing else. It has now said "Free to
+  // enter", then "$20", then "$5", then free again, which is exactly
+  // why no price appears in this string any more: a ribbon on 60 pages
+  // is the slowest surface to correct and the most expensive to get
+  // wrong. The prize figure is the one number here, it is fixed and
+  // funded by the organizer, and /tournaments owns everything else.
   var now = Date.now();
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
   var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
@@ -2183,7 +2177,7 @@
 
   var tail = (now >= EVENT_DAY)
     ? 'Live today, doors open 10 AM ET'
-    : 'Cash prizes, written ballot every round';
+    : 'Free to enter, written ballot every round';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2196,8 +2190,13 @@
     // body.has-beta-strip reserves a fixed 32px and this bar is 48px
     // the moment it wraps to a second line, which clips the wordmark
     // underneath it. One line on mobile is also the better hook.
-    var msg = 'Win $100 for $5';
-    var rest = ' · The Debatable Open, Sat Aug 29 · ' + tail;
+    // The DATE rides in the hook, not the tail. Under 560px the tail is
+    // hidden, and "Win $100 →" with no day on it is an advert for
+    // nothing: a phone reader cannot tell whether this is a prize, a
+    // plan or a promo. The prize and the day are the two facts that
+    // have to survive the narrow case.
+    var msg = 'Win $100 · ' + (now >= EVENT_DAY ? 'today' : 'Sat Aug 29');
+    var rest = ' · The Debatable Open · ' + tail;
     strip.innerHTML =
       '<a href="/tournaments" data-cta="open-strip">' + msg +
       '<span class="ui-open-strip-tail">' + rest + '</span> →</a>' +

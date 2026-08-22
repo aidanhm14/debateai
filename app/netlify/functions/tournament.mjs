@@ -2,7 +2,6 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { standings } from './lib/tournament.mjs';
-import { accountCreatedMs, grantFoundingComp, FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 
 // ── Tournament, participant and spectator side ─────────────────────
 //
@@ -324,27 +323,37 @@ export default async (request) => {
       return errorResponse('Registration is not open for this tournament.', 409, request);
     }
 
-    // Founding comp: an account created before the cutoff enters the
-    // prize bracket without paying. Claimable on a NEW registration or
-    // on one already sitting in the bracket as a free entry, so someone
-    // who entered last week is not told to withdraw and come back.
-    // Requested explicitly by the client; never granted silently.
-    const wantsFounding = body?.founding === true;
-    async function tryFounding() {
-      if (!wantsFounding) return null;
-      const createdMs = await accountCreatedMs(myUid);
-      const res = await grantFoundingComp(db, t.id, myUid, {
-        createdMs,
-        ageAttested: body?.ageAttested === true,
+    // Entry is FREE and cash eligibility rides on ONE thing: whether
+    // this person confirmed they are 18 or older (2026-08-22). The
+    // paid door and the founding comp that used to decide this are
+    // both retired; `lib/founding-comp.mjs` stays on disk because the
+    // comp records it wrote are real history that eligibility reads
+    // still honour, but nothing grants a new one.
+    //
+    // The attestation is deliberately an UPGRADE, not a gate. Someone
+    // who entered without ticking the box is a registered competitor,
+    // and register is idempotent, so ticking it later and pressing the
+    // same button is the whole recovery path. It only ever moves in
+    // one direction here: an unticked box on a later call does not
+    // strip eligibility from an entry that already has it, because
+    // that would let a stray click cost somebody a prize.
+    const ageAttested = body?.ageAttested === true;
+    async function applyAgeAttestation(snap) {
+      const already = snap.data?.() || {};
+      if (!ageAttested || already.prizeEligible === true) return already.prizeEligible === true;
+      await snap.ref.update({
+        prizeEligible: true,
+        ageAttested: true,
+        ageAttestedAt: FieldValue.serverTimestamp(),
       });
-      return { ...res, cutoffMs: FOUNDING_CUTOFF_MS };
+      return true;
     }
 
     const already = await existingEntryFor(myUid);
     if (already) {
-      const founding = await tryFounding();
+      const prizeEligible = await applyAgeAttestation(already);
       cache.clear();
-      return jsonResponse({ ok: true, already: true, entryId: already.id, founding }, 200, request);
+      return jsonResponse({ ok: true, already: true, entryId: already.id, prizeEligible }, 200, request);
     }
 
     const teamSize = Number(t.data.teamSize) || 1;
@@ -385,13 +394,16 @@ export default async (request) => {
       teamId: teamSize === 2 ? String(body?.teamId || '') : '',
       affiliation: cleanText(body?.affiliation, 60),
       status: 'registered',
-      // Registration always starts as the free, non-prize path.
       // `paidEntry` means money moved, and the signed Stripe webhook is
-      // still the only code that can flip it true. `prizeEligible` is
-      // the wider question, "can cash reach this entry", and a founding
-      // comp can flip that one without any money changing hands.
+      // still the only code that can flip it true. It is now only ever
+      // true of a TIP, which buys nothing, so nothing downstream may
+      // read it as a competitive fact. `prizeEligible` answers the only
+      // question that matters here, "can cash reach this entry", and
+      // since entry is free that is purely the 18+ attestation.
       paidEntry: false,
-      prizeEligible: false,
+      prizeEligible: ageAttested,
+      ageAttested,
+      ...(ageAttested ? { ageAttestedAt: FieldValue.serverTimestamp() } : {}),
       entryKind: 'free',
       wins: 0,
       losses: 0,
@@ -402,9 +414,8 @@ export default async (request) => {
       registeredAt: FieldValue.serverTimestamp(),
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
-    const founding = await tryFounding();
     cache.clear();
-    return jsonResponse({ ok: true, entryId: entryRef.id, founding }, 200, request);
+    return jsonResponse({ ok: true, entryId: entryRef.id, prizeEligible: ageAttested }, 200, request);
   }
 
   // ── check-in ────────────────────────────────────────────────────

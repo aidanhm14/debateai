@@ -61,19 +61,26 @@ export default async (request) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
 
-        // Tournament pay-in (entry-checkout.mjs). Payment lands as
+        // Tournament money (entry-checkout.mjs). Lands as
         // tournaments/{tid}/payments/{uid} — keyed by uid so a webhook
-        // retry is an idempotent overwrite, never a duplicate. The
-        // registration itself lives in the engine's entries
-        // subcollection (tournament.mjs register action); paying makes
-        // that entry payout-eligible, it does not create it.
+        // retry is an idempotent overwrite, never a duplicate.
+        //
+        // Since 2026-08-22 this is a TIP: entry is free, and a tip buys
+        // nothing. `tip: '1'` on the session says so, and the one thing
+        // that hangs on it is whether the entry is stamped cash-eligible
+        // below. A session minted before that change carries no flag and
+        // keeps the old behaviour, because it was sold as prize entry
+        // and settling it any other way would take something a person
+        // actually paid for.
         if (session.metadata?.kind === 'tournament_entry') {
           const { uid, tid } = session.metadata;
+          const isTip = session.metadata?.tip === '1';
           if (uid && tid) {
             const tRef = db.collection('tournaments').doc(tid);
             await tRef.collection('payments').doc(uid).set({
               uid,
               status: 'paid',
+              kind: isTip ? 'tip' : 'entry',
               amountCents: session.amount_total ?? null,
               currency: session.currency || 'usd',
               stripeSessionId: session.id,
@@ -96,22 +103,28 @@ export default async (request) => {
             // not raised from a pot of entry fees. The money collected
             // is real and worth knowing, so it gets its own field.
             await tRef.set({
-              paidEntries: FieldValue.increment(1),
-              entryFeesCents: FieldValue.increment(session.amount_total || 0),
+              ...(isTip
+                ? { tipCount: FieldValue.increment(1), tipsCents: FieldValue.increment(session.amount_total || 0) }
+                : { paidEntries: FieldValue.increment(1), entryFeesCents: FieldValue.increment(session.amount_total || 0) }),
             }, { merge: true });
-            // Stamp the debater's engine entry when it already exists,
-            // so the tab can show payout eligibility without a second
-            // lookup. Best-effort: paying before registering is fine.
+            // Stamp the debater's engine entry when it already exists.
+            // `paidEntry` records that money moved and nothing else.
+            // `prizeEligible` is NOT touched for a tip: eligibility is
+            // the 18+ attestation, decided in the register action, and
+            // a tip that could buy it would turn a voluntary
+            // contribution into an entry fee wearing a different word.
             try {
               const entry = await tRef.collection('entries')
                 .where('members', 'array-contains', uid).limit(1).get();
-              // prizeEligible is the field eligibility reads answer to;
-              // paidEntry additionally records that money moved.
-              if (!entry.empty) await entry.docs[0].ref.update({ paidEntry: true, prizeEligible: true, entryKind: 'paid' });
+              if (!entry.empty) {
+                await entry.docs[0].ref.update(isTip
+                  ? { paidEntry: true, tipped: true }
+                  : { paidEntry: true, prizeEligible: true, entryKind: 'paid' });
+              }
             } catch (e) {
               console.warn('tournament entry stamp failed:', e.message);
             }
-            console.log(`Tournament pay-in: ${tid} by ${uid}`);
+            console.log(`Tournament ${isTip ? 'tip' : 'pay-in'}: ${tid} by ${uid}`);
           }
           break;
         }

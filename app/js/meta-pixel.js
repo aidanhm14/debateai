@@ -30,8 +30,10 @@
  * whether a dollar produced an entrant.
  *
  * Events, deduped so a double click or a refresh cannot inflate them:
- *   CompleteRegistration  a free or comped entry landed in the bracket
- *   Purchase              a $5 prize entry came back paid from Stripe
+ *   CompleteRegistration  an entry landed in the bracket. Entry is free
+ *                         (2026-08-22), so this is the conversion.
+ *   Purchase              a $5 tip came back paid from Stripe. Optional,
+ *                         buys nothing, and is not an entry.
  *
  * USAGE
  *   window.metaTrack('CompleteRegistration', { content_name: 'open' })

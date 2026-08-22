@@ -664,23 +664,20 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     }
   }
 
-  // Prize tournaments (entryFeeCents > 0) carry two extra links: the
-  // paid door lives on /tournaments#enter (Stripe checkout + the 18+
-  // attestation), and the official rules page carries the payout split
-  // and refund policy. Free registration remains available here but
-  // cannot receive cash prizes.
+  // Cash-prize tournaments (prizePoolCents > 0) carry the official
+  // rules link and one line about who the cash can reach. It used to
+  // key on entryFeeCents and offer a pay-in door; entry is free as of
+  // 2026-08-22, so that field is 0 on a prize event and keying on it
+  // hid the rules from the one kind of tournament that needs them.
+  // Eligibility is now the 18+ attestation on /tournaments#enter, and
+  // nothing on this page takes money.
   function appendPrizeLinks(host, t){
-    if (!(Number(t.entryFeeCents) > 0)) return;
-    if (t.status === 'registration'){
-      var pay = document.createElement('a');
-      pay.className = 'btn';
-      pay.href = '/tournaments#enter';
-      pay.textContent = 'Pay in for the prize bracket';
-      host.appendChild(pay);
+    if (!(Number(t.prizePoolCents) > 0)) return;
+    if (t.status === 'registration' || t.status === 'running'){
       var eligibility = document.createElement('span');
       eligibility.className = 'note';
       eligibility.style.cssText = 'margin-top:0;align-self:center';
-      eligibility.textContent = 'Free registration competes for placement and ranking only. Cash prizes require a completed paid entry.';
+      eligibility.textContent = 'Entry is free. Cash prizes go to entrants aged 18 or over who confirmed their age when entering; everyone else competes for placement and ranking.';
       host.appendChild(eligibility);
     }
     var rules = document.createElement('a');

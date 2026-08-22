@@ -9,14 +9,12 @@
  * cutoff: a comped recipient is comped for good and has no deadline to
  * beat.
  *
- * It is NO LONGER true that every recipient is comped. That held while
- * this list was frozen behind an Aug 18 cutoff; the cohort is "the
- * announcement list plus everyone who joined since", the cutoff moved to
- * 1 PM on Aug 19, and the coach wave puts new accounts on this list
- * daily. So the fee line is resolved PER RECIPIENT from their own Auth
- * creation time. Telling a coach their entry is free and then charging
- * them $5 at the door is the version of this email that costs more than
- * sending nothing. Wiring the send guard or the copy back to FOUNDING_CUTOFF_MS is
+ * There is no fee line to resolve any more. Entry went free for everyone
+ * on 2026-08-22, so the per-recipient comped/paid fork this email used to
+ * carry is gone and `comped` survives only as a record on the row. The
+ * failure it was written against still stands as the rule: never tell a
+ * recipient their entry is free and then meet them with a price at the
+ * door. Wiring the send guard or the copy back to FOUNDING_CUTOFF_MS is
  * what broke it on 2026-08-19, when the cutoff moved into the past and
  * silently dead-buttoned the send with an "entries closed" message that
  * was not true. Guard on ENTRIES_CLOSE_MS.
@@ -69,15 +67,13 @@ const ENTRIES_CLOSE_MS = Date.parse('2026-08-29T23:59:59-04:00');
 function renderEmail({ firstName, uid, tournamentName, comped }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
   const rules = `${SITE_URL}/tournament-rules`;
-  const feeLine = comped
-    ? `<strong>${esc(EVENT_LABEL)}. Your entry to ${esc(tournamentName)} is
-    free.</strong> You had an account before this went on sale, so the $5 prize
-    entry is waived for you and stays waived. Everyone arriving now pays it.
-    Entering takes about a minute:`
-    : `<strong>${esc(EVENT_LABEL)}. ${esc(tournamentName)} is open to you.</strong>
-    Prize entry is $5, and I waive it for anyone who asks me, no reason needed.
-    Entering takes about a minute:`;
-  const ctaLabel = comped ? 'Claim your free entry &rarr;' : 'Enter the Open &rarr;';
+  // One version of this email now. Entry is free for everyone as of
+  // 2026-08-22, so the comped fork it used to carry describes a price
+  // nobody meets. `comped` stays on the caller's row as history.
+  const feeLine = `<strong>${esc(EVENT_LABEL)}. ${esc(tournamentName)} is free to
+    enter.</strong> No fee, no card, nothing to ask me for. Entering takes about
+    a minute:`;
+  const ctaLabel = 'Enter the Open &rarr;';
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
@@ -97,7 +93,7 @@ function renderEmail({ firstName, uid, tournamentName, comped }) {
     ${esc(EVENT_LABEL)} is the first real tournament on it. All online, doors open 10 AM
     Eastern, come and go whenever. Rounds you play count on the standings, the
     top of the board goes into a streamed bracket that evening, and first place
-    takes $500 ($250 and $100 behind it). You don't need debate experience,
+    takes $100 ($50 and $25 behind it). You don't need debate experience,
     and the field is still small, so your odds are genuinely good.
   </p>
 
@@ -118,8 +114,9 @@ function renderEmail({ firstName, uid, tournamentName, comped }) {
   </p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Cash prizes go to entrants aged 18 or over with a prize entry and are void where
-    prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
+    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
+    age when entering, and are void where prohibited. An entrant under 18 plays
+    the same field for the placement and the ranking. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
     carry eligibility and the payout ladder.
   </p>
 
