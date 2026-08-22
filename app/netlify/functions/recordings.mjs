@@ -59,6 +59,13 @@ export default async (req) => {
     const d = snap.data();
 
     if (url.searchParams.get('link')){
+      // Prefer a rehosted transcode. The Daily original is encoded with no
+      // bitrate cap, so a viewer whose connection sits under it buffers
+      // forever with no error to show. A stored copy is capped and stable,
+      // so it carries no expiry.
+      if (typeof d.mp4Url === 'string' && d.mp4Url) {
+        return jsonResponse({ link: d.mp4Url, expires: 0 }, 200, req);
+      }
       if (!process.env.DAILY_API_KEY) return errorResponse('Playback not configured', 503, req);
       const resp = await fetch(DAILY_API + '/recordings/' + encodeURIComponent(id) + '/access-link', {
         headers: { 'Authorization': 'Bearer ' + process.env.DAILY_API_KEY },

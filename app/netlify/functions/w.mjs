@@ -141,7 +141,24 @@ function humanDate(startTs) {
 // A short-lived Daily access link, minted per request. Never cached at the
 // edge: the URL it returns expires, so a CDN copy would hand a visitor a
 // dead link long after it stopped working.
-async function playRedirect(id) {
+async function playRedirect(id, d) {
+  // A rehosted transcode wins when there is one. Daily encodes the raw
+  // recording at whatever bitrate it likes (measured 3.1 Mbps on a real
+  // round, which is more than many viewers can sustain, so the player
+  // never leaves the spinner). `mp4Url` is a stable, already-public,
+  // bitrate-capped copy, so unlike the Daily link it does not expire and
+  // CAN be cached at the edge.
+  const stored = d && typeof d.mp4Url === 'string' ? d.mp4Url : '';
+  if (stored) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: stored,
+        'Cache-Control': 'public, max-age=300, s-maxage=3600',
+        'Referrer-Policy': 'no-referrer',
+      },
+    });
+  }
   if (!process.env.DAILY_API_KEY) {
     return new Response('Playback not configured', { status: 503 });
   }
@@ -347,7 +364,7 @@ export default async (req) => {
   // leak exactly the thing the consent gate is protecting.
   if (!snap.exists || (snap.data() || {}).published !== true) return notFound();
 
-  if (play) return playRedirect(id);
+  if (play) return playRedirect(id, snap.data() || {});
 
   return new Response(renderPage(id, snap.data() || {}), {
     status: 200,
