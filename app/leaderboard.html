@@ -309,6 +309,38 @@ body.has-beta-strip .shell{padding-top:98px}
 
 /* Plain-language key. The board has a lot of debate-native shorthand,
    so explain the ranking before asking a new visitor to parse it. */
+/* ── Disclosures ───────────────────────────────────────────────────
+   2026-08-22, per Aidan ("make the leaderboard more simple"): the page
+   carried FOUR separate explanations of the same ranking rule, and the
+   board itself, which is the only thing anyone came for, started below
+   the fold underneath all of them. The hero sentence, the three-card
+   guide, a challenge banner and this side card were each fine alone and
+   collectively pushed the first row to ~1075px on a 840px viewport.
+   The banner is gone, the hero is one sentence, and the other two
+   collapse. Nothing was deleted that stated a RULE: the provisional
+   three-round threshold and the rating explanation both survive inside
+   these, because a number nobody can account for is worse than a long
+   page. Open state is not persisted on purpose; the default every visit
+   should be the board. */
+.lb-details{
+  margin-top:14px;border:1px solid var(--border);border-radius:12px;
+  background:var(--panel);overflow:hidden;
+}
+.lb-details>summary{
+  cursor:pointer;list-style:none;padding:13px 14px;min-height:44px;
+  display:flex;align-items:center;
+  font-size:.74rem;font-weight:800;letter-spacing:.02em;color:var(--text-dim);
+}
+.lb-details>summary::-webkit-details-marker{display:none}
+.lb-details>summary::after{content:" +";color:var(--accent);font-weight:800}
+.lb-details[open]>summary::after{content:" −"}
+.lb-details>summary:hover{color:var(--text)}
+.lb-details>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.lb-details .rank-guide{border:none;border-top:1px solid var(--border);border-radius:0;margin:0}
+.lb-details--side{margin-top:8px;background:transparent}
+.lb-details--side>summary{padding:8px 0}
+.lb-details--side .body{padding:0}
+
 .rank-guide{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   margin:0 0 12px;background:var(--bg-card);border:1px solid var(--border);
@@ -1139,12 +1171,12 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       </div>
       <h1>The <span class="hero-acc">leaderboard.</span></h1>
       <p class="hero-sub">
-        Head-to-head places come from your rating, earned by beating real people in judged live rounds. Solo practice ranks your best judged score.
-        Each person appears once. <span class="rule">Higher is better. Typed rounds do not count.</span> Press anyone to open their profile.
+        Beat real people in judged live rounds and your rating climbs.
+        <span class="rule">Higher is better.</span> Press anyone to open their profile.
       </p>
     </div>
     <div class="hero-side">
-      <div class="hero-stat" id="statRounds">
+      <div class="hero-stat" id="statRounds" hidden>
         <div class="n" id="statRoundsN">—</div>
         <div class="l">Rounds today</div>
       </div>
@@ -1152,7 +1184,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
         <div class="n" id="statLiveN">—</div>
         <div class="l">Live now</div>
       </div>
-      <div class="hero-stat" id="statBest">
+      <div class="hero-stat" id="statBest" hidden>
         <div class="n" id="statBestN">—</div>
         <div class="l">Top score</div>
       </div>
@@ -1182,6 +1214,28 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
     <div id="fmtPills" class="fmt-pills" hidden></div>
   </div>
 
+  <div id="ticker" class="ticker" hidden>
+    <span class="ticker-eyebrow"><span class="tick-dot" aria-hidden="true"></span>Latest scores</span>
+    <div class="ticker-viewport"><div class="ticker-track" id="tickerTrack"></div></div>
+  </div>
+
+  <main class="main-grid">
+    <section class="board-col">
+      <!-- seedNote disclosure removed 2026-05-25 alongside the seed
+           merge. The renderTable empty-state below is the new honesty
+           surface: when the real-only board is empty, the empty-state
+           says so and offers a newsletter signup. -->
+
+      <div id="yourRank" class="your-rank" hidden></div>
+      <div id="podium" class="podium" hidden></div>
+      <div id="board" class="board">
+        <div class="state">
+          <div class="spinner" aria-label="Loading"></div>
+        </div>
+      </div>
+
+      <details class="lb-details">
+        <summary>How the ranking works</summary>
   <section class="rank-guide" aria-label="How the leaderboard works">
     <div class="rank-guide-item">
       <span class="rank-guide-n" aria-hidden="true">1</span>
@@ -1196,34 +1250,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
       <div class="rank-guide-copy"><strong id="guideActionTitle">Debate someone on the board</strong><span id="guideActionCopy">Real profiles show Message and Challenge. Examples link to matchmaking.</span></div>
     </div>
   </section>
-
-  <div id="ticker" class="ticker" hidden>
-    <span class="ticker-eyebrow"><span class="tick-dot" aria-hidden="true"></span>Latest scores</span>
-    <div class="ticker-viewport"><div class="ticker-track" id="tickerTrack"></div></div>
-  </div>
-
-  <main class="main-grid">
-    <section class="board-col">
-      <!-- seedNote disclosure removed 2026-05-25 alongside the seed
-           merge. The renderTable empty-state below is the new honesty
-           surface: when the real-only board is empty, the empty-state
-           says so and offers a newsletter signup. -->
-
-      <!-- Copy is swapped by syncChallengeBanner() once the board has
-           loaded, because which sentence is true depends on whether any
-           row belongs to a real account. -->
-      <div class="chal-banner" id="chalBanner" role="note">
-        <b>Challenge mode</b>
-        <span id="chalBannerText">Pick who you want to call out. Challenge opens a direct message so you can agree a motion and a time.</span>
-      </div>
-
-      <div id="yourRank" class="your-rank" hidden></div>
-      <div id="podium" class="podium" hidden></div>
-      <div id="board" class="board">
-        <div class="state">
-          <div class="spinner" aria-label="Loading"></div>
-        </div>
-      </div>
+      </details>
     </section>
 
     <aside class="side-col">
@@ -1256,8 +1283,11 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
           </svg>
         </div>
         <h4>What do the numbers mean?</h4>
+        <details class="lb-details lb-details--side">
+        <summary>Read the short version</summary>
         <p class="body">On the head-to-head ladder the number is a rating. It moves when you win or lose against real people, and beating stronger opponents moves it more. A rating stays provisional until it settles over 3 rated rounds. On solo practice the number is the judge's score for how well you argued.</p>
         <p class="body">Debated before? <a href="/claim">Import your Tabroom record</a> and start with a seeded rating instead of a blank 1500. Curious how the number works? <a href="/debate-rating">The Debate Rating, explained</a>.</p>
+        </details>
         <a class="side-link" href="/voice-debate">Try a judged voice round →</a>
       </div>
     </aside>
@@ -2110,9 +2140,22 @@ function updateHeroStats(allRows, filtered){
     if(r.kind==='live' && isFresh(r.completedAt, 60)) live++;
     if(typeof r.score==='number' && r.score>best) best=r.score;
   });
-  if(statRoundsN) statRoundsN.textContent = today>0 ? String(today) : '—';
-  if(statLiveN)   statLiveN.textContent   = live>0  ? String(live)  : '0';
-  if(statBestN)   statBestN.textContent   = isFinite(best) ? best.toFixed(1) : '—';
+  // 2026-08-22: a stat reading "—" is worse than no stat, and three of
+  // them stacked next to "no rooms posted yet" made a working board read
+  // as a dead one. Each tile now HIDES itself rather than rendering a
+  // placeholder, so the rail shows only numbers that are true. Live now
+  // is the exception and shows a real 0: on a board about who is around,
+  // zero is information, and hiding it would be the flattering version.
+  const setStat = (nEl, boxId, val) => {
+    const box = document.getElementById(boxId);
+    if(!nEl || !box) return;
+    if(val == null){ box.hidden = true; return; }
+    box.hidden = false;
+    nEl.textContent = String(val);
+  };
+  setStat(statRoundsN, 'statRounds', today>0 ? today : null);
+  setStat(statLiveN,   'statLive',   live>0 ? live : 0);
+  setStat(statBestN,   'statBest',   isFinite(best) ? best.toFixed(1) : null);
 }
 
 // ── format pills with counts (derived from the current view) ──────
@@ -2194,8 +2237,8 @@ async function renderYourRank(){
     const i=ladder.findIndex(r=>r.uid===uid);
     let line, sub;
     if(i<0){
-      line='You are unrated. Win judged head-to-head rounds against real people and your rating appears here.';
-      sub='Rated rounds need a real opponent and a verdict.';
+      line='You are unrated. Win a judged round against a real person to get on the board.';
+      sub='';
     } else {
       const me=ladder[i];
       const rating=Math.round(me.score);
@@ -2215,7 +2258,7 @@ async function renderYourRank(){
         <div>
           <div class="your-rank-eye">Your rank</div>
           <div class="your-rank-line">${line}</div>
-          <div class="your-rank-sub">${escapeHtml(sub)}</div>
+          ${sub?`<div class="your-rank-sub">${escapeHtml(sub)}</div>`:''}
         </div>
         <a class="your-rank-cta" href="${i<0?'/spar':'/profile'}">${i<0?'Find an opponent →':'Open your dashboard →'}</a>
       </div>`;
