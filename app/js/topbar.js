@@ -201,7 +201,14 @@
     { href: '/home',          label: 'Home', compactKeep: true },
     // 2026-07-09: order follows the product path. Start live, learn the
     // rules, prep the case, judge a round, then schedule and credential.
-    { href: '/spar',          label: 'LIVE', pulse: true, compactKeep: true },
+    // 2026-08-22: 'LIVE' -> 'Debate live'. LINKS no longer feeds the
+    // desktop rail (that carries Explore only, see the note further
+    // down), so this label is what the MOBILE SHEET shows, and there
+    // 'LIVE' named a state rather than an action beside /watch,
+    // /spectate and /live. The founder's steer that day was to emphasise
+    // the debate-a-stranger vertical and direct people into it. The
+    // pulse and the compactKeep flag are unchanged.
+    { href: '/spar',          label: 'Debate live', pulse: true, compactKeep: true },
     // 2026-07-24: first-class orientation tab. This used to live only
     // inside More, which made the product explanation invisible until a
     // visitor already knew to open the overflow menu. It stays visible
@@ -857,7 +864,7 @@
       var spot = el('a', { href: '/spar', role: 'menuitem', class: 'ui-topbar-more-spot' });
       spot.innerHTML =
         '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
-        '<span class="ui-topbar-more-spot-title">Debate a real person</span>' +
+        '<span class="ui-topbar-more-spot-title">Debate a stranger</span>' +
         '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and get a verdict.</span>' +
         '<span class="ui-topbar-more-spot-proof">' +
           '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
