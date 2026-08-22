@@ -9,8 +9,21 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { resolveCaller } from './lib/caller.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_MID } from './lib/cheap.mjs';
 
-const MODEL = process.env.FLOW_MODEL || 'claude-sonnet-4-6';
+// Flowing a transcript is a structured transform: read speeches, emit a
+// JSON tree of arguments and responses. It was on Sonnet 4-6 at $3/$15
+// per million; the fast cheap tier is $0.06/$0.13, and this swap is a
+// LATENCY improvement as well as a cost one. Measured 2026-08-22 on a
+// real three-speech BP transcript at this exact 5200-token budget:
+// v4-flash returned the full schema (5 flow entries, 3 clashes, 4
+// responses, argument journeys intact) in 14.5s. Sonnet 4-6 did not
+// finish inside 60s on the same input, which at MAX_TOKENS 5200 is a
+// standing risk of the ~26s Netlify execution kill.
+// deepseek-v4-pro was measured and REJECTED here: 45 tok/s, which does
+// not fit the budget. FLOW_MODEL still overrides, and a claude-* id
+// there routes back to Anthropic untouched.
+const MODEL = process.env.FLOW_MODEL || CHEAP_FAST;
 const MAX_TOKENS = 5200;
 const MAX_INPUT_CHARS = 50000;
 
@@ -304,7 +317,8 @@ export default async (request) => {
     });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Either key runs the flow: cheap provider first, Anthropic as fallback.
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'Flow analysis is not configured.' }), {
       status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
@@ -312,31 +326,27 @@ export default async (request) => {
   }
 
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
+    let data;
+    try {
+      data = await callModel({
         model: MODEL,
-        max_tokens: MAX_TOKENS,
-        temperature: 0.15,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage({ text: transcript, format, motion, perspective }) }],
-      }),
-    });
-
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => '');
-      console.warn('[flow] anthropic non-2xx', upstream.status, detail.slice(0, 240));
+        fallback: FALLBACK_MID,
+        label: 'flow',
+        timeoutMs: 24_000,
+        body: {
+          max_tokens: MAX_TOKENS,
+          temperature: 0.15,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage({ text: transcript, format, motion, perspective }) }],
+        },
+      });
+    } catch (err) {
+      console.warn('[flow] upstream failed', String(err?.message || err).slice(0, 240));
       return new Response(JSON.stringify({ error: 'The flow could not be generated. Try again.' }), {
         status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
 
-    const data = await upstream.json();
     const raw = data?.content?.map((block) => block?.type === 'text' ? block.text : '').join('') || '';
     const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
     let parsed;

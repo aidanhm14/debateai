@@ -10,12 +10,17 @@ import { jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { resolveCaller } from './lib/caller.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
 // Model is env-overridable so an expensive default can be rolled back without
 // a redeploy. Defaults to Haiku, not Opus — this endpoint summarizes a speech,
 // it does not need frontier reasoning, and it used to hardcode claude-opus-5
 // with no gate at all (a free unmetered Opus proxy for any anonymous caller).
-const CLAIMS_MODEL = process.env.EXTRACT_CLAIMS_MODEL || 'claude-haiku-4-5-20251001';
+// Claim extraction is read-the-text-and-emit-JSON. Nothing about it needs a
+// frontier model, and at 16x/40x under Haiku the cheap tier is the whole
+// point. EXTRACT_CLAIMS_MODEL still overrides; a claude-* id there routes
+// straight back to Anthropic with no redeploy.
+const CLAIMS_MODEL = process.env.EXTRACT_CLAIMS_MODEL || CHEAP_FAST;
 
 const EXTRACTION_PROMPT = `You are analyzing a debate speech. Extract the 3-5 strongest claims made.
 For each claim:
@@ -69,30 +74,20 @@ export default async (request) => {
 
   try {
     const prompt = EXTRACTION_PROMPT.replace('{SPEECH}', text.slice(0, 3000));
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!process.env.DEEPSEEK_API_KEY && !process.env.ANTHROPIC_API_KEY) {
       return errorResponse('API key not configured', 500, request);
     }
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: CLAIMS_MODEL,
+    const result = await callModel({
+      model: CLAIMS_MODEL,
+      fallback: FALLBACK_FAST,
+      label: 'extract-claims',
+      body: {
         max_tokens: 800,
         messages: [{ role: 'user', content: prompt }]
-      })
+      }
     });
 
-    if (!res.ok) {
-      throw new Error(`Anthropic API error: ${res.status}`);
-    }
-
-    const result = await res.json();
     const responseText = result?.content?.[0]?.text || '';
 
     // Parse JSON array from response

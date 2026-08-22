@@ -34,9 +34,12 @@
 //   FINGERPRINT_MODEL       — override (default claude-haiku-4-5-20251001)
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.FINGERPRINT_MODEL || 'claude-haiku-4-5-20251001';
+// Nightly batch, capped at 30 users a run, nobody waiting. Cheap tier.
+// FINGERPRINT_MODEL overrides without a redeploy.
+const MODEL = process.env.FINGERPRINT_MODEL || CHEAP_FAST;
 // Tightened 2026-05-18 (60 → 30 users/night, 7 → 14 days freshness) on a
 // credit-burn audit. Fingerprints describe an argumentative style and
 // don't drift fast enough to need weekly refresh — biweekly is plenty,
@@ -298,28 +301,24 @@ async function fingerprintOne(db, uid) {
 
   const userPrompt = buildUserPrompt(samples);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
+  let data;
+  try {
+    data = await callModel({
       model: MODEL,
-      max_tokens: 400,
-      system: FINGERPRINT_SYSTEM,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    console.warn('[fingerprint]', uid.slice(0, 6), 'Anthropic error', res.status, errText.slice(0, 200));
-    return { uid: uid.slice(0, 6), status: 'anthropic_error', code: res.status };
+      fallback: FALLBACK_FAST,
+      label: 'fingerprint',
+      timeoutMs: 30_000,
+      body: {
+        max_tokens: 400,
+        system: FINGERPRINT_SYSTEM,
+        messages: [{ role: 'user', content: userPrompt }],
+      },
+    });
+  } catch (err) {
+    console.warn('[fingerprint]', uid.slice(0, 6), 'model error', String(err?.message || err).slice(0, 200));
+    return { uid: uid.slice(0, 6), status: 'model_error' };
   }
 
-  const data = await res.json();
   const fingerprint = (data.content || []).map(b => b.text || '').join('\n').trim();
   if (!fingerprint || fingerprint.length < 40) {
     return { uid: uid.slice(0, 6), status: 'empty' };

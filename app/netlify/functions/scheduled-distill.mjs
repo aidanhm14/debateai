@@ -21,9 +21,13 @@
 //   DISTILL_MODEL         — override (default claude-haiku-4-5-20251001)
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.DISTILL_MODEL || 'claude-haiku-4-5-20251001';
+// A nightly batch pass with nobody waiting on it, which makes it the
+// safest thing on the site to run on the cheap tier. DISTILL_MODEL
+// overrides; a claude-* id routes back to Anthropic with no redeploy.
+const MODEL = process.env.DISTILL_MODEL || CHEAP_FAST;
 const MIN_EXAMPLES = parseInt(process.env.DISTILL_MIN_EXAMPLES || '3', 10);
 const MAX_EXAMPLES_PER_FORMAT = 20;
 const LOOKBACK_DAYS = 30;
@@ -166,28 +170,24 @@ async function distillFormat(db, format) {
 
   // Call Claude Haiku via the standard messages endpoint. No streaming —
   // we want the full text in one shot for the Firestore write.
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
+  let data;
+  try {
+    data = await callModel({
       model: MODEL,
-      max_tokens: 1500,
-      system: DISTILL_SYSTEM,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    console.warn('[distill]', format.slug, 'Anthropic error', res.status, errText.slice(0, 200));
-    return { format: format.slug, status: 'error', count: examples.length, error: 'anthropic_' + res.status };
+      fallback: FALLBACK_FAST,
+      label: 'distill:' + format.slug,
+      timeoutMs: 30_000,
+      body: {
+        max_tokens: 1500,
+        system: DISTILL_SYSTEM,
+        messages: [{ role: 'user', content: userPrompt }],
+      },
+    });
+  } catch (err) {
+    console.warn('[distill]', format.slug, 'model error', String(err?.message || err).slice(0, 200));
+    return { format: format.slug, status: 'error', count: examples.length, error: 'model_call_failed' };
   }
 
-  const data = await res.json();
   const distillation = (data.content || []).map(b => b.text || '').join('\n').trim();
   if (!distillation) {
     console.warn('[distill]', format.slug, 'empty response');

@@ -38,6 +38,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
+import { callModel as routeModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
 // MODEL AND BUDGET ARE SET BY A HARD PLATFORM LIMIT, NOT BY TASTE.
 // Netlify kills a function at roughly 26 to 30 seconds of EXECUTION, and
@@ -59,7 +60,13 @@ import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 // argument-lint runs on. `BLOCKS_MODEL` overrides without a redeploy.
 // If you change either the model or the token budgets, RE-MEASURE with
 // scripts/measure-blocks.mjs. Do not assume.
-const MODEL = process.env.BLOCKS_MODEL || 'claude-haiku-4-5-20251001';
+// RE-MEASURED 2026-08-22 per the instruction above, same prompt, same
+// 2200-token cap: v4-flash 14.2s / 81 tok/s, parsed clean — statistically
+// the same wall clock as haiku-4-5 (14.4s / 78 tok/s) at 16x/40x less.
+// v4-pro was measured and REJECTED: 22.9s at 45 tok/s, inside the kill
+// window. Thinking is disabled by the router; leaving it on made v4-pro
+// spend the whole 2200 tokens reasoning and return nothing.
+const MODEL = process.env.BLOCKS_MODEL || CHEAP_FAST;
 // A 1AC runs long. 14k characters is roughly a full constructive plus
 // tags; past that the case is almost certainly a whole doc dump and the
 // useful move is to tell the user to paste one speech.
@@ -229,21 +236,19 @@ function buildUserMessage({ caseText, format, side, motion, sourceNote }) {
 // as the parser's fault while the real cause is the token budget. That
 // exact confusion cost this repo a dead judge seat for weeks.
 async function callModel(apiKey, system, user, maxTokens, label) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    console.warn(`[blocks] ${label} non-2xx`, res.status, t.slice(0, 200));
+  let data;
+  try {
+    data = await routeModel({
+      model: MODEL,
+      fallback: FALLBACK_FAST,
+      label: 'blocks:' + label,
+      timeoutMs: 22_000,
+      body: { max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] },
+    });
+  } catch (e) {
+    console.warn(`[blocks] ${label} upstream failed`, String(e?.message || e).slice(0, 200));
     const err = new Error('upstream'); err.kind = 'upstream'; throw err;
   }
-  const data = await res.json();
   if (data?.stop_reason === 'max_tokens') {
     console.warn(`[blocks] ${label} hit max_tokens`, JSON.stringify({ out: data?.usage?.output_tokens }));
     const err = new Error('truncated'); err.kind = 'truncated'; throw err;

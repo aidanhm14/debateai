@@ -20,8 +20,12 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { resolveCaller } from './lib/caller.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
+import { callModel, textOf, CHEAP_FAST } from './lib/cheap.mjs';
 
-const MODEL = process.env.TRANSLATE_MODEL || 'gpt-4o-mini';
+// Translation of short UI and round strings. gpt-4o-mini was already
+// cheap at $0.15/$0.60; the fast tier is $0.06/$0.13. TRANSLATE_MODEL
+// overrides, and a gpt-* or claude-* id there routes to that vendor.
+const MODEL = process.env.TRANSLATE_MODEL || CHEAP_FAST;
 const MAX_INPUT_CHARS = 4000;
 
 // Mirrors REALTIME_LANG_NAMES in realtime-session.mjs so a language is
@@ -109,7 +113,10 @@ export default async (request) => {
   const ac = await checkAppCheck(request).catch(() => ({ ok: true, reason: 'error' }));
   if (!ac.ok) return json({ error: 'App verification failed. Reload and try again.', code: 'APP_CHECK_' + String(ac.reason || '').toUpperCase() }, 401, request);
 
-  const key = process.env.OPENAI_API_KEY;
+  // Either key translates: the cheap provider runs it and OpenAI is the
+  // declared fallback, so gating on OpenAI alone would switch translation
+  // off on a config that can still serve it.
+  const key = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
   if (!key) return json({ error: 'Translation is not configured.' }, 503, request);
 
   const fromName = LANG_NAMES[from] || 'the source language';
@@ -125,31 +132,28 @@ export default async (request) => {
   ].join(' ');
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    let data;
+    try {
+      data = await callModel({
         model: MODEL,
-        temperature: 0,
-        max_tokens: 1200,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: text },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      console.error('translate upstream error', res.status, detail.slice(0, 300));
-      // Surface only the upstream STATUS (a number), never the upstream error
-      // body: it can leak key/quota/model-access hints. Full detail is logged
+        fallback: 'gpt-4o-mini',
+        label: 'translate',
+        body: {
+          temperature: 0,
+          max_tokens: 1200,
+          system,
+          messages: [{ role: 'user', content: text }],
+        },
+      });
+    } catch (err) {
+      console.error('translate upstream error', String(err?.message || err).slice(0, 300));
+      // Surface only a generic failure, never the upstream error body: it
+      // can leak key/quota/model-access hints. Full detail is logged
       // server-side above.
-      return json({ error: 'Translation failed.', upstreamStatus: res.status }, 502, request);
+      return json({ error: 'Translation failed.', upstreamStatus: 502 }, 502, request);
     }
 
-    const data = await res.json();
-    const out = data?.choices?.[0]?.message?.content?.trim() || '';
+    const out = textOf(data).trim();
     return json({ text: out, translated: true, from, to, model: MODEL }, 200, request);
   } catch (err) {
     console.error('translate error:', err);

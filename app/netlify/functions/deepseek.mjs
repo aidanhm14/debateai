@@ -55,11 +55,24 @@ function checkRateLimit(key) {
   return entry.count <= RATE_LIMIT_MAX;
 }
 
-// deepseek-chat = V3 (general), deepseek-reasoner = R1 (chain-of-thought).
-// R1 emits a `reasoning_content` channel separate from `content`; the
-// client just reads the visible `content` channel today, so R1 falls back
-// to plain text output from the user's perspective.
-const ALLOWED_MODELS = ['deepseek-chat', 'deepseek-reasoner'];
+// THE REAL IDS, verified against api.deepseek.com/models on 2026-08-22.
+// The account serves exactly three: deepseek-v4-pro, deepseek-v4-flash,
+// and a vision experiment we do not use.
+//
+// `deepseek-chat` and `deepseek-reasoner` are LEGACY ALIASES and both now
+// resolve server-side to deepseek-v4-flash. They are kept callable so a
+// cached client bundle does not start 400ing, but they must not be the
+// pin: "reasoner" resolving to flash means the picker was offering a
+// reasoning model and delivering a fast one, which is a claim about what
+// argued against someone that stopped being true when V4 shipped. A
+// preview or alias id is a rental, not a pin.
+//
+// Both V4 models reason by default and bill thinking against max_tokens.
+// That is correct HERE, unlike in lib/cheap.mjs where it is disabled: a
+// debate turn is exactly the kind of work thinking helps, and this path
+// has a 16k cap rather than a tight structured budget.
+const ALLOWED_MODELS = ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'];
+const DEFAULT_MODEL = 'deepseek-v4-flash';
 const MAX_TOKENS_CAP = 16000;
 
 export default async (request, context) => {
@@ -156,7 +169,7 @@ export default async (request, context) => {
     ]);
     applyVoiceGuidelines(body);
 
-    const model = ALLOWED_MODELS.includes(body.model) ? body.model : 'deepseek-chat';
+    const model = ALLOWED_MODELS.includes(body.model) ? body.model : DEFAULT_MODEL;
     const maxTokens = Math.min(body.max_tokens || 4000, MAX_TOKENS_CAP);
 
     const messages = [];

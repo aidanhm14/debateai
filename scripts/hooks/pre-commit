@@ -206,6 +206,24 @@ if [ -f "$BRAIN_HEALTH_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Cheap-router guard. lib/cheap.mjs decides which VENDOR a dozen
+# internal tasks are sent to. A bad edit does not break one endpoint,
+# it silently routes work to the wrong company with the wrong key, or
+# re-enables reasoning and starts truncating every structured task
+# inside the ~26s Netlify budget. Both present as "the parser broke"
+# at call sites nobody touched.
+# ──────────────────────────────────────────────────────────────────
+CHEAP_GUARD="$REPO_ROOT/scripts/test-cheap-router.mjs"
+if [ -f "$CHEAP_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-cheap-router.mjs >/tmp/cheap-guard.log 2>&1); then
+    echo "[cheap-guard] commit blocked - the internal model router's guarantees no longer hold:" >&2
+    tail -20 /tmp/cheap-guard.log >&2
+    echo "[cheap-guard] see scripts/test-cheap-router.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Bounty money guard. A bounty holds real money that two people are
 # about to be paid out of, so the three promises the board makes to a
 # stranger are asserted rather than reviewed: the pot pays for

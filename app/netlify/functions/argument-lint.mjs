@@ -18,8 +18,11 @@
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS } from './lib/firestore.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
-const MODEL = process.env.ARG_LINT_MODEL || 'claude-haiku-4-5-20251001';
+// Structured lint: read a passage, emit findings as JSON. Cheap tier by
+// default; ARG_LINT_MODEL overrides without a redeploy.
+const MODEL = process.env.ARG_LINT_MODEL || CHEAP_FAST;
 const MAX_TOKENS = 1400;
 const MAX_INPUT_CHARS = 6000;
 
@@ -151,7 +154,8 @@ export default async (request) => {
     });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Either key runs the lint: cheap provider first, Anthropic as fallback.
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'API key not configured on server' }), {
       status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
@@ -227,30 +231,25 @@ export default async (request) => {
   }
 
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
+    let data;
+    try {
+      data = await callModel({
         model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: buildUserMessage(text, format) }],
-      }),
-    });
-
-    if (!upstream.ok) {
-      const errText = await upstream.text().catch(() => '');
-      console.warn('[argument-lint] anthropic non-2xx', upstream.status, errText.slice(0, 200));
+        fallback: FALLBACK_FAST,
+        label: 'argument-lint',
+        body: {
+          max_tokens: MAX_TOKENS,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: buildUserMessage(text, format) }],
+        },
+      });
+    } catch (err) {
+      console.warn('[argument-lint] upstream failed', String(err?.message || err).slice(0, 200));
       return new Response(JSON.stringify({ error: 'The argument check failed. Try again.' }), {
         status: 502, headers: { 'Content-Type': 'application/json', ...CORS },
       });
     }
 
-    const data = await upstream.json();
     const raw = data?.content?.[0]?.text || '';
     // The model sometimes wraps JSON in ```json fences despite the prompt
     // saying not to; strip them defensively.

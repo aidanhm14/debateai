@@ -19,7 +19,7 @@ export const BRAINS = [
   { key: 'gpt',      name: 'GPT',      maker: 'OpenAI',     model: 'gpt-5.5',                      env: 'OPENAI_API_KEY' },
   { key: 'gemini',   name: 'Gemini',   maker: 'Google',     model: 'gemini-3.6-flash',              env: 'GEMINI_API_KEY' },
   { key: 'grok',     name: 'Grok',     maker: 'xAI',        model: 'grok-3',                       env: 'XAI_API_KEY' },
-  { key: 'deepseek', name: 'DeepSeek', maker: 'DeepSeek',   model: 'deepseek-chat',                env: 'DEEPSEEK_API_KEY' },
+  { key: 'deepseek', name: 'DeepSeek', maker: 'DeepSeek',   model: 'deepseek-v4-flash',            env: 'DEEPSEEK_API_KEY' },
   { key: 'openlab',  name: 'Open Lab', maker: 'OpenRouter', model: 'nousresearch/hermes-4-405b',   env: 'OPENROUTER_API_KEY' },
 ];
 

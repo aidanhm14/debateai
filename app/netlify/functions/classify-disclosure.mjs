@@ -1,5 +1,6 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { callModel, CHEAP_FAST, FALLBACK_FAST } from './lib/cheap.mjs';
 
 // LLM-classify a candidate /disclosures publish before it lands on
 // the public board. Layered ABOVE the cheap client-side floor in
@@ -20,8 +21,13 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 // Auth-required so anonymous abuse can't pile up. Rate-limited via
 // the same in-memory pattern log-event.mjs uses.
 
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.DISCLOSURE_CLASSIFY_MODEL || 'claude-haiku-4-5';
+// Either key is enough to classify: the router picks the cheap provider
+// and falls back to Anthropic, so gating on Anthropic alone would switch
+// the classifier off on a config that can still run it.
+const HAS_CLASSIFIER_KEY = !!(process.env.DEEPSEEK_API_KEY || process.env.ANTHROPIC_API_KEY);
+// A three-way classification against a fixed rubric. Cheap tier by
+// default; DISCLOSURE_CLASSIFY_MODEL overrides without a redeploy.
+const MODEL = process.env.DISCLOSURE_CLASSIFY_MODEL || CHEAP_FAST;
 
 // In-memory rate limit: classify is cheap but if a user is trying to
 // brute-force past the filter, throttle them.
@@ -74,7 +80,7 @@ Return ONLY a JSON object, no prose, no markdown:
 When in doubt, default to ALLOW. Debate disclosures are a serious-arguments space and over-blocking kills the library. Block only when the content has CLEARLY tripped one of the categories above.`;
 
 async function classifyWithClaude(motion, output) {
-  if (!ANTHROPIC_KEY) {
+  if (!HAS_CLASSIFIER_KEY) {
     // No key configured — fail open (allow the publish). The cheap
     // word-list guard on the client still ran. Better to ship missing
     // an LLM check than to block legitimate publishers because the
@@ -84,30 +90,25 @@ async function classifyWithClaude(motion, output) {
 
   const userMsg = `MOTION: ${motion}\n\nCANDIDATE DISCLOSURE:\n${output}\n\nClassify.`;
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  let data;
+  try {
+    data = await callModel({
       model: MODEL,
-      max_tokens: 256,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMsg }],
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.warn('[classify-disclosure] Anthropic error', resp.status, errText.slice(0, 240));
+      fallback: FALLBACK_FAST,
+      label: 'classify-disclosure',
+      body: {
+        max_tokens: 256,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userMsg }],
+      },
+    });
+  } catch (err) {
+    console.warn('[classify-disclosure] classifier error', String(err?.message || err).slice(0, 240));
     // Fail open — see comment above. Network blip should not block
     // a real disclosure.
     return { ok: true, category: 'allow_classifier_unreachable' };
   }
 
-  const data = await resp.json();
   const text = (data.content || []).map(c => (c && c.text) || '').join('').trim();
   if (!text) return { ok: true, category: 'allow_empty_response' };
 
