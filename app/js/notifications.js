@@ -1475,10 +1475,20 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
-    // 2026-08-18: the live queue is named accounts only, matching the
-    // /spar gate. This file signs nearly every visitor in anonymously
-    // for the bell, so `!!u` used to let a guest into matchmaking from
-    // the background pill and into a live round without ever signing up.
+    // 2026-08-18: the BACKGROUND pill is named accounts only. Being
+    // silently matchable sitewide while browsing is a different decision
+    // from trying a round on the page that offers one, and /spar meters
+    // guests rather than refusing them (2026-08-19).
+    //
+    // CORRECTION 2026-08-22: this comment used to say "this file signs
+    // nearly every visitor in anonymously for the bell". It does not,
+    // and has not for as long as the shipped bundle shows: grep the
+    // whole of app/ for signInAnonymously and it appears only in
+    // practice.html, live.html, live-round.html and tournament.html.
+    // The claim was load-bearing and wrong, because /spar's guest lane
+    // was designed on top of it and therefore never reached anyone whose
+    // first stop was /spar. That page now mints its own guest session.
+    // Do not restore the claim from a stale doc.
     function isQueueUser(u) {
       return isRealUser(u);
     }

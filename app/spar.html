@@ -2183,6 +2183,66 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return guestRoundsLeft() > 0;
   }
 
+  // Nothing on this page's script set mints an anonymous session, and
+  // that is why the guest lane below has never been reachable by the
+  // people it was written for. The 2026-08-19 guest-rounds design rests
+  // on the premise that "js/notifications.js already mints an anonymous
+  // uid on every page"; it does not, and grepping the whole shipped
+  // bundle for signInAnonymously finds it only in practice.html,
+  // live.html, live-round.html and tournament.html. So a visitor who
+  // arrived here first had NO user, fell to the signed-out branch, and
+  // met "Sign in to join the live queue" permanently. The lane worked
+  // only for somebody who happened to load /practice or /live earlier
+  // and picked up a session there, which is nobody's first visit.
+  //
+  // So this page mints its own. A guest is a real, signature-checkable
+  // Firebase identity, which is exactly what the server meters against
+  // in guest_rounds/{uid}; without one there is nothing to meter and no
+  // way to offer the two free rounds at all.
+  //
+  // Deliberately NOT attempted when the visitor came for the inbox
+  // (?dm, ?thread, ?inbox, challenge links). Those surfaces are
+  // named-only by design, so minting a guest there would replace an
+  // honest sign-in ask with a queue nobody asked to join.
+  var guestMintTried = false;
+  function wantsInbox(){
+    return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
+  }
+  function mintGuestSession(){
+    if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
+    if (wantsInbox()) return false;
+    guestMintTried = true;
+    renderGuestBoot();
+    firebaseAuth.signInAnonymously().then(function(){
+      // The auth listener picks it up and routes into the guest branch.
+      try { gtag('event', 'spar_guest_session', { ok: 1 }); } catch(e){}
+    }).catch(function(err){
+      // Anonymous auth blocked or disabled. Fail to the honest ask
+      // rather than leaving a boot state on screen forever.
+      console.warn('[spar] guest session failed:', err && err.message);
+      try { gtag('event', 'spar_guest_session', { ok: 0, code: String(err && err.code || '').slice(0,40) }); } catch(e){}
+      renderGate();
+    });
+    return true;
+  }
+
+  // Shown for the moment between "no session" and "guest session". It is
+  // NOT the searching state: nothing is queued yet, and painting a
+  // search with no queue doc behind it is the failure the auth listener
+  // below already guards against.
+  function renderGuestBoot(){
+    if (document.getElementById('sparGateCard')) {
+      var g = document.getElementById('sparGateCard');
+      if (g) g.remove();
+    }
+    shell.innerHTML =
+      '<div class="gate" id="sparGuestBoot">' +
+        '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
+        '<h2>Finding you an opponent.</h2>' +
+        '<p>Two rounds on the house, no account needed.</p>' +
+      '</div>';
+  }
+
   function guestName(u){
     var tail = u && u.uid ? String(u.uid).slice(-4).toUpperCase() : '';
     return 'Guest' + (tail ? ' ' + tail : '');
@@ -5910,7 +5970,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        renderGate();
+        // No session at all. The two free rounds are the offer this page
+        // makes, so mint a guest identity and let the guest branch above
+        // run. Only when that cannot happen does the sign-in ask stand,
+        // which keeps the gate a statement of fact rather than of policy.
+        if (!mintGuestSession()) renderGate();
       }
     });
   } else {
