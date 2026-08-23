@@ -179,7 +179,27 @@ export default async (request) => {
         const d = snap.data();
 
         if (action === 'claim') {
-          const gate = canClaim(d, uid);
+          // ── Bind a handle to this uid before gating ───────────────
+          // A named bounty is aimed at a person, and the interesting
+          // case is a person who has NEVER signed up: they have no uid,
+          // so a uid-only match makes their own bounty unclaimable by
+          // them and the feature cannot do the one job it exists for.
+          // The bounty carries the handle it was aimed at, so resolve
+          // THAT to a uid (profile_handles/{handle} -> { uid }, one
+          // direct read, no query) and bind it if it is this caller.
+          // Reads stay ahead of writes, as a transaction requires.
+          let targets = Array.isArray(d.targets) ? d.targets.slice() : [];
+          let bound = false;
+          for (let i = 0; i < targets.length; i += 1) {
+            const t = targets[i];
+            if (!t || t.uid || !t.handle) continue;
+            const hs = await tx.get(db.collection('profile_handles').doc(String(t.handle).toLowerCase()));
+            if (hs.exists && (hs.data() || {}).uid === uid) {
+              targets[i] = { ...t, uid };
+              bound = true;
+            }
+          }
+          const gate = canClaim({ ...d, targets }, uid);
           if (!gate.ok) return { error: 'CANNOT_CLAIM', message: gate.reason };
           const debaters = (d.debaters || []).concat([{ uid, name: myName, acceptedAt: Date.now() }]);
           const patch = {
@@ -189,8 +209,13 @@ export default async (request) => {
           };
           // A named target accepting is recorded on the target too, so
           // the card can show which of the named people have said yes.
-          if (Array.isArray(d.targets) && d.targets.some((t) => t.uid === uid)) {
-            patch.targets = d.targets.map((t) => (t.uid === uid ? { ...t, accepted: true } : t));
+          // Accepting is also what makes the name public for the first
+          // time (see publicBounty): consent and publication are the
+          // same event, deliberately.
+          if (targets.some((t) => t.uid === uid)) {
+            patch.targets = targets.map((t) => (t.uid === uid ? { ...t, accepted: true } : t));
+          } else if (bound) {
+            patch.targets = targets;
           }
           if (debaters.length >= DEBATERS_NEEDED && canTransition(d.status, 'claimed')) {
             patch.status = 'claimed';

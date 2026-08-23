@@ -427,8 +427,14 @@
       // this row is the bounty board: somebody else pays to watch a
       // debate happen and the pot goes to the two people who have it.
       // 2026-08-22, later the same day: REMOVED per the founder ("for now
-      // remove betting from website"). /bounties stays live for direct
-      // links. Restore = re-add: { href: '/bounties', label: 'Bounties' },
+      // remove betting from website"), which also 301'd the page away.
+      // 2026-08-23: BACK, per the founder ("bounty comes back and is
+      // advertised well"). The betting sweep caught the wrong page. A
+      // bounty pays both debaters for COMPLETING the round, carries no
+      // winner term, takes no house cut and refunds if the debate never
+      // happens, so there is no outcome to bet on. /predict, /floor,
+      // /ladder and /bet-on-your-words stay out: those were bets.
+      { href: '/bounties',    label: 'Bounties' },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist

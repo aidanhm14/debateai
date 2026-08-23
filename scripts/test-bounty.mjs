@@ -154,6 +154,60 @@ const tgt = validateBountyInput({
 ok(tgt.ok && tgt.value.targets.length <= 2, 'targets are capped at two');
 ok(tgt.value.targets.every((t) => t.accepted === false), 'a named target starts unaccepted, never opted in for them');
 
+// ── 7b. an unaccepted name is never published (2026-08-23) ──────────
+// The single place this feature could hurt a real person: a public,
+// permanent, money-attached page naming someone who never agreed to be
+// on it. Consent and publication are the same event, and these assert
+// it in both directions.
+const namedDoc = {
+  motion: 'THW abolish the electoral college', format: 'quick',
+  targetKind: 'named', creatorUid: 'funder', creatorName: 'Funder',
+  status: 'funding', potCents: 5000, debaters: [],
+  targets: [{ name: 'Real Person', handle: 'realperson', uid: null, accepted: false }],
+};
+
+const strangerView = publicBounty('b1', namedDoc, 'stranger');
+ok(strangerView.targets[0].name === null,
+  'a stranger never sees the name of a target who has not accepted');
+ok(strangerView.targets[0].handle === null,
+  'the handle is withheld too, since a handle names the person just as well');
+ok(strangerView.targets[0].named === false,
+  'the card is told the target is hidden, so it can say "aimed at a specific debater"');
+ok(strangerView.targetCount === 1,
+  'the COUNT is public even when the name is not');
+ok(!JSON.stringify(strangerView).includes('Real Person'),
+  'the name appears nowhere in the payload a stranger receives');
+ok(!JSON.stringify(strangerView).includes('realperson'),
+  'nor does the handle, anywhere in the payload');
+
+const funderView = publicBounty('b1', namedDoc, 'funder');
+ok(funderView.targets[0].name === 'Real Person',
+  'whoever funded it sees who they aimed it at');
+
+const acceptedDoc = {
+  ...namedDoc,
+  targets: [{ name: 'Real Person', handle: 'realperson', uid: 'rp', accepted: true }],
+};
+ok(publicBounty('b1', acceptedDoc, 'stranger').targets[0].name === 'Real Person',
+  'accepting is what makes the name public, to everyone');
+ok(publicBounty('b1', acceptedDoc, 'stranger').targets[0].named === true,
+  'and the card is told it is a real, agreed matchup');
+
+const selfDoc = {
+  ...namedDoc,
+  targets: [{ name: 'Real Person', handle: 'realperson', uid: 'rp', accepted: false }],
+};
+ok(publicBounty('b1', selfDoc, 'rp').targets[0].name === 'Real Person',
+  'the person it names sees it before accepting, or they cannot decide');
+ok(publicBounty('b1', selfDoc, 'someone-else').targets[0].name === null,
+  'but nobody else does, even once a uid is bound');
+
+// A handle bound to a uid is what lets the named person claim at all.
+ok(canClaim({ ...selfDoc, targets: [{ name: 'R', handle: 'realperson', uid: 'rp' }] }, 'rp').ok,
+  'a target whose handle resolved to their uid can take their own bounty');
+ok(!canClaim(selfDoc, 'stranger').ok,
+  'a stranger still cannot take a bounty aimed at someone else');
+
 // ── 8. formatting ───────────────────────────────────────────────────
 ok(formatCents(5000) === '$50', 'whole dollars drop the decimals');
 ok(formatCents(4999) === '$49.99', 'part dollars keep them');

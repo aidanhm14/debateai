@@ -244,6 +244,11 @@ export function canClaim(bounty, uid) {
   }
   if (bounty.targetKind === 'named') {
     const targets = Array.isArray(bounty.targets) ? bounty.targets : [];
+    // A target matches by uid. The caller binds a handle to a uid before
+    // calling this (see the claim action), because a bounty aimed at
+    // someone who has never signed up has no uid to match against, and
+    // that is the ONLY interesting case: the whole point of a named
+    // bounty is reaching a person who is not here yet.
     const named = targets.some((t) => t && t.uid && t.uid === uid);
     // A named bounty with an unclaimed open seat is takeable by anyone
     // once every named person has accepted, because at that point the
@@ -303,11 +308,40 @@ export function publicBounty(id, d, viewerUid) {
     format: d.format,
     note: d.note || '',
     targetKind: d.targetKind,
-    targets: (Array.isArray(d.targets) ? d.targets : []).map((t) => ({
-      name: t.name,
-      handle: t.handle || null,
-      accepted: !!t.accepted,
-    })),
+    // ── An unaccepted name is NOT published (2026-08-23) ────────────
+    // A bounty may be aimed at named people, which is what makes a
+    // creator matchup possible and is also the one place this feature
+    // could hurt someone. Publishing the name of a person who has not
+    // agreed puts a permanent, public, money-attached page on a
+    // commercial site reading "$500 for <real person> to debate X",
+    // with their handle, without their consent. Right of publicity
+    // turns on exactly that: commercial use of a name nobody licensed.
+    // It also breaks our own standing rule against naming a creator as
+    // a participant in a round that has not happened.
+    //
+    // The name's JOB is routing, deciding who may claim, and routing
+    // does not need an audience. So a target is named publicly only
+    // once they have ACCEPTED. Before that the name is visible to two
+    // parties who already know it: whoever funded the bounty, and the
+    // person it names. Everyone else sees that the bounty is aimed
+    // somewhere, which is all a stranger needs to decide whether to
+    // chip in.
+    //
+    // The upside is not only safety. It means every publicly named
+    // bounty on the board is a real agreed matchup, so the name is
+    // worth something when it does appear.
+    targets: (Array.isArray(d.targets) ? d.targets : []).map((t) => {
+      const accepted = !!t.accepted;
+      const isCreator = !!viewerUid && viewerUid === d.creatorUid;
+      const isTarget = !!viewerUid && !!t.uid && t.uid === viewerUid;
+      if (accepted || isCreator || isTarget) {
+        return { name: t.name, handle: t.handle || null, accepted, named: true };
+      }
+      return { name: null, handle: null, accepted: false, named: false };
+    }),
+    // How many people it is aimed at, so a card can say "aimed at a
+    // specific debater" without naming anyone.
+    targetCount: (Array.isArray(d.targets) ? d.targets : []).length,
     creatorName: d.creatorName || 'Someone',
     status: d.status,
     potCents: Math.max(0, Math.trunc(Number(d.potCents) || 0)),
