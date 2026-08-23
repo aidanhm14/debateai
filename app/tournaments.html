@@ -542,6 +542,20 @@ h1,h2,h3,p{margin-top:0}
 @media(max-width:640px){.host-card{padding:24px 20px}}
 </style>
 <script defer src="/js/track.js"></script>
+<!-- Entrant names go on a public field, so this page resolves the alias
+     itself rather than racing topbar.js's lazy load of the module. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 <!-- This page has no topbar, so nothing pulls the sign-in chooser in for
      it. Same pattern /atlas, /floor and /live-round already use. Without
      it withUser() falls back to the Google-only popup. -->
@@ -1312,7 +1326,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     });
   }
   function registerFree(user,token,opts){
-    var payload={action:'register',tid:current.tid,name:user.displayName||''};
+    var payload={action:'register',tid:current.tid,name:daPublicName(user)};
     // Age is the ONLY thing that decides cash eligibility now, and it
     // is sent exactly as the person ticked it. An unticked box is a
     // real answer, not a missing one: it registers a competitor who
