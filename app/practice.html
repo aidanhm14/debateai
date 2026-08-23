@@ -99,6 +99,13 @@
   if (t !== 'light') t = 'crimson';
   document.documentElement.setAttribute('data-theme', t);
   document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+  // Opt into the constellation backdrop. The canvas and ui-neural.js
+  // have shipped on this page for a long time, but the animation gates
+  // itself on data-lightweb, and this page never set it. Light became
+  // the default for everyone on 2026-08-22, so the round surface has
+  // been rendering flat since. See the paired CSS block below: the
+  // opt-in alone is not enough.
+  document.documentElement.setAttribute('data-lightweb', 'web');
 })();
 </script>
 <!-- Firebase (~500KB across the 4 compat SDKs) loaded `defer` so it no longer
@@ -240,6 +247,21 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 #root{min-height:100vh}
+
+/* Constellation backdrop, paired with the data-lightweb opt-in in the
+   theme bootstrap above. Opting in is only half of it:
+   .ui-neural-canvas is position:fixed, and a fixed element at z-index 0
+   paints ON TOP of ordinary static content, so it has to drop behind
+   everything while staying in front of the page colour. That means the
+   background moves to <html> and body goes transparent. Both halves are
+   load-bearing; drop either and the constellation either covers the
+   round or disappears under the paper. Same recipe as /tournaments,
+   /schools and /pricing. */
+html[data-lightweb="web"]{background:var(--bg)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
 
 /* Advanced-setup nudge pill. Was an inline white-on-white style that
    only worked on light; theme-scoped here so dark gets readable ink. */
@@ -6018,6 +6040,12 @@ function App() {
   var [drillReminder, setDrillReminder] = useState(null);
   // Challenge-a-friend copy confirmation flash.
   var [challengeCopied, setChallengeCopied] = useState(false);
+  // Product critique, asked once ever. See the card in the feedback
+  // tree for why it sits where it does.
+  var [critiqueText, setCritiqueText] = useState('');
+  var [critiqueState, setCritiqueState] = useState(() => {
+    try {return localStorage.getItem('da-critique-asked') ? 'done' : 'open';} catch (e) {return 'open';}
+  });
   var [customParadigm, setCustomParadigm] = useState(() => {
     try {return localStorage.getItem('debateos-judge-paradigm-custom') || '';} catch {return '';}
   });
@@ -12775,6 +12803,59 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       )
       );
     })(),
+
+    // ── We want critiques ────────────────────────────────────────
+    // Asked ONCE ever, and asked here rather than on arrival: the
+    // reader has just run a whole round and is looking at their own
+    // verdict, which is the only moment they can say something
+    // specific. Dismissing is a real answer, so both buttons write the
+    // same "asked" flag and it never returns. Free text on purpose:
+    // "confusing" is a chip, "I could not tell which side I was on" is
+    // a fix, and the second one is what is missing.
+    critiqueState !== 'done' && el('div', { style: { padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#ef4444', marginBottom: 6 } }, 'We want critiques'),
+    critiqueState === 'sent' ?
+    el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5 } }, 'Read and kept. Thank you.') :
+    el('div', null,
+    el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5, marginBottom: 10 } }, 'This is an early build and the harsh version is more useful than the polite one. What was confusing, broken, or worse than it should be?'),
+    el('textarea', {
+      value: critiqueText,
+      onChange: (e) => setCritiqueText(e.target.value.slice(0, 600)),
+      rows: 3,
+      placeholder: 'Say the thing.',
+      style: { width: '100%', boxSizing: 'border-box', resize: 'vertical', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface2)', color: 'var(--c-text)', fontFamily: 'inherit', fontSize: '.85rem', lineHeight: 1.5 }
+    }),
+    el('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
+    el('button', {
+      className: 'cta-ghost',
+      style: { fontSize: '.74rem' },
+      disabled: !critiqueText.trim(),
+      onClick: () => {
+        var note = critiqueText.trim().slice(0, 600);
+        if (!note) return;
+        try {localStorage.setItem('da-critique-asked', '1');} catch (e) {}
+        setCritiqueState('sent');
+        try {
+          fetch('/api/log-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'product_critique', metadata: { note: note, surface: 'practice_ballot', format: format || '' } })
+          }).catch(() => {});
+        } catch (e) {}
+        try {if (typeof gtag === 'function') gtag('event', 'product_critique');} catch (e) {}
+      }
+    }, 'Send it'),
+    el('button', {
+      className: 'cta-ghost',
+      style: { fontSize: '.74rem', opacity: .7 },
+      onClick: () => {
+        try {localStorage.setItem('da-critique-asked', '1');} catch (e) {}
+        setCritiqueState('done');
+      }
+    }, 'No thanks')
+    )
+    )
+    ),
 
     // Key clash
     b.keyClash && el('div', { style: { padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },

@@ -76,13 +76,54 @@
   // settled (or the page never loaded it) this resolves null and the call
   // goes out tokenless, landing in the per-IP lane. Degrading is correct —
   // stalling a round on an auth handshake is not.
+  //
+  // EXCEPT when a session is on disk and simply has not rehydrated yet.
+  // Firebase restores `currentUser` asynchronously, so a call fired in
+  // that window went out tokenless and the server read the caller as
+  // free. On /api/tts that is not a metering nicety: entitlement to the
+  // ElevenLabs voice resolves from the account, so a paying user got
+  // the free voice for the chunks that raced the handshake, and the
+  // voice CHANGED mid-speech once it settled. Reported as the HD voice
+  // going missing. If localStorage holds a persisted Firebase session
+  // we wait briefly for it rather than degrading; with no persisted
+  // session nobody can be signed in, so that path still never waits.
+  var AUTH_SETTLE_MS = 2000;
+  function hasPersistedSession() {
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        if (String(localStorage.key(i) || '').indexOf('firebase:authUser:') === 0) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
   function currentIdToken() {
     try {
       if (typeof firebase === 'undefined' || !firebase.auth) return Promise.resolve(null);
       if (!firebase.apps || !firebase.apps.length) return Promise.resolve(null);
       var u = firebase.auth().currentUser;
-      if (!u || typeof u.getIdToken !== 'function') return Promise.resolve(null);
-      return u.getIdToken().catch(function () { return null; });
+      if (u && typeof u.getIdToken === 'function') {
+        return u.getIdToken().catch(function () { return null; });
+      }
+      if (!hasPersistedSession()) return Promise.resolve(null);
+      return new Promise(function (resolve) {
+        var done = false;
+        var unsub = null;
+        function finish(tok) {
+          if (done) return;
+          done = true;
+          try { if (unsub) unsub(); } catch (e) {}
+          resolve(tok || null);
+        }
+        // Bounded: a slow or failed handshake still lets the round run,
+        // just on the free lane, which is the old behaviour.
+        setTimeout(function () { finish(null); }, AUTH_SETTLE_MS);
+        try {
+          unsub = firebase.auth().onAuthStateChanged(function (user) {
+            if (!user || typeof user.getIdToken !== 'function') return finish(null);
+            user.getIdToken().then(finish).catch(function () { finish(null); });
+          }, function () { finish(null); });
+        } catch (e) { finish(null); }
+      });
     } catch (e) {
       return Promise.resolve(null);
     }

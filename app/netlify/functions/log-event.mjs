@@ -61,6 +61,14 @@ const VALID_EVENTS = new Set([
   'round_abandoned',
   'round_exit_reason',
 
+  // ── Product critique (2026-08-23) ─────────────────────────────────
+  // Free-text, asked once ever, from the one moment the reader has
+  // actually used the thing: their ballot is on screen. First-class so
+  // the note can be read verbatim on /admin, the same reasoning as
+  // round_exit_reason: "confusing" is a chip, "I could not tell which
+  // side I was on" is a fix.
+  'product_critique',
+
   'verdict_viewed',
   'profile_followed',
   'clip_viewed',
@@ -114,6 +122,9 @@ const VALID_EVENTS_ANON = new Set([
   // wrong population — the same rationale as battle_started above.
   'round_abandoned',
   'round_exit_reason',
+  // Same population argument: most people who finish a round here have
+  // no account, and their critique is the one we have least of.
+  'product_critique',
 ]);
 
 // In-memory rate limiting: uid (or anon:<sid>:<ip>) -> { count, windowStart }
