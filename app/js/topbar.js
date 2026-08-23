@@ -295,7 +295,7 @@
     // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint.
-    { href: '/coach',         label: 'Coach'        },
+    { href: '/coach',         label: 'Coach', wip: true },
     // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
     // label short so the bar still fits at laptop widths.
     { href: '/room-judge',    label: 'Room'         },
@@ -381,6 +381,22 @@
   // Curated secondary destinations for the desktop Explore menu and the
   // mobile sheet. App pages carry no footer, so these links are the quiet
   // discovery surface for pages that do not need permanent topbar space.
+  // ── `wip`: the row is live but still being built ────────────────────
+  // 2026-08-23, the founder, marking six rows on a screenshot of this menu.
+  // The panel had grown to ~35 destinations that all read as equally
+  // finished, so a visitor could not tell the surfaces we stand behind
+  // from the ones still coming together. Deleting them is worse: they
+  // are reachable, indexed, and some of them are the only entry point
+  // to work that is nearly done.
+  //
+  // So the row keeps its name and its link and gains a quiet "In
+  // progress" mark, and the row itself sits back a step. The name stays
+  // at full strength on purpose — the point is that a visitor still
+  // learns the surface EXISTS and can go look; what changes is that
+  // nothing here is being sold as finished.
+  //
+  // Clearing one is deleting `wip: true` from its row. Nothing else
+  // reads this flag.
   var MORE_GROUPS = [
     // 2026-08-19 (the founder: "its too crowded - distribute across to take
     // less space on Y axis"). This was ONE 15-item "Watch & compete"
@@ -397,7 +413,7 @@
     { head: 'Compete', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
-      { href: '/rounds',      label: 'Async rounds', strong: true },
+      { href: '/rounds',      label: 'Async rounds', strong: true, wip: true },
       // 2026-08-11: the challenge board. A challenge is the one object a
       // stranger understands without knowing a format: someone claimed
       // something, take the other side. It is `big` because it is the
@@ -549,13 +565,13 @@
       // only entry here that sequences the others: each week hands off to
       // /learn, /coach, and /practice in order. Everything below is a
       // surface you have to already know you need.
-      { href: '/masterclass', label: 'Masterclass', strong: true },
+      { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
       { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
       { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
-      { href: '/flow',        label: 'Flow a speech' },
-      { href: '/coaches',      label: 'Coaches' },
+      { href: '/flow',        label: 'Flow a speech', wip: true },
+      { href: '/coaches',      label: 'Coaches', wip: true },
       // 2026-08-19: the coach's own surface, not the directory next to
       // it. A roster joined by code, each member's judged rounds, and
       // private rounds the coach sets for pairs. `strong` because
@@ -571,7 +587,7 @@
       // Sits in Train rather than Improve because it is prep reading
       // (what a judge rewards before you speak), not the /judge tool.
       { href: '/judge-paradigms', label: 'Judge paradigms' },
-      { href: '/oral-exam-prep', label: 'Oral exam prep' },
+      { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
     ]},
     { head: 'Site', links: [
       { href: '/pricing', label: 'Free vs Paid' },
@@ -963,7 +979,8 @@
             role: 'menuitem',
             class: 'ui-topbar-more-item' + (pathMatches(L.href) ? ' is-active' : '')
                      + (L.strong ? ' is-strong' : '')
-                     + (L.big ? ' is-big' : ''),
+                     + (L.big ? ' is-big' : '')
+                     + (L.wip ? ' is-wip' : ''),
           }, [
             el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon(L.href) }),
             el('span', { class: 'ui-topbar-more-item-text' }, [
@@ -971,7 +988,17 @@
                 el('span', null, L.label),
                 L.pulse ? el('span', { class: 'ui-topbar-more-live-dot', 'aria-hidden': 'true' }) : null,
               ]),
-              meta.desc ? el('span', { class: 'ui-topbar-more-item-desc' }, meta.desc) : null,
+              // The mark rides the DESCRIPTION line, never the name line.
+              // Beside the name it wins an argument it should not be in:
+              // `strong` and `big` labels are nowrap-with-ellipsis, so
+              // the first build shipped "Maste... IN PROGRESS" and
+              // "Oral exa... IN PROGRESS" — the caveat rendered and the
+              // destination did not. The whole point is that a visitor
+              // still learns the surface exists.
+              (meta.desc || L.wip) ? el('span', { class: 'ui-topbar-more-item-desc' }, [
+                L.wip ? el('span', { class: 'ui-topbar-more-wip' }, 'In progress') : null,
+                meta.desc ? el('span', null, meta.desc) : null,
+              ]) : null,
             ]),
           ]);
           a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
@@ -1349,8 +1376,11 @@
         var a = el('a', {
           href: L.href,
           role: 'menuitem',
-          class: pathMatches(L.href) ? 'is-active' : null,
-        }, L.label);
+          class: ((pathMatches(L.href) ? 'is-active ' : '') + (L.wip ? 'is-wip' : '')).trim() || null,
+        }, [
+          el('span', null, L.label),
+          L.wip ? el('span', { class: 'ui-topbar-more-wip' }, 'In progress') : null,
+        ]);
         a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href, surface: 'sheet' }); });
         sheetMore.appendChild(a);
       });
