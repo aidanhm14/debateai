@@ -73,6 +73,113 @@ function other(side) {
   return side === 'prop' ? 'opp' : 'prop';
 }
 
+// ── Live rounds ────────────────────────────────────────────────────
+// The async shape above is three turns with fixed sides. A live round is
+// N speeches across two benches, so the pieces that assume `d.turns` and
+// TURN_SIDE are the only things that need generalizing: the verification
+// GATE is identical and deliberately shared, because the gate is the
+// whole reason this artifact is allowed near a judged surface.
+//
+// Callers hand in one already-joined transcript per bench:
+//   { prop: '<everything gov/pro said>', opp: '<everything opp/con said>' }
+// which keeps this module free of any format table.
+
+export function benchHaystacks(bench) {
+  return {
+    prop: norm((bench && bench.prop) || ''),
+    opp: norm((bench && bench.opp) || ''),
+  };
+}
+
+// Same gate as parseClashMap, reading a bench pair rather than d.turns.
+export function parseClashMapForBenches(text, bench) {
+  const m = String(text || '').match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  let j;
+  try { j = JSON.parse(m[0]); } catch (e) { return null; }
+  const raw = Array.isArray(j.clashes) ? j.clashes : [];
+  if (!raw.length) return null;
+
+  const hay = benchHaystacks(bench);
+  const rows = [];
+  const seen = new Set();
+  let rejected = 0;
+
+  for (const c of raw) {
+    if (rows.length >= MAX_CLASHES) break;
+    const by = c && c.by === 'opp' ? 'opp' : c && c.by === 'prop' ? 'prop' : null;
+    const label = c && CLASH_LABELS.has(c.label) ? c.label : null;
+    const claim = String((c && c.claim) || '').trim().slice(0, 120);
+    const claimQuote = String((c && c.claimQuote) || '').trim().slice(0, 400);
+    const responseQuote = String((c && c.responseQuote) || '').trim().slice(0, 400);
+    if (!by || !label || !claim || !claimQuote) { rejected++; continue; }
+
+    // The claim has to appear in the transcript of the side credited with
+    // making it. A row whose quote is not there is a row about a speech
+    // nobody gave, which is the one output this cannot ship.
+    const nClaim = norm(claimQuote);
+    if (nClaim.length < MIN_QUOTE_CHARS || !hay[by].includes(nClaim)) { rejected++; continue; }
+
+    let quoted = '';
+    if (label !== 'dropped') {
+      const nResp = norm(responseQuote);
+      if (nResp.length < MIN_QUOTE_CHARS || !hay[other(by)].includes(nResp)) { rejected++; continue; }
+      quoted = responseQuote;
+    }
+
+    const key = by + '|' + nClaim.slice(0, 60);
+    if (seen.has(key)) { rejected++; continue; }
+    seen.add(key);
+
+    rows.push({
+      claim, by, claimQuote, label,
+      responseQuote: quoted,
+      note: String((c && c.note) || '').trim().slice(0, 180),
+    });
+  }
+
+  if (!rows.length) return null;
+  return { clashes: rows, rejected, at: Date.now() };
+}
+
+// Prompt for an N-speech live round. Speeches arrive already labelled and
+// in order, so the model reads the round the way a judge flowing it would.
+export function liveClashMapPrompt({ motion, formatName, propName, oppName, propLabel, oppLabel, speeches }) {
+  const system = [
+    'You map the CLASH in a debate that has finished. You are not judging it.',
+    'You never say who won, never score, never guess at anything nobody said.',
+    'Return STRICT JSON and nothing else:',
+    '{"clashes":[{"claim":"...","by":"prop"|"opp","claimQuote":"...","label":"rebutted"|"conceded"|"self-contradiction"|"dropped","responseQuote":"...","note":"..."}]}',
+    '- Up to 8 rows, the arguments that actually carried the round.',
+    '- claim: 2 to 12 plain words naming the argument.',
+    '- by: which side ORIGINATED the argument.',
+    '- claimQuote: 15 to 40 words, VERBATIM from that side, the line where they made it.',
+    '- label: what the other side did with it. dropped = they never engaged it at all.',
+    '- responseQuote: 15 to 40 words VERBATIM from the OTHER side answering it. Empty string when the label is dropped.',
+    '- note: at most one sentence of neutral observation, or empty. Never a verdict.',
+    'EVERY quote must be word for word from the transcript below. A quote you',
+    'paraphrase or reconstruct will be discarded, and a row without a verified',
+    'quote is worse than a missing row.',
+  ].join('\n');
+
+  const body = (speeches || []).map((sp) => (
+    '[' + (sp.code || '') + ' \u00b7 ' + (sp.speakerName || '') + ' (' + (sp.sideLabel || '') + ')]\n' + (sp.text || '')
+  )).join('\n\n');
+
+  const user = [
+    'FORMAT: ' + (formatName || ''),
+    'MOTION: ' + (motion || ''),
+    (propLabel || 'Proposition') + ': ' + (propName || 'Prop'),
+    (oppLabel || 'Opposition') + ': ' + (oppName || 'Opp'),
+    '',
+    body,
+    '',
+    'Return the JSON now.',
+  ].join('\n');
+
+  return { system, user };
+}
+
 export function clashMapPrompt(d, formatName) {
   const propName = (d.prop && d.prop.name) || 'Prop';
   const oppName = (d.opp && d.opp.name) || 'Opp';

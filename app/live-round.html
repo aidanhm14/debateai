@@ -595,6 +595,24 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #flowMap .fm-row:before{content:attr(data-n);position:absolute;left:12px;top:4px;font-size:.6rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
 #flowMap .fm-row b{font-weight:800}
 #flowMap .fm-row span{color:var(--text-dim)}
+/* Clash rows: the quote-verified version of the flow. Dark-theme tokens
+   (the async /rounds renderer is light-theme and does not transplant). */
+#flowMap .cm-row{padding:10px 14px;border-top:1px solid var(--border)}
+#flowMap .cm-row:first-child{border-top:none}
+#flowMap .cm-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+#flowMap .cm-by{font-size:.58rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:5px}
+#flowMap .cm-by.p{background:rgba(22,163,74,.16);color:#16a34a}
+#flowMap .cm-by.o{background:rgba(185,28,28,.16);color:#dc2626}
+#flowMap .cm-claim{font-size:.82rem;font-weight:800;flex:1;min-width:0}
+#flowMap .cm-tag{font-size:.58rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)}
+#flowMap .cm-tag[data-l="dropped"]{color:#dc2626}
+#flowMap .cm-tag[data-l="conceded"]{color:#a1791f}
+#flowMap .cm-tag[data-l="rebutted"]{color:#2f6b45}
+#flowMap .cm-tag[data-l="self-contradiction"]{color:#6d5bb3}
+#flowMap .cm-q{margin:3px 0 0;font-size:.74rem;line-height:1.5;color:var(--text-dim)}
+#flowMap .cm-q b{color:var(--text-dim);font-weight:800;margin-right:5px}
+#flowMap .cm-note{margin:4px 0 0;font-size:.72rem;line-height:1.45;color:var(--text-dim)}
+#flowMap .cm-foot{padding:8px 14px;font-size:.66rem;color:var(--text-dim);border-top:1px solid var(--border)}
 /* How the room moved: the audience's own before/after, read back to
    the room after the ballot. Counts always, percentages only when the
    sample is big enough to mean anything (the server decides that, we
@@ -9581,9 +9599,123 @@ html.stage-mode .stage-ov{display:block}
     return '<div class="ballot-section" data-stage="3" id="roomShift" hidden></div>';
   }
 
+  // ── The clash map ──────────────────────────────────────────────────
+  // The flow offer used to re-read the AI's per-speech notes, which is an
+  // index of what was SAID. This is the harder and more useful artifact:
+  // what was said, what the other side did with it, and the verbatim line
+  // proving both. Server-drawn (/api/clash-map) because every row is
+  // quote-verified against the transcript there, and a row whose quote is
+  // not in the transcript is dropped individually.
+  //
+  // It is advisory and it says so. It never names a winner, it never
+  // scores, and the ballot never reads it. When it fails or comes back
+  // empty the flow falls back to the notes index, so the button always
+  // does something.
+  var CLASH_TAG = {
+    rebutted: 'Answered', conceded: 'Conceded',
+    'self-contradiction': 'Contradicts their own', dropped: 'Dropped',
+  };
+
+  function clashMapHtml(map){
+    if (!map || !Array.isArray(map.clashes) || !map.clashes.length) return '';
+    var f = FORMATS[state.formatKey];
+    var propName = state.proName || (f && f.sideLabels && f.sideLabels[f.sides[0]]) || 'Prop';
+    var oppName = state.conName || (f && f.sideLabels && f.sideLabels[f.sides[1]]) || 'Opp';
+    var rows = map.clashes.map(function(c){
+      var isProp = c.by === 'prop';
+      var who = isProp ? propName : oppName;
+      var answering = isProp ? oppName : propName;
+      return '<div class="cm-row">' +
+        '<div class="cm-head">' +
+          '<span class="cm-by ' + (isProp ? 'p' : 'o') + '">' + escHtml(isProp ? 'Prop' : 'Opp') + '</span>' +
+          '<span class="cm-claim">' + escHtml(c.claim || '') + '</span>' +
+          '<span class="cm-tag" data-l="' + escHtml(c.label || '') + '">' + escHtml(CLASH_TAG[c.label] || c.label || '') + '</span>' +
+        '</div>' +
+        '<p class="cm-q"><b>' + escHtml(who) + ' said</b>' + escHtml(c.claimQuote || '') + '</p>' +
+        (c.responseQuote ? '<p class="cm-q"><b>' + escHtml(answering) + ' said</b>' + escHtml(c.responseQuote) + '</p>' : '') +
+        (c.note ? '<p class="cm-note">' + escHtml(c.note) + '</p>' : '') +
+      '</div>';
+    }).join('');
+    return rows + '<div class="cm-foot">Advisory. Every quote is checked against the transcript, ' +
+      'and this does not decide the round.</div>';
+  }
+
+  // Draw it once per round, by one client, then sync so the opponent and
+  // every spectator read the same map rather than each paying for their
+  // own. Same write pattern as rfdDeep: non-spectator, once-only flag.
+  function generateClashMap(){
+    if (isSpectator() || state.clashMapRequested || state.clashMap) return;
+    var f = FORMATS[state.formatKey];
+    var log = (state.log || []).filter(function(l){
+      return l && l.text && l.text !== '(skipped)' && l.text !== '(no transcript)';
+    });
+    // Under two real speeches there is no clash to map.
+    if (!f || log.length < 2) return;
+    state.clashMapRequested = true;
+    state.clashMapPending = true;
+    try { renderFlowMap(); } catch(e){}
+
+    var speeches = log.map(function(l){
+      return {
+        // Collapse this format's side key onto the two benches the map
+        // reasons about; the server knows nothing about format tables.
+        bench: sideBench(f, l.side) === 'gov' ? 'prop' : 'opp',
+        text: l.text,
+        code: l.code || '',
+        speakerName: l.speakerName || '',
+        sideLabel: (f.sideLabels && f.sideLabels[l.side]) || l.side || '',
+      };
+    });
+
+    var payload = {
+      motion: state.motion || '',
+      formatName: f.name || state.formatKey || '',
+      propName: state.proName || '',
+      oppName: state.conName || '',
+      propLabel: (f.sideLabels && f.sideLabels[f.sides[0]]) || 'Proposition',
+      oppLabel: (f.sideLabels && f.sideLabels[f.sides[1]]) || 'Opposition',
+      speeches: speeches,
+    };
+
+    fetch('/api/clash-map', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        state.clashMapPending = false;
+        var map = j && j.clashMap;
+        if (!map) { try { renderFlowMap(); } catch(e){} return; }
+        state.clashMap = map;
+        try { renderFlowMap(); } catch(e){}
+        var dref = getRoundDocRef();
+        if (dref) dref.update({ clashMap: map }).catch(function(e){
+          console.warn('[clash map] sync failed', e);
+        });
+        try { gtag('event', 'live_round_clash_map', { format: state.formatKey, rows: map.clashes.length }); } catch(e){}
+      })
+      .catch(function(){
+        state.clashMapPending = false;
+        try { renderFlowMap(); } catch(e){}
+      });
+  }
+
+  // One renderer for the open panel, so an arriving map repaints in place
+  // rather than waiting for the next toggle.
+  function renderFlowMap(){
+    var map = document.getElementById('flowMap');
+    if (!map || map.hidden) return;
+    map.innerHTML = flowMapHtml();
+  }
+
   function flowOfferHtml(){
     var notes = state.roundNotes || [];
-    if (!notes.length) return '';
+    var log = (state.log || []).filter(function(l){
+      return l && l.text && l.text !== '(skipped)' && l.text !== '(no transcript)';
+    });
+    // Either artifact is enough to be worth the button: the clash map
+    // needs two real speeches, the notes index needs notes.
+    if (!notes.length && log.length < 2) return '';
     return '<div class="ballot-section" data-stage="3" style="margin-top:14px">' +
       '<button class="btn" id="flowOfferBtn" type="button">See the flow · argument map</button>' +
       '<div id="flowMap" hidden></div>' +
@@ -9591,6 +9723,15 @@ html.stage-mode .stage-ov{display:block}
   }
   function flowMapHtml(){
     var f = FORMATS[state.formatKey];
+    // The quote-verified clash map is the real artifact. The per-speech
+    // notes index is the fallback: it needs no call and always exists,
+    // so the button is never dead while the map is being drawn or after
+    // it failed.
+    var clash = clashMapHtml(state.clashMap);
+    if (clash) return clash;
+    if (state.clashMapPending) {
+      return '<div class="fm-row" data-n="">Drawing the clash map from the transcript…</div>';
+    }
     var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
     var n = 0;
     return notes.map(function(sp){
@@ -9765,6 +9906,10 @@ html.stage-mode .stage-ov{display:block}
     // First read is delayed: spectators restate in the seconds AFTER the
     // ballot lands, so an instant fetch reads a tally nobody has filled.
     try { setTimeout(loadRoomShift, 6000); } catch(e){}
+    // The clash map reads the whole transcript, so it can only be drawn
+    // once the round is over. Fired here rather than on the toggle so it
+    // is usually ready by the time somebody opens the flow.
+    try { setTimeout(generateClashMap, 1200); } catch(e){}
   }
 
   function showBallotInterstitial(b){
@@ -13688,6 +13833,11 @@ html.stage-mode .stage-ov{display:block}
     // Full ballot (long-form RFD) — written by the generating client a
     // beat after the verdict and synced through the round doc so every
     // screen in the room renders the same text.
+    if (d.clashMap && d.clashMap !== state.clashMap){
+      state.clashMap = d.clashMap;
+      state.clashMapPending = false;
+      try { renderFlowMap(); } catch(e){}
+    }
     if (d.rfdDeep && d.rfdDeep !== state.rfdDeep){
       state.rfdDeep = d.rfdDeep;
       state.deepRfdPending = false;

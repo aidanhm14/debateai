@@ -269,6 +269,22 @@ fi
 # guessed at, the inbound webhook failing closed, the full number
 # never leaving in a status payload, and no raw sender exported that
 # would let a future call site skip the consent gate.
+# ──────────────────────────────────────────────────────────────────
+# Live clash-map guard. The map renders under a ballot on a judged
+# surface, so the one row it must never publish is "they said X" about
+# something nobody said. The quote gate is what prevents that; these
+# assertions are the gate's own test, including that ONE bad row from
+# the model can never delete the whole artifact.
+CLASH_GUARD="$REPO_ROOT/scripts/test-clash-live.mjs"
+if [ -f "$CLASH_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-clash-live.mjs >/tmp/clash-guard.log 2>&1); then
+    echo "[clash-guard] commit blocked - the clash-map quote gate no longer holds:" >&2
+    tail -20 /tmp/clash-guard.log >&2
+    echo "[clash-guard] see scripts/test-clash-live.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 SMS_GUARD="$REPO_ROOT/scripts/test-sms.mjs"
 if [ -f "$SMS_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-sms.mjs >/tmp/sms-guard.log 2>&1); then
