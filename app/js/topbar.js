@@ -232,7 +232,12 @@
     // nav green actually, so it screams money") — a filled green pill,
     // the one green in the bar, so money reads as money. `hot` (the
     // faint-red treatment) stays available for a future headline tab.
-    { href: '/predict',       label: 'Bet', money: true, compactKeep: true },
+    // 2026-08-22, later the same day: REMOVED per the founder ("for now
+    // remove betting from website"), reversing this morning's green pill
+    // and the 2026-08-20 restore. Same posture as the 2026-08-19
+    // de-surfacing: /predict stays live for direct links, the `money`
+    // render branch below stays dormant. Restore = re-add this row:
+    // { href: '/predict', label: 'Bet', money: true, compactKeep: true },
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
@@ -381,7 +386,9 @@
       // link. Cash rounds sit under /predict, which is on the rail, so
       // this row is the bounty board: somebody else pays to watch a
       // debate happen and the pot goes to the two people who have it.
-      { href: '/bounties',    label: 'Bounties' },
+      // 2026-08-22, later the same day: REMOVED per the founder ("for now
+      // remove betting from website"). /bounties stays live for direct
+      // links. Restore = re-add: { href: '/bounties', label: 'Bounties' },
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist
@@ -440,7 +447,11 @@
       // pulled in the same de-surfacing pass and comes back for the same
       // reason: it is the page that answers "how does money work here",
       // which is now the first question the product invites.
-      { href: '/get-paid-to-debate', label: 'Money' },
+      // 2026-08-22: REMOVED again per the founder ("for now remove
+      // betting from website") — it returned as part of the betting
+      // positioning, so it leaves with it. The page stays live and
+      // indexed (it carries the Open's prize copy). Restore = re-add:
+      // { href: '/get-paid-to-debate', label: 'Money' },
 
       // 2026-07-27: standalone lobby prototype. It gathers the public
       // network signals into one venue without replacing the landing.
