@@ -608,8 +608,13 @@ weight, not a mirror.
   that tempo. Don't ask permission to deploy; just use the worktree flow.
 - For long-running TTS / multi-file changes, prefer running in the Codex
   sandbox (`codex --workdir /tmp/...`) before applying.
-- **The Floor (updated 2026-07-01):** play-money prediction market at
-  `/floor.html` (surfaced on the landing + topbar, `noindex`). Server
+- **The Floor (updated 2026-07-01; RETIRED 2026-08-22):** the whole
+  betting cluster (/floor, /predict, /ladder, /bounties,
+  /bet-on-your-words) now 301s away — betting was removed entirely per
+  the founder, see the 2026-08-22 soul.md decision-log entry. The notes
+  below describe the dormant code, not a live surface.
+  Play-money prediction market at
+  `/floor.html` (was surfaced on the landing + topbar, `noindex`). Server
   ledger = `app/firestore.rules` (`floor_*` collections) + Netlify fns
   `floor-bet` / `floor-state` / `floor-resolve` / `floor-seed`. The page
   IS wired to those endpoints (SERVER block in floor.html): board, balance

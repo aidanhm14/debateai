@@ -92,12 +92,9 @@ const URLS = [
   { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
   // 2026-07-27 doorway pack. /omegle-alternative targets the huge
   // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
-  // the query volume did not). The two brand-phrase pages make the
-  // landing slogans indexable: "bet on your words" (play-credit markets,
-  // /predict itself is noindex so this is the indexable explainer) and
-  // "everyone has an opinion" (argue-your-opinion intents).
+  // the query volume did not). /bet-on-your-words left the sitemap
+  // 2026-08-22 when the betting cluster was removed (it 301s to /watch).
   { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-07-27' },
-  { path: '/bet-on-your-words',                       changefreq: 'monthly', priority: '0.84', lastmod: '2026-07-27' },
   // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
   // to '/argue-online' with force=true. Submitting the redirecting URL
   // landed as "Page with redirect" in Search Console: never indexed, and
@@ -204,7 +201,6 @@ const URLS = [
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
   { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-08-11' },
-  { path: '/bounties',        changefreq: 'daily',   priority: '0.86', lastmod: '2026-08-15' },
   { path: '/tournament-rules', changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-11' },
   { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },

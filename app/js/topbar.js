@@ -234,9 +234,12 @@
     // faint-red treatment) stays available for a future headline tab.
     // 2026-08-22, later the same day: REMOVED per the founder ("for now
     // remove betting from website"), reversing this morning's green pill
-    // and the 2026-08-20 restore. Same posture as the 2026-08-19
-    // de-surfacing: /predict stays live for direct links, the `money`
-    // render branch below stays dormant. Restore = re-add this row:
+    // and the 2026-08-20 restore. The `money` render branch below stays
+    // dormant. 2026-08-22, final pass ("remove betting entirely from the
+    // site tbh we cant do it"): the pages themselves are gone too —
+    // /predict, /floor, /ladder, /bounties and /bet-on-your-words all
+    // 301 away in netlify.toml, so restoring this row also means
+    // restoring the route. Restore = re-add this row:
     // { href: '/predict', label: 'Bet', money: true, compactKeep: true },
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
@@ -450,7 +453,9 @@
       // 2026-08-22: REMOVED again per the founder ("for now remove
       // betting from website") — it returned as part of the betting
       // positioning, so it leaves with it. The page stays live and
-      // indexed (it carries the Open's prize copy). Restore = re-add:
+      // indexed, swept of betting copy the same day (it carries the
+      // Open's prize copy; tournaments are prize events, not betting).
+      // Restore = re-add:
       // { href: '/get-paid-to-debate', label: 'Money' },
 
       // 2026-07-27: standalone lobby prototype. It gathers the public
