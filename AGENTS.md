@@ -589,6 +589,16 @@ weight, not a mirror.
   Every public page carries `<script defer src="/js/track.js"></script>` now;
   a NEW page needs it added by hand. Admin, og-image, offline and
   _more-preview are excluded on purpose. Grep per file, don't assume.
+- **The Available pill needs a mount point, not just the script.**
+  `js/notifications.js` (bell + Available pill + background matcher) IS
+  pulled by `topbar.js` as of 2026-08-23, so topbar pages are covered.
+  Pages with bespoke chrome are not: `placePill` looks for
+  `.ui-topbar-right` / `.app-topbar-right` / `.bar-links`, and before
+  falling back to a floating chip it honours an explicit
+  `[data-da-pill-slot]` (`="end"` appends). **A new page with its own bar
+  should load the script AND tag its slot** — floating over an existing
+  bar is the /live-round mistake `placeBell` documents. Round surfaces
+  are excluded by the `ON_ROUND` regex; add any new one there.
 - Skipping the SW cache bump after an HTML edit — users get the stale
   bundle for hours until their cache expires. The pre-commit hook
   (see "First-time setup" above) auto-bumps so this is only a footgun
