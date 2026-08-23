@@ -193,33 +193,55 @@ function blocked(data, uid) {
   return list.includes(uid);
 }
 
-// ── Age bands (2026-08-22) ──────────────────────────────────────────
-// Live pairing separates attested minors from everyone else. The band
-// is a one-time self-attestation collected at the queue door
-// (js/age-gate.js, localStorage 'da-age-band', synced by prefs-sync),
-// mirrored onto the queue doc as `ageBand` by every writer: /spar,
-// /debate-chat, and the background "Spar live" pill.
+// ── Age bands (2026-08-22, hardened same day) ───────────────────────
+// Live pairing separates attested minors from adults. The band is a
+// one-time self-attestation collected at the queue door
+// (js/age-gate.js) and recorded SERVER-SIDE, write-once, in
+// age_bands/{uid} via /api/age-band. The localStorage copy and the
+// queue doc's `ageBand` field survive only as paint hints and
+// client-side pre-filters; nothing here reads either.
 //
-// The rule protects in the ONE direction attestation can protect: a
-// debater who said they are 13-17 is never paired with anyone who did
-// not say the same. An unattested legacy doc pairs with adults and
-// other unattested docs exactly as before, never with an attested
-// minor. Attestation is the ceiling of what any site knows without ID
-// checks, so /safety words the promise as "never KNOWINGLY paired";
-// the moderation and report layers are the backstop for a lie.
+// The first version of this gate (earlier the same day) read the band
+// off the queue doc and argued that "both forgery directions reduce to
+// lying about your age, which no storage location fixes." That was
+// wrong in the one direction that matters: with a client-written
+// field, an adult never has to lie at all — they attest adult on their
+// account and flip `ageBand:'minor'` on the queue doc from devtools,
+// per round, with no record anywhere. With a server record the
+// question is answered once, permanently, on the account: an adult who
+// wants into the teen pool must band their WHOLE account as a minor
+// (which also locks them out of adult rounds), and the false
+// attestation is on the record for any later safety review. The
+// founder chose the hardening on exactly that reasoning.
 //
-// The band is read from the queue doc (client-written) rather than a
-// server record, deliberately: unlike the guest counter, there is no
-// metering incentive here, and BOTH forgery directions reduce to lying
-// about your age, which no storage location fixes. The check lives in
-// this function because every pairing surface funnels through it.
-function bandOf(data) {
-  const b = String(data?.ageBand || '');
-  return (b === 'minor' || b === 'adult') ? b : '';
-}
-function bandsCompatible(a, b) {
-  if (a === 'minor' || b === 'minor') return a === b;
-  return true;
+// Both sides must have a record before any pair is proposed. The
+// caller without one gets 403 AGE_BAND_REQUIRED (new clients self-heal
+// by re-POSTing their stored answer; the modal covers a genuinely
+// unanswered account). A peer without one is skipPeer'd — their own
+// next pair attempt heals them. Attestation is still the ceiling of
+// what a site can know without ID checks, and a fresh account can
+// still lie at the door; /safety says so in as many words.
+//
+// Bands are write-once at the endpoint, which is what makes this
+// warm-instance cache safe: a value that cannot change cannot go
+// stale. A missing band is never cached, so attesting takes effect on
+// the next attempt.
+//
+// Failure posture is the REVERSE of the guest lane's. Guest reads fail
+// open because undercounting costs one free round; an age read fails
+// CLOSED (refuse this attempt, client polls on) because pairing across
+// the band line is the one outcome this layer exists to prevent.
+const AGE_BANDS = new Set(['minor', 'adult']);
+const bandCache = new Map();
+
+async function getAgeBand(db, uid) {
+  if (bandCache.has(uid)) return bandCache.get(uid);
+  const snap = await db.collection('age_bands').doc(uid).get();
+  const band = snap.exists ? String(snap.data()?.band || '') : '';
+  if (!AGE_BANDS.has(band)) return null;
+  if (bandCache.size > 5000) bandCache.clear();
+  bandCache.set(uid, band);
+  return band;
 }
 
 function joinedAtMs(data) {
@@ -649,6 +671,52 @@ export default async (request) => {
     return jsonResponse({ ok: false, reason: 'peer_ineligible', skipPeer: peerUid }, 200, request);
   }
 
+  // Age-band gate (see the block above the handler). Both sides need a
+  // server-recorded band, and the bands must match, before a pair can
+  // even be proposed. Checked from age_bands/{uid}, never the queue doc.
+  let myBand, peerBand;
+  try {
+    [myBand, peerBand] = await Promise.all([
+      getAgeBand(db, myUid),
+      getAgeBand(db, peerUid),
+    ]);
+  } catch (err) {
+    // Fail CLOSED: refuse this attempt, not the visitor. Soft reason so
+    // the client's polling loop retries rather than surfacing a banner.
+    console.warn('[spar-pair] age band read failed:', err?.message || err);
+    return jsonResponse({ ok: false, reason: 'age_check_failed' }, 200, request);
+  }
+  if (!myBand) {
+    // 403 not 429: waiting does not clear it. New clients self-heal by
+    // POSTing their stored answer to /api/age-band and retrying; a
+    // genuinely unanswered account gets the js/age-gate.js modal.
+    return jsonResponse({
+      error: 'One-time age check needed before live rounds.',
+      code: 'AGE_BAND_REQUIRED',
+    }, 403, request);
+  }
+  if (!peerBand) {
+    // The peer's account has no recorded answer (a stale client, or a
+    // doc written around the door). Their own next pair attempt heals
+    // them; skip and poll on.
+    return jsonResponse({ ok: false, reason: 'peer_ineligible', skipPeer: peerUid }, 200, request);
+  }
+  if (myBand !== peerBand) {
+    // Stamp a skip on MY doc so the own-doc mirror stops tryMatch from
+    // re-POSTing at the same cross-band peer every 2 seconds (skips
+    // expire on SKIP_TTL_MS, costing one refused POST per 5 minutes).
+    // Best effort: the refusal below is the enforcement, the stamp is
+    // only the efficiency. Clients also pre-filter on the advisory
+    // queue-doc band, so this mostly catches hint-less docs.
+    try {
+      await myRef.update({
+        skipUids: FieldValue.arrayUnion(peerUid),
+        ['skipAt.' + peerUid]: FieldValue.serverTimestamp(),
+      });
+    } catch (e) { /* never let the optimization block the refusal */ }
+    return jsonResponse({ ok: false, reason: 'age_mismatch', skipPeer: peerUid }, 200, request);
+  }
+
   const pair = [myUid, peerUid].sort();
   const room = 'SparMatch-' + pair[0].slice(0, 8) + '-' + pair[1].slice(0, 8);
   const proUid = pair[0];
@@ -702,13 +770,11 @@ export default async (request) => {
       if (blocked(mine, peerUid) || blocked(theirs, myUid)) {
         return { ok: false, reason: 'blocked_peer' };
       }
-      // Age separation: an attested minor only pairs with an attested
-      // minor. Soft refusal like blocked_peer — the caller's poll loop
-      // moves on (clients also pre-filter, so this is the backstop for
-      // a hand-rolled POST or a stale client).
-      if (!bandsCompatible(bandOf(mine), bandOf(theirs))) {
-        return { ok: false, reason: 'age_mismatch' };
-      }
+      // Age separation is enforced BEFORE this transaction, from the
+      // server's own age_bands records (see the gate above). The queue
+      // docs' ageBand fields are client-written hints and are
+      // deliberately not consulted here: a forged hint must never be
+      // able to refuse or permit what the recorded answer decides.
 
       const myShort = shortName(mine);
       const peerShort = shortName(theirs);

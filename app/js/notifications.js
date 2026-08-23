@@ -1429,6 +1429,31 @@
     // only pairs with another recorded minor (enforced in spar-pair).
     function agBand() { try { var b = localStorage.getItem('da-age-band'); return (b === 'minor' || b === 'adult') ? b : ''; } catch (e) { return ''; } }
     function agOk(mine, theirs) { theirs = (theirs === 'minor' || theirs === 'adult') ? theirs : ''; if (mine === 'minor' || theirs === 'minor') return mine === theirs; return true; }
+    // Server-record self-heal (the 2026-08-22 hardening): spar-pair now
+    // enforces bands from age_bands/{uid}, so an account that answered the
+    // question before the record existed gets AGE_BAND_REQUIRED on its
+    // first pair attempt. Re-POST the stored answer once; age-gate.js is
+    // not loaded on most topbar pages, so the POST is inlined. A 409 means
+    // the account already has a (different) recorded answer — adopt it.
+    var agHealAt = 0;
+    function agHeal(band) {
+      if (Date.now() - agHealAt < 10000) return;
+      agHealAt = Date.now();
+      try {
+        window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+          return fetch('/api/age-band', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ band: band })
+          });
+        }).then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+          .then(function (r) {
+            if (r.status === 409 && r.body && (r.body.band === 'minor' || r.body.band === 'adult')) {
+              try { localStorage.setItem('da-age-band', r.body.band); } catch (e) {}
+            }
+          }).catch(function () {});
+      } catch (e) {}
+    }
     var FMT_KEY = 'debateos-spar-format';     // preferred format (shared w/ /spar)
     var HEARTBEAT_MS = 90 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
@@ -1830,7 +1855,21 @@
           body: JSON.stringify({ peerUid: peerUid, format: fmt(), broaden: true })
         });
       }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
-        .then(function () { pairing = false; /* success drives via own-doc listener; soft-fails retry next scan */ })
+        .then(function (r) {
+          pairing = false; // success drives via own-doc listener; soft-fails retry next scan
+          // No server-recorded age band for this account. Heal it from the
+          // stored answer; with no stored answer either, stand down — the
+          // question lives on /spar's card, and an "Available" pill that
+          // can never match is the dark-feature failure this log warns about.
+          if (r && r.body && r.body.code === 'AGE_BAND_REQUIRED') {
+            var b = agBand();
+            if (b) { agHeal(b); }
+            else {
+              setAvailable(false);
+              sparNote('One quick age question is needed before live rounds. Open Spar to answer it.');
+            }
+          }
+        })
         .catch(function () { pairing = false; });
     }
 

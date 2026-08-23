@@ -42,6 +42,40 @@
     return true;
   };
 
+  // Record the answer on the ACCOUNT (age_bands/{uid} via /api/age-band,
+  // write-once, admin-SDK only — the 2026-08-22 hardening). The server
+  // record is what spar-pair actually enforces; localStorage and the
+  // queue-doc mirror are paint hints and client-side pre-filters. A 409
+  // AGE_BAND_LOCKED means this account already answered (another device
+  // before prefs-sync landed, or an edited localStorage): the recorded
+  // answer wins and is adopted locally, because a value a browser could
+  // overwrite would put the hint and the enforcement in different hands.
+  // cb(band) on success or lock-adoption, cb('') when the POST failed —
+  // callers proceed either way, since spar-pair answers
+  // AGE_BAND_REQUIRED and this gets retried on that code.
+  window.daRecordAgeBand = function (band, cb) {
+    cb = cb || function () {};
+    var u;
+    try { u = window.firebase && firebase.auth && firebase.auth().currentUser; } catch (e) {}
+    if (!u || (band !== 'minor' && band !== 'adult')) { cb(''); return; }
+    u.getIdToken().then(function (tok) {
+      return fetch('/api/age-band', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify({ band: band }),
+      });
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
+    }).then(function (r) {
+      if (r.status === 409 && r.body && (r.body.band === 'minor' || r.body.band === 'adult')) {
+        try { localStorage.setItem(KEY, r.body.band); } catch (e) {}
+        cb(r.body.band);
+        return;
+      }
+      cb(r.ok ? band : '');
+    }).catch(function () { cb(''); });
+  };
+
   // Ask once, then call cb(band). If already answered, calls back
   // synchronously without rendering anything.
   window.daAskAgeBand = function (cb) {
@@ -71,7 +105,13 @@
       try { localStorage.setItem(KEY, band); } catch (e) {}
       try { gtag('event', 'age_band_set', { band: band }); } catch (e) {}
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
-      cb(band);
+      // Server record BEFORE the callback: the caller's next move is a
+      // queue join whose pair attempts spar-pair refuses until the
+      // account has a recorded band. If the POST fails, proceed anyway —
+      // the AGE_BAND_REQUIRED recovery in each caller retries it.
+      window.daRecordAgeBand(band, function (recorded) {
+        cb(recorded || band);
+      });
     }
     wrap.querySelectorAll('button[data-band]').forEach(function (btn) {
       btn.addEventListener('click', function () { pick(btn.getAttribute('data-band')); });

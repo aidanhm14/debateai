@@ -4750,16 +4750,39 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         renderGate();
         return;
       }
+      // The account has no SERVER-recorded age band (attested before the
+      // 2026-08-22 hardening, or the record POST failed at the door).
+      // Self-heal with the stored answer; only a genuinely unanswered
+      // account sees the modal again. Throttled so a failing POST can't
+      // fire on every 2s poll tick.
+      if (r.status === 403 && r.body && r.body.code === 'AGE_BAND_REQUIRED') {
+        var storedBand = (window.daAgeBand && window.daAgeBand()) || '';
+        if (storedBand && window.daRecordAgeBand) {
+          if (Date.now() - (state.ageHealAt || 0) > 10000) {
+            state.ageHealAt = Date.now();
+            window.daRecordAgeBand(storedBand, function(){ /* polling retries */ });
+          }
+          updateDiag({ last: 'age_record_heal' });
+          return;
+        }
+        leaveQueueQuietly();
+        if (window.daAskAgeBand) {
+          window.daAskAgeBand(function(){ if (!state.cancelled) joinQueue(); });
+        }
+        return;
+      }
       if (!r.ok || !r.body || !r.body.ok) {
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
         var soft = (reason === 'lost_race'
                  || reason === 'queue_doc_missing' || reason === 'stale_peer'
-                 // peer_ineligible: a spent guest still holding a queue doc.
+                 // peer_ineligible: a spent guest, or a peer with no
+                 // server-recorded age band, still holding a queue doc.
                  // Their problem, not ours — poll on to the next peer.
                  || reason === 'peer_ineligible'
                  // age_mismatch: the queue holds someone the age rule
                  // won't let us meet. Poll on to the next peer.
-                 || reason === 'age_mismatch'
+                 // age_check_failed: transient band read error, retry.
+                 || reason === 'age_mismatch' || reason === 'age_check_failed'
                  || reason === 'skipped_peer' || reason === 'blocked_peer');
         // Soft fails are recoverable — keep polling. Surface them in
         // the diag line so the user can see retries happening instead
