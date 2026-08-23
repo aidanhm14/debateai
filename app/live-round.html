@@ -595,6 +595,28 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #flowMap .fm-row:before{content:attr(data-n);position:absolute;left:12px;top:4px;font-size:.6rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
 #flowMap .fm-row b{font-weight:800}
 #flowMap .fm-row span{color:var(--text-dim)}
+/* How the room moved: the audience's own before/after, read back to
+   the room after the ballot. Counts always, percentages only when the
+   sample is big enough to mean anything (the server decides that, we
+   only render what it publishes). */
+#roomShift{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:14px 16px}
+#roomShift .rs-head{font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px}
+#roomShift .rs-bars{display:flex;flex-direction:column;gap:9px}
+#roomShift .rs-row{display:grid;grid-template-columns:74px 1fr auto;align-items:center;gap:10px;font-size:.78rem}
+#roomShift .rs-when{color:var(--text-dim);font-weight:700;text-transform:uppercase;font-size:.6rem;letter-spacing:.09em}
+#roomShift .rs-track{position:relative;height:10px;border-radius:999px;overflow:hidden;background:rgba(127,127,127,.18);display:flex}
+#roomShift .rs-seg{height:100%}
+#roomShift .rs-seg.pro{background:#16a34a}
+#roomShift .rs-seg.con{background:#b91c1c}
+#roomShift .rs-seg.und{background:rgba(127,127,127,.42)}
+#roomShift .rs-n{font-variant-numeric:tabular-nums;color:var(--text-dim);font-size:.72rem}
+#roomShift .rs-key{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:.68rem;color:var(--text-dim)}
+#roomShift .rs-key i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:baseline}
+#roomShift .rs-line{margin-top:10px;font-size:.82rem;line-height:1.5}
+#roomShift .rs-line b{font-weight:800}
+#roomShift .rs-thin{margin-top:10px;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
+#roomShift .rs-caveats{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:.68rem;line-height:1.5;color:var(--text-dim)}
+#roomShift .rs-caveats li{margin:2px 0;list-style:none}
 .rfd strong{font-weight:800}
 /* Round details: the standing chrome (who is in the round, the full
    speech order) folded behind one line, so the live panel reads motion,
@@ -8872,6 +8894,9 @@ html.stage-mode .stage-ov{display:block}
       }
     }
     try { gtag('event', 'swing_vote_restate', { format: state.formatKey, flipped: after !== svCreatePayload.sideBefore }); } catch(e){}
+    // Their own answer is in, so the room's aggregate can no longer
+    // influence it. Re-read shortly after so their vote is included.
+    try { roomShift.done = false; roomShift.tries = 0; setTimeout(loadRoomShift, 3000); } catch(e){}
   }
 
   function svLabel(side){
@@ -9442,6 +9467,120 @@ html.stage-mode .stage-ov{display:block}
   // doc-register argument map: speech by speech, tag + one line, no
   // coaching, no scores. No new AI call; it is a re-read of
   // state.roundNotes, so it costs nothing and works for spectators too.
+  // ── How the room moved ─────────────────────────────────────────────
+  // The audience has been answering "where do you stand" before and after
+  // rounds for weeks, and until now NOBODY ever saw the result: the taps
+  // and the restated stance went to the server and stopped there. This
+  // reads the public aggregate back to the room once the ballot is in.
+  //
+  // Three rules it inherits from the collection side, and each is why a
+  // number here is worth anything:
+  //   - It renders only AFTER the ballot. A live tally during the round
+  //     tells people what to think and then measures the conformity.
+  //   - Percentages only when the server says the sample is big enough;
+  //     below that it publishes counts and this renders counts. A share
+  //     computed over four people is a number pretending to be a finding.
+  //   - The caveats the server ships are rendered, not filtered. The one
+  //     that always applies (self-selected audience, not a panel) is the
+  //     one a reader most needs.
+  // It is NOT a second verdict. The judge decided the round; this says
+  // what the room did, and those disagree often, which is the interest.
+  var roomShift = { tries: 0, done: false, timer: null };
+
+  function rsBar(split){
+    var n = split && split.n ? split.n : 0;
+    if (!n) return '<div class="rs-track"></div>';
+    function seg(cls, v){
+      return v > 0 ? '<span class="rs-seg ' + cls + '" style="width:' + v + '%"></span>' : '';
+    }
+    return '<div class="rs-track">' + seg('pro', split.pro) + seg('und', split.undecided) + seg('con', split.con) + '</div>';
+  }
+
+  function roomShiftHtml(data){
+    if (!data || !data.report) return '';
+    var r = data.report;
+    // Nobody restated: there is no room to report on, so render nothing
+    // rather than an empty frame implying the audience said something.
+    if (!r.counted && !r.holdoutCounted) return '';
+
+    var proName = escHtml(state.proName || 'Pro');
+    var conName = escHtml(state.conName || 'Con');
+    var body = '';
+
+    if (r.thin){
+      // Counts only. Stated plainly so nobody reads a shape into four people.
+      body = '<p class="rs-thin">' + r.counted + ' viewer' + (r.counted === 1 ? '' : 's') +
+        ' answered both times, which is too few to publish a percentage. ' +
+        'Before: ' + r.pre.pro + '% ' + proName + '. After: ' + r.post.pro + '% ' + proName + '. ' +
+        'Treat that as anecdote, not a measurement.</p>';
+    } else {
+      body =
+        '<div class="rs-bars">' +
+          '<div class="rs-row"><span class="rs-when">Before</span>' + rsBar(r.pre) +
+            '<span class="rs-n">' + r.pre.n + '</span></div>' +
+          '<div class="rs-row"><span class="rs-when">After</span>' + rsBar(r.post) +
+            '<span class="rs-n">' + r.post.n + '</span></div>' +
+        '</div>' +
+        '<div class="rs-key">' +
+          '<span><i style="background:#16a34a"></i>' + proName + '</span>' +
+          '<span><i style="background:rgba(127,127,127,.42)"></i>Neither</span>' +
+          '<span><i style="background:#b91c1c"></i>' + conName + '</span>' +
+        '</div>';
+
+      var shift = r.netShift;
+      var moved = shift === null ? null : (shift > 0 ? proName : conName);
+      var line = '';
+      if (shift !== null && Math.abs(shift) >= 1){
+        line = '<b>The room moved ' + Math.abs(shift) + ' points toward ' + moved + '.</b> ';
+      } else if (shift !== null){
+        line = '<b>The room did not move.</b> ';
+      }
+      if (r.churn !== null){
+        line += r.churn + '% of them changed their mind at some point, which is the ' +
+          'number that says whether the arguments did anything at all.';
+      }
+      if (line) body += '<p class="rs-line">' + line + '</p>';
+    }
+
+    var caveats = Array.isArray(data.caveats) ? data.caveats : [];
+    if (caveats.length){
+      body += '<ul class="rs-caveats">' + caveats.map(function(c){
+        return '<li>' + escHtml(c) + '</li>';
+      }).join('') + '</ul>';
+    }
+
+    return '<div class="rs-head">How the room moved</div>' + body;
+  }
+
+  // Spectators restate over minutes rather than at the buzzer, and the
+  // endpoint shared-caches for 30s, so one fetch at ballot time would
+  // almost always read an empty tally. Poll a few times on a widening
+  // interval and stop; this is a footnote to the ballot, not a live feed.
+  function loadRoomShift(){
+    var slot = document.getElementById('roomShift');
+    if (!slot || roomShift.done || !state.room) return;
+    roomShift.tries += 1;
+    fetch('/api/persuasion-index?roundId=' + encodeURIComponent(state.room))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var html = j ? roomShiftHtml(j) : '';
+        if (html){
+          slot.innerHTML = html;
+          slot.hidden = false;
+        }
+      })
+      .catch(function(){})
+      .then(function(){
+        if (roomShift.tries >= 4){ roomShift.done = true; return; }
+        var next = [20000, 45000, 90000][roomShift.tries - 1] || 90000;
+        roomShift.timer = setTimeout(loadRoomShift, next);
+      });
+  }
+
+  function roomShiftSlotHtml(){
+    return '<div class="ballot-section" data-stage="3" id="roomShift" hidden></div>';
+  }
+
   function flowOfferHtml(){
     var notes = state.roundNotes || [];
     if (!notes.length) return '';
@@ -9621,6 +9760,11 @@ html.stage-mode .stage-ov{display:block}
       return;
     }
     renderBallotBody(b, state.ballotRevealMode);
+    // The audience aggregate is a footnote to the ballot, so it is
+    // fetched after the verdict is on screen rather than raced with it.
+    // First read is delayed: spectators restate in the seconds AFTER the
+    // ballot lands, so an instant fetch reads a tally nobody has filled.
+    try { setTimeout(loadRoomShift, 6000); } catch(e){}
   }
 
   function showBallotInterstitial(b){
@@ -9752,6 +9896,7 @@ html.stage-mode .stage-ov{display:block}
           + '<div class="bp-rfd">' + judgeHtml(b.rfd || '(no RFD)') + '</div>'
           + '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>'
           + flowOfferHtml()
+          + roomShiftSlotHtml()
         + '</div>'
         + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
             + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
@@ -9953,6 +10098,7 @@ html.stage-mode .stage-ov{display:block}
         (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
         '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>' +
         flowOfferHtml() +
+        roomShiftSlotHtml() +
       '</div>' +
       afterRoundBandHtml(b) +
       '<div class="ballot-section" data-stage="3">' +

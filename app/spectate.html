@@ -984,6 +984,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         sendCreate();
       }
 
+      // VISIBLE watch time. Without this every closing stance from this
+      // page was recorded and then discarded: the server weights a vote
+      // by how long the person actually watched (integrityWeight returns
+      // 0 under 90 visible seconds), this page never sent the field, so
+      // readWatchMs read undefined as 0 and every /spectate vote landed
+      // in `lowWatch` instead of the tally. Measured in VISIBLE time only,
+      // mirroring live-round, so a tab left open in another window does
+      // not accrue credit for watching.
+      var odWatchAccum = 0, odWatchStart = 0, odWatching = false;
+      function odWatchTick(on){
+        if (on && !odWatching){ odWatchStart = Date.now(); odWatching = true; }
+        else if (!on && odWatching){ odWatchAccum += Date.now() - odWatchStart; odWatching = false; }
+      }
+      function odWatchMs(){
+        return odWatchAccum + (odWatching ? Date.now() - odWatchStart : 0);
+      }
+      document.addEventListener('visibilitychange', function(){
+        odWatchTick(document.visibilityState === 'visible');
+      });
+      odWatchTick(document.visibilityState !== 'hidden');
+
       function submitAfter(){
         var conf = parseInt((document.getElementById('odConfAfter') || {}).value, 10);
         if (isNaN(conf)) conf = 50;
@@ -1015,7 +1036,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
           if (flushTimer) clearTimeout(flushTimer);
           var moves = state.movedAt.slice();
           withRow(function(id){
-            post({ action: 'update', id: id, movedAt: moves, sideAfter: side, confAfter: conf });
+            post({ action: 'update', id: id, movedAt: moves, sideAfter: side, confAfter: conf, watchMs: odWatchMs() });
           });
         }
         try { localStorage.removeItem(STATE_KEY); } catch(e){}
