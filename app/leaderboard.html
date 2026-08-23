@@ -37,6 +37,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
+<!-- The board renders up to 100 rows and every row's emblem carries an
+     infinite CSS animation, which keeps painting in a backgrounded tab
+     and for rows nobody has scrolled to. The governor pauses on both,
+     and resumes in place so nothing restarts. -->
+<script defer src="/js/anim-governor.js"></script>
 
 <!-- Subject-domain classifier + XP. Loaded blocking (not deferred)
      because the board's first render calls DBDomains synchronously to
@@ -567,6 +572,19 @@ a.av-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .pod-avatar>img,.deb-av>img,
 .avatar-fallback,.seed-portrait{width:100%;height:100%;display:block}
 .pod-avatar>img,.deb-av>img{object-fit:cover}
+/* Emblem art fills its cell and carries its own motion. Colours are
+   literal inside the SVG, so one tile reads identically on light and
+   dark and needs no theme block. */
+.pod-avatar .ava-art,.deb-av .ava-art{width:100%;height:100%;display:block}
+@keyframes avaSpin{to{transform:rotate(360deg)}}
+@keyframes avaBreathe{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes avaDrift{0%,100%{transform:translateX(-5%)}50%{transform:translateX(5%)}}
+.ava-spin{transform-origin:50% 50%;animation:avaSpin 30s linear infinite}
+.ava-breathe{transform-origin:50% 50%;animation:avaBreathe 9s ease-in-out infinite}
+.ava-drift{animation:avaDrift 22s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){
+  .ava-spin,.ava-breathe,.ava-drift{animation:none}
+}
 .seed-portrait{
   background-image:url('/img/leaderboard-portraits.jpg');
   background-repeat:no-repeat;
@@ -1554,53 +1572,113 @@ function escapeHtml(s){
 // orange family and the board read as one colour repeated down the page.
 // A full-spectrum rainbow was tried first and rejected: it fought the
 // red-on-warm-paper system (2026-07-19).
-const AV_PALETTE=['#c0392b','#a8553a','#c9822e','#9c7a2e','#7d8c3f','#3f7d6a','#3d6b8c','#5a5f8c','#7a4a6b','#8c4a4a','#6b7f8c','#8a5a3a'];
-function avDigit(n,p){return Math.floor((n/Math.pow(10,p))%10);}
-function avUnit(n,range,idx){
-  let v=n%range;
-  if(idx&&avDigit(n,idx)%2===0)v=-v;
-  return v;
-}
-function avHash(seed){return hashStr(String(seed||'anon'));}
-// Initials over the marble so a real account without a Google photo
-// still reads as a person rather than an abstract smudge.
+// Shared with the landing's ranked band (app/landing.html, avaEmblem), so
+// a debater wears the same tile on both surfaces. Deliberately abstract:
+// these rows carry a real name and a real score, and the standing rule is
+// that a portrait must BE the debater or make no claim at all. A monogram
+// over seeded geometry claims nothing; a generated FACE would hand a
+// stranger a skin tone and a hairline, which is the same invented claim
+// in friendlier clothes.
+//
+// Deeper and more saturated than the old marble palette, which was tuned
+// for the paper page and went to mud at avatar size. Red leads because it
+// is the house colour. This is not the full-spectrum rainbow rejected
+// 2026-07-19: it is a jewel set with a red-family plurality, sitting on
+// the row's own card rather than directly on the paper.
+const AVA_INK=[
+  ['#e0362c','#7a1410'],['#f0603a','#8c2a12'],['#f0912b','#8a4210'],
+  ['#d8b33a','#7d5a12'],['#7fae3c','#2f5417'],['#2fa88a','#0d4a3f'],
+  ['#2f97c4','#0f3f61'],['#4763cc','#1a2668'],['#7a55d6','#33196e'],
+  ['#c145a6','#5c1550'],['#e0446e','#75122f'],['#5c6b86','#232c3d'],
+  ['#c9622a','#6b2a0e'],['#3aa657','#12522a']
+];
+// Initials over the art so a real account without a picture still reads
+// as a person rather than an abstract smudge.
 function avInitials(label){
   const t=String(label||'').trim();
   if(!t) return '';
   const parts=t.split(/[\s._-]+/).filter(Boolean);
   const a=(parts[0]||'')[0]||'';
   const b=parts.length>1 ? (parts[parts.length-1]||'')[0] : '';
-  return (a+b).toUpperCase().slice(0,2);
+  return (a+b).toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);
 }
-function marbleAvatar(seed,label){
-  const num=avHash(seed);
-  const size=80;
-  const uid=(num>>>0).toString(36);
-  const ini=avInitials(label!=null?label:seed);
-  const props=[0,1,2].map(function(i){
-    const k=num*(i+1);
-    return {
-      color:AV_PALETTE[(num+i)%AV_PALETTE.length],
-      tx:avUnit(k,size/10,1),
-      ty:avUnit(k,size/10,2),
-      rot:avUnit(k,360,1),
-      scale:1.2+avUnit(k,size/20)/10
-    };
-  });
-  const tf=function(p){return 'translate('+p.tx+' '+p.ty+') rotate('+p.rot+' '+(size/2)+' '+(size/2)+') scale('+p.scale+')';};
-  return ''
-    +'<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">'
-    +'<mask id="m'+uid+'" maskUnits="userSpaceOnUse" x="0" y="0" width="80" height="80"><rect width="80" height="80" rx="160" fill="#fff"/></mask>'
-    +'<g mask="url(#m'+uid+')">'
-    +'<rect width="80" height="80" fill="'+props[0].color+'"/>'
-    +'<path filter="url(#f'+uid+')" d="M32.414 59.35L50.376 70.5H72.5v-71H33.728L26.5 13.381l19.057 27.08L32.414 59.35z" fill="'+props[1].color+'" transform="'+tf(props[1])+'"/>'
-    +'<path filter="url(#f'+uid+')" style="mix-blend-mode:overlay" d="M22.216 24L0 46.75l14.108 38.129L78 86l-3.081-59.276-22.378 4.005 12.972 20.186-23.35 27.395L22.215 24z" fill="'+props[2].color+'" transform="'+tf(props[2])+'"/>'
-    +'</g>'
-    +'<defs><filter id="f'+uid+'" x="-10" y="-10" width="100" height="100"><feGaussianBlur stdDeviation="7"/></filter></defs>'
-    +(ini ? '<text x="40" y="40" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="DM Sans,Archivo,Georgia,serif" font-size="30" font-weight="800" letter-spacing="0.5" style="paint-order:stroke" stroke="rgba(0,0,0,.28)" stroke-width="1.2">'+ini+'</text>' : '')
+// Seven geometry families. Every stroke is heavy on purpose: hairlines
+// disappear at the 34-80px this actually renders at.
+function avaArt(kind,num){
+  const rot=num%360;
+  if(kind===0){
+    return '<g class="ava-spin" style="animation-duration:'+(24+num%14)+'s">'
+      +'<ellipse cx="32" cy="32" rx="28" ry="12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="3" transform="rotate('+rot+' 32 32)"/>'
+      +'<ellipse cx="32" cy="32" rx="28" ry="12" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="3" transform="rotate('+(rot+58)+' 32 32)"/>'
+      +'<circle cx="60" cy="32" r="4" fill="#fff" transform="rotate('+rot+' 32 32)"/></g>';
+  }
+  if(kind===1){
+    let w='';
+    for(let i=0;i<6;i++){
+      w+='<path d="M32 32 L32 -12 A44 44 0 0 1 60 4 Z" fill="rgba(255,255,255,'+(i%2?'.14':'.3')+')" transform="rotate('+(rot+i*60)+' 32 32)"/>';
+    }
+    return '<g class="ava-spin" style="animation-duration:'+(34+num%16)+'s">'+w+'</g>';
+  }
+  if(kind===2){
+    return '<g class="ava-drift" style="animation-duration:'+(16+num%10)+'s">'
+      +'<path d="M-24 64 L20 -8 L36 -8 L-8 64Z" fill="rgba(255,255,255,.32)"/>'
+      +'<path d="M8 72 L52 0 L62 0 L18 72Z" fill="rgba(255,255,255,.18)"/>'
+      +'<path d="M40 72 L84 0 L92 0 L50 72Z" fill="rgba(0,0,0,.2)"/></g>';
+  }
+  if(kind===3){
+    return '<g class="ava-breathe" style="animation-duration:'+(8+num%5)+'s" transform="rotate('+(rot%90)+' 32 32)">'
+      +'<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="4" stroke-dasharray="52 200"/>'
+      +'<circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="4" stroke-dasharray="38 200" stroke-dashoffset="20"/>'
+      +'<circle cx="32" cy="32" r="8" fill="rgba(255,255,255,.34)"/></g>';
+  }
+  if(kind===4){
+    return '<g class="ava-breathe" style="animation-duration:'+(10+num%6)+'s">'
+      +'<path d="M32 2 L64 58 L0 58Z" fill="rgba(255,255,255,.26)"/>'
+      +'<path d="M32 20 L50 54 L14 54Z" fill="rgba(0,0,0,.22)"/></g>';
+  }
+  if(kind===5){
+    let d='';
+    for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+      d+='<circle cx="'+(12+c*20)+'" cy="'+(12+r*20)+'" r="'+(2+((num>>(r*3+c))%4))
+        +'" fill="rgba(255,255,255,'+(0.22+((r+c)%3)*0.16)+')"/>';
+    }
+    return '<g class="ava-breathe" style="animation-duration:'+(7+num%6)+'s">'+d+'</g>';
+  }
+  return '<g class="ava-drift" style="animation-duration:'+(20+num%9)+'s">'
+    +'<circle cx="32" cy="'+(26+num%10)+'" r="'+(14+num%7)+'" fill="rgba(255,255,255,.3)"/>'
+    +'<path d="M-8 46 Q32 '+(32+num%14)+' 72 46 L72 72 L-8 72Z" fill="rgba(0,0,0,.28)"/></g>';
+}
+// `masked` is for a debater who declined to be named. It keeps the seeded
+// colour and shape rather than flattening every anonymous row to one grey
+// tile: they are different people and the board should show that. The
+// figure is what says "not named".
+function emblemAvatar(seed,label,masked){
+  const num=hashStr(String(seed||'anon'));
+  const id='lb'+num.toString(36);
+  const pair=AVA_INK[num%AVA_INK.length];
+  const ini=masked?'':avInitials(label!=null?label:seed);
+  return '<svg class="ava-art" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">'
+    +'<defs><linearGradient id="g'+id+'" x1="0" y1="0" x2="1" y2="1">'
+    +'<stop offset="0" stop-color="'+pair[0]+'"/><stop offset="1" stop-color="'+pair[1]+'"/></linearGradient>'
+    +'<radialGradient id="s'+id+'" cx="50%" cy="50%" r="50%">'
+    +'<stop offset="0" stop-color="rgba(0,0,0,.45)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient></defs>'
+    +'<rect width="64" height="64" fill="url(#g'+id+')"/>'
+    +avaArt(num%7,num)
+    +(masked?'':'<circle cx="32" cy="32" r="22" fill="url(#s'+id+')"/>')
+    +(ini?'<text x="32" y="33" text-anchor="middle" dominant-baseline="central" fill="#fff"'
+      +' font-family="Archivo,system-ui,sans-serif" font-size="25" font-weight="900" letter-spacing="-.5"'
+      +' style="paint-order:stroke" stroke="rgba(0,0,0,.35)" stroke-width="1.4">'+escapeHtml(ini)+'</text>':'')
+    +(masked?'<g opacity=".8"><circle cx="32" cy="27" r="7.2" fill="#fff"/>'
+      +'<path d="M18 54c0-8 6.4-12.6 14-12.6S46 46 46 54z" fill="#fff"/>'
+      +'<rect x="23.4" y="24.2" width="17.2" height="5" rx="2.5" fill="rgba(16,14,18,.92)"/></g>':'')
     +'</svg>';
 }
-
+// A row whose debater declined to be named. "A debater" is the write-time
+// fallback and means the same thing.
+function avaAnon(name){
+  const t=String(name||'').trim();
+  return !t || /^anonymous$/i.test(t) || /^a debater$/i.test(t) || /^guest$/i.test(t);
+}
 function safeAvatarUrl(value){
   try {
     const url=new URL(String(value||''));
@@ -1633,7 +1711,7 @@ function seedPortrait(row){
 }
 function avatarHTML(row){
   const seed=(row&&row.uid)||(row&&row.displayName)||'anon';
-  const fallback=marbleAvatar(seed,row&&row.displayName);
+  const fallback=emblemAvatar(seed,row&&row.displayName,avaAnon(row&&row.displayName));
   if(row&&row.seed===true) return seedPortrait(row);
   if(row&&row.avatarIdentity&&window.DBAvatar&&DBAvatar.publicSvg){
     return DBAvatar.publicSvg(row.avatarIdentity,'100%',{uid:row.uid,name:row.displayName});

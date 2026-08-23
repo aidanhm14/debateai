@@ -13317,6 +13317,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        fill the disc; without this the raw <img> rendered at its
        intrinsic size and blew out the row. */
     .rb-ava img,.rb-ava svg{width:100%;height:100%;display:block;object-fit:cover;border-radius:0}
+    /* The photo sits ON the emblem rather than replacing it, so a stale
+       googleusercontent URL degrades to the generated art instead of a
+       hole. Both fill the cell; the img just paints over. */
+    .rb-ava{position:relative;padding:0}
+    .rb-ava .rb-ava-art{position:absolute;inset:0}
+    .rb-ava img{position:relative;z-index:1}
+    .rb-ava--anon{border-style:dashed}
+    /* Motion lives on the art, never on the cell, so the row's own hover
+       transition stays untouched. anim-governor.js pauses these while the
+       band is off-screen or the tab is hidden; a board of eight emblems
+       animating behind the fold is exactly what it exists to stop. */
+    @keyframes rbAvaSpin{to{transform:rotate(360deg)}}
+    @keyframes rbAvaBreathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
+    @keyframes rbAvaDrift{0%,100%{transform:translateX(-5%)}50%{transform:translateX(5%)}}
+    .rb-ava-spin{transform-origin:50% 50%;animation:rbAvaSpin 30s linear infinite}
+    .rb-ava-breathe{transform-origin:50% 50%;animation:rbAvaBreathe 9s ease-in-out infinite}
+    .rb-ava-drift{animation:rbAvaDrift 22s ease-in-out infinite}
+    /* A ring is a rank signal, so it goes on ranks 2 and 3 only. #1
+       already owns the red frame from .rb-row--top. */
+    .rb-row .rb-ava--silver{border-color:rgba(203,213,225,.6);box-shadow:0 0 0 2px rgba(203,213,225,.16)}
+    .rb-row .rb-ava--bronze{border-color:rgba(217,119,6,.6);box-shadow:0 0 0 2px rgba(217,119,6,.14)}
+    .rb-row:hover .rb-ava-art{filter:saturate(1.15)}
+    @media (prefers-reduced-motion:reduce){
+      .rb-ava-spin,.rb-ava-breathe,.rb-ava-drift{animation:none}
+    }
     .rb-who{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
     .rb-nm{font-weight:800;font-size:.9rem;letter-spacing:-.01em;color:var(--text,#f4f4f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     [data-theme="light"] .rb-nm{color:#1a1a1f}
@@ -13473,43 +13498,224 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      would be a lie. Initials ride on top so the row still reads as a person.
      Palette matches leaderboard.html (a rainbow was tried and rejected
      2026-07-19 for fighting the red-on-warm-paper system). */
-  var AV_PALETTE = ['#c0392b','#a8553a','#c9822e','#9c7a2e','#7d8c3f','#3f7d6a','#3d6b8c','#5a5f8c','#7a4a6b','#8c4a4a','#6b7f8c','#8a5a3a'];
   function hashStr(s){
     var h = 2166136261 >>> 0;
+    s = String(s);
     for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
     return h >>> 0;
   }
-  function avDigit(n, p){ return Math.floor((n / Math.pow(10, p)) % 10); }
-  function avUnit(n, range, idx){
-    var v = n % range;
-    if (idx && avDigit(n, idx) % 2 === 0) v = -v;
-    return v;
+  /* ── Row portraits ────────────────────────────────────────────────
+     These rows pair a real name with a real score, so the standing rule
+     (see the note above #face-wall) is that a portrait must BE the
+     debater or not be there at all. That killed the stock-face version
+     and its disclaimer footnote, and left a column of grey letters.
+
+     The way out is not a better stand-in, it is asking what the debater
+     themselves chose. Four tiers, tightest claim first:
+
+       1. photoURL      their own Google picture. A real face, theirs.
+       2. avatarIdentity the avatar they built in the designer. Also theirs.
+       3. named row     no portrait of any kind, so a generated EMBLEM:
+                        a seeded backdrop, orbital geometry and their
+                        monogram. Abstract on purpose. A procedural
+                        FACE would assign a stranger a skin tone and a
+                        hairline, which is the same invented claim in
+                        friendlier clothes.
+       4. Anonymous     a masked emblem. Five of eight rows on the board
+                        today are anonymous, and drawing a face for
+                        somebody who declined to be named asserts a
+                        person who is not there.
+
+     Everything is seeded off the uid (name as fallback), so a debater
+     keeps the same emblem across reloads and across surfaces. A portrait
+     that reshuffles on refresh reads as broken.
+
+     Zero new page weight for tiers 1, 3 and 4: photos are one <img> and
+     emblems are inline SVG. Tier 2 is the only one that needs the avatar
+     engine, so /js/avatar.js loads lazily and only when a row on the
+     board actually carries an identity to render. */
+
+  /* Backdrop pairs. Deeper and more saturated than /leaderboard's muted
+     list, which was tuned for a page of paper and went to mud at 44px.
+     Red still leads the set because it is the house colour, but a board
+     of eight needs real hue travel or every row reads as the same tile.
+     This is not the full-spectrum rainbow rejected 2026-07-19: it is a
+     jewel set with a red-family plurality, and it sits on the row's own
+     white/dark card rather than directly on the paper. */
+  var AVA_INK = [
+    ['#e0362c','#7a1410'], ['#f0603a','#8c2a12'], ['#f0912b','#8a4210'],
+    ['#d8b33a','#7d5a12'], ['#7fae3c','#2f5417'], ['#2fa88a','#0d4a3f'],
+    ['#2f97c4','#0f3f61'], ['#4763cc','#1a2668'], ['#7a55d6','#33196e'],
+    ['#c145a6','#5c1550'], ['#e0446e','#75122f'], ['#5c6b86','#232c3d'],
+    ['#c9622a','#6b2a0e'], ['#3aa657','#12522a']
+  ];
+  /* Seven geometry families, so eight rows on one board do not repeat a
+     shape. Every stroke is deliberately heavy: the first version drew
+     hairlines at 1.1-1.5 and they vanished at 44px, which is the only
+     size that matters here. Each family is one <g> the CSS animates. */
+  function avaArt(kind, num){
+    var rot = num % 360;
+    if (kind === 0){ // orbit
+      return '<g class="rb-ava-spin" style="animation-duration:' + (24 + num % 14) + 's">'
+        + '<ellipse cx="32" cy="32" rx="28" ry="12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="3" transform="rotate(' + rot + ' 32 32)"/>'
+        + '<ellipse cx="32" cy="32" rx="28" ry="12" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="3" transform="rotate(' + (rot + 58) + ' 32 32)"/>'
+        + '<circle cx="60" cy="32" r="4" fill="#fff" transform="rotate(' + rot + ' 32 32)"/></g>';
+    }
+    if (kind === 1){ // burst
+      var w = '';
+      for (var i = 0; i < 6; i++){
+        w += '<path d="M32 32 L32 -12 A44 44 0 0 1 60 4 Z" fill="rgba(255,255,255,' + (i % 2 ? '.14' : '.3') + ')" transform="rotate(' + (rot + i * 60) + ' 32 32)"/>';
+      }
+      return '<g class="rb-ava-spin" style="animation-duration:' + (34 + num % 16) + 's">' + w + '</g>';
+    }
+    if (kind === 2){ // bands
+      return '<g class="rb-ava-drift" style="animation-duration:' + (16 + num % 10) + 's">'
+        + '<path d="M-24 64 L20 -8 L36 -8 L-8 64Z" fill="rgba(255,255,255,.32)"/>'
+        + '<path d="M8 72 L52 0 L62 0 L18 72Z" fill="rgba(255,255,255,.18)"/>'
+        + '<path d="M40 72 L84 0 L92 0 L50 72Z" fill="rgba(0,0,0,.2)"/></g>';
+    }
+    if (kind === 3){ // arc stack
+      return '<g class="rb-ava-breathe" style="animation-duration:' + (8 + num % 5) + 's" transform="rotate(' + (rot % 90) + ' 32 32)">'
+        + '<circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="4" stroke-dasharray="52 200"/>'
+        + '<circle cx="32" cy="32" r="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="4" stroke-dasharray="38 200" stroke-dashoffset="20"/>'
+        + '<circle cx="32" cy="32" r="8" fill="rgba(255,255,255,.34)"/></g>';
+    }
+    if (kind === 4){ // prism
+      return '<g class="rb-ava-breathe" style="animation-duration:' + (10 + num % 6) + 's">'
+        + '<path d="M32 2 L64 58 L0 58Z" fill="rgba(255,255,255,.26)"/>'
+        + '<path d="M32 20 L50 54 L14 54Z" fill="rgba(0,0,0,.22)"/></g>';
+    }
+    if (kind === 5){ // lattice
+      var d = '';
+      for (var r = 0; r < 3; r++){
+        for (var c = 0; c < 3; c++){
+          d += '<circle cx="' + (12 + c * 20) + '" cy="' + (12 + r * 20) + '" r="' + (2 + ((num >> (r * 3 + c)) % 4))
+            + '" fill="rgba(255,255,255,' + (0.22 + ((r + c) % 3) * 0.16) + ')"/>';
+        }
+      }
+      return '<g class="rb-ava-breathe" style="animation-duration:' + (7 + num % 6) + 's">' + d + '</g>';
+    }
+    // 6: horizon
+    return '<g class="rb-ava-drift" style="animation-duration:' + (20 + num % 9) + 's">'
+      + '<circle cx="32" cy="' + (26 + num % 10) + '" r="' + (14 + num % 7) + '" fill="rgba(255,255,255,.3)"/>'
+      + '<path d="M-8 46 Q32 ' + (32 + num % 14) + ' 72 46 L72 72 L-8 72Z" fill="rgba(0,0,0,.28)"/></g>';
   }
-  function marbleAvatar(seed, label){
+  /* seed drives backdrop + geometry, label drives the monogram. `masked`
+     drops the monogram for an incognito figure. It deliberately does NOT
+     flatten the backdrop: five of eight rows on the board today are
+     anonymous, and one shared grey tile repeated five times is a worse
+     board than the initials this replaced. Each anonymous debater keeps
+     their own colour and shape and is individually recognisable; the
+     figure is what says "not named". */
+  function avaEmblem(seed, label, masked, used){
+    // 14 inks x 7 shapes is 98 combinations, which still collides across
+    // eight rows often enough to matter: two identical tiles on one board
+    // reads as a bug, and it is the same collision the retired face
+    // rotator had to probe around. Salt the seed until the pair is free.
+    // Board order is stable, so the result is stable too.
     var num = hashStr(String(seed || 'anon'));
-    var uid = 'rb' + (num >>> 0).toString(36);
-    var ini = initials(label != null ? label : seed);
-    var props = [0,1,2].map(function(i){
-      var k = num * (i + 1);
-      return {
-        color: AV_PALETTE[(num + i) % AV_PALETTE.length],
-        tx: avUnit(k, 8, 1),
-        ty: avUnit(k, 8, 2),
-        rot: avUnit(k, 360, 1),
-        scale: 1.2 + avUnit(k, 4) / 10
-      };
-    });
-    function tf(p){ return 'translate(' + p.tx + ' ' + p.ty + ') rotate(' + p.rot + ' 40 40) scale(' + p.scale + ')'; }
-    return '<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">'
-      + '<mask id="m' + uid + '" maskUnits="userSpaceOnUse" x="0" y="0" width="80" height="80"><rect width="80" height="80" rx="160" fill="#fff"/></mask>'
-      + '<g mask="url(#m' + uid + ')">'
-      + '<rect width="80" height="80" fill="' + props[0].color + '"/>'
-      + '<path filter="url(#f' + uid + ')" d="M32.414 59.35L50.376 70.5H72.5v-71H33.728L26.5 13.381l19.057 27.08L32.414 59.35z" fill="' + props[1].color + '" transform="' + tf(props[1]) + '"/>'
-      + '<path filter="url(#f' + uid + ')" style="mix-blend-mode:overlay" d="M22.216 24L0 46.75l14.108 38.129L78 86l-3.081-59.276-22.378 4.005 12.972 20.186-23.35 27.395L22.215 24z" fill="' + props[2].color + '" transform="' + tf(props[2]) + '"/>'
-      + '</g>'
-      + '<defs><filter id="f' + uid + '" x="-10" y="-10" width="100" height="100"><feGaussianBlur stdDeviation="7"/></filter></defs>'
-      + (ini ? '<text x="40" y="41" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Archivo,system-ui,sans-serif" font-size="30" font-weight="800" style="paint-order:stroke" stroke="rgba(0,0,0,.28)" stroke-width="1.2">' + esc(ini) + '</text>' : '')
+    if (used){
+      for (var salt = 0; salt < 24; salt++){
+        var key = (num % AVA_INK.length) + ':' + (num % 7);
+        if (!used[key]){ used[key] = 1; break; }
+        num = hashStr(String(seed || 'anon') + '#' + salt);
+      }
+    }
+    var id = 'rb' + num.toString(36);
+    var pair = AVA_INK[num % AVA_INK.length];
+    var ini = masked ? '' : initials(label != null ? label : seed);
+    return '<svg class="rb-ava-art" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">'
+      + '<defs><linearGradient id="g' + id + '" x1="0" y1="0" x2="1" y2="1">'
+      + '<stop offset="0" stop-color="' + pair[0] + '"/><stop offset="1" stop-color="' + pair[1] + '"/></linearGradient>'
+      + '<radialGradient id="s' + id + '" cx="50%" cy="50%" r="50%">'
+      + '<stop offset="0" stop-color="rgba(0,0,0,.45)"/><stop offset="1" stop-color="rgba(0,0,0,0)"/></radialGradient></defs>'
+      + '<rect width="64" height="64" fill="url(#g' + id + ')"/>'
+      + avaArt(num % 7, num)
+      // Scrim under the monogram only. Without it a letter can land on a
+      // white ring or a bright wedge and disappear.
+      + (masked ? '' : '<circle cx="32" cy="32" r="22" fill="url(#s' + id + ')"/>')
+      + (ini
+          ? '<text x="32" y="33" text-anchor="middle" dominant-baseline="central" fill="#fff"'
+            + ' font-family="Archivo,system-ui,sans-serif" font-size="25" font-weight="900" letter-spacing="-.5"'
+            + ' style="paint-order:stroke" stroke="rgba(0,0,0,.35)" stroke-width="1.4">' + esc(ini) + '</text>'
+          : '')
+      + (masked
+          ? '<g opacity=".8"><circle cx="32" cy="27" r="7.2" fill="#fff"/>'
+            + '<path d="M18 54c0-8 6.4-12.6 14-12.6S46 46 46 54z" fill="#fff"/>'
+            + '<rect x="23.4" y="24.2" width="17.2" height="5" rx="2.5" fill="rgba(16,14,18,.92)"/></g>'
+          : '')
       + '</svg>';
+  }
+  /* True when the row is a person who declined to be named. The API
+     passes the stored displayName through untouched, and both the
+     literal "Anonymous" and the "A debater" write-time fallback mean the
+     same thing here. */
+  function avaAnon(name){
+    var t = String(name || '').trim();
+    return !t || /^anonymous$/i.test(t) || /^a debater$/i.test(t) || /^guest$/i.test(t);
+  }
+  var avaWantsEngine = false;
+  function avaCell(r, i, used){
+    var masked = avaAnon(r && r.name);
+    var seed = (r && r.uid) || (r && r.name) || ('row' + i);
+    var emblem = avaEmblem(seed, r && r.name, masked, used);
+    var cls = 'rb-ava' + (masked ? ' rb-ava--anon' : '')
+      + (i === 1 ? ' rb-ava--silver' : i === 2 ? ' rb-ava--bronze' : '');
+    // The avatar they built comes FIRST, ahead of the Google picture,
+    // which is the order /leaderboard already uses. DBAvatar.getPublicIdentity
+    // reads saved storage and returns null when nobody ever opened the
+    // designer, so an identity on a row means a deliberate choice made
+    // for this product. A googleusercontent photo is whatever their
+    // Google account happens to carry. The emblem paints now and the
+    // engine swaps in on load, so a slow or blocked script costs texture
+    // rather than leaving a hole.
+    if (r && r.avatarIdentity){
+      avaWantsEngine = true;
+      var payload;
+      try { payload = JSON.stringify(r.avatarIdentity); } catch (e) { payload = ''; }
+      if (payload){
+        return '<span class="' + cls + '" data-rb-identity="' + esc(payload) + '"'
+          + ' data-rb-uid="' + esc(seed) + '">' + emblem + '</span>';
+      }
+    }
+    // Their own photo. onerror is load-bearing: googleusercontent URLs go
+    // stale when an account changes its picture, and without the swap a
+    // dead one leaves an empty box on the top row of the board.
+    if (r && r.photoURL){
+      return '<span class="' + cls + ' rb-ava--photo"><img src="' + esc(r.photoURL) + '" alt="" loading="lazy" decoding="async"'
+        + ' referrerpolicy="no-referrer" onerror="this.parentNode.removeChild(this)">'
+        + emblem + '</span>';
+    }
+    return '<span class="' + cls + '">' + emblem + '</span>';
+  }
+  /* Load the avatar engine only when a row on the board actually carries
+     a built identity to render. It is ~27KB gzipped and this is the
+     highest-traffic page on the site, so it must not ride along for a
+     board of monograms. */
+  function avaUpgrade(host){
+    var cells = host.querySelectorAll('[data-rb-identity]');
+    if (!cells.length) return;
+    function paint(){
+      if (!window.DBAvatar || !DBAvatar.publicSvg) return;
+      Array.prototype.forEach.call(cells, function(cell){
+        var id;
+        try { id = JSON.parse(cell.getAttribute('data-rb-identity')); } catch (e) { return; }
+        var markup;
+        try { markup = DBAvatar.publicSvg(id, '100%', { uid: cell.getAttribute('data-rb-uid') }); } catch (e) { return; }
+        if (markup) cell.innerHTML = markup;
+      });
+    }
+    if (window.DBAvatar) { paint(); return; }
+    if (document.querySelector('script[data-rb-avatar]')) {
+      document.addEventListener('dbav-ready', paint, { once: true });
+      return;
+    }
+    var tag = document.createElement('script');
+    tag.src = '/js/avatar.js';
+    tag.defer = true;
+    tag.setAttribute('data-rb-avatar', '1');
+    tag.onload = function(){ paint(); try { document.dispatchEvent(new Event('dbav-ready')); } catch (e) {} };
+    document.head.appendChild(tag);
   }
   // Every row gets a portrait from the shared 42-face bank, picked by a
   // stable hash of the name so a given debater keeps the same face across
@@ -13614,6 +13820,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
       + (!sample && total > n ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
       + '</span><div class="rb-board">';
+    avaWantsEngine = false; // renderBoard runs twice (sample, then real rows)
+    var avaUsed = {};           // ink+shape pairs already spent on this board
     for (var i = 0; i < n; i++){
       var r = rows[i];
       var isRated = r.kind === 'rating' && typeof r.rating === 'number';
@@ -13663,7 +13871,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         : '/leaderboard?challenge=1';
       html += '<div class="rb-row' + (i === 0 ? ' rb-row--top' : '') + '" data-href="/leaderboard" data-rb="leaderboard-row">'
         + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
-        + '<span class="rb-ava">' + esc(initialsFor(r.name)) + '</span>'
+        + avaCell(r, i, avaUsed)
         + '<span class="rb-who"><span class="rb-nm">' + esc(r.name)
         + (i === 0 ? ' <span class="rb-top-tag">' + (isRated ? 'Top rated' : 'Top speaker') + '</span>' : '') + '</span>'
         + '<span class="rb-tags"><span class="rb-chip">' + esc(fmt) + '</span>'
@@ -13685,6 +13893,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       + '</a></div>'
       ;
     host.innerHTML = html;
+    if (avaWantsEngine) avaUpgrade(host);
   }
   var fired = false;
   function loadOnce(){

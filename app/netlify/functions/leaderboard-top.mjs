@@ -16,7 +16,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v2'; // v2: payload gained realRows; the shared cache survives deploys, so the old key would serve the old shape for a TTL
+const CACHE_KEY = 'leaderboard-top-v3'; // v3: rows gained photoURL + avatarIdentity. The shared cache survives a deploy, so an unchanged key would keep serving portrait-less rows for a full TTL after ship
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
 const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to reach real
                                       // entries below the 48 seeds (realRows scans the same
@@ -27,6 +27,56 @@ const REAL_ROWS = 5;                  // real, named people only. Its one consum
                                       // shipping; the field stays because it is the correct
                                       // source for any future real-names-only surface. Never
                                       // build one on the mixed `rows` field.
+
+// A debater's own face, and nothing else. Two fields reach the landing
+// band and both are things the person chose for themselves: the Google
+// photo already on their account, or the avatar they built in the
+// designer. Neither is a stand-in. The standing rule on a row that
+// carries somebody's name and score is that a portrait must BE them or
+// not be there, so anything that fails these checks resolves to null and
+// the row falls back to initials.
+//
+// photoURL is host-pinned to googleusercontent, matching the same check
+// /leaderboard already applies before rendering one client-side. An
+// arbitrary URL here would let a stored value point the homepage at any
+// host on the internet.
+function safePhoto(value) {
+  const raw = String(value || '');
+  if (raw.length > 500) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:') return null;
+    const host = url.hostname.toLowerCase();
+    if (host !== 'googleusercontent.com' && !host.endsWith('.googleusercontent.com')) return null;
+    return url.href;
+  } catch { return null; }
+}
+
+// avatarIdentity is rendered by DBAvatar.publicSvg on the client, which
+// reads only these keys. Passing the stored object through whole would
+// forward whatever else a client happened to write into the doc, so the
+// shape is rebuilt here from an allow-list rather than filtered.
+const IDENTITY_STR = (v) => (typeof v === 'string' && v.length <= 24 ? v : undefined);
+const IDENTITY_NUM = (v) => (typeof v === 'number' && v >= 0 && v < 64 ? v : undefined);
+function safeIdentity(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.kind === 'live' && value.design && typeof value.design === 'object') {
+    const d = value.design;
+    return { kind: 'live', design: {
+      scene: IDENTITY_STR(d.scene), accent: IDENTITY_STR(d.accent),
+      outfit: IDENTITY_STR(d.outfit), mask: IDENTITY_STR(d.mask), eyes: IDENTITY_STR(d.eyes),
+    } };
+  }
+  if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
+    const c = value.config, out = {};
+    for (const k of ['face','skin','hair','top','eyes','brows','mouth','facial','glasses','accessory','iris','detail','bg','outfit']) {
+      const n = IDENTITY_NUM(c[k]);
+      if (n !== undefined) out[k] = n;
+    }
+    return Object.keys(out).length ? { kind: 'portrait', config: out } : null;
+  }
+  return null;
+}
 
 function emptyPayload(error) {
   const out = { rows: [], total: 0, at: Date.now() };
@@ -84,6 +134,11 @@ export default async (request) => {
       wins: r.wins,
       losses: r.losses,
       uid: r.uid,
+      // rating-board already reads both off user_profiles; they were
+      // being dropped here, so a rated debater with a picture still
+      // rendered as two grey letters on the landing.
+      photoURL: safePhoto(r.photoURL),
+      avatarIdentity: safeIdentity(r.avatarIdentity),
     }));
 
     const snap = entriesResult.status === 'fulfilled' ? entriesResult.value : { forEach() {} };
@@ -135,6 +190,11 @@ export default async (request) => {
         // leaderboard_entries is publicly readable, so this exposes
         // nothing /leaderboard doesn't already render client-side.
         uid: (d.seed !== true && typeof d.uid === 'string' && d.uid.length >= 8) ? d.uid : null,
+        // The debater's own portrait, when they have one. Seed rows are
+        // excluded from both: a seed is not a person, so it has nobody's
+        // face to show.
+        photoURL: d.seed === true ? null : safePhoto(d.photoURL),
+        avatarIdentity: d.seed === true ? null : safeIdentity(d.avatarIdentity),
       });
     });
 
