@@ -12360,21 +12360,31 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // full viewport, centered on the page instead of left-shifted.
     el('div', { style: { position: 'sticky', top: 64, zIndex: 40, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', padding: '10px 12px', margin: '0 calc(-50vw + 50%) 24px', background: 'rgba(15,15,18,.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--c-border2)', borderBottom: '1px solid var(--c-border2)' } },
     [
+    // `shown` styles a pill as available. It used to style it ONLY:
+    // every pill stayed clickable, and Patterns and Practice do not
+    // exist in the document until you have three rounds behind you, so
+    // clicking either one called scrollIntoView on null and nothing
+    // happened at all. A control that looks pressable, is pressed, and
+    // does nothing reads as a broken page. A pill with nothing to jump
+    // to is now genuinely inert: not a link, not focusable, and it says
+    // why on hover.
     { id: 'fb-ballot', label: audienceCopy('Ballot', 'Feedback'), shown: true },
-    { id: 'fb-flow', label: audienceCopy('Flow', 'Arguments'), shown: !!flowSheet },
-    { id: 'fb-patterns', label: 'Patterns', shown: !!patterns },
-    { id: 'fb-drill', label: audienceCopy('Drill', 'Practice'), shown: !!drillPlan && !drillPlan.error },
+    { id: 'fb-flow', label: audienceCopy('Flow', 'Arguments'), shown: !!flowSheet, why: 'Generate the flow sheet further down to fill this in.' },
+    { id: 'fb-patterns', label: 'Patterns', shown: !!patterns, why: 'Patterns appear once you have three rounds on record.' },
+    { id: 'fb-drill', label: audienceCopy('Drill', 'Practice'), shown: !!drillPlan && !drillPlan.error, why: 'A drill is built from your patterns, so it needs three rounds first.' },
     { id: 'fb-transcript', label: 'Transcript', shown: true }].
-    map((p) => el('a', {
+    map((p) => el(p.shown ? 'a' : 'span', {
       key: p.id,
-      href: '#' + p.id,
-      onClick: (e) => {e.preventDefault();var t = document.getElementById(p.id);if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });},
+      href: p.shown ? '#' + p.id : undefined,
+      title: p.shown ? undefined : p.why,
+      'aria-disabled': p.shown ? undefined : 'true',
+      onClick: p.shown ? (e) => {e.preventDefault();var t = document.getElementById(p.id);if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });} : undefined,
       style: {
         padding: '6px 12px', borderRadius: 999, fontSize: '.7rem', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', textDecoration: 'none',
         background: p.shown ? 'rgba(239,68,68,.12)' : 'transparent',
         border: '1px solid ' + (p.shown ? 'rgba(239,68,68,.35)' : 'var(--c-border2)'),
         color: p.shown ? '#fca5a5' : 'var(--c-muted)',
-        opacity: p.shown ? 1 : 0.55, cursor: 'pointer'
+        opacity: p.shown ? 1 : 0.55, cursor: p.shown ? 'pointer' : 'default'
       }
     }, p.label))
     ),
@@ -12865,11 +12875,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
 
     // The full written ballot — long-form RFD (fullWrittenBallot
     // prompt). Fired after the JSON ballot lands; streams in here.
-    (deepBallot || deepBallotLoading) && el('div', { style: { padding: '18px 22px', background: 'var(--c-surface)', border: '1px solid rgba(212,175,55,.28)', borderRadius: 14, marginBottom: 20 } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#d4af37', marginBottom: 8 } }, 'The Full Ballot'),
+    // COLLAPSED BY DEFAULT (2026-08-23): this is 700-1300 words and it
+    // used to unroll in place, so the page went from a verdict you
+    // could read to a wall you had to scroll past to reach anything
+    // else. It is the best thing on the page for the person who wants
+    // it and the reason the page read as too much for everyone else,
+    // which is exactly what a disclosure is for. Nothing is removed.
+    (deepBallot || deepBallotLoading) && el('details', { style: { padding: '14px 18px', background: 'var(--c-surface)', border: '1px solid rgba(212,175,55,.28)', borderRadius: 14, marginBottom: 20 } },
+    el('summary', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#d4af37', cursor: 'pointer', listStyle: 'none' } },
+    deepBallot ? 'The full ballot, in the judge’s words' : 'The full ballot is being written'
+    ),
+    el('div', { style: { marginTop: 12 } },
     deepBallot ?
     el('div', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.65, whiteSpace: 'pre-wrap' } }, deepBallot) :
     el('p', { style: { fontSize: '.8rem', color: 'var(--c-muted)' } }, 'The judge is writing the full ballot. It lands here in under a minute; the verdict above is final.')
+    )
     ),
 
     // Per-speech breakdown
