@@ -103,8 +103,10 @@ const PRESENCE_BASELINE = Math.max(
   parseInt(process.env.PRESENCE_BASELINE ?? '200', 10) || 0
 );
 
-// 2026-08-22 (Aidan's call, same posture as PRESENCE_BASELINE): the landing
-// caption gets a second line, Google sign-ups, padded by a constant floor.
+// 2026-08-22 (Aidan's call, same posture as PRESENCE_BASELINE): a Google
+// sign-ups figure, padded by a constant floor. NOTE, same day: the landing
+// caption that rendered it was removed hours later, so the field currently
+// has NO consumer; it stays for any future surface that wants it.
 // `signups` in the payload = (real count of Firebase Auth accounts whose
 // providers include google.com) + SIGNUP_BASELINE. The REAL count is always
 // signups - SIGNUP_BASELINE; nothing on /admin reads this field, and the
