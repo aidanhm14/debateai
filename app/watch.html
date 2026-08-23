@@ -162,6 +162,24 @@ html.dbnative .page-head{padding-top:20px}
   padding:10px 16px;border-radius:10px;background:rgba(12,12,14,.86);
   color:#f5efe7;font-size:.92rem;line-height:1.45;pointer-events:none}
 .buffer-note.on{display:block}
+/* The sign-in gate, drawn over the player rather than instead of it, so
+   the round the visitor picked is still on screen while they are asked
+   for an account. Colours pinned light-on-dark like the buffer note:
+   the video pane is black in every theme. */
+/* The gate shows on a player that has NO source yet (we refuse before
+   setting src), and a sourceless <video> collapses to about 32px, which
+   made the panel render as a sliver. Measured, not guessed. So the wrap
+   holds a video-shaped box for as long as the gate is up. */
+.player-wrap.gated{aspect-ratio:16/9;background:#000;max-height:66vh}
+.player-wrap.gated video{height:100%}
+.play-gate{position:absolute;inset:0;z-index:7;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:11px;text-align:center;
+  padding:clamp(16px,4vw,36px);background:rgba(8,8,10,.88);color:#f0ede6}
+.play-gate.on{display:flex}
+.play-gate h3{margin:0;font-size:clamp(17px,3vw,23px);font-weight:800}
+.play-gate p{margin:0;max-width:420px;font-size:15px;line-height:1.5;color:rgba(240,237,230,.78)}
+.play-gate .btn{background:var(--red);border-color:var(--red);color:#fff;margin-top:4px}
+.play-gate .btn:hover{background:var(--red-deep)}
 .verdict-reveal{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
   /* flex-start + .vr-inner{margin:auto}, NOT justify-content:center:
      centering an overflowing flex column clips its top edge, which is
@@ -410,6 +428,35 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
    underneath, no play mark, no duration badge implying video). */
 .card.still{cursor:default}
 .card.still:hover .thumb{border-radius:12px}
+/* The stills are raw webcam grabs while the published recordings carry
+   the branded round board, so the grid read as two different products
+   stacked on each other. This is the shared treatment that makes one
+   grid out of them: the same wash, the same tag position, and a slight
+   desaturation so a bright kitchen window does not outshine a card that
+   actually has a round behind it. */
+.card.still .th-img{filter:saturate(.88) contrast(1.03) brightness(.94)}
+
+/* ── "Dropping soon".
+   A round held back is not deleted and not hidden: the card, the motion
+   and the frame stay on the grid under a watermark, because an empty
+   shelf and a shelf that says "more coming" are different promises. The
+   watermark sits ON the image rather than replacing it, so the card
+   still shows what is coming. Applied two ways, and they must look
+   identical: `.soon` on a static still authored in this file, and the
+   server's `teaser` flag on a real recording. */
+.thumb.soon::after{content:"";position:absolute;inset:0;z-index:3;background:rgba(8,8,10,.58)}
+.th-soon{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;
+  pointer-events:none}
+.th-soon span{font-size:clamp(11px,2.4vw,15px);font-weight:900;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.94);transform:rotate(-7deg);text-align:center;line-height:1.1;
+  border:2.5px solid rgba(255,255,255,.6);border-radius:9px;padding:7px 14px;
+  text-shadow:0 2px 10px rgba(0,0,0,.5)}
+/* Nothing to click into: no play mark, no hover squaring, no pointer. */
+.card.soon{cursor:default}
+.card.soon:hover .thumb{border-radius:12px}
+.card.soon .th-play{display:none}
+.card.soon:hover .th-img{opacity:1}
+.card.soon h3{color:var(--dim)}
 .empty{color:var(--faint);font-size:16px;padding:26px;border:1px dashed var(--border);border-radius:var(--radius);text-align:center}
 
 /* ── STATIC EXPLAINER BLOCKS ───────────────────────────────────────
@@ -483,7 +530,7 @@ footer a{color:var(--dim)}
       {
         "@type": "Question",
         "name": "Do I need an account to watch?",
-        "acceptedAnswer": { "@type": "Answer", "text": "A stream playing on this page plays as is. Taking a viewer seat inside a scheduled round means signing in, because each room holds a limited number of people and the seat is held for you." }
+        "acceptedAnswer": { "@type": "Answer", "text": "For a full round, yes. Playing a published replay takes a free account, and so does taking a viewer seat inside a scheduled round, because each room holds a limited number of people. A tournament stream playing on this page plays as is. An account costs nothing and takes about ten seconds." }
       },
       {
         "@type": "Question",
@@ -553,9 +600,14 @@ footer a{color:var(--dim)}
       <button class="btn" id="closePlayer" type="button">Close</button>
       <div class="player-meta" id="playerMeta"></div>
     </div>
-    <div class="player-wrap">
+    <div class="player-wrap" id="playerWrap">
       <video id="player" controls playsinline preload="metadata"></video>
       <div class="buffer-note" id="bufferNote" aria-live="polite"></div>
+      <div class="play-gate" id="playGate" aria-live="polite">
+        <h3 id="playGateTitle">Sign in to watch the round</h3>
+        <p id="playGateBody">Full rounds are for members. An account is free and takes about ten seconds, and it keeps your own rounds and ballots too.</p>
+        <button class="btn" id="playGateBtn" type="button">Sign in and watch</button>
+      </div>
       <div class="verdict-reveal" id="verdictReveal" aria-live="polite"></div>
     </div>
     <div class="clip-note" id="clipNote">
@@ -622,32 +674,12 @@ footer a{color:var(--dim)}
       </div>
       <div class="card still">
         <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/e4f66ee4-2877-4962-a61c-9d3be5bddf34.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Quick</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would recognize Taiwan as an independent state</h3>
-          <div class="foot"><span>Yuna N. vs Debate M.</span><span>Aug 16, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
           <img class="th-img" src="/assets/replays/6ac54034-4b19-4cf9-81a8-f80eca3eff02.jpg" alt="" loading="lazy" decoding="async">
           <span class="th-tag">APDA</span>
         </div>
         <div class="card-body">
           <h3>This House would recognize Taiwan as an independent state</h3>
           <div class="foot"><span>Cleo A. vs Debate M.</span><span>Aug 15, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/b630edf6-c659-424d-a148-329a38fb81d6.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Quick</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would recognize Taiwan as an independent state</h3>
-          <div class="foot"><span>Nia I. vs Sasha S.</span><span>Aug 15, 2026</span></div>
         </div>
       </div>
       <div class="card still">
@@ -662,16 +694,6 @@ footer a{color:var(--dim)}
       </div>
       <div class="card still">
         <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/1116076d-d51f-467f-be01-bff2a1154212.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Quick</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would ban private jet ownership</h3>
-          <div class="foot"><span>Ravi G. vs Zoya K.</span><span>Aug 15, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
           <img class="th-img" src="/assets/replays/1a35d7af-df86-4c08-81d4-72b3c2d68a29.jpg" alt="" loading="lazy" decoding="async">
           <span class="th-tag">Quick</span>
         </div>
@@ -680,14 +702,54 @@ footer a{color:var(--dim)}
           <div class="foot"><span>Cleo A. vs Ravi G.</span><span>Aug 15, 2026</span></div>
         </div>
       </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
+
+      <!-- Held back under the watermark. These four are the redundant
+           half of the still set: two of the three Taiwan rounds (the
+           third stays above, as the APDA one), plus two more. The card
+           keeps its motion and its frame so the grid still reads as a
+           library filling up, rather than going half empty. -->
+      <div class="card still soon">
+        <div class="thumb soon" aria-hidden="true">
+          <img class="th-img" src="/assets/replays/e4f66ee4-2877-4962-a61c-9d3be5bddf34.jpg" alt="" loading="lazy" decoding="async">
+          <span class="th-tag">Quick</span>
+          <span class="th-soon"><span>Dropping soon</span></span>
+        </div>
+        <div class="card-body">
+          <h3>This House would recognize Taiwan as an independent state</h3>
+          <div class="foot"><span>Yuna N. vs Debate M.</span><span>Dropping soon</span></div>
+        </div>
+      </div>
+      <div class="card still soon">
+        <div class="thumb soon" aria-hidden="true">
+          <img class="th-img" src="/assets/replays/b630edf6-c659-424d-a148-329a38fb81d6.jpg" alt="" loading="lazy" decoding="async">
+          <span class="th-tag">Quick</span>
+          <span class="th-soon"><span>Dropping soon</span></span>
+        </div>
+        <div class="card-body">
+          <h3>This House would recognize Taiwan as an independent state</h3>
+          <div class="foot"><span>Nia I. vs Sasha S.</span><span>Dropping soon</span></div>
+        </div>
+      </div>
+      <div class="card still soon">
+        <div class="thumb soon" aria-hidden="true">
+          <img class="th-img" src="/assets/replays/1116076d-d51f-467f-be01-bff2a1154212.jpg" alt="" loading="lazy" decoding="async">
+          <span class="th-tag">Quick</span>
+          <span class="th-soon"><span>Dropping soon</span></span>
+        </div>
+        <div class="card-body">
+          <h3>This House would ban private jet ownership</h3>
+          <div class="foot"><span>Ravi G. vs Zoya K.</span><span>Dropping soon</span></div>
+        </div>
+      </div>
+      <div class="card still soon">
+        <div class="thumb soon" aria-hidden="true">
           <img class="th-img" src="/assets/replays/67b5b372-777e-4719-bb79-be5b450d88b5.jpg" alt="" loading="lazy" decoding="async">
           <span class="th-tag">Quick</span>
+          <span class="th-soon"><span>Dropping soon</span></span>
         </div>
         <div class="card-body">
           <h3>This House would scrap legacy admissions at universities</h3>
-          <div class="foot"><span>Ren R. vs Zoya K.</span><span>Aug 15, 2026</span></div>
+          <div class="foot"><span>Ren R. vs Zoya K.</span><span>Dropping soon</span></div>
         </div>
       </div>
     </div>
@@ -769,7 +831,7 @@ footer a{color:var(--dim)}
       </div>
       <div class="faq-q">
         <h3>Do I need an account to watch?</h3>
-        <p>A stream playing on this page plays as is. Taking a viewer seat inside a scheduled round means signing in, because each room holds a limited number of people and the seat is held for you.</p>
+        <p>For a full round, yes. Playing a published replay takes a free account, and so does taking a viewer seat inside a scheduled round, because each room holds a limited number of people. A tournament stream playing on this page plays as is. An account costs nothing and takes about ten seconds.</p>
       </div>
       <div class="faq-q">
         <h3>Are these real people or AI?</h3>
@@ -887,7 +949,18 @@ footer a{color:var(--dim)}
       syncOwnerUI();
     }).catch(function(){});
   }
-  if (auth) auth.onAuthStateChanged(checkAdmin);
+  if (auth) auth.onAuthStateChanged(function(user){
+    checkAdmin(user);
+    // Someone who signed in FROM the gate came here to watch one
+    // specific round, so finish the job rather than leaving them looking
+    // at a dismissed panel and a black frame. Guarded on the gate
+    // actually being up, so a background sign-in never reopens a round
+    // the visitor already closed.
+    if (user && !user.isAnonymous && current && !current.teaser &&
+        $('playGate').classList.contains('on')){
+      openRecording(current, activeClip);
+    }
+  });
 
   // ── Live stream band ─────────────────────────────────────────────
   var liveWasOn = false;
@@ -944,9 +1017,38 @@ footer a{color:var(--dim)}
     return bits.join(' · ');
   }
 
+  // ── The sign-in gate on playback ─────────────────────────────────
+  // Metadata stays open (the grid, the titles, the thumbnails are the
+  // pitch); the video is the product and takes a named account. The
+  // server is the enforcement, this is the part that makes it a door
+  // rather than a wall: a 401 opens the chooser instead of rendering an
+  // error nobody can act on.
+  function isNamedUser(){
+    // An anonymous Firebase user is "has a browser", not an account.
+    // Several shared scripts sign nearly every visitor in anonymously,
+    // so `!!currentUser` is the trap here, not the check.
+    var u = auth && auth.currentUser;
+    return !!(u && !u.isAnonymous);
+  }
+  function authHeader(){
+    if (!isNamedUser()) return Promise.resolve(null);
+    return auth.currentUser.getIdToken()
+      .then(function(t){ return { 'Authorization': 'Bearer ' + t }; })
+      .catch(function(){ return null; });
+  }
   function fetchLink(recId){
-    return fetch('/api/recordings?id=' + encodeURIComponent(recId) + '&link=1')
-      .then(function(r){ if (!r.ok) throw new Error('link'); return r.json(); });
+    return authHeader().then(function(h){
+      return fetch('/api/recordings?id=' + encodeURIComponent(recId) + '&link=1',
+                   h ? { headers: h } : undefined);
+    }).then(function(r){
+      if (r.status === 401){
+        var e = new Error('SIGN_IN_REQUIRED');
+        e.needsSignIn = true;
+        throw e;
+      }
+      if (!r.ok) throw new Error('link');
+      return r.json();
+    });
   }
 
   // ── Buffering feedback.
@@ -997,6 +1099,29 @@ footer a{color:var(--dim)}
       $('bufferNote').classList.add('on');
     });
   })();
+
+  // ── The gate panel ───────────────────────────────────────────────
+  // Two states share it: "sign in" (there is a file, you need an
+  // account) and "dropping soon" (there is no file yet). The second
+  // passes no button label, because a button that signs you in for
+  // nothing is worse than no button.
+  function showGate(title, body, btnLabel){
+    $('playGateTitle').textContent = title;
+    $('playGateBody').textContent = body;
+    var b = $('playGateBtn');
+    b.style.display = btnLabel ? '' : 'none';
+    if (btnLabel) b.textContent = btnLabel;
+    $('playGate').classList.add('on');
+    $('playerWrap').classList.add('gated');
+  }
+  function hideGate(){
+    $('playGate').classList.remove('on');
+    $('playerWrap').classList.remove('gated');
+  }
+  $('playGateBtn').addEventListener('click', function(){
+    try { gtag('event', 'watch_signin_gate_click'); } catch(e){}
+    signIn();
+  });
 
   // ── Verdict reveal, played when a replay finishes.
   // Recordings stop at the last speech, so a replay used to end on a
@@ -1126,6 +1251,7 @@ footer a{color:var(--dim)}
 
   function openRecording(rec, clip){
     hideVerdict();
+    hideGate();
     current = rec;
     activeClip = clip || null;
     marks = { start: null, end: null };
@@ -1166,8 +1292,17 @@ footer a{color:var(--dim)}
         })
         .catch(function(){ /* no verdict card, playback is unaffected */ });
     }
-    fetchLink(rec.id).then(function(l){
+    // A held-back round never reaches the network: it has no file, so a
+    // request would 404 and the gate would ask for an account that
+    // unlocks nothing. Reachable by deep link (/watch?r={id}) rather than
+    // from the grid, where a teaser card does not open anything.
+    if (rec.teaser){
+      showGate('Dropping soon',
+        'This round is queued for release. It plays here when it goes up.',
+        null);
+    } else fetchLink(rec.id).then(function(l){
       currentLink = l;
+      hideGate();
       // Anonymous CORS mode, so the owner thumbnail picker can read the
       // frame on screen onto a canvas instead of the server having to
       // seek a fragmented mp4 by byte range. Daily's CDN answers with
@@ -1185,7 +1320,14 @@ footer a{color:var(--dim)}
         });
       }
       player.load();
-    }).catch(function(){
+    }).catch(function(e){
+      if (e && e.needsSignIn){
+        showGate('Sign in to watch the round',
+          'Full rounds are for members. An account is free and takes about ten seconds, and it keeps your own rounds and ballots too.',
+          'Sign in and watch');
+        try { gtag('event', 'watch_signin_gate', { id: rec.id }); } catch(e2){}
+        return;
+      }
       $('playerMeta').textContent = 'Playback is not available for this recording right now. Try again in a minute.';
     });
     loadClips(rec.id);
@@ -1234,6 +1376,7 @@ footer a{color:var(--dim)}
 
   function closePlayer(){
     hideVerdict();
+    hideGate();
     $('player').pause();
     $('playerCard').classList.remove('on');
     $('clipsSec').style.display = 'none';
@@ -1473,11 +1616,16 @@ footer a{color:var(--dim)}
     var tag = rec.isStream
       ? '<span class="th-tag stream">Stream</span>'
       : '<span class="th-tag">' + esc((rec.format || 'round').toUpperCase()) + '</span>';
-    return '<div class="thumb" aria-hidden="true">' +
+    // A held-back round shows its frame under the watermark and drops the
+    // duration: a runtime on a card nobody can play is a promise about a
+    // file that is not being served.
+    return '<div class="thumb' + (rec.teaser ? ' soon' : '') + '" aria-hidden="true">' +
         '<div class="th-stage">' + stage + '</div>' +
         thFrameImg(rec.id, rec.thumbV) +
         tag +
-        (rec.duration ? '<span class="th-dur">' + fmtTime(rec.duration) + '</span>' : '') +
+        (rec.teaser
+          ? '<span class="th-soon"><span>Dropping soon</span></span>'
+          : (rec.duration ? '<span class="th-dur">' + fmtTime(rec.duration) + '</span>' : '')) +
         '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
       '</div>';
   }
@@ -1587,7 +1735,7 @@ footer a{color:var(--dim)}
     // site pointed at it. A real href also means cmd-click and
     // middle-click open the standalone page, which a button swallowed.
     var a = document.createElement('a');
-    a.className = 'card';
+    a.className = 'card' + (rec.teaser ? ' soon' : '');
     a.href = '/w/' + encodeURIComponent(rec.id);
     // Format tag and duration live on the thumbnail, so the body carries
     // what a video card carries: title, then who argued, then when.
@@ -1599,7 +1747,7 @@ footer a{color:var(--dim)}
           '<h3>' + esc(rec.title) + '</h3>' +
           '<div class="foot">' +
             '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : 'Debatable') + '</span>' +
-            '<span>' + timeAgo(rec.startTs) + '</span>' +
+            '<span>' + (rec.teaser ? 'Dropping soon' : timeAgo(rec.startTs)) + '</span>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1610,6 +1758,11 @@ footer a{color:var(--dim)}
       // faster path when someone is browsing several replays.
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
       e.preventDefault();
+      // A held-back round opens nothing on a plain click, matching the
+      // static stills it sits beside: the card reads as not-clickable and
+      // has to behave that way. The href still works for a deliberate
+      // new-tab, which lands on the "Dropping soon" page.
+      if (rec.teaser) return;
       openRecording(rec, null);
       try { history.replaceState(null, '', '/watch?r=' + encodeURIComponent(rec.id)); } catch(e2){}
     });

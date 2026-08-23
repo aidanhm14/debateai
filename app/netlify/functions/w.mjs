@@ -20,12 +20,27 @@
 //    VideoObject.contentUrl possible: the address never changes even
 //    though the signed URL behind it changes every time.
 //
-// It also means the page needs no JavaScript to play: <video src> follows
-// the 302 on its own, including the Range requests it makes while seeking.
-//
 // Only `published === true` recordings render. Everything else 404s
 // identically, so the endpoint does not leak which ids exist, and Google
 // never sees a URL for a round the debaters did not agree to publish.
+//
+// WATCHING REQUIRES A SIGNED-IN ACCOUNT (2026-08-23). This page used to
+// play with no JavaScript at all: <video src="/w/{id}/play"> followed the
+// 302 by itself. That is exactly why the gate had to land here and not
+// only on /api/recordings — a media element cannot carry an Authorization
+// header, so leaving this path open would have left a second door around
+// the gate, which is the "one selector wide" failure this log keeps
+// recording. So the Daily-backed player is replaced by the poster plus a
+// sign-in panel that routes to /watch?r={id}, where the JS player holds a
+// real token, and /play refuses outright.
+//
+// What that costs, stated rather than discovered later: `contentUrl` is
+// gone from the VideoObject for Daily-backed rounds, so those are valid
+// schema but not rich-result eligible. Near-zero today, because the same
+// rounds already lacked a representative thumbnail (see thumbsFor), which
+// disqualified them anyway. A round with a `youtubeId` keeps its embed
+// and its full markup: that video is already public on YouTube, so
+// gating our copy of it would be theatre rather than a gate.
 
 import { getDb } from './lib/firestore.mjs';
 import { esc, jsonLd } from './lib/public-round.mjs';
@@ -138,9 +153,40 @@ function humanDate(startTs) {
   });
 }
 
+// The refusal /play now answers with. It is a page rather than a bare
+// status because the thing that follows this URL is sometimes a person in
+// an address bar, and "401" on its own tells them nothing about what to
+// do next.
+function playGated(id) {
+  const body = `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in to watch · Debatable</title>
+<meta name="robots" content="noindex">
+<style>body{background:#0b0b0d;color:#f4f4f2;font-family:system-ui,sans-serif;margin:0;padding:80px 24px;text-align:center}
+h1{font-size:1.6rem;margin-bottom:8px}p{color:rgba(244,244,242,.68);margin:0 0 20px}
+a{color:#ef4444;text-decoration:none;font-weight:700}</style>
+</head><body>
+<h1>Rounds are for members</h1>
+<p>Watching a full round takes a free account. It takes about ten seconds.</p>
+<a href="/watch?r=${encodeURIComponent(id)}">Sign in and watch &rarr;</a>
+</body></html>`;
+  return new Response(body, {
+    status: 401,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
+// DORMANT since the sign-in gate above: nothing calls this, and reopening
+// the no-JS path is one line in the handler. Kept rather than deleted
+// because it holds the mp4Url-beats-Daily preference and the
+// never-cache-an-expiring-link rule, both of which were measured.
+//
 // A short-lived Daily access link, minted per request. Never cached at the
 // edge: the URL it returns expires, so a CDN copy would hand a visitor a
 // dead link long after it stopped working.
+// eslint-disable-next-line no-unused-vars
 async function playRedirect(id, d) {
   // A rehosted transcode wins when there is one. Daily encodes the raw
   // recording at whatever bitrate it likes (measured 3.1 Mbps on a real
@@ -192,6 +238,7 @@ export function renderPage(id, d) {
   const youtubeId = safeYoutubeId(d.youtubeId);
   const thumbs = thumbsFor(d, youtubeId);
   const thumb = thumbs[0];
+  const teaser = d.teaser === true;
 
   const facts = [formatName, dateHuman, durHuman].filter(Boolean);
   const versus = pro && con ? `${pro} against ${con}` : '';
@@ -211,7 +258,9 @@ export function renderPage(id, d) {
     // Both when we have both. contentUrl is the authoritative full round
     // (the Daily mp4 behind the stable /play address); embedUrl is the
     // YouTube player. Google accepts either and prefers having both.
-    contentUrl: playUrl,
+    // contentUrl ONLY for a round that is genuinely fetchable at that
+    // address. Publishing a contentUrl that answers 401 to every crawl
+    // is a claim we do not honour, which is worse than omitting it.
     ...(youtubeId ? { embedUrl: `https://www.youtube.com/embed/${youtubeId}` } : {}),
     // uploadDate is required by Google. Omit the key entirely rather than
     // publish a guessed date for a recording with no start timestamp.
@@ -270,7 +319,7 @@ export function renderPage(id, d) {
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700;800;900&display=swap">
-<script type="application/ld+json">${jsonLd(ldVideo)}</script>
+${teaser ? '' : `<script type="application/ld+json">${jsonLd(ldVideo)}</script>`}
 <script type="application/ld+json">${jsonLd(ldBreadcrumb)}</script>
 <style>
 :root{color-scheme:dark;--bg:#0b0b0d;--surface:#141417;--border:rgba(255,255,255,.08);
@@ -296,6 +345,24 @@ video{width:100%;margin-top:22px;background:#000;border:1px solid var(--border);
 .embed{margin-top:22px;aspect-ratio:16/9;background:#000;border:1px solid var(--border);
   border-radius:var(--radius);overflow:hidden}
 .embed iframe{width:100%;height:100%;border:0;display:block}
+/* The gate. The poster carries the round so the page still LOOKS like a
+   video, with the ask sitting over it rather than replacing it. */
+.gate{position:relative;margin-top:22px;aspect-ratio:16/9;border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;background:#000 center/cover no-repeat}
+.gate::after{content:"";position:absolute;inset:0;background:rgba(8,8,10,.72)}
+.gate-in{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;text-align:center;padding:22px}
+.gate-in h2{margin:0;font-size:clamp(18px,3vw,24px);font-weight:800}
+.gate-in p{margin:0;max-width:420px;font-size:15px}
+.gate-btn{margin-top:6px;display:inline-block;background:var(--red);color:#fff;
+  padding:11px 22px;border-radius:11px;font-size:16px;font-weight:800;text-decoration:none}
+.gate-btn:hover{background:#dc2626;text-decoration:none}
+/* Dropping soon. Same frame, a watermark instead of an ask, because
+   there is nothing to sign in FOR yet. */
+.soon-mark{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center}
+.soon-mark span{font-size:clamp(20px,4.4vw,38px);font-weight:900;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.9);transform:rotate(-8deg);
+  border:3px solid rgba(255,255,255,.55);border-radius:12px;padding:10px 22px}
 .note{color:var(--dim);font-size:15px;margin-top:12px}
 h2{font-size:20px;font-weight:800;margin:38px 0 8px}
 p{color:var(--dim);margin:0 0 12px}
@@ -315,16 +382,30 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
     ${seatRow}
   </header>
 
-  ${youtubeId
+  ${teaser
+    ? `<div class="gate" style="background-image:url('${esc(thumb)}')">
+      <div class="soon-mark"><span>Dropping soon</span></div>
+    </div>
+  <p class="note">This round is queued for release. It goes up here when it does.</p>`
+    : youtubeId
     ? // The YouTube player when the round is on the channel, so the watch
       // time counts there instead of being split away from it. nocookie
       // is the same player without the tracking cookie on first load.
       `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${youtubeId}"
       title="${esc(shortTitle)}" loading="lazy" allowfullscreen
       allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
-    : `<video controls playsinline preload="metadata" poster="${esc(thumb)}" src="${playUrl}"></video>`}
-  <p class="note">The full round, opening speech through to the end. Nothing is cut.</p>
+      referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+  <p class="note">The full round, opening speech through to the end. Nothing is cut.</p>`
+    : // The gate. Poster plus the ask, routing to the hub player, which is
+      // the surface that can actually hold a token.
+      `<div class="gate" style="background-image:url('${esc(thumb)}')">
+      <div class="gate-in">
+        <h2>Sign in to watch the round</h2>
+        <p>Full rounds are for members. An account is free and takes about ten seconds.</p>
+        <a class="gate-btn" href="/watch?r=${encodeURIComponent(id)}">Sign in and watch</a>
+      </div>
+    </div>
+  <p class="note">The full round, opening speech through to the end. Nothing is cut.</p>`}
 
   <h2>What you are watching</h2>
   <p>${isStream
@@ -364,7 +445,17 @@ export default async (req) => {
   // leak exactly the thing the consent gate is protecting.
   if (!snap.exists || (snap.data() || {}).published !== true) return notFound();
 
-  if (play) return playRedirect(id, snap.data() || {});
+  if (play) {
+    const d = snap.data() || {};
+    // A teaser has no file behind it, so this is a 404 rather than a
+    // gate: there is nothing an account would unlock.
+    if (d.teaser === true) return notFound();
+    // Everything else refuses. A <video> cannot send a token, so this
+    // path cannot be opened for a signed-in viewer without opening it for
+    // everyone; the signed-in viewer gets their link from
+    // /api/recordings?link=1 on the hub instead.
+    return playGated(id);
+  }
 
   return new Response(renderPage(id, snap.data() || {}), {
     status: 200,

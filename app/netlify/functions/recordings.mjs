@@ -12,6 +12,7 @@
 
 import { getDb } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 
@@ -42,7 +43,24 @@ function publicShape(id, d){
     // cached immutable at the edge, so a thumbnail an owner changed on
     // /watch only reaches a card that carries the version with it.
     thumbV: Number(d.thumbV) || 0,
+    // A teaser stays on the grid as a watermarked "Dropping soon" card:
+    // thumbnail visible, playback refused below. It is how a redundant
+    // round comes down without emptying the feed.
+    teaser: d.teaser === true,
   };
+}
+
+// Playback requires a NAMED sign-in (2026-08-23, same conversion push as
+// the /spar gate). An anonymous Firebase uid is "has a browser", not an
+// account, so it does not pass. The metadata reads above stay open: the
+// grid, titles and thumbnails are the pitch, the video is the product.
+async function namedCaller(req){
+  const token = extractBearerToken(req);
+  if (!token) return null;
+  try {
+    const decoded = await verifyIdToken(token);
+    return isNamedAccount(decoded) ? decoded : null;
+  } catch { return null; }
 }
 
 export default async (req) => {
@@ -59,6 +77,17 @@ export default async (req) => {
     const d = snap.data();
 
     if (url.searchParams.get('link')){
+      // A teaser has no video to hand out yet. 404 rather than 403: there
+      // is nothing being withheld from this caller that another caller
+      // could get, so an auth error would send them to sign in for a file
+      // that does not exist.
+      if (d.teaser === true) return errorResponse('Not published yet', 404, req);
+      // The gate. 401 SIGN_IN_REQUIRED, matching the brain endpoint's
+      // wall, because waiting does not clear it: the client should open
+      // the auth modal rather than render "try again later".
+      if (!(await namedCaller(req))){
+        return errorResponse('SIGN_IN_REQUIRED', 401, req);
+      }
       // Prefer a rehosted transcode. The Daily original is encoded with no
       // bitrate cap, so a viewer whose connection sits under it buffers
       // forever with no error to show. A stored copy is capped and stable,

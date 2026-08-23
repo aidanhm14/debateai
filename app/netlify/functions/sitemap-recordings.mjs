@@ -52,7 +52,11 @@ async function buildXml() {
       .limit(LIMIT)
       .get();
     entries = (snap.docs || [])
-      .filter(d => (d.data() || {}).published === true)
+      // A teaser renders a "Dropping soon" card with no video in it, so
+      // it is a thin page by construction. Publish state alone is no
+      // longer the gate: a sitemap actively invites a crawl, and this is
+      // the one thing on the site we would not want crawled first.
+      .filter(d => (d.data() || {}).published === true && (d.data() || {}).teaser !== true)
       .map(d => ({ id: d.id, startTs: (d.data() || {}).startTs }))
       .filter(r => r.id);
   } catch (err) {

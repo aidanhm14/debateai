@@ -12,6 +12,11 @@
 //          admin to press publish.
 //   POST /api/admin/recordings { action: 'publish', id, published }
 //        → toggle a recording's public visibility.
+//   POST /api/admin/recordings { action: 'teaser', id, teaser }
+//        → hold a round back without unlisting it: the card, title and
+//          thumbnail stay on /watch under a "Dropping soon" watermark
+//          and playback 404s. Reversible; an unpublish is not, in the
+//          sense that it takes the card and the URL down with it.
 //   POST /api/admin/recordings { action: 'meta', id, title }
 //        → set a display title (overrides the derived one).
 //   POST /api/admin/recordings { action: 'thumb', id, image, t }
@@ -376,6 +381,19 @@ export default async (req) => {
     return jsonResponse({ id, published: body.published !== false }, 200, req);
   }
 
+  // Take a round off the shelf without taking it off the site. `teaser`
+  // keeps the card, the title and the thumbnail on /watch and replaces
+  // the video with a "Dropping soon" watermark; playback 404s while it
+  // is set. Reversible in one call, which is why it exists instead of
+  // unpublishing: an unpublish deletes the card and the URL with it.
+  if (body.action === 'teaser'){
+    const id = String(body.id || '');
+    if (!id) return errorResponse('id required', 400, req);
+    const on = body.teaser !== false;
+    await db.collection('recordings').doc(id).set({ teaser: on }, { merge: true });
+    return jsonResponse({ id, teaser: on }, 200, req);
+  }
+
   if (body.action === 'meta'){
     const id = String(body.id || '');
     if (!id) return errorResponse('id required', 400, req);
@@ -385,7 +403,7 @@ export default async (req) => {
     return jsonResponse({ id }, 200, req);
   }
 
-  return errorResponse('Unknown action (sync | publish | meta | thumb | youtube | delete)', 400, req);
+  return errorResponse('Unknown action (sync | publish | teaser | meta | thumb | youtube | delete)', 400, req);
 };
 
 export const config = {
