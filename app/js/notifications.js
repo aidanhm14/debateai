@@ -1593,6 +1593,19 @@
     }
     function placePill(p) {
       function attempt() {
+        // Explicit opt-in slot for pages with their own bespoke bar
+        // (/tournaments, /atlas, the judge pages). Floating over a bar
+        // that already exists is the /live-round mistake placeBell
+        // documents, so a page with chrome names where the pill goes.
+        // data-da-pill-slot="end" appends; default prepends. A slot that
+        // also holds the wordmark wants "end", or the pill lands left of
+        // the brand.
+        var slot = document.querySelector('[data-da-pill-slot]');
+        if (slot) {
+          if (slot.getAttribute('data-da-pill-slot') === 'end') slot.appendChild(p);
+          else slot.insertBefore(p, slot.firstChild);
+          return true;
+        }
         var tb = document.querySelector('.ui-topbar-right') || document.querySelector('.app-topbar-right');
         if (tb) { var bell = tb.querySelector('.ui-bell'); tb.insertBefore(p, bell || tb.firstChild); return true; }
         var bl = document.querySelector('.bar-links');
