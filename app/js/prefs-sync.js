@@ -66,6 +66,10 @@
     'da-brain-register', 'da-brain-side', 'da-brain-goal', 'da-brain-built',
     // consent + identity
     'debateos-corpus-contribute', 'debateos-use-case', 'debateos-use-case-confirmed',
+    // Age band for live pairing (js/age-gate.js). Losing this on a second
+    // device would re-ask the question and could split one person across
+    // two pools, so it syncs like any other identity answer.
+    'da-age-band',
     // Beginner vs. competitive presentation mode. This answer changes the
     // terminology and help shown across devices, not just analytics.
     'debateos-experience',

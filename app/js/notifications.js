@@ -1423,6 +1423,12 @@
     window.__daSparLiveLoaded = true;
 
     var LSKEY = 'da-spar-bg';                 // '1' when available
+    // Self-attested age band (js/age-gate.js). The background matcher
+    // never prompts — it reads whatever /spar or /debate-chat recorded.
+    // '' (never asked) pairs as an adult-side unknown; a recorded minor
+    // only pairs with another recorded minor (enforced in spar-pair).
+    function agBand() { try { var b = localStorage.getItem('da-age-band'); return (b === 'minor' || b === 'adult') ? b : ''; } catch (e) { return ''; } }
+    function agOk(mine, theirs) { theirs = (theirs === 'minor' || theirs === 'adult') ? theirs : ''; if (mine === 'minor' || theirs === 'minor') return mine === theirs; return true; }
     var FMT_KEY = 'debateos-spar-format';     // preferred format (shared w/ /spar)
     var HEARTBEAT_MS = 90 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
@@ -1636,6 +1642,7 @@
           displayName: shortNm(myUser),
           username: publicUsername(myUser),
           photoURL: (myUser && myUser.photoURL) || '',
+          ageBand: agBand(),
           format: fmt(),
           status: 'waiting',
           broaden: true,
@@ -1683,6 +1690,7 @@
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
         uid: myUid, displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        ageBand: agBand(),
         format: fmt(), status: 'waiting', broaden: true, background: true,
         blockedUids: blockedUids.slice(-100), joinedAt: ts()
       }).then(function () { startTimers(); scan(); }).catch(function () {});
@@ -1802,6 +1810,7 @@
             var dt = s.data() || {};
             var ms = (dt.joinedAt && dt.joinedAt.toMillis) ? dt.joinedAt.toMillis() : 0;
             if (ms && (now - ms) > STALE_MS) return;
+            if (!agOk(agBand(), dt.ageBand)) return; // age rule; server refuses these anyway
             peer = s.id;
           });
           if (peer) callPair(peer);

@@ -406,6 +406,7 @@ footer.foot a{color:var(--text-dim)}
 <script defer src="/js/public-identity.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/notifications.js"></script>
+<script defer src="/js/age-gate.js"></script>
 
 <main>
 <div class="wrap">
@@ -1021,6 +1022,13 @@ footer.foot a{color:var(--text-dim)}
     // Single choke point: no anonymous session reaches the queue,
     // whichever caller got here (find button, autoqueue, requeue).
     if (!isNamedUser(state.user)){ showGate(); signIn(); return; }
+    // Age band before the first queue join (js/age-gate.js); this queue
+    // pairs strangers through the same spar-pair chokepoint as /spar.
+    if (window.daAskAgeBand && !window.daAgeBand()){
+      var m = motion;
+      window.daAskAgeBand(function(){ joinQueue(m); });
+      return;
+    }
     state.cancelled = false;
     state.currentMotion = motion;
     idleBlock.style.display = 'none';
@@ -1038,6 +1046,7 @@ footer.foot a{color:var(--text-dim)}
       uid: state.user.uid,
       displayName: shortName(state.user),
       photoURL: state.user.photoURL || '',
+      ageBand: (window.daAgeBand && window.daAgeBand()) || '',
       format: 'casual',
       motion: motion.slice(0, 280),
       status: 'waiting',
@@ -1273,7 +1282,7 @@ footer.foot a{color:var(--text-dim)}
       state.pairInFlight = false;
       if (!r.ok || !r.body || !r.body.ok){
         var reason = (r.body && r.body.reason) || ('http_' + r.status);
-        var soft = (reason === 'lost_race' || reason === 'queue_doc_missing' || reason === 'stale_peer' || reason === 'format_mismatch');
+        var soft = (reason === 'lost_race' || reason === 'queue_doc_missing' || reason === 'stale_peer' || reason === 'format_mismatch' || reason === 'age_mismatch');
         if (!soft){
           console.warn('[debate-chat] spar-pair failed', reason, r.body);
           errorBox.className = 'error';

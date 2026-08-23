@@ -193,6 +193,35 @@ function blocked(data, uid) {
   return list.includes(uid);
 }
 
+// ── Age bands (2026-08-22) ──────────────────────────────────────────
+// Live pairing separates attested minors from everyone else. The band
+// is a one-time self-attestation collected at the queue door
+// (js/age-gate.js, localStorage 'da-age-band', synced by prefs-sync),
+// mirrored onto the queue doc as `ageBand` by every writer: /spar,
+// /debate-chat, and the background "Spar live" pill.
+//
+// The rule protects in the ONE direction attestation can protect: a
+// debater who said they are 13-17 is never paired with anyone who did
+// not say the same. An unattested legacy doc pairs with adults and
+// other unattested docs exactly as before, never with an attested
+// minor. Attestation is the ceiling of what any site knows without ID
+// checks, so /safety words the promise as "never KNOWINGLY paired";
+// the moderation and report layers are the backstop for a lie.
+//
+// The band is read from the queue doc (client-written) rather than a
+// server record, deliberately: unlike the guest counter, there is no
+// metering incentive here, and BOTH forgery directions reduce to lying
+// about your age, which no storage location fixes. The check lives in
+// this function because every pairing surface funnels through it.
+function bandOf(data) {
+  const b = String(data?.ageBand || '');
+  return (b === 'minor' || b === 'adult') ? b : '';
+}
+function bandsCompatible(a, b) {
+  if (a === 'minor' || b === 'minor') return a === b;
+  return true;
+}
+
 function joinedAtMs(data) {
   return data ? tsMs(data.joinedAt) : Date.now();
 }
@@ -672,6 +701,13 @@ export default async (request) => {
       }
       if (blocked(mine, peerUid) || blocked(theirs, myUid)) {
         return { ok: false, reason: 'blocked_peer' };
+      }
+      // Age separation: an attested minor only pairs with an attested
+      // minor. Soft refusal like blocked_peer — the caller's poll loop
+      // moves on (clients also pre-filter, so this is the backstop for
+      // a hand-rolled POST or a stale client).
+      if (!bandsCompatible(bandOf(mine), bandOf(theirs))) {
+        return { ok: false, reason: 'age_mismatch' };
       }
 
       const myShort = shortName(mine);

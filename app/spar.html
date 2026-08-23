@@ -48,6 +48,7 @@
 <!-- Round-exit capture: one-tap reason card on queue cancel. Guarded on
      window.RoundExit everywhere so a blocked script never breaks the queue. -->
 <script defer src="/js/round-exit.js"></script>
+<script defer src="/js/age-gate.js"></script>
 <script defer src="/js/topic-pulse.js"></script>
 <!-- The draft: menu behaviour plus the pinned-bench reveal in Round
      setup. Both are additive. If either fails to load the chips and the
@@ -3927,6 +3928,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // rounds block). Everyone else — no session at all, or a guest who is
     // out of rounds — gets the gate.
     if (!canQueue(state.user)){ renderGate(); return; }
+    // Age band before the first queue join, asked once ever
+    // (js/age-gate.js). The answer rides the queue doc below and
+    // spar-pair enforces the minor-with-minor rule server-side.
+    if (window.daAskAgeBand && !window.daAgeBand()){
+      window.daAskAgeBand(function(){ joinQueue(); });
+      return;
+    }
     state.cancelled = false;
     state.joinedAtMs = Date.now();
     // Remember the chosen format for the background matcher —
@@ -3960,6 +3968,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Advisory only. spar-pair reads the server's own record of who is a
       // guest, never this field, precisely because this one is client-written.
       anonymous: !!state.user.isAnonymous,
+      // Self-attested age band ('adult' | 'minor' | ''). spar-pair reads
+      // this on both docs and refuses a minor/non-minor pair.
+      ageBand: (window.daAgeBand && window.daAgeBand()) || '',
       format: formatParam,
       paradigm: state.paradigm || '',
       lang: state.lang || 'en',
@@ -4636,6 +4647,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           if (localSkipActive(d.id)) return;
           var dd = d.data();
           if (docSkips(dd, state.user.uid)) return;
+          // Age separation: don't propose a pair the server would refuse
+          // (spar-pair bandsCompatible). Filtering here also keeps the
+          // "N waiting" count honest for someone in the 13-17 pool.
+          if (window.daAgeBandsOk && !window.daAgeBandsOk(
+                (window.daAgeBand && window.daAgeBand()) || '', dd.ageBand)) return;
           seen[d.id] = true;
           others.push(d);
         });
@@ -4741,6 +4757,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
                  // peer_ineligible: a spent guest still holding a queue doc.
                  // Their problem, not ours — poll on to the next peer.
                  || reason === 'peer_ineligible'
+                 // age_mismatch: the queue holds someone the age rule
+                 // won't let us meet. Poll on to the next peer.
+                 || reason === 'age_mismatch'
                  || reason === 'skipped_peer' || reason === 'blocked_peer');
         // Soft fails are recoverable — keep polling. Surface them in
         // the diag line so the user can see retries happening instead
