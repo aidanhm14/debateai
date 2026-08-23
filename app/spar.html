@@ -3401,7 +3401,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // (median 43s, 87% inside 2 min, measured 2026-08-22 over the
         // 124 matched queue sits) lives in this comment, not on screen.
         '<p>Your search stays on. This tab chimes when your match is ready. Most matches land inside two minutes.</p>' +
-        '<p id="waitPinged" hidden style="font-size:.78rem;color:#22c55e;font-weight:600"></p>' +
         openNudgeHtml('wait-rail__open-line') +
       '</div>' +
       '<div class="wait-rail__body">' +
@@ -3450,20 +3449,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     updatePingedLine();
   }
 
-  // "N people were just pinged about you" — filled after the go-live
-  // broadcast resolves (joinQueue) and re-applied on every rail mount, since
-  // the rail can mount before the fetch returns or be rebuilt after it.
-  function updatePingedLine(){
-    var el = document.getElementById('waitPinged');
-    if (!el) return;
-    var n = state.broadcastPinged || 0;
-    if (n > 0){
-      el.textContent = 'We pinged ' + n + (n === 1 ? ' person' : ' people') + ' who asked to be told when someone goes live. Give them a minute to arrive.';
-      el.hidden = false;
-    } else {
-      el.hidden = true;
-    }
-  }
+  // 2026-08-23, per Aidan: the "we pinged N people" line is gone from the
+  // rail. It was the fourth text block on a screen whose whole job is to
+  // hold someone for two minutes, and it asked them to keep waiting on
+  // the strength of a number they cannot check. The BROADCAST itself
+  // stays, because that is the part that actually brings people, and so
+  // does the spar_golive_pinged event, because reach is worth measuring
+  // even when it is not worth printing. This is now the seam where the
+  // count arrives and stops.
+  function updatePingedLine(){ /* no line to paint */ }
 
   function removeWaitRail(){
     var existing = document.getElementById('waitRail');
