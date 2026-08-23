@@ -1681,6 +1681,31 @@ body.speech-live .transcript-area{margin-top:4px}
 }
 .ready-hint strong{color:var(--text)}
 
+/* Quiet-room strip (2026-08-23). Amber, not red: an empty room is a
+   state of the world, not an error and not a moderation event, and red
+   in this page is the speaking pulse and the leave button. Tokens only,
+   so it tracks the theme the way the ballot surfaces do. */
+.round-quiet{
+  margin-top:10px;padding:11px 13px;border-radius:12px;
+  border:1px solid rgba(245,158,11,.42);background:rgba(245,158,11,.10);
+  font-size:.8rem;line-height:1.5;color:var(--text);
+}
+.round-quiet b{font-weight:800}
+.round-quiet .rq-sub{display:block;margin-top:2px;color:var(--text-dim);font-size:.76rem}
+.round-quiet .rq-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.round-quiet .rq-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  /* 44px so the one action on a dead-end screen is not a 12px pill.
+     Same lesson as the shell bar's "Return to the round". */
+  min-height:44px;padding:0 15px;border-radius:10px;cursor:pointer;
+  font:inherit;font-size:.78rem;font-weight:800;letter-spacing:.01em;
+  border:1px solid rgba(245,158,11,.55);background:rgba(245,158,11,.18);color:var(--text);
+}
+.round-quiet .rq-btn:hover{background:rgba(245,158,11,.28)}
+.round-quiet .rq-btn[disabled]{opacity:.55;cursor:default}
+.round-quiet .rq-btn.rq-quiet{background:transparent;border-color:var(--border);color:var(--text-dim)}
+.round-quiet .rq-btn.rq-quiet:hover{color:var(--text);background:var(--ui-soft)}
+
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .row.between{justify-content:space-between}
 
@@ -2788,6 +2813,14 @@ html.stage-mode .stage-ov{display:block}
         </div>
         <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
         <div class="ready-hint" id="readyHint">Click <strong>▶ Start speech</strong> when you're ready, the timer doesn't start until you do.</div>
+        <!-- 2026-08-23: the room's own liveness, for whoever is looking at
+             it. Every LISTING has told a live round from a dead one since
+             the ghost-room fix (the seat heartbeat, ~100s), but nothing
+             told the person already inside: a spectator on a direct link
+             sat in front of "Speech 1 of 4" and a clock at 5:00 with no
+             way to learn nobody was coming. Filled by paintRoundQuiet();
+             hidden whenever the room is beating. -->
+        <div class="round-quiet" id="roundQuiet" hidden></div>
       </div>
 
       <div class="transcript-area">
@@ -3593,6 +3626,12 @@ html.stage-mode .stage-ov{display:block}
     suppressNextSync: false, // local-write guard (don't double-render our own writes)
     arrivedAtMs: Date.now(), // when I opened the room — grace anchor for the no-show prompt
     seatSeen: null,          // { uid: ts } per-debater presence read from the round doc
+    seatLastSeenMs: 0,       // newest seat heartbeat on the round doc (0 = none yet)
+    endedAtMs: 0,            // audience-reported ending, if any (see /api/round-report)
+    overReports: 0,          // distinct viewers who have said this round is over
+    quietBusy: false,        // a report is in flight
+    quietDone: '',           // outcome of my own report, so the strip stops asking
+    hasBallot: false,        // a ballot exists (or is being written) on the round doc
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
@@ -12866,6 +12905,136 @@ html.stage-mode .stage-ov{display:block}
     showNoShow(oppUid);
   }
 
+  // ── Is anybody still debating? (the quiet-room strip) ─────────────
+  // The debaters have had a full no-show apparatus since 2026-08-11
+  // (checkOpponentPresence, the "Looking for your debater" strip, the
+  // no-show prompt with a way out). Every line of it is gated
+  // !isSpectator(), so the AUDIENCE had nothing: a spectator on a direct
+  // link, or one who was watching when both tabs closed, sat in front of
+  // "Speech 1 of 4" and a 5:00 clock forever. This says what is true and
+  // offers the one action that is available from that seat.
+  //
+  // Same 100s window as roomIsLiveNow() in live.html / spar.html and
+  // LIVE_WINDOW_MS in watch-live.mjs. One number decides "is this round
+  // alive" everywhere, or a round reads dead on the page it is watched
+  // on and live in the list that offered it.
+  var QUIET_MS = 100000;
+  // The Daily room is ground truth ahead of the doc beat, exactly as in
+  // checkOpponentPresence: a debater whose seat heartbeat has not
+  // round-tripped yet is still visibly in the room, and calling that
+  // room empty over a live picture of them is the failure this copies
+  // its guard from. Audience cams are already split out of `seats`, so a
+  // remote seat is a debater.
+  function roomIsQuiet(){
+    if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return false;
+    if (state.hasBallot) return false;
+    if (room && room.remoteSeats > 0) return false;
+    // No beat has EVER landed. That is only evidence once I have been
+    // here long enough for one to have arrived; before that it is just a
+    // page that has not finished loading.
+    if (!state.seatLastSeenMs) return (Date.now() - state.arrivedAtMs) > QUIET_MS;
+    return (Date.now() - state.seatLastSeenMs) > QUIET_MS;
+  }
+  function quietForMins(){
+    var since = state.seatLastSeenMs || state.arrivedAtMs;
+    return Math.max(1, Math.round((Date.now() - since) / 60000));
+  }
+  function paintRoundQuiet(){
+    var el = document.getElementById('roundQuiet');
+    if (!el) return;
+    var quiet = roomIsQuiet();
+    if (!quiet){
+      // A debater came back. The strip goes, and so does my own report
+      // outcome: the claim it recorded is no longer the state of the
+      // room, and leaving "you marked this over" on screen under a live
+      // round would be the page arguing with itself.
+      if (!el.hidden){ el.hidden = true; el.innerHTML = ''; }
+      state.quietDone = '';
+      return;
+    }
+    var mins = quietForMins();
+    // An ending is only current if no debater has beaten since it was
+    // stamped. A round closed while empty, rejoined, played on and left
+    // quiet again is quiet on its OWN account, not on the strength of a
+    // stamp its own debaters falsified by coming back; it gets the
+    // report button again rather than an ending nobody filed for it.
+    var ended = state.endedAtMs > 0 && state.endedAtMs >= state.seatLastSeenMs;
+    var html;
+    if (isSpectator()){
+      if (state.quietDone === 'ended' || ended){
+        html = '<b>This round is over.</b>' +
+          '<span class="rq-sub">Nobody is in the room. It has stopped showing as live.</span>' +
+          '<span class="rq-row">' +
+            '<a class="rq-btn" href="/live">Find a live round</a>' +
+            '<a class="rq-btn rq-quiet" href="/spar">Debate someone yourself</a>' +
+          '</span>';
+      } else if (state.quietDone === 'still_live'){
+        html = '<b>Reported.</b>' +
+          '<span class="rq-sub">Someone is still seated, so the round stays open. The debaters can see that the audience thinks it is finished.</span>';
+      } else if (state.quietDone === 'judged'){
+        html = '<b>This round already has a ballot.</b>' +
+          '<span class="rq-sub">It finished properly. Scroll down for the verdict.</span>';
+      } else {
+        html = '<b>Nobody has been in this room for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '.</b>' +
+          '<span class="rq-sub">The debaters may have closed their tabs. You can say the round is over, which stops it showing as live to anyone else.</span>' +
+          '<span class="rq-row">' +
+            '<button type="button" class="rq-btn" id="rqReport"' + (state.quietBusy ? ' disabled' : '') + '>' +
+              (state.quietBusy ? 'Reporting…' : 'Report the round as over') + '</button>' +
+            '<a class="rq-btn rq-quiet" href="/live">Find another round</a>' +
+          '</span>';
+      }
+    } else {
+      // A seated debater alone in the room. They already have the
+      // no-show prompt when the round has not started; this covers the
+      // other half, which had nothing: an opponent who leaves MID-round.
+      // No new controls, because they already hold every one that
+      // matters. What is new is that the audience's read reaches them.
+      html = '<b>You are the only one here.</b>' +
+        '<span class="rq-sub">Your opponent has not been seen for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '. Their seat is held, they can rejoin from the same link.' +
+        (state.overReports > 0
+          ? ' ' + state.overReports + ' in the audience ' + (state.overReports === 1 ? 'has' : 'have') + ' said this round looks over.'
+          : '') + '</span>';
+    }
+    if (el.innerHTML !== html){ el.innerHTML = html; }
+    el.hidden = false;
+    var btn = document.getElementById('rqReport');
+    if (btn && !btn.dataset.wired){
+      btn.dataset.wired = '1';
+      btn.addEventListener('click', reportRoundOver);
+    }
+  }
+  function reportRoundOver(){
+    if (state.quietBusy) return;
+    if (!state.user || !state.user.getIdToken){
+      // Watching is open to strangers, and notifications.js signs nearly
+      // everyone in anonymously, so this is the rare browser where
+      // Firebase never came up rather than a missing account.
+      toast('Could not reach your session. Reload and try again.');
+      return;
+    }
+    state.quietBusy = true; paintRoundQuiet();
+    state.user.getIdToken().then(function(tok){
+      return fetch('/api/round-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ room: state.room, reason: 'empty' })
+      });
+    }).then(function(r){ return r.json().catch(function(){ return null; }); }).then(function(d){
+      if (!d || !d.ok){ toast('Could not file that. Try again.'); return; }
+      state.quietDone = d.state || (d.closed ? 'ended' : 'still_live');
+      if (d.closed) state.endedAtMs = Date.now();
+      try { gtag('event', 'round_report_over', { state: d.state || '', closed: d.closed ? 1 : 0 }); } catch(e){}
+    }).catch(function(){
+      toast('Could not file that. Try again.');
+    }).then(function(){
+      state.quietBusy = false; paintRoundQuiet();
+    });
+  }
+  // The strip is time-driven as much as event-driven: a room goes quiet
+  // by the ABSENCE of a write, so there is no snapshot to paint on. 15s
+  // keeps the "N minutes" honest without being a clock on screen.
+  setInterval(function(){ try { paintRoundQuiet(); } catch(e){} }, 15000);
+
   // ── "Looking for your debater" (pre-grace, and while snoozed) ─────
   // Landing in an empty room with no explanation reads as broken. This
   // says what is happening, and points at Minimize so the wait is spent
@@ -13136,6 +13305,17 @@ html.stage-mode .stage-ov{display:block}
     // Per-uid presence: keep the latest map so checkOpponentPresence() can
     // tell if the opponent has actually entered the room yet.
     if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
+    // Room liveness, for the strip below. `lastSeenAt` is the same seat
+    // heartbeat every listing already trusts; reading it here is what
+    // lets the page inside the room agree with the list that offered it.
+    var hbMs = (d.lastSeenAt && d.lastSeenAt.toMillis) ? d.lastSeenAt.toMillis() : 0;
+    if (hbMs && hbMs !== state.seatLastSeenMs) state.seatLastSeenMs = hbMs;
+    if (typeof d.overReports === 'number') state.overReports = d.overReports;
+    if (d.ballot || d.ballotPending) state.hasBallot = true;
+    var endMs = (typeof d.endedAtMs === 'number') ? d.endedAtMs
+      : ((d.endedAt && d.endedAt.toMillis) ? d.endedAt.toMillis() : 0);
+    if (endMs !== state.endedAtMs) state.endedAtMs = endMs;
+    try { paintRoundQuiet(); } catch(e){}
     // Adopt participant UIDs from the round doc when the URL didn't
     // carry them (the /spar watch list and the landing live feed hand
     // off only ?room=…). Only visitors with no seat claim adopt, and a
