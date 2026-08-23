@@ -599,6 +599,19 @@ weight, not a mirror.
   should load the script AND tag its slot** — floating over an existing
   bar is the /live-round mistake `placeBell` documents. Round surfaces
   are excluded by the `ON_ROUND` regex; add any new one there.
+- **A public name is ALWAYS the alias, never `displayName` or the email.**
+  `js/public-identity.js` exposes `DBIdentity.forUser(u)`, which already
+  returns a generated alias when the user has chosen no name, so a guard
+  like `if (id.chosen && id.name)` only ever downgrades to the real
+  identity. **Never write `user.displayName` or `email.split('@')[0]`
+  into anything another person reads** (matchmaking_queue, dm_threads,
+  leaderboard_entries, live_challenges, shared_cases, tournament
+  entries, channel messages, certs, a Daily `userName`). Pages that
+  publish a name define `window.daPublicName(u)` and load the module
+  themselves rather than relying on topbar.js's lazy load. Own-account
+  surfaces (/profile's editor, the account panel) are the exception.
+  Changing the FIRST/LAST array LENGTHS re-rolls every generated alias;
+  ADJECTIVES/NOUNS are kept stable so handles do not churn.
 - Skipping the SW cache bump after an HTML edit — users get the stale
   bundle for hours until their cache expires. The pre-commit hook
   (see "First-time setup" above) auto-bumps so this is only a footgun
