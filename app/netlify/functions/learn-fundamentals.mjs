@@ -352,8 +352,8 @@ function renderFundamentalPage(item) {
 
 function renderHubPage() {
   const items = listFundamentals();
-  const title = 'Debate fundamentals · Six core concepts · Debatable';
-  const description = "Six concepts that win every debate round, regardless of format. Claim/warrant/impact, weighing, rebuttal, signposting, cross-examination, and speaker register. Each one a deep guide.";
+  const title = 'Debate fundamentals · Seven core concepts · Debatable';
+  const description = "Seven concepts that win every debate round, regardless of format. Claim/warrant/impact, weighing, rebuttal, signposting, cross-examination, topicality, and speaker register. Each one a deep guide.";
   const canonical = `${SITE_ORIGIN}/learn/fundamentals`;
 
   const ldCollection = {
@@ -401,7 +401,7 @@ function renderHubPage() {
 
   <h1 class="hub-h1">Fundamentals.</h1>
 
-  <p class="hub-intro">Six concepts that win every debate round, regardless of format. Each one a deep guide. Read these once before you compete; come back when you stall.</p>
+  <p class="hub-intro">Seven concepts that win every debate round, regardless of format. Each one a deep guide. Read these once before you compete; come back when you stall.</p>
 
   <ul class="hub-list">
     ${items.map(g => `<li class="hub-li">

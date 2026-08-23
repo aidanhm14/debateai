@@ -46,6 +46,17 @@ export const FUNDAMENTALS_BANK = {
         ],
       },
       {
+        // 2026-08-22: dedicated heading for the "warrant in debate"
+        // query, which GSC showed landing at position ~67 with no
+        // heading on the site matching the searcher's words.
+        heading: 'What is a warrant in debate?',
+        body: [
+          'The warrant is the reasoning that connects your evidence to your claim. It answers the one question every judge is silently asking: why should I believe that? A statistic is not a warrant. A quote is not a warrant. The warrant is the explanation of the mechanism: because firms minimize costs, because voters punish incumbents for recessions, because deterrence only works when the threat is credible.',
+          'The term comes from the Toulmin model of argument, where a claim rests on data and the warrant is the bridge that licenses the move from one to the other. Debaters use it more loosely: "what is your warrant" in a round simply means "what is the reason that is true." If you cannot answer in one sentence starting with because, you do not have one yet.',
+          'Warrants are also the unit of clash. "They have no warrant for the link" is one of the most common and most effective rebuttal presses in every format, because it forces the other side to either produce the mechanism or watch the judge discount the argument. Flowing warrants, not just claims, is what separates a debater who responds from one who just re-asserts.',
+        ],
+      },
+      {
         heading: 'How judges test arguments',
         body: [
           "When judges flow a round, they write down each argument in three columns: claim, warrant, impact. If any column is empty, that line is weaker on the flow. When weighing at the end, they look for arguments where all three are populated and the chain is tight.",
@@ -86,6 +97,8 @@ export const FUNDAMENTALS_BANK = {
     related: ['asian-parli-pm-opening', 'apda-opp-case', 'ld-value-criterion'],
     keywords: [
       'claim warrant impact debate',
+      'warrant in debate',
+      'what is a warrant in debate',
       'what is a debate argument',
       'argument structure debate',
       'anatomy of debate argument',
@@ -510,6 +523,90 @@ export const FUNDAMENTALS_BANK = {
     ],
     ctaLabel: 'Practice with a judge ballot',
     ctaHref: '/voice-debate',
+  },
+
+  // 2026-08-22: added as the canonical target for "topicality in debate",
+  // which GSC showed ranking at position ~70 with no dedicated page. The
+  // glossary anchor cannot carry a definitional query on its own.
+  'topicality': {
+    slug: 'topicality',
+    question: 'What is topicality in debate?',
+    hook: 'Topicality is the argument that your opponent\'s case is not actually about the resolution. It is debated as its own issue, it is decided before the substance, and in Policy it can win or lose the round on its own.',
+    readTime: '6 min',
+    takeaways: [
+      'Topicality asks one question: does the case affirm the resolution as worded, or something else?',
+      'A full topicality argument has four parts: interpretation, violation, standards, and voters.',
+      'Topicality is a gateway issue. If the case is not topical, the judge never weighs its impacts.',
+      'The standard answers are "we meet," a counter-interpretation, and reasonability. Know all three cold.',
+    ],
+    sections: [
+      {
+        heading: 'The plain-English version',
+        body: [
+          'Every round starts with a resolution. Both sides prepared against that wording, and the judge was told to decide that wording. Topicality is the negative saying: the case you just heard does not defend the resolution, it defends something adjacent, so it should lose regardless of how good it sounds.',
+          'Why the rule exists: if the affirmative can defend anything loosely related to the topic, the negative cannot prepare, and the debate stops being a fair test of the two sides. Topicality is the fairness argument that protects everyone\'s prep.',
+          'The concept shows up everywhere under different names. Policy debates it as a formal shell. LD borrows the same shell in circuit rounds. Parliamentary formats fight the same fight as a definitional challenge in the first two speeches. The mechanics below transfer.',
+        ],
+      },
+      {
+        heading: 'The four parts of a topicality shell',
+        body: [
+          'Interpretation: what a word or phrase in the resolution means, with a definition to back it. "Enact means to pass into law through the legislature, per Black\'s Law Dictionary." The interpretation is the rule you say the round should be judged under.',
+          'Violation: how the affirmative\'s case breaks that rule. "The plan acts through an executive order, so it does not enact anything under our interpretation."',
+          'Standards: why your interpretation is the better rule for debate. The two workhorses are limits (your reading keeps the topic a preparable size; theirs explodes it into hundreds of unpredictable cases) and ground (your reading preserves arguments both sides can run; theirs strands the negative with nothing to say).',
+          'Voters: why the judge should care enough to vote on it. Fairness, because a debate one side could not prepare for is not a contest. Education, because a season spent debating whatever the affirmative wants teaches less than a season testing one topic deeply. Some shells add jurisdiction: the judge was only ever asked to evaluate the resolution, so a non-topical case sits outside what they can vote for.',
+        ],
+      },
+      {
+        heading: 'How the affirmative answers it',
+        body: [
+          '"We meet": the case satisfies the negative\'s own interpretation, so there is no violation. The cleanest answer when it is true, because the rest of the shell collapses with the violation.',
+          'Counter-interpretation: a different definition under which the case is clearly topical, defended with its own standards. Now the judge is comparing two readings of the resolution, and the affirmative argues its reading is better for limits, ground, or precision.',
+          'Reasonability: the affirmative does not need the single best interpretation, just a reasonable one; a coin-flip definition debate should not decide a round when the case was predictable and debatable. The negative will answer that judges need a yardstick, and "reasonable" without a metric is just the judge\'s mood. That clash, competing interpretations versus reasonability, is the real battleground in most topicality rounds.',
+        ],
+      },
+      {
+        heading: 'How judges actually evaluate it',
+        body: [
+          'Topicality is evaluated first, before the case debate. Judges call it a gateway or a priori issue: a brilliant case that is not topical still loses, because the judge never reaches its impacts.',
+          'Most judges default to competing interpretations: whichever side wins the better interpretation under the standards debate wins the issue. Under that lens, dropped standards decide rounds. If the negative wins that their reading preserves negative ground and the affirmative never answers it, the violation plus the fairness voter is a full ballot.',
+          'The practical test for whether to run it: could a reasonably prepared opponent have predicted this case from the resolution\'s wording? If yes, a topicality press wastes speech time you needed for substance, and judges punish shells run as filler. If no, topicality is often the strongest argument in the room.',
+        ],
+      },
+      {
+        heading: 'Topicality outside Policy',
+        body: [
+          'Circuit LD runs the same four-part shell against plans and unusual frameworks, usually labelled theory rather than topicality; the structure is identical.',
+          'Parliamentary formats (APDA, BP, Worlds, Asian Parliamentary) have no evidence cards, so the fight happens as a definitional challenge: the first opposition speaker argues the government\'s definition of the motion is unfair (self-proving, a truism, or shifted away from the debate everyone prepared) and offers a better one. The same standards apply: predictability, fair ground for both benches, a debatable division of the motion.',
+          'Public Forum and WSDC see it least, because their resolutions are narrow and their norms discourage procedural debate. Even there, the underlying skill matters: pinning down what the resolution\'s words commit each side to defending is round-winning clarity work in every format.',
+        ],
+      },
+    ],
+    examples: [
+      {
+        context: 'A complete topicality press in one breath, Policy round on a federal health insurance topic.',
+        line: '"Interpretation: establish means to create through congressional legislation. Violation: their plan funds state pilot programs, it establishes nothing federal. Standards: limits, their reading makes any healthcare spending topical and the topic unpreparable; ground, every disadvantage we researched links to a federal program, not fifty state ones. Voters: fairness and education. Topicality is a gateway issue; evaluate it first."',
+        why: 'All four parts, signposted, with a decision rule at the end. The judge can flow it as its own sheet and knows exactly what voting on it means.',
+      },
+      {
+        context: 'The affirmative\'s answer, same round.',
+        line: '"One: we meet. The plan conditions federal funds through Congress, that is congressional legislation. Two: counter-interpretation, establish means to set up by any binding federal action, from the OED. Our reading is more precise and still excludes their scare cases. Three: reasonability. We are the third team this tournament to run this case; nobody was ambushed. Prefer substance over a definition coin flip."',
+        why: 'We meet, counter-interpretation, reasonability, in that order, each numbered. Even if one layer fails, the next stands. The judge has three independent reasons not to vote on the shell.',
+      },
+    ],
+    related: ['policy-speed-reading', 'ld-value-criterion', 'apda-opp-case'],
+    keywords: [
+      'topicality in debate',
+      'what is topicality in debate',
+      'topicality debate definition',
+      'topicality policy debate',
+      'topicality argument example',
+      't shell debate',
+      'counter interpretation debate',
+      'definitional challenge parliamentary debate',
+    ],
+    ctaLabel: 'Practice a Policy round',
+    ctaHref: '/practice?format=policy',
   },
 
 };

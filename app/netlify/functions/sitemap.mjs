@@ -179,7 +179,12 @@ const URLS = [
   // Debate fundamentals deep-content surface. Each is the canonical
   // ranking target for a foundational concept query.
   { path: '/learn/fundamentals',                       changefreq: 'weekly',  priority: '0.88' },
-  { path: '/learn/fundamentals/claim-warrant-impact',  changefreq: 'monthly', priority: '0.84' },
+  // lastmod 2026-08-22: the page gained a dedicated "What is a warrant
+  // in debate?" section for the query GSC showed at position ~67.
+  { path: '/learn/fundamentals/claim-warrant-impact',  changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-22' },
+  // Added 2026-08-22 as the canonical target for "topicality in debate"
+  // (GSC position ~70 with no dedicated page before this).
+  { path: '/learn/fundamentals/topicality',            changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-22' },
   { path: '/learn/fundamentals/weighing',              changefreq: 'monthly', priority: '0.84' },
   { path: '/learn/fundamentals/rebuttal',              changefreq: 'monthly', priority: '0.84' },
   { path: '/learn/fundamentals/signposting',           changefreq: 'monthly', priority: '0.82' },

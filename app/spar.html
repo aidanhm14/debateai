@@ -1092,52 +1092,10 @@ h1 em{color:var(--accent);font-style:normal}
   color:#4f46e5;background:rgba(88,101,242,.07);
   border-color:rgba(88,101,242,.28);
 }
-/* 2026-08-18 gate redesign. The gate used the searching screen's 460px
-   canvas globe, which overflowed the 440px card and rendered off-center
-   on some machines. The gate now previews a round with two static tiles
-   and a VS disc — the same composition as the promo card — which cannot
-   break. The searching state keeps its globe. */
-.gate-preview{
-  position:relative;display:flex;align-items:center;justify-content:center;
-  gap:12px;margin:20px 0 8px;
-}
-.gate-seat{
-  position:relative;flex:1 1 0;max-width:168px;aspect-ratio:4/3;
-  border-radius:14px;overflow:hidden;
-  border:1px solid var(--border);
-  box-shadow:0 10px 24px rgba(0,0,0,.22);
-}
-.gate-seat img{
-  display:block;width:100%;height:100%;object-fit:cover;
-  /* Crossfade for the gate's portrait rotation (see startGateFaces). */
-  transition:opacity .4s ease;
-}
-@media (prefers-reduced-motion: reduce){
-  .gate-seat img{transition:none}
-}
-.gate-seat--you{border:2px solid var(--accent)}
-.gate-seat-chip{
-  position:absolute;top:8px;left:8px;
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 8px;border-radius:6px;
-  font-size:.6rem;font-weight:800;letter-spacing:.06em;
-}
-.gate-seat-chip--live{background:var(--accent);color:#fff}
-.gate-seat-chip--live::before{
-  content:'';width:5px;height:5px;border-radius:50%;background:#fff;
-  animation:gate-live-pulse 1.6s ease-in-out infinite;
-}
-@keyframes gate-live-pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.gate-vs{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:42px;height:42px;border-radius:50%;
-  display:inline-flex;align-items:center;justify-content:center;
-  background:#17130e;color:#fff;
-  font-size:.72rem;font-weight:900;letter-spacing:.04em;
-  border:2px solid var(--accent);
-  box-shadow:0 6px 16px rgba(0,0,0,.32);
-  z-index:2;
-}
+/* 2026-08-22: the gate's two-tile round preview is gone (Aidan: remove
+   the images, no need). The card is copy + buttons only now; the
+   .gate-preview / .gate-seat rules and the portrait rotation went with
+   the markup. */
 .guest-strip{
   display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
   margin:-2px auto 14px;max-width:440px;padding:8px 14px;
@@ -2428,16 +2386,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     shell.innerHTML =
       '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<div class="gate-preview" aria-hidden="true">' +
-          '<div class="gate-seat gate-seat--you">' +
-            '<img src="/img/round/faces/face48.jpg" alt="" decoding="async" data-gate-face />' +
-            '<span class="gate-seat-chip gate-seat-chip--live">LIVE</span>' +
-          '</div>' +
-          '<span class="gate-vs">VS</span>' +
-          '<div class="gate-seat">' +
-            '<img src="/img/round/faces/face52.jpg" alt="" decoding="async" data-gate-face />' +
-          '</div>' +
-        '</div>' +
         '<h2>' + (gateSpent()
           ? 'That was your last free round.'
           : 'Sign in to join the live queue.') + '</h2>' +
@@ -2473,7 +2421,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // visible before the modal opens.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
-    startGateFaces();
     startGateLiveCount();
     // Split the two gates in GA4. They are different asks with different
     // audiences, so one blended conversion rate would hide whichever is
@@ -2538,105 +2485,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (document.hidden) return;
       paintGateLiveCount();
     }, 30000);
-  }
-
-  // ── Gate preview: circulate the two portraits ────────
-  // The gate previewed the same two faces on every load, so a visitor
-  // who bounced and came back saw the identical pair behind a LIVE
-  // chip. Now the pair is drawn fresh per load and swapped on a slow
-  // crossfade while the gate is open, matching the per-load shuffle
-  // /debate-strangers and the other doorway pages already run.
-  //
-  // Pool is the consented batch ONLY: real webcam stills the founder supplied on
-  // 2026-08-18, everyone 18+ and confirmed on record as happy to appear as
-  // an example-round debater. The generated bank is deliberately out. This
-  // is the one face surface a signed-out visitor meets, and it sits behind
-  // a LIVE chip next to the words "Debate a real person", so a synthetic
-  // face here is the caption doing the lying. face50 stays out: it is the
-  // illustrated Anonymous avatar, not a person.
-  // Known limit: the batch is 8 men and 1 woman, so most pairs read male.
-  // The fix is more consented stills, never topping it up with generated
-  // ones.
-  // face55 REMOVED 2026-08-20: the file is deleted, so keeping the number
-  // here rotated a broken image into the gate every ninth swap.
-  var GATE_FACE_POOL = [46,47,48,49,51,52,53,54];
-  var GATE_FACE_MS = 4500;
-  var gateFaceTimer = null;
-
-  function gateFaceSrc(n){
-    return '/img/round/faces/face' + (n < 10 ? '0' : '') + n + '.jpg';
-  }
-
-  // Two distinct picks, neither of them the face currently on screen,
-  // so a swap always visibly changes both seats.
-  function pickGateFaces(avoid){
-    var pool = GATE_FACE_POOL.filter(function(n){
-      return (avoid || []).indexOf(n) === -1;
-    });
-    var a = pool[Math.floor(Math.random() * pool.length)];
-    var rest = pool.filter(function(n){ return n !== a; });
-    var b = rest[Math.floor(Math.random() * rest.length)];
-    return [a, b];
-  }
-
-  function paintGateFaces(imgs, pair, fade){
-    for (var i = 0; i < imgs.length; i++){
-      (function(img, n){
-        // Decode before swapping so the crossfade never lands on a
-        // blank tile over a slow connection. Whatever happens after
-        // this point, opacity MUST come back to 1: the swap fades the
-        // tile out first, so any path that fails to restore it leaves
-        // the visitor staring at two empty squares behind a LIVE chip.
-        var src = gateFaceSrc(n);
-        var settled = false;
-        function show(swap){
-          if (settled) return;
-          settled = true;
-          if (swap){
-            img.src = src;
-            img.setAttribute('data-face-n', String(n));
-          }
-          if (fade) img.style.opacity = '1';
-        }
-        var pre = new Image();
-        pre.onload = function(){ show(true); };
-        // A missing file keeps the portrait already on screen rather
-        // than swapping in a broken-image glyph.
-        pre.onerror = function(){ show(false); };
-        pre.src = src;
-        // Stalled request (background-throttled timer, dead network):
-        // show it anyway rather than stranding the tile invisible.
-        setTimeout(function(){ show(true); }, 1200);
-      })(imgs[i], pair[i]);
-    }
-  }
-
-  function startGateFaces(){
-    var imgs = document.querySelectorAll('#sparGateCard [data-gate-face]');
-    if (imgs.length < 2) return;
-    if (gateFaceTimer){ clearInterval(gateFaceTimer); gateFaceTimer = null; }
-    paintGateFaces(imgs, pickGateFaces([]), false);
-    // Reduced motion keeps the fresh-per-load pair and skips the swap.
-    try {
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    } catch(e){}
-    gateFaceTimer = setInterval(function(){
-      var card = document.getElementById('sparGateCard');
-      // The gate is gone (signed in, or navigated): stop rather than
-      // hold a timer against a detached node.
-      if (!card){ clearInterval(gateFaceTimer); gateFaceTimer = null; return; }
-      if (document.hidden) return;
-      var live = card.querySelectorAll('[data-gate-face]');
-      if (live.length < 2) return;
-      var shown = [];
-      for (var i = 0; i < live.length; i++){
-        var n = parseInt(live[i].getAttribute('data-face-n'), 10);
-        if (n) shown.push(n);
-      }
-      var next = pickGateFaces(shown);
-      for (var j = 0; j < live.length; j++) live[j].style.opacity = '0';
-      setTimeout(function(){ paintGateFaces(live, next, true); }, 420);
-    }, GATE_FACE_MS);
   }
 
   function doGoogleSignIn(){
