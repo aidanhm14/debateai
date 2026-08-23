@@ -1053,7 +1053,11 @@ body.lr-mini #jitsiPane.lrd-docked{
 }
 @media(max-height:700px){.lrd-vid{height:260px}}
 /* Trigger buttons in the round motion bar. */
-.lr-pip-controls{display:inline-flex;gap:7px;align-items:center}
+/* 2026-08-22, the founder: the Minimize / Pop out buttons read as clutter
+   at the top of a round, so they are hidden. The machinery underneath
+   (live-pip.js, the site shell, #lookingMin's delegate click) stays wired
+   and working; restore = flip display back to inline-flex. */
+.lr-pip-controls{display:none;gap:7px;align-items:center}
 .lr-pip-btn{
   min-height:40px;font:inherit;font-size:.76rem;font-weight:700;letter-spacing:.01em;white-space:nowrap;
   padding:8px 12px;border-radius:10px;cursor:pointer;color:var(--text-dim);
@@ -12703,6 +12707,7 @@ html.stage-mode .stage-ov{display:block}
   // Presence-gated the same way as the no-show flow: with a known
   // opposing uid it waits for their seat beat, so it can never tell
   // someone to start a round against an empty chair.
+  var KICKOFF_STRIP_ON = false;   // retired 2026-08-22, see checkKickoffPrompt
   var kickoffEl = null, kickoffMode = '', kickoffDismissed = false;
   // 2026-08-18 countdown upgrade, measured not guessed: in the strip's
   // first ~6 live hours it showed 47 times across 3 rooms and produced
@@ -12753,6 +12758,12 @@ html.stage-mode .stage-ov{display:block}
     }, 1000);
   }
   function checkKickoffPrompt(){
+    // 2026-08-22, the founder: the speech-1 strip (the "Your speech starts
+    // in 20s" popup at the top of the round) is retired. This supersedes
+    // the 2026-08-18 countdown entry; the whole feature is behind this
+    // flag, so restoring it is one flip. Note the auto-start goes with it:
+    // speech 1 starts only from the transport button now.
+    if (!KICKOFF_STRIP_ON){ hideKickoff(); return; }
     var live = state.phase === 'round' && state.speechIdx === 0 &&
       state.timerState === 'ready' && !isSpectator() && !!mySide() && !kickoffDismissed;
     if (live){

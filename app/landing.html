@@ -17913,7 +17913,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // says "active today" and the payload's online24 is the count.
     var LIVE = [];
     var liveCaption = document.getElementById('globeLiveCaption');
-    function setLiveCaption(count){
+    function setLiveCaption(count, signups){
       if (!liveCaption || !(count > 0)) return;
       // The "See the map" line went with the block's click-to-/atlas
        // behavior (2026-08-10). Repainting it here would put the label
@@ -17931,8 +17931,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // over, before the datacenter sessions behind most of it were
       // capped out server-side. Do not put a person-noun back on this
       // count unless presence-live starts counting people.
+      // 2026-08-22: second line, Google sign-ups, per the founder. The
+      // number arrives from presence-live's `signups` field, which carries
+      // a declared SIGNUP_BASELINE floor server-side (same posture as the
+      // visits pad); when the field is absent the line just doesn't render.
+      var signupLine = (typeof signups === 'number' && signups > 0)
+        ? '<span style="display:block;margin-top:4px"><b style="color:var(--accent,#ef4444)">' + signups +
+          '</b> sign-ups with Google.</span>'
+        : '';
       liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
-        ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>';
+        ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>' + signupLine;
     }
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
@@ -17941,7 +17949,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           return typeof p.lat === 'number' && typeof p.lng === 'number';
         }) : [];
         setLiveCaption(typeof d.online24 === 'number' ? d.online24 :
-          (typeof d.online30 === 'number' ? d.online30 : LIVE.length));
+          (typeof d.online30 === 'number' ? d.online30 : LIVE.length),
+          typeof d.signups === 'number' ? d.signups : null);
         // Repaint paused/static globes (reduced motion, offscreen) so
         // fresh pins land without waiting on the rAF loop.
         if (!rafId) draw();

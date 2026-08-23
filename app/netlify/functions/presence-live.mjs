@@ -35,6 +35,7 @@
 //   accumulates over time. /api/admin/visitors reads it.
 // ─────────────────────────────────────────────────────────────
 import { getDb, FieldValue } from './lib/firestore.mjs';
+import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
@@ -101,6 +102,39 @@ const PRESENCE_BASELINE = Math.max(
   0,
   parseInt(process.env.PRESENCE_BASELINE ?? '200', 10) || 0
 );
+
+// 2026-08-22 (Aidan's call, same posture as PRESENCE_BASELINE): the landing
+// caption gets a second line, Google sign-ups, padded by a constant floor.
+// `signups` in the payload = (real count of Firebase Auth accounts whose
+// providers include google.com) + SIGNUP_BASELINE. The REAL count is always
+// signups - SIGNUP_BASELINE; nothing on /admin reads this field, and the
+// padded figure never goes in investor or press material. Set
+// SIGNUP_BASELINE=0 in the Netlify env to turn the pad off with no redeploy.
+// The Auth read (listAllAuthUsers, ~2 pages today) is cached in the shared
+// cache for 6 hours so the payload's own 5-min cache misses stay cheap; a
+// failed read omits the field and the client just skips the line.
+const SIGNUP_BASELINE = Math.max(
+  0,
+  parseInt(process.env.SIGNUP_BASELINE ?? '210', 10) || 0
+);
+const SIGNUP_CACHE_KEY = 'presence-live:google-signups';
+const SIGNUP_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function googleSignupCount() {
+  try {
+    const cached = await getCachedShared(SIGNUP_CACHE_KEY).catch(() => null);
+    if (cached && typeof cached.n === 'number') return cached.n;
+    const users = await listAllAuthUsers();
+    const n = users.filter((u) =>
+      (u.providerData || []).some((p) => p.providerId === 'google.com')
+    ).length;
+    await setCachedShared(SIGNUP_CACHE_KEY, { n }, SIGNUP_CACHE_TTL_MS).catch(() => {});
+    return n;
+  } catch (err) {
+    console.warn('presence-live signup count failed:', err.message);
+    return null;
+  }
+}
 
 // Plausible-city pool for ambient pins: global spread matching the circuits
 // the product actually serves (US/UK college towns, Asian Parli + WSDC
@@ -452,12 +486,16 @@ export default async (request, context) => {
       // Ambient baseline (see PRESENCE_BASELINE above): pad the 24h count
       // and back it with seeded pins. Real count = online24 - baseline.
       const ambient = buildAmbientPins(PRESENCE_BASELINE, now);
+      const realSignups = await googleSignupCount();
       const payload = {
         pins: pins.concat(ambient),
         online24: online24 + PRESENCE_BASELINE,
         online30,
         online5,
       };
+      if (typeof realSignups === 'number') {
+        payload.signups = realSignups + SIGNUP_BASELINE;
+      }
       await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS).catch(() => {});
       return jsonResponse(payload, 200, request);
     } catch (err) {
