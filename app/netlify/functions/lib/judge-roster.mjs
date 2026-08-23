@@ -27,64 +27,28 @@ export const PARADIGM_GUARD =
 
 export const ROSTER = [
   {
-    key: 'dean',
-    name: 'The Dean',
+    key: "dean",
+    name: "Warrant judge",
     lens:
-      'Judge as The Dean. Reward arguments whose reasoning is stated explicitly: claim, warrant, and why it matters. Never fill a logical gap on a speaker\'s behalf; if a key step was skipped, say exactly which one, on both sides. Give no credit for rhetorical polish that carries no reasoning.',
+      "Judge on stated reasoning. Reward arguments whose logic is explicit: claim, warrant, and why it matters. Never fill a logical gap on a speaker's behalf; if a key step was skipped, say exactly which one, on both sides. Give no credit for rhetorical polish that carries no reasoning.",
   },
   {
-    key: 'skeptic',
-    name: 'The Skeptic',
+    key: "backrow",
+    name: "Lay judge",
     lens:
-      'Judge as The Skeptic. Discount claims asserted with more certainty than their support carries, especially precise-sounding statistics with no stated basis. Reward speakers who size their claims honestly and flag their own uncertainty. Do not reward confidence as if it were evidence.',
+      "Judge as an attentive, intelligent listener who has never seen competitive debate. Reward clear explanation and comparisons an outsider could repeat. Give no weight to jargon or technique that was never explained in plain terms. Do not vote on a technical point that was not made understandable.",
   },
   {
-    key: 'backrow',
-    name: 'The Back Row',
+    key: "bookkeeper",
+    name: "Impact judge",
     lens:
-      'Judge as The Back Row: an attentive, intelligent listener who has never seen competitive debate. Reward clear explanation and comparisons an outsider could repeat. Give no weight to jargon or technique that was never explained in plain terms. Do not vote on a technical point that was not made understandable.',
+      "Judge on weighing. Resolve the round through explicit comparison: magnitude, probability, and timeframe. Reward speakers who compare their case against the other side's best case directly. Where neither side weighed, name the default you fell back on and say the debaters left it to you.",
   },
   {
-    key: 'bookkeeper',
-    name: 'The Bookkeeper',
+    key: "umpire",
+    name: "Flow judge",
     lens:
-      'Judge as The Bookkeeper. Resolve the round through explicit weighing: magnitude, probability, and timeframe. Reward speakers who compare their case against the other side\'s best case directly. Where neither side weighed, name the default you fell back on and say the debaters left it to you.',
-  },
-  {
-    key: 'umpire',
-    name: 'The Umpire',
-    lens:
-      'Judge as The Umpire. Decide strictly on the record of what was said, speech by speech. An argument that was extended and never answered counts once its significance was stated. Penalise final-speech mischaracterisation of earlier speeches, and give no weight to arguments introduced after the other side could answer them.',
-  },
-  {
-    key: 'playwright',
-    name: 'The Playwright',
-    lens:
-      'Judge as The Playwright. Reward arguments made concrete: specific people, specific consequences, stakes a listener can picture. Discount harms and benefits left fully abstract. A vivid example still needs the reasoning under it; concreteness without logic earns nothing.',
-  },
-  {
-    key: 'magistrate',
-    name: 'The Magistrate',
-    lens:
-      'Judge as The Magistrate. Identify the central question the motion asks and what each side must prove. Resolve the round on whether each side discharged its burden, not on peripheral exchanges. Penalise attempts to quietly swap the question for an easier one. Do not invent a burden neither side accepted.',
-  },
-  {
-    key: 'mechanic',
-    name: 'The Mechanic',
-    lens:
-      'Judge as The Mechanic. Scrutinise every causal claim: who acts, why they would, whether they can, on what timeline. Discount links asserted without mechanism, and credit rebuttal that cleanly breaks one load-bearing link over scattered partial answers. Name the weakest link in each side\'s chain in the ballot.',
-  },
-  {
-    key: 'editor',
-    name: 'The Editor',
-    lens:
-      'Judge as The Editor. Reward depth over breadth: a speaker who selects their strongest material and develops it beats one who touches everything shallowly. Treat repetition as repetition, not extension. In the ballot, name what each side should have cut.',
-  },
-  {
-    key: 'swing',
-    name: 'The Swing Voter',
-    lens:
-      'Judge as The Swing Voter: genuinely undecided at the start. Reward arguments constructed to move an unconvinced listener, and reward speakers who engage the strongest version of the opposing case. Penalise strawmanning and appeals that only work on the already convinced. Never score charm, accent, or delivery polish; score whether the reasoning could move a neutral listener.',
+      "Judge strictly on the record of what was said, speech by speech. An argument that was extended and never answered counts once its significance was stated. Penalise final-speech mischaracterisation of earlier speeches, and give no weight to arguments introduced after the other side could answer them.",
   },
 ];
 

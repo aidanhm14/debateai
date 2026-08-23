@@ -579,7 +579,7 @@ body{
 .vote-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
-  <script src="/js/vote-collector.js"></script>
+
 <script defer src="/js/track.js"></script>
 </head>
 <body>
@@ -1043,10 +1043,14 @@ body{
         + '<audio id="rfdAudio" style="width:100%;margin-top:12px;display:none"></audio>'
       + '</section>';
 
-    // WS2: Post-vote questionnaire (shown after the full ballot)
-    if (payload.id) {
-      html += window.VoteCollector ? window.VoteCollector.buildPostVoteUI(payload.id) : '';
-    }
+    // The pre/post spectator vote cards were REMOVED here 2026-08-23.
+    // They are WS2 spectator-polling UI and this is the page that shows
+    // you your OWN ballot: it asked "Before you watch, which side do you
+    // think is right?" above the verdict of a round the reader had just
+    // argued, and then asked whether the round changed their mind about
+    // it. Wrong question, wrong person, and it stood between them and
+    // the thing they came for. The collector still serves the genuine
+    // spectator surfaces; do not re-add it to a personal ballot.
 
     if (Array.isArray(payload.transcript) && payload.transcript.length){
       var turnsHtml = payload.transcript.map(function(t){
@@ -1163,21 +1167,7 @@ body{
       + '</div>'
       + '<div class="foot">All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
-    // WS2: Prepend pre-vote card at the top (shown before the ballot/verdict)
-    if (payload.id && window.VoteCollector) {
-      html = window.VoteCollector.buildPreVoteUI(payload.id) + html;
-    }
-
     root.innerHTML = html;
-
-    // WS2: Attach vote listeners (pre/post)
-    if (payload.id && window.VoteCollector) {
-      // Delayed to allow DOM to settle
-      setTimeout(function(){
-        window.VoteCollector.attachVoteListeners(payload.id, 'pre');
-        window.VoteCollector.attachVoteListeners(payload.id, 'post');
-      }, 100);
-    }
 
     // Transcript filter: hide non-matching turns as the user types. The
     // match key is precomputed into data-tx so this stays O(n) per keypress.

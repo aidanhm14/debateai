@@ -8109,6 +8109,44 @@ Rules:
     });
   };
 
+  // Hand the flow over as a document rather than a text box. Word and
+  // Google Docs both open an HTML payload served as .doc, which is the
+  // only export that needs no library and no server round trip.
+  var downloadFlowDoc = () => {
+    try {
+      var esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var body = (flowSheet || '').split(/\n{2,}/).map((blk) => {
+        var lines = blk.trim().split('\n').map((l) => l.trim()).filter(Boolean);
+        if (!lines.length) return '';
+        if (lines.length === 1 && /^[A-Z0-9 &'()-]{4,40}$/.test(lines[0])) {
+          return '<h2 style="font:700 13pt Arial;color:#b91f23;margin:18pt 0 6pt">' + esc(lines[0]) + '</h2>';
+        }
+        return '<p style="font:11pt Arial;margin:0 0 10pt;line-height:1.5">' + lines.map((ln) => {
+          var m = ln.match(/^([A-Za-z][A-Za-z ]{2,24}):\s*(.*)$/);
+          return m ? '<b>' + esc(m[1]) + ':</b> ' + esc(m[2]) : esc(ln);
+        }).join('<br>') + '</p>';
+      }).join('');
+      var html = '<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body>' +
+      '<h1 style="font:700 17pt Arial;margin:0 0 4pt">Round flow</h1>' +
+      '<p style="font:10pt Arial;color:#555;margin:0 0 16pt">' + esc(fmt.name) + ' &middot; ' + esc(motion || '') + '</p>' +
+      body + '</body></html>';
+      var blob = new Blob(['﻿', html], { type: 'application/msword' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'round-flow-' + (motion || 'debate').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) + '.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      if (typeof gtag === 'function') gtag('event', 'flow_export_doc', { format: fmt.name });
+    } catch (e) {
+      // Falling back to the clipboard beats failing silently: the flow
+      // is on screen either way.
+      try {navigator.clipboard.writeText(flowSheet || '');} catch (e2) {}
+    }
+  };
+
   var genFlowSheet = async (allLog) => {
     setFlowLoading(true);
     setFlowSheet('');
@@ -12934,12 +12972,36 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     'Flowing the round…'
     )
     ),
-    flowSheet && el('div', { style: { marginTop: 12 } },
-    el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8 } },
+    // The flow used to render as one tall monospace slab inside the
+    // 640px reading column, which is the wrong shape twice over: a flow
+    // sheet is a wide document, and a wall of pre-wrapped mono is not
+    // something anyone studies. It now breaks out of the column, lays
+    // the ledger out as cards, and can leave as a document.
+    flowSheet && el('div', { style: { marginTop: 12, width: 'min(94vw, 1140px)', marginLeft: '50%', transform: 'translateX(-50%)' } },
+    el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
     el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => {navigator.clipboard.writeText(flowSheet).catch(() => {});} }, 'Copy flow'),
+    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => downloadFlowDoc() }, '⬇ Open in Docs or Word'),
     !flowLoading && el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => genFlowSheet(log) }, 'Re-flow')
     ),
-    el('div', { className: 'transcript-box' + (flowLoading ? ' type-stream-active' : ''), style: { maxHeight: 480, whiteSpace: 'pre-wrap', fontFamily: '"Geist Mono",ui-monospace, Menlo, monospace', fontSize: '.78rem', lineHeight: 1.6 } }, flowSheet)
+    el('div', { className: flowLoading ? 'type-stream-active' : '', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, alignItems: 'start', textAlign: 'left' } },
+    flowSheet.split(/\n{2,}/).map((blk) => blk.trim()).filter(Boolean).map((blk, bi) => {
+      var lines = blk.split('\n').map((l) => l.trim()).filter(Boolean);
+      // An all-caps line on its own is a section heading in the
+      // prompt's own format (ARGUMENT LEDGER, KEY CLASHES, ...), so it
+      // spans the grid rather than sitting in a column.
+      var isHeading = lines.length === 1 && /^[A-Z0-9 &'()-]{4,40}$/.test(lines[0]);
+      if (isHeading) return el('div', { key: 'fh' + bi, style: { gridColumn: '1 / -1', marginTop: bi === 0 ? 0 : 10, fontSize: '.68rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--c-accent, #ef4444)' } }, lines[0]);
+      return el('div', { key: 'fb' + bi, style: { padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface2, rgba(0,0,0,.03))', border: '1px solid var(--c-border, rgba(0,0,0,.10))', fontSize: '.82rem', lineHeight: 1.6 } },
+      lines.map((ln, li) => {
+        var m = ln.match(/^([A-Za-z][A-Za-z ]{2,24}):\s*(.*)$/);
+        return el('div', { key: 'fl' + li, style: { marginTop: li ? 5 : 0 } },
+        m ? el('span', { style: { fontWeight: 800 } }, m[1] + ': ') : null,
+        m ? m[2] : ln
+        );
+      })
+      );
+    })
+    )
     ),
 
     // Multi-round pattern analysis. Only appears once the user has
@@ -13145,7 +13207,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', { className: 'cta-ghost', onClick: genShareCard, disabled: shareBusy, title: 'Generate a shareable PNG of this round' }, shareBusy ? 'Rendering…' : '📸 Share card'),
     el('button', {
       className: 'cta-ghost',
-      title: 'Copy a link that pre-loads this motion so a friend can run the other side',
+      title: 'Copies a link. Whoever opens it argues this same motion from the other side.',
       onClick: function () {
         // Opposite side comes from the current format's own sides array
         // ('prop' is not a side in any format — sides are pro/con,
@@ -13163,7 +13225,11 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
           try {prompt('Copy this challenge link:', url);} catch {}
         }
       }
-    }, challengeCopied ? '✓ Link copied!' : '🔗 Challenge a friend'),
+      // "Challenge a friend" then "Link copied!" told the reader
+      // neither what was copied nor what to do with it, which is
+      // exactly how it was read: as two unrelated words. Say the
+      // object and say the next step.
+    }, challengeCopied ? '✓ Link copied. Send it to them.' : '🔗 Copy a link to send a friend'),
     el('button', { className: 'cta-ghost', onClick: () => saveCase(), style: caseSaved ? { background: 'rgba(34,197,94,.15)', borderColor: '#22c55e', color: '#22c55e' } : {} }, caseSaved ? 'Case Saved' : 'Save Case'),
     // Publish-to-/disclosures button. Only enabled for signed-in
     // users; pending shows a spinner-style label; published flips
