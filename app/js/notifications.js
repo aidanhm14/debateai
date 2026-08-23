@@ -1608,6 +1608,19 @@
     }
 
     // ── availability ──
+    // Lazy-load the one-time age question for a manual opt-in without a
+    // recorded band. Without it the queue doc is a phantom: spar-pair
+    // refuses every pair with AGE_BAND_REQUIRED, so real waiters see an
+    // entry they can never meet. age-gate.js is not loaded on most
+    // topbar pages, so pull it in on demand; if the script fails to
+    // load, do nothing rather than enqueue an unpairable doc.
+    function askBandThen(cb) {
+      if (window.daAskAgeBand) { window.daAskAgeBand(function () { cb(); }); return; }
+      var s = document.createElement('script');
+      s.src = '/js/age-gate.js';
+      s.onload = function () { if (window.daAskAgeBand) window.daAskAgeBand(function () { cb(); }); };
+      document.head.appendChild(s);
+    }
     function setAvailable(on, quiet) {
       // quiet=true is the programmatic path (the landing live-pull
       // auto-enlist): no OS-permission ask (needs a real gesture), no
@@ -1617,6 +1630,14 @@
         available = false;
         try { localStorage.setItem(LSKEY, '0'); } catch (e) {}
         ensureQueueUser(function () { setAvailable(true, quiet); });
+        return;
+      }
+      // Manual opt-in with no age answer: ask first, then proceed. The
+      // quiet (programmatic) path never asks — its callers are gated on
+      // a recorded band instead, because the modal has no dismiss and
+      // must only ever appear on a real click.
+      if (on && !quiet && myUid && !agBand()) {
+        askBandThen(function () { setAvailable(true, quiet); });
         return;
       }
       available = !!on;
@@ -2244,6 +2265,36 @@
         myUid = queueUser ? queueUser.uid : null;
         myUser = queueUser;
         paintPill();
+        // 2026-08-23 (Aidan: "make it so ppl are available when using
+        // other parts of app"): availability defaults ON for signed-in
+        // people browsing the app instead of waiting for a pill click.
+        // Three guards. Named account: the pill's standing rule, a
+        // stranger's opponent must be accountable. A recorded age band:
+        // without one spar-pair refuses every pair (AGE_BAND_REQUIRED),
+        // so the doc would be a phantom entry real waiters can see but
+        // never meet; the no-dismiss age modal must never auto-pop, so
+        // band-less users keep the manual pill, which now asks first.
+        // No explicit opt-out: the pill writes '0' and that choice
+        // holds until they toggle it back. Quiet path (no OS ask, no
+        // go-live broadcast), and a one-time note says the state out
+        // loud, because being silently matchable is not consent.
+        // Match cards still always require an Accept; nothing here can
+        // pull anyone into a round without a tap.
+        if (queueUser && !available && !ON_ROUND && !ON_SPAR) {
+          var optedOut = false;
+          try { optedOut = localStorage.getItem(LSKEY) === '0'; } catch (e) {}
+          if (!optedOut && agBand()) {
+            try { if (window.gtag) gtag('event', 'spar_bg_auto_on'); } catch (e) {}
+            setAvailable(true, true);
+            try {
+              if (localStorage.getItem('da-spar-bg-auto-noted') !== '1') {
+                localStorage.setItem('da-spar-bg-auto-noted', '1');
+                sparNote("You're open to a live round while you browse. If someone matches you, we ask first. Turn it off with the Available pill up top.");
+              }
+            } catch (e) {}
+            return;
+          }
+        }
         if (queueUser && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
         else {
           stopTimers();
