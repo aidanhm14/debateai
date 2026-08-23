@@ -313,7 +313,14 @@
     // ...but never build a backlog: a caller that re-fires while a full
     // sequence is still pending is telling us about an event we are
     // already ringing for. Drop it instead of extending the alarm.
-    if (startAt - now > RING_S) return;
+    //
+    // The 1.5 is not a taste call. Queueing exactly one sequence behind
+    // puts this difference ON RING_S, and ctx.currentTime is a float that
+    // has been running for minutes, so the comparison lands either side
+    // of the boundary depending on the clock. At RING_S flat this dropped
+    // the markPeerAccepted escalation on live production while passing
+    // from a zeroed test clock. Anything under 2 keeps the bound.
+    if (startAt - now > RING_S * 1.5) return;
     for (var i = 0; i < n; i++) ring((startAt - now) * 1000 + i * RING_MS);
     nextRingAt = startAt + n * RING_S;
   }
