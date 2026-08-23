@@ -94,7 +94,7 @@
       "logo": "https://itsdebatable.com/icons/icon-512.png?v=2",
       "image": "https://itsdebatable.com/og-home.png?v=omegle2",
       "mainEntityOfPage": { "@id": "https://itsdebatable.com/debatable#about" },
-      "description": "Debatable is a live online debate platform for real people. Participants post or join timed rounds, speak on video, and receive a written AI judge ballot. Rounds are judged against a published rubric.",
+      "description": "Debatable is a live online debate platform for real people. Participants post or join timed rounds, speak on video, and receive the AI judge's written decision and reasons. Rounds are judged against a published rubric.",
       "slogan": "Back your words.",
       "keywords": "Debatable, online debate platform, live online debate, debate with real people online, debate strangers online, competitive debate, debate practice online, Asian Parliamentary debate, WSDC, British Parliamentary debate, Public Forum, Lincoln-Douglas, Policy debate, APDA, Congress debate, MUN, judge RFD, speaker points, AI judge feedback, argumentation training",
       "contactPoint": {
@@ -132,7 +132,7 @@
       "name": "Debatable",
       "alternateName": "itsdebatable.com",
       "url": "https://itsdebatable.com/",
-      "description": "Debatable matches people for live timed debate rounds at itsdebatable.com. An AI judge writes the ballot when the round ends.",
+      "description": "Debatable matches people for live timed debate rounds at itsdebatable.com. An AI judge decides who won, with written reasons, when the round ends.",
       "about": { "@id": "https://itsdebatable.com/#org" },
       "publisher": { "@id": "https://itsdebatable.com/#org" },
       "inLanguage": "en"
@@ -207,7 +207,7 @@
         {
           "@type": "SiteNavigationElement",
           "name": "Find a sparring partner",
-          "description": "Match with someone for a live timed round and receive a judge ballot at the end.",
+          "description": "Match with someone for a live timed round and get the judge's decision at the end.",
           "url": "https://itsdebatable.com/spar"
         },
         {
@@ -219,7 +219,7 @@
         {
           "@type": "SiteNavigationElement",
           "name": "Cash-prize debate tournaments",
-          "description": "Enter online debate tournaments with real opponents, written judge ballots, streamed finals, and cash prizes.",
+          "description": "Enter online debate tournaments with real opponents, written judge decisions, streamed finals, and cash prizes.",
           "url": "https://itsdebatable.com/tournaments"
         },
         {
@@ -248,7 +248,7 @@
           "name": "What is Debatable?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Debatable is a live online debate platform for real people. Post a motion, join someone on video, argue a timed round, and receive a written AI judge ballot explaining who won and why. Fourteen languages are supported. Optional AI practice, Prep, Learn, Judge, Coach, and Certificate tools are available between live rounds."
+            "text": "Debatable is a live online debate platform for real people. Post a motion, join someone on video, argue a timed round, and receive the AI judge's written decision explaining who won and why. Fourteen languages are supported. Optional AI practice, Prep, Learn, Judge, Coach, and Certificate tools are available between live rounds."
           }
         },
         {
@@ -256,7 +256,7 @@
           "name": "Can I use Debatable on a Twitch or YouTube stream?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Room Judge runs in a browser tab and listens to your broadcast through screen capture, so there is nothing to install. It follows the round, gives a live read on request, and writes a full ballot at the end with the winner, speaker points, and the reasoning. On Twitch it also reads public chat as audience signal, and the compact view works as a panel or overlay URL. Chat never decides the winner; it only tells the judge where the room was persuaded. Setup guides are at itsdebatable.com/room-judge and itsdebatable.com/plugins/twitch."
+            "text": "Yes. Room Judge runs in a browser tab and listens to your broadcast through screen capture, so there is nothing to install. It follows the round, gives a live read on request, and writes a full decision at the end with the winner, speaker points, and the reasoning. On Twitch it also reads public chat as audience signal, and the compact view works as a panel or overlay URL. Chat never decides the winner; it only tells the judge where the room was persuaded. Setup guides are at itsdebatable.com/room-judge and itsdebatable.com/plugins/twitch."
           }
         },
         {
@@ -437,29 +437,35 @@
     } catch(e){}
     var t = '';
     try { t = localStorage.getItem('da-theme') || ''; } catch(e){}
+    /* 2026-08-22 per the founder (off a screenshot of the dark first
+       screen): the landing is LIGHT. The 2026-08-19 70/30 light/crimson
+       bucket is retired; every unset visitor gets light, and visitors
+       the old split auto-bucketed into crimson are migrated back ONCE
+       (gated by da-theme-light-v3 so a later deliberate toggle to
+       crimson sticks). The toggle in the topbar still overrides
+       permanently on the first click. ?themeAb=crimson stays as a QA
+       force for the dark surface. */
+    try {
+      if (t === 'crimson' && !localStorage.getItem('da-theme-light-v3')) {
+        localStorage.setItem('da-theme-light-v3', '1');
+        if ((localStorage.getItem('da-theme-ab') || '') === 'crimson') {
+          t = 'light';
+          localStorage.setItem('da-theme', 'light');
+        }
+      } else if (t) {
+        localStorage.setItem('da-theme-light-v3', '1');
+      }
+    } catch(e){}
     if (!t || t === 'day') {
-      /* 2026-08-19 per the founder: bucket new visitors 70% light / 30%
-         crimson. This restores the split retired on 2026-08-10, and it
-         is deliberately assigned HERE, in the early-paint script, rather
-         than in topbar.js: this runs in <head> before first paint, so a
-         dark-bucketed visitor never sees a light flash. topbar.js runs
-         the same assignment for anyone whose first page is not this one.
-         Sticky: the arm is written to da-theme, so a visitor stays in it
-         and the toggle still overrides it permanently on the first
-         click. da-theme-ab records which arm they were ASSIGNED, which
-         is what the GA4 property below segments on, so a visitor who
-         toggles away is still counted in the arm they were given.
-         ?themeAb=light|crimson forces an arm for QA. */
       t = 'light';
       try {
         var q = (location.search || '').toLowerCase();
         if (/[?&]themeab=crimson(?:&|$)/.test(q)) t = 'crimson';
-        else if (/[?&]themeab=light(?:&|$)/.test(q)) t = 'light';
-        else t = (Math.random() < 0.3) ? 'crimson' : 'light';
       } catch(e){ t = 'light'; }
       try {
         localStorage.setItem('da-theme', t);
         localStorage.setItem('da-theme-ab', t);
+        localStorage.setItem('da-theme-light-v3', '1');
       } catch(e){}
       window.__themeAbAssigned = true;
     }
@@ -6199,7 +6205,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <a href="/spar">Live debates</a>
   <a href="/voice-debate">Debate the AI</a>
   <a href="/ambassadors">Ambassadors</a>
-  <a href="#live-proof">Sample ballot</a>
+  <a href="#live-proof">Sample decision</a>
   <a href="#faq">FAQ</a>
   <a href="#" data-open-feedback="1" class="feedback-nav">Feedback</a>
 </nav>
@@ -6439,7 +6445,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="20" cy="12" r="2.2"/><path d="M6.4 12h3.2M14.4 12h3.2"/></svg>' },
     'live-now': { note: 'Watch a round happening right now.',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="10" opacity=".45"/></svg>' },
-    'live-proof': { note: 'Real ballot, real reasoning, no cherry-picking.',
+    'live-proof': { note: 'A real decision, real reasoning, no cherry-picking.',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="2.2"/><path d="M8 12l3 3 5-6.5"/></svg>' },
     'ranked-band': { note: 'Public leaderboard. Five scores, not one.',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 18V10M12 18V5M19 18v-6"/></svg>' },
@@ -7429,7 +7435,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      .fscreen` would otherwise out-specify it and pin a 100svh floor back
      on phones. */
   @media(min-width:941px){body.has-beta-strip .fscreen{min-height:calc(100svh - 32px)}}
-  .fscreen-wrap{width:100%;max-width:1200px;display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(32px,4.2vw,64px);align-items:center}
+  /* 2026-08-22 per the founder: the board (the two real webcam tiles) and
+     the CTAs are what should pull the eye toward the stranger match, so
+     the right column takes a larger share and the wrap grows 80px. */
+  .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(32px,4.2vw,64px);align-items:center}
   /* The copy column is a flex column with ONE gap, so its three blocks
      (the CTA cluster, the Open card, the globe) are evenly spaced by the
      container instead of each carrying its own margin. The hidden copy
@@ -7568,8 +7577,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      pair still has to hold one row at 941px, where the copy column is only
      371px, so both keep vw-scaled horizontal padding and shrink to fit
      instead of wrapping; only the ratio between them changed. */
+  /* 2026-08-22 per the founder: bigger still. Debate is the door to the
+     stranger match and the one thing the first screen exists to sell. */
   .fs-cta--primary{font-weight:800;
-    padding:23px clamp(26px,3vw,44px);font-size:clamp(1.18rem,1.02vw,1.34rem);
+    padding:26px clamp(30px,3.4vw,52px);font-size:clamp(1.26rem,1.12vw,1.48rem);
     background:#dc2626;color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.26)}
   .fs-cta--primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(220,38,38,.38)}
   .fs-cta--ghost{font-weight:700;
@@ -8099,7 +8110,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board .fs-mkt{display:none}
 
   /* Ballot payoff. */
-  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:64px}
+  /* 2026-08-22, per the founder: the who-viewers-think-is-ahead strip is
+     GONE from the visible board ("not bet against the pot type
+     language"). A drifting percentage bar reads as odds, and a newcomer
+     should not have to decode a market to understand a debate card. The
+     markup and its tick engine stay (they also drive the clock), only
+     the strip is hidden; restore = delete this rule. */
+  .fs-board .fs-odds{display:none}
+  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:88px}
+  /* Small label over the decision so the card names its own author: the
+     AI judge. Same voice as .fs-sample. */
+  .fs-ballot-k{display:block;margin-bottom:5px;font-size:.58rem;font-weight:800;letter-spacing:.13em;
+    text-transform:uppercase;color:rgba(245,239,231,.68)}
+  [data-theme="light"] .fs-ballot-k{color:rgba(26,26,31,.64)}
   [data-theme="light"] .fs-ballot{border-top-color:rgba(26,26,31,.12)}
   .fs-board .fs-ballot-wait{display:flex;align-items:center;gap:4px;font-size:.66rem;font-weight:800;
     letter-spacing:.1em;text-transform:uppercase;color:rgba(245,239,231,.68)}
@@ -8402,6 +8425,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              it sits right because .fs-pager already carries margin-left:auto.
              The format still rides each ROUNDS entry and shows up where it
              means something (the motion, /practice). -->
+        <!-- 2026-08-22, per the founder ("make it make sense to newcomers"):
+             the "Example round" label is back. It was cut 2026-08-12, but a
+             cold visitor needs to be told what this card is, and the label
+             is also the honest framing for authored rounds. -->
+        <span class="fs-sample">Example round</span>
         <span class="fs-pager">
           <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
           <span id="fsCount">1 of 24</span>
@@ -8422,12 +8450,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            the mic dot and the clock, and all three are untouched. -->
       <div class="fs-stage" aria-hidden="true">
         <div class="fs-tile fs-tile--speaking">
-          <img class="fs-fade" id="fsFaceA" src="/img/round/faces/face02.jpg" alt="" decoding="async">
+          <img class="fs-fade" id="fsFaceA" src="/img/round/faces/face46.jpg" alt="" decoding="async">
           <span class="fs-tile-nm"><i></i><b id="fsNameA"></b> &middot; <span id="fsSideA">Pro</span></span>
           <span class="fs-clock" id="fsClock">01:42</span>
         </div>
         <div class="fs-tile">
-          <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face07.jpg" alt="" decoding="async">
+          <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face52.jpg" alt="" decoding="async">
           <span class="fs-tile-nm"><b id="fsNameB"></b> &middot; <span id="fsSideB">Con</span></span>
         </div>
       </div>
@@ -8481,18 +8509,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
 
       <!-- The payoff. Holds a placeholder while the round runs, then the
-           ballot lands: winner and speaker points. The RFD line was cut
-           2026-08-22 per the founder: the card says who won, it does not
-           argue it. So the waiting label says VERDICT, not feedback: what
-           lands is a winner and a score, and "feedback coming" promised a
-           note on your speaking that this card has never contained. -->
+           AI judge's decision lands: winner plus one plain sentence of why.
+           2026-08-22, per the founder, twice in one day: the why-line was
+           cut in the morning ("the card says who won, it does not argue
+           it") and is BACK by the evening ask ("explain it as decision
+           justification"), with the market framing gone around it. The
+           word "ballot" stays out of the visible copy on his call; this
+           is the AI judge's decision, said in those words. -->
       <div class="fs-ballot" id="fsBallot">
-        <div class="fs-ballot-wait" id="fsWait">Verdict incoming <span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+        <div class="fs-ballot-wait" id="fsWait">The AI judge is deciding <span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
         <div class="fs-ballot-card fs-fade" id="fsBallotCard">
+          <span class="fs-ballot-k">AI judge&rsquo;s decision</span>
           <div class="fs-ballot-top">
             <b id="fsWinner">Pro wins</b>
             <span id="fsScore">88 &ndash; 62</span>
           </div>
+          <p id="fsWhy"></p>
         </div>
       </div>
     </div>
@@ -9537,14 +9569,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <article class="hiw-card" data-hiw-step="verdict">
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">2</span><span class="hiw-step-of">Verdict</span></p>
-              <h3 class="hiw-card-title" data-plain="The AI judge explains who won.">The judge writes the ballot.</h3>
-              <p class="hiw-card-body">The round ends, the AI judge writes the ballot in seconds: <b>winner, speaker points, and the reasons</b>, citing what was actually said. The rubric's public, so every call is checkable.</p>
-              <ul class="hiw-mech" aria-label="Ballot contents">
+              <h3 class="hiw-card-title" data-plain="The AI judge explains who won.">The AI judge decides who won.</h3>
+              <p class="hiw-card-body">The round ends, the AI judge delivers its decision in seconds: <b>winner, speaker points, and the reasons</b>, citing what was actually said. The rubric's public, so every call is checkable.</p>
+              <ul class="hiw-mech" aria-label="Decision contents">
                 <li><b>Decided on</b><span data-plain="The arguments made, never the topic">The flow, never the topic</span></li>
                 <li><b>Rubric</b><span>Published and versioned</span></li>
                 <li><b>Turnaround</b><span>Seconds after the last speech</span></li>
               </ul>
-              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict" data-plain="See real judge feedback">See a real ballot</a>
+              <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict" data-plain="See real judge feedback">See a real decision</a>
               <!-- 2026-08-11: the card says "AI judge" and "the rubric's
                    public"; this is the link that lets someone act on
                    that instead of taking it on faith. -->
@@ -9552,7 +9584,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </div>
             <div class="hiw-viz">
               <div class="hiw-panel">
-                <div class="hiw-panel-head"><span>Ballot · Round 1</span><span>AI judge · published rubric</span></div>
+                <div class="hiw-panel-head"><span>Decision · Round 1</span><span>AI judge · published rubric</span></div>
                 <div class="hiw-panel-body">
                   <div class="hiw-verdict"><span class="hiw-verdict-win"><i>Pro wins</i></span><span class="hiw-verdict-pts">88 &ndash; 62 speaks</span></div>
                   <div class="hiw-axis"><div class="hiw-axis-top"><span>The argument</span><b>12 / 15</b></div><div class="hiw-bar"><i style="width:80%"></i></div></div>
@@ -9603,7 +9635,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               <ul class="hiw-mech" aria-label="Show mechanics">
                 <li><b>Qualify</b><span>Rise to the top of the board</span></li>
                 <li><b>Select</b><span>Rank, format, and availability</span></li>
-                <li><b>Live result</b><span>Judge ballot + crowd swing</span></li>
+                <li><b>Live result</b><span>Judge decision + crowd swing</span></li>
               </ul>
               <a class="hiw-go" href="#creator-sweepstakes" data-cta="hiw-step4-show">See creator matchups</a>
             </div>
@@ -9619,7 +9651,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                   </div>
                   <div class="hiw-show-result" aria-label="What appears when the round ends">
                     <span>When the round ends</span>
-                    <span><b>Judge ballot</b><small>Winner and reasons</small></span>
+                    <span><b>Judge decision</b><small>Winner and reasons</small></span>
                     <span><b>Crowd swing</b><small>Who moved the room</small></span>
                   </div>
                 </div>
@@ -9648,7 +9680,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                   <div class="hiw-pool-row"><span>Format fit</span><b>Your debate style matches</b></div>
                   <div class="hiw-pool-row"><span>Availability</span><b>Both sides can make the live slot</b></div>
                   <div class="hiw-pool-row total"><span>Invitation</span><b>Selected challengers get the seat</b></div>
-                  <div class="hiw-pool-row"><span>Broadcast</span><b>Creator channel + live ballot</b></div>
+                  <div class="hiw-pool-row"><span>Broadcast</span><b>Creator channel + live judging</b></div>
                   <p class="hiw-pool-note">A high finish creates the opportunity, not a guaranteed matchup. Creator availability and event fit decide each invitation.</p>
                 </div>
               </div>
@@ -9816,104 +9848,115 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      deliberate: the anonymous-accounts motion is Priya against the
      illustrated avatar. Recasting Kenji and Arjun onto real stills would
      restore the old property, but that changes two characters nobody asked
-     to change, so it is left for a decision rather than done quietly. */
+     to change, so it is left for a decision rather than done quietly.
+     2026-08-22 per the founder, off a screenshot of the board: the generated
+     faces "look ai", so the board is now REAL STILLS ONLY. Every seat in
+     every round is one of the eight consented webcam people (Marcus,
+     Mateo, Luka, Miguel, Timothee, Emeka, Dev, Danylo) plus the
+     illustrated Anonymous avatar on the anonymous-accounts motion.
+     Motions, winners, numbers and scores are untouched; each recast seat
+     took its name into the RFD with it, pronouns included, so no ballot
+     names a debater who is not in the round. Known and accepted cost,
+     stated on the record: the real batch is all men, so the visible cast
+     is all male until more consented stills exist. Do not fix that by
+     reintroducing generated faces; fix it with a new consented batch. */
   var ROUNDS = [
     { fmt:'World Schools', motion:'Cancel culture has done more harm than good.',
-      a:{ nm:'Anika', side:'For', face:'face37' }, b:{ nm:'Dev', side:'Against', face:'face53' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:50, drift:58, won:'a', score:'88 - 75', crowd:186, vol:340,
-      rfd:'Anika wins because she proves that public punishment outlasts the original mistake. Dev never gives a workable line between accountability and permanent exile.' },
+      rfd:'Marcus wins because he proves that public punishment outlasts the original mistake. Dev never gives a workable line between accountability and permanent exile.' },
     { fmt:'British Parli', motion:'Should unpaid internships be illegal?',
       a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Emeka', side:'Against', face:'face52' },
       open:52, drift:71, won:'a', score:'88 - 69', crowd:214, vol:380,
       rfd:'Marcus wins because he shows how corporate money can shape political decisions. Emeka questions the size of the problem but not how it happens.' },
     { fmt:'APDA', motion:'Has the internet made democratic debate worse?',
-      a:{ nm:'Timothee', side:'For', face:'face51' }, b:{ nm:'Priya', side:'Against', face:'face11' },
+      a:{ nm:'Timothee', side:'For', face:'face51' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
       open:48, drift:27, won:'b', score:'75 - 95', crowd:96, vol:240,
-      rfd:'Priya wins by defining the central question early and answering Timothee\'s strongest example.' },
+      rfd:'Mateo wins by defining the central question early and answering Timothee\'s strongest example.' },
     { fmt:'Policy', motion:'Is it wrong to eat meat when you know what you know now?',
-      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Elena', side:'Against', face:'face12' },
+      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Luka', side:'Against', face:'face48' },
       open:49, drift:66, won:'b', score:'82 - 88', crowd:143, vol:295,
-      rfd:'Elena wins because she shows why the proposal would not protect enough water. Danylo never closes that gap.' },
+      rfd:'Luka wins because he shows why the proposal would not protect enough water. Danylo never closes that gap.' },
     { fmt:'Public Forum', motion:'Should colleges end legacy admissions?',
-      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Sofia', side:'Against', face:'face30' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Emeka', side:'Against', face:'face52' },
       open:50, drift:61, won:'b', score:'75 - 82', crowd:151, vol:310,
-      rfd:'Sofia wins because Miguel never answers the fairness problem or explains why his benefits matter more.' },
+      rfd:'Emeka wins because Miguel never answers the fairness problem or explains why his benefits matter more.' },
     { fmt:'Asian Parli', motion:'Should voting be mandatory?',
-      a:{ nm:'Kenji', side:'For', face:'face33' }, b:{ nm:'Elena', side:'Against', face:'face12' },
+      a:{ nm:'Dev', side:'For', face:'face53' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
       open:51, drift:78, won:'a', score:'95 - 62', crowd:67, vol:180,
-      rfd:'Kenji wins by showing how mandatory voting improves legitimacy. Elena concedes that her main concern is limited.' },
+      rfd:'Dev wins by showing how mandatory voting improves legitimacy. Timothee concedes that his main concern is limited.' },
     { fmt:'Congress', motion:'Is being late a character flaw or just a habit?',
-      a:{ nm:'Yuna', side:'For', face:'face35' }, b:{ nm:'Luka', side:'Against', face:'face48' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Luka', side:'Against', face:'face48' },
       open:50, drift:39, won:'b', score:'75 - 88', crowd:88, vol:205,
-      rfd:'Luka wins with concrete safety and warranty examples. Yuna defends the principle but not the practical cost.' },
+      rfd:'Luka wins with concrete safety and warranty examples. Miguel defends the principle but not the practical cost.' },
     { fmt:'Lincoln-Douglas', motion:'Should bosses be allowed to fire you for what you post?',
-      a:{ nm:'Dev', side:'For', face:'face53' }, b:{ nm:'Zainab', side:'Against', face:'face07' },
+      a:{ nm:'Dev', side:'For', face:'face53' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
       open:50, drift:44, won:'a', score:'88 - 75', crowd:122, vol:265,
-      rfd:'Dev wins because his standard for justice stays consistent and answers Zainab\'s main objection.' },
+      rfd:'Dev wins because his standard for justice stays consistent and answers Danylo\'s main objection.' },
     { fmt:'Quick Clash', motion:'Should schools replace final exams with projects?',
-      a:{ nm:'Zuri', side:'For', face:'face01' }, b:{ nm:'Luka', side:'Against', face:'face48' },
+      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Luka', side:'Against', face:'face48' },
       open:49, drift:63, won:'a', score:'88 - 75', crowd:74, vol:190,
-      rfd:'Zuri wins by comparing what each system actually measures and answering Luka\'s consistency objection.' },
+      rfd:'Emeka wins by comparing what each system actually measures and answering Luka\'s consistency objection.' },
     { fmt:'Karl Popper', motion:'Should governments ban facial recognition in public spaces?',
-      a:{ nm:'Hana', side:'For', face:'face04' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
       open:51, drift:68, won:'b', score:'82 - 88', crowd:108, vol:230,
-      rfd:'Mateo wins because he narrows the policy and proves that Hana\'s ban is broader than her harms require.' },
+      rfd:'Mateo wins because he narrows the policy and proves that Marcus\'s ban is broader than his harms require.' },
     { fmt:'World Schools', motion:'Should you have kids if you cannot comfortably afford them?',
-      a:{ nm:'Samira', side:'For', face:'face23' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
+      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
       open:50, drift:57, won:'a', score:'95 - 75', crowd:132, vol:275,
-      rfd:'Samira wins by tying responsibility to a workable remedy. Miguel contests the scale but never offers a better response.' },
+      rfd:'Danylo wins by tying responsibility to a workable remedy. Miguel contests the scale but never offers a better response.' },
     { fmt:'British Parli', motion:'Should cities make public transit free?',
-      a:{ nm:'Amara', side:'For', face:'face13' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
+      a:{ nm:'Luka', side:'For', face:'face48' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
       open:50, drift:34, won:'a', score:'88 - 82', crowd:177, vol:325,
-      rfd:'Amara wins because she explains who changes behavior and why the citywide benefits outweigh Timothee\'s funding concern.' },
+      rfd:'Luka wins because he explains who changes behavior and why the citywide benefits outweigh Timothee\'s funding concern.' },
     { fmt:'APDA', motion:'Should anyone be allowed to become a billionaire?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Sofia', side:'Against', face:'face30' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
       open:50, drift:38, won:'a', score:'88 - 75', crowd:201, vol:365,
-      rfd:'Marcus wins by separating the existence of extreme wealth from the conduct used to acquire it. Sofia proves inequality is harmful but never proves a hard wealth ceiling fixes it.' },
+      rfd:'Marcus wins by separating the existence of extreme wealth from the conduct used to acquire it. Miguel proves inequality is harmful but never proves a hard wealth ceiling fixes it.' },
     { fmt:'British Parli', motion:'Should parents be allowed to post their children online?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Zainab', side:'Against', face:'face07' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
       open:51, drift:64, won:'b', score:'75 - 95', crowd:238, vol:410,
-      rfd:'Zainab wins because a child cannot meaningfully consent to a permanent digital record. Marcus defends ordinary family sharing but never limits the worst cases.' },
+      rfd:'Timothee wins because a child cannot meaningfully consent to a permanent digital record. Marcus defends ordinary family sharing but never limits the worst cases.' },
     { fmt:'World Schools', motion:'Would the world be better without smartphones?',
-      a:{ nm:'Mei', side:'For', face:'face25' }, b:{ nm:'Dev', side:'Against', face:'face53' },
+      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:49, drift:56, won:'a', score:'88 - 82', crowd:173, vol:330,
-      rfd:'Mei wins by comparing smartphones with the less addictive tools that could replace them. Dev proves convenience, but not that convenience outweighs the attention cost.' },
+      rfd:'Mateo wins by comparing smartphones with the less addictive tools that could replace them. Dev proves convenience, but not that convenience outweighs the attention cost.' },
     { fmt:'Quick Clash', motion:'Partners should share their phone passwords.',
-      a:{ nm:'Zuri', side:'For', face:'face01' }, b:{ nm:'Luka', side:'Against', face:'face48' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Luka', side:'Against', face:'face48' },
       open:50, drift:42, won:'b', score:'75 - 88', crowd:119, vol:255,
-      rfd:'Luka wins by showing that trust requires room for privacy, not constant access. Zuri identifies secrecy as a risk but treats every private message as suspicious.' },
+      rfd:'Luka wins by showing that trust requires room for privacy, not constant access. Marcus identifies secrecy as a risk but treats every private message as suspicious.' },
     { fmt:'Asian Parli', motion:'Should anonymous social media accounts be banned?',
-      a:{ nm:'Priya', side:'For', face:'face11' }, b:{ nm:'Anonymous', side:'Against', face:'face50' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Anonymous', side:'Against', face:'face50' },
       open:52, drift:73, won:'b', score:'82 - 88', crowd:192, vol:350,
-      rfd:'Anonymous wins because anonymity protects whistleblowers and vulnerable speakers who cannot safely use their names. Priya never shows why narrower enforcement tools would fail.' },
+      rfd:'Anonymous wins because anonymity protects whistleblowers and vulnerable speakers who cannot safely use their names. Miguel never shows why narrower enforcement tools would fail.' },
     { fmt:'Karl Popper', motion:'Should AI companies pay creators whose work trains their models?',
-      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Rin', side:'Against', face:'face45' },
+      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
       open:50, drift:67, won:'a', score:'95 - 75', crowd:221, vol:395,
-      rfd:'Emeka wins with a workable licensing model tied to commercial training. Rin attacks the cost but never explains why companies should keep the value without paying its creators.' },
+      rfd:'Emeka wins with a workable licensing model tied to commercial training. Danylo attacks the cost but never explains why companies should keep the value without paying its creators.' },
     { fmt:'Public Forum', motion:'Is college still worth it?',
-      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Claire', side:'Against', face:'face41' },
+      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
       open:51, drift:47, won:'b', score:'75 - 88', crowd:164, vol:315,
-      rfd:'Claire wins by narrowing the debate to the marginal student taking on debt. Danylo proves that some degrees pay off, but not that the average choice still does.' },
+      rfd:'Mateo wins by narrowing the debate to the marginal student taking on debt. Danylo proves that some degrees pay off, but not that the average choice still does.' },
     { fmt:'APDA', motion:'Should public figures have a right to privacy?',
-      a:{ nm:'Timothee', side:'For', face:'face51' }, b:{ nm:'Samira', side:'Against', face:'face23' },
+      a:{ nm:'Timothee', side:'For', face:'face51' }, b:{ nm:'Emeka', side:'Against', face:'face52' },
       open:48, drift:54, won:'b', score:'82 - 88', crowd:137, vol:285,
-      rfd:'Samira wins by drawing a clear line between private life and information that affects public power. Timothee never answers officials who hide conflicts behind privacy.' },
+      rfd:'Emeka wins by drawing a clear line between private life and information that affects public power. Timothee never answers officials who hide conflicts behind privacy.' },
     { fmt:'Policy', motion:'Should news outlets stop naming mass shooters?',
-      a:{ nm:'Arjun', side:'For', face:'face02' }, b:{ nm:'Elena', side:'Against', face:'face12' },
+      a:{ nm:'Luka', side:'For', face:'face48' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:50, drift:69, won:'a', score:'88 - 75', crowd:154, vol:305,
-      rfd:'Arjun wins because he shows how notoriety can reward attackers without improving public understanding. Elena defends the historical record but not headline repetition.' },
+      rfd:'Luka wins because he shows how notoriety can reward attackers without improving public understanding. Dev defends the historical record but not headline repetition.' },
     { fmt:'World Schools', motion:'Should group projects always be graded individually?',
-      a:{ nm:'Yuna', side:'For', face:'face35' }, b:{ nm:'Emeka', side:'Against', face:'face52' },
+      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Emeka', side:'Against', face:'face52' },
       open:49, drift:35, won:'a', score:'88 - 82', crowd:128, vol:270,
-      rfd:'Yuna wins by showing how flexible subject-level groups help both struggling and advanced students. Emeka proves stigma is possible but treats the current age system as neutral.' },
+      rfd:'Mateo wins by showing how flexible subject-level groups help both struggling and advanced students. Emeka proves stigma is possible but treats the current age system as neutral.' },
     { fmt:'Lincoln-Douglas', motion:'Is it ever okay to date a friend\'s ex?',
-      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Amara', side:'Against', face:'face13' },
+      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
       open:50, drift:61, won:'a', score:'95 - 75', crowd:181, vol:345,
-      rfd:'Mateo wins because punishment without an endpoint blocks rehabilitation. Amara proves the public needs truthful records but never shows why every record must stay equally visible forever.' },
+      rfd:'Mateo wins because punishment without an endpoint blocks rehabilitation. Miguel proves the public needs truthful records but never shows why every record must stay equally visible forever.' },
     { fmt:'British Parli', motion:'Should humanity bring extinct species back to life?',
-      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Aarav', side:'Against', face:'face21' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:51, drift:74, won:'b', score:'75 - 95', crowd:209, vol:375,
-      rfd:'Aarav wins because revival without a restored habitat creates expensive museum populations. Miguel proves the science could work but not that the animals would have a world to return to.' },
+      rfd:'Dev wins because revival without a restored habitat creates expensive museum populations. Miguel proves the science could work but not that the animals would have a world to return to.' },
     /* 2026-08-19, per the founder: "more hot topic / accessible resolutions that
        dont scare away normal ppl". The authored 24 leaned institutional
        (Arctic waters, plea bargaining, ability grouping), which reads as a
@@ -9925,45 +9968,45 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        here: anything whose spice comes from questioning a group's rights.
        Contested is the goal, targeted is not. */
     { fmt:'Quick Clash', motion:'Should tipping be abolished?',
-      a:{ nm:'Zuri', side:'For', face:'face01' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
       open:50, drift:65, won:'b', score:'82 - 88', crowd:196, vol:355,
-      rfd:'Danylo wins by showing that removing tips cuts pay before it raises wages. Zuri proves the system is unfair to staff but never says who covers the gap on the first day.' },
+      rfd:'Danylo wins by showing that removing tips cuts pay before it raises wages. Marcus proves the system is unfair to staff but never says who covers the gap on the first day.' },
     { fmt:'Quick Clash', motion:'Is it ever okay to ghost someone?',
-      a:{ nm:'Luka', side:'For', face:'face48' }, b:{ nm:'Hana', side:'Against', face:'face04' },
+      a:{ nm:'Luka', side:'For', face:'face48' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
       open:49, drift:37, won:'b', score:'75 - 88', crowd:243, vol:415,
-      rfd:'Hana wins because a short message costs nothing and silence leaves the other person guessing for weeks. Luka defends walking away from real harassment but treats every awkward conversation as the same case.' },
+      rfd:'Mateo wins because a short message costs nothing and silence leaves the other person guessing for weeks. Luka defends walking away from real harassment but treats every awkward conversation as the same case.' },
     { fmt:'Quick Clash', motion:'Should you tell a friend their partner is cheating?',
-      a:{ nm:'Elena', side:'For', face:'face12' }, b:{ nm:'Kenji', side:'Against', face:'face33' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
       open:52, drift:71, won:'a', score:'95 - 75', crowd:268, vol:440,
-      rfd:'Elena wins because withholding it makes you a second person keeping the secret. Kenji shows the friendship can break either way but never explains why staying quiet protects it.' },
+      rfd:'Miguel wins because withholding it makes you a second person keeping the secret. Timothee shows the friendship can break either way but never explains why staying quiet protects it.' },
     { fmt:'Quick Clash', motion:'Should the bill be split evenly when you ordered less?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Rin', side:'Against', face:'face45' },
+      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:50, drift:44, won:'b', score:'75 - 82', crowd:214, vol:385,
-      rfd:'Rin wins by pointing out that an even split quietly taxes whoever ate least, usually the same person every time. Marcus values the easier maths but never weighs it against that.' },
+      rfd:'Dev wins by pointing out that an even split quietly taxes whoever ate least, usually the same person every time. Marcus values the easier maths but never weighs it against that.' },
     { fmt:'Public Forum', motion:'Should social media have a minimum age of sixteen?',
-      a:{ nm:'Priya', side:'For', face:'face11' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
+      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Timothee', side:'Against', face:'face51' },
       open:51, drift:68, won:'a', score:'88 - 75', crowd:231, vol:400,
-      rfd:'Priya wins by tying the harm to the years when it lands hardest. Timothee shows that age checks leak but never argues the current age of thirteen was chosen for any reason at all.' },
+      rfd:'Danylo wins by tying the harm to the years when it lands hardest. Timothee shows that age checks leak but never argues the current age of thirteen was chosen for any reason at all.' },
     { fmt:'APDA', motion:'Is it wrong that athletes earn more than teachers?',
-      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Claire', side:'Against', face:'face41' },
+      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:48, drift:33, won:'b', score:'82 - 88', crowd:187, vol:340,
-      rfd:'Claire wins by separating what a job is worth from what a crowd will pay to watch it. Emeka proves teaching matters more but never shows that pay was ever measuring importance.' },
+      rfd:'Dev wins by separating what a job is worth from what a crowd will pay to watch it. Emeka proves teaching matters more but never shows that pay was ever measuring importance.' },
     { fmt:'British Parli', motion:'Should private jets be banned?',
-      a:{ nm:'Samira', side:'For', face:'face23' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
+      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
       open:50, drift:62, won:'a', score:'88 - 82', crowd:222, vol:390,
-      rfd:'Samira wins because the emissions per passenger are indefensible against any ordinary alternative. Miguel raises medical and remote flights but never explains why a carve out could not cover them.' },
+      rfd:'Emeka wins because the emissions per passenger are indefensible against any ordinary alternative. Miguel raises medical and remote flights but never explains why a carve out could not cover them.' },
     { fmt:'Quick Clash', motion:'Are influencers doing a real job?',
-      a:{ nm:'Mei', side:'For', face:'face25' }, b:{ nm:'Dev', side:'Against', face:'face53' },
+      a:{ nm:'Danylo', side:'For', face:'face54' }, b:{ nm:'Dev', side:'Against', face:'face53' },
       open:49, drift:58, won:'a', score:'88 - 75', crowd:257, vol:425,
-      rfd:'Mei wins by describing the actual work, which is production, negotiation, and selling. Dev lands that the output is often thin but never shows that thin output stops something being a job.' },
+      rfd:'Danylo wins by describing the actual work, which is production, negotiation, and selling. Dev lands that the output is often thin but never shows that thin output stops something being a job.' },
     { fmt:'World Schools', motion:'Should the drinking age be lowered to eighteen?',
-      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Anika', side:'Against', face:'face37' },
+      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Marcus', side:'Against', face:'face46' },
       open:51, drift:46, won:'b', score:'75 - 88', crowd:169, vol:320,
-      rfd:'Anika wins on the road safety record, which moved when the age moved. Mateo argues consistency with other adult rights but never answers the one number that tracks the change.' },
+      rfd:'Marcus wins on the road safety record, which moved when the age moved. Mateo argues consistency with other adult rights but never answers the one number that tracks the change.' },
     { fmt:'Quick Clash', motion:'Is monogamy outdated?',
-      a:{ nm:'Sofia', side:'For', face:'face30' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
+      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
       open:50, drift:53, won:'b', score:'82 - 88', crowd:249, vol:420,
-      rfd:'Danylo wins because the alternative asks for more honesty and more time, not less. Sofia shows the tradition was built for inheritance but never shows that what replaced the reason has gone away.' }
+      rfd:'Danylo wins because the alternative asks for more honesty and more time, not less. Miguel shows the tradition was built for inheritance but never shows that what replaced the reason has gone away.' }
   ];
 
   /* 2026-08-18, per the founder: circulate the deck. Each page load shuffles the
@@ -9993,9 +10036,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         r.score = r.score.split(' - ').reverse().join(' - ');
       }
     }
+    /* 2026-08-22: the cast is real webcam stills only, all men, so the old
+       mixed-gender opener rule has nothing to match. The rule that
+       survives from it is the second half: never open on the Anonymous
+       avatar. The first card must be two real people. */
     for (i = 0; i < ROUNDS.length; i++) {
       r = ROUNDS[i];
-      if ((FS_MALE[r.a.nm] && FS_FEMALE[r.b.nm]) || (FS_FEMALE[r.a.nm] && FS_MALE[r.b.nm])) {
+      if (r.a.nm !== 'Anonymous' && r.b.nm !== 'Anonymous') {
         if (i > 0) { t = ROUNDS[0]; ROUNDS[0] = ROUNDS[i]; ROUNDS[i] = t; }
         break;
       }
@@ -10024,14 +10071,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Anonymous avatar to face50, so the illustrated mask can never be dealt to
      a person or a person to the anonymous-accounts motion.
 
-     Real stills lead the men's deal (2026-08-19: the founder prefers them to
-     the generated bank). There are 8 real and 11 male characters, so all 8 are
-     always cast and only the last 3 seats come from the generated bank, which
-     holds the "at least one real person in nearly every round" property the
-     old hand-cast had. WHICH character wears which real face still moves every
-     load. The women's pool is generated-only because the real batch is all men
-     (face55, the one woman, was pulled 2026-08-20); that is also the bug this
-     fixes, since Elena has been running on face12, a man's face, since then.
+     2026-08-22: the board's cast is the eight real-still characters only
+     (see the ROUNDS comment above), so the deal is now 8 real faces over
+     8 male characters: every tile a visitor sees is a consented webcam
+     still, and the generated pools below are dormant until a character
+     outside the real batch is ever cast again. WHICH character wears
+     which real face still moves every load.
 
      FACE_ROOM is not decoration. Several stills were shot in the same room and
      the board shows two portraits side by side, so an unguarded deal
@@ -10115,7 +10160,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var el = {};
   ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
-   'fsOddsLive','fsBallot','fsWinner','fsScore','fsPrev','fsNext',
+   'fsOddsLive','fsBallot','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta']
     .forEach(function(id){ el[id] = document.getElementById(id); });
@@ -10239,6 +10284,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     el.fsNameBmini.textContent = r.b.nm;
     el.fsWinner.textContent = (r.won === 'a' ? r.a.nm : r.b.nm) + ' wins';
     el.fsScore.textContent = r.score;
+    // The justification, in plain words. The rfd strings open with
+    // "<winner> wins because/by ...", which duplicates the bold line
+    // above, so the why-line drops the "<Name> wins" stem and reads as
+    // the answer to why: "Because he proves ...", "By defining ...".
+    if (el.fsWhy) el.fsWhy.textContent = r.rfd
+      .replace(/^[A-Za-z]+ wins /, '')
+      .replace(/^[a-z]/, function(c){ return c.toUpperCase(); });
 
     price = r.open;
     hist = [];
@@ -10259,12 +10311,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
 
   function settle(){
-    var r = ROUNDS[idx];
     el.fsBallot.classList.add('is-in');
     if (el.fsOddsLive){ el.fsOddsLive.classList.add('is-settled'); el.fsOddsLive.innerHTML = '<i></i>Result ready'; }
-    // Colour the winner line: green when the ballot agreed with the room.
-    var roomPickedA = price >= 50, ballotA = r.won === 'a';
-    if (el.fsWinner) el.fsWinner.style.color = (roomPickedA === ballotA) ? '#4ade80' : '#fbbf24';
+    // 2026-08-22: the winner line is always the winner's green. It used to
+    // flip amber when the hidden viewer read disagreed with the decision,
+    // which was market signalling on a strip that no longer renders, and
+    // amber on a result reads as a warning.
+    if (el.fsWinner) el.fsWinner.style.color = '';
   }
 
   function step(){
@@ -11134,7 +11187,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <a href="/how-it-works" class="hi-lf-founder-quiet" data-cta="hero-livefirst-how">How it works <span aria-hidden="true">&rarr;</span></a>
           </div>
           <h2>Debate the AI.</h2>
-          <p class="hi-lf-amb-copy" data-plain="Speak out loud. It pushes back, follows every argument, and scores the round.">Speak out loud. It pushes back, tracks the clash, and writes your ballot.</p>
+          <p class="hi-lf-amb-copy" data-plain="Speak out loud. It pushes back, follows every argument, and scores the round.">Speak out loud. It pushes back, tracks the clash, and scores the round.</p>
           <div class="hi-lf-amb-foot">
             <div class="hi-path-meta"><span>Instant</span><span>Voice</span><span>Judged</span></div>
             <a href="/newvoice" class="hi-lf-cta hi-lf-cta--primary hi-lf-cta--full" data-cta="hero-livefirst-ai">Start a voice round <span aria-hidden="true">&rarr;</span></a>
@@ -11371,7 +11424,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
           <span class="hi-path-eyebrow"><i aria-hidden="true"></i>With people</span>
           <h2>Debate real people.</h2>
-          <p class="hi-path-copy">Post a motion, take a challenge, and get an AI judge ballot when the round ends.</p>
+          <p class="hi-path-copy">Post a motion, take a challenge, and get the AI judge's decision when the round ends.</p>
           <div class="hi-path-foot">
             <div class="hi-path-meta"><span>PF</span><span>BP</span><span>APDA</span><span>WSDC</span></div>
             <span class="hi-path-cta">Find a live round <span aria-hidden="true">&rarr;</span></span>
@@ -11391,7 +11444,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
           <span class="hi-path-eyebrow"><i aria-hidden="true"></i>With the AI</span>
           <h2>Take on the AI.</h2>
-          <p class="hi-path-copy">The Samantha from Her, except it argues back. Speak out loud, get argued with, get a ballot.</p>
+          <p class="hi-path-copy">The Samantha from Her, except it argues back. Speak out loud, get argued with, get a decision.</p>
           <div class="hi-path-foot">
             <div class="hi-path-meta"><span>Instant</span><span>Voice</span><span>Any format</span></div>
             <span class="hi-path-cta">Start a voice round <span aria-hidden="true">&rarr;</span></span>
@@ -11425,7 +11478,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <div>
             <span class="hio-path-eyebrow">Live debates</span>
             <h2>Debate real people.</h2>
-            <p class="hio-path-copy">Post a motion, accept a challenge, and get an AI judge ballot when the round ends.</p>
+            <p class="hio-path-copy">Post a motion, accept a challenge, and get the AI judge's decision when the round ends.</p>
           </div>
           <div class="hio-path-meta"><span>PF</span><span>BP</span><span>APDA</span><span>WSDC</span></div>
           <span class="hio-path-cta">Open live debates <span aria-hidden="true">&rarr;</span></span>
@@ -11443,7 +11496,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <div>
             <span class="hio-path-eyebrow">Debate the AI</span>
             <h2>Tap the orb. Take a side.</h2>
-            <p class="hio-path-copy">Speak against an AI opponent in a timed voice round. It pushes back, tracks clash, and writes the ballot.</p>
+            <p class="hio-path-copy">Speak against an AI opponent in a timed voice round. It pushes back, tracks clash, and decides who won.</p>
           </div>
           <span class="hio-path-cta">Start AI debate <span aria-hidden="true">&rarr;</span></span>
         </a>
@@ -11738,7 +11791,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            direction "edit the description to sound more like the founder"
            the line is: three short clauses, parallel rhythm, debater-
            register, no buzzwords. -->
-      <p class="hero-subhead">Debate an AI or a real person in timed rounds. Get an instant judge ballot at the end.</p>
+      <p class="hero-subhead">Debate an AI or a real person in timed rounds. An AI judge decides who won, and says why.</p>
       <script>
         (function(){
           // 2026-05-26 (rev5): mantra variant weighted 3x so the "Debate
@@ -12302,7 +12355,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="hsr-sep" aria-hidden="true">·</span>
         <span class="hsr-item">Real opponents</span>
         <span class="hsr-sep" aria-hidden="true">·</span>
-        <span class="hsr-item" data-plain="AI feedback on every round">AI ballot on every round</span>
+        <span class="hsr-item" data-plain="AI feedback on every round">AI decision on every round</span>
       </div>
 
       <!-- Legacy #editorialSignInLink kept off-canvas as a screenreader +
@@ -12983,7 +13036,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            model, and the sub hands off to the trust strip below the
            ballot instead of asserting an audience vote this surface has
            no path for (see the 2026-07-20 truth boundary in soul.md). -->
-      <h2 class="live-proof-headline" data-plain="An AI judge scores the whole round in seconds.">An AI judge writes the full ballot in seconds.</h2>
+      <h2 class="live-proof-headline" data-plain="An AI judge scores the whole round in seconds.">An AI judge decides the round in seconds.</h2>
       <p class="live-proof-sub" data-plain="Who won, a score for each speaker, and the reasons, citing what was actually said. It is a model and not a person, so the four things below are how you check its work.">Winner, speaker points, and the reason for decision, citing what was actually said. It is a model and not a person, so the four things below are how you check its work.</p>
     </div>
 
@@ -13019,7 +13072,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="live-proof-ballot">
         <div class="lpb-strip">
           <span class="lpb-strip-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
-          <span>AI judge · Ballot · Round 1</span>
+          <span>AI judge · Decision · Round 1</span>
           <span class="lpb-strip-back">← Back to board</span>
         </div>
         <div class="lpb-body">
@@ -13064,15 +13117,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="lp-trust-grid">
         <article class="lp-trust-card">
           <h3>Three models, not one.</h3>
-          <p>Claude, GPT, and Gemini each write the ballot separately. Two agreeing carries the round. An even split records no winner at all, because any rule for breaking a tie would be our rule.</p>
+          <p>Claude, GPT, and Gemini each judge the round separately. Two agreeing carries the round. An even split records no winner at all, because any rule for breaking a tie would be our rule.</p>
         </article>
         <article class="lp-trust-card">
           <h3>The rubric is published before you speak.</h3>
-          <p>Every ballot stamps a fingerprint of the exact criteria it was decided under, so nobody gets judged by a rubric that was edited after the round.</p>
+          <p>Every decision stamps a fingerprint of the exact criteria it was made under, so nobody gets judged by a rubric that was edited after the round.</p>
         </article>
         <article class="lp-trust-card">
           <h3>A person hears the appeal.</h3>
-          <p>Either side can appeal within 72 hours on six stated grounds. A human reviewer decides it, never the model that wrote the ballot.</p>
+          <p>Either side can appeal within 72 hours on six stated grounds. A human reviewer decides it, never the model that made the call.</p>
         </article>
         <article class="lp-trust-card">
           <h3>We earn the same whoever wins.</h3>
@@ -13301,12 +13354,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="rb-wrap">
     <div class="rb-eyebrow">Live ranks &middot; AI-judged</div>
     <h2 class="rb-title">The <em>leaderboard</em>.</h2>
-    <p class="rb-sub" data-plain="Every judged round posts your score to one public leaderboard. Best entry per person, and every name is challengeable.">Every ballot puts your speaks on the cross-format leaderboard. Best entry per person, public, and every name is challengeable.</p>
+    <p class="rb-sub" data-plain="Every judged round posts your score to one public leaderboard. Best entry per person, and every name is challengeable.">Every judged round puts your speaks on the cross-format leaderboard. Best entry per person, public, and every name is challengeable.</p>
     <div class="rb-grid">
       <div class="rb-card">
         <p class="rb-kicker">The leaderboard</p>
         <p class="rb-card-title">Ranked across every format.</p>
-        <p class="rb-card-body">BP sits next to APDA sits next to PF. The ballot is written by the same judge either way, so the scale means the same thing in every row.</p>
+        <p class="rb-card-body">BP sits next to APDA sits next to PF. The decision comes from the same judge either way, so the scale means the same thing in every row.</p>
         <div id="rbBoard"></div>
         <a class="rb-go" href="/leaderboard" data-rb="leaderboard">See the full leaderboard &rarr;</a>
       </div>
@@ -13322,7 +13375,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           Streamers
         </div>
         <h3 class="rbs-title">Put the round on stream.</h3>
-        <p class="rbs-sub">Chat picks the motion, you argue it live, and the AI judge posts the ballot on screen. Half your chat will disagree with the call. That is the content.</p>
+        <p class="rbs-sub">Chat picks the motion, you argue it live, and the AI judge posts its decision on screen. Half your chat will disagree with the call. That is the content.</p>
         <div class="rbs-plats">
           <a class="rbs-plat" href="/plugins/twitch" data-sb="twitch"><svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>Twitch</a>
           <a class="rbs-plat" href="/room-judge?platform=youtube&amp;source=screen" data-sb="youtube"><svg class="rbs-yt" viewBox="0 0 576 512" aria-hidden="true"><path d="M549.7 124.1c-6.3-23.7-24.8-42.3-48.3-48.6C458.8 64 288 64 288 64S117.2 64 74.6 75.5c-23.5 6.3-42 24.9-48.3 48.6C15 167 15 256 15 256s0 89 11.3 131.9c6.3 23.7 24.8 41.5 48.3 47.8C117.2 448 288 448 288 448s170.8 0 213.4-11.5c23.5-6.3 42-24.1 48.3-47.8C561 345 561 256 561 256s0-89-11.3-131.9zM232.1 337.6V174.4L377.2 256l-145.1 81.6z"/></svg>YouTube</a>
@@ -14780,11 +14833,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="si-copy">
       <p class="si-eyebrow"><i aria-hidden="true"></i>For streamers and creators</p>
       <h2 class="si-title">Your chat already argues. <em>Give it a verdict.</em></h2>
-      <p class="si-lede">Point the room judge at your stream. It writes a real ballot when the round ends. <b>Half your chat will disagree.</b></p>
+      <p class="si-lede">Point the room judge at your stream. It delivers a real decision when the round ends. <b>Half your chat will disagree.</b></p>
       <ol class="si-steps">
         <li><b>01</b><div><strong>Open the judge in a tab</strong><span>Pick Twitch, YouTube, or anywhere else you broadcast. Nothing to install.</span></div></li>
         <li><b>02</b><div><strong>Share that tab, with audio</strong><span>Browser capture feeds the judge the round. Ask it for a live read whenever the debate turns.</span></div></li>
-        <li><b>03</b><div><strong>Put the ballot on screen</strong><span>Winner, speaker points, and a written reason your chat can spend the next ten minutes fighting about.</span></div></li>
+        <li><b>03</b><div><strong>Put the decision on screen</strong><span>Winner, speaker points, and a written reason your chat can spend the next ten minutes fighting about.</span></div></li>
       </ol>
       <div class="si-plats">
         <a class="si-plat" href="/plugins/twitch" data-si="twitch"><svg viewBox="0 0 2400 2800" aria-hidden="true" fill-rule="evenodd"><path d="M500 0L0 500v1800h600v500l500-500h400l900-900V0H500zm1700 1300l-400 400h-400l-350 350v-350H600V200h1600v1100zM1700 550h200v600h-200zM1150 550h200v600h-200z"/></svg>Twitch panel</a>
@@ -14796,7 +14849,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <a class="si-cta si-cta--ghost" href="/plugins/twitch" data-si="howto" data-cta="stream-band-howto">Twitch setup</a>
         <a class="si-cta si-cta--ghost" href="/watch" data-si="watch" data-cta="stream-band-watch">Watch streams and replays</a>
       </div>
-      <p class="si-note">Chat tells the judge where the room was persuaded or lost. <span data-plain="It never decides who won; the verdict comes from the arguments alone.">It never decides who won; the ballot comes from the flow.</span> Runs as a panel or overlay URL today. Want a bracket instead? <a href="#creator-sweepstakes">Creator tournaments</a>.</p>
+      <p class="si-note">Chat tells the judge where the room was persuaded or lost. <span data-plain="It never decides who won; the verdict comes from the arguments alone.">It never decides who won; the decision comes from the arguments.</span> Runs as a panel or overlay URL today. Want a bracket instead? <a href="#creator-sweepstakes">Creator tournaments</a>.</p>
     </div>
 
     <div class="si-demo">
@@ -14823,7 +14876,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="si-msg">judge is cooked</span>
         <span class="si-msg">that extension was clean though</span>
         <span class="si-msg">read the flow again</span>
-        <p class="si-chat-cap">The disagreement is the point. Chat argues with the ballot, not with you.</p>
+        <p class="si-chat-cap">The disagreement is the point. Chat argues with the decision, not with you.</p>
       </div>
     </div>
   </div>
@@ -15011,7 +15064,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            says paid, winnings, or cash, and the note below stays put and
            now leads with "today" so the play-money limit is stated as the
            current state rather than a permanent disclaimer. -->
-      <p class="floor-band-p">Every round is a market on one question: <b>which side will the AI judge vote for?</b> Call it while they are still speaking. The ballot settles it seconds later.</p>
+      <p class="floor-band-p">Every round is a market on one question: <b>which side will the AI judge vote for?</b> Call it while they are still speaking. The judge's decision settles it seconds later.</p>
       <!-- 2026-07-22: the category anchor the lede names, as a mark rather
            than the four-row table that was cut above. Small and beside the
            caption on purpose: it points at the category we are borrowing,
@@ -15020,7 +15073,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <img src="/assets/prediction-markets.webp"
              alt="Polymarket and Kalshi logos"
              width="1200" height="675" loading="lazy" decoding="async">
-        <span>The market model, applied to rounds instead of world events. The AI ballot is what settles every market.</span>
+        <span>The market model, applied to rounds instead of world events. The AI judge's decision is what settles every market.</span>
       </div>
       <a class="floor-band-cta" href="/floor">Open The Floor <span aria-hidden="true">&rarr;</span></a>
       <p class="floor-band-note">Play credits today. No cash value, nothing to buy, nothing to win.</p>
@@ -15951,7 +16004,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p>One judged voice round becomes a public score, a percentile, and a link anyone can check. Free.</p>
         <div class="credential-proof" aria-hidden="true">
           <span>Live round</span>
-          <span>AI ballot</span>
+          <span>AI decision</span>
           <span>Verify URL</span>
         </div>
       </div>
@@ -16631,7 +16684,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="fw-copy">
     <span class="fw-eyebrow"><i aria-hidden="true"></i>The room</span>
     <h2 class="fw-title">Somebody is always up for a round.</h2>
-    <p class="fw-sub" data-plain="Post a topic, pick a side, and get the verdict when the clock runs out.">Post a motion, take a side, and get a ballot when the clock runs out.</p>
+    <p class="fw-sub" data-plain="Post a topic, pick a side, and get the verdict when the clock runs out.">Post a motion, take a side, and get the judge's decision when the clock runs out.</p>
     <a class="fw-cta" href="/spar" data-cta="face-wall-spar">Find an opponent <span aria-hidden="true">&rarr;</span></a>
   </div>
 </section>
@@ -16997,7 +17050,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="ms-num">01</span>
         <span class="ms-tag"><span class="ms-dot" aria-hidden="true"></span>Live</span>
         <h3>Debate a person</h3>
-        <p>Match with a real opponent on a real clock. The AI judge writes the ballot.</p>
+        <p>Match with a real opponent on a real clock. The AI judge decides who won.</p>
         <span class="ms-go" aria-hidden="true">Find an opponent <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>
@@ -17008,7 +17061,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a class="ms-tile ms-door" href="/practice" data-mode="voice">
         <span class="ms-num">02</span>
         <h3>Debate the AI</h3>
-        <p data-plain="Run a timed round against an AI opponent that interrupts, asks questions mid-speech, and argues back. Finish with written feedback on who won and why.">Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written ballot.</p>
+        <p data-plain="Run a timed round against an AI opponent that interrupts, asks questions mid-speech, and argues back. Finish with written feedback on who won and why.">Run a full-format round on the clock against an AI opponent that interrupts, takes POIs, and argues back. Finish with a written decision on who won and why.</p>
         <span class="ms-go" aria-hidden="true">Open Debatable <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>
@@ -17016,7 +17069,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="ms-num">03</span>
         <h3>Get judged</h3>
         <p data-audience-competitive="Drop in a speech or case. Winner, speaker points, and a written RFD." data-audience-plain="Share an argument or speech. See who won, why, and what to improve.">Drop in a speech or case. Winner, speaker points, and a written RFD.</p>
-        <span class="ms-go" aria-hidden="true">Get a ballot <span class="ms-arrow">→</span></span>
+        <span class="ms-go" aria-hidden="true">Get a decision <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>
       <a class="ms-tile ms-door" href="/app#case" data-mode="prep">
@@ -17043,7 +17096,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a class="ms-tile ms-door" href="/room-judge" data-mode="stream">
         <span class="ms-num">07</span>
         <h3>Stream it</h3>
-        <p>Run the AI judge over your broadcast. Chat argues with the ballot.</p>
+        <p>Run the AI judge over your broadcast. Chat argues with the decision.</p>
         <span class="ms-go" aria-hidden="true">Open the stream judge <span class="ms-arrow">→</span></span>
         <span class="ms-knob" aria-hidden="true"></span>
       </a>
@@ -18770,12 +18823,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <details class="faq-stack-row" open>
         <summary class="faq-stack-q">What is this website?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Debatable is one place to practice, compete, and improve at debate.</p><p><a href="/spar">Debate a real person live</a>, <a href="/newvoice">argue out loud against the AI</a>, or use <a href="/app#case">Prep</a>, <a href="/learn">Learn</a>, <a href="/judge">Judge</a>, and <a href="/coach">Coach</a> between rounds. You can also <a href="/live">schedule rounds</a> and earn a <a href="/credentials">verifiable certificate</a>.</p><p>Fourteen languages. Every completed round can end with a written ballot: who won, why, speaker points, and what to drill next. Free in beta.</p></div>
+        <div class="faq-stack-a"><p>Debatable is one place to practice, compete, and improve at debate.</p><p><a href="/spar">Debate a real person live</a>, <a href="/newvoice">argue out loud against the AI</a>, or use <a href="/app#case">Prep</a>, <a href="/learn">Learn</a>, <a href="/judge">Judge</a>, and <a href="/coach">Coach</a> between rounds. You can also <a href="/live">schedule rounds</a> and earn a <a href="/credentials">verifiable certificate</a>.</p><p>Fourteen languages. Every completed round can end with a written decision: who won, why, speaker points, and what to drill next. Free in beta.</p></div>
       </details>
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Can I use this on my stream?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Yes. <a href="/room-judge">Room Judge</a> runs in a browser tab and listens to your broadcast through screen capture, so there is nothing to install. It follows the round, gives you a live read whenever you ask, and writes a full ballot at the end: winner, speaker points, and the reasoning.</p><p>On Twitch it also reads public chat as audience signal, and the compact view works as a panel or overlay URL. <a href="/plugins/twitch">Twitch setup is here</a>. Chat never decides the winner; it tells the judge where the room was persuaded.</p></div>
+        <div class="faq-stack-a"><p>Yes. <a href="/room-judge">Room Judge</a> runs in a browser tab and listens to your broadcast through screen capture, so there is nothing to install. It follows the round, gives you a live read whenever you ask, and writes a full decision at the end: winner, speaker points, and the reasoning.</p><p>On Twitch it also reads public chat as audience signal, and the compact view works as a panel or overlay URL. <a href="/plugins/twitch">Twitch setup is here</a>. Chat never decides the winner; it tells the judge where the room was persuaded.</p></div>
       </details>
 
       <details class="faq-stack-row">
@@ -18795,12 +18848,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Isn't this just another AI debate tool?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Most hand you a wall of generic text. No clock, no format, no judge.</p><p data-plain="This runs a live round: a topic, a side, a clock that does not pause. The AI plays by the rules of whichever debate style you pick, then writes real feedback.">This runs a live round: a motion, a side, a clock that does not pause. It takes POIs in WSDC, reads at Policy speed, stays impromptu in APDA, then writes a real ballot.</p><p>It still says wrong things. Catching them is the drill.</p></div>
+        <div class="faq-stack-a"><p>Most hand you a wall of generic text. No clock, no format, no judge.</p><p data-plain="This runs a live round: a topic, a side, a clock that does not pause. The AI plays by the rules of whichever debate style you pick, then writes real feedback.">This runs a live round: a motion, a side, a clock that does not pause. It takes POIs in WSDC, reads at Policy speed, stays impromptu in APDA, then explains who won and why.</p><p>It still says wrong things. Catching them is the drill.</p></div>
       </details>
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Can I debate in another language?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Yes. Start from the <a href="/languages/">language hub</a>, including <a href="/languages/es" lang="es">debate en español</a>, <a href="/languages/fr" lang="fr">débat en français</a>, <a href="/languages/de" lang="de">auf Deutsch debattieren</a>, <a href="/languages/hi" lang="hi">हिंदी में डिबेट</a>, <a href="/languages/zh" lang="zh-Hans">中文在线辩论</a>, and <a href="/languages/ko" lang="ko">한국어 토론</a>. Switch from the language pill and the AI argues, takes POIs, and writes the ballot in whichever you pick.</p></div>
+        <div class="faq-stack-a"><p>Yes. Start from the <a href="/languages/">language hub</a>, including <a href="/languages/es" lang="es">debate en español</a>, <a href="/languages/fr" lang="fr">débat en français</a>, <a href="/languages/de" lang="de">auf Deutsch debattieren</a>, <a href="/languages/hi" lang="hi">हिंदी में डिबेट</a>, <a href="/languages/zh" lang="zh-Hans">中文在线辩论</a>, and <a href="/languages/ko" lang="ko">한국어 토론</a>. Switch from the language pill and the AI argues, takes POIs, and explains its decision in whichever you pick.</p></div>
       </details>
 
       <details class="faq-stack-row">
@@ -18810,7 +18863,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
       <details class="faq-stack-row">
         <summary class="faq-stack-q">Do I need to sign up?<svg class="faq-stack-chev" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-        <div class="faq-stack-a"><p>Not for the first round. After that, sign in with Google to save ballots across devices and switch on style learning, where the next opponent is biased against your habits.</p><p>Google only. No passwords. Email invites are optional and every message has an unsubscribe link.</p></div>
+        <div class="faq-stack-a"><p>Not for the first round. After that, sign in with Google to save your results across devices and switch on style learning, where the next opponent is biased against your habits.</p><p>Google only. No passwords. Email invites are optional and every message has an unsubscribe link.</p></div>
       </details>
 
       <details class="faq-stack-row">
@@ -21238,7 +21291,7 @@ window.addEventListener('load', function(){
   }
 
   function roundStatus(r){
-    if (r.status === 'ballot') return 'Ballot';
+    if (r.status === 'ballot') return 'Being judged';
     var n = (typeof r.speechIdx === 'number' ? r.speechIdx : 0) + 1;
     return 'Speech ' + n;
   }

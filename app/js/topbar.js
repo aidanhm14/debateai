@@ -16,11 +16,11 @@
    /css/ui.css under .ui-topbar* — every page already loads ui.css. */
 (function(){
   /* DARK MODE is on sitewide via the sun/moon toggle (re-enabled as an
-     opt-in 2026-08-10). Since 2026-08-19 it is ALSO an assignment: new
-     visitors are bucketed 70% light / 30% crimson, per the founder, which
-     revives the 2026-06-01 split that 08-10 had retired. The toggle
-     still overrides the assignment permanently on the first click, so
-     nobody is stuck in an arm. Prefs parked by the
+     opt-in 2026-08-10). The 2026-08-19 70/30 light/crimson assignment
+     was retired 2026-08-22, per the founder: light is the default for
+     every unset visitor, and auto-bucketed crimson visitors migrate
+     back once (da-theme-light-v3). The toggle still overrides
+     permanently on the first click, so nobody is stuck. Prefs parked by the
      2026-07-09 disable are restored once from da-theme-saved-pref.
      Pair with the same flag in landing.html (early-paint script +
      lighting-nudge toast). Pages with data-force-theme (hardcoded dark
@@ -1577,28 +1577,37 @@
        dark the brand default) stays retired: light is the default now. */
     var saved = '';
     try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
+    /* 2026-08-22 per the founder: the 2026-08-19 70/30 light/crimson
+       bucket is retired, light is the default for everyone. Visitors the
+       old split AUTO-bucketed into crimson (da-theme-ab === 'crimson',
+       never toggled away) are migrated back to light exactly once,
+       gated by da-theme-light-v3 so a later deliberate toggle to dark
+       sticks. The landing's <head> script runs the same migration
+       before first paint; this covers everyone else. */
+    try {
+      if (saved === 'crimson' && !localStorage.getItem('da-theme-light-v3')) {
+        localStorage.setItem('da-theme-light-v3', '1');
+        if ((localStorage.getItem('da-theme-ab') || '') === 'crimson') {
+          saved = 'light';
+          localStorage.setItem('da-theme', 'light');
+        }
+      } else if (saved) {
+        localStorage.setItem('da-theme-light-v3', '1');
+      }
+    } catch(e){}
     if (!saved) {
-      /* 2026-08-19 per the founder: 70% light / 30% crimson for visitors with
-         no pick yet, restoring the split retired on 2026-08-10. The
-         landing runs the same assignment in its own <head> script so its
-         visitors are bucketed before first paint; this covers everyone
-         whose first page is one of the other topbar pages. Those pages
-         paint before topbar.js runs, so a crimson-bucketed visitor can
-         see one light frame on that first load only, then never again.
-         da-theme is the live pick and the toggle overwrites it;
-         da-theme-ab keeps the ASSIGNED arm so the GA4 property below
-         still segments a visitor who later toggles away.
-         ?themeAb=light|crimson forces an arm for QA. */
+      /* Light for every unset visitor. ?themeAb=crimson stays as a QA
+         force for the dark surface; da-theme-ab keeps the assigned arm
+         for the GA4 property below. */
       saved = 'light';
       try {
         var q = (location.search || '').toLowerCase();
         if (/[?&]themeab=crimson(?:&|$)/.test(q)) saved = 'crimson';
-        else if (/[?&]themeab=light(?:&|$)/.test(q)) saved = 'light';
-        else saved = (Math.random() < 0.3) ? 'crimson' : 'light';
       } catch(e){ saved = 'light'; }
       try {
         localStorage.setItem('da-theme', saved);
         localStorage.setItem('da-theme-ab', saved);
+        localStorage.setItem('da-theme-light-v3', '1');
       } catch(e){}
     }
     /* Report the arm on every topbar page, not just the landing, so
