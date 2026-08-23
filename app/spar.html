@@ -2419,23 +2419,31 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
     startGateLiveCount();
-    autoPopAuthModal();
     // Split the two gates in GA4. They are different asks with different
     // audiences, so one blended conversion rate would hide whichever is
     // working. `spent` is the post-round wall; the other is the fallback.
     try { gtag('event', 'spar_gate_view', { required: 1, reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
   }
 
-  // ── Gate auto-pop: the sign-in chooser opens itself ──────────
-  // 2026-08-23, the founder: "pop up sign ins earlier". The gate used to
-  // wait for a click; now the shared chooser (Google + emailed link +
-  // email/password) opens the moment the gate stands, with the gate card
-  // behind it as the fallback surface, so closing the modal loses
-  // nothing. Once per browser session: a modal that re-opens on every
-  // render is a nag, and dismissing it is an answer. auth-modal.js is
-  // lazy-loaded by topbar.js, so openAuthModal may not exist at first
-  // render; poll briefly rather than racing it, and stand down if the
-  // gate disappears (the visitor signed in through the card).
+  // ── Gate auto-pop: RETIRED the same day it shipped ───────────
+  // 2026-08-23 morning, the founder: "pop up sign ins earlier", so the
+  // shared chooser opened itself the moment the gate stood. 2026-08-23
+  // afternoon, the founder with both screens side by side: "get rid of
+  // this bc there is already this below."
+  //
+  // He is right, and the reason is worth keeping: the modal and the gate
+  // card are the SAME OFFER. Continue with Google, sign in with email,
+  // one on top of the other. So the pop bought no path that was not
+  // already on screen and charged a dismissal for it, and the thing it
+  // covered up is the half the modal does not have — who is waiting live
+  // right now, that your face is optional, the under-18 line. A modal
+  // that hides the reason to sign in is a worse door than the card
+  // underneath it.
+  //
+  // The buttons still open the chooser on CLICK, which is the 2026-08-12
+  // one-chooser rule and is untouched. Restoring the pop is calling
+  // autoPopAuthModal() from renderGate again; it is kept below rather
+  // than deleted because this gate has flipped five times.
   var authPopArmed = false;
   function autoPopAuthModal(){
     if (authPopArmed) return;
@@ -4253,12 +4261,36 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           // The line that makes Withdraw a choice instead of a reflex.
           '<div class="mf-hold">If they have walked away, <strong>you lose nothing.</strong> ' +
             'We put you back at the front of the queue on our own and start looking again, so there is no wait you have to sit out.</div>' +
-          '<div class="btn-row"><button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button></div>' +
+          // 2026-08-23, the founder: "find a way to pm a match." Until
+          // now the only thing you could do to a person who had gone
+          // quiet was dissolve the pair. A DM is the smaller move and
+          // the one that keeps the match: they may be finding a quiet
+          // room or reading the card, and "you there?" costs nothing.
+          // It also survives the pairing — if this one unwinds, the
+          // thread is still there to arrange a round later, which is
+          // the whole point of a queue that is thin at this hour.
+          //
+          // Second action, never first: Withdraw is what the card is
+          // for, and a chat button that outranked it would turn a
+          // ready-check into a lobby.
+          '<div class="btn-row">' +
+            '<button class="btn ghost" id="consentDmBtn">Message ' + peerName + '</button>' +
+            '<button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button>' +
+          '</div>' +
         '</div>';
       var wb = document.getElementById('consentPassBtn');
       if (wb) wb.addEventListener('click', function(){
         clearConsentTimer();
         sendConsent(peerUid, false);
+      });
+      var dmb = document.getElementById('consentDmBtn');
+      if (dmb) dmb.addEventListener('click', function(){
+        // The wait keeps running underneath: the thread modal is an
+        // overlay, the consent listener and its safety net are
+        // untouched, and an accept still redirects both of us into the
+        // room mid-conversation.
+        try { gtag('event', 'spar_consent_dm', { surface: 'waiting' }); } catch(e){}
+        openDMThread(peerUid, d.matchedWithName || 'Your opponent', d.matchedWithPhoto || '');
       });
       // Silent safety net: if their tab died mid-read, unwind instead
       // of waiting forever. Stays auto-PASS (autoAccept=false) — I've
