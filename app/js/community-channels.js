@@ -436,9 +436,16 @@
         });
       }
     } catch(e){}
+    // Default is #lobby, not #general (2026-08-23). Measured the same
+    // day: all nine named channels held zero messages, and #general is
+    // read-only without a named account, so a first-time visitor
+    // clicking Chat landed in an empty room they could not even post
+    // in. #lobby is the one room with anything in it and the only one
+    // that takes a message without signing in. A saved choice still
+    // wins; this only moves where someone with no history starts.
     let saved = null;
     try { saved = localStorage.getItem(ACTIVE_KEY); } catch(e){}
-    switchChannel(saved || 'general');
+    switchChannel(saved || 'lobby');
     watchPane();
   }
 
