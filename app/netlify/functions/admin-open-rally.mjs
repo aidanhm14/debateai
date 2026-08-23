@@ -123,6 +123,23 @@ export default async (request) => {
   let body = {};
   try { body = await request.json(); } catch { /* empty body = dry run */ }
 
+  // Test mode: send ONE copy to a named address, stamp nobody, touch no
+  // cohort. Exists because the Resend key in prod cannot list domains
+  // (401 on GET /domains, likely a send-only key), so which From domain
+  // actually delivers is only observable by sending. The optional `from`
+  // override is bounded to this single-address path on purpose.
+  if (body?.testTo) {
+    const to = String(body.testTo);
+    const from = body.from ? String(body.from) : FROM_EMAIL;
+    const res = await sendEmail({
+      to,
+      subject: SUBJECT,
+      html: renderEmail({ firstName: 'debater', uid: 'test', tournamentName: 'The Debatable Open' }),
+      uid: 'test', stream: STREAM, from, replyTo: REPLY_TO,
+    });
+    return jsonResponse({ test: true, to, from, result: res }, 200, request);
+  }
+
   const wantsSend = body?.confirm === 'SEND';
   const fromDomain = senderDomain(FROM_EMAIL);
   const live = await verifiedSenderDomains();
