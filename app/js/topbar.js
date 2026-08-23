@@ -140,6 +140,23 @@
     document.head.appendChild(s);
   })();
 
+  // Notifications + availability ride every topbar page. notifications.js
+  // owns the DM bell, the "Available" pill, and the background spar
+  // matcher, and availability is supposed to follow the user across the
+  // WHOLE app (2026-08-23) — but the script was hand-included on only ~52
+  // pages, so on the rest (/watch, /tournaments, ...) the pill and the
+  // queue silently vanished. Same trap as track.js: topbar presence is
+  // not coverage. notifications.js is idempotent (__daNotificationsLoaded
+  // + shared firebase script ids), so pages that already include it are
+  // unaffected, and it handles its own round-page//spar exclusions.
+  (function ensureNotificationsLoaded(){
+    if (document.querySelector('script[src*="/js/notifications.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/notifications.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   function openSharedAuth(mode){
     mode = mode || 'signin';
     if (typeof window.openAuthModal === 'function'){
