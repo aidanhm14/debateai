@@ -440,6 +440,12 @@
       '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#166534;border-color:rgba(22,101,52,.5);background:rgba(22,101,52,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
       '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
+      // Bar-less pages (/tournaments, /atlas, /safety, the judge pages) have
+      // no .ui-topbar-right to mount into, so the pill floats beside the
+      // bell's own floating chip rather than never appearing. Right offset
+      // clears the bell (right:16px, ~36px wide) plus a gap.
+      '.da-spar-pill--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:62px;z-index:99996;height:36px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
+      '@media(max-width:560px){.da-spar-pill--floating .da-spar-pill__lab{display:none}.da-spar-pill--floating{padding:0 11px;right:58px}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:daMatchFade .2s ease-out}' +
       '@keyframes daMatchFade{from{opacity:0}to{opacity:1}}' +
@@ -1464,7 +1470,12 @@
     // Don't run the matcher ON an active round (notifications.js loads on
     // /live-round + /voice-debate too) — you're already debating; being
     // re-queued as "waiting" there would pop a match mid-round.
-    var ON_ROUND = /\/(live-round|voice-debate|exhibition|casual-room)/.test(location.pathname);
+    // newvoice + room-judge added 2026-08-23: both are live-round surfaces
+    // (a voice round, and judging someone else's round). They were missing
+    // here, so anyone on them stayed matchable and could be pulled into a
+    // second round mid-round. The pill now floats on bar-less pages, which
+    // would have made that reachable rather than theoretical.
+    var ON_ROUND = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge)/.test(location.pathname);
     // /spar runs its OWN foreground matchmaker against the same queue doc.
     // Suppress the background matcher there so the two don't fight over the
     // doc; /spar instead sets the availability flag + sends the user to
@@ -1589,7 +1600,22 @@
         return false;
       }
       if (attempt()) return;
-      var n = 0, iv = setInterval(function () { n++; if (attempt() || n > 60) clearInterval(iv); }, 100); // ~6s for the /app React topbar
+      // ~6s for the /app React topbar, then float. Without the fallback the
+      // pill silently never mounted on any page lacking a known bar, so
+      // "available across the whole app" stopped at the topbar pages.
+      // Mirrors placeBell's floating chip so the two sit side by side.
+      var n = 0, iv = setInterval(function () {
+        n++;
+        if (attempt()) { clearInterval(iv); return; }
+        if (n > 60) {
+          clearInterval(iv);
+          if (!p.isConnected) {
+            p.classList.add('da-spar-pill--floating');
+            document.body.appendChild(p);
+            paintPill(); // re-assert visibility now that it has a parent
+          }
+        }
+      }, 100);
     }
     function paintPill() {
       if (!pill) return;
