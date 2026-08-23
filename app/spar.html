@@ -1016,9 +1016,10 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .waitlist-empty strong{color:var(--text);font-weight:700}
 
-/* The sign-in gate. Guests get their free rounds first (see the guest
-   block in the script); this card stands when the allowance is spent,
-   or when a guest session cannot be minted at all. */
+/* The sign-in gate. Since 2026-08-23 this is the front door for every
+   signed-out visitor: live pairing requires a named account, and the
+   shared sign-in chooser pops over this card on arrival (see
+   autoPopAuthModal). */
 .gate{
   background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
   padding:32px 28px;max-width:440px;width:100%;text-align:center;
@@ -2108,24 +2109,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-08-22, second call the same day (the founder): the trial is BACK.
-  // The morning's named-account restore lasted hours before the founder
-  // re-asked for the 2026-08-19 shape: free to try without an account
-  // first, then encourage sign-in. Guests get GUEST_FREE_ROUNDS live
-  // rounds against real people before the queue asks for an account; the
-  // gate they meet afterwards keeps the morning's live-queue count
-  // (/api/spar-queue), so the sign-in ask has a person attached to it.
-  // Fourth flip on this gate — treat this as the resting state and don't
-  // close it again without a fresh soul.md entry.
+  // 2026-08-23 (the founder, fifth flip on this gate: "actually require
+  // google or gmail sign in ... we need conversion to be much better"):
+  // the allowance is ZERO. Live pairing requires a named account, which
+  // restores the 2026-08-18 posture and closes the guest trial. The gate
+  // still leads with who is actually waiting live (/api/spar-queue) so
+  // the ask is "sign in and meet them", not a wall in front of an
+  // unknown room, and the shared chooser now pops on arrival.
   //
-  // The number here is COSMETIC. spar-pair.mjs owns the real allowance
-  // (same default, env-overridable) and meters it against the anonymous
-  // Firebase uid, because a client-side count is a localStorage entry and
-  // a localStorage entry is not a limit. This copy exists so the searching
-  // screen can say "1 round left" without a round-trip, and so the gate
-  // can render before the read lands. Firestore is read on boot and
-  // overwrites it. Keep the two defaults in step.
-  var GUEST_FREE_ROUNDS = 2;
+  // The guest machinery below is KEPT dormant, not deleted: spar-pair.mjs
+  // owns the real allowance (GUEST_FREE_ROUNDS env, default 0 there too),
+  // and re-opening the trial is an env flip plus raising this constant.
+  // The number here is COSMETIC either way — a client-side count is a
+  // localStorage entry and a localStorage entry is not a limit.
+  var GUEST_FREE_ROUNDS = 0;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -2205,8 +2202,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
   }
   function mintGuestSession(){
-    // Guard for the closed state (allowance 0): never mint a guest
-    // session this page cannot use. Inert at the live default of 2.
+    // Allowance 0 (2026-08-23): never mint a guest session this page
+    // cannot use. A signed-out visitor goes straight to the gate.
     if (GUEST_FREE_ROUNDS <= 0) return false;
     if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
     if (wantsInbox()) return false;
@@ -2365,10 +2362,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // The gate is standing because a guest actually PLAYED rounds and ran
   // out, not because they arrived signed out. Drives every piece of copy
-  // above. `used > 0` keeps the copy honest if the allowance is ever
-  // env-flipped to 0 again: an anonymous session minted by another page
-  // (practice, live) would otherwise read as spent and be told "that was
-  // your last free round" about rounds they never had.
+  // above. `used > 0` matters with the allowance at 0: an anonymous
+  // session minted by another page (practice, live) would otherwise read
+  // as spent and be told "that was your last free round" about rounds
+  // they never had.
   function gateSpent(){
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
@@ -2422,10 +2419,43 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
     startGateLiveCount();
+    autoPopAuthModal();
     // Split the two gates in GA4. They are different asks with different
     // audiences, so one blended conversion rate would hide whichever is
     // working. `spent` is the post-round wall; the other is the fallback.
     try { gtag('event', 'spar_gate_view', { required: 1, reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
+  }
+
+  // ── Gate auto-pop: the sign-in chooser opens itself ──────────
+  // 2026-08-23, the founder: "pop up sign ins earlier". The gate used to
+  // wait for a click; now the shared chooser (Google + emailed link +
+  // email/password) opens the moment the gate stands, with the gate card
+  // behind it as the fallback surface, so closing the modal loses
+  // nothing. Once per browser session: a modal that re-opens on every
+  // render is a nag, and dismissing it is an answer. auth-modal.js is
+  // lazy-loaded by topbar.js, so openAuthModal may not exist at first
+  // render; poll briefly rather than racing it, and stand down if the
+  // gate disappears (the visitor signed in through the card).
+  var authPopArmed = false;
+  function autoPopAuthModal(){
+    if (authPopArmed) return;
+    authPopArmed = true;
+    try { if (sessionStorage.getItem('da-spar-auth-pop')) return; } catch(e){}
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (!document.getElementById('sparGateCard')){ clearInterval(t); return; }
+      if (typeof window.openAuthModal === 'function'){
+        clearInterval(t);
+        try { sessionStorage.setItem('da-spar-auth-pop', '1'); } catch(e){}
+        window.openAuthModal('signup');
+        try { gtag('event', 'spar_auth_autopop', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
+      } else if (tries > 12){
+        // auth-modal.js never arrived (blocked script, odd cache). The
+        // gate's own buttons still work; give up quietly.
+        clearInterval(t);
+      }
+    }, 500);
   }
 
   // ── Gate live count: who is waiting on the other side ────────
@@ -6016,10 +6046,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. The free rounds are the offer this page
-        // makes, so mint a guest identity and let the guest branch above
-        // run. Only when that cannot happen does the sign-in ask stand,
-        // which keeps the gate a statement of fact rather than of policy.
+        // No session at all. With the guest allowance at 0 (2026-08-23)
+        // mintGuestSession() refuses immediately and the sign-in gate is
+        // the front door; if the trial ever comes back, this line
+        // re-opens the guest lane with it.
         if (!mintGuestSession()) renderGate();
       }
     });
