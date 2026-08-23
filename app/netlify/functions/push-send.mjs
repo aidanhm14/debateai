@@ -8,12 +8,16 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { sendToUser, pushConfigured } from './lib/webpush.mjs';
+import { sendSmsToUser, smsConfigured } from './lib/sms.mjs';
 import { getDb } from './lib/firestore.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
-  if (!pushConfigured()) return jsonResponse({ ok: false, configured: false }, 200, request);
+  // Either lane live is enough to be worth doing the participant checks.
+  if (!pushConfigured() && !smsConfigured()) {
+    return jsonResponse({ ok: false, configured: false }, 200, request);
+  }
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Authorization required', 401, request);
@@ -48,6 +52,16 @@ export default async (request) => {
     url: '/spar?thread=' + encodeURIComponent(threadId),
     tag: 'da-dm-' + threadId,
   };
-  const r = await sendToUser(recipientUid, payload);
-  return jsonResponse({ ok: true, ...r }, 200, request);
+  // The same participant check above gates both lanes, so the text can
+  // only ever reach someone the sender already shares a thread with. The
+  // message TEXT is never included: a DM's contents belong in the app, not
+  // on a lock screen and not in a carrier's logs.
+  const [r, smsR] = await Promise.all([
+    sendToUser(recipientUid, payload),
+    sendSmsToUser(recipientUid, {
+      kind: 'dm',
+      body: `${callerName} messaged you on Debatable. https://itsdebatable.com/spar?thread=${encodeURIComponent(threadId)}\n\nReply STOP to stop.`,
+    }).catch(() => ({ sent: 0 })),
+  ]);
+  return jsonResponse({ ok: true, ...r, sms: smsR }, 200, request);
 };

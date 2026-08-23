@@ -263,6 +263,23 @@ if [ -f "$BOUNTY_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# SMS guard. Texting a real handset is regulated and costs money per
+# send, so the consent rules are asserted rather than reviewed: STOP
+# recognised exactly, an unplaceable number refused rather than
+# guessed at, the inbound webhook failing closed, the full number
+# never leaving in a status payload, and no raw sender exported that
+# would let a future call site skip the consent gate.
+SMS_GUARD="$REPO_ROOT/scripts/test-sms.mjs"
+if [ -f "$SMS_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-sms.mjs >/tmp/sms-guard.log 2>&1); then
+    echo "[sms-guard] commit blocked - the SMS consent rules no longer hold:" >&2
+    tail -20 /tmp/sms-guard.log >&2
+    echo "[sms-guard] see scripts/test-sms.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Cash-round money guard. A cash round is the one surface where real
 # money moves on the result of an argument, so its four promises (fee
 # at the door only, winner takes the whole pot, no verdict means a full

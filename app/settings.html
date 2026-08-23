@@ -97,6 +97,24 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .saved{font-size:.88rem;color:var(--ok);font-weight:700;opacity:0;transition:opacity .2s}
   .saved.on{opacity:1}
 
+  /* Getting told: notification lanes + the phone opt-in. */
+  .phone{margin-top:18px;padding-top:16px;border-top:1px solid var(--bd)}
+  .phone-state{font-size:.78rem;font-weight:700;color:var(--dim)}
+  .phone-state.on{color:var(--ok)}
+  .phone-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .phone-in{flex:1;min-width:180px;font:inherit;font-size:.94rem;padding:9px 12px;border:1px solid var(--bd2);border-radius:10px;background:var(--panel);color:var(--tx)}
+  .phone-consent{display:flex;gap:9px;align-items:flex-start;margin-top:12px;font-size:.82rem;line-height:1.5;color:var(--dim);cursor:pointer}
+  .phone-consent input{margin-top:3px;flex:0 0 auto;accent-color:var(--con)}
+  .phone-note{font-size:.8rem;color:var(--dim);margin-top:10px;line-height:1.5}
+  .phone-err{font-size:.84rem;color:var(--con);margin-top:10px;font-weight:600}
+  .phone-kinds{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+  .phone-kind{display:flex;gap:9px;align-items:center;font-size:.88rem;cursor:pointer}
+  .phone-kind input{accent-color:var(--con)}
+  .btn.primary{background:var(--con);border-color:var(--con);color:#fff}
+  .btn.primary:hover{background:var(--con-d)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .btn.link{border:none;background:none;color:var(--blue);padding:6px 0;font-weight:600}
+
   footer{padding:26px 0 40px;border-top:1px solid var(--bd);margin-top:26px;font-size:.88rem;color:var(--faint);display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between}
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
@@ -147,6 +165,23 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     <div class="actions">
       <button class="btn" id="resetBtn" type="button">Reset round settings</button>
       <span class="saved" id="savedFlag">Saved</span>
+    </div>
+  </section>
+
+  <!-- Getting told a round is happening. Rendered by the block at the end
+       of this file; hidden entirely for signed-out visitors, because every
+       control in it writes to an account. -->
+  <section class="card" id="notifyCard" hidden>
+    <h2>Getting told</h2>
+    <p class="sub">A live round needs two people awake at the same time. These are the ways we can tell you one is happening.</p>
+    <div id="notifyFields"></div>
+
+    <div class="phone" id="phoneBlock" hidden>
+      <div class="mic-top">
+        <span class="mic-title">Text messages</span>
+        <span class="phone-state" id="phoneState"></span>
+      </div>
+      <div id="phoneBody"></div>
     </div>
   </section>
 
@@ -405,6 +440,222 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   paintVoice();
   paintLocal();
   paintAudience();
+})();
+
+// ── Getting told: browser alerts + text messages ────────────────────
+// Everything here writes to an ACCOUNT (notify_prefs, phone_numbers), so
+// the whole card stays hidden until a named user is present. An anonymous
+// Firebase session is not a signed-in user on this site (notifications.js
+// mints one on nearly every page), so the check is explicit rather than
+// `!!user` — the trap that has bitten five other surfaces here.
+(function notifySettings(){
+  var card = document.getElementById('notifyCard');
+  if (!card) return;
+  var st = { user: null, phone: null, busy: false, err: '', stage: 'idle' };
+
+  // The page's other `ga` is scoped inside its own IIFE, so this block
+  // carries its own rather than reaching for a name it cannot see.
+  function ga(name, params){
+    try { if (window.gtag) window.gtag('event', name, params || {}); } catch (e) {}
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+  function named(u){ return !!(u && !u.isAnonymous); }
+  function tok(){
+    return st.user ? st.user.getIdToken() : Promise.reject(new Error('no user'));
+  }
+  function api(method, body){
+    return tok().then(function(t){
+      return fetch('/api/phone', {
+        method: method,
+        headers: Object.assign({ 'Authorization': 'Bearer ' + t },
+          body ? { 'Content-Type': 'application/json' } : {}),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        return { ok: r.ok, status: r.status, data: j || {} };
+      });
+    });
+  }
+
+  // Browser-alert row reuses the existing notifications.js helpers so this
+  // page and the /spar nudge can never disagree about the stored value.
+  function paintBrowser(){
+    var host = document.getElementById('notifyFields');
+    if (!host) return;
+    var on = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
+    host.innerHTML =
+      '<label class="phone-kind"><input type="checkbox" id="nfLive"' + (on ? ' checked' : '') + '>' +
+      '<span>Browser and app notifications when someone goes live</span></label>';
+    var box = document.getElementById('nfLive');
+    if (box) box.addEventListener('change', function(){
+      if (typeof window.daSetLiveAlerts === 'function') window.daSetLiveAlerts(box.checked, function(){});
+      ga('settings_live_alerts', { on: box.checked });
+    });
+  }
+
+  function paintPhone(){
+    var block = document.getElementById('phoneBlock');
+    var body = document.getElementById('phoneBody');
+    var stateEl = document.getElementById('phoneState');
+    if (!block || !body) return;
+    var p = st.phone || {};
+
+    // Until Twilio credentials exist the whole lane is honestly absent
+    // rather than a button that fails. Nothing here pretends to work.
+    if (!p.configured) { block.hidden = true; return; }
+    block.hidden = false;
+
+    if (stateEl){
+      stateEl.textContent = p.verified ? (p.optedOut ? 'Stopped' : 'On · ends ' + esc(p.last4 || '')) : '';
+      stateEl.className = 'phone-state' + (p.verified && !p.optedOut ? ' on' : '');
+    }
+
+    var err = st.err ? '<p class="phone-err">' + esc(st.err) + '</p>' : '';
+
+    // Verified: the switches, and a way out.
+    if (p.verified){
+      var k = p.kinds || {};
+      body.innerHTML =
+        (p.optedOut
+          ? '<p class="phone-note">You replied STOP, so texts are off. Text START to the same number to turn them back on, or remove the number below.</p>'
+          : '<div class="phone-kinds">' +
+            kindRow('live', 'Someone is live and looking for a round', k.live !== false) +
+            kindRow('challenge', 'Someone challenges you by name', k.challenge !== false) +
+            kindRow('dm', 'You get a message', k.dm !== false) +
+            '</div>') +
+        '<p class="phone-note">At most a few texts a day, never between 10pm and 8am your time. Reply STOP to any of them to stop. Message and data rates may apply.</p>' +
+        '<button class="btn link" id="phRemove" type="button">Remove this number</button>' + err;
+      wireKinds();
+      var rm = document.getElementById('phRemove');
+      if (rm) rm.addEventListener('click', function(){
+        if (!window.confirm('Remove your phone number from this account?')) return;
+        run('remove', { action: 'remove' });
+      });
+      return;
+    }
+
+    // Code sent, waiting for it.
+    if (st.stage === 'sent'){
+      body.innerHTML =
+        '<p class="phone-note">We texted a six-digit code to the number ending ' + esc(p.last4 || '') + '.</p>' +
+        '<div class="phone-row">' +
+          '<input class="phone-in" id="phCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">' +
+          '<button class="btn primary" id="phConfirm" type="button">Confirm</button>' +
+        '</div>' +
+        '<button class="btn link" id="phRestart" type="button">Use a different number</button>' + err;
+      var code = document.getElementById('phCode');
+      var go = function(){ run('confirm', { action: 'confirm', code: (code && code.value) || '' }); };
+      var cb = document.getElementById('phConfirm');
+      if (cb) cb.addEventListener('click', go);
+      if (code) code.addEventListener('keydown', function(e){ if (e.key === 'Enter') go(); });
+      var rs = document.getElementById('phRestart');
+      if (rs) rs.addEventListener('click', function(){ st.stage = 'idle'; st.err = ''; paintPhone(); });
+      if (code) code.focus();
+      return;
+    }
+
+    // Nothing on file: the ask, with the consent language visible BEFORE
+    // the button rather than behind a link. What they are agreeing to has
+    // to be the thing they can actually read.
+    body.innerHTML =
+      '<div class="phone-row">' +
+        '<input class="phone-in" id="phNum" type="tel" autocomplete="tel" placeholder="+1 555 123 4567">' +
+        '<button class="btn primary" id="phSend" type="button">Send me a code</button>' +
+      '</div>' +
+      '<label class="phone-consent"><input type="checkbox" id="phConsent">' +
+        '<span>' + esc(st.consentText || '') + '</span></label>' + err;
+    var send = document.getElementById('phSend');
+    if (send) send.addEventListener('click', function(){
+      var num = document.getElementById('phNum');
+      var con = document.getElementById('phConsent');
+      if (!con || !con.checked){ st.err = 'Tick the box first so we have your permission to text you.'; paintPhone(); return; }
+      run('start', {
+        action: 'start',
+        phone: (num && num.value) || '',
+        consent: true,
+        // Captured so quiet hours mean the user's night, not UTC's.
+        utcOffsetMinutes: -new Date().getTimezoneOffset(),
+      });
+    });
+  }
+
+  function kindRow(key, label, on){
+    return '<label class="phone-kind"><input type="checkbox" data-kind="' + key + '"' +
+      (on ? ' checked' : '') + '><span>' + esc(label) + '</span></label>';
+  }
+  function wireKinds(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-kind]'), function(el){
+      el.addEventListener('change', function(){
+        var kinds = {};
+        kinds[el.getAttribute('data-kind')] = el.checked;
+        run('update', { action: 'update', kinds: kinds }, true);
+      });
+    });
+  }
+
+  function run(what, payload, quiet){
+    if (st.busy) return;
+    st.busy = true; st.err = '';
+    if (!quiet) paintPhone();
+    api('POST', payload).then(function(res){
+      st.busy = false;
+      if (!res.ok){
+        st.err = res.data.error || 'That did not work. Try again.';
+        // A failed start must not strand the person on the code screen
+        // with no number behind it.
+        if (what === 'start') st.stage = 'idle';
+        paintPhone();
+        return;
+      }
+      st.err = '';
+      if (what === 'start'){ st.stage = 'sent'; st.phone = Object.assign({}, st.phone, { last4: res.data.last4 }); }
+      else if (what === 'confirm'){ st.stage = 'idle'; st.phone = Object.assign({}, st.phone, res.data); }
+      else if (what === 'remove'){ st.stage = 'idle'; st.phone = Object.assign({}, st.phone, { hasPhone: false, verified: false, kinds: {} }); }
+      else st.phone = Object.assign({}, st.phone, res.data);
+      ga('settings_phone_' + what, {});
+      paintPhone();
+    }).catch(function(){
+      st.busy = false;
+      st.err = 'Could not reach the server.';
+      if (what === 'start') st.stage = 'idle';
+      paintPhone();
+    });
+  }
+
+  function load(){
+    api('GET').then(function(res){
+      if (!res.ok) return;
+      st.phone = res.data;
+      st.consentText = res.data.consentText || '';
+      card.hidden = false;
+      paintBrowser();
+      paintPhone();
+    }).catch(function(){});
+  }
+
+  // Wait for auth the same way the rest of the site does, and give up
+  // quietly rather than rendering an account card to a stranger.
+  function boot(){
+    try {
+      if (!window.firebase || !firebase.auth) return;
+      firebase.auth().onAuthStateChanged(function(u){
+        if (!named(u)) { card.hidden = true; return; }
+        st.user = u;
+        load();
+      });
+    } catch (e) {}
+  }
+  var tries = 0;
+  var poll = setInterval(function(){
+    tries++;
+    if (window.firebase && firebase.auth) { clearInterval(poll); boot(); }
+    else if (tries > 40) clearInterval(poll);
+  }, 150);
 })();
 </script>
 <!-- Shared neural-constellation background. Animates on this light

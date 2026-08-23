@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { sendToUser } from './lib/webpush.mjs';
+import { sendSmsToUser } from './lib/sms.mjs';
 import { getDb, FieldValue, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, deleteCachedShared } from './lib/admin-cache.mjs';
@@ -254,12 +255,22 @@ export default async (request) => {
       // Awaited: Lambda freezes the context on return, so an unawaited
       // send is abandoned, not deferred (the markGuest lesson).
       const claimSnippet = String(v.value.claim || '').slice(0, 90);
-      await sendToUser(challengedUid, {
-        title: (me.name || 'A debater') + ' challenged you',
-        body: claimSnippet ? '"' + claimSnippet + '" Tap to accept the round.' : 'Tap to accept the round.',
-        url: '/challenges',
-        tag: 'da-challenge-' + ref.id,
-      }).catch(() => {});
+      await Promise.all([
+        sendToUser(challengedUid, {
+          title: (me.name || 'A debater') + ' challenged you',
+          body: claimSnippet ? '"' + claimSnippet + '" Tap to accept the round.' : 'Tap to accept the round.',
+          url: '/challenges',
+          tag: 'da-challenge-' + ref.id,
+        }).catch(() => {}),
+        // force:true skips quiet hours and nothing else. Someone calling
+        // you out by name is the one alert worth a late buzz, and it is
+        // singular rather than a fan-out, so it cannot become a stream.
+        sendSmsToUser(challengedUid, {
+          kind: 'challenge',
+          force: true,
+          body: `${me.name || 'A debater'} challenged you on Debatable${claimSnippet ? `: "${claimSnippet}"` : ''}. https://itsdebatable.com/challenges\n\nReply STOP to stop.`,
+        }).catch(() => {}),
+      ]);
     }
 
     await invalidateFeeds();
@@ -306,12 +317,19 @@ export default async (request) => {
       });
       await invalidateFeeds();
       if (result.notifyUid) {
-        await sendToUser(result.notifyUid, {
-          title: (me.name || 'Someone') + ' accepted your challenge',
-          body: 'Your round is on. Tap to set it up.',
-          url: '/challenges',
-          tag: 'da-challenge-accept-' + ref.id,
-        }).catch(() => {});
+        await Promise.all([
+          sendToUser(result.notifyUid, {
+            title: (me.name || 'Someone') + ' accepted your challenge',
+            body: 'Your round is on. Tap to set it up.',
+            url: '/challenges',
+            tag: 'da-challenge-accept-' + ref.id,
+          }).catch(() => {}),
+          sendSmsToUser(result.notifyUid, {
+            kind: 'challenge',
+            force: true,
+            body: `${me.name || 'Someone'} accepted your challenge on Debatable. Your round is on. https://itsdebatable.com/challenges\n\nReply STOP to stop.`,
+          }).catch(() => {}),
+        ]);
       }
       return jsonResponse({ ok: true, side: result.side }, 200, request);
     } catch (e) {
