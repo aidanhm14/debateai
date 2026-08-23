@@ -269,18 +269,33 @@
     // Adaptive polling: foreground at POLL_MS, background at POLL_MS_HIDDEN.
     // Tab-visibility flips swap the interval so 20-tab users stop hammering.
     let pollTimer = null;
+    let stopped = false;
     function startPoll(){
       if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+      if (stopped) return;
       const interval = document.hidden ? POLL_MS_HIDDEN : POLL_MS;
       pollTimer = setInterval(fetchFeed, interval);
     }
     startPoll();
     document.addEventListener('visibilitychange', () => {
+      if (stopped) return;
       // Fetch once when returning to foreground so the user sees fresh msgs
       // without waiting up to a full poll interval.
       if (!document.hidden) fetchFeed();
       startPoll();
     });
+
+    // Returned so a host page that HIDES the room rather than removing
+    // it can stop the poll (/spar mounts this once and shows/hides it
+    // across search states; re-init per state would leak an interval
+    // and a visibilitychange listener every time). Additive: the
+    // /community and /chat call sites ignore the return value.
+    return {
+      stop(){ stopped = true; startPoll(); },
+      start(){ if (!stopped) return; stopped = false; fetchFeed(); startPoll(); },
+      refresh: fetchFeed,
+    };
   }
 
   window.DEBATEAI_CHAT = {

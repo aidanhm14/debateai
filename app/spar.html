@@ -71,6 +71,11 @@
 <script defer src="/js/judge-lenses.js"></script>
 <script defer src="/js/judge-draft.js"></script>
 <script defer src="/js/spar-night.js"></script>
+<!-- The Commons room, inlined on the searching screen. Same module and
+     same /api/chat-feed room as /chat and /community's Live tab, so the
+     people you talk to while waiting are everyone, not a second room
+     nobody is in. Guarded on window.DEBATEAI_CHAT at the mount site. -->
+<script defer src="/js/community-chat.js"></script>
 <script defer src="/js/voice-input.js"></script>
 <script defer src="/js/prospect-capture.js"></script>
 
@@ -1444,6 +1449,133 @@ h1 em{color:var(--accent);font-style:normal}
   background:rgba(88,101,242,.12);
 }
 
+/* ── The Commons, inline on the searching screen ──────────────
+   2026-08-23, Aidan pointing at the empty left column: put the chat
+   here "for ppl tryna organize", instead of behind the Community FAB
+   where a waiting person never opens it.
+
+   It is the SAME room as /chat and /community's Live tab (one
+   /api/chat-feed collection, no sign-in, rate-limited server-side),
+   mounted through the shared js/community-chat.js rather than
+   reimplemented, because two implementations of one room drift.
+
+   It is a SIBLING of .shell, never a child: renderSearching() rewrites
+   shell.innerHTML on every re-entry (a passed consent proposal, a
+   guest-round recheck) and that would wipe the scrollback and re-init
+   the poller each time. */
+.spar-room{
+  width:100%; max-width:720px; margin:20px auto 4px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:var(--shadow-lg);
+  position:relative; text-align:left;
+}
+.spar-room[hidden]{display:none}
+.spar-room__head{
+  display:flex; align-items:center; gap:9px;
+  padding:13px 18px; border-bottom:1px solid var(--border);
+}
+.spar-room__head .live-dot{
+  width:7px; height:7px; border-radius:50%; flex:none;
+  background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.7);
+}
+.spar-room__title{
+  font-size:.68rem; font-weight:800; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--text-ghost);
+}
+.spar-room__sub{
+  font-size:.78rem; color:var(--text-dim); margin-left:auto;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.spar-room__scroll{
+  height:clamp(150px,23vh,250px);
+  overflow-y:auto; scrollbar-width:thin;
+  padding:10px 18px; display:flex; flex-direction:column;
+}
+.spar-room__composer{
+  border-top:1px solid var(--border); background:var(--bg-elev);
+  padding:11px 14px;
+}
+.spar-room__row{display:flex; align-items:flex-end; gap:9px}
+.spar-room__input{
+  flex:1; min-width:0; resize:none;
+  font-family:inherit; font-size:.94rem; line-height:1.45;
+  padding:10px 13px; border-radius:11px;
+  border:1px solid var(--border); background:var(--bg); color:var(--text);
+  max-height:110px;
+}
+.spar-room__input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.spar-room__input::placeholder{color:var(--text-ghost)}
+.spar-room__send{
+  flex:none; padding:10px 18px; border-radius:11px;
+  border:1px solid var(--accent-solid,#b91c1c); background:var(--accent-solid,#b91c1c); color:#fff;
+  font-family:inherit; font-size:.9rem; font-weight:800; cursor:pointer;
+}
+.spar-room__send:disabled{opacity:.5; cursor:default}
+.spar-room__send.chat-send-fail{background:#b45309; border-color:#b45309}
+.spar-room__foot{
+  display:flex; align-items:center; gap:8px;
+  margin-top:7px; font-size:.74rem; color:var(--text-ghost);
+}
+.spar-room__foot b{color:var(--text-dim); font-weight:700}
+.spar-room__reroll{
+  border:none; background:transparent; color:var(--accent);
+  font-family:inherit; font-size:.74rem; font-weight:700; cursor:pointer;
+  padding:0; text-decoration:underline; text-underline-offset:2px;
+}
+.spar-room__count{margin-left:auto}
+.spar-room__count.over{color:#b45309}
+.spar-room__pill{
+  position:absolute; left:50%; bottom:82px;
+  transform:translateX(-50%) translateY(8px);
+  padding:6px 14px; border-radius:999px;
+  background:var(--accent-solid,#b91c1c); color:#fff;
+  font-family:inherit; font-size:.78rem; font-weight:800;
+  border:none; cursor:pointer; opacity:0; pointer-events:none;
+  transition:opacity .18s, transform .18s;
+  box-shadow:var(--shadow-lg); z-index:4;
+}
+.spar-room__pill.on{opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0)}
+/* Row styles for what community-chat.js renders. Kept in sync with the
+   same block in community.html; denser than a DM thread because the
+   feed carries join events too, so it reads as a log. */
+.spar-room .chat-row{padding:5px 0}
+.spar-room .chat-join{font-size:.82rem; color:var(--text-ghost)}
+.spar-room .chat-join-name{color:#16a34a; font-weight:700}
+.spar-room .chat-msg-head{display:flex; align-items:baseline; gap:8px}
+.spar-room .chat-msg-handle{font-weight:800; font-size:.86rem; color:var(--accent)}
+.spar-room .chat-msg-mine .chat-msg-handle{color:#16a34a}
+.spar-room .chat-msg-time{font-size:.7rem; color:var(--text-ghost)}
+.spar-room .chat-msg-text{font-size:.94rem; line-height:1.5; margin-top:1px; color:var(--text); overflow-wrap:anywhere}
+.spar-room .chat-av{width:20px; height:20px; border-radius:50%; overflow:hidden; flex:none}
+.spar-room .chat-av svg{width:100%; height:100%; display:block}
+.spar-room .chat-join .chat-av{display:inline-block; vertical-align:middle; margin-right:5px; width:16px; height:16px}
+.spar-room .chat-empty{
+  margin:auto; padding:18px 10px; text-align:center;
+  font-size:.88rem; line-height:1.55; color:var(--text-dim); max-width:36ch;
+}
+/* Below 1281px the rail is display:none and the room rides the column
+   instead. .wrap is a centring flex ROW, so without this the room is a
+   second flex item beside .shell and collapses to ~40px wide. The class
+   is applied by the mount, not :has(), so it cannot depend on selector
+   support on the one page that matters most. */
+.wrap.has-room{flex-wrap:wrap}
+.wrap > .spar-room{flex:0 0 100%; max-width:560px; margin:20px auto 0}
+
+/* In the rail it is one of the rail's cards, not a floating panel. */
+#sparRoomSlot{display:contents}
+.wait-rail__body .spar-room{
+  max-width:none; margin:0; box-shadow:none; border-radius:15px; flex:none;
+  background:color-mix(in srgb, var(--bg-elev) 68%, transparent);
+}
+.wait-rail__body .spar-room__scroll{height:clamp(120px,17vh,190px); padding:8px 14px}
+.wait-rail__body .spar-room__head{padding:11px 14px}
+.wait-rail__body .spar-room__composer{padding:9px 11px; background:transparent}
+.wait-rail__body .spar-room__sub{display:none}
+.wait-rail__body .spar-room__pill{bottom:74px}
+
 @media (min-width: 1281px){
   .wrap.spar-search-layout{
     display:grid;
@@ -2410,6 +2542,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (wrapHost) wrapHost.classList.remove('spar-search-layout');
     var staleRail = document.getElementById('waitRail');
     if (staleRail) staleRail.remove();
+    var staleRoom = document.getElementById('sparRoom');
+    if (staleRoom) staleRoom.hidden = true;
+    if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
     shell.innerHTML =
       '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
@@ -2991,6 +3126,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     mountGlobalMap('globalDebateMap');
     wireSetupCard();
     mountWaitRail();
+    // After mountWaitRail, which tears the rail down first and stops the
+    // room's poll on the way past. This puts it back.
+    mountSparRoom(0);
     mountWatchPanel();
   }
 
@@ -3254,15 +3392,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="wait-rail__head">' +
         '<div class="wait-rail__status"><span class="live-dot"></span>Match search active</div>' +
         '<h2>Use the wait.</h2>' +
-        '<p>Open anything below. Your search stays active and this tab chimes out loud the moment your opponent is ready, even from the background.</p>' +
-        // Real numbers, measured 2026-08-22 over the 124 matched queue sits on
-        // record: median wait 43s, 58% waited 30s+, 87% matched inside 2 min.
-        // The point of printing it: people bail at 20 seconds and miss rounds.
-        '<p class="wait-rail__stat" style="font-size:.78rem;color:var(--text-dim)">Most matched rounds waited over 30 seconds before connecting, and nearly nine in ten matched inside two minutes. Leaving early is how rounds get missed.</p>' +
+        // 2026-08-23, Aidan off a screenshot: "too much text here not
+        // simple". The head stacked four text blocks (chime line, the
+        // measured wait stat, the pinged line, the Open strip) before
+        // anything to do. One short line now carries the three facts
+        // that matter: search stays on, this tab chimes, matches take
+        // a minute or two. The full stat backing that last clause
+        // (median 43s, 87% inside 2 min, measured 2026-08-22 over the
+        // 124 matched queue sits) lives in this comment, not on screen.
+        '<p>Your search stays on. This tab chimes when your match is ready. Most matches land inside two minutes.</p>' +
         '<p id="waitPinged" hidden style="font-size:.78rem;color:#22c55e;font-weight:600"></p>' +
         openNudgeHtml('wait-rail__open-line') +
       '</div>' +
       '<div class="wait-rail__body">' +
+        // The Commons goes first in the body: the rail is the only part
+        // of this screen that stays in view (sticky, full height), and a
+        // room nobody sees is a room nobody posts in. The practice
+        // question and the links scroll below it.
+        '<div id="sparRoomSlot"></div>' +
         '<div class="wait-rail__card">' +
           '<div class="wait-rail__label">' + warmupLabel + ' <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New question</button></div>' +
           '<div class="wait-rail__motion" id="warmupMotion"></div>' +
@@ -3323,6 +3470,122 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (existing) existing.remove();
     var host = document.querySelector('.wrap');
     if (host) host.classList.remove('spar-search-layout');
+    hideSparRoom();
+  }
+
+  // ── The Commons, inline (searching state only) ───────────
+  // Mounted ONCE per page load and shown/hidden after that, never
+  // rebuilt: community-chat.js's init() attaches a poll interval and a
+  // visibilitychange listener, so a mount per search state would stack
+  // one of each every time someone passes a consent proposal and comes
+  // back to the queue. Hiding also stops the poll, so a matched card or
+  // the AI fallback is not quietly holding a request every 20 seconds.
+  function seedRoomHandle(){
+    // A named account talks under its own first name, so "free in ten,
+    // someone take Opp" is answerable by a person who can then be found
+    // in the queue. Never overwrites a handle picked on /community or
+    // /chat, and an anonymous account has no displayName, so a guest
+    // keeps the module's own anonymous handle.
+    try {
+      if (localStorage.getItem('da-chat-handle')) return;
+      var first = ((state.user && state.user.displayName) || '').trim().split(/\s+/)[0];
+      if (first) localStorage.setItem('da-chat-handle', first.slice(0, 32));
+    } catch (e) {}
+  }
+
+  // Wide screens keep it in the rail; below 1281px the rail is
+  // display:none, so it rides the column under the shell instead. A
+  // width change moves the node rather than rebuilding it, so the
+  // module keeps its listeners, its poll, and its scrollback.
+  function roomHost(){
+    var slot = document.getElementById('sparRoomSlot');
+    var wrap = document.querySelector('.wrap');
+    var wide = window.matchMedia && window.matchMedia('(min-width:1281px)').matches;
+    var host = (wide && slot) ? slot : wrap;
+    // .wrap only needs to wrap onto a second row when it is the host.
+    if (wrap) wrap.classList.toggle('has-room', host === wrap);
+    return host;
+  }
+
+  function mountSparRoom(tries){
+    var existing = document.getElementById('sparRoom');
+    if (existing){
+      var dest = roomHost();
+      if (dest && existing.parentNode !== dest){
+        var keep = existing.querySelector('.spar-room__scroll');
+        var at = keep ? keep.scrollTop : 0;
+        dest.appendChild(existing);
+        if (keep) keep.scrollTop = at;
+      }
+      existing.hidden = false;
+      if (state.roomChat && state.roomChat.start) state.roomChat.start();
+      return;
+    }
+    var host = roomHost();
+    if (!host) return;
+    // Progressive enhancement, same posture as the judge draft: the
+    // script is deferred and renderSearching can run first, so retry
+    // briefly and then give up quietly. The queue never depends on it.
+    if (!window.DEBATEAI_CHAT || !window.DEBATEAI_CHAT.init){
+      if ((tries || 0) < 20) setTimeout(function(){ mountSparRoom((tries || 0) + 1); }, 150);
+      return;
+    }
+    seedRoomHandle();
+    var room = document.createElement('aside');
+    room.id = 'sparRoom';
+    room.className = 'spar-room';
+    room.setAttribute('aria-label', 'The Commons');
+    room.innerHTML =
+      '<div class="spar-room__head">' +
+        '<span class="live-dot"></span>' +
+        '<span class="spar-room__title">The Commons</span>' +
+        '<span class="spar-room__sub">Everyone on the site. Say when you are free.</span>' +
+      '</div>' +
+      '<div class="spar-room__scroll" id="sparRoomScroll" aria-live="polite"></div>' +
+      '<button class="spar-room__pill" id="sparRoomPill" type="button"></button>' +
+      '<div class="spar-room__composer">' +
+        '<div class="spar-room__row">' +
+          '<textarea class="spar-room__input" id="sparRoomInput" rows="1" placeholder="Looking for a round?"></textarea>' +
+          '<button class="spar-room__send" id="sparRoomSend" type="button">Send</button>' +
+        '</div>' +
+        '<div class="spar-room__foot">' +
+          '<span>as <b id="sparRoomHandle"></b></span>' +
+          '<button class="spar-room__reroll" id="sparRoomReroll" type="button">change</button>' +
+          '<span class="spar-room__count" id="sparRoomCount"></span>' +
+        '</div>' +
+      '</div>';
+    host.appendChild(room);
+    try {
+      state.roomChat = window.DEBATEAI_CHAT.init({
+        scroller:    document.getElementById('sparRoomScroll'),
+        inputEl:     document.getElementById('sparRoomInput'),
+        sendBtn:     document.getElementById('sparRoomSend'),
+        handleEl:    document.getElementById('sparRoomHandle'),
+        rerollBtn:   document.getElementById('sparRoomReroll'),
+        newPill:     document.getElementById('sparRoomPill'),
+        charCountEl: document.getElementById('sparRoomCount'),
+      }) || null;
+      if (!state.roomResizeBound){
+        state.roomResizeBound = true;
+        window.addEventListener('resize', function(){
+          if (state.roomResizeTimer) clearTimeout(state.roomResizeTimer);
+          state.roomResizeTimer = setTimeout(function(){
+            if (!document.getElementById('sparRoom')) return;
+            if (document.getElementById('sparRoom').hidden) return;
+            mountSparRoom(0);
+          }, 250);
+        });
+      }
+      try { gtag('event', 'spar_room_mount', { format: formatParam }); } catch(e){}
+    } catch (e) {
+      room.remove();
+    }
+  }
+
+  function hideSparRoom(){
+    var el = document.getElementById('sparRoom');
+    if (el) el.hidden = true;
+    if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
   }
 
   // Pulls the public "missed each other this week / this month" counts
