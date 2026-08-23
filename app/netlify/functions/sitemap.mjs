@@ -201,6 +201,7 @@ const URLS = [
   { path: '/live',            changefreq: 'daily',   priority: '0.90' },
   { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
   { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-08-11' },
+  { path: '/safety',           changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-22' },
   { path: '/tournament-rules', changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-11' },
   { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
   { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
