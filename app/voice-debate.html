@@ -4028,9 +4028,12 @@ function App() {
   var [playbackRate, setPlaybackRate] = useState(1.45);
   // Mute: disable the local mic track so the AI can't VAD-interrupt
   // itself when you breathe / cough / shuffle papers during its speech.
-  // Default ON: the user starts muted so the AI can deliver its round
-  // intro uninterrupted. The user unmutes when they're ready to debate
-  // (that first unmute also ends the intro phase — see introActiveRef).
+  // Default ON for the intro only, so the AI can read the motion
+  // without the user's room noise cancelling it mid-sentence. The mic
+  // opens automatically the moment the intro finishes (see the
+  // response.done handler); the user never has to find a control to be
+  // heard. Muting after that is a deliberate choice and means the
+  // monologue mode below.
   var [muted, setMuted] = useState(true);
   // Intro phase: true from session start until the user first unmutes.
   // While true, a muted mic means "listening to the round intro," NOT
@@ -4038,6 +4041,10 @@ function App() {
   // note and the response.done auto-continue. The AI gives its intro
   // once and waits for the user to begin.
   var introActiveRef = useRef(true);
+  // Consecutive auto-continue beats requested while the user is muted.
+  // Reset the moment they speak or unmute.
+  var monologueBeatsRef = useRef(0);
+  var MAX_MONOLOGUE_BEATS = 8;
   // Which model + endpoint the server actually negotiated. Surfaced
   // in the live UI so the user can see whether they're talking to
   // gpt-realtime, gpt-realtime-2, or the legacy preview model.
@@ -5065,6 +5072,14 @@ function App() {
     try {connectAbortRef.current && connectAbortRef.current.abort();} catch (e) {}
     connectAbortRef.current = null;
     if (orbStopRef.current) {try {orbStopRef.current();} catch (e) {}orbStopRef.current = null;}
+    // The thinking drone was never torn down here, only on the two
+    // happy paths (first transcript delta, and stop()). Every other
+    // route out of a round left it running: a failed handshake, the
+    // recovery offer, an unmount mid-generation. Belt and braces, since
+    // the drone now also carries its own fuse in sfx.js.
+    if (thinkingStopRef.current) {try {thinkingStopRef.current();} catch (e) {}thinkingStopRef.current = null;}
+    try {window.SFX && window.SFX.stopThinking && window.SFX.stopThinking();} catch (e) {}
+    monologueBeatsRef.current = 0;
     // Drop auto-mute state on teardown so a session that ends while
     // the AI is mid-speech doesn't strand the flag for the next round.
     autoMutedRef.current = false;
@@ -5262,6 +5277,9 @@ function App() {
   useEffect(() => {
     mutedRef.current = muted;
     applyTrackEnabledFromState();
+    // Coming off mute means somebody is there, so the monologue budget
+    // starts over if they mute again later.
+    if (!muted) monologueBeatsRef.current = 0;
     var dc = dcRef.current;
     if (!dc || dc.readyState !== 'open') return;
     // First unmute ends the intro phase. Before this, muting just meant
@@ -5480,6 +5498,20 @@ function App() {
             autoMutedRef.current = false;
             applyTrackEnabledFromState();
           }
+          // The intro is over, so open the mic. The round used to start
+          // muted and wait for the user to find the unmute control on
+          // the strength of one spoken sentence. Anyone who missed it
+          // sat in a round that could not hear them, while the
+          // auto-continue below read the silence as "monologue mode"
+          // and kept the AI talking. Both halves of that were reported
+          // as bugs. Opening the mic here ends the dead end: the mic
+          // permission was already granted before connect, so there is
+          // no second consent to find, and the control still works for
+          // anyone who wants to mute deliberately.
+          if (introActiveRef.current) {
+            introActiveRef.current = false;
+            if (mutedRef.current) setMuted(false);
+          }
           currentAiTurnRef.current = null;
           // Muted-mode auto-continue. The user has opted out of clash,
           // so the AI shouldn't go silent waiting for input that won't
@@ -5490,7 +5522,14 @@ function App() {
           // ('done'): endCurrentSpeech already fired a response.create to
           // ask for the RFD, and a second one here would make the AI
           // launch a fresh beat right after asking to wrap up.
-          if (mutedRef.current && !introActiveRef.current && phaseRef.current !== 'done') {
+          // Bounded, because an unbounded one is indistinguishable from
+          // a stuck page: a muted tab left open used to keep requesting
+          // beats for as long as the session lived, billing every one.
+          // After the cap the AI simply stops and waits, which is what
+          // a person does when nobody answers.
+          if (mutedRef.current && !introActiveRef.current && phaseRef.current !== 'done' &&
+          monologueBeatsRef.current < MAX_MONOLOGUE_BEATS) {
+            monologueBeatsRef.current += 1;
             setTimeout(() => {
               var dc = dcRef.current;
               if (!dc || dc.readyState !== 'open') return;
@@ -6358,7 +6397,7 @@ function App() {
 (3) Offer, do not insist, to give a little background or framing on the motion if it helps: e.g. "I can give you a quick bit of context on this one if you'd like, or we can just go." One short offer.
 (4) On prep: let them take their time${nameSuffix}. e.g. "Take a minute or two to prep, no rush — a minute or so is standard but go as long as you need." Be agreeable about it, not prescriptive.
 (5) One line on how the round runs: speeches with clash in between, and they can take points / you'll take points too. Keep it to a single sentence.
-(6) Close by handing control to them: tell them they're muted right now so they can listen, and to UNMUTE when they're ready to begin. e.g. "You're muted while I set this up — unmute whenever you're ready and we'll start."
+(6) Close by handing control to them: their mic opens as soon as you stop talking, and they can just start speaking whenever they are ready. e.g. "Your mic opens the moment I stop talking, so start whenever you're ready." Do NOT tell them they are muted and do NOT ask them to press anything.
 Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let's get into it", "Let's dive in", "Sure thing", or any enthusiastic interjection. Even, dry, and direct.` :
           `Open with exactly this line, in your character's voice and dry register: "what's up${nameSuffix}, what are we debating?" Then stop. Do not suggest motions. Do not list options. Do not say "Absolutely" or any enthusiastic filler. One short line, then silence.`;
           // GA Realtime response.create dropped `modalities` (it's

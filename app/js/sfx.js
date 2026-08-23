@@ -440,6 +440,14 @@
     var c = getCtx();
     if (!c) return function(){};
     ensureRunning();
+    // Only one drone at a time, and it can never outlive the fuse.
+    // Every oscillator below is scheduled to stop at a fixed horizon at
+    // the moment it starts, so losing the stop closure (an aborted
+    // turn, a teardown path nobody wired up, a page that unmounts
+    // mid-generation) can no longer leave a tone running for the rest
+    // of the session. Reported as "the sound effect continues on and on".
+    stopThinking();
+    var FUSE = 40;
     var t0 = c.currentTime;
     var nodes = [];
 
@@ -492,7 +500,15 @@
       nodes.push(o2, lfo2, g2);
     } catch(e){}
 
-    return function stop(){
+    // Arm the fuse now, not in the stop closure.
+    nodes.forEach(function(n){
+      if (n.stop) { try { n.stop(t0 + FUSE); } catch(e){} }
+      if (n.gain && n.gain.exponentialRampToValueAtTime) {
+        try { n.gain.exponentialRampToValueAtTime(0.0001, t0 + FUSE); } catch(e){}
+      }
+    });
+
+    function stop(){
       try {
         var tEnd = c.currentTime;
         nodes.forEach(function(n){
@@ -506,7 +522,17 @@
           }
         });
       } catch(e){}
-    };
+    }
+    activeThinking = stop;
+    return function(){ if (activeThinking === stop) activeThinking = null; stop(); };
+  }
+
+  // Kill the drone from anywhere, without holding its stop closure.
+  var activeThinking = null;
+  function stopThinking(){
+    var s = activeThinking;
+    activeThinking = null;
+    if (s) { try { s(); } catch(e){} }
   }
 
   // ── Ambient pad (one-shot, smooth) ─────────────────────────────────
@@ -567,6 +593,7 @@
     timeUp: timeUp,
     rfdReveal: rfdReveal,
     thinking: thinking,
+    stopThinking: stopThinking,
     ambient: ambient,
     preload: preload,
     isMuted: isMuted,

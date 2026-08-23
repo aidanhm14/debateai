@@ -1705,7 +1705,19 @@ function useAuth() {
 
 var SFX = {
   _ctx: null,
+  // Handle on the one drone allowed to be running. See thinking().
+  _thinkStop: null,
   _getCtx() {if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();return this._ctx;},
+
+  // Kill the thinking drone from anywhere, whether or not the caller
+  // still holds the stop closure it was handed. Every speech
+  // transition calls this, so a turn that ends by a route nobody
+  // wired up can no longer leave audio running.
+  stopThinking() {
+    var s = this._thinkStop;
+    this._thinkStop = null;
+    if (s) {try {s();} catch (e) {}}
+  },
 
   // UI click. subtle, satisfying
   click() {
@@ -1745,9 +1757,21 @@ var SFX = {
     // starts only when AI generation begins and stops the moment text
     // arrives. Different shape from the uninvited scroll-cue ambient()
     // swells on /landing, which stay no-op'd.
+    // Only ever one drone. A second AI turn starting before the first
+    // one's stop closure ran used to stack a second pair of
+    // oscillators, and every layer was independently immortal.
+    this.stopThinking();
+    var self = this;
     try {var c = this._getCtx();
       if (c.state === 'suspended') {try {c.resume();} catch (e) {}}
       var t0 = c.currentTime;
+      // Hard fuse. The oscillators below are scheduled to stop at a
+      // fixed horizon whatever the caller does, because the drone
+      // reaching a user's ears forever is a worse failure than a drone
+      // that fades out early on a very slow generation. Reported as
+      // "the sound effect continues on and on": a caller losing its
+      // stop closure was enough to make it permanent.
+      var FUSE = 40;
       // Starter chime, brief 620→880Hz pitch sweep so the user gets
       // immediate "thinking has started" feedback. Standalone, doesn't loop.
       try {
@@ -1779,13 +1803,29 @@ var SFX = {
       g2.gain.setValueAtTime(0, t0);
       g2.gain.linearRampToValueAtTime(0.05, t0 + 0.4);
       o2.start(t0);lfo2.start(t0);
-      return () => {try {
+      // Arm the fuse at creation time, so it holds even if this whole
+      // closure is dropped on the floor.
+      try {
+        g.gain.setValueAtTime(0.10, t0 + FUSE - 2);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + FUSE);
+        g2.gain.setValueAtTime(0.05, t0 + FUSE - 2);
+        g2.gain.exponentialRampToValueAtTime(0.001, t0 + FUSE);
+        o.stop(t0 + FUSE);lfo.stop(t0 + FUSE);
+        o2.stop(t0 + FUSE);lfo2.stop(t0 + FUSE);
+      } catch {}
+      var stop = () => {try {
           var tEnd = c.currentTime;
-          g.gain.exponentialRampToValueAtTime(0.001, tEnd + 0.3);
-          g2.gain.exponentialRampToValueAtTime(0.001, tEnd + 0.3);
+          g.gain.cancelScheduledValues(tEnd);
+          g2.gain.cancelScheduledValues(tEnd);
+          g.gain.setValueAtTime(Math.max(0.0002, g.gain.value), tEnd);
+          g2.gain.setValueAtTime(Math.max(0.0002, g2.gain.value), tEnd);
+          g.gain.exponentialRampToValueAtTime(0.0001, tEnd + 0.3);
+          g2.gain.exponentialRampToValueAtTime(0.0001, tEnd + 0.3);
           o.stop(tEnd + 0.4);lfo.stop(tEnd + 0.4);
           o2.stop(tEnd + 0.4);lfo2.stop(tEnd + 0.4);
         } catch {}};
+      self._thinkStop = stop;
+      return () => {if (self._thinkStop === stop) self._thinkStop = null;stop();};
     } catch {return () => {};}
   },
 
@@ -4293,7 +4333,7 @@ function useTTS() {
   //      always full
   // Falls back to the HTMLMedia path if AudioContext / decodeAudioData
   // isn't available (very rare on modern browsers).
-  var playChunksHTMLMedia = (blobPromises, onEnd, onStart, token) => {
+  var playChunksHTMLMedia = (blobPromises, onEnd, onStart, token, onChunkAudible) => {
     modeRef.current = 'openai';
     var durations = [];var i = 0;var started = false;
     var next = async () => {var _loop = async function ()
@@ -4321,7 +4361,7 @@ function useTTS() {
             await new Promise((res) => {
               audio.onended = () => {URL.revokeObjectURL(url);res();};
               audio.onerror = () => {URL.revokeObjectURL(url);res();};
-              audio.onplaying = () => {if (!started) {started = true;if (onStart) onStart();}};
+              audio.onplaying = () => {if (onChunkAudible) {try {onChunkAudible(ci);} catch (e) {}}if (!started) {started = true;if (onStart) onStart();}};
               audio.play().catch(() => {URL.revokeObjectURL(url);res();});
             });
           } catch {durations[i] = 0;}
@@ -4340,7 +4380,12 @@ function useTTS() {
     next();
   };
 
-  var playChunks = (blobPromises, onEnd, onStart) => {
+  // onChunkAudible(i) fires as each chunk actually reaches the speaker,
+  // not when it is decoded or scheduled. The Web Audio path queues every
+  // chunk into the future the moment it decodes, so a schedule index
+  // says nothing about what the room heard. The flow sheet and the
+  // ballot are built from what was heard, so they need the real one.
+  var playChunks = (blobPromises, onEnd, onStart, onChunkAudible) => {
     cancelActive();
     var token = { cancelled: false };
     tokenRef.current = token;
@@ -4371,11 +4416,11 @@ function useTTS() {
     // 'debateos-tts-engine'='webaudio' for debugging.
     var wantWebAudio = engineOverride === 'webaudio';
     if (!wantWebAudio) {
-      return playChunksHTMLMedia(blobPromises, onEnd, onStart, token);
+      return playChunksHTMLMedia(blobPromises, onEnd, onStart, token, onChunkAudible);
     }
     var ctx = getWebAudioCtx();
     if (!ctx || typeof ctx.decodeAudioData !== 'function') {
-      return playChunksHTMLMedia(blobPromises, onEnd, onStart, token);
+      return playChunksHTMLMedia(blobPromises, onEnd, onStart, token, onChunkAudible);
     }
     if (ctx.state === 'suspended') {
       // ctx.resume() returns a promise but state flips synchronously
@@ -4386,7 +4431,7 @@ function useTTS() {
       try {ctx.resume();} catch {}
       if (ctx.state === 'suspended') {
         console.warn('[TTS] AudioContext stuck suspended — HTMLMedia fallback');
-        return playChunksHTMLMedia(blobPromises, onEnd, onStart, token);
+        return playChunksHTMLMedia(blobPromises, onEnd, onStart, token, onChunkAudible);
       }
     }
     modeRef.current = 'webaudio';
@@ -4416,6 +4461,18 @@ function useTTS() {
       tick();
     };
 
+    // Same wait, per chunk, so the caller learns what was actually heard.
+    var fireChunkWhenAudible = (startAt, idx) => {
+      if (!onChunkAudible) return;
+      var tick = () => {
+        if (token.cancelled) return;
+        if (ctx.currentTime >= startAt) {try {onChunkAudible(idx);} catch (e) {}} else
+        setTimeout(tick, 40);
+      };
+      tick();
+    };
+
+    var scheduledCount = 0;
     var scheduleChunk = (audioBuffer) => {
       if (token.cancelled) return;
       var src = ctx.createBufferSource();
@@ -4438,6 +4495,7 @@ function useTTS() {
       scheduleHead = startAt + adjDur;
       webAudioSourcesRef.current.push(src);
       progressRef.current.total = scheduleHead - firstStartTime;
+      fireChunkWhenAudible(startAt, scheduledCount++);
 
       if (!started) {started = true;fireOnStartWhenAudible(startAt);}
     };
@@ -6788,6 +6846,13 @@ function App() {
   var timer = useTimer();
   var prepTimer = useTimer();
   var endingRef = useRef(false); // guard against double endSpeech calls
+  // What the AI actually SAID this turn, as opposed to what it wrote.
+  // The model finishes generating long before the speaker finishes
+  // reading, so a turn cut short by the clock, a skip, or an interrupt
+  // used to be logged, flowed, and judged on paragraphs nobody heard.
+  // texts[] is every chunk queued for speech; spoken is how many of
+  // them actually reached the speaker.
+  var deliveredRef = useRef({ texts: [], spoken: 0, complete: false });
   var prepPrefetchRef = useRef(null); // holds pre-generated AI text from prep phase
   var prepRanRef = useRef(false); // true once the prep clock has actually ticked
   // Audio progress tick effect (see audioTick state above). Runs only
@@ -7224,6 +7289,7 @@ function App() {
     } else {
       // AI turn. overlapped: start fetching audio for first half while still generating text
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiError('');setAiPct(0);
+      deliveredRef.current = { texts: [], spoken: 0, complete: false };
       // Defensive: SFX.thinking() returns a stop function. If SFX is
       // missing the method (the historic /js/sfx.js collision bug),
       // fall back to a no-op so the AI turn still runs.
@@ -7345,6 +7411,7 @@ function App() {
             return null;
           });
           blobPromises.push(blobP);
+          deliveredRef.current.texts.push(splitText);
           console.log(`%c[TTS] Chunk ${blobPromises.length} queued (${splitText.split(/\s+/).length} words)`, 'color:cyan');
 
           // Start playback on the FIRST chunk. don't wait for AI to finish.
@@ -7364,6 +7431,9 @@ function App() {
             try {skipGate = localStorage.getItem('debateos-skip-ai-countdown') === '1';} catch (e) {}
             var onAudioEnd = async () => {
               orb.setMode('idle');
+              // Playback ran to the end, so the whole speech was heard
+              // and the generated text is the honest record of it.
+              deliveredRef.current.complete = true;
               if (!audioActuallyPlayed) {
                 // HD pipeline produced no audio (every chunk timed out or
                 // 5xx'd). Last-resort browser SpeechSynthesis on the final
@@ -7389,7 +7459,11 @@ function App() {
               }
               setTimeout(() => endSpeech(), 800);
             };
-            var startFn = () => tts.playChunks(blobPromises, onAudioEnd, onAudioStart);
+            var onChunkAudible = (idx) => {
+              var d = deliveredRef.current;
+              if (idx + 1 > d.spoken) d.spoken = idx + 1;
+            };
+            var startFn = () => tts.playChunks(blobPromises, onAudioEnd, onAudioStart, onChunkAudible);
             aiStartRef.current = startFn;
             if (skipGate) {
               console.log('%c[TTS] Audio ready, skip-gate preference honored', 'color:lime;font-weight:bold');
@@ -7481,10 +7555,13 @@ function App() {
         blobPromises._done = true; // signal playChunks that no more chunks coming
         if (!playbackStarted) stopThinking();
 
-        // If no chunks were created at all, fallback to single-shot
+        // If no chunks were created at all, fallback to single-shot.
+        // This path reads the whole speech in one go, so there is no
+        // partial delivery to track.
         if (!playbackStarted) {
           try {if (SFX && typeof SFX.ready === 'function') SFX.ready();} catch (e) {}
           setAiLoading('voice');
+          deliveredRef.current.complete = true;
           tts.speak(txt, wpm, () => {orb.setMode('idle');setTimeout(() => endSpeech(), 800);}, voice, onAudioStart);
         }
       } catch (e) {
@@ -7535,6 +7612,10 @@ function App() {
     if (endingRef.current) return; // prevent double-fire from keyboard+button race
     endingRef.current = true;
     timer.reset();
+    // The speech is over, so the "AI is thinking" drone is over,
+    // whatever route got us here (button, keyboard, timer, skip,
+    // interrupt). The per-turn stop closure covered only some of them.
+    try {SFX.stopThinking();} catch (e) {}
     // Clean up POI state
     setPoiActive(null);setPoiText('');setPoiOffer(false);
     poiAcceptsRef.current = 0;
@@ -7544,7 +7625,21 @@ function App() {
     if (typeof gtag === 'function') gtag('event', 'speech_end', { speech: cur.code, who: userTurn ? 'user' : 'ai', format: fmt.name, interrupted });
     var text = '';
     if (userTurn) {text = rec.stop();orb.stopMic();orb.setMode('idle');} else
-    {tts.stop();text = aiText;orb.setMode('idle');}
+    {
+      tts.stop();
+      // Log what was SPOKEN, not what was written. The model finishes
+      // generating well before the speaker finishes reading, so on a
+      // turn cut short the tail existed only in our own memory: the
+      // flow sheet, the ballot and the transcript all credited the AI
+      // with arguments the round never heard, and scored the user for
+      // dropping them.
+      var d = deliveredRef.current;
+      var heard = d.complete || !d.texts.length ? aiText : d.texts.slice(0, d.spoken).join(' ').trim();
+      var cutShort = !d.complete && d.texts.length > 0 && d.spoken < d.texts.length;
+      text = heard || aiText;
+      if (cutShort && text) text += ' [cut off here. the rest was never spoken]';
+      orb.setMode('idle');
+    }
 
     if (interrupted) {
       setWasInterrupted(true);
