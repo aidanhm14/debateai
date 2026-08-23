@@ -8143,10 +8143,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-ballot-card{display:none}
   .fs-ballot.is-in .fs-ballot-card{display:block;animation:fsRise .34s ease both}
   @keyframes fsRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .fs-ballot-top{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}
+  .fs-ballot-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px}
   .fs-board .fs-ballot-top b{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#4ade80}
   [data-theme="light"] .fs-board .fs-ballot-top b{color:#16a34a}
-  .fs-board .fs-ballot-top span{display:none}
+  /* 2026-08-22, per the founder ("do it wins with points"): the speaker
+     points are back on the verdict card. They were display:none'd in the
+     07-25 prediction-layer de-emphasis, which left the card reading
+     "X WINS" with no score at all. Name-attributed per side (set in JS)
+     so a newcomer reads them as each person's points, not a sports line. */
+  .fs-board .fs-ballot-top span{margin-left:auto;font-size:.78rem;font-weight:800;color:rgba(245,239,231,.78)}
+  [data-theme="light"] .fs-board .fs-ballot-top span{color:rgba(26,26,31,.66)}
   .fs-board .fs-ballot-card p{margin:0;font-size:.78rem;line-height:1.5;color:rgba(245,239,231,.7)}
   [data-theme="light"] .fs-board .fs-ballot-card p{color:rgba(26,26,31,.64)}
   @media(prefers-reduced-motion:reduce){
@@ -10179,7 +10185,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
-  var TICK_MS = 420, RUN_MS = 4600, HOLD_MS = 2600;
+  // The verdict is the payoff, so it holds LONGER than the deciding
+  // animation. Before 2026-08-22 the split was 4600/2600, which meant a
+  // visitor glancing at the card mostly caught "The AI judge is deciding".
+  var TICK_MS = 420, RUN_MS = 3400, HOLD_MS = 6200;
 
   function paintMkt(){
     if (el.fsViewers) el.fsViewers.textContent = viewers;
@@ -10291,7 +10300,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     el.fsNameAmini.textContent = r.a.nm;
     el.fsNameBmini.textContent = r.b.nm;
     el.fsWinner.textContent = (r.won === 'a' ? r.a.nm : r.b.nm) + ' wins';
-    el.fsScore.textContent = r.score;
+    // The score strings are "aPts - bPts" on the 100 scale. Render them
+    // name-attributed so the numbers read as each debater's speaker
+    // points rather than a bare sports line a newcomer has to decode.
+    var pts = String(r.score).split(/\s*[-–]\s*/);
+    el.fsScore.textContent = pts.length === 2
+      ? r.a.nm + ' ' + pts[0] + ' · ' + r.b.nm + ' ' + pts[1]
+      : r.score;
     // The justification, in plain words. The rfd strings open with
     // "<winner> wins because/by ...", which duplicates the bold line
     // above, so the why-line drops the "<Name> wins" stem and reads as
