@@ -169,15 +169,16 @@ function renderEmail({ firstName, uid, tournamentName, entered, entryCount, potN
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${entered
     ? `How the day runs, in case it has been a while since you entered: all online,
        doors open 10 AM Eastern and stay open until the evening, and you turn up
-       whenever suits you. There is no round one to miss. Every round you play
-       counts on the standings, and the top of the board goes into a streamed
-       bracket that night.`
+       whenever suits you. The rush hours are 12, 3 and 6 PM Eastern; come at one
+       of those and the queue is at its fullest. There is no round one to miss.
+       Every round you play counts on the standings, and the top of the board goes
+       into a streamed bracket that night.`
     : `If you have not been on in a while: the site matches you with a real person,
        you argue it out on a clock, and an AI judge writes up who won and why. The
-       Open is all online, doors open 10 AM Eastern and stay open all day, you come
-       and go whenever suits you, and rounds you play count on the standings. The
-       top of the board goes into a streamed bracket that evening. No debate
-       experience needed.`}
+       Open is all online, doors open 10 AM Eastern and stay open all day, and the
+       rush hours are 12, 3 and 6 PM Eastern, when pairing is fastest. Rounds you
+       play at any hour count on the standings, and the top of the board goes into
+       a streamed bracket that evening. No debate experience needed.`}
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">

@@ -2244,7 +2244,7 @@
   if (now > EVENT_OVER) return;
 
   var tail = (now >= EVENT_DAY)
-    ? 'Live today, doors open 10 AM ET'
+    ? 'Live today, rush hours 12, 3 & 6 PM ET'
     : 'Free to enter';
 
   function mount(){
@@ -2451,7 +2451,7 @@
         '<button type="button" class="ui-open-x" aria-label="Close">&times;</button>' +
         '<span class="ui-open-tag">' + (today ? 'Today' : 'Sat Aug 29') + '</span>' +
         '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
-        '<p class="ui-open-p">The Debatable Open is a one day online tournament. You turn up whenever suits you, get paired with a real person, and every round ends with a written verdict. $100 for first, $50 for second, $25 for third.</p>' +
+        '<p class="ui-open-p">The Debatable Open is a one day online tournament. You turn up whenever suits you, get paired with a real person, and every round ends with a written verdict. Rush hours at 12, 3 and 6 PM Eastern are when pairing is fastest. $100 for first, $50 for second, $25 for third.</p>' +
         '<p class="ui-open-fine">Free to enter, no card at any point. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
         '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
         '<button type="button" class="ui-open-no">Not interested</button>' +
