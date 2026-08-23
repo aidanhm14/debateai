@@ -93,9 +93,19 @@
     fetch('/api/chat-feed', { method: 'GET' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
-        if (!j || !Array.isArray(j.rows) || !j.rows.length){ hide(elChat); setBarVisible(); return; }
-        var last = j.rows[j.rows.length - 1];
-        var when = Number(last.ts || last.when || last.createdAt || 0);
+        if (!j || !Array.isArray(j.rows)){ hide(elChat); setBarVisible(); return; }
+        // Messages only, and only rows that actually carry text. This
+        // strip used to take the last row of any kind, which after
+        // 2026-08-11 was almost always a nameless "join" row, so the
+        // pulse read "Anonymous:" with nothing after it. Joins are gone
+        // from the feed now; the filter keeps the strip honest anyway.
+        var msgs = j.rows.filter(function(r){ return r.kind !== 'join' && String(r.text || '').trim(); });
+        if (!msgs.length){ hide(elChat); setBarVisible(); return; }
+        var last = msgs[msgs.length - 1];
+        // The feed's timestamp field is `at`. Reading ts/when/createdAt
+        // always resolved to 0, so chatFresh was permanently false and
+        // the live dot never lit for chat.
+        var when = Number(last.at || last.ts || 0);
         chatFresh = when > 0 && (Date.now() - when) < CHAT_FRESH_MS;
         paintDot();
         var text = String(last.text || '').slice(0, 90);

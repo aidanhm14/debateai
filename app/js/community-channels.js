@@ -221,9 +221,6 @@
     // Discord-style grouping: consecutive same-author rows within
     // 5 minutes collapse under one header.
     const grouped = prev && prev.uid && m.uid && prev.uid === m.uid && (m.ts - prev.ts) < 300000;
-    if (m.kind === 'join'){
-      return '<div class="disc-sys">' + escHtml(m.name) + ' joined</div>';
-    }
     const av = m.photo
       ? '<img class="disc-av" src="' + escHtml(m.photo) + '" alt="" referrerpolicy="no-referrer">'
       : '<span class="disc-av disc-av--txt">' + escHtml((m.name || '?')[0].toUpperCase()) + '</span>';
@@ -295,13 +292,20 @@
   function pollAnon(){
     fetch(ANON_ENDPOINT).then(r => r.ok ? r.json() : null).then(j => {
       if (!j || !Array.isArray(j.rows) || !active || !active.anon) return;
-      const msgs = j.rows.map(e => ({
+      // Join rows are dropped, and the server drops them too as of
+      // 2026-08-23. They used to be rendered as "<name> joined" system
+      // lines, but their only writer stopped supplying a name when this
+      // module replaced community-chat.js, so the room filled with
+      // identical "Anonymous joined" rows and the real conversation was
+      // pushed off the bottom of the scroller. Kept as a client-side
+      // guard so any legacy row still in the window never renders.
+      const msgs = j.rows.filter(e => e.kind !== 'join').map(e => ({
         uid: 'anon:' + (e.handle || ''),
         name: e.handle || 'guest',
         photo: '',
         text: e.text || '',
         ts: e.at || Date.now(),
-        kind: e.kind === 'join' ? 'join' : 'msg',
+        kind: 'msg',
       }));
       const newest = j.rows.length ? String(j.rows[j.rows.length-1].id || '') : '';
       if (newest === anonLastId) return;

@@ -37,7 +37,6 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { writeJoinEvent } from './chat-feed.mjs';
 
 const COUNTER_DOC = 'metrics/visitor_counter';
 
@@ -194,14 +193,21 @@ export default async (request) => {
     }
   }
 
-  let joinHandle = 'Anonymous';
+  // A tick no longer writes a "joined" row into the community chat feed.
+  // It used to, defaulting the name to 'Anonymous' when the caller sent
+  // no handle, and the only caller that ever sent one (community-chat.js
+  // via window.DEBATEAI_CHAT) was retired when /community was
+  // channelized on 2026-08-11. So every tick since wrote an identical
+  // nameless system line into the SAME 80-row feed the chat reads:
+  // measured 2026-08-23, 21 of the room's 25 rows were "Anonymous
+  // joined" and all four real messages had been pushed off the screen.
+  // A visit is not a chat message. Liveness is already stated honestly
+  // by the "About this room" card next to the feed, so the counter now
+  // just counts. `body.handle` is still accepted and ignored.
   let deviceId = '';
   try {
     if (request.headers.get('content-type')?.includes('application/json')){
       const body = await request.clone().json().catch(() => null);
-      if (body && typeof body.handle === 'string' && body.handle.trim()){
-        joinHandle = body.handle.trim().slice(0, 32);
-      }
       if (body) deviceId = sanitizeDeviceId(body.deviceId);
     }
   } catch {}
@@ -240,7 +246,6 @@ export default async (request) => {
       ]);
       // Bust rolling cache so next GET sees the new day.
       rollingCache = { value: null, ts: 0 };
-      writeJoinEvent({ db, handle: joinHandle }).catch(() => {});
       const count30d = await read30dCount(db);
       return jsonResponse({ count: 1, count30d, ticked: true, seeded: true }, 200, request);
     }
@@ -258,7 +263,6 @@ export default async (request) => {
     // Bust rolling cache so the new tick shows in subsequent GETs.
     rollingCache = { value: null, ts: 0 };
 
-    writeJoinEvent({ db, handle: joinHandle }).catch(() => {});
     const [count, count30d] = await Promise.all([
       readCumulativeCount(docRef),
       read30dCount(db),

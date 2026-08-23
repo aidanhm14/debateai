@@ -59,15 +59,17 @@
 
   // Minimal fetch wrapper. Returns { count, ticked, source } on success
   // or null on any error. Never throws into the consumer.
-  // POST optionally carries a handle so the join event written by
-  // /api/visitor-tick uses the same name the user will post under in
-  // the live chat.
-  async function call(method, handle){
+  // No handle is sent any more: /api/visitor-tick stopped writing a
+  // "joined" row into the community chat feed on 2026-08-23, because
+  // the handle lookup below had been dead since /community was
+  // channelized and every tick wrote a nameless "Anonymous joined"
+  // line into the room instead.
+  async function call(method){
     try {
       const init = { method };
       if (method === 'POST'){
         init.headers = { 'Content-Type': 'application/json' };
-        init.body = JSON.stringify({ handle: handle || null, deviceId: deviceId() });
+        init.body = JSON.stringify({ deviceId: deviceId() });
       }
       const res = await fetch(ENDPOINT, init);
       if (!res.ok) return null;
@@ -89,15 +91,7 @@
     const cb = typeof opts.onCount === 'function' ? opts.onCount : null;
     const stored = readFlag();
     const method = stored ? 'GET' : 'POST';
-    // If the chat module is loaded, prefer its handle so the join
-    // event in the chat feed matches the name the user will post
-    // under. Falls back to opts.handle, then null (server uses
-    // "Anonymous").
-    let handle = opts.handle || null;
-    if (!handle && window.DEBATEAI_CHAT && typeof window.DEBATEAI_CHAT.ensureHandle === 'function'){
-      try { handle = window.DEBATEAI_CHAT.ensureHandle(); } catch (e){}
-    }
-    const data = await call(method, handle);
+    const data = await call(method);
     if (method === 'POST') writeFlag();
     if (data && cb){
       try { cb(data.count, data.ticked === true, data); } catch (e){}

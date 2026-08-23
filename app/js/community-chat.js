@@ -9,8 +9,9 @@
  * Anonymous identity:
  *   - Handle is picked once from the lurker pool (community-seed.js
  *     buildLurkerPool) and pinned to localStorage `da-chat-handle`.
- *   - The same handle is what visitor-tick uses for the "X just
- *     joined!" line, so the chat avatar and the join event match.
+ *   - The old "X just joined!" line is retired (2026-08-23): its
+ *     writer had no name to give and the room filled with identical
+ *     "Anonymous joined" rows. This feed renders messages only.
  *   - User can re-roll the handle from the input bar (rare, but
  *     people care about their handle even when anonymous).
  *
@@ -93,13 +94,6 @@
   }
 
   function rowHtml(row, myHandle){
-    if (row.kind === 'join'){
-      return '<div class="chat-row chat-join">'
-        + avChip(row.handle)
-        + '<span class="chat-join-name">' + escHtml(row.handle || 'Anonymous') + '</span>'
-        + ' <span class="chat-join-verb">just joined.</span>'
-        + '</div>';
-    }
     const mine = row.handle && myHandle && row.handle === myHandle;
     return '<div class="chat-row chat-msg' + (mine ? ' chat-msg-mine' : '') + '" data-handle="' + escHtml(row.handle) + '">'
       + '<div class="chat-msg-head">'
@@ -192,7 +186,9 @@
         if (!res.ok){ renderEmptyOnce(); return; }
         const data = await res.json();
         if (!Array.isArray(data.rows)){ renderEmptyOnce(); return; }
-        applyRows(data.rows);
+        // Joins are never rendered (2026-08-23). The server stopped
+        // returning them; this filter covers any legacy row.
+        applyRows(data.rows.filter(r => r.kind !== 'join'));
       } catch { renderEmptyOnce(); }
     }
 
