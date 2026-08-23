@@ -269,6 +269,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 .adv-setup-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.4)}
 [data-lighting="light"] .adv-setup-btn{background:rgba(255,255,255,.72);border-color:var(--c-border2);color:var(--c-bright);box-shadow:0 10px 28px rgba(0,0,0,.06)}
 [data-lighting="light"] .adv-setup-btn:hover{background:#fff;border-color:var(--c-border3)}
+/* Post-round pill that hands the user to /newvoice, the lean clash room.
+   Cyan keeps it distinct from the three pills beside it (blue /today,
+   indigo Discord, violet the full voice trainer) and from green, which
+   already means "streak done". Two tones: pale on the dark surface,
+   deep on the light one, since one cyan cannot clear AA on both. */
+.nv-clash-pill{background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.32);color:#67e8f9}
+.nv-clash-pill:hover{background:rgba(34,211,238,.18);border-color:rgba(34,211,238,.5)}
+[data-lighting="light"] .nv-clash-pill{background:rgba(14,116,144,.07);border-color:rgba(14,116,144,.34);color:#0e7490}
+[data-lighting="light"] .nv-clash-pill:hover{background:rgba(14,116,144,.13);border-color:rgba(14,116,144,.5)}
 
 /* ── Ambient ───────────────────────── */
 .ambient{
@@ -11309,6 +11318,27 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   ' uses OpenAI Realtime so you can cut in mid-sentence, take POIs, run cross-ex live. Pro feature because the Realtime API charges us per audio minute.'
   )
   ),
+  // Second door on the same engine, and the lighter one. /newvoice
+  // runs the lean clash stack: same OpenAI Realtime opponent, no
+  // format, no speech clock, and a ~1.5s silence trigger instead of
+  // the trainer's server-VAD, so it answers noticeably faster and
+  // reads casual. Sits under the trainer card because a user who has
+  // just picked GPT is already choosing the Realtime voice; this
+  // tells them which of the two rooms they actually want. NOT a
+  // motion handoff: /newvoice reads no motion parameter, so a deep
+  // link carrying one would promise something the page ignores.
+  brain === 'gpt' && el('div', { style: { marginTop: 6, fontSize: '.7rem', color: 'var(--c-dim)', lineHeight: 1.45 } },
+  el('a', {
+    href: '/newvoice',
+    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: 'brain-picker' });} catch (_) {}},
+    // var(--c-text) rather than a brand hue: this line sits on the
+    // page background, which is cream on light and near-black on
+    // dark, and every accent that read as "quick clash" (cyan #22d3ee)
+    // measured 1.65:1 on cream. The underline carries the affordance.
+    style: { color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline' }
+  }, 'Quick clash'),
+  ' is the same OpenAI Realtime opponent in a more casual room: quicker replies, one unstructured round, no speech clock.'
+  ),
   // Inline lock popover, shown when a free user clicks a Pro brain.
   // Auto-dismisses after 5s (handled by the useEffect on brainLock).
   brainLock && BRAINS[brainLock] && el('div', {
@@ -12696,7 +12726,29 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       },
       onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.18)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.5)';},
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.10)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.32)';}
-    }, 'Voice round on this motion →')
+    }, 'Voice round on this motion →'),
+    // Third path, and the low-commitment one. The pill above hands
+    // this motion to the full trainer on real speech clocks; this one
+    // opens the lean clash room, same OpenAI Realtime opponent with
+    // quicker replies and no format. No motion parameter on purpose:
+    // /newvoice reads none, so carrying one would be a dead promise.
+    // Cyan because blue, indigo and violet are taken by the three
+    // pills beside it, and green already means "streak done".
+    el('a', {
+      href: '/newvoice',
+      onClick: () => {try {if (typeof gtag === 'function') gtag('event', 'newvoice_handoff_sent', { from: 'typed-feedback', format: format });} catch (_) {}},
+      // Colours live in .nv-clash-pill instead of inline, because this
+      // pill needs a different cyan per theme: the pale #67e8f9 the
+      // three pills beside it are built on measures 1.33:1 on the
+      // light surface. Inline styles would win over the theme rule.
+      className: 'nv-clash-pill',
+      style: {
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '10px 18px', borderRadius: 999,
+        fontSize: '.78rem', fontWeight: 700, letterSpacing: '.02em',
+        textDecoration: 'none', transition: 'background .15s,border-color .15s'
+      }
+    }, 'Or a quick clash. Casual, quicker replies →')
     ),
     // Publish-to-public panel — signed-in users only. Sends the
     // round to /api/round/publish which writes a sanitized doc to
@@ -13431,6 +13483,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <a href="/" style="color:var(--c-muted,#64748b);text-decoration:none">Debatable</a>
     <span aria-hidden="true">·</span>
     <a href="/voice-debate" style="color:var(--c-muted,#64748b);text-decoration:none">Voice round</a>
+    <span aria-hidden="true">·</span>
+    <a href="/newvoice" style="color:var(--c-muted,#64748b);text-decoration:none">Quick clash</a>
     <span aria-hidden="true">·</span>
     <a href="/live" style="color:var(--c-muted,#64748b);text-decoration:none">Live rounds</a>
     <span aria-hidden="true">·</span>
