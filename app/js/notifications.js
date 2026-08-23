@@ -1542,18 +1542,22 @@
     function isQueueUser(u) {
       return isRealUser(u);
     }
+    // Both of these are written INTO the matchmaking_queue doc, which the
+    // opponent reads, so neither may ever fall back to a real identity.
+    // They used to: shortNm dropped to the account's displayName and then
+    // to the email local part, and publicUsername led with the email local
+    // part outright, so a failed public-identity.js load published
+    // someone's real name and the front of their address to a stranger.
+    // The fallback is now a uid tail, which identifies nobody.
     function shortNm(u) {
       if (!u) return 'You';
       if (window.DBIdentity) return window.DBIdentity.forUser(u).name;
-      if (u.isAnonymous) return 'Guest ' + String(u.uid || '').slice(-4).toUpperCase();
-      var full = (u.displayName || '').trim();
-      var p = full.split(/\s+/).filter(Boolean);
-      return p.length >= 2 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.'
-           : (p[0] || (u.email ? u.email.split('@')[0] : 'You'));
+      var tail = String(u.uid || '').slice(-4).toUpperCase();
+      return (u.isAnonymous ? 'Guest ' : 'Debater ') + tail;
     }
     function publicUsername(u) {
       if (window.DBIdentity) return window.DBIdentity.forUser(u).username;
-      return (u && u.email ? u.email.split('@')[0] : '') || ('guest_' + String(u && u.uid || '').slice(-4).toLowerCase());
+      return 'debater_' + String(u && u.uid || '').slice(-4).toLowerCase();
     }
     function ts() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
     function ensureQueueUser(cb) {

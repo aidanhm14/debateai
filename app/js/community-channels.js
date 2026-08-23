@@ -201,9 +201,9 @@
   function postingName(){
     if (window.DBIdentity && user) {
       const id = window.DBIdentity.forUser(user);
-      if (id && id.chosen && id.name) return id.name;
+      if (id && id.name) return id.name;
     }
-    return (user && user.displayName) || '';
+    return user ? 'Debater ' + String(user.uid || '').slice(-4).toUpperCase() : '';
   }
 
   function renderIdent(){

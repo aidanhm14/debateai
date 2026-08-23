@@ -35,6 +35,21 @@
 </script>
 <link rel="stylesheet" href="/css/ui.css">
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
@@ -618,7 +633,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   function profilePayload(){
     var u = state.user || {};
     return {
-      displayName: u.displayName || shortName(u),
+      // shortName() only, never u.displayName: this rides into the shared
+      // team memberInfo and the 2v2 queue, which your partner and the
+      // opposing duo both read.
+      displayName: shortName(u),
       photoURL: u.photoURL || '',
       username: (window.DBIdentity && state.user) ? window.DBIdentity.forUser(state.user).username : '',
     };

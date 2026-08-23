@@ -33,6 +33,21 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 
 <!-- Shared topbar styles. Loaded before the page's inline <style> so the
      page rules win the cascade. Required for the .ui-topbar mount below. -->
@@ -1555,7 +1570,8 @@ footer a{color:var(--dim)}
             start: marks.start,
             end: marks.end,
             title: $('clipTitle').value.trim(),
-            name: (auth.currentUser.displayName || '').split(' ')[0],
+            // Clips surface in the community feed, so alias only.
+            name: daPublicName(auth.currentUser).split(' ')[0],
           }),
         });
       }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); });

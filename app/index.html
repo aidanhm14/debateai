@@ -2865,6 +2865,21 @@ if ('serviceWorker' in navigator) {
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"></noscript>
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 </head>
 <!-- voice-guidelines.js is a 1.4KB no-op stub (the real voice bank lives
      server-side). Inlined here to drop a render-blocking round-trip while
@@ -4309,6 +4324,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4324,8 +4340,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');
-  t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');
   t = t.replace(/\n/g, '<br>');
   t = '<p class="ai-p">' + t + '<\/p>';
   t = t.replace(/<p[^>]*><\/p>/g, '');
@@ -12762,7 +12777,7 @@ function Forum({ user, onSignIn }) {
     if (!newPost.trim()) return;
     var post = {
       id: Date.now().toString(),
-      author: user ? user.displayName || user.email : 'Anonymous',
+      author: user ? daPublicName(user) : 'Anonymous',
       authorUid: user ? user.uid : null,
       avatar: user ? (user.displayName || 'A').charAt(0).toUpperCase() : 'A',
       type: postType,
@@ -12836,7 +12851,7 @@ function Forum({ user, onSignIn }) {
   el('div', { className: 'forum-post-body' }, p.body),
   el('div', { className: 'forum-post-actions' },
   el('button', { className: 'forum-action', onClick: () => likePost(p.id) }, '\u2764\uFE0F ', p.likes || 0),
-  user && (p.author === (user.displayName || user.email) || p.author === 'Anonymous') &&
+  user && (p.authorUid ? p.authorUid === user.uid : p.author === 'Anonymous') &&
   el('button', { className: 'forum-action', onClick: () => deletePost(p.id) }, '\uD83D\uDDD1 ' + t('forum.delete', 'Delete'))
   )
   )
@@ -14847,18 +14862,16 @@ function SharedCases({ user, team }) {
           return;
         }
       }
-      // Anonymise the author for public disclosures so visitors don't
-      // see real names by default. Team-scoped shares keep the full
-      // displayName because teammates already know each other.
-      var fullName = (user.displayName || '').trim();
-      var parts = fullName.split(/\s+/).filter(Boolean);
-      var shortName = parts.length >= 2 ?
-      parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.' :
-      parts[0] || (user.email ? user.email.split('@')[0] : 'Anonymous');
+      // The author of a shared case is the public alias, for team shares
+      // as well as public ones. The old version shortened the real name
+      // and fell back to the EMAIL local part, and "teammates already
+      // know each other" is not a reason to publish an address into a
+      // shared document.
+      var shortName = daPublicName(user);
       var isPublic = shareVisibility === 'public';
       await firebaseDb.collection('shared_cases').add({
         teamId: team.teamId,
-        sharedBy: isPublic ? shortName : user.displayName || user.email || 'Unknown',
+        sharedBy: shortName,
         sharedByUid: user.uid,
         motion: c.motion || 'Untitled',
         side: c.side || '',
@@ -16213,8 +16226,8 @@ function LiveDebates({ user, team, onNavigateTab }) {
         maxParticipants: Number(maxParticipants) || 4,
         hostId: user.uid,
         creatorUid: user.uid,
-        hostName: user.displayName || user.email || 'Anonymous',
-        participants: [{ uid: user.uid, name: user.displayName || user.email || 'Anonymous', joinedAt: new Date().toISOString() }],
+        hostName: daPublicName(user),
+        participants: [{ uid: user.uid, name: daPublicName(user), joinedAt: new Date().toISOString() }],
         videoLink: videoLink,
         jitsiRoom: jitsiRoom,
         videoType: videoType,
@@ -16235,7 +16248,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
     var existing = debate.participants || [];
     if (existing.some((p) => p.uid === user.uid)) return;
     await firebaseDb.collection('live_debates').doc(debate.id).update({
-      participants: [...existing, { uid: user.uid, name: user.displayName || user.email || 'Anonymous', joinedAt: new Date().toISOString() }]
+      participants: [...existing, { uid: user.uid, name: daPublicName(user), joinedAt: new Date().toISOString() }]
     });
   }
 
@@ -17795,7 +17808,7 @@ function App() {
     onMouseLeave: (e) => {e.currentTarget.style.background = 'linear-gradient(135deg,#ef444418,#f59e0b18)';e.currentTarget.style.borderColor = 'rgba(239,68,68,.35)';}
   },
   React.createElement('span', { style: { opacity: .7, fontSize: '.62rem', textTransform: 'uppercase', letterSpacing: '.08em' } }, 'Manage'),
-  React.createElement('span', null, (user.displayName || user.email || '').split(' ')[0] || user.email)
+  React.createElement('span', null, daPublicName(user).split(' ')[0])
   ),
   React.createElement('button', { className: 'topbar-signout', onClick: signOut }, 'Sign Out')
   ) :

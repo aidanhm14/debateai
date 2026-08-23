@@ -51,6 +51,21 @@
 </script>
 <link rel="stylesheet" href="/css/ui.css">
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 
 <style>
 /* Neural constellation, same recipe as /tournament and /pricing: the
@@ -729,7 +744,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     api('/api/tournament', {
       action: 'register',
       tid: t.tid,
-      name: (state.user.displayName || 'Debater'),
+      name: daPublicName(state.user),
       affiliation: state.affInput ? state.affInput.value.trim() : '',
     })
       .then(function(){

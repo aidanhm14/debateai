@@ -218,6 +218,21 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="/js/domains.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 </head>
 <body>
   <!-- Shared topbar: same nav, theme toggle, and sign-in as the rest of
@@ -618,7 +633,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       '<h2>Your public profile</h2>' +
       '<p class="hint">This is what other people see at your profile link. Your judged rounds and subject map are drawn from the leaderboard automatically, so there is nothing to type there.</p>' +
       '<div class="fld"><label for="edName">Display name</label>' +
-        '<input id="edName" maxlength="60" value="' + esc(p.name || (me && me.displayName) || '') + '" placeholder="How you want to be listed"></div>' +
+        '<input id="edName" maxlength="60" value="' + esc(p.name || daPublicName(me)) + '" placeholder="How you want to be listed"></div>' +
       '<div class="fld"><label for="edHandle">Handle</label>' +
         '<input id="edHandle" maxlength="30" value="' + esc(p.handle || '') + '" placeholder="e.g. ananya-r">' +
         '<div class="sub" id="edHandleSub">Your profile lives at /users/&lt;handle&gt;. Letters, numbers and dashes.</div></div>' +

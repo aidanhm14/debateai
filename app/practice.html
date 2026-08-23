@@ -115,6 +115,19 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/track.js"></script>
+<script>
+  // One resolver for any name other people will read. Never the account
+  // displayName or the email: this page loads public-identity.js above.
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 <script defer src="/js/round-exit.js"></script>
 <!-- A/B practice_publish_cta_v1 (2026-07-27): does a publish CTA inside
      the ballot (spotlight) out-convert the passive card far below it
@@ -1336,7 +1349,7 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
       slot.appendChild(img);
     }
     var name = document.createElement('span');
-    name.textContent = (u.displayName || u.email || '').split(/\s+/)[0] || '';
+    name.textContent = daPublicName(u).split(/\s+/)[0] || '';
     name.style.cursor = 'pointer';
     name.addEventListener('click', function(){ if(window.__daOpenAccount) window.__daOpenAccount(); });
     slot.appendChild(name);
@@ -6804,13 +6817,7 @@ function App() {
       window.disclosureGuard.check({ motion, output: fullText });
       if (!check.ok) {alert(check.reason);setCasePublished(null);return;}
     }
-    var fullName = (user.displayName || '').trim();
-    var parts = fullName.split(/\s+/).filter(Boolean);
-    var shortName = window.DBIdentity ?
-    window.DBIdentity.forUser(user).name :
-    parts.length >= 2 ?
-    parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.' :
-    parts[0] || (user.email ? user.email.split('@')[0] : 'Anonymous');
+    var shortName = daPublicName(user);
     setCasePublished('pending');
     try {
       await firebaseDb.collection('shared_cases').add({

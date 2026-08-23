@@ -47,6 +47,19 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script src="/js/judge-roster.js"></script>
 <script src="/js/judge-intro.js"></script>
 <script defer src="/js/track.js"></script>
+<script>
+  // One resolver for any name other people will read. Never the account
+  // displayName or the email: this page loads public-identity.js above.
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 <!-- Round-exit capture: pagehide abandonment beacon + known-reason bail
      events. Every call site guards on window.RoundExit so a blocked
      script never breaks the round page. -->
@@ -3603,7 +3616,8 @@ html.stage-mode .stage-ov{display:block}
   function publicUsernameOf(user){
     if (!user) return 'guest';
     if (window.DBIdentity) return window.DBIdentity.forUser(user).username;
-    return (user.email || '').split('@')[0] || ('guest_' + String(user.uid || '').slice(-4).toLowerCase());
+    // Never the email local part: this rides matchmaking_queue.username.
+    return 'debater_' + String(user.uid || '').slice(-4).toLowerCase();
   }
   function currentPublicAvatarIdentity(){
     try {

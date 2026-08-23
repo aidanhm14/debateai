@@ -1244,7 +1244,17 @@
   function mountWelcome(node, user) {
     if (!node) return;
     if (node.__dbavHandler) { global.removeEventListener(EVT, node.__dbavHandler); global.removeEventListener(LIVE_EVT, node.__dbavHandler); }
-    var first = ((user && (user.displayName || user.email)) || '').split(/\s+/)[0] || '';
+    // Greet by the public alias when it is available, so a real first
+    // name never appears beside an aliased portrait.
+    var first = (function () {
+      try {
+        if (user && global.DBIdentity && global.DBIdentity.forUser) {
+          var idw = global.DBIdentity.forUser(user);
+          if (idw && idw.name) return idw.name.split(/\s+/)[0];
+        }
+      } catch (e) {}
+      return '';
+    })();
 
     function esc(s) { return String(s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
     function render() {

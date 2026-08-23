@@ -407,6 +407,21 @@
   }
   </script>
 <script defer src="/js/track.js"></script>
+<!-- Public aliases. This page writes a name other people read, so it
+     loads the identity module itself rather than racing topbar.js's
+     lazy load. daPublicName() is the one resolver those writes use. -->
+<script defer src="/js/public-identity.js"></script>
+<script>
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 </head>
 <body>
 
@@ -1896,7 +1911,7 @@ function doSubmitProgram(p,btn){
   fbDb.collection('atlas_submissions').add({
     name:p.name, city:p.city, country:p.country,
     lat:p.lat, lng:p.lng, lvl:p.lvl, fmt:p.fmt, noProgram:!!p.noProgram,
-    by:fbUser.uid, byName:(fbUser.displayName||fbUser.email||'member'),
+    by:fbUser.uid, byName:daPublicName(fbUser),
     at:firebase.firestore.FieldValue.serverTimestamp()
   }).then(function(){
     var sm=document.getElementById('submodal'); if(sm) sm.classList.remove('show');
@@ -2131,7 +2146,7 @@ function setStatusRemote(d,s){
   if(!fbDb||!fbUser) return false;
   fbDb.collection('atlas_pipeline').doc(pslug(d.n)).set({
     name:d.n, status:s, by:fbUser.uid,
-    byName:(fbUser.displayName||fbUser.email||'editor'),
+    byName:daPublicName(fbUser),
     at:firebase.firestore.FieldValue.serverTimestamp()
   },{merge:true}).catch(function(err){
     console.warn('[atlas] write',err);

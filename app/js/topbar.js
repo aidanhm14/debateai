@@ -1892,7 +1892,7 @@
       if (!window.DBAvatar || !window.DBAvatar.mountIdentity) return;
       window.DBAvatar.mountIdentity(host, {
         uid: u.uid,
-        name: u.displayName || u.email || '',
+        name: topbarAvatarName(u),
         photo: null,          // resolved above; here we want the portrait
         size: 18,             // ui.css bumps this to 24 on phones
         live: true            // repaint when the builder saves
@@ -2050,12 +2050,28 @@
     node.textContent = topbarName(user);
   }
 
+  // The alias IS the identity on this site, chosen or generated, so the
+  // pill renders it either way. The old `id.chosen` condition meant an
+  // account that never picked a name fell through to displayName, or to
+  // the EMAIL, and Google accounts carry a real name — so the bar read
+  // "Aidan" on an account whose whole point is that it does not. There is
+  // no fallback to the real identity any more: if the identity module has
+  // not loaded yet we say Account and repaint on dbidentity:change.
   function topbarName(u){
     if (window.DBIdentity && window.DBIdentity.forUser){
       var id = window.DBIdentity.forUser(u);
-      if (id && id.chosen && id.name) return id.name.split(/\s+/)[0];
+      if (id && id.name) return id.name.split(/\s+/)[0];
     }
-    return ((u.displayName || u.email || '').split(/\s+/)[0]) || 'Account';
+    return 'Account';
+  }
+  // Same rule for the portrait: it derives initials from whatever name it
+  // is handed, so passing the real one put a real initial next to an alias.
+  function topbarAvatarName(u){
+    if (window.DBIdentity && window.DBIdentity.forUser){
+      var id = window.DBIdentity.forUser(u);
+      if (id && id.name) return id.name;
+    }
+    return '';
   }
 
   window.addEventListener('dbidentity:change', function(){

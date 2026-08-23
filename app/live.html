@@ -110,6 +110,30 @@
      is exposed for ad-hoc page events (challenge_post, challenge_accept,
      etc — added inline in this page's script block). -->
 <script defer src="/js/track.js"></script>
+<script>
+  // One resolver for any name other people will read. Never the account
+  // displayName or the email: this page loads public-identity.js above.
+  // Public handle, same rule: the generated alias, never the email local
+  // part this used to publish into live_challenges.
+  window.daPublicHandle = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var idh = window.DBIdentity.forUser(u);
+        if (idh && idh.username) return idh.username;
+      }
+    } catch (e) {}
+    return 'debater_' + String((u && u.uid) || '').slice(-4).toLowerCase();
+  };
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 <script defer src="/js/topic-pulse.js"></script>
 <script defer src="/js/world-data.js?v=1"></script>
 <script>
@@ -5633,8 +5657,8 @@ button{font-family:inherit}
     var profile = loadProfile();
     slots[slotKey] = {
       uid: currentUser.uid,
-      name: profile.name || currentUser.displayName || 'Joined',
-      handle: profile.handle || (currentUser.email || '').split('@')[0] || 'anonymous',
+      name: profile.name || daPublicName(currentUser),
+      handle: profile.handle || daPublicHandle(currentUser),
     };
     c.slots = slots;
     // Maintain legacy accepterUid/accepterName for the 1v1 acceptance
@@ -5682,8 +5706,8 @@ button{font-family:inherit}
     var profile = loadProfile();
     viewers.push({
       uid: currentUser.uid,
-      name: profile.name || currentUser.displayName || 'Viewer',
-      handle: profile.handle || (currentUser.email || '').split('@')[0] || 'anonymous',
+      name: profile.name || daPublicName(currentUser),
+      handle: profile.handle || daPublicHandle(currentUser),
       ts: Date.now(),
     });
     c.viewers = viewers;
@@ -5722,8 +5746,8 @@ button{font-family:inherit}
     var profile = loadProfile();
     judges.push({
       uid: currentUser.uid,
-      name: profile.name || currentUser.displayName || 'Judge',
-      handle: profile.handle || (currentUser.email || '').split('@')[0] || 'anonymous',
+      name: profile.name || daPublicName(currentUser),
+      handle: profile.handle || daPublicHandle(currentUser),
       ts: Date.now(),
     });
     c.judges = judges;
@@ -5966,8 +5990,10 @@ button{font-family:inherit}
     var u = chipUser;
     var p = loadProfile();
     var photo = u.photoURL || '';
-    var nm = p.name || u.displayName || u.email || 'You';
-    var handle = p.handle || (u.email || '').split('@')[0] || 'guest';
+    // The account chip shows the alias, not the Google name: this is the
+    // surface the founder screenshots, and the alias is the identity here.
+    var nm = p.name || daPublicName(u);
+    var handle = p.handle || daPublicHandle(u);
     var initials = nm.split(/\s+/).slice(0,2).map(function(s){return (s[0]||'').toUpperCase();}).join('');
     host.innerHTML =
       '<span class="bar-user">' +
@@ -6175,7 +6201,7 @@ button{font-family:inherit}
       themeLine: entry.themeLine || '',
       scheduledAt: entry.scheduledAt || null,
       posterUid: currentUser.uid,
-      posterName: (loadProfile().name || currentUser.displayName || ''),
+      posterName: (loadProfile().name || daPublicName(currentUser)),
       posterPhoto: currentUser.photoURL || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
@@ -6270,7 +6296,7 @@ button{font-family:inherit}
           },
           accepter: {
             email: currentUser.email || '',
-            name: payload.name || profile.name || currentUser.displayName || 'Anonymous',
+            name: payload.name || profile.name || daPublicName(currentUser),
             contact: payload.contact || profile.contact || '',
           },
         }),
@@ -6288,7 +6314,7 @@ button{font-family:inherit}
     if (!firebaseDb || !isNamedUser(currentUser)) return;
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: currentUser.uid,
-      accepterName: payload.name || currentUser.displayName || '',
+      accepterName: payload.name || daPublicName(currentUser),
       acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
     firebaseDb.collection('live_challenge_contacts').doc(challengeId).set({

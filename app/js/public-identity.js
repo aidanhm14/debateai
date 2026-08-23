@@ -12,17 +12,48 @@
   'use strict';
 
   var SEED_KEY = 'debatable-public-alias-seed';
+  /* 96 x 96 = 9,216 pairs, up from 32 x 32 = 1,024 on 2026-08-23. Kept
+     globally spread rather than one region's phone book, per the audience
+     rule in soul.md 2: short, pronounceable, and distinguishable at a
+     glance: every ADDED entry was screened so it differs from every other
+     by more than one letter (Kai/Kaia, Leila/Layla, Lina/Alina, Nia/Pia
+     were all cut at that screen). Three legacy pairs predate the screen
+     and are left alone rather than churned: Amara/Mara, Benji/Kenji,
+     Ren/Rin, plus Dane/Lane and Hale/Vale in LAST.
+
+     NOTE the arrays are indexed by `hash % length`, so changing a LENGTH
+     re-rolls the generated alias of every account that never chose a name.
+     That was accepted once here; names already stored on rows (leaderboard
+     entries, queue docs) keep whatever they were written with. ADJECTIVES
+     and NOUNS below are deliberately NOT touched in the same pass, so the
+     @handle, which is the identifier-shaped half, stays put. */
   var FIRST = [
     'Ari', 'Amara', 'Anika', 'Aya', 'Benji', 'Cleo', 'Dev', 'Eli',
     'Farah', 'Inez', 'Jae', 'Kai', 'Kenji', 'Leila', 'Lina', 'Mara',
     'Mei', 'Mika', 'Nia', 'Nico', 'Noor', 'Omar', 'Priya', 'Ravi',
-    'Ren', 'Rin', 'Samira', 'Sana', 'Sasha', 'Theo', 'Yuna', 'Zoya'
+    'Ren', 'Rin', 'Samira', 'Sana', 'Sasha', 'Theo', 'Yuna', 'Zoya',
+    'Abel', 'Adem', 'Anwar', 'Anja', 'Arjun', 'Ansel', 'Kwame', 'Bilal',
+    'Bo', 'Camila', 'Chidi', 'Dima', 'Diego', 'Ege', 'Enzo', 'Emeka',
+    'Esme', 'Eva', 'Fatou', 'Felix', 'Gabi', 'Hiro', 'Hugo', 'Ida',
+    'Ilya', 'Imani', 'Iris', 'Ivan', 'Jonas', 'Juno', 'Kiran', 'Kofi',
+    'Lars', 'Lior', 'Lucia', 'Luka', 'Malak', 'Mateo', 'Marco', 'Nadia',
+    'Naomi', 'Neha', 'Niamh', 'Olek', 'Otto', 'Paulo', 'Petra', 'Rafa',
+    'Rania', 'Rhea', 'Rosa', 'Selma', 'Sora', 'Tariq', 'Thandi', 'Tomas',
+    'Uma', 'Vera', 'Vikram', 'Yusra', 'Yosef', 'Zaid', 'Zane', 'Zuri'
   ];
   var LAST = [
     'Arden', 'Ashby', 'Bell', 'Blake', 'Cedar', 'Chen', 'Cole', 'Dane',
     'Ellis', 'Frost', 'Gray', 'Hale', 'Hart', 'Iyer', 'Jain', 'Khan',
     'Lane', 'Lin', 'Mori', 'Nash', 'Park', 'Quinn', 'Reed', 'Rivera',
-    'Rowan', 'Sato', 'Shah', 'Stone', 'Vale', 'West', 'Wren', 'Young'
+    'Rowan', 'Sato', 'Shah', 'Stone', 'Vale', 'West', 'Wren', 'Young',
+    'Abbott', 'Adler', 'Alvarez', 'Ames', 'Bansal', 'Barnes', 'Beck', 'Boone',
+    'Brandt', 'Cruz', 'Diaz', 'Duarte', 'Eze', 'Falk', 'Fenn', 'Fields',
+    'Finch', 'Gallo', 'Garza', 'Ghosh', 'Grant', 'Haas', 'Hayes', 'Holt',
+    'Ibarra', 'Ikeda', 'Jensen', 'Kaur', 'Keller', 'Kim', 'Kirby', 'Kovac',
+    'Lam', 'Larsen', 'Lowe', 'Mackay', 'Mensah', 'Mercer', 'Nakano', 'Navarro',
+    'Nguyen', 'Nolan', 'Obi', 'Okafor', 'Ortiz', 'Pace', 'Patel', 'Pereira',
+    'Pike', 'Rao', 'Reyes', 'Roche', 'Sandhu', 'Silva', 'Slater', 'Tan',
+    'Tate', 'Vance', 'Vega', 'Walsh', 'Weber', 'Wolfe', 'Yamada', 'Zhao'
   ];
   var ADJECTIVES = [
     'agile', 'bold', 'calm', 'clear', 'curious', 'direct', 'electric',

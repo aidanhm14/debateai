@@ -24,6 +24,19 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
 <script defer src="/js/track.js"></script>
+<script>
+  // One resolver for any name other people will read. Never the account
+  // displayName or the email: this page loads public-identity.js above.
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
 
 <script>
 (function(){
@@ -483,9 +496,11 @@ img.msg-av{display:block}
   function myDmName(){
     if (window.DBIdentity && me) {
       var id = window.DBIdentity.forUser(me);
-      if (id && id.chosen && id.name) return id.name;
+      if (id && id.name) return id.name;
     }
-    return ((me && me.displayName) || 'Debater').split(' ')[0];
+    // Never the account name: fromName is frozen into every message doc
+    // the recipient keeps (see the note above send()).
+    return 'Debater ' + String((me && me.uid) || '').slice(-4).toUpperCase();
   }
 
   // ── send (same doc shapes as /spar so both surfaces interop) ─────
@@ -617,7 +632,9 @@ img.msg-av{display:block}
     // who set one does not get their account name back as the suggestion
     // and have to correct it a second time. Still editable; the stored
     // public_profiles value below still wins once it exists.
-    $('pfName').value = (myDmName() || me.displayName || '').slice(0, 60);
+    // Seeded from the alias, never the account name: hitting save without
+    // editing must not publish a real name to public_profiles.
+    $('pfName').value = (myDmName() || '').slice(0, 60);
     db.collection('public_profiles').doc(me.uid).get().then(function(doc){
       if (!doc.exists) return;
       var d = doc.data() || {};
