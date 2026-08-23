@@ -7661,7 +7661,14 @@ html.stage-mode .stage-ov{display:block}
     // during a round can be aligned to what was being said.
     state.roundStartedAt = Date.now();
     state.phase = 'round';
-    try { maybeAskRoundConsent(); } catch(e){}
+    // The storage ask does NOT fire here any more (the founder,
+    // 2026-08-23: "dont ask to record, dont say judge, dont give
+    // anything, just bring them to room"). A modal in the doorway is a
+    // button to press before anything has happened, and nothing is
+    // stored until the ballot lands, so asking at t=0 buys nothing and
+    // costs the arrival. It fires after the first speech instead, from
+    // endSpeech, when the person has actually done the thing they would
+    // be consenting to store.
     try { pmOpen(); pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
@@ -7677,7 +7684,47 @@ html.stage-mode .stage-ov{display:block}
     renderRound();
     startPrepBanner();
     try { maybePlayAssignedJudgeIntro(); } catch(e){}
+    try { startRoomTips(); } catch(e){}
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
+  }
+
+  // ── Room tips: what the door used to say, moved inside ─────────────
+  // 2026-08-23, the founder: bring people into the room first, then
+  // "give pop ups of using avatar, selecting a motion, who the judge
+  // is". Everything a debater needs to know about this room is true
+  // whether or not they read it before entering, so none of it earns a
+  // gate. These are three quiet toasts on a timer instead.
+  //
+  // Rules that keep them from becoming the thing they replaced: each
+  // one shows once per device, ever; none fires while a speech is
+  // running or once the first speech has started (the round is the
+  // point, and a tip over a live speech is noise on the one surface
+  // that cannot afford it); spectators get none of them, because
+  // avatar, motion and judge are all debater controls.
+  var ROOM_TIPS = [
+    { key: 'da-tip-avatar', at: 7000,
+      msg: 'Camera shy? Switch to Avatar in the bar. The room sees an animated mask, never your camera.' },
+    { key: 'da-tip-motion', at: 19000,
+      msg: 'Not sold on the motion? Either of you can propose a new one. It changes when you both agree.' },
+    { key: 'da-tip-judge',  at: 33000,
+      msg: 'An AI judge is listening in. It writes the ballot when the round ends.' },
+  ];
+  function tipSeen(k){ try { return localStorage.getItem(k) === '1'; } catch(e){ return false; } }
+  function markTip(k){ try { localStorage.setItem(k, '1'); } catch(e){} }
+  function startRoomTips(){
+    if (isSpectator()) return;
+    ROOM_TIPS.forEach(function(t){
+      if (tipSeen(t.key)) return;
+      setTimeout(function(){
+        if (state.phase !== 'round') return;
+        if (state.timerState === 'running') return;   // never over a live speech
+        if (state.speechIdx > 0) return;              // the round has moved on
+        if (document.hidden) return;
+        markTip(t.key);
+        toast(t.msg);
+        try { gtag('event', 'live_round_tip', { tip: t.key }); } catch(e){}
+      }, t.at);
+    });
   }
 
   // ── Floor judge (HIDDEN feature — not surfaced anywhere in the UI).
@@ -8153,6 +8200,11 @@ html.stage-mode .stage-ov{display:block}
   function endSpeech(opts){
     opts = opts || {};
     if (isSpectator()) return; // spectators can't advance the round
+    // The storage ask, moved off the doorway. One speech is on the
+    // record by now, the ballot is minutes away, and the question
+    // ("keep your own rounds?") finally refers to something that
+    // exists. Fires once; TranscriptConsent itself is answered-once.
+    try { maybeAskRoundConsent(); } catch(e){}
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
     if (!sp) return;
