@@ -1016,8 +1016,9 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .waitlist-empty strong{color:var(--text);font-weight:700}
 
-/* The sign-in gate. Since 2026-08-22 this is the front door for every
-   signed-out visitor: live pairing requires a named account. */
+/* The sign-in gate. Guests get their free rounds first (see the guest
+   block in the script); this card stands when the allowance is spent,
+   or when a guest session cannot be minted at all. */
 .gate{
   background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
   padding:32px 28px;max-width:440px;width:100%;text-align:center;
@@ -2149,18 +2150,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-08-22 (the founder, ahead of a paid push): the allowance is ZERO.
-  // Live pairing requires a named account, which restores the 2026-08-18
-  // posture and closes the 2026-08-19 two-round guest trial. The gate now
-  // leads with who is actually waiting live (/api/spar-queue) so the ask
-  // is "sign in and meet them", not a wall in front of an unknown room.
+  // 2026-08-22, second call the same day (the founder): the trial is BACK.
+  // The morning's named-account restore lasted hours before the founder
+  // re-asked for the 2026-08-19 shape: free to try without an account
+  // first, then encourage sign-in. Guests get GUEST_FREE_ROUNDS live
+  // rounds against real people before the queue asks for an account; the
+  // gate they meet afterwards keeps the morning's live-queue count
+  // (/api/spar-queue), so the sign-in ask has a person attached to it.
+  // Fourth flip on this gate — treat this as the resting state and don't
+  // close it again without a fresh soul.md entry.
   //
-  // The guest machinery below is KEPT dormant, not deleted: spar-pair.mjs
-  // owns the real allowance (GUEST_FREE_ROUNDS env, default 0 there too),
-  // and re-opening the trial is an env flip plus raising this constant.
-  // The number here is COSMETIC either way — a client-side count is a
-  // localStorage entry and a localStorage entry is not a limit.
-  var GUEST_FREE_ROUNDS = 0;
+  // The number here is COSMETIC. spar-pair.mjs owns the real allowance
+  // (same default, env-overridable) and meters it against the anonymous
+  // Firebase uid, because a client-side count is a localStorage entry and
+  // a localStorage entry is not a limit. This copy exists so the searching
+  // screen can say "1 round left" without a round-trip, and so the gate
+  // can render before the read lands. Firestore is read on boot and
+  // overwrites it. Keep the two defaults in step.
+  var GUEST_FREE_ROUNDS = 2;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -2240,8 +2247,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
   }
   function mintGuestSession(){
-    // Allowance 0 (2026-08-22): never mint a guest session this page
-    // cannot use. A signed-out visitor goes straight to the gate.
+    // Guard for the closed state (allowance 0): never mint a guest
+    // session this page cannot use. Inert at the live default of 2.
     if (GUEST_FREE_ROUNDS <= 0) return false;
     if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
     if (wantsInbox()) return false;
@@ -2400,10 +2407,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // The gate is standing because a guest actually PLAYED rounds and ran
   // out, not because they arrived signed out. Drives every piece of copy
-  // above. `used > 0` matters with the allowance at 0: an anonymous
-  // session minted by another page (practice, live) would otherwise read
-  // as spent and be told "that was your last free round" about rounds
-  // they never had.
+  // above. `used > 0` keeps the copy honest if the allowance is ever
+  // env-flipped to 0 again: an anonymous session minted by another page
+  // (practice, live) would otherwise read as spent and be told "that was
+  // your last free round" about rounds they never had.
   function gateSpent(){
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
@@ -6161,10 +6168,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. With the guest allowance at 0 (2026-08-22)
-        // mintGuestSession() refuses immediately and the sign-in gate is
-        // the front door; if the trial ever comes back, this line
-        // re-opens the guest lane with it.
+        // No session at all. The free rounds are the offer this page
+        // makes, so mint a guest identity and let the guest branch above
+        // run. Only when that cannot happen does the sign-in ask stand,
+        // which keeps the gate a statement of fact rather than of policy.
         if (!mintGuestSession()) renderGate();
       }
     });

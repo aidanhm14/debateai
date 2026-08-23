@@ -250,20 +250,20 @@ function joinedAtMs(data) {
 
 // ── The guest lane ────────────────────────────────────────────────
 //
-// 2026-08-22 (the founder, ahead of a paid push): the guest allowance is
-// ZERO. Live pairing requires a named account again, which restores the
-// 2026-08-18 posture and closes the 2026-08-19 two-round trial. The call
-// this time is about sign-ups, not abuse: an ad push lands strangers on
-// the queue, and a guest who plays two rounds and bounces leaves nothing —
-// no account, no way to reach them, no record they can come back to. The
-// gate now shows who is waiting live (see /api/spar-queue) so the ask is
-// "sign in and meet them", not a wall in front of an empty room.
+// 2026-08-22, second call the same day (the founder): the trial is BACK at
+// two rounds. The morning's close ("ahead of a paid push: sign-ups are the
+// point of the spend") lasted hours before the founder re-asked for the
+// 2026-08-19 shape in as many words: free to try without an account first,
+// then encourage sign-in. So this is the fourth flip on this gate; treat
+// the 08-19 design as the tested resting state and do not close it again
+// without a fresh soul.md entry saying what changed.
 //
-// The metering machinery below is deliberately KEPT, not deleted: setting
-// GUEST_FREE_ROUNDS=2 in the Netlify env re-opens the trial with no deploy,
-// and guest_rounds/ keeps its history. With the allowance at 0 a guest is
-// refused before any Firestore read (see the handler), so the lane costs
-// nothing while it is off.
+// A guest gets GUEST_FREE_ROUNDS live rounds against real people, then the
+// sign-in card — which since this morning also shows who is actually
+// waiting live (/api/spar-queue), so the post-trial ask has a person
+// attached to it. Env-overridable; GUEST_FREE_ROUNDS=0 in the Netlify env
+// closes the lane again with no deploy (a guest is then refused before any
+// Firestore read, so the closed lane costs nothing).
 //
 // Metered here rather than in the client because the client cannot hold a
 // limit: localStorage clears, and the counter it used to keep was the same
@@ -271,7 +271,7 @@ function joinedAtMs(data) {
 // server-side (e874e61e). The identity metered is the anonymous Firebase
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
-const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 0);
+const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 2);
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -507,12 +507,18 @@ export default async (request) => {
   // another free round, so the response has to say "make an account" rather
   // than imply patience.
   if (iAmGuest) {
-    // Allowance 0 (the 2026-08-22 default): refuse before the Firestore
-    // read, so a guest POST loop costs the throttle and nothing else.
+    // The >0 guard keeps the env kill switch cheap: at allowance 0 a guest
+    // is refused before the Firestore read, so a POST loop costs the
+    // throttle and nothing else. At the live default (2) it reads the doc.
     const used = GUEST_FREE_ROUNDS > 0 ? await guestRoundsUsed(db, myUid) : 0;
     if (used >= GUEST_FREE_ROUNDS) {
       return jsonResponse({
-        error: 'Live rounds need an account. Sign in to join the queue.',
+        // used > 0 is a guest who actually spent the trial; used 0 only
+        // happens with the env kill switch at 0, where "your rounds are
+        // used" would describe rounds they never had.
+        error: used > 0
+          ? 'Your free guest rounds are used. Create an account to keep debating.'
+          : 'Live rounds need an account. Sign in to join the queue.',
         code: 'SIGN_IN_REQUIRED',
         guestRoundsUsed: used,
         guestFreeRounds: GUEST_FREE_ROUNDS,
