@@ -659,10 +659,17 @@ export default async (request) => {
     }
   }
 
-  // Deterministic room name from the lex-sorted UID pair so both
-  // clients converge on the same /live-round room. Mirrors the
-  // client-side fallback path so existing live-round consumers don't
-  // need updating.
+  // Room name: lex-sorted UID pair PLUS a per-match suffix. Both
+  // clients read the room off their own queue doc (the server is the
+  // only author; no client computes this name), so the suffix cannot
+  // break convergence. The suffix is the fix for the rematch trap
+  // (2026-08-23): a purely deterministic pair name meant the same two
+  // people always landed back in the SAME live_rounds doc, so a
+  // rematch a day later opened onto the old completed round with the
+  // old ballot instead of a fresh round. Repeat 'pair' POSTs are safe:
+  // the transaction only writes the room while BOTH docs are still
+  // 'waiting' (anything else returns lost_race), so an in-flight
+  // consent pair never gets its room renamed underneath it.
   // Don't propose to a guest whose allowance is gone. Their client should
   // have stopped queueing, but a doc can outlive the tab that wrote it, and
   // the cost of not checking is a real debater spending a 20-second consent
@@ -720,7 +727,8 @@ export default async (request) => {
   }
 
   const pair = [myUid, peerUid].sort();
-  const room = 'SparMatch-' + pair[0].slice(0, 8) + '-' + pair[1].slice(0, 8);
+  const room = 'SparMatch-' + pair[0].slice(0, 8) + '-' + pair[1].slice(0, 8)
+    + '-' + Date.now().toString(36);
   const proUid = pair[0];
   const conUid = pair[1];
 

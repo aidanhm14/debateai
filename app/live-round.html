@@ -479,6 +479,11 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
   animation:floorIn .3s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes floorIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+/* The stage rail is display:none (2026-08-19), so floor-judge remarks
+   re-home into the panel column with static flow. */
+.floor-remark.in-panel{position:static;margin:0 22px 14px}
+.mo-row{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
+.mo-row input{margin-top:2px;accent-color:#b91c1c}
 .floor-remark .fr-eyebrow{display:block;font-size:.55rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#d9c98a;margin-bottom:5px}
 .floor-remark .fr-close{
   position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:8px;
@@ -549,12 +554,35 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 .rn-speech:not([open]) summary:after{content:'▸'}
 .rn-side{padding:2px 7px;border-radius:999px;font-size:.56rem;font-weight:900;letter-spacing:.1em;
   text-transform:uppercase;color:var(--text-dim);border:1px solid var(--border)}
-.rn-point{padding:10px 14px;border-top:1px solid var(--border)}
+/* 2026-08-23, founder: notes read like coaching cards. Now a compact
+   doc-style table of contents — small type, tag + one short line, the
+   "To answer" prompt no longer renders (data still stored). */
+.rn-point{padding:5px 14px 5px 26px;border-top:1px solid var(--border);position:relative;counter-increment:rnIdx}
+.rn-point:before{content:counter(rnIdx);position:absolute;left:10px;top:6px;font-size:.6rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.rn-speech{counter-reset:rnIdx}
 .rn-tag{display:inline-block;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
   color:var(--text);margin-bottom:4px}
-.rn-note{font-size:.88rem;line-height:1.5;color:var(--text)}
+.rn-note{font-size:.74rem;line-height:1.45;color:var(--text-dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rn-answer{margin-top:5px;font-size:.8rem;line-height:1.5;color:var(--text-dim)}
 .rn-answer span{font-weight:800;text-transform:uppercase;font-size:.6rem;letter-spacing:.1em}
+/* Audience "That moved me": big, alive, unmistakably green. */
+#svTap.sv-tap{width:100%;border:none;border-radius:14px;padding:20px 14px;font:inherit;font-weight:900;font-size:1.05rem;letter-spacing:.01em;color:#fff;cursor:pointer;background:linear-gradient(120deg,#15803d,#22c55e,#4ade80,#16a34a,#15803d);background-size:300% 100%;animation:svTapFlow 3.5s linear infinite;box-shadow:0 6px 18px rgba(22,163,74,.35);transition:transform .12s ease}
+#svTap.sv-tap:active{transform:scale(.97)}
+@keyframes svTapFlow{from{background-position:0% 50%}to{background-position:300% 50%}}
+#svWhyRow{display:flex;gap:6px;margin-top:9px}
+#svWhy{flex:1;min-width:0;border:1px solid var(--border,rgba(127,127,127,.25));border-radius:10px;padding:8px 10px;font:inherit;font-size:.78rem;background:var(--bg-card,#fff);color:var(--text)}
+#svWhySend{border:none;border-radius:10px;padding:8px 12px;font:inherit;font-weight:800;font-size:.72rem;background:#166534;color:#fff;cursor:pointer}
+/* Transcript quality warning: quiet, under the transcript box. */
+#micQuality{font-size:.74rem;line-height:1.5;color:#92400e;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:8px 11px}
+/* Post-ballot flow / argument map: doc-register, deliberately plain. */
+#flowMap{margin-top:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:4px 0}
+#flowMap .fm-speech{padding:7px 14px 2px;font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--text-dim);border-top:1px solid var(--border)}
+#flowMap .fm-speech:first-child{border-top:none}
+#flowMap .fm-row{padding:3px 14px 3px 30px;position:relative;font-size:.78rem;line-height:1.45}
+#flowMap .fm-row:before{content:attr(data-n);position:absolute;left:12px;top:4px;font-size:.6rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
+#flowMap .fm-row b{font-weight:800}
+#flowMap .fm-row span{color:var(--text-dim)}
+.rfd strong{font-weight:800}
 /* Round details: the standing chrome (who is in the round, the full
    speech order) folded behind one line, so the live panel reads motion,
    clock, transcript, notes. Everything inside keeps its id and renderer. */
@@ -636,13 +664,16 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #audFab b{font-size:.68rem;font-weight:800;letter-spacing:.06em;writing-mode:vertical-rl;text-orientation:mixed}
 body.lr-aud-open #audFab{display:none}
 
-/* Comment pop-ups: fading bubbles over the video pane while the rail is
-   closed. Read-only surface; composing stays in the Audience rail. */
-#audPops{position:absolute;left:12px;bottom:14px;z-index:7;display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:none;max-width:min(64%,340px)}
-.aud-pop{background:rgba(8,8,10,.72);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px 11px;font-size:.78rem;line-height:1.45;color:#f0ede6;max-width:100%;overflow-wrap:break-word;animation:audPopIn .22s ease}
+/* Comment pop-ups (2026-08-23: moved to the right EDGE, beside the
+   Audience tab, sliding in like system notifications — was bubbles
+   over the bottom-left of the video). Read-only surface; composing
+   stays in the Audience rail. position:fixed so they ride the
+   viewport edge whatever pane they were mounted into. */
+#audPops{position:fixed;right:56px;bottom:110px;z-index:118;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:min(70%,340px)}
+.aud-pop{background:rgba(8,8,10,.82);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,.14);border-left:3px solid #ef4444;border-radius:12px;padding:8px 12px;font-size:.78rem;line-height:1.45;color:#f0ede6;max-width:100%;overflow-wrap:break-word;box-shadow:0 8px 22px rgba(0,0,0,.35);animation:audPopIn .28s ease}
 .aud-pop b{color:#ef4444;font-size:.7rem;margin-right:4px}
-.aud-pop.is-fading{opacity:0;transition:opacity .65s ease}
-@keyframes audPopIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.aud-pop.is-fading{opacity:0;transform:translateX(14px);transition:opacity .65s ease,transform .65s ease}
+@keyframes audPopIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 body.lr-mini #audPops,body.lr-pip #audPops{display:none}
 /* Docked chat rail (2026-08-10). This was a floating 370px card pinned
    above the FAB, which overlapped the live transcript and collided with
@@ -2768,6 +2799,7 @@ html.stage-mode .stage-ov{display:block}
           </div>
         </div>
         <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
+        <div id="micQuality" hidden></div>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
@@ -2805,6 +2837,20 @@ html.stage-mode .stage-ov{display:block}
         </div>
         <div id="fcList"></div>
       </div>
+
+      <!-- More options (2026-08-23): the AI aides that exist but got
+           buried, resurfaced as per-viewer switches. All three are
+           localStorage-scoped display preferences, so this block is
+           visible to spectators too, unlike the participant-only
+           privacy menu. -->
+      <details class="round-details" id="moreOptions">
+        <summary>More options · AI aides</summary>
+        <div class="rd-body">
+          <label class="mo-row"><input type="checkbox" id="moNotes"> Round notes · an index of the arguments after each speech</label>
+          <label class="mo-row"><input type="checkbox" id="moFact"> Live fact check · flags checkably false claims to the audience</label>
+          <label class="mo-row"><input type="checkbox" id="moFloor"> Floor judge · one line of color between speeches, never a score</label>
+        </div>
+      </details>
 
       <!-- Round details: the standing chrome, folded behind one line so
            the live panel stays motion, clock, transcript, notes. The
@@ -3420,6 +3466,21 @@ html.stage-mode .stage-ov{display:block}
     return String(s||'').replace(/[&<>"']/g, function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+  }
+  // Judge-text renderer (2026-08-23): escapes first, then turns
+  // **phrase** into real <strong>, and softens the AI em-dash tic into
+  // commas. Em dash ONLY — en dashes stay because "30–40 years" is a
+  // range, not an aside. Escape-before-markup keeps this injection-safe.
+  function judgeHtml(s){
+    var t = String(s || '')
+      .replace(/\s*—\s*/g, ', ')
+      .replace(/,\s*,/g, ', ');
+    return escHtml(t).replace(/\*\*([^*\n]{1,120}?)\*\*/g, '<strong>$1</strong>');
+  }
+  // For surfaces that must stay plain text (read-aloud, clipboard, the
+  // canvas reel): drop the bold markers, keep the words.
+  function judgePlain(s){
+    return String(s || '').replace(/\*\*/g, '').replace(/\s*—\s*/g, ', ');
   }
   function fmtTime(sec){
     if (sec < 0) sec = 0;
@@ -4982,8 +5043,45 @@ html.stage-mode .stage-ov{display:block}
       setTimeout(micRestart, Math.min(2000, 150 * mic.restarts));
     }
   }
+  // Honest-transcript warning (2026-08-23): when the words coming back
+  // are sparse or fragmentary, the likely cause is background noise or
+  // a muffled mic, and the debater deserves to know the judge is
+  // reading a patchy transcript BEFORE the ballot. Heuristic only, so
+  // it warns and never blocks; hidden the moment quality recovers.
+  function micQuality(text){
+    var el = $('micQuality');
+    if (!el) return;
+    if (!text){ el.hidden = true; return; }
+    el.hidden = false;
+    el.textContent = text;
+  }
+  function micQualityCheck(){
+    if (!mic.everHeard || !mic.startedAt) { micQuality(''); return; }
+    var mins = (Date.now() - mic.startedAt) / 60000;
+    if (mins < 0.5) return; // too early to judge
+    var joined = (mic.finals || []).filter(Boolean).join(' ');
+    var words = joined ? joined.trim().split(/\s+/) : [];
+    var wpm = words.length / mins;
+    // Server engine: empty 10s segments are literal holes in the audio.
+    var holes = 0;
+    if ((state.micSupport && state.micSupport.engine) === 'server'){
+      for (var i = 0; i < mic.finals.length; i++){ if (!mic.finals[i]) holes += 1; }
+    }
+    // Fragment ratio: transcripts of noisy audio come back as confetti
+    // of 1-2 character tokens.
+    var frag = 0;
+    for (var j = 0; j < words.length; j++){ if (words[j].length <= 2) frag += 1; }
+    var fragRatio = words.length ? frag / words.length : 0;
+    if (holes >= 2 || (words.length >= 20 && fragRatio > 0.45)){
+      micQuality('Your audio may be grainy: parts of the speech are coming through garbled or not at all. The judge reads this transcript, so quieter background or a closer mic will help.');
+    } else if (wpm < 55 && words.length >= 10){
+      micQuality('The transcript is catching less than usual. If there is background noise, the judge may be missing parts of what you say.');
+    } else {
+      micQuality('');
+    }
+  }
   function micWatch(){
-    if (!state.micActive) return;
+    if (!state.micActive) { micQuality(''); return; }
     // Both engines can stop without saying so, and they stop differently,
     // so the liveness half branches while the silence half does not.
     if ((state.micSupport && state.micSupport.engine) === 'server'){
@@ -5008,6 +5106,7 @@ html.stage-mode .stage-ov{display:block}
     } else if (mic.everHeard && quiet > 6000){
       micState('idle', 'Listening');
     }
+    try { micQualityCheck(); } catch(e){}
   }
   function initRecognition(){
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -5987,7 +6086,7 @@ html.stage-mode .stage-ov{display:block}
       ctx.fillStyle = 'rgba(240,237,230,.55)';
       ctx.fillText('REASON FOR DECISION', 150, 428);
       ctx.font = '500 25px "Inter","Archivo",sans-serif';
-      if (!reel.lines) reel.lines = reelWrap(ctx, b.rfd || '', REEL_W - 300).slice(0, 7);
+      if (!reel.lines) reel.lines = reelWrap(ctx, judgePlain(b.rfd || ''), REEL_W - 300).slice(0, 7);
       for (var L = 0; L < reel.lines.length; L++){
         var lp = ease((el - 10600 - L * 380) / 700);
         if (lp <= 0) break;
@@ -7045,7 +7144,11 @@ html.stage-mode .stage-ov{display:block}
   try { room.selfHidden = localStorage.getItem('lr-self-hidden') === '1'; } catch(e){}
   function boardDriverUid(){
     var d = cloudRec.doc || {};
-    if (d.recordingStatus !== 'recording') return '';
+    // 'stopping'/'processing' count too: the verdict reel keeps the
+    // share up through those states, and gating on 'recording' alone
+    // made the board tile reappear for the REMOTE side the moment the
+    // recording began stopping.
+    if (['recording', 'stopping', 'processing'].indexOf(d.recordingStatus || '') < 0) return '';
     var uids = [state.proUid, state.conUid].filter(Boolean).sort();
     return uids.length ? uids[0] : '';
   }
@@ -7519,17 +7622,24 @@ html.stage-mode .stage-ov{display:block}
     if (!remark || typeof remark.idx !== 'number' || !remark.text) return;
     if (remark.idx === _floorRemarkShownIdx) return;
     _floorRemarkShownIdx = remark.idx;
+    // The stage rail has been display:none since 2026-08-19, so a card
+    // appended there was invisible — the whole feature rendered into a
+    // hidden parent. When the rail isn't visible, the card re-homes
+    // into the panel column above the round notes.
     var rail = $('roomStage');
-    if (!rail) return;
+    var railVisible = rail && rail.offsetParent !== null;
+    var host = railVisible ? rail : ($('roundNotes') && $('roundNotes').parentNode);
+    if (!host) return;
     clearFloorRemark();
     var card = document.createElement('div');
-    card.className = 'floor-remark';
+    card.className = 'floor-remark' + (railVisible ? '' : ' in-panel');
     card.id = 'floorRemark';
     card.innerHTML = '<span class="fr-eyebrow">⚖ Judge · after ' + escHtml(remark.code || 'the speech') + '</span>'
       + '<div class="fr-body">' + escHtml(remark.text) + '</div>'
       + '<button type="button" class="fr-close" aria-label="Dismiss">×</button>';
     card.querySelector('.fr-close').addEventListener('click', function(){ card.remove(); });
-    rail.appendChild(card);
+    if (railVisible) host.appendChild(card);
+    else host.insertBefore(card, $('roundNotes'));
   }
   function floorJudgeComment(entry){
     if (!floorJudgeOn()) return;
@@ -7618,10 +7728,12 @@ html.stage-mode .stage-ov{display:block}
     var maxIdx = notes[notes.length-1].idx;
     list.innerHTML = notes.map(function(n){
       var pts = (Array.isArray(n.points) ? n.points : []).map(function(p){
+        // 2026-08-23: the "To answer" prompt no longer renders — the
+        // panel is a table of contents of what was argued, not a coach.
+        // p.answer stays on the doc (the ballot flow map ignores it too).
         return '<div class="rn-point">'
           + '<span class="rn-tag">' + escHtml(p.tag || '') + '</span>'
           + '<div class="rn-note">' + escHtml(p.note || '') + '</div>'
-          + (p.answer ? '<div class="rn-answer"><span>To answer</span> ' + escHtml(p.answer) + '</div>' : '')
           + '</div>';
       }).join('');
       var sideLabel = (f && f.sideLabels && f.sideLabels[n.side]) || n.side || '';
@@ -7656,7 +7768,7 @@ html.stage-mode .stage-ov{display:block}
       'Return STRICT JSON and nothing else: {"points":[{"tag":"...","note":"...","answer":"..."}]}',
       "- 2 to 4 points: the arguments in the speech that actually carried weight.",
       "- tag: 2 to 5 plain words naming the argument.",
-      "- note: one sentence stating what the speaker actually argued, warrant included.",
+      "- note: ONE short clause, 14 words or fewer, stating the claim. No preface like 'The speaker argued'; start with the claim itself. This is an index line, not a summary.",
       "- answer: one sentence naming the point of clash a reply has to engage. It renders after the label \"To answer\", so write the open question itself (\"Whether X actually causes Y\"), never \"The reply needs to...\". Never supply the counter-argument.",
       "- Only arguments the speaker actually made. Invent nothing; if unsure a point was made, leave it out.",
       "- Never say who is winning, never score, never predict the ballot. Both sides read the same notes.",
@@ -7906,6 +8018,43 @@ html.stage-mode .stage-ov{display:block}
     });
   })();
 
+  // "More options" (2026-08-23): the three AI aides as one switch
+  // panel. Each is a localStorage display preference; the switches and
+  // the older inline Hide/Turn off buttons write the same keys, so
+  // they cannot disagree for long, and paintMoreOptions re-reads on
+  // every open.
+  (function wireMoreOptions(){
+    var det = document.getElementById('moreOptions');
+    if (!det) return;
+    var boxes = {
+      moNotes: { key: 'lr-round-notes', on: roundNotesOn, after: function(){ renderRoundNotes(); } },
+      moFact:  { key: 'lr-fact-check', on: factCheckOn, after: function(){ renderFactChecks(); } },
+      moFloor: { key: 'lr-floor-judge', onVal: '1', offVal: '0',
+                 on: floorJudgeOn, after: function(){ if (!floorJudgeOn()) clearFloorRemark(); } },
+    };
+    function paint(){
+      Object.keys(boxes).forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.checked = !!boxes[id].on();
+      });
+    }
+    Object.keys(boxes).forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function(){
+        var b = boxes[id];
+        // round-notes and fact-check store '0' to disable and treat
+        // anything else as on; floor judge stores '1' to enable.
+        var val = el.checked ? (b.onVal || '1') : (b.offVal || '0');
+        try { localStorage.setItem(b.key, val); } catch(e){}
+        try { b.after(); } catch(e){}
+        try { gtag('event', 'live_round_more_option', { option: id, on: el.checked }); } catch(e){}
+      });
+    });
+    det.addEventListener('toggle', paint);
+    paint();
+  })();
+
   function endSpeech(opts){
     opts = opts || {};
     if (isSpectator()) return; // spectators can't advance the round
@@ -8102,6 +8251,7 @@ html.stage-mode .stage-ov{display:block}
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       "",
+      "STYLE for every prose field: punctuation is periods, commas, semicolons; never an em dash, never a dash as a pause. In the rfd you may wrap the few phrases that decided the round in **double asterisks** (they render bold); no other markdown anywhere.",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
       "{",
       '  "format": "bp",',
@@ -8184,6 +8334,7 @@ html.stage-mode .stage-ov{display:block}
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       "",
+      "STYLE for every prose field: punctuation is periods, commas, semicolons; never an em dash, never a dash as a pause. In the rfd you may wrap the few phrases that decided the round in **double asterisks** (they render bold); no other markdown anywhere.",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
       "{",
       '  "winner": "pro" | "con",',
@@ -8490,7 +8641,11 @@ html.stage-mode .stage-ov{display:block}
         '<div style="font-size:.66rem;color:var(--text-dim);margin-top:7px;line-height:1.4">Private until the ballot. Nobody sees the room\'s split, so nobody follows the crowd.</div>' +
       '</div>' +
       '<div data-sv-phase="during" style="display:none">' +
-        '<button id="svTap" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-weight:800;font-size:.9rem;cursor:pointer">That moved me</button>' +
+        '<button id="svTap" class="sv-tap">That moved me</button>' +
+        '<div id="svWhyRow" style="display:none">' +
+          '<input id="svWhy" type="text" maxlength="140" placeholder="Why? (optional, judge never sees it)">' +
+          '<button id="svWhySend">Add</button>' +
+        '</div>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:.7rem;color:var(--text-dim)">' +
           '<span>Your flags: <b id="svCount" style="color:var(--text)">0</b></span><span id="svLast" style="font-family:\'Geist Mono\',ui-monospace,monospace"></span>' +
         '</div>' +
@@ -8517,6 +8672,12 @@ html.stage-mode .stage-ov{display:block}
 
     el.querySelector('#svLockIn').addEventListener('click', svLockIn);
     el.querySelector('#svTap').addEventListener('click', svTap);
+    var whySend = el.querySelector('#svWhySend');
+    if (whySend) whySend.addEventListener('click', svSendWhy);
+    var whyInp = el.querySelector('#svWhy');
+    if (whyInp) whyInp.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter'){ ev.preventDefault(); svSendWhy(); }
+    });
     el.querySelector('#svRestate').addEventListener('click', svRestate);
   }
 
@@ -8589,6 +8750,7 @@ html.stage-mode .stage-ov{display:block}
     if (!origin) return;
     var ms = Math.max(0, Date.now() - origin);
     svRow.movedAt.push(ms);
+    svRow.lastTapMs = ms;
     var c = svPanel && svPanel.querySelector('#svCount');
     if (c) c.textContent = String(svRow.movedAt.length);
     var l = svPanel && svPanel.querySelector('#svLast');
@@ -8596,6 +8758,21 @@ html.stage-mode .stage-ov{display:block}
       var s = Math.floor(ms / 1000);
       l.textContent = String(Math.floor(s / 60)) + ':' + String(s % 60).padStart(2, '0');
     }
+    // A tap opens the optional one-line "why" — it anchors to the tap
+    // it follows, never renders to the room, and the judge never sees it.
+    var wr = svPanel && svPanel.querySelector('#svWhyRow');
+    if (wr) wr.style.display = 'flex';
+    svFlushMoves();
+  }
+  function svSendWhy(){
+    if (!svRow || svRow.lastTapMs === undefined) return;
+    var inp = svPanel && svPanel.querySelector('#svWhy');
+    var text = inp ? String(inp.value || '').trim().slice(0, 140) : '';
+    if (!text) return;
+    svRow.whys = svRow.whys || [];
+    if (svRow.whys.length >= 20) return;
+    svRow.whys.push({ at: svRow.lastTapMs, text: text });
+    if (inp){ inp.value = ''; inp.placeholder = 'Noted. Tap again to flag the next one.'; }
     svFlushMoves();
   }
 
@@ -8607,7 +8784,9 @@ html.stage-mode .stage-ov{display:block}
     svFlushTimer = setTimeout(function(){
       if (!svRow || !svRow.movedAt.length) return;
       var moves = svRow.movedAt.slice();
-      svWithRow(function(id){ svPost({ action:'update', id:id, movedAt:moves }); });
+      var payload = { action:'update', movedAt:moves };
+      if (svRow.whys && svRow.whys.length) payload.whys = svRow.whys.slice();
+      svWithRow(function(id){ payload.id = id; svPost(payload); });
     }, 1200);
   }
 
@@ -8787,7 +8966,7 @@ html.stage-mode .stage-ov{display:block}
   function deepRfdSlotHtml(){
     if (state.rfdDeep){
       return '<h3 style="margin-top:18px">The full ballot</h3>' +
-        '<div style="white-space:pre-wrap;font-size:.92rem;line-height:1.65">' + escHtml(state.rfdDeep) + '</div>';
+        '<div style="white-space:pre-wrap;font-size:.92rem;line-height:1.65">' + judgeHtml(state.rfdDeep) + '</div>';
     }
     if (state.deepRfdPending){
       return '<div style="margin-top:16px;font-size:.78rem;color:var(--text-dim)">' +
@@ -8845,7 +9024,7 @@ html.stage-mode .stage-ov{display:block}
         : '- Then THE SPEAKERS: one tight paragraph per speaker — strongest moment (quoted), costliest moment (quoted), one concrete fix for their next round.',
       '- Close with HOW THIS FLIPS: the two or three specific moves that would have flipped this ballot.',
       '',
-      'OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / ' + (fourTeam ? 'THE HALF-CALLS' : 'THE WEIGHING') + ' / THE DROPS / ' + (fourTeam ? 'THE TEAMS' : 'THE SPEAKERS') + ' / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.',
+      'OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / ' + (fourTeam ? 'THE HALF-CALLS' : 'THE WEIGHING') + ' / THE DROPS / ' + (fourTeam ? 'THE TEAMS' : 'THE SPEAKERS') + ' / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no code fences, no preamble. The ONE piece of formatting allowed: wrap the handful of phrases that decided the round in **double asterisks** (they render bold); no other markdown. Punctuation is periods, commas, semicolons; never an em dash, never a dash used as a pause.',
     ]).join('\n');
     var user = 'MOTION: ' + state.motion + '\n\nFORMAT: ' + f.name + '\n\n' + verdictLines
       + '\n\nFULL ROUND TRANSCRIPT:\n\n' + transcript
@@ -9204,6 +9383,50 @@ html.stage-mode .stage-ov{display:block}
     else s.textContent = '';
   }
 
+  // Post-ballot flow / argument map (2026-08-23). The round notes the
+  // AI took after every speech are already on the doc; the ballot used
+  // to hide them the moment it rendered. This re-offers them as a
+  // doc-register argument map: speech by speech, tag + one line, no
+  // coaching, no scores. No new AI call; it is a re-read of
+  // state.roundNotes, so it costs nothing and works for spectators too.
+  function flowOfferHtml(){
+    var notes = state.roundNotes || [];
+    if (!notes.length) return '';
+    return '<div class="ballot-section" data-stage="3" style="margin-top:14px">' +
+      '<button class="btn" id="flowOfferBtn" type="button">See the flow · argument map</button>' +
+      '<div id="flowMap" hidden></div>' +
+    '</div>';
+  }
+  function flowMapHtml(){
+    var f = FORMATS[state.formatKey];
+    var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
+    var n = 0;
+    return notes.map(function(sp){
+      var sideLabel = (f && f.sideLabels && f.sideLabels[sp.side]) || sp.side || '';
+      var rows = (Array.isArray(sp.points) ? sp.points : []).map(function(p){
+        n += 1;
+        return '<div class="fm-row" data-n="' + n + '"><b>' + escHtml(p.tag || '') + '</b>'
+          + (p.note ? ' · <span>' + escHtml(p.note) + '</span>' : '') + '</div>';
+      }).join('');
+      return '<div class="fm-speech">' + escHtml(sp.code || '') + ' · ' + escHtml(sp.speakerName || sideLabel) + '</div>' + rows;
+    }).join('');
+  }
+  document.addEventListener('click', function(ev){
+    var btn = ev.target && ev.target.closest && ev.target.closest('#flowOfferBtn');
+    if (!btn) return;
+    var map = document.getElementById('flowMap');
+    if (!map) return;
+    if (map.hidden){
+      map.innerHTML = flowMapHtml() || '<div class="fm-row" data-n="">No notes were taken this round.</div>';
+      map.hidden = false;
+      btn.textContent = 'Hide the flow';
+      try { gtag('event', 'ballot_flow_open', { surface: 'live', format: state.formatKey }); } catch(e){}
+    } else {
+      map.hidden = true;
+      btn.textContent = 'See the flow · argument map';
+    }
+  });
+
   // Build the script the AI judge reads aloud. Keeps it tight — verdict
   // + two-sentence frame + the RFD. We deliberately drop the per-speaker
   // feedback so the audio doesn't run 4 minutes; readers can scroll for
@@ -9212,7 +9435,7 @@ html.stage-mode .stage-ov{display:block}
     var f = FORMATS[state.formatKey];
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
     var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
-    var rfd = (b.rfd || '').trim();
+    var rfd = judgePlain(b.rfd || '').trim();
     var lines = [
       'Ballot.',
       'After hearing both sides, the round goes to ' + (winnerName || winnerSide) + ' on ' + winnerSide + '.',
@@ -9473,8 +9696,9 @@ html.stage-mode .stage-ov{display:block}
         + '</div>'
         + '<div class="ballot-section"' + (staged ? ' data-stage="2"' : '') + '>'
           + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Reason for decision</h3>'
-          + '<div class="bp-rfd">' + escHtml(b.rfd || '(no RFD)') + '</div>'
+          + '<div class="bp-rfd">' + judgeHtml(b.rfd || '(no RFD)') + '</div>'
           + '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>'
+          + flowOfferHtml()
         + '</div>'
         + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
             + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
@@ -9671,10 +9895,11 @@ html.stage-mode .stage-ov{display:block}
       '<div class="rfd ballot-section" data-stage="2">' +
         dimScorecardHtml(b) +
         '<h3>Reason for decision</h3>' +
-        '<p>' + escHtml(b.rfd || '(no RFD generated)') + '</p>' +
-        (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + escHtml(b.proFeedback) + '</p>' : '') +
-        (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + escHtml(b.conFeedback) + '</p>' : '') +
+        '<p style="white-space:pre-wrap">' + judgeHtml(b.rfd || '(no RFD generated)') + '</p>' +
+        (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + judgeHtml(b.proFeedback) + '</p>' : '') +
+        (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
         '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>' +
+        flowOfferHtml() +
       '</div>' +
       afterRoundBandHtml(b) +
       '<div class="ballot-section" data-stage="3">' +
@@ -9909,11 +10134,11 @@ html.stage-mode .stage-ov{display:block}
         state.proName + ': ' + (b.proPoints != null ? b.proPoints + ' speaks' : ''),
         state.conName + ': ' + (b.conPoints != null ? b.conPoints + ' speaks' : ''),
         '',
-        'RFD: ' + (b.rfd || ''),
+        'RFD: ' + judgePlain(b.rfd || ''),
         '',
-        state.proName + ': ' + (b.proFeedback || ''),
-        state.conName + ': ' + (b.conFeedback || ''),
-        state.rfdDeep ? '\nFULL BALLOT:\n' + state.rfdDeep : '',
+        state.proName + ': ' + judgePlain(b.proFeedback || ''),
+        state.conName + ': ' + judgePlain(b.conFeedback || ''),
+        state.rfdDeep ? '\nFULL BALLOT:\n' + judgePlain(state.rfdDeep) : '',
       ].join('\n');
       try { navigator.clipboard.writeText(lines); toast('Ballot copied to clipboard.'); } catch(e){ toast('Couldn\'t copy.'); }
     });

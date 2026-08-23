@@ -26,6 +26,8 @@ const MAX_MOTION = 2_000;
 const MAX_FIELD = 120;
 const MAX_MOVES = 200;        // taps per round; a real round yields <30
 const ROUND_MAX_MS = 6 * 60 * 60 * 1000;  // reject tap offsets beyond 6h
+const MAX_WHYS = 20;          // optional "why it moved me" notes per round
+const MAX_WHY_CHARS = 140;
 
 const VALID_SIDES = new Set(['pro', 'con', 'undecided']);
 
@@ -99,6 +101,32 @@ function readMoves(raw) {
     seen.add(ms);
   }
   return Array.from(seen).sort((a, b) => a - b).slice(0, MAX_MOVES);
+}
+
+// Optional per-tap "why" notes: [{at: ms, text}] with the same
+// full-array idempotent contract as movedAt. Free text from anonymous
+// viewers, so it is bounded hard (20 notes, 140 chars, control chars
+// stripped) and it is NEVER rendered anywhere without escaping; today
+// nothing reads it back to a page at all.
+function readWhys(raw) {
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set();
+  const out = [];
+  for (const v of raw.slice(0, MAX_WHYS * 2)) {
+    if (!v || typeof v !== 'object') continue;
+    const at = typeof v.at === 'number' && Number.isFinite(v.at) ? Math.round(v.at) : -1;
+    if (at < 0 || at > ROUND_MAX_MS) continue;
+    const text = clip(String(v.text || ''), MAX_WHY_CHARS)
+      .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!text) continue;
+    const key = at + '|' + text;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ at, text });
+  }
+  return out.sort((a, b) => a.at - b.at).slice(0, MAX_WHYS);
 }
 
 // Stance projected onto a signed persuasion axis: pro = +confidence,
@@ -246,6 +274,7 @@ export default async (request) => {
         sideBefore: anchored ? sideBefore : null,
         confBefore: anchored ? confBefore : null,
         movedAt: [],
+        whys: [],
         sideAfter: null,
         confAfter: null,
         movedBy: null,
@@ -295,6 +324,12 @@ export default async (request) => {
         const moves = readMoves(body.movedAt);
         if (moves === null) return errorResponse('Invalid movedAt', 400, request);
         update.movedAt = moves;
+      }
+
+      if (body.whys !== undefined) {
+        const whys = readWhys(body.whys);
+        if (whys === null) return errorResponse('Invalid whys', 400, request);
+        update.whys = whys;
       }
 
       // Closing stance. Both fields land together or not at all, so a

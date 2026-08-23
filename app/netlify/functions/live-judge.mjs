@@ -114,6 +114,10 @@ function buildPrompt(d, room) {
     '}',
     'SCORE THE AXES HONESTLY AND USE THE WHOLE RANGE. The headline points are COMPUTED from your six axis scores at published weights, so the axes are the real ballot and there is no separate number to soften. A side that was outclassed on every axis should read as outclassed; a 3 means a 3. Do not compress toward the middle to be kind, and do not spread scores to manufacture a contest that did not happen.',
     'persuasion = whether the case moved a reasonable listener hearing it once: concrete stakes, a world you can picture, an argument built to be understood the first time. It is NOT confidence, fluency, accent, or polish. Score it only where you can name the argumentative move that earned it, and never let it override the flow.',
+    // Style line, not method (adjudication.mjs owns content; the
+    // surface owns format): the RFD renders **bold** as real bold, and
+    // the em-dash tic is the tell that makes a ballot read machine-made.
+    'RFD STYLE: punctuation is periods, commas, semicolons; never an em dash, never a dash used as a pause. Wrap the three to six phrases that actually decided the round in **double asterisks** (they render bold on the ballot); no other markdown. You may use \\n between issue paragraphs.',
   ].filter(Boolean).join('\n\n');
 
   const user = [

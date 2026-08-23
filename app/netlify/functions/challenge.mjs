@@ -13,6 +13,7 @@
 // field-level client writes on this collection.
 // ─────────────────────────────────────────────────────────────
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { sendToUser } from './lib/webpush.mjs';
 import { getDb, FieldValue, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, deleteCachedShared } from './lib/admin-cache.mjs';
@@ -245,6 +246,22 @@ export default async (request) => {
       }, { merge: true }).catch(() => {});
     }
 
+    // Push the person being called out (2026-08-23). Server-constructed
+    // text, best-effort, no-ops until VAPID is configured. Without this
+    // a directed challenge sat silently on a board the target had no
+    // reason to be looking at.
+    if (challengedUid) {
+      // Awaited: Lambda freezes the context on return, so an unawaited
+      // send is abandoned, not deferred (the markGuest lesson).
+      const claimSnippet = String(v.value.claim || '').slice(0, 90);
+      await sendToUser(challengedUid, {
+        title: (me.name || 'A debater') + ' challenged you',
+        body: claimSnippet ? '"' + claimSnippet + '" Tap to accept the round.' : 'Tap to accept the round.',
+        url: '/challenges',
+        tag: 'da-challenge-' + ref.id,
+      }).catch(() => {});
+    }
+
     await invalidateFeeds();
     return jsonResponse({ challenge: publicChallenge(ref.id, data) }, 201, request);
   }
@@ -282,10 +299,21 @@ export default async (request) => {
           feedKey: feedKeyFor('accepted', d.visibility, d.moderation?.state),
           updatedAt: Date.now(),
         });
-        return side;
+        // The creator (side holder before this accept) gets pushed that
+        // their round is on; uid read inside the transaction, sent after.
+        const creator = accepted.length ? accepted[0].uid : '';
+        return { side, notifyUid: creator && creator !== me.uid ? creator : '', claim: d.claim || '' };
       });
       await invalidateFeeds();
-      return jsonResponse({ ok: true, side: result }, 200, request);
+      if (result.notifyUid) {
+        await sendToUser(result.notifyUid, {
+          title: (me.name || 'Someone') + ' accepted your challenge',
+          body: 'Your round is on. Tap to set it up.',
+          url: '/challenges',
+          tag: 'da-challenge-accept-' + ref.id,
+        }).catch(() => {});
+      }
+      return jsonResponse({ ok: true, side: result.side }, 200, request);
     } catch (e) {
       return errorResponse(e.message || 'Could not accept.', 409, request);
     }
