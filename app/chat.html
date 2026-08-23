@@ -912,6 +912,7 @@ em,i{font-style:normal}
       btn.disabled = false;
       input.focus();
       try { gtag('event', a.isGroup ? 'chat_group_send' : 'chat_dm_send', {}); } catch(e){}
+      firePushThread(a.participants, a.id);
     }).catch(function(err){
       btn.disabled = false;
       // Name the failure. A silent one leaves people retrying into a void.
@@ -920,6 +921,32 @@ em,i{font-style:normal}
         ? 'Did not send: the daily data budget is used up. Try after midnight Pacific.'
         : 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Try again.';
     });
+  }
+
+  // Web Push every other participant, GROUPS INCLUDED (2026-08-23).
+  // Messages sent from this page previously pushed nobody, so group
+  // activity only ever reached whoever happened to have the tab open,
+  // which is how a group goes quiet. The server verifies that both the
+  // caller and the recipient are in the thread and writes the text
+  // itself, so there is no spoofing vector, and it no-ops when push is
+  // unconfigured or the recipient has no subscription. Anyone who wants
+  // a loud group quiet mutes it on the bell row.
+  function firePushThread(participants, threadId){
+    try {
+      if (!state.user || !threadId || !Array.isArray(participants)) return;
+      var me = state.user.uid;
+      var others = participants.filter(function(uid){ return uid && uid !== me; });
+      if (!others.length) return;
+      state.user.getIdToken().then(function(tok){
+        others.forEach(function(uid){
+          fetch('/.netlify/functions/push-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
+          }).catch(function(){});
+        });
+      }).catch(function(){});
+    } catch (e) {}
   }
 
   /* These bind to the DM composer only. The room's own input and Send

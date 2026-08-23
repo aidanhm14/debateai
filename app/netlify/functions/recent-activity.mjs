@@ -24,7 +24,8 @@
 //         label:   'posted a BP challenge',
 //         motion:  'THBT the means justify the ends' | '',
 //         href:    '/live#challenge-{id}' | '/spar',
-//         when:    1716750000000               // ms since epoch
+//         when:    1716750000000,              // ms since epoch
+//         startAt: 1716760000000 | null         // challenge rows only
 //       },
 //       ...
 //     ]
@@ -137,6 +138,13 @@ export default async (request) => {
         motion: motionPreview(data.motion),
         href:   '/live#challenge-' + encodeURIComponent(d.id),
         when:   when,
+        // 2026-08-23: the claims board (/challenges) renders these
+        // scheduled live rounds beside its own claims, and a scheduled
+        // round with no time on the card is not worth showing. Numeric
+        // ms, written by /live publishChallenge(); null when the poster
+        // published for right now rather than a slot.
+        startAt: typeof data.scheduledAt === 'number' ? data.scheduledAt : null,
+        seatsTaken: Array.isArray(data.accepted) ? data.accepted.length : 0,
       });
     });
   } catch (err) {

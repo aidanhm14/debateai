@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Challenges · Post a claim, someone takes the other side · Debatable</title>
-<meta name="description" content="Post a claim you are willing to defend. Someone takes the other side, the AI judge writes the ballot, and both records update. Nobody has to be online at the same time." />
+<title>Claims and challenges · Post one, someone takes the other side · Debatable</title>
+<meta name="description" content="One board for both: post a claim someone answers in their own time, or schedule a live round against a real person. The AI judge writes the ballot and both records update." />
 <link rel="canonical" href="https://itsdebatable.com/challenges">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Debatable">
-<meta property="og:title" content="Challenges · Post a claim, someone takes the other side">
-<meta property="og:description" content="Post a claim you are willing to defend. Someone takes the other side, the AI judge writes the ballot, and both records update.">
+<meta property="og:title" content="Claims and challenges · Post one, someone takes the other side">
+<meta property="og:description" content="Post a claim someone answers in their own time, or schedule a live round. One board, both kinds.">
 <meta property="og:url" content="https://itsdebatable.com/challenges">
 <meta property="og:image" content="https://itsdebatable.com/og-live.png?v=deb1">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Challenges · Post a claim, someone takes the other side">
-<meta name="twitter:description" content="Post a claim you are willing to defend. Someone takes the other side, the AI judge writes the ballot.">
+<meta name="twitter:title" content="Claims and challenges · Post one, someone takes the other side">
+<meta name="twitter:description" content="Post a claim someone answers in their own time, or schedule a live round. One board, both kinds.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-live.png?v=deb1">
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -160,6 +160,20 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .modal-foot{display:flex;gap:10px;align-items:center;margin-top:18px}
   .modal-foot .spacer{flex:1}
   .hint{font-size:.8rem;color:var(--ink-ghost);margin:-8px 0 14px}
+  /* Kind picker. Two doors on one card: a claim posts here, a live round
+     hands off to the /live scheduler. Buttons rather than a select
+     because the choice changes what the card is for, and a select hides
+     the option you did not pick. */
+  .cmode{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 16px}
+  .cmode-btn{display:block;text-align:left;font-family:inherit;cursor:pointer;
+    background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 13px;
+    color:var(--ink-soft);transition:border-color .12s,background .12s,color .12s}
+  .cmode-btn b{display:block;font-size:.98rem;font-weight:800;color:var(--ink);margin-bottom:3px}
+  .cmode-btn span{display:block;font-size:.78rem;line-height:1.4}
+  .cmode-btn:hover{border-color:var(--ink-ghost)}
+  .cmode-btn.is-on{border-color:rgba(185,28,28,.6);background:rgba(185,28,28,.06)}
+  .cmode-btn.is-on b{color:#b91c1c}
+  @media(max-width:520px){.cmode{grid-template-columns:1fr}}
 
   /* ── detail ── */
   .back{background:none;border:none;padding:0;color:var(--ink-soft);font-size:.9rem;
@@ -213,7 +227,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // filtering, so the board can never disagree with the server about
   // what is open.
   var TABS = [
-    { key:'open-public',     label:'Open',    note:'Claims and recorded rounds waiting for an opponent. Pick one and you are the other side.' },
+    { key:'open-public',     label:'Open',    note:'Claims, recorded rounds and scheduled live rounds waiting for an opponent. Pick one and you are the other side.' },
     { key:'live-public',     label:'Live now', note:'Rounds happening right now.' },
     { key:'upcoming-public', label:'Matched', note:'Both sides are taken. These are the rounds about to happen.' },
     { key:'done-public',     label:'Settled', note:'Judged and on the record.' }
@@ -240,7 +254,16 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // with a tap, and a recorded round you answer on /rounds. null until
     // the first fetch resolves; [] after a quiet or failed fetch.
     asyncOpen:null,
+    // Scheduled live rounds posted on /live. Same object in a user's
+    // head as a claim ("something I can take"), so the board carries
+    // both rather than making people learn that /live and /challenges
+    // are two places. Read from the public, shared-cached
+    // /api/recent-activity; null until the first fetch resolves.
+    liveOpen:null,
     compose:false, busy:false,
+    // Which kind the composer is writing: 'async' posts a claim here,
+    // 'live' hands off to the /live scheduler with the claim prefilled.
+    composeMode:'async',
     // A directed challenge, arrived at from a "Challenge them" button. The
     // uid is what the server enforces; the name here is only what the
     // compose card prints while you write, and it is re-resolved server-side
@@ -393,11 +416,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
                 .then(function(r){ return r.ok ? r.json() : null; })
                 .then(function(j){ return ((j && j.open) || []).filter(function(r){ return r && r.motion; }); })
                 .catch(function(){ return []; })
-            : Promise.resolve(state.asyncOpen)
+            : Promise.resolve(state.asyncOpen),
+          // Scheduled live rounds. Its own catch for the same reason the
+          // async feed has one: a third source failing must never take
+          // the claims board down with it.
+          wantAsync
+            ? fetch('/api/recent-activity', { cache:'no-cache' })
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(j){
+                  return ((j && j.items) || []).filter(function(it){
+                    return it && it.kind === 'challenge' && it.motion &&
+                      // Only rounds still ahead of us. A slot that has
+                      // already passed is not something anyone can take.
+                      (!it.startAt || it.startAt > Date.now() - 30 * 60 * 1000);
+                  }).slice(0, 6);
+                })
+                .catch(function(){ return []; })
+            : Promise.resolve(state.liveOpen)
         ]);
         var f = results[0];
         state.feed = f.challenges || [];
-        if (wantAsync) state.asyncOpen = results[1] || [];
+        if (wantAsync){ state.asyncOpen = results[1] || []; state.liveOpen = results[2] || []; }
         // The endpoint answers 200 with degraded:true rather than 502 when
         // the board query fails, so say the true thing instead of showing
         // an empty board as if it were quiet.
@@ -476,6 +515,16 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   async function create(){
     var claim = ($('cClaim').value || '').trim();
     if (!claim) { state.err = 'Write the claim you are willing to defend.'; return render(); }
+    // Live rounds are scheduled on /live, which owns the slot, the video
+    // room and the RSVP. Rather than posting a claim labelled "live" that
+    // nothing acts on, hand the claim over as the motion and open the
+    // scheduler with it already filled in.
+    if (state.composeMode === 'live'){
+      track('challenge_create_live_handoff', { format: $('cFormat').value });
+      var q = new URLSearchParams({ compose:'1', motion: claim.slice(0, 280), format: $('cFormat').value || 'quick' });
+      location.href = '/live?' + q.toString();
+      return;
+    }
     state.busy = true; state.err = ''; render();
     try {
       await ensureAuth();
@@ -487,7 +536,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         sideA: ($('cSideA').value || 'For').trim(),
         sideB: ($('cSideB').value || 'Against').trim(),
         format: $('cFormat').value,
-        mode: $('cMode').value,
+        mode: 'async',
         side: $('cSide').value
       });
       sfx('confirm');
@@ -634,39 +683,81 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     '</article>';
   }
 
+  // A scheduled live round posted on /live. Same board, same shape as a
+  // claim card, so a visitor picks by what they want to argue rather than
+  // by which page it happened to be posted on. Links out to /live, which
+  // still owns the slot, the room and the RSVP.
+  function liveCardFor(it){
+    var href = it.href || '/live';
+    var when = it.startAt ? fmtWhen(it.startAt) : '';
+    var whenLine = it.startAt
+      ? new Date(it.startAt).toLocaleString(undefined, { weekday:'short', hour:'numeric', minute:'2-digit' })
+      : 'Time to be set';
+    return '<article class="card">' +
+      '<div class="card-top"><span class="pill pill-open">Open</span>' +
+        '<span class="pill">' + esc(FORMAT_NAMES[it.format] || it.format || 'General') + '</span>' +
+        '<span class="pill">Scheduled live</span>' +
+      '</div>' +
+      '<h3 class="claim"><a href="' + esc(href) + '" data-cta="chal-live-round">' + esc(it.motion) + '</a></h3>' +
+      '<div class="who"><span><b>' + esc(it.name || 'A debater') + '</b> is holding a seat &middot; ' + esc(whenLine) + '</span></div>' +
+      '<div class="card-foot">' +
+        '<a class="btn btn-red btn-sm" href="' + esc(href) + '" data-cta="chal-live-take">Take the other side</a>' +
+        '<span class="spacer"></span>' +
+        '<span class="meta">' + esc(when) + '</span>' +
+      '</div>' +
+    '</article>';
+  }
+
   function composeHtml(){
     var fopts = Object.keys(FORMAT_NAMES).map(function(k){
       return '<option value="'+k+'">'+esc(FORMAT_NAMES[k])+'</option>'; }).join('');
     var aimed = !!state.toUid;
     var who = state.toName || 'this debater';
+    var live = state.composeMode === 'live';
     return '<div class="modal-bg" id="composeBg"><div class="modal">' +
-      '<h2>' + (aimed ? 'Challenge ' + esc(who) : 'Post a challenge') + '</h2>' +
+      '<h2>' + (aimed ? 'Challenge ' + esc(who) : 'Post a claim or a challenge') + '</h2>' +
+      // The kind sits at the TOP because it decides what the rest of the
+      // card is for, and it is the one thing that used to send people to
+      // a different page to find out.
+      '<div class="cmode" role="group" aria-label="What are you posting">' +
+        '<button type="button" class="cmode-btn' + (live ? '' : ' is-on') + '" data-cmode="async">' +
+          '<b>A claim</b><span>They answer in their own time. No shared calendar.</span></button>' +
+        '<button type="button" class="cmode-btn' + (live ? ' is-on' : '') + '" data-cmode="live">' +
+          '<b>A live round</b><span>You both turn up at a set time, on video.</span></button>' +
+      '</div>' +
       '<p class="sub">' + (aimed
         // Shortened names already end in a period ("Priya R."), so the name
         // is trimmed before a sentence-ending one rather than doubling it.
         ? 'Write a claim you are willing to defend against ' + esc(who.replace(/\.$/, '')) + '. Only they can take it, and it stays on the board until they do.'
-        : 'Write a claim you are willing to defend. It goes on the board until someone takes the other side.') + '</p>' +
+        : (live
+          ? 'Write the motion you want to argue live. The next screen picks the time and the seats.'
+          : 'Write a claim you are willing to defend. It goes on the board until someone takes the other side.')) + '</p>' +
       (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
       '<div class="field"><label for="cClaim">The claim</label>' +
         '<textarea id="cClaim" maxlength="300" placeholder="This House would abolish legacy preference in college admissions."></textarea></div>' +
-      '<div class="two">' +
-        '<div class="field"><label for="cSideA">Side one</label><input id="cSideA" value="For" maxlength="40"></div>' +
-        '<div class="field"><label for="cSideB">Side two</label><input id="cSideB" value="Against" maxlength="40"></div>' +
-      '</div>' +
-      '<div class="two">' +
-        '<div class="field"><label for="cSide">You are taking</label><select id="cSide">' +
-          '<option value="a">Side one</option><option value="b">Side two</option></select></div>' +
-        '<div class="field"><label for="cFormat">Format</label><select id="cFormat">'+fopts+'</select></div>' +
-      '</div>' +
-      '<div class="field"><label for="cMode">How it runs</label><select id="cMode">' +
-        '<option value="async">Async. Record now, they answer later.</option>' +
-        '<option value="live">Live. You both show up at the same time.</option>' +
-      '</select></div>' +
-      '<p class="hint">Async is the one most rounds finish on, because nobody has to be online at the same time.</p>' +
-      '<div class="field"><label for="cDesc">Anything else (optional)</label>' +
-        '<textarea id="cDesc" maxlength="2000" placeholder="What you mean by the claim, or what you think the real clash is."></textarea></div>' +
+      // Side names and seat pick are the claim board's own vocabulary. The
+      // scheduler asks for both in its own terms, so a live post does not
+      // answer them twice.
+      (live ? '' :
+        '<div class="two">' +
+          '<div class="field"><label for="cSideA">Side one</label><input id="cSideA" value="For" maxlength="40"></div>' +
+          '<div class="field"><label for="cSideB">Side two</label><input id="cSideB" value="Against" maxlength="40"></div>' +
+        '</div>' +
+        '<div class="two">' +
+          '<div class="field"><label for="cSide">You are taking</label><select id="cSide">' +
+            '<option value="a">Side one</option><option value="b">Side two</option></select></div>' +
+          '<div class="field"><label for="cFormat">Format</label><select id="cFormat">'+fopts+'</select></div>' +
+        '</div>') +
+      (live ? '<div class="field"><label for="cFormat">Format</label><select id="cFormat">'+fopts+'</select></div>' : '') +
+      '<p class="hint">' + (live
+        ? 'The next screen is the scheduler: pick the slot, the seats and the reveal. Your claim carries over as the motion.'
+        : 'A claim is the one most rounds finish on, because nobody has to be online at the same time.') + '</p>' +
+      (live ? '' :
+        '<div class="field"><label for="cDesc">Anything else (optional)</label>' +
+          '<textarea id="cDesc" maxlength="2000" placeholder="What you mean by the claim, or what you think the real clash is."></textarea></div>') +
       '<div class="modal-foot">' +
-        '<button class="btn btn-red" id="cGo"'+(state.busy?' disabled':'')+'>'+(state.busy?'Posting...':'Post it')+'</button>' +
+        '<button class="btn btn-red" id="cGo"'+(state.busy?' disabled':'')+'>'+
+          (state.busy ? 'Posting...' : (live ? 'Continue to the scheduler' : 'Post it'))+'</button>' +
         '<button class="btn btn-ghost" id="cCancel">Cancel</button>' +
       '</div>' +
     '</div></div>';
@@ -674,8 +765,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   function bandHtml(){
     return '<section class="band"><h2>How a challenge works</h2><div class="steps">' +
-      '<div class="step"><span class="n">1</span><p><b>Someone opens it</b>: a claim they are willing to defend, or a whole case recorded out loud.</p></div>' +
-      '<div class="step"><span class="n">2</span><p><b>Anyone takes the other side.</b> Tap a claim, or record your answer. You do not need a partner or a scheduled time.</p></div>' +
+      '<div class="step"><span class="n">1</span><p><b>Someone opens it</b>: a claim they are willing to defend, a case recorded out loud, or a live round put on the calendar.</p></div>' +
+      '<div class="step"><span class="n">2</span><p><b>Anyone takes the other side.</b> Tap a claim, record your answer, or turn up for the scheduled slot.</p></div>' +
       '<div class="step"><span class="n">3</span><p><b>The AI judge writes the ballot</b> when the round ends, and both records update on the leaderboard.</p></div>' +
     '</div></section>';
   }
@@ -685,11 +776,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       var t = TABS.filter(function(x){ return x.key === state.tab; })[0];
       return '<div class="empty"><h3>Nothing here yet.</h3>' +
         '<p>' + esc(t ? t.note : '') + '</p>' +
-        '<button class="btn btn-red" id="emptyPost">Post a challenge</button></div>';
+        '<button class="btn btn-red" id="emptyPost">Post one</button></div>';
     }
     return '<div class="empty"><h3>The board is empty.</h3>' +
-      '<p>Nothing is waiting for an opponent right now. Post a claim, or record a case on <a href="/rounds">the rounds page</a>, and it sits here until someone takes the other side.</p>' +
-      '<button class="btn btn-red" id="emptyPost">Post a challenge</button>' +
+      '<p>Nothing is waiting for an opponent right now. Post a claim, schedule a live round, or record a case on <a href="/rounds">the rounds page</a>, and it sits here until someone takes the other side.</p>' +
+      '<button class="btn btn-red" id="emptyPost">Post one</button>' +
       '<div class="seed">' + SEED_CLAIMS.map(function(s){
         return '<button data-seed="'+esc(s)+'">'+esc(s)+'</button>'; }).join('') + '</div>' +
       '<p class="note">Tap one to start from it. You can edit before you post.</p></div>';
@@ -711,16 +802,22 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       if (state.tab === 'open-public' && state.asyncOpen && state.asyncOpen.length){
         cards = cards.concat(state.asyncOpen.map(asyncCardFor));
       }
+      // Scheduled live rounds sit in the same grid. Last of the three
+      // because they are the only kind that asks you to be somewhere at
+      // a particular time.
+      if (state.tab === 'open-public' && state.liveOpen && state.liveOpen.length){
+        cards = cards.concat(state.liveOpen.map(liveCardFor));
+      }
       body = cards.length ? '<div class="grid">' + cards.join('') + '</div>' : emptyHtml();
     }
 
     $('app').innerHTML =
       '<div class="hero">' +
-        '<div><h1>Challenges</h1>' +
-        '<p>Someone posts a claim they will defend, or records a whole case. Someone else takes the other side. The AI judge writes the ballot and both records update.</p></div>' +
+        '<div><h1>Claims and challenges</h1>' +
+        '<p>One board for both. Post a claim someone answers in their own time, or put a live round on the calendar. Either way somebody takes the other side, the AI judge writes the ballot, and both records update.</p></div>' +
         '<span class="spacer"></span>' +
         '<a class="btn btn-ghost" href="/rounds" data-cta="chal-record">Record a round</a>' +
-        '<button class="btn btn-red" id="postBtn">Post a challenge</button>' +
+        '<button class="btn btn-red" id="postBtn">Post one</button>' +
       '</div>' +
       bandHtml() +
       '<div class="tabs">' + tabs + '</div>' +
@@ -812,13 +909,21 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // The board's own compose button always opens an OPEN challenge, even if
     // the visitor arrived on a ?to= link, so the aimed-at state cannot leak
     // into a claim they meant for everyone.
-    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.compose = true; render(); }
+    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.composeMode='async'; state.compose = true; render(); }
     var pb = $('postBtn'); if (pb) pb.onclick = openCompose;
     var eb = $('emptyPost'); if (eb) eb.onclick = openCompose;
     on('[data-seed]', function(b){ b.onclick = function(){
       state.err=''; state.toUid=''; state.toName=''; state.compose = true; render();
       var f = $('cClaim'); if (f){ f.value = b.getAttribute('data-seed'); f.focus(); } }; });
 
+    // Switching kind must not lose what someone already typed: the
+    // composer re-renders from state, so the claim is stashed first.
+    on('[data-cmode]', function(b){ b.onclick = function(){
+      var keep = $('cClaim') ? $('cClaim').value : '';
+      state.composeMode = b.getAttribute('data-cmode') === 'live' ? 'live' : 'async';
+      state.err = ''; render();
+      var f = $('cClaim'); if (f){ f.value = keep; }
+    }; });
     var go = $('cGo'); if (go) go.onclick = create;
     var cc = $('cCancel'); if (cc) cc.onclick = function(){ state.compose = false; state.err=''; render(); };
     var bg = $('composeBg'); if (bg) bg.onclick = function(ev){

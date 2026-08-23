@@ -503,6 +503,28 @@ img.msg-av{display:block}
     return 'Debater ' + String((me && me.uid) || '').slice(-4).toUpperCase();
   }
 
+  // Web Push every other participant, GROUPS INCLUDED (2026-08-23).
+  // Sends from this page used to reach nobody who did not have a tab
+  // open, so group activity went unseen. The server checks that both
+  // sides are in the thread and writes the notification text itself; it
+  // no-ops when push is unconfigured. Mute lives on the bell row.
+  function firePushThread(participants, threadId){
+    try {
+      if (!me || !threadId || !Array.isArray(participants)) return;
+      var others = participants.filter(function(uid){ return uid && uid !== me.uid; });
+      if (!others.length) return;
+      me.getIdToken().then(function(tok){
+        others.forEach(function(uid){
+          fetch('/.netlify/functions/push-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
+          }).catch(function(){});
+        });
+      }).catch(function(){});
+    } catch (e) {}
+  }
+
   // ── send (same doc shapes as /spar so both surfaces interop) ─────
   function send(){
     var input = $('msgInput'), btn = $('msgSend'), errBox = $('msgSendErr');
@@ -542,6 +564,7 @@ img.msg-av{display:block}
       activeThread.lastMessage = preview;
       input.focus();
       try { gtag('event', 'dm_send', { surface: 'messages' }); } catch(e){}
+      firePushThread(activeThread.participants, activeThread.id);
     }).catch(function(e){
       btn.disabled = false;
       console.warn('[messages] send failed', e && e.code, e && e.message);

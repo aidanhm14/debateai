@@ -138,6 +138,49 @@
   // user can ask to be pinged when ANY debater goes live (even while on
   // another app). Cached in localStorage for instant UI; the server copy in
   // notify_prefs is what go-live.mjs fans out against.
+  // ── muted threads ────────────────────────────────────────────────
+  // Group chats notify by DEFAULT (2026-08-23): a group nobody is told
+  // about is a group nobody comes back to, and the previous behaviour
+  // buried group activity under whichever 1:1 thread was newest. Muting
+  // is per thread and opt-OUT, held on the device because it is a
+  // "leave me alone on this laptop" preference rather than an account
+  // fact. A muted thread still LISTS, it just stops making noise: no
+  // toast, no OS notification, no badge count.
+  var DA_MUTED_KEY = 'da-muted-threads';
+  function daMutedSet() {
+    try { return JSON.parse(localStorage.getItem(DA_MUTED_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  function daIsMuted(threadId) { return !!daMutedSet()[threadId]; }
+  function daSetMuted(threadId, muted) {
+    if (!threadId) return;
+    var m = daMutedSet();
+    if (muted) m[threadId] = 1; else delete m[threadId];
+    try { localStorage.setItem(DA_MUTED_KEY, JSON.stringify(m)); } catch (_) {}
+    // Mirror to the account so Web Push respects it too. A device-local
+    // mute would quiet the badge and still buzz the phone, which reads
+    // as the mute not working. Anonymous sessions keep the local copy
+    // only; they have no account to write to.
+    var user = daCurrentUser();
+    if (!user || user.isAnonymous) return;
+    user.getIdToken().then(function (tok) {
+      return fetch('/.netlify/functions/notify-prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify({ muteThread: threadId, muted: !!muted }),
+      });
+    }).catch(function () {});
+  }
+  // Server copy wins on load: mutes set on a phone should hold on a
+  // laptop. Merged rather than replaced so a mute made while offline on
+  // this device is not thrown away.
+  function daMergeMutedFromServer(list) {
+    if (!Array.isArray(list)) return;
+    var m = daMutedSet();
+    for (var i = 0; i < list.length; i++) if (list[i]) m[list[i]] = 1;
+    try { localStorage.setItem(DA_MUTED_KEY, JSON.stringify(m)); } catch (_) {}
+  }
+
   var DA_LIVE_ALERTS_KEY = 'da-live-alerts';
   function daGetLiveAlerts() { try { return localStorage.getItem(DA_LIVE_ALERTS_KEY) === '1'; } catch (_) { return false; } }
   function daSetLiveAlerts(on, cb) {
@@ -418,6 +461,28 @@
       '.ui-bell-panel .ui-bell-list{max-height:none;overflow:visible}' +
       '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--dab-ghost);border-bottom:1px solid var(--dab-border)}' +
       '.ui-bell-head--mid{border-top:1px solid var(--dab-border)}' +
+      '.ui-bell-head__n{margin-left:7px;font-size:.6rem;font-weight:800;color:var(--dab-dim);letter-spacing:.06em}' +
+      // Section chips in the dropdown. Same job as the /notifications
+      // page filters: every section is one tap away instead of one long
+      // scroll past whichever section happens to be busiest.
+      '.ui-bell-tabs{display:flex;gap:6px;flex-shrink:0;padding:10px 12px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--dab-border)}' +
+      '.ui-bell-tabs::-webkit-scrollbar{display:none}' +
+      '.ui-bell-tab{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--dab-border);background:transparent;color:var(--dab-dim);font-family:inherit;font-size:.74rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:color .12s,border-color .12s,background .12s}' +
+      '.ui-bell-tab:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
+      '.ui-bell-tab.is-on{color:#fff;background:var(--dab-accent);border-color:var(--dab-accent)}' +
+      '.ui-bell-tab i{font-style:normal;font-size:.62rem;font-weight:800;padding:1px 5px;border-radius:999px;background:var(--dab-accent);color:#fff;font-variant-numeric:tabular-nums}' +
+      '.ui-bell-tab.is-on i{background:rgba(255,255,255,.28)}' +
+      '.ui-bell-foot--btn{width:100%;background:transparent;border:0;border-top:1px solid var(--dab-border);font-family:inherit;cursor:pointer}' +
+      // A thread row and its mute control are siblings, so the row keeps
+      // being one link and the button keeps being one button.
+      '.ui-bell-rowwrap{position:relative;display:block}' +
+      '.ui-bell-rowwrap .ui-bell-row{padding-right:44px}' +
+      '.ui-bell-row.is-muted .ui-bell-row__name,.ui-bell-row.is-muted .ui-bell-row__preview{opacity:.62}' +
+      '.ui-bell-tag{flex-shrink:0;font-size:.56rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--dab-ghost);border:1px solid var(--dab-border);border-radius:999px;padding:1px 6px}' +
+      '.ui-bell-mute{position:absolute;top:50%;right:10px;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--dab-ghost);cursor:pointer;opacity:.55;transition:opacity .12s,color .12s,border-color .12s}' +
+      '.ui-bell-rowwrap:hover .ui-bell-mute{opacity:1}' +
+      '.ui-bell-mute:hover{color:var(--dab-text);border-color:var(--dab-border)}' +
+      '.ui-bell-mute.is-on{opacity:1;color:var(--dab-accent);border-color:var(--dab-border)}' +
       '.ui-bell-empty{padding:22px 16px;text-align:center;font-size:.8rem;color:var(--dab-dim);line-height:1.5}' +
       '.ui-bell-list{max-height:340px;overflow-y:auto}' +
       '.ui-bell-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--dab-border);text-decoration:none;color:inherit;transition:background .12s}' +
@@ -909,6 +974,7 @@
         }).then(function (r) { return r.json(); }).then(function (p) {
           if (!p) return;
           try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
+          daMergeMutedFromServer(p.mutedThreads);
           if (panel || pageEl) paintPanel();
         }).catch(function () {});
         renderBadge(); // apply the sign-in gate as soon as auth resolves
@@ -1029,13 +1095,17 @@
       snap.forEach(function (d) {
         var data = d.data() || {};
         var unread = (data.unread && data.unread[myUid]) || 0;
-        if (unread > 0) unreadCount++;
+        // Muting is opt-out and per thread. It suppresses the badge and
+        // the announce; the row itself stays on the list, because
+        // "quiet" is not the same as "hidden".
+        var muted = daIsMuted(d.id);
+        if (unread > 0 && !muted) unreadCount++;
         var prev = prevUnread[d.id] || 0;
-        if (!firstSnap && unread > prev && data.lastMessageFrom && data.lastMessageFrom !== myUid) {
+        if (!firstSnap && !muted && unread > prev && data.lastMessageFrom && data.lastMessageFrom !== myUid) {
           newest = { data: data, id: d.id };
         }
         prevUnread[d.id] = unread;
-        rows.push({ id: d.id, data: data, unread: unread });
+        rows.push({ id: d.id, data: data, unread: unread, muted: muted });
       });
       dmRows = rows; dmUnread = unreadCount;
       renderBadge();
@@ -1170,14 +1240,30 @@
         : (disp.photo
           ? '<img class="ui-bell-av" src="' + escHtml(disp.photo) + '" alt="" referrerpolicy="no-referrer">'
           : '<span class="ui-bell-av ui-bell-av--blank">' + escHtml((disp.name[0] || '?').toUpperCase()) + '</span>');
-      return '<a class="ui-bell-row' + (t.unread > 0 ? ' is-unread' : '') + '" href="' + disp.href + '">' +
+      var muted = !!t.muted;
+      var link = '<a class="ui-bell-row' + (t.unread > 0 && !muted ? ' is-unread' : '') + (muted ? ' is-muted' : '') + '" href="' + disp.href + '">' +
         avatar +
         '<span class="ui-bell-row__main">' +
-          '<span class="ui-bell-row__name">' + escHtml(disp.name) + (t.unread > 0 ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__name">' + escHtml(disp.name) +
+            (disp.isGroup ? '<span class="ui-bell-tag">group</span>' : '') +
+            (t.unread > 0 && !muted ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
           '<span class="ui-bell-row__preview">' + escHtml(preview) + '</span>' +
         '</span>' +
         '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
       '</a>';
+      // The mute control is a sibling of the link, not a child: a button
+      // inside an anchor is invalid, and nesting it would make the whole
+      // row swallow the click that was meant for the thread.
+      return '<div class="ui-bell-rowwrap">' + link +
+        '<button type="button" class="ui-bell-mute' + (muted ? ' is-on' : '') + '" data-bell-mute="' + escHtml(t.id) + '" ' +
+          'aria-pressed="' + (muted ? 'true' : 'false') + '" ' +
+          'title="' + (muted ? 'Muted. Turn notifications back on' : 'Mute this conversation') + '" ' +
+          'aria-label="' + (muted ? 'Unmute ' : 'Mute ') + escHtml(disp.name) + '">' +
+          (muted
+            ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.6 13A17 17 0 0 1 18 8a6 6 0 0 0-9.3-5"/><path d="M6 8a6 6 0 0 0-.6 2.6C5.4 17 3 19 3 19h13"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'
+            : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>') +
+        '</button>' +
+      '</div>';
     }
 
     // Opt-in row: "Alert me when rounds are forming". Pings this user (Web
@@ -1214,7 +1300,8 @@
     }
 
     function matchesFeedHtml(expanded) {
-      var html = '<div class="ui-bell-head ui-bell-head--mid">Matches and live rounds</div>';
+      var html = '<div class="ui-bell-head ui-bell-head--mid">Matches and live rounds' +
+        (activity.length ? '<span class="ui-bell-head__n">' + activity.length + '</span>' : '') + '</div>';
       var hasRows = false;
       if (myUid) html += liveAlertRowHtml();
       // People actually waiting for a round. This stays above general
@@ -1276,26 +1363,37 @@
       }
       if (activity.length) {
         hasRows = true;
-        html += '<div class="ui-bell-list">' + activity.slice(0, expanded ? 40 : 8).map(activityRowHtml).join('') + '</div>';
-        html += '<a class="ui-bell-foot" href="/live">See the live board</a>';
+        var cap = expanded ? 40 : 4;
+        html += '<div class="ui-bell-list">' + activity.slice(0, cap).map(activityRowHtml).join('') + '</div>';
+        html += activity.length > cap
+          ? '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="matches">' +
+              (activity.length - cap) + ' more open round' + (activity.length - cap === 1 ? '' : 's') + '</button>'
+          : '<a class="ui-bell-foot" href="/challenges">See claims and challenges</a>';
       }
       if (!hasRows) {
         html += '<div class="ui-bell-empty">Quiet right now.<br>' +
-                '<a href="/live" style="color:var(--dab-accent);text-decoration:none;font-weight:700">Post a challenge</a>' +
+                '<a href="/challenges" style="color:var(--dab-accent);text-decoration:none;font-weight:700">Post a claim</a>' +
                 ' or <a href="/spar" style="color:var(--dab-accent);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
       }
       return html;
     }
 
-    function repliesFeedHtml(showEmpty) {
+    function repliesFeedHtml(showEmpty, limit) {
       if (!myUid) {
         return showEmpty
           ? '<div class="ui-bell-head ui-bell-head--mid">Replies</div><div class="ui-bell-empty">Sign in to see replies to your community threads.</div>'
           : '';
       }
       if (replyRows.length) {
-        var html = '<div class="ui-bell-head ui-bell-head--mid">Replies to your threads</div>';
-        html += '<div class="ui-bell-list">' + replyRows.map(replyRowHtml).join('') + '</div>';
+        var shownR = limit ? replyRows.slice(0, limit) : replyRows;
+        var hiddenR = replyRows.length - shownR.length;
+        var html = '<div class="ui-bell-head ui-bell-head--mid">Replies to your threads' +
+          '<span class="ui-bell-head__n">' + replyRows.length + '</span></div>';
+        html += '<div class="ui-bell-list">' + shownR.map(replyRowHtml).join('') + '</div>';
+        if (hiddenR > 0) {
+          html += '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="replies">' +
+            hiddenR + ' more repl' + (hiddenR === 1 ? 'y' : 'ies') + '</button>';
+        }
         return html;
       }
       return showEmpty
@@ -1303,16 +1401,26 @@
         : '';
     }
 
-    function messagesFeedHtml(showEmpty) {
+    // `limit` caps the section in the dropdown. Before this the messages
+    // list rendered every thread, so on an account with a dozen
+    // conversations the Rounds, Replies and Updates sections sat below
+    // hundreds of pixels of DMs and were, in practice, invisible.
+    function messagesFeedHtml(showEmpty, limit) {
       if (!myUid) {
         return showEmpty
           ? '<div class="ui-bell-head ui-bell-head--mid">Messages</div><div class="ui-bell-empty">Sign in to see your messages.</div>'
           : '';
       }
       if (dmRows.length) {
-        return '<div class="ui-bell-head ui-bell-head--mid">Messages</div>' +
-          '<div class="ui-bell-list">' + dmRows.map(dmRowHtml).join('') + '</div>' +
-          '<a class="ui-bell-foot" href="/messages">Open all messages</a>';
+        var shown = limit ? dmRows.slice(0, limit) : dmRows;
+        var hidden = dmRows.length - shown.length;
+        return '<div class="ui-bell-head ui-bell-head--mid">Messages' +
+            (dmRows.length ? '<span class="ui-bell-head__n">' + dmRows.length + '</span>' : '') + '</div>' +
+          '<div class="ui-bell-list">' + shown.map(dmRowHtml).join('') + '</div>' +
+          (hidden > 0
+            ? '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="messages">' +
+                hidden + ' more conversation' + (hidden === 1 ? '' : 's') + '</button>'
+            : '<a class="ui-bell-foot" href="/messages">Open all messages</a>');
       }
       return showEmpty
         ? '<div class="ui-bell-head ui-bell-head--mid">Messages</div><div class="ui-bell-empty">No messages yet.<br>Open a debater profile or the live board to start one.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
@@ -1320,25 +1428,57 @@
     }
 
     function updatesFeedHtml(expanded) {
-      var html = '<div class="ui-bell-head ui-bell-head--mid">Product updates</div>';
+      var html = '<div class="ui-bell-head ui-bell-head--mid">Product updates' +
+        (updates.length ? '<span class="ui-bell-head__n">' + updates.length + '</span>' : '') + '</div>';
       if (!updates.length) return html + '<div class="ui-bell-empty">No product updates yet.</div>';
-      return html + '<div class="ui-bell-list">' + updates.slice(0, expanded ? 60 : 4).map(updateRowHtml).join('') + '</div>';
+      var capU = expanded ? 60 : 3;
+      html += '<div class="ui-bell-list">' + updates.slice(0, capU).map(updateRowHtml).join('') + '</div>';
+      if (updates.length > capU) {
+        html += '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="updates">' +
+          (updates.length - capU) + ' more update' + (updates.length - capU === 1 ? '' : 's') + '</button>';
+      }
+      return html;
     }
 
     // The full page is ordered by relevance: personal activity first,
     // actionable live matches next, and product announcements last.
-    function buildFeedHtml(full, filter) {
+    // `compact` is the dropdown. Every section is capped there so all
+    // four are reachable without scrolling past one of them, and each
+    // cap ends in a control that opens that section in full.
+    function buildFeedHtml(full, filter, compact) {
       filter = filter || 'all';
       if (filter === 'matches') return matchesFeedHtml(true);
       if (filter === 'replies') return repliesFeedHtml(true);
       if (filter === 'messages') return messagesFeedHtml(true);
       if (filter === 'updates') return updatesFeedHtml(true);
       var html = '';
-      html += messagesFeedHtml(false);
-      html += repliesFeedHtml(false);
-      html += matchesFeedHtml(false);
-      html += updatesFeedHtml(false);
+      html += messagesFeedHtml(false, compact ? 4 : 0);
+      html += repliesFeedHtml(false, compact ? 3 : 0);
+      html += matchesFeedHtml(!compact);
+      html += updatesFeedHtml(!compact);
       return html;
+    }
+
+    // Section switcher for the dropdown, mirroring the filter chips the
+    // /notifications page already has. Counts are unread, not totals, so
+    // a chip only shouts when it has something new behind it.
+    var panelFilter = 'all';
+    function panelTabsHtml() {
+      var tabs = [
+        { k: 'all',      label: 'All',      n: 0 },
+        { k: 'messages', label: 'Messages', n: dmUnread },
+        { k: 'matches',  label: 'Rounds',   n: activityUnreadCount() },
+        { k: 'replies',  label: 'Replies',  n: replyUnreadCount() },
+        { k: 'updates',  label: 'Updates',  n: updatesUnreadCount() }
+      ];
+      return '<div class="ui-bell-tabs" role="group" aria-label="Notification sections">' +
+        tabs.map(function (t) {
+          var on = panelFilter === t.k;
+          return '<button type="button" class="ui-bell-tab' + (on ? ' is-on' : '') + '" ' +
+            'data-bell-filter="' + t.k + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+            escHtml(t.label) + (t.n > 0 ? '<i>' + (t.n > 9 ? '9+' : t.n) + '</i>' : '') + '</button>';
+        }).join('') +
+      '</div>';
     }
 
     function paintPanel() {
@@ -1349,18 +1489,68 @@
       // The dropdown gets a footer link to the full page; the page itself
       // obviously doesn't.
       panel.innerHTML =
-        '<div class="ui-bell-panel__bar"><span class="ui-bell-panel__title">Notifications</span><span class="ui-bell-panel__hint">Scroll to browse</span></div>' +
-        '<div class="ui-bell-panel__scroll">' + buildFeedHtml(true, 'all') + '</div>' +
+        '<div class="ui-bell-panel__bar"><span class="ui-bell-panel__title">Notifications</span>' +
+          (panelFilter === 'all' ? '<span class="ui-bell-panel__hint">Scroll to browse</span>' : '') + '</div>' +
+        panelTabsHtml() +
+        '<div class="ui-bell-panel__scroll">' + buildFeedHtml(true, panelFilter, panelFilter === 'all') + '</div>' +
         '<a class="ui-bell-foot" href="/notifications" style="font-weight:800">Notifications page &rarr;</a>';
       var newScroller = panel.querySelector('.ui-bell-panel__scroll');
       if (newScroller && oldScrollTop) newScroller.scrollTop = oldScrollTop;
       if (myUid) bindLiveAlertToggle();
+      bindPanelSectionControls();
+      bindMuteToggles(panel);
+    }
+
+    // Both the chips and the per-section "N more" controls carry
+    // data-bell-filter, so one binder covers both.
+    function bindPanelSectionControls() {
+      if (!panel) return;
+      var btns = panel.querySelectorAll('[data-bell-filter]');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].addEventListener('click', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          panelFilter = this.getAttribute('data-bell-filter') || 'all';
+          paintPanel();
+          var sc = panel && panel.querySelector('.ui-bell-panel__scroll');
+          if (sc) sc.scrollTop = 0;
+        });
+      }
+    }
+
+    // Mute lives on the row it belongs to, in the one place every thread
+    // is already listed, so turning a loud group down never means hunting
+    // for a settings page.
+    function bindMuteToggles(root) {
+      var scopes = root ? [root] : [panel, pageEl];
+      for (var s = 0; s < scopes.length; s++) {
+        if (!scopes[s]) continue;
+        var btns = scopes[s].querySelectorAll('[data-bell-mute]');
+        for (var i = 0; i < btns.length; i++) {
+          btns[i].addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            var id = this.getAttribute('data-bell-mute');
+            var next = !daIsMuted(id);
+            daSetMuted(id, next);
+            // Recompute the badge off the rows we already hold rather
+            // than waiting for the next snapshot.
+            for (var j = 0; j < dmRows.length; j++) {
+              if (dmRows[j].id === id) dmRows[j].muted = next;
+            }
+            var n = 0;
+            for (var k = 0; k < dmRows.length; k++) if (dmRows[k].unread > 0 && !dmRows[k].muted) n++;
+            dmUnread = n;
+            renderBadge();
+            paintPanel();
+          });
+        }
+      }
     }
 
     function paintPage() {
       if (!pageEl) return;
       pageEl.innerHTML = buildFeedHtml(true, pageFilter);
       if (myUid) bindLiveAlertToggle();
+      bindMuteToggles(pageEl);
       // Viewing the page reads everything: advance the seen markers (the
       // snapshots above keep this visit's unread dots visible) and clear
       // the bell badge.

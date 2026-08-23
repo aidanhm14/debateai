@@ -418,7 +418,7 @@
       // stranger understands without knowing a format: someone claimed
       // something, take the other side. It is `big` because it is the
       // shortest path from landing on the site to being in a round.
-      { href: '/challenges',  label: 'Challenges', big: true },
+      { href: '/challenges',  label: 'Claims & challenges', big: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2026-08-22: the two real-money surfaces get a way in. Both take
       // a card today and neither was reachable from the nav, so the
@@ -753,7 +753,7 @@
     '/learn':          { desc: 'Lessons, drills, and formats', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
     '/app#case':       { desc: 'Case builder and prep tools', icon: '<path d="M12 5.2H6.6A2.4 2.4 0 0 0 4.2 7.6v9.8a2.4 2.4 0 0 0 2.4 2.4h9.8a2.4 2.4 0 0 0 2.4-2.4V12"/><path d="M17.7 4.3a2 2 0 0 1 2.8 2.8l-7.3 7.3-3.8 1 1-3.8z"/>' },
     '/judge':          { desc: 'Paste a round, get the verdict', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
-    '/live':           { desc: 'The organized round board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
+    '/live':           { desc: 'Schedule a live round on the board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
@@ -777,7 +777,7 @@
     // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
     // but never got a MENU_META row, so the largest tile in the column
     // was the only one rendering with no sentence under it.
-    '/challenges':     { desc: 'Post a claim, someone takes it', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
+    '/challenges':     { desc: 'Post a claim or a live round, someone takes it', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
     '/claim':          { desc: 'Seed your rating from Tabroom', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
     '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
     '/judge-paradigms': { desc: 'What judges actually reward', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },

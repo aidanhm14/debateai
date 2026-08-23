@@ -1041,6 +1041,11 @@ button{font-family:inherit}
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius-md);
 }
+.post-form-lead{
+  font-size:.78rem;line-height:1.5;color:var(--text-ghost);margin:-4px 0 14px;
+}
+.post-form-lead a{color:var(--accent);text-decoration:none;font-weight:700}
+.post-form-lead a:hover{text-decoration:underline}
 .post-form h3{
   font-size:.78rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   color:var(--accent);margin-bottom:14px;
@@ -1741,18 +1746,27 @@ button{font-family:inherit}
 /* ─── Expired toggle on the Open Challenges header ──── */
 
 /* ─── Modals (accept-confirm, bail) ────────────────── */
+/* 2026-08-23: z-index was 300, under the fixed topbar (1000) and the
+   Open strip (10000), so a blocking modal rendered UNDER the site
+   chrome: its head ("Before you go live") and close button were
+   painted over by the bar, and the consent checkbox could sit off the
+   bottom. A modal that blocks the page has to cover the page, so this
+   sits above both. dvh alongside vh so mobile browser chrome does not
+   push the footer (Agree & continue) out of reach. */
 .modal-backdrop{
   position:fixed;inset:0;
   background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  z-index:300;display:flex;align-items:center;justify-content:center;
+  z-index:10050;display:flex;align-items:center;justify-content:center;
   padding:20px;animation:modal-in .2s ease-out;
+  overflow-y:auto;overscroll-behavior:contain;
 }
 @keyframes modal-in{from{opacity:0}to{opacity:1}}
 .modal{
   background:var(--bg-elev);border:1px solid var(--border-strong);
   border-radius:var(--radius-lg);
   max-width:540px;width:100%;
-  max-height:90vh;overflow-y:auto;
+  max-height:90vh;max-height:min(90vh,90dvh);overflow-y:auto;
+  margin:auto;
   box-shadow:var(--shadow-lg);
   animation:modal-pop .22s cubic-bezier(.2,1,.4,1);
 }
@@ -1760,6 +1774,10 @@ button{font-family:inherit}
 .modal-head{
   padding:18px 22px 14px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
+  /* Long modals (the community-standards consent list) scroll inside
+     the modal, so the title and the close button pin rather than
+     scrolling away from someone reading the bullets. */
+  position:sticky;top:0;z-index:2;background:var(--bg-elev);
 }
 .modal-title{
   font-size:.78rem;font-weight:800;letter-spacing:.14em;
@@ -1788,6 +1806,9 @@ button{font-family:inherit}
 .modal-foot{
   padding:14px 22px 18px;border-top:1px solid var(--border);
   display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;
+  /* Same reason as the head: the decision buttons stay on screen
+     while the body scrolls, instead of living below the fold. */
+  position:sticky;bottom:0;z-index:2;background:var(--bg-elev);
 }
 
 /* ─── Manage view: profile + activity ──────────────── */
@@ -2389,7 +2410,12 @@ button{font-family:inherit}
   <span class="snav-div" aria-hidden="true"></span>
   <span class="snav-label" aria-hidden="true">Create</span>
   <a class="snav-item" href="/spar">Spar Now</a>
-  <button class="snav-item" data-nav="schedule" type="button">Create Debate</button>
+  <button class="snav-item" data-nav="schedule" type="button">Schedule a live round</button>
+  <!-- 2026-08-23: /live and /challenges were two names for one act,
+       posting something a stranger can take. They are one thing now
+       ("claims and challenges"): the board carries both kinds, and this
+       page keeps the scheduler. -->
+  <a class="snav-item" href="/challenges">Post a claim</a>
   <!-- "Calendar View" lived here and duplicated the List/Calendar toggle
        that sits on the feed itself. One control, one place. -->
 
@@ -2511,7 +2537,8 @@ button{font-family:inherit}
          debate" CTA on the first screen. -->
     <aside class="aside aside--collapsed" id="postAside">
       <form id="postForm" class="post-form">
-        <h3>Schedule a debate</h3>
+        <h3>Schedule a live round</h3>
+        <p class="post-form-lead">Both of you turn up at a set time, on video. If you would rather they answer in their own time, <a href="/challenges">post a claim</a> instead. Both land on the same board.</p>
         <div class="step-head"><span class="step-num">1</span><strong>1 · Motion</strong></div>
         
         <div class="field">
@@ -6450,6 +6477,14 @@ button{font-family:inherit}
       if (!m && p.get('compose') !== '1') return;
       var motionEl = document.getElementById('motion');
       if (m && motionEl){ motionEl.value = m; motionEl.dispatchEvent(new Event('input')); }
+      // The claims board (/challenges) hands a live round over with the
+      // format already chosen, so it does not have to be picked twice.
+      // Ignored unless the value is one this page actually offers.
+      var f = (p.get('format') || '').trim();
+      var fmtEl = document.getElementById('format');
+      if (f && fmtEl && fmtEl.querySelector('option[value="' + CSS.escape(f) + '"]')){
+        fmtEl.value = f; fmtEl.dispatchEvent(new Event('change'));
+      }
       expandPostAside();
     } catch (e) {}
   })();

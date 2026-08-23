@@ -44,12 +44,31 @@ export default async (request) => {
     return errorResponse('Not a participant', 403, request);
   }
 
+  // A muted thread makes no noise on any of the recipient's devices.
+  // Read before the payload is built so a mute costs one read and no
+  // send. Failure here falls through to sending: a preferences read that
+  // errors must not silently swallow someone's messages.
+  try {
+    const prefs = await db.collection('notify_prefs').doc(recipientUid).get();
+    const muted = (prefs.exists && prefs.data().mutedThreads) || [];
+    if (Array.isArray(muted) && muted.indexOf(threadId) !== -1) {
+      return jsonResponse({ ok: true, muted: true, sent: 0 }, 200, request);
+    }
+  } catch (e) { /* prefs unreadable — send rather than drop */ }
+
   const info = (data.participantInfo && data.participantInfo[callerUid]) || {};
   const callerName = String(info.name || (decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40);
+  // Group threads say the group's name, because "New message from Priya"
+  // with no room attached is unreadable once you are in three groups.
+  // Still server-constructed, so nothing here is caller-supplied.
+  const isGroup = !!data.isGroup || parts.length > 2;
+  const groupName = String(data.groupName || 'your group').slice(0, 60);
   const payload = {
-    title: 'New message from ' + callerName,
+    title: isGroup ? (callerName + ' posted in ' + groupName) : ('New message from ' + callerName),
     body: 'Tap to reply on Debatable.',
-    url: '/spar?thread=' + encodeURIComponent(threadId),
+    // /messages is the inbox both surfaces read; the old /spar link
+    // predates it and lands group threads on the wrong page.
+    url: '/messages?thread=' + encodeURIComponent(threadId),
     tag: 'da-dm-' + threadId,
   };
   // The same participant check above gates both lanes, so the text can

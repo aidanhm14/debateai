@@ -1,4 +1,4 @@
-// Store / read a signed-in user's "live round" notification preference.
+// Store / read a signed-in user's notification preferences.
 //
 // Separate from the per-device push subscription (push-subscribe.mjs): a
 // device can be subscribed for DMs without wanting a ping every time some
@@ -28,21 +28,41 @@ export default async (request) => {
   if (request.method === 'GET') {
     const snap = await ref.get();
     const d = snap.exists ? snap.data() : {};
-    return jsonResponse({ liveAlerts: !!(d && d.liveAlerts), formats: (d && d.formats) || [] }, 200, request);
+    return jsonResponse({
+      liveAlerts: !!(d && d.liveAlerts),
+      formats: (d && d.formats) || [],
+      mutedThreads: (d && d.mutedThreads) || [],
+    }, 200, request);
   }
 
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
-  const liveAlerts = !!(body && body.liveAlerts);
-  let formats = Array.isArray(body && body.formats) ? body.formats : [];
-  formats = formats.filter((f) => VALID_FORMATS.indexOf(String(f).toLowerCase()) >= 0).slice(0, 12);
 
-  await ref.set({
-    uid,
-    liveAlerts,
-    formats,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  // Mute is its own single-thread write, on purpose. Sending the whole
+  // list back would let a stale tab on one device resurrect a mute the
+  // user just cleared on another.
+  const muteThread = typeof (body && body.muteThread) === 'string' ? body.muteThread.slice(0, 128) : '';
+  if (muteThread) {
+    await ref.set({
+      uid,
+      mutedThreads: body.muted ? FieldValue.arrayUnion(muteThread) : FieldValue.arrayRemove(muteThread),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return jsonResponse({ ok: true, muteThread, muted: !!body.muted }, 200, request);
+  }
 
-  return jsonResponse({ ok: true, liveAlerts, formats }, 200, request);
+  // Partial by key: a caller that only sends liveAlerts must not clear a
+  // preference it never mentioned.
+  const patch = { uid, updatedAt: FieldValue.serverTimestamp() };
+  if (body && 'liveAlerts' in body) patch.liveAlerts = !!body.liveAlerts;
+  if (body && Array.isArray(body.formats)) {
+    patch.formats = body.formats.filter((f) => VALID_FORMATS.indexOf(String(f).toLowerCase()) >= 0).slice(0, 12);
+  }
+  await ref.set(patch, { merge: true });
+
+  return jsonResponse({
+    ok: true,
+    liveAlerts: patch.liveAlerts !== undefined ? patch.liveAlerts : undefined,
+    formats: patch.formats || undefined,
+  }, 200, request);
 };
