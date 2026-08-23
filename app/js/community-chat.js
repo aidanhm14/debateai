@@ -23,6 +23,17 @@
  * No firestore/auth on the client. Everything goes through the
  * Netlify function so abuse is bounded by the per-IP rate limit
  * there.
+ *
+ * Reply privately (2026-08-23):
+ *   A handle is a pseudonym, so "is anyone free for a round?" used to
+ *   be unanswerable except by shouting back into the same room. When
+ *   the host page supplies `authToken`, the server returns the poster's
+ *   uid on messages written by a named account (and only to a named
+ *   reader), and the name in each row becomes a button. The module does
+ *   not know what a DM is: it calls `onDm(uid, name, photo)` and the
+ *   host decides. /spar opens its dm_threads modal, /chat opens the
+ *   thread in its own sidebar. A host that passes neither option gets
+ *   exactly the old behaviour.
  */
 (function(){
   'use strict';
@@ -93,12 +104,30 @@
       + '</span>';
   }
 
-  function rowHtml(row, myHandle){
+  // The head is a button only when there is somewhere for it to go: a
+  // named poster, a named reader, and a host that wired onDm. Your own
+  // messages stay plain — a DM to yourself is a dead end, and the
+  // server tells us which uid is ours so we do not have to guess from
+  // the handle (handles are not unique).
+  function headHtml(row, canDm){
+    const inner = avChip(row.handle)
+      + '<span class="chat-msg-handle">' + escHtml(row.handle || 'anon') + '</span>';
+    if (!canDm) return inner;
+    return '<button type="button" class="chat-msg-who" data-dm-uid="' + escHtml(row.uid) + '"'
+      +   ' data-dm-name="' + escHtml(row.handle || 'Debater') + '"'
+      +   ' data-dm-photo="' + escHtml(row.photo || '') + '"'
+      +   ' title="Message ' + escHtml(row.handle || 'them') + ' privately">'
+      + inner
+      + '<span class="chat-msg-dm" aria-hidden="true">Message</span>'
+      + '</button>';
+  }
+
+  function rowHtml(row, myHandle, ctx){
     const mine = row.handle && myHandle && row.handle === myHandle;
+    const canDm = !!(ctx && ctx.canDm && row.uid && row.uid !== ctx.me);
     return '<div class="chat-row chat-msg' + (mine ? ' chat-msg-mine' : '') + '" data-handle="' + escHtml(row.handle) + '">'
       + '<div class="chat-msg-head">'
-      +   avChip(row.handle)
-      +   '<span class="chat-msg-handle">' + escHtml(row.handle || 'anon') + '</span>'
+      +   headHtml(row, canDm)
       +   '<span class="chat-msg-time">' + escHtml(timeAgo(row.at)) + '</span>'
       + '</div>'
       + '<div class="chat-msg-text">' + escHtml(row.text) + '</div>'
@@ -124,12 +153,35 @@
     const rerollBtn  = opts.rerollBtn;
     const newPill    = opts.newPill;
     const charCountEl= opts.charCountEl;
+    // Optional. authToken resolves the viewer's Firebase ID token (or
+    // null); onDm receives (uid, name, photo) when a row's name is
+    // clicked. Without both, this is the room exactly as it was.
+    const authToken  = typeof opts.authToken === 'function' ? opts.authToken : null;
+    const onDm       = typeof opts.onDm === 'function' ? opts.onDm : null;
     if (!scroller || !inputEl || !sendBtn) return;
 
     let myHandle = ensureHandle();
     let lastIds = new Set();
     let pendingNew = 0;
     let firstFetchDone = false;
+    // Who the SERVER says we are. Null until a named account's token
+    // verifies, which can be several polls after the first paint on a
+    // page where auth rehydrates slowly.
+    let meUid = null;
+    const canDm = !!(authToken && onDm);
+
+    function ctx(){ return { canDm, me: meUid }; }
+
+    // Never blocks a fetch on auth. A token that is slow, missing or
+    // rejected just means this poll renders no DM buttons; the next one
+    // picks them up.
+    async function authHeaders(){
+      if (!authToken) return null;
+      try {
+        const t = await authToken();
+        return t ? { Authorization: 'Bearer ' + t } : null;
+      } catch { return null; }
+    }
 
     if (handleEl) handleEl.textContent = myHandle;
 
@@ -143,8 +195,12 @@
       }
     }
 
-    function applyRows(rows){
+    function applyRows(rows, repaint){
       const wasPinned = isPinnedToBottom(scroller);
+      // A repaint (the viewer's identity just resolved) has to redraw
+      // rows that are already on screen, so the append-only path and
+      // its early return are both wrong for it.
+      if (repaint){ lastIds = new Set(); firstFetchDone = false; }
       const seenBefore = lastIds.size;
       const incoming = rows.filter(r => !lastIds.has(r.id));
       if (!incoming.length && firstFetchDone) return;
@@ -152,13 +208,13 @@
       // subsequent fetches to preserve scroll position smoothly.
       if (!firstFetchDone || !seenBefore){
         scroller.innerHTML = rows.length
-          ? rows.map(r => rowHtml(r, myHandle)).join('')
+          ? rows.map(r => rowHtml(r, myHandle, ctx())).join('')
           : '<div class="chat-empty">first message lights this up. say something.</div>';
         firstFetchDone = true;
         // First paint goes to the bottom regardless of pin state.
         requestAnimationFrame(() => scrollToBottom(scroller));
       } else {
-        const html = incoming.map(r => rowHtml(r, myHandle)).join('');
+        const html = incoming.map(r => rowHtml(r, myHandle, ctx())).join('');
         scroller.insertAdjacentHTML('beforeend', html);
         if (wasPinned){
           requestAnimationFrame(() => scrollToBottom(scroller));
@@ -182,13 +238,17 @@
     }
     async function fetchFeed(){
       try {
-        const res = await fetch(ENDPOINT, { method: 'GET' });
+        const headers = await authHeaders();
+        const res = await fetch(ENDPOINT, headers ? { method: 'GET', headers } : { method: 'GET' });
         if (!res.ok){ renderEmptyOnce(); return; }
         const data = await res.json();
         if (!Array.isArray(data.rows)){ renderEmptyOnce(); return; }
+        const nextMe = (typeof data.me === 'string' && data.me) ? data.me : null;
+        const identityChanged = nextMe !== meUid;
+        meUid = nextMe;
         // Joins are never rendered (2026-08-23). The server stopped
         // returning them; this filter covers any legacy row.
-        applyRows(data.rows.filter(r => r.kind !== 'join'));
+        applyRows(data.rows.filter(r => r.kind !== 'join'), identityChanged && firstFetchDone);
       } catch { renderEmptyOnce(); }
     }
 
@@ -198,9 +258,10 @@
       sendBtn.disabled = true;
       sendBtn.classList.remove('chat-send-fail');
       try {
+        const authed = await authHeaders();
         const res = await fetch(ENDPOINT, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign({ 'Content-Type': 'application/json' }, authed || {}),
           body: JSON.stringify({ handle: myHandle, text }),
         });
         if (!res.ok){
@@ -209,13 +270,14 @@
           return;
         }
         const data = await res.json().catch(() => null);
+        if (data && typeof data.me === 'string' && data.me) meUid = data.me;
         inputEl.value = '';
         updateCharCount();
         // Optimistically render the row from the server response so
         // the user sees their message immediately, even if the next
         // poll is several seconds away.
         if (data && data.row && !lastIds.has(data.row.id)){
-          scroller.insertAdjacentHTML('beforeend', rowHtml(data.row, myHandle));
+          scroller.insertAdjacentHTML('beforeend', rowHtml(data.row, myHandle, ctx()));
           lastIds.add(data.row.id);
           requestAnimationFrame(() => scrollToBottom(scroller));
         }
@@ -257,6 +319,19 @@
         scrollToBottom(scroller);
       });
     }
+    // One delegated handler on the scroller, so it survives every
+    // repaint and every appended row.
+    if (canDm){
+      scroller.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-dm-uid]') : null;
+        if (!btn) return;
+        const uid = btn.getAttribute('data-dm-uid');
+        if (!uid || uid === meUid) return;
+        e.preventDefault();
+        onDm(uid, btn.getAttribute('data-dm-name') || 'Debater', btn.getAttribute('data-dm-photo') || '');
+      });
+    }
+
     scroller.addEventListener('scroll', () => {
       if (isPinnedToBottom(scroller)){
         pendingNew = 0;

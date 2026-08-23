@@ -1546,6 +1546,29 @@ h1 em{color:var(--accent);font-style:normal}
 .spar-room .chat-join-name{color:#16a34a; font-weight:700}
 .spar-room .chat-msg-head{display:flex; align-items:baseline; gap:8px}
 .spar-room .chat-msg-handle{font-weight:800; font-size:.86rem; color:var(--accent)}
+/* The name is a button when that person can be reached (community-chat.js
+   only marks it up when the server returned their uid). Styled as the name
+   it already was, plus a Message tail that surfaces on hover and focus, so
+   the room does not grow a row of buttons competing with the messages. */
+.spar-room .chat-msg-who{
+  display:flex; align-items:baseline; gap:8px;
+  background:none; border:none; padding:0; margin:0;
+  font:inherit; color:inherit; cursor:pointer; text-align:left;
+  border-radius:6px;
+}
+.spar-room .chat-msg-who .chat-msg-handle{text-decoration:underline; text-decoration-color:transparent; text-underline-offset:3px; transition:text-decoration-color .15s}
+.spar-room .chat-msg-who:hover .chat-msg-handle,
+.spar-room .chat-msg-who:focus-visible .chat-msg-handle{text-decoration-color:currentColor}
+.spar-room .chat-msg-dm{
+  font-size:.62rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--accent); background:rgba(239,68,68,.1);
+  border:1px solid rgba(239,68,68,.28); border-radius:999px; padding:1px 7px;
+  opacity:0; transition:opacity .15s;
+}
+.spar-room .chat-msg-who:hover .chat-msg-dm,
+.spar-room .chat-msg-who:focus-visible .chat-msg-dm{opacity:1}
+/* Touch has no hover, so the tail would never appear on a phone. */
+@media (hover:none){ .spar-room .chat-msg-dm{opacity:1} }
 .spar-room .chat-msg-mine .chat-msg-handle{color:#16a34a}
 .spar-room .chat-msg-time{font-size:.7rem; color:var(--text-ghost)}
 .spar-room .chat-msg-text{font-size:.94rem; line-height:1.5; margin-top:1px; color:var(--text); overflow-wrap:anywhere}
@@ -3558,6 +3581,21 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         rerollBtn:   document.getElementById('sparRoomReroll'),
         newPill:     document.getElementById('sparRoomPill'),
         charCountEl: document.getElementById('sparRoomCount'),
+        // Identity, so "anyone free for a round?" can be answered
+        // privately instead of only shouted back into the room. The
+        // token is what makes the server return posters' uids; a
+        // guest or a signed-out reader sends none and sees no
+        // Message buttons, which matches every other DM surface here
+        // (named accounts only).
+        authToken: function(){
+          var u = firebaseAuth && firebaseAuth.currentUser;
+          if (!u || u.isAnonymous || typeof u.getIdToken !== 'function') return Promise.resolve(null);
+          return u.getIdToken().catch(function(){ return null; });
+        },
+        onDm: function(uid, name, photo){
+          openDMThread(uid, name, photo);
+          try { if (window.gtag) gtag('event', 'spar_room_dm', { format: formatParam }); } catch(e){}
+        },
       }) || null;
       if (!state.roomResizeBound){
         state.roomResizeBound = true;
@@ -6367,6 +6405,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       state.user = user || null;
       state.named = isNamedUser(user);
       renderWaitlistContent();
+      // The room asks the server who we are on every poll. Nudge it now
+      // so signing in reveals the Message buttons immediately rather
+      // than up to a poll interval later.
+      if (state.roomChat && state.roomChat.refresh) state.roomChat.refresh();
       if (state.user && !state.named){
         // Guest. Paint from the local mirror immediately, then let the
         // server's count correct it — a guest who cleared storage would

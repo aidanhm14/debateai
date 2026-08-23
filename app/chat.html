@@ -261,6 +261,27 @@ em,i{font-style:normal}
 .chat-join-name{color:#22c55e;font-weight:700}
 .chat-msg-head{display:flex;align-items:baseline;gap:9px}
 .chat-msg-handle{font-weight:800;font-size:.92rem;color:var(--accent)}
+/* community-chat.js wraps the name in a button when that person can be
+   reached. It stays styled as the name it already was; the Message tail
+   surfaces on hover and focus so the room does not grow a column of
+   buttons beside every message. */
+.chat-msg-who{
+  display:flex;align-items:baseline;gap:9px;
+  background:none;border:none;padding:0;margin:0;
+  font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:6px;
+}
+.chat-msg-who .chat-msg-handle{text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px;transition:text-decoration-color .15s}
+.chat-msg-who:hover .chat-msg-handle,
+.chat-msg-who:focus-visible .chat-msg-handle{text-decoration-color:currentColor}
+.chat-msg-dm{
+  font-size:.64rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--accent);background:rgba(239,68,68,.1);
+  border:1px solid rgba(239,68,68,.28);border-radius:999px;padding:1px 7px;
+  opacity:0;transition:opacity .15s;
+}
+.chat-msg-who:hover .chat-msg-dm,
+.chat-msg-who:focus-visible .chat-msg-dm{opacity:1}
+@media (hover:none){ .chat-msg-dm{opacity:1} }
 .chat-msg-mine .chat-msg-handle{color:#22c55e}
 .chat-msg-time{font-size:.72rem;color:var(--text-ghost)}
 .chat-msg-text{font-size:1rem;line-height:1.5;margin-top:1px;word-wrap:break-word;overflow-wrap:anywhere}
@@ -478,6 +499,7 @@ em,i{font-style:normal}
     active: null,         // { id, participants, participantInfo, isGroup, groupName }
     peerRead: false,
     commonsStarted: false,
+    room: null,           // community-chat.js handle, for refresh()
   };
 
   function escHtml(s){
@@ -572,7 +594,7 @@ em,i{font-style:normal}
       $('cxCommonsScroll').innerHTML = '<div class="chat-empty">The room could not load. Refresh and it should come back.</div>';
       return;
     }
-    window.DEBATEAI_CHAT.init({
+    state.room = window.DEBATEAI_CHAT.init({
       scroller:    $('cxCommonsScroll'),
       handleEl:    $('cxHandle'),
       inputEl:     $('cxRoomInput'),
@@ -580,7 +602,21 @@ em,i{font-style:normal}
       rerollBtn:   $('cxReroll'),
       newPill:     $('cxNewPill'),
       charCountEl: $('cxCount'),
-    });
+      // A handle is a pseudonym, so the room could be full of people
+      // offering rounds with no way to answer one. The token is what
+      // makes the server return posters' uids; clicking a name drops
+      // straight into the DM sidebar this page already runs. Named
+      // accounts only, both ends, same as every other DM here.
+      authToken: function(){
+        var u = fbAuth && fbAuth.currentUser;
+        if (!u || u.isAnonymous || typeof u.getIdToken !== 'function') return Promise.resolve(null);
+        return u.getIdToken().catch(function(){ return null; });
+      },
+      onDm: function(uid, name, photo){
+        startDmWith(uid, name, photo);
+        try { gtag('event', 'chat_commons_dm', {}); } catch(e){}
+      },
+    }) || null;
     state.commonsStarted = true;
     try { gtag('event', 'chat_open_commons', {}); } catch(e){}
   }
@@ -1045,6 +1081,9 @@ em,i{font-style:normal}
     fbAuth.onAuthStateChanged(function(u){
       state.user = u || null;
       renderThreadList();
+      // The room asks the server who we are on every poll. Nudge it so
+      // signing in reveals the Message buttons now, not a poll later.
+      if (state.room && state.room.refresh) state.room.refresh();
       if (u){
         startThreadFeed();
       } else {
