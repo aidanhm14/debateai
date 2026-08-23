@@ -392,51 +392,61 @@
   function injectStyles() {
     if (document.getElementById('da-bell-styles')) return;
     var css =
-      '.ui-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;margin-right:6px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;transition:color .15s,border-color .15s,background .15s;font-family:inherit}' +
+      /* Component-local palette, so the widget carries its own theme instead of
+         borrowing the page's. These rules used to read ui.css tokens directly,
+         and a handful of pages that are authored LIGHT do not load /css/ui.css
+         (tournaments, several SEO pages) -- so every token fell through to its
+         dark literal and painted a black panel on cream. The light arm keys off
+         the html attributes the pre-paint theme script already writes, which is
+         present on every page whether or not ui.css is. */
+      ':root{--dab-surface:#17171b;--dab-elev:#212127;--dab-border:rgba(255,255,255,.11);--dab-border-strong:rgba(255,255,255,.24);--dab-text:#fff;--dab-dim:rgba(255,255,255,.72);--dab-ghost:rgba(255,255,255,.55);--dab-accent:var(--accent,#ef4444);--dab-ok:var(--success-text,#4ade80);--dab-unread:rgba(239,68,68,.09);--dab-shadow:0 20px 64px rgba(0,0,0,.52)}' +
+      'html[data-theme="crimson"],body.crimson-theme{--dab-surface:#1a0a0a;--dab-elev:#241111;--dab-border:rgba(239,68,68,.16);--dab-border-strong:rgba(239,68,68,.3)}' +
+      'html[data-theme="light"],html[data-lighting="light"],body.light-theme{--dab-surface:#fffdf8;--dab-elev:#f3efe5;--dab-border:rgba(23,23,22,.12);--dab-border-strong:rgba(23,23,22,.26);--dab-text:#171716;--dab-dim:rgba(23,23,22,.70);--dab-ghost:rgba(23,23,22,.60);--dab-accent:#b91c1c;--dab-ok:#166534;--dab-unread:rgba(185,28,28,.07);--dab-shadow:0 2px 4px rgba(22,19,14,.06),0 24px 60px rgba(22,19,14,.18)}' +
+      '.ui-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;margin-right:6px;border-radius:999px;background:transparent;border:1px solid var(--dab-border);color:var(--dab-dim);cursor:pointer;transition:color .15s,border-color .15s,background .15s;font-family:inherit}' +
       '.ui-bell--round{flex:0 0 auto;margin-right:0}' +
-      '.ui-bell:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
-      '.ui-bell.has-unread{color:var(--accent,#ef4444);border-color:var(--accent,#ef4444)}' +
-      '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
-      '.ui-bell-badge{position:absolute;top:-3px;right:-3px;z-index:3;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent,#ef4444);color:#fff;font-size:.58rem;font-weight:800;line-height:15px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--bar-bg,#0a0a0c)}' +
+      '.ui-bell:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
+      '.ui-bell.has-unread{color:var(--dab-accent);border-color:var(--dab-accent)}' +
+      '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:var(--dab-surface);box-shadow:var(--dab-shadow)}' +
+      '.ui-bell-badge{position:absolute;top:-3px;right:-3px;z-index:3;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--dab-accent);color:#fff;font-size:.58rem;font-weight:800;line-height:15px;text-align:center;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1.5px var(--bar-bg,var(--dab-surface))}' +
       '.ui-bell-badge[hidden]{display:none}' +
-      '.ui-bell-panel{position:fixed;top:0;right:0;width:400px;max-width:calc(100vw - 24px);max-height:calc(100vh - 88px);display:flex;flex-direction:column;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:16px;box-shadow:0 20px 64px rgba(0,0,0,.52);overflow:hidden;z-index:99998;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
+      '.ui-bell-panel{position:fixed;top:0;right:0;width:400px;max-width:calc(100vw - 24px);max-height:calc(100vh - 88px);display:flex;flex-direction:column;background:var(--dab-surface);border:1px solid var(--dab-border);border-radius:16px;box-shadow:var(--dab-shadow);overflow:hidden;z-index:99998;text-align:left;cursor:default;animation:daBellIn .16s ease-out}' +
       '@keyframes daBellIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}' +
-      '.ui-bell-panel__bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:15px 16px 13px;border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
-      '.ui-bell-panel__title{font-size:1rem;font-weight:850;letter-spacing:-.01em;color:var(--text,#fff)}' +
-      '.ui-bell-panel__hint{font-size:.68rem;font-weight:700;color:var(--text-ghost,#888)}' +
+      '.ui-bell-panel__bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;padding:15px 16px 13px;border-bottom:1px solid var(--dab-border)}' +
+      '.ui-bell-panel__title{font-size:1rem;font-weight:850;letter-spacing:-.01em;color:var(--dab-text)}' +
+      '.ui-bell-panel__hint{font-size:.68rem;font-weight:700;color:var(--dab-ghost)}' +
       '.ui-bell-panel__scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}' +
       '.ui-bell-panel .ui-bell-list{max-height:none;overflow:visible}' +
-      '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost,#888);border-bottom:1px solid var(--border,rgba(255,255,255,.08))}' +
-      '.ui-bell-head--mid{border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
-      '.ui-bell-empty{padding:22px 16px;text-align:center;font-size:.8rem;color:var(--text-dim,#9aa);line-height:1.5}' +
+      '.ui-bell-head{padding:12px 14px 10px;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--dab-ghost);border-bottom:1px solid var(--dab-border)}' +
+      '.ui-bell-head--mid{border-top:1px solid var(--dab-border)}' +
+      '.ui-bell-empty{padding:22px 16px;text-align:center;font-size:.8rem;color:var(--dab-dim);line-height:1.5}' +
       '.ui-bell-list{max-height:340px;overflow-y:auto}' +
-      '.ui-bell-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border,rgba(255,255,255,.06));text-decoration:none;color:inherit;transition:background .12s}' +
-      '.ui-bell-row:hover{background:var(--bg-elev,#101014)}' +
-      '.ui-bell-row.is-unread{background:linear-gradient(90deg,rgba(239,68,68,.08),transparent 70%)}' +
+      '.ui-bell-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--dab-border);text-decoration:none;color:inherit;transition:background .12s}' +
+      '.ui-bell-row:hover{background:var(--dab-elev)}' +
+      '.ui-bell-row.is-unread{background:linear-gradient(90deg,var(--dab-unread),transparent 70%)}' +
       '.ui-bell-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;object-fit:cover;display:inline-flex;align-items:center;justify-content:center}' +
-      '.ui-bell-av--blank{background:var(--bg-elev,#101014);border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);font-size:.74rem;font-weight:800}' +
+      '.ui-bell-av--blank{background:var(--dab-elev);border:1px solid var(--dab-border);color:var(--dab-dim);font-size:.74rem;font-weight:800}' +
       '.ui-bell-row__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}' +
-      '.ui-bell-row__name{font-size:.82rem;font-weight:700;color:var(--text,#fff);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-      '.ui-bell-dot{width:7px;height:7px;border-radius:50%;background:var(--accent,#ef4444);flex-shrink:0}' +
-      '.ui-bell-row__preview{font-size:.74rem;color:var(--text-dim,#9aa);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
-      '.ui-bell-row__time{font-size:.66rem;color:var(--text-ghost,#888);flex-shrink:0}' +
-      '.ui-bell-foot{display:block;flex-shrink:0;padding:12px 14px;text-align:center;font-size:.78rem;font-weight:700;color:var(--accent,#ef4444);text-decoration:none;border-top:1px solid var(--border,rgba(255,255,255,.08))}' +
-      '.ui-bell-foot:hover{background:var(--bg-elev,#101014)}' +
+      '.ui-bell-row__name{font-size:.82rem;font-weight:700;color:var(--dab-text);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.ui-bell-dot{width:7px;height:7px;border-radius:50%;background:var(--dab-accent);flex-shrink:0}' +
+      '.ui-bell-row__preview{font-size:.74rem;color:var(--dab-dim);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
+      '.ui-bell-row__time{font-size:.66rem;color:var(--dab-ghost);flex-shrink:0}' +
+      '.ui-bell-foot{display:block;flex-shrink:0;padding:12px 14px;text-align:center;font-size:.78rem;font-weight:700;color:var(--dab-accent);text-decoration:none;border-top:1px solid var(--dab-border)}' +
+      '.ui-bell-foot:hover{background:var(--dab-elev)}' +
       '#da-bell-toasts{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;z-index:9999;display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100vw - 24px));transform:translateX(-50%);pointer-events:none}' +
-      '.da-bell-toast{display:flex;align-items:center;gap:11px;width:100%;padding:12px 15px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);border:1px solid var(--border-strong,rgba(239,68,68,.3));border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 1px rgba(239,68,68,.08);text-decoration:none;color:inherit;pointer-events:auto;opacity:0;transform:translateY(-24px) scale(.97);transition:opacity .26s ease,transform .32s cubic-bezier(.2,.8,.2,1)}' +
+      '.da-bell-toast{display:flex;align-items:center;gap:11px;width:100%;padding:12px 15px;background:var(--dab-surface);border:1px solid var(--dab-border-strong);border-radius:14px;box-shadow:var(--dab-shadow);text-decoration:none;color:inherit;pointer-events:auto;opacity:0;transform:translateY(-24px) scale(.97);transition:opacity .26s ease,transform .32s cubic-bezier(.2,.8,.2,1)}' +
       '.da-bell-toast.in{opacity:1;transform:translateY(0) scale(1)}' +
-      '.da-bell-toast img,.da-bell-toast__blank{width:32px;height:32px;border-radius:50%;flex-shrink:0;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--bg-elev,#101014);border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);font-size:.78rem;font-weight:800}' +
+      '.da-bell-toast img,.da-bell-toast__blank{width:32px;height:32px;border-radius:50%;flex-shrink:0;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--dab-elev);border:1px solid var(--dab-border);color:var(--dab-dim);font-size:.78rem;font-weight:800}' +
       '.da-bell-toast__main{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0}' +
-      '.da-bell-toast__eyebrow{font-size:.58rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--accent,#ef4444)}' +
-      '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--text,#fff)}' +
-      '.da-bell-toast__preview{font-size:.78rem;color:var(--text-dim,#9aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.da-bell-toast__eyebrow{font-size:.58rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--dab-accent)}' +
+      '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--dab-text)}' +
+      '.da-bell-toast__preview{font-size:.78rem;color:var(--dab-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '@media(max-width:560px){.ui-bell-panel{width:auto;max-width:none}.ui-bell-panel__hint{display:none}}' +
       '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}}' +
-      '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--border,rgba(255,255,255,.12));color:var(--text-dim,#9aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
-      '.da-spar-pill:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.24))}' +
-      '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--text-ghost,#888);transition:background .2s}' +
-      '.da-spar-pill.is-on{color:var(--success-text,#4ade80);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
+      '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--dab-border);color:var(--dab-dim);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
+      '.da-spar-pill:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
+      '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--dab-ghost);transition:background .2s}' +
+      '.da-spar-pill.is-on{color:var(--dab-ok);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
       '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#166534;border-color:rgba(22,101,52,.5);background:rgba(22,101,52,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
       '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
@@ -444,28 +454,28 @@
       // no .ui-topbar-right to mount into, so the pill floats beside the
       // bell's own floating chip rather than never appearing. Right offset
       // clears the bell (right:16px, ~36px wide) plus a gap.
-      '.da-spar-pill--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:62px;z-index:99996;height:36px;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#15151a);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
+      '.da-spar-pill--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:62px;z-index:99996;height:36px;background:var(--dab-surface);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
       '@media(max-width:560px){.da-spar-pill--floating .da-spar-pill__lab{display:none}.da-spar-pill--floating{padding:0 11px;right:58px}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:daMatchFade .2s ease-out}' +
       '@keyframes daMatchFade{from{opacity:0}to{opacity:1}}' +
-      '.da-match-card{width:340px;max-width:88vw;background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);border:1px solid rgba(34,197,94,.4);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:24px 22px;text-align:center;animation:daMatchPop .24s cubic-bezier(.2,.8,.2,1)}' +
+      '.da-match-card{width:340px;max-width:88vw;background:var(--dab-surface);border:1px solid rgba(34,197,94,.4);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:24px 22px;text-align:center;animation:daMatchPop .24s cubic-bezier(.2,.8,.2,1)}' +
       '@keyframes daMatchPop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}' +
       '.da-match-eyebrow{font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#22c55e;margin-bottom:12px}' +
       '.da-match-ring{position:relative;width:72px;height:72px;margin:0 auto 14px}' +
       '.da-match-ring svg{transform:rotate(-90deg);width:72px;height:72px}' +
-      '.da-match-ring__track{fill:none;stroke:rgba(255,255,255,.12);stroke-width:5}' +
+      '.da-match-ring__track{fill:none;stroke:var(--dab-border-strong);stroke-width:5}' +
       '.da-match-ring__bar{fill:none;stroke:#22c55e;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1s linear}' +
-      '.da-match-av{position:absolute;inset:8px;width:56px;height:56px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;background:var(--bg-elev,#101014);border:1px solid var(--border,rgba(255,255,255,.14));color:var(--text,#fff);font-size:1.3rem;font-weight:800}' +
-      '.da-match-ring__num{position:absolute;right:-3px;bottom:-3px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#22c55e;color:#06210f;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg-card,#15151a)}' +
-      '.da-match-name{font-size:1.05rem;font-weight:800;color:var(--text,#fff);margin-bottom:3px}' +
-      '.da-match-sub{font-size:.8rem;color:var(--text-dim,#9aa);margin-bottom:18px}' +
+      '.da-match-av{position:absolute;inset:8px;width:56px;height:56px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;background:var(--dab-elev);border:1px solid var(--dab-border);color:var(--dab-text);font-size:1.3rem;font-weight:800}' +
+      '.da-match-ring__num{position:absolute;right:-3px;bottom:-3px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#22c55e;color:#06210f;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--dab-surface)}' +
+      '.da-match-name{font-size:1.05rem;font-weight:800;color:var(--dab-text);margin-bottom:3px}' +
+      '.da-match-sub{font-size:.8rem;color:var(--dab-dim);margin-bottom:18px}' +
       '.da-match-btns{display:flex;gap:10px}' +
       '.da-match-btn{flex:1;height:44px;border-radius:11px;font-family:inherit;font-size:.86rem;font-weight:800;cursor:pointer;border:1px solid transparent;transition:filter .15s,background .15s,border-color .15s}' +
       '.da-match-btn--accept{background:#22c55e;color:#06210f}' +
       '.da-match-btn--accept:hover{filter:brightness(1.08)}' +
-      '.da-match-btn--decline{background:transparent;border-color:var(--border,rgba(255,255,255,.16));color:var(--text-dim,#9aa)}' +
-      '.da-match-btn--decline:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.28))}' +
+      '.da-match-btn--decline{background:transparent;border-color:var(--dab-border);color:var(--dab-dim)}' +
+      '.da-match-btn--decline:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
       // "They already said yes." consents[peer] has been on this doc
       // since the ready-check shipped and the card never read it, so a
       // debater standing in an open room waiting on one click looked
@@ -482,10 +492,10 @@
       // of a window, nothing but a Cancel button to press. Same fix as
       // /spar's consent wait — say what is happening as it happens, and
       // say that leaving is not the only way out.
-      '.da-match-phase{font-size:.76rem;font-weight:600;color:var(--text-dim,#9aa);min-height:1.1em;margin-bottom:10px;animation:daMatchPhase .3s ease both}' +
+      '.da-match-phase{font-size:.76rem;font-weight:600;color:var(--dab-dim);min-height:1.1em;margin-bottom:10px;animation:daMatchPhase .3s ease both}' +
       '@keyframes daMatchPhase{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}' +
-      '.da-match-hold{font-size:.74rem;line-height:1.5;color:var(--text-dim,#9aa);background:rgba(127,127,127,.09);border:1px solid var(--border,rgba(255,255,255,.14));border-radius:11px;padding:9px 12px;margin-bottom:14px}' +
-      '.da-match-hold b{color:var(--text,#fff);font-weight:800}' +
+      '.da-match-hold{font-size:.74rem;line-height:1.5;color:var(--dab-dim);background:rgba(127,127,127,.09);border:1px solid var(--dab-border);border-radius:11px;padding:9px 12px;margin-bottom:14px}' +
+      '.da-match-hold b{color:var(--dab-text);font-weight:800}' +
       '.da-match-ring.is-wait .da-match-ring__bar{stroke-dasharray:60 141;transition:none;animation:daMatchSpin 1.4s linear infinite;transform-origin:50% 50%}' +
       '@keyframes daMatchSpin{to{transform:rotate(360deg)}}' +
       // Stand down while a sign-in modal is open so mobile never stacks
@@ -1093,7 +1103,7 @@
     function updateRowHtml(u) {
       var isNew = (u.id || 0) > seenSnapshot;
       var inner =
-        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--dab-accent)">' +
           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>' +
         '</span>' +
         '<span class="ui-bell-row__main">' +
@@ -1121,10 +1131,10 @@
         // crossed-swords glyph: "open debate challenge"
         : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 21 11l-2.5-2.5L12 15"/><path d="M9.5 6.5 3 13l2.5 2.5L12 9"/><path d="m21 3-5 1-1 5M3 21l5-1 1-5"/></svg>';
       var preview = escHtml(a.label || '');
-      if (a.motion) preview += ' <span style="color:var(--text-ghost,#888)">· ' + escHtml(a.motion) + '</span>';
+      if (a.motion) preview += ' <span style="color:var(--dab-ghost)">· ' + escHtml(a.motion) + '</span>';
       var cls = 'ui-bell-row' + (isNew ? ' is-unread' : '');
       return '<a class="' + cls + '" href="' + escHtml(a.href || '/live') + '">' +
-        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' + iconSvg + '</span>' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--dab-accent)">' + iconSvg + '</span>' +
         '<span class="ui-bell-row__main">' +
           '<span class="ui-bell-row__name">' + escHtml(a.name || 'A debater') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
           '<span class="ui-bell-row__preview">' + preview + '</span>' +
@@ -1139,12 +1149,12 @@
       var isNew = (r.when || 0) > replySeenSnapshot;
       var when = r.when ? relTime(r.when) : '';
       return '<a class="ui-bell-row' + (isNew ? ' is-unread' : '') + '" href="/community#thread=' + encodeURIComponent(r.threadId) + '">' +
-        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--accent,#ef4444)">' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--dab-accent)">' +
           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
         '</span>' +
         '<span class="ui-bell-row__main">' +
           '<span class="ui-bell-row__name">' + escHtml(r.name) + ' replied' + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
-          '<span class="ui-bell-row__preview">' + escHtml(r.content.slice(0, 90)) + (r.threadTitle ? ' <span style="color:var(--text-ghost,#888)">· re: ' + escHtml(r.threadTitle.slice(0, 60)) + '</span>' : '') + '</span>' +
+          '<span class="ui-bell-row__preview">' + escHtml(r.content.slice(0, 90)) + (r.threadTitle ? ' <span style="color:var(--dab-ghost)">· re: ' + escHtml(r.threadTitle.slice(0, 60)) + '</span>' : '') + '</span>' +
         '</span>' +
         '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
       '</a>';
@@ -1176,15 +1186,15 @@
     function liveAlertRowHtml() {
       var on = daGetLiveAlerts();
       return '<button type="button" id="daLiveAlertToggle" class="ui-bell-la" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
-        'style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--border,rgba(255,255,255,.06));background:transparent;color:inherit;cursor:pointer;text-align:left;font-family:inherit">' +
-        '<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:' + (on ? 'rgba(34,197,94,.14)' : 'var(--bg-elev,#101014)') + ';color:' + (on ? '#22c55e' : 'var(--text-dim,#9aa)') + '">' +
+        'style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--dab-border);background:transparent;color:inherit;cursor:pointer;text-align:left;font-family:inherit">' +
+        '<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:' + (on ? 'rgba(34,197,94,.14)' : 'var(--dab-elev)') + ';color:' + (on ? '#22c55e' : 'var(--dab-dim)') + '">' +
           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
         '</span>' +
         '<span style="flex:1;min-width:0">' +
-          '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--text,#fff)">Alert me when rounds are forming</span>' +
-          '<span style="display:block;font-size:.82rem;color:var(--text-dim,#9aa)">Get pinged when a debater goes live, even in another app</span>' +
+          '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--dab-text)">Alert me when rounds are forming</span>' +
+          '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">Get pinged when a debater goes live, even in another app</span>' +
         '</span>' +
-        '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--border,rgba(255,255,255,.18))') + '">' +
+        '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--dab-border-strong)') + '">' +
           '<span style="position:absolute;top:2px;left:' + (on ? '17px' : '2px') + ';width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s"></span>' +
         '</span>' +
       '</button>';
@@ -1271,8 +1281,8 @@
       }
       if (!hasRows) {
         html += '<div class="ui-bell-empty">Quiet right now.<br>' +
-                '<a href="/live" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Post a challenge</a>' +
-                ' or <a href="/spar" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
+                '<a href="/live" style="color:var(--dab-accent);text-decoration:none;font-weight:700">Post a challenge</a>' +
+                ' or <a href="/spar" style="color:var(--dab-accent);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
       }
       return html;
     }
@@ -1289,7 +1299,7 @@
         return html;
       }
       return showEmpty
-        ? '<div class="ui-bell-head ui-bell-head--mid">Replies</div><div class="ui-bell-empty">No replies yet.<br><a href="/community" style="color:var(--accent,#ef4444);text-decoration:none;font-weight:700">Start a community thread</a> to open the conversation.</div>'
+        ? '<div class="ui-bell-head ui-bell-head--mid">Replies</div><div class="ui-bell-empty">No replies yet.<br><a href="/community" style="color:var(--dab-accent);text-decoration:none;font-weight:700">Start a community thread</a> to open the conversation.</div>'
         : '';
     }
 
