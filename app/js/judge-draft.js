@@ -116,7 +116,7 @@
       + '<circle cx="24" cy="24" r="22.2" fill="' + esc(c) + '" fill-opacity=".09"/>'
       + '<g clip-path="url(#' + id + ')" fill="none" stroke="' + esc(c) + '">' + motif + '</g>'
       + '<text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="' + esc(c) + '"'
-      + ' font-family="\'Crimson Pro\',\'EB Garamond\',Georgia,serif" font-size="' + (mark.length > 1 ? 17 : 23) + '" font-weight="600"'
+      + ' font-family="\'Source Serif 4\',Georgia,serif" font-size="' + (mark.length > 1 ? 17 : 23) + '" font-weight="600"'
       + ' letter-spacing="0.5">' + esc(mark) + '</text>'
       + '<circle cx="24" cy="24" r="22.2" fill="none" stroke="' + esc(c) + '" stroke-opacity=".5" stroke-width="1.2"/>'
       + '</svg>';
@@ -304,8 +304,8 @@
     '.jb-card-top{display:flex;align-items:center;gap:11px}',
     '.jb-card-id{min-width:0}',
     '.jb-read{font-size:.8rem;font-weight:600;color:var(--jbc,#9ca3af);margin-top:2px}',
-    '.jb-card .arc-opt-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.08rem;font-weight:600}',
-    '.jb-strip-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif}',
+    '.jb-card .arc-opt-name{font-family:\'Source Serif 4\',Georgia,serif;font-size:1.08rem;font-weight:600}',
+    '.jb-strip-name{font-family:\'Source Serif 4\',Georgia,serif}',
     '.jb-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
     '.jb-strip-btn{display:flex;align-items:center;gap:7px;padding:5px 11px 5px 5px;border-radius:999px;',
     'background:var(--bg-card,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.12));',
@@ -341,11 +341,11 @@
     '.jb-sheet-head{display:flex;align-items:center;gap:13px;padding:0 34px 14px 0;',
     'border-bottom:1px solid var(--border,rgba(255,255,255,.12));margin-bottom:16px}',
     '.jb-sheet-seat{font-size:.76rem;opacity:.6;margin-top:2px}',
-    '.jb-sheet-name{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.5rem;',
+    '.jb-sheet-name{font-family:\'Source Serif 4\',Georgia,serif;font-size:1.5rem;',
     'font-weight:600;margin:0;letter-spacing:-.01em}',
     /* The paradigm itself, set as text somebody wrote rather than a
        panel of labelled fields. */
-    '.jb-note{font-family:\'Crimson Pro\',\'EB Garamond\',Georgia,serif;font-size:1.02rem;line-height:1.62}',
+    '.jb-note{font-family:\'Source Serif 4\',Georgia,serif;font-size:1.02rem;line-height:1.62}',
     '.jb-note p{margin:0 0 11px}',
     '.jb-note p:last-child{margin-bottom:0}',
     '.jb-practice{margin:18px 0 0;padding:14px 0 2px;border-top:1px solid var(--border,rgba(255,255,255,.12));',

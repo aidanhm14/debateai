@@ -134,7 +134,7 @@
     root.id = 'tcRoot';
     root.innerHTML =
       '<style>' +
-      '#tcRoot{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;' +
+      '#tcRoot{position:fixed;inset:0;z-index:2147483050;display:flex;align-items:center;' +
         'justify-content:center;padding:20px;background:rgba(0,0,0,.62);backdrop-filter:blur(3px)}' +
       '#tcCard{width:min(100%,460px);border-radius:16px;padding:24px;background:#0d0d10;' +
         'border:1px solid rgba(255,255,255,.14);box-shadow:0 24px 70px rgba(0,0,0,.6);' +

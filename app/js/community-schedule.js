@@ -77,13 +77,13 @@
     var cards = rounds.map(function(r){
       var soon = r.startAt - now < SOON_MS && r.startAt + 2*60*60*1000 > now;
       var others = r.rsvpCount > 1
-        ? r.rsvpCount + ' in — ' + r.names.slice(0, 4).map(esc).join(', ') + (r.rsvpCount > 4 ? '…' : '')
+        ? r.rsvpCount + ' in: ' + r.names.slice(0, 4).map(esc).join(', ') + (r.rsvpCount > 4 ? '…' : '')
         : 'just the host so far';
       return '' +
         '<div class="sched-card' + (soon ? ' sched-soon' : '') + '" data-id="' + esc(r.id) + '">' +
           '<div class="sched-when">' + (soon ? '<span class="sched-live-dot"></span>starting soon' : esc(fmtWhen(r.startAt))) + '</div>' +
           '<div class="sched-main">' +
-            '<div class="sched-motion">' + (r.motion ? esc(r.motion) : '<span class="sched-tbd">Motion TBD — host’s pick</span>') + '</div>' +
+            '<div class="sched-motion">' + (r.motion ? esc(r.motion) : '<span class="sched-tbd">Motion TBD, host’s pick</span>') + '</div>' +
             '<div class="sched-meta">' + esc(FORMAT_LABELS[r.format] || r.format) + ' · hosted by ' + esc(r.hostHandle) + ' · ' + esc(others) + '</div>' +
           '</div>' +
           '<div class="sched-actions">' +
@@ -104,14 +104,14 @@
         '</div>' +
         '<button class="btn" id="schedProposeBtn">+ Propose a round</button>' +
       '</div>' +
-      (cards || '<div class="sched-empty">Nothing scheduled yet. Propose the first round — it takes ten seconds and anyone can join you.</div>') +
+      (cards || '<div class="sched-empty">Nothing scheduled yet. Propose the first round. It takes ten seconds and anyone can join you.</div>') +
       '<form class="sched-form" id="schedForm" style="display:none">' +
         '<select id="schedFormat" class="sched-input" aria-label="Format">' +
           Object.keys(FORMAT_LABELS).map(function(k){
             return '<option value="' + k + '">' + esc(FORMAT_LABELS[k]) + '</option>';
           }).join('') +
         '</select>' +
-        '<input id="schedMotion" class="sched-input sched-input-wide" type="text" maxlength="200" placeholder="Motion (optional — decide at the table)">' +
+        '<input id="schedMotion" class="sched-input sched-input-wide" type="text" maxlength="200" placeholder="Motion (optional, decide at the table)">' +
         '<input id="schedWhen" class="sched-input" type="datetime-local" aria-label="Start time" required>' +
         '<button type="submit" class="btn primary">Post it</button>' +
         '<span class="sched-as">as <b>' + esc(myHandle()) + '</b></span>' +

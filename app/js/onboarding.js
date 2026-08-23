@@ -25,7 +25,7 @@
   if (window.__ditOnboarding) return;
   window.__ditOnboarding = true;
 
-  var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore-compat.js';
+  var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
   var VERSION = 2;
 
   var STEPS = [
