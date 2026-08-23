@@ -335,6 +335,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   BOTH are `display:none` on the shipped hero arm, so the pool change is
   latent. The first-screen ROUNDS board is the one face surface a visitor
   actually sees; re-cast that if you want a visible change.
+  **2026-08-22: the ROUNDS board is REAL STILLS ONLY** (Aidan: the
+  generated faces "look ai"). Every seat in all 34 entries is one of the
+  eight consented people plus the Anonymous avatar on its one motion;
+  the generated bank is dormant in castFaces, not deleted. The visible
+  cast is therefore all male until a new consented batch exists; do not
+  fix that by reintroducing generated faces.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
