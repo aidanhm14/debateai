@@ -270,24 +270,75 @@
   //   - it survives prefers-reduced-motion (see isMuted's note),
   //   - it stays a clean rising fourth, not a klaxon. This fires while
   //     someone is working in another tab; it should read as a doorbell.
-  // `times` (default 3) is the number of repeats. Callers with a longer
+  // `times` (default 2) is the number of RINGS. Callers with a longer
   // window (round starting) can ask for more.
   // The loudest cue on the site by design, but bounded: the two
   // simultaneous tones sum to (0.30 + 0.42) * 0.45 ≈ 0.32 peak, roughly
   // 6x the DM ping and ~3x the end-of-speech buzzer, nowhere near clipping.
   // Loud enough to carry from the next room, quiet enough not to make
   // someone sitting at the machine jump.
+  //
+  // A ring is ONE gesture, and the gap between rings is what makes it a
+  // doorbell instead of an alarm. This used to repeat every 520ms with a
+  // note 150ms into each repeat, so the beats landed at alternating
+  // 150/370ms — no gap anywhere long enough to hear as a pause, which
+  // read as one continuous stutter rather than a ring repeated. The two
+  // numbers below are the fix and they are load-bearing: RING_MS must
+  // stay comfortably longer than the ~570ms the ring itself takes to
+  // decay, or the rings run together again.
   var ALERT_GAIN = 0.45;
+  var RING_MS = 1150;
+  var RING_S = RING_MS / 1000;
+  // Earliest ctx time the next ring may start. This is what stops two
+  // callers firing on the same event (a match landing while the peer has
+  // already accepted fires showMatch AND markPeerAccepted within the same
+  // tick) from doubling up into a machine-gun.
+  var nextRingAt = 0;
+  function ring(delayMs){
+    // Low body so the ping has weight through laptop speakers.
+    tone({ freq: 330, dur: 0.20, peak: 0.30, type: 'triangle', gain: ALERT_GAIN, urgent: true, delayMs: delayMs });
+    // Rising fourth on top — the part that actually carries. The second
+    // note lands while the first is still decaying, so the pair reads as
+    // one "ding-dong" rather than two separate beeps.
+    tone({ freq: 880,  dur: 0.22, peak: 0.42, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: delayMs });
+    tone({ freq: 1174.66, dur: 0.38, peak: 0.46, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: delayMs + 190 });
+  }
+  function schedule(n){
+    var c = getCtx();
+    if (!c) return;
+    var now = c.currentTime;
+    // Queue behind whatever is already scheduled rather than playing over
+    // it...
+    var startAt = Math.max(now, nextRingAt);
+    // ...but never build a backlog: a caller that re-fires while a full
+    // sequence is still pending is telling us about an event we are
+    // already ringing for. Drop it instead of extending the alarm.
+    if (startAt - now > RING_S) return;
+    for (var i = 0; i < n; i++) ring((startAt - now) * 1000 + i * RING_MS);
+    nextRingAt = startAt + n * RING_S;
+  }
   function alert(times){
-    var n = Math.max(1, Math.min(6, times || 3));
-    for (var i = 0; i < n; i++) {
-      var at = i * 520;
-      // Low body so the ping has weight through laptop speakers.
-      tone({ freq: 330, dur: 0.16, peak: 0.30, type: 'triangle', gain: ALERT_GAIN, urgent: true, delayMs: at });
-      // Rising fourth on top — the part that actually carries.
-      tone({ freq: 880,  dur: 0.16, peak: 0.42, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: at });
-      tone({ freq: 1174.66, dur: 0.30, peak: 0.46, type: 'sine', gain: ALERT_GAIN, urgent: true, delayMs: at + 150 });
-    }
+    // Alert tones are all urgent:true, so tone() would gate them on
+    // isSilenced anyway. Checking here as well keeps a muted user from
+    // paying for an AudioContext they will never hear, which is the whole
+    // reason sfx.js loads lazily.
+    if (isSilenced()) return;
+    var n = Math.max(1, Math.min(4, times || 2));
+    var c = getCtx();
+    if (!c) return;
+    if (c.state === 'running') { schedule(n); return; }
+    // Suspended context: currentTime is frozen, so scheduling the whole
+    // sequence now would pin every ring to a clock that is not moving and
+    // they would all fire together the instant audio unlocks — the same
+    // machine-gun this rewrite exists to remove, just deferred. Wait for
+    // the resume to actually land, then lay the sequence against a live
+    // clock. If it never lands we stay silent, which is what a suspended
+    // context meant regardless.
+    try {
+      var p = c.resume();
+      if (p && p.then) p.then(function(){ schedule(n); }, function(){});
+      else schedule(n);
+    } catch(e){}
   }
 
   // ── Autoplay priming ───────────────────────────────────────────────

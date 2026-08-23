@@ -818,7 +818,7 @@
       lastLivePing = Date.now();
       var who = String(fresh[0].name || 'A debater');
       var more = fresh.length > 1 ? ' and ' + (fresh.length - 1) + ' more' : '';
-      daAlert(daAway() ? 3 : 1);
+      daAlert(daAway() ? 2 : 1);
       daFlashTitle(who + ' is live');
       try {
         if (daCanOsNotify()) {
@@ -1924,7 +1924,7 @@
     function showMatch(d) {
       stopTimers();
       closeOverlay();
-      daAlert(daAway() ? 4 : 2); // repeats, so it carries from another tab/room
+      daAlert(daAway() ? 3 : 1); // repeats only when away, so it carries from another tab/room
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
         if (daCanOsNotify()) {
@@ -2072,7 +2072,7 @@
       // round is this user pressing a button they cannot see. Ping harder
       // than the initial match card and re-flash the title even if the
       // match-found flash was already dismissed by a focus event.
-      daAlert(5);
+      daAlert(daAway() ? 4 : 2);
       daStopFlashTitle();
       daFlashTitle(nm + ' is waiting.');
       try {
@@ -2204,7 +2204,7 @@
       // not watching, so the delay costs nothing, and it is the difference
       // between hearing the round start and walking into a dead clock.
       if (!daAway()) { location.href = href; return; }
-      daAlert(4);
+      daAlert(3);
       try {
         if (daCanOsNotify()) {
           var rn = new Notification('Your round is starting', { body: 'vs ' + ((d && d.matchedWithName) || 'your opponent') + '. Tap to join.', icon: '/favicon.svg', tag: 'da-spar-match' });
