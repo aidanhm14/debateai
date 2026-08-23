@@ -8421,12 +8421,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="hero-globe-canvas-wrap">
           <canvas id="heroGlobeCanvas" class="hero-globe-canvas" aria-label="Rotating globe with pins where debaters have been active in the last 24 hours"></canvas>
         </div>
-        <!-- 2026-08-22: the caption under the globe is gone entirely, per
-             Aidan, in two steps the same evening: first the two padded
-             numbers (visits, Google sign-ups), then the remaining static
-             "People around the world." line. The globe stands alone. The
-             .story-globe-caption CSS rules stay dormant so restoring a
-             caption is re-adding markup, not rebuilding styles. -->
+        <!-- 2026-08-22: the caption under the globe was cut entirely, in
+             two steps the same evening: first the two padded numbers
+             (visits, Google sign-ups), then the remaining static line.
+             2026-08-23, per Aidan: the 24h visit count comes back, and
+             only that one. The sign-up figure stays gone, and so does the
+             static "People around the world." line, so the globe carries
+             exactly one number instead of a stack of labels. The element
+             renders empty until /api/presence-live answers, so a failed
+             fetch leaves the globe standing alone rather than printing a
+             zero. -->
+        <div class="story-globe-caption" id="globeLiveCaption"></div>
       </div>
     </div>
 
@@ -18030,19 +18035,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // populate instead of the handful live at this exact minute. Caption
     // says "active today" and the payload's online24 is the count.
     var LIVE = [];
-    // 2026-08-22: the caption under the globe is GONE, in two steps the
-    // same evening per the founder: first both padded numbers (24h visits,
-    // Google sign-ups), then the remaining static line. The globe stands
-    // alone with no label. Both figures carried declared server-side
-    // floors (PRESENCE_BASELINE / SIGNUP_BASELINE in presence-live.mjs),
-    // which stay because they still shape the pins; the page just stops
-    // printing numbers nothing should quote.
+    // 2026-08-22: the caption under the globe was cut, in two steps the
+    // same evening: first both padded numbers (24h visits, Google
+    // sign-ups), then the remaining static line. 2026-08-23, per Aidan:
+    // the 24h count is back, alone. The sign-up figure is NOT restored.
+    // The word is "visits", not "people": the payload counts SESSIONS,
+    // and a sid is per-tab and per-visit, so one person in two tabs is
+    // two and a return after lunch is two. Do not put a person-noun back
+    // on this number unless presence-live starts counting people.
+    // online24 also carries a declared server-side floor
+    // (PRESENCE_BASELINE in presence-live.mjs), so it is a liveness
+    // caption and not a measurement; never quote it externally.
+    var liveCaption = document.getElementById('globeLiveCaption');
+    function setLiveCaption(count){
+      if (!liveCaption || !(count > 0)) return;
+      liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
+        ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>';
+    }
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
         if (!d) return;
         LIVE = Array.isArray(d.pins) ? d.pins.filter(function(p){
           return typeof p.lat === 'number' && typeof p.lng === 'number';
         }) : [];
+        setLiveCaption(typeof d.online24 === 'number' ? d.online24 :
+          (typeof d.online30 === 'number' ? d.online30 : LIVE.length));
         // Repaint paused/static globes (reduced motion, offscreen) so
         // fresh pins land without waiting on the rAF loop.
         if (!rafId) draw();
