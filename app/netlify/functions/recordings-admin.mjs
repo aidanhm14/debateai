@@ -41,6 +41,7 @@ import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const AUTO_PUBLISH_MIN_SEC = 45;
+const WARM_MAX = 3;   // thumbnails generated per sync pass
 const SITE = 'https://itsdebatable.com';
 // A 640-wide JPEG off the player lands around 40-80KB. 2MB is a wide
 // ceiling that still refuses anything that is not a card image.
@@ -106,6 +107,7 @@ export async function syncFromDaily(db, limit = 100){
   const items = Array.isArray(data.data) ? data.data : [];
   const gone = await deletedIds(db);
   let created = 0, updated = 0, skipped = 0, purged = 0;
+  const warm = [];
   for (const rec of items){
     if (!rec.id) continue;
     // Deleted on purpose. If the mp4 delete failed at Daily, this is the
@@ -136,6 +138,9 @@ export async function syncFromDaily(db, limit = 100){
     // that a human actually gave (every seated debater consented); a
     // stream had no equivalent, so it now waits for the publish press.
     const publishEligible = finished && !isStream && meta.recordingConsentComplete === true;
+    // Worth a thumbnail only once it is actually public and has no
+    // frame yet; a youtubeId supplies its own still, so skip those.
+    const wantsWarm = publishEligible && !(existing.exists && ((existing.data() || {}).thumbnailUrl || (existing.data() || {}).youtubeId));
     const base = {
       roomName: rec.room_name || '',
       startTs: rec.start_ts || 0,          // unix seconds
@@ -155,6 +160,7 @@ export async function syncFromDaily(db, limit = 100){
           publishedAuto: publishEligible,
         } : {}),
       }, { merge: true });
+      if (wantsWarm) warm.push(rec.id);
       updated++;
       continue;
     }
@@ -182,9 +188,39 @@ export async function syncFromDaily(db, limit = 100){
       publishOverridden: false,
       createdAt: FieldValue.serverTimestamp(),
     });
+    if (wantsWarm) warm.push(rec.id);
     created++;
   }
-  return { total: items.length, created, updated, skipped, purged };
+  // Warm the thumbnail for anything that just became public.
+  //
+  // `thumbnailUrl` is only written as a SIDE EFFECT of the first request
+  // to /api/recording-thumb, which happens when a human scrolls past the
+  // card. So a freshly published replay has no thumbnail at the exact
+  // moment it is most likely to be shared: /w/{id}'s og:image and its
+  // VideoObject.thumbnailUrl fall back to the brand card, which is a dull
+  // share preview and is not rich-result eligible. Nudging our own
+  // endpoint once per newly published recording generates the frame and
+  // writes the field before anyone links it.
+  //
+  // Fire and forget, small and bounded: at most WARM_MAX per sync pass,
+  // sequential rather than parallel (each is a ranged 16MB fetch plus an
+  // ffmpeg frame grab, and a burst of those on one function instance is
+  // its own problem), and every failure is swallowed. A missing thumbnail
+  // is a duller card, never a failed sync.
+  if (warm.length) {
+    for (const id of warm.slice(0, WARM_MAX)) {
+      try {
+        await fetch(SITE + '/api/recording-thumb?id=' + encodeURIComponent(id), {
+          method: 'GET',
+          headers: { 'user-agent': 'debatable-thumb-warm' },
+        });
+      } catch (e) {
+        console.warn('[recordings-sync] thumb warm failed for', id, e?.message || e);
+      }
+    }
+  }
+
+  return { total: items.length, created, updated, skipped, purged, warmed: Math.min(warm.length, WARM_MAX) };
 }
 
 // Destroy a recording everywhere it exists. Order matters: the mp4 goes

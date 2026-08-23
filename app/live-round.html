@@ -635,6 +635,8 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #roomShift .rs-thin{margin-top:10px;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
 #roomShift .rs-caveats{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:.68rem;line-height:1.5;color:var(--text-dim)}
 #roomShift .rs-caveats li{margin:2px 0;list-style:none}
+.replay-note{flex-basis:100%;margin:8px 0 0;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
+.replay-note a{color:var(--accent,#ef4444);font-weight:700}
 .rfd strong{font-weight:800}
 /* Round details: the standing chrome (who is in the round, the full
    speech order) folded behind one line, so the live panel reads motion,
@@ -9708,6 +9710,33 @@ html.stage-mode .stage-ov{display:block}
     map.innerHTML = flowMapHtml();
   }
 
+  // A round that was RECORDED never told its debaters so. They agreed to
+  // capture mid-round, the round ended, and nothing afterwards mentioned
+  // that a replay exists or where it goes. That is the whole reason /watch
+  // has no inventory nobody knows about: the people in the round are the
+  // only ones who could share it and they were never told there was
+  // anything to share.
+  //
+  // Deliberately honest about the delay rather than linking a URL that
+  // 404s: Daily has to finish the file and a sync pass has to pick it up,
+  // which is up to about half an hour. A link now would be a broken link.
+  function replayNoteHtml(){
+    if (isSpectator()) return '';
+    var d = cloudRec.doc || {};
+    var ran = d.recordingClosed || ['recording','stopping','processing','stopped','closed']
+      .indexOf(d.recordingStatus || '') >= 0;
+    if (!ran) return '';
+    // Consent withdrawn mid-round means the file is flagged for deletion,
+    // so promising a replay would be the opposite of what was agreed.
+    if (d.recordingPublishAllowed === false){
+      return '<p class="replay-note">This round was not kept. Recording stopped when somebody withdrew, ' +
+        'and the file is deleted rather than published.</p>';
+    }
+    return '<p class="replay-note">You recorded this round. The replay appears on ' +
+      '<a href="/watch">Watch</a> once the file finishes processing, usually within half an hour. ' +
+      'Anyone can watch it; you can ask for it to be taken down at any time.</p>';
+  }
+
   function flowOfferHtml(){
     var notes = state.roundNotes || [];
     var log = (state.log || []).filter(function(l){
@@ -10257,6 +10286,7 @@ html.stage-mode .stage-ov{display:block}
         // round, not just /spar (a /live round that ends in a sharp
         // win is also worth sharing).
         '<button class="btn" id="shareClipBtn" type="button" title="Generate a 9:16 share card with the motion, verdict, and your best line">📲 Share clip</button>' +
+        replayNoteHtml() +
         '<button class="btn" id="publishDiscBtn" type="button" title="Publish your speeches to the public disclosure board so other debaters can read + import them">🌐 Publish to Community</button>' +
         // Next opponent — only surfaces for /spar-sourced rounds.
         // Routes back to the queue, preserving the format so the next
