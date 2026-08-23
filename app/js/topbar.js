@@ -721,7 +721,7 @@
     // on the bar: "Judge" is the paste-a-round tool, "Judging" is how the
     // verdict gets made, and they sit in the same column.
     '/get-paid-to-debate': { desc: 'Prizes, points, and payouts', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M14.4 9.3a2.7 2.7 0 0 0-2.4-1.2c-1.5 0-2.4.8-2.4 1.9 0 2.6 5 1.3 5 3.9 0 1.1-1 1.9-2.6 1.9a2.8 2.8 0 0 1-2.5-1.3M12 6.4v1.7M12 15.8v1.8"/>' },
-    '/judge-integrity':    { desc: 'The rubric, the panel, appeals', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
+    '/judge-integrity':    { desc: 'The rubric, appeals, open to critiques', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
     '/rounds':         { desc: 'Record now, they answer later', icon: '<path d="M16.5 4L20 7.5 16.5 11M20 7.5H7.8M7.5 20L4 16.5 7.5 13M4 16.5h12.2"/>' },
     '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
     '/watch':          { desc: 'Streams, replays, and clips', icon: '<rect x="4" y="5.4" width="16" height="11.6" rx="2.2"/><path d="M10.4 8.8l4.4 2.8-4.4 2.8zM8.2 20.4h7.6"/>' },
