@@ -608,11 +608,14 @@ weight, not a mirror.
   that tempo. Don't ask permission to deploy; just use the worktree flow.
 - For long-running TTS / multi-file changes, prefer running in the Codex
   sandbox (`codex --workdir /tmp/...`) before applying.
-- **The Floor (updated 2026-07-01; RETIRED 2026-08-22):** the whole
-  betting cluster (/floor, /predict, /ladder, /bounties,
-  /bet-on-your-words) now 301s away — betting was removed entirely per
-  the founder, see the 2026-08-22 soul.md decision-log entry. The notes
-  below describe the dormant code, not a live surface.
+- **The Floor (updated 2026-07-01; RETIRED 2026-08-22):** the betting
+  cluster (/floor, /ladder, /bounties, /bet-on-your-words) 301s away —
+  betting was removed per the founder, see the 2026-08-22 soul.md
+  decision-log entry. **EXCEPTION since 2026-08-23: /predict is live
+  again, points-only** ("bring back bet on who will win 'tokens for
+  now'") with its cash-round section hidden and CASH_ROUNDS_LIVE still
+  false. The notes below describe the dormant Floor code, not a live
+  surface.
   Play-money prediction market at
   `/floor.html` (was surfaced on the landing + topbar, `noindex`). Server
   ledger = `app/firestore.rules` (`floor_*` collections) + Netlify fns

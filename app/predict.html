@@ -4,7 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- /predict — a real prediction market on AI-judged debate rounds. POINTS
-     ONLY (virtual, non-redeemable). Backed by the server-authoritative
+     ONLY (virtual, non-redeemable).
+
+     2026-08-23: RESTORED tokens-only after the 2026-08-22 betting removal
+     (the founder: "bring back bet on who will win 'tokens for now'").
+     The MONEY STRUCTURE ladder below is HISTORICAL: the cash-round
+     section and the pot drawer ship hidden, CASH_ROUNDS_LIVE is false,
+     and the free points board is the whole page. Do not resurface the
+     cash lanes without a new decision-log entry. Backed by the server-authoritative
      predict.mjs function + Firestore: real shared pools, real cross-user
      leaderboard, parimutuel settlement. App-run AI markets (a motion with two
      framed sides; the AI judge resolves it at lock) keep the board live with
@@ -38,12 +45,12 @@
 <link rel="icon" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Predict · live debate markets · Debatable">
-<meta property="og:description" content="Predict debate rounds with free points that never turn into money. The cash sits in one place: a prize pot fans fund and debaters win on a published, hashed ballot. No rake, ever.">
+<meta property="og:description" content="Bet on who wins a live debate round with free points. The judge's published, hashed ballot settles every market. Points never turn into money.">
 <meta property="og:url" content="https://itsdebatable.com/predict">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Predict · live debate markets · Debatable">
-<meta name="twitter:description" content="Predict debate rounds with free points that never turn into money. The cash sits in one place: a prize pot fans fund and debaters win on a published, hashed ballot. No rake, ever.">
+<meta name="twitter:description" content="Bet on who wins a live debate round with free points. The judge's published, hashed ballot settles every market. Points never turn into money.">
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -180,6 +187,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 .heromkt .mkt::before{content:'LIVE MARKET';display:block;margin-bottom:9px;
   font-size:.6rem;font-weight:900;letter-spacing:.15em;color:var(--pro,#16a34a)}
 .heromkt[hidden]{display:none}
+  [hidden]{display:none!important}
   .votecard .vq{font-size:1.02rem;font-weight:800;letter-spacing:-.01em;margin-bottom:3px}
   .votecard .vsub{font-family:var(--mono);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
   .vrow{margin-bottom:11px}
@@ -645,23 +653,20 @@ body.has-beta-strip{padding-top:84px}
 <div class="wrap head">
   <div class="head-split">
     <div>
-      <h1>Win the argument. Take the money.</h1>
-      <p>Two people put in the same amount, argue one motion, and <strong>the winner takes the pot.</strong> A written ballot decides it, against a rubric published before the round starts.</p>
-      <div class="ladder" aria-label="The two ways to play">
-        <span class="rung c"><span class="n">1</span><b>Cash round</b><span>pay in, winner takes the pot</span></span>
-        <span class="rung a"><span class="n">2</span><b>Free board</b><span>points only, no cash either way</span></span>
-      </div>
+      <h1>Bet on who wins.</h1>
+      <p>Every round has two sides. Put free points on the one you think takes it, and <strong>the judge’s written decision settles the market.</strong> Fewer people on your side, bigger payout.</p>
+      <!-- 2026-08-23: tokens-only restore (the founder: "bring back bet
+           on who will win 'tokens for now'"). The cash-round rung, the
+           "Play for money" CTA and the money-led h1 came off with the
+           cash section below; the free board is the whole page now. -->
       <div class="head-actions">
         <!-- 2026-08-21: 'Bet' went onto the sitewide rail, so this page
              stopped being somewhere people arrive on purpose and became
-             a front door. The primary action used to be Start a round,
-             which answered a question the visitor did not ask: they
-             clicked Bet, and the first button offered them a debate.
-             The board is the thing they came for. -->
-        <a class="primary" href="#cash">Play for money</a>
-        <a class="secondary" href="#markets">Play free</a>
+             a front door. The board is the thing they came for. -->
+        <a class="primary" href="#markets">See the open markets</a>
+        <a class="secondary" href="/watch">Watch a round</a>
       </div>
-      <p class="pts">Cash rounds are 18 and over. The free board is open to anyone, and points never convert to money in either direction.</p>
+      <p class="pts">Points are free and they never convert to money in either direction. Nothing here takes a card.</p>
       <div class="pts" id="signedOutNote" hidden>Sign in to predict and climb the ladder. <a href="#" id="inlineSignin">Sign in</a></div>
     </div>
     <!-- A real open market, moved up here once the board renders. The
@@ -719,7 +724,11 @@ body.has-beta-strip{padding-top:84px}
        will feel tricked by. The board is served by /api/cash-round;
        the buy-in is a separate explicit checkout, so nothing here
        charges anybody on a click. -->
-  <section class="cash" id="cash" aria-labelledby="cashTitle">
+  <!-- 2026-08-23: HIDDEN with the tokens-only restore. CASH_ROUNDS_LIVE
+       is false in the production env, so this section was advertising a
+       checkout that refuses; it comes back when cash rounds do, by
+       removing the hidden attribute and re-enabling the IIFE below. -->
+  <section class="cash" id="cash" aria-labelledby="cashTitle" hidden>
     <span class="k">Real money</span>
     <h2 id="cashTitle">Cash rounds.</h2>
     <p class="two-lede">Both debaters buy in for the same amount. The winner takes the pot. We take a flat fee at the door, the same from both sides, fixed before anyone knows the result.</p>
@@ -1000,7 +1009,10 @@ body.has-beta-strip{padding-top:84px}
        on now reads hero, cash, board, three closed drawers, pay-band.
        Nothing links into these two sections from anywhere (checked
        origin-wide), so no anchor plumbing is needed. -->
-  <details class="pk-details">
+  <!-- 2026-08-23: HIDDEN with the tokens-only restore. The funding model
+       this drawer describes (passes, sponsor pots, bounties) left the
+       site on 2026-08-22; tournament prizes have their own pages. -->
+  <details class="pk-details" hidden>
     <summary>Where the prize money comes from, and where it goes</summary>
   <section class="pot" aria-label="How the prize pot works">
     <div class="money-field" aria-hidden="true">
@@ -1051,7 +1063,7 @@ body.has-beta-strip{padding-top:84px}
   <section class="legal" aria-labelledby="legalTitle">
     <span class="k">The structure</span>
     <h2 id="legalTitle">A contest, not a casino.</h2>
-    <p>US law treats something as gambling when three things are true together: a <strong>prize</strong>, decided partly by <strong>chance</strong>, that you paid <strong>consideration</strong> to enter. Remove any one and it stops being a wager. Every surface here removes at least one, on purpose, and this is which one.</p>
+    <p>US law treats something as gambling when three things are true together: a <strong>prize</strong>, decided partly by <strong>chance</strong>, that you paid <strong>consideration</strong> to enter. Remove any one and it stops being a wager. The board removes all three, on purpose.</p>
     <div class="ltable" role="table" aria-label="Which leg each surface removes">
       <div class="lrow hd" role="row"><div role="columnheader">Surface</div><div role="columnheader">Prize</div><div role="columnheader">Chance</div><div role="columnheader">You pay</div></div>
       <div class="lrow" role="row">
@@ -1060,18 +1072,9 @@ body.has-beta-strip{padding-top:84px}
         <div role="cell" data-l="Chance">Judged on a rubric</div>
         <div role="cell" data-l="You pay"><span class="no">Nothing.</span> Free, and unbuyable</div>
       </div>
-      <div class="lrow" role="row">
-        <div class="surf" role="cell">Fund a bounty</div>
-        <div role="cell" data-l="Prize"><span class="no">None to you.</span> The pot goes to the two debaters</div>
-        <div role="cell" data-l="Chance">Not applicable, the pot pays for finishing, not for winning</div>
-        <div role="cell" data-l="You pay"><span class="yes">Yes,</span> and it comes back if the debate never happens</div>
-      </div>
-      <div class="lrow" role="row">
-        <div class="surf" role="cell">Cash round</div>
-        <div role="cell" data-l="Prize"><span class="yes">Yes,</span> the pot goes to the winner</div>
-        <div role="cell" data-l="Chance"><span class="no">Skill.</span> Your own speeches, on a rubric published first</div>
-        <div role="cell" data-l="You pay"><span class="yes">Yes,</span> a buy-in. Chance is the leg this one removes</div>
-      </div>
+      <!-- 2026-08-23: the Fund-a-bounty and Cash-round rows came off with
+           the tokens-only restore; those surfaces are retired. Rows are
+           in git history if either comes back. -->
     </div>
     <div class="lproof">
       <div class="lp">
@@ -1088,7 +1091,7 @@ body.has-beta-strip{padding-top:84px}
       </div>
       <div class="lp">
         <h4>The house earns the same whoever wins</h4>
-        <p>A cash round charges a flat fee at the door, the same from both sides, fixed before a word is spoken. <b>Settlement itself takes nothing</b>: no rake, no cut of the pot, no house account, and a build that adds one fails its tests. Our take cannot move with the result, which is the only reason an operator-run judge can be trusted at all.</p>
+        <p><b>Settlement takes nothing</b>: no rake, no cut of any pool, no house account, and a build that adds one fails its tests. Our take cannot move with the result, which is the only reason an operator-run judge can be trusted at all.</p>
       </div>
     </div>
     <div class="lnever">
@@ -1407,7 +1410,10 @@ body.has-beta-strip{padding-top:84px}
   var API='/api/cash-round', CHECKOUT='/api/cash-round-checkout';
   var board=document.getElementById('cashBoard');
   var postBtn=document.getElementById('cashPost');
-  if(!board) return;
+  // 2026-08-23: the cash section ships hidden (tokens-only restore), so
+  // this whole engine stands down rather than polling a lane that is off.
+  var cashSec=document.getElementById('cash');
+  if(!board || !cashSec || cashSec.hidden) return;
   var me=null, presets=[], defaultBuyIn=500;
 
   function esc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }

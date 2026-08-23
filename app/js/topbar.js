@@ -256,8 +256,12 @@
     // site tbh we cant do it"): the pages themselves are gone too —
     // /predict, /floor, /ladder, /bounties and /bet-on-your-words all
     // 301 away in netlify.toml, so restoring this row also means
-    // restoring the route. Restore = re-add this row:
-    // { href: '/predict', label: 'Bet', money: true, compactKeep: true },
+    // restoring the route. 2026-08-23: RESTORED, points-only, per the
+    // founder ("bring back bet on who will win 'tokens for now'").
+    // /predict serves again with its cash-round section hidden; the
+    // other betting routes stay 301'd. This row and the /predict route
+    // move together, per the note above.
+    { href: '/predict', label: 'Bet', money: true, compactKeep: true },
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
