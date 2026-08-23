@@ -609,6 +609,52 @@
     };
   }
 
+  // The send half, on its own and public. A surface that ALREADY shows
+  // the sign-in choices on the page (the /spar gate) must be able to
+  // take an email inline instead of stacking this modal on top of its
+  // own card — the founder cut that duplicate twice on 2026-08-23 — and
+  // it must not grow a second copy of the send, or the two drift. What
+  // is stashed here is exactly what completeEmailLink() reads back, so
+  // an inline send finishes through the same return trip. Rejections
+  // carry `userMessage`: a caller renders that, never err.message.
+  function sendSignInLink(email, name, action) {
+    email = String(email || '').trim();
+    name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    return new Promise(function (resolve, reject) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        var bad = new Error('invalid-email');
+        bad.userMessage = 'Enter a valid email.';
+        reject(bad);
+        return;
+      }
+      bootstrap(function () {
+        try {
+          auth = firebase.auth();
+          if (auth.useDeviceLanguage) auth.useDeviceLanguage();
+          track('sign_in_start', { method: 'email_link', action: action || 'signup' });
+          auth.sendSignInLinkToEmail(email, emailLinkSettings()).then(function () {
+            try {
+              localStorage.setItem(LINK_EMAIL_KEY, email);
+              if (name) localStorage.setItem(LINK_NAME_KEY, name);
+            } catch (e) {}
+            track('email_link_sent', { action: action || 'signup' });
+            resolve(email);
+          }).catch(function (err) {
+            var wrapped = err || new Error('send-failed');
+            wrapped.userMessage = emailLinkMessage(wrapped);
+            reject(wrapped);
+          });
+        } catch (e) {
+          e.userMessage = isInAppBrowser()
+            ? 'Could not send the link. Try a password instead.'
+            : 'Could not send the link. Continue with Google or a password.';
+          reject(e);
+        }
+      });
+    });
+  }
+  window.debatableSendSignInLink = sendSignInLink;
+
   function doEmailLink(event) {
     if (event) event.preventDefault();
     setErr('');
@@ -624,34 +670,15 @@
     if (mode === 'signup' && name.length < 2) { setErr('Enter your name.'); return; }
     var btn = c.querySelector('#daEmailBtn');
     btn.disabled = true;
-    btn.textContent = 'Sending the link…';
-    bootstrap(function () {
-      try {
-        auth = firebase.auth();
-        if (auth.useDeviceLanguage) auth.useDeviceLanguage();
-        track('sign_in_start', { method: 'email_link', action: mode });
-        auth.sendSignInLinkToEmail(email, emailLinkSettings()).then(function () {
-          // Stashed so the return trip does not have to ask again. Same
-          // browser is the common case; completeEmailLink() prompts when
-          // the link is opened somewhere else.
-          try {
-            localStorage.setItem(LINK_EMAIL_KEY, email);
-            if (name) localStorage.setItem(LINK_NAME_KEY, name);
-          } catch (e) {}
-          btn.disabled = false;
-          btn.textContent = 'Send it again';
-          setStatus('Link sent to ' + email + '. Open it on this device and you are in.');
-          track('email_link_sent', { action: mode });
-        }).catch(function (err) {
-          btn.disabled = false;
-          btn.textContent = 'Email me a sign-in link';
-          setErr(emailLinkMessage(err));
-        });
-      } catch (e) {
-        btn.disabled = false;
-        btn.textContent = 'Email me a sign-in link';
-        setErr(isInAppBrowser() ? 'Could not send the link. Try a password instead.' : 'Could not send the link. Continue with Google or a password.');
-      }
+    btn.textContent = 'Sending the link\u2026';
+    sendSignInLink(email, name, mode).then(function () {
+      btn.disabled = false;
+      btn.textContent = 'Send it again';
+      setStatus('Link sent to ' + email + '. Open it on this device and you are in.');
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Email me a sign-in link';
+      setErr((err && err.userMessage) || 'Could not send the link. Try again.');
     });
   }
 

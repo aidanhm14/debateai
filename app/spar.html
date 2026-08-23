@@ -1061,6 +1061,23 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
+/* Inline email sign-in on the gate card. The card already carries the
+   same two paths the shared chooser does, so opening that chooser over
+   it stacked one offer on an identical offer and hid the half only the
+   card has (who is waiting, that the camera is optional, the under-18
+   line). The email path needs a form the card did not have, so the card
+   grew one. auth-modal.js still owns the send (debatableSendSignInLink)
+   — this is a form, not a second auth implementation. */
+.gate-email{display:block;text-align:left;margin:0 0 10px}
+/* Both of these set a display, which beats the UA's [hidden] rule, so
+   the form showed before it was asked for and the button it replaces
+   stayed on screen under it. */
+.gate-email[hidden],.gate-guest[hidden],.gate-google[hidden]{display:none}
+.gate-email-label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);margin:0 0 5px}
+.gate-email-input{width:100%;padding:12px 14px;border-radius:11px;border:1px solid rgba(0,0,0,.16);background:var(--surface,#fff);color:var(--text);font:inherit;font-size:.92rem;margin:0 0 10px}
+.gate-email-input:focus{outline:none;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.14)}
+.gate-email-note{font-size:.74rem;color:var(--text-ghost);margin-top:8px;line-height:1.5;text-align:center}
+.gate-email-sent{font-size:.84rem;font-weight:750;color:#15803d;margin-top:10px;line-height:1.45;text-align:center}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
 /* Live-count line on the gate: who is actually waiting in the queue
    right now (/api/spar-queue), so signing in is an ask with a person on
@@ -2408,6 +2425,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           'Continue with Google' +
         '</button>' +
         '<button class="gate-guest" id="emailStartBtn" type="button">Sign in with email</button>' +
+        // Hidden until asked for, so the card still reads as two
+        // buttons. Name is collected because the person on the other
+        // side of a live round sees it; an emailed link with no name
+        // seats them as a blank.
+        '<form class="gate-email" id="gateEmailForm" hidden>' +
+          '<label class="gate-email-label" for="gateName">Name</label>' +
+          '<input class="gate-email-input" id="gateName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' +
+          '<label class="gate-email-label" for="gateEmail">Email</label>' +
+          '<input class="gate-email-input" id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
+          '<button class="gate-guest" id="gateEmailSend" type="submit" style="margin-bottom:0">Email me a sign-in link</button>' +
+          '<div class="gate-email-note">No password. Open the link on this device and you are in.</div>' +
+          '<div class="gate-email-sent" id="gateEmailSent"></div>' +
+        '</form>' +
         // "Your photo shows to opponents" is the sentence people stop at,
         // and it was the whole story here, which made the round sound
         // like a face-to-face video call with a stranger. It is half the
@@ -2426,11 +2456,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<a class="ai-alt" href="/voice-debate?mode=quickclash&handoff=spar-gate">Start Realtime Voice AI instead →</a>' +
         '<div id="gateError"></div>' +
       '</div>';
-    // Both buttons open the shared chooser (Google + emailed link +
-    // email/password); the email button exists so the emailed path is
-    // visible before the modal opens.
+    // Neither button opens the shared chooser any more (2026-08-23, the
+    // founder twice, on the same screenshot: "get rid of this pop up
+    // above the one below it"). Google runs Google; email opens a form
+    // ON this card. The chooser is still the fallback inside each
+    // handler for a page that loaded without auth-modal.js.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
-    document.getElementById('emailStartBtn').addEventListener('click', doGoogleSignIn);
+    document.getElementById('emailStartBtn').addEventListener('click', openGateEmail);
+    var gateEmailForm = document.getElementById('gateEmailForm');
+    if (gateEmailForm) gateEmailForm.addEventListener('submit', sendGateEmailLink);
     startGateLiveCount();
     // Split the two gates in GA4. They are different asks with different
     // audiences, so one blended conversion rate would hide whichever is
@@ -2538,16 +2572,65 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }, 30000);
   }
 
+  // Reveal the email form in place of the button that asked for it.
+  // If auth-modal.js never arrived there is no send to call, so the
+  // chooser is the fallback rather than a dead form.
+  function openGateEmail(){
+    var form = document.getElementById('gateEmailForm');
+    if (!form || typeof window.debatableSendSignInLink !== 'function'){
+      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+      return;
+    }
+    form.hidden = false;
+    var btn = document.getElementById('emailStartBtn');
+    if (btn) btn.hidden = true;
+    var email = document.getElementById('gateEmail');
+    if (email) { try { email.focus(); } catch(e){} }
+    try { gtag('event', 'spar_gate_email_open', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
+  }
+
+  function sendGateEmailLink(ev){
+    if (ev) ev.preventDefault();
+    var send = window.debatableSendSignInLink;
+    if (typeof send !== 'function'){
+      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+      return;
+    }
+    var btn = document.getElementById('gateEmailSend');
+    var sent = document.getElementById('gateEmailSent');
+    var ge = document.getElementById('gateError');
+    var email = ((document.getElementById('gateEmail') || {}).value || '').trim();
+    var name = ((document.getElementById('gateName') || {}).value || '').trim();
+    if (ge) ge.innerHTML = '';
+    if (sent) sent.textContent = '';
+    // Same bar the modal holds a signup to: the name is what an opponent
+    // reads on the other bench.
+    if (name.replace(/\s+/g, ' ').length < 2){
+      if (ge) ge.innerHTML = '<div class="error">Enter your name.</div>';
+      return;
+    }
+    if (btn){ btn.disabled = true; btn.textContent = 'Sending the link\u2026'; }
+    send(email, name, 'signup').then(function(to){
+      if (btn){ btn.disabled = false; btn.textContent = 'Send it again'; }
+      if (sent) sent.textContent = 'Link sent to ' + to + '. Open it on this device and you are in.';
+      try { gtag('event', 'spar_gate_email_sent', {}); } catch(e){}
+    }).catch(function(err){
+      if (btn){ btn.disabled = false; btn.textContent = 'Email me a sign-in link'; }
+      if (ge) ge.innerHTML = '<div class="error">' + escHtml((err && err.userMessage) || 'Could not send the link. Try again.') + '</div>';
+    });
+  }
+
   function doGoogleSignIn(){
     if (!firebaseAuth){
       var gateError = document.getElementById('gateError');
       if (gateError) gateError.innerHTML = '<div class="error">Sign-in didn\'t load. Refresh the page or skip to the AI fallback.</div>';
       return;
     }
-    // Every sign-in surface offers the same choices. The shared modal
-    // carries Google, an emailed link, and email/password; this Google
-    // popup stays as the fallback for a page that loads without it.
-    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+    // Straight to Google. This button says "Continue with Google", and
+    // routing it through the shared chooser answered that click with a
+    // modal whose biggest button said the same words — the duplicate the
+    // founder cut on 2026-08-23. The chooser is still one tap away on
+    // the email button, which is where the other paths live.
     var provider = new firebase.auth.GoogleAuthProvider();
     var current = firebaseAuth.currentUser;
     var signInPromise;
