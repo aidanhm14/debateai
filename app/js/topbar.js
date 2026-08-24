@@ -2394,7 +2394,7 @@
   if (now > EVENT_OVER) return;
 
   var tail = (now >= EVENT_DAY)
-    ? 'rush hours 12, 3 & 6 PM ET'
+    ? 'sessions 7 AM, 3 PM & 8 PM ET'
     : 'free to enter';
 
   function mount(){

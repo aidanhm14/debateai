@@ -47,9 +47,9 @@
   "@type": "Event",
   "@id": "https://itsdebatable.com/tournaments#debatable-open-2026-08-29",
   "name": "The Debatable Open",
-  "description": "A one day online debate tournament, drop in any time. $100 for first place, $50 for second and $25 for third. Every round is judged with a written verdict, and the final is streamed live.",
-  "startDate": "2026-08-29T10:00:00-04:00",
-  "endDate": "2026-08-29T22:00:00-04:00",
+  "description": "A one day online debate tournament in three sessions, one for each side of the world: 7:00 AM ET Asia-Pacific night, 3:00 PM ET Europe night, 8:00 PM ET US night. Rounds run between them too. $100 for first place, $50 for second and $25 for third. Every round is judged with a written verdict, and the final is streamed live.",
+  "startDate": "2026-08-29T07:00:00-04:00",
+  "endDate": "2026-08-30T00:00:00-04:00",
   "eventStatus": "https://schema.org/EventScheduled",
   "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
   "location": {
@@ -221,6 +221,10 @@ h1,h2,h3,p{margin-top:0}
 .enter-share .enter-share-done{margin:8px 0 0;font-size:.82rem;color:var(--muted,#666)}
 .btn-primary{border-color:var(--red);background:var(--red);color:#fff;box-shadow:0 10px 24px rgba(217,47,47,.17)}
 .btn-primary:hover{border-color:var(--red-dark);background:var(--red-dark)}
+/* The two "enter" CTAs in the body run one size up from nav-scale .btn:
+   they are the ask, not navigation. The topbar keeps the small size. */
+.hero-actions .btn,.run-cta .btn{padding:17px 27px;font-size:.95rem}
+.hero-actions .btn-primary,.run-cta .btn-primary{font-size:1.04rem;box-shadow:0 16px 34px -14px rgba(217,47,47,.55)}
 .arrow{font-family:var(--sans);font-size:1rem}
 
 .hero{padding:56px 0 66px}
@@ -364,7 +368,21 @@ h1,h2,h3,p{margin-top:0}
 .datebar-when{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:16px 24px}
 .datebar-when b{font-size:1.32rem;font-weight:800;line-height:1.15;letter-spacing:-.01em}
 .datebar-when span{font-family:var(--sans);font-size:.9rem;line-height:1.45;color:rgba(255,255,255,.74)}
+/* Three sessions, in the reader's own clock. The .sess-l line is
+   replaced by the viewer's local time as soon as JS runs; the shipped
+   markup carries the major-city version so the fact survives with no
+   JS at all, and so a crawler indexes something true. */
+.sessions{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:8px;max-width:560px}
+.sess{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:baseline;
+  padding:11px 16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--card)}
+.sess-r{font-family:var(--sans);font-size:.92rem;font-weight:850;color:var(--ink)}
+.sess-t{font-family:var(--sans);font-size:1.02rem;font-weight:900;color:var(--red-dark);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.sess-l{grid-column:1 / -1;font-family:var(--sans);font-size:.8rem;line-height:1.45;color:var(--muted)}
+.sess-l b{color:var(--ink);font-weight:850}
 @media(max-width:560px){
+  .sessions{max-width:none}
+  .sess{padding:10px 13px}
   .datebar{max-width:none}
   .datebar-day{min-width:104px;padding:13px 16px 15px}
   .datebar-num{font-size:2.7rem}
@@ -600,10 +618,35 @@ h1,h2,h3,p{margin-top:0}
             <span class="datebar-mon">August</span>
           </div>
           <div class="datebar-when">
-            <b>Doors 10 AM ET &middot; rush hours 12, 3 &amp; 6 PM</b>
-            <span>Online, from anywhere, open all day. Come at a rush hour to match fastest, or drop in whenever suits you.</span>
+            <b>Three sessions &middot; 7 AM, 3 PM &amp; 8 PM ET</b>
+            <span>One for each side of the world, each timed to be evening where most of that field lives. Rounds run between them too.</span>
           </div>
         </div>
+
+        <!-- "Show up whenever" was the honest description of a drop-in
+             day and a bad answer to the only scheduling question a
+             stranger has, which is what time. Naming three sessions and
+             stamping each one in the reader's OWN clock is the specific
+             version of the same event: nothing about drop-in changed,
+             the times were always there as "rush hours", and they were
+             buried three sections down in a sentence. -->
+        <ul class="sessions" id="sessions">
+          <li class="sess" data-sess="2026-08-29T11:00:00Z">
+            <span class="sess-r">Asia-Pacific night</span>
+            <span class="sess-t">7:00 AM ET</span>
+            <span class="sess-l">Sydney 9 PM &middot; Tokyo 8 PM &middot; Singapore 7 PM &middot; Delhi 4:30 PM</span>
+          </li>
+          <li class="sess" data-sess="2026-08-29T19:00:00Z">
+            <span class="sess-r">Europe night</span>
+            <span class="sess-t">3:00 PM ET</span>
+            <span class="sess-l">London 8 PM &middot; Berlin 9 PM &middot; Lagos 8 PM</span>
+          </li>
+          <li class="sess" data-sess="2026-08-30T00:00:00Z">
+            <span class="sess-r">US night</span>
+            <span class="sess-t">8:00 PM ET</span>
+            <span class="sess-l">Chicago 7 PM &middot; Los Angeles 5 PM</span>
+          </li>
+        </ul>
 
         <div class="kicker" id="heroKicker">Registration open &middot; free to enter</div>
         <h1>Get paid to <em>win an argument.</em></h1>
@@ -714,7 +757,13 @@ h1,h2,h3,p{margin-top:0}
       .enter-agegroup-note{font-family:var(--sans);font-size:.78rem;line-height:1.45;color:var(--muted);margin:2px 0 0}
       .enter-age input{margin-top:2px;accent-color:var(--red)}
       .enter-door--main .enter-btn{background:var(--red);border-color:var(--red-dark)}
-      .enter-btn{margin-top:auto;display:inline-flex;justify-content:center;align-items:center;gap:8px;padding:15px 18px;border-radius:12px;border:1px solid var(--line-strong);background:var(--dark);color:#fff;font-family:var(--sans);font-size:.98rem;font-weight:850;cursor:pointer;transition:transform .15s,opacity .15s}
+      /* Sized up 2026-08-24 on the founder's ask. This button is the
+         page's whole job, and it was set at the same weight as the tip
+         button beside it. The tip stays where it was, so the size gap
+         now says which one is the action. */
+      .enter-btn{margin-top:auto;display:inline-flex;justify-content:center;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:21px 24px;border-radius:14px;border:1px solid var(--line-strong);background:var(--dark);color:#fff;font-family:var(--sans);font-size:1.18rem;font-weight:900;letter-spacing:-.01em;cursor:pointer;transition:transform .15s,opacity .15s}
+      .enter-door--main .enter-btn{box-shadow:0 14px 30px -12px rgba(217,47,47,.6)}
+      .enter-btn.enter-btn--alt{padding:15px 18px;font-size:.98rem;font-weight:850;box-shadow:none}
       /* A tip is not a door. It is quieter than the entry button in
          every way, because the one thing this card must never do is
          read as a price on a free event. Declared after .enter-btn AND
@@ -736,7 +785,7 @@ h1,h2,h3,p{margin-top:0}
           <div class="kicker">Enter</div>
           <h2 id="enterHead">Free to enter. $100 to win.</h2>
         </div>
-        <p id="enterSub">Sign in, click once, done. Then show up whenever suits you on Saturday, August 29. Most people come at 12, 3 or 6 PM ET; you are not committing to a start time.</p>
+        <p id="enterSub">Sign in, click once, done. Then come to a session on Saturday, August 29: 7:00 AM ET for Asia-Pacific, 3:00 PM ET for Europe, 8:00 PM ET for the US. Rounds run between them too, so a session is where you will match fastest, not a deadline.</p>
       </div>
       <div class="enter-card" id="enterCard">
         <p class="enter-empty" id="enterEmpty">Checking for open brackets&hellip;</p>
@@ -801,7 +850,7 @@ h1,h2,h3,p{margin-top:0}
         <div class="logi-card">
           <span class="logi-k">When</span>
           <span class="logi-v">Sat, Aug 29</span>
-          <p class="logi-s">Doors open 10 AM ET and stay open all day. Rush hours at 12, 3 and 6 PM ET are when pairing is fastest. No start time to miss.</p>
+          <p class="logi-s">Three sessions: <strong>7:00 AM ET</strong> Asia-Pacific night, <strong>3:00 PM ET</strong> Europe night, <strong>8:00 PM ET</strong> US night. Each runs 90 minutes and pairs fastest. Rounds run between them as well, so a late arrival still gets a round.</p>
         </div>
         <div class="logi-card">
           <span class="logi-k">Where</span>
@@ -869,7 +918,7 @@ h1,h2,h3,p{margin-top:0}
         <li class="run-item">
           <span class="run-time">2 &middot; Saturday</span>
           <div>
-            <h3>Show up whenever, or come at a rush hour</h3>
+            <h3>Come to your session, or drop in whenever</h3>
             <p>If you are around at noon, you play at noon. If you sleep in, you play at four.</p>
             <!-- Rush hours, added 2026-08-19. Drop-in is the format and it
                  stays, but pairing needs two people awake at the same moment,
@@ -879,7 +928,7 @@ h1,h2,h3,p{margin-top:0}
                  times never overlapped. These three windows concentrate the
                  pool without taking away the drop-in promise for anyone who
                  cannot make them. -->
-            <p class="run-rush">Most people aim for a rush hour: <strong>12 PM, 3 PM and 6 PM ET.</strong> You match fastest then. Turn up outside them and you still get rounds, it just takes a few minutes to find someone.</p>
+            <p class="run-rush">Three sessions, one per side of the world: <strong>7:00 AM ET</strong> (Asia-Pacific night), <strong>3:00 PM ET</strong> (Europe night), <strong>8:00 PM ET</strong> (US night). Take the one that is evening where you are and you match in seconds. Turn up between them and you still get rounds, it just takes a few minutes to find someone.</p>
           </div>
         </li>
         <li class="run-item">
@@ -1245,7 +1294,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
        than inferred from a possibly stale entryFeeCents field. */
     function setText(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt}
     setText('enterHead','Free to enter. $100 to win.');
-    setText('enterSub','Sign in, click once, done. Then show up whenever suits you on Saturday, August 29. Most people come at 12, 3 or 6 PM ET; you are not committing to a start time.');
+    setText('enterSub','Sign in, click once, done. Then come to a session on Saturday, August 29: 7:00 AM ET for Asia-Pacific, 3:00 PM ET for Europe, 8:00 PM ET for the US. Rounds run between them too, so a session is where you will match fastest, not a deadline.');
     var note=document.getElementById('enterNote');
     if(note){
       note.innerHTML='Entry is free. No purchase is necessary to compete, to win, or to climb the leaderboard, and a tip does not affect any of them. Under 18 and 18 and over are paired as separate brackets. Cash prizes go to the 18 and over bracket and are void where prohibited. '+
@@ -1624,5 +1673,34 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
      topbar, so it loads the module itself (same pattern auth-modal.js
      uses on topbar-less pages); the pill floats when it finds no bar. -->
 <script defer src="/js/notifications.js"></script>
+<script>
+/* Each session in the reader's own clock (2026-08-24). The markup ships
+   the major-city version so the fact is true with JS off and a crawler
+   indexes something real; this replaces it with the one line that is
+   actually about the person reading. An Eastern reader is left alone,
+   because their local time is the label already. */
+(function(){
+  var list = document.querySelectorAll('#sessions .sess');
+  if (!list.length) return;
+  for (var i = 0; i < list.length; i++){
+    var iso = list[i].getAttribute('data-sess');
+    var d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) continue;
+    var local, et;
+    try {
+      local = d.toLocaleString(undefined, { weekday:'short', hour:'numeric', minute:'2-digit' });
+      et = d.toLocaleString('en-US', { weekday:'short', hour:'numeric', minute:'2-digit', timeZone:'America/New_York' });
+    } catch(e){ continue; }
+    if (!local || local === et) continue;
+    var line = list[i].querySelector('.sess-l');
+    if (!line) continue;
+    line.textContent = '';
+    var b = document.createElement('b');
+    b.textContent = local;
+    line.appendChild(b);
+    line.appendChild(document.createTextNode(' your time'));
+  }
+})();
+</script>
 </body>
 </html>
