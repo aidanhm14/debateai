@@ -154,6 +154,57 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .foot{margin-top:34px;font-size:.82rem;color:var(--ink-ghost);line-height:1.6;max-width:70ch}
   .foot a{text-decoration:underline}
 
+  /* ── flanking face rails (2026-08-23, the founder: "put the images on the
+     side of left and right") ────────────────────────────────────────────
+     The dream-matchup portraits used to sit in one horizontal grid in the
+     middle of the page, which read as a block of content to scroll past
+     rather than as the room the board is in. They now run down BOTH
+     margins, the full height of the page, with the money column between
+     them.
+
+     Two mechanics worth knowing before editing:
+     - .flank breaks OUT of .wrap's 1080px measure rather than widening
+       .wrap, so the hero measure, the board's auto-fill column count and
+       the footnote's 70ch are all untouched. The margin-inline trick is
+       the standard symmetric breakout: width first, then pull back by
+       half the difference.
+     - The portraits are the SAME nine buttons authored once in .faces and
+       MOVED into the rails by JS (nodes moved, not retyped), so their
+       click handlers and the licensing block above them travel with them.
+       Under 1180px they move back and .faces renders as before. */
+  .flank{
+    width:min(1480px, 100vw - 40px);
+    margin-inline:calc(50% - min(1480px, 100vw - 40px)/2);
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:28px;
+    align-items:start;
+  }
+  .fcol{min-width:0}
+  .frail{display:none}
+  /* In rail mode the rails usually take every portrait and the authored
+     grid is left empty; it stays in the DOM so the move is reversible on
+     resize, and hides itself rather than leaving a gap. It comes back
+     visible only for the overflow case below: a rail is never allowed to
+     run past the bottom of the money column, so on a short page (an empty
+     board) the portraits that do not fit beside it render here instead. */
+  .faces:empty{display:none}
+  @media(min-width:1180px){
+    .flank{grid-template-columns:176px minmax(0,1fr) 176px;gap:26px}
+    /* align-self:start keeps a rail from stretching to the row height and
+       stranding its portraits in a spread-out column; they stack from the
+       top and stop wherever they stop. */
+    .frail{display:flex;flex-direction:column;gap:10px;align-self:start}
+    /* In rail mode the portraits are square: nine 4/5 crops stacked in two
+       columns run far past the money column, and the crop is a framing
+       choice rather than a fixed asset, so squaring them is free. */
+    .frail .face{border-radius:14px}
+    .frail .face img{aspect-ratio:1/1}
+    .frail .face .nm{font-size:.86rem;padding:22px 9px 8px}
+    .frail .face .tag{font-size:.6rem;padding:2px 8px;top:8px;left:8px}
+    .dream .sub{max-width:66ch}
+  }
+
   @media(max-width:860px){ .rules{grid-template-columns:1fr} }
   @media(max-width:560px){ .fld2{grid-template-columns:1fr} .wrap{padding:70px 14px 80px} }
 </style>
@@ -163,6 +214,9 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 <!-- Shared topbar, so this page is not a dead end. -->
 <div id="daTopbar"></div>
 <div class="wrap">
+ <div class="flank">
+  <aside class="frail" id="frailL" aria-label="Unconfirmed dream matchups"></aside>
+  <div class="fcol">
   <div class="hero">
     <h1>Pay to make a debate happen.</h1>
     <p>Name the argument you want had and who should have it. Anyone can add to the same pot. When two people take it and finish the round, the pot goes to them and the ballot is public like any other round.</p>
@@ -204,6 +258,16 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <button class="face" type="button" data-name="Lex Fridman"><img src="/img/creator-watchlist/lexfridman.jpg" alt="Lex Fridman" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Lex Fridman</span></button>
       <button class="face" type="button" data-name="xQc"><img src="/img/creator-watchlist/xqc.jpg" alt="xQc" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">xQc</span></button>
       <button class="face" type="button" data-name="Pokimane"><img src="/img/creator-watchlist/pokimane.jpg" alt="Pokimane" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Pokimane</span></button>
+      <button class="face" type="button" data-name="Kai Cenat"><img src="/img/creator-watchlist/kaicenat.jpg" alt="Kai Cenat" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Kai Cenat</span></button>
+      <button class="face" type="button" data-name="Jordan Peterson"><img src="/img/creator-watchlist/jordanpeterson.jpg" alt="Jordan Peterson" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Jordan Peterson</span></button>
+      <button class="face" type="button" data-name="IShowSpeed"><img src="/img/creator-watchlist/ishowspeed.jpg" alt="IShowSpeed" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">IShowSpeed</span></button>
+      <button class="face" type="button" data-name="Ana Kasparian"><img src="/img/creator-watchlist/anakasparian.jpg" alt="Ana Kasparian" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Ana Kasparian</span></button>
+      <button class="face" type="button" data-name="MrBeast"><img src="/img/creator-watchlist/mrbeast.jpg" alt="MrBeast" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">MrBeast</span></button>
+      <button class="face" type="button" data-name="Douglas Murray"><img src="/img/creator-watchlist/douglasmurray.jpg" alt="Douglas Murray" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Douglas Murray</span></button>
+      <button class="face" type="button" data-name="Asmongold"><img src="/img/creator-watchlist/asmongold.jpg" alt="Asmongold" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Asmongold</span></button>
+      <button class="face" type="button" data-name="Konstantin Kisin"><img src="/img/creator-watchlist/konstantinkisin.jpg" alt="Konstantin Kisin" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Konstantin Kisin</span></button>
+      <button class="face" type="button" data-name="Ludwig Ahgren"><img src="/img/creator-watchlist/ludwig.jpg" alt="Ludwig Ahgren" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Ludwig Ahgren</span></button>
+      <button class="face" type="button" data-name="Joe Rogan"><img src="/img/creator-watchlist/joerogan.jpg" alt="Joe Rogan" loading="lazy" decoding="async"><span class="tag">Unconfirmed</span><span class="nm">Joe Rogan</span></button>
     </div>
   </div>
 
@@ -219,6 +283,9 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   </div>
 
   <p class="foot" id="foot"></p>
+  </div>
+  <aside class="frail" id="frailR" aria-label="More unconfirmed dream matchups"></aside>
+ </div>
 </div>
 
 <!-- post -->
@@ -546,6 +613,77 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       openFund(j.id);
     } catch(e){ say(e.message, 'err'); }
   });
+
+  /* ── flanking rails: the portraits move out of the middle of the
+     page and down both margins at >=1180px (the founder, 2026-08-23). The
+     nodes are MOVED, never rebuilt, so the click handlers bound below
+     ride along and nothing has to be re-bound after a resize. Odd indexes
+     go left so the left rail carries the extra face and the two columns
+     stay within one portrait of each other. ── */
+  (function(){
+    var grid = document.querySelector('.faces');
+    var railL = document.getElementById('frailL');
+    var railR = document.getElementById('frailR');
+    var col   = document.querySelector('.fcol');
+    if (!grid || !railL || !railR || !col) return;
+    var faces = Array.prototype.slice.call(grid.querySelectorAll('.face'));
+    var mq = window.matchMedia('(min-width:1180px)');
+
+    // `placed` is how many portraits are currently in the rails, -1 when
+    // they are all back in the grid. Writing only on a real change is what
+    // stops the ResizeObserver below from feeding itself: placing
+    // portraits changes the column height, which fires the observer, which
+    // would place them again forever if every call touched the DOM.
+    var placed = -1;
+
+    function sync(){
+      // Read the query at call time rather than trusting a cached flag.
+      // The rails are display:none under the breakpoint, so a portrait
+      // left parented to one is a portrait nobody can see: every path back
+      // to narrow has to return them, and a missed change event must not
+      // be able to strand them.
+      if (!mq.matches){
+        if (placed !== -1){ faces.forEach(function(f){ grid.appendChild(f); }); placed = -1; }
+        return;
+      }
+      // A rail must never run past the bottom of the money column: on a
+      // short page (an empty board) a full-length rail leaves several
+      // hundred pixels of blank gutter, which reads as a broken layout
+      // rather than as a gallery. So the rails take as many portraits as
+      // fit beside the column and the remainder stay in the authored grid.
+      // Placing them changes the column height, so this settles over a few
+      // passes rather than one; the loop is bounded either way.
+      for (var pass = 0; pass < 3; pass++){
+        var railW = railL.getBoundingClientRect().width || 176;
+        var step  = railW + 10;                       // square face + gap
+        var cap   = Math.max(2, Math.floor(col.getBoundingClientRect().height / step));
+        var take  = Math.min(faces.length, cap * 2);
+        if (take === placed) return;
+        placed = take;
+        faces.forEach(function(f, i){
+          if (i < take) (i % 2 ? railR : railL).appendChild(f);
+          else grid.appendChild(f);
+        });
+      }
+    }
+
+    var queued = false;
+    function schedule(){
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function(){ queued = false; sync(); });
+    }
+
+    sync();
+    // Three triggers, deliberately overlapping. The column height moves
+    // when the board finishes loading its bounties, so the split is
+    // recomputed then and not only at a breakpoint; and resize covers the
+    // case where a matchMedia change event does not arrive.
+    if (window.ResizeObserver) new ResizeObserver(schedule).observe(col);
+    if (mq.addEventListener) mq.addEventListener('change', schedule);
+    else if (mq.addListener) mq.addListener(schedule);
+    window.addEventListener('resize', schedule);
+  })();
 
   /* ── dream matchups: pre-aim the post modal ── */
   Array.prototype.forEach.call(document.querySelectorAll('.face'), function(f){

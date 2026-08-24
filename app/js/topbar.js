@@ -263,6 +263,18 @@
     // move together, per the note above.
     { href: '/predict', label: 'Bet', money: true, compactKeep: true },
 
+    // 2026-08-23: Bounty sits immediately to the right of Bet, per the
+    // founder. Red rather than green, and the colour is the distinction,
+    // not decoration: Bet is a points market you win by predicting a
+    // result, a bounty is money you put up to make a round HAPPEN, and it
+    // pays for finishing rather than for winning (lib/bounty.mjs splits
+    // the pot evenly, no cut, refunded past the deadline). Green is
+    // already spoken for by the market next door, so the bounty tab takes
+    // the brand red. `bounty` renders its own filled-pill branch below;
+    // it is deliberately not `cta`, which is the rail's single primary
+    // action and lives at the far right edge.
+    { href: '/bounties', label: 'Bounty', bounty: true, compactKeep: true },
+
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
@@ -434,7 +446,12 @@
       // winner term, takes no house cut and refunds if the debate never
       // happens, so there is no outcome to bet on. /predict, /floor,
       // /ladder and /bet-on-your-words stay out: those were bets.
-      { href: '/bounties',    label: 'Bounties' },
+      // 2026-08-23 (later the same day): moved OUT of Explore and onto the
+      // rail as 'Bounty', beside Bet, per the founder. A row cannot be in
+      // both without rendering twice — Explore draws MORE_GROUPS in full
+      // and the mobile sheet draws MORE_GROUPS *plus* every LINKS row —
+      // so the Explore entry comes out as the rail entry goes in. Same
+      // trade the /predict row made on 2026-08-20.
       // 2026-07-28: the two surfaces behind running a real competition.
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist
@@ -1121,7 +1138,7 @@
     right.appendChild(howBtn);
 
     right.appendChild(buildExplore());
-    pageLinks.filter(function(L){ return L.hot || L.money || L.cta || L.rail; }).forEach(function(L){
+    pageLinks.filter(function(L){ return L.hot || L.money || L.bounty || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
       // native tooltip just renders a dark box that floats over page
@@ -1209,6 +1226,24 @@
           document.head.appendChild(ms);
         }
         a.appendChild(el('span', { class: 'ui-topbar-money-dot', 'aria-hidden': 'true' }));
+      }
+      // `bounty` = the Bounty tab (2026-08-23). Filled red pill, sized
+      // and weighted like `money` so the two read as a pair, with the
+      // colour carrying the difference between predicting a result and
+      // funding a round. No pulsing dot: one animated dot in the bar is a
+      // signal, two is a fairground, and the green one next door is
+      // already the thing meant to catch the eye first.
+      if (L.bounty){
+        a.style.display = 'inline-flex';
+        a.style.alignItems = 'center';
+        a.style.gap = '6px';
+        a.style.fontWeight = '800';
+        a.style.color = '#fff';
+        a.style.background = '#dc2626';
+        a.style.border = '1px solid #b91c1c';
+        a.style.borderRadius = '999px';
+        a.style.padding = '5px 13px';
+        a.style.boxShadow = '0 6px 18px -8px rgba(220,38,38,.8)';
       }
       // `cta` = the one filled pill on the rail. Solid red on white text,
       // deliberately heavier than `hot` so the rail has a single clear

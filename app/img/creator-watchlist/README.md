@@ -33,6 +33,43 @@ participation, affiliation, or endorsement.
   [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
   [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Natalie_Wynn_(ContraPoints)_portrait_1_(cropped).jpg).
 
+
+### Added 2026-08-23 (the founder: "add in celebrity / streamer images to
+discuss here"). Same bar as everything above: every one was pulled from
+Wikimedia Commons, its licence read off the file's own metadata before it
+was downloaded, and its crop generated from the Commons original rather
+than from any other copy of the picture.
+
+- `kaicenat.jpg`: Kai Cenat in 2023. Photo by MILLION DOLLAZ WORTH OF GAME,
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Kai_Cenat_2023_(cropped).jpg).
+- `ishowspeed.jpg`: IShowSpeed at Red Rocks, 2025. Photo by Diego Serrano,
+  [CC BY 2.0](https://creativecommons.org/licenses/by/2.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:IShowSpeed_RR25_(cropped).jpg).
+- `ludwig.jpg`: Ludwig Ahgren in March 2023. Photo by State Farm,
+  [CC BY 2.0](https://creativecommons.org/licenses/by/2.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Ludwig_Ahgren_in_March_2023_(3x4_cropped).jpg).
+- `mrbeast.jpg`: Jimmy "MrBeast" Donaldson in 2023. Photo by Steven Khan,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:MrBeast_2023_(cropped).jpg).
+- `asmongold.jpg`: Asmongold in 2022. Photo by Esfand,
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Asmongold_in_2022.jpg).
+- `joerogan.jpg`: Joe Rogan in 2026. Photo by The White House,
+  Public domain.
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Joe_Rogan_2026_(cropped).jpg).
+- `jordanpeterson.jpg`: Jordan Peterson, face-only crop. Photo by Gage Skidmore,
+  [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Jordan_Peterson_by_Gage_Skidmore_(face_only).jpg).
+- `douglasmurray.jpg`: Douglas Murray, the British author, in 2019. NOT the ice hockey player of the same name, whose photo is what a plain Commons search for "Douglas Murray" returns. Photo by AndyCNgo,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:DouglasMurray2019.jpg).
+- `konstantinkisin.jpg`: Konstantin Kisin in 2025. Photo by Triggernometrypod,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Konstantin_Kisin_2025.jpg).
+- `anakasparian.jpg`: Ana Kasparian. Photo by Gage Skidmore from Peoria, AZ, United States of America,
+  [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Ana_Kasparian_(27871435561)_(cropped).jpg).
 ## Rules for this directory
 
 Every file here is Creative Commons or public domain, credited above with a
