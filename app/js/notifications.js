@@ -514,7 +514,19 @@
       '.da-spar-pill.is-on{color:var(--dab-ok);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
       '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#166534;border-color:rgba(22,101,52,.5);background:rgba(22,101,52,.08)}' +
       '.da-spar-pill.is-on .da-spar-pill__dot{background:#22c55e;animation:daSparPulse 1.7s ease-out infinite}' +
-      '@media(max-width:560px){.ui-topbar .da-spar-pill{display:none!important}}' +
+      // The "x" affordance: hidden on desktop (the pill is a wide toggle
+      // there), shown on phones when available so turning availability
+      // off is one obvious tap. Non-interactive — the whole pill is the
+      // toggle; this is just the visual cue.
+      '.da-spar-pill__off{display:none;font-size:1.05rem;line-height:1;opacity:.75;pointer-events:none}' +
+      // Mobile is where most TikTok traffic lands, and the tight phone
+      // bar had NO availability control at all (the toggle was hidden
+      // outright). Keep the bar clean by hiding the toggle when you are
+      // not available, but the moment you ARE available show a compact
+      // green "Available x" chip so a phone user can turn it off. Below
+      // 380px the label drops so "· x" always clears the bell + CTA.
+      '@media(max-width:560px){.ui-topbar .da-spar-pill:not(.is-on){display:none!important}.ui-topbar .da-spar-pill.is-on{padding:0 11px;gap:6px}.da-spar-pill.is-on .da-spar-pill__off{display:inline-flex}}' +
+      '@media(max-width:380px){.ui-topbar .da-spar-pill.is-on .da-spar-pill__lab{display:none}}' +
       // Bar-less pages (/tournaments, /atlas, /safety, the judge pages) have
       // no .ui-topbar-right to mount into, so the pill floats beside the
       // bell's own floating chip rather than never appearing. Right offset
@@ -1791,7 +1803,7 @@
       b.className = 'da-spar-pill';
       b.setAttribute('aria-label', 'Background sparring');
       b.style.display = 'none';
-      b.innerHTML = '<span class="da-spar-pill__dot" aria-hidden="true"></span><span class="da-spar-pill__lab">Spar live</span>';
+      b.innerHTML = '<span class="da-spar-pill__dot" aria-hidden="true"></span><span class="da-spar-pill__lab">Spar live</span><span class="da-spar-pill__off" aria-hidden="true">×</span>';
       b.addEventListener('click', function (e) { e.stopPropagation(); setAvailable(!available); });
       return b;
     }
@@ -1846,8 +1858,8 @@
       var show = myUid && !ON_ROUND && !ON_SPAR && (available || !ON_PUBLIC);
       pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
-      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found."; }
-      else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; }
+      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
+      else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
     }
 
     // ── availability ──
