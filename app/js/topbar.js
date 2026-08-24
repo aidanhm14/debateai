@@ -1946,13 +1946,17 @@
      agree with that function or the bar disagrees with every other surface
      on the site about who somebody is.
 
-     2026-08-24: it did. The probe read only the PORTRAIT key, so a debater
+     2026-08-24, twice. First: the probe read only the PORTRAIT key, so a debater
      whose avatar is a LIVE one (the masked arena design, written by the
      cam builder under its own key) counted as having built nothing, and
      the bar fell through to their Google photo. Their profile, the
      leaderboard and every ballot showed the mask; the topbar showed a
-     holiday snap. Reported with a screenshot of exactly that pair. */
-  var AVATAR_KEYS = ['debatable-live-avatar-v1', 'debatable-avatar', 'debate' + 'it-avatar'];
+     holiday snap. Reported with a screenshot of exactly that pair. Then the
+     same day the drawn picture set became a third thing somebody can
+     choose, under its own key, so it joins the list. The rule is the one
+     above: this list is the same set of keys getPublicIdentity() reads, or
+     the bar disagrees with the rest of the site about who somebody is. */
+  var AVATAR_KEYS = ['debatable-live-avatar-v1', 'debatable-pfp-v1', 'debatable-avatar', 'debate' + 'it-avatar'];
   function hasBuiltAvatar(){
     try {
       for (var i = 0; i < AVATAR_KEYS.length; i++){

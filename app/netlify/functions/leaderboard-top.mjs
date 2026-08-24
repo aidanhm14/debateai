@@ -16,7 +16,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v3'; // v3: rows gained photoURL + avatarIdentity. The shared cache survives a deploy, so an unchanged key would keep serving portrait-less rows for a full TTL after ship
+const CACHE_KEY = 'leaderboard-top-v4'; // v3: rows gained photoURL + avatarIdentity. The shared cache survives a deploy, so an unchanged key would keep serving portrait-less rows for a full TTL after ship
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
 const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to reach real
                                       // entries below the 48 seeds (realRows scans the same
@@ -66,6 +66,13 @@ function safeIdentity(value) {
       scene: IDENTITY_STR(d.scene), accent: IDENTITY_STR(d.accent),
       outfit: IDENTITY_STR(d.outfit), mask: IDENTITY_STR(d.mask), eyes: IDENTITY_STR(d.eyes),
     } };
+  }
+  // A picked tile from the drawn set (js/pfp-set.js). Shape-checked here,
+  // membership-checked on the client: the set is a client asset, and
+  // DBAvatar returns null for an id it does not carry, so the row falls
+  // back to its stand-in rather than rendering an empty tile.
+  if (value.kind === 'pfp' && typeof value.id === 'string' && /^[a-z][a-z0-9-]{0,23}$/.test(value.id)) {
+    return { kind: 'pfp', id: value.id };
   }
   if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
     const c = value.config, out = {};

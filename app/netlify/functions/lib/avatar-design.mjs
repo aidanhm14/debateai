@@ -74,9 +74,27 @@ export function cleanPortraitConfig(input) {
  * the shape is REBUILT from the allow-list rather than filtered: passing a
  * caller's object through whole would forward whatever else they wrote
  * into it. */
+/* A picked tile from the drawn picture set (js/pfp-set.js), added
+ * 2026-08-24 when the set became a third thing a debater can choose.
+ * Validated by SHAPE here and by MEMBERSHIP on the client: the set is a
+ * client asset, so this side has no roster to check against, and
+ * DBAvatar.normPublicIdentity returns null for an id the set does not
+ * carry, which makes the surface fall back rather than render an empty
+ * tile. A bounded slug can reach nothing but a lookup miss.
+ *
+ * Note the shape of the bug this file was written for: every other branch
+ * here is a sanitiser with a fallback, which silently rewrites a choice
+ * when it falls behind. This one has no fallback ON PURPOSE. There is no
+ * sensible default picture, and inventing one would put a tile on somebody
+ * that they did not pick, which is the same failure in a new place. */
+export const AVATAR_PFP_ID = /^[a-z][a-z0-9-]{0,23}$/;
+
 export function cleanAvatarIdentity(value) {
   if (!value || typeof value !== 'object') return null;
   if (value.kind === 'live') return { kind: 'live', design: cleanLiveDesign(value.design) };
+  if (value.kind === 'pfp' && typeof value.id === 'string' && AVATAR_PFP_ID.test(value.id)) {
+    return { kind: 'pfp', id: value.id };
+  }
   if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
     return { kind: 'portrait', config: cleanPortraitConfig(value.config) };
   }

@@ -37,6 +37,16 @@
   var EVT = 'debatable-avatar-change';
   var LIVE_STORE_KEY = 'debatable-live-avatar-v1';
   var LIVE_LOOKS_KEY = 'debatable-avatar-looks-v1';
+  /* 2026-08-24: the drawn picture set (js/pfp-set.js) became a THIRD kind
+     of identity a debater can choose, alongside the portrait they design
+     here and the mask they build in the camera avatar. Two keys, because
+     picking a picture must not destroy a portrait somebody already made:
+     PFP_KEY holds the chosen picture id, PREF_KEY holds which of the three
+     kinds they last chose. getPublicIdentity() reads the preference first
+     and falls back to the old order, so an account that never touched the
+     picker behaves exactly as it did. */
+  var PFP_KEY = 'debatable-pfp-v1';
+  var PREF_KEY = 'debatable-avatar-pref';
   var LIVE_EVT = 'debatable-avatar-design';
   // These five lists MUST stay in step with DESIGN_OPTIONS in
   // js/cam-avatar.js. A key that exists there and not here is silently
@@ -823,11 +833,53 @@
       return { kind:'live', name:lookName, lookId:lookId, design:design };
     } catch (e) { return null; }
   }
+  // ---- picture set -----------------------------------------------------
+  /* The set itself lives in js/pfp-set.js so the landing can render it
+     without pulling this 80KB engine in. Loaded on demand here: an account
+     that never picked one never fetches it. */
+  function pfpLib() { return global.DBPfp || null; }
+  function loadPfpLib(cb) {
+    if (pfpLib()) { cb(pfpLib()); return; }
+    var tag = document.querySelector('script[data-db-pfp]');
+    if (tag) { tag.addEventListener('load', function () { cb(pfpLib()); }); return; }
+    tag = document.createElement('script');
+    tag.src = '/js/pfp-set.js';
+    tag.setAttribute('data-db-pfp', '1');
+    tag.onload = function () { cb(pfpLib()); };
+    tag.onerror = function () { cb(null); };
+    document.head.appendChild(tag);
+  }
+  function getPfp() {
+    try { return global.localStorage.getItem(PFP_KEY) || null; } catch (e) { return null; }
+  }
+  function setPfp(id) {
+    try {
+      global.localStorage.setItem(PFP_KEY, String(id));
+      global.localStorage.setItem(PREF_KEY, 'pfp');
+    } catch (e) {}
+    try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
+    return id;
+  }
+  function getPfpIdentity() {
+    var id = getPfp();
+    return id ? { kind:'pfp', id:id } : null;
+  }
+  function pref() {
+    try { return global.localStorage.getItem(PREF_KEY) || ''; } catch (e) { return ''; }
+  }
   function getPublicIdentity() {
+    /* The kind they chose LAST wins, which is the only reading of "I picked
+       this" that does not quietly overrule them. Everything below it is the
+       pre-2026-08-24 order, so an account that never opened the picker is
+       unaffected. */
+    var p = pref();
+    if (p === 'pfp') { var chosen = getPfpIdentity(); if (chosen) return chosen; }
+    if (p === 'portrait') { var mine = getUser(); if (mine) return { kind:'portrait', config:mine }; }
     var live = getLiveIdentity();
     if (live) return live;
     var portrait = getUser();
-    return portrait ? { kind:'portrait', config:portrait } : null;
+    if (portrait) return { kind:'portrait', config:portrait };
+    return getPfpIdentity();
   }
   function normPublicIdentity(value) {
     value = value || {};
@@ -835,6 +887,15 @@
       return { kind:'live', name:String(value.name || 'Avatar').slice(0,32), lookId:String(value.lookId || '').slice(0,64), design:normLiveDesign(value.design) };
     }
     if (value.kind === 'portrait' && value.config) return { kind:'portrait', config:norm(value.config) };
+    /* An id, checked against the set rather than trusted. The id is what
+       gets stored on an account and passed through the API, so an unknown
+       one (a renamed tile, a hand-edited record) resolves to null and the
+       caller falls back rather than rendering an empty box. */
+    if (value.kind === 'pfp' && typeof value.id === 'string') {
+      var lib = pfpLib();
+      if (!lib) return { kind:'pfp', id:value.id.slice(0, 32) };   // set not loaded yet
+      return lib.has(value.id) ? { kind:'pfp', id:value.id } : null;
+    }
     return null;
   }
   // ---- live identity mask ----------------------------------------------
@@ -1003,6 +1064,15 @@
     var id = normPublicIdentity(value);
     if (id && id.kind === 'live') return maskSvg(id.design, size);
     if (id && id.kind === 'portrait') return svg(id.config, size);
+    if (id && id.kind === 'pfp') {
+      var lib = pfpLib();
+      var art = lib && lib.svg(id.id, size);
+      if (art) return art;
+      // The set has not landed. Load it and let the live listeners repaint,
+      // rather than drawing a stranger's face in the meantime.
+      loadPfpLib(function () { try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {} });
+      return '';
+    }
     fallback = fallback || {};
     return svg(randomConfig(fallback.uid || fallback.name || 'anon'), size);
   }
@@ -1072,6 +1142,11 @@
     var sel = '#dc2626';
 
     var cfg = norm(getUser() || randomConfig());
+    /* Which of the two things in this modal the debater is choosing. It
+       starts on whatever they last chose, so reopening the builder shows
+       them their own face rather than resetting to the designer. */
+    var mode = (pref() === 'pfp' && getPfp()) ? 'pfp' : 'portrait';
+    var pfpId = getPfp();
     var lastFocus = document.activeElement;
     var prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden'; // the page must not scroll under the modal
@@ -1105,10 +1180,67 @@
     body.style.cssText = 'padding:4px 24px 12px;overflow:auto;flex:1;overscroll-behavior:contain';
     box.appendChild(body);
 
-    function renderPreview() { prev.innerHTML = svg(cfg, '100%'); }
+    function renderPreview() {
+      var lib = pfpLib();
+      prev.innerHTML = (mode === 'pfp' && pfpId && lib) ? lib.svg(pfpId, '100%') : svg(cfg, '100%');
+    }
 
     var swatchEls = []; // { key, i, node }
     var shapeEls = [];  // { key, i, node, view }
+
+    /* ── Pick a picture ───────────────────────────────────────────────
+       2026-08-24, Aidan: "those should be options yea". The drawn set was
+       already what a debater wore when they had not chosen anything; this
+       makes choosing one a first-class option beside designing a portrait.
+       It sits ABOVE the designer because it is the one-tap answer and the
+       designer is the long one, and because most people want a picture,
+       not a character sheet. */
+    function mountPicker() {
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'padding:14px 0 4px';
+      var h = document.createElement('div');
+      h.textContent = 'Pick a picture';
+      h.style.cssText = 'font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:' + txt + ';margin:4px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + sel;
+      wrap.appendChild(h);
+      var note = document.createElement('div');
+      note.textContent = 'One tap. Or design your own further down.';
+      note.style.cssText = 'font-size:.74rem;color:' + dim + ';margin:8px 0 10px';
+      wrap.appendChild(note);
+      var grid = document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px';
+      wrap.appendChild(grid);
+      body.appendChild(wrap);
+
+      loadPfpLib(function (lib) {
+        if (!lib) { wrap.style.display = 'none'; return; }
+        var tiles = [];
+        lib.list.forEach(function (item) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.title = item.name;
+          b.setAttribute('aria-label', item.name);
+          b.style.cssText = 'width:100%;aspect-ratio:1;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;background:none;border:2px solid transparent;transition:transform .12s,border-color .12s';
+          b.innerHTML = lib.svg(item.id, '100%');
+          b.addEventListener('click', function () {
+            mode = 'pfp'; pfpId = item.id;
+            paintTiles(); renderPreview();
+          });
+          grid.appendChild(b);
+          tiles.push({ id: item.id, node: b });
+        });
+        function paintTiles() {
+          tiles.forEach(function (t) {
+            var on = (mode === 'pfp' && t.id === pfpId);
+            t.node.style.borderColor = on ? sel : 'transparent';
+            t.node.style.transform = on ? 'scale(1.06)' : 'none';
+          });
+        }
+        pickerPaint = paintTiles;
+        paintTiles();
+        renderPreview();
+      });
+    }
+    var pickerPaint = function () {};
 
     function groupHead(label) {
       var g = document.createElement('div');
@@ -1160,8 +1292,11 @@
         });
       });
     }
-    function pick(key, i) { cfg[key] = i; refreshSelected(); refreshShapeThumbs(); }
+    /* Touching any control down here IS choosing the designed portrait, so
+       the mode follows the hand rather than needing its own toggle. */
+    function pick(key, i) { cfg[key] = i; mode = 'portrait'; pickerPaint(); refreshSelected(); refreshShapeThumbs(); }
 
+    mountPicker();
     ROWS.forEach(function (f) {
       if (f.group) { groupHead(f.group); return; }
       var row = rowWrap(f.label);
@@ -1205,7 +1340,14 @@
     rand.type = 'button';
     rand.textContent = 'Surprise me';
     rand.style.cssText = 'font-family:inherit;font-size:.82rem;font-weight:600;color:' + txt + ';background:' + surf2 + ';border:1px solid ' + bd + ';border-radius:999px;padding:10px 16px;cursor:pointer';
-    rand.addEventListener('click', function () { cfg = randomConfig(); refreshSelected(); refreshShapeThumbs(); });
+    rand.addEventListener('click', function () {
+      var lib = pfpLib();
+      if (mode === 'pfp' && lib && lib.list.length) {
+        pfpId = lib.list[Math.floor(Math.random() * lib.list.length)].id;
+        pickerPaint(); renderPreview(); return;
+      }
+      cfg = randomConfig(); refreshSelected(); refreshShapeThumbs();
+    });
     var spacer = document.createElement('div'); spacer.style.flex = '1';
     var cancel = document.createElement('button');
     cancel.type = 'button';
@@ -1230,7 +1372,16 @@
     back.addEventListener('click', function (e) { if (e.target === back) close(); });
     document.addEventListener('keydown', onKey);
     save.addEventListener('click', function () {
-      var saved = setUser(cfg);
+      /* Both are kept. Saving a picture does not throw away a portrait
+         somebody designed, and saving a portrait does not forget the
+         picture they had; only the preference moves. */
+      var saved;
+      if (mode === 'pfp' && pfpId) {
+        saved = { kind:'pfp', id:setPfp(pfpId) };
+      } else {
+        saved = setUser(cfg);
+        try { global.localStorage.setItem(PREF_KEY, 'portrait'); } catch (e) {}
+      }
       if (typeof opts.onSave === 'function') { try { opts.onSave(saved); } catch (e) {} }
       close();
     });
@@ -1383,6 +1534,7 @@
     randomConfig: randomConfig, openBuilder: openBuilder, mountWelcome: mountWelcome,
     identity: identity, mountIdentity: mountIdentity,
     getLiveIdentity: getLiveIdentity, getPublicIdentity: getPublicIdentity,
+    getPfp: getPfp, setPfp: setPfp, getPfpIdentity: getPfpIdentity,
     normPublicIdentity: normPublicIdentity, maskSvg: maskSvg, publicSvg: publicSvg,
     talkingSvg: talkingSvg, mountTalking: mountTalking,
     cameo: cameo, cameoSvg: cameoSvg, CAMEOS: CAMEOS, CAMEO_MAP: CAMEO_MAP,
