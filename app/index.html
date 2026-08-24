@@ -3206,6 +3206,67 @@ function isPro(team, user) {
   return plan === 'individual' || plan === 'team' || plan === 'byok';
 }
 
+// Can this account actually USE the five non-Claude brains?
+//
+// Deliberately NOT isPro(), and this is the whole point of the split.
+// isPro() short-circuits on BETA_PRO_UNLOCK, which is correct for the
+// features it was written for: Sneaky, Opp Attack, Competition depth
+// and the tone options are client-side prompt shaping with no server
+// gate, so the beta flag genuinely grants them and they cost nothing
+// extra to give away.
+//
+// The brains are the opposite. grok / gemini / openai-chat / deepseek /
+// openlab all run requirePaidPlan server-side, and that function has
+// never heard of BETA_PRO_UNLOCK. So the flag never actually unlocked
+// them; it only made this page CLAIM to. A free user picked Grok, the
+// server answered 402, and the fallback quietly handed back Claude.
+// Six brains on screen, one brain in the round, and no way to find out.
+//
+// This mirrors requirePaidPlan exactly, status included. If that
+// function's rule changes, change this one in the same commit.
+// Mirrors OWNER_EMAILS in practice.html and lib/auth.mjs. index.html
+// never had this helper, so the first draft of hasBrainAccess called a
+// function that does not exist on this page and would have thrown a
+// ReferenceError the moment the brain picker rendered.
+var OWNER_EMAILS = new Set(['aidandavidhollinger@gmail.com']);
+function isOwnerEmail(email) {
+  return OWNER_EMAILS.has(String(email || '').toLowerCase());
+}
+
+function hasBrainAccess(team, user) {
+  // The server bypasses for the owner too (requirePaidPlan), so without
+  // this the picker would lock brains the backend would have allowed.
+  if (isOwnerEmail(user && user.email)) return true;
+  if (!team) return false;
+  var plan = team.plan;
+  if (!plan || plan === 'trial') return false;
+  if (['individual', 'team', 'lifetime', 'byok'].indexOf(plan) === -1) return false;
+  var st = team.status;
+  return !st || st === 'active' || st === 'trialing';
+}
+
+// One sentence for "you picked a brain you cannot use", used by the
+// picker and by the mid-generation swap notice so they cannot drift.
+//
+// It reads the SAME billing state the checkout does. While beta is on,
+// naming a price and pointing at /pricing is a dead end: /pricing's
+// startCheckout bounces straight back to /app saying nobody can be
+// charged today, so the user is told to pay, told they cannot pay, and
+// returned where they started. So during beta this says what is true
+// (Claude is the free brain) and offers no purchase that does not exist.
+// Flipping BETA_NO_CHARGE=false in the Netlify env swaps it to the real
+// upgrade line with no deploy, the same one switch everything else uses.
+function brainPaywallLine(brainName) {
+  // Apple 3.1.1: never put price copy or an external buy link in the app.
+  if (window.__DB_NATIVE) {
+    return brainName + ' is not available in the app. Claude is the free brain.';
+  }
+  if (CHECKOUT_BETA_NO_CHARGE !== false) {
+    return brainName + ' runs on a paid plan. Beta is free and Claude is the brain it includes, so rounds stay on Claude for now.';
+  }
+  return 'Upgrade to unlock ' + brainName + '. Individual is $10/year and unlocks all six brains.';
+}
+
 // Pro trial tracking. 5 free tries per feature
 function getProTrials(feature) {
   try {return parseInt(localStorage.getItem('pro_trial_' + feature) || '0', 10);} catch {return 0;}
@@ -4327,6 +4388,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4342,8 +4404,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';
-  t = t.replace(/<p[^>]*><\/p>/g, '');
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';t = t.replace(/<p[^>]*><\/p>/g, '');
   return t;
 }
 
@@ -5205,18 +5266,21 @@ function notifyBrainSwap(brainKey, serverReason) {
   col.appendChild(line);
   var sub = document.createElement('div');
   sub.style.cssText = 'margin-top:4px;color:#a1a1aa;font-size:.76rem';
-  sub.textContent = /not active|past due|expired|lapsed/i.test(serverReason || '') ?
+  var lapsed = /not active|past due|expired|lapsed/i.test(serverReason || '');
+  sub.textContent = lapsed ?
   'Your plan is not active right now. Reopening billing should restore it.' :
-  'Individual is $10/year and unlocks all six brains.';
+  brainPaywallLine(b.name || brainKey);
   col.appendChild(sub);
   wrap.appendChild(col);
 
   var actions = document.createElement('div');
   actions.style.cssText = 'display:flex;gap:6px;flex:0 0 auto;align-items:center';
-  // The native app must not link out to a web pricing page: App Store
-  // rules, and every other paywall string on this page already branches
-  // on __DB_NATIVE for exactly that reason.
-  if (!window.__DB_NATIVE) {
+  // The link is offered only when it leads somewhere. Native never gets
+  // one (App Store 3.1.1), and neither does a beta visitor, because
+  // /pricing cannot sell them anything while BETA_NO_CHARGE is on and
+  // would bounce them back to this same page. A lapsed plan is the
+  // exception: billing is genuinely where that gets fixed.
+  if (!window.__DB_NATIVE && (CHECKOUT_BETA_NO_CHARGE === false || lapsed)) {
     var cta = document.createElement('a');
     cta.href = '/pricing';
     cta.textContent = 'See plans';
@@ -6650,12 +6714,14 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     // Free users are limited to Claude. Other brains (Gemini, Grok,
     // GPT) are locked behind any paid plan. shown but disabled with
     // PRO badge and an upgrade nudge on click.
-    var isLocked = key !== 'claude' && !isPro(team, user);
+    // hasBrainAccess, not isPro: these five are server-gated and the
+    // beta flag does not reach the server. See hasBrainAccess.
+    var isLocked = key !== 'claude' && !hasBrainAccess(team, user);
     return React.createElement('button', {
       key: key,
       onClick: function () {
         if (isLocked) {
-          setError(window.__DB_NATIVE ? brain.name + ' is not available in the app yet. Claude is the free brain.' : 'Upgrade to unlock ' + brain.name + '. $10/year unlocks all 6 AI brains plus the Sonnet/Pro tier of each.');
+          setError(brainPaywallLine(brain.name));
           return;
         }
         setCaseBrain(key);
