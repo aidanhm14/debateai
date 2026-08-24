@@ -1936,6 +1936,14 @@ body.speech-live .transcript-area{margin-top:4px}
   font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   border-radius:999px;padding:2px 8px;color:#fff;background:var(--accent,#ef4444);
 }
+.sg-swap{
+  margin-left:auto;background:transparent;border:1px solid var(--border,rgba(127,127,127,.32));
+  color:var(--text-dim);border-radius:999px;padding:2px 9px;font:inherit;font-size:.64rem;
+  font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.sg-swap:hover{color:var(--text);border-color:var(--border-strong,rgba(127,127,127,.6))}
+body.speech-live .sg-swap{display:none}
+/* Touch gets a taller target without loosening the desktop density. */
+@media (pointer:coarse){.sg-swap{padding:7px 12px}}
 .sg-what{font-size:.88rem;line-height:1.5;color:var(--text-dim)}
 .sg-what strong{color:var(--text)}
 @media(max-width:760px){
@@ -2996,6 +3004,16 @@ html.stage-mode .stage-ov{display:block}
           <span class="rmbp-by" id="rmbpBy"></span>
         </div>
         <div class="rmbp-actions" id="rmbpActions"></div>
+      </div>
+      <!-- Pending side swap. Hidden until one debater asks to trade; the
+           seats do not move until the other one agrees. -->
+      <div class="rmb-propose" id="swapPropose" hidden>
+        <div class="rmbp-text">
+          <span class="rmbp-eyebrow" id="swpEyebrow">Side swap proposed</span>
+          <div class="rmbp-motion" id="swpWhat"></div>
+          <span class="rmbp-by" id="swpBy"></span>
+        </div>
+        <div class="rmbp-actions" id="swpActions"></div>
       </div>
       <!-- Set the context (US / world). Shown before Speech 1 only when the
            AI decides the motion depends on where it applies. Both debaters
@@ -4745,6 +4763,17 @@ html.stage-mode .stage-ov{display:block}
   // media", Pro AGREES with the regret and argues AGAINST social media.
   // Deterministic, no model call: For = the resolution is true or
   // should happen, Against = it is false or should not.
+  // Seats lock exactly when the resolution does: the moment the first
+  // speech starts, the sides are what the transcript is tagged with and
+  // what the ballot is written against. Deliberately a separate function
+  // from the motion editor's motionLocked() — two promises that happen
+  // to share a deadline, not one rule read twice.
+  function sidesLocked(){
+    if (state.phase !== 'round') return true;
+    if (state.speechIdx > 0) return true;
+    return state.timerState !== 'ready';
+  }
+
   function renderSidesGuide(){
     var el = $('sidesGuide');
     if (!el) return;
@@ -4756,6 +4785,12 @@ html.stage-mode .stage-ov{display:block}
     var side = mySide();
     var proWho = !fourTeam ? (state.proName || '') : '';
     var conWho = !fourTeam ? (state.conName || '') : '';
+    // The swap control sits on the viewer's OWN cell, which is where
+    // somebody looks the second they notice they are on the side they
+    // did not want. The motion editor learned this the expensive way:
+    // it used to live only behind Options and nobody found it.
+    var canSwap = false;
+    try { canSwap = !!(window.__lrSwapOffered && window.__lrSwapOffered()); } catch(e){}
     function cell(sideKey, label, who, what){
       var you = side === sideKey;
       return '<div class="sg-cell' + (you ? ' is-you' : '') + '">' +
@@ -4763,6 +4798,7 @@ html.stage-mode .stage-ov{display:block}
           '<span class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</span>' +
           (who ? '<span class="sg-who">' + escHtml(who) + '</span>' : '') +
           (you ? '<span class="sg-you-chip">You</span>' : '') +
+          (you && canSwap ? '<button type="button" class="sg-swap" title="Ask your opponent to trade sides. It only happens if they agree, and only before the first speech.">\u21c4 Switch sides</button>' : '') +
         '</div>' +
         '<div class="sg-what">' + what + '</div>' +
       '</div>';
@@ -4773,6 +4809,10 @@ html.stage-mode .stage-ov{display:block}
       cell('con', againstLabel, conWho,
         'Argues <strong>no to the resolution</strong>: it is false, or should not happen. Attack the claim and defend the world it criticizes.');
     el.hidden = false;
+    var swapBtn = el.querySelector('.sg-swap');
+    if (swapBtn) swapBtn.addEventListener('click', function(){
+      try { if (window.__lrProposeSideSwap) window.__lrProposeSideSwap(); } catch(e){}
+    });
     renderHouseGloss();
   }
 
@@ -5140,6 +5180,16 @@ html.stage-mode .stage-ov{display:block}
     // Same moment the motion lock flips, so the inline ✎ Change control
     // appears and disappears with it (wired in the motion-editor IIFE).
     try { if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns(); } catch(e){}
+    // Same moment, same reason, for the side-swap control and any card
+    // still open: the seats lock when the first speech starts.
+    try { if (window.__lrSyncSideSwap) window.__lrSyncSideSwap(); } catch(e){}
+    // The prediction market records WHICH UID SITS ON WHICH SIDE and it
+    // settles by side, so a market opened before the seats settled would
+    // pay the wrong debater once a swap went through. It opens here
+    // instead of at round entry: this runs on every timer transition,
+    // local and mirrored, so it is the first moment on either client
+    // where the seats can no longer move.
+    if (state.timerState !== 'ready') { try { pmOpen(); } catch(e){} }
     var btn = $('playPauseBtn');
     if (!btn) return;
     if (state.phase === 'round' && isSpectator()){
@@ -8344,7 +8394,8 @@ html.stage-mode .stage-ov{display:block}
     // costs the arrival. It fires after the first speech instead, from
     // endSpeech, when the person has actually done the thing they would
     // be consenting to store.
-    try { pmOpen(); pmInitSpectator(); } catch(e){}
+    // pmOpen() deliberately NOT here — see updatePlayPauseBtn.
+    try { pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
@@ -11719,6 +11770,252 @@ html.stage-mode .stage-ov{display:block}
       try { renderContext(d); } catch(e){}
     };
 
+    // ── Switching sides takes both debaters too ──────────────────────
+    // 2026-08-24 (the founder): let people trade sides when they get in
+    // the room. /spar hands out sides by lexicographic uid, which is
+    // arbitrary, so a real share of matched debaters land on the side
+    // they did not want and their only move was to leave the round and
+    // requeue. Now they can ask.
+    //
+    // It ASKS rather than acts, for the same reason a resolution change
+    // asks: which side you argue is the other half of what both people
+    // prepared, so one debater flipping the seats is a change to the
+    // contest, not a preference. One side proposes, the seats move when
+    // the other agrees, and either of them can end the proposal.
+    //
+    // 1v1 only. A 2v2 bench swap is four people's agreement rather than
+    // two, and the partner seats reach a client by URL rather than
+    // through the round doc, so a duo swap would move half the room and
+    // leave the other half arguing the side it thinks it still holds.
+    var swapPending = false;      // a proposal is on screen right now
+    var swapStaleCleared = false; // once-per-page cleanup of a proposal that outlived its window
+    var swapOfferedLast = null;   // last painted availability, so the sync is not a re-render on every tick
+
+    function swapAllowed(){
+      return !isSpectator() && !state.isDuo && !motionLocked()
+        && bothSeatsIdentified() && !!myUid();
+    }
+    // What the sides guide asks before it draws the control: allowed AND
+    // nothing already pending, since the card is the surface while one is.
+    window.__lrSwapOffered = function(){ return swapAllowed() && !swapPending; };
+
+    function otherSeatUid(){
+      var me = myUid();
+      return seatUids().filter(function(u){ return u !== me; })[0] || '';
+    }
+    function sideLabelFor(key){
+      var f = FORMATS[state.formatKey] || FORMATS.quick;
+      return (f.sideLabels && f.sideLabels[f.sides[key === 'pro' ? 0 : 1]])
+        || (key === 'pro' ? 'Pro' : 'Con');
+    }
+
+    // Flip every field that names a bench. State keyed by UID (seatSeen,
+    // participantAvatars, leaderboardConsent, the rating deltas) is left
+    // alone on purpose: that follows the person, not the seat. The judge
+    // nominations DO move, because a pick belongs to the debater who made
+    // it and would otherwise read as the opponent's.
+    function applySeatSwap(){
+      var t;
+      t = state.proUid;  state.proUid  = state.conUid;  state.conUid  = t;
+      t = state.proName; state.proName = state.conName; state.conName = t;
+      var jp = state.judgePicks || { pro:'chair', con:'chair' };
+      state.judgePicks = { pro: jp.con || 'chair', con: jp.pro || 'chair' };
+      if (state.teamNames){
+        t = state.teamNames.og; state.teamNames.og = state.teamNames.oo; state.teamNames.oo = t;
+      }
+      // Several label paths read the URL hint directly instead of going
+      // through mySide() (the camera seat tag, the Daily display-name
+      // fallback, the recording board's track fallback), so the hint has
+      // to travel with the seats or they keep announcing the side this
+      // person just left.
+      var ns = mySide();
+      if (ns) state.mySideHint = ns;
+      else if (state.mySideHint === 'pro') state.mySideHint = 'con';
+      else if (state.mySideHint === 'con') state.mySideHint = 'pro';
+      var pn = $('proName'); if (pn) pn.value = state.proName || '';
+      var cn = $('conName'); if (cn) cn.value = state.conName || '';
+      try { renderRound(); } catch(e){}
+      try { updateRoomStage(); } catch(e){}
+      try { syncJudgeLock(); } catch(e){}
+    }
+    // The round snapshot calls this when the document comes back with the
+    // two seat uids in the other order. It is the ONLY thing that moves
+    // the seats locally, on the proposer's screen and on the accepter's
+    // alike: the accepter writes the doc and Firestore's own latency
+    // compensation hands the swapped order straight back to them, so both
+    // clients travel one path, and a write that fails reverts both of
+    // them the same way instead of leaving one round with two answers.
+    window.__lrApplySeatSwap = applySeatSwap;
+
+    function proposeSwap(){
+      if (!swapAllowed()){
+        toast(motionLocked()
+          ? 'Sides lock when the first speech starts.'
+          : 'You can trade sides once your opponent is in the room.');
+        return;
+      }
+      var ref = getRoundDocRef();
+      var uid = myUid();
+      if (!ref || !uid) return;
+      var swap = { by: uid, byName: nameForUid(uid), at: Date.now() };
+      var payload = { sideSwap: swap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      ref.update(payload).catch(function(){ ref.set(payload, { merge: true }).catch(function(){}); });
+      renderSideSwap({ sideSwap: swap });   // paint now, do not wait on the round trip
+      toast('Asked ' + nameForUid(otherSeatUid()) + ' to trade sides.');
+      try { gtag('event', 'live_round_side_swap_proposed', { format: state.formatKey }); } catch(e){}
+    }
+    window.__lrProposeSideSwap = proposeSwap;
+
+    // Declining and withdrawing are the same operation, as they are for a
+    // resolution change: either debater is entitled to end a proposal,
+    // and nobody can be held to one they have stopped wanting.
+    function clearSwap(evt){
+      var ref = getRoundDocRef();
+      if (ref) ref.update({
+        sideSwap: firebase.firestore.FieldValue.delete(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(){});
+      swapPending = false;
+      var box = document.getElementById('swapPropose');
+      if (box) box.hidden = true;
+      try { renderSidesGuide(); } catch(e){}
+      if (evt) try { gtag('event', 'live_round_side_swap_' + evt, { format: state.formatKey }); } catch(e){}
+    }
+
+    // Agreeing writes the swapped seats and clears the proposal in one
+    // update. Nothing swaps locally here on purpose: the snapshot does
+    // that for every client including this one (see applySeatSwap).
+    function acceptSwap(){
+      if (!swapAllowed()){ toast('Sides lock when the first speech starts.'); clearSwap(''); return; }
+      var ref = getRoundDocRef();
+      if (!ref) return;
+      var jp = state.judgePicks || { pro:'chair', con:'chair' };
+      ref.update({
+        proUid: state.conUid, conUid: state.proUid,
+        proName: state.conName || '', conName: state.proName || '',
+        judgePicks: { pro: jp.con || 'chair', con: jp.pro || 'chair' },
+        sideSwap: firebase.firestore.FieldValue.delete(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(e){
+        console.warn('[side swap] commit failed', e);
+        toast('Could not switch sides. Try again.');
+      });
+      swapPending = false;
+      var box = document.getElementById('swapPropose');
+      if (box) box.hidden = true;
+      try { gtag('event', 'live_round_side_swap_agreed', { format: state.formatKey }); } catch(e){}
+    }
+
+    // Paint the pending-swap card. Called from the round snapshot, so it
+    // runs on both debaters and on every spectator.
+    function renderSideSwap(d){
+      var box = document.getElementById('swapPropose');
+      if (!box) return;
+      var p = d && d.sideSwap;
+      if (!p || !p.by){
+        if (swapPending){ swapPending = false; try { renderSidesGuide(); } catch(e){} }
+        box.hidden = true;
+        return;
+      }
+      // A proposal cannot outlive the window it belongs to. The card
+      // going away is the whole message once a speech is running.
+      if (motionLocked()){
+        box.hidden = true;
+        swapPending = false;
+        if (!isSpectator() && myUid() && !swapStaleCleared){ swapStaleCleared = true; clearSwap(''); }
+        return;
+      }
+      var wasPending = swapPending;
+      swapPending = true;
+      if (!wasPending) { try { renderSidesGuide(); } catch(e){} }
+      box.hidden = false;
+
+      var uid = myUid();
+      var mine = !!uid && p.by === uid;
+      var ms = mySide();
+      var eyebrow = document.getElementById('swpEyebrow');
+      var whatEl = document.getElementById('swpWhat');
+      var byEl = document.getElementById('swpBy');
+      var actions = document.getElementById('swpActions');
+      if (!eyebrow || !whatEl || !byEl || !actions) return;
+
+      eyebrow.textContent = mine ? 'Your side swap' : 'Side swap proposed';
+      if (ms === 'pro' || ms === 'con'){
+        var mine2 = ms === 'pro' ? 'con' : 'pro';
+        whatEl.textContent = 'You would argue ' + sideLabelFor(mine2) + '. '
+          + nameForUid(otherSeatUid()) + ' would argue ' + sideLabelFor(ms) + '.';
+      } else {
+        whatEl.textContent = (state.proName || 'Prop') + ' and ' + (state.conName || 'Opp')
+          + ' would trade sides.';
+      }
+      // Names routinely end in a period ("Benji N."), so never follow one
+      // with sentence punctuation.
+      byEl.textContent = mine
+        ? 'The sides stay as they are until ' + nameForUid(otherSeatUid()) + ' agrees.'
+        : (p.byName || 'The other debater') + ' wants to trade sides before the first speech.';
+
+      actions.innerHTML = '';
+      if (isSpectator() || !uid){
+        var w = document.createElement('span');
+        w.className = 'rmbp-wait';
+        w.textContent = 'Waiting on the debaters';
+        actions.appendChild(w);
+        return;
+      }
+      if (mine){
+        var wait = document.createElement('span');
+        wait.className = 'rmbp-wait';
+        wait.textContent = 'Waiting on ' + nameForUid(otherSeatUid());
+        var wd = document.createElement('button');
+        wd.type = 'button';
+        wd.textContent = 'Withdraw';
+        wd.addEventListener('click', function(){ clearSwap('withdrawn'); });
+        actions.appendChild(wait);
+        actions.appendChild(wd);
+        return;
+      }
+      var yes = document.createElement('button');
+      yes.type = 'button';
+      yes.className = 'rmbp-accept';
+      yes.textContent = 'Switch sides';
+      yes.addEventListener('click', acceptSwap);
+      var no = document.createElement('button');
+      no.type = 'button';
+      no.textContent = 'Keep my side';
+      no.addEventListener('click', function(){ clearSwap('declined'); });
+      actions.appendChild(yes);
+      actions.appendChild(no);
+    }
+    window.__lrRenderSideSwap = renderSideSwap;
+
+    // Called on every timer transition, local and mirrored, which is the
+    // moment the seats lock for the off-side debater as much as for the
+    // speaker. Repaints only when availability actually changed: this
+    // rebuilds the sides guide, and the transition fires often enough
+    // that an unconditional re-render would be wasteful.
+    window.__lrSyncSideSwap = function(){
+      var offered = false;
+      try { offered = window.__lrSwapOffered(); } catch(e){}
+      if (offered !== swapOfferedLast){
+        swapOfferedLast = offered;
+        try { renderSidesGuide(); } catch(e){}
+      }
+      // Locked with a card still up: take it down, and clear the field
+      // with it. This is the ONLY path that catches the common case,
+      // because the snapshot carrying the running timer paints the card
+      // BEFORE applyRemoteTimer flips the lock further down the same
+      // handler, so the render pass sees an unlocked round and leaves
+      // the proposal standing. Clearing is an idempotent delete and runs
+      // once per page, so both debaters racing it costs one extra write.
+      if (motionLocked() && swapPending){
+        swapPending = false;
+        var box = document.getElementById('swapPropose');
+        if (box) box.hidden = true;
+        try { renderSidesGuide(); } catch(e){}
+        if (!isSpectator() && myUid() && !swapStaleCleared){ swapStaleCleared = true; clearSwap(''); }
+      }
+    };
+
     // Single entry point for "the resolution should become X". Routes to
     // a proposal when there is somebody to ask, and to a direct edit
     // when there is not.
@@ -14715,6 +15012,17 @@ html.stage-mode .stage-ov{display:block}
       state.conUid = d.conUid;
       if (isSpectator()) enterAudienceMode();
     }
+    // A committed side swap arrives as the two seat uids in the other
+    // order. The block above only ever FILLS empty seats, so without
+    // this the debater who pressed agree would be the only one whose
+    // screen moved. Narrow by construction: the incoming pair has to be
+    // a permutation of the pair already held, so this can flip a swap
+    // and can do nothing else.
+    if (d.proUid && d.conUid && state.proUid && state.conUid
+        && d.proUid === state.conUid && d.conUid === state.proUid
+        && window.__lrApplySeatSwap){
+      try { window.__lrApplySeatSwap(); } catch(e){}
+    }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
     if (typeof d.allowAudienceCams === 'boolean' && d.allowAudienceCams !== state.allowAudienceCams){
       state.allowAudienceCams = d.allowAudienceCams;
@@ -14724,6 +15032,8 @@ html.stage-mode .stage-ov{display:block}
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // Pending resolution change, if either side has asked for one.
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
+    // Pending side swap, same shape: one debater asked to trade sides.
+    if (window.__lrRenderSideSwap) { try { window.__lrRenderSideSwap(d); } catch(e){} }
     // Motion context (US / world): classify once, then paint the setup
     // card + agreed chip. Additive; a no-op on motions that don't need it.
     if (window.__lrRenderContext) { try { window.__lrRenderContext(d); } catch(e){} }
@@ -14795,7 +15105,7 @@ html.stage-mode .stage-ov{display:block}
       // with the per-speech atMs values.
       if (typeof d.roundStartedAt === 'number' && !state.roundStartedAt) state.roundStartedAt = d.roundStartedAt;
       renderRound();
-      try { pmOpen(); pmInitSpectator(); pmLockCheck(); } catch(e){}
+      try { pmInitSpectator(); pmLockCheck(); } catch(e){}
       try { svInitSpectator(); } catch(e){}
       startPrepBanner();
       try { maybePlayAssignedJudgeIntro(); } catch(e){}

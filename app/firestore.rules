@@ -255,6 +255,28 @@ service cloud.firestore {
           || changed.hasOnly([request.auth.uid]);
       }
 
+      // Seats may be TRADED, never reassigned. Switching sides is a
+      // normal in-room action now (both debaters agree, then one of
+      // them writes the two seats in the other order), which makes
+      // proUid / conUid fields a client writes DURING a live round for
+      // the first time — until now the only client write of them was
+      // the round-init set, writing the values already there. Holding
+      // that write to a permutation of the pair on the document is what
+      // keeps "these seats hold the two people who were matched" true:
+      // a participant cannot write themselves into both seats, and
+      // cannot swap their opponent out for somebody else. Only bites
+      // once both seats are filled, so the init write that first PUTS
+      // them there is untouched, as are legacy rounds that never had
+      // them.
+      function seatsHeldOrTraded() {
+        return !('proUid' in resource.data)
+          || !('conUid' in resource.data)
+          || (request.resource.data.get('proUid', '') == resource.data.proUid
+              && request.resource.data.get('conUid', '') == resource.data.conUid)
+          || (request.resource.data.get('proUid', '') == resource.data.conUid
+              && request.resource.data.get('conUid', '') == resource.data.proUid);
+      }
+
       // Participant-only writes once the round has both UIDs locked
       // in (i.e., a posted+accepted challenge). Spectators land here
       // signed-in but match neither side, so they can read the round
@@ -266,6 +288,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && leaderboardConsentChangeIsOwnUid()
                     && motionAcceptsChangeIsOwnUid()
+                    && seatsHeldOrTraded()
                     && (
                       !('proUid' in resource.data)
                       || !('conUid' in resource.data)
