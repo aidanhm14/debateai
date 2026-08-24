@@ -1356,9 +1356,13 @@ body.lr-pip .lr-pip-notice{display:block}
 .spectator-meta-chip[hidden]{display:none}
 body.spectator-mode #roundGuide[data-phase="round"],
 body.spectator-mode #judgeDraft,
-body.spectator-mode #prepBanner,
-body.spectator-mode .round-roster,
-body.spectator-mode .round-roster-4{display:none!important}
+body.spectator-mode #prepBanner{display:none!important}
+/* The roster used to be hidden here too, from when it sat in the main
+   flow and the header chips replaced it. It lives inside the collapsed
+   "Round details" block now, so hiding it left a watcher who opened the
+   one panel named "speakers and order" looking at a speech list and no
+   speakers. renderRoster already drops the You/Opponent framing for a
+   spectator, and the DM / report buttons stay hidden in JS. */
 body.spectator-mode .round-motion-bar{
   padding:12px 18px;display:grid;
   grid-template-columns:minmax(0,1fr) auto;align-items:center;
@@ -1400,6 +1404,55 @@ body.spectator-mode #micBtn,
 body.spectator-mode #autoMicLabel,
 body.spectator-mode #speakXlLabel{display:none!important}
 body.spectator-mode .transcript-area{padding-top:15px}
+
+/* Spectator captions (2026-08-24). A watcher reads; they never type, so
+   the debaters' textarea was the wrong object for them: it rendered as
+   an empty form field with a placeholder sitting in it, it did not
+   follow the speech once the text grew past the box, and the caret
+   invited an edit nothing would ever accept. The textarea stays in the
+   DOM and stays the single sink every writer already targets (the
+   snapshot mirror, paintTranslatedCaption, updateWordCount); spectator
+   mode hides it and paints #specCaptions from it instead. The writer's
+   chrome goes with it: a word count is a drafting tool, and the mic
+   state belongs to whoever is holding the mic. */
+body.spectator-mode .transcript-area textarea,
+body.spectator-mode #micQuality,
+body.spectator-mode .transcript-options .word-count,
+body.spectator-mode .mic-state{display:none!important}
+body.spectator-mode .spec-captions{display:block}
+.spec-captions{
+  display:none;flex:1;min-height:210px;max-height:min(52vh,560px);
+  overflow-y:auto;padding:20px 22px;border-radius:14px;
+  background:var(--ui-surface);border:1px solid var(--border);
+  border-left:3px solid var(--border);
+  font-size:1.06rem;line-height:1.72;color:var(--text);
+}
+.spec-captions.is-live{border-left-color:var(--blue)}
+.spec-captions .sc-body{white-space:pre-wrap;word-break:break-word}
+.spec-captions .sc-body:empty{display:none}
+.spec-captions .sc-empty{color:var(--text-dim);font-size:.92rem;line-height:1.62}
+.spec-captions .sc-empty[hidden]{display:none}
+/* Live pill. The debater knows a speech is running because they started
+   it; a watcher only has the clock, and a clock at 0:00 reads the same
+   whether the round is between speeches or nobody is coming. */
+.sc-live-chip{display:none}
+body.spectator-mode .sc-live-chip{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  min-height:26px;padding:3px 10px;border-radius:999px;
+  border:1px solid rgba(59,130,246,.32);background:rgba(59,130,246,.08);
+  color:var(--blue);font-size:.64rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;
+}
+body.spectator-mode .sc-live-chip[hidden]{display:none!important}
+.sc-live-chip i{
+  width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;
+  animation:micPulse 1.1s ease-in-out infinite;
+}
+/* Cool rail instead of the debaters' red one. The panel is the same
+   panel; the colour is what says at a glance that this seat has no
+   controls in it. */
+body.spectator-mode .round-motion-bar{border-left-color:var(--blue)}
+body.spectator-mode .speech-clock-label{color:var(--blue)}
 @media(max-width:720px){
   body.spectator-mode .round-motion-bar{grid-template-columns:1fr;gap:9px;padding:11px 14px}
   body.spectator-mode .rmb-tools{justify-content:flex-start}
@@ -3009,10 +3062,20 @@ html.stage-mode .stage-ov{display:block}
             </label>
             <span class="mic-state" id="micState" hidden><i></i><span id="micStateText">Listening</span></span>
             <span class="word-count" id="wordCount">0 words</span>
+            <!-- Spectator-only. Hidden by CSS for everyone else; a debater
+                 already knows whether a speech is running. -->
+            <span class="sc-live-chip" id="specLiveChip" hidden><i aria-hidden="true"></i>Live</span>
           </div>
         </div>
         <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
         <div id="micQuality" hidden></div>
+        <!-- The spectator's reading surface. Painted from #speechText by
+             paintSpecCaptions so the textarea stays the one place every
+             transcript writer targets; see the CSS note above. -->
+        <div class="spec-captions" id="specCaptions" aria-live="polite" aria-label="Live captions">
+          <div class="sc-body" id="specCaptionsBody"></div>
+          <div class="sc-empty" id="specCaptionsEmpty"></div>
+        </div>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
@@ -4350,6 +4413,22 @@ html.stage-mode .stage-ov{display:block}
     var ms = mySide();
     var spectator = isSpectator();
     document.body.classList.toggle('spectator-mode', spectator);
+    // "Live transcript" is what the person producing it calls it. A
+    // watcher is reading captions, and the language select next to the
+    // heading is theirs (it picks the language the captions are
+    // translated INTO), so it gets named for that job instead of for
+    // the mic job it does on a debater's screen. Set in both directions
+    // because the seat can resolve late: a visitor who arrives before
+    // auth settles renders once as a spectator and once as a debater.
+    var _tTitle = document.querySelector('.transcript-title strong');
+    if (_tTitle) _tTitle.textContent = spectator ? 'Live captions' : 'Live transcript';
+    var _langSel = $('langSelect');
+    if (_langSel){
+      _langSel.title = spectator
+        ? 'The language you read the captions in. The speakers keep their own; anything they say in another language is translated for you.'
+        : 'The language you are debating in. Your mic transcribes in it; the other side reads live-translated captions and the judge scores across languages.';
+      _langSel.setAttribute('aria-label', spectator ? 'Caption language' : 'Debating language');
+    }
     $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')');
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
@@ -4551,11 +4630,12 @@ html.stage-mode .stage-ov{display:block}
       if (ppBtn){ ppBtn.disabled = true; ppBtn.style.display = ''; ppBtn.textContent = 'Audience mode'; ppBtn.className = 'btn btn-control-locked'; }
       var spectatorMicHint = $('micHint');
       if (spectatorMicHint){
-        spectatorMicHint.textContent = 'The active speaker\'s words appear here live.';
+        spectatorMicHint.textContent = 'The active speaker\'s words appear here as they say them. Pick the language you want to read them in.';
         spectatorMicHint.style.color = '';
         spectatorMicHint.style.fontWeight = '';
       }
       if (hint) hint.textContent = 'Audience view. Your camera and mic stay off.';
+      paintSpecCaptions();
     } else if (ms && !myTurn){
       if (ta){ ta.disabled = true; ta.placeholder = 'Opponent is speaking. Listen + prep your response.'; }
       if (micBtn){ micBtn.disabled = true; micBtn.style.display = 'none'; }
@@ -4751,10 +4831,63 @@ html.stage-mode .stage-ov{display:block}
     $('sequenceList').innerHTML = html;
   }
 
+  // ── Spectator captions ──────────────────────────────────
+  // Paints the read-only caption pane from the textarea. Every writer
+  // (the off-side snapshot mirror, paintTranslatedCaption, the mic
+  // render path) keeps targeting #speechText exactly as before; this
+  // reads from it, so there is one sink and no second copy to drift.
+  // No-ops for debaters, so it is safe to call from shared paths.
+  function specCaptionSpeaker(){
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches[state.speechIdx];
+    if (!sp) return '';
+    return sideBench(f, sp.side) === 'gov'
+      ? (state.proName || '') : (state.conName || '');
+  }
+  function paintSpecCaptions(){
+    if (!isSpectator()) return;
+    var box = $('specCaptions');
+    var body = $('specCaptionsBody');
+    var empty = $('specCaptionsEmpty');
+    var chip = $('specLiveChip');
+    if (!box || !body || !empty) return;
+    var ta = $('speechText');
+    var txt = ta ? (ta.value || '').trim() : '';
+    var running = state.phase === 'round' && state.timerState === 'running';
+    box.classList.toggle('is-live', running);
+    if (chip) chip.hidden = !running;
+    if (body.textContent !== txt){
+      // Stick to the newest words, unless the viewer has scrolled up to
+      // re-read something. A caption pane that yanks you back to the
+      // bottom mid-sentence is worse than one that lags a line.
+      var stick = (box.scrollHeight - box.scrollTop - box.clientHeight) < 60;
+      body.textContent = txt;
+      if (stick) box.scrollTop = box.scrollHeight;
+    }
+    if (txt){ empty.hidden = true; return; }
+    empty.hidden = false;
+    var who = specCaptionSpeaker();
+    var f = FORMATS[state.formatKey];
+    var total = (f && f.speeches) ? f.speeches.length : 0;
+    var n = (state.speechIdx || 0) + 1;
+    if (running){
+      // Captions come off the SPEAKER'S OWN mic, and Firefox has no Web
+      // Speech at all, so a live speech with an empty pane is a real
+      // state and not a stall on our side. Say which it is.
+      empty.textContent = 'Listening. The words land here a moment after they are said, and stay empty if the speaker is not running a mic.';
+    } else if (state.phase === 'round'){
+      empty.textContent = (who ? who + ' has not started ' : 'Nobody has started ')
+        + 'speech ' + n + (total ? ' of ' + total : '') + '. The captions run here as it is delivered.';
+    } else {
+      empty.textContent = 'The captions run here once the round starts.';
+    }
+  }
+
   function updateWordCount(){
     var txt = $('speechText').value.trim();
     var n = txt ? txt.split(/\s+/).length : 0;
     $('wordCount').textContent = n + ' word' + (n===1?'':'s');
+    paintSpecCaptions();
     // Active speaker also pushes the live transcript so the off-side
     // (and any spectators) see the speech stream in as it's spoken,
     // not just a static "their turn" hint. Debounced; only fires when
@@ -4978,6 +5111,9 @@ html.stage-mode .stage-ov{display:block}
     // Runs on every timer transition, local and remote-mirrored, which is
     // exactly when the speech-1 kickoff strip must appear or clear.
     try { checkKickoffPrompt(); } catch(e){}
+    // Same reason: it is also every moment a spectator's Live pill and
+    // "has not started speech N" line become wrong.
+    try { paintSpecCaptions(); } catch(e){}
     // Same moment the motion lock flips, so the inline ✎ Change control
     // appears and disappears with it (wired in the motion-editor IIFE).
     try { if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns(); } catch(e){}
@@ -5150,6 +5286,7 @@ html.stage-mode .stage-ov{display:block}
     var ta = $('speechText');
     if (!ta || isMyTurn()) return;
     ta.value = translated;
+    paintSpecCaptions();
     var hint = $('micHint');
     if (hint) hint.textContent = 'Translated live from ' + (XL_NAMES[fromLang] || fromLang) + '.';
     // Cross-language moment confirmed: surface the ear option.
@@ -14440,6 +14577,10 @@ html.stage-mode .stage-ov{display:block}
         var n = remoteText.trim() ? remoteText.trim().split(/\s+/).length : 0;
         var wc = $('wordCount');
         if (wc) wc.textContent = n + ' word' + (n===1?'':'s');
+        // This branch writes the textarea directly rather than through
+        // updateWordCount, so the spectator pane has to be repainted here
+        // too. It is the main path a watcher's captions arrive on.
+        paintSpecCaptions();
       }
     }
 
