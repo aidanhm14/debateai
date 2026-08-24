@@ -2808,6 +2808,8 @@ html.stage-mode .stage-ov{display:block}
           <span class="mb-label">Background <span class="mb-hint">· tap to edit, both sides see it</span></span>
           <div class="mb-body" id="motionBriefBody" contenteditable="true" spellcheck="true" data-ph="Write the context here, or roll a brief with the button above."></div>
         </div>
+        <!-- What "This House" is, before anyone has to ask. -->
+        <div class="rmb-house" id="setupHouse" hidden></div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -2884,6 +2886,9 @@ html.stage-mode .stage-ov{display:block}
           </span>
           <div class="rmb-motion" id="rmbMotion">—</div>
           <div class="rmb-brief" id="rmbBrief" hidden></div>
+          <!-- What "This House" is. Deterministic, filled by
+               renderHouseGloss(); hidden on motions that never say it. -->
+          <div class="rmb-house" id="rmbHouse" hidden></div>
           <!-- Agreed context frame (US / world), shown once both debaters
                pick the same setting. Filled by window.__lrRenderContext. -->
           <div class="rmb-context-chip" id="rmbContextChip" hidden></div>
@@ -3874,6 +3879,7 @@ html.stage-mode .stage-ov{display:block}
   function renderSetup(){
     var f = FORMATS[state.formatKey];
     if (document.activeElement !== $('motionDisplay')) $('motionDisplay').textContent = state.motion || '';
+    renderHouseGloss();
     // For 4-team formats, render a chip per team (OG / OO / CG / CO).
     // The 2-side formats keep the original pro/con chip pair.
     var sideChips = isFourTeam(f)
@@ -4662,6 +4668,66 @@ html.stage-mode .stage-ov{display:block}
       cell('con', againstLabel, conWho,
         'Argues <strong>no to the resolution</strong>: it is false, or should not happen. Attack the claim and defend the world it criticizes.');
     el.hidden = false;
+    renderHouseGloss();
+  }
+
+  // ── What "This House" is ────────────────────────────────────────────
+  // 2026-08-24, the founder: the setup has to define This House on the
+  // motions that use it. Every other explainer on this page tells you
+  // about the ISSUE (the background brief) or about your SIDE (the
+  // sides guide). Nothing told you what the sentence itself was doing,
+  // and "This House would abolish inheritance above a modest cap" reads
+  // to a newcomer as a house with opinions. The motion's own verb is
+  // what carries the answer, so this is DETERMINISTIC: no model call,
+  // no latency, and nothing to hallucinate an actor that neither side
+  // agreed to. When the round has agreed a setting through the context
+  // step, that name is appended, because at that point This House does
+  // have an address.
+  //
+  // Adding a motion form is one entry in HOUSE_FORMS. Order matters:
+  // the list is walked in sequence, so a longer phrase sits above the
+  // shorter one it contains ("would, as X," before "would").
+  var HOUSE_BASE = '<b>This House</b> is this round standing in for whoever has the power to act, normally a national government. The proposing side argues it should; the other side argues it should not, and no country is named unless you both agree on one.';
+  var HOUSE_FORMS = [
+    { re: /\b(?:this\s+house|th[wbsorp]t?)\s*,?\s*(?:would\s*,?\s*)?as\s+((?:the\s+)?[a-z][a-z .'\-]{2,42}?)\s*,/i,
+      say: function(m){ return 'Because it says <b>as ' + escHtml((m[1]||'').trim()) + '</b>, both sides argue from that actor’s interests, not from everyone’s.'; } },
+    { re: /\b(?:thbt|this\s+house\s+believes(?:\s+that)?)\b/i,
+      say: function(){ return '<b>Believes that</b> means nobody is passing anything. Argue whether the claim is true, not whether it could be implemented.'; } },
+    { re: /\b(?:thr|this\s+house\s+regrets)\b/i,
+      say: function(){ return '<b>Regrets</b> means compare the world we have against the world without it. Neither side is undoing anything today.'; } },
+    { re: /\b(?:thp|this\s+house\s+prefers)\b/i,
+      say: function(){ return '<b>Prefers</b> means both worlds named have costs. Argue which set of costs is worse, not that yours has none.'; } },
+    { re: /\b(?:ths|this\s+house\s+supports)\b/i,
+      say: function(){ return '<b>Supports</b> means back the thing named and defend how it actually works, not an improved version of it.'; } },
+    { re: /\b(?:tho|this\s+house\s+opposes)\b/i,
+      say: function(){ return '<b>Opposes</b> means argue against the thing named, and be ready to say what happens instead.'; } },
+    { re: /\b(?:thw|this\s+house\s+would)\b/i,
+      say: function(){ return '<b>Would</b> means you may assume it happens. Argue whether it should, not whether it would get through a legislature.'; } },
+    { re: /\bthis\s+house\b/i,
+      say: function(){ return 'Argue the sentence as written. Whatever it commits This House to is what the proposing side has to defend.'; } }
+  ];
+  function houseGlossHtml(motion){
+    var m = String(motion || '').trim();
+    if (!m) return '';
+    if (!/\bthis\s+house\b|\bth(?:bt|w|r|s|o|p)\b/i.test(m)) return '';
+    var line = '';
+    for (var i = 0; i < HOUSE_FORMS.length; i++){
+      var hit = m.match(HOUSE_FORMS[i].re);
+      if (hit){ line = HOUSE_FORMS[i].say(hit); break; }
+    }
+    var out = '<span class="rh-lab">What This House means</span>' + HOUSE_BASE + (line ? ' ' + line : '');
+    if (state.contextFrame) out += ' Agreed setting: ' + escHtml(String(state.contextFrame)) + '.';
+    return out;
+  }
+  function renderHouseGloss(){
+    var html = houseGlossHtml(state.motion);
+    ['rmbHouse', 'setupHouse'].forEach(function(id){
+      var el = $(id);
+      if (!el) return;
+      if (!html){ el.hidden = true; el.innerHTML = ''; return; }
+      el.innerHTML = html;
+      el.hidden = false;
+    });
   }
 
   // Strip countdown styling off the big clock readout. Called from
@@ -11003,7 +11069,7 @@ html.stage-mode .stage-ov{display:block}
       if (seats.length >= 2 && !pending.length){
         box.hidden = true;
         if (!isSpectator()) commitMotionProposal(p);
-        else { state.motion = p.text; var mdS = $('motionDisplay'); if (mdS) mdS.textContent = p.text; var rmbS = $('rmbMotion'); if (rmbS) rmbS.textContent = p.text; }
+        else { state.motion = p.text; var mdS = $('motionDisplay'); if (mdS) mdS.textContent = p.text; var rmbS = $('rmbMotion'); if (rmbS) rmbS.textContent = p.text; try { renderHouseGloss(); } catch(e){} }
         return;
       }
 
@@ -11117,6 +11183,7 @@ html.stage-mode .stage-ov{display:block}
       var frame = (d && typeof d.contextFrame === 'string') ? d.contextFrame : '';
       state.contextFrame = frame;                 // read by buildBallotPrompt
       state.contextNeeds = !!(setup && setup.needsContext);
+      try { renderHouseGloss(); } catch(e){}      // "Agreed setting: X" rides the gloss
 
       // Agreed: quiet chip under the motion, card gone.
       if (frame){
@@ -14043,7 +14110,7 @@ html.stage-mode .stage-ov{display:block}
       paintAudCamsToggle();
       audCamOnPolicyChange();
     }
-    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
+    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // Pending resolution change, if either side has asked for one.
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
     // Motion context (US / world): classify once, then paint the setup
@@ -14506,6 +14573,7 @@ html.stage-mode .stage-ov{display:block}
   $('motionDisplay').addEventListener('input', function(){
     state.motion = ($('motionDisplay').textContent || '').trim();
     updateStartBtn();
+    renderHouseGloss();
   });
   // Paste as plain text so pasted rich content doesn't inject markup.
   $('motionDisplay').addEventListener('paste', function(e){
@@ -14913,6 +14981,14 @@ html.stage-mode .stage-ov{display:block}
 .rc-safety{min-height:36px;padding:6px 8px;border:0;background:transparent;color:var(--text-dim,rgba(255,255,255,.58));font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .rc-safety:hover{color:var(--text,#fff)}
 .rmb-brief{margin-top:10px;padding:11px 13px;background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.12));border-radius:10px;font-size:.88rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.72))}
+/* The This House gloss. Quieter than the brief (no card fill, a rule
+   down the left) because it is a footnote on the sentence above it,
+   not a second piece of content competing with the resolution. */
+.rmb-house{margin-top:10px;padding:2px 0 2px 11px;border-left:2px solid var(--accent,#ef4444);font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.7))}
+.rmb-house[hidden]{display:none}
+.rmb-house b{color:var(--text,#fff);font-weight:800}
+#setupHouse{margin-bottom:12px}
+.rmb-house .rh-lab{display:block;font-size:.63rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:3px}
 .dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
 .dm-modal.is-open{display:flex}
 .dm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
