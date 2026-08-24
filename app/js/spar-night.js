@@ -1,11 +1,21 @@
 /* spar-night.js — Open Spar Night countdown (2026-07-15).
  *
- * The liquidity fix for /spar: one fixed weekly hour when everyone
- * queues at once, instead of visitors trickling in across the week and
- * never overlapping in the 60s matchmaking window. Wednesdays 8:00 PM
- * ET (America/New_York), 90-minute live window. First event
- * 2026-07-22; before that the countdown targets the first event, after
- * that it always targets the next Wednesday.
+ * The liquidity fix for /spar: fixed weekly hours when everyone queues
+ * at once, instead of visitors trickling in across the week and never
+ * overlapping in the 60s matchmaking window. Wednesdays, 90-minute live
+ * windows. First event 2026-07-22; before that the countdown targets
+ * the first event, after that it always targets the next session.
+ *
+ * THREE sessions since 2026-08-24, one per side of the world (the
+ * founder: run it three times, US night, Europe night, East
+ * Asia/Australia night). One 8 PM ET hour is an evening in North
+ * America and the middle of a working day everywhere else, which is a
+ * strange shape for the liquidity fix on a site whose traffic is
+ * global: it asked most of the field to turn up at 4 AM to meet each
+ * other. Each session is anchored to an EASTERN wall-clock hour, which
+ * keeps one DST-safe calculation for the whole schedule, and the city
+ * times shown beside it are computed from the real instant at render
+ * time so they stay true through every region's own DST.
  *
  * Deterministic and client-side only: no server dependency, no
  * Firestore reads. The weekly reminder email rides a separate cron
@@ -24,10 +34,37 @@
   } catch (e) {}
 
   var TZ = 'America/New_York';
-  var EVENT_HOUR = 20;              // 8:00 PM ET
-  var LIVE_MS = 90 * 60 * 1000;     // event window: 8:00–9:30 PM ET
+  var LIVE_MS = 90 * 60 * 1000;     // each session runs 90 minutes
   // First event: Wed 2026-07-22 20:00 EDT = 2026-07-23 00:00 UTC.
   var FIRST_EVENT_UTC = Date.UTC(2026, 6, 23, 0, 0, 0);
+  // Eastern hour, the region it is named for, and the zones whose local
+  // time is worth printing beside it. Ordered through the day.
+  var SESSIONS = [
+    { hour: 7,  name: 'Asia-Pacific night',
+      zones: [['Sydney', 'Australia/Sydney'], ['Tokyo', 'Asia/Tokyo'], ['Delhi', 'Asia/Kolkata']] },
+    { hour: 15, name: 'Europe night',
+      zones: [['London', 'Europe/London'], ['Berlin', 'Europe/Berlin'], ['Lagos', 'Africa/Lagos']] },
+    { hour: 20, name: 'US night',
+      zones: [['New York', 'America/New_York'], ['Chicago', 'America/Chicago'], ['Los Angeles', 'America/Los_Angeles']] },
+  ];
+  function hourLabel(h) {
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var hh = h % 12; if (hh === 0) hh = 12;
+    return hh + ':00 ' + ampm;
+  }
+  // "Sydney 9 PM · Tokyo 8 PM · Delhi 4:30 PM", from the real instant,
+  // so a session's city line is right in both hemispheres' summers.
+  function zoneLine(startMs, zones) {
+    var out = [];
+    for (var i = 0; i < zones.length; i++) {
+      try {
+        out.push(zones[i][0] + ' ' + new Date(startMs).toLocaleString('en-US', {
+          hour: 'numeric', minute: '2-digit', timeZone: zones[i][1],
+        }).replace(':00', ''));
+      } catch (e) {}
+    }
+    return out.join(' \u00b7 ');
+  }
 
   // ── Timezone math (no libraries) ─────────────────────
   // Wall-clock parts of a UTC instant as seen in New York.
@@ -57,22 +94,28 @@
     return guess;
   }
 
-  // Next event start (UTC ms) whose live window hasn't ended yet.
-  function nextEventStart(nowMs) {
+  // The next session whose live window hasn't ended yet. Walks the day
+  // AND the three sessions inside it, so at 7:40 AM ET on a Wednesday
+  // the answer is "live now, Asia-Pacific", at 9 AM it is "3 PM,
+  // Europe", and on Thursday it is next week's first one.
+  function nextSession(nowMs) {
     for (var i = 0; i < 10; i++) {
       var p = nyParts(nowMs + i * 86400000);
       if (p.weekday !== 'Wed') continue;
-      var start = nyToUtc(+p.year, +p.month, +p.day, EVENT_HOUR, 0);
-      if (start + LIVE_MS <= nowMs) continue; // this Wednesday already done
-      return Math.max(start, FIRST_EVENT_UTC);
+      for (var j = 0; j < SESSIONS.length; j++) {
+        var start = nyToUtc(+p.year, +p.month, +p.day, SESSIONS[j].hour, 0);
+        if (start + LIVE_MS <= nowMs) continue;   // already finished
+        if (start < FIRST_EVENT_UTC) continue;    // before the first event
+        return { start: start, session: SESSIONS[j] };
+      }
     }
-    return FIRST_EVENT_UTC; // unreachable; safety
+    return { start: FIRST_EVENT_UTC, session: SESSIONS[2] }; // unreachable; safety
   }
 
   function eventState(nowMs) {
-    var start = nextEventStart(nowMs);
-    var live = nowMs >= start && nowMs < start + LIVE_MS;
-    return { start: start, live: live, endsAt: start + LIVE_MS };
+    var next = nextSession(nowMs);
+    var live = nowMs >= next.start && nowMs < next.start + LIVE_MS;
+    return { start: next.start, live: live, endsAt: next.start + LIVE_MS, session: next.session };
   }
 
   // ── Display helpers ──────────────────────────────────
@@ -104,14 +147,24 @@
     } catch (e) { return ''; }
   }
 
-  // Recurring Google Calendar template (weekly, Wednesdays, ET).
-  var GCAL_URL = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
-    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join the queue at itsdebatable.com/spar')
-    + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
-    + '&dates=20260722T200000/20260722T213000'
-    + '&ctz=' + encodeURIComponent(TZ)
-    + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+  // Recurring Google Calendar template, for the session being SHOWN
+  // rather than one fixed hour. Someone in Sydney who adds the card in
+  // front of them should get the 9 PM session in their calendar, not a
+  // US hour they were never going to make.
+  function gcalUrl(st) {
+    var p = nyParts(st.start);
+    var day = p.year + p.month + p.day;      // already zero-padded by Intl
+    var endMin = st.session.hour * 60 + 90;
+    var dates = day + 'T' + two(st.session.hour) + '0000/'
+      + day + 'T' + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent('Open Spar Night (' + st.session.name + ') · Debatable')
+      + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every Wednesday, 7 AM, 3 PM and 8 PM ET. Join the queue at itsdebatable.com/spar')
+      + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
+      + '&dates=' + dates
+      + '&ctz=' + encodeURIComponent(TZ)
+      + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+  }
 
   function ga(name, meta) {
     try { if (window.track) window.track(name, meta || {}); } catch (e) {}
@@ -294,12 +347,17 @@
         '<span class="sn-cal-d">' + (+cp.day) + '</span>' +
         '<span class="sn-cal-w">' + (cp.weekday || '').toUpperCase() + '</span>' +
       '</div>';
+    var endMin = st.session.hour * 60 + 90;
     var title = live
-      ? 'Spar Night is on. Rounds matching until 9:30 PM ET.'
-      : 'Every Wednesday at 8:00 PM ET';
+      ? 'Spar Night is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
+      : st.session.name + ' \u00b7 Wednesday ' + hourLabel(st.session.hour) + ' ET';
+    var cities = zoneLine(st.start, st.session.zones);
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
-      : 'Ninety minutes when everyone queues at once. Real opponents, instant matches, AI ballots.';
+      : (variant === 'rail'
+        ? 'Three sessions every Wednesday: 7 AM, 3 PM and 8 PM ET.'
+        : 'Ninety minutes when everyone queues at once. Three sessions every Wednesday, one per side of the world: 7 AM, 3 PM and 8 PM ET.'
+          + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'
       : 'next one in <span class="sn-count" data-sn-count></span>';
@@ -311,7 +369,7 @@
     var remindLabel = already ? 'You\'re on the list' : 'Remind me';
     var remindBtn = '<button type="button" class="sn-cta sn-cta--REMSTYLE" data-sn-act="rsvp"'
       + (already ? ' disabled style="cursor:default;opacity:.7"' : '') + '>' + remindLabel + '</button>';
-    var calBtn = '<a class="sn-cta sn-cta--CALSTYLE" data-sn-act="calendar" href="' + GCAL_URL
+    var calBtn = '<a class="sn-cta sn-cta--CALSTYLE" data-sn-act="calendar" href="' + gcalUrl(st)
       + '" target="_blank" rel="noopener">Add to calendar</a>';
 
     var solid, ghost;

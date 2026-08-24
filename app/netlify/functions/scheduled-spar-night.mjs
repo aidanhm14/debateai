@@ -1,9 +1,15 @@
 /* scheduled-spar-night.mjs
  *
  * Open Spar Night day-of reminder (2026-07-15). The /spar liquidity fix
- * is a fixed weekly hour (Wednesdays 8:00 PM ET, 90 min) when everyone
+ * is a set of fixed weekly hours (Wednesdays, 90 min each) when everyone
  * queues at once; this cron tells every reachable signed-in user about
- * tonight's event so the queue actually fills. Companion surfaces: the
+ * today's sessions so the queue actually fills.
+ *
+ * THREE sessions since 2026-08-24: 7:00 AM ET Asia-Pacific night, 3:00
+ * PM ET Europe night, 8:00 PM ET US night. The send moved from 13:00 to
+ * 09:00 UTC with them, because 13:00 UTC is two hours AFTER the first
+ * session ends and an email announcing an event that has already
+ * happened is worse than no email. Companion surfaces: the
  * countdown cards on /landing + /spar (app/js/spar-night.js), which
  * compute the same schedule client-side.
  *
@@ -100,13 +106,18 @@ function nyToUtc(y, mo, d, hh, mm) {
   }
   return guess;
 }
+// Eastern hours of the three sessions. Must match SESSIONS in
+// app/js/spar-night.js.
+const SESSION_HOURS = [7, 15, 20];
 function nextEventStart(nowMs) {
   for (let i = 0; i < 10; i++) {
     const p = nyParts(nowMs + i * 86400000);
     if (p.weekday !== 'Wed') continue;
-    const start = nyToUtc(+p.year, +p.month, +p.day, 20, 0);
-    if (start + LIVE_MS <= nowMs) continue;
-    return Math.max(start, FIRST_EVENT_UTC);
+    for (const hour of SESSION_HOURS) {
+      const start = nyToUtc(+p.year, +p.month, +p.day, hour, 0);
+      if (start + LIVE_MS <= nowMs) continue;
+      return Math.max(start, FIRST_EVENT_UTC);
+    }
   }
   return FIRST_EVENT_UTC;
 }
@@ -114,33 +125,54 @@ function nextEventStart(nowMs) {
 // ── Email template ───────────────────────────────────────────────────────────
 function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   const cta = `${SITE_URL}/spar?utm_source=email&utm_medium=email&utm_campaign=spar_night`;
-  const gcal = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Open Spar Night · Debatable')
+  // One recurring calendar link per session, because the reader is being
+  // asked to pick the one that is evening where they live, and a single
+  // link can only carry one hour.
+  const gcalFor = (label, hh, mm) => 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + '&text=' + encodeURIComponent('Open Spar Night (' + label + ') · Debatable')
     + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
     + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
-    + '&dates=20260722T200000/20260722T213000'
+    + '&dates=20260722T' + hh + '0000/20260722T' + mm + '00'
     + '&ctz=' + encodeURIComponent(TZ)
     + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+  const gcalAsia = gcalFor('Asia-Pacific night', '07', '0830');
+  const gcalEuro = gcalFor('Europe night', '15', '1630');
+  const gcalUs   = gcalFor('US night', '20', '2130');
 
   const html = `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Open Spar Night is tonight: Wednesday, 8:00 PM Eastern.</strong>
-    For one hour, everyone queues at the same time, so you match with a real
-    opponent in seconds instead of sitting in an empty queue.
+    <strong>Open Spar Night is today, and it runs three times.</strong>
+    Everyone queues at the same time, so you match with a real opponent in
+    seconds instead of sitting in an empty queue. Take the session that is
+    evening where you are.
   </p>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
+    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-radius:8px 8px 0 0;font-size:.9rem;line-height:1.5">
+      <strong>7:00 AM ET</strong> &middot; Asia-Pacific night<br>
+      <span style="color:#6b6b76;font-size:.82rem">Sydney 9 PM, Tokyo 8 PM, Delhi 4:30 PM</span></td></tr>
+    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;font-size:.9rem;line-height:1.5">
+      <strong>3:00 PM ET</strong> &middot; Europe night<br>
+      <span style="color:#6b6b76;font-size:.82rem">London 8 PM, Berlin 9 PM, Lagos 8 PM</span></td></tr>
+    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;border-radius:0 0 8px 8px;font-size:.9rem;line-height:1.5">
+      <strong>8:00 PM ET</strong> &middot; US night<br>
+      <span style="color:#6b6b76;font-size:.82rem">Chicago 7 PM, Los Angeles 5 PM</span></td></tr>
+  </table>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    Pick your format, run a timed round, and the judge ballot lands when it
-    ends. The founders are in the queue every week.
+    Ninety minutes each. Pick your format, run a timed round, and the judge
+    ballot lands when it ends.
   </p>
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Join the queue at 8 &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Join the queue &rarr;</a>
   </p>
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Can't make it tonight? It runs every Wednesday.
-    <a href="${gcal}" style="color:#dc2626;text-decoration:underline">Add it to your calendar</a> once and you're set.
+    Can't make it today? It runs every Wednesday. Add your session once and
+    you're set:
+    <a href="${gcalAsia}" style="color:#dc2626;text-decoration:underline">Asia-Pacific</a> &middot;
+    <a href="${gcalEuro}" style="color:#dc2626;text-decoration:underline">Europe</a> &middot;
+    <a href="${gcalUs}" style="color:#dc2626;text-decoration:underline">US</a>.
   </p>
   ${renderFooter({
     uid,
@@ -247,7 +279,7 @@ export default async () => {
 
     const res = await sendEmail({
       to: user.email,
-      subject: 'Open Spar Night is tonight: 8pm ET',
+      subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
       html: renderEmail({ firstName, uid: user.uid }),
       uid: user.uid,
       stream: 'sparnight',
@@ -269,7 +301,7 @@ export default async () => {
         await sleep(res.retryAfterMs || 1200);
         const retry = await sendEmail({
           to: user.email,
-          subject: 'Open Spar Night is tonight: 8pm ET',
+          subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
           html: renderEmail({ firstName, uid: user.uid }),
           uid: user.uid,
           stream: 'sparnight',
@@ -313,7 +345,7 @@ export default async () => {
 
       const res = await sendEmail({
         to: addr,
-        subject: 'Open Spar Night is tonight: 8pm ET',
+        subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
         // No uid for an anonymous RSVP, so the shared footer cannot build
         // an unsubscribe link from user_profiles. Pass the doc id as the
         // token subject instead; email-unsub handles the 'sparrsvp' stream
@@ -379,5 +411,8 @@ export default async () => {
 };
 
 export const config = {
-  schedule: '0 13 * * 3', // Wednesday 13:00 UTC (9am ET), 3h before winback's 16:00
+  // Wednesday 09:00 UTC (5am ET). Ahead of the FIRST session at 11:00
+  // UTC rather than after it, which is where 13:00 UTC left it once the
+  // day grew a 7am ET session, and still clear of winback's 16:00.
+  schedule: '0 9 * * 3',
 };
