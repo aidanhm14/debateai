@@ -598,15 +598,30 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 .rn-speech:not([open]) summary:after{content:'▸'}
 .rn-side{padding:2px 7px;border-radius:999px;font-size:.56rem;font-weight:900;letter-spacing:.1em;
   text-transform:uppercase;color:var(--text-dim);border:1px solid var(--border)}
-/* 2026-08-23, founder: notes read like coaching cards. Now a compact
-   doc-style table of contents — small type, tag + one short line, the
-   "To answer" prompt no longer renders (data still stored). */
-.rn-point{padding:5px 14px 5px 26px;border-top:1px solid var(--border);position:relative;counter-increment:rnIdx}
-.rn-point:before{content:counter(rnIdx);position:absolute;left:10px;top:6px;font-size:.6rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
-.rn-speech{counter-reset:rnIdx}
-.rn-tag{display:inline-block;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--text);margin-bottom:4px}
-.rn-note{font-size:.74rem;line-height:1.45;color:var(--text-dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 2026-08-23, founder: notes read like coaching cards, so this is a
+   doc-style index rather than a stack of advice. 2026-08-24: it was
+   also unreadable — .74rem grey clamped to two lines, under a .62rem
+   uppercase tag, so the one line that carries the argument was the
+   smallest and faintest thing in the panel. The tag is now the quiet
+   label and the claim is the text: full lines, no clamp, and a rule in
+   the side's own colour down each speech. */
+.rn-speech.is-pro{border-left:3px solid rgba(34,197,94,.55)}
+.rn-speech.is-con{border-left:3px solid rgba(239,68,68,.55)}
+.rn-code{font-variant-numeric:tabular-nums;color:var(--text-dim)}
+.rn-who{font-weight:800}
+.rn-points{list-style:none;margin:0;padding:0;counter-reset:rnIdx}
+.rn-point{display:block;padding:9px 14px 9px 30px;border-top:1px solid var(--border);position:relative;counter-increment:rnIdx}
+.rn-point:before{content:counter(rnIdx) '.';position:absolute;left:12px;top:9px;font-size:.7rem;font-weight:800;
+  color:var(--text-dim);font-variant-numeric:tabular-nums}
+.rn-tag{display:block;font-size:.6rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:3px}
+.rn-note{display:block;font-size:.86rem;line-height:1.5;color:var(--text)}
+.rn-status{padding:9px 14px;font-size:.78rem;line-height:1.5;color:var(--text-dim)}
+#rnList > .rn-status{border:1px dashed var(--border);border-radius:12px}
+.rn-status.is-working:before{content:'';display:inline-block;width:6px;height:6px;border-radius:999px;
+  margin-right:7px;background:var(--accent,#ef4444);animation:rnPulse 1.4s ease-in-out infinite;vertical-align:middle}
+.rn-status.is-failed{color:#b45309}
+@keyframes rnPulse{0%,100%{opacity:.25}50%{opacity:1}}
 .rn-answer{margin-top:5px;font-size:.8rem;line-height:1.5;color:var(--text-dim)}
 .rn-answer span{font-weight:800;text-transform:uppercase;font-size:.6rem;letter-spacing:.1em}
 /* Audience "That moved me": big, alive, unmistakably green. */
@@ -8310,51 +8325,102 @@ html.stage-mode .stage-ov{display:block}
     try { return localStorage.getItem('lr-round-notes') !== '0'; } catch(e){ return true; }
   }
   var _rnGenerated = {};
+  // 2026-08-24, the founder: "there aren't any notes being provided or
+  // structured nicely." Three separate things were wrong and each one
+  // renders as the same dead header.
+  //  (1) The panel had exactly two states, empty-and-hidden or full, so
+  //      every moment between a speech ending and the model answering
+  //      looked like a feature that does nothing. It now says it is
+  //      reading, and says so per speech.
+  //  (2) The inline Hide button set its label ONCE at wire time, while
+  //      the More options switch writes the same key later. Turn notes
+  //      off there and the panel emptied itself while its own button
+  //      still read "Hide": a box with a header, no content, and a
+  //      control that lies about what it does. The label is recomputed
+  //      on every render now, and an off panel says it is off instead
+  //      of rendering nothing.
+  //  (3) A failed generation was a console warning and silence. It
+  //      retries once, and a speech that still cannot be read says so
+  //      on its own line rather than going missing.
+  function rnStatusRow(txt, cls){
+    return '<div class="rn-status' + (cls ? ' ' + cls : '') + '">' + escHtml(txt) + '</div>';
+  }
   function renderRoundNotes(){
     var sec = $('roundNotes');
     var list = $('rnList');
     if (!sec || !list) return;
+    var on = roundNotesOn();
+    var btn = $('rnOffBtn');
+    if (btn) btn.textContent = on ? 'Hide' : 'Show';   // never let the button disagree with the switch
     var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
-    if (!notes.length){ sec.hidden = true; return; }
+    var pending = state.rnPending || {};
+    var pendingIdx = Object.keys(pending).filter(function(k){ return pending[k]; });
+    var sub = $('rnSub');
+    // Nothing to say and nothing on the way: stay out of the round.
+    if (!notes.length && !pendingIdx.length && on){ sec.hidden = true; return; }
     sec.hidden = false;
-    if (!roundNotesOn()){ list.innerHTML = ''; return; }
+    if (!on){
+      if (!notes.length){ sec.hidden = true; return; }
+      if (sub) sub.textContent = 'Notes are off for you. They keep being written for the round.';
+      list.innerHTML = '';
+      return;
+    }
+    if (sub) sub.textContent = 'What each speech argued, in the order it was argued. Both sides read the same notes.';
     var f = FORMATS[state.formatKey];
-    var maxIdx = notes[notes.length-1].idx;
-    list.innerHTML = notes.map(function(n){
+    var maxIdx = notes.length ? notes[notes.length-1].idx : -1;
+    var html = notes.map(function(n){
       var pts = (Array.isArray(n.points) ? n.points : []).map(function(p){
         // 2026-08-23: the "To answer" prompt no longer renders — the
         // panel is a table of contents of what was argued, not a coach.
         // p.answer stays on the doc (the ballot flow map ignores it too).
-        return '<div class="rn-point">'
+        return '<li class="rn-point">'
           + '<span class="rn-tag">' + escHtml(p.tag || '') + '</span>'
-          + '<div class="rn-note">' + escHtml(p.note || '') + '</div>'
-          + '</div>';
+          + '<span class="rn-note">' + escHtml(p.note || '') + '</span>'
+          + '</li>';
       }).join('');
       var sideLabel = (f && f.sideLabels && f.sideLabels[n.side]) || n.side || '';
-      return '<details class="rn-speech"' + (n.idx === maxIdx ? ' open' : '') + '>'
-        + '<summary>' + escHtml(n.code || '') + ' · ' + escHtml(n.speakerName || sideLabel)
-        + '<span class="rn-side">' + escHtml(sideLabel) + '</span></summary>'
-        + pts + '</details>';
+      var who = n.speakerName || sideLabel;
+      return '<details class="rn-speech is-' + (n.side === 'con' ? 'con' : 'pro') + '"' + (n.idx === maxIdx ? ' open' : '') + '>'
+        + '<summary>'
+          + '<span class="rn-code">' + escHtml(n.code || ('Speech ' + ((n.idx || 0) + 1))) + '</span>'
+          + '<span class="rn-who">' + escHtml(who) + '</span>'
+          + '<span class="rn-side">' + escHtml(sideLabel) + '</span>'
+        + '</summary>'
+        + (pts ? '<ol class="rn-points">' + pts + '</ol>' : rnStatusRow('That speech had nothing worth indexing.'))
+        + '</details>';
     }).join('');
+    pendingIdx.sort(function(a,b){ return a-b; }).forEach(function(k){
+      var st = pending[k];
+      html += (st === 'failed')
+        ? rnStatusRow('Speech ' + (Number(k) + 1) + ': the notes did not come back. The round is unaffected.', 'is-failed')
+        : rnStatusRow('Reading speech ' + (Number(k) + 1) + '…', 'is-working');
+    });
+    list.innerHTML = html;
   }
   function wireRoundNotesToggle(){
     var btn = $('rnOffBtn');
     if (!btn) return;
-    var setLabel = function(){ btn.textContent = roundNotesOn() ? 'Hide' : 'Show'; };
     btn.addEventListener('click', function(){
       try { localStorage.setItem('lr-round-notes', roundNotesOn() ? '0' : '1'); } catch(e){}
-      setLabel();
-      renderRoundNotes();
+      renderRoundNotes();                       // owns the label
+      try { gtag('event', 'live_round_notes_toggle', { on: roundNotesOn() }); } catch(e){}
     });
-    setLabel();
+    renderRoundNotes();
   }
   try { wireRoundNotesToggle(); } catch(e){}
-  function generateRoundNotes(entry, idx){
+  function generateRoundNotes(entry, idx, attempt){
     if (isSpectator()) return; // acting debater generates; everyone renders via sync
     if (!entry || entry.skipped || !entry.text || entry.text === '(skipped)' || entry.text === '(no transcript)') return;
     if (entry.text.trim().split(/\s+/).length < 30) return; // nothing to note
-    if (_rnGenerated[idx]) return;
+    attempt = attempt || 0;
+    if (_rnGenerated[idx] && !attempt) return;
     _rnGenerated[idx] = true;
+    // The panel says what it is doing. Without this the gap between a
+    // speech ending and the model answering is indistinguishable from
+    // the feature being broken, which is how it read to the founder.
+    state.rnPending = state.rnPending || {};
+    state.rnPending[idx] = 'working';
+    renderRoundNotes();
     var f = FORMATS[state.formatKey];
     if (!f) return;
     var system = [
@@ -8410,6 +8476,7 @@ html.stage-mode .stage-ov{display:block}
         speakerName: entry.speakerName || '', points: pts, atMs: Date.now(),
       };
       state.roundNotes = (state.roundNotes || []).concat([row]);
+      if (state.rnPending) delete state.rnPending[idx];
       renderRoundNotes();
       var ref = getRoundDocRef();
       if (ref) ref.update({
@@ -8418,6 +8485,18 @@ html.stage-mode .stage-ov{display:block}
       try { gtag('event', 'live_round_notes', { format: state.formatKey, idx: idx }); } catch(e){}
     }).catch(function(e){
       console.warn('[round notes]', e);
+      // One retry, jittered, same shape as the ballot's: a 429 or a
+      // truncated generation between speeches is exactly the transient
+      // case a second attempt fixes, and a speech is only worth one.
+      if (!attempt){
+        setTimeout(function(){
+          try { generateRoundNotes(entry, idx, 1); } catch(e2){}
+        }, 1800 + Math.random() * 1200);
+        return;
+      }
+      if (state.rnPending) state.rnPending[idx] = 'failed';
+      renderRoundNotes();
+      try { gtag('event', 'live_round_notes_failed', { format: state.formatKey, idx: idx }); } catch(e2){}
     });
   }
 
