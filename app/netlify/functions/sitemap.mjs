@@ -115,7 +115,7 @@ const URLS = [
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
   // Comparison intent: "free online debate platform" and plural variants.
-  { path: '/online-debate-platforms',                 changefreq: 'monthly', priority: '0.92', lastmod: '2026-08-10' },
+  { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-24' },
   { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
   // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
