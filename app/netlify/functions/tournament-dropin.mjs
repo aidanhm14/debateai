@@ -2,6 +2,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { pairDropIn, availableForDropIn } from './lib/tournament.mjs';
+import { AGE_BRACKETS, BRACKET_LABEL, bracketOf, partitionByBracket } from './lib/tournament-bracket.mjs';
 
 // ── Drop-in pairing: the queue that turns "turn up whenever" into a round ──
 //
@@ -46,6 +47,23 @@ import { pairDropIn, availableForDropIn } from './lib/tournament.mjs';
 // within six minutes instead of being seated against someone who
 // actually showed up.
 
+// ── Two fields, one queue ────────────────────────────────────────────
+//
+// Under 18 and 18-plus are paired SEPARATELY (lib/tournament-bracket.mjs
+// carries why). The matcher itself is untouched: it is 1045 assertions
+// of seeded, rematch-avoiding, globally-optimal pairing and none of that
+// wants a second axis bolted through it. Instead the pool is split
+// before it is handed over and the matcher runs once per bracket, which
+// makes the guarantee structural rather than a filter someone can later
+// forget to apply.
+//
+// Each bracket's draw gets its OWN sequence number and therefore its own
+// round document, because pairingId is 'd{seq}-{n}' and two draws
+// sharing a seq would hand two different pairs the same id.
+//
+// An entry that has never said which bracket it is in is not paired at
+// all. It is not a failure and is not reported as one: the queue asks.
+
 const READY_TTL_MS = 6 * 60 * 1000;   // mirrors DROPIN_AVAILABLE_MS in the lib
 // A matcher pass is cheap but not free (it reads every entry), and N
 // waiting clients all poll. One attempt per this interval per
@@ -87,9 +105,16 @@ function selfState(entryDoc, now, pairingDoc) {
   const d = entryDoc.data();
   const availableAt = Number(d.availableAt || 0);
   const fresh = availableAt > 0 && now - availableAt <= READY_TTL_MS;
+  const bracket = bracketOf(d);
   return {
     entryId: entryDoc.id,
     name: d.name || 'Entry',
+    bracket,
+    bracketLabel: BRACKET_LABEL[bracket] || '',
+    // The one thing standing between this entry and a round. Reported
+    // on every response so the page can ask the question in place
+    // instead of showing a spinner that will never resolve.
+    bracketRequired: !bracket,
     wins: Number(d.wins || 0),
     losses: Number(d.losses || 0),
     inPairing: d.inPairing || '',
@@ -189,6 +214,17 @@ export default async (request) => {
       const pairing = await loadPairing(t.ref, mine.data().inPairing);
       return jsonResponse({ ok: true, already: true, self: selfState(mine, now, pairing) }, 200, request);
     }
+    // No bracket, no queue. Silently pairing an unanswered entry would
+    // mean guessing an age, and both guesses are wrong in a way that
+    // matters: one seats a minor against adult strangers, the other
+    // seats an adult against children.
+    if (!bracketOf(mine.data())) {
+      return jsonResponse({
+        error: 'BRACKET_REQUIRED',
+        message: 'Tell us whether you are 18 or over before you join the queue. Under 18 and 18-plus debate in separate brackets.',
+        self: selfState(mine, now, null),
+      }, 409, request);
+    }
     // Written once, never refreshed while waiting. See the header.
     await mine.ref.update({ availableAt: now, readyAt: FieldValue.serverTimestamp() });
     const after = await mine.ref.get();
@@ -214,8 +250,15 @@ export default async (request) => {
   const fresh = await mine.ref.get();
   if (!spinning) await mine.ref.update({ lastPollAt: now }).catch(() => {});
   const pairing = await loadPairing(t.ref, fresh.data().inPairing);
+  // Pool size is reported for the CALLER'S OWN bracket. The whole
+  // field's number would be a lie by omission on the exact screen where
+  // it matters: "6 people waiting" while every one of them is in the
+  // other bracket is how a queue reads as broken.
+  const myBracket = bracketOf(fresh.data());
   const pool = availableForDropIn(
-    allEntries.docs.map((d) => ({ entryId: d.id, ...d.data() })),
+    allEntries.docs
+      .map((d) => ({ entryId: d.id, ...d.data() }))
+      .filter((e) => bracketOf(e) === myBracket),
     now,
   );
 
@@ -249,61 +292,77 @@ async function attemptPairing(db, t, now) {
       const snap = await tx.get(t.ref.collection('entries'));
       const entries = snap.docs.map((d) => ({ entryId: d.id, ...d.data() }));
 
-      const seq = Number(tData.dropinSeq || 0) + 1;
-      const draw = pairDropIn(entries, { tid: t.id, seq, now });
+      const pools = partitionByBracket(entries);
+      const startSeq = Number(tData.dropinSeq || 0);
+      let seq = startSeq;
+      let seated = 0;
+      let held = false;
 
       // Stamp the attempt even when nothing seats, so a quiet pool does
       // not have every waiting client re-running the matcher.
       tx.update(t.ref, { dropinAt: now });
-      if (!draw.pairings.length) {
-        return { seated: 0, heldForFreshOpponent: draw.heldForFreshOpponent === true };
+
+      // One draw per bracket, each with its own sequence number so the
+      // pairing ids they mint ('d{seq}-{n}') cannot collide.
+      for (const bracket of AGE_BRACKETS) {
+        const pool = pools[bracket] || [];
+        if (pool.length < 2) continue;
+
+        const trySeq = seq + 1;
+        // The bracket is namespaced into the seed input rather than
+        // into `seq`, so each field's draw is independently
+        // reproducible from the record when somebody asks why they hit
+        // the same opponent twice.
+        const draw = pairDropIn(pool, { tid: t.id + '#' + bracket, seq: trySeq, now });
+        held = held || draw.heldForFreshOpponent === true;
+        if (!draw.pairings.length) continue;
+
+        seq = trySeq;
+        const key = 'd' + seq;
+        const pairings = draw.pairings.map((p, i) => ({ ...p, room: roomFor(t.id, key, i), bracket }));
+
+        tx.set(t.ref.collection('rounds').doc(key), {
+          kind: 'dropin',
+          // `roundNo` carries the SEQUENCE for a drop-in round, which is
+          // the contract roundKey() in tournament-admin.mjs already
+          // states: `if (kind === 'dropin') return 'd' + roundNo`. It was
+          // written as 0 here, so the control room's report-result — which
+          // sends the round's own roundNo — resolved every drop-in result
+          // to a document named 'd0' that does not exist, and came back
+          // no_round. The director's amend path is the human check on an
+          // auto-posted verdict in a cash tournament, so it has to land.
+          roundNo: seq,
+          // A drop-in round is released by construction. The pending →
+          // released gate exists so a director can look at a prelim draw
+          // before anyone sees it and regenerate a bad one; there is no
+          // such moment here, because the two people were seated the
+          // instant this document was written and are already in the
+          // room.
+          status: 'released',
+          seq,
+          key,
+          bracket,
+          label: 'Drop-in · ' + (BRACKET_LABEL[bracket] || bracket),
+          seed: draw.seed,
+          pairings,
+          rematches: draw.rematches,
+          pullUps: draw.pullUps,
+          rematchFallback: draw.rematchFallback,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        for (const p of pairings) {
+          // Clearing availableAt as they are seated is what keeps a
+          // player out of the next pass while they are mid-round; the
+          // result handler is what puts them back in the pool.
+          tx.update(t.ref.collection('entries').doc(p.govEntry), { inPairing: p.pairingId, availableAt: 0 });
+          tx.update(t.ref.collection('entries').doc(p.oppEntry), { inPairing: p.pairingId, availableAt: 0 });
+        }
+        seated += pairings.length;
       }
 
-      const key = 'd' + seq;
-      const pairings = draw.pairings.map((p, i) => ({ ...p, room: roomFor(t.id, key, i) }));
-
-      tx.set(t.ref.collection('rounds').doc(key), {
-        kind: 'dropin',
-        // `roundNo` carries the SEQUENCE for a drop-in round, which is
-        // the contract roundKey() in tournament-admin.mjs already
-        // states: `if (kind === 'dropin') return 'd' + roundNo`. It was
-        // written as 0 here, so the control room's report-result — which
-        // sends the round's own roundNo — resolved every drop-in result
-        // to a document named 'd0' that does not exist, and came back
-        // no_round. The director's amend path is the human check on an
-        // auto-posted verdict in a cash tournament, so it has to land.
-        roundNo: seq,
-        // A drop-in round is released by construction. The pending →
-        // released gate exists so a director can look at a prelim draw
-        // before anyone sees it and regenerate a bad one; there is no
-        // such moment here, because the two people were seated the
-        // instant this document was written and are already in the
-        // room. Leaving the field unset meant publicRound withheld the
-        // pairings, so the tab showed a live round with nobody in it and
-        // the control room, which filters on `released`, did not render
-        // the round at all.
-        status: 'released',
-        seq,
-        key,
-        label: 'Drop-in',
-        seed: draw.seed,
-        pairings,
-        rematches: draw.rematches,
-        pullUps: draw.pullUps,
-        rematchFallback: draw.rematchFallback,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
-      for (const p of pairings) {
-        // Clearing availableAt as they are seated is what keeps a
-        // player out of the next pass while they are mid-round; the
-        // result handler is what puts them back in the pool.
-        tx.update(t.ref.collection('entries').doc(p.govEntry), { inPairing: p.pairingId, availableAt: 0 });
-        tx.update(t.ref.collection('entries').doc(p.oppEntry), { inPairing: p.pairingId, availableAt: 0 });
-      }
-      tx.update(t.ref, { dropinSeq: seq });
-
-      return { seated: pairings.length, heldForFreshOpponent: false };
+      if (seq !== startSeq) tx.update(t.ref, { dropinSeq: seq });
+      return { seated, heldForFreshOpponent: seated === 0 && held };
     });
   } catch (err) {
     // A contended transaction is normal here and must never surface as

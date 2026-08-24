@@ -1,6 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
+import { AGE_BRACKETS, BRACKET_LABEL, bracketOf, canChangeBracket, partitionByBracket, resolveEntryBracket } from './lib/tournament-bracket.mjs';
 import { standings } from './lib/tournament.mjs';
 
 // ── Tournament, participant and spectator side ─────────────────────
@@ -110,6 +111,12 @@ function publicEntry(e) {
     byes: Number(e.byes || 0),
     sideCount: e.sideCount || { gov: 0, opp: 0 },
     opponents: Array.isArray(e.opponents) ? e.opponents : [],
+    // Which field this entry plays in. Public because the standings are
+    // published per bracket and a board that cannot say which one a row
+    // belongs to is a board that reads as one merged field again.
+    // It is a coarse age band the entrant chose to publish by entering,
+    // not a birth date, and nothing more precise is stored anywhere.
+    bracket: bracketOf(e),
   };
 }
 
@@ -183,8 +190,41 @@ async function withMine(db, payload, request) {
       paidEntry: e.paidEntry === true,
       prizeEligible: e.prizeEligible === true,
       entryKind: e.entryKind || null,
+      // '' means nobody has said which bracket they are in, which the
+      // queue treats as unpairable. The dashboard turns it into one
+      // question rather than letting them discover it at the queue.
+      bracket: bracketOf(e),
+      bracketLabel: BRACKET_LABEL[bracketOf(e)] || '',
+      bracketLocked: bracketOf(e) ? !canChangeBracket(e, bracketOf(e) === 'open' ? 'u18' : 'open') : false,
     } };
   } catch { return payload; }
+}
+
+// Standings, one ladder per bracket, concatenated. `rank` is the
+// position inside the bracket, which is the number a competitor is
+// actually reading for and the number the elimination cut is made on.
+function rankByBracket(entries, affById) {
+  const pools = partitionByBracket(entries);
+  const out = [];
+  for (const bracket of [...AGE_BRACKETS, '']) {
+    const pool = bracket ? pools[bracket] : pools.unassigned;
+    if (!pool || !pool.length) continue;
+    standings(pool).forEach((e, i) => {
+      out.push({
+        // An unassigned entry has no standing to report, so it carries
+        // rank 0 rather than a position it did not earn.
+        rank: bracket ? i + 1 : 0,
+        bracket,
+        entryId: e.entryId,
+        name: e.name || 'Team',
+        affiliation: affById.get(e.entryId) || '',
+        wins: e.wins,
+        losses: Number(e.losses || 0),
+        speaks: e.speaks,
+      });
+    });
+  }
+  return out;
 }
 
 export default async (request) => {
@@ -247,15 +287,17 @@ export default async (request) => {
       // The tab. Computed from the same function the pairing engine
       // uses, so what a team sees is exactly what the next draw will
       // be built from.
-      standings: standings(entries).map((e, i) => ({
-        rank: i + 1,
-        entryId: e.entryId,
-        name: e.name || 'Team',
-        affiliation: affById.get(e.entryId) || '',
-        wins: e.wins,
-        losses: Number(e.losses || 0),
-        speaks: e.speaks,
-      })),
+      // Ranked WITHIN a bracket, not across the field. Under 18 and
+      // 18-plus are separate contests that happen on the same day, so a
+      // single merged ladder would rank two people who can never meet
+      // and would print a minor above or below an adult as though the
+      // number meant something. Each row carries its bracket and its
+      // rank inside it; the page renders one table per bracket.
+      //
+      // Entries nobody has assigned a bracket to still appear, under
+      // '', because they are registered and the tab is the record of
+      // who entered. They are simply not ranked against anyone.
+      standings: rankByBracket(entries, affById),
       rounds,
     };
     cacheSet('t:' + key, payload);
@@ -349,23 +391,59 @@ export default async (request) => {
     // one direction here: an unticked box on a later call does not
     // strip eligibility from an entry that already has it, because
     // that would let a stray click cost somebody a prize.
-    const ageAttested = body?.ageAttested === true;
-    async function applyAgeAttestation(snap) {
+    // The age answer now decides TWO things, and they are the same
+    // answer: whether cash can reach this entry, and which field it
+    // plays in (lib/tournament-bracket.mjs). Under 18 and 18-plus are
+    // paired separately, so this is no longer only a prize question.
+    //
+    // It stays an UPGRADE rather than a gate, for the same reason as
+    // before and one new one: a client cached from before this shipped
+    // sends neither field, and event week is the worst possible time
+    // for registration to start rejecting people. An entry with no
+    // answer is registered and simply unpairable until it gives one,
+    // which the queue reports as a question rather than a failure.
+    const { bracket: wantBracket, ageAttested } = resolveEntryBracket(body);
+
+    async function applyBracket(snap) {
       const already = snap.data?.() || {};
-      if (!ageAttested || already.prizeEligible === true) return already.prizeEligible === true;
-      await snap.ref.update({
-        prizeEligible: true,
-        ageAttested: true,
-        ageAttestedAt: FieldValue.serverTimestamp(),
-      });
-      return true;
+      const current = bracketOf(already);
+      const patch = {};
+      let locked = false;
+
+      if (wantBracket && wantBracket !== current) {
+        if (canChangeBracket(already, wantBracket)) {
+          patch.bracket = wantBracket;
+        } else {
+          // Rounds already played in the other bracket. Moving now would
+          // carry a record into a field it was not earned in, and in the
+          // 18+ direction it would put a cash-eligible entrant in the
+          // minors bracket, which is the one arrangement the split
+          // exists to prevent. Refuse both halves together: granting the
+          // attestation while refusing the move is how those two facts
+          // come apart.
+          locked = true;
+        }
+      }
+
+      if (ageAttested && !locked && already.prizeEligible !== true) {
+        patch.prizeEligible = true;
+        patch.ageAttested = true;
+        patch.ageAttestedAt = FieldValue.serverTimestamp();
+      }
+
+      if (Object.keys(patch).length) await snap.ref.update(patch);
+      return {
+        prizeEligible: patch.prizeEligible === true || already.prizeEligible === true,
+        bracket: patch.bracket || current,
+        bracketLocked: locked,
+      };
     }
 
     const already = await existingEntryFor(myUid);
     if (already) {
-      const prizeEligible = await applyAgeAttestation(already);
+      const applied = await applyBracket(already);
       cache.clear();
-      return jsonResponse({ ok: true, already: true, entryId: already.id, prizeEligible }, 200, request);
+      return jsonResponse({ ok: true, already: true, entryId: already.id, ...applied }, 200, request);
     }
 
     const teamSize = Number(t.data.teamSize) || 1;
@@ -415,6 +493,9 @@ export default async (request) => {
       paidEntry: false,
       prizeEligible: ageAttested,
       ageAttested,
+      // '' is a legitimate stored value: it means this entry has not
+      // said, and the queue will ask before it pairs them.
+      bracket: wantBracket,
       ...(ageAttested ? { ageAttestedAt: FieldValue.serverTimestamp() } : {}),
       entryKind: 'free',
       wins: 0,
@@ -427,7 +508,7 @@ export default async (request) => {
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
     cache.clear();
-    return jsonResponse({ ok: true, entryId: entryRef.id, prizeEligible: ageAttested }, 200, request);
+    return jsonResponse({ ok: true, entryId: entryRef.id, prizeEligible: ageAttested, bracket: wantBracket }, 200, request);
   }
 
   // ── check-in ────────────────────────────────────────────────────

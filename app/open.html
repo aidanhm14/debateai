@@ -767,6 +767,35 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // room onto an empty chair.
   var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
 
+  var BRACKET_TITLE = { u18: 'Under 18', open: '18 and over', '': 'Bracket not set' };
+
+  // Which field this entrant plays in. '' means they have never said,
+  // which the queue treats as unpairable rather than guessing, so the
+  // page has to ask before it can offer them a round.
+  function myBracket(){
+    var me = state.data && state.data.me;
+    if (me && me.bracket) return me.bracket;
+    var mine = myEntry();
+    return (mine && mine.bracket) || '';
+  }
+
+  function setBracket(choice, btn){
+    var t = state.data && state.data.tournament;
+    if (!t) return;
+    busy(btn, true, 'Saving');
+    api('/api/tournament', {
+      action: 'register',
+      tid: t.tid,
+      bracket: choice,
+      // Choosing the adult bracket IS the 18+ attestation. Two separate
+      // questions asking the same thing is how they end up disagreeing.
+      ageAttested: choice === 'open',
+    })
+      .then(function(){ return load(); })
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
+  }
+
   function queueEligible(){
     var t = state.data && state.data.tournament;
     if (!t || t.dropIn === false || t.status !== 'running') return false;
@@ -811,6 +840,25 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var mine = myEntry();
     var say, why = '', action = null;
 
+    // Nobody is paired until they have said which bracket they are in.
+    // Asking here, in the one box that offers rounds, is the whole
+    // recovery path for everyone who entered before the split existed.
+    if (!myBracket()){
+      box.innerHTML = '<b>One question first</b>' +
+        '<div class="say">Are you 18 or over?</div>' +
+        '<div class="why">Under 18 and 18 and over debate in separate brackets, so nobody under 18 is matched with an adult stranger. ' +
+        'Cash prizes are 18 and over only; under 18 plays for the placement and the ranking. You can change this until your first round.</div>';
+      [['open', 'I am 18 or over'], ['u18', 'I am under 18']].forEach(function(pair, i){
+        var b = document.createElement('button');
+        b.className = 'btn btn-lg' + (i === 0 ? ' btn-primary' : '');
+        b.textContent = pair[1];
+        b.addEventListener('click', function(){ setBracket(pair[0], b); });
+        acts.appendChild(b);
+      });
+      addWithdraw(acts, state.data.tournament);
+      return;
+    }
+
     if (self && self.inPairing && self.pairing){
       var p = self.pairing;
       var side = p.govEntry === (mine && mine.entryId) ? 'Gov' : 'Opp';
@@ -820,7 +868,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       action = { kind: 'link', href: roomUrl(p, { label: 'Drop-in', motion: '' }), label: 'Join your room' };
     } else if (self && self.queued){
       say = 'In the queue, ' + fmtWait(self.waitingMs) + '.';
-      why = (pool > 1 ? pool + ' ready right now. ' : 'Waiting for someone else to be free. ');
+      // The pool is counted inside YOUR bracket, so say so. "6 ready"
+      // while all six are in the other bracket is how a working queue
+      // reads as a broken one.
+      why = (pool > 1 ? pool + ' ready right now in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket. '
+                      : 'Waiting for someone else in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket to be free. ');
       // Say why a pairable looking pool is not pairing, rather than
       // spinning silently.
       if (dropIn.state && dropIn.state.held){
@@ -834,12 +886,23 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       action = { kind: 'btn', label: "I'm still here", act: 'ready', primary: true };
     } else {
       say = 'Say you are ready and you get paired.';
-      why = pool > 0 ? (pool + ' waiting in the queue right now.') : 'Play as many rounds as you like.';
+      why = pool > 0
+        ? (pool + ' waiting in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket right now.')
+        : 'Play as many rounds as you like.';
       action = { kind: 'btn', label: 'Ready to debate', act: 'ready', primary: true };
     }
 
+    // Splitting the field means each bracket can be thin, especially
+    // early. A queue that offers nothing while it waits is how someone
+    // leaves and does not come back, so offer the AI round. It is
+    // deliberately labelled as not counting: a practice round that
+    // quietly moved the standings would be a way to farm a cash board.
+    var quiet = (self && self.queued && pool <= 1) ? '<div class="why">Quiet in your bracket right now. ' +
+      '<a href="/practice" style="color:var(--red)">Take a round against the AI while you wait</a>. ' +
+      'It does not count toward the standings.</div>' : '';
+
     box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
-      (why ? '<div class="why">' + esc(why) + '</div>' : '') +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '') + quiet +
       (dropIn.err ? '<div class="why" style="color:#fca5a5">' + esc(dropIn.err) + '</div>' : '');
 
     if (action.kind === 'link'){
@@ -924,6 +987,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   // ── Standings ─────────────────────────────────────────────────────
+  //
+  // Two brackets, two ladders. Under 18 and 18-plus are separate
+  // contests run on the same day, so they get separate tables and the
+  // rank in each is the rank inside that bracket. The server already
+  // ranks per bracket; this only has to keep them apart on screen,
+  // because one merged table is exactly the impression the split
+  // exists to remove.
   function renderTab(){
     var rows = state.data.standings || [];
     var tb = $('tabTable').querySelector('tbody');
@@ -931,52 +1001,85 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       tb.innerHTML = '<tr><td class="empty">Nobody has entered yet.</td></tr>';
       return;
     }
-    // Before a single round has been debated the tab is every entrant on
-    // nil, and the engine still hands back rank 1 through N. Printing
-    // that reads as a standing, which it is not: it is entry order
-    // dressed up as a result. Show the field instead, alphabetically, so
-    // the ordering claims nothing.
-    var played = rows.some(function(r){ return (Number(r.wins) || 0) + (Number(r.losses) || 0) > 0; });
-    if (!played){
-      $('tabTitle').textContent = 'The field';
-      $('tabSub').textContent = 'Everyone entered so far. The standings replace this the moment the first result lands.';
-      show('tabNote', false);
-      var mineEarly = myEntry();
-      tb.innerHTML = '<tr><th>Who has entered</th></tr>' +
-        rows.slice().sort(function(a, b){ return String(a.name).localeCompare(String(b.name)); })
-          .map(function(r){
-            var me = mineEarly && r.entryId === mineEarly.entryId;
-            return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '><td>' + esc(r.name) +
-              (r.affiliation ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>' : '') +
-              '</td></tr>';
-          }).join('');
-      return;
-    }
-    $('tabTitle').textContent = 'The standings';
-    $('tabSub').textContent = 'Wins first, then speaker points. This is the same table the elimination bracket is cut from.';
     var mine = myEntry();
     var breakLine = Number(state.data.tournament.breakSize) || 0;
-    show('tabNote', breakLine > 0);
-    if (breakLine > 0){
-      $('tabNote').textContent = 'The red line is the break. The top ' + breakLine +
-        ' when entries close go into the elimination bracket. It moves as results land.';
+
+    // Group in a fixed order so the two tables do not swap places as
+    // results land.
+    var order = ['u18', 'open', ''];
+    var groups = {};
+    rows.forEach(function(r){
+      var b = order.indexOf(r.bracket) >= 0 ? r.bracket : '';
+      (groups[b] = groups[b] || []).push(r);
+    });
+    var present = order.filter(function(b){ return (groups[b] || []).length; });
+
+    // Before a single round has been debated the tab is every entrant
+    // on nil, and the engine still hands back rank 1 through N. Printing
+    // that reads as a standing, which it is not: it is entry order
+    // dressed up as a result.
+    var played = rows.some(function(r){ return (Number(r.wins) || 0) + (Number(r.losses) || 0) > 0; });
+
+    $('tabTitle').textContent = played ? 'The standings' : 'The field';
+    $('tabSub').textContent = played
+      ? 'Wins first, then speaker points, ranked inside each bracket. Under 18 and 18 and over are separate contests and are never paired against each other.'
+      : 'Everyone entered so far, by bracket. The standings replace this the moment the first result lands.';
+    show('tabNote', played && breakLine > 0);
+    if (played && breakLine > 0){
+      $('tabNote').textContent = 'The red line is the break, and each bracket cuts its own top ' + breakLine +
+        '. It moves as results land.';
     }
-    tb.innerHTML = '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
-      rows.map(function(r){
-        var me = mine && r.entryId === mine.entryId;
-        var aff = r.affiliation
-          ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
-          : '';
-        // A line under the break marks where the bracket cuts. It is the
-        // single number every competitor is actually reading for.
-        var cut = (breakLine && r.rank === breakLine) ? ' style="border-bottom:2px solid var(--red)"' : '';
-        return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
-          '<td class="num"' + cut + '>' + r.rank + '</td>' +
-          '<td' + cut + '>' + esc(r.name) + aff + '</td>' +
-          '<td class="num"' + cut + '>' + r.wins + '</td>' +
-          '<td class="num"' + cut + '>' + r.losses + '</td>' +
-          '<td class="num"' + cut + '>' + r.speaks + '</td></tr>';
-      }).join('');
+
+    var html = '';
+    present.forEach(function(b){
+      var list = groups[b];
+      // One bracket in the whole field needs no heading: a header that
+      // says "18 and over" above the only table there is reads as a
+      // filter somebody applied by accident.
+      if (present.length > 1){
+        html += '<tr><th colspan="5" style="padding-top:18px;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">' +
+          esc(BRACKET_TITLE[b]) + ' &middot; ' + list.length + (list.length === 1 ? ' entrant' : ' entrants') + '</th></tr>';
+      }
+      if (b === ''){
+        // Registered, unpairable, and told so on their own dashboard.
+        // Listed because the tab is the record of who entered, without a
+        // rank they have not earned.
+        html += '<tr><th colspan="5" class="note" style="font-weight:500;text-transform:none;letter-spacing:0">' +
+          'These entrants have not said which bracket they are in yet, so they are not being paired.</th></tr>';
+        html += list.map(function(r){
+          var me = mine && r.entryId === mine.entryId;
+          return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') +
+            '><td colspan="5">' + esc(r.name) + '</td></tr>';
+        }).join('');
+        return;
+      }
+      if (!played){
+        html += '<tr><th colspan="5">Who has entered</th></tr>' +
+          list.slice().sort(function(a, c){ return String(a.name).localeCompare(String(c.name)); })
+            .map(function(r){
+              var me = mine && r.entryId === mine.entryId;
+              return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '><td colspan="5">' + esc(r.name) +
+                (r.affiliation ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>' : '') +
+                '</td></tr>';
+            }).join('');
+        return;
+      }
+      html += '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+        list.map(function(r){
+          var me = mine && r.entryId === mine.entryId;
+          var aff = r.affiliation
+            ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
+            : '';
+          var cut = (breakLine && r.rank === breakLine) ? ' style="border-bottom:2px solid var(--red)"' : '';
+          return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
+            '<td class="num"' + cut + '>' + r.rank + '</td>' +
+            '<td' + cut + '>' + esc(r.name) + aff + '</td>' +
+            '<td class="num"' + cut + '>' + r.wins + '</td>' +
+            '<td class="num"' + cut + '>' + r.losses + '</td>' +
+            '<td class="num"' + cut + '>' + r.speaks + '</td></tr>';
+        }).join('');
+    });
+    tb.innerHTML = html;
   }
 
   function latestReleased(){
