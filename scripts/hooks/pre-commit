@@ -205,6 +205,24 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Avatar option guard. The designer, the renderer, the account sync and
+# the shared server allow-list all carry the same five option lists, and
+# the last three are sanitisers with fallbacks, so drift between them
+# does not throw: it silently replaces somebody's saved avatar with the
+# default. That shipped once (2026-08-24, reported as "it's not saving my
+# profile picture") and is invisible in a diff, so it gets a guard.
+# ──────────────────────────────────────────────────────────────────
+AVATAR_GUARD="$REPO_ROOT/scripts/test-avatar-design.mjs"
+if [ -f "$AVATAR_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-avatar-design.mjs >/tmp/avatar-guard.log 2>&1); then
+    echo "[avatar-guard] commit blocked - the avatar option lists disagree:" >&2
+    tail -20 /tmp/avatar-guard.log >&2
+    echo "[avatar-guard] see scripts/test-avatar-design.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Plan-price guard. check-prices.mjs above polices price STRINGS in
 # user-facing HTML and it works; on 2026-08-24 it was passing while the
 # live Stripe Individual price charged $5.00/MONTH against an

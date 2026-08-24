@@ -22,11 +22,41 @@
   var db = null;
   var pushTimer = 0;
 
-  var SCENES = ['arena','skyline','library','studio','orbit','forest'];
-  var ACCENTS = ['crimson','electric','violet','teal','rose','silver'];
-  var OUTFITS = ['ink','navy','plum','pine','slate'];
-  var MASKS = ['blade','classic','visor'];
-  var EYES = ['focus','sharp','open','calm'];
+  /* The design keys this sync will carry. They MUST cover everything the
+     designer offers, because every one of them is a sanitiser with a
+     fallback: a key missing from this list is not rejected, it is
+     silently replaced by the default and then written back over the
+     user's own local storage by applyRecord().
+
+     2026-08-24, from a report of "it's not saving my profile picture when
+     I change it". These five lists had fallen behind js/cam-avatar.js by
+     one release of options: three scenes, three colours, three outfits,
+     four masks and three eye shapes existed in the designer and not here.
+     Measured on the founder's account: picking the Oni mask, Gold, and
+     the Neon scene and pressing Save left arena / crimson / blade in
+     local storage within two seconds, and pushed the same fallbacks to
+     the account. Nothing errored. The layer meant to protect the choice
+     was the layer discarding it.
+
+     Kept in step by scripts/test-avatar-design.mjs, which reads the
+     designer's own option table and fails the commit if these disagree.
+     At runtime we prefer that table directly when the designer is loaded,
+     so a page that has both cannot drift even between commits. */
+  var SCENES = ['arena','skyline','library','studio','orbit','forest','chamber','neon','void'];
+  var ACCENTS = ['crimson','electric','violet','teal','rose','silver','gold','lime','ice'];
+  var OUTFITS = ['ink','navy','plum','pine','slate','rust','bone','royal'];
+  var MASKS = ['blade','classic','visor','wing','oni','plate','slim'];
+  var EYES = ['focus','sharp','open','calm','round','keen','hooded'];
+  function offered(group, fallbackList) {
+    try {
+      var table = global.DebateCam && global.DebateCam.designOptions;
+      var opts = table && table[group];
+      if (opts && opts.length) {
+        return opts.map(function (o) { return o && o.key; }).filter(Boolean);
+      }
+    } catch (e) {}
+    return fallbackList;
+  }
 
   function read(key, fallback) {
     try { var raw = global.localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -42,11 +72,11 @@
   function cleanDesign(d) {
     d = d || {};
     return {
-      scene: valid(d.scene, SCENES, 'arena'),
-      accent: valid(d.accent, ACCENTS, 'crimson'),
-      outfit: valid(d.outfit, OUTFITS, 'ink'),
-      mask: valid(d.mask, MASKS, 'blade'),
-      eyes: valid(d.eyes, EYES, 'focus')
+      scene: valid(d.scene, offered('scene', SCENES), 'arena'),
+      accent: valid(d.accent, offered('accent', ACCENTS), 'crimson'),
+      outfit: valid(d.outfit, offered('outfit', OUTFITS), 'ink'),
+      mask: valid(d.mask, offered('mask', MASKS), 'blade'),
+      eyes: valid(d.eyes, offered('eyes', EYES), 'focus')
     };
   }
   function cleanPortrait(c) {

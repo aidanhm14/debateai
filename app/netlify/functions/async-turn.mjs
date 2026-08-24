@@ -19,36 +19,12 @@ import {
   ALLOWED_MIME, MAX_PARTS, MAX_TOTAL_BYTES, MAX_OPEN_PER_USER,
   TURN_SPEC, ANSWER_WINDOW_MS, REPLY_WINDOW_MS, FORMATS, FEED_CACHE_KEY,
 } from './lib/async-rounds.mjs';
+// The avatar option keys live in one place. A local copy of them fell
+// behind the designer and silently rewrote people's saved avatars.
+import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
 
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 
-const AVATAR_SCENES = new Set(['arena','skyline','library','studio','orbit','forest']);
-const AVATAR_ACCENTS = new Set(['crimson','electric','violet','teal','rose','silver']);
-const AVATAR_OUTFITS = new Set(['ink','navy','plum','pine','slate']);
-const AVATAR_MASKS = new Set(['blade','classic','visor']);
-const AVATAR_EYES = new Set(['focus','sharp','open','calm']);
-function cleanAvatarIdentity(value) {
-  if (!value || typeof value !== 'object') return null;
-  if (value.kind === 'live') {
-    const d = value.design && typeof value.design === 'object' ? value.design : {};
-    return { kind: 'live', design: {
-      scene: AVATAR_SCENES.has(d.scene) ? d.scene : 'arena',
-      accent: AVATAR_ACCENTS.has(d.accent) ? d.accent : 'crimson',
-      outfit: AVATAR_OUTFITS.has(d.outfit) ? d.outfit : 'ink',
-      mask: AVATAR_MASKS.has(d.mask) ? d.mask : 'blade',
-      eyes: AVATAR_EYES.has(d.eyes) ? d.eyes : 'focus',
-    }};
-  }
-  if (value.kind === 'portrait' && value.config && typeof value.config === 'object') {
-    const safe = {};
-    ['skin','hair','top','eyes','brows','mouth','facial','glasses','accessory','bg','outfit','iris','detail'].forEach((key) => {
-      const n = Number(value.config[key]);
-      if (Number.isFinite(n)) safe[key] = Math.max(0, Math.min(20, Math.floor(n)));
-    });
-    return { kind: 'portrait', config: safe };
-  }
-  return null;
-}
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
