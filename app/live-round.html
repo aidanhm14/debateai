@@ -323,6 +323,14 @@ button{font-family:inherit}
 .cv-exit-btn:hover{background:rgba(255,255,255,.09)}
 .cv-exit-btn--go{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444)}
 .cv-exit-btn--go:hover{background:#dc2626;border-color:#dc2626}
+/* A watcher opens the page with no activation on this document, so Chrome
+   refuses to autoplay the round's audio and the feed looks broken rather
+   than muted. One tap is the only thing that can lift it. */
+.cv-sound{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;
+  padding:11px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.28);
+  background:rgba(18,18,20,.92);color:#fff;cursor:pointer;
+  font:800 .78rem/1 DM Sans,Archivo,Georgia,serif;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.cv-sound:hover{background:rgba(40,40,44,.96)}
 @media (max-width:900px){
   .cv-stage{grid-auto-flow:row;grid-auto-columns:auto}
   .cv-stage[data-n="2"]{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
@@ -7464,6 +7472,7 @@ html.stage-mode .stage-ov{display:block}
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
     micOn:true, sharing:false, canFlip:false, facing:'user',
     remoteSeats:0, everHadRemote:false,
+    viewer:false, soundGate:null,
   };
 
   function setRoomNote(msg){
@@ -7502,6 +7511,22 @@ html.stage-mode .stage-ov{display:block}
     room.note.style.display = '';
   }
   function isAudienceName(n){ return String(n || '').indexOf('Audience · ') === 0; }
+  // Watchers join under this exact name and publish nothing at all. They
+  // are normally invisible, because create-daily-room mints them a token
+  // with hasPresence:false, but that mint is allowed to fail (it retries
+  // without permissions so identity attribution survives on a plan that
+  // lacks the API). This is the belt to that mint's braces: a watcher who
+  // slipped through visible would otherwise land on the debaters' stage
+  // as a black tile, which is the thing this whole change removes. The
+  // track test is what keeps it from ever hiding a real person: someone
+  // publishing a camera, a mic or a screen is in the round.
+  function isSilentWatcher(p){
+    if (!p || p.local) return false;
+    if (String(p.user_name || '') !== 'Watching') return false;
+    return !trackOf(p.tracks && p.tracks.video)
+      && !trackOf(p.tracks && p.tracks.audio)
+      && !trackOf(p.tracks && p.tracks.screenVideo);
+  }
   function myRoomName(){
     try {
       var n = state.user ? publicNameOf(state.user) : '';
@@ -7550,8 +7575,10 @@ html.stage-mode .stage-ov{display:block}
     shell.appendChild(wrap);
     room.wrap = wrap; room.stage = stage; room.aud = aud; room.note = note;
     room.tray = tray; room.audioHost = audioHost;
-    buildTray();
-    setRoomNote('Connecting to the video room.');
+    // No tray for a watcher: mic, camera flip, screen share and leave are
+    // all things a guest cannot do in a round they are not in.
+    if (!room.viewer) buildTray();
+    setRoomNote(room.viewer ? 'Connecting to the video.' : 'Connecting to the video room.');
   }
   function trayBtn(id, label, title){
     var b = document.createElement('button');
@@ -7748,6 +7775,10 @@ html.stage-mode .stage-ov{display:block}
         room.audios[p.session_id] = a;
       }
       attachTrack(a, track);
+      if (room.viewer){
+        var pr = a.play && a.play();
+        if (pr && pr.catch) pr.catch(function(){ showSoundGate(); });
+      }
     });
     Object.keys(room.audios).forEach(function(sid){
       if (seen[sid]) return;
@@ -7764,10 +7795,20 @@ html.stage-mode .stage-ov{display:block}
     Object.keys(ps).forEach(function(k){
       var p = ps[k];
       if (!p || !p.session_id) return;
+      if (isSilentWatcher(p)) return;
       list.push(p);
       if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
       if (trackOf(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
     });
+    // A watcher is not on the stage. Their own participant record exists
+    // (they are joined, just sending nothing), and rendering it is what
+    // put an empty "Guest (You)" tile in front of every round.
+    if (room.viewer){
+      var notMe = function(p){ return !p.local; };
+      seats = seats.filter(notMe);
+      screens = screens.filter(notMe);
+      auds = auds.filter(notMe);
+    }
     // Local last so the opponent holds the first, largest cell.
     seats.sort(function(a, b){
       if (!!a.local !== !!b.local) return a.local ? 1 : -1;
@@ -7797,11 +7838,11 @@ html.stage-mode .stage-ov{display:block}
        mini/pip shells, all of which have their own cramped layouts.
        Because the tile goes out of flow, it also comes out of data-n, or
        the grid keeps a column open for a tile that is no longer in it. */
-    var mini = seats.length === 2 && screens.length === 0 && !room.selfHidden
+    var mini = !room.viewer && seats.length === 2 && screens.length === 0 && !room.selfHidden
       && !document.body.classList.contains('lr-mini')
       && !document.body.classList.contains('lr-pip');
     room.stage.classList.toggle('self-mini', mini);
-    room.stage.classList.toggle('self-off', !!room.selfHidden);
+    room.stage.classList.toggle('self-off', !room.viewer && !!room.selfHidden);
     var inFlow = seats.length + screens.length
       - ((mini || room.selfHidden) ? seats.filter(function(p){ return p.local; }).length : 0);
     room.stage.setAttribute('data-n', String(Math.max(1, inFlow)));
@@ -7830,7 +7871,9 @@ html.stage-mode .stage-ov{display:block}
     // "Waiting to join" is wrong once someone HAS been here: an opponent
     // who drops mid-round gets a message that says what happened instead
     // of the fresh-room copy.
-    if (room.joined) setRoomNote(seats.length > 1 ? ''
+    if (room.joined && room.viewer){
+      setRoomNote(seats.length ? '' : 'Waiting for the debaters to turn their cameras on.');
+    } else if (room.joined) setRoomNote(seats.length > 1 ? ''
       : (room.everHadRemote
         ? 'Your opponent’s connection dropped. Their seat is held; they can rejoin from the same link.'
         : 'Waiting for the other debater to join.'));
@@ -7874,9 +7917,14 @@ html.stage-mode .stage-ov{display:block}
     // token when Firebase is unreachable), so this is not hypothetical.
     var props = {
       url: state.dailyUrl,
-      userName: myRoomName(),
+      userName: room.viewer ? 'Watching' : myRoomName(),
       videoSource: videoSource,
     };
+    // No device is opened for a watcher, in either direction. That is
+    // what keeps the browser from ever asking them for a camera, and it
+    // is also the only honest name to join under: the token already
+    // carries hasPresence:false, so nobody in the round sees them at all.
+    if (room.viewer) props.audioSource = false;
     if (typeof room.token === 'string' && room.token) props.token = room.token;
     return room.call.join(props).then(function(r){
       tuneSendQuality();
@@ -7891,6 +7939,12 @@ html.stage-mode .stage-ov{display:block}
   }
   function joinRoomCall(){
     if (!room.call || room.joined) return;
+    if (room.viewer){
+      setRoomNote('Connecting to the video.');
+      camConv.unified = false;
+      joinWith(false);
+      return;
+    }
     setRoomNote('Connecting to the video room.');
     // ONE camera capture for the whole page. Starting the canvas pipeline
     // BEFORE joining means Daily is handed the canvas as its video source
@@ -7921,11 +7975,16 @@ html.stage-mode .stage-ov{display:block}
     });
     room.joined = false;
   }
-  function mountCallObject(shell, token){
+  function mountCallObject(shell, token, viewer){
     var call = window.DailyIframe.createCallObject({ subscribeToTracksAutomatically: true });
     room.call = call;
     room.token = token || '';
-    state.dailyFrame = call;
+    room.viewer = !!viewer;
+    // state.dailyFrame is the handle every camera path publishes through.
+    // A watcher has no camera to publish, and leaving it null is what
+    // keeps the avatar pipeline, the flip, and the mask reassert from
+    // finding anything to act on.
+    if (!viewer) state.dailyFrame = call;
     // The link interceptor and the pop-out guard both read this. It stays
     // true for the call object: there is no iframe to look for, and
     // reparenting the pane into a Document PiP window would move every
@@ -7939,12 +7998,14 @@ html.stage-mode .stage-ov{display:block}
       // The canvas track went in with join(), so there is nothing to
       // publish here. A camera on stage means the room still has a
       // picture worth posting to the homepage strip.
-      if (camConv.cam) startRoomShots();
-      try { gtag('event', 'live_round_cam_unified'); } catch(e){}
+      if (!room.viewer){
+        if (camConv.cam) startRoomShots();
+        try { gtag('event', 'live_round_cam_unified'); } catch(e){}
+      }
       paintRoom();
     });
     call.on('participant-joined', paintRoom);
-    call.on('participant-updated', function(ev){ paintRoom(); reassertMask(ev); });
+    call.on('participant-updated', function(ev){ paintRoom(); if (!room.viewer) reassertMask(ev); });
     call.on('app-message', function(ev){
       var data = ev && ev.data;
       if (!data || typeof data !== 'object') return;
@@ -7965,22 +8026,146 @@ html.stage-mode .stage-ov{display:block}
     call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
     call.on('error', function(ev){
       console.warn('[Daily]', ev);
-      setRoomExit('The video room dropped.',
-        'Your round is still running. Rejoin when you are ready, or carry on from the board.');
+      if (room.viewer){
+        setRoomExit('The video dropped.',
+          'The round carries on. Rejoin the video, or keep following the clock and the transcript.');
+      } else {
+        setRoomExit('The video room dropped.',
+          'Your round is still running. Rejoin when you are ready, or carry on from the board.');
+      }
       room.joined = false;
       paintTray();
     });
     call.on('left-meeting', function(){
       room.joined = false;
       teardownRoom();
-      teardownCamPipeline();
-      setRoomExit('You left the video room.',
-        'You are still in the round. Your speeches, the clock and the ballot are unaffected.');
+      if (room.viewer){
+        setRoomExit('You stopped watching the video.',
+          'The round is still running. The clock, the transcript and the ballot keep arriving here.');
+      } else {
+        teardownCamPipeline();
+        setRoomExit('You left the video room.',
+          'You are still in the round. Your speeches, the clock and the ballot are unaffected.');
+      }
       paintTray();
     });
     wireAudienceReceiveSettings(call);
     joinRoomCall();
     return call;
+  }
+
+  // ── The spectator's stage: a screen you watch, not a call you are in
+  //
+  // A watcher joins the SAME Daily room as the debaters, receive-only, on
+  // a hidden-presence token, and until 2026-08-24 they got it through
+  // Daily's PREBUILT UI, which is built for people who are in the call.
+  // So a watcher was handed a tile of their own ("Guest (You)"), a
+  // participants bar of camera-off name cards, a mic and camera tray, and
+  // a name prompt before they could see anything. Most of a watcher's
+  // screen was themselves, and guests cannot be on the call at all.
+  //
+  // Measured 2026-08-24 against a real room, in a real browser, before
+  // choosing this: prebuilt loaded from a plain URL ignores
+  // showLocalVideo / showParticipantsBar as query params (it ignored the
+  // startVideoOff / videoSource params this page had been appending all
+  // along, which is why the camera is actually withheld by the iframe
+  // `allow` list and not by the URL); createFrame honours those
+  // properties but then hits the camera-permission screen precisely
+  // BECAUSE `allow` withholds the camera, and hits a haircheck when it
+  // does not. Every prebuilt route puts a door in front of watching.
+  //
+  // So a watcher now runs the same call object the debaters run and gets
+  // the stage this page already draws: the debaters' tiles, the audience
+  // strip, remote audio, nothing of their own. No devices are ever
+  // requested (videoSource and audioSource are both false), so there is
+  // no permission prompt and no gate to click through.
+  var viewerFrame = null;   // legacy prebuilt fallback, see below
+  var viewerToken = null;
+
+  function mountViewerStage(shell, token){
+    viewerToken = token || null;
+    if (window.DailyIframe && window.DailyIframe.createCallObject){
+      try {
+        mountCallObject(shell, token, true);
+        return true;
+      } catch(e){
+        destroyViewerMount();
+        console.warn('[Daily] viewer call object failed, falling back to the plain iframe', e);
+      }
+    }
+    return !!mountAudienceIframe(shell);
+  }
+
+  // The pre-2026-08-24 audience mount, kept as the fallback for a browser
+  // or a daily-js build where the call object does not come up. It puts
+  // the name prompt back, which is worse than watching but better than
+  // not watching.
+  function mountAudienceIframe(shell){
+    if (!shell || !state.dailyUrl) return null;
+    var url = state.dailyUrl + (state.dailyUrl.indexOf('?') >= 0 ? '&' : '?') +
+      'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
+    if (viewerToken) url += '&t=' + encodeURIComponent(viewerToken);
+    var iframe = document.createElement('iframe');
+    iframe.className = 'daily-frame';
+    iframe.src = url;
+    iframe.allow = 'autoplay; clipboard-write';
+    iframe.title = 'Live video room';
+    shell.appendChild(iframe);
+    viewerFrame = iframe;
+    return iframe;
+  }
+
+  // Retiring a watcher's mount, whichever of the two it turned out to be.
+  // The audience-camera path needs this: it mounts its own frame, and two
+  // things joined to one room from one tab is doubled audio and a seat
+  // spent twice against max_participants.
+  function destroyViewerMount(){
+    if (viewerFrame){
+      var f = viewerFrame; viewerFrame = null;
+      try { f.remove(); } catch(e){}
+    }
+    if (room.viewer){
+      var c = room.call;
+      room.call = null;
+      teardownRoom();
+      if (c){
+        try { c.leave(); } catch(e){}
+        try { c.destroy(); } catch(e){}
+      }
+      if (room.wrap){ try { room.wrap.remove(); } catch(e){} }
+      room.wrap = null; room.stage = null; room.aud = null;
+      room.note = null; room.tray = null; room.audioHost = null;
+      room.viewer = false;
+      room.active = '';
+      room.soundGate = null;
+    }
+    window.__lrDailyWrapper = false;
+  }
+
+  // Chrome will not autoplay audible media without an activation on THIS
+  // document, and a watcher who arrived by clicking a link on the last
+  // page has none. A debater never meets this because granting a mic
+  // carries the privilege with it. Without the gate the round plays in
+  // silence and looks like a broken feed.
+  function showSoundGate(){
+    if (!room.wrap || room.soundGate) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cv-sound';
+    btn.textContent = 'Tap to turn on sound';
+    btn.addEventListener('click', function(){
+      var blocked = false;
+      Object.keys(room.audios).forEach(function(sid){
+        var pr = room.audios[sid].play && room.audios[sid].play();
+        if (pr && pr.catch) pr.catch(function(){ blocked = true; });
+      });
+      if (!blocked){
+        try { btn.remove(); } catch(e){}
+        room.soundGate = null;
+      }
+    });
+    room.wrap.appendChild(btn);
+    room.soundGate = btn;
   }
 
   function mountDaily(){
@@ -8023,18 +8208,45 @@ html.stage-mode .stage-ov{display:block}
           return;
         }
         state.dailyUrl = res.body.url;
+        // Deciding the mount BEFORE daily-js has loaded picks the worse
+        // mount for no reason: the library rides a deferred CDN tag and
+        // this fetch can land first, which is not hypothetical (measured
+        // in Chrome against a local stub, where the fetch returns in a
+        // millisecond and every mount fell back to the prebuilt iframe).
+        whenDailyReady(function(){
+          // The mount used to run inside the fetch chain, so a throw in
+          // it landed in the catch below and released the guard. It runs
+          // on a timer now, so it carries its own.
+          try { buildMount(res); }
+          catch(e){
+            state.dailyMounted = false;
+            setCallStatus('Video room unavailable', 'closed');
+            console.warn('[Daily] mount failed', e);
+          }
+        });
+      }).catch(function(e){
+        state.dailyMounted = false;   // let a later attempt try again
+        setCallStatus('Could not reach /api/create-daily-room', 'closed');
+        console.warn('[Daily] request failed', e);
+      });
+
+    function buildMount(res){
         var pane = $('jitsiPane');
         var shell = $('callShell') || pane;
         var existingCard = $('callCard');
         if (existingCard) existingCard.remove();
-        // Build the iframe with explicit permissions for cam/mic/display.
-        // Spectators land with cam + mic off via Daily query params so
-        // their feeds don't appear in the room. The iframe also withholds
-        // camera/microphone permissions from audience mode.
         var url = state.dailyUrl;
+        // Watchers get the watch-only stage: the debaters' tiles and
+        // nothing of their own. mountViewerStage falls back to the plain
+        // iframe by itself, so there is no path from here to a mount that
+        // asks a watcher for a camera or a name.
         if (isSpectator()){
-          var sep = url.indexOf('?') >= 0 ? '&' : '?';
-          url += sep + 'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
+          mountViewerStage(shell, res.body.token);
+          state.dailyMounted = true;
+          buildAudCamPill(shell);
+          updateRoomStage();
+          try { gtag('event', 'live_round_daily_mount', { wrapper: 3 }); } catch(e){}
+          return;
         }
         // Identity-attributed join: create-daily-room mints a meeting
         // token carrying uid (or IP hash) as user_id. That attribution
@@ -8067,25 +8279,31 @@ html.stage-mode .stage-ov{display:block}
             console.warn('[Daily] createCallObject failed, falling back to plain iframe', e);
           }
         }
+        // Debaters only from here down: every watcher returned above, so
+        // this iframe is always a seat and always needs the devices.
         var iframe = document.createElement('iframe');
         iframe.className = 'daily-frame';
         iframe.src = url;
-        // Spectators don't get camera/microphone permission so the
-        // browser doesn't even prompt for them; they're audience-only.
-        iframe.allow = isSpectator()
-          ? 'autoplay; clipboard-write'
-          : 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+        iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
         iframe.title = 'Live video room';
         shell.appendChild(iframe);
         state.dailyMounted = true;
-        if (isSpectator()) buildAudCamPill(shell);
         updateRoomStage();
         try { gtag('event', 'live_round_daily_mount'); } catch(e){}
-      }).catch(function(e){
-        state.dailyMounted = false;   // let a later attempt try again
-        setCallStatus('Could not reach /api/create-daily-room', 'closed');
-        console.warn('[Daily] request failed', e);
-      });
+    }
+  }
+
+  // Up to 8 seconds, then build with whatever is there. A watcher waiting
+  // on a CDN is still better served by a late good mount than an instant
+  // one that asks them for a camera, and the cap means a blocked CDN
+  // still ends in a room rather than in nothing.
+  function whenDailyReady(cb){
+    if (window.DailyIframe) { cb(); return; }
+    var waited = 0;
+    var t = setInterval(function(){
+      waited += 120;
+      if (window.DailyIframe || waited >= 8000){ clearInterval(t); cb(); }
+    }, 120);
   }
 
   // ── Phase transitions
@@ -12839,6 +13057,9 @@ html.stage-mode .stage-ov{display:block}
   function mountAudCamFrame(token){
     var shell = $('callShell') || $('jitsiPane');
     if (!shell) return Promise.reject(new Error('No video pane'));
+    // Retire whatever the watcher was already watching through, or two
+    // joins from one tab double the audio and spend the seat twice.
+    destroyViewerMount();
     var old = shell.querySelector('iframe.daily-frame');
     if (old) old.remove();
     var frame = window.DailyIframe.createFrame(shell, {
@@ -12879,19 +13100,11 @@ html.stage-mode .stage-ov{display:block}
       try { f.leave(); } catch(e){}
       try { f.destroy(); } catch(e){}
       window.__lrDailyWrapper = false;
-      // Back to the plain audience iframe: same mount the spectator
-      // branch of mountDaily builds, cam/mic withheld at the browser.
+      // Back to watching: the same watch-only stage the spectator branch
+      // of mountDaily builds, reusing the token minted there so hidden
+      // presence survives the round trip.
       var shell = $('callShell') || $('jitsiPane');
-      if (shell && state.dailyUrl){
-        var url = state.dailyUrl + (state.dailyUrl.indexOf('?') >= 0 ? '&' : '?') +
-          'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
-        var iframe = document.createElement('iframe');
-        iframe.className = 'daily-frame';
-        iframe.src = url;
-        iframe.allow = 'autoplay; clipboard-write';
-        iframe.title = 'Live video room';
-        shell.appendChild(iframe);
-      }
+      if (shell && state.dailyUrl) mountViewerStage(shell, viewerToken);
     }
     if (audCam.beatNow) audCam.beatNow(); // next write drops camAt, freeing the slot
     paintAudCamPill();
