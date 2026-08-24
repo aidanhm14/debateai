@@ -98,9 +98,19 @@ const CELL_CAP = 25;
 // roughly doubled below so the extra 100 lands on NEW cities instead of
 // stacking on the same 52 dots. The measured Firestore count still rides on
 // top and is the only part that moves between refreshes.
+// 2026-08-24 (the founder's call): floor raised 200 -> 500 so the landing
+// caption ("N visits in the last 24 hours") reads higher, with the globe
+// dots filling in to match. The 138-city pool (below) deals 1-4 per city,
+// so 500 lights most cities and tops the rest up rather than stacking
+// duplicates. Everything the entries above say still holds: this is a
+// declared cosmetic floor on a marketing surface, real = online24 -
+// PRESENCE_BASELINE, online30 / online5 stay unpadded, presence_daily +
+// /admin read the raw collection, the padded figure never goes in
+// investor or press material, and PRESENCE_BASELINE=0 kills it with no
+// redeploy.
 const PRESENCE_BASELINE = Math.max(
   0,
-  parseInt(process.env.PRESENCE_BASELINE ?? '200', 10) || 0
+  parseInt(process.env.PRESENCE_BASELINE ?? '500', 10) || 0
 );
 
 // 2026-08-22 (Aidan's call, same posture as PRESENCE_BASELINE): a Google
