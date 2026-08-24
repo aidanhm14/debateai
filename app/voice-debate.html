@@ -4332,7 +4332,7 @@ function App() {
       setPreflight({ state: 'error', mic: micPerm === 'granted' ? 'good' : 'idle', network: 'bad', micDetail: micPerm === 'granted' ? 'Permission granted' : 'Not tested', networkDetail: 'Device is offline' });
       return false;
     }
-    setPreflight({ state: 'testing', mic: 'testing', network: 'testing', micDetail: 'Opening microphone…', networkDetail: 'Checking Debatable…' });
+    setPreflight({ state: 'testing', mic: 'testing', network: 'testing', micDetail: 'Choose Allow so the AI can hear you', networkDetail: 'Checking Debatable…' });
     var stream = null;
     var netAbort = new AbortController();
     var netTimer = setTimeout(() => {try {netAbort.abort();} catch (e) {}}, 4500);
@@ -4354,6 +4354,12 @@ function App() {
       var micError = !micReady && e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError' || /microphone|audio track/i.test(e.message || ''));
       if (e && e.name === 'NotAllowedError') setMicPerm('denied');
       preflightRef.current = { ok: false, at: 0 };
+      // A mic failure here is where ~31% of voice starts die (measured
+      // 2026-08-24, start 72 -> mic_ok 50) and it was invisible: the connect
+      // path logs mic_denied, preflight did not, so those drops never showed
+      // up. Log it the same way so the bucket splits into denied / no-device
+      // / other and the next fix can target the real cause.
+      if (micError) funnel('mic_denied', { err: e && e.name || 'unknown', where: 'preflight' }, true);
       setPreflight({
         state: 'error',
         mic: micError ? 'bad' : micReady || micPerm === 'granted' ? 'good' : 'idle',
