@@ -9005,17 +9005,75 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      lazy loader, which reuses it instead of asking twice. The endpoint is
      shared-cached at 5 minutes server-side, so this is one function call
      per visitor, not a Firestore read. */
-  window.__lbTopReq = (function(){
-    try {
-      if (!window.matchMedia || !window.matchMedia('(min-width:1101px)').matches) return null;
-      // Same tick as the parser, so the hero is already in its shifted
-      // position the first time it paints. See the note on
-      // html.lbr-ready in the first-screen styles.
-      document.documentElement.classList.add('lbr-ready');
-      return fetch('/api/leaderboard-top', { cache: 'no-cache' })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .catch(function(){ return null; });
-    } catch (e) { return null; }
+  /* 2026-08-24, second pass: the width test is a SUBSCRIPTION, not a
+     one-shot read at parse time. It used to be the latter, and that
+     latched: a window opened under 1101px never set __lbTopReq, and
+     widening it afterwards did nothing for the rest of the session, so
+     the rail was gone from a page that had room for it. That is the
+     shape of "it does not show for signed-out visitors" without any
+     auth gate existing anywhere near this code — a second window opened
+     to test signed-out starts at the browser's default size, which is
+     usually narrower than the one already maximised, and stays railless
+     even after it is maximised. Verified on production before and after.
+
+     The rail renderer subscribes through .then() instead of reading
+     __lbTopReq directly, so it gets the rows whenever the fetch actually
+     starts. __lbTopReq keeps its name and its meaning (null until the
+     viewport is wide enough) because #ranked-band's lazy loader reads it
+     to avoid a second request for the same payload. */
+  window.__lbTop = (function(){
+    var mq = null;
+    try { mq = window.matchMedia ? window.matchMedia('(min-width:1101px)') : null; } catch (e) { mq = null; }
+    var req = null, waiting = [];
+    function start(){
+      if (req) return;
+      if (mq && !mq.matches) return;
+      try {
+        // Same tick as the width crossing, so the hero is already in its
+        // shifted position the first time it paints with the rail. See
+        // the note on html.lbr-ready in the first-screen styles.
+        document.documentElement.classList.add('lbr-ready');
+        req = fetch('/api/leaderboard-top', { cache: 'no-cache' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .catch(function(){ return null; });
+      } catch (e) { req = null; return; }
+      window.__lbTopReq = req;
+      var pending = waiting.splice(0);
+      for (var i = 0; i < pending.length; i++) req.then(pending[i]);
+    }
+    // Null until the viewport is wide enough. The renderers below both
+    // treat that as "not yet", never as "never".
+    window.__lbTopReq = null;
+    start();
+    /* Bound to more than one signal on purpose. A media-query `change` is
+       the right instrument and is enough in a real browser; it is NOT
+       dispatched by every embedded or automated viewport resize, which is
+       exactly where this was verified, so `resize` and
+       `orientationchange` back it up. All three run the same idempotent
+       start(), and every listener drops itself the moment it fires while
+       wide, so the ongoing cost after that is nothing. */
+    if (!req){
+      var armed = true;
+      var recheck = function(){
+        if (!armed) return;
+        start();
+        if (!req) return;
+        armed = false;
+        try {
+          window.removeEventListener('resize', recheck);
+          window.removeEventListener('orientationchange', recheck);
+          if (mq && mq.removeEventListener) mq.removeEventListener('change', recheck);
+          else if (mq && mq.removeListener) mq.removeListener(recheck);
+        } catch (e) {}
+      };
+      try {
+        if (mq && mq.addEventListener) mq.addEventListener('change', recheck);
+        else if (mq && mq.addListener) mq.addListener(recheck);
+      } catch (e) {}
+      window.addEventListener('resize', recheck, { passive: true });
+      window.addEventListener('orientationchange', recheck, { passive: true });
+    }
+    return { start: start, then: function(fn){ if (req) req.then(fn); else waiting.push(fn); } };
   })();
 </script>
 
@@ -14845,9 +14903,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var rail = document.getElementById('lbRail');
   var list = rail && document.getElementById('lbRailList');
   if (!rail || !list) return;
-  // Under 1101px the rail is display:none and __lbTopReq was never
-  // started, so there is nothing to paint and nothing to observe.
-  if (!window.matchMedia || !window.matchMedia('(min-width:1101px)').matches) return;
+  /* No width test here any more. Under 1101px the rail is display:none
+     and the fetch has not started, so this script simply waits: the
+     subscription below fires if and when the viewport is wide enough,
+     which is what lets a window that was resized wider pick the rail up
+     instead of staying blank for the rest of the session. */
 
   var ROWS = 6;
   var A = window.__rbAva || {};
@@ -14999,13 +15059,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     window.addEventListener('resize', onMove, { passive: true });
   }
 
-  var req = window.__lbTopReq;
-  if (!req) return;
-  req.then(function(j){
+  var painted = false;
+  function paint(j){
+    if (painted) return;
     if (!render(j && j.rows, j && j.total)) return;
+    painted = true;
     watch();
     try { if (window.gtag) gtag('event', 'lb_rail_view'); } catch (e) {}
-  }).catch(function(){});
+  }
+  if (window.__lbTop && window.__lbTop.then) window.__lbTop.then(paint);
+  else if (window.__lbTopReq) window.__lbTopReq.then(paint).catch(function(){});
 
   rail.addEventListener('click', function(e){
     var a = e.target && e.target.closest ? e.target.closest('[data-lbr]') : null;
