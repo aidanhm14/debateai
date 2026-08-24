@@ -1021,7 +1021,7 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
    widen the video (and shrink the text panel). Persisted per device. */
 .split{
   flex:1;display:grid;
-  grid-template-columns:var(--vid-w,1.4fr) 7px minmax(500px,1fr);
+  grid-template-columns:var(--vid-w,1fr) 7px minmax(500px,1.05fr);
   min-height:0;
 }
 .split-resizer{
@@ -1630,6 +1630,10 @@ body.speech-live #formatDisplay,
 body.speech-live .jd{display:none !important}
 body.speech-live .round-motion-bar{padding-top:10px;padding-bottom:10px}
 body.speech-live .rmb-eyebrow{display:none}
+/* The This House gloss is reading material for before the round, the
+   same as the background brief above it. Both fold away while somebody
+   is actually speaking. */
+body.speech-live .rmb-house{display:none !important}
 body.speech-live .rmb-motion{font-size:1.02rem;line-height:1.32}
 body.speech-live .transcript-area{margin-top:4px}
 .prep-banner{display:flex;align-items:center;gap:10px;justify-content:center;margin:0 0 14px;padding:10px 14px;
@@ -3014,8 +3018,13 @@ html.stage-mode .stage-ov{display:block}
                  flow, surfaced on the resolution itself. -->
             <button type="button" class="rmb-change" id="rmbChangeBtn" hidden title="Suggest a different resolution. Your opponent has to agree before it changes.">✎ Change</button>
             <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">🎲</button>
+            <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
           </span>
           <div class="rmb-motion" id="rmbMotion">—</div>
+          <!-- Which side argues what, one compact line directly under the
+               resolution. The full wording moved to Round details; the
+               reason it exists at all is in renderSidesGuide(). -->
+          <div class="sides-guide" id="sidesGuide" hidden></div>
           <div class="rmb-brief" id="rmbBrief" hidden></div>
           <!-- What "This House" is. Deterministic, filled by
                renderHouseGloss(); hidden on motions that never say it. -->
@@ -3032,16 +3041,17 @@ html.stage-mode .stage-ov{display:block}
             </button>
             <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden></span>
           </div>
+          <!-- Its own control, NOT inside .lr-pip-controls: that whole
+               container is hidden by the 2026-08-22 call that Minimize /
+               Pop out read as clutter, and this is a different control
+               with a different job. -->
+          <button type="button" class="lr-pip-btn rmb-vidtoggle" id="lrVidToggle" aria-pressed="false" title="Collapse the video column and give the whole width to the round">⬚ Hide video</button>
           <div class="lr-pip-controls" id="lrPipControls">
             <button type="button" class="lr-pip-btn" id="lrMinBtn" title="Shrink the video to a floating corner and use the full page">⤓ Minimize</button>
             <button type="button" class="lr-pip-btn" id="lrPopBtn" title="Pop the video into a floating window that stays on top across tabs">⧉ Pop out</button>
           </div>
         </div>
       </div>
-      <!-- Which side argues what. Filled by renderSidesGuide(); exists
-           because real users read "Pro" on a negative motion ("This
-           House regrets...") and argued the wrong side. -->
-      <div class="sides-guide" id="sidesGuide" hidden></div>
       <!-- Pending resolution change. Hidden until one side proposes one;
            the motion itself does not move until both have agreed. -->
       <div class="rmb-propose" id="rmbPropose" hidden>
@@ -3074,33 +3084,18 @@ html.stage-mode .stage-ov{display:block}
         <div class="rmbc-options" id="rmbcOptions"></div>
         <div class="rmbc-status" id="rmbcStatus"></div>
       </div>
-      <!-- Pre-Speech-1 setup. One calm summary line by default; the
-           motion tools + style picker live behind Options so the round
-           screen stays readable. -->
-      <div class="round-edit-bar" id="roundEditBar" hidden>
-        <div class="reb-summary">
-          <span class="reb-note"><span class="reb-title"><span id="rebModeName">General round</span>
-            <span class="reb-flag" id="rebJudgeFlag">Interruptions scored</span></span>
-            <small id="rebModeSub">4 speeches, then the ballot.</small></span>
-          <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
-        </div>
-        <div class="reb-tools" id="rebTools" hidden>
-          <label class="reb-fmt">Style
-            <select id="roundFormatSel" aria-label="Debate style"></select>
-          </label>
-          <button type="button" class="reb-edit" id="rebMotionBtn">Edit motion</button>
-          <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 Random</button>
-          <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Context</button>
-          <span class="reb-lock">Either side can edit until Speech 1.</span>
-        </div>
-      </div>
+      <!-- One panel answers who is speaking, how long is left, and what to
+           do next. Everything that used to sit between the resolution and
+           the transcript (roster, speech order, market, AI aides) is now
+           behind a disclosure below it. -->
       <div class="speech-header">
+        <div class="sh-line">
+          <span class="speech-code" id="speechCode">PM</span>
+          <span class="speech-progress" id="speechProgress">Speech 1 of 4 · then ballot</span>
+          <span class="sh-sep" aria-hidden="true">·</span>
+          <span class="speech-name" id="speechName">Speech</span>
+        </div>
         <div class="speech-primary">
-          <div class="speech-progress" id="speechProgress">Speech 1 of 4 · then ballot</div>
-          <div class="speaker-line">
-            <span class="speech-code" id="speechCode">PM</span>
-            <span class="speech-name" id="speechName">Speech</span>
-          </div>
           <div class="speaker-line" style="margin-bottom:0">
             <span class="now-speaking-label">Now speaking</span>
             <span class="speaker-name" id="speakerName">, </span>
@@ -3113,13 +3108,27 @@ html.stage-mode .stage-ov{display:block}
           </div>
         </div>
         <div class="speech-clock">
-          <span class="speech-clock-label">Speech clock</span>
+          <!-- Reads Ready / Speaking / Paused / Waiting, written by
+               updateClockState() on every timer transition. -->
+          <span class="speech-clock-label" id="speechClockState" aria-live="polite">Ready</span>
           <div class="timer-row">
             <span class="timer-num" id="timerNum">0:00</span>
             <span class="timer-target" id="timerTarget">/ 0:00</span>
           </div>
         </div>
         <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
+        <!-- The primary action sits beside the clock it drives. Moved out
+             of the transcript block; ids and handlers are unchanged. -->
+        <div class="row speech-actions">
+          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
+          <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
+          <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
+          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
+               current round is abandoned (the opponent sees a forfeit
+               banner), and the user re-queues. Confirm dialog to
+               prevent accidental clicks. Hidden for non-spar rounds. -->
+          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
+        </div>
         <div class="ready-hint" id="readyHint">Click <strong>▶ Start speech</strong> when you're ready, the timer doesn't start until you do.</div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
@@ -3171,52 +3180,51 @@ html.stage-mode .stage-ov{display:block}
           <div class="sc-body" id="specCaptionsBody"></div>
           <div class="sc-empty" id="specCaptionsEmpty"></div>
         </div>
-        <div class="row speech-actions">
-          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
-          <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
-          <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
-          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
-               current round is abandoned (the opponent sees a forfeit
-               banner), and the user re-queues. Confirm dialog to
-               prevent accidental clicks. Hidden for non-spar rounds. -->
-          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
-        </div>
       </div>
 
-      <!-- Round notes. After every speech the AI writes shared notes onto
-           the round doc: what was argued, and what a reply has to answer.
-           Both debaters and every spectator read the SAME notes, so it is
-           an aide, never one side's coach. No winner, no scores; the
-           ballot stays the only verdict. Rendered by renderRoundNotes. -->
-      <div class="round-notes" id="roundNotes" hidden>
-        <div class="rn-head">
-          <strong>Round notes</strong>
-          <span id="rnSub">The AI takes notes on each speech: what was argued, what a reply has to answer. Both sides see the same notes.</span>
-          <button type="button" class="rn-off" id="rnOffBtn">Hide</button>
-        </div>
-        <div id="rnList"></div>
-      </div>
+      <!-- Audience: the live market and the private "where do you stand"
+           call. Spectator-only, so the section stays hidden until
+           svDock() mounts something into it. -->
+      <details class="round-details" id="audienceTools" hidden>
+        <summary>Audience<span class="rd-status" id="audienceToolsStatus"></span></summary>
+        <div class="rd-body" id="audienceToolsBody"></div>
+      </details>
 
-      <!-- Live fact check. Populated by renderFactChecks from the round
-           doc, so debaters and every spectator read the same cards. -->
-      <div class="fact-checks" id="factChecks" hidden>
-        <div class="fc-head">
-          <span class="fc-dot" aria-hidden="true"></span>
-          <strong>Live fact check</strong>
-          <span id="fcSub">The AI listens in and tells the audience when a claim is flatly wrong.</span>
-          <button type="button" class="fc-off" id="fcOffBtn">Turn off</button>
-        </div>
-        <div id="fcList"></div>
-      </div>
-
-      <!-- More options (2026-08-23): the AI aides that exist but got
-           buried, resurfaced as per-viewer switches. All three are
-           localStorage-scoped display preferences, so this block is
-           visible to spectators too, unlike the participant-only
-           privacy menu. -->
+      <!-- AI tools. The aides run as before; they just no longer sit
+           between the speaker and the transcript. -->
       <details class="round-details" id="moreOptions">
-        <summary>More options · AI aides</summary>
+        <summary>AI tools<span class="rd-status" id="moreOptionsStatus"></span></summary>
         <div class="rd-body">
+          <!-- Round notes. After every speech the AI writes shared notes
+               onto the round doc: what was argued, and what a reply has to
+               answer. Both debaters and every spectator read the SAME
+               notes, so it is an aide, never one side's coach. No winner,
+               no scores; the ballot stays the only verdict. -->
+          <div class="round-notes" id="roundNotes" hidden>
+            <div class="rn-head">
+              <strong>Round notes</strong>
+              <span id="rnSub">The AI takes notes on each speech: what was argued, what a reply has to answer. Both sides see the same notes.</span>
+              <button type="button" class="rn-off" id="rnOffBtn">Hide</button>
+            </div>
+            <div id="rnList"></div>
+          </div>
+
+          <!-- Live fact check. Populated by renderFactChecks from the
+               round doc, so debaters and every spectator read the same
+               cards. -->
+          <div class="fact-checks" id="factChecks" hidden>
+            <div class="fc-head">
+              <span class="fc-dot" aria-hidden="true"></span>
+              <strong>Live fact check</strong>
+              <span id="fcSub">The AI listens in and tells the audience when a claim is flatly wrong.</span>
+              <button type="button" class="fc-off" id="fcOffBtn">Turn off</button>
+            </div>
+            <div id="fcList"></div>
+          </div>
+
+          <!-- The three aides as per-viewer switches. All localStorage
+               display preferences, so spectators get them too, unlike the
+               participant-only privacy menu. -->
           <label class="mo-row"><input type="checkbox" id="moNotes"> Round notes · an index of the arguments after each speech</label>
           <label class="mo-row"><input type="checkbox" id="moFact"> Live fact check · flags checkably false claims to the audience</label>
           <label class="mo-row"><input type="checkbox" id="moFloor"> Floor judge · one line of color between speeches, never a score</label>
@@ -3228,8 +3236,31 @@ html.stage-mode .stage-ov{display:block}
            roster and the speech order keep their ids; every renderer
            writes into them exactly as before. -->
       <details class="round-details" id="roundDetails">
-        <summary>Round details · speakers and order</summary>
+        <summary>Round details<span class="rd-status" id="roundDetailsStatus"></span></summary>
         <div class="rd-body">
+          <!-- The long-form version of the compact sides line under the
+               resolution. Written by renderSidesGuide(). -->
+          <div class="sides-detail" id="sidesDetail" hidden></div>
+          <!-- Pre-Speech-1 setup. One calm summary line by default; the
+               motion tools + style picker live behind Options so the round
+               screen stays readable. -->
+          <div class="round-edit-bar" id="roundEditBar" hidden>
+            <div class="reb-summary">
+              <span class="reb-note"><span class="reb-title"><span id="rebModeName">General round</span>
+                <span class="reb-flag" id="rebJudgeFlag">Interruptions scored</span></span>
+                <small id="rebModeSub">4 speeches, then the ballot.</small></span>
+              <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
+            </div>
+            <div class="reb-tools" id="rebTools" hidden>
+              <label class="reb-fmt">Style
+                <select id="roundFormatSel" aria-label="Debate style"></select>
+              </label>
+              <button type="button" class="reb-edit" id="rebMotionBtn">Edit motion</button>
+              <button type="button" class="reb-edit" id="rebGenMotion" title="Generate a fresh resolution">🎲 Random</button>
+              <button type="button" class="reb-edit" id="rebGenBrief" title="Write an AI background brief for this motion">✦ Context</button>
+              <span class="reb-lock">Either side can edit until Speech 1.</span>
+            </div>
+          </div>
           <div class="round-roster" id="roundRoster">
             <div class="roster-card" id="rosterYou">
               <span class="rc-active-dot"></span>
@@ -3260,6 +3291,7 @@ html.stage-mode .stage-ov{display:block}
             <div class="label" style="margin-bottom:6px">Speech sequence</div>
             <div class="sequence-list" id="sequenceList"></div>
           </div>
+          <p class="rd-note">Rounds are not recorded by default. Ask to record sits beside the resolution, and every seated debater has to agree before capture starts.</p>
         </div>
       </details>
     </div>
@@ -3278,6 +3310,50 @@ html.stage-mode .stage-ov{display:block}
 </div>
 
 <div id="toastHost"></div>
+
+<!-- Collapse the video column, and keep the chat rail from squeezing the
+     round on a narrow desktop. Neither one MOVES the Daily pane: moving
+     it reloads the iframe and drops the call, so this is display only. -->
+<script>
+(function(){
+  var KEY = 'lr-vid-off';
+  var btn = document.getElementById('lrVidToggle');
+  function paint(off){
+    document.body.classList.toggle('lr-vid-off', !!off);
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', off ? 'true' : 'false');
+    btn.textContent = off ? '\u25a3 Show video' : '\u2b1a Hide video';
+    btn.title = off
+      ? 'Bring the video column back'
+      : 'Collapse the video column and give the whole width to the round';
+  }
+  var start = false;
+  try { start = localStorage.getItem(KEY) === '1'; } catch (e) {}
+  paint(start);
+  if (btn) btn.addEventListener('click', function(){
+    var off = !document.body.classList.contains('lr-vid-off');
+    paint(off);
+    try { localStorage.setItem(KEY, off ? '1' : '0'); } catch (e) {}
+    // The globe, the Daily tiles and the round board all size off the
+    // viewport, so tell them the column changed.
+    try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+    try { gtag('event', 'live_round_video_toggle', { off: off }); } catch (e) {}
+  });
+
+  // Below 1080 the chat rail stops reflowing the page and starts sitting
+  // on top of it, so an open rail there hides the round. Close it on the
+  // way down; the person can always reopen it.
+  var wide = window.innerWidth >= 1080;
+  window.addEventListener('resize', function(){
+    var nowWide = window.innerWidth >= 1080;
+    if (wide && !nowWide && document.body.classList.contains('lr-aud-open')){
+      var x = document.getElementById('audClose');
+      if (x) x.click();
+    }
+    wide = nowWide;
+  }, { passive: true });
+})();
+</script>
 
 <!-- Split resizer: drag the handle between the video and the panel.
      Right = bigger video / smaller text. Self-contained; persists the
@@ -4209,6 +4285,9 @@ html.stage-mode .stage-ov{display:block}
     // CSS keys off this to collapse the stepper + explainer lines while
     // speeches run; the full guide returns for setup + ballot.
     guide.setAttribute('data-phase', phase);
+    // The phone layout pins the speech controls to the bottom of the
+    // viewport, but only while there is a speech to control.
+    document.body.classList.toggle('lr-round-live', phase === 'round');
     var phaseIdx = phase === 'setup' ? 0 : phase === 'round' ? 1 : 2;
     var ids = ['rgSetup','rgRound','rgBallot'];
     ids.forEach(function(id, idx){
@@ -4534,7 +4613,9 @@ html.stage-mode .stage-ov{display:block}
     // label is what says the choice exists.
     var _langLbl = $('langLabel');
     if (_langLbl) _langLbl.textContent = spectator ? 'Captions in' : 'Debating in';
-    $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')');
+    // The side pill renders immediately after this, so the name carries
+    // the name and nothing else.
+    $('speakerName').textContent = speakerName;
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
@@ -4792,7 +4873,12 @@ html.stage-mode .stage-ov{display:block}
           hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
         }
       }
-      if (ta && (!ms || myTurn)) ta.focus();
+      // preventScroll: the caret belongs in the transcript, but the
+      // scroll focus() drags with it would push the resolution and the
+      // clock off the top of the panel.
+      if (ta && (!ms || myTurn)){
+        try { ta.focus({ preventScroll: true }); } catch(e){ ta.focus(); }
+      }
     }
     // Flash the turn-change banner. flashTurnOverlay no-ops if we've
     // already shown this index, so re-renders from snapshot updates
@@ -4810,8 +4896,66 @@ html.stage-mode .stage-ov{display:block}
     // in we are), so it repaints with it. Self-guarded against no-op
     // renders.
     try { paintLangOffer(); } catch(e){}
+    updateClockState();
+    syncSectionStatus();
     updateRoundGuide();
   }
+
+  // The round view always opens at its own top: resolution, speaker,
+  // clock, control, transcript, in that order.
+  function panelToTop(){
+    try {
+      var pnl = $('panel');
+      if (pnl) pnl.scrollTop = 0;
+      // On the stacked phone layout the window scrolls, not the panel.
+      if (window.matchMedia('(max-width:1000px)').matches) window.scrollTo(0, 0);
+    } catch(e){}
+  }
+
+  // ── The four states, said in one word beside the clock ──────────────
+  // Before this the label read a static "Speech clock" and the only
+  // signal that the round was paused was a suffix on the number itself.
+  // Ready / Speaking / Paused are the speaker's own states; Waiting is
+  // what everyone else in the room is doing.
+  function updateClockState(){
+    var el = $('speechClockState');
+    if (!el) return;
+    var word = 'Ready', mod = 'ready';
+    if (state.phase !== 'round'){ word = 'Waiting'; mod = 'waiting'; }
+    else if (state.timerState === 'running'){ word = 'Speaking'; mod = 'speaking'; }
+    else if (state.timerState === 'paused'){ word = 'Paused'; mod = 'paused'; }
+    else if (isSpectator() || (mySide() && !isMyTurn())){ word = 'Waiting'; mod = 'waiting'; }
+    el.textContent = word;
+    el.className = 'speech-clock-label is-' + mod;
+  }
+
+  // A collapsed section that never says what is inside it reads as
+  // empty. Each summary carries the one fact that decides whether it is
+  // worth opening; nothing here changes what the sections hold.
+  function syncSectionStatus(){
+    var aiStat = $('moreOptionsStatus');
+    if (aiStat){
+      var on = [];
+      try { if (roundNotesOn()) on.push('notes'); } catch(e){}
+      try { if (factCheckOn()) on.push('fact check'); } catch(e){}
+      try { if (floorJudgeOn()) on.push('floor judge'); } catch(e){}
+      var notes = document.querySelectorAll('#rnList > *').length;
+      var checks = document.querySelectorAll('#fcList .fc-card').length;
+      var bits = [];
+      if (notes) bits.push(notes + ' note' + (notes === 1 ? '' : 's'));
+      if (checks) bits.push(checks + ' check' + (checks === 1 ? '' : 's'));
+      if (!bits.length) bits.push(on.length ? on.length + ' on' : 'all off');
+      aiStat.textContent = bits.join(' · ');
+    }
+    var rdStat = $('roundDetailsStatus');
+    if (rdStat){
+      var f = FORMATS[state.formatKey] || FORMATS.quick;
+      var judge = '';
+      try { judge = state.judgeLocked ? judgeArchetype(state.judgeLocked).name : 'judge not agreed'; } catch(e){}
+      rdStat.textContent = [f.name, judge].filter(Boolean).join(' · ');
+    }
+  }
+  window.__lrSyncSectionStatus = syncSectionStatus;
 
   function scheduleAutoStart(myTurn, ms, spectator){
     state.autoStartTokens = (state.autoStartTokens || 0) + 1;
@@ -4845,42 +4989,71 @@ html.stage-mode .stage-ov{display:block}
   function renderSidesGuide(){
     var el = $('sidesGuide');
     if (!el) return;
-    if (state.phase !== 'round'){ el.hidden = true; return; }
+    if (state.phase !== 'round'){
+      el.hidden = true;
+      var offDet = $('sidesDetail'); if (offDet) offDet.hidden = true;
+      return;
+    }
     var f = FORMATS[state.formatKey] || FORMATS.quick;
     var fourTeam = isFourTeam(f);
     var forLabel = fourTeam ? 'Government (OG + CG)' : (f.sideLabels[f.sides[0]] || 'Pro');
     var againstLabel = fourTeam ? 'Opposition (OO + CO)' : (f.sideLabels[f.sides[1]] || 'Con');
     var side = mySide();
-    var proWho = !fourTeam ? (state.proName || '') : '';
-    var conWho = !fourTeam ? (state.conName || '') : '';
-    // The swap control sits on the viewer's OWN cell, which is where
-    // somebody looks the second they notice they are on the side they
-    // did not want. The motion editor learned this the expensive way:
-    // it used to live only behind Options and nobody found it.
+    // The names already sit in the speaker line and the roster, so they
+    // are deliberately NOT repeated here. What a newcomer cannot work out
+    // on their own is which direction each label points, and that is all
+    // this line carries.
+    //
+    // Switch sides rides the viewer's OWN item, and it rides the VISIBLE
+    // strip rather than the long-form cells in Round details: the whole
+    // reason it was put on the sides guide is that a control nobody can
+    // see is a control nobody uses, and a disclosure would put it back
+    // where the motion editor used to be.
     var canSwap = false;
     try { canSwap = !!(window.__lrSwapOffered && window.__lrSwapOffered()); } catch(e){}
-    function cell(sideKey, label, who, what){
+    function chip(sideKey, label, what){
       var you = side === sideKey;
-      return '<div class="sg-cell' + (you ? ' is-you' : '') + '">' +
-        '<div class="sg-head">' +
-          '<span class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</span>' +
-          (who ? '<span class="sg-who">' + escHtml(who) + '</span>' : '') +
-          (you ? '<span class="sg-you-chip">You</span>' : '') +
-          (you && canSwap ? '<button type="button" class="sg-swap" title="Ask your opponent to trade sides. It only happens if they agree, and only before the first speech.">\u21c4 Switch sides</button>' : '') +
-        '</div>' +
-        '<div class="sg-what">' + what + '</div>' +
-      '</div>';
+      return '<span class="sg-item' + (you ? ' is-you' : '') + '">' +
+        '<b class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</b>' +
+        '<span class="sg-what">' + what + '</span>' +
+        (you ? '<em class="sg-you-chip">You</em>' : '') +
+        (you && canSwap ? '<button type="button" class="sg-swap" title="Ask your opponent to trade sides. It only happens if they agree, and only before the first speech.">\u21c4 Switch sides</button>' : '') +
+      '</span>';
     }
     el.innerHTML =
-      cell('pro', forLabel, proWho,
-        'Argues <strong>yes to the resolution</strong>: it is true, or should happen. Defend exactly what it says. If it says regret, argue we should regret it; if it says ban, argue for the ban.') +
-      cell('con', againstLabel, conWho,
-        'Argues <strong>no to the resolution</strong>: it is false, or should not happen. Attack the claim and defend the world it criticizes.');
+      chip('pro', forLabel, 'argues for the resolution') +
+      chip('con', againstLabel, 'argues against the resolution');
     el.hidden = false;
     var swapBtn = el.querySelector('.sg-swap');
     if (swapBtn) swapBtn.addEventListener('click', function(){
       try { if (window.__lrProposeSideSwap) window.__lrProposeSideSwap(); } catch(e){}
     });
+
+    // The full wording, one step away in Round details. It is the reason
+    // this guide exists (people read "Pro" on "This House regrets" and
+    // argued the wrong side), so it is folded away rather than dropped.
+    var det = $('sidesDetail');
+    if (det){
+      var proWho = !fourTeam ? (state.proName || '') : '';
+      var conWho = !fourTeam ? (state.conName || '') : '';
+      var cell = function(sideKey, label, who, what){
+        var you = side === sideKey;
+        return '<div class="sg-cell' + (you ? ' is-you' : '') + '">' +
+          '<div class="sg-head">' +
+            '<span class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</span>' +
+            (who ? '<span class="sg-who">' + escHtml(who) + '</span>' : '') +
+            (you ? '<span class="sg-you-chip">You</span>' : '') +
+          '</div>' +
+          '<div class="sg-what">' + what + '</div>' +
+        '</div>';
+      };
+      det.innerHTML =
+        cell('pro', forLabel, proWho,
+          'Argues <strong>yes to the resolution</strong>: it is true, or should happen. Defend exactly what it says. If it says regret, argue we should regret it; if it says ban, argue for the ban.') +
+        cell('con', againstLabel, conWho,
+          'Argues <strong>no to the resolution</strong>: it is false, or should not happen. Attack the claim and defend the world it criticizes.');
+      det.hidden = false;
+    }
     renderHouseGloss();
   }
 
@@ -5112,6 +5285,8 @@ html.stage-mode .stage-ov{display:block}
     // accepted. Speech 1 only; mid-round the picks are already locked.
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
       state.judgeDraftOpen = true;
+      var jDet = document.getElementById('roundDetails');
+      if (jDet) jDet.open = true;
       renderJudgeDraft();
       var jHint = $('readyHint');
       if (jHint){
@@ -5245,6 +5420,7 @@ html.stage-mode .stage-ov{display:block}
     // Same reason: it is also every moment a spectator's Live pill and
     // "has not started speech N" line become wrong.
     try { paintSpecCaptions(); } catch(e){}
+    try { updateClockState(); } catch(e){}
     // Same moment the motion lock flips, so the inline ✎ Change control
     // appears and disappears with it (wired in the motion-editor IIFE).
     try { if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns(); } catch(e){}
@@ -8624,6 +8800,11 @@ html.stage-mode .stage-ov{display:block}
     $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
+    // Start sits at the foot of a long setup form, so by the time it is
+    // pressed the panel is scrolled to the bottom, and the round then
+    // opens part-way down its own view with the resolution above the
+    // fold. Land at the top of the round instead.
+    panelToTop();
     // Mount the embedded Daily.co iframe. /api/create-daily-room is
     // idempotent on the room name so both speakers (each landing on
     // the same /live-round URL) end up in the same video room.
@@ -8846,6 +9027,7 @@ html.stage-mode .stage-ov{display:block}
     var on = roundNotesOn();
     var btn = $('rnOffBtn');
     if (btn) btn.textContent = on ? 'Hide' : 'Show';   // never let the button disagree with the switch
+    setTimeout(function(){ try { window.__lrSyncSectionStatus(); } catch(e){} }, 0);
     var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
     var pending = state.rnPending || {};
     var pendingIdx = Object.keys(pending).filter(function(k){ return pending[k]; });
@@ -9121,6 +9303,7 @@ html.stage-mode .stage-ov{display:block}
   function renderFactChecks(){
     var band = document.getElementById('factChecks');
     if (!band) return;
+    setTimeout(function(){ try { window.__lrSyncSectionStatus(); } catch(e){} }, 0);
     var all = state.factChecks || [];
     var offBtn = document.getElementById('fcOffBtn');
     if (state.fcDisabled || !all.length){ band.hidden = true; return; }
@@ -9215,6 +9398,10 @@ html.stage-mode .stage-ov{display:block}
         var val = el.checked ? (b.onVal || '1') : (b.offVal || '0');
         try { localStorage.setItem(b.key, val); } catch(e){}
         try { b.after(); } catch(e){}
+        // The summary is the only thing a closed section says, so it has
+        // to follow every switch, including the floor judge (whose own
+        // after() renders nothing).
+        try { window.__lrSyncSectionStatus(); } catch(e){}
         try { gtag('event', 'live_round_more_option', { option: id, on: el.checked }); } catch(e){}
       });
     });
@@ -9770,6 +9957,17 @@ html.stage-mode .stage-ov{display:block}
     d.className = 'spec-dock';
     d.setAttribute('role', 'region');
     d.setAttribute('aria-label', 'Spectator market and audience calls');
+    var host = document.getElementById('audienceToolsBody');
+    if (host){
+      host.appendChild(d);
+      var det = document.getElementById('audienceTools');
+      if (det){
+        det.hidden = false;
+        var stat = document.getElementById('audienceToolsStatus');
+        if (stat) stat.textContent = 'live market · your call';
+      }
+      return d;
+    }
     var round = document.getElementById('roundView');
     var liveStatus = round && round.querySelector('.speech-header');
     if (round && liveStatus) round.insertBefore(d, liveStatus.nextSibling);
@@ -12279,25 +12477,109 @@ html.stage-mode .stage-ov{display:block}
       try { var rng = document.createRange(); rng.selectNodeContents(rmb); rng.collapse(false); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch(e){}
     }
     var rebBtn = $('rebMotionBtn');
-    if (rebBtn) rebBtn.addEventListener('click', openInlineMotionEditor);
+    if (rebBtn) rebBtn.addEventListener('click', function(){ mmOpen(); });
     // The visible ✎ / 🎲 on the resolution band: same editor and same
     // consent flow as the Options tools, one click closer. State sync is
     // exposed on window because updatePlayPauseBtn (the timer-transition
     // hook) lives outside this closure and is what knows when the lock
     // flips.
-    var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn');
+    var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn'), rmbLock = $('rmbLockNote');
     function syncMotionChangeBtns(){
-      var show = state.phase === 'round' && !isSpectator() && !motionLocked();
+      var seated = state.phase === 'round' && !isSpectator();
+      var show = seated && !motionLocked();
       if (rmbChange) rmbChange.hidden = !show;
       if (rmbRoll) rmbRoll.hidden = !show;
+      // Once Speech 1 runs the control does not just vanish: it says why.
+      if (rmbLock) rmbLock.hidden = !(seated && motionLocked());
     }
     window.__lrSyncMotionBtns = syncMotionChangeBtns;
-    if (rmbChange) rmbChange.addEventListener('click', function(){
+
+    // ── The change dialog ─────────────────────────────────────────────
+    // Modal on desktop, bottom sheet on phones. It writes through the
+    // same setMotion() as every other path, so a round with both seats
+    // filled still cannot have its resolution replaced by one side.
+    // The dialog markup lives at end-of-body, AFTER this script, so it
+    // cannot be resolved here. Same trap the DM composer documents: bind
+    // on first open, once.
+    var mm = null, mmText = null, mmSubmit = null, mmHint = null, mmStatus = null;
+    var mmReturnFocus = null;
+    function mmWire(){
+      if (mm) return mm;
+      mm = document.getElementById('motionModal');
+      if (!mm) return null;
+      mmText = $('motionModalText'); mmSubmit = $('motionModalSubmit');
+      mmHint = $('motionModalHint'); mmStatus = $('motionModalStatus');
+      [].forEach.call(mm.querySelectorAll('[data-motion-close]'), function(c){
+        c.addEventListener('click', mmClose);
+      });
+      // Escape closes, and Tab stays inside the dialog while it is open.
+      mm.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){ e.preventDefault(); mmClose(); return; }
+        if (e.key !== 'Tab') return;
+        var f = [].filter.call(mm.querySelectorAll('button,textarea,[href],input,select'), function(n){
+          return !n.disabled && n.offsetParent !== null;
+        });
+        if (!f.length) return;
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      });
+      var mmRandom = $('motionModalRandom');
+      if (mmRandom) mmRandom.addEventListener('click', function(){
+        var pool = SPAR_MOTIONS.filter(function(m){ return m !== (mmText && mmText.value); });
+        var m = pool[Math.floor(Math.random() * pool.length)] || SPAR_MOTIONS[0];
+        // Fills the box rather than committing, so a roll is still a
+        // suggestion the person can read before they send it.
+        if (mmText){ mmText.value = m; mmText.focus(); }
+        if (mmStatus) mmStatus.textContent = 'Rolled. Send it, or roll again.';
+        try { gtag('event', 'live_round_motion_roll_modal'); } catch(e){}
+      });
+      if (mmSubmit) mmSubmit.addEventListener('click', function(){
+        var v = ((mmText && mmText.value) || '').trim().replace(/\s+/g, ' ');
+        if (!v){ if (mmStatus) mmStatus.textContent = 'Type a resolution first.'; return; }
+        if (v === state.motion){ mmClose(); return; }
+        if (motionLocked()){ if (mmStatus) mmStatus.textContent = 'The resolution locked when the first speech started.'; syncMotionChangeBtns(); return; }
+        setMotion(v, 'modal');
+        // On the direct-edit path setMotion only repaints the setup
+        // field, so the round view has to be told. On the proposal path
+        // state.motion has not moved and this repaints the same string,
+        // which is the point: the visible resolution must not change
+        // until the opponent agrees.
+        var rmbNow = $('rmbMotion');
+        if (rmbNow && document.activeElement !== rmbNow) rmbNow.textContent = state.motion || '(motion not set)';
+        try { renderHouseGloss(); } catch(e){}
+        try { renderSidesGuide(); } catch(e){}
+        mmClose();
+        try { gtag('event', 'live_round_motion_change_modal'); } catch(e){}
+      });
+      return mm;
+    }
+    function mmOpen(){
+      if (!mmWire()) { openInlineMotionEditor(); return; }
+      if (isSpectator()) return;
       if (motionLocked()){ toast('The resolution locked when the first speech started.'); syncMotionChangeBtns(); return; }
-      openInlineMotionEditor();
-      toast(bothSeatsIdentified()
-        ? 'Type the new resolution. It goes to your opponent to approve.'
-        : 'Type the new resolution.');
+      var both = bothSeatsIdentified();
+      if (mmSubmit) mmSubmit.textContent = both ? 'Propose change' : 'Save change';
+      if (mmHint) mmHint.textContent = both
+        ? 'The current resolution stays in place until the other person accepts.'
+        : 'Nobody else is seated yet, so this takes effect right away.';
+      if (mmStatus) mmStatus.textContent = '';
+      if (mmText) mmText.value = state.motion || '';
+      mmReturnFocus = document.activeElement;
+      mm.hidden = false; mm.classList.add('is-open');
+      document.body.classList.add('lr-modal-open');
+      setTimeout(function(){ if (mmText){ mmText.focus(); try { mmText.setSelectionRange(mmText.value.length, mmText.value.length); } catch(e){} } }, 30);
+    }
+    function mmClose(){
+      if (!mm) return;
+      mm.hidden = true; mm.classList.remove('is-open');
+      document.body.classList.remove('lr-modal-open');
+      try { if (mmReturnFocus && mmReturnFocus.focus) mmReturnFocus.focus(); } catch(e){}
+      mmReturnFocus = null;
+    }
+    window.__lrCloseMotionModal = mmClose;
+    if (rmbChange) rmbChange.addEventListener('click', function(){
+      mmOpen();
       try { gtag('event', 'live_round_motion_change_inline'); } catch(e){}
     });
     if (rmbRoll) rmbRoll.addEventListener('click', function(){
@@ -14426,7 +14708,10 @@ html.stage-mode .stage-ov{display:block}
       el = document.createElement('div');
       el.id = 'judgeDraft';
       el.className = 'jd';
-      rv.insertBefore(el, rv.firstChild);
+      var det = document.getElementById('roundDetails');
+      var body = det && det.querySelector('.rd-body');
+      if (body) body.insertBefore(el, body.firstChild);
+      else rv.insertBefore(el, rv.firstChild);
       el.addEventListener('click', onJudgeDraftClick);
     }
     return el;
@@ -15304,6 +15589,7 @@ html.stage-mode .stage-ov{display:block}
     // Phase advance: remote is in round/ballot but we're still in setup
     if ((d.status === 'round' || d.status === 'ballot') && state.phase === 'setup'){
       state.phase = 'round';
+      try { panelToTop(); } catch(e){}
       try { maybeAskRoundConsent(); } catch(e){}
       var spec = isSpectator();
       // A watcher still at the door does not get the round when it
@@ -16169,6 +16455,314 @@ html.stage-mode .stage-ov{display:block}
 .safety-check{display:flex;align-items:flex-start;gap:9px;margin-top:11px;color:var(--text-dim,rgba(255,255,255,.72));font-size:.78rem;line-height:1.4}
 .safety-check input{width:18px;height:18px;margin:0;accent-color:var(--accent,#ef4444)}
 </style>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   Active-round simplification (2026-08-24).
+   The round panel had grown to answer a dozen questions at once. It now
+   answers four, in this order and nothing above them: what are we
+   debating, who is speaking, how long is left, what do I do now. The
+   transcript follows immediately; the market, the AI aides, the roster,
+   the speech order and the judge draft all still exist, folded behind
+   three disclosures below it. Nothing was deleted.
+   This block is last in the document on purpose: it re-weights rules
+   that are spread across 2000 lines above rather than rewriting them,
+   so the round / sync / judging / recording code above stays untouched.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Resolution header. One compact band: label, the resolution, and
+      one line saying which way each side argues. The 4px accent rule and
+      the 2.15rem display size made a static string the loudest thing on
+      a screen whose loudest thing should be the clock. */
+.round-motion-bar{
+  padding:15px 24px 14px;gap:10px;
+  background:var(--ui-surface);
+  border-left:0;border-bottom:1px solid var(--border);
+  align-items:flex-start;
+}
+.round-motion-bar .rmb-eyebrow{
+  font-size:.6rem;letter-spacing:.13em;margin-bottom:5px;
+  flex-wrap:wrap;gap:7px;
+}
+.round-motion-bar .rmb-motion{
+  font-size:clamp(1.1rem,1.55vw,1.42rem);
+  font-weight:700;line-height:1.3;letter-spacing:-.008em;
+}
+.rmb-lock-note{
+  font-size:.62rem;font-weight:650;letter-spacing:.01em;text-transform:none;
+  color:var(--text-dim);opacity:.8;
+}
+.rmb-lock-note[hidden]{display:none}
+.rmb-change{min-height:30px}
+.round-motion-bar .rmb-house,.round-motion-bar .rmb-brief{font-size:.8rem}
+
+/* Recording is a quiet secondary action until it is actually pending or
+   running, at which point the .pending / .recording rules below it in
+   the cascade take over and make it loud again. */
+.rmb-rec-btn{
+  background:transparent;border-color:transparent;
+  text-transform:none;letter-spacing:.01em;font-size:.72rem;font-weight:700;
+  min-height:36px;padding:7px 10px;
+}
+.rmb-rec-btn:hover{background:var(--ui-soft);border-color:var(--border)}
+.rmb-tools{padding-top:10px;gap:6px}
+.lr-pip-btn{min-height:34px}
+/* Same quiet weight as Ask to record: present, not competing with the
+   resolution. Hidden where the video column does not exist as a column. */
+.rmb-vidtoggle{
+  background:transparent;border-color:transparent;color:var(--text-dim);
+  font-size:.72rem;font-weight:700;min-height:36px;padding:7px 10px;
+}
+.rmb-vidtoggle:hover{background:var(--ui-soft);border-color:var(--border)}
+body.lr-mini .rmb-vidtoggle,body.lr-pip .rmb-vidtoggle{display:none}
+
+/* ── 2. Which side argues what: one line, not two panels. The full
+      wording is kept verbatim in Round details (#sidesDetail), because
+      it is the thing that stops someone arguing the wrong side on a
+      "This House regrets" motion. */
+.sides-guide{
+  display:flex;flex-wrap:wrap;align-items:center;gap:4px 20px;
+  margin-top:9px;padding:0;background:none;border:0;
+}
+.sides-guide[hidden]{display:none}
+.sg-item{
+  display:inline-flex;align-items:baseline;gap:7px;
+  font-size:.78rem;line-height:1.45;color:var(--text-dim);
+}
+.sg-item .sg-side{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.sg-item .sg-what{font-size:.78rem;color:var(--text-dim)}
+.sg-item .sg-you-chip{
+  font-style:normal;font-size:.58rem;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;border-radius:999px;padding:2px 7px;
+  color:#fff;background:var(--accent,#ef4444);
+}
+.sides-detail{
+  display:grid;grid-template-columns:1fr 1fr;gap:1px;
+  background:var(--border);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;
+}
+.sides-detail[hidden]{display:none}
+/* Switch sides now rides an inline strip item rather than a block cell,
+   so the auto margin that pushed it to the far edge of a cell would only
+   add a gap here. */
+.sg-item .sg-swap{margin-left:2px;align-self:center}
+/* --green is tuned for a dark surface; at 11px bold on the light theme
+   it measured 3.3:1, so the side labels take a darker cut there. */
+[data-theme="light"] .sg-side.for{color:#15803d}
+[data-theme="light"] .sg-side.against{color:#b91c1c}
+.rmb-rec-btn:disabled{opacity:.82}
+.sides-detail .sg-cell{padding:11px 13px}
+.sides-detail .sg-what{font-size:.82rem}
+@media(max-width:760px){.sides-detail{grid-template-columns:1fr}}
+
+/* ── 3. One speech panel: which speech, who is speaking, how long is
+      left, and the control that changes it, in that reading order. The
+      action row moved here from inside the transcript block, so the
+      button and the clock it drives are no longer separated by a
+      textarea. */
+.speech-header{
+  grid-template-columns:minmax(0,1fr) auto;gap:11px 24px;
+  padding:14px 24px 16px;align-items:center;
+  background:var(--bg);border-top:0;
+}
+.sh-line{
+  grid-column:1/-1;display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+}
+.speech-header .speech-progress{
+  margin-bottom:0;font-size:.66rem;letter-spacing:.11em;
+}
+.speech-header .speech-name{
+  font-size:.7rem;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--text-dim);
+}
+.sh-sep{color:var(--text-dim);opacity:.6;font-size:.7rem}
+.speech-header .speech-code{font-size:.64rem;padding:4px 8px}
+.speech-header .speaker-name{font-size:clamp(1.15rem,1.75vw,1.5rem)}
+.speech-header .now-speaking-label{font-size:.62rem;letter-spacing:.11em}
+.speech-clock{min-width:150px;padding-left:20px}
+.timer-num{font-size:clamp(2.5rem,4.2vw,3.5rem)}
+.timer-target{font-size:.82rem}
+
+/* Ready / Speaking / Paused / Waiting. One word and one dot, in the one
+   place a speaker is already looking. */
+.speech-clock-label{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-bottom:6px;font-size:.63rem;letter-spacing:.12em;
+}
+.speech-clock-label::before{
+  content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;
+}
+.speech-clock-label.is-ready,.speech-clock-label.is-waiting{color:var(--text-dim)}
+.speech-clock-label.is-speaking{color:var(--accent)}
+.speech-clock-label.is-paused{color:var(--amber)}
+.speech-clock-label.is-speaking::before{animation:pulse 1.5s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.speech-clock-label.is-speaking::before{animation:none}}
+
+.speech-header .speech-actions{grid-column:1/-1;margin-top:2px}
+.speech-header .ready-hint{grid-column:1/-1;margin-top:0}
+.speech-header .round-quiet{grid-column:1/-1}
+.speech-header .spectator-meta{margin-top:6px}
+
+/* ── 4. Secondary sections. Closed by default, each summary carrying the
+      one fact that decides whether it is worth opening. */
+.round-details{margin:0 24px 14px;background:transparent}
+.round-details[hidden]{display:none}
+.round-details > summary{
+  display:flex;align-items:center;gap:10px;min-height:42px;
+  font-size:.74rem;font-weight:750;letter-spacing:.02em;text-transform:none;
+}
+.round-details > summary::after{
+  content:'\203a';margin-left:4px;font-size:1.05rem;line-height:1;
+  color:var(--text-dim);transform:rotate(90deg);transition:transform .16s ease;
+}
+.round-details[open] > summary::after{transform:rotate(-90deg)}
+@media(prefers-reduced-motion:reduce){.round-details > summary::after{transition:none}}
+/* Measured, not eyeballed: an opacity here took the summary status to
+   4.08:1 on the light theme. The token alone clears AA in all three. */
+/* The state chip above the clock now says Paused, so the suffix the
+   number used to carry said it twice on one line. */
+.timer-num.paused::after{content:none}
+.round-details .rd-status{
+  margin-left:auto;font-size:.68rem;font-weight:650;letter-spacing:0;
+  color:var(--text-dim);text-align:right;
+}
+.round-details .round-edit-bar{margin:0}
+.round-details .rd-note{margin:0;font-size:.74rem;line-height:1.5;color:var(--text-dim);opacity:.85}
+/* Inside a disclosure the aides are already framed, so drop their own
+   card chrome and let one border do the work. */
+.round-details .round-notes,.round-details .fact-checks{margin:0;border-radius:10px}
+.round-details #specDock,.round-details .spec-dock{
+  grid-template-columns:1fr;padding:0;background:none;border:0;gap:12px;
+}
+
+/* ── 5. One comfortable measure on a wide monitor. Without this the
+      round stretched to whatever the video column left behind, which on
+      a 27in display put the clock and the transcript a foot apart. */
+#roundView > *{width:100%;max-width:1100px;margin-left:auto;margin-right:auto}
+
+/* ── 6. Collapse the video column. Display only: the Daily pane is never
+      re-parented, because moving it reloads the iframe and drops the
+      call. Skipped in mini / pop-out, which own the pane already. */
+body.lr-vid-off:not(.lr-mini):not(.lr-pip) .jitsi-pane,
+body.lr-vid-off:not(.lr-mini):not(.lr-pip) .split-resizer{display:none}
+body.lr-vid-off:not(.lr-mini):not(.lr-pip) .split{grid-template-columns:minmax(0,1fr)}
+
+/* ── 7. The change-resolution dialog. Centred card on desktop, bottom
+      sheet on a phone. */
+.lr-sheet .lr-sheet-card{max-width:520px}
+.lr-sheet-row{flex-wrap:wrap;gap:10px;margin-top:14px}
+.lr-btn-secondary{
+  padding:9px 16px;border-radius:999px;font:inherit;font-size:.82rem;font-weight:700;
+  min-height:40px;cursor:pointer;
+  border:1px solid var(--border-strong,rgba(255,255,255,.22));
+  background:transparent;color:var(--text,#fff);
+}
+.lr-btn-secondary:hover{background:rgba(127,127,127,.14)}
+.lr-btn-quiet{
+  padding:9px 12px;border:0;background:none;min-height:40px;cursor:pointer;
+  font:inherit;font-size:.82rem;font-weight:650;color:var(--text-dim,rgba(255,255,255,.68));
+}
+.lr-btn-quiet:hover{color:var(--text,#fff)}
+.lr-sheet-row .dm-send{margin-left:auto}
+/* The dialog owns the screen while it is open; the round behind it
+   should not scroll out from under it. */
+body.lr-modal-open .panel{overflow:hidden}
+#motionModalStatus{margin-top:9px;min-height:1em}
+.lr-sheet :focus-visible,.round-details :focus-visible,.speech-header :focus-visible,
+.round-motion-bar :focus-visible{outline:2px solid var(--accent,#ef4444);outline-offset:2px}
+
+/* ── 8. Phones: one column, one action bar pinned where a thumb is. */
+@media(max-width:1000px){
+  /* The video was taking 56vh before the round said anything. Half that
+     puts the resolution, the speaker, the clock and the control in the
+     first screen; Hide video takes the rest. */
+  .jitsi-pane{height:34vh;min-height:200px}
+}
+@media(max-width:760px){
+  .round-motion-bar{padding:13px 16px}
+  .speech-header{padding:13px 16px 15px;gap:12px}
+  .speech-clock{padding:12px 0 0}
+  .round-details{margin:0 16px 12px}
+  .transcript-area{padding:16px 16px 18px}
+  .sides-guide{gap:3px 14px}
+  /* The speech name wraps to its own line here, and a separator at the
+     end of the line above is a dangling dot. */
+  .sh-sep{display:none}
+  /* 44px targets on every control the round view puts under a thumb. */
+  .rmb-change,.rmb-rec-btn,.lr-pip-btn,.round-details > summary,
+  .lr-btn-secondary,.lr-btn-quiet,.lr-sheet .dm-send{min-height:44px}
+  .rmb-change{padding:6px 12px}
+  /* The speech control follows the thumb instead of the scroll. Applied
+     only while a speech exists to control, and never to spectators, who
+     have no control to pin (the !important display:none upstream still
+     wins for them). */
+  body.lr-round-live .speech-header .speech-actions{
+    position:fixed;left:0;right:0;bottom:0;z-index:118;
+    margin:0;padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px));
+    background:var(--bg);border-top:1px solid var(--border);
+    box-shadow:0 -12px 30px rgba(0,0,0,.34);
+  }
+  /* Three buttons on a 390px bar: measured, they wrapped to two lines
+     each at the desktop sizing, which doubled the bar height and ate the
+     space it was reserving. */
+  body.lr-round-live .speech-header .speech-actions{flex-wrap:nowrap;gap:7px}
+  body.lr-round-live .speech-header .speech-actions .btn{
+    flex:1 1 0;min-height:46px;justify-content:center;text-align:center;
+    padding:10px 6px;font-size:.76rem;letter-spacing:.01em;
+    text-transform:none;white-space:nowrap;
+  }
+  body.lr-round-live .speech-header .speech-actions #playPauseBtn{flex:1.5 1 0}
+  body.lr-round-live .speech-header .speech-actions #skipSpeechBtn{flex:0 0 auto;padding:10px 14px}
+  body.lr-round-live .speech-header .speech-actions #forfeitNextBtn{flex:0 0 auto;min-height:46px}
+  body.lr-round-live .panel{padding-bottom:76px}
+  body.lr-round-live.spectator-mode .panel{padding-bottom:0}
+}
+/* Landscape phones put the video and the console side by side and give
+   the console its own scroller (see the landscape block above). A bar
+   pinned to the window would sit across the video column, and it is not
+   needed: the action row is already near the top of the panel there. */
+@media (orientation:landscape) and (max-height:600px) and (min-width:640px){
+  body.lr-round-live .speech-header .speech-actions{
+    position:static;padding:0;background:none;border-top:0;box-shadow:none;
+  }
+  body.lr-round-live .panel{padding-bottom:0}
+  .round-details{margin:0 14px 10px}
+}
+@media(max-width:600px){
+  .lr-sheet{align-items:flex-end;padding:0}
+  .lr-sheet .lr-sheet-card{
+    max-width:none;border-radius:18px 18px 0 0;
+    padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  }
+  .lr-sheet-row{flex-direction:column;align-items:stretch}
+  .lr-sheet-row .dm-send,.lr-sheet-row .lr-btn-secondary,.lr-sheet-row .lr-btn-quiet{
+    margin-left:0;width:100%;min-height:48px;
+  }
+  /* Primary action first under the thumb, then the secondary, then out. */
+  .lr-sheet-row .dm-send{order:1}
+  .lr-sheet-row .lr-btn-secondary{order:2}
+  .lr-sheet-row .lr-btn-quiet{order:3}
+}
+</style>
+
+<!-- Change resolution. One focused surface for the thing that used to be
+     an inline contenteditable nobody could find: type it, or roll one,
+     then propose. The consent flow underneath is unchanged, so with both
+     seats filled the motion does not move until the opponent accepts. -->
+<div id="motionModal" class="dm-modal lr-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="motionModalTitle">
+  <div class="dm-backdrop" data-motion-close></div>
+  <div class="dm-card lr-sheet-card">
+    <button type="button" class="dm-x" data-motion-close aria-label="Close">&times;</button>
+    <h3 class="dm-title" id="motionModalTitle">Change resolution</h3>
+    <p class="dm-hint" id="motionModalHint">The current resolution stays in place until the other person accepts.</p>
+    <textarea id="motionModalText" class="dm-text" maxlength="300" rows="3" aria-label="New resolution" placeholder="This House would&hellip;"></textarea>
+    <div class="dm-row lr-sheet-row">
+      <button type="button" class="lr-btn-secondary" id="motionModalRandom">Random resolution</button>
+      <button type="button" class="dm-send" id="motionModalSubmit">Propose change</button>
+      <button type="button" class="lr-btn-quiet" id="motionModalCancel" data-motion-close>Cancel</button>
+    </div>
+    <div class="dm-status" id="motionModalStatus" role="status"></div>
+  </div>
+</div>
 <div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-label="Message opponent">
   <div class="dm-backdrop" data-dm-close></div>
   <div class="dm-card">
