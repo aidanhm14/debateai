@@ -3230,7 +3230,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var hb = d.lastSeenAt;
     var sec = (hb && hb.seconds) ? hb.seconds : 0;
     if (!sec) return false;
-    return (Date.now() / 1000 - sec) < 100;
+    if ((Date.now() / 1000 - sec) >= 100) return false;
+    // lastSeenAt is written by EITHER debater, so it survives one of
+    // them walking out: the person left behind keeps beating and the
+    // abandoned room keeps advertising here. A departure mark is
+    // written the moment a debater actually leaves, and it counts only
+    // while it is newer than that seat's own heartbeat, so coming back
+    // clears it on the next beat. Same rule as /api/watch-live.
+    var gone = d.seatLeft, seen = d.seatSeen;
+    if (gone && seen){
+      var ms = function(v){
+        if (!v) return 0;
+        if (typeof v.toMillis === 'function') return v.toMillis();
+        if (typeof v.seconds === 'number') return v.seconds * 1000;
+        return typeof v === 'number' ? v : 0;
+      };
+      for (var uid in gone){
+        if (!Object.prototype.hasOwnProperty.call(gone, uid)) continue;
+        var l = ms(gone[uid]);
+        if (l && l >= ms(seen[uid])) return false;
+      }
+    }
+    return true;
   }
   function renderWatchRow(id, d){
     var fmt = escHtml(WATCH_FORMAT_LABELS[d.format] || String(d.format || '').toUpperCase());

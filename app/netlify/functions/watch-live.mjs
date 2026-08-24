@@ -39,25 +39,44 @@ const SEAT_FRESH_MS = 100 * 1000;    // a debater counts as in the room this lon
 //             heartbeat. Two fresh entries means two people are here.
 //             The doc-level lastSeenAt cannot answer this, because
 //             either side writes it.
+//   seatLeft  per-uid departure mark, written the moment a debater
+//             actually walks out. Without it a walkout took the full
+//             SEAT_FRESH_MS to age off, so someone who left their own
+//             round still saw it advertised on the strip for a minute
+//             and a half. The mark is only believed while it is NEWER
+//             than that seat's own heartbeat, which makes it
+//             self-healing: a debater who comes back, or one whose
+//             opponent wrote the mark for them, clears it on their very
+//             next beat. Absence of a mark proves nothing, so the
+//             staleness rule above still carries a tab that just died.
 //   started   a speech has actually run: the published currentTimer is
 //             running, or the round is past speech one, or it has
 //             reached the ballot. Prep time and two people staring at
 //             each other are not yet a round worth watching.
+
+// Firestore Timestamp, Date, or millis — every shape the client has
+// written over the life of these fields.
+function ms(v) {
+  return v && typeof v.toMillis === 'function' ? v.toMillis()
+    : v instanceof Date ? v.getTime()
+    : typeof v === 'number' ? v
+    : v && typeof v._seconds === 'number' ? v._seconds * 1000
+    : v && typeof v.seconds === 'number' ? v.seconds * 1000
+    : 0;
+}
+
 function roundIsWatchable(d) {
   const now = Date.now();
   const seats = d.seatSeen && typeof d.seatSeen === 'object' ? d.seatSeen : null;
+  const gone = d.seatLeft && typeof d.seatLeft === 'object' ? d.seatLeft : {};
   let present = 0;
   if (seats) {
     for (const k of Object.keys(seats)) {
-      const v = seats[k];
-      // Firestore Timestamp, Date, or millis — every shape the client
-      // has written over the life of this field.
-      const ms = v && typeof v.toMillis === 'function' ? v.toMillis()
-        : v instanceof Date ? v.getTime()
-        : typeof v === 'number' ? v
-        : v && typeof v._seconds === 'number' ? v._seconds * 1000
-        : 0;
-      if (ms && now - ms < SEAT_FRESH_MS) present++;
+      const seen = ms(seats[k]);
+      if (!seen || now - seen >= SEAT_FRESH_MS) continue;
+      const left = ms(gone[k]);
+      if (left && left >= seen) continue;   // walked out since their last beat
+      present++;
     }
   }
   if (present < 2) return false;

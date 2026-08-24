@@ -3793,6 +3793,8 @@ html.stage-mode .stage-ov{display:block}
     suppressNextSync: false, // local-write guard (don't double-render our own writes)
     arrivedAtMs: Date.now(), // when I opened the room — grace anchor for the no-show prompt
     seatSeen: null,          // { uid: ts } per-debater presence read from the round doc
+    seatLeft: null,          // { uid: ts } per-debater departure marks read from the round doc
+    seatLeftMarked: false,   // I have written my own departure mark; stop beating
     seatLastSeenMs: 0,       // newest seat heartbeat on the round doc (0 = none yet)
     endedAtMs: 0,            // audience-reported ending, if any (see /api/round-report)
     overReports: 0,          // distinct viewers who have said this round is over
@@ -11862,6 +11864,11 @@ html.stage-mode .stage-ov{display:block}
     if (!state.noShowTimer) state.noShowTimer = setInterval(function(){
       checkOpponentPresence();
       try { checkKickoffPrompt(); } catch(e){}
+      // A walkout detected by silence has no doc write to wake the
+      // snapshot listener, so the quiet strip has to be re-asked on a
+      // clock as well. (It also repaints on its own 15s timer, for the
+      // minute counter; this is the one that makes it appear promptly.)
+      try { paintRoundQuiet(); } catch(e){}
     }, 3000);
     checkOpponentPresence();
     try { checkKickoffPrompt(); } catch(e){}
@@ -12226,6 +12233,10 @@ html.stage-mode .stage-ov{display:block}
       if (rref){
         var seatBeat = function(){
           if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
+          // A beat already in flight when the seat is marked empty would
+          // land with a LATER server timestamp and quietly undo the mark,
+          // which is the one way this could fail closed.
+          if (state.seatLeftMarked) return;
           var beat = { lastSeenAt: firebase.firestore.FieldValue.serverTimestamp() };
           // Per-uid presence so each debater can tell whether the OTHER has
           // actually entered the room — the single lastSeenAt can't, since
@@ -12255,12 +12266,29 @@ html.stage-mode .stage-ov{display:block}
                 beat.watchCountCapped = snap.size > WATCH_COUNT_CAP;
               })
               .catch(function(){ /* count is optional; never block the beat */ })
-              .then(function(){ rref.set(beat, { merge: true }).catch(function(){}); });
+              .then(function(){
+                if (state.seatLeftMarked) return;   // re-checked after the await
+                rref.set(beat, { merge: true }).catch(function(){});
+              });
         };
         seatBeat();
         state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
         window.addEventListener('pagehide', function(){
           if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
+          markSeatLeft();
+        });
+        // pagehide is not only "goodbye". iOS fires it when the browser is
+        // backgrounded and then restores the page from bfcache, so a mark
+        // written there has to be undone the moment the page comes back —
+        // otherwise going to check a text message would end your round.
+        // Resuming the beat is the whole repair: the next heartbeat is
+        // newer than the mark, and every reader ignores a mark older than
+        // the seat's last beat.
+        window.addEventListener('pageshow', function(e){
+          if (!e || !e.persisted) return;
+          state.seatLeftMarked = false;
+          seatBeat();
+          if (!state.seatHbInterval) state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
         });
         // Round-abandonment beacon: a debater leaving mid-round is the
         // one exit nothing records. Fires only when the round genuinely
@@ -12288,6 +12316,54 @@ html.stage-mode .stage-ov{display:block}
       }
     }
   }
+  // ── Leaving the round says so, instead of going quiet ─────────────
+  // Presence was heartbeat-only: stop beating and everyone waits out the
+  // 100s staleness window before the round stops reading as live. So a
+  // debater who walked out of a finished round watched it keep
+  // advertising on the sitewide strip for another minute and a half,
+  // with the speech counter frozen where they left it.
+  //
+  // A departure now writes a mark next to the presence entry. Readers
+  // believe it only while it is NEWER than that seat's own heartbeat,
+  // which is what makes it safe to write from anywhere: coming back
+  // clears it on the next beat, and it can never strand a round that is
+  // genuinely still running. The heartbeat is stopped first, or the beat
+  // 30 seconds later would undo the mark on the way out the door.
+  //
+  // Best-effort by design. On the deliberate exits the write is awaited
+  // (leaveRoundThen below); on pagehide it usually lands and sometimes
+  // does not, and the staleness window is still there underneath for
+  // every case it misses.
+  function markSeatLeft(){
+    try {
+      if (state.seatLeftMarked) return Promise.resolve();
+      if (isSpectator()) return Promise.resolve();
+      // A finished round is not an abandoned one. Past the ballot there
+      // is nothing left to leave, and watch-live already drops it.
+      if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return Promise.resolve();
+      var uid = state.user && state.user.uid;
+      var rref = getRoundDocRef();
+      if (!uid || !rref) return Promise.resolve();
+      state.seatLeftMarked = true;
+      if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
+      var patch = { seatLeft: {} };
+      patch.seatLeft[uid] = firebase.firestore.FieldValue.serverTimestamp();
+      try { gtag('event', 'live_round_seat_left', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+      return rref.set(patch, { merge: true }).catch(function(){});
+    } catch(e){ return Promise.resolve(); }
+  }
+  // The dock, the site shell and the topbar "Back to board" all live in a
+  // separate IIFE further down the file, so the deliberate exits reach the
+  // mark through here. Bounded: the round doc is small and the write is
+  // usually inside 150ms, but nobody waits half a second to leave a room.
+  window.__lrLeaveRound = markSeatLeft;
+  window.__lrLeaveRoundThen = function(href){
+    var went = false;
+    var go = function(){ if (went) return; went = true; window.location.assign(href || '/'); };
+    setTimeout(go, 500);
+    try { markSeatLeft().then(go, go); } catch(e){ go(); }
+  };
+
   // Watcher heartbeat, separated from startWatchPresence so audience
   // mode can start it late — startWatchPresence runs once right after
   // subscribing (before the first snapshot), and a room-only visitor
@@ -13738,6 +13814,43 @@ html.stage-mode .stage-ov{display:block}
   // alive" everywhere, or a round reads dead on the page it is watched
   // on and live in the list that offered it.
   var QUIET_MS = 100000;
+  // A departure is normally announced rather than inferred: markSeatLeft
+  // writes seatLeft[uid] the moment a debater actually walks out, so the
+  // other side hears about it in the next snapshot instead of waiting
+  // out QUIET_MS. Inference is the fallback for a tab that just died.
+  function tsMs(v){
+    if (!v) return 0;
+    if (typeof v.toMillis === 'function') return v.toMillis();
+    if (typeof v.getTime === 'function') return v.getTime();
+    if (typeof v.seconds === 'number') return v.seconds * 1000;
+    if (typeof v === 'number') return v;
+    return 0;
+  }
+  // When was the opponent last in the room, by their OWN heartbeat? 0
+  // when there is no identified opponent to ask about (hotseat rounds,
+  // direct links with no uids) or before my own presence write has
+  // round-tripped, which is the same trust rule checkOpponentPresence
+  // uses: an unproven read must never accuse anyone of leaving.
+  function oppLastSeenMs(){
+    var me = state.user && state.user.uid;
+    var opp = noShowOpponentUid();
+    if (!me || !opp || isSpectator()) return 0;
+    if (!(state.seatSeen && state.seatSeen[me] && state.seatSeen[opp])) return 0;
+    return tsMs(state.seatSeen[opp]);
+  }
+  function opponentHasLeft(){
+    var seen = oppLastSeenMs();
+    if (!seen) return false;
+    // The mark counts only while it is NEWER than their last beat, so
+    // someone who leaves and comes back clears it by beating again. Both
+    // values are SERVER-stamped, so this is one clock against itself —
+    // which is why this can afford timestamp math where the no-show
+    // check next door deliberately cannot.
+    var left = tsMs(state.seatLeft && state.seatLeft[noShowOpponentUid()]);
+    if (left && left >= seen) return true;
+    var mine = tsMs(state.seatSeen[state.user.uid]);
+    return mine > 0 && (mine - seen) > QUIET_MS;
+  }
   // The Daily room is ground truth ahead of the doc beat, exactly as in
   // checkOpponentPresence: a debater whose seat heartbeat has not
   // round-tripped yet is still visibly in the room, and calling that
@@ -13748,6 +13861,13 @@ html.stage-mode .stage-ov{display:block}
     if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return false;
     if (state.hasBallot) return false;
     if (room && room.remoteSeats > 0) return false;
+    // A SEATED debater cannot answer this from `lastSeenAt`: they write
+    // it themselves every 30 seconds, so it is never stale in the one
+    // browser that needs it to be, and the debater branch of this strip
+    // — the half written for an opponent who leaves mid-round — could
+    // never fire for anybody. Their question is about the other chair,
+    // and the per-uid presence map is what answers it.
+    if (!isSpectator() && mySide()) return opponentHasLeft();
     // No beat has EVER landed. That is only evidence once I have been
     // here long enough for one to have arrived; before that it is just a
     // page that has not finished loading.
@@ -13755,7 +13875,10 @@ html.stage-mode .stage-ov{display:block}
     return (Date.now() - state.seatLastSeenMs) > QUIET_MS;
   }
   function quietForMins(){
-    var since = state.seatLastSeenMs || state.arrivedAtMs;
+    // Same split: a debater is counting the opponent's absence, not the
+    // age of their own heartbeat, which is always seconds old.
+    var since = (!isSpectator() && mySide() && oppLastSeenMs())
+      || state.seatLastSeenMs || state.arrivedAtMs;
     return Math.max(1, Math.round((Date.now() - since) / 60000));
   }
   function paintRoundQuiet(){
@@ -13805,14 +13928,34 @@ html.stage-mode .stage-ov{display:block}
     } else {
       // A seated debater alone in the room. They already have the
       // no-show prompt when the round has not started; this covers the
-      // other half, which had nothing: an opponent who leaves MID-round.
-      // No new controls, because they already hold every one that
-      // matters. What is new is that the audience's read reaches them.
+      // other half: an opponent who leaves MID-round. What is new is
+      // that the audience's read reaches them, and that the round has an
+      // ending they can reach from here — a clock running against an
+      // empty chair used to have no way out except closing the tab,
+      // which is what left finished debates advertising as live.
+      var declared = !!(state.seatLeft && state.seatLeft[noShowOpponentUid()]);
+      var judgeable = (state.log || []).some(function(l){
+        return l && !l.skipped && l.text && String(l.text).trim().length > 40;
+      });
       html = '<b>You are the only one here.</b>' +
-        '<span class="rq-sub">Your opponent has not been seen for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '. Their seat is held, they can rejoin from the same link.' +
+        '<span class="rq-sub">' +
+        (declared
+          ? 'Your opponent left the round.'
+          : 'Your opponent has not been seen for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '.') +
+        ' Their seat is held, they can rejoin from the same link.' +
         (state.overReports > 0
           ? ' ' + state.overReports + ' in the audience ' + (state.overReports === 1 ? 'has' : 'have') + ' said this round looks over.'
-          : '') + '</span>';
+          : '') + '</span>' +
+        '<span class="rq-row">' +
+          // The ballot costs a real model call and reads the transcript,
+          // so it is only offered when speeches actually happened. An
+          // abandoned room with nothing said in it has nothing to judge,
+          // and pretending otherwise would put a verdict on silence.
+          (judgeable
+            ? '<button type="button" class="rq-btn" id="rqEnd">End the round and get the ballot</button>'
+            : '') +
+          '<a class="rq-btn rq-quiet" href="/spar">Find another debater</a>' +
+        '</span>';
     }
     if (el.innerHTML !== html){ el.innerHTML = html; }
     el.hidden = false;
@@ -13820,6 +13963,19 @@ html.stage-mode .stage-ov{display:block}
     if (btn && !btn.dataset.wired){
       btn.dataset.wired = '1';
       btn.addEventListener('click', reportRoundOver);
+    }
+    var endBtn = document.getElementById('rqEnd');
+    if (endBtn && !endBtn.dataset.wired){
+      endBtn.dataset.wired = '1';
+      endBtn.addEventListener('click', function(){
+        // finishRound() is the ordinary end of every round: it stops the
+        // recording, flips the doc to the ballot phase for both screens,
+        // and judges the transcript as it stands. Nothing special-cases
+        // an abandoned round, which is the point — the speeches that were
+        // given are the speeches that get judged.
+        try { gtag('event', 'live_round_end_after_walkout', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+        try { finishRound(); } catch(e){ console.warn('[quiet room] finishRound', e); }
+      });
     }
   }
   function reportRoundOver(){
@@ -13910,9 +14066,9 @@ html.stage-mode .stage-ov{display:block}
     if (dmBtn && !dmBtn.hidden && state.user && oppUid){ btns.appendChild(nsBtn('Message them', function(){ dmBtn.click(); })); }
     if (fromSpar){ btns.appendChild(nsBtn('Find another', function(){
       if (window.RoundExit) RoundExit.known('opponent_no_show', { surface: 'live', stage: 'noshow', roundId: state.room, via: 'find_another' });
-      location.href = '/spar?format=' + encodeURIComponent(state.formatKey);
+      window.__lrLeaveRoundThen('/spar?format=' + encodeURIComponent(state.formatKey));
     }, true)); }
-    btns.appendChild(nsBtn('Leave', function(){ location.href = fromSpar ? '/spar' : '/'; }));
+    btns.appendChild(nsBtn('Leave', function(){ window.__lrLeaveRoundThen(fromSpar ? '/spar' : '/'); }));
     btns.appendChild(nsBtn('Keep waiting', function(){
       try { gtag('event', 'live_noshow_wait', { format: state.formatKey }); } catch(e){}
       hideNoShow(); state.noShowSnoozeUntil = Date.now() + 45000;
@@ -14080,6 +14236,10 @@ html.stage-mode .stage-ov{display:block}
     }
     // Per-uid presence: keep the latest map so checkOpponentPresence() can
     // tell if the opponent has actually entered the room yet.
+    // seatLeft is read on every snapshot, not only when present: a
+    // debater who comes back clears their own mark, and the strip has to
+    // come down when that happens.
+    state.seatLeft = d.seatLeft || null;
     if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
     // Room liveness, for the strip below. `lastSeenAt` is the same seat
     // heartbeat every listing already trusts; reading it here is what
@@ -15193,7 +15353,13 @@ html.stage-mode .stage-ov{display:block}
           // Real exit: navigate the host page for real, which tears down
           // the call. Only reachable via the shell bar's double-press
           // "Leave round" (armed then confirmed), never a single click.
-          onLeave: function (path) { window.location.assign(path || '/'); }
+          // Mark the seat empty before the navigation tears the page
+          // down, so the round stops reading as live at once instead of
+          // waiting out the presence window.
+          onLeave: function (path) {
+            if (window.__lrLeaveRoundThen) window.__lrLeaveRoundThen(path || '/');
+            else window.location.assign(path || '/');
+          }
         });
         shellStartUrl = '/';
       }
@@ -15500,7 +15666,8 @@ html.stage-mode .stage-ov{display:block}
           return;
         }
         disarmBack();
-        window.location.assign('/live');
+        if (window.__lrLeaveRoundThen) window.__lrLeaveRoundThen('/live');
+        else window.location.assign('/live');
       });
     }
 

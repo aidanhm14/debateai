@@ -112,8 +112,30 @@ export default async (request) => {
         return { state: 'you_are_debating', closed: false, reports: d.overReports || 0 };
       }
 
+      // `lastSeenAt` is written by EITHER debater, so it stays fresh for
+      // the full window after both of them walk out — and a spectator
+      // filing an obviously correct report in that window was told the
+      // round was still live. A seat that has said goodbye (seatLeft
+      // newer than its own last beat) is not standing to object, so a
+      // round where every seat has left counts as empty at once.
+      const seen = d.seatSeen && typeof d.seatSeen === 'object' ? d.seatSeen : null;
+      const gone = d.seatLeft && typeof d.seatLeft === 'object' ? d.seatLeft : {};
+      let seated = 0;
+      if (seen) {
+        for (const k of Object.keys(seen)) {
+          const s = millis(seen[k]);
+          if (!s || now - s >= LIVE_WINDOW_MS) continue;
+          const l = millis(gone[k]);
+          if (l && l >= s) continue;
+          seated++;
+        }
+      }
       const beat = millis(d.lastSeenAt);
-      const live = beat > 0 && (now - beat) < LIVE_WINDOW_MS;
+      // Fall back to the doc beat only when per-uid presence cannot
+      // answer (legacy docs, hotseat rounds with no uids). Erring toward
+      // "live" is the safe direction: it counts the report and closes
+      // nothing, which is what a report against an occupied room should do.
+      const live = seen ? seated > 0 : (beat > 0 && (now - beat) < LIVE_WINDOW_MS);
 
       // One row per reporter, so a double tap is one report and a
       // re-report after a debater comes and goes still only counts once.
