@@ -111,6 +111,11 @@
       '.lpull-later{appearance:none;border:none;background:transparent;color:#68625f;cursor:pointer;' +
         'font:700 .85rem "Archivo",Georgia,serif;padding:10px 8px}' +
       '.lpull-later:hover{color:#68625f}' +
+      // Phones: one bar across the foot of the screen rather than a
+      // 340px slab wedged next to the feedback pill, which read as two
+      // competing floating objects on a 375px screen.
+      '@media(max-width:560px){.lpull{left:12px;right:12px;bottom:66px;width:auto;padding:15px 15px 13px;border-radius:16px}' +
+        '.lpull-title{font-size:1.1rem}.lpull-body{font-size:.87rem;margin-bottom:12px}}' +
       '@media(prefers-reduced-motion:reduce){.lpull{transition:none}.lpull-kicker i{animation:none}}';
     document.head.appendChild(s);
   }
@@ -198,21 +203,57 @@
     setTimeout(function () { whenModalFree(fn, waited + 2000); }, 2000);
   }
 
+  function pull() {
+    fetch('/api/live-now', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var n = j && typeof j.count === 'number' ? j.count : 0;
+        whenModalFree(function () {
+          showCard(n);
+          stamp(SNOOZE_KEY);
+        });
+      })
+      .catch(function () { /* function down — no popup */ });
+  }
+
+  // On a phone the card is nearly the full width of the screen, so at
+  // 4.5s it landed on top of the example-round board — the one thing on
+  // the first screen that shows a stranger what a round IS. Outside
+  // feedback (relayed by the founder, 2026-08-25) read the first screen as
+  // "way too much going on", and this was the loudest part of it: a
+  // ribbon, a topbar, two CTAs, a sign-in ask and then an overlay,
+  // inside five seconds.
+  //
+  // So narrow viewports trade the timer for a scroll gate. The card
+  // fires once the visitor has scrolled past the first screen, which is
+  // a visitor who has already read it rather than one who is still
+  // reading. Someone who never scrolls never sees it, deliberately —
+  // that is the cost, and it is the right side to pay on, because the
+  // alternative is covering the demo before it has been watched.
+  //
+  // Desktop is unchanged (the card is a 340px corner slab there and
+  // covers nothing). Both arms of landing_live_pull_v1 are assigned
+  // before this point, so the experiment population is untouched; what
+  // changes is WHEN the pull arm fires on a phone. Read mobile and
+  // desktop separately.
+  function armPull() {
+    if (window.innerWidth >= 700) { setTimeout(pull, 4500); return; }
+    var fired = false;
+    function onScroll() {
+      if (fired) return;
+      if (window.scrollY < window.innerHeight * 0.75) return;
+      fired = true;
+      window.removeEventListener('scroll', onScroll);
+      setTimeout(pull, 600);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();   // deep-link / restored scroll position counts as scrolled
+  }
+
   function boot() {
     tryAutoEnlist();
     if (fresh(SNOOZE_KEY)) return;
-    setTimeout(function () {
-      fetch('/api/live-now', { cache: 'no-cache' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) {
-          var n = j && typeof j.count === 'number' ? j.count : 0;
-          whenModalFree(function () {
-            showCard(n);
-            stamp(SNOOZE_KEY);
-          });
-        })
-        .catch(function () { /* function down — no popup */ });
-    }, 4500);
+    armPull();
   }
 
   if (document.readyState === 'loading') {
