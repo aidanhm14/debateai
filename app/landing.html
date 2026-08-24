@@ -7696,6 +7696,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        visitors see, and it is the one with the bigger height difference. */
     body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:center}
   }
+  /* ── Guest sign-in "N live right now" nudge ── 2026-08-24 ──────────
+     A live-presence pill above the guest Google button. Guest-only,
+     inherited from body.signed-in .fs-signin{display:none}. Green is the
+     site's liveness colour (the Bet pill, the spar "N waiting" pulse),
+     kept off the red CTAs so it reads as a status signal, not a button.
+     Takes its own full-width row so it sits ABOVE the button + why-line
+     on both columns. The number is presence-liveness with a small
+     DECLARED floor (same posture as PRESENCE_BASELINE on the globe
+     caption; documented in fsLiveNow, never quoted externally). */
+  .fs-live-now{flex:0 0 auto;align-self:flex-start;max-width:100%;display:inline-flex;align-items:center;gap:8px;
+    padding:6px 12px;border-radius:999px;background:rgba(22,163,74,.10);
+    border:1px solid rgba(22,163,74,.28);font-size:.82rem;font-weight:700;
+    color:#15803d;white-space:nowrap}
+  .fs-live-now[hidden]{display:none}
+  .fs-live-now b{font-weight:800}
+  .fs-live-now-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#16a34a;
+    box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:fsLiveNowPulse 1.8s ease-out infinite}
+  @keyframes fsLiveNowPulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%,100%{box-shadow:0 0 0 7px rgba(22,163,74,0)}}
+  @media(prefers-reduced-motion:reduce){.fs-live-now-dot{animation:none}}
+  :root:not([data-theme="light"]) .fs-live-now{background:rgba(22,163,74,.16);
+    border-color:rgba(34,197,94,.42);color:#4ade80}
+  /* ── Mobile first screen (TikTok traffic lands here) ── 2026-08-24 ──
+     The globe is 112px of ambience between the CTAs and the proof, and
+     the constellation crosses it, so it comes off on phones (the
+     2026-08-19 "hide the globe on mobile" call, restored). And the guest
+     sign-in unit, now carrying the "N live right now" nudge, moves up
+     under the CTAs and ahead of the example board, so the account ask
+     and the live proof land in the FIRST viewport where a cold visitor
+     actually is. Desktop keeps board-leads / sign-in-follows. */
+  @media(max-width:940px){
+    .fscreen-copy .fs-globe{display:none}
+    .fscreen-wrap > .fscreen-copy{order:1}
+    .fscreen-wrap > .fs-signin--side{order:2;margin-top:2px}
+    .fscreen-wrap > .fs-board{order:3}
+    .fscreen-wrap > .fs-live{order:4}
+  }
   /* Live-round count on Spectate. Filled by the watch-live poll near the
      end of the document; stays hidden until at least one public round is
      actually live, so the badge can never overstate the room. */
@@ -8590,6 +8626,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          handler; the copy arms' own sign-in rows are hidden at every
          width now, so exactly one is ever visible. -->
     <div class="fs-signin fs-signin--side">
+      <!-- Live "right now" nudge above the guest Google button (the founder,
+           2026-08-24: "tell them '6 live right now' before they sign up so
+           they sign up, say it to guests here"). Starts hidden so a
+           JS-off visitor never sees a static number; fsLiveNow (near the
+           end of the document) computes the count and reveals it. -->
+      <div class="fs-live-now" data-live-now-wrap hidden>
+        <span class="fs-live-now-dot" aria-hidden="true"></span>
+        <span><b data-live-now>6</b> live right now</span>
+      </div>
       <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-google">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         Continue with Google
@@ -18315,6 +18360,49 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     poll();
     setInterval(function(){ if (!document.hidden) poll(); }, 60000);
+  })();
+
+  /* fsLiveNow: the guest sign-in "N live right now" nudge (2026-08-24).
+     The number is presence-liveness with a small DECLARED floor so the
+     marketing nudge always reads live (the same posture as
+     PRESENCE_BASELINE on the globe caption, the founder's call; declared
+     here, and it must never be quoted externally as a measurement). The
+     REAL signal rides on top and wins when it is bigger: people seen in
+     the last 30 minutes (presence online30, unpadded) and twice the live
+     public rounds (two seats each, from watch-live). It is framed as
+     people who are "live right now", never as a count of live debates,
+     which watch-live could contradict. Guest-only, since the whole
+     .fs-signin--side unit is hidden once body.signed-in. */
+  (function(){
+    var wrap = document.querySelector('[data-live-now-wrap]');
+    var nums = document.querySelectorAll('[data-live-now]');
+    if (!wrap || !nums.length) return;
+    function floorNow(){
+      // Drifts across 5..8 on a ~2.5 min clock so it reads like real
+      // presence rather than a frozen number, centred on the founder's "6".
+      var h = (Math.floor(Date.now() / 150000) * 2654435761) >>> 0;
+      return 5 + (h % 4);
+    }
+    var real = 0; // max(recent presence, 2 x live rounds); 0 until fetched
+    function paint(){
+      var n = Math.max(real, floorNow());
+      for (var i = 0; i < nums.length; i++) nums[i].textContent = n;
+      wrap.hidden = false;
+    }
+    paint(); // instant, no network, so the nudge is up before any fetch
+    function refreshReal(){
+      var live = 0, pres = 0, done = 0;
+      function settle(){ if (++done === 2){ real = Math.max(pres, live * 2); paint(); } }
+      (window.watchLive ? window.watchLive() : Promise.reject())
+        .then(function(d){ live = (d && typeof d.count === 'number') ? d.count : 0; })
+        .catch(function(){}).then(settle);
+      fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if (d) pres = typeof d.online30 === 'number' ? d.online30 :
+          (typeof d.online5 === 'number' ? d.online5 : 0); })
+        .catch(function(){}).then(settle);
+    }
+    refreshReal();
+    setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
   })();
 
   (function(){
