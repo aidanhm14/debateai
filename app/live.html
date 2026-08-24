@@ -5249,8 +5249,24 @@ button{font-family:inherit}
     });
   }
 
-  function renderManage(){
-    var p = loadProfile();
+  // The profile form is hydrated ONLY on an explicit tab open or save.
+  // renderManage() is also called by the 20s refresh, by the
+  // visibilitychange handler, and by every live_challenges snapshot,
+  // and all three used to overwrite the seven inputs with whatever
+  // localStorage held. So a name, age or contact being typed reverted
+  // under the cursor the moment any of them fired, and a snapshot
+  // fires whenever ANY user on the site posts, joins or bails, so it
+  // is not rare. The dirty flag guards the tab-open path too:
+  // switching away and back must not discard unsaved edits either.
+  var PROFILE_FIELDS = ['profileName','profileHandle','profileAge','profileLocation','profileStyle','profileBio','profileContact'];
+  var profileFormDirty = false;
+  PROFILE_FIELDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input',  function(){ profileFormDirty = true; });
+    el.addEventListener('change', function(){ profileFormDirty = true; });
+  });
+  function fillProfileForm(p){
     document.getElementById('profileName').value     = p.name || '';
     document.getElementById('profileHandle').value   = p.handle || '';
     document.getElementById('profileAge').value      = p.age || '';
@@ -5258,6 +5274,12 @@ button{font-family:inherit}
     document.getElementById('profileStyle').value    = p.style || '';
     document.getElementById('profileBio').value      = p.bio || '';
     document.getElementById('profileContact').value  = p.contact || '';
+    profileFormDirty = false;
+  }
+
+  function renderManage(hydrateForm){
+    var p = loadProfile();
+    if (hydrateForm && !profileFormDirty) fillProfileForm(p);
     renderAvatar(p);
 
     var accepted = loadAcceptances();
@@ -5278,7 +5300,6 @@ button{font-family:inherit}
         var profile = loadProfile();
         var roundParams = new URLSearchParams({
           motion: c.motion || c.topicLine || c.themeLine || '',
-      background: c.background || '',
           background: c.background || '',
           format: c.format,
           pro: yourSide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
@@ -5337,6 +5358,7 @@ button{font-family:inherit}
     p.randomIdentity = false;
     p.identityUid = currentUser ? currentUser.uid : '';
     saveProfile(p);
+    profileFormDirty = false; // saved state and form now agree again
     if (p.handle) handleEl.value = p.handle; // mirror into post-form so reposting auto-fills
     renderAvatar(p);
     try { gtag('event', 'live_profile_save', { has_avatar: !!p.avatar, has_contact: !!p.contact }); } catch(e){}
@@ -5379,7 +5401,7 @@ button{font-family:inherit}
     if (manage)  manage.style.display  = name === 'manage'  ? '' : 'none';
     if (how)     how.style.display     = name === 'browse'  ? '' : 'none';
     updateNavActive();
-    if (name === 'manage') renderManage();
+    if (name === 'manage') renderManage(true);
     try { history.replaceState(null, '', '#' + name); } catch(e){}
     try { gtag('event', 'live_tab', { tab: name }); } catch(e){}
     try { render(); } catch(e){}
@@ -6732,7 +6754,6 @@ button{font-family:inherit}
         var mySide = (currentUser && c.posterUid === currentUser.uid) ? c.side : (c.side === 'pro' ? 'con' : 'pro');
         var roundParams = new URLSearchParams({
           motion: c.motion || c.topicLine || c.themeLine || '',
-      background: c.background || '',
           background: c.background || '',
           format: c.format || 'quick',
           pro: mySide === 'pro' ? (profile.name || profile.handle || 'You') : (c.handle || 'Opponent'),
