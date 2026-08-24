@@ -3145,7 +3145,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // startPairingTicker() removed — see RECENT_PAIRINGS comment above
     startMetaLive();
     fetchMissedMatchCount();
-    logSparAttempt();
+    // NOTE: the spar-attempt counter is NOT ticked here. Firing it on page
+    // load counted every /spar VISIT as "looked for a live round" —
+    // bounces, bots executing the JS, and (since the sign-in gate) guests
+    // who hit the wall and never search. It now fires inside joinQueue,
+    // when a search actually begins, so the public count is real intent.
     mountGlobalMap('globalDebateMap');
     wireSetupCard();
     mountWaitRail();
@@ -4065,12 +4069,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     } catch (e) { /* never block the flow on a logging failure */ }
   }
 
-  // Spar intent. Fired once per tab session the moment a search starts,
-  // whether it ends in a pairing, a fast AI fallback, or a cancel. This
-  // is the honest "how many people looked for a live round this week"
-  // signal — a superset of misses (every miss had an attempt, but plenty
-  // of attempts never reach the >=15s "miss" bar). Deduped per format per
-  // tab session so repeat searches don't inflate it.
+  // Spar intent. Called from joinQueue the moment a search actually
+  // begins — after the sign-in/age gates pass and a queue doc is written,
+  // NOT on page load. That distinction is the whole accuracy of the
+  // public "looked for a live round" count: a /spar visit that bounces,
+  // a bot rendering the page, or a guest who hits the sign-in wall and
+  // never queues is not someone who looked for a round, and firing on
+  // load counted all three. A superset of misses (every miss had an
+  // attempt, but plenty of attempts end in a fast AI fallback that never
+  // reaches the >=15s "miss" bar). Deduped per format per tab session so
+  // a requeue after a pass doesn't inflate it.
   function logSparAttempt(){
     try {
       var k = 'da-spar-attempt-' + formatParam;
@@ -4221,6 +4229,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
     state.cancelled = false;
     state.joinedAtMs = Date.now();
+    // A real search has started (the gate + age checks above passed and a
+    // queue doc is about to be written), so this is the honest moment to
+    // count "looked for a live round." Deduped per format per tab-session
+    // inside logSparAttempt, so a requeue after a pass never double-counts.
+    logSparAttempt();
     // Remember the chosen format for the background matcher —
     // js/notifications.js fmt() reads 'debateos-spar-format' and falls
     // back to 'apda' when it was never written.

@@ -15,7 +15,12 @@
  *   GET  /api/log-missed-match  → read-only fetch of both counters.
  *
  * Fired by app/spar.html via reason:
- *   'attempt'  — search started (logSparAttempt, once per tab session).
+ *   'attempt'  — a real search started: logSparAttempt fires from inside
+ *                joinQueue AFTER the sign-in/age gates pass and a queue
+ *                doc is written, once per format per tab session. It is
+ *                deliberately NOT fired on /spar page load; that counted
+ *                bounces, bots, and gated-out guests as people who looked
+ *                for a round, which is the inaccuracy this counter had.
  *   'fallback' — sat in the queue 60s without pairing (renderFallback).
  *   'cancel'   — gave up after staying in the queue >=15s (cancelQueue).
  * 'fallback'/'cancel' tick missed_matches; 'attempt' ticks spar_attempts.
