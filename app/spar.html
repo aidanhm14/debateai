@@ -2995,6 +2995,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // spans and bails if either is missing) but is display:none in CSS.
       '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
+      // Round alerts. Moved above the quiet links 2026-08-24: measured
+      // 3,369 spar_queue_join events against 20 opt-ins, while every
+      // person who pressed the button became a real subscriber (20 of
+      // 20). The ask was not being refused, it was not being seen. It
+      // sat under the Cancel row, and it was gated to named accounts
+      // while ~45% of queue joins are guests. Copy is painted per state
+      // by the handler below, so this markup is the shell only.
+      '<div class="alerts-cta" id="alertsCta" hidden style="margin:14px auto 0;max-width:430px;padding:11px 13px;border:1px solid rgba(34,197,94,.32);background:rgba(34,197,94,.06);border-radius:12px;text-align:left">' +
+        '<div style="display:flex;align-items:center;gap:11px">' +
+          '<span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
+          '<span style="flex:1;min-width:0;font-size:.76rem;color:var(--text-dim);line-height:1.45"><strong id="alertsTitle" style="color:var(--text);font-weight:700;display:block;font-size:.82rem;margin-bottom:1px">Get pinged when someone goes live</strong><span id="alertsBody">Leave this page and we will notify you the moment someone is looking for a round, even in another app.</span></span>' +
+          '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
+        '</div>' +
+      '</div>' +
       // The AI choice appears only after the person has given the human
       // queue a real try. It is a decision card, never a timer fallback.
       '<div id="aiOpponentOffer" hidden style="margin:18px auto 2px;max-width:430px;padding:16px;border:1px solid rgba(239,68,68,.30);border-radius:14px;background:rgba(239,68,68,.06);text-align:left">' +
@@ -3028,17 +3042,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
         '<span class="ql-sep">·</span>' +
         '<button type="button" class="link-btn" id="aiNowLink">Open Realtime Voice AI</button>' +
-      '</div>' +
-      // Round alerts: the highest-intent moment to opt into Web Push. If the
-      // queue is quiet, leaving with alerts on means you get pinged the
-      // moment a debater goes live, even from another app. Hidden unless
-      // signed in (alerts route by uid) and not already opted in; wired below.
-      '<div class="alerts-cta" id="alertsCta" hidden style="margin-top:14px;padding:11px 13px;border:1px solid rgba(34,197,94,.32);background:rgba(34,197,94,.06);border-radius:12px;text-align:left">' +
-        '<div style="display:flex;align-items:center;gap:11px">' +
-          '<span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
-          '<span style="flex:1;min-width:0;font-size:.76rem;color:var(--text-dim);line-height:1.45"><strong style="color:var(--text);font-weight:700;display:block;font-size:.82rem;margin-bottom:1px">Get pinged when someone goes live</strong>Leave this page and we will notify you the moment someone is looking for a round, even in another app.</span>' +
-          '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
-        '</div>' +
       '</div>' +
       // Round setup — pick the style you propose, and optionally tell
       // the judge how to evaluate. These ride on the queue doc and only
@@ -3170,28 +3173,100 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       });
     })();
     (function(){
-      // Round-alerts opt-in. Shows for signed-in (non-guest) users who haven't
-      // already enabled live alerts; uses the helpers exposed by
-      // js/notifications.js (daSetLiveAlerts requests push permission + saves
-      // the notify_prefs flag). Web Push stays a named-account feature, so
-      // this stays hidden for guest users.
+      // Round-alerts opt-in, painted per state. Four outcomes, because a
+      // dead "Turn on" button is worse than no card at all: a named
+      // account whose browser can receive push gets the real toggle; a
+      // guest gets a sign-in, since the ping is routed by uid and needs
+      // an account to arrive at; an iPhone that has not installed the
+      // site gets the Add to Home Screen instruction, because Safari has
+      // no Push API outside a home-screen install and the button would
+      // otherwise do nothing at all; and a browser that has blocked
+      // notifications is told so instead of being handed a dead control.
       var cta = document.getElementById('alertsCta');
       var btn = document.getElementById('alertsEnableBtn');
-      if (!cta || !btn) return;
-      function refresh(){
-        var ok = isNamedUser(state.user) && typeof window.daSetLiveAlerts === 'function';
-        var alreadyOn = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
-        cta.hidden = !(ok && !alreadyOn);
+      var titleEl = document.getElementById('alertsTitle');
+      var bodyEl = document.getElementById('alertsBody');
+      if (!cta || !btn || !titleEl || !bodyEl) return;
+      var PENDING_KEY = 'da-alerts-after-signin';
+      var shown = '';
+      // Impressions are deduped per page, not per render: renderSearching
+      // remounts on requeue and would otherwise inflate the denominator.
+      try { window.__daAlertsPromptLogged = window.__daAlertsPromptLogged || {}; } catch(_) {}
+      function pushSupported(){
+        try { return ('serviceWorker' in navigator) && ('PushManager' in window); } catch(_) { return false; }
+      }
+      function isIOS(){
+        try { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); } catch(_) { return false; }
+      }
+      function isStandalone(){
+        try { return navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch(_) { return false; }
+      }
+      function alertsOn(){ return typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts(); }
+      function stateNow(){
+        if (typeof window.daSetLiveAlerts !== 'function') return '';  // notifications.js not up yet
+        if (alertsOn()) return '';
+        try { if (window.Notification && window.Notification.permission === 'denied') return 'denied'; } catch(_) {}
+        if (!pushSupported()) return (isIOS() && !isStandalone()) ? 'install' : '';
+        if (!isNamedUser(state.user)) return 'guest';
+        return 'ready';
+      }
+      var COPY = {
+        ready:   ['Get pinged when someone goes live', 'Leave this page and we will notify you the moment someone is looking for a round, even in another app.', 'Turn on'],
+        guest:   ['Get pinged when someone goes live', 'The ping is routed to your account, so it takes a free sign-in. You keep the rounds you have already played.', 'Sign in'],
+        install: ['Get pinged when someone goes live', 'On iPhone this needs Debatable on your home screen. Tap Share, then Add to Home Screen, and turn alerts on from there.', ''],
+        denied:  ['Alerts are blocked in this browser', 'This site is blocked from sending notifications. Allow them in your browser site settings, then come back to this screen.', '']
+      };
+      function paint(){
+        var s = stateNow();
+        if (!s) { cta.hidden = true; shown = ''; return; }
+        if (s !== shown){
+          titleEl.textContent = COPY[s][0];
+          bodyEl.textContent = COPY[s][1];
+          // .btn sets display:inline-flex, which beats the hidden
+          // attribute, so the button is hidden by style not by [hidden].
+          if (COPY[s][2]) { btn.textContent = COPY[s][2]; btn.style.display = ''; }
+          else { btn.style.display = 'none'; }
+          shown = s;
+          try {
+            if (window.__daAlertsPromptLogged && !window.__daAlertsPromptLogged[s]){
+              window.__daAlertsPromptLogged[s] = true;
+              if (window.gtag) gtag('event', 'live_alerts_prompt', { state: s, from: 'spar_searching' });
+            }
+          } catch(e){}
+        }
+        cta.hidden = false;
       }
       btn.addEventListener('click', function(){
-        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){});
-        cta.hidden = true;
+        if (shown === 'guest'){
+          try { sessionStorage.setItem(PENDING_KEY, '1'); } catch(_) {}
+          try { if (window.gtag) gtag('event', 'live_alerts_signin', { from: 'spar_searching' }); } catch(e){}
+          doGoogleSignIn();
+          return;
+        }
+        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){ paint(); });
+        cta.hidden = true; shown = '';
         try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching' }); } catch(e){}
       });
-      // notifications.js loads deferred; retry briefly so the CTA appears once
-      // the helpers are ready.
-      refresh();
-      var tries = 0, iv = setInterval(function(){ tries++; refresh(); if (!cta.hidden || tries > 20) clearInterval(iv); }, 300);
+      // Someone who signed in FROM this card wanted the ping, not the
+      // account, so finish the job once the named user lands rather than
+      // making them find the card again.
+      function resumeAfterSignIn(){
+        var want = false;
+        try { want = sessionStorage.getItem(PENDING_KEY) === '1'; } catch(_) {}
+        if (!want || !isNamedUser(state.user) || typeof window.daSetLiveAlerts !== 'function') return;
+        try { sessionStorage.removeItem(PENDING_KEY); } catch(_) {}
+        window.daSetLiveAlerts(true, function(){ paint(); });
+        try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching_after_signin' }); } catch(e){}
+      }
+      // Keep re-evaluating while this screen is up. notifications.js loads
+      // deferred, the user can sign in mid-search, and permission can be
+      // granted in another tab; the old handler gave up after 6 seconds.
+      paint();
+      var iv = setInterval(function(){
+        if (!document.body.contains(cta)) { clearInterval(iv); return; }
+        resumeAfterSignIn();
+        paint();
+      }, 700);
     })();
     startCountdown();
     startStatusCycle();
