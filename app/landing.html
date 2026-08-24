@@ -13817,11 +13817,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-pod-msg:hover{border-color:rgba(239,68,68,.5)}
     .rb-pod-chal{display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border-radius:8px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:800;text-decoration:none}
     .rb-pod-chal:hover{background:#b91c1c}
+    /* Champion spotlight (2026-08-24): rank 1 reads as the arena feature */
+    .rb-pod--1{box-shadow:0 12px 34px -14px rgba(245,158,11,.5)}
+    [data-theme="light"] .rb-pod--1{box-shadow:0 14px 32px -16px rgba(217,119,6,.42)}
+    .rb-pod--1 .rb-pod-place{color:#f59e0b;font-weight:900;letter-spacing:.18em}
+    [data-theme="light"] .rb-pod--1 .rb-pod-place{color:#c2410c}
+    .rb-pod--1 .rb-pod-medal{box-shadow:0 0 0 3px rgba(245,158,11,.2),0 0 16px -2px rgba(245,158,11,.55)}
+    .rb-pod-score b{font-variant-numeric:tabular-nums}
   </style>
   <div class="rb-wrap">
     <div class="rb-eyebrow">Live ranks &middot; AI-judged</div>
-    <h2 class="rb-title">A leaderboard of <em>aura</em>.</h2>
-    <p class="rb-sub" data-plain="Aura with a number on it. Every judged round posts your score to one public leaderboard. Best entry per person, and every name is challengeable.">Aura with a number on it. Every judged round puts your speaks on the cross-format leaderboard. Best entry per person, public, and every name is challengeable.</p>
+    <h2 class="rb-title">The <em>leaderboard</em>.</h2>
+    <p class="rb-sub" data-plain="Every judged round posts your score to one public leaderboard. Best entry per person, and every name is challengeable.">Every judged round puts your speaks on one public, cross-format leaderboard. Best entry per person, and every name is challengeable.</p>
     <div class="rb-grid">
       <div class="rb-card">
         <p class="rb-kicker">The leaderboard</p>
@@ -14165,6 +14172,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (score >= 26) return 'solid varsity speaks';
     return 'on the board';
   }
+  // Arena flourish: count the podium scores up from a lower value on render,
+  // so the champion number lands with motion. Reduced-motion sets the final
+  // value immediately; a non-numeric score is left untouched.
+  function animateRbScores(host){
+    if (!host) return;
+    var reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches; } catch (e){}
+    var els = host.querySelectorAll('.rb-pod-score b');
+    Array.prototype.forEach.call(els, function(el){
+      var txt = (el.textContent || '').trim();
+      var target = parseFloat(txt);
+      if (!isFinite(target)) return;
+      var dec = txt.indexOf('.') >= 0 ? 1 : 0;
+      var fmt = function(v){ return dec ? v.toFixed(1) : String(Math.round(v)); };
+      if (reduce){ el.textContent = fmt(target); return; }
+      var from = Math.max(0, target - (target > 200 ? 60 : 8));
+      var start = null;
+      function step(ts){
+        if (start === null) start = ts;
+        var p = Math.min(1, (ts - start) / 850);
+        el.textContent = fmt(from + (target - from) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
   function renderBoard(rows, total){
     var host = document.getElementById('rbBoard');
     if (!host) return;
@@ -14235,7 +14268,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         var pMsg = pr.uid ? '/spar?dm=' + encodeURIComponent(pr.uid) : '/leaderboard';
         html += '<div class="rb-pod-card rb-pod--' + (pi + 1) + '" data-href="/leaderboard" data-rb="leaderboard-pod">'
           + '<div class="rb-pod-head"><span class="rb-pod-medal">' + (pi + 1) + '</span>'
-          + '<span class="rb-pod-place">' + ['1st', '2nd', '3rd'][pi] + ' place</span></div>'
+          + '<span class="rb-pod-place">' + (pi === 0 ? 'Champion' : ['1st', '2nd', '3rd'][pi] + ' place') + '</span></div>'
           + avaCell(pr, pi, avaUsed)
           + '<span class="rb-pod-nm">' + esc(pr.name) + '</span>'
           + '<span class="rb-pod-meta">' + pMeta + '</span>'
@@ -14321,6 +14354,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       ;
     host.innerHTML = html;
     if (avaWantsEngine) avaUpgrade(host);
+    animateRbScores(host);
   }
   var fired = false;
   function loadOnce(){
