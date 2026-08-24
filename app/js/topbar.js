@@ -2377,8 +2377,12 @@
   // All boundaries in ET (UTC-4 in August).
   //
   // Entry is FREE for everyone as of 2026-08-22, so the strip carries
-  // the prize, the date, and one trust token (no card), framed so a
-  // stranger reads a contest rather than a giveaway. It has now said "Free to
+  // the prize and the date, framed so a stranger reads a contest rather
+  // than a giveaway. Do NOT add a "no card" / "no payment" clause back:
+  // advertising the absence of a payment step is friction-selling and is
+  // banned on marketing surfaces (soul.md sec 4/5). "Free to enter"
+  // already carries the fact, and it carries it without sounding like a
+  // page that expects to be mistaken for a scam. It has now said "Free to
   // enter", then "$20", then "$5", then free again, which is exactly
   // why no price appears in this string any more: a ribbon on 60 pages
   // is the slowest surface to correct and the most expensive to get
@@ -2391,7 +2395,7 @@
 
   var tail = (now >= EVENT_DAY)
     ? 'rush hours 12, 3 & 6 PM ET'
-    : 'free to enter, no card';
+    : 'free to enter';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2408,7 +2412,8 @@
     // hidden, so the hook alone has to carry the prize, the day, AND
     // enough frame that "$100 free" does not read as a giveaway: it is
     // "$100 for winning a debate", a prize you compete for, which is the
-    // whole anti-scam move (the tail adds "no card" where there is room).
+    // whole anti-scam move (the tail adds "free to enter" where there is
+    // room; it must not add a payment-absence claim, see above).
     // Keep the hook short enough that the date survives the ellipsis at
     // ~320px: prize-frame plus day is the ceiling.
     var msg = '$100 for winning a debate · ' + (now >= EVENT_DAY ? 'live today' : 'Sat Aug 29');
@@ -2600,7 +2605,7 @@
         '<span class="ui-open-tag">' + (today ? 'Today' : 'Sat Aug 29') + '</span>' +
         '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
         '<p class="ui-open-p">The Debatable Open is a one day online tournament. You turn up whenever suits you, get paired with a real person, and every round ends with a written verdict. Rush hours at 12, 3 and 6 PM Eastern are when pairing is fastest. $100 for first, $50 for second, $25 for third.</p>' +
-        '<p class="ui-open-fine">Free to enter, no card at any point. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
+        '<p class="ui-open-fine">Free to enter. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
         '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
         '<button type="button" class="ui-open-no">Not interested</button>' +
       '</div>';
