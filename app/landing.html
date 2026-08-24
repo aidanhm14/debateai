@@ -8192,6 +8192,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-board .fs-ballot-card p{color:rgba(26,26,31,.64)}
   @media(prefers-reduced-motion:reduce){
     .fs-board .fs-tile-nm i,.fs-board .fs-odds-live i,.fs-board .fs-ballot-wait span{animation:none}
+    .fs-open-fig svg,.fs-open-fig::before{animation:none}
     .fs-ballot.is-in .fs-ballot-card{animation:none}
   }
 
@@ -8217,6 +8218,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board.is-chal .fs-tile--open{border:1px dashed rgba(245,239,231,.34);background:rgba(245,239,231,.05)}
   [data-theme="light"] .fs-board.is-chal .fs-tile--open{border-color:rgba(26,26,31,.3);background:rgba(255,255,255,.5)}
   .fs-board.is-chal .fs-tile--open img{opacity:0}
+  /* The seat is not empty, it is UNTAKEN, and those read differently. A bare
+     dashed rectangle read as a broken tile next to a live creator portrait;
+     a figure sitting in the chair reads as the shape of the person who has
+     not arrived yet. It is a flat anonymous silhouette on purpose: it must
+     never be mistaken for a face, because nobody has accepted this
+     challenge, and the standing rule is that no surface puts a picture of a
+     person on a round that did not happen. Eight builds (hair, headwear,
+     shoulder width) cycle across the ten challenge cards so the seat does
+     not read as one stock person repeated. */
+  .fs-open-fig{display:none;position:absolute;left:0;right:0;bottom:0;top:0;z-index:1;
+    color:#f5efe7;pointer-events:none}
+  [data-theme="light"] .fs-open-fig{color:#1a1a1f}
+  .fs-board.is-chal .fs-tile--open .fs-open-fig{display:block}
+  .fs-open-fig svg{position:absolute;left:50%;bottom:0;width:72%;height:auto;opacity:.3;
+    transform:translateX(-50%);transform-origin:50% 100%;
+    animation:fsSeatIdle 5.2s ease-in-out infinite}
+  /* The halo is the waiting signal. It sits behind the figure and breathes
+     on a slower cycle than the body, so the two never beat in lockstep. */
+  .fs-open-fig::before{content:"";position:absolute;left:50%;top:52%;width:78%;aspect-ratio:1;
+    transform:translate(-50%,-50%);border-radius:50%;
+    background:radial-gradient(circle,rgba(220,38,38,.2),rgba(220,38,38,0) 68%);
+    animation:fsSeatHalo 4.1s ease-in-out infinite}
+  @keyframes fsSeatIdle{50%{transform:translateX(-50%) translateY(-2.5px) rotate(.8deg)}}
+  @keyframes fsSeatHalo{0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(.9)}
+    50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}}
   .fs-chal-line{margin:0;font-size:.78rem;line-height:1.5;color:rgba(245,239,231,.78)}
   [data-theme="light"] .fs-chal-line{color:rgba(26,26,31,.7)}
   .fs-chal-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px}
@@ -8555,6 +8581,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </div>
         <div class="fs-tile">
           <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face52.jpg" alt="" decoding="async">
+          <span class="fs-open-fig" id="fsOpenFig" aria-hidden="true"></span>
           <span class="fs-tile-nm"><b id="fsNameB"></b> &middot; <span id="fsSideB">Con</span></span>
         </div>
       </div>
@@ -10428,7 +10455,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
-   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta']
+   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
   var tileA = board && board.querySelector('.fs-tile--speaking');
@@ -10439,6 +10466,67 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
   var BLANK_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+  /* The untaken seat. A dashed empty box next to a creator portrait read as
+     a tile that had failed to load; a silhouette in the chair reads as the
+     person who has not arrived. It stays a flat anonymous shape on purpose.
+     Nobody has accepted these challenges, so a face here would assert a
+     participant, which is the same line the rest of the board holds.
+     Eight builds vary hair, headwear and shoulder width, seeded off the
+     creator's name so one card keeps its figure across the rotation while
+     the ten challenge cards do not all seat the same stock person. */
+  var SEAT_SHOULDER = [
+    '<path d="M28 84c0-16 14-26 32-26s32 10 32 26z"/>',
+    '<path d="M22 84c0-17 17-27 38-27s38 10 38 27z"/>',
+    '<path d="M13 84c0-19 21-30 47-30s47 11 47 30z"/>'
+  ];
+  /* One flat tone, painted by opacity on the <svg> rather than alpha in the
+     fill: overlapping shapes at a fractional fill compound where they cross,
+     which turned the hair into a darker patch and the whole figure into an
+     accidental two-tone. A silhouette has one value. */
+  var SEAT_HEAD = '<rect x="52" y="38" width="16" height="20" rx="7"/><circle cx="60" cy="30" r="16"/>';
+  var SEAT_BUILD = [
+    // cropped short
+    '<ellipse cx="60" cy="22" rx="16.5" ry="11"/>' + SEAT_HEAD + SEAT_SHOULDER[1],
+    // long, past the shoulders
+    '<path d="M41 30c0-14 8-20 19-20s19 6 19 20v54h-11V30H52v54h-11z"/>' + SEAT_HEAD + SEAT_SHOULDER[0],
+    // tied up
+    '<circle cx="60" cy="8" r="7"/><ellipse cx="60" cy="23" rx="16.5" ry="10.5"/>' + SEAT_HEAD + SEAT_SHOULDER[0],
+    // volume
+    '<circle cx="60" cy="26" r="21"/>' + SEAT_HEAD + SEAT_SHOULDER[1],
+    // cap
+    '<ellipse cx="60" cy="21" rx="17" ry="12"/><path d="M60 18h27c2.5 0 4 1.6 4 3.5s-1.5 3.5-4 3.5H60z"/>' + SEAT_HEAD + SEAT_SHOULDER[1],
+    // headphones
+    '<ellipse cx="60" cy="23" rx="16" ry="10.5"/>' + SEAT_HEAD
+      + '<path d="M37 31a23 23 0 0 1 46 0h-6a17 17 0 0 0-34 0z"/>'
+      + '<rect x="32" y="26" width="11" height="18" rx="5.5"/><rect x="77" y="26" width="11" height="18" rx="5.5"/>'
+      + SEAT_SHOULDER[1],
+    // covered
+    '<path d="M39 36c0-17 9-26 21-26s21 9 21 26v4c0 8 4 11 7 14H32c3-3 7-6 7-14z"/>' + SEAT_HEAD + SEAT_SHOULDER[1],
+    // broader build
+    '<ellipse cx="60" cy="24" rx="15.5" ry="9.5"/>' + SEAT_HEAD + SEAT_SHOULDER[2]
+  ];
+  /* Dealt, not hashed. Ten challenge cards against eight builds is close
+     enough that a name hash leaves it to luck, and the first one tried put
+     the same build on five of the ten. Walking a shuffled deck guarantees
+     all eight appear and at most two repeat, and reshuffling per load means
+     a returning visitor does not meet the same creator in the same chair. */
+  (function dealSeats(){
+    var order = [], i, j, t;
+    for (i = 0; i < SEAT_BUILD.length; i++) order.push(i);
+    for (i = order.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
+      t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    for (i = 0, j = 0; i < ROUNDS.length; i++) {
+      if (ROUNDS[i].kind !== 'challenge') continue;
+      ROUNDS[i].seat = order[j++ % order.length];
+    }
+  })();
+  function seatFigure(n){
+    return '<svg viewBox="0 0 120 84" fill="currentColor" xmlns="http://www.w3.org/2000/svg">'
+      + SEAT_BUILD[(n || 0) % SEAT_BUILD.length] + '</svg>';
+  }
   var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
   // The verdict is the payoff, so it holds LONGER than the deciding
@@ -10564,6 +10652,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       el.fsFaceA.src = '/img/creator-watchlist/' + r.a.img + '.jpg';
       el.fsFaceA.alt = r.a.nm;
       el.fsFaceB.src = BLANK_PX;
+      if (el.fsOpenFig) el.fsOpenFig.innerHTML = seatFigure(r.seat);
       el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = 'Invited';
       el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = 'Yours';
       el.fsBallot.classList.remove('is-in');
