@@ -1084,6 +1084,17 @@ h1 em{color:var(--accent);font-style:normal}
 .gate-email-note{font-size:.74rem;color:var(--text-ghost);margin-top:8px;line-height:1.5;text-align:center}
 .gate-email-sent{font-size:.84rem;font-weight:750;color:#15803d;margin-top:10px;line-height:1.45;text-align:center}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
+/* "Want to debate anonymously?" reassurance: the REAL Avatar mask
+   (DBAvatar.maskSvg, already loaded on this page) beside the copy, so a
+   signed-out visitor sees what the room sees of them before the sign-in
+   ask. The mask carries its own dark circular fill, so it reads on every
+   theme; the inner ring separates it from the card on the dark ones. */
+.gate-anon{display:flex;align-items:center;gap:13px;margin-top:14px;padding:11px 13px;border-radius:14px;border:1px solid rgba(128,128,128,.26);background:var(--bg-elev)}
+.gate-anon-face{flex:0 0 auto;width:58px;height:58px;border-radius:50%;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.08)}
+.gate-anon-face svg{width:100%;height:100%;display:block}
+.gate-anon-copy{font-size:.78rem;line-height:1.5;color:var(--text-ghost)}
+.gate-anon-copy strong{color:var(--text);font-weight:750}
+@media(max-width:420px){.gate-anon-face{width:50px;height:50px}}
 /* Live-count line on the gate: who is actually waiting in the queue
    right now (/api/spar-queue), so signing in is an ask with a person on
    the other side of it. Green pulse only when the count is real and
@@ -2596,15 +2607,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<div class="gate-email-note">No password. Open the link on this device and you are in.</div>' +
           '<div class="gate-email-sent" id="gateEmailSent"></div>' +
         '</form>' +
-        // "Your photo shows to opponents" is the sentence people stop at,
-        // and it was the whole story here, which made the round sound
-        // like a face-to-face video call with a stranger. It is half the
-        // story: the camera is a choice, and Avatar mode is the other
-        // half. Say it in the same breath as the warning it answers.
-        '<div class="gate-disclaimer">' + (gateSpent()
-          ? 'Your rounds carry over. Your name and photo show to opponents.'
-          : 'Your name and photo show to opponents.') +
-          ' <strong>Your face does not have to.</strong> Switch your camera to Avatar in the round and they see an animated mask that moves as you speak, never your camera.</div>' +
+        // "Want to debate anonymously?" (Aidan). The camera is a choice,
+        // and Avatar mode is the reassurance a signed-out stranger needs
+        // BEFORE the sign-in ask, so show the REAL mask the room sees
+        // (DBAvatar.maskSvg, already loaded on this page) beside the copy.
+        // The name still shows: accountability is the one thing a live
+        // human opponent is owed, so do not imply it is hidden too.
+        '<div class="gate-anon">' +
+          '<div class="gate-anon-face">' + ((window.DBAvatar && DBAvatar.maskSvg) ? DBAvatar.maskSvg({}, '100%') : '') + '</div>' +
+          '<div class="gate-anon-copy">' +
+            '<strong>Want to debate anonymously?</strong> ' +
+            'Switch your camera to Avatar in the round and the room sees this mask move as you speak, never your face. ' +
+            (gateSpent() ? 'Your rounds carry over, and your ' : 'Your ') + 'name still shows to opponents.' +
+          '</div>' +
+        '</div>' +
         // Age line. Live rounds pair strangers, so the standing 13-17
         // supervision rule from the terms belongs at this door, not only
         // in a legal page nobody opens. /safety is the readable version.
