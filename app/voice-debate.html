@@ -6482,16 +6482,42 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       var sdpUrl = session.sdpUrl ||
       'https://api.openai.com/v1/realtime/calls';
       var extraSdpHeaders = session.sdpHeaders || {};
-      var sdpRes = await fetch(sdpUrl, {
-        method: 'POST',
-        body: pc.localDescription && pc.localDescription.sdp || offer.sdp,
-        headers: {
-          'Authorization': 'Bearer ' + ephemeralKey,
-          'Content-Type': 'application/sdp',
-          ...extraSdpHeaders
-        },
-        signal: connectAbort.signal
-      });
+      // Single-shot SDP POST with no ICE trickle channel, so a transient
+      // failure (OpenAI 5xx, a dropped fetch on a flaky network) used to
+      // kill the whole connect with no retry. Measured 2026-08-24: ~24% of
+      // voice attempts fail at THIS handshake, almost all signed-in, so it
+      // is not a paywall. Retry up to 3x on a clearly-transient failure
+      // only (network throw / 5xx); 4xx and quota still fail fast below.
+      // The abort watchdog wins, and a working first attempt breaks
+      // immediately, so an established connection is never touched.
+      var sdpRes = null;
+      for (var _sdpTry = 0; _sdpTry < 3; _sdpTry++) {
+        if (_sdpTry) await new Promise(function (r) {setTimeout(r, 500 * _sdpTry);});
+        if (connectAbort.signal.aborted) break;
+        try {
+          sdpRes = await fetch(sdpUrl, {
+            method: 'POST',
+            body: pc.localDescription && pc.localDescription.sdp || offer.sdp,
+            headers: {
+              'Authorization': 'Bearer ' + ephemeralKey,
+              'Content-Type': 'application/sdp',
+              ...extraSdpHeaders
+            },
+            signal: connectAbort.signal
+          });
+        } catch (netErr) {
+          if (connectAbort.signal.aborted || _sdpTry === 2) throw netErr;
+          sdpRes = null;
+          continue; // network drop mid-handshake → retry
+        }
+        if (sdpRes.ok || sdpRes.status < 500) break; // ok or permanent (4xx) → stop; 5xx → retry
+      }
+      if (!sdpRes) {
+        var _ea = new Error('Voice handshake could not start. Try again.');
+        _ea.status = connectAbort.signal.aborted ? 'aborted' : 'no_response';
+        if (connectAbort.signal.aborted) _ea.name = 'AbortError';
+        throw _ea;
+      }
       if (!sdpRes.ok) {
         var detail = await sdpRes.text().catch(() => '');
         // OpenAI account is at quota (different from our per-IP rate limit
@@ -6506,7 +6532,9 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
           _e2.kind = 'quota';
           throw _e2;
         }
-        throw new Error('OpenAI handshake failed (' + sdpRes.status + '). ' + detail.slice(0, 140));
+        var _eh = new Error('OpenAI handshake failed (' + sdpRes.status + '). ' + detail.slice(0, 140));
+        _eh.status = sdpRes.status;
+        throw _eh;
       }
       var answerSdp = await sdpRes.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
@@ -6533,7 +6561,7 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       // Terminal connect failure (mint / WebRTC / SDP handshake). Tag
       // the reason so the dashboard separates "OpenAI at capacity"
       // (quota) from genuine handshake breakage.
-      funnel('connect_fail', { kind: e.kind || 'handshake' }, true);
+      funnel('connect_fail', { kind: e.kind || 'handshake', status: e && e.status != null ? String(e.status).slice(0, 40) : '' }, true);
       setError(e.message || String(e));
       setErrorKind(e.kind || '');
       setStatus('idle');
