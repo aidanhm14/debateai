@@ -7721,6 +7721,11 @@ html.stage-mode .stage-ov{display:block}
   // the other side isn't already seeing: the mask in Avatar mode, the
   // camera in Camera mode, and nothing at all in Off mode or in a
   // Private round. The server re-checks all of that before it stores.
+  // Six refusals at 25s is about two and a half minutes of trying, which
+  // comfortably covers a second debater arriving and the seats landing on
+  // the doc, and still gives up long before a genuinely ineligible round
+  // burns a request a minute for its whole length.
+  var REFUSAL_LIMIT = 6;
   var roomShot = { timer:null, cv:null, busy:false, fails:0 };
   function roomShotEligible(){
     if (isSpectator() || state.isPrivate) return false;
@@ -7750,12 +7755,29 @@ html.stage-mode .stage-ov{display:block}
         body: JSON.stringify({ room: state.room, image: data })
       });
     }).then(function(r){
-      // A refusal is a real answer (private, ended, not a seat). Stop
-      // asking rather than burning a request every 25s for the round.
-      if (r && (r.status === 403 || r.status === 409 || r.status === 404)) stopRoomShots();
-      roomShot.fails = 0;
+      if (!r) return;
+      if (r.ok){ roomShot.fails = 0; return; }
+      // A refusal at the START of a round is NOT a real answer, and
+      // treating it as one is why live_shots held ZERO documents for
+      // the life of this feature. publishRoundInit writes proUid and
+      // conUid only once BOTH seats are known, so the first push (a few
+      // seconds after joining) routinely lands before the doc exists or
+      // before this debater is recorded in it: the server answers 404
+      // "No such round" or 403 "Not a debater in this round", the old
+      // code called stopRoomShots(), and no still was ever posted again
+      // for that round. Both are transient at open, so they are retried
+      // on the normal 25s beat and only give up after REFUSAL_LIMIT.
+      //
+      // "Private round" IS terminal and is honoured immediately: that
+      // one is a standing decision by the debaters, not a race.
+      return r.text().then(function(body){
+        if (/private/i.test(body || '')){ stopRoomShots(); return; }
+        if (++roomShot.fails >= REFUSAL_LIMIT) stopRoomShots();
+      }).catch(function(){
+        if (++roomShot.fails >= REFUSAL_LIMIT) stopRoomShots();
+      });
     }).catch(function(){
-      if (++roomShot.fails >= 3) stopRoomShots();
+      if (++roomShot.fails >= REFUSAL_LIMIT) stopRoomShots();
     }).then(function(){ roomShot.busy = false; });
   }
   // Both guard on the object itself: these are called from mode changes
@@ -7763,8 +7785,13 @@ html.stage-mode .stage-ov{display:block}
   // take the whole page IIFE with it.
   function startRoomShots(){
     if (!roomShot || roomShot.timer || isSpectator()) return;
+    roomShot.fails = 0;
     roomShot.timer = setInterval(pushRoomShot, 25000);
-    setTimeout(pushRoomShot, 4000);
+    // 8s rather than 4s: the round doc and its seats are written around
+    // the same moment the call joins, and an earlier first push spends a
+    // refusal on a race it is guaranteed to lose. The retry above covers
+    // it either way; this just wastes fewer of them.
+    setTimeout(pushRoomShot, 8000);
   }
   function stopRoomShots(){
     if (roomShot && roomShot.timer){ clearInterval(roomShot.timer); roomShot.timer = null; }

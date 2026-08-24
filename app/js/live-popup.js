@@ -1,44 +1,52 @@
-/* live-popup.js — "a round is happening right now, go watch it."
+/* live-popup.js — "there is something real to watch right now."
  *
- * A sitewide corner card that appears when /api/watch-live reports a
- * public round in progress, shows the ACTUAL room, and hands the
- * visitor to /live-round?room=…&spectate=1.
+ * A sitewide corner card that surfaces the arena from every other page.
+ * Three sources, tried in this order, first hit wins:
  *
- * Why this exists: a live round is the single most convincing thing on
- * this site and it is invisible from every page except the three that
- * list it (/live, /watch, /spectate). Someone reading /pricing while
- * two strangers argue in a room has no way to know.
+ *   1. LIVE ROUND   (/api/watch-live)  → watch two strangers argue now
+ *   2. WAITING      (/api/live-now)    → someone is queued, go debate them
+ *   3. REPLAY       (/api/recordings)  → a finished round, with a real
+ *                                        frame from the recording itself
  *
- * THE PICTURE IS REAL AND IT IS NOT ALWAYS THERE. The thumbnail is the
- * still /api/room-shot already publishes: a 320x180 frame of the canvas
- * the room is ALREADY receiving, posted every ~25s by a seated debater,
- * served only while the round is public, running and fresh (75s). So a
- * round with cameras off, or one that just ended, has no still and the
- * card falls back to a typographic tile. It NEVER draws a stand-in
- * frame, because a fake room picture on a card that says LIVE is the
- * one failure this surface cannot absorb. This module is the first
- * consumer of that pipeline; watch-live has been attaching `shot` to
- * its payload with nothing reading it.
+ * Why three. A live public round is the most convincing thing on this
+ * site and it is invisible from every page except the three that list
+ * it. But live rounds are rare, so a live-only card almost never fires
+ * and the arena stays invisible anyway. The other two sources are real
+ * inventory that exists most of the time.
  *
- * Blur: BLUR_PX below. 0 ships the still as-is (the honest default: it
- * is the same public artifact the live strip is built on, and a 320x180
- * source at ~112px wide is soft already). Set it to 10 for the frosted
- * "something is happening in here" treatment. One constant, both looks.
+ * EVERY PICTURE IS A REAL FRAME OF A REAL ROUND, or there is no picture.
+ * A live round's still comes from /api/room-shot (the canvas the room is
+ * already receiving, posted by a seated debater). A replay's comes from
+ * /api/recording-thumb (a frame of the actual recording). When neither
+ * exists the card falls back to a typographic tile and NEVER draws a
+ * stand-in image: a stock photo under a LIVE badge is the one failure
+ * this surface cannot absorb.
+ *
+ * Copy is per source and never overstates. A replay says REPLAY and
+ * "Watch the replay", not LIVE NOW. Only a round actually in progress
+ * gets the live badge and the pulsing dot.
+ *
+ * Spectating needs no account, so the live and replay cards hand an
+ * anonymous visitor straight through. The waiting card points at /spar,
+ * which does ask for one, because the person on the other bench is real.
+ *
+ * Blur: BLUR_PX below. 0 ships frames as they are, which is what the
+ * live strip and /watch already do. 10 gives the frosted treatment.
  *
  * Restraint, because this is unsolicited and sitewide:
  *   - first read only after 15s of VISIBLE dwell, never on load
- *   - polls stop the moment a card shows, and after 6 reads regardless
+ *   - polls stop the moment a card shows, and after 6 rounds regardless
  *   - hidden tabs never poll
- *   - at most 2 cards per session, 6 minutes apart, never the same room
+ *   - at most 2 cards per session, 6 minutes apart, never the same item
  *     twice, and dismissing snoozes every page for 4 hours
+ *   - a taller corner card elsewhere on the page gets right of way
  *   - excluded outright from round surfaces, the queue, and the pages
- *     that already list live rounds (see SKIP)
+ *     that already list rounds (see SKIP)
  *
- * QA: ?livepop=off disables, ?livepop=now shows immediately with no
- * dwell, snooze or cap. ?livepop=demo renders the no-still card and
- * ?livepop=demopic the picture version against a real 16:9 asset, so
- * both layouts and the blur setting can be judged on any page when
- * nothing happens to be live.
+ * QA: ?livepop=off disables. ?livepop=now skips the dwell, snooze and
+ * caps. ?livepop=demo renders the no-picture tile and ?livepop=demopic
+ * the picture layout, so both looks and the blur setting can be judged
+ * on any page when nothing happens to be live.
  */
 (function () {
   'use strict';
@@ -46,27 +54,28 @@
   if (window.__ditLivePopup) return;
   window.__ditLivePopup = 1;
 
-  /* 0 = show the room still as it is. 10 = frost it. */
+  /* 0 = show the frame as it is. 10 = frost it. */
   var BLUR_PX = 0;
 
   var FIRST_DELAY_MS = 15000;   // visible dwell before the first read
   var POLL_MS = 120000;
-  var MAX_READS = 6;
+  var MAX_ROUNDS = 6;           // poll cycles, not debate rounds
   var CARD_LIFE_MS = 30000;     // an ignored card leaves rather than squats
   var GAP_MS = 6 * 60 * 1000;   // between two cards in one session
   var MAX_PER_SESSION = 2;
   var SNOOZE_MS = 4 * 60 * 60 * 1000;
+  var REPLAY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
   var SNOOZE_KEY = 'da-livepop-snooze';
-  var SEEN_KEY = 'da-livepop-seen';     // rooms already offered this session
+  var SEEN_KEY = 'da-livepop-seen';     // items already offered this session
   var COUNT_KEY = 'da-livepop-count';
   var LAST_KEY = 'da-livepop-last';
 
   /* Pages where this would interrupt rather than invite. Round surfaces
      and anything that makes its own sound (the visitor is mid-round);
      /spar and /partners (they are queueing for a round of their own and
-     pulling them out costs them the match); and the three pages that
-     already list live rounds, where a floating duplicate is noise. */
+     pulling them out costs them the match); and the pages that already
+     list rounds and replays, where a floating duplicate is noise. */
   var SKIP = [
     '/live-round', '/voice-debate', '/newvoice', '/room-judge', '/casual-room',
     '/voice-rfd', '/practice', '/exhibition', '/coach', '/brain',
@@ -79,9 +88,6 @@
   var off = /[?&]livepop=off(?:&|$)/.test(qs);
   var force = /[?&]livepop=now(?:&|$)/.test(qs);
   var demo = /[?&]livepop=demo(?:&|$)/.test(qs);
-  /* demopic previews the picture layout against a real 16:9 asset, so
-     the blur setting can be judged on a page even when no round is
-     live and no still exists to fetch. demo shows the no-still tile. */
   var demoPic = /[?&]livepop=demopic(?:&|$)/.test(qs);
   if (demoPic) demo = true;
   if (off) return;
@@ -113,14 +119,15 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function seenRooms() {
+  function seenItems() {
     try { return JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]') || []; } catch (e) { return []; }
   }
-  function markSeen(room) {
-    var list = seenRooms();
-    if (list.indexOf(room) < 0) list.push(room);
-    try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(list.slice(-30))); } catch (e) {}
+  function markSeen(key) {
+    var list = seenItems();
+    if (list.indexOf(key) < 0) list.push(key);
+    try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(list.slice(-40))); } catch (e) {}
   }
+  function unseen(key) { return seenItems().indexOf(key) < 0; }
 
   function gated() {
     if (force || demo) return false;
@@ -130,10 +137,25 @@
     return false;
   }
 
+  function clock(sec) {
+    sec = Math.max(0, Math.round(Number(sec) || 0));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function initial(name) {
+    var s = String(name || '').trim();
+    return s ? s.charAt(0).toUpperCase() : '?';
+  }
+  function getJSON(url) {
+    return fetch(url, { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
   /* ── styles ─────────────────────────────────────────────────────
      Self-contained and token-driven, so the card follows whichever of
-     the five themes the page is in. Every var() carries a dark literal
-     fallback for the handful of pages that do not load ui.css. */
+     the real themes the page is in (light, crimson, grey). Every var()
+     carries a dark literal fallback for pages that skip ui.css. */
   var STYLE_ID = 'da-livepop-css';
   function injectCss() {
     if (document.getElementById(STYLE_ID)) return;
@@ -157,26 +179,31 @@
       '.da-livepop__thumb img{width:100%;height:100%;object-fit:cover;display:block;',
       'filter:blur(' + BLUR_PX + 'px);transform:scale(' + (BLUR_PX ? 1.12 : 1.001) + ')}',
 
-      /* Typographic fallback when the round has no fresh still. Reads as
-         a deliberate tile, never as a broken image. */
+      /* Typographic fallback when there is no real frame. Reads as a
+         deliberate tile, never as a broken image. */
       '.da-livepop__fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;',
       'background:radial-gradient(120% 140% at 50% 0,rgba(239,68,68,.18),transparent 70%),var(--bg-elev,#101014)}',
       '.da-livepop__ini{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;',
       'background:var(--bg-card,#15151a);border:1px solid var(--border,rgba(255,255,255,.14));',
       'color:var(--text,#fff);font-size:.95rem;font-weight:800}',
       '.da-livepop__vs{font-size:.62rem;font-weight:900;letter-spacing:.14em;color:var(--text-dim,#9aa)}',
-      /* No still: shrink the picture area rather than holding 16:9 of
-         empty tile. The card should not look like it is showing video
-         when it is not. */
+      /* No picture: shrink the frame rather than holding 16:9 of empty
+         tile. The card must not look like it is showing video when it
+         is not. */
       '.da-livepop--nopic .da-livepop__thumb{aspect-ratio:16/6}',
 
       '.da-livepop__badge{position:absolute;top:9px;left:9px;display:inline-flex;align-items:center;gap:6px;',
       'height:22px;padding:0 9px;border-radius:999px;background:rgba(10,10,12,.82);',
       '-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);',
       'color:#fff;font-size:.58rem;font-weight:900;letter-spacing:.13em}',
-      '.da-livepop__dot{width:6px;height:6px;border-radius:50%;background:#ef4444;',
-      'animation:daLivePopDot 1.7s ease-out infinite}',
+      '.da-livepop__dot{width:6px;height:6px;border-radius:50%;background:#ef4444}',
+      /* Only a round actually in progress pulses. A replay is not live
+         and must not borrow the signal that says it is. */
+      '.da-livepop--live .da-livepop__dot{animation:daLivePopDot 1.7s ease-out infinite}',
+      '.da-livepop--wait .da-livepop__dot{background:#22c55e;animation:daLivePopDotG 1.7s ease-out infinite}',
+      '.da-livepop--replay .da-livepop__dot{background:rgba(255,255,255,.55)}',
       '@keyframes daLivePopDot{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}70%{box-shadow:0 0 0 6px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}',
+      '@keyframes daLivePopDotG{0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}',
 
       '.da-livepop__x{position:absolute;top:7px;right:7px;width:26px;height:26px;border:0;border-radius:50%;',
       'display:flex;align-items:center;justify-content:center;cursor:pointer;',
@@ -208,8 +235,6 @@
       '[data-theme="light"] .da-livepop,[data-lighting="light"] .da-livepop,body.light-theme .da-livepop{',
       'box-shadow:0 18px 46px rgba(0,0,0,.16),0 0 0 1px rgba(239,68,68,.1)}',
 
-      /* Mobile: full-width above the safe area, and short enough that it
-         cannot cover a page's own bottom controls. */
       '@media(max-width:560px){.da-livepop{left:12px;right:12px;width:auto;',
       'bottom:calc(12px + env(safe-area-inset-bottom,0px))}}',
       '@media(prefers-reduced-motion:reduce){.da-livepop{transition:opacity .2s ease}',
@@ -221,7 +246,7 @@
   /* Other things that park at the bottom of the screen. This site has
      several (the experience chooser, the signup pill, the landing's
      live-pull card, the home magnet), and they are all someone else's
-     ask. Two rules, split by size, because the failure modes differ:
+     ask. Two rules, split by size:
 
        - A CARD (tall) gets right of way. We defer and try on a later
          poll rather than stacking, because on a phone both are full
@@ -231,106 +256,194 @@
        - A PILL (short) we stack above, since it is a live control and
          covering it would trade one nudge for another.
 
-     Both checks run at every width. The desktop-only version of this
-     missed the mobile collision entirely. */
-  var CORNER_SELECTORS = ['#daExpAsk', '.signup-pill', '.ditHP-card', '.lpull', '.da-livepop'];
+     Both checks run at every width. */
+  var CORNER_SELECTORS = ['#daExpAsk', '.signup-pill', '.ditHP-card', '.lpull'];
   var CARD_MIN_H = 120;
 
   function cornerBoxes() {
     var found = [];
     for (var i = 0; i < CORNER_SELECTORS.length; i++) {
-      if (CORNER_SELECTORS[i] === '.da-livepop') continue;
       var el = document.querySelector(CORNER_SELECTORS[i]);
       if (!el) continue;
       var r;
       try { r = el.getBoundingClientRect(); } catch (e) { continue; }
       if (!r || !r.height || !r.width) continue;
-      // On screen and parked near the bottom.
       if (r.bottom < 0 || r.top > window.innerHeight) continue;
       if (r.bottom < window.innerHeight - 220) continue;
       found.push(r);
     }
     return found;
   }
-
   function cornerBusy() {
     var boxes = cornerBoxes();
-    for (var i = 0; i < boxes.length; i++) {
-      if (boxes[i].height >= CARD_MIN_H) return true;
-    }
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].height >= CARD_MIN_H) return true;
     return false;
   }
-
   function bottomOffset() {
-    var base = 18;
-    var boxes = cornerBoxes();
+    var base = 18, boxes = cornerBoxes();
     for (var i = 0; i < boxes.length; i++) {
       var r = boxes[i];
-      if (r.height >= CARD_MIN_H) continue;      // handled by cornerBusy
-      if (r.right < window.innerWidth - 420) continue;  // not in this corner
+      if (r.height >= CARD_MIN_H) continue;
+      if (r.right < window.innerWidth - 420) continue;
       base = Math.max(base, (window.innerHeight - r.top) + 12);
     }
     return base;
   }
 
-  var shown = false;
+  /* ── sources ────────────────────────────────────────────────────
+     Each returns a normalized item or null. Tried in priority order:
+     a round happening now beats a person waiting, which beats a round
+     that already finished. */
 
-  function initials(name) {
-    var s = String(name || '').trim();
-    return s ? s.charAt(0).toUpperCase() : '?';
+  function liveItem() {
+    return getJSON('/api/watch-live').then(function (j) {
+      var list = (j && j.rounds) || [];
+      var pick = null;
+      for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        if (!r || !r.room) continue;
+        if (!unseen('live:' + r.room) || inUrl(r.room)) continue;
+        if (r.shot) { pick = r; break; }   // a real frame is the better card
+        if (!pick) pick = r;
+      }
+      if (!pick) return null;
+      return {
+        kind: 'live',
+        key: 'live:' + pick.room,
+        badge: 'LIVE NOW',
+        headline: pick.motion || 'A debate is running',
+        who: (pick.proName || 'Debater') + ' vs ' + (pick.conName || 'Debater'),
+        meta: pick.status === 'ballot' ? 'JUDGING' : 'IN PROGRESS',
+        cta: 'Watch this round',
+        href: '/live-round?room=' + encodeURIComponent(pick.room) + '&spectate=1',
+        // Versioned by the shot timestamp: a new still is a new URL,
+        // which is what lets room-shot cache the bytes for a minute.
+        img: pick.shot
+          ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot)
+          : null,
+        initials: [initial(pick.proName), initial(pick.conName)]
+      };
+    });
   }
 
-  function render(r) {
+  function waitingItem() {
+    return getJSON('/api/live-now').then(function (j) {
+      var list = (j && j.debaters) || [];
+      var pick = null;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].uid && unseen('wait:' + list[i].uid)) { pick = list[i]; break; }
+      }
+      if (!pick) return null;
+      var name = pick.name || 'Someone';
+      var more = list.length - 1;
+      return {
+        kind: 'wait',
+        key: 'wait:' + pick.uid,
+        badge: 'WAITING NOW',
+        headline: name + ' is looking for a round',
+        who: more > 0 ? ('and ' + more + ' other' + (more > 1 ? 's' : '') + ' in the queue') : 'No opponent yet',
+        meta: 'OPEN SEAT',
+        cta: 'Debate them',
+        href: '/spar',
+        img: null,
+        initials: [initial(name), '?']
+      };
+    });
+  }
+
+  // The replay list changes rarely, so it is fetched once per page and
+  // reused across polls rather than re-read every two minutes.
+  var replayCache = null;
+  function waitReplays() {
+    if (replayCache) return Promise.resolve(replayCache);
+    return getJSON('/api/recordings').then(function (j) {
+      replayCache = (j && j.recordings) || [];
+      return replayCache;
+    });
+  }
+  function replayItem() {
+    return waitReplays().then(function (list) {
+      var fresh = [];
+      for (var i = 0; i < list.length; i++) {
+        var r = list[i];
+        if (!r || !r.id || r.teaser === true) continue;
+        if (!unseen('replay:' + r.id)) continue;
+        // startTs is seconds. A months-old round is not news.
+        if (r.startTs && (now() - r.startTs * 1000) > REPLAY_MAX_AGE_MS) continue;
+        fresh.push(r);
+      }
+      if (!fresh.length) return null;
+      // Rotate rather than always offering the newest, so a returning
+      // visitor is not shown the same round every session.
+      var pick = fresh[Math.floor(Math.random() * fresh.length)];
+      return {
+        kind: 'replay',
+        key: 'replay:' + pick.id,
+        badge: 'REPLAY',
+        headline: pick.motion || pick.title || 'A finished round',
+        who: (pick.proName || 'Debater') + ' vs ' + (pick.conName || 'Debater'),
+        meta: pick.duration ? clock(pick.duration) : 'FINISHED',
+        cta: 'Watch the replay',
+        href: '/w/' + encodeURIComponent(pick.id),
+        img: '/api/recording-thumb?id=' + encodeURIComponent(pick.id) +
+             (pick.thumbV ? '&v=' + encodeURIComponent(pick.thumbV) : ''),
+        initials: [initial(pick.proName), initial(pick.conName)]
+      };
+    });
+  }
+
+  function inUrl(id) {
+    try { return (location.search || '').indexOf(id) >= 0; } catch (e) { return false; }
+  }
+
+  /* ── render ─────────────────────────────────────────────────── */
+  var shown = false;
+
+  function fallbackHtml(item) {
+    return '<span class="da-livepop__fallback">' +
+      '<span class="da-livepop__ini">' + esc(item.initials[0]) + '</span>' +
+      '<span class="da-livepop__vs">VS</span>' +
+      '<span class="da-livepop__ini">' + esc(item.initials[1]) + '</span>' +
+      '</span>';
+  }
+
+  function render(item) {
     if (shown) return;
     shown = true;
     injectCss();
 
-    var href = '/live-round?room=' + encodeURIComponent(r.room) + '&spectate=1';
     var card = document.createElement('a');
-    card.className = 'da-livepop' + (r.shot ? '' : ' da-livepop--nopic');
-    card.href = href;
+    card.className = 'da-livepop da-livepop--' + item.kind + (item.img ? '' : ' da-livepop--nopic');
+    card.href = item.href;
     card.setAttribute('role', 'region');
-    card.setAttribute('aria-label', 'A debate is live now. Watch it.');
+    card.setAttribute('aria-label', item.badge + '. ' + item.headline + '. ' + item.cta + '.');
     var off = bottomOffset();
     // Keep the safe-area inset the stylesheet applies on phones; an
     // inline plain-px bottom would drop it and sit under the home bar.
     if (off > 18) card.style.bottom = 'calc(' + off + 'px + env(safe-area-inset-bottom, 0px))';
 
-    var pro = r.proName || 'Debater';
-    var con = r.conName || 'Debater';
-    var thumb;
-    if (r.shot) {
-      // Versioned by the shot timestamp: a new still is a new URL, which
-      // is what lets room-shot cache the bytes for a minute. shotUrl is
-      // only ever set by the ?livepop=demopic QA switch.
-      var src = r.shotUrl || ('/api/room-shot?room=' + encodeURIComponent(r.room) +
-        '&v=' + encodeURIComponent(r.shot));
-      thumb = '<img src="' + esc(src) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">';
-    } else {
-      thumb = '<span class="da-livepop__fallback">' +
-        '<span class="da-livepop__ini">' + esc(initials(pro)) + '</span>' +
-        '<span class="da-livepop__vs">VS</span>' +
-        '<span class="da-livepop__ini">' + esc(initials(con)) + '</span>' +
-        '</span>';
-    }
+    var thumb = item.img
+      ? '<img src="' + esc(item.img) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
+      : fallbackHtml(item);
 
     card.innerHTML =
       '<span class="da-livepop__thumb">' + thumb +
-        '<span class="da-livepop__badge"><span class="da-livepop__dot"></span>LIVE NOW</span>' +
+        '<span class="da-livepop__badge"><span class="da-livepop__dot"></span>' + esc(item.badge) + '</span>' +
       '</span>' +
       '<span class="da-livepop__body">' +
-        '<span class="da-livepop__motion">' + esc(r.motion || 'A debate is running') + '</span>' +
-        '<span class="da-livepop__who">' + esc(pro) + ' vs ' + esc(con) + '</span>' +
+        '<span class="da-livepop__motion">' + esc(item.headline) + '</span>' +
+        '<span class="da-livepop__who">' + esc(item.who) + '</span>' +
         '<span class="da-livepop__cta">' +
-          '<span class="da-livepop__go">Watch this round &rarr;</span>' +
-          '<span class="da-livepop__meta">' + (r.status === 'ballot' ? 'JUDGING' : 'IN PROGRESS') + '</span>' +
+          '<span class="da-livepop__go">' + esc(item.cta) + ' &rarr;</span>' +
+          '<span class="da-livepop__meta">' + esc(item.meta) + '</span>' +
         '</span>' +
       '</span>' +
       '<button type="button" class="da-livepop__x" aria-label="Not now">&#10005;</button>';
 
-    // A still that 404s between the list read and the image request
-    // (round ended, went private, camera off) collapses to the tile
-    // rather than leaving a broken frame under a LIVE badge.
+    // A frame that 404s between the list read and the image request
+    // (round ended, went private, camera off, thumbnail not built yet)
+    // collapses to the tile rather than leaving a broken frame under a
+    // badge that says a round is there.
     var img = card.querySelector('img');
     if (img) {
       img.addEventListener('error', function () {
@@ -339,10 +452,11 @@
         img.remove();
         var fb = document.createElement('span');
         fb.className = 'da-livepop__fallback';
-        fb.innerHTML = '<span class="da-livepop__ini">' + esc(initials(pro)) + '</span>' +
+        fb.innerHTML = '<span class="da-livepop__ini">' + esc(item.initials[0]) + '</span>' +
           '<span class="da-livepop__vs">VS</span>' +
-          '<span class="da-livepop__ini">' + esc(initials(con)) + '</span>';
+          '<span class="da-livepop__ini">' + esc(item.initials[1]) + '</span>';
         holder.insertBefore(fb, holder.firstChild);
+        card.classList.add('da-livepop--nopic');
       });
     }
 
@@ -357,11 +471,11 @@
     card.querySelector('.da-livepop__x').addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
-      emit('live_popup_dismiss', { room: r.room, had_shot: !!r.shot });
+      emit('live_popup_dismiss', { kind: item.kind, had_pic: !!item.img });
       close('dismiss');
     });
     card.addEventListener('click', function () {
-      emit('live_popup_click', { room: r.room, had_shot: !!r.shot, status: r.status || '' });
+      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here });
     });
 
     document.body.appendChild(card);
@@ -373,73 +487,61 @@
     requestAnimationFrame(reveal);
     setTimeout(reveal, 60);
 
-    markSeen(r.room);
+    markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { room: r.room, had_shot: !!r.shot, status: r.status || '', page: here });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, page: here });
 
     life = setTimeout(function () { close('timeout'); }, CARD_LIFE_MS);
   }
 
   /* ── polling ────────────────────────────────────────────────────
-     /api/watch-live is public, keyless, and shared-cached 12s server
-     side, and app-check.js names it as a route that must never drag
-     the App Check bundle in on load. Nothing here is metered per user,
-     so the restraint is about invocations, not entitlement. */
-  var reads = 0;
+     watch-live and live-now are public, keyless and shared-cached
+     server side, and app-check.js names watch-live as a route that must
+     never drag the App Check bundle in on load. Sources are tried in
+     order and the walk stops at the first hit, so a live round costs
+     exactly one request. */
+  var rounds = 0;
   var timer = null;
 
-  function inRoom(room) {
-    // Someone who arrived from a shared link to this exact round.
-    try { return (location.search || '').indexOf(room) >= 0; } catch (e) { return false; }
+  function pickItem() {
+    return liveItem()
+      .then(function (it) { return it || waitingItem(); })
+      .then(function (it) { return it || replayItem(); })
+      .catch(function () { return null; });
   }
 
   function check() {
-    // cornerBusy is checked before the read counter so being deferred by
-    // someone else's card never spends one of the six.
+    // cornerBusy is checked before the counter so being deferred by
+    // someone else's card never spends one of the six cycles.
     if (shown || document.hidden || gated() || cornerBusy()) return schedule();
-    if (++reads > MAX_READS) return;
-    fetch('/api/watch-live', { cache: 'no-cache' })
-      .then(function (res) { return res.ok ? res.json() : null; })
-      .then(function (j) {
-        var list = (j && j.rounds) || [];
-        if (!list.length) return schedule();
-        var seen = seenRooms();
-        var pick = null;
-        for (var i = 0; i < list.length; i++) {
-          var r = list[i];
-          if (!r || !r.room) continue;
-          if (seen.indexOf(r.room) >= 0 || inRoom(r.room)) continue;
-          // A round with a live still is the better card, so prefer one.
-          if (r.shot) { pick = r; break; }
-          if (!pick) pick = r;
-        }
-        if (!pick) return schedule();
-        if (gated() || cornerBusy()) return schedule();
-        render(pick);
-      })
-      .catch(function () { schedule(); });
+    if (++rounds > MAX_ROUNDS) return;
+    pickItem().then(function (item) {
+      if (!item) return schedule();
+      if (gated() || cornerBusy()) return schedule();
+      render(item);
+    });
   }
 
   function schedule() {
-    if (shown || timer || reads > MAX_READS) return;
+    if (shown || timer || rounds > MAX_ROUNDS) return;
     timer = setTimeout(function () { timer = null; check(); }, POLL_MS);
   }
 
   if (demo) {
     var fake = {
-      room: 'demo', motion: 'Billionaire tax should not go up',
-      proName: 'banaandebater', conName: 'Yael', status: 'round'
+      kind: 'live', key: 'demo', badge: 'LIVE NOW',
+      headline: 'Billionaire tax should not go up',
+      who: 'banaandebater vs Yael', meta: 'IN PROGRESS',
+      cta: 'Watch this round', href: '/live-round?room=demo&spectate=1',
+      img: demoPic ? '/landing-shot-live.jpg' : null,
+      initials: ['B', 'Y']
     };
-    if (demoPic) { fake.shot = 1; fake.shotUrl = '/landing-shot-live.jpg'; }
     setTimeout(function () { render(fake); }, 400);
     return;
   }
 
-  if (force) {
-    setTimeout(check, 300);
-    return;
-  }
+  if (force) { setTimeout(check, 300); return; }
 
   /* Visible dwell, not wall clock: a tab opened in the background and
      never looked at should not spend a read, and should not have its
