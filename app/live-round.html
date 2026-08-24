@@ -12845,8 +12845,24 @@ html.stage-mode .stage-ov{display:block}
   }
 
   // Render the 9:16 share card to a canvas, return a Promise that
-  // resolves to a PNG Blob. Layout fixed at 1080×1920 so social
+  // resolves to a PNG Blob. Layout fixed at 1080x1920 so social
   // platforms upload it without re-encoding the aspect.
+  //
+  // REBUILT 2026-08-24 (the founder, on a shipped card: make this
+  // cooler). The old layout pinned every block to a hardcoded Y: motion
+  // at 510, quote at 880, RFD at 1620. The quote is the only block that
+  // can be absent, because it is picked out of the transcript and a
+  // short round often has no sentence in the 30-220 character band, and
+  // when it was absent the card published SEVEN HUNDRED PIXELS of empty
+  // black between the motion and the RFD. That is most of the image, on
+  // the one artefact whose whole job is to be looked at by strangers.
+  //
+  // So nothing is pinned any more. Each block measures itself, the
+  // stack is centred in the space between the result plate and the
+  // footer, and a missing block closes its own gap. The card also gained
+  // the thing it was missing rather than merely losing the hole: a real
+  // scoreboard, both names, both sides, both scores, the winner lit and
+  // the loser dimmed, which is the part a stranger reads as a contest.
   function renderClipCanvas(b){
     var canvas = document.createElement('canvas');
     canvas.width = 1080; canvas.height = 1920;
@@ -12863,163 +12879,254 @@ html.stage-mode .stage-ov{display:block}
         this.lineTo(x, y + rr); this.quadraticCurveTo(x, y, x + rr, y);
       };
     }
+    var SANS = 'Archivo, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    var SERIF = '"Source Serif 4", Georgia, serif';
     var f = FORMATS[state.formatKey];
     var ms = mySide();
     var won = ms && b.winner === ms;
     var didLose = ms && b.winner && b.winner !== ms;
+    var accent = won ? '#22c55e' : '#ef4444';
+    var accentSoft = won ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
 
-    // Background: vertical gradient skewed by outcome. Win = green-
-    // tinted, loss = red-tinted, spectator/draw = neutral red.
-    var grad = ctx.createLinearGradient(0, 0, 0, 1920);
-    if (won){
-      grad.addColorStop(0, '#0a1f12'); grad.addColorStop(1, '#06120a');
-    } else if (didLose){
-      grad.addColorStop(0, '#1a0a0e'); grad.addColorStop(1, '#0a0508');
-    } else {
-      grad.addColorStop(0, '#15090c'); grad.addColorStop(1, '#080406');
-    }
+    // Background: outcome-tinted gradient, a corner glow, and a faint
+    // dot grid. The grid is what stops a mostly-type card reading as a
+    // screenshot of a terminal.
+    var grad = ctx.createLinearGradient(0, 0, 540, 1920);
+    if (won){ grad.addColorStop(0, '#0b2416'); grad.addColorStop(.55, '#07130c'); grad.addColorStop(1, '#040a07'); }
+    else if (didLose){ grad.addColorStop(0, '#20090f'); grad.addColorStop(.55, '#100509'); grad.addColorStop(1, '#070305'); }
+    else { grad.addColorStop(0, '#1b0a0f'); grad.addColorStop(.55, '#0e0508'); grad.addColorStop(1, '#060304'); }
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1080, 1920);
-
-    // Top accent bar
-    var accent = won ? '#22c55e' : (didLose ? '#ef4444' : '#ef4444');
-    ctx.fillStyle = accent;
-    ctx.fillRect(0, 0, 1080, 8);
-
-    // Header: DEBATABLE wordmark (left) + format badge (right)
-    ctx.font = '900 44px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.fillText('DEBAT', 64, 110);
-    ctx.fillStyle = accent;
-    ctx.fillText('ABLE', 64 + ctx.measureText('DEBAT').width + 4, 110);
-    // Format pill, right-aligned
-    var formatLabel = (f && f.name ? f.name : (state.formatKey || 'Round')).toUpperCase();
-    ctx.font = '700 24px ui-sans-serif, system-ui, sans-serif';
-    var fLabelW = ctx.measureText(formatLabel).width;
-    var pillX = 1080 - 64 - fLabelW - 36;
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(pillX, 80, fLabelW + 36, 44, 22);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.fillText(formatLabel, pillX + 18, 110);
-
-    // Verdict band — the visual anchor of the card
-    var verdictY = 200;
-    var verdictH = 220;
-    ctx.fillStyle = won ? 'rgba(34,197,94,0.12)' : (didLose ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.10)');
-    ctx.fillRect(0, verdictY, 1080, verdictH);
-    ctx.strokeStyle = won ? 'rgba(34,197,94,0.45)' : (didLose ? 'rgba(239,68,68,0.45)' : 'rgba(239,68,68,0.35)');
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, verdictY); ctx.lineTo(1080, verdictY);
-    ctx.moveTo(0, verdictY + verdictH); ctx.lineTo(1080, verdictY + verdictH);
-    ctx.stroke();
-    // Verdict eyebrow
-    ctx.font = '800 22px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.textAlign = 'center';
-    ctx.fillText(won ? 'VICTORY' : (didLose ? 'DEFEAT' : 'ROUND RESULT'), 540, verdictY + 56);
-    // Verdict headline
-    ctx.font = '900 92px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillStyle = won ? '#4ade80' : (didLose ? '#fca5a5' : '#ffffff');
-    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
-    var winnerSide = '';
-    if (f && f.sideLabels) winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
-    var headline = won ? 'I won.' : (didLose ? 'I lost.' : (winnerName || 'Round') + ' wins');
-    ctx.fillText(headline, 540, verdictY + 154);
-    // Verdict sub
-    ctx.font = '600 26px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    var pp = b.proPoints != null ? b.proPoints : null;
-    var cp = b.conPoints != null ? b.conPoints : null;
-    var sub = winnerSide ? winnerSide.toUpperCase() : '';
-    if (pp != null && cp != null) sub += (sub ? ' · ' : '') + pp + '–' + cp + ' speaks';
-    if (sub) ctx.fillText(sub, 540, verdictY + 196);
-
-    // Motion block
-    var motion = state.motion || 'Untitled motion';
-    var motionY = 510;
-    ctx.font = '900 56px "Source Serif 4", Georgia, serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    var motionLines = wrapLines(ctx, motion, 920);
-    motionLines = motionLines.slice(0, 4); // hard cap
-    motionLines.forEach(function(line, i){
-      ctx.fillText(line, 540, motionY + i * 70);
-    });
-    var motionEnd = motionY + motionLines.length * 70 + 30;
-
-    // Pull-quote block — your best line. The hook that makes the
-    // share share-worthy.
-    var bestLine = pickBestLine(b);
-    if (bestLine){
-      var quoteY = Math.max(motionEnd + 50, 880);
-      // Big stylized opening quote mark
-      ctx.font = '900 220px "Source Serif 4", Georgia, serif';
-      ctx.fillStyle = won ? 'rgba(34,197,94,0.32)' : 'rgba(239,68,68,0.32)';
-      ctx.textAlign = 'left';
-      ctx.fillText('“', 80, quoteY);
-      // Quote body
-      ctx.font = '600 40px "Source Serif 4", Georgia, serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      var quoteLines = wrapLines(ctx, bestLine, 920);
-      quoteLines = quoteLines.slice(0, 8);
-      quoteLines.forEach(function(line, i){
-        ctx.fillText(line, 80, quoteY + 60 + i * 56);
-      });
-      // Attribution
-      ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.textAlign = 'left';
-      var byName = state.user ? publicNameOf(state.user) : (ms ? (ms === 'pro' ? state.proName : state.conName) : (winnerName || ''));
-      var attLabel = 'by ' + (byName || 'Speaker');
-      if (ms && f && f.sideLabels){
-        attLabel += ', ' + f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]];
+    var glow = ctx.createRadialGradient(880, 220, 20, 880, 220, 760);
+    glow.addColorStop(0, accentSoft + '0.20)');
+    glow.addColorStop(1, accentSoft + '0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, 1080, 1100);
+    ctx.fillStyle = 'rgba(255,255,255,0.045)';
+    for (var gx = 40; gx < 1080; gx += 46){
+      for (var gy = 40; gy < 1920; gy += 46){
+        ctx.fillRect(gx, gy, 2, 2);
       }
-      ctx.fillText(attLabel, 80, quoteY + 60 + quoteLines.length * 56 + 36);
     }
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, 1080, 10);
 
-    // Footer block: RFD snippet + watermark
-    // First sentence of the RFD, capped at ~160 chars.
-    var rfdRaw = (b.rfd || '').replace(/\s+/g, ' ').trim();
-    var rfdSnippet = '';
-    if (rfdRaw){
-      var firstSentence = rfdRaw.split(/(?<=[.!?])\s+/)[0] || rfdRaw;
-      if (firstSentence.length > 180) firstSentence = firstSentence.slice(0, 177) + '…';
-      rfdSnippet = firstSentence;
-    }
-    if (rfdSnippet){
-      var rfdY = 1620;
-      ctx.font = '800 20px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = accent;
-      ctx.textAlign = 'left';
-      ctx.fillText('JUDGE’S RFD', 80, rfdY);
-      ctx.font = '500 28px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      var rfdLines = wrapLines(ctx, rfdSnippet, 920);
-      rfdLines = rfdLines.slice(0, 3);
-      rfdLines.forEach(function(line, i){
-        ctx.fillText(line, 80, rfdY + 38 + i * 38);
-      });
-    }
-
-    // Watermark band — the conversion hook. Never remove.
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    ctx.fillRect(0, 1820, 1080, 100);
-    ctx.font = '900 32px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillStyle = '#ffffff';
+    // ── Header
+    ctx.font = '900 46px ' + SANS;
     ctx.textAlign = 'left';
-    ctx.fillText('itsdebatable.com', 80, 1880);
-    ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('DEBAT', 64, 116);
+    ctx.fillStyle = accent;
+    ctx.fillText('ABLE', 64 + ctx.measureText('DEBAT').width + 4, 116);
+    var formatLabel = (f && f.name ? f.name : (state.formatKey || 'Round')).toUpperCase();
+    ctx.font = '800 24px ' + SANS;
+    var fLabelW = ctx.measureText(formatLabel).width;
+    var pillX = 1080 - 64 - fLabelW - 40;
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(pillX, 84, fLabelW + 40, 46, 23); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(formatLabel, pillX + 20, 116);
+
+    // ── Result plate. A card rather than a full-bleed band, so the
+    // headline has an edge to sit inside instead of floating.
+    var plateX = 56, plateW = 1080 - 112, plateY = 188, plateH = 268;
+    ctx.fillStyle = accentSoft + '0.13)';
+    ctx.strokeStyle = accentSoft + '0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(plateX, plateY, plateW, plateH, 34); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = '900 24px ' + SANS;
+    ctx.fillStyle = accentSoft + '0.95)';
+    var eyebrow = won ? 'VICTORY' : (didLose ? 'DEFEAT' : 'ROUND RESULT');
+    // Letter-spaced by hand: canvas has no letterSpacing in Safari.
+    (function(text, y){
+      var chars = text.split(''), sp = 6, total = 0, i;
+      for (i = 0; i < chars.length; i++) total += ctx.measureText(chars[i]).width + sp;
+      var x = 540 - (total - sp) / 2;
+      ctx.textAlign = 'left';
+      for (i = 0; i < chars.length; i++){ ctx.fillText(chars[i], x, y); x += ctx.measureText(chars[i]).width + sp; }
+      ctx.textAlign = 'center';
+    })(eyebrow, plateY + 58);
+    var winnerName = b.winner === 'pro' ? state.proName : state.conName;
+    var headline = won ? 'I won.' : (didLose ? 'I lost.' : ((winnerName || 'Round') + ' wins'));
+    ctx.font = '900 104px ' + SANS;
+    if (ctx.measureText(headline).width > plateW - 120) ctx.font = '900 78px ' + SANS;
+    ctx.fillStyle = won ? '#5ee68b' : (didLose ? '#fda4a4' : '#ffffff');
+    ctx.fillText(headline, 540, plateY + 172);
+    ctx.font = '700 26px ' + SANS;
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    var whenLabel = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    ctx.fillText('Judged by AI on the published rubric · ' + whenLabel, 540, plateY + 222);
+
+    // ── The blocks between the plate and the footer. Each one reports
+    // its own height so the stack can be centred; a block that has
+    // nothing to say returns null and takes its gap with it.
+    var FOOT_TOP = 1792;
+    var TOP = plateY + plateH + 56;
+    var blocks = [];
+    // Decided before the motion is measured, because a card with no
+    // quote has room to spare and the motion is the thing worth
+    // spending it on. Type that grows into the space is the difference
+    // between a sparse card and an airy one.
+    var bestLine = pickBestLine(b);
+    var motionSize = bestLine ? 58 : 72;
+    var motionStep = bestLine ? 72 : 88;
+
+    // Motion, the statement itself.
+    (function(){
+      var motion = (state.motion || '').trim();
+      if (!motion) return;
+      ctx.font = '900 ' + motionSize + 'px ' + SERIF;
+      var lines = wrapLines(ctx, motion, 900).slice(0, 4);
+      blocks.push({ h: 34 + lines.length * motionStep, draw: function(y){
+        ctx.textAlign = 'center';
+        ctx.font = '800 22px ' + SANS;
+        ctx.fillStyle = 'rgba(255,255,255,0.42)';
+        ctx.fillText('THE MOTION', 540, y + 4);
+        ctx.font = '900 ' + motionSize + 'px ' + SERIF;
+        ctx.fillStyle = '#ffffff';
+        lines.forEach(function(line, i){ ctx.fillText(line, 540, y + 66 + i * motionStep); });
+      }});
+    })();
+
+    // Scoreboard. Two seats, two scores, the winner lit. This is the
+    // block that makes the card read as a contest rather than a quote.
+    (function(){
+      var pp = b.proPoints != null ? b.proPoints : null;
+      var cp = b.conPoints != null ? b.conPoints : null;
+      var proSide = (f && f.sideLabels) ? f.sideLabels[f.sides[0]] : 'Prop';
+      var conSide = (f && f.sideLabels) ? f.sideLabels[f.sides[1]] : 'Opp';
+      var seats = [
+        { name: state.proName || proSide, side: proSide, pts: pp, win: b.winner === 'pro' },
+        { name: state.conName || conSide, side: conSide, pts: cp, win: b.winner === 'con' },
+      ];
+      if (!seats[0].name && !seats[1].name) return;
+      var H = 226;
+      blocks.push({ h: H, draw: function(y){
+        var cw = (plateW - 26) / 2;
+        seats.forEach(function(seat, i){
+          var x = plateX + i * (cw + 26);
+          var lit = seat.win;
+          ctx.fillStyle = lit ? accentSoft + '0.14)' : 'rgba(255,255,255,0.045)';
+          ctx.strokeStyle = lit ? accentSoft + '0.55)' : 'rgba(255,255,255,0.12)';
+          ctx.lineWidth = lit ? 3 : 2;
+          ctx.beginPath(); ctx.roundRect(x, y, cw, H, 26); ctx.fill(); ctx.stroke();
+          ctx.textAlign = 'center';
+          var mid = x + cw / 2;
+          ctx.font = '800 21px ' + SANS;
+          ctx.fillStyle = lit ? accentSoft + '0.95)' : 'rgba(255,255,255,0.4)';
+          ctx.fillText((seat.side || '').toUpperCase(), mid, y + 44);
+          ctx.font = '900 40px ' + SANS;
+          var nm = seat.name || '';
+          if (ctx.measureText(nm).width > cw - 48) ctx.font = '900 30px ' + SANS;
+          ctx.fillStyle = lit ? '#ffffff' : 'rgba(255,255,255,0.62)';
+          ctx.fillText(nm, mid, y + 100);
+          if (seat.pts != null){
+            ctx.font = '900 66px ' + SANS;
+            ctx.fillStyle = lit ? (won || !ms ? accent : '#ffffff') : 'rgba(255,255,255,0.5)';
+            ctx.fillText(String(seat.pts), mid, y + 172);
+            ctx.font = '700 19px ' + SANS;
+            ctx.fillStyle = 'rgba(255,255,255,0.38)';
+            ctx.fillText('SPEAKER POINTS', mid, y + 200);
+          } else if (lit){
+            ctx.font = '900 30px ' + SANS;
+            ctx.fillStyle = accent;
+            ctx.fillText('WINNER', mid, y + 168);
+          }
+        });
+        // VS disc over the seam
+        ctx.beginPath(); ctx.arc(540, y + H / 2, 38, 0, Math.PI * 2);
+        ctx.fillStyle = '#0b0708'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.font = '900 28px ' + SANS;
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.textAlign = 'center';
+        ctx.fillText('VS', 540, y + H / 2 + 10);
+      }});
+    })();
+
+    // The line worth quoting, when the transcript has one.
+    (function(){
+      if (!bestLine) return;
+      ctx.font = '600 42px ' + SERIF;
+      var lines = wrapLines(ctx, bestLine, 852).slice(0, 5);
+      var byName = state.user ? publicNameOf(state.user)
+        : (ms ? (ms === 'pro' ? state.proName : state.conName) : (winnerName || ''));
+      var att = 'by ' + (byName || 'Speaker');
+      if (ms && f && f.sideLabels) att += ', ' + f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]];
+      var H = 48 + lines.length * 58 + 46;
+      blocks.push({ h: H, draw: function(y){
+        ctx.fillStyle = accentSoft + '0.07)';
+        ctx.strokeStyle = accentSoft + '0.28)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(plateX, y, plateW, H, 26); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = accent;
+        ctx.fillRect(plateX, y + 22, 6, H - 44);
+        ctx.textAlign = 'left';
+        ctx.font = '900 92px ' + SERIF;
+        ctx.fillStyle = accentSoft + '0.35)';
+        ctx.fillText('“', plateX + 30, y + 88);
+        ctx.font = '600 42px ' + SERIF;
+        ctx.fillStyle = '#ffffff';
+        lines.forEach(function(line, i){ ctx.fillText(line, plateX + 92, y + 62 + i * 58); });
+        ctx.font = '800 22px ' + SANS;
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(att, plateX + 92, y + 62 + lines.length * 58 + 14);
+      }});
+    })();
+
+    // The judge, in one sentence.
+    (function(){
+      var rfdRaw = (b.rfd || '').replace(/\s+/g, ' ').trim();
+      if (!rfdRaw) return;
+      var first = rfdRaw.split(/(?<=[.!?])\s+/)[0] || rfdRaw;
+      if (first.length > 200) first = first.slice(0, 197) + '…';
+      ctx.font = '500 30px ' + SANS;
+      var lines = wrapLines(ctx, first, 900).slice(0, 3);
+      blocks.push({ h: 40 + lines.length * 42, draw: function(y){
+        ctx.textAlign = 'left';
+        ctx.font = '900 21px ' + SANS;
+        ctx.fillStyle = accent;
+        ctx.fillText('THE JUDGE SAID', plateX + 4, y + 4);
+        ctx.font = '500 30px ' + SANS;
+        ctx.fillStyle = 'rgba(255,255,255,0.86)';
+        lines.forEach(function(line, i){ ctx.fillText(line, plateX + 4, y + 48 + i * 42); });
+      }});
+    })();
+
+    // Centre whatever survived. With every block present the gaps
+    // compress to the minimum; with only two they open up. Either way
+    // there is no hole, because the hole was never content, it was the
+    // difference between a fixed Y and a real one.
+    (function(){
+      if (!blocks.length) return;
+      var GAP_MAX = 168, GAP_MIN = 34;
+      var space = FOOT_TOP - TOP;
+      var used = blocks.reduce(function(a, bl){ return a + bl.h; }, 0);
+      var gaps = Math.max(1, blocks.length - 1);
+      var gap = Math.min(GAP_MAX, Math.max(GAP_MIN, (space - used) / (gaps + 1)));
+      var y = TOP + Math.max(0, (space - used - gap * gaps) / 2);
+      blocks.forEach(function(bl, i){
+        bl.draw(y);
+        y += bl.h + gap;
+      });
+    })();
+
+    // ── Footer. The conversion hook. Never remove.
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0, FOOT_TOP, 1080, 1920 - FOOT_TOP);
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillRect(0, FOOT_TOP, 1080, 2);
+    ctx.textAlign = 'left';
+    ctx.font = '900 34px ' + SANS;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('itsdebatable.com', 64, FOOT_TOP + 78);
     ctx.textAlign = 'right';
-    ctx.fillText('Spar a real debater. Free.', 1000, 1880);
+    ctx.font = '800 24px ' + SANS;
+    ctx.fillStyle = accent;
+    ctx.fillText('Debate a stranger. Free.', 1016, FOOT_TOP + 78);
 
     function finishBlob(){
       return new Promise(function(resolve, reject){
@@ -13037,10 +13144,11 @@ html.stage-mode .stage-ov{display:block}
       try {
         var img = new Image();
         img.onload = function(){
-          ctx.save(); ctx.beginPath(); ctx.arc(124, verdictY + verdictH / 2, 58, 0, Math.PI * 2); ctx.clip();
-          ctx.drawImage(img, 66, verdictY + verdictH / 2 - 58, 116, 116); ctx.restore();
-          ctx.beginPath(); ctx.arc(124, verdictY + verdictH / 2, 59, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 3; ctx.stroke(); resolve();
+          var cx = 148, cy = plateY + 84, r = 52;
+          ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+          ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2); ctx.restore();
+          ctx.beginPath(); ctx.arc(cx, cy, r + 1, 0, Math.PI * 2);
+          ctx.strokeStyle = accentSoft + '0.6)'; ctx.lineWidth = 3; ctx.stroke(); resolve();
         };
         img.onerror = resolve;
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DBAvatar.publicSvg(shareIdentity, 116, {uid:state.user.uid,name:publicNameOf(state.user)}));
@@ -13066,10 +13174,10 @@ html.stage-mode .stage-ov{display:block}
         '</div>' +
         '<div class="clip-actions">' +
           '<div class="clip-row">' +
-            '<button class="btn btn-primary" id="clipShareBtn" type="button" style="background:var(--accent);border-color:var(--accent)">📲 Share</button>' +
-            '<button class="btn" id="clipDownloadBtn" type="button">💾 Download</button>' +
+            '<button class="btn btn-primary" id="clipShareBtn" type="button" style="background:var(--accent);border-color:var(--accent)">Share it</button>' +
+            '<button class="btn" id="clipDownloadBtn" type="button">Save the image</button>' +
           '</div>' +
-          '<div class="clip-hint">9:16 PNG · drop into Reels, TikTok, X, or your story.</div>' +
+          '<div class="clip-hint">9:16 PNG, sized for Reels, TikTok, and stories.</div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(ov);
