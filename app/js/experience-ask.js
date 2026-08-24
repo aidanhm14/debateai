@@ -47,6 +47,7 @@
     '/live-round', '/voice-debate', '/newvoice', '/practice', '/casual-room',
     '/room-judge', '/voice-rfd', '/coach', '/exhibition', '/open', '/spar',
     '/debate-chat', '/live', '/settings', '/admin', '/onboarding', '/watch',
+    '/pricing', '/pricing.html',
   ];
 
   function skipped() {
