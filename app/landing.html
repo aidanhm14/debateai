@@ -7438,6 +7438,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the CTAs are what should pull the eye toward the stranger match, so
      the right column takes a larger share and the wrap grows 80px. */
   .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(32px,4.2vw,64px);align-items:center}
+  /* 2026-08-24, per Aidan: the composition moves "a tad left" so the
+     leaderboard rail (#lbRail, the dock of faces clipped by the right
+     edge) has room to sit beside the example board instead of on top of
+     it. Transform rather than a margin: the wrap is a centred flex item,
+     so a margin-right would shrink it AND move it by half the value,
+     while a translate moves it by exactly what it says. Desktop only;
+     the rail is display:none under 1101px and so is this.
+
+     The flag is set SYNCHRONOUSLY by the small script under the first
+     screen, not by the renderer that lands with the board data. Waiting
+     for the fetch would slide the headline 40px sideways a few hundred
+     milliseconds after load, which is a jolt on the one thing above the
+     fold. It also means the shift survives a failed board fetch: 40px of
+     a centred composition is not detectable without a ruler, and taking
+     it back would be that same jolt in the case where something has
+     already gone wrong. */
+  @media(min-width:1101px){
+    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(-52px,-3.2vw,-30px))}
+  }
   /* The copy column is a flex column with ONE gap, so its three blocks
      (the CTA cluster, the Open card, the globe) are evenly spaced by the
      container instead of each carrying its own margin. The hidden copy
@@ -8732,6 +8751,190 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        asked for a cleaner first screen, so it moved down into the Full
        tour row and sits to the left of #landing-more-toggle now. -->
 </section>
+
+<!-- ── Leaderboard rail (2026-08-24, Aidan: "on the right side have the
+     profile pictures hanging over the edge of the right side where if you
+     move over / highlight it, it expands ... vertical on the right side
+     highlighting the leaderboard"). A macOS-dock read on the board: the
+     top of /leaderboard rides the right edge of the window as a column of
+     faces, each one clipped by the edge, and pointing at the column
+     slides it in and opens a name-and-score card per row. The hovered
+     face grows and its neighbours grow less, which is the dock falloff
+     from the reference.
+
+     This is NOT the in-flow "leaderboard teaser" strip removed 2026-08-22
+     (the note above says do not re-inline one, and that still stands).
+     That was a band under the hero taking vertical space on a page whose
+     whole point is one screen. This costs zero layout: it is fixed to the
+     viewport edge, it paints only while the first screen is in view, and
+     it is display:none under 1101px where there is no room beside the
+     content.
+
+     TRUTH RULE, the same one the ranked band records at avaEmblem: these
+     rows carry a real person's name and a real score, so a portrait must
+     BE them or not be there. Order is their built avatar, then the Google
+     photo on their account, then a seeded emblem; an anonymous debater
+     gets the masked one. No stock faces, ever. And the rail renders
+     NOTHING until real rows arrive: a failed fetch or a thin board leaves
+     the hero exactly as it was rather than hanging invented names off the
+     edge of the screen. -->
+<aside id="lbRail" class="lbr" aria-label="Leaderboard" hidden>
+  <a class="lbr-item lbr-head" href="/leaderboard" data-lbr="head">
+    <span class="lbr-card" aria-hidden="true"><span class="lbr-nm">Leaderboard</span><span class="lbr-sub">Who is winning right now</span></span>
+    <span class="lbr-pic"><span class="lbr-ava lbr-ava--head" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <path d="M5 19V13"/><path d="M12 19V5"/><path d="M19 19v-9"/>
+      </svg>
+    </span></span>
+    <span class="lbr-sr">Leaderboard</span>
+  </a>
+  <div class="lbr-list" id="lbRailList"></div>
+  <a class="lbr-item lbr-more" href="/leaderboard" data-lbr="all" hidden>
+    <span class="lbr-card" aria-hidden="true"><span class="lbr-nm">See the full board</span><span class="lbr-sub" data-lbr-total></span></span>
+    <span class="lbr-pic"><span class="lbr-ava lbr-ava--more" aria-hidden="true">&rarr;</span></span>
+    <span class="lbr-sr">See the full board</span>
+  </a>
+</aside>
+<style>
+  /* One place for the three numbers that decide the shape: the face, how
+     much of it sits past the edge of the window (this is what "hanging
+     over the edge" means, so it is a variable and not a magic number),
+     and how far the card reaches back over the page. */
+  .lbr{
+    --lbr-ava:48px;
+    --lbr-peek:20px;
+    --lbr-card:200px;
+    position:fixed;right:0;top:50%;z-index:45;
+    transform:translate(var(--lbr-peek),-50%);
+    display:flex;flex-direction:column;align-items:flex-end;gap:9px;
+    /* Left padding is hit area, not spacing: collapsed, only ~28px of
+       each face is on screen, and a 12px approach makes the rail easy to
+       reach without a precise mouse. */
+    padding:8px 0 8px 14px;
+    opacity:0;pointer-events:none;
+    transition:transform .34s cubic-bezier(.22,.9,.3,1),opacity .28s ease;
+  }
+  /* Set by the rail's own script once real rows have painted, and only
+     while the first screen is in view. */
+  body.lbr-on .lbr{opacity:1;pointer-events:auto}
+  .lbr:hover,.lbr:focus-within{transform:translate(0,-50%)}
+  @media(max-width:1100px){.lbr{display:none}}
+  /* A class rule out-specifies the UA [hidden] rule, so the two elements
+     that start hidden (the rail itself, and the "see all" foot until a
+     total arrives) need this or they occupy the edge invisibly and still
+     reach the accessibility tree. */
+  .lbr[hidden],.lbr-item[hidden]{display:none}
+
+  .lbr-list{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+  .lbr-item{position:relative;display:flex;justify-content:flex-end;text-decoration:none;color:inherit}
+
+  /* .lbr-pic is the thing that MAGNIFIES, and it is a separate element
+     from the circle for two reasons: the circle clips its own content
+     (that is what makes it round), so a rank pip inside it loses its
+     outboard corner; and the avatar engine repaints the circle's
+     innerHTML wholesale when a debater has a built avatar, which would
+     take the pip with it. transform-origin pins the RIGHT edge, so
+     magnifying grows the face leftwards into the page instead of pushing
+     it further off the screen. */
+  .lbr-pic{
+    position:relative;width:var(--lbr-ava);height:var(--lbr-ava);flex:none;
+    transform-origin:100% 50%;
+    transition:transform .2s cubic-bezier(.22,.9,.3,1);
+  }
+  .lbr-ava{
+    position:absolute;inset:0;
+    border-radius:50%;overflow:hidden;background:#221b1e;
+    border:2px solid rgba(255,255,255,.18);
+    box-shadow:0 10px 26px rgba(0,0,0,.38);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display,inherit);font-weight:800;font-size:.86rem;letter-spacing:.02em;color:#fff;
+    transition:border-color .2s ease,box-shadow .2s ease;
+  }
+  [data-theme="light"] .lbr-ava{border-color:rgba(29,25,21,.14);background:#f2ece2;color:#1a1a1f}
+  .lbr-ava img,.lbr-ava svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  /* Their real photo paints OVER the emblem behind it, so removing a dead
+     <img> in onerror reveals the emblem rather than leaving a hole. */
+  .lbr-ava img{z-index:1}
+  /* Dock falloff: the pointed-at face grows most, its neighbours less.
+     :has drives the "one above" half; a browser without it simply
+     magnifies the hovered face alone, which still reads correctly. */
+  .lbr-item:hover .lbr-pic,.lbr-item:focus-visible .lbr-pic{transform:scale(1.28)}
+  .lbr-item:hover .lbr-ava,.lbr-item:focus-visible .lbr-ava{border-color:rgba(239,68,68,.8);box-shadow:0 14px 34px rgba(0,0,0,.46)}
+  .lbr-item:hover + .lbr-item .lbr-pic,.lbr-item:has(+ .lbr-item:hover) .lbr-pic{transform:scale(1.12)}
+  .lbr-list .lbr-item:first-child .lbr-ava{border-color:rgba(239,68,68,.55)}
+  .lbr-item:focus-visible{outline:none}
+  .lbr-item:focus-visible .lbr-ava{outline:2px solid #ef4444;outline-offset:3px}
+
+  /* Rank pip. Outboard corner of the circle, and a sibling of it rather
+     than a child (see .lbr-pic above). */
+  .lbr-rk{
+    position:absolute;left:-4px;bottom:-2px;z-index:2;
+    min-width:19px;height:19px;padding:0 4px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:#0f0c0d;color:#fff;border:1.5px solid rgba(255,255,255,.24);
+    font-family:var(--font-mono,ui-monospace,monospace);font-size:.62rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1
+  }
+  .lbr-list .lbr-item:first-child .lbr-rk{background:#dc2626;border-color:rgba(255,255,255,.36)}
+  [data-theme="light"] .lbr-rk{background:#1a1a1f;border-color:rgba(255,255,255,.6)}
+
+  .lbr-ava--head,.lbr-ava--more{background:#191315;color:#fff;font-size:1.05rem}
+  [data-theme="light"] .lbr-ava--head,[data-theme="light"] .lbr-ava--more{background:#1a1a1f;color:#fff;border-color:rgba(29,25,21,.2)}
+  .lbr-ava--head svg{width:20px;height:20px;position:static;inset:auto;color:#f87171}
+  .lbr-ava--head{border-color:rgba(239,68,68,.45)}
+
+  /* The card is absolutely positioned, so opening the rail animates two
+     properties and moves no layout. It reaches back over the page on
+     purpose: it is a hover popover, the same way a dock label is. */
+  .lbr-card{
+    position:absolute;top:50%;right:calc(var(--lbr-ava) + 14px);
+    width:max-content;max-width:var(--lbr-card);
+    display:flex;flex-direction:column;gap:2px;align-items:flex-end;text-align:right;
+    padding:8px 12px;border-radius:13px;
+    background:rgba(34,27,30,.95);color:#f6f1ea;
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 16px 40px rgba(0,0,0,.42);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    opacity:0;pointer-events:none;
+    transform:translate(12px,-50%) scale(.96);transform-origin:100% 50%;
+    transition:opacity .2s ease,transform .3s cubic-bezier(.22,.9,.3,1);
+  }
+  [data-theme="light"] .lbr-card{background:rgba(255,253,250,.96);color:#1a1a1f;border-color:rgba(29,25,21,.12);box-shadow:0 16px 40px rgba(29,25,21,.18)}
+  .lbr:hover .lbr-card,.lbr:focus-within .lbr-card{opacity:1;transform:translate(0,-50%) scale(1)}
+  .lbr-nm{font-weight:800;font-size:.9rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .lbr-sub{font-size:.72rem;line-height:1.2;opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .lbr-sub b{font-family:var(--font-mono,ui-monospace,monospace);font-variant-numeric:tabular-nums;font-weight:700;opacity:1}
+  .lbr-item:hover .lbr-card{border-color:rgba(239,68,68,.4)}
+
+  /* Name + score stay in the accessibility tree at every state; the card
+     is a visual affordance, not the only copy. */
+  .lbr-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  @media(prefers-reduced-motion:reduce){
+    .lbr,.lbr-card,.lbr-pic,.lbr-ava{transition:none}
+    .lbr-item:hover .lbr-pic,.lbr-item:focus-visible .lbr-pic,
+    .lbr-item:hover + .lbr-item .lbr-pic,.lbr-item:has(+ .lbr-item:hover) .lbr-pic{transform:none}
+  }
+</style>
+<script>
+  /* Kick the board fetch here rather than in the renderer further down
+     the document: the rail is above the fold, so it should not wait on
+     ~5,000 more lines of parse. The promise is shared with #ranked-band's
+     lazy loader, which reuses it instead of asking twice. The endpoint is
+     shared-cached at 5 minutes server-side, so this is one function call
+     per visitor, not a Firestore read. */
+  window.__lbTopReq = (function(){
+    try {
+      if (!window.matchMedia || !window.matchMedia('(min-width:1101px)').matches) return null;
+      // Same tick as the parser, so the hero is already in its shifted
+      // position the first time it paints. See the note on
+      // html.lbr-ready in the first-screen styles.
+      document.documentElement.classList.add('lbr-ready');
+      return fetch('/api/leaderboard-top', { cache: 'no-cache' })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .catch(function(){ return null; });
+    } catch (e) { return null; }
+  })();
+</script>
 
 <!-- ── Leaderboard teaser ── REMOVED 2026-08-22, same day it shipped.
      The real-people strip under the first screen came off on the founder's
@@ -14385,11 +14588,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (avaWantsEngine) avaUpgrade(host);
     animateRbScores(host);
   }
+  /* The first-screen leaderboard rail (#lbRail) paints the same people
+     this board does, so it borrows the same portrait tiers rather than
+     growing a second emblem generator that would drift. Exported, not
+     copied: a debater must wear the same face on both surfaces of one
+     page. */
+  window.__rbAva = { emblem: avaEmblem, anon: avaAnon, upgrade: avaUpgrade, fmtScore: fmtScore };
   var fired = false;
   function loadOnce(){
     if (fired) return; fired = true;
-    fetch('/api/leaderboard-top', { cache: 'no-cache' })
-      .then(function(r){ return r.ok ? r.json() : null; })
+    /* The rail already asked for this above the fold, so reuse its
+       promise instead of spending a second request on the same
+       5-minute-cached payload. Falls back to its own fetch when the rail
+       never ran (narrow viewport, or the element is gone). */
+    var req = window.__lbTopReq || fetch('/api/leaderboard-top', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; });
+    req
       .then(function(j){ renderBoard(j && j.rows, j && j.total); })
       .catch(function(){ renderBoard(null); });
   }
@@ -14420,6 +14634,150 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (t && t.closest && t.closest('a')) return;
     var row = t && t.closest ? t.closest('.rb-row[data-href]') : null;
     if (row) location.href = row.getAttribute('data-href');
+  });
+})();
+</script>
+
+<!-- ── Leaderboard rail renderer (2026-08-24) ────────────────────────
+     Sits AFTER the ranked band on purpose: it borrows that block's
+     portrait tiers through window.__rbAva, so the same debater wears the
+     same face in the rail and in the board further down the page. The
+     fetch itself started up at the first screen; this only paints it. -->
+<script>
+(function(){
+  var rail = document.getElementById('lbRail');
+  var list = rail && document.getElementById('lbRailList');
+  if (!rail || !list) return;
+  // Under 1101px the rail is display:none and __lbTopReq was never
+  // started, so there is nothing to paint and nothing to observe.
+  if (!window.matchMedia || !window.matchMedia('(min-width:1101px)').matches) return;
+
+  var ROWS = 6;
+  var A = window.__rbAva || {};
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  }
+  function initials(name){
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    var s = parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '');
+    return s.replace(/[^A-Za-z]/g, '').toUpperCase() || '?';
+  }
+  function anon(name){
+    if (typeof A.anon === 'function') return A.anon(name);
+    var t = String(name || '').trim();
+    return !t || /^(anonymous|a debater|guest)$/i.test(t);
+  }
+  function score(n){
+    if (typeof A.fmtScore === 'function') return A.fmtScore(n);
+    return typeof n === 'number' ? String(Math.round(n)) : '';
+  }
+  /* Portrait, tightest claim first, exactly as the board does it: the
+     avatar they built, then the Google photo on their account, then a
+     seeded emblem. Nothing here invents a face for anybody. The emblem
+     paints immediately and the avatar engine swaps in on load, so a
+     blocked script costs texture rather than leaving a hole. */
+  var wantsEngine = false;
+  function face(r, i, used){
+    var seed = (r && r.uid) || (r && r.name) || ('row' + i);
+    var masked = anon(r && r.name);
+    var art = typeof A.emblem === 'function' ? A.emblem(seed, r && r.name, masked, used) : '';
+    var inner = art || esc(masked ? '?' : initials(r && r.name));
+    var attrs = '';
+    if (r && r.avatarIdentity){
+      var payload = '';
+      try { payload = JSON.stringify(r.avatarIdentity); } catch (e) { payload = ''; }
+      if (payload && typeof A.upgrade === 'function'){
+        wantsEngine = true;
+        attrs = ' data-rb-identity="' + esc(payload) + '" data-rb-uid="' + esc(seed) + '"';
+      }
+    } else if (r && r.photoURL){
+      // onerror is load-bearing: googleusercontent URLs go stale when an
+      // account changes its picture, and a dead one would leave an empty
+      // circle on the edge of the screen. Dropping the <img> reveals the
+      // emblem already sitting behind it.
+      inner = '<img src="' + esc(r.photoURL) + '" alt="" loading="lazy" decoding="async"'
+        + ' referrerpolicy="no-referrer" onerror="this.parentNode.removeChild(this)">' + art;
+    }
+    return '<span class="lbr-pic"><span class="lbr-ava"' + attrs + '>' + inner + '</span>'
+      + '<span class="lbr-rk">' + (i + 1) + '</span></span>';
+  }
+
+  function render(rows, total){
+    // Three real rows is the floor. Below it the rail stays hidden
+    // rather than borrowing the board's sample names: a labelled sample
+    // works inside a card that can carry the label, and a face hanging
+    // off the edge of the window cannot.
+    if (!rows || rows.length < 3) return false;
+    var n = Math.min(rows.length, ROWS);
+    var used = {};
+    var html = '';
+    for (var i = 0; i < n; i++){
+      var r = rows[i] || {};
+      var rated = r.kind === 'rating' && typeof r.rating === 'number';
+      var sub = rated
+        ? '<b>' + Math.round(r.rating) + '</b> rating'
+        : '<b>' + esc(score(r.score)) + '</b>' + (r.format ? ' &middot; ' + esc(r.format) : '');
+      var name = anon(r.name) ? 'Anonymous' : esc(r.name);
+      html += '<a class="lbr-item" href="/leaderboard" data-lbr="row' + (i + 1) + '">'
+        + '<span class="lbr-card" aria-hidden="true"><span class="lbr-nm">' + name + '</span>'
+        + '<span class="lbr-sub">' + sub + '</span></span>'
+        + face(r, i, used)
+        + '<span class="lbr-sr">' + (i + 1) + '. ' + name + '</span>'
+        + '</a>';
+    }
+    list.innerHTML = html;
+    if (wantsEngine && typeof A.upgrade === 'function'){ try { A.upgrade(list); } catch (e) {} }
+    var more = rail.querySelector('.lbr-more');
+    if (more && typeof total === 'number' && total > n){
+      var lab = more.querySelector('[data-lbr-total]');
+      if (lab) lab.textContent = total + ' ranked';
+      more.hidden = false;
+    }
+    rail.hidden = false;
+    return true;
+  }
+
+  /* The rail belongs to the first screen. Past it the page has its own
+     chapters (the full board among them) and a floating dock would be
+     competing with them.
+
+     Deliberately a throttled scroll read rather than an
+     IntersectionObserver: this page scrolls the BODY (overflow:auto), so
+     an observer against the implicit root is the wrong instrument and
+     never fired once in testing. The listener is bound with capture on
+     the document because a scroll event on the body element does not
+     bubble to window. The class goes on first and comes off later, so a
+     browser that never sends a scroll event still shows the rail. */
+  function watch(){
+    document.body.classList.add('lbr-on');
+    var hero = document.getElementById('first-screen');
+    if (!hero) return;
+    var last = 0;
+    function sync(){
+      last = Date.now();
+      var r = hero.getBoundingClientRect();
+      document.body.classList.toggle('lbr-on', r.bottom > 140);
+    }
+    function onMove(){ if (Date.now() - last > 90) sync(); }
+    document.addEventListener('scroll', onMove, { passive: true, capture: true });
+    window.addEventListener('resize', onMove, { passive: true });
+  }
+
+  var req = window.__lbTopReq;
+  if (!req) return;
+  req.then(function(j){
+    if (!render(j && j.rows, j && j.total)) return;
+    watch();
+    try { if (window.gtag) gtag('event', 'lb_rail_view'); } catch (e) {}
+  }).catch(function(){});
+
+  rail.addEventListener('click', function(e){
+    var a = e.target && e.target.closest ? e.target.closest('[data-lbr]') : null;
+    if (!a) return;
+    try { if (window.gtag) gtag('event', 'lb_rail_click', { door: a.getAttribute('data-lbr') }); } catch (err) {}
   });
 })();
 </script>
