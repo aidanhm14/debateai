@@ -9,10 +9,20 @@
    once is. The reader picks a depth and gets exactly one complete read
    at that depth.
 
-     summary  the call and the clash it turned on
-     ballot   the judge's reason for decision (default, and what a
-              ballot has always meant)
+     summary  the call and the clash it turned on (default)
+     ballot   the judge's reason for decision, and the per-speaker
+              feedback that comes with it
      full     every argument walked, the drops, how it flips
+
+   THE DEFAULT IS THE SHALLOWEST READ, and that is a deliberate call
+   (Aidan, 2026-08-24). A reader who wants the reasoning is one tap
+   from it and the choice then sticks forever; a reader who wanted the
+   call and got a thousand words has already bounced. Erring toward
+   too little is recoverable in a way erring toward too much is not.
+   Watch the `ballot_read_depth` GA4 event: it only fires on a change,
+   so it is a direct count of people escalating past the summary. If
+   nearly everyone escalates on their first ballot, the default is
+   wrong and this constant is the whole fix.
 
    NOT the same control as the judge-delivery LENGTH picked before a
    round (lib/judge-delivery.mjs, Short / Medium / Extensive). That one
@@ -53,7 +63,7 @@
   var KEY = 'da-ballot-read';
   var LEVELS = ['summary', 'ballot', 'full'];
   var RANK = { summary: 0, ballot: 1, full: 2 };
-  var DEFAULT = 'ballot';
+  var DEFAULT = 'summary';
 
   var COPY = {
     summary: { label: 'Summary', hint: 'The call and the clash it turned on' },

@@ -33,8 +33,14 @@ const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.log('  
 const SRC = read('app/js/ballot-read.js');
 
 ok(/var LEVELS = \['summary', 'ballot', 'full'\]/.test(SRC), 'three depths, in order');
-ok(/var DEFAULT = 'ballot'/.test(SRC),
-  'default is the reason for decision: summary hides the reasoning, which is what a ballot is');
+// Aidan's call, 2026-08-24: open on the shallowest read. Someone who
+// wants the reasoning is one tap away and the choice then sticks;
+// someone who wanted the call and got a thousand words has bounced.
+ok(/var DEFAULT = 'summary'/.test(SRC), 'default is the summary read');
+ok(/\? v : 'summary'/.test(read('app/practice.html')),
+  'practice agrees with the module about the default');
+ok(read('app/judge.html').includes('data-ballot-read="summary"'),
+  'the judge markup opens on the same default the module would paint');
 ok(/var KEY = 'da-ballot-read'/.test(SRC), 'storage key is da-ballot-read');
 ok(read('app/js/prefs-sync.js').includes("'da-ballot-read'"),
   'the key rides prefs-sync, or the choice is lost on a second device');
@@ -91,11 +97,11 @@ vm.runInContext(SRC, sandbox);
 const BR = sandboxWindow.BallotRead;
 
 ok(!!BR, 'the module publishes window.BallotRead');
-ok(BR.get() === 'ballot', 'with no stored value the depth is ballot');
+ok(BR.get() === 'summary', 'with no stored value the depth is the summary');
 ok(BR.atLeast('full', 'ballot') === true && BR.atLeast('summary', 'ballot') === false,
   'atLeast compares rank, not string equality');
 ok(BR.isAt('ballot', 'ballot') === true && BR.isAt('ballot', 'full') === false, 'isAt is exact');
-ok(BR.atLeast('nonsense', 'ballot') === true,
+ok(BR.atLeast('nonsense', 'summary') === true && BR.atLeast('nonsense', 'ballot') === false,
   'an unknown depth falls back to the default rather than throwing');
 
 // The summary read must never invent text. With nothing to summarise it
