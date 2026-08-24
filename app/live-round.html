@@ -967,6 +967,7 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 .privacy-menu-note{margin:11px 3px 1px;padding-top:10px;border-top:1px solid var(--border);font-size:.68rem;line-height:1.45;color:var(--text-dim)}
 .bar-back{display:inline-flex;align-items:center;min-height:40px;padding:8px 16px;border:1px solid var(--border);border-radius:999px;font-size:.82rem;font-weight:700;color:var(--text-dim);transition:color .15s,border-color .15s,background .15s}
 .bar-back:hover{color:var(--text);border-color:var(--border-strong)}
+.bar-back--arming{color:var(--accent)!important;border-color:var(--accent)!important;background:var(--accent-glow)}
 .bar-back-short{display:none}
 
 /* Main split: video (left) + round panel (right), with a drag handle
@@ -15092,6 +15093,46 @@ html.stage-mode .stage-ov{display:block}
       shellStartUrl = url.pathname + url.search + url.hash;
       enterMini();
     });
+
+    // "Back to board" is the one explicit "get me out of here" control, so
+    // it LEAVES the round instead of docking it. Every other link still
+    // docks (the intercept above), keeping the round alive while the user
+    // browses. Leaving abandons a live opponent, so when a call is up the
+    // first press arms the button and a second within 4s confirms — the
+    // same guard the shell bar's "Leave round" uses. With no call up there
+    // is nothing to protect, so it navigates to /live straight away.
+    var backLink = document.querySelector('.bar-back');
+    if (backLink) {
+      var backFull = backLink.querySelector('.bar-back-full');
+      var backShort = backLink.querySelector('.bar-back-short');
+      var backFullText = backFull ? backFull.textContent : '';
+      var backShortText = backShort ? backShort.textContent : '';
+      var backArmed = false, backTimer = null;
+      function disarmBack() {
+        backArmed = false;
+        if (backTimer) { clearTimeout(backTimer); backTimer = null; }
+        if (backFull) backFull.textContent = backFullText;
+        if (backShort) backShort.textContent = backShortText;
+        backLink.classList.remove('bar-back--arming');
+      }
+      backLink.addEventListener('click', function (e) {
+        // A modified or non-primary click is the user asking for a new tab;
+        // honor it (opens /live, round stays here) and never arm.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        if (!callLive()) { disarmBack(); return; } // no live round → plain navigate
+        e.preventDefault();
+        if (!backArmed) {
+          backArmed = true;
+          backLink.classList.add('bar-back--arming');
+          if (backFull) backFull.textContent = '← Leave round?';
+          if (backShort) backShort.textContent = 'Leave?';
+          backTimer = setTimeout(disarmBack, 4000);
+          return;
+        }
+        disarmBack();
+        window.location.assign('/live');
+      });
+    }
 
     // Keep the console fresh as speeches advance + the timer ticks.
     var sh = document.querySelector('.speech-header');
