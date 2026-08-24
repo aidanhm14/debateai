@@ -1382,45 +1382,89 @@ body.light-theme .ui-topbar-more-spot-proof>span{
   .ui-topbar-more-item.is-big:active{transform:scale(.988)}
 }
 /* ── "In progress" rows in Explore ─────────────────────────────────────
-   2026-08-23. `wip: true` in topbar.js. The row is live and clickable and
-   keeps its full name — a visitor should still learn the surface exists —
-   but the mark says plainly that it is still being built, and the row
-   sits back so the eye skips it on the way to the finished ones.
+   2026-08-23, `wip: true` in topbar.js. 2026-08-24, the founder: these
+   rows should be "blocked by a blur thing". So the row is out of focus
+   and out of service. The name, icon and sentence blur; the mark stays
+   sharp on top of them; topbar.js takes the href off, which is what
+   actually blocks it (pointer target, keyboard focus and the copy-link
+   menu all go with the href, where pointer-events:none would leave
+   Enter-on-focus working).
 
-   The mark is a watermark, not a badge: no fill, no border, the same
-   muted tone as a description, so it reads as a note on the name rather
-   than as a second thing competing with it. Icon and label keep their
-   tier styling; only their strength drops. */
+   The blur is deliberately readable-ish rather than opaque: a visitor
+   should still see that a surface EXISTS and roughly what it is, and
+   come back for it. What they cannot do is walk into it half-built.
+
+   The mark is a direct child of the row and out of flow, because a
+   filter on an ancestor blurs every descendant with it. */
 .ui-topbar-more-wip{
   flex:none;
   font-size:9.2px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:color-mix(in srgb,var(--text,#fff) 38%,transparent);
   white-space:nowrap;
 }
-.ui-topbar-more-item-desc .ui-topbar-more-wip{
-  margin-right:5px;
-  color:color-mix(in srgb,var(--text,#fff) 46%,transparent);
+.ui-topbar-more-item.is-wip{
+  position:relative;
+  cursor:default;
 }
-.ui-topbar-more-item.is-wip .ui-topbar-more-ico{opacity:.55}
-.ui-topbar-more-item.is-wip .ui-topbar-more-item-label{
-  color:color-mix(in srgb,var(--text,#fff) 62%,transparent);
+/* Blur the row's own content only. Two named children rather than a
+   universal child selector, so the sharp mark below is never caught. */
+.ui-topbar-more-item.is-wip .ui-topbar-more-ico,
+.ui-topbar-more-item.is-wip .ui-topbar-more-item-text{
+  filter:blur(3px);
+  opacity:.5;
+  user-select:none;
+  transition:filter .18s ease,opacity .18s ease;
 }
-.ui-topbar-more-item.is-wip .ui-topbar-more-item-desc{
-  color:color-mix(in srgb,var(--text,#fff) 36%,transparent);
+/* A blur is a paint effect, so the text under it is still selectable and
+   still copyable without this. */
+.ui-topbar-more-item.is-wip .ui-topbar-more-item-text{pointer-events:none}
+.ui-topbar-more-wip-over{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  z-index:2;
+  padding:3px 8px;border-radius:999px;
+  font-size:9px;
+  color:color-mix(in srgb,var(--text,#fff) 74%,transparent);
+  background:color-mix(in srgb,var(--bg,#000) 62%,transparent);
+  border:1px solid color-mix(in srgb,var(--text,#fff) 14%,transparent);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  pointer-events:none;
 }
-/* Hover restores it fully: someone reaching for the row is asking for it,
-   and a destination that stays dim under the cursor reads as disabled. */
-.ui-topbar-more-item.is-wip:hover,
-.ui-topbar-more-item.is-wip:focus-visible{opacity:1}
+/* A flagship tile is tall enough that a centred mark floats in the
+   middle of nothing; it sits under the label instead. */
+.ui-topbar-more-item.is-big .ui-topbar-more-wip-over{
+  top:auto;bottom:12px;
+}
+/* Hover does NOT restore the row. The old treatment un-dimmed on hover
+   because the row was a real destination and a permanently dim link
+   reads as broken; this one is not a destination, so lifting the gate
+   under the cursor would promise a click that does nothing. It softens
+   just enough to answer the pointer. */
 .ui-topbar-more-item.is-wip:hover .ui-topbar-more-ico,
-.ui-topbar-more-item.is-wip:focus-visible .ui-topbar-more-ico{opacity:1}
-.ui-topbar-more-item.is-wip:hover .ui-topbar-more-item-label,
-.ui-topbar-more-item.is-wip:focus-visible .ui-topbar-more-item-label{color:var(--text,#fff)}
-.ui-topbar-sheet-more a.is-wip{
+.ui-topbar-more-item.is-wip:hover .ui-topbar-more-item-text{
+  filter:blur(2.2px);
+  opacity:.62;
+}
+/* Mobile sheet: same gate, one line, no icon to blur. */
+.ui-topbar-sheet-more a.is-wip,
+.ui-topbar-sheet-link.is-wip{
   display:flex;align-items:baseline;gap:6px;
-  color:color-mix(in srgb,var(--text,#fff) 62%,transparent);
+  cursor:default;
+}
+.ui-topbar-sheet-more a.is-wip .ui-topbar-sheet-more-label,
+.ui-topbar-sheet-link.is-wip .ui-topbar-sheet-link-label{
+  filter:blur(2.6px);
+  opacity:.5;
+  user-select:none;
+  pointer-events:none;
 }
 .ui-topbar-sheet-more a.is-wip .ui-topbar-more-wip{font-size:8.6px}
+/* Someone who has asked the OS not to animate has usually also asked for
+   fewer visual effects; the mark alone still says the row is not open. */
+@media (prefers-reduced-transparency: reduce){
+  .ui-topbar-more-wip-over{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
 /* Live pulse dot, shared by the spotlight eyebrow and the LIVE row. */
 .ui-topbar-more-live-dot{
   flex:none;width:7px;height:7px;border-radius:999px;background:var(--accent);

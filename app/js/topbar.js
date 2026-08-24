@@ -825,6 +825,34 @@
     } catch(e){}
   }
 
+  // ── The blur gate on an "In progress" row ──────────────────────────
+  // 2026-08-24, the founder: the rows marked `wip` should be "blocked by
+  // a blur thing". So the row stops being a destination. Its name, icon
+  // and sentence go out of focus, the mark stays sharp on top of them,
+  // and the link is DEFANGED rather than styled to look defanged: the
+  // href comes off, which takes the pointer target, keyboard focus and
+  // the middle-click / copy-link menu with it in one move. A blurred row
+  // that still navigated would be the worst of both, since a visitor
+  // cannot read where it goes and can still end up there.
+  //
+  // The sharp mark is a DIRECT child of the row and absolutely placed,
+  // not nested in the blurred text, because a filter on an ancestor
+  // blurs every descendant with it. Being out of flow also sidesteps the
+  // ellipsis collision the desc-line note below documents.
+  //
+  // Reversing one row is still deleting `wip: true`. Nothing else reads
+  // the flag.
+  function gateWip(a, L, surface){
+    a.removeAttribute('href');
+    a.setAttribute('aria-disabled', 'true');
+    a.setAttribute('title', L.label + ' is still being built. Not open yet.');
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      navTrack('nav_more_wip_click', { to: L.href, surface: surface || 'panel' });
+    });
+    return a;
+  }
+
   function el(tag, attrs, children){
     var n = document.createElement(tag);
     if (attrs) for (var k in attrs){
@@ -1018,13 +1046,14 @@
               // "Oral exa... IN PROGRESS" — the caveat rendered and the
               // destination did not. The whole point is that a visitor
               // still learns the surface exists.
-              (meta.desc || L.wip) ? el('span', { class: 'ui-topbar-more-item-desc' }, [
-                L.wip ? el('span', { class: 'ui-topbar-more-wip' }, 'In progress') : null,
-                meta.desc ? el('span', null, meta.desc) : null,
+              meta.desc ? el('span', { class: 'ui-topbar-more-item-desc' }, [
+                el('span', null, meta.desc),
               ]) : null,
             ]),
+            L.wip ? el('span', { class: 'ui-topbar-more-wip ui-topbar-more-wip-over' }, 'In progress') : null,
           ]);
-          a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
+          if (L.wip) gateWip(a, L, 'panel');
+          else a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href }); });
           col.appendChild(a);
         });
         panel.appendChild(col);
@@ -1398,14 +1427,21 @@
     pageLinks.forEach(function(L){
       var sheetLink = el('a', {
         href: L.href,
-        class: 'ui-topbar-sheet-link' + (pathMatches(L.href) ? ' is-active' : ''),
+        class: 'ui-topbar-sheet-link' + (pathMatches(L.href) ? ' is-active' : '')
+                 + (L.wip ? ' is-wip' : ''),
         role: 'menuitem',
       });
       if (L.live){
         var sdot = el('span', { class: 'ui-topbar-sheet-dot' });
         sheetLink.appendChild(sdot);
       }
-      sheetLink.appendChild(document.createTextNode(L.label));
+      // This loop never read `wip`, so /coach rendered here as a finished
+      // row on mobile while the same page sat gated in every other menu.
+      sheetLink.appendChild(el('span', { class: 'ui-topbar-sheet-link-label' }, L.label));
+      if (L.wip){
+        sheetLink.appendChild(el('span', { class: 'ui-topbar-more-wip' }, 'In progress'));
+        gateWip(sheetLink, L, 'sheet');
+      }
       sheet.appendChild(sheetLink);
     });
     // More group: same curated off-bar links the desktop dropdown carries,
@@ -1419,10 +1455,11 @@
           role: 'menuitem',
           class: ((pathMatches(L.href) ? 'is-active ' : '') + (L.wip ? 'is-wip' : '')).trim() || null,
         }, [
-          el('span', null, L.label),
+          el('span', { class: 'ui-topbar-sheet-more-label' }, L.label),
           L.wip ? el('span', { class: 'ui-topbar-more-wip' }, 'In progress') : null,
         ]);
-        a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href, surface: 'sheet' }); });
+        if (L.wip) gateWip(a, L, 'sheet');
+        else a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href, surface: 'sheet' }); });
         sheetMore.appendChild(a);
       });
     });
