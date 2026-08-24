@@ -1874,6 +1874,48 @@ body.speech-live .transcript-area{margin-top:4px}
   .rmb-propose .rmbp-actions{width:100%}
   .rmb-propose .rmbp-actions button{flex:1}
 }
+/* Motion context (US / world). Same consent-card shape as the resolution
+   proposal, blue instead of amber so the two things a round settles before
+   Speech 1 read as different asks. Options are buttons; the agreed frame
+   collapses to a chip under the motion (.rmb-context-chip). */
+.rmb-context-setup{
+  display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  padding:14px 24px;border-bottom:1px solid var(--border);
+  border-left:4px solid var(--blue,#2563eb);
+  background:rgba(37,99,235,.09);
+}
+.rmb-context-setup[hidden]{display:none}
+.rmb-context-setup .rmbc-text{flex:1;min-width:240px}
+.rmb-context-setup .rmbc-eyebrow{
+  display:block;font-size:.62rem;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--blue,#2563eb);margin-bottom:5px;
+}
+[data-theme="light"] .rmb-context-setup .rmbc-eyebrow{color:#1d4ed8}
+.rmb-context-setup .rmbc-reason{font-size:.92rem;font-weight:600;line-height:1.4;color:var(--text)}
+.rmb-context-setup .rmbc-options{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rmb-context-setup .rmbc-opt{
+  font:inherit;font-size:.8rem;font-weight:800;cursor:pointer;
+  min-height:38px;padding:9px 16px;border-radius:9px;
+  border:1px solid var(--border);background:var(--ui-soft);color:var(--text);
+  transition:background .15s,border-color .15s,color .15s;
+}
+.rmb-context-setup .rmbc-opt:hover{border-color:var(--text-dim)}
+.rmb-context-setup .rmbc-opt.is-picked{background:var(--blue,#2563eb);border-color:var(--blue,#2563eb);color:#fff}
+.rmb-context-setup .rmbc-opt:disabled{opacity:.55;cursor:default}
+.rmb-context-setup .rmbc-status{flex-basis:100%;font-size:.78rem;font-weight:600;color:var(--text-dim)}
+.rmb-context-chip{
+  display:inline-flex;align-items:center;gap:6px;margin-top:9px;
+  padding:5px 11px;border-radius:999px;font-size:.75rem;font-weight:800;
+  letter-spacing:.02em;color:var(--blue,#2563eb);
+  background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.32);
+}
+.rmb-context-chip[hidden]{display:none}
+[data-theme="light"] .rmb-context-chip{color:#1d4ed8}
+@media(max-width:700px){
+  .rmb-context-setup{padding:12px 16px;gap:10px}
+  .rmb-context-setup .rmbc-options{width:100%}
+  .rmb-context-setup .rmbc-opt{flex:1}
+}
 /* In-round resolution + roster bar. Sits above the speech-header
    so the motion stays visible while the speaker delivers, and the
    two-card roster makes it unambiguous WHO is on WHICH side and
@@ -2820,6 +2862,9 @@ html.stage-mode .stage-ov{display:block}
           </span>
           <div class="rmb-motion" id="rmbMotion">—</div>
           <div class="rmb-brief" id="rmbBrief" hidden></div>
+          <!-- Agreed context frame (US / world), shown once both debaters
+               pick the same setting. Filled by window.__lrRenderContext. -->
+          <div class="rmb-context-chip" id="rmbContextChip" hidden></div>
         </div>
         <div class="rmb-tools">
           <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
@@ -2848,6 +2893,18 @@ html.stage-mode .stage-ov{display:block}
           <span class="rmbp-by" id="rmbpBy"></span>
         </div>
         <div class="rmbp-actions" id="rmbpActions"></div>
+      </div>
+      <!-- Set the context (US / world). Shown before Speech 1 only when the
+           AI decides the motion depends on where it applies. Both debaters
+           pick a setting; the agreed frame is handed to the judge. Filled by
+           window.__lrRenderContext from the round snapshot. -->
+      <div class="rmb-context-setup" id="rmbContext" hidden>
+        <div class="rmbc-text">
+          <span class="rmbc-eyebrow">Set the context</span>
+          <div class="rmbc-reason" id="rmbcReason"></div>
+        </div>
+        <div class="rmbc-options" id="rmbcOptions"></div>
+        <div class="rmbc-status" id="rmbcStatus"></div>
       </div>
       <!-- Pre-Speech-1 setup. One calm summary line by default; the
            motion tools + style picker live behind Options so the round
@@ -8473,6 +8530,7 @@ html.stage-mode .stage-ov{display:block}
       ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
+      ...contextFrameBallotLines(),
       "",
       "STYLE for every prose field: punctuation is periods, commas, semicolons; never an em dash, never a dash as a pause. In the rfd you may wrap the few phrases that decided the round in **double asterisks** (they render bold); no other markdown anywhere.",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
@@ -8503,6 +8561,19 @@ html.stage-mode .stage-ov{display:block}
       + "\n\nReturn the JSON ballot now. The teamRanking array MUST contain exactly 4 entries with ranks 1, 2, 3, 4 and unique side values from og/oo/cg/co.";
 
     return { system: system, user: user };
+  }
+
+  // The US/world frame both debaters agreed before the round. It fixes the
+  // WORLD the debate is in as a shared premise; it never names a winner or
+  // moves speaker points. Empty when no frame was agreed, so the ballot is
+  // byte-identical to before on any motion that did not need a setting.
+  function contextFrameBallotLines(){
+    var frame = (state && typeof state.contextFrame === 'string') ? state.contextFrame.trim() : '';
+    if (!frame) return [];
+    return [
+      "",
+      "AGREED SETTING — before the round both debaters agreed this motion is argued in the context of: " + frame + ". This is a shared premise both sides accepted, not a scoring instruction. Evaluate every argument as it bears on " + frame + ": an argument that only holds somewhere else carries less weight here, and neither side is penalised for not addressing other places. It does NOT tell you who wins and does NOT move speaker points; it only fixes the world the debate is in.",
+    ];
   }
 
   function buildBallotPrompt(){
@@ -8556,6 +8627,7 @@ html.stage-mode .stage-ov{display:block}
       ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
+      ...contextFrameBallotLines(),
       "",
       "STYLE for every prose field: punctuation is periods, commas, semicolons; never an em dash, never a dash as a pause. In the rfd you may wrap the few phrases that decided the round in **double asterisks** (they render bold); no other markdown anywhere.",
       "OUTPUT — return ONLY a single JSON object with NO prose before or after. Schema:",
@@ -10890,6 +10962,145 @@ html.stage-mode .stage-ov{display:block}
       actions.appendChild(no);
     }
     window.__lrRenderMotionProposal = renderMotionProposal;
+
+    // ── Motion context (US / world) ──────────────────────────────────
+    // Some motions have the same answer everywhere; others turn on where
+    // they apply ("ban private schools", "abolish the electoral college").
+    // When two people MATCH on one of the second kind, both agree on a
+    // setting before Speech 1, and the agreed frame is handed to the AI
+    // judge as the shared premise (buildBallotPrompt reads state.contextFrame).
+    // The AI decides which motions need it (/api/motion-context); the lowest
+    // seated uid asks ONCE and writes the result to the round doc, so every
+    // client renders the same card. Additive doc fields only (contextSetup,
+    // contextPicks, contextFrame) and it fails OPEN: a classifier error or a
+    // standoff never blocks the round, the ballot just runs with no frame.
+    function isContextDriver(){
+      if (!state.user || isSpectator()) return false;
+      var me = state.user.uid;
+      var uids = [state.proUid, state.conUid].filter(Boolean).sort();
+      return uids.length ? uids[0] === me : true;
+    }
+    // Ask the classifier exactly once per round. Only matched rounds (both
+    // seats known) get a context step; a solo/hotseat/direct-link round has
+    // nobody to agree with.
+    function maybeClassifyContext(d){
+      if (!state.motion || (d && d.contextSetup)) return;
+      if (!(state.proUid && state.conUid)) return;
+      if (state.contextAsked || !isContextDriver() || motionLocked()) return;
+      state.contextAsked = true;
+      var user = firebase.auth().currentUser;
+      var withTok = user ? user.getIdToken().catch(function(){ return null; }) : Promise.resolve(null);
+      withTok.then(function(tok){
+        var headers = { 'Content-Type': 'application/json' };
+        if (tok) headers.Authorization = 'Bearer ' + tok;
+        return fetch('/api/motion-context', {
+          method: 'POST', headers: headers,
+          body: JSON.stringify({ motion: state.motion, format: state.formatKey }),
+        });
+      }).then(function(r){ return r && r.ok ? r.json() : null; }).then(function(j){
+        if (!j) return;
+        var setup = {
+          needsContext: !!j.needsContext,
+          options: Array.isArray(j.options) ? j.options.filter(function(o){ return typeof o === 'string'; }).slice(0, 4) : [],
+          reason: String(j.reason || '').slice(0, 120),
+          at: Date.now(),
+        };
+        var ref = getRoundDocRef();
+        if (ref) ref.update({ contextSetup: setup }).catch(function(){});
+      }).catch(function(){ state.contextAsked = false; });
+    }
+    function pickContext(opt){
+      var uid = myUid(); if (!uid) return;
+      var ref = getRoundDocRef(); if (!ref) return;
+      var upd = {}; upd['contextPicks.' + uid] = opt;
+      ref.update(upd).catch(function(){});
+      try { gtag('event', 'live_round_context_pick', { format: state.formatKey }); } catch(e){}
+    }
+    // Paint the setup card + agreed chip. Runs on both debaters and every
+    // spectator, from the round snapshot.
+    function renderContext(d){
+      var card = document.getElementById('rmbContext');
+      var chip = document.getElementById('rmbContextChip');
+      var setup = d && d.contextSetup;
+      var frame = (d && typeof d.contextFrame === 'string') ? d.contextFrame : '';
+      state.contextFrame = frame;                 // read by buildBallotPrompt
+      state.contextNeeds = !!(setup && setup.needsContext);
+
+      // Agreed: quiet chip under the motion, card gone.
+      if (frame){
+        if (chip){ chip.textContent = 'Setting: ' + frame; chip.hidden = false; }
+        if (card) card.hidden = true;
+        return;
+      }
+      if (chip) chip.hidden = true;
+      // No decision yet, motion does not need one, or a degenerate option
+      // set: no card.
+      if (!setup || !setup.needsContext || !Array.isArray(setup.options) || setup.options.length < 2){
+        if (card) card.hidden = true;
+        return;
+      }
+      // Once Speech 1 starts, drop the card; the ballot runs with no frame.
+      if (motionLocked()){ if (card) card.hidden = true; return; }
+      if (!card) return;
+
+      var picks = (d && d.contextPicks) || {};
+      var seats = seatUids();
+      var uid = myUid();
+
+      // Both picked the same setting: commit it. Any participant that sees
+      // the full agreement can write it; the value is identical, so a race
+      // is harmless.
+      if (seats.length >= 2){
+        var a = picks[seats[0]], b = picks[seats[1]];
+        if (a && b && a === b && !isSpectator()){
+          var cref = getRoundDocRef();
+          if (cref) cref.update({
+            contextFrame: a,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }).catch(function(){});
+          card.hidden = true;   // the resulting snapshot paints the chip
+          return;
+        }
+      }
+
+      card.hidden = false;
+      var reasonEl = document.getElementById('rmbcReason');
+      if (reasonEl) reasonEl.textContent = 'This motion depends on where it applies'
+        + (setup.reason ? ' (' + setup.reason + ')' : '')
+        + '. Agree on the setting before Speech 1.';
+      var opts = document.getElementById('rmbcOptions');
+      if (opts){
+        opts.innerHTML = '';
+        var mine = uid ? picks[uid] : '';
+        setup.options.forEach(function(opt){
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'rmbc-opt' + (mine === opt ? ' is-picked' : '');
+          btn.textContent = opt;
+          if (isSpectator() || !uid) btn.disabled = true;
+          else btn.addEventListener('click', function(){ pickContext(opt); });
+          opts.appendChild(btn);
+        });
+      }
+      var statusEl = document.getElementById('rmbcStatus');
+      if (statusEl){
+        if (isSpectator() || !uid){
+          statusEl.textContent = 'The debaters are agreeing where this motion applies.';
+        } else {
+          var other = seats.filter(function(u){ return u !== uid; })[0];
+          var mineNow = picks[uid] || '';
+          var theirs = other ? (picks[other] || '') : '';
+          if (!mineNow) statusEl.textContent = 'Pick the setting you want to argue in.';
+          else if (!other || !theirs) statusEl.textContent = 'You picked ' + mineNow + '. Waiting on ' + (other ? nameForUid(other) : 'your opponent') + '.';
+          else if (theirs !== mineNow) statusEl.textContent = nameForUid(other) + ' picked ' + theirs + '. Tap the same setting to agree.';
+          else statusEl.textContent = 'Agreed on ' + mineNow + '.';
+        }
+      }
+    }
+    window.__lrRenderContext = function(d){
+      try { maybeClassifyContext(d); } catch(e){}
+      try { renderContext(d); } catch(e){}
+    };
 
     // Single entry point for "the resolution should become X". Routes to
     // a proposal when there is somebody to ask, and to a direct edit
@@ -13786,6 +13997,9 @@ html.stage-mode .stage-ov{display:block}
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; }
     // Pending resolution change, if either side has asked for one.
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
+    // Motion context (US / world): classify once, then paint the setup
+    // card + agreed chip. Additive; a no-op on motions that don't need it.
+    if (window.__lrRenderContext) { try { window.__lrRenderContext(d); } catch(e){} }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
