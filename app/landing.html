@@ -14030,6 +14030,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-row--ghost .rb-ghost-cta{font-size:.68rem;font-weight:800;color:#ef4444;white-space:nowrap}
     .rb-empty{margin:12px 0 0;padding:14px;border:1px dashed rgba(255,255,255,.18);border-radius:4px;font-size:.82rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.66))}
     [data-theme="light"] .rb-empty{border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.64)}
+    /* The board falls back to drawn pictures, so it says so, the same way
+       the first-screen rail does. A row's own photo or built avatar is
+       theirs; anything else on the board is a stand-in. */
+    .rb-standin{display:block;margin-top:3px;font-style:normal;font-size:.5rem;font-weight:600;
+      letter-spacing:.04em;text-transform:none;opacity:.72}
     .rb-sample-pill{float:right;margin-left:10px;font-style:normal;font-size:.56rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:3px;border:1px solid rgba(255,255,255,.2);color:var(--text-dim,rgba(255,255,255,.55))}
     [data-theme="light"] .rb-sample-pill{border-color:rgba(0,0,0,.16);color:rgba(0,0,0,.64)}
     /* Top-3 podium (2026-08-24, the founder: "put this in", off a /leaderboard
@@ -14038,23 +14043,35 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        ranks 4+ stay as rows below. Same /api/leaderboard-top data the rows use,
        so it fills with real people (Pranav R., Steven A., …) and their judge
        scores. Only when there are >=3 real rows; the sample fallback stays rows. */
-    .rb-pod{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end;margin:12px 0 14px}
+    /* 2026-08-24, Aidan on the live band: "fix this it looks bad". Three
+       things were wrong and they compounded. The cards were bottom-
+       aligned AND stepped down by hand (margin-bottom 12/24px), so with
+       three different content heights the row read as misalignment
+       rather than as a podium. The avatars were 38px at a 4px radius,
+       which is a thumbnail, not a face, and the three of them at three
+       different treatments were the first thing the eye hit. And the
+       buttons landed at three different heights.
+       Now: equal-height cards on one baseline, the champion raised by
+       its own border and glow instead of by an offset, one avatar size
+       and shape, and the actions pinned to the bottom of every card. */
+    .rb-pod{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;align-items:stretch;margin:14px 0 16px}
     @media(max-width:520px){.rb-pod{grid-template-columns:1fr;gap:8px}}
     .rb-pod-card{position:relative;min-width:0;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03);padding:12px 11px 11px;display:flex;flex-direction:column;gap:6px}
     [data-theme="light"] .rb-pod-card{background:#fff;border-color:rgba(29,25,21,.12);box-shadow:0 10px 26px -20px rgba(0,0,0,.5)}
     .rb-pod--1{border-color:rgba(245,158,11,.5)}
     [data-theme="light"] .rb-pod--1{border-color:rgba(217,119,6,.5);background:linear-gradient(180deg,#fffdf4,#fff)}
-    @media(min-width:521px){.rb-pod--2{margin-bottom:12px}.rb-pod--3{margin-bottom:24px}}
+
     .rb-pod-head{display:flex;align-items:center;gap:7px}
     .rb-pod-medal{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.66rem;font-weight:900;color:#3a2c05;background:radial-gradient(circle at 32% 28%,#fde68a,#f59e0b 60%,#92400e)}
     .rb-pod--2 .rb-pod-medal{background:radial-gradient(circle at 32% 28%,#f8fafc,#94a3b8 60%,#475569);color:rgba(10,10,14,.75)}
     .rb-pod--3 .rb-pod-medal{background:radial-gradient(circle at 32% 28%,#fcd34d,#d97706 60%,#78350f);color:#3a2405}
     .rb-pod-place{font-size:.52rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.58))}
-    .rb-pod-card .rb-ava{width:38px;height:38px;font-size:.9rem;margin:2px 0}
+    .rb-pod-card .rb-ava{width:58px;height:58px;border-radius:15px;font-size:1.15rem;margin:4px 0 2px}
+    .rb-pod--1 .rb-ava{width:66px;height:66px;box-shadow:0 0 0 2px rgba(245,158,11,.45)}
     .rb-pod-nm{font-family:var(--font-display);font-size:.98rem;font-weight:750;line-height:1.12;color:var(--text,#f4f4f2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     [data-theme="light"] .rb-pod-nm{color:#1a1a1f}
     .rb-pod-meta{font-size:.62rem;color:var(--text-dim,rgba(255,255,255,.58));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .rb-pod-score{display:flex;align-items:baseline;gap:6px;margin-top:2px}
+    .rb-pod-score{display:flex;align-items:baseline;gap:6px;margin-top:4px}
     .rb-pod-score b{font-family:var(--font-display);font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:var(--text,#f4f4f2)}
     .rb-pod--1 .rb-pod-score b{color:#d97706}
     [data-theme="light"] .rb-pod-score b{color:#1a1a1f}
@@ -14062,7 +14079,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .rb-pod-score span{font-size:.5rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim,rgba(255,255,255,.5))}
     .rb-pod-rec{font-size:.6rem;font-weight:750;color:var(--text-dim,rgba(255,255,255,.58))}
     .rb-pod-rec .w{color:#16a34a}
-    .rb-pod-actions{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+    /* margin-top:auto is what lines the three button stacks up: the cards
+       stretch to one height and the actions sink to the bottom of each. */
+    .rb-pod-actions{display:flex;flex-direction:column;gap:5px;margin-top:auto;padding-top:8px}
     .rb-pod-msg{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.2));color:var(--text,#f4f4f2);font-size:.68rem;font-weight:750;text-decoration:none}
     [data-theme="light"] .rb-pod-msg{border-color:rgba(29,25,21,.2);color:#1a1a1f}
     .rb-pod-msg:hover{border-color:rgba(239,68,68,.5)}
@@ -14351,11 +14370,116 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var t = String(name || '').trim();
     return !t || /^anonymous$/i.test(t) || /^a debater$/i.test(t) || /^guest$/i.test(t);
   }
+  /* ── The profile-picture set ───────────────────────────────────────
+     2026-08-24, Aidan, third pass: "no bring back the pictures i
+     uploaded to u". His references were phone screenshots of real
+     profile pictures from another app, and they cannot go on a public
+     page: the batch has a child in it, several identifiable adults, and
+     copyrighted characters. So this is the set REDRAWN, original art, in
+     the register he actually wanted. A real board of profile pictures is
+     not a row of headshots. It is a ghost, a dog, a skull, somebody's
+     cat, a guy in sunglasses, the grey default nobody replaced.
+
+     Rules that keep them readable at 54px: flat fills, no hairlines, no
+     gradients, one strong background hue each, and the subject filling
+     most of the frame. 64x64 viewBox, inline, so the whole set costs
+     zero requests. */
+  var PFP = [
+    /* ghost */ '<rect width="64" height="64" fill="#6f5bd6"/>'
+      + '<path d="M15 31a17 17 0 0 1 34 0v22l-6-5.2-5.6 5.2-5.4-5-5.4 5L21 47.8 15 53z" fill="#fff"/>'
+      + '<ellipse cx="26" cy="31" rx="3.6" ry="4.2" fill="#2a2044"/><ellipse cx="38" cy="31" rx="3.6" ry="4.2" fill="#2a2044"/>'
+      + '<path d="M27.5 40.5q4.5 4.5 9 0" stroke="#2a2044" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    /* dog */ '<rect width="64" height="64" fill="#c98a4e"/>'
+      + '<path d="M13 21c-2 11 1 19 6 22l6-14z" fill="#4d3220"/><path d="M51 21c2 11-1 19-6 22l-6-14z" fill="#4d3220"/>'
+      + '<ellipse cx="32" cy="36" rx="18" ry="16" fill="#eec89c"/>'
+      + '<ellipse cx="32" cy="45" rx="11" ry="8" fill="#5b3d27"/>'
+      + '<circle cx="25" cy="32" r="3.6" fill="#221509"/><circle cx="39" cy="32" r="3.6" fill="#221509"/>'
+      + '<ellipse cx="32" cy="42" rx="4.6" ry="3.4" fill="#1a1008"/>'
+      + '<path d="M29 49h6v5a3 3 0 0 1-6 0z" fill="#e8748a"/>',
+    /* cat */ '<rect width="64" height="64" fill="#26262f"/>'
+      + '<path d="M15 30 17 12l14 8zM49 30 47 12l-14 8z" fill="#43434f"/>'
+      + '<circle cx="32" cy="36" r="17" fill="#43434f"/>'
+      + '<ellipse cx="25" cy="34" rx="4.4" ry="5.2" fill="#a8e063"/><ellipse cx="39" cy="34" rx="4.4" ry="5.2" fill="#a8e063"/>'
+      + '<rect x="24" y="30" width="2" height="9" rx="1" fill="#1b1b22"/><rect x="38" y="30" width="2" height="9" rx="1" fill="#1b1b22"/>'
+      + '<path d="M32 42l-3.5 3h7z" fill="#e8748a"/>'
+      + '<path d="M12 40h8M12 45h8M52 40h-8M52 45h-8" stroke="#7c7c8c" stroke-width="2.2" stroke-linecap="round"/>',
+    /* robot */ '<rect width="64" height="64" fill="#5f6d80"/>'
+      + '<rect x="30.6" y="8" width="2.8" height="8" fill="#cfd6de"/><circle cx="32" cy="7" r="3.4" fill="#ef4444"/>'
+      + '<rect x="13" y="17" width="38" height="34" rx="7" fill="#cfd6de"/>'
+      + '<rect x="20" y="26" width="9" height="8" rx="2" fill="#1e2733"/><rect x="35" y="26" width="9" height="8" rx="2" fill="#1e2733"/>'
+      + '<rect x="21" y="40" width="22" height="6" rx="3" fill="#1e2733"/>'
+      + '<rect x="26" y="40" width="2" height="6" fill="#cfd6de"/><rect x="31" y="40" width="2" height="6" fill="#cfd6de"/><rect x="36" y="40" width="2" height="6" fill="#cfd6de"/>',
+    /* shades */ '<rect width="64" height="64" fill="#f0b429"/>'
+      + '<circle cx="32" cy="33" r="19" fill="#ffd75e"/>'
+      + '<path d="M10 28h44v4H10z" fill="#17171c"/>'
+      + '<rect x="12" y="27" width="17" height="12" rx="5" fill="#17171c"/><rect x="35" y="27" width="17" height="12" rx="5" fill="#17171c"/>'
+      + '<path d="M24 45q8 7 16 0" stroke="#17171c" stroke-width="3.4" fill="none" stroke-linecap="round"/>',
+    /* money */ '<rect width="64" height="64" fill="#10603f"/>'
+      + '<rect x="10" y="34" width="44" height="17" rx="3" fill="#6fce9c" transform="rotate(-8 32 42)"/>'
+      + '<rect x="12" y="28" width="40" height="17" rx="3" fill="#8fe2b6"/>'
+      + '<circle cx="32" cy="36.5" r="6.4" fill="#10603f"/>'
+      + '<text x="32" y="41" text-anchor="middle" fill="#8fe2b6" font-family="system-ui,sans-serif" font-size="13" font-weight="900">$</text>'
+      + '<circle cx="32" cy="17" r="7" fill="#8fe2b6"/>'
+      + '<text x="32" y="21.5" text-anchor="middle" fill="#10603f" font-family="system-ui,sans-serif" font-size="10" font-weight="900">$</text>',
+    /* skull */ '<rect width="64" height="64" fill="#131317"/>'
+      + '<path d="M32 10c12 0 19 8 19 19 0 7-3 11-6 13v6a4 4 0 0 1-4 4H23a4 4 0 0 1-4-4v-6c-3-2-6-6-6-13 0-11 7-19 19-19z" fill="#eceff3"/>'
+      + '<ellipse cx="24" cy="29" rx="5.6" ry="6.4" fill="#131317"/><ellipse cx="40" cy="29" rx="5.6" ry="6.4" fill="#131317"/>'
+      + '<path d="M32 36l-3.2 5h6.4z" fill="#131317"/>'
+      + '<rect x="25" y="45" width="3" height="7" fill="#131317"/><rect x="30.5" y="45" width="3" height="7" fill="#131317"/><rect x="36" y="45" width="3" height="7" fill="#131317"/>',
+    /* frog */ '<rect width="64" height="64" fill="#245c26"/>'
+      + '<ellipse cx="32" cy="40" rx="21" ry="16" fill="#57b356"/>'
+      + '<circle cx="20" cy="22" r="10" fill="#57b356"/><circle cx="44" cy="22" r="10" fill="#57b356"/>'
+      + '<circle cx="20" cy="22" r="6.2" fill="#fff"/><circle cx="44" cy="22" r="6.2" fill="#fff"/>'
+      + '<circle cx="21" cy="23" r="3.2" fill="#131317"/><circle cx="45" cy="23" r="3.2" fill="#131317"/>'
+      + '<path d="M17 42q15 10 30 0" stroke="#1d4a1f" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
+      + '<circle cx="15" cy="36" r="2.4" fill="#e8748a" opacity=".75"/><circle cx="49" cy="36" r="2.4" fill="#e8748a" opacity=".75"/>',
+    /* flame */ '<rect width="64" height="64" fill="#171016"/>'
+      + '<path d="M32 6c9 12 18 15 18 28a18 18 0 0 1-36 0c0-8 5-11 8-17 2 5 4 7 6 8 0-8 1-14 4-19z" fill="#f97316"/>'
+      + '<path d="M32 26c5 6 8 9 8 15a8 8 0 0 1-16 0c0-5 4-8 8-15z" fill="#fbbf24"/>',
+    /* alien */ '<rect width="64" height="64" fill="#1b2430"/>'
+      + '<path d="M32 9c13 0 20 8 20 19 0 13-11 27-20 27s-20-14-20-27c0-11 7-19 20-19z" fill="#7ed36a"/>'
+      + '<ellipse cx="23" cy="31" rx="6.4" ry="9" fill="#12181f" transform="rotate(-18 23 31)"/>'
+      + '<ellipse cx="41" cy="31" rx="6.4" ry="9" fill="#12181f" transform="rotate(18 41 31)"/>'
+      + '<path d="M28 45q4 3 8 0" stroke="#2d6b25" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+    /* default silhouette, the one nobody replaced */
+    '<rect width="64" height="64" fill="#e9eaee"/>'
+      + '<circle cx="32" cy="25" r="11" fill="#9aa1ac"/>'
+      + '<path d="M11 60c0-12 9.4-19 21-19s21 7 21 19z" fill="#9aa1ac"/>',
+    /* hooded, face in shadow */ '<rect width="64" height="64" fill="#222734"/>'
+      + '<path d="M6 62c2-14 12-21 26-21s24 7 26 21z" fill="#3c4557"/>'
+      + '<path d="M32 10c11 0 19 9 19 19 0 9-5 15-11 17H24c-6-2-11-8-11-17 0-10 8-19 19-19z" fill="#4c576e"/>'
+      + '<ellipse cx="32" cy="33" rx="11.5" ry="13" fill="#12161f"/>'
+      + '<ellipse cx="27" cy="33" rx="2.6" ry="2.2" fill="#7fd4ff"/><ellipse cx="37" cy="33" rx="2.6" ry="2.2" fill="#7fd4ff"/>'
+  ];
+  function pfpHash(str){
+    var h = 2166136261 >>> 0;
+    str = String(str);
+    for (var i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h >>> 0;
+  }
+  /* Stable per debater (a picture that reshuffles on refresh reads as
+     broken) and deduped down the rail (the same ghost twice reads as a
+     bug). Probe forward from the hashed slot. */
+  function pfpArt(seed, taken){
+    var h = pfpHash(seed), k, n = h % PFP.length;
+    for (k = 0; k < PFP.length; k++){
+      n = (h + k) % PFP.length;
+      if (!taken[n]) break;
+    }
+    taken[n] = 1;
+    return '<svg class="lbr-pfp" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"'
+      + ' preserveAspectRatio="xMidYMid slice">' + PFP[n] + '</svg>';
+  }
   var avaWantsEngine = false;
-  function avaCell(r, i, used){
+  function avaCell(r, i, used, taken){
     var masked = avaAnon(r && r.name);
     var seed = (r && r.uid) || (r && r.name) || ('row' + i);
-    var emblem = avaEmblem(seed, r && r.name, masked, used);
+    /* 2026-08-24: the abstract emblem was the fallback here and it read
+       as crude at podium size, three mismatched tiles in a row. The board
+       now falls back to the same drawn picture set the first-screen rail
+       uses, so a debater wears one face across the whole page. The two
+       truer tiers below are unchanged and still outrank it. */
+    var emblem = taken ? pfpArt(seed, taken) : avaEmblem(seed, r && r.name, masked, used);
     var cls = 'rb-ava' + (masked ? ' rb-ava--anon' : '')
       + (i === 1 ? ' rb-ava--silver' : i === 2 ? ' rb-ava--bronze' : '');
     // The avatar they built comes FIRST, ahead of the Google picture,
@@ -14546,9 +14670,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var html = '<span class="rb-scale">' + (hasRating ? 'Aura &middot; wins move it' : ('Aura &middot; out of ' + (scale100 ? '100' : '30')))
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
       + (!sample && total > n ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
+      + (sample ? '' : '<em class="rb-standin">Stand-in pictures where a debater has not set one.</em>')
       + '</span>';
     avaWantsEngine = false; // renderBoard runs twice (sample, then real rows)
     var avaUsed = {};           // ink+shape pairs already spent on this board
+    var avaTaken = sample ? null : {};  // set pictures spent on this board; the
+                                        // labelled sample keeps its emblems
     // Top-3 podium for real boards (the sample fallback stays all-rows). The
     // three medal cards render above; the rows loop below then starts at 4.
     var usePodium = !sample && n >= 3;
@@ -14571,7 +14698,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         html += '<div class="rb-pod-card rb-pod--' + (pi + 1) + '" data-href="/leaderboard" data-rb="leaderboard-pod">'
           + '<div class="rb-pod-head"><span class="rb-pod-medal">' + (pi + 1) + '</span>'
           + '<span class="rb-pod-place">' + (pi === 0 ? 'Champion' : ['1st', '2nd', '3rd'][pi] + ' place') + '</span></div>'
-          + avaCell(pr, pi, avaUsed)
+          + avaCell(pr, pi, avaUsed, avaTaken)
           + '<span class="rb-pod-nm">' + esc(pr.name) + '</span>'
           + '<span class="rb-pod-meta">' + pMeta + '</span>'
           + '<div class="rb-pod-score"><b>' + pScore + '</b><span>Aura</span></div>'
@@ -14633,7 +14760,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         : '/leaderboard?challenge=1';
       html += '<div class="rb-row' + (i === 0 ? ' rb-row--top' : '') + '" data-href="/leaderboard" data-rb="leaderboard-row">'
         + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
-        + avaCell(r, i, avaUsed)
+        + avaCell(r, i, avaUsed, avaTaken)
         + '<span class="rb-who"><span class="rb-nm">' + esc(r.name)
         + (i === 0 ? ' <span class="rb-top-tag">' + (isRated ? 'Top rated' : 'Top speaker') + '</span>' : '') + '</span>'
         + '<span class="rb-tags"><span class="rb-chip">' + esc(fmt) + '</span>'
@@ -14663,7 +14790,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      growing a second emblem generator that would drift. Exported, not
      copied: a debater must wear the same face on both surfaces of one
      page. */
-  window.__rbAva = { emblem: avaEmblem, anon: avaAnon, upgrade: avaUpgrade, fmtScore: fmtScore };
+  window.__rbAva = { emblem: avaEmblem, anon: avaAnon, upgrade: avaUpgrade, fmtScore: fmtScore, pfp: pfpArt };
   var fired = false;
   function loadOnce(){
     if (fired) return; fired = true;
@@ -14742,105 +14869,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      themselves. Their own built avatar and their own account photo still
      outrank it, so a real account always shows its real face; this is
      only what fills the rest of the column.
-  /* ── The profile-picture set ───────────────────────────────────────
-     2026-08-24, Aidan, third pass: "no bring back the pictures i
-     uploaded to u". His references were phone screenshots of real
-     profile pictures from another app, and they cannot go on a public
-     page: the batch has a child in it, several identifiable adults, and
-     copyrighted characters. So this is the set REDRAWN, original art, in
-     the register he actually wanted. A real board of profile pictures is
-     not a row of headshots. It is a ghost, a dog, a skull, somebody's
-     cat, a guy in sunglasses, the grey default nobody replaced.
-
-     Rules that keep them readable at 54px: flat fills, no hairlines, no
-     gradients, one strong background hue each, and the subject filling
-     most of the frame. 64x64 viewBox, inline, so the whole set costs
-     zero requests. */
-  var PFP = [
-    /* ghost */ '<rect width="64" height="64" fill="#6f5bd6"/>'
-      + '<path d="M15 31a17 17 0 0 1 34 0v22l-6-5.2-5.6 5.2-5.4-5-5.4 5L21 47.8 15 53z" fill="#fff"/>'
-      + '<ellipse cx="26" cy="31" rx="3.6" ry="4.2" fill="#2a2044"/><ellipse cx="38" cy="31" rx="3.6" ry="4.2" fill="#2a2044"/>'
-      + '<path d="M27.5 40.5q4.5 4.5 9 0" stroke="#2a2044" stroke-width="3" fill="none" stroke-linecap="round"/>',
-    /* dog */ '<rect width="64" height="64" fill="#c98a4e"/>'
-      + '<path d="M13 21c-2 11 1 19 6 22l6-14z" fill="#4d3220"/><path d="M51 21c2 11-1 19-6 22l-6-14z" fill="#4d3220"/>'
-      + '<ellipse cx="32" cy="36" rx="18" ry="16" fill="#eec89c"/>'
-      + '<ellipse cx="32" cy="45" rx="11" ry="8" fill="#5b3d27"/>'
-      + '<circle cx="25" cy="32" r="3.6" fill="#221509"/><circle cx="39" cy="32" r="3.6" fill="#221509"/>'
-      + '<ellipse cx="32" cy="42" rx="4.6" ry="3.4" fill="#1a1008"/>'
-      + '<path d="M29 49h6v5a3 3 0 0 1-6 0z" fill="#e8748a"/>',
-    /* cat */ '<rect width="64" height="64" fill="#26262f"/>'
-      + '<path d="M15 30 17 12l14 8zM49 30 47 12l-14 8z" fill="#43434f"/>'
-      + '<circle cx="32" cy="36" r="17" fill="#43434f"/>'
-      + '<ellipse cx="25" cy="34" rx="4.4" ry="5.2" fill="#a8e063"/><ellipse cx="39" cy="34" rx="4.4" ry="5.2" fill="#a8e063"/>'
-      + '<rect x="24" y="30" width="2" height="9" rx="1" fill="#1b1b22"/><rect x="38" y="30" width="2" height="9" rx="1" fill="#1b1b22"/>'
-      + '<path d="M32 42l-3.5 3h7z" fill="#e8748a"/>'
-      + '<path d="M12 40h8M12 45h8M52 40h-8M52 45h-8" stroke="#7c7c8c" stroke-width="2.2" stroke-linecap="round"/>',
-    /* robot */ '<rect width="64" height="64" fill="#5f6d80"/>'
-      + '<rect x="30.6" y="8" width="2.8" height="8" fill="#cfd6de"/><circle cx="32" cy="7" r="3.4" fill="#ef4444"/>'
-      + '<rect x="13" y="17" width="38" height="34" rx="7" fill="#cfd6de"/>'
-      + '<rect x="20" y="26" width="9" height="8" rx="2" fill="#1e2733"/><rect x="35" y="26" width="9" height="8" rx="2" fill="#1e2733"/>'
-      + '<rect x="21" y="40" width="22" height="6" rx="3" fill="#1e2733"/>'
-      + '<rect x="26" y="40" width="2" height="6" fill="#cfd6de"/><rect x="31" y="40" width="2" height="6" fill="#cfd6de"/><rect x="36" y="40" width="2" height="6" fill="#cfd6de"/>',
-    /* shades */ '<rect width="64" height="64" fill="#f0b429"/>'
-      + '<circle cx="32" cy="33" r="19" fill="#ffd75e"/>'
-      + '<path d="M10 28h44v4H10z" fill="#17171c"/>'
-      + '<rect x="12" y="27" width="17" height="12" rx="5" fill="#17171c"/><rect x="35" y="27" width="17" height="12" rx="5" fill="#17171c"/>'
-      + '<path d="M24 45q8 7 16 0" stroke="#17171c" stroke-width="3.4" fill="none" stroke-linecap="round"/>',
-    /* money */ '<rect width="64" height="64" fill="#10603f"/>'
-      + '<rect x="10" y="34" width="44" height="17" rx="3" fill="#6fce9c" transform="rotate(-8 32 42)"/>'
-      + '<rect x="12" y="28" width="40" height="17" rx="3" fill="#8fe2b6"/>'
-      + '<circle cx="32" cy="36.5" r="6.4" fill="#10603f"/>'
-      + '<text x="32" y="41" text-anchor="middle" fill="#8fe2b6" font-family="system-ui,sans-serif" font-size="13" font-weight="900">$</text>'
-      + '<circle cx="32" cy="17" r="7" fill="#8fe2b6"/>'
-      + '<text x="32" y="21.5" text-anchor="middle" fill="#10603f" font-family="system-ui,sans-serif" font-size="10" font-weight="900">$</text>',
-    /* skull */ '<rect width="64" height="64" fill="#131317"/>'
-      + '<path d="M32 10c12 0 19 8 19 19 0 7-3 11-6 13v6a4 4 0 0 1-4 4H23a4 4 0 0 1-4-4v-6c-3-2-6-6-6-13 0-11 7-19 19-19z" fill="#eceff3"/>'
-      + '<ellipse cx="24" cy="29" rx="5.6" ry="6.4" fill="#131317"/><ellipse cx="40" cy="29" rx="5.6" ry="6.4" fill="#131317"/>'
-      + '<path d="M32 36l-3.2 5h6.4z" fill="#131317"/>'
-      + '<rect x="25" y="45" width="3" height="7" fill="#131317"/><rect x="30.5" y="45" width="3" height="7" fill="#131317"/><rect x="36" y="45" width="3" height="7" fill="#131317"/>',
-    /* frog */ '<rect width="64" height="64" fill="#245c26"/>'
-      + '<ellipse cx="32" cy="40" rx="21" ry="16" fill="#57b356"/>'
-      + '<circle cx="20" cy="22" r="10" fill="#57b356"/><circle cx="44" cy="22" r="10" fill="#57b356"/>'
-      + '<circle cx="20" cy="22" r="6.2" fill="#fff"/><circle cx="44" cy="22" r="6.2" fill="#fff"/>'
-      + '<circle cx="21" cy="23" r="3.2" fill="#131317"/><circle cx="45" cy="23" r="3.2" fill="#131317"/>'
-      + '<path d="M17 42q15 10 30 0" stroke="#1d4a1f" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
-      + '<circle cx="15" cy="36" r="2.4" fill="#e8748a" opacity=".75"/><circle cx="49" cy="36" r="2.4" fill="#e8748a" opacity=".75"/>',
-    /* flame */ '<rect width="64" height="64" fill="#171016"/>'
-      + '<path d="M32 6c9 12 18 15 18 28a18 18 0 0 1-36 0c0-8 5-11 8-17 2 5 4 7 6 8 0-8 1-14 4-19z" fill="#f97316"/>'
-      + '<path d="M32 26c5 6 8 9 8 15a8 8 0 0 1-16 0c0-5 4-8 8-15z" fill="#fbbf24"/>',
-    /* alien */ '<rect width="64" height="64" fill="#1b2430"/>'
-      + '<path d="M32 9c13 0 20 8 20 19 0 13-11 27-20 27s-20-14-20-27c0-11 7-19 20-19z" fill="#7ed36a"/>'
-      + '<ellipse cx="23" cy="31" rx="6.4" ry="9" fill="#12181f" transform="rotate(-18 23 31)"/>'
-      + '<ellipse cx="41" cy="31" rx="6.4" ry="9" fill="#12181f" transform="rotate(18 41 31)"/>'
-      + '<path d="M28 45q4 3 8 0" stroke="#2d6b25" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
-    /* default silhouette, the one nobody replaced */
-    '<rect width="64" height="64" fill="#e9eaee"/>'
-      + '<circle cx="32" cy="25" r="11" fill="#9aa1ac"/>'
-      + '<path d="M11 60c0-12 9.4-19 21-19s21 7 21 19z" fill="#9aa1ac"/>',
-    /* hooded, face in shadow */ '<rect width="64" height="64" fill="#222734"/>'
-      + '<path d="M6 62c2-14 12-21 26-21s24 7 26 21z" fill="#3c4557"/>'
-      + '<path d="M32 10c11 0 19 9 19 19 0 9-5 15-11 17H24c-6-2-11-8-11-17 0-10 8-19 19-19z" fill="#4c576e"/>'
-      + '<ellipse cx="32" cy="33" rx="11.5" ry="13" fill="#12161f"/>'
-      + '<ellipse cx="27" cy="33" rx="2.6" ry="2.2" fill="#7fd4ff"/><ellipse cx="37" cy="33" rx="2.6" ry="2.2" fill="#7fd4ff"/>'
-  ];
-  function hash(str){
-    var h = 2166136261 >>> 0;
-    str = String(str);
-    for (var i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    return h >>> 0;
-  }
-  /* Stable per debater (a picture that reshuffles on refresh reads as
-     broken) and deduped down the rail (the same ghost twice reads as a
-     bug). Probe forward from the hashed slot. */
+  /* The drawn set lives in the ranked band's script (it is the surface
+     that always runs; this one is desktop-only), and both surfaces draw
+     from it so one debater wears one picture down the whole page. */
   function pfpArt(seed, taken){
-    var h = hash(seed), k, n = h % PFP.length;
-    for (k = 0; k < PFP.length; k++){
-      n = (h + k) % PFP.length;
-      if (!taken[n]) break;
-    }
-    taken[n] = 1;
-    return '<svg class="lbr-pfp" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"'
-      + ' preserveAspectRatio="xMidYMid slice">' + PFP[n] + '</svg>';
+    return typeof A.pfp === 'function' ? A.pfp(seed, taken) : '';
   }
   var wantsEngine = false;
   function face(r, i, taken){
