@@ -1268,7 +1268,11 @@ body.light-theme .ui-topbar-more-spot-proof>span{
   border-color:color-mix(in srgb,var(--col) 32%,transparent);
 }
 /* Tier 1: `big` in topbar.js. Flagship tiles, sized by venture weight
-   (Watch, Predict, Leaderboard, Tournaments, Competitive Voice AI). A
+   (Watch, Claims & challenges, Tournaments, Leaderboard, Competitive
+   Voice AI). Leaderboard was named here from the 2026-08-12 hierarchy
+   pass onward but was never actually given `big` in topbar.js, so for
+   twelve days this comment described a tile that did not exist and the
+   board rendered as a 25px utility row. Granted 2026-08-24. A
    bordered card with a large column-coloured icon and the heaviest label
    in the panel. The coloured tile is permanent here, not hover-only:
    these rows are the point of the column.
@@ -1301,6 +1305,74 @@ body.light-theme .ui-topbar-more-spot-proof>span{
     linear-gradient(180deg,color-mix(in srgb,var(--col) 13%,transparent),transparent 78%),
     color-mix(in srgb,var(--text,#fff) 4%,transparent);
   border-color:color-mix(in srgb,var(--col) 38%,transparent);
+}
+/* Flagship tile depth. A 42px tile is big enough to read as a SURFACE
+   rather than a swatch, so it gets a raked gradient, a hairline top
+   highlight and a coloured drop, which is what separates a tile you can
+   press from a coloured square. Deliberately not applied to tier 2 or 3:
+   at 32px and 25px the same treatment reads as noise, and the point of
+   the ramp is that the tiers look different. */
+.ui-topbar-more-item.is-big .ui-topbar-more-ico{
+  background:
+    linear-gradient(155deg,
+      color-mix(in srgb,var(--col) 24%,transparent),
+      color-mix(in srgb,var(--col) 9%,transparent) 70%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 16%,transparent),
+    0 5px 14px -8px color-mix(in srgb,var(--col) 65%,transparent);
+}
+.ui-topbar-more-item.is-big:hover .ui-topbar-more-ico,
+.ui-topbar-more-item.is-big:focus-visible .ui-topbar-more-ico{
+  background:
+    linear-gradient(155deg,
+      color-mix(in srgb,var(--col) 34%,transparent),
+      color-mix(in srgb,var(--col) 13%,transparent) 70%);
+  border-color:color-mix(in srgb,var(--col) 42%,transparent);
+}
+
+/* ── Explore motion ───────────────────────────────────────────────────
+   2026-08-24. The panel itself has faded in since it shipped, but the
+   columns arrived with it as one flat block, and a row answered a hover
+   with a background change and nothing else. Two additions, both behind
+   prefers-reduced-motion so the whole thing is inert for anyone who has
+   asked for that.
+
+   The stagger is 45ms per COLUMN, not per row. Per-row would take a
+   33-row panel most of a second to finish assembling, which is a menu
+   you wait for; per-column the eye reads it as the panel dealing itself
+   left to right and it is over in ~230ms. --ci is set by topbar.js
+   because CSS cannot count elements by class. */
+@media (prefers-reduced-motion:no-preference){
+  .ui-topbar-more-panel.is-open .ui-topbar-more-col{
+    animation:ui-topbar-col-in .3s cubic-bezier(.22,.9,.32,1) both;
+    animation-delay:calc(var(--ci,0) * 45ms + 40ms);
+  }
+  @keyframes ui-topbar-col-in{
+    from{opacity:0;transform:translateY(7px)}
+    to{opacity:1;transform:none}
+  }
+  /* The icon is the part that moves, not the row: shifting a whole row
+     on hover drags its description with it and the text stops being
+     readable mid-transition. */
+  .ui-topbar-more-ico{
+    transition:color .15s,background .15s,border-color .15s,box-shadow .15s,
+               transform .2s cubic-bezier(.22,.9,.32,1);
+  }
+  .ui-topbar-more-item:hover .ui-topbar-more-ico,
+  .ui-topbar-more-item:focus-visible .ui-topbar-more-ico{
+    transform:translateY(-1px) scale(1.05);
+  }
+  .ui-topbar-more-item.is-big:hover .ui-topbar-more-ico,
+  .ui-topbar-more-item.is-big:focus-visible .ui-topbar-more-ico{
+    transform:translateY(-2px) scale(1.04);
+  }
+  /* Press feedback. A flagship tile is a button-sized target, so it
+     should answer a mousedown before the navigation starts. */
+  .ui-topbar-more-item:active .ui-topbar-more-ico{
+    transform:scale(.95);transition-duration:.06s;
+  }
+  .ui-topbar-more-item.is-big{transition:background .15s,border-color .15s,transform .12s}
+  .ui-topbar-more-item.is-big:active{transform:scale(.988)}
 }
 /* ── "In progress" rows in Explore ─────────────────────────────────────
    2026-08-23. `wip: true` in topbar.js. The row is live and clickable and

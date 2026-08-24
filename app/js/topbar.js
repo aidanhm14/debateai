@@ -478,7 +478,7 @@
       // `user_ratings` holds a handful of debaters at high rating
       // deviation. Promoting the page is fine; quoting a standing off it
       // is not.
-      { href: '/leaderboard', label: 'Leaderboard' },
+      { href: '/leaderboard', label: 'Leaderboard', big: true },
       // 2026-08-19: /claim and /debate-rating join Leaderboard so the
       // three surfaces that answer "where do I stand" sit together. The
       // board is the question, the rating page is how the number works,
@@ -798,7 +798,7 @@
     '/claim':          { desc: 'Seed your rating from Tabroom', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
     '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
     '/judge-paradigms': { desc: 'What judges actually reward', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
-    '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M4.6 19.4V13M9.5 19.4V6.6M14.5 19.4V10M19.4 19.4V4.6"/>' },
+    '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M3 20.2h18"/><path d="M9.3 20.2v-8.6h5.4v8.6"/><path d="M3.9 20.2v-5.4h5.4"/><path d="M14.7 20.2v-6.8h5.4v6.8"/><path d="M12 3.2l1.16 2.35 2.6.38-1.88 1.83.44 2.58L12 9.11l-2.32 1.21.44-2.58-1.88-1.83 2.6-.38z"/>' },
     '/atlas':          { desc: 'Map of real debate programs', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.2 2.4 3.4 5.4 3.4 8.6s-1.2 6.2-3.4 8.6c-2.2-2.4-3.4-5.4-3.4-8.6s1.2-6.2 3.4-8.6z"/>' },
     '/community':      { desc: 'Find people and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
     '/what-to-debate': { desc: 'Post a motion, upvote the rest', icon: '<path d="M4.6 6.2a1.8 1.8 0 0 1 1.8-1.8h11.2a1.8 1.8 0 0 1 1.8 1.8v7.2a1.8 1.8 0 0 1-1.8 1.8H9.4l-4.8 3.8v-3.8a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M12 7.4v3.4M12 12.6v.1"/>' },
@@ -989,7 +989,7 @@
       // sweep reserved them for state (warn, achievement, tier), and a
       // decorative orange here would quietly reopen that.
       columnGroups.forEach(function(G, groupIndex){
-        var col = el('div', { class: 'ui-topbar-more-col ui-col-' + (groupIndex + 1) });
+        var col = el('div', { class: 'ui-topbar-more-col ui-col-' + (groupIndex + 1), style: '--ci:' + groupIndex });
         var head = el('div', { class: 'ui-topbar-more-head' }, [
           el('span', { class: 'ui-topbar-more-head-num', 'aria-hidden': 'true' }, '0' + (groupIndex + 1)),
           el('span', null, G.head),
