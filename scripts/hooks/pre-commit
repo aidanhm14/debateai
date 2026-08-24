@@ -598,6 +598,25 @@ if [ -f "$VALUE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Ballot reading-depth guard. A ballot surface only stops being a wall
+# of text while all three of its depths are still declared. Dropping a
+# tier from one page silently restores the old behaviour there and
+# nothing errors, which is the class of failure this repo keeps finding
+# by hand months later. Also holds the CSS rules, the AA contrast on the
+# selected pill, the rule that the summary never invents text, and the
+# line between this control and the judge-delivery LENGTH picked before
+# a round.
+# ──────────────────────────────────────────────────────────────────
+BREAD_GUARD="$REPO_ROOT/scripts/test-ballot-read.mjs"
+if [ -f "$BREAD_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ballot-read.mjs >/tmp/ballot-read-guard.log 2>&1); then
+    echo "[ballot-read] commit blocked - a ballot reading-depth promise broke:" >&2
+    grep '^  FAIL' /tmp/ballot-read-guard.log >&2 || tail -20 /tmp/ballot-read-guard.log >&2
+    echo "[ballot-read] see scripts/test-ballot-read.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Netlify-function import guard. Blocks a commit that stages a function
 # importing a name a sibling lib module does not export (the repeated

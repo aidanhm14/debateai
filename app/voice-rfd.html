@@ -26,6 +26,7 @@
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
 <script defer src="/js/app-check.js"></script>
+<script defer src="/js/ballot-read.js"></script>
 <!-- Firebase init. This page needs auth for the rating widget AND the
      post-round save-hook below. Public web config (same as every other
      page); idempotent guard so a re-init is a no-op. 2026-06-08: this
@@ -1009,38 +1010,60 @@ body{
         + '</section>';
     }
 
+    // Reading depth. Everything from here down is the evaluation, which
+    // is the part people asked to be able to size. The verdict, the
+    // speaker points, the credential and the next-round choices stay
+    // above the switch because they are the ballot at any depth.
+    // Read-aloud sits in this row rather than inside the verbatim
+    // section: it is the one control that matters at every depth, and
+    // its <audio> has to stay reachable while it plays.
+    html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 4px">'
+      + '<div id="ballotReadHost" style="flex:1 1 220px;min-width:0"></div>'
+      + '<button type="button" class="read-rfd-btn" id="readRfdBtn" style="padding:8px 14px;background:var(--accent,#ef4444);color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600;white-space:nowrap">🔊 Read ballot</button>'
+      + '</div>'
+      + '<audio id="rfdAudio" style="width:100%;margin:0 0 8px;display:none"></audio>';
+
+    // The decision in the judge's own two or three sentences. This page
+    // has parsed a DECISION section since it was written and only ever
+    // used it to detect the winner. A viva report has no DECISION
+    // heading, so that falls back to the opening of the report rather
+    // than leaving the summary read empty.
+    var summaryRead = sections.decision
+      || (window.BallotRead ? BallotRead.firstSentences(payload.rfd, 3) : '');
+    if (summaryRead) html +=
+      '<section class="section" data-read-max="ballot">'
+        + '<div class="section-head"><div class="icon">§</div><h2>The decision</h2><div class="sub">The short version</div></div>'
+        + '<div class="section-body">' + escHtml(summaryRead) + '</div>'
+      + '</section>';
+
     if (!isViva && sections.ballot) html +=
-      '<section class="section section--ballot">'
+      '<section class="section section--ballot" data-read-tier="full">'
         + '<div class="section-head"><div class="icon">⚖</div><h2>The ballot</h2><div class="sub">Full reason for decision</div></div>'
         + '<div class="section-body" style="white-space:pre-wrap">' + escHtml(sections.ballot) + '</div>'
       + '</section>';
 
     if (sections.best) html +=
-      '<section class="section section--best">'
+      '<section class="section section--best" data-read-min="ballot">'
         + '<div class="section-head"><div class="icon">✓</div><h2>' + (isViva ? 'Strongest answer' : 'Best moment') + '</h2><div class="sub">' + (isViva ? 'What you nailed' : 'What landed') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.best) + '</div>'
       + '</section>';
 
     if (sections.costliest) html +=
-      '<section class="section section--costliest">'
+      '<section class="section section--costliest" data-read-min="ballot">'
         + '<div class="section-head"><div class="icon">!</div><h2>' + (isViva ? 'Where it broke' : 'Costliest moment') + '</h2><div class="sub">' + (isViva ? 'Where knowledge gave out' : 'What slipped') + '</div></div>'
         + '<div class="section-body">' + escHtml(sections.costliest) + '</div>'
       + '</section>';
 
     if (sections.fixes && sections.fixes.length) html +=
-      '<section class="section section--fixes">'
+      '<section class="section section--fixes" data-read-min="ballot">'
         + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Actionable') + '</div></div>'
         + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
       + '</section>';
 
     html +=
-      '<section class="section section--full">'
-        + '<div class="section-head" style="display:flex;justify-content:space-between;align-items:center">'
-          + '<div><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
-          + '<button type="button" class="read-rfd-btn" id="readRfdBtn" style="margin-left:auto;padding:8px 14px;background:var(--accent,#ef4444);color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600;white-space:nowrap">🔊 Read ballot</button>'
-        + '</div>'
+      '<section class="section section--full" data-read-tier="full">'
+        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
         + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
-        + '<audio id="rfdAudio" style="width:100%;margin-top:12px;display:none"></audio>'
       + '</section>';
 
     // The pre/post spectator vote cards were REMOVED here 2026-08-23.
@@ -1064,7 +1087,7 @@ body{
         + '</div>';
       }).join('');
       html +=
-        '<section class="section section--transcript">'
+        '<section class="section section--transcript" data-read-min="ballot">'
           + '<div class="section-head"><div class="icon">¶</div><h2>Transcript</h2><div class="sub">' + payload.transcript.length + ' turns</div></div>'
           + '<input type="text" id="txSearch" class="tx-search-rfd" placeholder="Search the transcript…" />'
           + '<div id="txList">' + turnsHtml + '</div>'
@@ -1168,6 +1191,13 @@ body{
       + '<div class="foot">All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
     root.innerHTML = html;
+
+    // Reading depth. `root` carries the level; the sections above
+    // declare which depths they belong to.
+    try {
+      if (window.BallotRead) BallotRead.mount(
+        document.getElementById('ballotReadHost'), root, { surface: 'voice-rfd' });
+    } catch(e){ console.warn('[ballot read]', e); }
 
     // Transcript filter: hide non-matching turns as the user types. The
     // match key is precomputed into data-tx so this stays O(n) per keypress.

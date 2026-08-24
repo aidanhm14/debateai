@@ -27,6 +27,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script defer src="/js/avatar.js"></script>
+<script defer src="/js/ballot-read.js"></script>
 <script defer src="/js/avatar-account.js"></script>
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
@@ -950,15 +951,28 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       var headline = winName
         ? esc(winName)+' takes the round.'
         : 'The panel split. No winner recorded.';
-      ballotHtml = '<div class="ballot"><p class="b-eyebrow">The ballot</p>' +
+      // The summary read: the judge's own when the ballot carries one,
+      // otherwise the opening of the RFD, which every ballot prompt on
+      // this site requires to be the deciding issue.
+      var summaryRead = (r.ballot.summary && String(r.ballot.summary).trim())
+        || (window.BallotRead ? BallotRead.firstSentences(r.ballot.rfd, 2) : '')
+        || r.ballot.rfd || '';
+      ballotHtml = '<div class="ballot" id="ballotReadBlock"><p class="b-eyebrow">The ballot</p>' +
         '<p class="b-win">'+headline+'</p>' +
         panelHtml(pnl) +
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
         dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
         (r.ballot.decidingIssue ? '<p class="b-issue"><span>Decided on</span>'+esc(r.ballot.decidingIssue)+'</p>' : '') +
-        '<div class="b-rfd">'+esc(r.ballot.rfd)+'</div>' +
+        // Reading depth. The winner, the points, the panel and the
+        // deciding issue are the ballot at any depth and stay put; only
+        // the written reasoning resizes. With no full ballot on the doc
+        // the reason for decision carries the deepest read too, so
+        // picking Full can never land on an empty pane.
+        '<div id="ballotReadHost"></div>' +
+        '<div class="b-rfd" data-read-tier="summary">'+esc(summaryRead)+'</div>' +
+        '<div class="b-rfd" data-read-' + (r.ballot.rfdDeep ? 'tier="ballot"' : 'min="ballot"') + '>'+esc(r.ballot.rfd)+'</div>' +
         (r.ballot.rfdDeep
-          ? '<div class="b-deep"><p class="b-eyebrow">The full ballot</p><div class="b-deep-text">'+esc(r.ballot.rfdDeep)+'</div></div>'
+          ? '<div class="b-deep" data-read-tier="full"><p class="b-eyebrow">The full ballot</p><div class="b-deep-text">'+esc(r.ballot.rfdDeep)+'</div></div>'
           : '') +
         '</div>' +
         clashHtml(r.clashMap, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp', r.id, r.clashDisputes);
@@ -988,6 +1002,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       '<h2 class="r-motion">'+esc(r.motion)+'</h2></div>' +
       banner + '<div class="turns">'+turnsHtml+'</div>' + ballotHtml + voteHtml +
       '<div class="r-foot"><button id="shareBtn">Copy link</button><span>·</span><button id="reportBtn">Report</button></div>');
+
+    try {
+      if (window.BallotRead && $('ballotReadHost')) BallotRead.mount(
+        $('ballotReadHost'), $('ballotReadBlock'), { surface: 'rounds' });
+    } catch(e){ console.warn('[ballot read]', e); }
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-tr]'), function(b){
       b.onclick = function(){ var t=b.nextElementSibling; t.style.display = t.style.display==='block'?'none':'block'; };

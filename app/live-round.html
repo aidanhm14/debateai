@@ -6,6 +6,7 @@
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
 <script defer src="/js/audience-mode.js"></script>
+<script defer src="/js/ballot-read.js"></script>
 <title>Live Round · Debatable</title>
 <script>/* Broadcast view (?stage=1): class lands pre-paint so the chrome never flashes in. */
 if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className+=' stage-mode';</script>
@@ -9650,6 +9651,7 @@ html.stage-mode .stage-ov{display:block}
       '  ],',
       '  "speakerScores": { "PM": <num>, "LO": <num>, "DPM": <num>, "DLO": <num>, "MG": <num>, "MO": <num>, "GW": <num>, "OW": <num> },',
       '  "winningBench": "gov" | "opp",',
+      '  "summary": "<2-3 sentences. The short read: which team took the round, the call that put them there, and the one thing the team below them needed. Plain language a first-time watcher follows. Never contradict the RFD below it.>",',
       '  "rfd": "<10–18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG (gov bench order) and OO-vs-CO (opp bench order) explicitly — explain whether each closing extended legitimately or got under-cut. Do half-call diagonal comparison (CG vs OO; CO vs OG). Name dropped arguments. Do weighing: magnitude vs probability vs timeframe. Quote specific lines from the transcript.>",',
       '  "teamFeedback": {',
       '    "og": "<3–5 sentences for Opening Government: what their model + opening case did right, what they could have done to beat CG, one concrete fix.>",',
@@ -9743,6 +9745,7 @@ html.stage-mode .stage-ov{display:block}
       '  "conName": "<name>",',
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
+      '  "summary": "<2-3 sentences. The short read, for someone who wants the call and nothing else: who won, the single issue the round turned on, and the one thing the losing side needed. Plain language a first-time watcher follows. Never contradict the RFD below it.>",',
       '  "rfd": "<8–14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2–3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
       '  "proFeedback": "<5–8 sentences for the Pro speaker: 1) one specific strategic strength (what worked + why), 2) one technical area to fix with a concrete example from their speech, 3) one big-picture observation about their approach to this format.>",',
       '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>",',
@@ -10387,7 +10390,40 @@ html.stage-mode .stage-ov{display:block}
       return '<div style="margin-top:16px;font-size:.78rem;color:var(--text-dim)">' +
         'The judge is still writing the full ballot. It lands here in under a minute; the verdict above is final.</div>';
     }
+    // The full ballot is a second model call and it can fail. Whoever
+    // picked Full has to land on something, so fall back to the reason
+    // for decision the verdict already carries and say plainly that is
+    // what they are reading. An empty pane reads as a broken ballot.
+    var lb = state.lastBallot;
+    if (lb && lb.rfd){
+      return '<h3 style="margin-top:18px">Reason for decision</h3>' +
+        '<p style="white-space:pre-wrap">' + judgeHtml(lb.rfd) + '</p>' +
+        '<div style="margin-top:10px;font-size:.78rem;color:var(--text-dim)">' +
+        'The long-form ballot did not come back this time. This is the judge\'s reason for decision, unchanged.</div>';
+    }
     return '';
+  }
+
+  // The summary read. The judge writes its own two or three sentences
+  // now; a ballot stored before that field existed falls back to the
+  // opening of the RFD, which every ballot prompt on this site requires
+  // to be the deciding issue. Never invented, never padded.
+  function ballotSummaryRead(b){
+    var s = (b && typeof b.summary === 'string') ? b.summary.trim() : '';
+    if (s) return s;
+    var fs = (window.BallotRead && BallotRead.firstSentences)
+      ? BallotRead.firstSentences(b && b.rfd, 2) : '';
+    return fs || (b && b.rfd) || '';
+  }
+
+  // Mount the reading-depth control on whichever ballot body just
+  // rendered. renderBallotBody replaces the whole node, so this runs
+  // after every render; mount() drops the stale pair itself.
+  function mountBallotRead(){
+    if (!window.BallotRead) return;
+    var host = document.getElementById('ballotReadHost');
+    var body = document.getElementById('ballotReadBlock');
+    if (host && body) BallotRead.mount(host, body, { surface: 'live-round' });
   }
 
   function renderDeepRfd(){
@@ -11418,10 +11454,12 @@ html.stage-mode .stage-ov{display:block}
           + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px">Team ranking</h3>'
           + rankRows
         + '</div>'
-        + '<div class="ballot-section"' + (staged ? ' data-stage="2"' : '') + '>'
+        + '<div class="ballot-section" id="ballotReadBlock"' + (staged ? ' data-stage="2"' : '') + '>'
           + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Reason for decision</h3>'
-          + '<div class="bp-rfd">' + judgeHtml(b.rfd || '(no RFD)') + '</div>'
-          + '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>'
+          + '<div id="ballotReadHost"></div>'
+          + '<div data-read-tier="summary"><div class="bp-rfd">' + judgeHtml(ballotSummaryRead(b) || '(no ballot text)') + '</div></div>'
+          + '<div data-read-tier="ballot"><div class="bp-rfd">' + judgeHtml(b.rfd || '(no RFD)') + '</div></div>'
+          + '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>'
           + flowOfferHtml()
           + roomShiftSlotHtml()
         + '</div>'
@@ -11566,6 +11604,7 @@ html.stage-mode .stage-ov{display:block}
     // (e.g., the model returned the old schema by mistake).
     if (isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4){
       renderBpBallotBody(b, f, result, mode, staged);
+      try { mountBallotRead(); } catch(e){ console.warn('[ballot read]', e); }
       return;
     }
     var winnerName = b.winner === 'pro' ? state.proName : state.conName;
@@ -11625,13 +11664,25 @@ html.stage-mode .stage-ov{display:block}
           '<div class="pts-label">Speaker points' + (Math.max(b.proPoints || 0, b.conPoints || 0) > 30 ? ' · of 100' : '') + '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="rfd ballot-section" data-stage="2">' +
+      // Reading depth. The judge writes the same decision at three
+      // depths and printing all three at once is what made a ballot
+      // read as a wall of text. One renders at a time; the verdict,
+      // the points and the scorecard sit outside the switch because
+      // they are the ballot at any depth.
+      '<div class="rfd ballot-section" data-stage="2" id="ballotReadBlock">' +
+        '<div id="ballotReadHost"></div>' +
         dimScorecardHtml(b) +
-        '<h3>Reason for decision</h3>' +
-        '<p style="white-space:pre-wrap">' + judgeHtml(b.rfd || '(no RFD generated)') + '</p>' +
-        (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + judgeHtml(b.proFeedback) + '</p>' : '') +
-        (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
-        '<div id="deepRfdSlot">' + deepRfdSlotHtml() + '</div>' +
+        '<div data-read-tier="summary">' +
+          '<h3>The short version</h3>' +
+          '<p style="white-space:pre-wrap">' + judgeHtml(ballotSummaryRead(b) || '(no ballot text)') + '</p>' +
+        '</div>' +
+        '<div data-read-tier="ballot">' +
+          '<h3>Reason for decision</h3>' +
+          '<p style="white-space:pre-wrap">' + judgeHtml(b.rfd || '(no RFD generated)') + '</p>' +
+          (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + judgeHtml(b.proFeedback) + '</p>' : '') +
+          (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
+        '</div>' +
+        '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>' +
         flowOfferHtml() +
         roomShiftSlotHtml() +
       '</div>' +
@@ -11659,6 +11710,8 @@ html.stage-mode .stage-ov{display:block}
         ) +
       '</div>' + // .rfd-actions
       '</div>'; // .ballot-section[data-stage="3"]
+    try { mountBallotRead(); } catch(e){ console.warn('[ballot read]', e); }
+
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same
     // applies to the leaderboard consent checkbox + the publish-to-

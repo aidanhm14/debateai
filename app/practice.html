@@ -121,6 +121,7 @@
      the rest; every call site guards on firebaseStorage being present. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script defer src="/js/anim-governor.js"></script>
+<script defer src="/js/ballot-read.js"></script>
 <script defer src="/js/track.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
@@ -8103,6 +8104,24 @@ function App() {
   // Long-form written ballot (fullWrittenBallot prompt). Fired after
   // the JSON ballot lands; streams in under the verdict.
   var [deepBallot, setDeepBallot] = useState('');
+  // How much of the finished ballot to show: summary, ballot, or full.
+  // A stored reading preference (js/ballot-read.js owns the key and the
+  // CSS), NOT the judge-delivery length picked at setup: that one
+  // decides how long the judge writes, this one decides how much of
+  // what was written is on screen.
+  var [ballotRead, setBallotRead] = useState(function () {
+    try {
+      var v = localStorage.getItem('da-ballot-read');
+      return v === 'summary' || v === 'ballot' || v === 'full' ? v : 'ballot';
+    } catch (e) {return 'ballot';}
+  });
+  var pickBallotRead = (lvl) => {
+    setBallotRead(lvl);
+    try {
+      if (window.BallotRead) BallotRead.set(lvl, { surface: 'practice' });else
+      localStorage.setItem('da-ballot-read', lvl);
+    } catch (e) {}
+  };
   var [deepBallotLoading, setDeepBallotLoading] = useState(false);
   // Id of the `generations` row written for this round, and the rating
   // the user gave it. Both reset with the round.
@@ -12598,7 +12617,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     ),
 
     // Structured ballot
-    b && el('div', { style: { width: '100%' } },
+    b && el('div', { style: { width: '100%' }, 'data-ballot-read': ballotRead },
     // Decision banner, centered, lighter visual weight than the
     // previous block. Decision body in a softer neutral so the
     // verdict pops and the reasoning reads as supporting copy.
@@ -12610,6 +12629,26 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     b.winner === 'user' ? 'You Win' : 'Opponent Wins'
     ),
     el('p', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' } }, b.decision)
+    ),
+
+    // Reading depth. The judge writes the same decision at three
+    // depths; printing all of it at once is what made a ballot read as
+    // a wall of text. The verdict, the scores and every next-step
+    // action stay outside the switch, because those are the ballot at
+    // any depth.
+    el('div', { className: 'ballot-read', role: 'group', 'aria-label': 'How much of the ballot to read', style: { justifyContent: 'center' } },
+    el('span', { className: 'ballot-read-lab' }, 'Read'),
+    el('span', { className: 'ballot-read-seg' },
+    [
+    { id: 'summary', label: 'Summary', hint: 'The call and the clash it turned on' },
+    { id: 'ballot', label: 'Ballot', hint: 'The judge\'s reason for decision and your feedback' },
+    { id: 'full', label: 'Full', hint: 'Every argument, the drops, and how it flips' }].
+    map((o) => el('button', {
+      key: o.id, type: 'button', className: 'ballot-read-btn', title: o.hint,
+      'aria-pressed': ballotRead === o.id ? 'true' : 'false',
+      onClick: () => pickBallotRead(o.id)
+    }, o.label))
+    )
     ),
 
     // The second-round engine. Four decisions immediately after the
@@ -13095,6 +13134,18 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5 } }, b.keyClash)
     ),
 
+    // Reason for decision. The judge has always written this field and
+    // this page never rendered it, so the ballot's own reasoning was
+    // being paid for and thrown away. It is the Ballot read. At Full it
+    // gives way to the long-form ballot below, which restates it,
+    // UNLESS there is no long-form ballot (the round was judged Short,
+    // or the second call failed), in which case this is what a Full
+    // reader gets rather than an empty pane.
+    b.rfd && el('div', { 'data-read-tier': deepBallot || deepBallotLoading ? 'ballot' : null, style: { padding: '16px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 14, marginBottom: 20 } },
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 6 } }, audienceCopy('Reason for decision', 'Why the judge decided this way')),
+    el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.6, whiteSpace: 'pre-wrap' } }, b.rfd)
+    ),
+
     // The full written ballot — long-form RFD (fullWrittenBallot
     // prompt). Fired after the JSON ballot lands; streams in here.
     // COLLAPSED BY DEFAULT (2026-08-23): this is 700-1300 words and it
@@ -13103,7 +13154,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // else. It is the best thing on the page for the person who wants
     // it and the reason the page read as too much for everyone else,
     // which is exactly what a disclosure is for. Nothing is removed.
-    (deepBallot || deepBallotLoading) && el('details', { style: { padding: '14px 18px', background: 'var(--c-surface)', border: '1px solid rgba(212,175,55,.28)', borderRadius: 14, marginBottom: 20 } },
+    (deepBallot || deepBallotLoading) && el('details', { 'data-read-tier': 'full', open: ballotRead === 'full', style: { padding: '14px 18px', background: 'var(--c-surface)', border: '1px solid rgba(212,175,55,.28)', borderRadius: 14, marginBottom: 20 } },
     el('summary', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#d4af37', cursor: 'pointer', listStyle: 'none' } },
     deepBallot ? 'The full ballot, in the judge’s words' : 'The full ballot is being written'
     ),
@@ -13115,7 +13166,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     ),
 
     // Per-speech breakdown
-    b.speeches && b.speeches.length > 0 && el('div', { style: { marginBottom: 20 } },
+    b.speeches && b.speeches.length > 0 && el('div', { 'data-read-min': 'ballot', style: { marginBottom: 20 } },
     el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)', marginBottom: 12 } }, audienceCopy('Speech Breakdown', 'Turn-by-Turn Feedback')),
     b.speeches.map((sp, i) => el('div', { key: i, style: { padding: '14px 18px', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, marginBottom: 8 } },
     el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
@@ -13132,7 +13183,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     ),
 
     // Overall strengths/weaknesses
-    (b.overallStrengths || b.overallWeaknesses) && el('div', { style: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' } },
+    (b.overallStrengths || b.overallWeaknesses) && el('div', { 'data-read-tier': 'ballot', style: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' } },
     b.overallStrengths && el('div', { style: { flex: 1, minWidth: 140, padding: '14px 18px', background: 'rgba(34,197,94,.04)', border: '1px solid rgba(34,197,94,.1)', borderRadius: 14 } },
     el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#22c55e', marginBottom: 8 } }, 'Strengths'),
     b.overallStrengths.map((s, i) => el('div', { key: i, style: { fontSize: '.8rem', color: 'var(--c-text3)', marginBottom: 4 } }, '• ' + s))
@@ -13144,7 +13195,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     ),
 
     // Practice advice
-    b.practiceAdvice && el('div', { style: { padding: '16px 20px', background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.15)', borderRadius: 14, marginBottom: 20 } },
+    b.practiceAdvice && el('div', { 'data-read-min': 'ballot', style: { padding: '16px 20px', background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.15)', borderRadius: 14, marginBottom: 20 } },
     el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: '#3b82f6', marginBottom: 6 } }, 'Practice This Next'),
     el('p', { style: { fontSize: '.88rem', color: 'var(--c-text4)', lineHeight: 1.5 } }, b.practiceAdvice)
     )

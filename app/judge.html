@@ -54,6 +54,7 @@
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script src="/js/judge-options.js"></script>
+<script defer src="/js/ballot-read.js"></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -909,16 +910,32 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       </div>
     </div>
     <div id="scoreGrid" class="scores"></div>
-    <div class="rfd-block">
-      <h3>Reason for decision</h3>
-      <p id="rfdText"></p>
+    <!-- Reading depth. The judge writes the same decision at three
+         depths and stacking all three is what makes a ballot read as a
+         wall of text. One renders at a time; the verdict and the scores
+         sit outside the switch because they are the ballot at any
+         depth. Not the same control as the pre-round ballot LENGTH
+         above (Short / Medium / Extensive), which decides how much the
+         judge writes. -->
+    <div id="ballotReadBlock" data-ballot-read="ballot">
+      <div id="ballotReadHost"></div>
+      <div class="rfd-block" data-read-tier="summary">
+        <h3>The short version</h3>
+        <p id="ballotSummaryText"></p>
+      </div>
+      <div data-read-tier="ballot">
+        <div class="rfd-block">
+          <h3>Reason for decision</h3>
+          <p id="rfdText"></p>
+        </div>
+        <div id="feedbackGrid" class="fb-grid"></div>
+      </div>
+      <div class="rfd-block" id="fullBallotBlock" data-read-tier="full" style="display:none">
+        <h3>The full ballot</h3>
+        <p id="fullBallotStatus">The judge is writing the full ballot. It lands here in under a minute; the verdict above is final.</p>
+        <p id="fullBallotText" style="white-space:pre-wrap;display:none"></p>
+      </div>
     </div>
-    <div class="rfd-block" id="fullBallotBlock" style="display:none">
-      <h3>The full ballot</h3>
-      <p id="fullBallotStatus">The judge is writing the full ballot. It lands here in under a minute; the verdict above is final.</p>
-      <p id="fullBallotText" style="white-space:pre-wrap;display:none"></p>
-    </div>
-    <div id="feedbackGrid" class="fb-grid"></div>
     <div class="ballot-cta">
       <button class="primary" type="button" id="againBtn">Judge another round</button>
       <a class="ghost" href="/spar" onclick="try{gtag('event','judge_next_click',{to:'spar'})}catch(e){}">Debate a real person</a>
@@ -1636,6 +1653,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       '    {"team":"cg","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MG","name":"<speaker name>","points":<50-100>},{"role":"GW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"},',
       '    {"team":"co","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MO","name":"<speaker name>","points":<50-100>},{"role":"OW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"}',
       "  ],",
+      '  "summary": "<2-3 sentences. The short read: which team took the round, the call that put them there, and the one thing the team below them needed. Plain language a first-time watcher follows. No bolding. Never contradict the RFD below it.>",',
       '  "rfd": "<12-18 sentence RFD in 4-5 short paragraphs separated by \\n\\n. State the decisive comparison, resolve the five relevant half-calls, explain the closing extensions and whip weighing, name drops, then justify the complete 1st-to-4th ranking. Bold 6-10 short, load-bearing phrases.>",',
       '  "divergence": "<3-5 sentences comparing the human ranking with yours, or naming the moment the ranking turned if no human call was given. Bold the one decisive phrase.>"',
       "}"
@@ -1646,6 +1664,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       '  "conName": "<name>",',
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
+      '  "summary": "<2-3 sentences. The short read, for someone who wants the call and nothing else: who won, the single issue the round turned on, and the one thing the losing side needed. Plain language a first-time watcher follows. No bolding. Never contradict the RFD below it.>",',
       '  "rfd": "<8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue, walk through the key clashes, name drops, do explicit weighing, and close with what the losing side needed to win. Bold 5-8 short, load-bearing phrases.>",',
       '  "proFeedback": "<5-8 sentences in 2 short paragraphs with one strategic strength, one technical fix tied to the transcript, and one big-picture format observation. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>",',
       '  "conFeedback": "<5-8 sentences in 2 short paragraphs with the same structure and bolding as proFeedback.>",',
@@ -1976,6 +1995,17 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     }
 
     renderBallotText($('rfdText'), b.rfd || '');
+    // The summary read. The judge writes its own; a ballot that skipped
+    // the field falls back to the opening of the RFD, which the prompt
+    // requires to be the deciding issue.
+    var summaryRead = (b.summary && String(b.summary).trim())
+      || (window.BallotRead ? BallotRead.firstSentences(b.rfd, 2) : '')
+      || b.rfd || '';
+    renderBallotText($('ballotSummaryText'), summaryRead);
+    try {
+      if (window.BallotRead) BallotRead.mount(
+        $('ballotReadHost'), $('ballotReadBlock'), { surface: 'judge' });
+    } catch(e){ console.warn('[ballot read]', e); }
     $('loading').style.display = 'none';
     $('ballot').style.display = 'block';
     $('ballot').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -2112,11 +2142,21 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       out.style.display = 'block';
       try { gtag('event', 'judge_full_ballot', { format: ctx.formatKey, chars: text.length }); } catch(e){}
     }).catch(function(err){
-      // The verdict above is complete on its own, so a failed second
-      // beat disappears quietly instead of leaving a broken promise.
       console.warn('[full ballot]', err);
       if (seq !== fullBallotSeq) return;
-      block.style.display = 'none';
+      // The second beat is its own model call and it can fail. Whoever
+      // picked Full has to land on something, so fall back to the
+      // reason for decision the verdict already carries and say plainly
+      // that is what they are reading. An empty pane reads as a broken
+      // ballot.
+      if (b && b.rfd){
+        status.textContent = 'The long-form ballot did not come back this time. This is the judge\'s reason for decision, unchanged.';
+        status.style.display = 'block';
+        renderBallotText(out, b.rfd);
+        out.style.display = 'block';
+      } else {
+        block.style.display = 'none';
+      }
     });
   }
 
