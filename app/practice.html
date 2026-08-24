@@ -3792,6 +3792,79 @@ async function callAnthropicDirect(body) {
   });
 }
 
+// Tells the user their brain pick was swapped, and why. Deliberately
+// plain DOM rather than React state: this fires from callAI, which runs
+// mid-round from inside RoundApp's render tree, and that component has
+// a documented hooks-order hazard (the Saved-tab React #300 crash on
+// 2026-08-18). A new useState there is the exact shape of that bug, and
+// a banner is not worth the risk of taking the whole page down.
+//
+// Once per brain per page load. A round makes roughly five calls and
+// every one of them would answer 402, so an unthrottled version would
+// stack five identical banners on one speech.
+var __brainSwapShown = {};
+function notifyBrainSwap(brainKey, serverReason) {
+  if (__brainSwapShown[brainKey]) return;
+  __brainSwapShown[brainKey] = true;
+  var b = BRAINS[brainKey];
+  if (!b || typeof document === 'undefined') return;
+  var prior = document.getElementById('brain-swap-note');
+  if (prior) prior.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'brain-swap-note';
+  wrap.setAttribute('role', 'status');
+  wrap.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+  'z-index:1200;max-width:min(520px,calc(100vw - 32px));display:flex;gap:12px;align-items:flex-start;' +
+  'background:var(--c-scrim2,rgba(15,15,18,.96));border:1px solid rgba(239,68,68,.34);' +
+  'border-radius:14px;padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.4);' +
+  'font-size:.82rem;line-height:1.5;color:#f4f4f5';
+
+  var dot = document.createElement('span');
+  dot.style.cssText = 'width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:6px;background:' + (b.color || '#ef4444');
+  wrap.appendChild(dot);
+
+  var col = document.createElement('div');
+  col.style.cssText = 'flex:1 1 auto;min-width:0';
+  var line = document.createElement('div');
+  // textContent throughout: serverReason is a string off the wire.
+  line.textContent = b.name + ' needs a paid plan, so this round is running on Claude instead.';
+  col.appendChild(line);
+  var sub = document.createElement('div');
+  sub.style.cssText = 'margin-top:4px;color:#a1a1aa;font-size:.76rem';
+  // A lapsed card and never having paid are different problems with
+  // different fixes, and the server already distinguishes them.
+  sub.textContent = /not active|past due|expired|lapsed/i.test(serverReason || '') ?
+  'Your plan is not active right now. Reopening billing should restore it.' :
+  'Individual is $10/year and unlocks all six brains.';
+  col.appendChild(sub);
+  wrap.appendChild(col);
+
+  var actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:6px;flex:0 0 auto;align-items:center';
+  var cta = document.createElement('a');
+  cta.href = '/pricing';
+  cta.textContent = 'See plans';
+  cta.style.cssText = 'padding:7px 14px;background:#ef4444;color:#fff;border-radius:999px;' +
+  'font-size:.74rem;font-weight:800;text-decoration:none;white-space:nowrap';
+  actions.appendChild(cta);
+  var x = document.createElement('button');
+  x.textContent = '\u00d7';
+  x.setAttribute('aria-label', 'Dismiss');
+  x.style.cssText = 'padding:6px 10px;background:transparent;color:#f4f4f5;' +
+  'border:1px solid var(--c-border2,rgba(255,255,255,.18));border-radius:999px;cursor:pointer;font-family:inherit';
+  x.onclick = function () {wrap.remove();};
+  actions.appendChild(x);
+  wrap.appendChild(actions);
+
+  document.body.appendChild(wrap);
+  try {
+    if (window.gtag) gtag('event', 'brain_swap_paywall', { brain: brainKey });
+  } catch (e) {}
+  // Long enough to read mid-speech, gone before it becomes furniture.
+  setTimeout(function () {if (wrap.isConnected) wrap.remove();}, 14000);
+}
+
 // Unified AI call. supports Claude, OpenAI, and xAI streaming formats
 async function callAI(sys, user, onChunk, brainKey, opts) {
   // Generation gate: refuse the call if the user has already burned their
@@ -3865,6 +3938,22 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   var contentType = r.headers.get('content-type') || '';
   var isHtmlBody = contentType.includes('text/html');
   var isBroken = !r.ok || isHtmlBody;
+  // A 402 is not a broken brain, it is an entitlement answer, and until
+  // 2026-08-24 it fell into the generic `!r.ok` branch below and was
+  // rerouted to Claude with nothing but a console.warn. So somebody who
+  // picked Grok got Claude, was never told, and had no way to find the
+  // one action that fixes it. The round STILL finishes on Claude,
+  // deliberately: a round that has started always finishes, and cutting
+  // a live speech to sell a plan is worse than the swap. What changes
+  // is that the swap is now said out loud.
+  if (r.status === 402 && currentEndpoint !== '/api/claude') {
+    var payReason = '';
+    try {
+      var payJson = JSON.parse(await r.clone().text());
+      payReason = typeof payJson.error === 'string' ? payJson.error : '';
+    } catch (e) {}
+    try {notifyBrainSwap(brainKey, payReason);} catch (e) {}
+  }
   if (isBroken && currentEndpoint !== '/api/claude') {
     console.warn('[AI] ' + currentEndpoint + ' broken (status=' + r.status + ', ct=' + contentType + '), falling back to /api/claude');
     body.model = BRAINS.claude.model;
@@ -5728,7 +5817,18 @@ function App() {
 
   // Set global pro status from team data, with owner-email bypass.
   useEffect(() => {
-    var planPro = !!(team && (team.plan === 'individual' || team.plan === 'team' || team.plan === 'lifetime'));
+    // MUST match requirePaidPlan in netlify/functions/lib/auth.mjs. It
+    // did not: this read `plan` and ignored `status`, while the server
+    // refuses anything that is not active or trialing. So a lapsed or
+    // past_due subscription showed all six brains unlocked in the
+    // picker, the user picked Grok, and the server answered 402 — which
+    // callAI used to swallow as a generic failure and reroute to Claude
+    // without saying anything. A failed card presented as the brain
+    // picker quietly not working.
+    var PAID_PLANS = ['individual', 'team', 'lifetime', 'byok'];
+    var st = team && team.status;
+    var statusOk = !st || st === 'active' || st === 'trialing';
+    var planPro = !!(team && PAID_PLANS.indexOf(team.plan) !== -1 && statusOk);
     __proStatus = planPro || isOwnerEmail(user && user.email);
   }, [team, user]);
 

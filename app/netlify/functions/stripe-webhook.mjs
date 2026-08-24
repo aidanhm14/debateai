@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { getDb, PLANS, FieldValue } from './lib/firestore.mjs';
+import { LEGACY_PRICE_PLANS } from './lib/plans.mjs';
 import { TOKENS, grantTokensForInvoice, setTokenSubscriptionState } from './lib/tokens.mjs';
 
 // Newer Stripe API versions move invoice.subscription under
@@ -520,7 +521,26 @@ function getPlanFromPrice(priceId) {
   if (priceId === byokPrice) return 'byok';
   if (priceId === individualPrice) return 'individual';
   if (priceId === teamPrice) return 'team';
-  console.warn('Unknown price ID:', priceId, '— defaulting to individual');
+
+  // A subscription created before a repricing keeps billing against the
+  // price it was created with, forever, because Stripe never re-prices
+  // an existing subscription. So the moment the env var moves, every
+  // existing subscriber's renewal arrives carrying a price id this
+  // function no longer recognises. It used to warn and hand back
+  // 'individual', which is a GUESS about a paying person's entitlement
+  // and would have silently promoted a legacy Team subscriber down to
+  // Individual on their next renewal. LEGACY_PRICE_PLANS is the record
+  // of what each retired price actually granted.
+  const legacy = LEGACY_PRICE_PLANS[priceId];
+  if (legacy) {
+    console.log(`Legacy price ${priceId} (${legacy.was}) → ${legacy.plan}`);
+    return legacy.plan;
+  }
+
+  // Genuinely unknown. Still defaults rather than throwing, because a
+  // throw here drops the webhook and Stripe retries it forever, but the
+  // log says loudly that somebody was granted a plan we did not sell.
+  console.error('UNKNOWN price ID:', priceId, '— granting individual. Add it to LEGACY_PRICE_PLANS in lib/plans.mjs.');
   return 'individual';
 }
 

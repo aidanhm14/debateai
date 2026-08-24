@@ -4326,6 +4326,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4341,8 +4342,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');
-  t = '<p class="ai-p">' + t + '<\/p>';
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';
   t = t.replace(/<p[^>]*><\/p>/g, '');
   return t;
 }
@@ -5171,6 +5171,74 @@ function extractAITextFromRaw(raw) {
   return combined;
 }
 
+// Says out loud that a brain pick was swapped for Claude, and why.
+// Plain DOM on purpose: this fires from deep inside a generation and
+// must not touch React state in an 18k-line component tree.
+// Once per brain per page load, because one round makes several calls
+// and every one of them answers 402.
+var __brainSwapShown = {};
+function notifyBrainSwap(brainKey, serverReason) {
+  if (__brainSwapShown[brainKey]) return;
+  __brainSwapShown[brainKey] = true;
+  var b = CASE_BRAINS[brainKey];
+  if (!b || typeof document === 'undefined') return;
+  var prior = document.getElementById('brain-swap-note');
+  if (prior) prior.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'brain-swap-note';
+  wrap.setAttribute('role', 'status');
+  wrap.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+  'z-index:1200;max-width:min(520px,calc(100vw - 32px));display:flex;gap:12px;align-items:flex-start;' +
+  'background:rgba(15,15,18,.96);border:1px solid rgba(239,68,68,.34);' +
+  'border-radius:14px;padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.4);' +
+  'font-size:.82rem;line-height:1.5;color:#f4f4f5';
+
+  var dot = document.createElement('span');
+  dot.style.cssText = 'width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:6px;background:' + (b.color || '#ef4444');
+  wrap.appendChild(dot);
+
+  var col = document.createElement('div');
+  col.style.cssText = 'flex:1 1 auto;min-width:0';
+  var line = document.createElement('div');
+  line.textContent = (b.name || brainKey) + ' needs a paid plan, so this ran on Claude instead.';
+  col.appendChild(line);
+  var sub = document.createElement('div');
+  sub.style.cssText = 'margin-top:4px;color:#a1a1aa;font-size:.76rem';
+  sub.textContent = /not active|past due|expired|lapsed/i.test(serverReason || '') ?
+  'Your plan is not active right now. Reopening billing should restore it.' :
+  'Individual is $10/year and unlocks all six brains.';
+  col.appendChild(sub);
+  wrap.appendChild(col);
+
+  var actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:6px;flex:0 0 auto;align-items:center';
+  // The native app must not link out to a web pricing page: App Store
+  // rules, and every other paywall string on this page already branches
+  // on __DB_NATIVE for exactly that reason.
+  if (!window.__DB_NATIVE) {
+    var cta = document.createElement('a');
+    cta.href = '/pricing';
+    cta.textContent = 'See plans';
+    cta.style.cssText = 'padding:7px 14px;background:#ef4444;color:#fff;border-radius:999px;' +
+    'font-size:.74rem;font-weight:800;text-decoration:none;white-space:nowrap';
+    actions.appendChild(cta);
+  }
+  var x = document.createElement('button');
+  x.textContent = '\u00d7';
+  x.setAttribute('aria-label', 'Dismiss');
+  x.style.cssText = 'padding:6px 10px;background:transparent;color:#f4f4f5;' +
+  'border:1px solid rgba(255,255,255,.18);border-radius:999px;cursor:pointer;font-family:inherit';
+  x.onclick = function () {wrap.remove();};
+  actions.appendChild(x);
+  wrap.appendChild(actions);
+
+  document.body.appendChild(wrap);
+  try {if (window.gtag) gtag('event', 'brain_swap_paywall', { brain: brainKey });} catch (e) {}
+  try {logBetaEvent('brain_swap_paywall', { brain: brainKey });} catch (e) {}
+  setTimeout(function () {if (wrap.isConnected) wrap.remove();}, 14000);
+}
+
 /* Call any AI engine. for non-Claude engines, uses simple SSE streaming */
 async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {}) {
   // Claude has its own advanced function with thinking + continuation
@@ -5273,7 +5341,18 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
   if (isHtmlBody || !response.ok) {
     var err = await response.text().catch(() => '');
     if (brainKey !== 'claude') {
-      console.warn('[AI] ' + brain.endpoint + ' failed (status=' + response.status + ', ct=' + ct + '), falling back to Claude:', cleanAIErrorText(err, 'no details'));
+      // A 402 is an entitlement answer, not a broken brain, and it used
+      // to disappear into this same console.warn. On THIS page that is
+      // the common case rather than the rare one: BETA_PRO_UNLOCK shows
+      // all six brains unlocked to everybody, while the server gates
+      // the five non-Claude ones on a paid plan. So a free user picking
+      // Grok has always silently received Claude. The generation still
+      // completes on Claude, which is right, but the swap gets said.
+      if (response.status === 402) {
+        try {notifyBrainSwap(brainKey, cleanAIErrorText(err, ''));} catch (e) {}
+      } else {
+        console.warn('[AI] ' + brain.endpoint + ' failed (status=' + response.status + ', ct=' + ct + '), falling back to Claude:', cleanAIErrorText(err, 'no details'));
+      }
       return callClaude(systemPrompt, userPrompt, onChunk, opts);
     }
     if (isHtmlBody && isLocalFunctionlessPreview()) {

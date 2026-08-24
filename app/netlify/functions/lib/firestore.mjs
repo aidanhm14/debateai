@@ -83,12 +83,19 @@ export function getDb() {
 // user. Voice keeps its own meter (FREE_VOICE_LIFETIME_LIMIT plus the
 // token balance); this cap is the text lane, which is cheap and got
 // cheaper again when internal tasks moved to a cheap tier.
+//
+// WHAT A PLAN COSTS IS NOT HERE. This map is entitlements only. It used
+// to carry a `priceMonthly` field that still read 500 and 3000 — the
+// prices retired on 2026-06-27 — a year after the copy moved to $10 and
+// $50 a year. Nothing consumed it, so it was quietly wrong for months.
+// Price lives in lib/plans.mjs, once, next to the Stripe price id it
+// has to agree with.
 export const PLANS = {
-  trial:  { requests: 3,    members: 3,  priceMonthly: 0 },
-  byok:       { requests: 9999, members: 1,  priceMonthly: 100 },
-  individual: { requests: 9999, members: 1,  priceMonthly: 500 },
-  lifetime:   { requests: 9999, members: 3,  priceMonthly: 0 },
-  team:       { requests: 9999, members: 50, priceMonthly: 3000 },
+  trial:      { requests: 3,    members: 3 },
+  byok:       { requests: 9999, members: 1 },
+  individual: { requests: 9999, members: 1 },
+  lifetime:   { requests: 9999, members: 3 },
+  team:       { requests: 9999, members: 50 },
 };
 
 /**

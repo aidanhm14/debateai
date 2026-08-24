@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getUserTeam } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { PURCHASABLE_PLANS, envKeyForPlan, priceMatchesCanonical } from './lib/plans.mjs';
 
 // Server-side beta no-charge gate, mirroring the client flags
 // (pricing.html BETA_NO_CHARGE, index.html CHECKOUT_BETA_NO_CHARGE).
@@ -52,22 +53,39 @@ export default async (request) => {
   try { body = await request.json(); } catch { return errorResponse('Invalid request body', 400, request); }
   const planId = body.plan; // "individual" or "team"
 
-  const priceMap = {
-    byok: process.env.STRIPE_PRICE_BYOK,
-    individual: process.env.STRIPE_PRICE_INDIVIDUAL,
-    team: process.env.STRIPE_PRICE_TEAM,
-    lifetime: process.env.STRIPE_PRICE_LIFETIME,
-  };
-
-  const priceId = priceMap[planId];
-  if (!priceId) return errorResponse('Invalid plan. Choose "byok", "individual", "team", or "lifetime".', 400, request);
+  if (!PURCHASABLE_PLANS.includes(planId)) {
+    return errorResponse('Invalid plan. Choose "byok", "individual", or "team".', 400, request);
+  }
+  const priceId = process.env[envKeyForPlan(planId)];
+  if (!priceId) {
+    console.error(`create-checkout: ${envKeyForPlan(planId)} is not set`);
+    return errorResponse('That plan is not configured for checkout yet.', 500, request);
+  }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  // Confirm Stripe charges what the site says it charges, BEFORE anyone
+  // reaches a card form. See the header of lib/plans.mjs: on 2026-08-24
+  // the live Individual price was $5.00/month against an advertised
+  // $10/year, and nothing in the repo could see it, because a price id
+  // is opaque and the HTML price guard only ever read HTML.
+  //
+  // This fails CLOSED. An overcharge is not a degradation to trade off
+  // against availability: a checkout that refuses is an outage, and a
+  // checkout that quietly bills six times the advertised figure is a
+  // refund queue and a chargeback. Cached per price id because the
+  // answer only changes when someone re-points the env var.
+  const verdict = await verifyPrice(stripe, planId, priceId);
+  if (!verdict.ok) {
+    console.error(`create-checkout PRICE MISMATCH [${planId}] ${priceId}: ${verdict.reason}`);
+    return jsonResponse({
+      error: 'PRICE_MISCONFIGURED',
+      message: 'Checkout is paused on this plan while we correct a billing setting. Nothing was charged.',
+    }, 500, request);
+  }
   // Default to itsdebatable.com (the production host) instead of the legacy
   // debateos.com which now 404s. SITE_URL env var still wins if set.
   const siteUrl = process.env.SITE_URL || 'https://itsdebatable.com';
-
-  const isLifetime = planId === 'lifetime';
 
   try {
     // If we already have a Stripe customer for this team, reuse it so
@@ -76,7 +94,7 @@ export default async (request) => {
     // email — without either, the Checkout form opens blank and a fresh
     // anonymous customer is created (annoying for billing reconciliation).
     const sessionParams = {
-      mode: isLifetime ? 'payment' : 'subscription',
+      mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?billing=canceled&plan=${planId}`,
@@ -86,10 +104,7 @@ export default async (request) => {
           ? { customer_email: decoded.email }
           : {}
       ),
-      ...(isLifetime
-        ? { payment_intent_data: { metadata: { teamId: team.id, plan: 'lifetime' } } }
-        : { subscription_data: { metadata: { teamId: team.id } } }
-      ),
+      subscription_data: { metadata: { teamId: team.id } },
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams);
@@ -99,6 +114,29 @@ export default async (request) => {
     return errorResponse('Billing error. Please try again.', 500, request);
   }
 };
+
+// Cache is per warm Lambda instance, which is the right scope: it is a
+// read of configuration, so a cold start re-checking costs one Stripe
+// call and a stale entry can only be as old as the instance.
+const priceCache = new Map();
+
+async function verifyPrice(stripe, plan, priceId) {
+  const hit = priceCache.get(priceId);
+  if (hit) return hit;
+  let price;
+  try {
+    price = await stripe.prices.retrieve(priceId);
+  } catch (err) {
+    // An unreadable price is not a pass. We cannot show someone a card
+    // form for an amount we were unable to confirm.
+    return { ok: false, reason: `could not read the Stripe price: ${err.message}` };
+  }
+  const verdict = priceMatchesCanonical(plan, price);
+  // Only a PASS is cached. Caching a failure would keep checkout dark
+  // on that instance after the operator has already fixed the env var.
+  if (verdict.ok) priceCache.set(priceId, verdict);
+  return verdict;
+}
 
 export const config = {
   path: '/api/billing/checkout',

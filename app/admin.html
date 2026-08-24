@@ -795,6 +795,31 @@
     </div>
   </div>
 
+  <!-- Bounties: the two moments a pot owes somebody money. The endpoint
+       (/api/admin/bounty) shipped complete and had no button anywhere,
+       so completing a round, refunding an expired pot and recording a
+       payout were all curl-only. A money queue nobody can see is a
+       stranger's card charged for a debate that may not have happened.
+
+       Completing is deliberately an ADMIN action and stays one: a human
+       confirms the round ran before a pot is owed, the same rule the
+       judge-integrity layer applies to credits. Refunds go through
+       Stripe from here; PAYOUTS remain manual until Connect and KYC
+       exist, so 'Mark paid' records that you sent the money, it does
+       not send it. -->
+  <div class="section" data-pane="money">
+    <div class="card">
+      <div class="title">
+        <span title="Only bounties needing an action appear. An empty list is the healthy state.">Bounties · money owed</span>
+        <span class="meta" id="bounty-meta">Loading…</span>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.55">
+        Complete marks the pot owed and splits it. Refund sends contributions back through Stripe. Mark paid records that you paid the two debaters by hand; it moves no money.
+      </div>
+      <div id="bounty-body" class="ts" style="padding:2px">Loading…</div>
+    </div>
+  </div>
+
   <div class="section" data-pane="money">
     <div class="card">
       <div class="title">
@@ -1715,6 +1740,95 @@ async function fetchJson(url, fresh){
   return r.json();
 }
 
+
+/* ── Bounties · money owed ──────────────────────────────────────────
+   Reads /api/admin/bounty {action:'list'}, which returns ONLY bounties
+   needing attention, so an empty table genuinely means nothing is
+   owed rather than nothing was fetched. Every mutating action confirms
+   first: each one is either somebody's money moving or a record that it
+   already did, and none of them is undoable from this page. */
+async function adminBountyPost(payload){
+  const token = await getToken();
+  const r = await fetch('/api/admin/bounty', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+function renderBounties(rows){
+  const body = $('bounty-body');
+  const meta = $('bounty-meta');
+  if (!rows.length){
+    meta.textContent = 'nothing owed';
+    body.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 2px">No bounty needs an action right now.</div>';
+    return;
+  }
+  meta.textContent = rows.length + ' need' + (rows.length === 1 ? 's' : '') + ' action';
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+  ));
+  body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    + '<tr style="text-align:left;color:var(--muted)">'
+    + '<th style="padding:6px 8px">Motion</th><th style="padding:6px 8px">Needs</th>'
+    + '<th style="padding:6px 8px">Pot</th><th style="padding:6px 8px">Debaters</th>'
+    + '<th style="padding:6px 8px">Actions</th></tr>'
+    + rows.map((r) => {
+      const acts = [];
+      if (r.needs === 'ready to complete') acts.push('<button class="pill-btn" data-bounty="complete" data-id="' + esc(r.id) + '">Complete</button>');
+      if (r.needs === 'expired, needs sweeping') acts.push('<button class="pill-btn" data-bounty="expire" data-id="' + esc(r.id) + '">Expire</button>');
+      if (r.needs === 'refund due') acts.push('<button class="pill-btn" data-bounty="refund" data-id="' + esc(r.id) + '">Refund</button>');
+      if (r.needs === 'payout owed') acts.push('<button class="pill-btn" data-bounty="paid" data-id="' + esc(r.id) + '">Mark paid</button>');
+      return '<tr style="border-top:1px solid var(--line)">'
+        + '<td style="padding:6px 8px;max-width:320px">' + esc(r.motion) + '</td>'
+        + '<td style="padding:6px 8px">' + esc(r.needs) + '</td>'
+        + '<td style="padding:6px 8px;font-variant-numeric:tabular-nums">' + esc(r.pot) + '</td>'
+        + '<td style="padding:6px 8px">' + esc((r.debaters || []).join(', ') || '—') + '</td>'
+        + '<td style="padding:6px 8px;white-space:nowrap">' + (acts.join(' ') || '—') + '</td>'
+        + '</tr>';
+    }).join('')
+    + '</table>';
+}
+
+async function loadBounties(){
+  try {
+    const j = await adminBountyPost({ action: 'list' });
+    renderBounties(j.rows || []);
+  } catch (err) {
+    $('bounty-meta').textContent = 'failed';
+    $('bounty-body').textContent = 'Could not load: ' + (err.message || err);
+  }
+}
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-bounty]');
+  if (!btn) return;
+  const action = btn.getAttribute('data-bounty');
+  const id = btn.getAttribute('data-id');
+  // Each confirmation names the consequence rather than asking "are you
+  // sure", because these differ from each other in ways that matter and
+  // the wrong one is somebody's money.
+  const ask = {
+    complete: 'Confirm the round actually happened. This marks the pot owed and splits it between the two debaters.',
+    expire: 'Nobody took this bounty. This marks it expired and flags its contributions for refund.',
+    refund: 'This sends every contribution back through Stripe now. It cannot be undone from here.',
+    paid: 'This records that you already paid the two debaters by hand. It does not send any money.',
+  }[action];
+  if (!confirm(ask)) return;
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Working…';
+  try {
+    await adminBountyPost({ action, id });
+    await loadBounties();
+  } catch (err) {
+    alert('Failed: ' + (err.message || err));
+    btn.disabled = false; btn.textContent = was;
+  }
+});
+
 async function loadAll(force){
   loading.hidden = false;
   appEl.hidden = true;
@@ -2557,7 +2671,7 @@ const PANE_LOADERS = {
   pulse:     [ () => loadVisitors() ],
   // Betting + Open cards render from the eagerly loaded northstar
   // payload; the cost-guard card is the pane's own fetch.
-  money:     [ () => loadAbuse() ],
+  money:     [ () => loadAbuse(), () => loadBounties() ],
   growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadRoundExits(), () => loadSigninErrors(), () => loadOutcomeCohorts(), () => loadFounderVideo(), () => loadPollResults() ],
   people:    [ () => loadSubscribers(), () => loadProspects() ],
   // Deferred, not eager, per the read-budget note above. The queue holds

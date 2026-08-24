@@ -187,6 +187,28 @@ if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Plan-price guard. check-prices.mjs above polices price STRINGS in
+# user-facing HTML and it works; on 2026-08-24 it was passing while the
+# live Stripe Individual price charged $5.00/MONTH against an
+# advertised $10/year, because a Stripe price id is opaque and nothing
+# compared the copy to the object money settles against. This asserts
+# the canonical amounts in lib/plans.mjs match what the site prints,
+# that no canonical label is a string check-prices.mjs bans, that the
+# withdrawn Lifetime door stays shut, and that the real drift is
+# rejected by priceMatchesCanonical. Verified non-vacuous by mutation.
+# Same hard-fail, soft-skip posture.
+# ──────────────────────────────────────────────────────────────────
+PLAN_GUARD="$REPO_ROOT/scripts/test-plans.mjs"
+if [ -f "$PLAN_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-plans.mjs >/tmp/plan-guard.log 2>&1); then
+    echo "[plan-guard] commit blocked - what we charge no longer matches what we advertise:" >&2
+    tail -20 /tmp/plan-guard.log >&2
+    echo "[plan-guard] see scripts/test-plans.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # AI-use screen guard. The report-triggered transcript screen is
 # EVIDENCE for a human reviewer, never a verdict: no strike/ban/eject
 # path may exist off it, style alone can never produce a 'strong'
