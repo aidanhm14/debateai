@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v2887';
+const CACHE_NAME = 'debateos-v2888';
 
 
 
@@ -89,7 +89,34 @@ self.addEventListener('push', (event) => {
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
+  // Tag the destination so the open is measurable. Measured 2026-08-24:
+  // 131 go-live broadcasts went out to a median of 18 people each, roughly
+  // 2,350 notifications, and NOTHING recorded whether a single one was ever
+  // opened. Every argument for the ping channel (and for the SMS channel
+  // built on the same premise) rests on an open rate nobody had measured.
+  //
+  // The SW cannot post the event itself: log-event's anonymous path needs a
+  // real metadata.session_id and a worker has no session. So it tags the URL
+  // and js/track.js, which owns the session, records the open on load.
+  let url = (event.notification.data && event.notification.data.url) || '/';
+  try {
+    const u = new URL(url, self.location.origin);
+    u.searchParams.set('src', 'push');
+    // Record the KIND, never the raw tag: go-live tags are 'da-live-<uid>'
+    // and a DM tag carries a thread id, so passing them through would put a
+    // uid fragment in the URL and give the analytics field unbounded
+    // cardinality. Four buckets is all the question needs.
+    const tag = String(event.notification.tag || '');
+    const kind = tag.indexOf('da-live-') === 0 ? 'golive'
+      : tag === 'da-spar-match' ? 'match'
+      : tag.indexOf('da-dm-') === 0 ? 'dm'
+      : '';
+    if (kind) u.searchParams.set('pk', kind);
+    // Same-origin only. A payload url pointing elsewhere is not ours to
+    // decorate, and appending our params to a third-party link would leak
+    // where the click came from.
+    url = u.origin === self.location.origin ? u.pathname + u.search + u.hash : url;
+  } catch (e) { /* a malformed url still navigates, just untagged */ }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cls) => {
       for (const c of cls) {

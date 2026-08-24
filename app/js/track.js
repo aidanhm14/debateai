@@ -464,6 +464,30 @@
     };
   } catch(e){}
 
+  // ── Push-open capture (2026-08-24) ────────────────────────────────
+  // sw.js tags a notification's destination with ?src=push when the user
+  // taps it. Until now nothing recorded that tap: 131 go-live broadcasts
+  // had gone out to a median of 18 people each, roughly 2,350 pushes, with
+  // no way to tell whether the channel brings anyone back. That number is
+  // load-bearing, because the SMS channel is built on the same premise.
+  //
+  // Fired through the wrapped gtag above so it rides the anon-allowed
+  // app_event bridge (with the real session_id) rather than needing its
+  // own name in log-event's allowlist. The params are then stripped with
+  // replaceState so a refresh or a shared link cannot re-count the open.
+  try {
+    var _pq = new URLSearchParams(location.search);
+    if (_pq.get('src') === 'push') {
+      var _pk = _pq.get('pk') || '';
+      try { window.gtag('event', 'push_opened', { kind: _pk.slice(0, 24), path: location.pathname }); } catch(e){}
+      try {
+        _pq.delete('src'); _pq.delete('pk');
+        var _qs = _pq.toString();
+        history.replaceState(null, '', location.pathname + (_qs ? '?' + _qs : '') + location.hash);
+      } catch(e){}
+    }
+  } catch(e){}
+
   function firePageView() {
     if (pageViewFired) return;
     pageViewFired = true;
