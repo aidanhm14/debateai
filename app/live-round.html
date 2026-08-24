@@ -74,6 +74,15 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script defer src="/js/transcript-consent.js"></script>
 <!-- Floating / picture-in-picture mini player (Minimize + Pop out). -->
 <script defer src="/js/live-pip.js"></script>
+<!-- Decorative CSS animation repaints every frame whether or not anyone is
+     looking. This page runs ~45 infinite ones (pulsing dots, the recording
+     ring, the judge's blink) and it is the one page where the machine is
+     also encoding a camera and decoding an opponent, so the frame budget
+     it eats is taken from the call. The governor pauses them on a hidden
+     tab and inside off-screen scopes; animation-play-state resumes in
+     place, so nothing restarts. Nothing here waits on animationend
+     (checked: zero listeners), so pausing cannot stall a flow. -->
+<script defer src="/js/anim-governor.js"></script>
 <!-- daily-js wrapper + the camera converter (Camera / Avatar / Off).
      daily-js lets us publish a custom video track (the avatar canvas)
      via setInputDevicesAsync, so the raw camera never reaches the room
@@ -5947,10 +5956,14 @@ html.stage-mode .stage-ov{display:block}
   // Exactly ONE client drives it, chosen as the lowest seated uid, or
   // both sides would publish two screen shares of the same ballot.
   var reel = {
-    canvas:null, ctx:null, raf:0, stream:null, sharing:false,
+    canvas:null, ctx:null, loop:0, stream:null, sharing:false,
     phase:'', t0:0, ballot:null, cap:0, lines:null,
   };
   var REEL_W = 1280, REEL_H = 720;
+  // Paint rate of the published board/reel canvas. See the note on
+  // drawReel: the capture samples at this rate, so painting faster is
+  // work nobody receives.
+  var REEL_FPS = 24;
   var REEL_END = 22000;      // ballot sequence length
   var REEL_MAX_WAIT = 240000; // give up if no ballot ever lands
 
@@ -5984,7 +5997,7 @@ html.stage-mode .stage-ov{display:block}
     reel.t0 = Date.now();
     reel.ballot = null;
     try {
-      reel.stream = cv.captureStream(30);
+      reel.stream = cv.captureStream(REEL_FPS);
       room.call.startScreenShare({ mediaStream: reel.stream });
       reel.sharing = true;
     } catch(e){
@@ -5992,7 +6005,7 @@ html.stage-mode .stage-ov{display:block}
       reel.canvas = null;
       return false;
     }
-    drawReel();
+    startReelLoop();
     // A ballot that never arrives must not leave the recording running
     // and the room staring at a judging card forever.
     reel.cap = setTimeout(function(){ stopVerdictReel(); }, REEL_MAX_WAIT);
@@ -6009,7 +6022,7 @@ html.stage-mode .stage-ov{display:block}
   }
   function stopVerdictReel(){
     if (reel.cap){ clearTimeout(reel.cap); reel.cap = 0; }
-    if (reel.raf){ cancelAnimationFrame(reel.raf); reel.raf = 0; }
+    stopReelLoop();
     if (reel.sharing){
       try { room.call.stopScreenShare(); } catch(e){}
       reel.sharing = false;
@@ -6193,6 +6206,22 @@ html.stage-mode .stage-ov{display:block}
     reelBrand(ctx);
     ctx.globalAlpha = 1;
   }
+  // The published surface is sampled by captureStream(REEL_FPS), so
+  // compositing faster than that is work nobody receives: a
+  // requestAnimationFrame loop runs at the DISPLAY's refresh rate, which
+  // is 60Hz on most machines and 120Hz on a ProMotion Mac, and this frame
+  // is a 1280x720 composite carrying two live video blits. Two to four
+  // frames out of every four were being drawn, encoded off, and thrown
+  // away, on a machine that is at that moment also encoding a camera and
+  // decoding an opponent.
+  //
+  // Timer-driven rather than rAF for the same reason cam-avatar.js is
+  // (see the note above its own loop): rAF STOPS in a background tab, and
+  // this canvas is a published track. A driver who switched tabs to read
+  // their notes froze the board for everybody watching the recording, and
+  // the recording is the artifact the round exists to produce. Browsers
+  // clamp hidden-tab timers to about 1fps, which reads as a slow board
+  // rather than a dead one.
   function drawReel(){
     if (!reel.ctx) return;
     var el = Date.now() - reel.t0;
@@ -6204,7 +6233,14 @@ html.stage-mode .stage-ov{display:block}
     } else {
       drawJudging(reel.ctx, el);
     }
-    reel.raf = requestAnimationFrame(drawReel);
+  }
+  function startReelLoop(){
+    stopReelLoop();
+    drawReel();
+    reel.loop = setInterval(drawReel, Math.round(1000 / REEL_FPS));
+  }
+  function stopReelLoop(){
+    if (reel.loop){ clearInterval(reel.loop); reel.loop = 0; }
   }
 
   // ── Round board ──────────────────────────────────────────────────
@@ -6228,7 +6264,7 @@ html.stage-mode .stage-ov{display:block}
     reel.phase = 'round';
     reel.t0 = Date.now();
     try {
-      reel.stream = cv.captureStream(30);
+      reel.stream = cv.captureStream(REEL_FPS);
       room.call.startScreenShare({ mediaStream: reel.stream });
       reel.sharing = true;
     } catch(e){
@@ -6236,7 +6272,7 @@ html.stage-mode .stage-ov{display:block}
       reel.canvas = null; reel.ctx = null; reel.phase = '';
       return;
     }
-    drawReel();
+    startReelLoop();
     try { gtag('event', 'live_round_layout_board'); } catch(e){}
   }
   // Recording stopped mid-round (someone withdrew, or the server closed
@@ -6244,7 +6280,7 @@ html.stage-mode .stage-ov{display:block}
   function stopRoundBoardIfOrphaned(status){
     if (reel.phase !== 'round') return;
     if (status === 'recording') return;
-    if (reel.raf){ cancelAnimationFrame(reel.raf); reel.raf = 0; }
+    stopReelLoop();
     if (reel.sharing){
       try { room.call.stopScreenShare(); } catch(e){}
       reel.sharing = false;
@@ -6613,7 +6649,15 @@ html.stage-mode .stage-ov{display:block}
     // in 'avatar' mode they feed the on-device face tracker and nothing
     // else. Degrade to audio-only, then to an empty stream; the avatar
     // animates from mic level alone if it has to.
-    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: 'user' } })
+    // frameRate is CAPPED, and it was not before. An unconstrained
+    // request takes whatever the device offers, which is 30fps on most
+    // webcams and 60 on plenty of newer ones, and encode cost scales
+    // straight down that number: at 60 the machine pays twice the encoder
+    // for frames a debate does not use. 24 is the paint rate of the board
+    // that composites these feeds and is far above what a person talking
+    // needs; max 30 leaves a device that cannot do 24 somewhere to land
+    // rather than failing the constraint.
+    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' } })
       .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
       .catch(function(){ return new MediaStream(); })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); })
@@ -7397,7 +7441,7 @@ html.stage-mode .stage-ov{display:block}
     var want = room.facing === 'user' ? 'environment' : 'user';
     var mode = camConv.mode === 'avatar' ? 'avatar' : 'camera';
     var old = camConv.cam;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, facingMode: { ideal: want } } })
+    navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, frameRate: { ideal: 24, max: 30 }, facingMode: { ideal: want } } })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: mode, label: seatLabel() }); })
       .then(function(c){
         camConv.cam = c;
