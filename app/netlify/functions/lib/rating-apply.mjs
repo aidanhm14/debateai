@@ -8,12 +8,19 @@
 // WHAT IS ELIGIBLE
 //  - Human versus human only. Beating the AI is practice, not a result.
 //  - The round must be finished and carry a real verdict.
-//  - CONSENT. A live round only counts when BOTH debaters flipped
-//    leaderboardConsent, which is the existing rule for
-//    leaderboard_entries (see the consent block in live-round.html).
-//    Rating someone who opted out of the public board would publish a
-//    competitive record they declined. An async round consents by being
-//    published public, which already lists both names in the feed.
+//  - CONSENT, as an OPT-OUT since 2026-08-24 (the founder: every round
+//    record goes on the board unless it is uniquely bad because
+//    something happened). It used to require BOTH debaters to flip
+//    leaderboardConsent to true after the round, on their own screens,
+//    which is why almost nothing outside a tournament ever moved the
+//    ladder: two people finished a real round and the result existed
+//    nowhere. A round now rates unless a debater explicitly kept it off,
+//    which the client writes as `false` on their own key (the Firestore
+//    rule on that map lets a writer touch only their own). Rating
+//    someone who opted out would still publish a record they declined,
+//    so `false` on either side is honoured and still stops the round.
+//    An async round consents by being published public, which already
+//    lists both names in the feed.
 //
 // IDEMPOTENCY
 // rating_changes ids are deterministic: `${source}_${eventId}_${uid}`.
@@ -71,9 +78,11 @@ export function eligibility(source, d) {
     const b = d.conUid;
     if (!a || !b) return { ok: false, reason: 'missing_participant' };
     if (a === b) return { ok: false, reason: 'same_user' };
+    // Absent means yes. Only an explicit false, from the debater's own
+    // client, keeps a round off the ladder.
     const consents = d.leaderboardConsent || {};
-    if (consents[a] !== true || consents[b] !== true) {
-      return { ok: false, reason: 'consent_missing' };
+    if (consents[a] === false || consents[b] === false) {
+      return { ok: false, reason: 'opted_out' };
     }
     return {
       ok: true,

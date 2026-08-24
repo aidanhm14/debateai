@@ -10680,36 +10680,53 @@ html.stage-mode .stage-ov{display:block}
     }
   }
 
-  // Validity floor for posting to the public leaderboard. We only
-  // surface the W/L flag + speaker points if BOTH speakers actually
-  // ran the full round at meaningful pace, otherwise the leaderboard
-  // is full of drive-by 5-second 'rounds' and the rankings are noise.
-  // Each speech must (a) not be skipped, (b) have a real transcript,
-  // (c) clock at least 30% of its target time. The 30% floor is
-  // generous on purpose: meaningful prep can finish a 7-min speech in
-  // 2:30 and that's still a real speech.
+  // Validity floor for posting to the public leaderboard.
+  //
+  // REWRITTEN 2026-08-24 (the founder: every round record goes on the
+  // board unless it is uniquely bad because something happened). The old
+  // floor demanded a perfect round: every speech present, none skipped,
+  // each clocking 30% of its target. That reads as a quality bar and
+  // behaves as a lottery, because a normal round loses a speech all the
+  // time. Someone finishes their case early and sits down, a POI eats
+  // the clock, one side concedes the last rebuttal, the transcript drops
+  // a speech to a mic glitch. Each of those is a round two people
+  // actually debated, and each of them was silently worth nothing.
+  //
+  // What is left is the set of things that mean no round happened:
+  //   - nobody to attribute it to (a seat that was never claimed)
+  //   - a side that never spoke at all, which is a no-show, not a loss
+  //   - most of the format missing, which is a round that fell apart
+  // Everything else counts. The ranking is a record of rounds played,
+  // and a record that only keeps the tidy ones is not a record.
   function validateLeaderboardEligibility(){
     var f = FORMATS[state.formatKey];
     if (!f) return { ok: false, reason: 'Unknown format' };
-    var totalSpeeches = f.speeches.length;
-    if (!state.log || state.log.length !== totalSpeeches){
-      return { ok: false, reason: 'Round incomplete (' + (state.log||[]).length + '/' + totalSpeeches + ' speeches)' };
-    }
-    for (var i = 0; i < state.log.length; i++){
-      var entry = state.log[i];
-      var target = (f.speeches[i] && f.speeches[i].time) || 0;
-      var code = entry.code || ('S' + (i+1));
-      if (entry.skipped) return { ok: false, reason: code + ' was skipped' };
-      var t = String(entry.text || '').trim();
-      if (!t || t === '(skipped)' || t === '(no transcript)'){
-        return { ok: false, reason: code + ' has no transcript' };
-      }
-      if (target > 0 && (entry.durationSec || 0) < Math.floor(target * 0.3)){
-        return { ok: false, reason: code + ' was too short (' + (entry.durationSec || 0) + 's of ' + target + 's target)' };
-      }
-    }
     if (!state.proUid || !state.conUid){
-      return { ok: false, reason: 'Leaderboard requires a posted+accepted challenge so both speakers are signed-in' };
+      return { ok: false, reason: 'One of the seats was never claimed by a signed-in debater' };
+    }
+    var totalSpeeches = f.speeches.length;
+    var log = state.log || [];
+    // A speech counts as spoken if it has a real transcript. Duration is
+    // deliberately NOT a test any more: a short speech is a bad speech,
+    // which is what speaker points are for, not a void round.
+    function spoken(i){
+      var e = log[i];
+      if (!e || e.skipped) return false;
+      var t = String(e.text || '').trim();
+      return !!t && t !== '(skipped)' && t !== '(no transcript)';
+    }
+    var real = 0, govSpoke = false, oppSpoke = false;
+    for (var i = 0; i < totalSpeeches; i++){
+      if (!spoken(i)) continue;
+      real++;
+      var sp = f.speeches[i];
+      if (sp && sideBench(f, sp.side) === 'gov') govSpoke = true; else if (sp) oppSpoke = true;
+    }
+    if (!govSpoke || !oppSpoke){
+      return { ok: false, reason: 'One side never spoke, so there was no round to record' };
+    }
+    if (real * 2 < totalSpeeches){
+      return { ok: false, reason: 'Most of the round is missing (' + real + ' of ' + totalSpeeches + ' speeches were delivered)' };
     }
     return { ok: true };
   }
@@ -10718,10 +10735,15 @@ html.stage-mode .stage-ov{display:block}
   // as before — kind:'live', user's own side + speaker points + win
   // flag. The /leaderboard 'Online debaters' tab finds it. Idempotent
   // on the doc id ({uid}_{room}) so re-firing is a no-op.
-  function writeOwnLeaderboardEntry(b){
+  function writeOwnLeaderboardEntry(b, hideOpponent){
     if (!firebaseDb || !state.user) return;
     var f = FORMATS[state.formatKey];
     if (!f) return;
+    var elig = validateLeaderboardEligibility();
+    if (!elig.ok){
+      updateConsentStatus('skipped', elig.reason);
+      return;
+    }
     try {
       var mySideForLb = (state.user.uid === (state.proUid||'')) ? 'pro'
                        : (state.user.uid === (state.conUid||'')) ? 'con'
@@ -10748,7 +10770,8 @@ html.stage-mode .stage-ov{display:block}
         formatName: f.name,
         side: mySideForLb,
         sideLabel: f.sideLabels[f.sides[mySideForLb === 'pro' ? 0 : 1]],
-        opponentName: mySideForLb === 'pro' ? (state.conName || '') : (state.proName || ''),
+        opponentName: hideOpponent ? 'Opponent'
+          : (mySideForLb === 'pro' ? (state.conName || '') : (state.proName || '')),
         completedAt: firebase.firestore.FieldValue.serverTimestamp(),
         roundId: state.room,
       };
@@ -10760,14 +10783,27 @@ html.stage-mode .stage-ov{display:block}
     } catch(e){ console.warn('[leaderboard tag]', e); }
   }
 
-  // Visual feedback in the consent panel as the dual-consent state
-  // moves through (waiting on opponent → posted to leaderboard).
-  function updateConsentStatus(kind){
+  // Taking an entry back down. The doc id is deterministic, the rules
+  // allow an owner to delete their own row, and a delete that 404s is
+  // the state the presser wanted anyway.
+  function removeOwnLeaderboardEntry(){
+    if (!firebaseDb || !state.user || !state.room) return;
+    firebaseDb.collection('leaderboard_entries')
+      .doc(state.user.uid + '_' + state.room)
+      .delete()
+      .then(function(){ updateConsentStatus('off'); })
+      .catch(function(e){ console.warn('[leaderboard delete]', e); });
+  }
+
+  // Visual feedback under the leaderboard line: posted, taken down, or
+  // skipped because the round was not one.
+  function updateConsentStatus(kind, detail){
     var s = document.getElementById('lbConsentStatus');
     if (!s) return;
     s.className = 'lb-status ' + (kind || '');
-    if (kind === 'waiting') s.textContent = '✓ You consented. Waiting for your opponent.';
-    else if (kind === 'posted') s.textContent = '✓ Posted to leaderboard.';
+    if (kind === 'posted') s.textContent = '\u2713 Posted to the leaderboard.';
+    else if (kind === 'off') s.textContent = 'Kept off the leaderboard.';
+    else if (kind === 'skipped') s.textContent = detail ? 'Not recorded: ' + detail.charAt(0).toLowerCase() + detail.slice(1) + '.' : '';
     else s.textContent = '';
   }
 
@@ -11511,15 +11547,23 @@ html.stage-mode .stage-ov{display:block}
     var loserName  = b.winner === 'pro' ? state.conName : state.proName;
     var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
     var validity = validateLeaderboardEligibility();
+    var myPointsForLb = null;
+    if (state.user){
+      if (state.user.uid === (state.proUid || '')) myPointsForLb = b.proPoints;
+      else if (state.user.uid === (state.conUid || '')) myPointsForLb = b.conPoints;
+    }
     var lbBlock;
     if (validity.ok){
+      // The round is ALREADY on the board by the time this renders. The
+      // control is the way back off, not the way on, which is the whole
+      // 2026-08-24 change: a played round is a record by default.
       lbBlock =
         '<label class="lb-consent" for="lbConsentCheckbox">' +
-          '<input type="checkbox" id="lbConsentCheckbox" />' +
+          '<input type="checkbox" id="lbConsentCheckbox" checked />' +
           '<div class="lb-body">' +
-            '<strong>Post result to public leaderboard</strong>' +
-            'Counts your W/L flag and ' + (b.winner === 'pro' ? (b.proPoints != null ? b.proPoints : '?') : (b.conPoints != null ? b.conPoints : '?')) +
-            ' speaker points on /leaderboard. Both speakers must check the box on their own screen. Neither side can post the result alone.' +
+            '<strong>This round is on the public leaderboard</strong>' +
+            'Your result' + (typeof myPointsForLb === 'number' ? ' and ' + myPointsForLb + ' speaker points' : '') +
+            ' are counted on /leaderboard, win or lose. Untick to keep this one off; it only affects your own row, and your opponent decides theirs.' +
             '<span class="lb-status" id="lbConsentStatus"></span>' +
           '</div>' +
         '</label>';
@@ -11528,8 +11572,8 @@ html.stage-mode .stage-ov{display:block}
         '<label class="lb-consent invalid">' +
           '<input type="checkbox" disabled />' +
           '<div class="lb-body">' +
-            '<strong>Round doesn\'t qualify for the leaderboard</strong>' +
-            escHtml(validity.reason) + '. The leaderboard only counts rounds where both sides ran the full format at meaningful pace, so the rankings reflect real arguing.' +
+            '<strong>Not recorded on the leaderboard</strong>' +
+            escHtml(validity.reason) + '. Every other round goes on the board whether it was won, lost, or scrappy.' +
           '</div>' +
         '</label>';
     }
@@ -11769,24 +11813,32 @@ html.stage-mode .stage-ov{display:block}
         toast('Save failed: ' + (e.message || 'unknown'));
       });
 
-      // Leaderboard consent: only fires if the user opted in via the
-      // checkbox AND validity passes. Writes a per-UID consent flag
-      // to live_rounds/{room}; the snapshot listener flips both
-      // screens into 'posted' once both UIDs have consented.
-      var consentBox = document.getElementById('lbConsentCheckbox');
-      if (consentBox && consentBox.checked && validity.ok){
-        var ref = getRoundDocRef();
-        if (ref){
-          var consentUpdate = {};
-          consentUpdate['leaderboardConsent.' + state.user.uid] = true;
-          ref.set({ leaderboardConsent: {} }, { merge: true }).then(function(){
-            return ref.update(consentUpdate);
-          }).then(function(){
-            updateConsentStatus('waiting');
-          }).catch(function(e){ console.warn('[lb consent]', e); });
-        }
-      }
     });
+    // The leaderboard control acts on the spot rather than riding the
+    // save button, because it now means "take this down" and a takedown
+    // that waits for another button to be pressed is not a takedown.
+    // false is the only value written; true clears the opt-out. The
+    // Firestore rule on leaderboardConsent lets a writer touch their own
+    // key only, so this cannot reach into the opponent's row.
+    var lbBox = document.getElementById('lbConsentCheckbox');
+    if (lbBox && !lbBox.disabled){
+      lbBox.addEventListener('change', function(){
+        var ref = getRoundDocRef();
+        if (!ref || !state.user) return;
+        var keep = !!lbBox.checked;
+        var patch = {};
+        patch['leaderboardConsent.' + state.user.uid] = keep;
+        ref.set({ leaderboardConsent: {} }, { merge: true })
+          .then(function(){ return ref.update(patch); })
+          .then(function(){ updateConsentStatus(keep ? 'posted' : 'off'); })
+          .catch(function(e){
+            console.warn('[lb opt-out]', e);
+            lbBox.checked = !keep;
+            toast('Could not change that just now.');
+          });
+        try { gtag('event', 'live_round_lb_optout', { keep: keep ? 1 : 0 }); } catch(e){}
+      });
+    }
     $('copyBallotBtn').addEventListener('click', function(){
       var f = FORMATS[state.formatKey];
       var lines = [
@@ -15784,20 +15836,37 @@ html.stage-mode .stage-ov{display:block}
       try { renderAfterRating(); } catch(e){}
     }
 
-    // Leaderboard dual-consent reconciliation. Once both proUid and
-    // conUid have flipped their consent flag to true, each user's
-    // local snapshot handler writes its own leaderboard_entries doc.
-    // Spectators don't qualify (they're not in the consent set).
-    // Idempotent on state.lbWritten so re-snapshots don't double-fire.
+    // Leaderboard reconciliation. POSTED BY DEFAULT since 2026-08-24:
+    // a finished round is a record, and the old rule (both debaters tick
+    // an unticked box, on their own screen, after the ballot) meant the
+    // board only ever held the rounds where two people both remembered
+    // to do a piece of admin. Everyone else's round happened and then
+    // existed nowhere.
+    //
+    // The opt-out reuses the SAME leaderboardConsent map rather than a
+    // new field, because that map already has a Firestore rule saying a
+    // writer may only change their own key. A new `optOut` map would
+    // have shipped ungated, and an ungated one lets the person you just
+    // beat suppress your entry. false = kept off the board, anything
+    // else (including absent, which is every round before today) = post.
+    //
+    // Each debater writes only their OWN entry, so nobody waits on
+    // anybody. If the opponent opted out, their name comes off my entry
+    // and it posts as "Opponent": my result is mine to publish, their
+    // identity is theirs.
     var ballotForLb = d.ballot || state.lastBallot;
     var consents = d.leaderboardConsent || {};
-    if (ballotForLb && state.user && state.proUid && state.conUid && !state.lbWritten && !isSpectator()){
-      if (consents[state.proUid] === true && consents[state.conUid] === true && consents[state.user.uid] === true){
+    if (ballotForLb && state.user && state.proUid && state.conUid && !isSpectator()){
+      var iOptedOut = consents[state.user.uid] === false;
+      var oppUidLb = state.user.uid === state.proUid ? state.conUid : state.proUid;
+      if (!iOptedOut && !state.lbWritten){
         state.lbWritten = true;
-        writeOwnLeaderboardEntry(ballotForLb);
-      } else if (consents[state.user.uid] === true){
-        // I've consented, opponent hasn't yet.
-        updateConsentStatus('waiting');
+        writeOwnLeaderboardEntry(ballotForLb, consents[oppUidLb] === false);
+      } else if (iOptedOut && state.lbWritten){
+        // Opted out after it went up. Take it down rather than leaving
+        // the choice to mean nothing from the second press onwards.
+        state.lbWritten = false;
+        removeOwnLeaderboardEntry();
       }
     }
     // Run after phase reconciliation so someone entering a round already
