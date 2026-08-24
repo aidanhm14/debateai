@@ -94,27 +94,43 @@
       // left:18px bottom:18px on every topbar page. At bottom:16px this card
       // covered it completely, so the one control a confused visitor reaches
       // for was hidden by the thing asking whether they were confused.
+      // 2026-08-24: this card was built for the old dark-default site and
+      // drew its fill from var(--bg-card). On the light-default site
+      // (2026-08-22) that token is a 3% surface TINT meant to sit on a card
+      // already on the page, not an opaque standalone card, so the card
+      // went invisible and its text floated over the creator wall and the
+      // bounty picker behind it ("glitching look"). The palette is now
+      // explicit and theme-split, so background and text can never
+      // disagree on any surface: light base, dark override for the themed
+      // pages. The red hover accent is theme-agnostic.
       '#daExpAsk{position:fixed;left:16px;bottom:76px;z-index:99990;width:min(340px,calc(100vw - 32px));',
         'padding:16px 18px 14px;border-radius:14px;',
-        'background:var(--bg-card,#15151a);color:var(--text,#fff);',
-        'border:1px solid var(--border,rgba(255,255,255,.16));',
-        'box-shadow:0 18px 48px -18px rgba(0,0,0,.55);',
+        'background:#ffffff;color:#1a1a1f;',
+        'border:1px solid rgba(0,0,0,.13);',
+        'box-shadow:0 18px 48px -20px rgba(0,0,0,.32);',
         'font-family:Archivo,"DM Sans",system-ui,sans-serif;',
         'animation:daExpIn .22s ease-out}',
+      ':root:not([data-theme="light"]) #daExpAsk{background:#15151a;color:#f5efe7;',
+        'border-color:rgba(255,255,255,.16);box-shadow:0 18px 48px -18px rgba(0,0,0,.55)}',
       '@keyframes daExpIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}',
       '@media (prefers-reduced-motion:reduce){#daExpAsk{animation:none}}',
       '#daExpAsk .dea-q{margin:0 0 3px;font-size:15px;font-weight:800;letter-spacing:-.01em;line-height:1.3}',
-      '#daExpAsk .dea-s{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:var(--text-ghost,rgba(255,255,255,.66))}',
+      '#daExpAsk .dea-s{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:rgba(26,26,31,.66)}',
+      ':root:not([data-theme="light"]) #daExpAsk .dea-s{color:rgba(245,239,231,.66)}',
       '#daExpAsk .dea-row{display:flex;gap:8px;flex-wrap:wrap}',
       '#daExpAsk button.dea-b{flex:1 1 0;min-width:118px;padding:9px 12px;border-radius:999px;cursor:pointer;',
         'font:inherit;font-size:13px;font-weight:750;line-height:1.2;',
-        'border:1px solid var(--border-strong,rgba(255,255,255,.3));background:transparent;color:var(--text,#fff);',
+        'border:1px solid rgba(0,0,0,.22);background:transparent;color:#1a1a1f;',
         'transition:border-color .15s,background .15s,color .15s}',
-      '#daExpAsk button.dea-b:hover{border-color:var(--accent,#ef4444);color:var(--accent,#ef4444);background:rgba(239,68,68,.08)}',
+      ':root:not([data-theme="light"]) #daExpAsk button.dea-b{border-color:rgba(255,255,255,.3);color:#f5efe7}',
+      '#daExpAsk button.dea-b:hover{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.10)}',
       '#daExpAsk .dea-x{position:absolute;top:8px;right:9px;width:26px;height:26px;border:0;background:none;cursor:pointer;',
-        'font:inherit;font-size:17px;line-height:1;color:var(--text-ghost,rgba(255,255,255,.55))}',
-      '#daExpAsk .dea-x:hover{color:var(--text,#fff)}',
-      '#daExpAsk .dea-note{margin:10px 0 0;font-size:11px;line-height:1.4;color:var(--text-ghost,rgba(255,255,255,.5))}',
+        'font:inherit;font-size:17px;line-height:1;color:rgba(26,26,31,.5)}',
+      ':root:not([data-theme="light"]) #daExpAsk .dea-x{color:rgba(245,239,231,.55)}',
+      '#daExpAsk .dea-x:hover{color:#1a1a1f}',
+      ':root:not([data-theme="light"]) #daExpAsk .dea-x:hover{color:#f5efe7}',
+      '#daExpAsk .dea-note{margin:10px 0 0;font-size:11px;line-height:1.4;color:rgba(26,26,31,.5)}',
+      ':root:not([data-theme="light"]) #daExpAsk .dea-note{color:rgba(245,239,231,.5)}',
       '@media (max-width:640px){#daExpAsk{left:12px;right:12px;bottom:72px;width:auto}}',
     ].join('');
     document.head.appendChild(css);
