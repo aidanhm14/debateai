@@ -8195,6 +8195,40 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fs-ballot.is-in .fs-ballot-card{animation:none}
   }
 
+  /* Challenge card (2026-08-24). A creator tile plus an empty seat, so the
+     card has to LOSE the two things every other card carries: the ballot,
+     because no round happened, and the clock, because nothing is running.
+     Both are hidden on the state rather than removed from the DOM, so the
+     next judged card in the rotation paints exactly as before. */
+  .fs-chal{display:none}
+  .fs-board.is-chal .fs-chal{display:block;border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:88px}
+  [data-theme="light"] .fs-board.is-chal .fs-chal{border-top-color:rgba(26,26,31,.12)}
+  .fs-board.is-chal .fs-ballot,.fs-board.is-chal .fs-clock{display:none}
+  /* The speaking ring is a live signal. An unaccepted challenge has nobody
+     speaking, so the ring comes off with the clock. */
+  .fs-board.is-chal .fs-tile--speaking{box-shadow:none}
+  .fs-board.is-chal .fs-tile-nm i{display:none}
+  /* Creator portraits are head-and-shoulders press shots in a taller crop
+     than the 16:9 tile, so centring them cuts the face at the chin. Bias the
+     crop upward, which is where a head sits in all nineteen files. */
+  .fs-board.is-chal .fs-tile--speaking img{object-position:50% 22%}
+  /* Empty seat: a dashed outline reading as a chair nobody is in, matching
+     the .cs-claim dashed treatment further down the page. */
+  .fs-board.is-chal .fs-tile--open{border:1px dashed rgba(245,239,231,.34);background:rgba(245,239,231,.05)}
+  [data-theme="light"] .fs-board.is-chal .fs-tile--open{border-color:rgba(26,26,31,.3);background:rgba(255,255,255,.5)}
+  .fs-board.is-chal .fs-tile--open img{opacity:0}
+  .fs-chal-line{margin:0;font-size:.78rem;line-height:1.5;color:rgba(245,239,231,.78)}
+  [data-theme="light"] .fs-chal-line{color:rgba(26,26,31,.7)}
+  .fs-chal-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px}
+  .fs-chal-cta{display:inline-flex;align-items:center;padding:9px 15px;border-radius:10px;
+    background:#dc2626;color:#fff;font-size:.74rem;font-weight:800;text-decoration:none}
+  .fs-chal-cta:hover{background:#b91c1c}
+  .fs-chal-alt{font-size:.72rem;font-weight:700;color:rgba(245,239,231,.7);text-decoration:underline;
+    text-underline-offset:3px}
+  [data-theme="light"] .fs-chal-alt{color:rgba(26,26,31,.62)}
+  .fs-chal-note{margin:9px 0 0;font-size:.62rem;line-height:1.45;color:rgba(245,239,231,.5)}
+  [data-theme="light"] .fs-chal-note{color:rgba(26,26,31,.5)}
+
   /* Swap fade. Everything that changes carries .is-swapping for one beat. */
   .fs-fade{transition:opacity .26s ease}
   .fs-board.is-swapping .fs-fade{opacity:.34}
@@ -8494,7 +8528,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              the "Example round" label is back. It was cut 2026-08-12, but a
              cold visitor needs to be told what this card is, and the label
              is also the honest framing for authored rounds. -->
-        <span class="fs-sample">Example round</span>
+        <span class="fs-sample" id="fsSample">Example round</span>
         <span class="fs-pager">
           <button type="button" class="fs-nav" id="fsPrev" aria-label="Previous example round">&lsaquo;</button>
           <span id="fsCount">1 of 24</span>
@@ -8591,6 +8625,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           </div>
           <p id="fsWhy"></p>
         </div>
+      </div>
+
+      <!-- Challenge card body. Only rendered for kind:'challenge' entries,
+           and it is deliberately the thin one: an invitation, a seat nobody
+           has taken, and the affiliation line in the same words the
+           watchlist band uses. No verdict, no points, no viewer read,
+           because none of those exist for a round that has not happened. -->
+      <div class="fs-chal" id="fsChal">
+        <p class="fs-chal-line">Nobody has taken the other seat yet. Climb the ladder and it can be yours.</p>
+        <div class="fs-chal-row">
+          <a class="fs-chal-cta" href="/spar" data-cta="first-screen-challenge-start">Start a round</a>
+          <a class="fs-chal-alt" href="#creator-sweepstakes" data-cta="first-screen-challenge-how">How the seat gets filled</a>
+        </div>
+        <p class="fs-chal-note">None confirmed, none affiliated, none endorsing.</p>
       </div>
     </div>
 
@@ -9964,7 +10012,33 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      stated on the record: the real batch is all men, so the visible cast
      is all male until more consented stills exist. Do not fix that by
      reintroducing generated faces; fix it with a new consented batch.
-     2026-08-24 per the founder ("bring back all the photos we had ... make it
+     2026-08-24, second pass the same day, per the founder ("bring back the
+     guys too, theres a lot of missing images in circulation" plus "the
+     motions should be diversified and pertinent to even a more serious
+     degree"). Three things moved and one bug died.
+     (1) CAST: 24 characters became 56, sized to the face bank exactly so
+     every portrait deals every load. See the castFaces note below for why
+     the men were the half actually missing.
+     (2) MOTIONS: nine slots moved off dating and etiquette onto domains the
+     deck had none of, so the board reads as a serious argument surface
+     rather than a group chat: global health (drug patents in an emergency),
+     healthcare and employment, criminal justice, automation and retraining,
+     energy, water as a resource, embryo editing, climate displacement, and
+     what rich countries owe the countries they colonised. The accessible
+     on-ramps from the 08-19 pass are deliberately NOT all gone (tipping,
+     drinking age, influencers, athletes and teachers stay), because a deck
+     of nothing but institutions is the civics syllabus that pass was
+     written against. The 08-19 exclusion still binds: contested is the
+     goal, targeted is not, so nothing here gets its charge from putting a
+     group's rights up for a vote.
+     (3) A LIVE BUG: the "Is it ever okay to date a friend's ex?" card was
+     shipping the right-to-be-forgotten ballot. Its motion had been swapped
+     at some earlier pass and its rfd was never rewritten, so the card
+     printed a verdict about a round it was not describing. That slot is now
+     the criminal-justice motion with its own ballot. Worth a habit: an
+     rfd is prose and will not fail a build, so a motion edit that leaves
+     the ballot behind is invisible until somebody reads the card.
+     2026-08-24 (first pass) per the founder ("bring back all the photos we had ... make it
      match the vibe to not give ai"): the mixed cast is RESTORED, which
      SUPERSEDES the 08-22 real-stills-only note above. All 40 rounds are recast
      across 24 characters (the 11 FS_MALE + 13 FS_FEMALE names below), so
@@ -9979,186 +10053,200 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      consented batch, not deleting women from the board again. */
   var ROUNDS = [
     { fmt:'World Schools', motion:'Cancel culture has done more harm than good.',
-      a:{ nm:'Priya', side:'For', face:'face46' }, b:{ nm:'Kenji', side:'Against', face:'face53' },
+      a:{ nm:'Zuri', side:'For', face:'face46' }, b:{ nm:'Nikhil', side:'Against', face:'face53' },
       open:50, drift:58, won:'a', score:'88 - 75', crowd:186, vol:340,
-      rfd:'Priya wins by proving that public punishment outlasts the original mistake. Kenji never gives a workable line between accountability and permanent exile.' },
+      rfd:'Zuri wins by proving that public punishment outlasts the original mistake. Nikhil never gives a workable line between accountability and permanent exile.' },
     { fmt:'British Parli', motion:'Should unpaid internships be illegal?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Amara', side:'Against', face:'face52' },
+      a:{ nm:'Emeka', side:'For', face:'face46' }, b:{ nm:'Chiara', side:'Against', face:'face52' },
       open:52, drift:71, won:'a', score:'88 - 69', crowd:214, vol:380,
-      rfd:'Marcus wins by showing the job is sold to whoever can afford to work for nothing, which prices out the people the ladder was supposed to lift. Amara defends the training on offer but never answers who is standing on the rung.' },
+      rfd:'Emeka wins by showing the job is sold to whoever can afford to work for nothing, which prices out the people the ladder was supposed to lift. Chiara defends the training on offer but never answers who is standing on the rung.' },
     { fmt:'APDA', motion:'Social media algorithms should be regulated like tobacco.',
-      a:{ nm:'Elena', side:'For', face:'face51' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
+      a:{ nm:'Mei', side:'For', face:'face51' }, b:{ nm:'Malik', side:'Against', face:'face47' },
       open:48, drift:27, won:'b', score:'75 - 95', crowd:96, vol:240,
-      rfd:'Mateo wins by holding Elena to the comparison she chose: tobacco regulation turns on a proven physical harm and a product with no other use, and neither is established here. Elena shows the engagement incentive is ugly without showing the remedy fits it.' },
+      rfd:'Malik wins by holding Mei to the comparison she chose: tobacco regulation turns on a proven physical harm and a product with no other use, and neither is established here. Mei shows the engagement incentive is ugly without showing the remedy fits it.' },
     { fmt:'Policy', motion:'Is it wrong to eat meat when you know what you know now?',
-      a:{ nm:'Dev', side:'For', face:'face54' }, b:{ nm:'Sofia', side:'Against', face:'face48' },
+      a:{ nm:'Marcus', side:'For', face:'face54' }, b:{ nm:'Valentina', side:'Against', face:'face48' },
       open:49, drift:66, won:'b', score:'82 - 88', crowd:143, vol:295,
-      rfd:'Sofia wins because she separates the practice from the industry, and Dev spends the round proving the industry is indefensible without proving the act is. The concession that a smaller, better-run version would be permissible is the round.' },
+      rfd:'Valentina wins because she separates the practice from the industry, and Marcus spends the round proving the industry is indefensible without proving the act is. The concession that a smaller, better-run version would be permissible is the round.' },
     { fmt:'Public Forum', motion:'Should colleges end legacy admissions?',
-      a:{ nm:'Yuna', side:'For', face:'face49' }, b:{ nm:'Luka', side:'Against', face:'face52' },
+      a:{ nm:'Meera', side:'For', face:'face49' }, b:{ nm:'Idris', side:'Against', face:'face52' },
       open:50, drift:61, won:'b', score:'75 - 82', crowd:151, vol:310,
-      rfd:'Luka wins because Yuna never answers the fairness problem or explains why her benefits matter more.' },
-    { fmt:'Asian Parli', motion:'Should voting be mandatory?',
-      a:{ nm:'Arjun', side:'For', face:'face53' }, b:{ nm:'Claire', side:'Against', face:'face51' },
-      open:51, drift:78, won:'a', score:'95 - 62', crowd:67, vol:180,
-      rfd:'Arjun wins by showing how mandatory voting improves legitimacy. Claire concedes that her main concern is limited.' },
+      rfd:'Idris wins because Meera never answers the fairness problem or explains why her benefits matter more.' },
+    { fmt:'Asian Parli', motion:'Drug patents should be suspended during a global health emergency.',
+      a:{ nm:'Danylo', side:'For', face:'face53' }, b:{ nm:'Elena', side:'Against', face:'face51' },
+      open:51, drift:78, won:'a', score:'88 - 75', crowd:67, vol:180,
+      rfd:'Danylo wins on the gap between invention and supply, since the patent stops other factories running while people wait and the research is already paid for by the time an emergency starts. Elena proves the incentive matters in normal years and never explains why a suspension measured in months changes what a company expects across a whole patent life.' },
     { fmt:'Congress', motion:'Every politician should pass a public cognitive test to stay in office.',
-      a:{ nm:'Zainab', side:'For', face:'face49' }, b:{ nm:'Miguel', side:'Against', face:'face48' },
+      a:{ nm:'Leila', side:'For', face:'face49' }, b:{ nm:'Haruki', side:'Against', face:'face48' },
       open:50, drift:39, won:'b', score:'75 - 88', crowd:88, vol:205,
-      rfd:'Miguel wins on who administers it. Zainab proves the electorate keeps being handed a decision it has no way to make, and Miguel answers that a test written and scored by anybody is a weapon pointed at whoever is currently inconvenient.' },
+      rfd:'Haruki wins on who administers it. Leila proves the electorate keeps being handed a decision it has no way to make, and Haruki answers that a test written and scored by anybody is a weapon pointed at whoever is currently inconvenient.' },
     { fmt:'Lincoln-Douglas', motion:'Should bosses be allowed to fire you for what you post?',
-      a:{ nm:'Emeka', side:'For', face:'face53' }, b:{ nm:'Hana', side:'Against', face:'face54' },
+      a:{ nm:'Youssef', side:'For', face:'face53' }, b:{ nm:'Hana', side:'Against', face:'face54' },
       open:50, drift:44, won:'a', score:'88 - 75', crowd:122, vol:265,
-      rfd:'Emeka wins because his standard for justice stays consistent and answers Hana\'s main objection.' },
+      rfd:'Youssef wins because his standard for justice stays consistent and answers Hana\'s main objection.' },
     { fmt:'Quick Clash', motion:'Phones should be locked away at the school door, by law.',
-      a:{ nm:'Rin', side:'For', face:'face52' }, b:{ nm:'Luka', side:'Against', face:'face48' },
+      a:{ nm:'Ayumi', side:'For', face:'face52' }, b:{ nm:'Dev', side:'Against', face:'face48' },
       open:49, drift:63, won:'a', score:'88 - 75', crowd:74, vol:190,
-      rfd:'Rin wins by arguing the school day is the one block of hours anybody can still fence, and Luka\'s autonomy case never explains why a fourteen year old\'s afternoon is the place to defend it.' },
+      rfd:'Ayumi wins by arguing the school day is the one block of hours anybody can still fence, and Dev\'s autonomy case never explains why a fourteen year old\'s afternoon is the place to defend it.' },
     { fmt:'Karl Popper', motion:'Should governments ban facial recognition in public spaces?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Mei', side:'Against', face:'face47' },
+      a:{ nm:'Ravi', side:'For', face:'face46' }, b:{ nm:'Sofia', side:'Against', face:'face47' },
       open:51, drift:68, won:'b', score:'82 - 88', crowd:108, vol:230,
-      rfd:'Mei wins because she narrows the policy and proves that Marcus\'s ban is broader than his harms require.' },
+      rfd:'Sofia wins because she narrows the policy and proves that Ravi\'s ban is broader than his harms require.' },
     { fmt:'World Schools', motion:'Should you have kids if you cannot comfortably afford them?',
-      a:{ nm:'Zuri', side:'For', face:'face54' }, b:{ nm:'Miguel', side:'Against', face:'face49' },
+      a:{ nm:'Aisha', side:'For', face:'face54' }, b:{ nm:'Arjun', side:'Against', face:'face49' },
       open:50, drift:57, won:'a', score:'95 - 75', crowd:132, vol:275,
-      rfd:'Zuri wins by tying responsibility to a workable remedy. Miguel contests the scale but never offers a better response.' },
+      rfd:'Aisha wins by tying responsibility to a workable remedy. Arjun contests the scale but never offers a better response.' },
     { fmt:'British Parli', motion:'Should cities make public transit free?',
-      a:{ nm:'Danylo', side:'For', face:'face48' }, b:{ nm:'Samira', side:'Against', face:'face51' },
+      a:{ nm:'Tomas', side:'For', face:'face48' }, b:{ nm:'Marta', side:'Against', face:'face51' },
       open:50, drift:34, won:'a', score:'88 - 82', crowd:177, vol:325,
-      rfd:'Danylo wins because he explains who changes behavior and why the citywide benefits outweigh Samira\'s funding concern.' },
+      rfd:'Tomas wins because he explains who changes behavior and why the citywide benefits outweigh Marta\'s funding concern.' },
     { fmt:'APDA', motion:'Should anyone be allowed to become a billionaire?',
-      a:{ nm:'Marcus', side:'For', face:'face46' }, b:{ nm:'Anika', side:'Against', face:'face49' },
+      a:{ nm:'Omar', side:'For', face:'face46' }, b:{ nm:'Fatima', side:'Against', face:'face49' },
       open:50, drift:38, won:'a', score:'88 - 75', crowd:201, vol:365,
-      rfd:'Marcus wins by separating the existence of extreme wealth from the conduct used to acquire it. Anika proves inequality is harmful but never proves a hard wealth ceiling fixes it.' },
+      rfd:'Omar wins by separating the existence of extreme wealth from the conduct used to acquire it. Fatima proves inequality is harmful but never proves a hard wealth ceiling fixes it.' },
     { fmt:'British Parli', motion:'Should parents be allowed to post their children online?',
-      a:{ nm:'Priya', side:'For', face:'face46' }, b:{ nm:'Kenji', side:'Against', face:'face51' },
+      a:{ nm:'Zainab', side:'For', face:'face46' }, b:{ nm:'Luka', side:'Against', face:'face51' },
       open:51, drift:64, won:'b', score:'75 - 95', crowd:238, vol:410,
-      rfd:'Kenji wins because a child cannot meaningfully consent to a permanent digital record. Priya defends ordinary family sharing but never limits the worst cases.' },
+      rfd:'Luka wins because a child cannot meaningfully consent to a permanent digital record. Zainab defends ordinary family sharing but never limits the worst cases.' },
     { fmt:'World Schools', motion:'Owning more than five homes should be illegal.',
-      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Dev', side:'Against', face:'face53' },
+      a:{ nm:'Adnan', side:'For', face:'face47' }, b:{ nm:'Aarav', side:'Against', face:'face53' },
       open:49, drift:56, won:'a', score:'88 - 82', crowd:173, vol:330,
-      rfd:'Mateo wins because he keeps the round on housing rather than on landlords: the supply is fixed in the short run and every extra unit held for return is a family bidding against an investor. Dev shows the rule is easy to route around and never shows the routing is cheaper than complying.' },
-    { fmt:'Quick Clash', motion:'Partners should share their phone passwords.',
-      a:{ nm:'Claire', side:'For', face:'face46' }, b:{ nm:'Arjun', side:'Against', face:'face48' },
-      open:50, drift:42, won:'b', score:'75 - 88', crowd:119, vol:255,
-      rfd:'Arjun wins by showing that trust requires room for privacy, not constant access. Claire identifies secrecy as a risk but treats every private message as suspicious.' },
+      rfd:'Adnan wins because he keeps the round on housing rather than on landlords: the supply is fixed in the short run and every extra unit held for return is a family bidding against an investor. Aarav shows the rule is easy to route around and never shows the routing is cheaper than complying.' },
+    { fmt:'Quick Clash', motion:'Healthcare should never depend on who your employer is.',
+      a:{ nm:'Rin', side:'For', face:'face46' }, b:{ nm:'Jonas', side:'Against', face:'face48' },
+      open:50, drift:42, won:'a', score:'95 - 75', crowd:119, vol:255,
+      rfd:'Rin wins by naming what the link actually does, which is turn leaving a job into a medical decision. Jonas argues employers negotiate better prices and never answers the person who stays in work they hate because the diagnosis follows the contract.' },
     { fmt:'Asian Parli', motion:'Should anonymous social media accounts be banned?',
-      a:{ nm:'Sofia', side:'For', face:'face49' }, b:{ nm:'Anonymous', side:'Against', face:'face50' },
+      a:{ nm:'Amara', side:'For', face:'face49' }, b:{ nm:'Anonymous', side:'Against', face:'face50' },
       open:52, drift:73, won:'b', score:'82 - 88', crowd:192, vol:350,
-      rfd:'Anonymous wins because anonymity protects whistleblowers and vulnerable speakers who cannot safely use their names. Sofia never shows why narrower enforcement tools would fail.' },
+      rfd:'Anonymous wins because anonymity protects whistleblowers and vulnerable speakers who cannot safely use their names. Amara never shows why narrower enforcement tools would fail.' },
     { fmt:'Karl Popper', motion:'Should AI companies pay creators whose work trains their models?',
-      a:{ nm:'Emeka', side:'For', face:'face52' }, b:{ nm:'Elena', side:'Against', face:'face54' },
+      a:{ nm:'Mateo', side:'For', face:'face52' }, b:{ nm:'Noor', side:'Against', face:'face54' },
       open:50, drift:67, won:'a', score:'95 - 75', crowd:221, vol:395,
-      rfd:'Emeka wins with a workable licensing model tied to commercial training. Elena attacks the cost but never explains why companies should keep the value without paying its creators.' },
+      rfd:'Mateo wins with a workable licensing model tied to commercial training. Noor attacks the cost but never explains why companies should keep the value without paying its creators.' },
     { fmt:'Public Forum', motion:'Student debt should be cancelled outright.',
-      a:{ nm:'Yuna', side:'For', face:'face54' }, b:{ nm:'Mateo', side:'Against', face:'face47' },
+      a:{ nm:'Thandi', side:'For', face:'face54' }, b:{ nm:'Kwame', side:'Against', face:'face47' },
       open:51, drift:47, won:'b', score:'75 - 88', crowd:164, vol:315,
-      rfd:'Mateo wins on the people who are not in the room. Yuna makes the case for relief and never answers why the person who took the cheaper job to avoid the loan pays for the person who did not.' },
+      rfd:'Kwame wins on the people who are not in the room. Thandi makes the case for relief and never answers why the person who took the cheaper job to avoid the loan pays for the person who did not.' },
     { fmt:'APDA', motion:'Should public figures have a right to privacy?',
-      a:{ nm:'Timothee', side:'For', face:'face51' }, b:{ nm:'Amara', side:'Against', face:'face52' },
+      a:{ nm:'Rafael', side:'For', face:'face51' }, b:{ nm:'Yuna', side:'Against', face:'face52' },
       open:48, drift:54, won:'b', score:'82 - 88', crowd:137, vol:285,
-      rfd:'Amara wins by drawing a clear line between private life and information that affects public power. Timothee never answers officials who hide conflicts behind privacy.' },
+      rfd:'Yuna wins by drawing a clear line between private life and information that affects public power. Rafael never answers officials who hide conflicts behind privacy.' },
     { fmt:'Policy', motion:'Should news outlets stop naming mass shooters?',
-      a:{ nm:'Zainab', side:'For', face:'face48' }, b:{ nm:'Dev', side:'Against', face:'face53' },
+      a:{ nm:'Priya', side:'For', face:'face48' }, b:{ nm:'Timothee', side:'Against', face:'face53' },
       open:50, drift:69, won:'a', score:'88 - 75', crowd:154, vol:305,
-      rfd:'Zainab wins because she shows how notoriety can reward attackers without improving public understanding. Dev defends the historical record but not headline repetition.' },
+      rfd:'Priya wins because she shows how notoriety can reward attackers without improving public understanding. Timothee defends the historical record but not headline repetition.' },
     { fmt:'World Schools', motion:'Your country should keep funding Ukraine at current levels.',
-      a:{ nm:'Miguel', side:'For', face:'face47' }, b:{ nm:'Hana', side:'Against', face:'face52' },
+      a:{ nm:'Miguel', side:'For', face:'face47' }, b:{ nm:'Nadia', side:'Against', face:'face52' },
       open:49, drift:35, won:'a', score:'88 - 82', crowd:128, vol:270,
-      rfd:'Miguel wins because he names the end condition and Hana does not. Hana\'s deterrence case is strong on price and silent on when it stops being paid, and an open commitment with no stated finish is what Miguel asks her to defend.' },
-    { fmt:'Lincoln-Douglas', motion:'Is it ever okay to date a friend\'s ex?',
-      a:{ nm:'Danylo', side:'For', face:'face47' }, b:{ nm:'Zuri', side:'Against', face:'face49' },
-      open:50, drift:61, won:'a', score:'95 - 75', crowd:181, vol:345,
-      rfd:'Danylo wins because punishment without an endpoint blocks rehabilitation. Zuri proves the public needs truthful records but never shows why every record must stay equally visible forever.' },
+      rfd:'Miguel wins because he names the end condition and Nadia does not. Nadia\'s deterrence case is strong on price and silent on when it stops being paid, and an open commitment with no stated finish is what Miguel asks her to defend.' },
+    { fmt:'Lincoln-Douglas', motion:'Prison should be for people who are dangerous, not for people who are owed punishment.',
+      a:{ nm:'Kenji', side:'For', face:'face47' }, b:{ nm:'Anika', side:'Against', face:'face49' },
+      open:50, drift:61, won:'b', score:'75 - 88', crowd:181, vol:345,
+      rfd:'Anika wins because a system that only holds the dangerous has no answer for the harm already done, and the sentence is the one place that wrong gets stated out loud. Kenji proves most prison time protects nobody and never replaces the job punishment was doing.' },
     { fmt:'British Parli', motion:'Billionaires should be barred from owning news outlets.',
-      a:{ nm:'Priya', side:'For', face:'face49' }, b:{ nm:'Luka', side:'Against', face:'face53' },
+      a:{ nm:'Samira', side:'For', face:'face49' }, b:{ nm:'Felix', side:'Against', face:'face53' },
       open:51, drift:74, won:'b', score:'75 - 95', crowd:209, vol:375,
-      rfd:'Luka wins on the alternative. Priya proves a private owner can bend coverage toward their other interests, and Luka shows the newsrooms in question mostly exist because somebody funds a loss, so the rule delivers fewer outlets rather than freer ones.' },
-    /* 2026-08-19, per the founder: "more hot topic / accessible resolutions that
-       dont scare away normal ppl". The authored 24 leaned institutional
-       (Arctic waters, plea bargaining, ability grouping), which reads as a
-       civics syllabus to someone who has never entered a round. These ten
-       are arguments people actually have: money, dating, work, etiquette,
-       and the phone in their hand. Same casting rule as the batch above,
-       so every one pairs a consented real still with a stock tile, and the
-       RFD names the two debaters actually in the round. Deliberately NOT
-       here: anything whose spice comes from questioning a group's rights.
-       Contested is the goal, targeted is not. */
+      rfd:'Felix wins on the alternative. Samira proves a private owner can bend coverage toward their other interests, and Felix shows the newsrooms in question mostly exist because somebody funds a loss, so the rule delivers fewer outlets rather than freer ones.' },
     { fmt:'Quick Clash', motion:'Should tipping be abolished?',
-      a:{ nm:'Kenji', side:'For', face:'face46' }, b:{ nm:'Mei', side:'Against', face:'face54' },
+      a:{ nm:'Hugo', side:'For', face:'face46' }, b:{ nm:'Camila', side:'Against', face:'face54' },
       open:50, drift:65, won:'b', score:'82 - 88', crowd:196, vol:355,
-      rfd:'Mei wins by showing that removing tips cuts pay before it raises wages. Kenji proves the system is unfair to staff but never says who covers the gap on the first day.' },
-    { fmt:'Quick Clash', motion:'Is it ever okay to ghost someone?',
-      a:{ nm:'Amara', side:'For', face:'face48' }, b:{ nm:'Aarav', side:'Against', face:'face47' },
-      open:49, drift:37, won:'b', score:'75 - 88', crowd:243, vol:415,
-      rfd:'Aarav wins because a short message costs nothing and silence leaves the other person guessing for weeks. Amara defends walking away from real harassment but treats every awkward conversation as the same case.' },
-    { fmt:'Quick Clash', motion:'Should you tell a friend their partner is cheating?',
-      a:{ nm:'Miguel', side:'For', face:'face49' }, b:{ nm:'Elena', side:'Against', face:'face51' },
-      open:52, drift:71, won:'a', score:'95 - 75', crowd:268, vol:440,
-      rfd:'Miguel wins because withholding it makes you a second person keeping the secret. Elena shows the friendship can break either way but never explains why staying quiet protects it.' },
-    { fmt:'Quick Clash', motion:'Airlines should charge for a seat by the passenger\'s weight.',
-      a:{ nm:'Samira', side:'For', face:'face46' }, b:{ nm:'Dev', side:'Against', face:'face53' },
-      open:50, drift:44, won:'b', score:'75 - 82', crowd:214, vol:385,
-      rfd:'Dev wins because the fuel arithmetic is real and irrelevant: Samira proves weight costs money and never gets to why this cost, alone among the costs an airline pools, should be itemised onto the body carrying it.' },
+      rfd:'Camila wins by showing that removing tips cuts pay before it raises wages. Hugo proves the system is unfair to staff but never says who covers the gap on the first day.' },
+    { fmt:'Quick Clash', motion:'Companies that replace workers with AI should pay to retrain them.',
+      a:{ nm:'Claire', side:'For', face:'face48' }, b:{ nm:'Viktor', side:'Against', face:'face47' },
+      open:49, drift:37, won:'a', score:'88 - 82', crowd:243, vol:415,
+      rfd:'Claire wins by putting the cost where the saving lands, since the firm banking the productivity is the only party that can afford the retraining. Viktor shows that retraining schemes often fail and never argues the failure is a reason for the worker to carry it alone.' },
+    { fmt:'Quick Clash', motion:'Nuclear power is the fastest way off fossil fuels.',
+      a:{ nm:'Lucas', side:'For', face:'face49' }, b:{ nm:'Ingrid', side:'Against', face:'face51' },
+      open:52, drift:71, won:'b', score:'75 - 95', crowd:268, vol:440,
+      rfd:'Ingrid wins on build time, which is the whole claim: reactors take more than a decade and the grid needs the cut this decade. Lucas proves nuclear is clean and steady and never gets the plants finished inside the window the motion is asking about.' },
+    { fmt:'Quick Clash', motion:'Water should never be owned by a company.',
+      a:{ nm:'Ayumi', side:'For', face:'face46' }, b:{ nm:'Diego', side:'Against', face:'face53' },
+      open:50, drift:44, won:'a', score:'88 - 69', crowd:214, vol:385,
+      rfd:'Ayumi wins because an owner of the supply is pricing the one thing nobody can decline to buy. Diego makes a real case that private operators fix leaks faster and never explains why the fixing has to come with the owning.' },
     { fmt:'Public Forum', motion:'Should social media have a minimum age of sixteen?',
-      a:{ nm:'Timothee', side:'For', face:'face54' }, b:{ nm:'Rin', side:'Against', face:'face51' },
+      a:{ nm:'Andre', side:'For', face:'face54' }, b:{ nm:'Sofia', side:'Against', face:'face51' },
       open:51, drift:68, won:'a', score:'88 - 75', crowd:231, vol:400,
-      rfd:'Timothee wins by tying the harm to the years when it lands hardest. Rin shows that age checks leak but never argues the current age of thirteen was chosen for any reason at all.' },
+      rfd:'Andre wins by tying the harm to the years when it lands hardest. Sofia shows that age checks leak but never argues the current age of thirteen was chosen for any reason at all.' },
     { fmt:'APDA', motion:'Is it wrong that athletes earn more than teachers?',
-      a:{ nm:'Anika', side:'For', face:'face52' }, b:{ nm:'Kenji', side:'Against', face:'face53' },
+      a:{ nm:'Meera', side:'For', face:'face52' }, b:{ nm:'Ibrahim', side:'Against', face:'face53' },
       open:48, drift:33, won:'b', score:'82 - 88', crowd:187, vol:340,
-      rfd:'Kenji wins by separating what a job is worth from what a crowd will pay to watch it. Anika proves teaching matters more but never shows that pay was ever measuring importance.' },
+      rfd:'Ibrahim wins by separating what a job is worth from what a crowd will pay to watch it. Meera proves teaching matters more but never shows that pay was ever measuring importance.' },
     { fmt:'British Parli', motion:'Should private jets be banned?',
-      a:{ nm:'Arjun', side:'For', face:'face52' }, b:{ nm:'Claire', side:'Against', face:'face49' },
+      a:{ nm:'Luka', side:'For', face:'face52' }, b:{ nm:'Noor', side:'Against', face:'face49' },
       open:50, drift:62, won:'a', score:'88 - 82', crowd:222, vol:390,
-      rfd:'Arjun wins because the emissions per passenger are indefensible against any ordinary alternative. Claire raises medical and remote flights but never explains why a carve out could not cover them.' },
+      rfd:'Luka wins because the emissions per passenger are indefensible against any ordinary alternative. Noor raises medical and remote flights but never explains why a carve out could not cover them.' },
     { fmt:'Quick Clash', motion:'Are influencers doing a real job?',
-      a:{ nm:'Sofia', side:'For', face:'face54' }, b:{ nm:'Aarav', side:'Against', face:'face53' },
+      a:{ nm:'Marta', side:'For', face:'face54' }, b:{ nm:'Mateo', side:'Against', face:'face53' },
       open:49, drift:58, won:'a', score:'88 - 75', crowd:257, vol:425,
-      rfd:'Sofia wins by describing the actual work, which is production, negotiation, and selling. Aarav lands that the output is often thin but never shows that thin output stops something being a job.' },
+      rfd:'Marta wins by describing the actual work, which is production, negotiation, and selling. Mateo lands that the output is often thin but never shows that thin output stops something being a job.' },
     { fmt:'World Schools', motion:'Should the drinking age be lowered to eighteen?',
-      a:{ nm:'Mateo', side:'For', face:'face47' }, b:{ nm:'Yuna', side:'Against', face:'face46' },
+      a:{ nm:'Hugo', side:'For', face:'face47' }, b:{ nm:'Zainab', side:'Against', face:'face46' },
       open:51, drift:46, won:'b', score:'75 - 88', crowd:169, vol:320,
-      rfd:'Yuna wins on the road safety record, which moved when the age moved. Mateo argues consistency with other adult rights but never answers the one number that tracks the change.' },
-    { fmt:'Quick Clash', motion:'Is monogamy outdated?',
-      a:{ nm:'Zainab', side:'For', face:'face49' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
-      open:50, drift:53, won:'b', score:'82 - 88', crowd:249, vol:420,
-      rfd:'Danylo wins because the alternative asks for more honesty and more time, not less. Zainab shows the tradition was built for inheritance but never shows that what replaced the reason has gone away.' },
-    /* 2026-08-23, the founder: the board wanted motions that are "more
-       absurd, politically targetted, and pertinent". These six are the
-       addition, and they hold the line hot-motions.mjs already sets for
-       the market bank: they go at BEHAVIOUR, NORMS AND POLICY and never at
-       an identity, because heat has to come from the dilemma rather than
-       from the target. Each is picked for the same property that bank
-       sorts on, which is that a normal room splits on it without looking
-       anything up. Where a motion proposes taking a right away, the board
-       shows that side LOSING: the ballot is example copy on a marketing
-       page, so the one editorial choice available here should not read as
-       the house endorsing the restriction. */
-    { fmt:'APDA', motion:'Border crossers should be deported with no hearing at all.',
-      a:{ nm:'Aarav', side:'For', face:'face46' }, b:{ nm:'Hana', side:'Against', face:'face52' },
-      open:52, drift:41, won:'b', score:'79 - 90', crowd:238, vol:410,
-      rfd:'Hana wins on the hearing rather than on the deportation. Aarav argues the queue is the problem and never answers that without a hearing there is no step at which a citizen wrongly swept up gets to say so, which is a cost his own system has no way to detect.' },
+      rfd:'Zainab wins on the road safety record, which moved when the age moved. Hugo argues consistency with other adult rights but never answers the one number that tracks the change.' },
+    { fmt:'Quick Clash', motion:'Parents should be allowed to edit a genetic disease out of an embryo.',
+      a:{ nm:'Chiara', side:'For', face:'face49' }, b:{ nm:'Emeka', side:'Against', face:'face54' },
+      open:50, drift:53, won:'a', score:'88 - 75', crowd:249, vol:420,
+      rfd:'Chiara wins by keeping the motion on disease rather than on preference, which is the line Emeka needs to blur and never does. Emeka shows the technology will not stop where the motion stops and never argues that a family facing a fatal condition should wait for a rule nobody has written.' },
+    { fmt:'APDA', motion:'Countries should take in people displaced by climate change.',
+      a:{ nm:'Andre', side:'For', face:'face46' }, b:{ nm:'Yuna', side:'Against', face:'face52' },
+      open:52, drift:41, won:'a', score:'95 - 75', crowd:238, vol:410,
+      rfd:'Andre wins on responsibility, since the emissions that moved the water were not produced where the water rose. Yuna shows that absorbing arrivals is expensive and politically hard and never answers who is supposed to hold a coastline that has stopped existing.' },
     { fmt:'Public Forum', motion:'Political leaders should face a maximum age limit.',
-      a:{ nm:'Priya', side:'For', face:'face51' }, b:{ nm:'Danylo', side:'Against', face:'face54' },
+      a:{ nm:'Fatima', side:'For', face:'face51' }, b:{ nm:'Rafael', side:'Against', face:'face54' },
       open:50, drift:63, won:'a', score:'89 - 78', crowd:196, vol:355,
-      rfd:'Priya wins because she stops defending the line and starts defending having one: she concedes the cutoff is arbitrary and shows the alternative is a judgement nobody around the person is free to make out loud. Danylo proves individuals vary and never gets a mechanism out of it.' },
-    { fmt:'Quick Clash', motion:'Nobody should manage a service job without having worked one.',
-      a:{ nm:'Luka', side:'For', face:'face48' }, b:{ nm:'Samira', side:'Against', face:'face49' },
-      open:51, drift:66, won:'a', score:'88 - 76', crowd:144, vol:290,
-      rfd:'Luka wins by keeping the requirement small and concrete. Samira treats it as a ban on outsiders when the motion asks for a shift, and never answers the case that the decisions in question are all about a floor only the floor can see.' },
+      rfd:'Fatima wins because she stops defending the line and starts defending having one: she concedes the cutoff is arbitrary and shows the alternative is a judgement nobody around the person is free to make out loud. Rafael proves individuals vary and never gets a mechanism out of it.' },
+    { fmt:'Quick Clash', motion:'Rich countries owe the countries they colonised.',
+      a:{ nm:'Youssef', side:'For', face:'face48' }, b:{ nm:'Thandi', side:'Against', face:'face49' },
+      open:51, drift:66, won:'b', score:'75 - 88', crowd:144, vol:290,
+      rfd:'Thandi wins on the mechanism rather than the history, since Youssef never says who is paid, by whom, or when the debt is settled. Youssef proves the extraction was real and that the wealth compounded, and an open obligation with no endpoint is what Thandi asks Youssef to defend.' },
     { fmt:'British Parli', motion:'Every law should expire after ten years unless it is passed again.',
-      a:{ nm:'Zuri', side:'For', face:'face53' }, b:{ nm:'Emeka', side:'Against', face:'face47' },
+      a:{ nm:'Claire', side:'For', face:'face53' }, b:{ nm:'Malik', side:'Against', face:'face47' },
       open:49, drift:35, won:'b', score:'77 - 88', crowd:118, vol:250,
-      rfd:'Emeka wins on what the clock does to the calendar. Zuri is right that dead law accumulates, and Emeka shows a legislature that must re-pass everything has time for nothing, which hands the agenda to whoever can run out the term.' },
+      rfd:'Malik wins on what the clock does to the calendar. Claire is right that dead law accumulates, and Malik shows a legislature that must re-pass everything has time for nothing, which hands the agenda to whoever can run out the term.' },
     { fmt:'Lincoln-Douglas', motion:'Cash should be abolished.',
-      a:{ nm:'Mei', side:'For', face:'face54' }, b:{ nm:'Marcus', side:'Against', face:'face46' },
+      a:{ nm:'Elena', side:'For', face:'face54' }, b:{ nm:'Idris', side:'Against', face:'face46' },
       open:50, drift:32, won:'b', score:'74 - 90', crowd:127, vol:265,
-      rfd:'Marcus wins because he names who is left outside the system: cash is the only payment that works with no account, no credit and no permission, and Mei\'s fraud case never weighs that against a convenience everyone else already has.' },
+      rfd:'Idris wins because he names who is left outside the system: cash is the only payment that works with no account, no credit and no permission, and Elena\'s fraud case never weighs that against a convenience everyone else already has.' },
     { fmt:'World Schools', motion:'Voting should require passing the citizenship test.',
-      a:{ nm:'Aarav', side:'For', face:'face52' }, b:{ nm:'Elena', side:'Against', face:'face51' },
+      a:{ nm:'Lucas', side:'For', face:'face52' }, b:{ nm:'Zuri', side:'Against', face:'face51' },
       open:50, drift:38, won:'b', score:'76 - 91', crowd:263, vol:430,
-      rfd:'Elena wins on the history Aarav has to distinguish and does not: every version of this has been graded by somebody with a stake in the answer. Aarav shows the electorate is uninformed and never shows a test that measures information rather than the people administering it.' },
+      rfd:'Zuri wins on the history Lucas has to distinguish and does not: every version of this has been graded by somebody with a stake in the answer. Lucas shows the electorate is uninformed and never shows a test that measures information rather than the people administering it.' },
+    /* 2026-08-24, per the founder ("i also want to see the influencers/celebs
+       here"). These ten are a DIFFERENT KIND OF CARD and the difference is
+       the whole reason they are allowed on this board. soul.md is explicit:
+       never caption a real person with an invented name, score, or ballot,
+       and never name a creator as a participant in a round that has not
+       happened. So a challenge card carries no verdict, no speaker points,
+       no viewer read and no ballot: it is an open seat with a resolution on
+       it, labelled unaccepted, in the same words the watchlist band already
+       uses ("none confirmed, none affiliated, none endorsing"). The motion
+       is what the room would put to them, never a position attributed to
+       them, which is why no side is printed against a creator tile.
+       Portraits are the same CC or public-domain files as the watchlist,
+       credited in /img/creator-watchlist/README.md. If a creator ever
+       actually debates, that round belongs in the deck above with a real
+       ballot, not here. */
+    { kind:'challenge', fmt:'Open challenge', motion:'Giving money away on camera is still charity.',
+      a:{ nm:'MrBeast', img:'mrbeast' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Streaming full time is a better bet than a degree.',
+      a:{ nm:'IShowSpeed', img:'ishowspeed' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Streamers shape young men more than schools do.',
+      a:{ nm:'Kai Cenat', img:'kaicenat' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'A political streamer owes the audience the strongest version of the other side.',
+      a:{ nm:'HasanAbi', img:'hasanabi' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Gambling sponsorships should be banned from streaming.',
+      a:{ nm:'xQc', img:'xqc' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Parasocial attachment is bad for the people who feel it.',
+      a:{ nm:'Pokimane', img:'pokimane' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Debating someone you find repugnant legitimises them.',
+      a:{ nm:'Destiny', img:'destiny' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'Comedy should have no protected subjects.',
+      a:{ nm:'Konstantin Kisin', img:'konstantinkisin' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'An interview tests an argument better than a debate does.',
+      a:{ nm:'Mehdi Hasan', img:'mehdihasan' }, b:{ nm:'Open seat' } },
+    { kind:'challenge', fmt:'Open challenge', motion:'A three hour conversation gets closer to the truth than a timed debate.',
+      a:{ nm:'Lex Fridman', img:'lexfridman' }, b:{ nm:'Open seat' } }
   ];
 
   /* 2026-08-18, per the founder: circulate the deck. Each page load shuffles the
@@ -10170,8 +10258,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      The opener rule from 2026-07-22 survives the shuffle: the first card
      shown is always a mixed pair of real tiles, never two same-list names
      and never the Anonymous avatar. */
-  var FS_MALE = {Dev:1, Marcus:1, Timothee:1, Danylo:1, Kenji:1, Arjun:1, Luka:1, Mateo:1, Miguel:1, Aarav:1, Emeka:1};
-  var FS_FEMALE = {Anika:1, Priya:1, Elena:1, Mei:1, Sofia:1, Claire:1, Yuna:1, Zainab:1, Zuri:1, Hana:1, Samira:1, Amara:1, Rin:1};
+  var FS_MALE = {Dev:1, Marcus:1, Timothee:1, Danylo:1, Kenji:1, Arjun:1, Luka:1, Mateo:1, Miguel:1, Aarav:1, Emeka:1, Rafael:1, Idris:1, Tomas:1, Nikhil:1, Youssef:1, Andre:1, Ibrahim:1, Ravi:1, Jonas:1, Diego:1, Malik:1, Hugo:1, Omar:1, Felix:1, Kwame:1, Adnan:1, Lucas:1, Viktor:1, Haruki:1};
+  var FS_FEMALE = {Anika:1, Priya:1, Elena:1, Mei:1, Sofia:1, Claire:1, Yuna:1, Zainab:1, Zuri:1, Hana:1, Samira:1, Amara:1, Rin:1, Fatima:1, Ingrid:1, Camila:1, Nadia:1, Leila:1, Aisha:1, Marta:1, Chiara:1, Thandi:1, Noor:1, Ayumi:1, Valentina:1, Meera:1};
   (function circulateRounds(){
     var i, j, t, r;
     for (i = ROUNDS.length - 1; i > 0; i--) {
@@ -10179,6 +10267,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       t = ROUNDS[i]; ROUNDS[i] = ROUNDS[j]; ROUNDS[j] = t;
     }
     for (i = 0; i < ROUNDS.length; i++) {
+      // A challenge card has one creator and one empty seat, so a flip would
+      // put the empty chair in the speaking position. Judged rounds only.
+      if (ROUNDS[i].kind === 'challenge') continue;
       if (Math.random() < 0.5) {
         r = ROUNDS[i];
         t = r.a; r.a = r.b; r.b = t;
@@ -10188,13 +10279,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         r.score = r.score.split(' - ').reverse().join(' - ');
       }
     }
-    /* 2026-08-22: the cast is real webcam stills only, all men, so the old
-       mixed-gender opener rule has nothing to match. The rule that
-       survives from it is the second half: never open on the Anonymous
-       avatar. The first card must be two real people. */
+    /* Opener rule. Never the Anonymous avatar, and never a challenge card:
+       the first thing a cold visitor sees has to be a finished round with a
+       verdict on it, because that is the product. A challenge card is an
+       invitation, which only means something once you know what a round is.
+       2026-08-24: the mixed-pair half of the 2026-07-22 rule is back, since
+       the cast is mixed again (the 08-22 note below it was written while the
+       board was all men and had nothing to match). */
     for (i = 0; i < ROUNDS.length; i++) {
       r = ROUNDS[i];
-      if (r.a.nm !== 'Anonymous' && r.b.nm !== 'Anonymous') {
+      if (r.kind === 'challenge') continue;
+      if (r.a.nm === 'Anonymous' || r.b.nm === 'Anonymous') continue;
+      if ((FS_MALE[r.a.nm] && FS_FEMALE[r.b.nm]) || (FS_FEMALE[r.a.nm] && FS_MALE[r.b.nm])) {
         if (i > 0) { t = ROUNDS[0]; ROUNDS[0] = ROUNDS[i]; ROUNDS[i] = t; }
         break;
       }
@@ -10229,6 +10325,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      still, and the generated pools below are dormant until a character
      outside the real batch is ever cast again. WHICH character wears
      which real face still moves every load.
+     2026-08-24 SUPERSEDES that: the roster below is now exactly as long as
+     the bank it draws from, 30 male characters against 30 male faces and 26
+     female against 26 female, so EVERY portrait in the bank is dealt on
+     every single load. That is the point of the change (the founder:
+     "theres a lot of missing images in circulation"). Before it, 24
+     characters drew from 56 faces, and the male side was worse than the
+     ratio suggests: mPool puts the eight real stills first, so with only 11
+     male characters just three of the 22 generated men were ever dealt, and
+     19 male faces were effectively out of rotation. That ordering is now
+     moot rather than removed, since a 1:1 roster deals the whole pool
+     whatever order it is in; keep the real-first concat so the property
+     survives if the roster ever shrinks again. Adding a face to the bank
+     without adding a character puts it straight back on the bench, so the
+     two lists move together.
+     Challenge cards (kind:'challenge') carry no character: their names are
+     real people and their portraits are fixed files, so castFaces must
+     never deal them a stock tile. They fall through the FS_MALE/FS_FEMALE
+     test below and keep the img they were authored with.
 
      FACE_ROOM is not decoration. Several stills were shot in the same room and
      the board shows two portraits side by side, so an unguarded deal
@@ -10310,17 +10424,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   })();
 
   var el = {};
-  ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
+  ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB','fsSample',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
+  var tileA = board && board.querySelector('.fs-tile--speaking');
+  var tileB = board && board.querySelectorAll('.fs-tile')[1];
+  if (!tileA || !tileB) return;
 
   var reduced = false;
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
 
+  var BLANK_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
   // The verdict is the payoff, so it holds LONGER than the deciding
@@ -10431,6 +10549,28 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var r = ROUNDS[i];
     el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
     el.fsMotion.textContent = r.motion;
+
+    /* Challenge card. Everything a judged card asserts (a result, points,
+       a clock, a viewer read) is absent here on purpose, so this branch
+       returns before any of it is painted rather than painting it and
+       hiding it. The label swaps too: calling an unaccepted challenge an
+       "Example round" would be the card lying about what it is. */
+    var isChal = r.kind === 'challenge';
+    board.classList.toggle('is-chal', isChal);
+    if (el.fsSample) el.fsSample.textContent = isChal ? 'Open challenge' : 'Example round';
+    tileA.classList.toggle('fs-tile--open', false);
+    tileB.classList.toggle('fs-tile--open', isChal);
+    if (isChal){
+      el.fsFaceA.src = '/img/creator-watchlist/' + r.a.img + '.jpg';
+      el.fsFaceA.alt = r.a.nm;
+      el.fsFaceB.src = BLANK_PX;
+      el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = 'Invited';
+      el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = 'Yours';
+      el.fsBallot.classList.remove('is-in');
+      elapsed = 0;
+      return;
+    }
+    el.fsFaceA.alt = '';
     el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
     el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
     el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = r.a.side;
@@ -10484,6 +10624,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function step(){
     if (document.hidden) return;
     elapsed += TICK_MS;
+    if (ROUNDS[idx].kind === 'challenge'){
+      // Nothing to run, so it holds for one judged card's worth of time and
+      // hands the board back. Shorter than RUN+HOLD would leave a reader
+      // halfway through the motion.
+      if (elapsed >= RUN_MS + HOLD_MS) go(idx + 1);
+      return;
+    }
     if (elapsed <= RUN_MS){
       var r = ROUNDS[idx];
       // Walk toward the drift target with noise on top, so it reads as a
@@ -10513,7 +10660,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   function go(i, manual){
     idx = (i + ROUNDS.length) % ROUNDS.length;
-    if (reduced){ paintRound(idx); settle(); return; }
+    if (reduced){ paintRound(idx); if (ROUNDS[idx].kind !== 'challenge') settle(); return; }
     board.classList.add('is-swapping');
     setTimeout(function(){ paintRound(idx); board.classList.remove('is-swapping'); }, 260);
     if (manual){
@@ -10522,7 +10669,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
 
   paintRound(0);
-  if (reduced) settle();
+  if (reduced && ROUNDS[0].kind !== 'challenge') settle();
 
   if (el.fsPrev) el.fsPrev.addEventListener('click', function(){ go(idx - 1, true); });
   if (el.fsNext) el.fsNext.addEventListener('click', function(){ go(idx + 1, true); });
