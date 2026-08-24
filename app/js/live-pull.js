@@ -120,7 +120,7 @@
     document.head.appendChild(s);
   }
 
-  function showCard(waiting) {
+  function showCard(waiting, trigger) {
     css();
     var card = document.createElement('aside');
     card.className = 'lpull';
@@ -148,7 +148,16 @@
     }
     document.body.appendChild(card);
     setTimeout(function () { card.classList.add('on'); }, 30);
-    emit('live_pull_seen', { waiting: n });
+
+    // device + trigger ride every event this card emits. Without them a
+    // single blended CTR hides which half of the arm is working, and the
+    // two halves no longer fire at the same moment in the visit.
+    var tag = { waiting: n, device: isPhone() ? 'mobile' : 'desktop', trigger: trigger || 'timer' };
+    emit('live_pull_seen', tag);
+    function click(action) {
+      var p = { waiting: tag.waiting, device: tag.device, trigger: tag.trigger, action: action };
+      emit('live_pull_click', p);
+    }
 
     // The signup nudge outranks this card. On narrow screens it goes
     // full-width at the bottom and would sit under us, so if it appears
@@ -169,12 +178,19 @@
 
     var later = card.querySelector('.lpull-later');
     if (later) later.addEventListener('click', function () {
+      click('dismiss');
       stamp(SNOOZE_KEY);
       card.remove();
     });
+    if (n > 0) {
+      // An anchor, so the event has to go out before the navigation does.
+      var join = card.querySelector('.lpull-cta');
+      if (join) join.addEventListener('click', function () { click('join_waiting'); });
+    }
     if (n === 0) {
       var go = card.querySelector('.lpull-cta');
       go.addEventListener('click', function () {
+        click('go_available');
         if (window.DASparLive) window.DASparLive.setAvailable(true);
         card.querySelector('.lpull-title').textContent = 'You are matchable.';
         card.querySelector('.lpull-body').textContent = 'Keep this tab open. The moment an opponent is ready, a match card pops and you accept into the round.';
@@ -203,13 +219,13 @@
     setTimeout(function () { whenModalFree(fn, waited + 2000); }, 2000);
   }
 
-  function pull() {
+  function pull(trigger) {
     fetch('/api/live-now', { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         var n = j && typeof j.count === 'number' ? j.count : 0;
         whenModalFree(function () {
-          showCard(n);
+          showCard(n, trigger);
           stamp(SNOOZE_KEY);
         });
       })
@@ -224,29 +240,83 @@
   // ribbon, a topbar, two CTAs, a sign-in ask and then an overlay,
   // inside five seconds.
   //
-  // So narrow viewports trade the timer for a scroll gate. The card
-  // fires once the visitor has scrolled past the first screen, which is
-  // a visitor who has already read it rather than one who is still
-  // reading. Someone who never scrolls never sees it, deliberately —
-  // that is the cost, and it is the right side to pay on, because the
-  // alternative is covering the demo before it has been watched.
+  // So the phone gate is not "sooner or later", it is "not until the
+  // demo has played". The board runs RUN_MS 3400 + HOLD_MS 6200 in
+  // landing.html, so ONE COMPLETE ROUND — clock, motion, verdict, and
+  // the verdict's hold — is 9.6 seconds. Two triggers, whichever lands
+  // first:
+  //
+  //   scroll  the visitor has scrolled past the first screen, so they
+  //           are done with it whether or not they watched the board.
+  //   dwell   DWELL_MS of VISIBLE time, sized past that 9.6s cycle so
+  //           the verdict has landed and held before anything covers
+  //           it. This is the one that matters: the first cut of this
+  //           gate had scroll only, which silently dropped every phone
+  //           visitor who never scrolls — and on the strongest
+  //           conversion surface the site has, that is a worse bug than
+  //           the overlay it fixed.
+  //
+  // Dwell counts visible time only, and the beat resets its clock on
+  // every visibility change, so a backgrounded tab accrues nothing and
+  // cannot fire the card at a visitor who is not looking. Same posture
+  // as the presence human-gate.
   //
   // Desktop is unchanged (the card is a 340px corner slab there and
   // covers nothing). Both arms of landing_live_pull_v1 are assigned
   // before this point, so the experiment population is untouched; what
-  // changes is WHEN the pull arm fires on a phone. Read mobile and
-  // desktop separately.
+  // changes is WHEN the pull arm fires on a phone. live_pull_seen and
+  // live_pull_click now carry device + trigger so mobile and desktop,
+  // and scroll and dwell, are separable in GA4 rather than a note in a
+  // commit message.
+  var PHONE_MAX = 700;
+  var DWELL_MS = 12000;   // > one 9.6s demo round, with margin
+
+  function isPhone() {
+    try { return window.innerWidth < PHONE_MAX; } catch (e) { return false; }
+  }
+
   function armPull() {
-    if (window.innerWidth >= 700) { setTimeout(pull, 4500); return; }
+    if (!isPhone()) {
+      setTimeout(function () { pull('timer'); }, 4500);
+      return;
+    }
+
     var fired = false;
-    function onScroll() {
+    var dwell = 0;
+    var last = Date.now();
+    var beat = null;
+
+    function fire(trigger, delay) {
       if (fired) return;
-      if (window.scrollY < window.innerHeight * 0.75) return;
       fired = true;
       window.removeEventListener('scroll', onScroll);
-      setTimeout(pull, 600);
+      document.removeEventListener('visibilitychange', onVis);
+      if (beat) { clearInterval(beat); beat = null; }
+      setTimeout(function () { pull(trigger); }, delay);
     }
+    // The viewport height is not always measurable at boot (a detached
+    // or not-yet-laid-out tab reports 0), and `scrollY >= 0 * 0.75` is
+    // trivially true, which would open the gate instantly and put the
+    // card straight back on top of the board. Measured here: the card
+    // appeared at 6.7s at scrollY 48. So an unmeasurable viewport is
+    // not a scrolled one — wait for a real number and let dwell or a
+    // later scroll event carry it.
+    function onScroll() {
+      var vh = window.innerHeight || 0;
+      if (vh < 200) return;
+      if (window.scrollY >= vh * 0.75) fire('scroll', 600);
+    }
+    function onVis() { last = Date.now(); }
+
+    beat = setInterval(function () {
+      var now = Date.now();
+      if (!document.hidden) dwell += now - last;
+      last = now;
+      if (dwell >= DWELL_MS) fire('dwell', 0);
+    }, 500);
+
     window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('visibilitychange', onVis);
     onScroll();   // deep-link / restored scroll position counts as scrolled
   }
 
