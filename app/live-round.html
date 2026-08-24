@@ -371,13 +371,20 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
    light-on-dark in every theme (var(--text*) would flip dark in light
    theme and vanish against the permanently-dark pane). */
 /* 2026-08-19, the founder off a live-round screenshot: "get rid of the thing
-   at the bottom its weird" — the nameplate + AI-judge rail under the
-   video is retired. display:none rather than deleted: updateRoomStage
-   and the speaking-pulse JS still write into these ids, and removing
-   the nodes would throw. Restore = delete the display:none line. */
-.stage-rail{flex:0 0 auto;position:relative;display:none;align-items:stretch;gap:10px}
+   at the bottom its weird" — the whole rail went display:none.
+   2026-08-24, the founder again: "bring the AI judge eyes back where its
+   listening in". So the rail is back carrying ONE thing. The NAMEPLATES
+   are what was weird and they stay retired: two names under a video that
+   already shows both faces, restating what the roster and the speech
+   header say. The judge is the opposite case. It is the one party in the
+   room with no tile of its own, so without this strip nothing on screen
+   says it is there until the ballot lands. updateRoomStage and the
+   speaking-pulse JS still write into the hidden seats, which is harmless
+   and keeps this a two-line change in either direction. */
+.stage-rail{flex:0 0 auto;position:relative;display:flex;justify-content:center;align-items:stretch;gap:10px}
 .stage-seat{
-  flex:1;min-width:0;display:flex;align-items:center;gap:10px;
+  display:none;
+  flex:1;min-width:0;align-items:center;gap:10px;
   padding:8px 12px;border-radius:12px;
   background:rgba(255,255,255,.04);border:1px solid var(--border);
   transition:border-color .18s,box-shadow .18s,background .18s;
@@ -489,21 +496,36 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
   .rail-judge .rj-meta{display:none}
   .rail-judge .rj-avatar{width:28px;height:28px;border-radius:8px}
 }
-/* Floor-judge remark card. Slides up from the rail over the bottom of
-   the video. Only ever rendered by clients with the floor-judge flag
-   on; invisible to everyone else. */
+/* The judge thinking out loud. A bubble that rises off the judge chip
+   over the BOTTOM of the video and points back down at it, so the line
+   is attributed to the thing that said it rather than floating as a
+   system banner. Capped and centred rather than spanning the pane: at
+   full width it read as chrome, and chrome over a live round is the one
+   thing this must not become. Absolutely positioned on purpose, so a
+   remark arriving mid-round never reflows the video above it. */
 .floor-remark{
-  position:absolute;left:0;right:0;bottom:calc(100% + 10px);z-index:24;
+  position:absolute;left:0;right:0;bottom:calc(100% + 14px);z-index:24;
+  max-width:620px;margin-inline:auto;
   padding:12px 40px 12px 14px;border-radius:14px;
   background:rgba(14,13,9,.95);border:1px solid rgba(217,201,138,.4);
   box-shadow:0 14px 44px rgba(0,0,0,.5);
   font-size:.84rem;line-height:1.5;color:rgba(255,255,255,.92);
   animation:floorIn .3s cubic-bezier(.2,.8,.2,1);
 }
+/* The tail. Two stacked triangles, border colour behind fill colour, so
+   the bubble's 1px edge carries on around the point. */
+.floor-remark::before,.floor-remark::after{
+  content:"";position:absolute;top:100%;left:50%;width:0;height:0;
+  border-left:9px solid transparent;border-right:9px solid transparent;
+}
+.floor-remark::before{margin-left:-9px;border-top:10px solid rgba(217,201,138,.4)}
+.floor-remark::after{margin-left:-8px;border-top:9px solid rgba(14,13,9,.95);border-left-width:8px;border-right-width:8px}
 @keyframes floorIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
-/* The stage rail is display:none (2026-08-19), so floor-judge remarks
-   re-home into the panel column with static flow. */
-.floor-remark.in-panel{position:static;margin:0 22px 14px}
+/* Under 1000px the rail is hidden (the video is a sticky letterbox with
+   no room under it), so remarks re-home into the panel column and read
+   as a static card there instead. No tail: nothing to point at. */
+.floor-remark.in-panel{position:static;margin:0 22px 14px;max-width:none}
+.floor-remark.in-panel::before,.floor-remark.in-panel::after{display:none}
 .mo-row{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
 .mo-row input{margin-top:2px;accent-color:#b91c1c}
 .floor-remark .fr-eyebrow{display:block;font-size:.55rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#d9c98a;margin-bottom:5px}
@@ -2704,10 +2726,10 @@ html.stage-mode .stage-ov{display:block}
         </div>
       </div>
     </div>
-    <!-- Stage rail: two nameplates around the AI-judge chip. Viewers
-         stay off camera; the judge listens through the round and
-         writes the ballot at the end. -->
-    <div class="stage-rail" id="roomStage" aria-label="Live round stage" title="Debaters on camera, viewers off. The AI judge listens in and writes the ballot at the end.">
+    <!-- The judge strip under the video. The two nameplates are still
+         here and still written to, but they render display:none: the
+         judge chip is the only thing this strip shows (2026-08-24). -->
+    <div class="stage-rail" id="roomStage" aria-label="The AI judge" title="The AI judge listens through the round, thinks out loud between speeches, and writes the ballot at the end.">
       <div class="stage-seat stage-seat--pro" id="stageProSeat">
         <div class="stage-avatar" id="stageProAvatar">P</div>
         <div class="stage-meta">
@@ -4178,9 +4200,8 @@ html.stage-mode .stage-ov{display:block}
       if (conSeat) conSeat.classList.remove('is-speaking');
     }
 
-    // Point the judge's eyes at whoever holds the floor. Pro nameplate
-    // is left of the chip, con is right; between speeches the eyes
-    // wander (CSS), and in the ballot phase they look down to write.
+    // Between speeches the eyes wander (CSS), in the ballot phase they
+    // look down to write, and mid-speech they turn toward the speaker.
     var rj = $('railJudge');
     if (rj){
       if (state.phase === 'ballot' || state.phase === 'ballot-rendered'){
@@ -4188,10 +4209,37 @@ html.stage-mode .stage-ov{display:block}
         rj.removeAttribute('data-look');
       } else {
         rj.removeAttribute('data-phase');
-        if (midSpeech) rj.setAttribute('data-look', activeFirst ? 'left' : 'right');
+        if (midSpeech) aimJudgeEyes();
         else rj.removeAttribute('data-look');
       }
     }
+  }
+
+  // Which way the judge is looking. The nameplates that used to sit left
+  // and right of the chip are gone, and video tiles are appended in
+  // ARRIVAL order, so the old fixed "first side is on the left" mapping
+  // would have had the judge staring at the silent debater about half
+  // the time. Measure instead: find the tile Daily has marked as the
+  // active speaker and compare its centre with the chip's own. Nothing
+  // to measure (the prebuilt iframe path, a spectator with no grid, or
+  // silence) means no attribute, and the eyes go back to wandering,
+  // which is the honest answer to "who is talking" when we cannot tell.
+  function aimJudgeEyes(){
+    var rj = $('railJudge');
+    if (!rj || rj.getAttribute('data-phase') === 'ballot') return;
+    var look = '';
+    try {
+      var tile = document.querySelector('.cv-tile.is-speaking');
+      if (tile && rj.offsetParent){
+        var a = tile.getBoundingClientRect(), b = rj.getBoundingClientRect();
+        if (a.width && b.width){
+          var d = (a.left + a.width / 2) - (b.left + b.width / 2);
+          if (Math.abs(d) > 24) look = d < 0 ? 'left' : 'right';
+        }
+      }
+    } catch(e){ look = ''; }
+    if (look) rj.setAttribute('data-look', look);
+    else rj.removeAttribute('data-look');
   }
 
   // Whether the current speech belongs to me. The format spec uses
@@ -7667,6 +7715,10 @@ html.stage-mode .stage-ov{display:block}
     call.on('active-speaker-change', function(ev){
       room.active = (ev && ev.activeSpeaker && ev.activeSpeaker.peerId) || '';
       paintRoom();
+      // paintRoom moves the .is-speaking class; the gaze follows it here
+      // rather than waiting for the next timer transition, which is what
+      // makes the judge look like it is tracking the room in real time.
+      if (state.phase === 'round') { try { aimJudgeEyes(); } catch(e){} }
     });
     call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
     call.on('error', function(ev){
@@ -7890,12 +7942,19 @@ html.stage-mode .stage-ov{display:block}
     });
   }
 
-  // ── Floor judge (HIDDEN feature — not surfaced anywhere in the UI).
-  // A real-time third party: the AI judge listens in and drops a short
-  // spoken-register comment BETWEEN speeches — sideline color, never a
-  // winner call (the ballot stays the end-of-round verdict). Off by
-  // default; enable per client with ?judge=live on the URL or
-  // localStorage 'lr-floor-judge' = '1'.
+  // ── Floor judge. A real-time third party: the AI judge listens in and
+  // drops a short spoken-register comment BETWEEN speeches — sideline
+  // color, never a winner call (the ballot stays the end-of-round
+  // verdict). Shipped dark in 2026-07-22 behind ?judge=live; ON by
+  // default since 2026-08-24 at the founder's ask, alongside restoring
+  // the judge chip it speaks from. Turn it off in More options · AI
+  // aides, which writes 'lr-floor-judge' = '0'.
+  //
+  // It stays inside the same fence as the fact check and the round
+  // notes: it never scores, never says who is winning, the ballot never
+  // reads it, and both debaters plus every spectator see the identical
+  // line, because an aide only one side could see would be a thumb on
+  // the scale.
   //
   // v1 rides the transcript pipeline that already exists: when a speech
   // ends, the round-so-far goes to /api/claude for a 2-3 sentence
@@ -7911,8 +7970,11 @@ html.stage-mode .stage-ov{display:block}
   function floorJudgeOn(){
     try {
       if (/[?&]judge=live(&|$)/.test(location.search)) return true;
-      return localStorage.getItem('lr-floor-judge') === '1';
-    } catch(e){ return false; }
+      // Default ON. Anything but an explicit '0' is on, which is the
+      // same shape round-notes and fact-check use, so the three aides
+      // read the same way in More options.
+      return localStorage.getItem('lr-floor-judge') !== '0';
+    } catch(e){ return true; }
   }
   var _floorRemarkShownIdx = -1;
   function floorJudgeStatus(txt){
@@ -7927,10 +7989,10 @@ html.stage-mode .stage-ov{display:block}
     if (!remark || typeof remark.idx !== 'number' || !remark.text) return;
     if (remark.idx === _floorRemarkShownIdx) return;
     _floorRemarkShownIdx = remark.idx;
-    // The stage rail has been display:none since 2026-08-19, so a card
-    // appended there was invisible — the whole feature rendered into a
-    // hidden parent. When the rail isn't visible, the card re-homes
-    // into the panel column above the round notes.
+    // The bubble hangs off the judge chip. Where the rail is hidden
+    // (under 1000px, and in the mini / pop-out video modes) a card
+    // appended there would render into a hidden parent and be invisible,
+    // so it re-homes into the panel column above the round notes.
     var rail = $('roomStage');
     var railVisible = rail && rail.offsetParent !== null;
     var host = railVisible ? rail : ($('roundNotes') && $('roundNotes').parentNode);
@@ -8348,8 +8410,8 @@ html.stage-mode .stage-ov{display:block}
       if (!el) return;
       el.addEventListener('change', function(){
         var b = boxes[id];
-        // round-notes and fact-check store '0' to disable and treat
-        // anything else as on; floor judge stores '1' to enable.
+        // All three now store '0' to disable and treat anything else
+        // as on, so an unset key means the aide is running.
         var val = el.checked ? (b.onVal || '1') : (b.offVal || '0');
         try { localStorage.setItem(b.key, val); } catch(e){}
         try { b.after(); } catch(e){}
