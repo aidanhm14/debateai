@@ -13779,13 +13779,23 @@ html.stage-mode .stage-ov{display:block}
   // Presence-gated the same way as the no-show flow: with a known
   // opposing uid it waits for their seat beat, so it can never tell
   // someone to start a round against an empty chair.
-  var KICKOFF_STRIP_ON = false;   // retired 2026-08-22, see checkKickoffPrompt
+  // 2026-08-24: RE-ENABLED (was retired 2026-08-22). The funnel showed the
+  // retirement reopened the #1 activation leak: with nothing to start speech 1,
+  // round_abandoned reports 92% of live rounds now quit at speech_idx 0 (before
+  // anyone speaks), the opponent PRESENT in ~56% of them and AI-slowness in 0.
+  // Two people sit in a working call and nobody finds the Start control below
+  // the video fold. Back on, but shorter (8s, not 20s: the old 20s strip showed
+  // 81% leave before it fired) and quieter. Auto-start still routes through
+  // startSpeechTimer() so every clock-sync and judge-lock rule rides along, and
+  // still PAUSES (never fires) for a hidden tab, a pending motion change, or
+  // unsettled judge picks. Flip to false to retire again.
+  var KICKOFF_STRIP_ON = true;
   var kickoffEl = null, kickoffMode = '', kickoffDismissed = false;
   // 2026-08-18 countdown upgrade, measured not guessed: in the strip's
   // first ~6 live hours it showed 47 times across 3 rooms and produced
   // exactly ONE started speech. Two people sit in a working call and
   // nobody presses Start. So for the OPENER the strip now counts down
-  // 20s and then starts speech 1 itself, through startSpeechTimer(),
+  // 8s and then starts speech 1 itself, through startSpeechTimer(),
   // the same path as the transport button, so every clock-sync and
   // judge-lock rule rides along. The countdown PAUSES (never silently
   // fires) while the tab is hidden, while a resolution change is being
@@ -13814,7 +13824,7 @@ html.stage-mode .stage-ov{display:block}
   }
   function startKickoffCountdown(){
     clearKickoffCountdown();
-    kickoffCountLeft = 20;
+    kickoffCountLeft = 8;
     kickoffCountTimer = setInterval(function(){
       var lab = document.getElementById('kickoffCount');
       if (!kickoffEl || !lab){ clearKickoffCountdown(); return; }
@@ -13860,13 +13870,13 @@ html.stage-mode .stage-ov{display:block}
     var openerName = speakerNameFor(f, 0) || 'Your opponent';
     var el = document.createElement('div');
     el.id = 'kickoffPrompt';
-    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:560px;width:calc(100% - 32px);padding:14px 16px;border-radius:14px;z-index:319;box-shadow:0 14px 40px rgba(0,0,0,.45);display:flex;align-items:center;gap:12px;font-family:inherit;background:var(--bg-elev,#16131a);border:1px solid ' +
+    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:520px;width:calc(100% - 32px);padding:12px 14px;border-radius:12px;z-index:319;box-shadow:0 6px 20px rgba(0,0,0,.26);display:flex;align-items:center;gap:12px;font-family:inherit;background:var(--bg-elev,#16131a);border:1px solid ' +
       (mode === 'mine' ? 'rgba(34,197,94,.55)' : 'var(--border-strong,rgba(255,255,255,.2))');
     if (mode === 'mine' && !kickoffAutoSpent && !kickoffDismissed){
       el.innerHTML =
         '<span style="flex:1;min-width:0;font-size:.87rem;line-height:1.5;color:var(--text,#fff)">' +
           '<b style="font-weight:800">You’re both here. You open the round.</b> ' +
-          '<span style="color:var(--text-dim,rgba(255,255,255,.62))">' + escHtml(sp.name) + (mins ? ' · ' + mins + ' min' : '') + '. Your speech starts in <b id="kickoffCount" style="color:var(--text,#fff);font-variant-numeric:tabular-nums">20s</b>.</span>' +
+          '<span style="color:var(--text-dim,rgba(255,255,255,.62))">' + escHtml(sp.name) + (mins ? ' · ' + mins + ' min' : '') + '. Your speech starts in <b id="kickoffCount" style="color:var(--text,#fff);font-variant-numeric:tabular-nums">8s</b>.</span>' +
         '</span>' +
         '<button type="button" id="kickoffGo" style="flex:none;padding:8px 14px;border-radius:9px;border:1px solid rgba(34,197,94,.65);background:rgba(34,197,94,.16);color:#4ade80;font-family:inherit;font-size:.8rem;font-weight:800;cursor:pointer">Start now</button>' +
         '<button type="button" id="kickoffWait" style="flex:none;padding:8px 12px;border-radius:9px;border:1px solid var(--border,rgba(255,255,255,.18));background:transparent;color:var(--text-dim,rgba(255,255,255,.6));font-family:inherit;font-size:.8rem;cursor:pointer">Wait</button>';
