@@ -786,6 +786,24 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
             <p class="choice-help" id="paradigmHelp">The format picks the normal decision rule. <a href="/judge-paradigms">Compare every paradigm</a>.</p>
           </div>
           <div class="field">
+            <label for="judgeManner">How it talks to you</label>
+            <select id="judgeManner" class="ctl">
+              <option value="kind">Kind &middot; same call, gentler words</option>
+              <option value="plain" selected>Straight &middot; neutral chair</option>
+              <option value="blunt">Brutal &middot; says it hard</option>
+            </select>
+            <p class="choice-help">Changes the wording, never the verdict or the speaker points. A weak speech scores low in all three.</p>
+          </div>
+          <div class="field">
+            <label for="judgeDetail">How much feedback</label>
+            <select id="judgeDetail" class="ctl">
+              <option value="short">Short &middot; the call and the reason</option>
+              <option value="medium" selected>Medium &middot; the standard ballot</option>
+              <option value="extensive">Extensive &middot; argument by argument</option>
+            </select>
+            <p class="choice-help" id="detailHelp">Medium and Extensive add the long-form ballot under the verdict. Short is the verdict alone.</p>
+          </div>
+          <div class="field">
             <label for="judgeBrain">AI brain</label>
             <select id="judgeBrain" class="ctl">
               <option value="claude" selected>Claude · recommended</option>
@@ -1349,10 +1367,16 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     brainLink.textContent = brain.access;
     $('brainHelp').appendChild(brainLink);
     $('customParadigmWrap').classList.toggle('on', paradigmKey === 'custom');
+    var mannerKey = validChoice('manners', $('judgeManner').value, 'plain');
+    var detailKey = validChoice('details', $('judgeDetail').value, 'medium');
+    var detail = JUDGE_OPTIONS.details[detailKey] || JUDGE_OPTIONS.details.medium;
+    $('detailHelp').textContent = detail.description;
     try {
       localStorage.setItem('debateos-judge-style', activeJudgeStyle);
       localStorage.setItem('debateos-judge-paradigm', paradigmKey);
       localStorage.setItem('debateos-judge-brain', brainKey);
+      localStorage.setItem('debateos-judge-manner', mannerKey);
+      localStorage.setItem('debateos-judge-detail', detailKey);
     } catch(e){}
   }
 
@@ -1370,6 +1394,15 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     activeJudgeStyle = validChoice('styles', params.get('style') || savedStyle, 'auto');
     $('judgeParadigm').value = validChoice('paradigms', params.get('paradigm') || savedParadigm, 'auto');
     $('judgeBrain').value = validChoice('brains', params.get('brain') || savedBrain, 'claude');
+    var savedManner = '', savedDetail = '';
+    try {
+      savedManner = localStorage.getItem('debateos-judge-manner') || '';
+      savedDetail = localStorage.getItem('debateos-judge-detail') || '';
+    } catch(e){}
+    $('judgeManner').value = validChoice('manners', params.get('manner') || savedManner, 'plain');
+    $('judgeDetail').value = validChoice('details', params.get('detail') || savedDetail, 'medium');
+    $('judgeManner').addEventListener('change', syncJudgeChoice);
+    $('judgeDetail').addEventListener('change', syncJudgeChoice);
     Array.prototype.forEach.call(document.querySelectorAll('.judge-style'), function(btn){
       var key = btn.getAttribute('data-style');
       btn.setAttribute('aria-pressed', key === activeJudgeStyle ? 'true' : 'false');
@@ -1959,6 +1992,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   function buildFullBallotPrompt(b, ctx){
     var f = fmtOf(ctx.formatKey);
+    // Length follows the reader's choice rather than one hardcoded target.
+    // The server's delivery block says the same thing in the prompt; this
+    // is the number the surface itself is built around.
+    var fbDetail = JUDGE_OPTIONS.details[ctx.detailKey] || JUDGE_OPTIONS.details.medium || { words:[700,1300] };
+    var fbWords = fbDetail.words || [700, 1300];
     var four = isFourTeam(f);
     var auto = ctx.formatKey === 'auto';
     var formatRules = auto
@@ -1991,7 +2029,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     ]).concat(formatRules).concat([
       '',
       'HARD RULES:',
-      '- MINIMUM 700 words. Target 900 to 1300. A ballot under 700 words means you summarized instead of adjudicating; depth comes from covering more of the flow, not from restating the same rulings.',
+      '- MINIMUM ' + fbWords[0] + ' words. Target ' + fbWords[0] + ' to ' + fbWords[1] + '. A ballot under the minimum means you summarized instead of adjudicating; depth comes from covering more of the flow, not from restating the same rulings.',
       '- Walk EVERY substantive argument either side ran, one at a time, not just the two or three biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).',
       '- Quote short verbatim lines from the transcript so every ruling points at the exact moment it happened.',
       four
@@ -2025,6 +2063,14 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
   }
 
   function generateFullBallot(b, ctx){
+    // Short means short. Running the long-form second beat under a Short
+    // selection would hand back the exact thing the reader asked not to
+    // get, so the block stays hidden and the verdict stands alone.
+    if ((JUDGE_OPTIONS.details[ctx.detailKey] || {}).deep === false){
+      var blk = $('fullBallotBlock');
+      if (blk) blk.style.display = 'none';
+      return;
+    }
     var seq = ++fullBallotSeq;
     var block = $('fullBallotBlock'), status = $('fullBallotStatus'), out = $('fullBallotText');
     block.style.display = 'block';
@@ -2045,6 +2091,10 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           system: p.system,
           messages: [{ role:'user', content: p.user }],
           _feature: 'live-round',
+          // The long ballot must arrive in the same voice as the verdict
+          // above it; two registers on one screen reads as two judges.
+          _judgeManner: ctx.mannerKey || 'plain',
+          _judgeDetail: ctx.detailKey || 'medium',
           _voiceFormat: ctx.formatKey
         })
       });
@@ -2123,7 +2173,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var brainKey = validChoice('brains', $('judgeBrain').value, 'claude');
     var customParadigm = paradigmKey === 'custom' ? $('customParadigm').value.trim() : '';
     var brain = JUDGE_OPTIONS.brains[brainKey] || JUDGE_OPTIONS.brains.claude;
-    lastJudgeChoice = { style:styleKey, paradigm:paradigmKey, brain:brainKey };
+    var mannerKey = validChoice('manners', $('judgeManner').value, 'plain');
+    var detailKey = validChoice('details', $('judgeDetail').value, 'medium');
+    lastJudgeChoice = { style:styleKey, paradigm:paradigmKey, brain:brainKey, manner:mannerKey, detail:detailKey };
 
     busy = true;
     $('judgeBtn').disabled = true;
@@ -2133,7 +2185,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('loading').querySelector('.sub').textContent = (JUDGE_OPTIONS.styles[styleKey] || JUDGE_OPTIONS.styles.auto).name
       + ' · ' + (JUDGE_OPTIONS.paradigms[paradigmKey] || JUDGE_OPTIONS.paradigms.auto).name;
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
-    try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste', judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
+    try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste', judge_style:styleKey, paradigm:paradigmKey, brain:brainKey, manner:mannerKey, detail:detailKey }); } catch(e){}
 
     var p = buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
 
@@ -2154,7 +2206,12 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           messages: [{ role:'user', content: p.user }],
           // Every brain injects the same server-side adjudication core.
           _feature: 'live-round',
-          _voiceFormat: formatKey
+          _voiceFormat: formatKey,
+          // Register and length only. The server allow-lists both and
+          // prepends the delivery block; neither can reach the call, the
+          // points, or which flaws get named. See lib/judge-delivery.mjs.
+          _judgeManner: mannerKey,
+          _judgeDetail: detailKey
         })
       }).then(function(r){
         return r.text().then(function(raw){
@@ -2202,7 +2259,8 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         generateFullBallot(parsed, {
           motion: motion, roundBackground: roundBackground, formatKey: formatKey,
           teamNames: teamNames, transcript: transcript, isVoice: usedVoice,
-          styleKey: styleKey, paradigmKey: paradigmKey, customParadigm: customParadigm
+          styleKey: styleKey, paradigmKey: paradigmKey, customParadigm: customParadigm,
+          mannerKey: mannerKey, detailKey: detailKey
         });
       } catch(e){ console.warn('[full ballot]', e); }
     }).catch(function(err){

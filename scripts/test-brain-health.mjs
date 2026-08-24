@@ -65,7 +65,25 @@ t('brain keys are unique', new Set(BRAINS.map((b) => b.key)).size === BRAINS.len
 // something nobody can select.
 const opts = (await import('node:fs')).readFileSync(
   new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
-const block = opts.slice(opts.indexOf('brains: {'));
+// Read ONE group object out of js/judge-options.js by brace depth.
+// Slicing from a marker to a guessed end (to 'brains: {', or to the end
+// of the file) silently absorbs any group added next to the one being
+// read, so a new group elsewhere in the file gets parsed as a member of
+// this one and blocks every commit in the repo. That happened on
+// 2026-08-23 when the delivery groups were added; both readers are
+// exact now, so where a group sits in the file no longer matters.
+function optionGroup(src, name) {
+  const at = src.indexOf(name + ': {');
+  if (at < 0) return '';
+  let depth = 0;
+  for (let i = src.indexOf('{', at); i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (!depth) return src.slice(at, i); }
+  }
+  return src.slice(at);
+}
+
+const block = optionGroup(opts, 'brains');
 const pickerKeys = [...block.matchAll(/^\s{6}([a-z]+): \{/gm)].map((m) => m[1]);
 t('the picker brain list parsed', pickerKeys.length >= 5);
 t('every probed brain exists in the picker',

@@ -131,6 +131,17 @@
       }
     },
 
+    // Group order in this file is not load-bearing, and it used to be.
+    // Two pre-commit guards read groups out of here (the paradigm
+    // dropdown check in test-judge-integrity, the picker/probe roster
+    // check in test-brain-health) and both used to slice from a marker
+    // to a guessed end, so a group added next to the one being read got
+    // parsed as part of it and blocked every commit in the repo. Both
+    // readers scan the real object by brace depth now.
+    //
+    // One rule survives, and it is a sharp one: do NOT write a group's
+    // marker text in a comment here. A reader that searches for the
+    // marker will find the comment first and read from the wrong place.
     brains: {
       claude: {
         name: 'Claude',
@@ -193,6 +204,38 @@
         model: 'nousresearch/hermes-4-405b',
         access: 'Signed-in plan'
       }
+    },
+
+    // MANNER and DETAIL are the DELIVERY controls (2026-08-23). They are a
+    // LABEL MIRROR ONLY: the prompt text that actually reaches the model
+    // lives server-side in lib/judge-delivery.mjs, sent as _judgeManner /
+    // _judgeDetail and allow-listed there, so a client cannot write the
+    // register a real ballot was delivered in.
+    //
+    // The wall, and it is why these live apart from `styles` and
+    // `paradigms`: manner changes WORDING. It never changes the winner,
+    // the ranking, the speaker points, or which flaws get named. A weak
+    // speech scores low in all three. scripts/test-judge-delivery.mjs
+    // asserts that, and asserts this file offers exactly the keys the
+    // server does, because a hand-written mirror drifts.
+    manners: {
+      kind:  { name: 'Kind',    short: 'Same call, gentler words',
+               description: 'The same verdict and the same numbers, delivered the way a coach who wants you back next week would say it.' },
+      plain: { name: 'Straight', short: 'Neutral tournament register',
+               description: 'How a good chair writes a ballot: direct about what happened, neither warm nor cold.' },
+      blunt: { name: 'Brutal',  short: 'Says it hard',
+               description: 'Cuts straight to what failed. Same verdict, no cushioning at all.' }
+    },
+
+    // `deep` is whether this length runs the long-form second beat under
+    // the verdict. `words` is that ballot's target. Both mirror the server.
+    details: {
+      short:     { name: 'Short',     short: 'The call and the reason', deep: false, words: [110, 190],
+                   description: 'A tight ballot: what decided it, what it turned on, and the one fix. No full write-up.' },
+      medium:    { name: 'Medium',    short: 'The standard ballot', deep: true, words: [700, 1100],
+                   description: 'The usual ballot: the deciding issue, the main clashes, the drops that mattered, and fixes.' },
+      extensive: { name: 'Extensive', short: 'Everything, argument by argument', deep: true, words: [1400, 2200],
+                   description: 'Walks every argument either side ran, with quotes, the full weighing, and per-speaker notes.' }
     }
   };
 })();

@@ -22,6 +22,8 @@
 // parsers. Keep it about HOW to decide, not WHAT to emit.
 // ────────────────────────────────────────────────────────────────────────
 
+import { deliveryBlock, takeDelivery } from './judge-delivery.mjs';
+
 export const ADJUDICATION_CORE = `ADJUDICATION METHOD — read before you score anything.
 
 You are a tournament-grade judge writing a real ballot for real debaters who paid for it. Decide on what was actually said (the flow), not on what you would have argued. Your job is NOT to summarize both sides and then announce a winner — that is a failed ballot. Your job is to RESOLVE the clashes and explain the resolution.
@@ -177,8 +179,13 @@ export function applyAdjudicationForFeature(body) {
   const feature = body._feature || '';
   const format = body._voiceFormat || '';
   delete body._feature;
+  // Read and strip the delivery pair whether or not this is a judging
+  // feature: these are private routing fields and Anthropic rejects
+  // unknown top-level keys, so leaving them on a non-judging body would
+  // turn a stray field into a 400.
+  const delivery = takeDelivery(body);
   if (!isJudgeFeature(feature)) return;
-  const block = buildAdjudicationBlock({ format });
+  const block = buildAdjudicationBlock({ format }) + '\n\n' + deliveryBlock(delivery);
   if (typeof body.system === 'string') {
     body.system = block + (body.system ? '\n\n' + body.system : '');
   } else if (Array.isArray(body.system)) {

@@ -11,6 +11,7 @@ import { getDiscourseBlock } from './lib/discourse.mjs';
 import { getFingerprintBlock } from './lib/user-fingerprints.mjs';
 import { getBrainBlock } from './lib/brain.mjs';
 import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
+import { deliveryBlock, takeDelivery } from './lib/judge-delivery.mjs';
 import { recordTrip } from './lib/rate-limit.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
@@ -645,6 +646,15 @@ export default async (request, context) => {
     delete body._motion;
     delete body._side;
 
+    // Delivery (manner + length) is per REQUEST, so it lives in the
+    // uncached tail rather than beside the adjudication core in the
+    // cached prefix. Three manners times three lengths would otherwise
+    // shard the shared prefix nine ways for a few hundred tokens, and
+    // the core is the expensive part that caching exists to hold.
+    // Stripped unconditionally: Anthropic rejects unknown top-level keys.
+    const judgeDelivery = takeDelivery(body);
+    const deliverySeg = isJudgeFeature(feature) ? deliveryBlock(judgeDelivery) : '';
+
     // Adjudication core — for client-built JUDGING prompts (live rooms, voice
     // RFD) that ship no server-side library text. Stable per judging feature,
     // so it rides the cached prefix. The typed 3-judge panel does NOT route
@@ -664,7 +674,7 @@ export default async (request, context) => {
     // discourseBlock sits in the tail, not the cached prefix: it is keyed
     // to the motion (like exemplars), so caching it would poison the
     // shared prefix for every other motion on the same format.
-    const tail = [baseSystem, exemplarBlock, discourseBlock, brainBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]
+    const tail = [deliverySeg, baseSystem, exemplarBlock, discourseBlock, brainBlock, fingerprintBlock, spice, voiceSeg && voiceSeg.reinforcement]
       .filter(Boolean).join('\n\n');
 
     // Anthropic's minimum cacheable size is 1024 tokens (~4KB). Only mark a

@@ -116,6 +116,25 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Judge-delivery guard. Manner and length are reader-facing controls on
+# the ballot, and the promise attached to them is one a debater cannot
+# check for themselves: asking for a kinder ballot changes the WORDS and
+# never the call, the points, or which flaws get named. A manner that
+# quietly went easier would inflate speaker points against a leaderboard
+# that ranks everyone on one scale, invisibly, because nobody ever sees
+# both versions of the same round.
+# ──────────────────────────────────────────────────────────────────
+DELIVERY_GUARD="$REPO_ROOT/scripts/test-judge-delivery.mjs"
+if [ -f "$DELIVERY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-judge-delivery.mjs >/tmp/judge-delivery-guard.log 2>&1); then
+    echo "[judge-delivery] commit blocked — manner or length no longer holds its line:" >&2
+    grep '^  FAIL' /tmp/judge-delivery-guard.log >&2 || tail -20 /tmp/judge-delivery-guard.log >&2
+    echo "[judge-delivery] see scripts/test-judge-delivery.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Speaker-score guard. The headline points on every ballot are derived
 # from the scored axes at published weights, and those weights are a
 # claim about what winning an argument is made of. A silent change to
