@@ -165,6 +165,57 @@ for (const f of ['extract-claims.mjs', 'classify-disclosure.mjs', 'argument-lint
   ok(src.includes("from './lib/cheap.mjs'"), `${f} imports the router`);
 }
 
+// ── multimodal content survives, or refuses; it never silently empties ─
+// This guards a real failure mode rather than a hypothetical one: the
+// translation used to flatten every block to `b.text || ''`, so a vision
+// call routed to an openai-shape vendor arrived with NO IMAGE and the
+// model answered confidently about nothing. record-extract.mjs reads
+// screenshots of tab pages through this path.
+{
+  const img = { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } };
+  const out = toOpenAiBody('gpt-4o-mini', {
+    max_tokens: 100,
+    messages: [{ role: 'user', content: [img, { type: 'text', text: 'read this' }] }],
+  });
+  const parts = Array.isArray(out.messages[0].content) ? out.messages[0].content : [];
+  ok(parts.length > 0, 'a message with an image keeps an array content');
+  const image = parts.find((p) => p.type === 'image_url');
+  ok(!!image, 'the image block survives translation');
+  ok(!!image && image.image_url.url === 'data:image/png;base64,AAAA', 'the image becomes a data URL openai accepts');
+  ok(parts.some((p) => p.type === 'text' && p.text === 'read this'), 'text alongside the image survives too');
+}
+{
+  // Text-only bodies must translate byte-identically or every existing
+  // call site changes shape at once.
+  const out = toOpenAiBody(CHEAP_FAST, {
+    max_tokens: 100,
+    messages: [{ role: 'user', content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] }],
+  });
+  ok(out.messages[0].content === 'a\nb', 'a text-only block array still collapses to one string');
+}
+{
+  // A PDF has no portable chat-completions spelling. Refusing routes the
+  // call to its anthropic fallback, which reads PDFs natively; dropping
+  // it would hand the model an empty prompt and a confident answer.
+  let threw = '';
+  try {
+    toOpenAiBody('gpt-4o-mini', {
+      max_tokens: 100,
+      messages: [{ role: 'user', content: [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'AA' } }] }],
+    });
+  } catch (err) { threw = err.message; }
+  ok(/document/.test(threw), 'an untranslatable block throws instead of vanishing');
+}
+{
+  // The record extractor must not be pointed at a text-only cheap model
+  // by default for its image path, or the guard above protects nothing.
+  const src = readFileSync(join(FN, 'record-extract.mjs'), 'utf8');
+  ok(/VISION_MODEL\s*=\s*process\.env\.RECORD_EXTRACT_VISION_MODEL/.test(src),
+    'record-extract keeps a separate, overridable vision model');
+  ok(/fallback: hasFiles \? 'claude-/.test(src),
+    'the vision path falls back to a model that can actually see');
+}
+
 if (fails.length) {
   console.error(`\ncheap-router: ${fails.length} FAILED of ${pass + fails.length}`);
   for (const f of fails) console.error('  ✗ ' + f);

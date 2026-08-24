@@ -30,10 +30,23 @@
      tournaments; the person selects what is theirs. Rebuild + redeploy
      to refresh coverage.
 
-     Not on Tabroom (parli circuits, international, APDA)? The
-     self-report path seeds conservatively from a five-level ladder. -->
+     NOT ON TABROOM (parli circuits, international, APDA, school
+     leagues)? Two more paths, in descending order of evidence:
+
+       UPLOAD  Hand us a screenshot, a PDF or a pasted results table
+               from any platform. /api/record-extract reads it into
+               rows and /api/record-import seeds from them with the
+               SAME pure maths. The model extracts evidence and never
+               a rating, which is what keeps an imported number
+               reproducible from its stored rows. Uploaded rows are
+               stamped provenance 'upload': a 1750 ceiling against
+               1900 and a 290 deviation floor against 240, because a
+               forged screenshot and an honest one look identical.
+
+       SELF    A five-level ladder. Not evidence, so it may open a
+               record and never amend one. -->
 <title>Claim your record · start with a real rating · Debatable</title>
-<meta name="description" content="Debated before? Look up your Tabroom record, claim your results, and start on Debatable with a rating that matches your skill instead of a blank 1500.">
+<meta name="description" content="Debated before? Import your record from Tabroom, or upload results from any platform and have them read for you, and start on Debatable with a rating that matches your skill instead of a blank 1500.">
 <link rel="canonical" href="https://itsdebatable.com/claim">
 <link rel="icon" href="/icons/icon-192.png">
 <meta property="og:type" content="website">
@@ -54,13 +67,23 @@
     },
     {
       "@type": "Question",
+      "name": "My tournaments are not on Tabroom. What then?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Upload them. Tabbycat, Calico, MIT-TAB, Speechwire, a federation results page, a league PDF, a coach's spreadsheet, or a screenshot of any of those. We read the record out of it and seed from the same maths. Team-points formats like BP are converted round by round: a 3 or a 2 is a win, a 1 or a 0 is a loss." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does an uploaded record seed lower than a Tabroom one?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Because we cannot check it. A Tabroom row is re-read by our server from published results; a screenshot is whatever you handed us, and an honest one looks exactly like a forged one. So an uploaded record tops out at 1750 instead of 1900 and keeps a wider uncertainty, which also means your first real rounds here move it faster. A claim mixing both takes the lower ceiling, because a record is only as checkable as its least checkable part." }
+    },
+    {
+      "@type": "Question",
       "name": "How is the seeded rating calculated?",
       "acceptedAnswer": { "@type": "Answer", "text": "Your win rate across the rounds you claim, with elimination-round wins counting extra and small samples pulled toward the middle. The seed lands between 1200 and 1900 on the same Glicko scale every rated round here uses." }
     },
     {
       "@type": "Question",
       "name": "Can someone claim a record that is not theirs?",
-      "acceptedAnswer": { "@type": "Answer", "text": "The records are public either way; claiming one asserts it is yours. A seed carries wide uncertainty, importing works exactly once, and a seeded account never appears on the public leaderboard until it wins real rated rounds here." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Claiming a record asserts it is yours. A seed carries wide uncertainty, records can only ever be added to a claim and never removed from it, and a seeded account never appears on the public leaderboard until it wins real rated rounds here. Once you have a rated round the import path closes for good, so a loss can never be re-rolled into a fresh one." }
     },
     {
       "@type": "Question",
@@ -157,7 +180,33 @@ h1{font-family:var(--head);font-weight:800;font-size:clamp(30px,5vw,44px);line-h
 .empty{padding:22px 16px;color:var(--faint);font-size:14px}
 
 .basket{position:sticky;bottom:14px;margin-top:18px;border:1px solid var(--rule-hard);border-radius:14px;background:var(--panel);padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.14)}
-.basket[hidden]{display:none!important}
+.basket.drop{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px dashed var(--rule-hard);border-radius:12px;padding:16px 18px;background:var(--panel);transition:background .15s,border-color .15s}
+.drop.over{border-color:var(--brand);background:var(--row-hover)}
+.drop-btn{font:600 14px Inter,sans-serif;background:var(--sunken);color:var(--tx);border:1px solid var(--rule-hard);border-radius:9px;padding:9px 15px;cursor:pointer}
+.drop-btn:hover{border-color:var(--brand)}
+.drop-or{font-size:13.5px;color:var(--faint)}
+.filelist{display:flex;flex-direction:column;gap:5px;margin-top:9px}
+.filerow{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim);font-family:var(--mono)}
+.filerow button{background:none;border:0;color:var(--faint);cursor:pointer;font:inherit;padding:0 2px}
+.filerow button:hover{color:var(--down)}
+#pasteBox{width:100%;margin-top:10px;font:400 14px Inter,sans-serif;color:var(--tx);background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:11px 13px;resize:vertical;line-height:1.5}
+#pasteBox:focus{outline:none;border-color:var(--brand)}
+.upnote{font-size:12.5px;color:var(--faint);line-height:1.45}
+.review{margin-top:22px;border:1px solid var(--rule-hard);border-radius:14px;background:var(--panel);padding:16px 18px}
+.review[hidden]{display:none!important}
+.revrow{display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:11px 0;border-top:1px solid var(--rule)}
+.revrow:first-child{border-top:0}
+.revrow > *{min-width:0}
+.revrow .rv-t{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.revrow .rv-m{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.rv-nums{display:flex;gap:12px;flex-wrap:wrap;grid-column:1/-1}
+.rv-num{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+.rv-num input{width:46px;font:600 13px var(--mono);color:var(--tx);background:var(--sunken);border:1px solid var(--rule);border-radius:7px;padding:5px 7px;text-align:center}
+.rv-num input:focus{outline:none;border-color:var(--brand)}
+.rv-low{color:var(--down)}
+.unread{margin-top:12px;border-top:1px solid var(--rule);padding-top:11px;font-size:12.5px;color:var(--dim);line-height:1.55}
+.unread b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+[hidden]{display:none!important}
 .basket-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .basket-title{font-weight:700;font-size:15px}
 .basket-agg{font-family:var(--mono);font-size:13px;color:var(--dim)}
@@ -207,7 +256,9 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
 .kept-row span{font-family:var(--mono);font-size:12.5px;flex:none}
 .kept-note{margin:10px 0 0;font-size:12.5px;color:var(--dim);line-height:1.5}
 [hidden]{display:none!important}
-@media (max-width:560px){ .rowrec{font-size:12px} .wrap{padding-top:84px} }
+@media (max-width:560px){ .rowrec{font-size:12px} .wrap{padding-top:84px}
+  /* A long tournament name plus its meta line will not share a row on a phone. */
+  .revrow{grid-template-columns:1fr} .rv-num input{width:42px} }
 </style>
 </head>
 <body>
@@ -218,7 +269,7 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
   <div id="intro">
     <div class="eyebrow">Bring your record with you</div>
     <h1>Debated before? Start with a rating that shows it.</h1>
-    <p class="lede">Look yourself up. The index covers <span id="statTourns">300+</span> tournaments of published Tabroom results. Select the entries that are you and your Debate Rating seeds from your actual record, not from a blank 1500.</p>
+    <p class="lede">Look yourself up. The index covers <span id="statTourns">300+</span> tournaments of published Tabroom results. Select the entries that are you and your Debate Rating seeds from your actual record, not from a blank 1500. Debated somewhere else? <a href="#upload">Upload it instead</a>.</p>
     <p class="honest">Straight about what a seed is: your number appears on your profile immediately with wide uncertainty, and it tightens as you debate here. The public leaderboard still takes 3 rated rounds on Debatable. You can come back and add more tournaments to your record at any time before your first rated round; a revision only ever adds, so nothing you have already claimed drops off.</p>
 
     <!-- Shown only when this account already has a claimed record and
@@ -262,9 +313,54 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
       <div class="status" id="claimStatus"></div>
     </div>
 
+    <!-- Upload path: any platform, read by a model, seeded by the same
+         pure maths the Tabroom path uses. The model extracts evidence
+         and never a rating; see record-extract.mjs for why that split
+         is the whole integrity story. -->
+    <div class="selfreport" id="upload">
+      <h2>Debated somewhere else?</h2>
+      <p class="sub">Tabroom is most of the US circuit and almost none of the rest of the world. If your rounds live on Tabbycat, Calico, MIT-TAB, Speechwire, a federation results page, a league PDF or your coach's spreadsheet, hand it over and we will read it.</p>
+
+      <div class="drop" id="drop">
+        <input type="file" id="files" accept="image/png,image/jpeg,image/webp,application/pdf" multiple hidden>
+        <button class="drop-btn" type="button" id="pickBtn">Choose screenshots or a PDF</button>
+        <span class="drop-or">or drop them here</span>
+      </div>
+      <div class="filelist" id="fileList" hidden></div>
+      <textarea id="pasteBox" rows="4" placeholder="Or paste your results. A tab page, a table, or just: Yale 2026, 5-1 prelims, lost octas."></textarea>
+      <div class="cta-row" style="margin-top:10px">
+        <button class="btn btn-primary" id="readBtn">Read my record</button>
+        <span class="upnote">Nothing is published from this. We keep the rounds we read, not the file.</span>
+      </div>
+      <div class="status" id="upStatus"></div>
+
+      <div class="review" id="review" hidden>
+        <div class="basket-head">
+          <span class="basket-title">What we read</span>
+          <span class="basket-agg" id="upPlatform"></span>
+        </div>
+        <p class="kept-note" id="upIntro">Check every number. You can correct a misread digit down, and adding wins needs evidence rather than typing, so anything you raise is kept at what the record showed.</p>
+        <div class="revrows" id="revRows"></div>
+        <div class="unread" id="unread" hidden></div>
+        <div class="preview">
+          <span class="num" id="upRating">–</span>
+          <span class="rng" id="upRange"></span>
+        </div>
+        <label class="consent">
+          <input type="checkbox" id="consentUp">
+          <span>This record is mine and it is accurate. I understand it is not independently verified, that it seeds lower and wider than a published result, and that it becomes part of my public competitive profile on Debatable.</span>
+        </label>
+        <div class="cta-row">
+          <button class="btn btn-primary" id="upClaimBtn">Claim this record</button>
+          <button class="btn btn-ghost" id="upCancelBtn">Start over</button>
+        </div>
+        <div class="status" id="upClaimStatus"></div>
+      </div>
+    </div>
+
     <div class="selfreport">
-      <h2>Not in the index?</h2>
-      <p class="sub">APDA, BP, international circuits, and tournaments that never published results will not show up here. Pick the level that matches your experience and seed conservatively instead.</p>
+      <h2>Nothing to upload either?</h2>
+      <p class="sub">If your results were never written down anywhere you can reach, pick the level that matches your experience and seed conservatively instead.</p>
       <div class="levels" id="levels"></div>
       <label class="consent" style="margin-top:12px">
         <input type="checkbox" id="consentSelf">
@@ -283,12 +379,24 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
         <p class="sub">From results tournaments chose to publish on Tabroom, the tab software most US circuits run on. The index covers hundreds of tournaments across PF, LD, Policy, parli, and World Schools. If a tournament never published results, it will not be here.</p>
       </div>
       <div class="faq-item">
+        <h3>My tournaments are not on Tabroom. What then?</h3>
+        <p class="sub">Upload them. Tabbycat, Calico, MIT-TAB, Speechwire, a federation results page, a league PDF, a coach's spreadsheet, or a screenshot of any of those. We read the record out of it and seed from the same maths. Team-points formats like BP are converted round by round: a 3 or a 2 is a win, a 1 or a 0 is a loss.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Why does an uploaded record seed lower than a Tabroom one?</h3>
+        <p class="sub">Because we cannot check it. A Tabroom row is re-read by our server from published results; a screenshot is whatever you handed us, and an honest one looks exactly like a forged one. So an uploaded record tops out at 1750 instead of 1900 and keeps a wider uncertainty, which also means your first real rounds here move it faster. A claim mixing both takes the lower ceiling, because a record is only as checkable as its least checkable part.</p>
+      </div>
+      <div class="faq-item">
+        <h3>The AI misread one of my numbers.</h3>
+        <p class="sub">Correct it before you claim. You can lower a win count or raise a loss count freely. Raising a win needs evidence rather than typing, so anything you push up is kept at what the record showed and we tell you it was.</p>
+      </div>
+      <div class="faq-item">
         <h3>How is the seeded rating calculated?</h3>
         <p class="sub">Your win rate across the rounds you claim, with elimination-round wins counting extra and small samples pulled toward the middle. The seed lands between 1200 and 1900 on the same Glicko scale every rated round here uses. Read <a href="/debate-rating">how the Debate Rating works</a> for the full system.</p>
       </div>
       <div class="faq-item">
         <h3>Can someone claim a record that is not theirs?</h3>
-        <p class="sub">The records are public either way; claiming one asserts it is yours. A seed carries wide uncertainty, importing works exactly once, and a seeded account never appears on the public leaderboard until it wins real rated rounds here. Lying gets you a number your first three rounds will correct.</p>
+        <p class="sub">Claiming a record asserts it is yours. A seed carries wide uncertainty, records can only ever be added to a claim and never removed from it, and a seeded account never appears on the public leaderboard until it wins real rated rounds here. Once you have a rated round the import path closes for good, so a loss can never be re-rolled into a fresh one. Lying gets you a number your first three rounds will correct.</p>
       </div>
       <div class="faq-item">
         <h3>What if I have never debated competitively?</h3>
@@ -338,8 +446,16 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     var m = /^(\d{4})-(\d{2})$/.exec(newest);
     var ageMonths = m ? (Date.now() - new Date(+m[1], +m[2] - 1, 15).getTime()) / (30.44 * 24 * 3600e3) : Infinity;
     if (ageMonths > 24) { rating = 1500 + (rating - 1500) * 0.8; rd += 40; }
-    rating = Math.round(Math.min(1900, Math.max(1200, rating)));
-    rd = Math.round(Math.min(330, Math.max(240, rd)));
+    // Provenance caps, mirroring PROVENANCE_TERMS. Without these the
+    // preview would promise a verified-tier number and the server would
+    // hand back a lower one, which reads as the import shortchanging you.
+    var uploaded = rows.some(function (r) { return r.p === 'upload'; });
+    var cs = rows.map(function (r) { return Number(r.c); })
+      .filter(function (c) { return isFinite(c) && c >= 0 && c <= 1; });
+    var conf = cs.length ? cs.reduce(function (a, b) { return a + b; }, 0) / cs.length : 1;
+    rd += (1 - conf) * 40;
+    rating = Math.round(Math.min(uploaded ? 1750 : 1900, Math.max(1200, rating)));
+    rd = Math.round(Math.min(330, Math.max(uploaded ? 290 : 240, rd)));
     return { rating: rating, rd: rd, games: games, wins: pw + ew, losses: pl + el, t: rows.length };
   }
 
@@ -554,6 +670,184 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     }, st, showDone);
   });
 
+  // ── upload: a record from any platform ────────────────────────────
+  // The model reads the evidence into rows; the SERVER seeds from them
+  // with the same pure maths the Tabroom path uses. Everything in here
+  // is presentation: nothing the client computes decides the rating,
+  // and an edit that raises a number is refused server-side whatever
+  // this page allows.
+  var U = { files: [], rows: [], extractionId: '', platform: '' };
+  var MAX_FILES = 4, MAX_BYTES = 2.6 * 1024 * 1024;
+
+  function fmtKb(n) { return n < 1024 * 1024 ? Math.round(n / 1024) + 'KB' : (n / 1048576).toFixed(1) + 'MB'; }
+
+  function renderFiles() {
+    var box = $('fileList');
+    box.hidden = !U.files.length;
+    box.innerHTML = U.files.map(function (f, k) {
+      return '<div class="filerow"><span>' + esc(f.name) + ' · ' + fmtKb(f.size) + '</span>' +
+        '<button type="button" data-k="' + k + '" aria-label="Remove">remove</button></div>';
+    }).join('');
+    box.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () { U.files.splice(+b.dataset.k, 1); renderFiles(); });
+    });
+  }
+
+  function addFiles(list) {
+    var st = $('upStatus');
+    st.className = 'status';
+    st.textContent = '';
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      if (U.files.length >= MAX_FILES) { st.textContent = 'Four files at a time is the limit.'; break; }
+      if (f.size > MAX_BYTES) {
+        st.textContent = esc(f.name) + ' is over 2.5MB. Screenshot just the results table.';
+        continue;
+      }
+      U.files.push(f);
+    }
+    renderFiles();
+  }
+
+  $('pickBtn').addEventListener('click', function () { $('files').click(); });
+  $('files').addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('over'); });
+  });
+  $('drop').addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+
+  function toB64(file) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result).split(',')[1] || ''); };
+      fr.onerror = function () { rej(new Error('read failed')); };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function renderReview() {
+    $('review').hidden = !U.rows.length;
+    $('upPlatform').textContent = U.platform ? 'Looks like ' + U.platform : '';
+    $('revRows').innerHTML = U.rows.map(function (r, k) {
+      var meta = [r.d || 'date unclear', r.f || '', r.n || ''].filter(Boolean).join(' · ');
+      var shaky = r.c < 0.6 ? ' <span class="rv-low">low confidence, check this one</span>' : '';
+      function num(key, label) {
+        return '<label class="rv-num">' + label +
+          '<input type="number" min="0" max="40" value="' + (r[key] || 0) + '" data-k="' + k + '" data-f="' + key + '"></label>';
+      }
+      return '<div class="revrow">' +
+        '<div class="rv-t">' + esc(r.t || 'Tournament') + '</div>' +
+        '<div class="rv-m">' + esc(meta) + shaky + '</div>' +
+        '<div class="rv-nums">' + num('pw', 'prelim W') + num('pl', 'prelim L') +
+        num('ew', 'elim W') + num('el', 'elim L') + '</div>' +
+        '</div>';
+    }).join('');
+    $('revRows').querySelectorAll('input').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var v = Math.max(0, Math.min(40, Math.floor(Number(inp.value) || 0)));
+        U.rows[+inp.dataset.k][inp.dataset.f] = v;
+        renderUpPreview();
+      });
+    });
+    var un = $('unread');
+    un.hidden = !(U.unreadable && U.unreadable.length);
+    if (!un.hidden) {
+      un.innerHTML = '<b>Read but not counted</b>' + U.unreadable.map(function (x) { return esc(x); }).join('<br>');
+    }
+    renderUpPreview();
+  }
+
+  function renderUpPreview() {
+    // The union, so someone adding an upload to an existing claim sees
+    // the number the server will actually land on rather than the
+    // number their new rows would give on their own.
+    var rows = keptRows().concat(U.rows);
+    var p = previewSeed(rows);
+    $('upRating').textContent = p ? p.rating : '–';
+    $('upRange').textContent = p ? ('±' + p.rd + ' · ' + p.wins + '-' + p.losses + ' over ' + p.games + ' rounds') : '';
+    $('upClaimBtn').disabled = !(p && $('consentUp').checked);
+  }
+  $('consentUp').addEventListener('change', renderUpPreview);
+
+  $('readBtn').addEventListener('click', function () {
+    var st = $('upStatus');
+    var text = $('pasteBox').value.trim();
+    if (!U.files.length && text.length < 12) {
+      st.className = 'status';
+      st.textContent = 'Attach a screenshot or paste your results first.';
+      return;
+    }
+    if (!S.token) {
+      st.className = 'status';
+      st.textContent = 'Sign in to import a record.';
+      if (typeof window.openAuthModal === 'function') window.openAuthModal();
+      return;
+    }
+    st.className = 'status';
+    st.textContent = U.files.length ? 'Reading your record…' : 'Reading…';
+    $('readBtn').disabled = true;
+
+    Promise.all(U.files.map(function (f) {
+      return toB64(f).then(function (d) { return { type: f.type, data: d }; });
+    })).then(function (files) {
+      return fetch('/api/record-extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token },
+        body: JSON.stringify({ files: files, text: text }),
+      });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { s: r.status, j: j }; });
+    }).then(function (res) {
+      $('readBtn').disabled = false;
+      var j = res.j || {};
+      if (!j.ok) {
+        st.textContent = j.message || j.error || 'Could not read that. Try a clearer screenshot.';
+        return;
+      }
+      U.rows = j.rows || [];
+      U.unreadable = j.unreadable || [];
+      U.extractionId = j.extractionId || '';
+      U.platform = j.platform || '';
+      if (!U.rows.length) {
+        st.textContent = j.message || 'No decided rounds in that. Try a page showing your win-loss record.';
+        $('review').hidden = true;
+        return;
+      }
+      st.className = 'status ok';
+      st.textContent = 'Read ' + U.rows.length + (U.rows.length === 1 ? ' tournament.' : ' tournaments.') + ' Check the numbers below.';
+      renderReview();
+      try { if (window.track) window.track('record_extract', { rows: U.rows.length, files: U.files.length }); } catch (e) {}
+    }).catch(function () {
+      $('readBtn').disabled = false;
+      st.className = 'status';
+      st.textContent = 'Network error. Try again.';
+    });
+  });
+
+  $('upCancelBtn').addEventListener('click', function () {
+    U = { files: [], rows: [], extractionId: '', platform: '' };
+    $('review').hidden = true;
+    $('pasteBox').value = '';
+    $('upStatus').textContent = '';
+    renderFiles();
+  });
+
+  $('upClaimBtn').addEventListener('click', function () {
+    var named = U.rows.filter(function (r) { return r.n; })[0];
+    post({
+      mode: 'upload',
+      extractionId: U.extractionId,
+      rows: U.rows.map(function (r) { return { i: r.i, pw: r.pw, pl: r.pl, ew: r.ew, el: r.el }; }),
+      claimedName: (named && named.n) || '',
+      consent: true,
+    }, $('upClaimStatus'), showDone);
+  });
+
   // ── self report ───────────────────────────────────────────────────
   $('levels').innerHTML = LEVELS.map(function (l) {
     return '<label class="level"><input type="radio" name="lvl" value="' + l[0] + '">' +
@@ -583,19 +877,27 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     var unc = r.rd ? ' Uncertainty is ±' + r.rd + ' for now.' : '';
     var tail = ' It tightens with every rated round you debate here; three rated rounds put you on the public board.';
     var added = res.seeded && Number(res.seeded.added) || 0;
-    var isTabroom = !res.seeded || res.seeded.source === 'tabroom';
+    var src = (res.seeded && res.seeded.source) || 'tabroom';
+    var isSelf = src === 'self';
+    // An uploaded claim has to say on its face that it was not checked.
+    // The number is real and the terms it seeded on are worse; hiding
+    // that would make the discount feel arbitrary the first time
+    // someone compares their seed to a friend's.
+    var unver = src === 'upload'
+      ? ' It came from evidence you supplied rather than a published result, so it seeds lower and wider until real rounds here back it up.'
+      : '';
 
     if (returning) {
       $('doneTier').textContent = 'Your Debate Rating';
-      $('doneBody').textContent = (res.seeded ? 'Seeded from your imported record.' : '') + unc + tail;
+      $('doneBody').textContent = (res.seeded ? 'Seeded from your imported record.' : '') + unver + unc + tail;
     } else if (res.seeded && res.seeded.revision > 0) {
       $('doneTier').textContent = 'Your Debate Rating';
       $('doneBody').textContent = 'Rebuilt over your whole record, now ' + added +
-        (added === 1 ? ' more tournament' : ' more tournaments') + ' wider.' + unc + tail;
+        (added === 1 ? ' more tournament' : ' more tournaments') + ' wider.' + unver + unc + tail;
       try { if (window.track) window.track('record_import_revised', { added: added, revision: res.seeded.revision }); } catch (e) {}
     } else {
       $('doneTier').textContent = 'Your Debate Rating';
-      $('doneBody').textContent = 'This is your Debate Rating now, seeded from your record.' + unc + tail;
+      $('doneBody').textContent = 'This is your Debate Rating now, seeded from your record.' + unver + unc + tail;
       try { if (window.track) window.track('record_import', { source: res.seeded && res.seeded.source }); } catch (e) {}
     }
 
@@ -605,9 +907,17 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
     // thing a self-reported account can do next. Only a rated round
     // takes the path away.
     $('reviseBtn').hidden = !S.canRevise;
-    $('reviseBtn').textContent = isTabroom
-      ? 'Add more tournaments to my record'
-      : 'Claim your actual tournament record';
+    $('reviseBtn').textContent = isSelf
+      ? 'Claim your actual tournament record'
+      : 'Add more tournaments to my record';
+
+    // If the server refused an edit, say so here rather than letting
+    // someone walk away believing the bigger number was used.
+    var clamped = res.seeded && Number(res.seeded.clamped) || 0;
+    if (clamped) {
+      $('doneBody').textContent += ' ' + clamped + (clamped === 1 ? ' number you raised was' : ' numbers you raised were') +
+        ' kept at what the record showed; corrections downward were taken as typed.';
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -639,6 +949,10 @@ h2{font-family:var(--head);font-weight:700;font-size:22px;margin:0 0 6px}
   }).catch(function () {});
 })();
 </script>
+<!-- App Check is hard-enforced in prod and /api/record-extract is a gated
+     route, so this page has to mint a token. topbar.js does NOT pull this
+     in; pages that call a gated endpoint load it themselves. -->
+<script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script src="/js/topbar.js" defer></script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>

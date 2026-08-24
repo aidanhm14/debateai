@@ -126,11 +126,48 @@ export function toOpenAiBody(model, body) {
   if (sys.trim()) messages.push({ role: 'system', content: sys });
 
   for (const msg of body.messages || []) {
+    const role = msg.role === 'assistant' ? 'assistant' : 'user';
+
     // Anthropic message content is either a string or an array of blocks.
-    const content = Array.isArray(msg.content)
-      ? msg.content.map((b) => (typeof b === 'string' ? b : b?.text || '')).join('\n')
-      : String(msg.content ?? '');
-    messages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content });
+    if (!Array.isArray(msg.content)) {
+      messages.push({ role, content: String(msg.content ?? '') });
+      continue;
+    }
+
+    // IMAGES SURVIVE THE TRANSLATION, AND DOCUMENTS REFUSE IT LOUDLY.
+    // This used to flatten every block to `b.text || ''`, which meant a
+    // caller that passed a screenshot got a request containing the empty
+    // string and a model that answered confidently about nothing. A
+    // vision call that silently becomes a blind one is the worst kind of
+    // bug: it returns plausible output. record-extract.mjs reads
+    // screenshots of tab pages, so it needs this to be true.
+    //
+    // PDFs have no portable chat-completions spelling (OpenAI, DeepSeek
+    // and OpenRouter each differ), so rather than guess, an unsupported
+    // block THROWS. attempt() is inside callModel's try, so the throw
+    // routes the call to its fallback — which for any document caller is
+    // an Anthropic model that reads PDFs natively. Refusing beats
+    // dropping: the caller gets the right answer from the second model
+    // instead of a wrong one from the first.
+    const parts = [];
+    for (const b of msg.content) {
+      if (typeof b === 'string') { parts.push({ type: 'text', text: b }); continue; }
+      if (!b || b.type === 'text') { parts.push({ type: 'text', text: (b && b.text) || '' }); continue; }
+      if (b.type === 'image' && b.source) {
+        const src = b.source.type === 'base64'
+          ? `data:${b.source.media_type || 'image/png'};base64,${b.source.data}`
+          : String(b.source.url || '');
+        if (!src) throw new Error('image block has no data');
+        parts.push({ type: 'image_url', image_url: { url: src } });
+        continue;
+      }
+      throw new Error(`content block '${b.type}' has no openai-shape equivalent; use an anthropic model`);
+    }
+
+    // A message that is only text collapses back to a plain string, so
+    // every existing text-only call site sends a byte-identical body.
+    const allText = parts.every((p) => p.type === 'text');
+    messages.push({ role, content: allText ? parts.map((p) => p.text).join('\n') : parts });
   }
 
   const out = { model, messages };

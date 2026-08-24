@@ -1,7 +1,8 @@
 // POST /api/record-import — seed a Glicko rating from an imported record.
 //
-// Two modes:
+// Three modes:
 //   { mode:'tabroom', shard:'g', rowIds:[...], claimedName, consent:true }
+//   { mode:'upload', extractionId:'x...', rows:[...], claimedName, consent:true }
 //   { mode:'self', level:'circuit', consent:true }
 //
 // The client never supplies a rating. For tabroom mode it supplies row
@@ -10,6 +11,26 @@
 // ~/debateit-outreach/build_records_index.py); the server re-reads
 // those rows from its own copy of the index and recomputes the seed, so
 // a tampered client can at worst claim rows that exist publicly anyway.
+//
+// UPLOAD MODE, and why it does not undo any of the rules below.
+// Tabroom is most of the US circuit and almost none of the rest of the
+// world, so /api/record-extract reads a record out of evidence the user
+// supplies from any platform (see that file). The rows it produces come
+// back through here, and three things keep them honest:
+//   - The client cannot mint rows. It may only reference an extraction
+//     THIS uid owns, and the server re-reads the rows from its own
+//     stored copy. A hand-rolled POST with invented numbers references
+//     no extraction and is refused.
+//   - An edit may only move a row in the UNFLATTERING direction
+//     (clampToAttested). People have to be able to correct a misread
+//     digit or they will not trust the number; letting the correction
+//     raise the seed would make the evidence decorative. So a
+//     correction downward is free and a correction upward needs new
+//     evidence, which is the same trade the additive rule makes.
+//   - Every uploaded row is stamped provenance 'upload', which caps the
+//     seed at 1750 against Tabroom's 1900 and floors the deviation at
+//     290 against 240. A mixed claim takes the weaker terms, so one
+//     verified weekend cannot launder ten uploaded ones.
 //
 // Integrity rules:
 //   - Refused once you have any rated platform game, so a loss can
@@ -44,13 +65,12 @@ import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import {
   seedFromRecord, seedFromSelfReport, mergeClaimedRows, normalizeClaimedRows,
+  clampToAttested, commonNameToken, provenanceOf,
 } from './lib/record-seed.mjs';
 import { displayRating, defaultRatingDoc } from './lib/rating.mjs';
 
 const SITE_ORIGIN = process.env.URL || 'https://itsdebatable.com';
 const MAX_ROWS = 40;
-
-const tokens = (s) => (String(s || '').toLowerCase().match(/[a-z]+/g) || []).filter((t) => t.length >= 2);
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -81,7 +101,7 @@ export default async (request) => {
         // Only for the tabroom source: the client renders these as the
         // rows a revision keeps, so the additive rule is visible rather
         // than merely enforced.
-        claimed: sd && sd.source === 'tabroom'
+        claimed: sd && sd.source !== 'self'
           ? { rowIds: sd.rowIds || [], rows: sd.rows || [], claimedName: sd.claimedName || '' }
           : null,
         // A rated round closes seeding for good; the client uses this
@@ -106,6 +126,7 @@ export default async (request) => {
   let incomingRows = null;   // tabroom: rows re-read from our own index
   let selfSeed = null;       // self: the level's seed, validated up front
   let claimedName = '';
+  let editSummary = null;    // upload: what the client corrected, and what we refused
 
   if (mode === 'self') {
     selfSeed = seedFromSelfReport(body.level);
@@ -135,7 +156,38 @@ export default async (request) => {
     incomingRows = found.map((r) => ({
       i: r.i, n: r.n, t: r.t, d: r.d, f: r.f,
       pw: r.pw, pl: r.pl, ew: r.ew, el: r.el,
+      p: 'tabroom',
     }));
+    claimedName = String(body.claimedName || '').slice(0, 80);
+  } else if (mode === 'upload') {
+    const extractionId = String(body.extractionId || '');
+    if (!/^x[a-z0-9]{6,40}$/.test(extractionId)) return errorResponse('Bad extraction id', 400, request);
+
+    let snap;
+    try {
+      snap = await withDeadline(getDb().collection('record_extractions').doc(extractionId).get(), 3000);
+    } catch (err) {
+      console.error('[record-import] extraction read failed', err.message);
+      return errorResponse('Could not load that import. Try again.', 503, request);
+    }
+    if (!snap.exists) return errorResponse('That import expired. Upload your record again.', 404, request);
+
+    const ex = snap.data();
+    // Ownership, not just existence. An extraction id is a short random
+    // string, and one person's read of their own record must never be
+    // claimable by anyone else who guesses it.
+    if (ex.uid !== uid) return errorResponse('That import is not yours.', 403, request);
+
+    const attested = (ex.rows || []).map((r) => ({ ...r, p: 'upload' }));
+    if (!attested.length) return errorResponse('That import had no readable rounds.', 400, request);
+
+    // The client may send corrections. clampToAttested lets them lower a
+    // win count or raise a loss count freely and refuses the reverse, so
+    // fixing a misread digit is free and inflating one is not.
+    const reconciled = clampToAttested(Array.isArray(body.rows) ? body.rows : [], attested);
+    incomingRows = reconciled.rows.filter((r) => (r.pw + r.pl + r.ew + r.el) > 0);
+    if (!incomingRows.length) return errorResponse('No decided rounds left after your edits.', 400, request);
+    editSummary = { clamped: reconciled.clamped, corrected: reconciled.corrected, extractionId };
     claimedName = String(body.claimedName || '').slice(0, 80);
   } else {
     return errorResponse('Unknown mode', 400, request);
@@ -168,11 +220,16 @@ export default async (request) => {
         seed = selfSeed;
         seededMeta = { source: 'self', level: String(body.level) };
       } else {
-        const priorRows = prior && prior.source === 'tabroom'
+        // Any evidence-backed prior takes part in the merge, whichever
+        // source it came from. Tabroom rows and uploaded rows live in
+        // one union and dedupe on the same row id, so a person who
+        // claimed a Tabroom weekend can add an uploaded WUDC record to
+        // it and the seed recomputes over both.
+        const priorRows = prior && prior.source !== 'self'
           ? normalizeClaimedRows(prior.rows, prior.rowIds)
           : [];
         const merged = mergeClaimedRows(priorRows, incomingRows);
-        if (prior && prior.source === 'tabroom' && merged.added === 0) {
+        if (prior && prior.source !== 'self' && merged.added === 0) {
           return { ok: false, reason: 'no_new_rows' };
         }
         if (merged.rows.length > MAX_ROWS) {
@@ -180,19 +237,25 @@ export default async (request) => {
         }
         // Checked across the union, not just the new rows: on an
         // additive model, bolting a stranger's wins onto an honest
-        // claim is the attack, and only the union sees it.
-        const common = merged.rows.map((r) => new Set(tokens(r.n)))
-          .reduce((acc, set) => new Set([...acc].filter((t) => set.has(t))));
-        if (!common.size) return { ok: false, reason: 'name_mismatch' };
+        // claim is the attack, and only the union sees it. The rule
+        // lives in record-seed.mjs so it is unit-tested rather than
+        // asserted here; rows the extractor could not read a name from
+        // impose no constraint, because an unnamed personal results
+        // sheet is a real thing and refusing it catches nobody.
+        if (!commonNameToken(merged.rows)) return { ok: false, reason: 'name_mismatch' };
 
         seed = seedFromRecord(merged.rows, at);
         if (!seed) return { ok: false, reason: 'no_decided_rounds' };
         seededMeta = {
-          source: 'tabroom',
+          // The union's provenance, not this submission's: once an
+          // uploaded row is in the record the whole claim carries the
+          // weaker terms, and the label has to say so.
+          source: provenanceOf(merged.rows),
           rowIds: merged.rows.map((r) => r.i),
           rows: merged.rows,
           claimedName: claimedName || (prior && prior.claimedName) || '',
           added: merged.added,
+          ...(editSummary ? { lastEdit: editSummary } : {}),
         };
       }
 
@@ -229,9 +292,9 @@ export default async (request) => {
         before: { rating: before.rating, rd: before.rd, vol: before.vol },
         after: { rating: seed.rating, rd: seed.rd, vol: seed.vol },
         delta: Math.round((seed.rating - before.rating) * 10) / 10,
-        meta: seededMeta.source === 'tabroom'
+        meta: seededMeta.source !== 'self'
           ? {
-              source: 'tabroom',
+              source: seededMeta.source,
               rows: seededMeta.rowIds.length,
               added: seededMeta.added,
               claimedName: seededMeta.claimedName,
@@ -259,6 +322,20 @@ export default async (request) => {
     return jsonResponse({ ok: false, reason: result.reason, message: msg }, 409, request);
   }
 
+  // Close the audit loop: the extraction now records the claim it
+  // became. Best-effort on purpose — the seed is already committed, and
+  // failing the request after a successful transaction would tell the
+  // user their import did not happen when it did.
+  if (editSummary) {
+    try {
+      await withDeadline(getDb().collection('record_extractions').doc(editSummary.extractionId).set({
+        claimed: true, claimedAt: Date.now(), revision: result.revision,
+      }, { merge: true }), 2500);
+    } catch (err) {
+      console.warn('[record-import] could not mark extraction claimed', err.message);
+    }
+  }
+
   return jsonResponse({
     ok: true,
     rating: displayRating(result.doc),
@@ -267,6 +344,10 @@ export default async (request) => {
       evidence: result.seed.evidence,
       revision: result.revision,
       added: result.added,
+      // What we refused to take from the client's edits. Surfaced rather
+      // than swallowed: someone who typed a bigger number should be told
+      // it was not used, not left believing it was.
+      ...(editSummary ? { clamped: editSummary.clamped, corrected: editSummary.corrected } : {}),
     },
   }, 200, request);
 };

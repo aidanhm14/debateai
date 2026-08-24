@@ -31,6 +31,7 @@
     '/api/argument-lint', '/api/blocks', '/api/claude', '/api/coach-session',
     '/api/deepseek', '/api/extract-claims', '/api/flow', '/api/gemini',
     '/api/grok', '/api/log-generation', '/api/log-opinion-delta',
+    '/api/record-extract',
     '/api/openai-chat', '/api/openlab', '/api/realtime-session',
     '/api/room-judge-session', '/api/submit-audience-question',
     '/api/suggest-topic', '/api/topic-vote', '/api/transcribe',
