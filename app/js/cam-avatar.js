@@ -323,7 +323,47 @@
              jaw: 0, jawSide: 0, smile: 0, smileL: 0, smileR: 0, pucker: 0, wide: 0, press: 0,
              browUp: 0, browUpL: 0, browUpR: 0, browDown: 0,
              squintL: 0, squintR: 0,
-             blinkL: 0, blinkR: 0, gazeX: 0, gazeY: 0 };
+             blinkL: 0, blinkR: 0, gazeX: 0, gazeY: 0,
+             // Spring velocities for the pose channels, and a lagged copy of
+             // the pose that the body follows. Only the smoothed instance
+             // state carries these; `live` marks a face that has been through
+             // smoothInto, so a scripted preview face falls back to its own
+             // pose instead of a body frozen at zero.
+             vx: 0, vy: 0, vyaw: 0, vpitch: 0, vroll: 0,
+             lagX: 0, lagY: 0, lagYaw: 0, lagRoll: 0, live: 0 };
+  }
+
+  // Pose is sprung, not eased. An exponential ease lags the real head by
+  // its own time constant no matter how fast the head moves, so a quick
+  // turn arrived late and soft. A lightly under-damped spring catches a
+  // fast move in two or three frames and settles with a small overshoot,
+  // which is what a head on a neck actually does, and it costs nothing:
+  // the tracker still runs at its old rate, the spring just stops throwing
+  // away the speed the tracker reported.
+  //
+  // Integrated in fixed 8ms sub-steps rather than one step of dt, so the
+  // motion is identical at 24fps and at the ~1fps a hidden tab is clamped
+  // to, and so a long frame can never blow the integration up. Total work
+  // per frame is capped, so a hidden tab settles slower instead of running
+  // a hundred iterations on wake.
+  const POSE_SPRING = [['x', 'vx'], ['y', 'vy'], ['yaw', 'vyaw'], ['pitch', 'vpitch'], ['roll', 'vroll']];
+  function springPose(dst, src, ms) {
+    const OMEGA = 23, ZETA = 0.64;   // rad/s, damping ratio (<1 overshoots)
+    let left = Math.min(140, ms);
+    while (left > 0) {
+      const h = Math.min(8, left) / 1000; left -= 8;
+      for (let i = 0; i < POSE_SPRING.length; i++) {
+        const k = POSE_SPRING[i][0], v = POSE_SPRING[i][1];
+        let err = dst[k] - src[k];
+        // The gains above amplify tracker shimmer along with real motion,
+        // and an under-damped spring would ring on it. Anything smaller
+        // than a couple of percent of travel drives the spring at a third
+        // strength: a still head stays still, a moving one is untouched.
+        if (err > -0.02 && err < 0.02) err *= 0.34;
+        dst[v] += (-2 * ZETA * OMEGA * dst[v] - OMEGA * OMEGA * err) * h;
+        dst[k] += dst[v] * h;
+      }
+    }
   }
 
   // Landmarks + blendshapes -> face signals. Coordinates are mirrored
@@ -342,14 +382,21 @@
     const w = Math.hypot(R.x - L.x, R.y - L.y) || 0.001;
     const cx = (L.x + R.x) / 2, cy = (L.y + R.y) / 2;
 
+    // Pose gains, and the same reasoning as the blendshape gains below.
+    // Nobody sitting at a laptop swings their head through its full range:
+    // an engaged debater turns maybe 20 degrees, leans a few centimetres,
+    // and cocks their head five. Read at low gain that is a mask that
+    // barely moves, which is exactly what makes it read as a mask rather
+    // than a face. These put ORDINARY movement across most of the travel
+    // and leave the clamp to absorb someone actually turning away.
     const f = zeroFace();
-    f.x = clamp((0.5 - cx) * 2.4, -1, 1);                       // mirrored
-    f.y = clamp((cy - 0.5) * 2.0, -1, 1);
-    f.s = clamp(w / 0.30, 0.82, 1.15);                          // lean in = bigger
-    f.yaw = clamp(-((nose.x - cx) / w) / 0.22, -1, 1);          // mirrored
+    f.x = clamp((0.5 - cx) * 3.1, -1, 1);                       // mirrored
+    f.y = clamp((cy - 0.5) * 2.7, -1, 1);
+    f.s = clamp(w / 0.30, 0.78, 1.24);                          // lean in = bigger
+    f.yaw = clamp(-((nose.x - cx) / w) / 0.165, -1, 1);         // mirrored
     const faceH = (chin.y - top.y) || 0.001;
-    f.pitch = clamp(((nose.y - top.y) / faceH - 0.53) * 4.5, -1, 1);
-    f.roll = clamp(-Math.atan2(eyeL.y - eyeR.y, eyeL.x - eyeR.x), -0.4, 0.4);
+    f.pitch = clamp(((nose.y - top.y) / faceH - 0.53) * 5.8, -1, 1);
+    f.roll = clamp(-Math.atan2(eyeL.y - eyeR.y, eyeL.x - eyeR.x), -0.55, 0.55);
 
     // Gains, and why they are not 1.0. MediaPipe's blendshape scores sit
     // low for ordinary speech: an unremarkable sentence peaks jawOpen near
@@ -609,8 +656,18 @@
     drawBackdrop(ctx, w, h, now, talk, design);
     const baseR = Math.min(w, h) * 0.305;
     const R = baseR * f.s * (1 + level * 0.015);
-    const hx = w / 2 + f.x * baseR * 0.42;
-    const hy = h / 2 - baseR * 0.10 + f.y * baseR * 0.28;
+    // How far the head travels for a given lean. Wider than it looks on
+    // paper: the tile is small, so a lean that moves the real head two
+    // inches has to move this one visibly or it reads as a static badge.
+    const hx = w / 2 + f.x * baseR * 0.62;
+    const hy = h / 2 - baseR * 0.10 + f.y * baseR * 0.44;
+    // The body's pose, a beat behind the head (see smoothInto). A face
+    // that never went through the smoother, such as the designer preview,
+    // falls back to its own pose so the body is not stuck at centre.
+    const lagX = f.live ? f.lagX : f.x;
+    const lagY = f.live ? f.lagY : f.y;
+    const lagYaw = f.live ? f.lagYaw : f.yaw;
+    const lagRoll = f.live ? f.lagRoll : f.roll;
 
     // Speaking energy expands in two clean rings and a pair of small level
     // stacks. These stay legible when the call shrinks this to a corner tile.
@@ -646,7 +703,14 @@
 
     // Shoulders follow the head at a fraction of its offset, so the face
     // moves against them and reads as a person rather than a floating badge.
-    const sx = w / 2 + f.x * baseR * 0.16, sy = h / 2 + baseR * 0.98;
+    // Torso: it slides with a lean, turns a little with the head, and
+    // rises and settles with the body. All from the lagged pose, so every
+    // one of them arrives after the head has already moved.
+    const sx = w / 2 + (lagX * 0.30 + lagYaw * 0.10) * baseR;
+    const sy = h / 2 + baseR * (0.98 + lagY * 0.09);
+    // Shoulders counter-roll a fraction of the head's tilt, around a pivot
+    // low in the chest, so a head cock travels down through the body.
+    ctx.save(); ctx.translate(w / 2, h + baseR * 0.2); ctx.rotate(lagRoll * 0.22); ctx.translate(-w / 2, -(h + baseR * 0.2));
     const bodyGrad = ctx.createLinearGradient(sx, sy - R * 0.4, sx, h);
     bodyGrad.addColorStop(0, outfit.color); bodyGrad.addColorStop(1, outfit.dark);
     ctx.beginPath();
@@ -660,15 +724,16 @@
     ctx.strokeStyle = 'rgba(240,237,230,0.10)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(sx - R * 0.54, sy - R * 0.28); ctx.quadraticCurveTo(sx - R * 0.35, sy + R * 0.12, sx - R * 0.22, h); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(sx + R * 0.54, sy - R * 0.28); ctx.quadraticCurveTo(sx + R * 0.35, sy + R * 0.12, sx + R * 0.22, h); ctx.stroke();
+    ctx.restore();
 
     // head group: rotate with roll; features shift with yaw/pitch to fake
     // a 3D turn; head squashes slightly on strong turns
     ctx.save();
     ctx.translate(hx, hy);
-    ctx.rotate(f.roll * 0.85);
-    const squash = 1 - Math.abs(f.yaw) * 0.10;
-    const fx = f.yaw * R * 0.42;                 // feature shift, x
-    const fy = f.pitch * R * 0.32;               // feature shift, y
+    ctx.rotate(f.roll * 1.06);
+    const squash = 1 - Math.abs(f.yaw) * 0.17;
+    const fx = f.yaw * R * 0.52;                 // feature shift, x
+    const fy = f.pitch * R * 0.40;               // feature shift, y
 
     // Openness drives the whole lower face, not just the lips. A real jaw
     // lengthens the head as it drops; without this the mouth reads as a hole
@@ -732,11 +797,17 @@
     soft(ctx, 0, R * 0.84 + jawDrop, headW * 0.36, R * 0.22, LIT, 0.09);      // chin
     soft(ctx, 0, R * 1.10 + jawDrop, headW * 0.78, R * 0.26, DARK, 0.55);     // under the jaw
     soft(ctx, fx, -R * 0.50 + fy, headW * 0.72, R * 0.16, DARK, 0.34);        // brow ridge
-    // Side shade moves opposite the turn, a cheap but effective depth cue.
+    // Side shade. The old version flipped between two fixed alphas at
+    // yaw 0, so a turn changed the shading in one step and then stopped
+    // saying anything. Now the far side darkens with how far the head has
+    // turned and the lit band SLIDES with it, which is the cue that reads
+    // as a head rotating rather than a flat card sliding.
+    const turn = clamp(Math.abs(f.yaw), 0, 1);
+    const far = 0.28 + turn * 0.26, near = 0.05;
     const side = ctx.createLinearGradient(-headW, 0, headW, 0);
-    side.addColorStop(0, f.yaw < 0 ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.34)');
-    side.addColorStop(0.52, 'rgba(0,0,0,0)');
-    side.addColorStop(1, f.yaw > 0 ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0.34)');
+    side.addColorStop(0, 'rgba(0,0,0,' + (f.yaw < 0 ? near : far).toFixed(3) + ')');
+    side.addColorStop(clamp(0.52 + f.yaw * 0.20, 0.08, 0.92), 'rgba(0,0,0,0)');
+    side.addColorStop(1, 'rgba(0,0,0,' + (f.yaw > 0 ? near : far).toFixed(3) + ')');
     ctx.fillStyle = side; ctx.fillRect(-R, -R * 1.1, R * 2, R * 2.3);
     ctx.restore();
 
@@ -754,7 +825,11 @@
     for (let pass = 0; pass < 2; pass++) {
       headPath();
       ctx.lineWidth = pass ? Math.max(1.6, R * 0.018) : Math.max(4, R * 0.085);
-      const rim = ctx.createLinearGradient(-headW * 0.4, -R * 0.9, headW, R * 0.95);
+      // The rim slides with the turn, so the lit edge stays on the side of
+      // the head that is facing away. A rim pinned to the canvas reads as a
+      // sticker lit from a fixed lamp no matter which way the head points.
+      const rimShift = -f.yaw * headW * 0.45;
+      const rim = ctx.createLinearGradient(-headW * 0.4 + rimShift, -R * 0.9, headW + rimShift, R * 0.95);
       rim.addColorStop(0, rgba(accent, 0));
       rim.addColorStop(0.40, rgba(accent, 0));
       rim.addColorStop(1, pass ? 'rgba(255,236,232,0.92)' : rgba(accent, 0.42));
@@ -1155,10 +1230,19 @@
       const aJaw = 1 - Math.exp(-dt / (src.jaw > dst.jaw ? 20 : 62));
       const aGaze = 1 - Math.exp(-dt / 40);
       const aBlink = 1 - Math.exp(-dt / 26);
-      const P = ['x', 'y', 's', 'yaw', 'pitch', 'roll'];
       const E = ['smile', 'smileL', 'smileR', 'browUp', 'browUpL', 'browUpR', 'browDown', 'squintL', 'squintR'];
       const S = ['pucker', 'wide', 'press', 'jawSide'];
-      for (let i = 0; i < P.length; i++) dst[P[i]] += (src[P[i]] - dst[P[i]]) * aPose;
+      springPose(dst, src, dt);
+      dst.s += (src.s - dst.s) * aPose;   // lean in/out is slow on purpose
+      // The body chases the head instead of moving with it. Head first,
+      // shoulders a beat behind, which is the difference between a person
+      // turning and a sign turning on a stick.
+      const aLag = 1 - Math.exp(-dt / 240);
+      dst.lagX += (dst.x - dst.lagX) * aLag;
+      dst.lagY += (dst.y - dst.lagY) * aLag;
+      dst.lagYaw += (dst.yaw - dst.lagYaw) * aLag;
+      dst.lagRoll += (dst.roll - dst.lagRoll) * aLag;
+      dst.live = 1;
       for (let i = 0; i < E.length; i++) dst[E[i]] += (src[E[i]] - dst[E[i]]) * aExpr;
       for (let i = 0; i < S.length; i++) dst[S[i]] += (src[S[i]] - dst[S[i]]) * aShape;
       dst.gazeX += (src.gazeX - dst.gazeX) * aGaze;
@@ -1495,5 +1579,6 @@
     // QA hooks for the local preview harness. Harmless in production.
     _draw: drawAvatar,
     _zeroFace: zeroFace,
+    _springPose: springPose,
   };
 })();
