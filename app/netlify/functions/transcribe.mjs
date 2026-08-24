@@ -157,7 +157,10 @@ export default async (request) => {
       });
     }
 
-    const lang = String(form.get('language') || '').trim().slice(0, 8);
+    // ISO-639-1 is what the transcription API takes, so a browser locale
+    // ('nl-NL') is narrowed to its base code rather than rejected by the
+    // shape test below and silently dropped.
+    const lang = String(form.get('language') || '').trim().slice(0, 8).toLowerCase().split('-')[0];
 
     // The tail of the transcript so far. Transcription models use the
     // prompt for continuity, so feeding back the last couple of sentences
@@ -177,8 +180,16 @@ export default async (request) => {
     upstreamForm.append('file', audio, 'segment.' + ext);
     upstreamForm.append('model', MODEL);
     upstreamForm.append('response_format', 'text');
-    upstreamForm.append('prompt', carry ? DEBATE_PROMPT + ' Continuing from: ' + carry : DEBATE_PROMPT);
-    if (lang && /^[a-z]{2}(-[A-Za-z]{2,4})?$/.test(lang)) upstreamForm.append('language', lang);
+    // The domain hint is English, and a prompt in one language over audio
+    // in another pulls the transcription toward the prompt's language —
+    // it is the mechanism that makes a Dutch speech come back as English
+    // words that sound similar. So a declared non-English round keeps the
+    // carry (which is already in that language) and drops the hint.
+    const hasLang = !!lang && /^[a-z]{2}$/.test(lang);
+    const hint = (hasLang && lang !== 'en') ? '' : DEBATE_PROMPT;
+    const promptText = [hint, carry ? 'Continuing from: ' + carry : ''].filter(Boolean).join(' ');
+    if (promptText) upstreamForm.append('prompt', promptText);
+    if (hasLang) upstreamForm.append('language', lang);
 
     const upstream = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',

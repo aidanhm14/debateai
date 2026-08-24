@@ -2366,6 +2366,52 @@ body.speech-live .rmb-change{display:none}
 .lang-select:hover{color:var(--text);border-color:var(--border-strong)}
 .lang-select.xl{color:#fca5a5;border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
 .lang-select option{background:var(--bg-elev,#16131a);color:var(--text,#f4f4f2)}
+.lang-label{
+  font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-ghost,var(--text-dim));white-space:nowrap;margin-right:-4px;
+}
+
+/* The language offer. The cross-language engine has been built for a
+   while (own transcription locale, live-translated captions, a judge
+   that scores speeches in the language they were given in) and nobody
+   found it, because the only way in was an unlabelled dropdown in a row
+   of mic controls. Measured on a real round 2026-08-24: two Dutch
+   speakers debated in English and typed "try speaking dutch" into the
+   audience chat instead. So the round now makes the offer out loud, and
+   only when it has a reason to: the other side is already speaking
+   another language, or this browser is set to one. */
+.lang-offer{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 10px;padding:9px 12px;border-radius:11px;
+  border:1px solid var(--border);background:var(--ui-soft);
+  font-size:.76rem;line-height:1.4;color:var(--text-dim);
+}
+.lang-offer[hidden]{display:none}
+.lang-offer.hot{border-color:rgba(239,68,68,.32);background:rgba(239,68,68,.06)}
+.lang-offer-msg{flex:1 1 240px;min-width:0}
+.lang-offer-msg b{color:var(--text);font-weight:800}
+.lang-offer-act{display:flex;align-items:center;gap:7px;flex:none;flex-wrap:wrap}
+.lang-offer-btn{
+  min-height:32px;padding:6px 12px;border-radius:9px;cursor:pointer;
+  font-family:inherit;font-size:.74rem;font-weight:800;letter-spacing:.02em;
+  /* Pinned rather than var(--accent): the dark theme's #ef4444 puts
+     white 11.8px/800 at 3.76:1, under AA. #dc2626 measures 4.83:1 and
+     reads the same at a glance. Same fix as the /spar sign-in gate. */
+  border:1px solid #dc2626;background:#dc2626;color:#fff;
+}
+.lang-offer-btn:hover{filter:brightness(1.08)}
+.lang-offer-no{
+  min-height:32px;padding:6px 10px;border-radius:9px;cursor:pointer;
+  font-family:inherit;font-size:.74rem;font-weight:700;
+  border:1px solid var(--border);background:transparent;color:var(--text-dim);
+}
+.lang-offer-no:hover{color:var(--text);border-color:var(--border-strong)}
+.lang-offer select{
+  min-height:32px;padding:6px 8px;border-radius:9px;font-family:inherit;
+  font-size:.74rem;font-weight:700;color:var(--text-dim);cursor:pointer;
+  border:1px solid var(--border);background:rgba(255,255,255,.02);
+}
+.lang-offer select option{background:var(--bg-elev,#16131a);color:var(--text,#f4f4f2)}
 
 /* Speech sequence sidebar (collapsible bottom strip) */
 .sequence{
@@ -3097,6 +3143,7 @@ html.stage-mode .stage-ov{display:block}
               <input type="checkbox" id="autoMicCheckbox" />
               <span>Auto-mic</span>
             </label>
+            <span class="lang-label" id="langLabel">Debating in</span>
             <select id="langSelect" class="lang-select" title="The language you are debating in. Your mic transcribes in it; the other side reads live-translated captions and the judge scores across languages."></select>
             <label class="auto-mic-toggle" id="speakXlLabel" style="display:none" title="Reads the live translation out loud while the other debater speaks in a language you did not pick.">
               <input type="checkbox" id="speakXlCheckbox" />
@@ -3108,6 +3155,12 @@ html.stage-mode .stage-ov{display:block}
                  already knows whether a speech is running. -->
             <span class="sc-live-chip" id="specLiveChip" hidden><i aria-hidden="true"></i>Live</span>
           </div>
+        </div>
+        <!-- The language offer. Rendered by paintLangOffer(); hidden
+             until the round has a reason to make it (see the CSS note). -->
+        <div class="lang-offer" id="langOffer" hidden>
+          <div class="lang-offer-msg" id="langOfferMsg"></div>
+          <div class="lang-offer-act" id="langOfferAct"></div>
         </div>
         <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
         <div id="micQuality" hidden></div>
@@ -4476,6 +4529,11 @@ html.stage-mode .stage-ov{display:block}
         : 'The language you are debating in. Your mic transcribes in it; the other side reads live-translated captions and the judge scores across languages.';
       _langSel.setAttribute('aria-label', spectator ? 'Caption language' : 'Debating language');
     }
+    // The picker used to be an unlabelled dropdown reading "English" in a
+    // row of mic controls, which is not an offer, it is a mystery. The
+    // label is what says the choice exists.
+    var _langLbl = $('langLabel');
+    if (_langLbl) _langLbl.textContent = spectator ? 'Captions in' : 'Debating in';
     $('speakerName').textContent = speakerName + (spectator ? '' : ' (' + sideLabel + ')');
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
@@ -4748,6 +4806,10 @@ html.stage-mode .stage-ov{display:block}
     // Sync the auto-mic toggle visibility/state — handles the case
     // where renderRound runs before the auto-mic init block.
     if (typeof syncAutoMicToggle === 'function') syncAutoMicToggle();
+    // The language offer reads the round (who is speaking what, how far
+    // in we are), so it repaints with it. Self-guarded against no-op
+    // renders.
+    try { paintLangOffer(); } catch(e){}
     updateRoundGuide();
   }
 
@@ -5269,27 +5331,7 @@ html.stage-mode .stage-ov{display:block}
     });
     sel.value = myLang();
     sel.classList.toggle('xl', sel.value !== 'en');
-    sel.addEventListener('change', function(){
-      var v = SR_LOCALE[sel.value] ? sel.value : 'en';
-      try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
-      sel.classList.toggle('xl', v !== 'en');
-      // Rebuild recognition so the new locale takes effect now, not on
-      // the next round.
-      if ((state.micSupport && state.micSupport.engine) === 'server'){
-        try { srvStop(); } catch(e){}
-      }
-      if (state.recognition){
-        var wasOn = state.micActive;
-        try { state.recognition.stop(); } catch(e){}
-        state.recognition = null;
-        state.micFinal = '';
-        if (wasOn){ state.recognition = initRecognition(); try { state.recognition && state.recognition.start(); } catch(e){} }
-      }
-      // Re-tag the live transcript on the next publish tick.
-      _lastPublishedTranscript = '';
-      if (isMyTurn() && state.phase === 'round') schedulePublishLiveTranscript();
-      toast(v === 'en' ? 'Debating in English.' : 'Debating in ' + (XL_NAMES[v] || v) + '. Your opponent reads live-translated captions.');
-    });
+    sel.addEventListener('change', function(){ setDebateLang(sel.value); });
     var spk = $('speakXlCheckbox'), spkLbl = $('speakXlLabel');
     if (spk && spkLbl){
       try { spk.checked = localStorage.getItem('debateos-speak-xl') === '1'; } catch(e){}
@@ -5299,6 +5341,177 @@ html.stage-mode .stage-ov{display:block}
         spkLbl.classList.toggle('on', spk.checked);
         if (!spk.checked) stopSpokenTranslation();
       });
+    }
+  }
+
+  // The one place the debating language is set, whatever pressed it (the
+  // picker, the offer strip's one-tap button). Everything downstream
+  // reads localStorage through myLang(), so the write is the change; the
+  // rest of this is making it take effect NOW rather than next round.
+  function setDebateLang(code){
+    var v = SR_LOCALE[code] ? code : 'en';
+    if (v === myLang()){ paintLangOffer(); return; }
+    try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
+    var sel = $('langSelect');
+    if (sel){ sel.value = v; sel.classList.toggle('xl', v !== 'en'); }
+    // Rebuild recognition so the new locale takes effect now, not on
+    // the next round.
+    if ((state.micSupport && state.micSupport.engine) === 'server'){
+      try { srvStop(); } catch(e){}
+    }
+    if (state.recognition){
+      var wasOn = state.micActive;
+      try { state.recognition.stop(); } catch(e){}
+      state.recognition = null;
+      state.micFinal = '';
+      if (wasOn){ state.recognition = initRecognition(); try { state.recognition && state.recognition.start(); } catch(e){} }
+    }
+    // Re-tag the live transcript on the next publish tick.
+    _lastPublishedTranscript = '';
+    if (isMyTurn() && state.phase === 'round') schedulePublishLiveTranscript();
+    // A watcher never speaks, so for them this only ever changes what
+    // language they READ; saying "your opponent" to a spectator would be
+    // describing a round they are not in.
+    if (isSpectator()){
+      toast(v === 'en' ? 'Captions in English.' : 'Captions in ' + (XL_NAMES[v] || v) + '. Anything said in another language is translated for you.');
+    } else if (v === 'en'){
+      toast('Debating in English.');
+    } else {
+      var nm = XL_NAMES[v] || v;
+      // Claim discipline: the ballot comes back in one language only when
+      // the round has one. Mixed-language rounds are judged on each
+      // speech's own language and the ballot is written in English, so
+      // promising a Dutch ballot to one Dutch speaker would be a promise
+      // the judge does not keep.
+      var pl = peerLang();
+      toast('Debating in ' + nm + '. ' + (pl && pl === v
+        ? 'The whole round is in ' + nm + ' now, ballot included.'
+        : 'Your opponent reads live-translated captions, and the judge scores your speeches in ' + nm + '.'));
+    }
+    paintLangOffer();
+  }
+
+  // The language the OTHER side of the round is speaking in, as opposed
+  // to the one this browser is reading in. Completed speeches carry the
+  // language they were delivered in; the live mirror carries the one the
+  // active speaker is using right now, which is how the offer can appear
+  // during the speech that prompts it rather than after it.
+  var _remoteLiveLang = '';
+  function peerLang(){
+    var mine = mySide();
+    for (var i = state.log.length - 1; i >= 0; i--){
+      var t = state.log[i];
+      if (!t || !t.lang || t.skipped) continue;
+      if (mine && t.side === mine) continue;      // my own speech
+      if (SR_LOCALE[t.lang]) return t.lang;
+    }
+    return SR_LOCALE[_remoteLiveLang] ? _remoteLiveLang : '';
+  }
+
+  // What this browser is set to. A Dutch speaker's browser is usually
+  // nl-*; it is the only signal available before anyone has spoken, and
+  // it is a suggestion, never a switch.
+  function browserLang(){
+    var v = '';
+    try { v = String(navigator.language || '').toLowerCase().split('-')[0]; } catch(e){ v = ''; }
+    return (v && v !== 'en' && SR_LOCALE[v]) ? v : '';
+  }
+
+  // Dismissal is per room, not per browser: passing on the offer in one
+  // round says nothing about the next one, and the next one may be
+  // against someone who opens in another language.
+  function langOfferDismissKey(){ return 'lr-lang-offer-off:' + (state.room || ''); }
+  function langOfferDismissed(){
+    try { return sessionStorage.getItem(langOfferDismissKey()) === '1'; } catch(e){ return false; }
+  }
+  function dismissLangOffer(){
+    try { sessionStorage.setItem(langOfferDismissKey(), '1'); } catch(e){}
+    paintLangOffer();
+  }
+
+  // Safe to call from the snapshot handler, which fires several times a
+  // second while a speech is running: nothing is rebuilt unless one of
+  // the inputs actually moved. Without the guard, re-rendering the
+  // strip's <select> on every tick would close it under the cursor of
+  // the person trying to use it.
+  var _langOfferSig = '';
+  function paintLangOffer(){
+    var box = $('langOffer'), msg = $('langOfferMsg'), act = $('langOfferAct');
+    if (!box || !msg || !act) return;
+    var mine = myLang(), pl = peerLang(), bl = browserLang();
+    var sig = [mine, pl, bl, state.phase, state.speechIdx > 0 ? 1 : 0,
+               isSpectator() ? 1 : 0, langOfferDismissed() ? 1 : 0].join('|');
+    if (sig === _langOfferSig) return;
+    _langOfferSig = sig;
+    if (state.phase === 'ballot' || state.phase === 'ballot-rendered' || langOfferDismissed()){
+      box.hidden = true; return;
+    }
+    var suggest = '', why = '';
+    if (pl && pl !== mine){ suggest = pl; why = 'peer'; }
+    else if (bl && bl !== mine && !pl){ suggest = bl; why = 'browser'; }
+    // No suggestion, and nothing to nudge: the labelled picker in the
+    // control row is the whole offer for an English round on an English
+    // browser. A permanent "you could use another language" strip on
+    // every round would be a line nobody reads twice.
+    else if (mine !== 'en'){ box.hidden = true; return; }
+    else if (state.speechIdx > 0){ box.hidden = true; return; }
+
+    var nm = XL_NAMES[suggest] || suggest;
+    msg.innerHTML = '';
+    act.innerHTML = '';
+    box.classList.toggle('hot', why === 'peer');
+
+    if (suggest){
+      var line;
+      if (isSpectator()){
+        line = why === 'peer'
+          ? '<b>This round is being spoken in ' + escHtml(nm) + '.</b> Read the captions in ' + escHtml(nm) + ' instead of the translation?'
+          : '<b>Read the captions in ' + escHtml(nm) + '?</b> Anything said in another language is translated for you.';
+      } else {
+        line = why === 'peer'
+          ? '<b>Your opponent is debating in ' + escHtml(nm) + '.</b> Switch and the whole round is in ' + escHtml(nm) + ', ballot included.'
+          : '<b>Debate in ' + escHtml(nm) + '?</b> Your mic transcribes in ' + escHtml(nm) + ', the other side reads live translation, and the judge scores your speeches in ' + escHtml(nm) + '.';
+      }
+      msg.innerHTML = line;
+      var go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'lang-offer-btn';
+      go.textContent = (isSpectator() ? 'Read in ' : 'Debate in ') + nm;
+      go.addEventListener('click', function(){
+        setDebateLang(suggest);
+        try { gtag('event', 'live_round_lang_offer_take', { lang: suggest, why: why, role: isSpectator() ? 'watcher' : 'debater' }); } catch(e){}
+      });
+      act.appendChild(go);
+    } else {
+      msg.innerHTML = isSpectator()
+        ? '<b>Reading in another language?</b> Pick it and every speech is translated for you as it is spoken.'
+        : '<b>Not debating in English?</b> Pick your language: your mic transcribes in it, the other side reads live translation, and the judge scores your speeches in it.';
+      var pick = document.createElement('select');
+      pick.setAttribute('aria-label', isSpectator() ? 'Caption language' : 'Debating language');
+      Object.keys(SR_LOCALE).forEach(function(code){
+        var o = document.createElement('option');
+        o.value = code;
+        o.textContent = (XL_NAMES[code] || code) + (code === 'en' ? '' : ' · ' + code.toUpperCase());
+        pick.appendChild(o);
+      });
+      pick.value = mine;
+      pick.addEventListener('change', function(){
+        setDebateLang(pick.value);
+        try { gtag('event', 'live_round_lang_offer_take', { lang: pick.value, why: 'picker', role: isSpectator() ? 'watcher' : 'debater' }); } catch(e){}
+      });
+      act.appendChild(pick);
+    }
+
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'lang-offer-no';
+    no.textContent = 'Dismiss';
+    no.addEventListener('click', dismissLangOffer);
+    act.appendChild(no);
+
+    if (box.hidden){
+      box.hidden = false;
+      try { gtag('event', 'live_round_lang_offer', { suggest: suggest || 'none', why: why || 'cold', role: isSpectator() ? 'watcher' : 'debater' }); } catch(e){}
     }
   }
 
@@ -5727,6 +5940,12 @@ html.stage-mode .stage-ov{display:block}
     var fd = new FormData();
     fd.append('audio', blob, 'segment');
     fd.append('carry', String(state.micFinal || '').slice(-380));
+    // The language the speaker declared. Without it the transcription
+    // model guesses from 10 seconds of audio against an English domain
+    // prompt, which is how a Dutch speech comes back as English-shaped
+    // nonsense on the browsers that have no Web Speech API (Firefox,
+    // Brave, most of iOS) — the exact browsers this engine exists for.
+    fd.append('language', myLang());
     fetch('/api/transcribe', { method:'POST', body: fd })
       .then(function(r){ if (!r.ok) throw new Error('transcribe ' + r.status); return r.json(); })
       .then(function(d){
@@ -15177,6 +15396,14 @@ html.stage-mode .stage-ov{display:block}
       // raw text still arrives first so the captions never sit empty
       // while the translation is in flight.
       if (remoteLang !== myLang() && remoteText) requestCaptionTranslation(remoteText, remoteLang);
+      // The offer's strongest trigger: the other side is speaking a
+      // language right now. Learned here rather than waiting for the
+      // speech to land in the log, so the offer arrives while the thing
+      // it is about is still happening.
+      if (remoteText && remoteLang !== _remoteLiveLang){
+        _remoteLiveLang = remoteLang;
+        try { paintLangOffer(); } catch(e){}
+      }
       if (taMirror && taMirror.value !== remoteText){
         taMirror.value = remoteText;
         // updateWordCount also fires schedulePublishLiveTranscript, but
@@ -15465,6 +15692,7 @@ html.stage-mode .stage-ov{display:block}
     syncAutoMicToggle();
   })();
   initLangControls();
+  try { paintLangOffer(); } catch(e){}
   $('speechText').addEventListener('input', function(){
     // Re-baseline the mic on a real user edit so the next result extends
     // what they typed rather than overwriting it. micNoteUserEdit
