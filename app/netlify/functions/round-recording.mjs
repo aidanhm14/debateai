@@ -42,7 +42,18 @@ function publicState(round, participants){
   };
 }
 
-async function dailyRecording(room, action){
+// The motion, trimmed to something that fits one line across a 1280x720
+// frame. Control characters out (this is rendered by VCS, not by us, and
+// a stray newline is a layout nobody can see until the replay exists),
+// and a hard cap, because a long motion set at overlay size wraps into
+// the faces it is meant to caption.
+function overlayMotion(value){
+  const text = String(value || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length > 92 ? text.slice(0, 89).trimEnd() + '...' : text;
+}
+
+async function dailyRecording(room, action, motion){
   const apiKey = process.env.DAILY_API_KEY;
   if (!apiKey || process.env.DAILY_RECORD === '0'){
     return { ok: false, status: 503, detail: 'Recording is not configured.' };
@@ -56,14 +67,35 @@ async function dailyRecording(room, action){
   // adding it, because one bad key kills the whole feature and the error
   // it produces points at the room rather than at the request.
   //
-  // The custom layout below records ONLY the round board (the canvas
-  // screen share carrying both camera feeds and the overlay), instead of
-  // the default composite that duplicated the cameras as small corner
-  // tiles next to it. `mode: 'single'` + `preferScreenshare` = whichever
-  // screen share is live fills the frame; with no share up it falls back
-  // to one camera. Verified against the live API 2026-08-19: this body
-  // passes validation on a real room (failed only on "no call live"),
-  // while the max_cam_streams control still 400s. If Daily rejects it at
+  // The layout is composed HERE, by Daily, and not by a debater's
+  // browser. From 2026-08-18 to 2026-08-24 a client published the round
+  // board as a canvas SCREEN SHARE and this layout recorded whatever
+  // share was up. It worked and it cost too much: the room announced
+  // "X is screen sharing" for the whole round, the board took the main
+  // stage as a share tile, and since Daily gives a participant one
+  // screen track, the real Share screen button was disabled for the
+  // length of every recorded round. A recording layout is a property of
+  // the recording, so it belongs in the recording request.
+  //
+  // `mode: 'grid'` is right for both shapes this room takes: with two
+  // debaters Daily's grid IS side by side, and a 2v2 fills four cells.
+  // Spectators hold hidden-presence tokens (2026-08-18) so they never
+  // occupy one. `showParticipantLabels` puts the names on the tiles the
+  // board used to draw by hand, and the text overlay carries the motion,
+  // which is the one piece of context a replay cannot recover from the
+  // video. `preferScreenshare` stays on so a debater sharing real
+  // evidence, and the verdict reel at the end, still reach the file.
+  //
+  // VERIFIED against the live API on a throwaway room 2026-08-24: this
+  // body passes param validation and fails only on "not hosting a
+  // call", while a max_cam_streams control still 400s as "not allowed".
+  // BUT KNOW THE LIMIT OF THAT PROOF, because it is narrower than it
+  // looks: Daily validates the top-level `layout` keys and passes
+  // `composition_params` STRAIGHT THROUGH to VCS. A bogus key and a
+  // bogus `mode` value both returned the same "not hosting a call" as
+  // the real body. So a typo in here does not 400, it silently records
+  // the wrong composition, and the only way to know is to watch a real
+  // recording. Change these keys with that in mind. If Daily rejects it at
   // start time anyway (plan without VCS), retry once on the default
   // preset so a layout problem can never cost the recording itself.
   // videoBitrate caps the file so a replay can actually stream. Measured
@@ -93,10 +125,19 @@ async function dailyRecording(room, action){
     maxDuration: 10800,
     layout,
   });
-  const boardLayout = {
-    preset: 'custom',
-    composition_params: { mode: 'single', 'videoSettings.preferScreenshare': true },
+  const params = {
+    mode: 'grid',
+    'videoSettings.showParticipantLabels': true,
+    'videoSettings.preferScreenshare': true,
   };
+  const motionText = overlayMotion(motion);
+  if (motionText){
+    params.showTextOverlay = true;
+    params['text.content'] = motionText;
+    params['text.align_horizontal'] = 'center';
+    params['text.align_vertical'] = 'top';
+  }
+  const boardLayout = { preset: 'custom', composition_params: params };
   const send = async (body) => {
     const response = await fetch(path, {
       method: 'POST',
@@ -292,7 +333,7 @@ export default async (req) => {
   if (result.error) return errorResponse(result.error, result.status, req);
 
   if (result.effect === 'start'){
-    const started = await dailyRecording(room, 'start');
+    const started = await dailyRecording(room, 'start', result.round && result.round.motion);
     if (!started.ok){
       await ref.set({
         recordingStatus: 'failed',

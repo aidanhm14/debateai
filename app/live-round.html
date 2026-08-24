@@ -6059,12 +6059,13 @@ html.stage-mode .stage-ov{display:block}
       cloudRec.lastStatus = status;
     }
 
-    // The layout board rides the recording: publish it while capture is
-    // live, tear it down if the recording ends mid-round. Called on
-    // every round-doc snapshot, so a join that lands after the status
-    // flip still picks the board up on the next sync.
+    // The board is off (see BOARD_SHARE): a recorded round no longer
+    // publishes anything, because Daily composes the recording itself.
+    // The teardown call stays live and unconditional — it is a no-op
+    // when nothing is sharing, and it is what rescues a client that
+    // still holds a board from a previous session's code.
     try {
-      if (status === 'recording') startRoundBoard();
+      if (BOARD_SHARE && status === 'recording') startRoundBoard();
       else stopRoundBoardIfOrphaned(status);
     } catch(e){}
   }
@@ -6448,17 +6449,38 @@ html.stage-mode .stage-ov{display:block}
     if (reel.loop){ clearInterval(reel.loop); reel.loop = 0; }
   }
 
-  // ── Round board ──────────────────────────────────────────────────
-  // Daily's cloud recording composites the ROOM (camera tiles), not the
-  // page, so a replay used to look like a bare video call. While a
-  // consented recording runs, one debater (the same lowest-uid driver
-  // the verdict reel elects) publishes the round's layout as a canvas
-  // screen share: motion, current speech, live clock, speakers, and the
-  // watching count. Daily pins the share large with the tiles beside
-  // it, so the replay reads as the debate UI. At judging the SAME
-  // canvas hands off to the verdict reel, so the share never restarts.
+  // ── Round board (OFF — see BOARD_SHARE) ──────────────────────────
+  // Daily's cloud recording composites the ROOM, not the page, so a
+  // replay used to look like a bare video call. The fix on 2026-08-18
+  // was to have one debater publish the round's layout as a canvas
+  // SCREEN SHARE for the whole round, which Daily then recorded.
+  //
+  // 2026-08-24, the founder off a live screenshot: the round was
+  // announcing "banaandebater is screen sharing", the board had taken
+  // over the main stage as a share tile, and his read was that inventing
+  // a whole extra participant surface just to get a layout into a video
+  // file is not something the software should need to do. He is right,
+  // and the cost was larger than the banner: Daily gives a participant
+  // ONE screen track, so for the length of every recorded round the
+  // board held the slot and the real Share screen button was disabled,
+  // which took evidence and slides off the table in exactly the rounds
+  // most worth recording.
+  //
+  // The recording layout is now composed SERVER SIDE by Daily instead
+  // (round-recording.mjs): a labelled grid of the real camera tiles with
+  // the motion across the top. Nothing is published, nothing is
+  // announced, and the share slot goes back to the debaters.
+  //
+  // The drawing code below stays dormant rather than deleted, the same
+  // way the stage-rail nameplates do: this is a taste call that could
+  // flip, and flipping it back is this one constant. The verdict reel
+  // still shares its canvas for the ballot reveal at the end of the
+  // round, which is a produced outro and about fourteen seconds long,
+  // not a surface anyone is trying to debate over.
+  var BOARD_SHARE = false;
   var reelWatchers = 0;
   function startRoundBoard(){
+    if (!BOARD_SHARE) return;
     if (reel.canvas) return;               // board or reel already live
     if (state.phase !== 'round') return;   // judging starts its own reel
     if (!shouldDriveReel()) return;
