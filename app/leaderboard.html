@@ -667,7 +667,7 @@ a.av-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
      the head row's "ROUNDS" overflowed its cell and ran into "LAST", which
      is what the landing thumbnail of this board was showing. The 10px comes
      out of the Name column, which is 1fr and had ~236px. */
-  grid-template-columns:48px minmax(150px,1fr) 68px 58px 68px 68px 72px 154px;
+  grid-template-columns:48px minmax(150px,1fr) 68px 58px 68px 68px 72px 194px;
   align-items:center;gap:12px;padding:13px 18px;
   border-bottom:1px solid var(--border);
   transition:background .15s,transform .15s;
@@ -817,7 +817,7 @@ body.challenge-on .chal-btn{
 body.challenge-on .chal-btn:hover{filter:brightness(1.06)}
 .pod .debater-actions{margin-top:10px}
 .pod .debater-action{min-height:30px;padding:5px 12px;font-size:.66rem}
-.cell-connect{display:flex;justify-content:flex-end}
+.cell-connect{display:flex;justify-content:flex-end;min-width:0;overflow:hidden}
 .cell-connect .debater-actions{justify-content:flex-end;flex-wrap:nowrap}
 .table-mobile-actions{display:none}
 /* Challenge-mode banner: a single line telling an arrival from /live
@@ -879,7 +879,7 @@ body.challenge-on .chal-banner{display:flex}
 
 @media(max-width:960px){
   .board-row{
-    grid-template-columns:44px minmax(150px,1fr) 70px 64px 70px 154px;
+    grid-template-columns:44px minmax(150px,1fr) 70px 64px 70px 194px;
     gap:10px;padding:12px 14px;
   }
   .board-row .cell-rounds,
@@ -1910,7 +1910,7 @@ function podHTML(row, place){
     : '';
   return `
     <article class="pod pod--${place}" title="${escapeHtml(profileTitle(row))}">
-      <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${place===1?'1st place':place===2?'2nd place':'3rd place'}</span>${laurel}</div>
+      <div class="pod-rank"><span class="medal" aria-hidden="true">${place}</span><span>${escapeHtml(podPlaceLabel(row,place))}</span>${laurel}</div>
       <div class="pod-body">
         ${avatarCell(row,'pod-avatar')}
         <div class="pod-id">
@@ -1921,6 +1921,7 @@ function podHTML(row, place){
             <span class="dot-sep">·</span>
             <span>${escapeHtml(fmtAgo(row.completedAt)||'recent')}</span>
             ${levelChip(row)}
+            ${provChip(row)}
             ${profileTypeTag(row)}
           </div>
           ${debaterActions(row)}
@@ -1940,14 +1941,30 @@ function podHTML(row, place){
       </div>
     </article>`;
 }
-// On the ladder only settled ratings can be crowned: a podium needs
-// three RANKABLE people. Rows are sorted rankable-first, so checking the
-// first three covers it. renderTable slices around the podium, so both
-// renderers must agree through this one predicate.
+// A podium needs three people who carry a number. Until 2026-08-24 the
+// ladder additionally demanded three SETTLED ratings (_rankable), and that
+// is why the head-to-head board rendered as a flat table with no top three.
+// Aidan's call: the podium is how this board is meant to read, so a
+// provisional rating can be crowned. What it must NOT do is crown one
+// silently, so podHTML carries the same Provisional / Example markers the
+// table rows carry, and an unsettled card says "Top rated" rather than
+// claiming a place the table refuses to number. A row with no rating at all
+// is still not crowned: a card reading "1st place" over a dash is worse than
+// no card. Rows are sorted rankable-first, so checking the first three
+// covers it. renderTable slices around the podium, so both renderers must
+// agree through this one predicate.
 function podiumEligible(rows){
   if(rows.length<3) return false;
   if(state.view!=='live') return true;
-  return rows.slice(0,3).every(r=>r._ratingRow && r._rankable);
+  return rows.slice(0,3).every(r=>r._ratingRow && typeof r.score==='number' && isFinite(r.score));
+}
+// The table hands no rank number to a rated-but-unsettled row, so the podium
+// must not hand that same row a settled place. Medal keeps 1/2/3 because that
+// is just the visible order; the label is what carries the claim.
+function podPlaceLabel(row, place){
+  const settled = state.view!=='live' || (row && row._rankable);
+  if(!settled) return 'Top rated';
+  return place===1?'1st place':place===2?'2nd place':'3rd place';
 }
 function renderPodium(rows){
   if(!podium) return;
