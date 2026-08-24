@@ -203,12 +203,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
   .fcol{min-width:0}
   .frail{display:none}
-  /* In rail mode the rails usually take every portrait and the authored
-     grid is left empty; it stays in the DOM so the move is reversible on
-     resize, and hides itself rather than leaving a gap. It comes back
-     visible only for the overflow case below: a rail is never allowed to
-     run past the bottom of the money column, so on a short page (an empty
-     board) the portraits that do not fit beside it render here instead. */
+  /* In rail mode every portrait moves into the two rails and the authored
+     grid is emptied; the JS hides the emptied grid (display:none) so it
+     leaves no gap, and restores it on the way back to narrow. The rule
+     below is a harmless CSS fallback. */
   .faces:empty{display:none}
   @media(min-width:1180px){
     .flank{grid-template-columns:184px minmax(0,1fr) 184px;gap:34px}
@@ -216,11 +214,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
        stranding its portraits in a spread-out column; they stack from the
        top and stop wherever they stop. */
     .frail{display:flex;flex-direction:column;gap:10px;align-self:start}
-    /* In rail mode the portraits are square: nine 4/5 crops stacked in two
+    /* In rail mode the portraits are square: 4/5 crops stacked in two
        columns run far past the money column, and the crop is a framing
-       choice rather than a fixed asset, so squaring them is free. */
+       choice rather than a fixed asset, so squaring them is free.
+       object-position lifts the square crop toward the head so a headshot
+       keeps its face rather than its collar. */
     .frail .face{border-radius:0}
-    .frail .face img{aspect-ratio:1/1}
+    .frail .face img{aspect-ratio:1/1;object-position:50% 25%}
     .frail .face .nm{font-size:.86rem;padding:22px 9px 8px}
     .frail .face .tag{font-size:.6rem;padding:2px 8px;top:8px;left:8px}
     .dream .sub{max-width:66ch}
@@ -659,75 +659,46 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     } catch(e){ say(e.message, 'err'); }
   });
 
-  /* ── flanking rails: the portraits move out of the middle of the
-     page and down both margins at >=1180px (the founder, 2026-08-23). The
-     nodes are MOVED, never rebuilt, so the click handlers bound below
-     ride along and nothing has to be re-bound after a resize. Odd indexes
-     go left so the left rail carries the extra face and the two columns
-     stay within one portrait of each other. ── */
+  /* ── flanking rails: at >=1180px the portraits move out of the middle
+     of the page and down both margins (the founder, 2026-08-23). The nodes
+     are MOVED, never rebuilt, so the click handlers bound below ride along
+     and nothing has to be re-bound after a resize. The WHOLE set goes into
+     the two rails, split evenly (even indexes left, so the left rail carries
+     the one extra face). It used to keep a height-dependent remainder in
+     the middle grid, which stranded a lone giant portrait between the
+     paragraphs whenever that remainder came out to one; placing every
+     portrait removes that failure mode, and with it the board-height
+     coupling that made the split behave differently as the board loaded.
+     Under 1180px the portraits move back and the authored grid renders as
+     before. ── */
   (function(){
-    var grid = document.querySelector('.faces');
+    var grid  = document.querySelector('.faces');
     var railL = document.getElementById('frailL');
     var railR = document.getElementById('frailR');
-    var col   = document.querySelector('.fcol');
-    if (!grid || !railL || !railR || !col) return;
+    if (!grid || !railL || !railR) return;
     var faces = Array.prototype.slice.call(grid.querySelectorAll('.face'));
     var mq = window.matchMedia('(min-width:1180px)');
-
-    // `placed` is how many portraits are currently in the rails, -1 when
-    // they are all back in the grid. Writing only on a real change is what
-    // stops the ResizeObserver below from feeding itself: placing
-    // portraits changes the column height, which fires the observer, which
-    // would place them again forever if every call touched the DOM.
-    var placed = -1;
+    var inRails = false;   // where every portrait currently lives
 
     function sync(){
-      // Read the query at call time rather than trusting a cached flag.
-      // The rails are display:none under the breakpoint, so a portrait
-      // left parented to one is a portrait nobody can see: every path back
-      // to narrow has to return them, and a missed change event must not
-      // be able to strand them.
-      if (!mq.matches){
-        if (placed !== -1){ faces.forEach(function(f){ grid.appendChild(f); }); placed = -1; }
-        return;
+      if (mq.matches === inRails) return;   // already in the right place
+      if (mq.matches){
+        faces.forEach(function(f, i){ (i % 2 ? railR : railL).appendChild(f); });
+        grid.style.display = 'none';        // the authored grid is now empty
+      } else {
+        faces.forEach(function(f){ grid.appendChild(f); });
+        grid.style.display = '';
       }
-      // A rail must never run past the bottom of the money column: on a
-      // short page (an empty board) a full-length rail leaves several
-      // hundred pixels of blank gutter, which reads as a broken layout
-      // rather than as a gallery. So the rails take as many portraits as
-      // fit beside the column and the remainder stay in the authored grid.
-      // Placing them changes the column height, so this settles over a few
-      // passes rather than one; the loop is bounded either way.
-      for (var pass = 0; pass < 3; pass++){
-        var railW = railL.getBoundingClientRect().width || 176;
-        var step  = railW + 10;                       // square face + gap
-        var cap   = Math.max(2, Math.floor(col.getBoundingClientRect().height / step));
-        var take  = Math.min(faces.length, cap * 2);
-        if (take === placed) return;
-        placed = take;
-        faces.forEach(function(f, i){
-          if (i < take) (i % 2 ? railR : railL).appendChild(f);
-          else grid.appendChild(f);
-        });
-      }
-    }
-
-    var queued = false;
-    function schedule(){
-      if (queued) return;
-      queued = true;
-      requestAnimationFrame(function(){ queued = false; sync(); });
+      inRails = mq.matches;
     }
 
     sync();
-    // Three triggers, deliberately overlapping. The column height moves
-    // when the board finishes loading its bounties, so the split is
-    // recomputed then and not only at a breakpoint; and resize covers the
-    // case where a matchMedia change event does not arrive.
-    if (window.ResizeObserver) new ResizeObserver(schedule).observe(col);
-    if (mq.addEventListener) mq.addEventListener('change', schedule);
-    else if (mq.addListener) mq.addListener(schedule);
-    window.addEventListener('resize', schedule);
+    // The split is purely a width breakpoint now, so a matchMedia change
+    // (with resize as a belt-and-suspenders) is all it takes: no board
+    // height to observe, no rAF settling loop, nothing to strand.
+    if (mq.addEventListener) mq.addEventListener('change', sync);
+    else if (mq.addListener) mq.addListener(sync);
+    window.addEventListener('resize', sync);
   })();
 
   /* ── starter motions: drop the text into the post form ── */
