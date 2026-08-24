@@ -2334,6 +2334,21 @@
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
+/* ── Live-round spectate card ───────────────────────────────────
+   A public round in progress is the most convincing thing on this
+   site and it is invisible from every page except the three that
+   list it. This module shows a corner card with the room's own
+   still when one is running. It excludes itself from round
+   surfaces, the queue, and the listing pages; the full restraint
+   rules and the ?livepop= QA switches are documented in the file. */
+(function(){
+  if (window.__ditLivePopup || document.querySelector('script[src*="/js/live-popup.js"]')) return;
+  var s = document.createElement('script');
+  s.src = '/js/live-popup.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();
+
 /* The chooser that feeds audience-mode.js. It reads
    debateos-experience and, until 2026-08-22, nothing on a page a
    stranger actually lands on ever set it: the only prompts were one
