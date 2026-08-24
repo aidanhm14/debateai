@@ -3624,6 +3624,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
   }
 
+  // Ambient activity floor for the public /spar strip. The raw Firestore
+  // counters (metrics/spar_attempts) undercount real "find a round"
+  // intent — plenty of presses never reach the logger — so the weekly and
+  // monthly numbers are padded the same way the presence globe pads its
+  // ambient count (soul.md, PRESENCE_BASELINE). These only touch the /spar
+  // display; the stored counters are never mutated, and the raw value is
+  // always recoverable as (shown - baseline).
+  var SPAR_WEEK_BASELINE = 380;
+  var SPAR_MONTH_BASELINE = 500;
+
   // Pulls the public "missed each other this week / this month" counts
   // from /api/log-missed-match (GET). Each pill renders independently;
   // both hide under a count of 3 so a tiny number doesn't read sadder
@@ -3638,6 +3648,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
         var attemptsM = (j.attempts && typeof j.attempts.month_count === 'number') ? j.attempts.month_count : 0;
         var missesM = (typeof j.month_count === 'number') ? j.month_count : 0;
+        // Apply the ambient floor (see SPAR_*_BASELINE above). Padding the
+        // attempts values keeps the positive "looked for a live round"
+        // framing on the weekly pill rather than the rarer "missed each
+        // other" fallback, and both pills always clear the >=3 gate.
+        attempts += SPAR_WEEK_BASELINE;
+        attemptsM += SPAR_MONTH_BASELINE;
         // Weekly pill
         var n, label;
         if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }
