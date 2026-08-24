@@ -1080,7 +1080,9 @@
     back.setAttribute('data-dbav-modal', '1');
     back.setAttribute('role', 'dialog');
     back.setAttribute('aria-label', 'Design your avatar');
-    back.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,6,10,.66);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)';
+    // z-index sits above the onboarding card (2147483501). The builder is
+    // opened FROM that card, so anything lower opens behind it.
+    back.style.cssText = 'position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,6,10,.66);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)';
 
     var box = document.createElement('div');
     box.style.cssText = 'width:min(780px,96vw);max-height:92vh;display:flex;flex-direction:column;background:' + surf + ';color:' + txt + ';border:1px solid ' + bd + ';border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.45);font-family:inherit;overflow:hidden';

@@ -26,7 +26,7 @@
   window.__ditOnboarding = true;
 
   var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
-  var VERSION = 2;
+  var VERSION = 3;
 
   var STEPS = [
     { key: 'debateExperience', title: 'Do you already do competitive debate?',
@@ -75,9 +75,29 @@
         { v: 'social', label: 'Social media' },
         { v: 'other', label: 'Somewhere else' },
       ] },
+    // The face step. `kind:'profile'` is the one step that is not a chip
+    // list, so renderStep() branches on it. It is LAST on purpose: the
+    // chip questions are cheap, and picking a face is the reward at the
+    // end rather than a wall at the door. It is also the only step that
+    // can be mounted on its own (see AVATAR_ONLY in checkUser), because
+    // every account created before this shipped has already answered the
+    // questions and would otherwise never be asked for a face.
+    { key: 'profile', kind: 'profile',
+      title: 'Pick your face',
+      sub: 'This is what the leaderboard and every round shows. You can change it later in your profile.' },
   ];
 
+  // The face step, reachable on its own for accounts that predate it.
+  var PROFILE_STEP = STEPS[STEPS.length - 1];
+
   function lsKey(uid) { return 'debateos-onboarded-' + uid; }
+  // Separate from the onboarding flag on purpose: every account that
+  // existed before the face step shipped is already marked onboarded, so
+  // reusing that flag would mean none of them are ever asked for a face.
+  function avKey(uid) { return 'debateos-avatar-asked-' + uid; }
+  function avAsked(uid) { try { return localStorage.getItem(avKey(uid)) === '1'; } catch (e) { return false; } }
+  function avMark(uid) { try { localStorage.setItem(avKey(uid), '1'); } catch (e) {} }
+
   function lsDone(uid) { try { return localStorage.getItem(lsKey(uid)) === '1'; } catch (e) { return false; } }
   function lsMark(uid) { try { localStorage.setItem(lsKey(uid), '1'); } catch (e) {} }
   function track(ev, meta) { try { if (window.gtag) gtag('event', ev, meta || {}); } catch (e) {} }
@@ -110,7 +130,7 @@
     s.textContent =
       '.ob-backdrop{position:fixed;inset:0;z-index:2147483500;background:rgba(8,6,7,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:0;transition:opacity .26s ease}' +
       '.ob-backdrop.is-in{opacity:1}' +
-      '.ob-card{position:fixed;left:50%;top:50%;z-index:2147483501;transform:translate(-50%,-46%);opacity:0;transition:transform .3s ease,opacity .3s ease;width:min(420px,calc(100vw - 32px));border-radius:18px;background:#16090b;color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 30px 80px rgba(0,0,0,.5);font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;padding:22px 22px 16px}' +
+      '.ob-card{box-sizing:border-box;position:fixed;left:50%;top:50%;z-index:2147483501;transform:translate(-50%,-46%);opacity:0;transition:transform .3s ease,opacity .3s ease;width:min(420px,calc(100vw - 32px));border-radius:18px;background:#16090b;color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 30px 80px rgba(0,0,0,.5);font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;padding:22px 22px 16px}' +
       '.ob-card.is-in{transform:translate(-50%,-50%);opacity:1}' +
       '.ob-dots{display:flex;gap:5px;margin:0 0 12px}' +
       '.ob-dots i{width:18px;height:3px;border-radius:2px;background:rgba(255,255,255,.16)}' +
@@ -124,6 +144,23 @@
       '.ob-opt--wide{flex:1 1 100%;text-align:left}' +
       '.ob-opt--lg{font-size:1.02rem;font-weight:700;padding:12px 19px}' +
       '.ob-opt--sm{font-size:.76rem;padding:7px 11px;opacity:.85}' +
+      // face step
+      '.ob-name{width:100%;box-sizing:border-box;border-radius:11px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:#fff;font-family:inherit;font-size:.92rem;font-weight:600;padding:11px 13px;margin:0 0 12px}' +
+      '.ob-name:focus{outline:none;border-color:#dc2626}' +
+      '.ob-name::placeholder{color:rgba(255,255,255,.42);font-weight:500}' +
+      '.ob-faces{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 10px}' +
+      '.ob-face{position:relative;padding:0;border-radius:12px;overflow:hidden;border:2px solid transparent;background:rgba(255,255,255,.05);cursor:pointer;aspect-ratio:1/1;line-height:0;transition:border-color .12s,transform .12s}' +
+      '.ob-face:hover{transform:translateY(-2px)}' +
+      '.ob-face svg,.ob-face img{width:100%;height:100%;display:block;object-fit:cover}' +
+      '.ob-face.sel{border-color:#dc2626}' +
+      '.ob-face-acts{display:flex;gap:8px;margin:0 0 2px}' +
+      '.ob-mini{flex:1;border:1px solid rgba(255,255,255,.18);background:transparent;color:rgba(255,255,255,.82);border-radius:999px;padding:8px 10px;font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer}' +
+      '.ob-mini:hover{border-color:rgba(255,255,255,.42);color:#fff}' +
+      '[data-theme="light"] .ob-name{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.03);color:#1a1a1f}' +
+      '[data-theme="light"] .ob-name::placeholder{color:rgba(0,0,0,.42)}' +
+      '[data-theme="light"] .ob-face{background:rgba(0,0,0,.04)}' +
+      '[data-theme="light"] .ob-mini{border-color:rgba(0,0,0,.2);color:rgba(0,0,0,.72)}' +
+      '[data-theme="light"] .ob-mini:hover{border-color:rgba(0,0,0,.45);color:#1a1a1f}' +
       '.ob-foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px}' +
       '.ob-skip{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-family:inherit;font-size:.8rem;padding:6px 0}' +
       '.ob-skip:hover{color:#fff}' +
@@ -146,7 +183,7 @@
   }
 
   // ── modal ──────────────────────────────────────────────────────
-  var card = null, backdrop = null, stepIdx = 0, answers = {}, activeUid = null;
+  var card = null, backdrop = null, stepIdx = 0, answers = {}, activeUid = null, avatarOnly = false, sawFace = false;
   var activeSteps = STEPS;
 
   function unmount() {
@@ -160,6 +197,15 @@
   function save(payload) {
     // Close optimistically; a failed write just means we ask again on
     // another device. The localStorage flag stops re-asks here either way.
+    // Only claim the face was asked if the step actually rendered. Someone
+    // who skipped at question one never saw it and should still get the
+    // focused ask on a later page.
+    if (sawFace) avMark(activeUid);
+    // Avatar-only mode is mounted at accounts that ALREADY answered the
+    // questions. Writing an onboarding payload here would merge a
+    // near-empty object over their real answers, so it writes nothing:
+    // the face itself is persisted by avatar-account.js, not by this.
+    if (avatarOnly) { unmount(); return; }
     lsMark(activeUid);
     unmount();
     try {
@@ -183,8 +229,143 @@
     save(payload);
   }
 
+  // ── the face step ──────────────────────────────────────────────
+  // DBAvatar is the site's portrait engine and avatar-account.js is what
+  // copies a chosen face into user_profiles/{uid}.avatarIdentity, which is
+  // what the leaderboard renders. Neither is loaded on most pages, so this
+  // step pulls them in on demand. A failure is not fatal: the step is
+  // dropped and the rest of onboarding runs untouched.
+  var faceBatch = 0, faceConfigs = [], faceChoice = null;
+
+  function loadScript(src, cb) {
+    var el = document.createElement('script');
+    el.src = src;
+    el.addEventListener('load', function () { cb(true); }, { once: true });
+    el.addEventListener('error', function () { cb(false); }, { once: true });
+    document.head.appendChild(el);
+  }
+  function ensureAvatar(cb) {
+    function withAccount() {
+      // A missing account bridge only means the face syncs on the next page
+      // that has it, so this never blocks the step.
+      if (window.DBAvatarAccount) { cb(true); return; }
+      loadScript('/js/avatar-account.js', function () { cb(true); });
+    }
+    if (window.DBAvatar) { withAccount(); return; }
+    loadScript('/js/avatar.js', function (ok) {
+      if (!ok || !window.DBAvatar) { cb(false); return; }
+      withAccount();
+    });
+  }
+  function escAttr(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function hasLocalFace() {
+    try { return !!(window.DBAvatar && DBAvatar.getUser && DBAvatar.getUser()); } catch (e) { return false; }
+  }
+  function authUser() {
+    try { return firebase.auth().currentUser || null; } catch (e) { return null; }
+  }
+
+  function paintFaces() {
+    var wrap = card && card.querySelector('.ob-faces');
+    if (!wrap || !window.DBAvatar) return;
+    faceConfigs = [];
+    var html = '';
+    for (var i = 0; i < 8; i++) {
+      // Seeded off the uid so a face a user liked is still there if they
+      // reopen at the same batch, rather than reshuffling under them.
+      var cfg = DBAvatar.randomConfig(String(activeUid || 'anon') + ':' + faceBatch + ':' + i);
+      faceConfigs.push(cfg);
+      html += '<button type="button" class="ob-face" data-i="' + i + '" aria-label="Face option ' + (i + 1) + '">'
+        + DBAvatar.svg(cfg, '100%') + '</button>';
+    }
+    wrap.innerHTML = html;
+    var btns = wrap.querySelectorAll('.ob-face');
+    for (var k = 0; k < btns.length; k++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var sel = wrap.querySelector('.ob-face.sel');
+          if (sel) sel.classList.remove('sel');
+          btn.classList.add('sel');
+          faceChoice = faceConfigs[btn.getAttribute('data-i') | 0];
+        });
+      })(btns[k]);
+    }
+  }
+
+  function renderProfileStep(step) {
+    sawFace = true;
+    var dots = '';
+    for (var i = 0; i < activeSteps.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
+    var u = authUser();
+    card.innerHTML =
+      '<div class="ob-dots">' + dots + '</div>' +
+      '<h2 class="ob-title">' + step.title + '</h2>' +
+      '<p class="ob-sub">' + step.sub + '</p>' +
+      '<input class="ob-name" type="text" maxlength="40" autocomplete="name" placeholder="Display name" value="'
+        + escAttr(u && u.displayName ? u.displayName : '') + '">' +
+      '<div class="ob-faces"></div>' +
+      '<div class="ob-face-acts">' +
+        '<button type="button" class="ob-mini" data-a="more">Show me more</button>' +
+        '<button type="button" class="ob-mini" data-a="build">Build your own</button>' +
+      '</div>' +
+      '<div class="ob-foot">' +
+        '<button type="button" class="ob-skip">Skip for now</button>' +
+        '<button type="button" class="ob-next">Save</button>' +
+      '</div>';
+
+    faceChoice = null;
+    if (window.DBAvatar) {
+      paintFaces();
+    } else {
+      // Still loading, or blocked. Retry once, and if the engine never
+      // arrives move past the step rather than showing an empty grid.
+      ensureAvatar(function (ok) {
+        if (!card) return;
+        if (ok && window.DBAvatar) paintFaces();
+        else advance();
+      });
+    }
+
+    card.querySelector('.ob-skip').addEventListener('click', skip);
+    card.querySelector('[data-a="more"]').addEventListener('click', function () {
+      faceBatch++; faceChoice = null; paintFaces();
+      track('onboarding_face_reroll', { batch: faceBatch });
+    });
+    card.querySelector('[data-a="build"]').addEventListener('click', function () {
+      if (!window.DBAvatar || !DBAvatar.openBuilder) return;
+      track('onboarding_face_builder', {});
+      // The builder persists through setUser() before it calls back, so a
+      // built face is already saved; record it and close out.
+      DBAvatar.openBuilder({ onSave: function (saved) { faceChoice = saved; commitProfile(true); } });
+    });
+    card.querySelector('.ob-next').addEventListener('click', function () { commitProfile(false); });
+  }
+
+  function commitProfile(fromBuilder) {
+    var input = card && card.querySelector('.ob-name');
+    var name = input ? String(input.value || '').trim().slice(0, 40) : '';
+    if (faceChoice && window.DBAvatar && !fromBuilder) {
+      // setUser persists and fires debatable-avatar-change, which
+      // avatar-account.js is listening for. That listener is what writes
+      // avatarIdentity, so this one call is the whole sync.
+      try { DBAvatar.setUser(faceChoice); } catch (e) {}
+    }
+    var u = authUser();
+    if (name && u && u.updateProfile && name !== u.displayName) {
+      try { u.updateProfile({ displayName: name }); } catch (e) {}
+    }
+    answers.profile = { face: !!faceChoice, named: !!name, builder: !!fromBuilder };
+    if (name) answers.displayName = name;
+    track('onboarding_face_saved', { face: !!faceChoice, builder: !!fromBuilder });
+    advance();
+  }
+
   function renderStep() {
     var step = activeSteps[stepIdx];
+    if (step.kind === 'profile') { renderProfileStep(step); return; }
     var dots = '';
     for (var i = 0; i < activeSteps.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
     var opts = '';
@@ -239,7 +420,12 @@
     activeUid = uid;
     stepIdx = 0;
     answers = options && options.existing ? Object.assign({}, options.existing) : {};
-    activeSteps = options && options.experienceOnly ? [STEPS[0]] : STEPS;
+    avatarOnly = !!(options && options.avatarOnly);
+    sawFace = false;
+    activeSteps = avatarOnly ? [PROFILE_STEP]
+      : (options && options.experienceOnly ? [STEPS[0]] : STEPS);
+    // Warm the portrait engine now so the last step is not a blank grid.
+    ensureAvatar(function () {});
     injectStyle();
     backdrop = document.createElement('div');
     backdrop.className = 'ob-backdrop';
@@ -263,7 +449,10 @@
   // ── entry ──────────────────────────────────────────────────────
   function checkUser(user) {
     if (!user || user.isAnonymous) return;
-    if (lsDone(user.uid) && experienceValue()) return;
+    // The avatar flag joins the early-out so a fully settled account still
+    // costs zero reads per page, which is what the 2026-05-18 credit audit
+    // asked of anything that runs sitewide.
+    if (lsDone(user.uid) && experienceValue() && avAsked(user.uid)) return;
     ensureFirestore(function () {
       try {
         firebase.firestore().collection('user_profiles').doc(user.uid).get().then(function (snap) {
@@ -271,6 +460,16 @@
           if (d && d.onboarding && d.onboarding.debateExperience) {
             applyExperience(d.onboarding.debateExperience);
             lsMark(user.uid);
+            // Questions are done. The face may not be: everyone who signed
+            // up before the face step shipped lands here, and an account
+            // with no avatarIdentity is exactly the row that renders as a
+            // generated marble on the leaderboard.
+            if (avAsked(user.uid)) return;
+            if (d.avatarIdentity || hasLocalFace()) { avMark(user.uid); return; }
+            setTimeout(function () {
+              if (avAsked(user.uid)) return;
+              mount(user.uid, { avatarOnly: true });
+            }, 900);
             return;
           }
           // Small settle delay so we never pop mid page-transition.
