@@ -158,7 +158,16 @@ const STALE_PEER_MS = 3 * 60 * 1000;   // 3 min: well past the 60s AI fallback
 // other; at ~10 DAU a permanent mutual skip deadlocks the whole queue
 // ("1 in queue" forever, no spawn). 5 min is long enough to not nag
 // within a sitting, short enough to self-heal.
-const SKIP_TTL_MS = 5 * 60 * 1000;
+// 2026-08-24 (Aidan): 5 min was long enough that a misclick cost you the
+// only other person awake. Two minutes, but a SECOND pass on the same
+// person stops expiring: once is a slip, twice is an answer.
+const SKIP_TTL_MS = 2 * 60 * 1000;
+const SKIP_HARD_COUNT = 2;
+// A match that actually opened a room blocks re-offering for a round's
+// length. Without this the pair you just entered a room with is still
+// eligible, sorts to the front by joinedAt, and gets proposed back to you
+// while you are literally in the room with them.
+const MATCH_SKIP_TTL_MS = 30 * 60 * 1000;
 const REAPER_MS     = 6 * 60 * 1000;   // 6 min: anything older is obviously dead
 const REAPER_THROTTLE_MS = 60 * 1000;  // run the sweep at most once a minute
 let lastReaperAt = 0;
@@ -182,6 +191,12 @@ function tsMs(t) {
 function skipActive(data, uid) {
   const skips = Array.isArray(data?.skipUids) ? data.skipUids : [];
   if (!skips.includes(uid)) return false;
+  // Passed on twice: permanent, never re-proposed.
+  const passes = Number(data?.skipCount && data.skipCount[uid]) || 0;
+  if (passes >= SKIP_HARD_COUNT) return true;
+  // Currently in a room together.
+  const matchAt = data?.matchSkipAt && data.matchSkipAt[uid];
+  if (matchAt && (Date.now() - tsMs(matchAt)) <= MATCH_SKIP_TTL_MS) return true;
   const at = data?.skipAt && data.skipAt[uid];
   const t = tsMs(at);
   if (!t) return false;              // no stamp (legacy doc) = expired
@@ -614,11 +629,17 @@ export default async (request) => {
             tx.update(peerRef, revert);
             return { ok: true, declined: true, autoReverted: true };
           }
-          tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
+          tx.update(myRef, {
+            ...revert,
+            skipUids: FieldValue.arrayUnion(peerUid),
+            ['skipAt.' + peerUid]: FieldValue.serverTimestamp(),
+            ['skipCount.' + peerUid]: FieldValue.increment(1),
+          });
           tx.update(peerRef, {
             ...revert,
             skipUids: FieldValue.arrayUnion(myUid),
             ['skipAt.' + myUid]: FieldValue.serverTimestamp(),
+            ['skipCount.' + myUid]: FieldValue.increment(1),
             lastPassBy: shortName(mine),
             lastPassAt: FieldValue.serverTimestamp(),
           });
@@ -642,8 +663,19 @@ export default async (request) => {
           consents,
           pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
         };
-        tx.update(myRef, finals);
-        tx.update(peerRef, finals);
+        // Per-side, not in `finals`: each doc skips the OTHER uid. This is
+        // what stops the matcher handing you back the person you are in a
+        // room with the moment either side requeues.
+        tx.update(myRef, {
+          ...finals,
+          skipUids: FieldValue.arrayUnion(peerUid),
+          ['matchSkipAt.' + peerUid]: FieldValue.serverTimestamp(),
+        });
+        tx.update(peerRef, {
+          ...finals,
+          skipUids: FieldValue.arrayUnion(myUid),
+          ['matchSkipAt.' + myUid]: FieldValue.serverTimestamp(),
+        });
         return { ok: true, matched: true, room: mine.room };
       });
       // The room just opened, so this is where guest rounds are spent — one
@@ -927,9 +959,13 @@ export default async (request) => {
         matchedWithName: peerShort,
         matchedWithPhoto: peerPhoto,
         matchedWithAvatar: peerAvatar,
+        skipUids: FieldValue.arrayUnion(peerUid),
+        ['matchSkipAt.' + peerUid]: FieldValue.serverTimestamp(),
       });
       tx.update(peerRef, {
         ...matched,
+        skipUids: FieldValue.arrayUnion(myUid),
+        ['matchSkipAt.' + myUid]: FieldValue.serverTimestamp(),
         matchedWith: myUid,
         matchedWithName: myShort,
         matchedWithPhoto: myPhoto,

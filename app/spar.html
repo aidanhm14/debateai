@@ -2206,11 +2206,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // counts while its skipAt stamp is fresh (5 min). Legacy docs with
   // bare skipUids arrays and no stamp read as expired, so old ghosts
   // can't deadlock the queue.
-  var SKIP_TTL_MS = 5 * 60 * 1000;
+  // Mirrors spar-pair.mjs. Both sides must agree or the client filters on
+  // rules the server no longer enforces (or worse, POSTs pairs it refuses).
+  var SKIP_TTL_MS = 2 * 60 * 1000;
+  var SKIP_HARD_COUNT = 2;          // passed on twice = never re-proposed
+  var MATCH_SKIP_TTL_MS = 30 * 60 * 1000;  // already in a room together
+  var DECLINE_COOLDOWN_MS = 15 * 1000;     // no auto-proposal right after a pass
+  function stampMs(at){
+    return (at && typeof at.toMillis === 'function') ? at.toMillis()
+         : (at && at.seconds != null) ? at.seconds * 1000 : 0;
+  }
   function docSkips(data, uid){
     if (!data || !uid) return false;
     var arr = Array.isArray(data.skipUids) ? data.skipUids : [];
     if (arr.indexOf(uid) < 0) return false;
+    var passes = Number(data.skipCount && data.skipCount[uid]) || 0;
+    if (passes >= SKIP_HARD_COUNT) return true;
+    var mAt = stampMs(data.matchSkipAt && data.matchSkipAt[uid]);
+    if (mAt && (Date.now() - mAt) <= MATCH_SKIP_TTL_MS) return true;
     var at = data.skipAt && data.skipAt[uid];
     var t = (at && typeof at.toMillis === 'function') ? at.toMillis()
           : (at && at.seconds != null) ? at.seconds * 1000 : 0;
@@ -4878,6 +4891,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   function sendConsent(peerUid, accept, auto){
     if (!firebaseAuth || !firebaseAuth.currentUser) return;
+    // A human pass buys a breather. Without it the poll loop proposes the
+    // next person in the same second, which reads as the queue arguing with
+    // you. A timer-fired pass is nobody's decision, so it earns nothing.
+    if (!accept && !auto) state.declineUntil = Date.now() + DECLINE_COOLDOWN_MS;
     try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
     firebaseAuth.currentUser.getIdToken().then(function(idToken){
       return fetch('/.netlify/functions/spar-pair', {
@@ -5041,6 +5058,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }
       updateDiag({ peers: others.length });
       if (others.length === 0) return;
+      // Counts and the waiting list above are already updated; only the
+      // automatic proposal is held, so the page still shows who is around.
+      if (Date.now() < (state.declineUntil || 0)){
+        updateDiag({ last: 'cooldown after pass' });
+        return;
+      }
       others.sort(function(a, b){
         var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
         var bs = (b.data().joinedAt && b.data().joinedAt.seconds) || 0;
