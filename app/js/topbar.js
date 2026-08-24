@@ -1941,15 +1941,28 @@
      on screen: they built an avatar (which outranks the Google photo),
      or there is no photo, or the photo we tried failed. A Google user
      with a working photo and no custom avatar pays nothing. */
-  function paintTopbarFace(host, u){
-    var built = false;
-    try {
-      var avatarValue = localStorage.getItem('debatable-avatar');
-      if (!avatarValue) avatarValue = localStorage.getItem('debate' + 'it-avatar');
-      built = !!avatarValue;
-    } catch(e){}
+  /* The three keys the avatar engine can be holding an identity in, in
+     the order DBAvatar.getPublicIdentity() prefers them. This probe has to
+     agree with that function or the bar disagrees with every other surface
+     on the site about who somebody is.
 
-    if (!built && u.photoURL){
+     2026-08-24: it did. The probe read only the PORTRAIT key, so a debater
+     whose avatar is a LIVE one (the masked arena design, written by the
+     cam builder under its own key) counted as having built nothing, and
+     the bar fell through to their Google photo. Their profile, the
+     leaderboard and every ballot showed the mask; the topbar showed a
+     holiday snap. Reported with a screenshot of exactly that pair. */
+  var AVATAR_KEYS = ['debatable-live-avatar-v1', 'debatable-avatar', 'debate' + 'it-avatar'];
+  function hasBuiltAvatar(){
+    try {
+      for (var i = 0; i < AVATAR_KEYS.length; i++){
+        if (localStorage.getItem(AVATAR_KEYS[i])) return true;
+      }
+    } catch(e){}
+    return false;
+  }
+  function paintTopbarFace(host, u){
+    if (!hasBuiltAvatar() && u.photoURL){
       var img = document.createElement('img');
       img.alt = ''; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
@@ -1959,8 +1972,11 @@
       img.src = u.photoURL;
       host.appendChild(img);
       // Building an avatar mid-session should show up here without a
-      // reload, and this path has no engine listening yet.
+      // reload, and this path has no engine listening yet. Both events,
+      // because the two builders fire different ones: the portrait
+      // builder dispatches -change, the cam builder dispatches -design.
       window.addEventListener('debatable-avatar-change', toEngine, { once: true });
+      window.addEventListener('debatable-avatar-design', toEngine, { once: true });
       return;
     }
     withAvatarEngine(host, u);
