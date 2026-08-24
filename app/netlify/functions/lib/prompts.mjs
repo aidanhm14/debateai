@@ -5,6 +5,7 @@
 // Resolver helper (shared by claude.mjs, gemini.mjs, grok.mjs). Returns
 // the resolved library text, or null if the id isn't known.
 import { ADJUDICATION_CORE } from './adjudication.mjs';
+import { deliveryBlock, takeDelivery } from './judge-delivery.mjs';
 
 export function resolvePrompt(promptId, promptVars) {
   if (!promptId || !PROMPT_LIBRARY[promptId]) return null;
@@ -22,13 +23,32 @@ export function resolvePrompt(promptId, promptVars) {
 
 // Mutates `body` in place: strips _promptId/_promptVars and prepends the
 // resolved library text to body.system. Used by each brain endpoint.
+// Prompt ids that produce a ballot a debater reads, so the delivery
+// controls (manner + length) apply to them. singleJudgeBallot is the
+// JSON verdict + rfd; fullWrittenBallot is the long-form second beat.
+// The panel-deliberation sim is deliberately NOT here: it is a simulated
+// three-judge discussion, a different artifact from "the ballot", and a
+// kind/brutal register on a deliberation transcript is meaningless.
+export const JUDGE_PROMPT_IDS = new Set(['singleJudgeBallot', 'fullWrittenBallot']);
+
 export function applyPromptLibrary(body) {
   const promptId = body._promptId;
   const promptVars = body._promptVars;
   delete body._promptId;
   delete body._promptVars;
-  const libText = resolvePrompt(promptId, promptVars);
+  let libText = resolvePrompt(promptId, promptVars);
   if (!libText) return;
+  // A judge ballot gets the delivery block prepended so it leads the
+  // ballot method: how it is written, then how it is decided. The
+  // allow-listed manner/length pair is consumed HERE so it never reaches
+  // the provider as an unknown top-level key. This is the /practice and
+  // /voice-rfd path; the /judge and live-round path carries no promptId
+  // and gets its delivery block in claude.mjs off _feature instead, so
+  // the two never both fire. The wall is the same either way: manner
+  // changes wording, never the call, the points, or which flaws land.
+  if (JUDGE_PROMPT_IDS.has(promptId)) {
+    libText = deliveryBlock(takeDelivery(body)) + '\n\n' + libText;
+  }
   if (typeof body.system === 'string') {
     body.system = libText + (body.system ? '\n\n' + body.system : '');
   } else if (Array.isArray(body.system)) {

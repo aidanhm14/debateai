@@ -2618,6 +2618,21 @@ function renderPrepRoomPanel(layout, panelSide, opts) {
    pools: sampled LD/PF/Policy lists + NSDA paradigm standards). Lines in
    quotes are the register real judges use in their own paradigms. The
    lay/flay/flow spectrum mirrors how PF pools actually get described. */
+// Judge DELIVERY option labels. LABEL MIRROR ONLY: the real prompt text
+// and the wall (manner changes wording, never the call or the points)
+// live server-side in lib/judge-delivery.mjs. Keep these keys identical
+// to the server allow-list.
+var JUDGE_MANNERS = [
+{ key: 'kind', label: 'Kind', desc: 'Same call, gentler words' },
+{ key: 'plain', label: 'Straight', desc: 'Neutral chair' },
+{ key: 'blunt', label: 'Brutal', desc: 'Says it hard' }];
+
+var JUDGE_DETAILS = [
+{ key: 'short', label: 'Short', desc: 'The call and the reason' },
+{ key: 'medium', label: 'Medium', desc: 'The standard ballot' },
+{ key: 'extensive', label: 'Extensive', desc: 'Argument by argument' }];
+
+
 var JUDGE_PARADIGMS = {
   flow: {
     label: 'Tab / Flow Judge',
@@ -3828,6 +3843,11 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // substitutions so the static prompt lives server-side.
   if (opts && opts.promptId) body._promptId = opts.promptId;
   if (opts && opts.promptVars) body._promptVars = opts.promptVars;
+  // Judge delivery pair (manner + length). Sent only by ballot call
+  // sites; the server allow-lists both and drops anything else. Harmless
+  // on a non-judge prompt: the server strips the fields either way.
+  if (opts && opts.judgeManner) body._judgeManner = opts.judgeManner;
+  if (opts && opts.judgeDetail) body._judgeDetail = opts.judgeDetail;
   var currentEndpoint = brain.endpoint;
   // Caller can pass an AbortSignal via opts.signal to cancel a stalled
   // generation. Used by speech callsites with a watchdog that aborts
@@ -6021,6 +6041,46 @@ function App() {
     try {return localStorage.getItem('debateos-judge-paradigm') || 'flow';} catch {return 'flow';}
   });
   var saveJudgeParadigm = (k) => {setJudgeParadigm(k);try {localStorage.setItem('debateos-judge-paradigm', k);} catch {}};
+  // Judge DELIVERY: how the ballot is written (manner) and how long it
+  // runs (detail). Server-side allow-list in lib/judge-delivery.mjs is the
+  // authority; these are label + persistence only. Same localStorage keys
+  // /judge uses, so a debater's preference carries across both surfaces.
+  // The wall the server enforces: manner changes wording, never the call,
+  // the speaker points, or which flaws get named. A weak speech scores
+  // low in every manner.
+  var [judgeManner, setJudgeMannerState] = useState(() => {
+    try {return localStorage.getItem('debateos-judge-manner') || 'plain';} catch {return 'plain';}
+  });
+  var setJudgeManner = (k) => {setJudgeMannerState(k);try {localStorage.setItem('debateos-judge-manner', k);} catch {}};
+  var [judgeDetail, setJudgeDetailState] = useState(() => {
+    try {return localStorage.getItem('debateos-judge-detail') || 'medium';} catch {return 'medium';}
+  });
+  var setJudgeDetail = (k) => {setJudgeDetailState(k);try {localStorage.setItem('debateos-judge-detail', k);} catch {}};
+  // Shared renderer for the two delivery controls (manner + length), used
+  // by both the simple wizard and the classic paradigm block. Two small
+  // segmented rows; the picked chip carries the accent. `compact` centers
+  // it for the wizard's card grid.
+  var renderDeliveryControls = function (compact) {
+    var seg = function (opts, cur, set, groupLabel) {
+      return el('div', { style: { display: 'flex', flexDirection: 'column', gap: 5, alignItems: compact ? 'center' : 'flex-start' } },
+      el('span', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--c-muted)' } }, groupLabel),
+      el('div', { style: { display: 'inline-flex', flexWrap: 'wrap', gap: 6, justifyContent: compact ? 'center' : 'flex-start' } },
+      opts.map(function (o) {
+        var on = cur === o.key;
+        return el('button', { key: o.key, onClick: function () {set(o.key);}, title: o.desc, style: {
+            padding: '6px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '.76rem', fontWeight: on ? 800 : 600,
+            background: on ? '#ef4444' : 'var(--c-surface3)', color: on ? '#fff' : 'var(--c-text)',
+            border: '1px solid ' + (on ? '#ef4444' : 'var(--c-border3)'), transition: 'background .15s, border-color .15s'
+          } }, o.label);
+      })
+      )
+      );
+    };
+    return el('div', { style: { display: 'flex', gap: 22, flexWrap: 'wrap', justifyContent: compact ? 'center' : 'flex-start', marginTop: 12 } },
+    seg(JUDGE_MANNERS, judgeManner, setJudgeManner, 'How it talks to you'),
+    seg(JUDGE_DETAILS, judgeDetail, setJudgeDetail, 'How much feedback')
+    );
+  };
   // Custom paradigm text. Lets the user paste a real Tabroom paradigm
   // (or coach notes) and override the preset picker. This is how circuit
   // debaters actually prep: "I'm in front of Judge Chen at Harvard, here's
@@ -8306,7 +8366,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ts = window.TypeStream && window.TypeStream.create(setSecondOpinionText, { cps: 120 });
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setSecondOpinionText(chunk);}, otherBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' },
+        judgeManner: judgeManner, judgeDetail: judgeDetail
       });
       if (ts) ts.done();
       setSecondOpinionText(fb);
@@ -8372,7 +8433,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         var raw = '';
         await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;}, brainKey, {
           promptId: 'singleJudgeBallot',
-          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
+          promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' },
+          judgeManner: judgeManner, judgeDetail: judgeDetail
         });
         return { brain: brainKey, raw, ballot: parseBallot(raw), error: null };
       } catch (e) {
@@ -8409,7 +8471,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var raw = '';
       var fb = await callAI('', verdictLines + '\n\nFull round transcript:\n\n' + tx, (chunk) => {raw = chunk;setDeepBallot(chunk);}, 'claude', {
         promptId: 'fullWrittenBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, formatJudgingCriteria: fmt.judging || '' }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, formatJudgingCriteria: fmt.judging || '' },
+        judgeManner: judgeManner, judgeDetail: judgeDetail
       });
       setDeepBallot((fb || '').trim());
     } catch (e) {
@@ -8440,7 +8503,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
       var ballotBrain = judgeBrain || brain;
       var fb = await callAI('', paradigmNote + 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setFeedback(chunk);}, ballotBrain, {
         promptId: 'singleJudgeBallot',
-        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' }
+        promptVars: { fmtName: fmt.name, motion: motion, sideLabel: fmt.sideLabels[side] || side, audienceRegister: ballotAudienceRegister, formatJudgingCriteria: fmt.judging || '' },
+        judgeManner: judgeManner, judgeDetail: judgeDetail
       });
       if (ts) ts.done();
       setFeedback(fb);
@@ -8462,7 +8526,10 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
         logRoundGeneration(allLog, fb, parsed);
         // Fire the long-form written ballot now that the verdict is
         // fixed. Fire-and-forget; the card streams in when it lands.
-        try {genDeepBallot(allLog, parsed);} catch (e) {}
+        // Short means short: the reader asked for the call and the reason
+        // and no full write-up, so the second beat does not run at all. A
+        // 150-word ballot followed by a 1,000-word one is not a short one.
+        try {if (judgeDetail !== 'short') genDeepBallot(allLog, parsed);} catch (e) {}
       } catch {
         // Fallback: save as unstructured. The round still happened and is
         // still rateable, so it is still worth capturing.
@@ -10188,7 +10255,8 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' } },
   el('button', { onClick: () => setSimpleModal('judge'), style: { background: 'none', border: 'none', color: '#ef4444', fontFamily: 'inherit', fontSize: '.76rem', cursor: 'pointer', textDecoration: 'underline' } }, 'More judge styles'),
   customParadigm.trim() && el('span', { style: { fontSize: '.7rem', color: 'var(--danger-text,#fca5a5)', fontWeight: 600 } }, '· custom judge paradigm active')
-  )
+  ),
+  renderDeliveryControls(false)
   ),
   el('div', { style: { marginBottom: 26 } },
   simpleStepHead(4, 'Language'),
@@ -10214,6 +10282,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     reviewRow('Language', (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName),
     reviewRow('Opponent', 'AI'),
     reviewRow('Judge', customParadigm.trim() ? audienceCopy('Custom paradigm', 'Custom judge preferences') : plainAudience ? (simpleJudgeCards.find((j) => j.key === judgeParadigm) || {}).title || 'Balanced' : (JUDGE_PARADIGMS[judgeParadigm] || {}).label || 'Balanced'),
+    reviewRow('Feedback', ((JUDGE_MANNERS.find((m) => m.key === judgeManner) || {}).label || 'Straight') + ' · ' + ((JUDGE_DETAILS.find((d) => d.key === judgeDetail) || {}).label || 'Medium')),
     reviewRow('Est. time', '~' + estMin + ' min', true)
     )
     );
@@ -11114,6 +11183,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   !isCounterExt && JUDGE_PARADIGMS[judgeParadigm] && !customParadigm.trim() && el('div', { style: { textAlign: 'center', marginTop: 8, fontSize: '.72rem', color: 'var(--c-text)', lineHeight: 1.4, maxWidth: 420, margin: '8px auto 0' } },
   JUDGE_PARADIGMS[judgeParadigm].short
   ),
+  !isCounterExt && el('div', { style: { display: 'flex', justifyContent: 'center', marginTop: 14 } }, renderDeliveryControls(true)),
   // Custom paradigm toggle + textarea. Paste a Tabroom paradigm, a
   // judge bio, or coach notes on a known judge. When present, it
   // overrides the preset picker for BOTH the AI opponent and the RFD.
