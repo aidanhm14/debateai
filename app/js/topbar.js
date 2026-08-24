@@ -273,7 +273,7 @@
     // the brand red. `bounty` renders its own filled-pill branch below;
     // it is deliberately not `cta`, which is the rail's single primary
     // action and lives at the far right edge.
-    { href: '/bounties', label: 'Bounty', bounty: true, compactKeep: true },
+    { href: '/bounties', label: 'Bounties', bounty: true, compactKeep: true },
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
