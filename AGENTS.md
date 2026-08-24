@@ -564,6 +564,17 @@ their live twins because this list told people to edit both. If you find
 a `netlify/functions/` directory at the repo root again, it is dead
 weight, not a mirror.
 
+## The graveyard (`graveyard/`)
+
+Cut work that might come back. One markdown file per removed thing, holding the
+exact markup and CSS plus restore notes; `graveyard/README.md` is the index and
+the format. Nothing there is served (Netlify publishes `app/`).
+
+Use it when a block comes out for taste or timing and the founder could ask for
+it back. Git history holds every deletion anyway, but only if you remember it
+happened and can name the commit; a file here is findable by reading the folder.
+Dead code, bugs and superseded infrastructure still get deleted properly.
+
 ## Things to ask before doing
 
 - New pricing tier (locked: Free, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, Program $550/season — consumer tiers still $0 in beta; the Lifetime tier was removed from pricing displays 2026-07-03, backend entitlement kept).
