@@ -6298,6 +6298,26 @@ function App() {
   var [aiError, setAiError] = useState('');
   var [aiPct, setAiPct] = useState(0); // generation progress %
   var [voiceEta] = useState(0); // TTS timing display
+  // Transcript visibility during the AI's turn.
+  //
+  // Measured 2026-08-24: 626 rounds started, 81 completed (12.9%), and
+  // incomplete rounds average exactly ONE speech. They die in the silent
+  // window after the user speaks, while the AI generates and the first
+  // TTS chunk is fetched. The patience cue built for that window fires on
+  // 65% of rounds and did not move completion.
+  //
+  // The AI's words are ALREADY streaming into aiText during that window.
+  // They were just collapsed behind a "Show transcript" button, so the
+  // person waiting saw an orb, a percentage and a reassurance line, but
+  // never the speech being written in front of them. Text arriving word by
+  // word is the most convincing evidence a thing is alive; hiding it was
+  // the one signal we had and did not use.
+  //
+  // Auto-opened on each AI turn now, and remembered: someone who closes it
+  // is telling us they would rather just listen, so we stop opening it.
+  var TX_AUTO_KEY = 'da-tx-auto';
+  var txAutoWanted = () => {try {return localStorage.getItem(TX_AUTO_KEY) !== '0';} catch (e) {return true;}};
+  var setTxAuto = (on) => {try {localStorage.setItem(TX_AUTO_KEY, on ? '1' : '0');} catch (e) {}};
   var [showTx, setShowTx] = useState(false);
   // 30s countdown gate before AI starts speaking. The countdown begins the
   // moment the first audio chunk is ready; the user presses Start (or the
@@ -7494,6 +7514,11 @@ function App() {
     } else {
       // AI turn. overlapped: start fetching audio for first half while still generating text
       orb.setMode('ai');setAiLoading(true);setAiText('');setAiError('');setAiPct(0);
+      // Show the speech as it is written, unless this person opted out.
+      if (txAutoWanted()) {
+        setShowTx(true);
+        try {if (typeof gtag === 'function') gtag('event', 'transcript_auto_shown', { format: fmt.name, speech: s.code, brain });} catch {}
+      }
       deliveredRef.current = { texts: [], spoken: 0, complete: false };
       // Defensive: SFX.thinking() returns a stop function. If SFX is
       // missing the method (the historic /js/sfx.js collision bug),
@@ -12314,7 +12339,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', {
       type: 'button',
       className: 'cta-ghost',
-      onClick: () => setShowTx((v) => !v),
+      onClick: () => setShowTx((v) => {setTxAuto(!v);return !v;}),
       style: { padding: '6px 14px', fontSize: '.7rem', marginTop: 0 },
       'aria-expanded': showTx
     }, showTx ? '▼ Hide transcript' : '▶ Show transcript'),
