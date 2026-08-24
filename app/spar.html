@@ -1117,6 +1117,23 @@ h1 em{color:var(--accent);font-style:normal}
   opacity:.6;transition:opacity .15s,color .15s;
 }
 .gate .ai-alt:hover{color:var(--text-dim);opacity:.85;background:transparent}
+/* Landscape phones (wide, ~360-430px tall). The sign-in gate is authored
+   for a tall portrait viewport, so centred it clips its own headline above
+   the top and drops both sign-in buttons below the fold. Top-align it and
+   tighten the headline stack so the two buttons sit on the first screen.
+   Scoped to short landscape only, so portrait, tablet, and desktop are
+   untouched. */
+@media (orientation:landscape) and (max-height:600px){
+  .wrap:not(.spar-search-layout){align-items:flex-start;padding:14px 22px 40px}
+  .gate .eyebrow{margin-bottom:8px}
+  .gate h2{font-size:1.15rem;margin-bottom:6px}
+  .gate p{font-size:.86rem;line-height:1.42;margin-bottom:12px}
+  .gate-live{margin:-2px 0 10px}
+  .gate-google,.gate-guest{padding-top:11px;padding-bottom:11px}
+  .gate-anon{margin-top:10px;padding:8px 11px;gap:11px}
+  .gate-anon-face{width:44px;height:44px}
+  .gate-disclaimer{margin-top:9px}
+}
 .discord-schedule-link{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   margin-top:12px;padding:9px 13px;
@@ -2549,11 +2566,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // authority is FOUNDING_CUTOFF_MS in lib/founding-comp.mjs, server side,
   // and a second copy of a date in client JS is what broke this.
   function openNudgeHtml(cls){
-    var EVENT_END = Date.parse('2026-08-30T04:00:00Z'); // Sat night ET
-    if (Date.now() >= EVENT_END) return '';
-    return '<a class="' + cls + '" href="/tournaments" data-cta="spar-open-nudge">'
-      + 'Saturday: The Debatable Open. Cash prizes, free to enter.'
-      + ' <span aria-hidden="true">&rarr;</span></a>';
+    // Removed from the /spar gate + searching rail 2026-08-24 (Aidan, on a
+    // screenshot of the gate: "deelete too"). The Debatable Open already
+    // rides the sitewide topbar ribbon, so an inline promo here was
+    // redundant and pushed the sign-in buttons below a short-landscape
+    // fold. Kept as a no-op so both call sites (gate, wait-rail) stay
+    // valid; restore by returning the anchor below.
+    return '';
+    // var EVENT_END = Date.parse('2026-08-30T04:00:00Z'); // Sat night ET
+    // if (Date.now() >= EVENT_END) return '';
+    // return '<a class="' + cls + '" href="/tournaments" data-cta="spar-open-nudge">'
+    //   + 'Saturday: The Debatable Open. Cash prizes, free to enter.'
+    //   + ' <span aria-hidden="true">&rarr;</span></a>';
   }
 
   // The gate is standing because a guest actually PLAYED rounds and ran
