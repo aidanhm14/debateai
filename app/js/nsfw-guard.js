@@ -38,7 +38,13 @@
 (function () {
   var VENDOR = '/vendor/nsfw/';
   var SAMPLE_MS = 1600;        // one classification pass per ~1.6s
-  var TRIP_CONSECUTIVE = 2;    // two flagged samples in a row → act
+  // ~6.4s of CONTINUOUS flagging before anything happens (2026-08-24).
+  // Two samples was a 3.2s window, which is the length of a stretch, a
+  // lean-back, or a reach for a glass of water. Sustained is the signal
+  // that separates a camera pointed at explicit content from a person
+  // moving their body: content stays in frame, a gesture does not. Any
+  // single clean sample resets the streak to zero.
+  var TRIP_CONSECUTIVE = 4;
 
   var modelPromise = null;
 
@@ -81,12 +87,28 @@
     }).catch(function () { return {}; });
   }
 
-  // porn/hentai are hard signals; porn+sexy combined catches partial
-  // undress. 'drawing'/'neutral' never flag. Thresholds sit high so a
-  // normal webcam at a desk (faces, walls, gestures) never trips —
-  // two consecutive flagged samples are required on top.
+  // Only a flagrant feed trips this. 'drawing'/'neutral' never flag.
+  //
+  // 2026-08-24, from a user report that it flagged EVERY TIME THEY
+  // RAISED THEIR ARMS TO STRETCH: `sexy` is not an explicit-content
+  // class. It fires on ordinary posture and skin, and a stretch is the
+  // worst case for it — arms up, torso open, shirt riding up — so it
+  // scored high enough on `sexy` ALONE to clear the old porn+sexy>=0.92
+  // sum while `porn` sat near zero. That rule had no floor on the porn
+  // term, so the combined branch was really a bare `sexy` branch.
+  // It now requires a substantial porn score of its own: `sexy` can
+  // reinforce a real signal, never carry a trip by itself.
+  //
+  // The hard thresholds moved up with it (porn .72 -> .90, hentai .78
+  // -> .92) because this layer is deliberately for the egregious case:
+  // a machine flag cuts the person's own camera and interrupts the
+  // round to ask their opponent about them, which is far too expensive
+  // to spend on a maybe. Everything short of flagrant is covered by the
+  // peer Report button, which a human aims on purpose.
   function isFlagged(sc) {
-    return (sc.porn >= 0.72) || (sc.hentai >= 0.78) || (sc.porn + sc.sexy >= 0.92);
+    return (sc.porn >= 0.90) ||
+           (sc.hentai >= 0.92) ||
+           (sc.porn >= 0.55 && sc.porn + sc.sexy >= 0.94);
   }
 
   function attach(opts) {
