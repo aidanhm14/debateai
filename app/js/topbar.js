@@ -2340,7 +2340,8 @@
   // All boundaries in ET (UTC-4 in August).
   //
   // Entry is FREE for everyone as of 2026-08-22, so the strip carries
-  // the prize and the date and nothing else. It has now said "Free to
+  // the prize, the date, and one trust token (no card), framed so a
+  // stranger reads a contest rather than a giveaway. It has now said "Free to
   // enter", then "$20", then "$5", then free again, which is exactly
   // why no price appears in this string any more: a ribbon on 60 pages
   // is the slowest surface to correct and the most expensive to get
@@ -2352,8 +2353,8 @@
   if (now > EVENT_OVER) return;
 
   var tail = (now >= EVENT_DAY)
-    ? 'Live today, rush hours 12, 3 & 6 PM ET'
-    : 'Free to enter';
+    ? 'rush hours 12, 3 & 6 PM ET'
+    : 'free to enter, no card';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2367,11 +2368,13 @@
     // the moment it wraps to a second line, which clips the wordmark
     // underneath it. One line on mobile is also the better hook.
     // The DATE rides in the hook, not the tail. Under 560px the tail is
-    // hidden, and "Win $100 →" with no day on it is an advert for
-    // nothing: a phone reader cannot tell whether this is a prize, a
-    // plan or a promo. The prize and the day are the two facts that
-    // have to survive the narrow case.
-    var msg = 'Win $100 · ' + (now >= EVENT_DAY ? 'today' : 'Sat Aug 29');
+    // hidden, so the hook alone has to carry the prize, the day, AND
+    // enough frame that "$100 free" does not read as a giveaway: it is
+    // "$100 for winning a debate", a prize you compete for, which is the
+    // whole anti-scam move (the tail adds "no card" where there is room).
+    // Keep the hook short enough that the date survives the ellipsis at
+    // ~320px: prize-frame plus day is the ceiling.
+    var msg = '$100 for winning a debate · ' + (now >= EVENT_DAY ? 'live today' : 'Sat Aug 29');
     var rest = ' · The Debatable Open · ' + tail;
     strip.innerHTML =
       '<a href="/tournaments" data-cta="open-strip">' + msg +
