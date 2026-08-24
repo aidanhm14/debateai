@@ -1923,7 +1923,14 @@
     // Programmatic hook for the landing live-pull module (and QA).
     window.DASparLive = {
       setAvailable: setAvailable,
-      isAvailable: function () { return available; }
+      isAvailable: function () { return available; },
+      // The viewer's own uid, published so sitewide cards can tell "someone
+      // is waiting" from "you are waiting". /api/live-now is shared-cached
+      // and therefore cannot personalise; its header says self-filtering is
+      // the client's job, and until now the only client doing it was the
+      // announce path a few lines below. live-popup.js had no auth access at
+      // all, so it offered a user their own open seat as an opponent.
+      uid: function () { return myUid || null; }
     };
     function goAvailable() {
       if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;

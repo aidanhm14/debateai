@@ -219,11 +219,42 @@
     setTimeout(function () { whenModalFree(fn, waited + 2000); }, 2000);
   }
 
+  /* Subtract yourself. /api/live-now is shared-cached and counts every
+     waiting doc, yours included, so a lone available user was told "1
+     waiting to spar" and sent to meet themselves. isAvailable() is the
+     exact answer for the background matcher; the uid scan covers a queue
+     joined on another surface, and is exact whenever the count fits
+     inside the sample the endpoint returns. */
+  function minusSelf(j) {
+    var n = Math.max(0, (j && j.count | 0) || 0);
+    if (!n) return 0;
+    var mine = false;
+    try { mine = !!(window.DASparLive && window.DASparLive.isAvailable && window.DASparLive.isAvailable()); } catch (e) {}
+    if (!mine) {
+      var me = '';
+      try {
+        if (window.DASparLive && window.DASparLive.uid) me = String(window.DASparLive.uid() || '');
+        if (!me) {
+          var fb = window.firebase;
+          if (fb && fb.apps && fb.apps.length && typeof fb.auth === 'function') {
+            var cu = fb.auth().currentUser;
+            me = (cu && cu.uid) ? String(cu.uid) : '';
+          }
+        }
+      } catch (e) {}
+      var rows = (j && j.debaters) || [];
+      for (var i = 0; me && i < rows.length; i++) {
+        if (rows[i] && String(rows[i].uid) === me) { mine = true; break; }
+      }
+    }
+    return Math.max(0, n - (mine ? 1 : 0));
+  }
+
   function pull(trigger) {
     fetch('/api/live-now', { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
-        var n = j && typeof j.count === 'number' ? j.count : 0;
+        var n = minusSelf(j);
         whenModalFree(function () {
           showCard(n, trigger);
           stamp(SNOOZE_KEY);

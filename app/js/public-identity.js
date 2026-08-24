@@ -617,6 +617,59 @@
     return promise;
   }
 
+  /* ── auto-hydrate ─────────────────────────────────────────────────
+     hydrate() was written to be the thing that makes a chosen name cross
+     devices, and it was exported and then called by NOBODY. Every surface
+     read forUser(), which reads the localStorage cache, so the Firestore
+     field this module writes on every save was write-only in practice.
+     Two consequences, both of which read to a user as "my name reset":
+     signing in on a second browser showed the generated alias with the
+     real name sitting in Firestore untouched, and clearing site data lost
+     a chosen name permanently. profile.html's save path even carries a
+     comment about "the next sign-in hydrate" repainting other surfaces —
+     a mechanism that did not exist.
+
+     Wiring it into each page would mean remembering it on every future
+     page, which is the same failure one level up. So the module does it
+     itself on auth state change, the pattern avatar-account.js already
+     proved next door. hydrate() is internally deduped and no-ops without
+     firebase, so a page that loads this file for forId() alone pays a
+     retry loop that gives up and nothing else. Signing OUT does not clear
+     the cache: the guest who is left behind keeps the name they picked,
+     and ownerOf() already stops one account inheriting another's. */
+  function bootHydrate(attempt) {
+    attempt = attempt || 0;
+    var fb = global.firebase;
+    if (!fb || typeof fb.auth !== 'function' || typeof fb.firestore !== 'function' ||
+        !fb.apps || !fb.apps.length) {
+      if (attempt < 20) global.setTimeout(function () { bootHydrate(attempt + 1); }, 400);
+      return;
+    }
+    try {
+      var hydrated = '';
+      fb.auth().onAuthStateChanged(function (user) {
+        if (!user || !user.uid) return;
+        // Named accounts only, and this is a cost gate rather than a
+        // policy one. notifications.js signs nearly every visitor in
+        // anonymously, so hydrating them would put one Firestore read
+        // behind every page view by every guest, and could mint a
+        // user_profiles doc per throwaway uid. A guest's chosen name is
+        // already safe in localStorage and rides the anonymous uid up on
+        // their first real sign-in, which linking preserves.
+        if (user.isAnonymous) return;
+        // onAuthStateChanged can re-fire for the same account (token
+        // refresh, a second listener registering). One read per account
+        // per page is the budget.
+        if (hydrated === user.uid) return;
+        hydrated = user.uid;
+        hydrate(user);
+      });
+    } catch (e) {
+      if (attempt < 20) global.setTimeout(function () { bootHydrate(attempt + 1); }, 400);
+    }
+  }
+  try { bootHydrate(0); } catch (e) {}
+
   global.DBIdentity = {
     forId: forId,
     forUser: forUser,

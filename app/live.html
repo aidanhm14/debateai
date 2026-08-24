@@ -3228,32 +3228,64 @@ button{font-family:inherit}
 
   // ── Profile (localStorage). Surfaced in the Manage tab and prefilled
   // into the accept-confirmation modal so users don't retype contact
-  // info every match. New profiles receive a stable randomized public
-  // name + handle. Existing choices stay untouched.
+  // info every match.
+  //
+  // Name and handle are NOT stored here. They used to be: this page took a
+  // one-time copy of DBIdentity at first visit and then read its own copy
+  // forever, so renaming yourself anywhere else on the site left /live
+  // showing the old alias with no way to reconcile them. Every other
+  // surface (spar, practice, live-round, community, messages, the topbar)
+  // resolves the name live through forUser() on each render; this page was
+  // the only one holding a private copy, and it was the only one that
+  // disagreed. The local record now keeps what is genuinely local to /live
+  // (avatar, age, location, style, bio, contact) and the identity is
+  // overlaid on read.
+  //
+  // forUser(), never forBrowser(). forBrowser() is forId(browserSeed()):
+  // it returns the GENERATED alias and cannot see a chosen name at all,
+  // so a signed-out visitor who picked a name would have kept reading the
+  // random one here. forUser(null) resolves the guest's own chosen name
+  // and falls back to exactly the same generated pair when there isn't
+  // one, so it is strictly the better call on both paths.
+  function liveIdentity(){
+    if (!window.DBIdentity) return null;
+    try { return window.DBIdentity.forUser(currentUser || null); }
+    catch(e){ return null; }
+  }
   function loadProfile(){
     try {
       var profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null') || {};
-      var shouldRefreshRandom = !!(
-        profile.randomIdentity
-        && currentUser
-        && profile.identityUid !== currentUser.uid
-      );
-      if (window.DBIdentity && ((!profile.name || !profile.handle) || shouldRefreshRandom)){
-        var identity = currentUser
-          ? window.DBIdentity.forUser(currentUser)
-          : window.DBIdentity.forBrowser();
-        if (!profile.name || shouldRefreshRandom) profile.name = identity.name;
-        if (!profile.handle || shouldRefreshRandom) profile.handle = identity.username;
-        profile.randomIdentity = true;
-        profile.identityUid = currentUser ? currentUser.uid : 'browser';
-        localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+      // One-time carry-up. randomIdentity===false means the user typed a
+      // name into this page's own editor, which is a real choice and must
+      // not be thrown away just because the storage moved. It is pushed
+      // into the shared identity instead, so it now shows everywhere
+      // rather than only here. A still-random copy is dropped silently.
+      if (window.DBIdentity && !profile.identityMoved){
+        if (profile.name && profile.randomIdentity === false){
+          try { window.DBIdentity.setName(profile.name, profile.handle || undefined, currentUser || null); } catch(e){}
+        }
+        profile.identityMoved = true;
+        delete profile.name; delete profile.handle;
+        delete profile.randomIdentity; delete profile.identityUid;
+        try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch(e){}
       }
+      var id = liveIdentity();
+      if (id){ profile.name = id.name; profile.handle = id.username; }
       return profile;
     }
     catch(e){ return {}; }
   }
+  // Strip the overlaid identity before persisting, so a caller that does
+  // loadProfile() -> mutate -> saveProfile() cannot quietly re-create the
+  // frozen copy this change exists to remove.
   function saveProfile(p){
-    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p || {})); } catch(e){}
+    try {
+      var out = Object.assign({}, p || {});
+      delete out.name; delete out.handle;
+      delete out.randomIdentity; delete out.identityUid;
+      out.identityMoved = true;
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(out));
+    } catch(e){}
   }
 
   // ── Jitsi room URL, deterministic per challenge so both sides land
@@ -5266,6 +5298,25 @@ button{font-family:inherit}
     el.addEventListener('input',  function(){ profileFormDirty = true; });
     el.addEventListener('change', function(){ profileFormDirty = true; });
   });
+  /* The topbar's "Change your name" is reachable FROM this page, and the
+     identity can also be refreshed by a cross-device hydrate landing after
+     load. Both fire dbidentity:change, so repaint rather than leave this
+     card showing a name the rest of the page has already stopped using.
+     A form the user is mid-edit is left alone: repainting under someone's
+     cursor would throw away what they were typing. */
+  window.addEventListener('dbidentity:change', function(){
+    try {
+      var p = loadProfile();
+      renderAvatar(p);
+      if (!profileFormDirty) {
+        var n = document.getElementById('profileName');
+        var h = document.getElementById('profileHandle');
+        if (n) n.value = p.name || '';
+        if (h) h.value = p.handle || '';
+      }
+    } catch(e){}
+  });
+
   function fillProfileForm(p){
     document.getElementById('profileName').value     = p.name || '';
     document.getElementById('profileHandle').value   = p.handle || '';
@@ -5348,21 +5399,35 @@ button{font-family:inherit}
   // Profile form wiring
   document.getElementById('profileSave').addEventListener('click', function(){
     var p = loadProfile();
-    p.name     = document.getElementById('profileName').value.trim();
-    p.handle   = document.getElementById('profileHandle').value.trim().replace(/^@/, '').replace(/\s+/g,'');
     p.age      = document.getElementById('profileAge').value.trim();
     p.location = document.getElementById('profileLocation').value.trim();
     p.style    = document.getElementById('profileStyle').value;
     p.bio      = document.getElementById('profileBio').value.trim();
     p.contact  = document.getElementById('profileContact').value.trim();
-    p.randomIdentity = false;
-    p.identityUid = currentUser ? currentUser.uid : '';
+
+    // The name and handle go to the shared identity, not to this page's
+    // record, so a rename here is the same rename the topbar, the queue,
+    // the leaderboard and the ballot will use. Rejected names keep the
+    // rest of the save: someone fixing their contact number should not
+    // lose it to a two-character name.
+    var rawName   = document.getElementById('profileName').value;
+    var rawHandle = document.getElementById('profileHandle').value.replace(/^@/, '');
+    var nameErr = '';
+    if (window.DBIdentity){
+      var check = window.DBIdentity.validateName(rawName);
+      if (check.ok) window.DBIdentity.setName(check.name, rawHandle, currentUser || null);
+      else nameErr = check.error;
+    }
+
     saveProfile(p);
     profileFormDirty = false; // saved state and form now agree again
-    if (p.handle) handleEl.value = p.handle; // mirror into post-form so reposting auto-fills
-    renderAvatar(p);
-    try { gtag('event', 'live_profile_save', { has_avatar: !!p.avatar, has_contact: !!p.contact }); } catch(e){}
-    toast('Profile saved.');
+    var after = loadProfile();
+    document.getElementById('profileName').value   = after.name || '';
+    document.getElementById('profileHandle').value = after.handle || '';
+    if (after.handle) handleEl.value = after.handle; // mirror into post-form so reposting auto-fills
+    renderAvatar(after);   // also repaints the name + @handle in the card head
+    try { gtag('event', 'live_profile_save', { has_avatar: !!after.avatar, has_contact: !!after.contact }); } catch(e){}
+    toast(nameErr || 'Profile saved.');
   });
 
   // Avatar upload, canvas-resize, then save base64 onto the profile

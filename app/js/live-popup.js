@@ -326,12 +326,48 @@
     });
   }
 
+  /* Who is holding this browser. /api/live-now is shared-cached across
+     every caller, so it cannot personalise its payload, and its header
+     says so: self-filtering is the client's job. This card had no auth
+     access whatsoever, so it did the one thing the queue must never do
+     and offered a user their own open seat as an opponent to debate.
+     DASparLive is the authority (it owns the queue doc and rides nearly
+     every page); firebase is the fallback for a page that loads this
+     card before the matcher. Read-only in both cases: nothing here may
+     trigger an SDK load just to render a suggestion. */
+  function selfUid() {
+    try {
+      if (window.DASparLive && window.DASparLive.uid) {
+        var u = window.DASparLive.uid();
+        if (u) return String(u);
+      }
+    } catch (e) {}
+    try {
+      var fb = window.firebase;
+      if (fb && fb.apps && fb.apps.length && typeof fb.auth === 'function') {
+        var cu = fb.auth().currentUser;
+        if (cu && cu.uid) return String(cu.uid);
+      }
+    } catch (e) {}
+    return '';
+  }
+
   function waitingItem() {
     return getJSON('/api/live-now').then(function (j) {
-      var list = (j && j.debaters) || [];
+      var all = (j && j.debaters) || [];
+      var me = selfUid();
+      // Drop yourself before anything counts you: the pick, the "and N
+      // others" line, and the decision to show the card at all. Being the
+      // only person in the queue must read as nobody waiting, not as one
+      // stranger who happens to share your name.
+      var list = [];
+      for (var k = 0; k < all.length; k++) {
+        if (all[k] && all[k].uid && (!me || String(all[k].uid) !== me)) list.push(all[k]);
+      }
+      if (!list.length) return null;
       var pick = null;
       for (var i = 0; i < list.length; i++) {
-        if (list[i] && list[i].uid && unseen('wait:' + list[i].uid)) { pick = list[i]; break; }
+        if (unseen('wait:' + list[i].uid)) { pick = list[i]; break; }
       }
       if (!pick) return null;
       var name = pick.name || 'Someone';
