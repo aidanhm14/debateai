@@ -282,7 +282,9 @@
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
-    { href: '/judge',         label: 'Judge', strong: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/judge',         label: 'Judge', strong: true },
     // 2026-07-02: Certificate + Schedule restored per the founder ("add more
     // back ... not too much") — high-intent product pillars: proof you
     // can earn, and the organized-round board when random live matching
@@ -290,7 +292,9 @@
     // not overflow VOICE AI again at laptop widths. (Two parallel
     // sessions both restored the pair, so the entries were briefly
     // duplicated on the live bar — deduped same day.)
-    { href: '/live',          label: 'Schedule'    },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/live',          label: 'Schedule'    },
     // 2026-08-10 (later, per the founder): the Watch button came OFF the rail
     // the same day it landed there — the bar was carrying one tab too
     // many. Same demotion shape as Money/Leaderboard on 2026-07-30: no
@@ -303,7 +307,9 @@
     // (the event engine) are the scale bets; utility rows stay small so
     // the hierarchy means something.
     { href: '/watch',         label: 'Watch', big: true },
-    { href: '/credentials',   label: 'Certificate' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint.
@@ -372,7 +378,9 @@
     // 2026-08-19: Money (/get-paid-to-debate) removed from the nav in the
     // same betting/points de-surfacing pass as Predict above. Page stays
     // live for direct links.
-    { href: '/judge-integrity',    label: 'Judging'     },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/judge-integrity',    label: 'Judging'     },
     // 2026-08-12: Leaderboard removed from every topbar surface. The
     // ranking system is not strong enough yet to deserve a permanent
     // rail tab, an Explore tile or a mobile-sheet entry. The page stays
@@ -425,7 +433,9 @@
     { head: 'Compete', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
-      { href: '/rounds',      label: 'Async rounds', strong: true, wip: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/rounds',      label: 'Async rounds', strong: true, wip: true },
       // 2026-08-11: the challenge board. A challenge is the one object a
       // stranger understands without knowing a format: someone claimed
       // something, take the other side. It is `big` because it is the
@@ -457,7 +467,9 @@
       // can be, since a tournament of teams needs the teams to exist
       // first); /tournament is the draw, the tab and the bracket.
       { href: '/partners',    label: 'Find a 2v2 partner' },
-      { href: '/tournament',  label: 'Enter a tournament' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/tournament',  label: 'Enter a tournament' },
       // 2026-08-19: a round nobody can stumble into. Same clock, same
       // transcript, same AI judge; the room is just kept off the live
       // board, the homepage band and the spectator feed. Sits here
@@ -490,7 +502,9 @@
       // good. `strong` because that ordering constraint makes discovery
       // time-critical in a way no other row here is.
       { href: '/claim',       label: 'Import your record', strong: true },
-      { href: '/debate-rating', label: 'How rating works' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/debate-rating', label: 'How rating works' },
     ]},
     // The other half of the old "Watch & compete". Spectating and
     // finding people are the same visit: someone here is not trying to
@@ -505,7 +519,9 @@
       // opinion panel measuring whether any of it moves anyone. Sits in
       // Watch rather than Site because a visitor arriving on it is
       // looking for rounds to watch, not for company pages.
-      { href: '/debate-shows', label: 'Debate shows' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/debate-shows', label: 'Debate shows' },
       // 2026-08-20: Money returns alongside the rail's Bet tab. It was
       // pulled in the same de-surfacing pass and comes back for the same
       // reason: it is the page that answers "how does money work here",
@@ -553,13 +569,17 @@
       // only prominent entry point the same day, when the landing's
       // globe stopped being a link to it. Sits next to Community
       // because both answer "who else is out there".
-      { href: '/atlas',       label: 'Debate atlas' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/atlas',       label: 'Debate atlas' },
       { href: '/community',   label: 'Community', strong: true },
       // Sits with Community and the Atlas: all three answer "who else is
       // out there and what do they want". This one is the only surface
       // where a visitor tells us what to run rather than reading what we
       // already picked, so it needs a nav entry to get any traffic.
-      { href: '/what-to-debate', label: 'Request a topic' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/what-to-debate', label: 'Request a topic' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
       { href: '/chat',        label: 'Chat and DMs' },
@@ -588,9 +608,13 @@
       // only entry here that sequences the others: each week hands off to
       // /learn, /coach, and /practice in order. Everything below is a
       // surface you have to already know you need.
-      { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
       { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
-      { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
       { href: '/flow',        label: 'Flow a speech', wip: true },
@@ -605,12 +629,16 @@
       // the shipped "Topics and topics". The jargon word sits second so
       // the layer yields "Browse topics" with casing intact.
       { href: '/topics',       label: 'Browse motions' },
-      { href: '/argument-coach', label: 'Argument coach' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/argument-coach', label: 'Argument coach' },
       // 2026-08-19: indexed, live, and reachable from no nav surface.
       // Sits in Train rather than Improve because it is prep reading
       // (what a judge rewards before you speak), not the /judge tool.
       { href: '/judge-paradigms', label: 'Judge paradigms' },
-      { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
     ]},
     { head: 'Site', links: [
       { href: '/pricing', label: 'Free vs Paid' },
