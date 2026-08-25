@@ -203,6 +203,21 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .vrow.c .vtrack i{animation-delay:.14s}
   @keyframes vGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
   @media(prefers-reduced-motion:reduce){.vtrack i{animation:none}}
+  .howbet{margin-bottom:26px}
+  .hb-h{font-size:clamp(21px,2.6vw,29px);line-height:1.12;font-weight:800;margin:2px 0 8px}
+  .hb-lede{font-size:.88rem;line-height:1.6;color:var(--dim);max-width:62ch;margin-bottom:16px}
+  .hb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  @media(max-width:700px){.hb-grid{grid-template-columns:1fr}}
+  .hb-card{background:var(--panel);border:1px solid var(--bd);border-radius:var(--r);padding:15px 16px;box-shadow:var(--shadow)}
+  .hb-k{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#dc2626);margin-bottom:6px}
+  .hb-card h3{font-size:.98rem;font-weight:800;letter-spacing:-.01em;margin-bottom:5px}
+  .hb-card p{font-size:.8rem;line-height:1.55;color:var(--dim)}
+  .hb-card a{color:var(--tx);text-decoration:underline;text-underline-offset:3px}
+  .hb-fine{margin-top:12px;font-size:.72rem;color:var(--faint);line-height:1.5}
+  .wcb{list-style:none;display:grid;gap:10px}
+  .wcb li{font-size:.8rem;line-height:1.5;color:var(--dim);padding-left:15px;position:relative}
+  .wcb li::before{content:'';position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent,#dc2626)}
+  .wcb li b{color:var(--tx)}
   .votecard .vfoot{margin-top:12px;padding-top:10px;border-top:1px solid var(--bd);font-size:.74rem;line-height:1.45;color:var(--faint)}
   .votecard .vfoot b{color:var(--dim)}
 
@@ -663,7 +678,7 @@ body.has-beta-strip{padding-top:84px}
         <!-- 2026-08-21: 'Bet' went onto the sitewide rail, so this page
              stopped being somewhere people arrive on purpose and became
              a front door. The board is the thing they came for. -->
-        <a class="primary" href="#markets">See the open markets</a>
+        <a class="primary" href="#markets">How betting works</a>
         <a class="secondary" href="/watch">Watch a round</a>
       </div>
       <p class="pts">Points are free and they never convert to money in either direction. Nothing here takes a card.</p>
@@ -673,22 +688,24 @@ body.has-beta-strip{padding-top:84px}
          first live market used to sit at 2,648px, nearly four screens
          down behind an explainer, so someone arriving from the rail
          read three screens about betting before seeing anything they
-         could bet on. Empty stays empty: the node only appears when the
-         board actually has one, and the example card below carries the
-         page when it does not. -->
+         could bet on. Empty stays empty: the node only appears when a
+         real round has a market open, and the rules card below carries
+         the page when it does not. -->
     <div id="heroMarket" class="heromkt" hidden></div>
-    <div class="votecard" aria-label="Example crowd vote on a finished round">
-      <div class="vq">Who convinced you?</div>
-      <div class="vsub">Example · every finished round ends here</div>
-      <div class="vrow p">
-        <div class="vrow-top"><span class="vrow-nm">Prop</span><span class="vrow-n">62%</span></div>
-        <div class="vtrack"><i style="width:62%"></i></div>
-      </div>
-      <div class="vrow c">
-        <div class="vrow-top"><span class="vrow-nm">Opp</span><span class="vrow-n">38%</span></div>
-        <div class="vtrack"><i style="width:38%"></i></div>
-      </div>
-      <p class="vfoot"><b>248 people voted.</b> The market settles on the judge's ballot, not on this. <b>When the two disagree, that is the round worth arguing about.</b></p>
+    <!-- 2026-08-25: this was an "example" crowd vote with 62/38 bars and
+         "248 people voted" printed under it. Labelled example or not, it is
+         a fabricated number sitting where a real one goes, on the one page
+         whose entire product is that the numbers mean something. Replaced
+         with the rules, which are true whether or not anyone is playing. -->
+    <div class="votecard" aria-label="Who can bet and how a market settles">
+      <div class="vq">Who can bet</div>
+      <div class="vsub">The whole rule set</div>
+      <ul class="wcb">
+        <li><b>Anyone watching.</b> Put points on the side you think the judge will call. You do not have to agree with them, you have to read the round right.</li>
+        <li><b>Either debater, on themselves.</b> You can back your own side. You cannot stake on your opponent, so nobody in a round can be paid for losing it.</li>
+        <li><b>Nobody, after the middle speech.</b> Betting locks halfway through, so no one backs a result they can already see.</li>
+      </ul>
+      <p class="vfoot"><b>The judge's written ballot settles it.</b> Winners split the pool, so the fewer people on your side, the more it pays. No verdict, everyone's points come back.</p>
     </div>
   </div>
 </div>
@@ -798,11 +815,66 @@ body.has-beta-strip{padding-top:84px}
         <a class="early-mail" href="mailto:aidandavidhollinger@gmail.com?subject=Betting%20feedback" data-cta="predict-early-email" onclick="try{gtag('event','predict_feedback_click',{via:'email'})}catch(e){}">or email us directly</a>
       </div>
     </aside>
-    <div class="seclbl"><span>Open markets</span><span id="openCount"></span></div>
-    <div id="openWrap"><div class="empty">Loading markets…</div></div>
+    <!-- ── What the board is, and what it is not (2026-08-25) ──────────
+         The "Open markets" board used to be the spine of this page and it
+         was furniture: seven cards a page load, minted by predict.mjs from
+         a motion bank, both sides seeded with 100 house points (hence the
+         flat 50/50 on every card), "0 predictions", counting down to a
+         verdict on a debate nobody had. Aidan: "details that are fake,
+         dont exist are bad here."
 
-    <div class="seclbl" style="margin-top:24px">Recently resolved</div>
-    <div id="resWrap" class="res"><div class="empty" style="padding:14px 0">No resolved markets yet.</div></div>
+         So the rules are the permanent content of this page and the
+         inventory is not. A market exists only where a round exists, the
+         section below appears only when one is actually open, and there is
+         no empty-board placeholder because a heading over nothing is the
+         same claim in a quieter voice. -->
+    <section class="howbet" aria-labelledby="howbetTitle">
+      <div class="seclbl"><span>How betting works</span></div>
+      <h2 id="howbetTitle" class="hb-h">A market opens when a real round starts.</h2>
+      <p class="hb-lede">Nothing here is generated. Two people take opposite sides of a motion on a live round, that round gets a market, and it closes on the judge's ballot. When nobody is debating, there is nothing to bet on, and this page says so instead of inventing something.</p>
+
+      <div class="hb-grid">
+        <div class="hb-card">
+          <div class="hb-k">Spectators</div>
+          <h3>Anyone watching can bet.</h3>
+          <p>Open a live round, pick the side you think the judge will call, stake points. It is a read on the round, not a vote for the side you agree with. Calling an underdog right is worth more than calling a favourite right, in payout and in rating.</p>
+        </div>
+        <div class="hb-card">
+          <div class="hb-k">Debaters</div>
+          <h3>You can back yourself.</h3>
+          <p>Either debater can put points on their own side of their own round. You cannot stake on your opponent, and the server refuses it rather than trusting the page, so nobody in a round can ever be paid for losing it.</p>
+        </div>
+        <div class="hb-card">
+          <div class="hb-k">The lock</div>
+          <h3>Betting closes mid-round.</h3>
+          <p>The market locks at the middle speech, while the result is still genuinely open. Late money cannot walk in once the round has obviously turned, which is what stops the board from being a formality.</p>
+        </div>
+        <div class="hb-card">
+          <div class="hb-k">Settlement</div>
+          <h3>The ballot decides, not us.</h3>
+          <p>The AI judge writes its decision on <a href="/judge-integrity">a rubric published before the round</a>, and that is what pays. Winners split the whole pool between them. If the round is never judged, every stake is returned at face value and nobody's rating moves.</p>
+        </div>
+      </div>
+
+      <!-- Stated because it is true and because the page's whole claim is
+           that its numbers mean something. lib/judgment.mjs stamps a live
+           round's ballot `participant` (it is written in a debater's own
+           browser), and predict.mjs only settles on `verdictSource:'server'`.
+           So a market on a live round refunds rather than pays, today. When
+           live ballots move server-side, delete this paragraph, not the
+           rule. -->
+      <p class="hb-fine"><b>One honest limit while this is being built.</b> A live round's ballot is still written in a debater's own browser, and a market cannot pay out on a verdict produced by someone in the round. Until that judging moves to our servers, markets on live rounds return every stake instead of paying, and nobody's rating moves.</p>
+      <p class="hb-fine">Points are free, cannot be bought, and never convert to money. Staking is 18+.</p>
+    </section>
+
+    <!-- Real inventory only. Both headings live in the DOM and stay hidden
+         until the board actually returns a market, so an empty state is an
+         absence rather than a promise. -->
+    <div class="seclbl" id="openLbl" hidden><span>Live now</span><span id="openCount"></span></div>
+    <div id="openWrap"></div>
+
+    <div class="seclbl" id="resLbl" style="margin-top:24px" hidden>Recently settled</div>
+    <div id="resWrap" class="res"></div>
   </div>
 
   <div class="rail">
@@ -856,7 +928,7 @@ body.has-beta-strip{padding-top:84px}
         </div>
         <div class="how-step">
           <div class="step-top"><div class="n">3</div><h3>The ballot lands</h3></div>
-          <p>Predictions close before the round ends, so nobody backs a known winner. Three judges vote on a rubric published before the round. <strong>Everyone who called it right shares the pool. Everyone who called it wrong loses what they put in.</strong></p>
+          <p>Predictions close at the middle speech, so nobody backs a known winner. The AI judge decides on <a href="/judge-integrity" style="color:inherit">a rubric published before the round</a>. <strong>Everyone who called it right shares the pool. Everyone who called it wrong loses what they put in.</strong></p>
           <div class="viz" aria-hidden="true">
             <div class="vchips">
               <span class="vchip blind">Side A</span><span class="vchip blind">Side B</span>
@@ -1244,12 +1316,15 @@ body.has-beta-strip{padding-top:84px}
     var open=(d.markets||[]).filter(function(m){return m.status==='open'||m.status==='resolving';});
     var res=(d.markets||[]).filter(function(m){return m.status==='settled';});
     $('openCount').textContent=open.length?(open.length+' live'):'';
-    // Honest empty state. Markets are not minted on a timer: one opens
-    // when a live round opens it, so an empty board means nobody is
-    // debating right now, not that something is loading. Point at the
-    // action that fills it instead of asking the user to keep refreshing.
-    $('openWrap').innerHTML = open.length ? open.map(marketCard).join('') : '<div class="empty">No markets open right now. One opens whenever a live round starts, so this board fills up when people are actually debating. <a href="/spar" style="color:var(--pro);font-weight:700">Start a round</a> and yours will be the first.</div>';
-    $('resWrap').innerHTML = res.length ? res.map(resolvedCard).join('') : '<div class="empty" style="padding:14px 0">No resolved markets yet.</div>';
+    // No empty state, by design. Every market on this board is one real
+    // live round; when none is running there is nothing to say about the
+    // inventory, and a heading over a "nothing here yet" box is still a
+    // section advertising itself. The rules block above carries the page
+    // instead, so both headings hide until there is something under them.
+    $('openLbl').hidden = !open.length;
+    $('resLbl').hidden = !res.length;
+    $('openWrap').innerHTML = open.length ? open.map(marketCard).join('') : '';
+    $('resWrap').innerHTML = res.length ? res.map(resolvedCard).join('') : '';
     if(d.leaderboard && d.leaderboard.length){
       $('lb').innerHTML=d.leaderboard.map(function(r,i){ return '<div class="lb-row'+(r.me?' me':'')+'"><span>'+(i+1)+'. '+(r.me?'<b>you</b>':esc(r.name))+'<span class="tier">'+esc(r.tier)+'</span></span><span class="rt">'+r.rating+'</span></div>'; }).join('');
     }
@@ -1362,6 +1437,7 @@ body.has-beta-strip{padding-top:84px}
       loadFails++;
       // Only show an error if we have nothing on screen yet; never wipe a good board on a transient poll failure.
       if(!lastData){
+        $('openLbl').hidden=false;
         $('openWrap').innerHTML='<div class="empty">Could not load the board. <a href="#" id="retryLoad">Retry</a></div>';
         var rt=$('retryLoad'); if(rt) rt.onclick=function(ev){ ev.preventDefault(); $('openWrap').innerHTML='<div class="empty">Loading markets…</div>'; load(); };
       }

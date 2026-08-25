@@ -9765,10 +9765,13 @@ html.stage-mode .stage-ov{display:block}
     return { system: system, user: user };
   }
 
-  // ── Prediction market (spectators bet on this round; AI judges) ──────
+  // ── Prediction market (the room bets on this round; AI judges) ──────
   // Talks to /.netlify/functions/predict (server-authoritative, points only).
-  // Debaters open/lock/settle their round's market; spectators bet before the
-  // middle speech. Every call is fail-safe and can never break the round.
+  // Debaters open/lock/settle their round's market. Anyone watching bets on
+  // either side before the middle speech, and as of 2026-08-25 the two
+  // debaters can bet too, on THEMSELVES only: the server refuses a stake on
+  // your opponent, so nobody in a round can profit by losing it. Every call
+  // is fail-safe and can never break the round.
   var PM_API='/.netlify/functions/predict';
   var pmOpened=false, pmLocked=false, pmSettled=false, pmPollTimer=null, pmPanel=null, pmPick=null, pmHasBet=false;
   function pmTok(){ return (state.user&&state.user.getIdToken)?state.user.getIdToken():Promise.reject(new Error('no-user')); }
@@ -9792,8 +9795,18 @@ html.stage-mode .stage-ov{display:block}
   }
   // ---- spectator side ----
   function pmInitSpectator(){
-    try{ if (!isSpectator()||!state.user||!state.room||pmPanel) return; pmRenderPanel(); pmPoll(); }catch(e){}
+    try{
+      if (!state.user||!state.room||pmPanel) return;
+      // Debaters get the panel too now, locked to their own side. A judge or
+      // anyone else without a seat is a spectator and bets either way.
+      if (!isSpectator() && !pmIsDebater()) return;
+      pmRenderPanel(); pmPoll();
+    }catch(e){}
   }
+  // 'pro' | 'con' for a seated debater, null for everyone else. This is the
+  // one thing that decides whether the opponent's button is live, and it is
+  // re-read rather than cached because seats can swap up until speech one.
+  function pmOwnSide(){ return pmIsDebater() ? mySide() : null; }
   function pmRenderPanel(){
     if (pmPanel) return;
     var el=document.createElement('div'); el.id='pmPanel';
@@ -9801,7 +9814,8 @@ html.stage-mode .stage-ov{display:block}
     // that also holds the swing-vote panel. Both used to be fixed at the
     // same coordinates and would have sat on top of each other.
     el.style.cssText='background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
-    el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">Live market · call the verdict</div>'+
+    var pmHead = pmOwnSide() ? 'Live market · back yourself' : 'Live market · call the verdict';
+    el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">'+pmHead+'</div>'+
       '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
       '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
       '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>';
@@ -9813,7 +9827,7 @@ html.stage-mode .stage-ov{display:block}
       if (!pmSettled) pmPollTimer=setTimeout(pmPoll, 5000);
     });
   }
-  function pmSelect(side){ if(pmHasBet) return; pmPick=side; pmUpdateSidesSelection(); var b=pmPanel&&pmPanel.querySelector('#pmBet'); if(b){ b.disabled=false; b.style.opacity='1'; } }
+  function pmSelect(side){ if(pmHasBet) return; var own=pmOwnSide(); if(own&&side!==own) return; pmPick=side; pmUpdateSidesSelection(); var b=pmPanel&&pmPanel.querySelector('#pmBet'); if(b){ b.disabled=false; b.style.opacity='1'; } }
   function pmUpdateSidesSelection(){
     if(!pmPanel) return;
     [].forEach.call(pmPanel.querySelectorAll('[data-pmside]'),function(c){ c.style.borderColor = c.getAttribute('data-pmside')===pmPick ? '#ef4444' : 'var(--border,rgba(127,127,127,.22))'; });
@@ -9833,8 +9847,13 @@ html.stage-mode .stage-ov{display:block}
     var oPro=m.poolPro>0?(total/m.poolPro).toFixed(2)+'x':'—', oCon=m.poolCon>0?(total/m.poolCon).toFixed(2)+'x':'—';
     var locked=m.status!=='open', settled=m.status==='settled';
     var sides=pmPanel.querySelector('#pmSides');
+    var own=pmOwnSide();
     sides.innerHTML=[['pro',m.proName||'Pro',oPro],['con',m.conName||'Con',oCon]].map(function(x){
-      return '<button data-pmside="'+x[0]+'" '+(locked?'disabled':'')+' style="text-align:left;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;cursor:'+(locked?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:\'Geist Mono\',ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
+      // A debater sees their opponent's side priced and unclickable, which
+      // is the honest way to say "you can back yourself, not against
+      // yourself" without hiding half the market from the person in it.
+      var off = locked || (own && x[0]!==own);
+      return '<button data-pmside="'+x[0]+'" '+(off?'disabled':'')+' title="'+(own&&x[0]!==own?'You are in this round. You can back yourself, not your opponent.':'')+'" style="text-align:left;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;opacity:'+(off&&!locked?'.5':'1')+';cursor:'+(off?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:\'Geist Mono\',ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
     }).join('');
     if(!locked){ [].forEach.call(sides.querySelectorAll('[data-pmside]'),function(c){ c.addEventListener('click',function(){ pmSelect(c.getAttribute('data-pmside')); }); }); pmUpdateSidesSelection(); }
     var st=pmPanel.querySelector('#pmStatus'), inp=pmPanel.querySelector('#pmStake'), bet=pmPanel.querySelector('#pmBet');
@@ -9851,7 +9870,7 @@ html.stage-mode .stage-ov{display:block}
       if(bet){ bet.disabled=true; bet.textContent='Bet in'; bet.style.opacity='.5'; }
       if(inp) inp.disabled=true;
     } else {
-      st.innerHTML='Pool '+total+' pts. balance <b>'+(d.balance!=null?d.balance:'—')+'</b>. bets lock at the middle speech.';
+      st.innerHTML='Pool '+total+' pts. balance <b>'+(d.balance!=null?d.balance:'—')+'</b>. bets lock at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
     }
   }
 

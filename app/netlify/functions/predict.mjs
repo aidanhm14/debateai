@@ -6,7 +6,12 @@
 // client can only READ public market state + its own balance.
 //
 // Anti-insider-trading model:
-//   - self-exclusion: the two debaters of a round cannot bet on it.
+//   - own side only: a debater in the round may back THEMSELVES and nobody
+//     else. They cannot stake on their opponent, so no one in a round can
+//     ever be paid for losing it. (Before 2026-08-25 debaters were excluded
+//     outright; Aidan's call was that backing yourself is the point. The
+//     match-fixing incentive lives entirely in the OTHER direction, so that
+//     is the direction that stays shut.)
 //   - mid-round lock: bets are rejected after market.lockAt (set to the
 //     middle of the round when the market opens).
 //   - blind: bets are never readable by other clients (rules deny read on
@@ -27,7 +32,6 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { checkWagerEligibility, checkWagerAge, invalidateWagerEligibility, MINOR_AGE_RANGES } from './lib/wager-eligibility.mjs';
 import { judgmentId } from './lib/judgment.mjs';
-import { asMarketBank } from './lib/hot-motions.mjs';
 
 const START_BALANCE = 1000;          // seed for a new predictor
 const MAX_STAKE = 5000;              // sanity cap per bet
@@ -76,255 +80,31 @@ function publicMarket(m, id) {
   };
 }
 
-// ── App-run AI markets ────────────────────────────────────────────────
-// Always-on markets so /predict is a live market even with no human rounds.
-// Each market = a motion with two framed sides; the AI judge resolves it at
-// lockAt. The outcome is genuinely unknown until resolution (you predict the
-// judge's call), so no sealing is needed; bets just lock before resolution.
+// ── App-run AI markets: RETIRED 2026-08-25 ────────────────────────────
+// This function used to mint its own markets from a hardcoded motion bank
+// so /predict was never an empty page: seven cards at a time, each with a
+// motion nobody had argued, two "cases" written by the bank, a pool seeded
+// with 100 house points a side (which is why every card read a flat 50/50)
+// and a countdown to a Haiku call that decided a debate that never
+// happened. Aidan, 2026-08-25: "details that are fake, dont exist are bad
+// here." He is right, and the board was the worst place on the site for it,
+// because a market's whole claim is that the number on it means something.
 //
-// 2026-08-20: the bank below was written entirely in tournament register
-// (abolish tenure, wealth taxes, the filibuster). Those are good debates
-// and they are not a good BOOK: a market needs a stranger to have an
-// instant take and a room to split near the middle, and almost nobody
-// outside competitive debate has an instant take on tenure.
+// A market now exists only where a round exists. `open` is called by a
+// debater when a live round starts, and that is the only way one is
+// created. An empty board means nobody is debating right now, which is a
+// true thing to say and a fixable one.
 //
-// `hot-motions.mjs` is the bank for everyone else, sorted so the most
-// evenly split motions surface first, because a lopsided motion makes a
-// dead market however good the argument is. It leads here and the
-// policy set rides behind it as range. To go pure, drop LEGACY_MOTIONS
-// from the concat on one line; nothing else reads it.
-const LEGACY_MOTIONS = [
-  { m:'This house would ban targeted political advertising.', pro:'Microtargeting fractures the shared public square and lets campaigns lie privately to narrow slices of voters.', con:'A ban hands incumbents and big brands the advantage; small challengers rely on cheap targeted reach to be heard.' },
-  { m:'This house believes social media has done more harm than good.', pro:'Engagement-maximizing feeds trade teen mental health and shared truth for time-on-app.', con:'It collapsed the cost of organizing, learning, and reaching an audience for billions with no other platform.' },
-  { m:'This house would require AI systems to disclose their training data.', pro:'Without provenance you cannot audit bias, theft, or safety; disclosure is the floor for accountability.', con:'Forced disclosure leaks trade secrets and entrenches incumbents who can afford the compliance and litigation.' },
-  { m:'This house regrets the rise of the gig economy.', pro:'It rebranded precarity as freedom and offloaded every employer risk onto the worker.', con:'It gave flexible income to millions locked out of rigid 9-to-5 work and undercut exploitative local monopolies.' },
-  { m:'This house would abolish standardized testing in university admissions.', pro:'The tests measure wealth and prep access more than aptitude and entrench inequality.', con:'Removing the one common yardstick makes admissions more arbitrary and easier for the connected to game.' },
-  { m:'This house believes billionaire philanthropy does more harm than good.', pro:'It launders reputations and lets unelected donors set public priorities with no accountability.', con:'It funds moonshots and unpopular causes that slow, vote-seeking governments never would.' },
-  { m:'This house would let cities ban cars from their centers.', pro:'Car-free centers cut deaths, emissions, and noise while reviving street life and local trade.', con:'It punishes the disabled, tradespeople, and the poor who cannot just switch to a bike.' },
-  { m:'This house believes remote work has been bad for early-career workers.', pro:'Juniors lose the ambient mentorship, networks, and visibility that build a career.', con:'It widened access, cut brutal commutes, and let talent compete regardless of geography.' },
-  { m:'This house would make voting compulsory.', pro:'Universal turnout pulls policy toward the median citizen and away from extreme, motivated minorities.', con:'Coercing the disengaged adds noise, not signal, and a non-vote is itself legitimate speech.' },
-  { m:'This house would ban influencers from marketing to children.', pro:'Kids cannot tell a friend from an ad, and parasocial trust makes the manipulation worse.', con:'It is unenforceable, kills a real income ladder, and parents, not the state, should police it.' },
-  { m:'This house believes the West should cut all subsidies to fossil fuel companies.', pro:'Public money should not bankroll the industry most responsible for the climate bill we are all paying.', con:'Yanking subsidies overnight spikes energy prices on the poor and hands the market to dirtier foreign producers.' },
-  { m:'This house would replace the income tax with a wealth tax.', pro:'Taxing stocks of hoarded wealth hits the rentier class income tax lets slip through loopholes.', con:'Wealth is hard to value, easy to move offshore, and the tax collapses the moment capital flees.' },
-  { m:'This house believes universities should abolish tenure.', pro:'Lifetime job security shields deadwood and lets the protected coast while adjuncts carry the teaching.', con:'Tenure is the last real guard for academic freedom; kill it and research bends to whoever signs the checks.' },
-  { m:'This house would let private companies operate their own armed forces.', pro:'States already outsource security; formalizing it brings oversight to a market that runs in the shadows now.', con:'Private armies answer to shareholders, not citizens, and put lethal force on the open auction block.' },
-  { m:'This house believes professional sports should have no salary caps.', pro:'Caps are owner collusion dressed as fairness; players should earn what an open market will pay.', con:'Without caps three rich franchises buy every title and the league dies of its own predictability.' },
-  { m:'This house would make all public transit free.', pro:'Free transit cuts cars, clears air, and ends the cruelty of fining the poor for needing to move.', con:'Someone pays; free fares gut the maintenance budget and the system rots into the unreliable mess that empties it.' },
-  { m:'This house believes anonymous online speech does more harm than good.', pro:'Anonymity is the shield behind which harassment, fraud, and disinformation operate with impunity.', con:'It is the only protection whistleblowers, dissidents, and abuse survivors have against retaliation.' },
-  { m:'This house would abolish the monarchy in constitutional monarchies.', pro:'Inherited power is an affront to democracy and a costly relic dressed up as tradition.', con:'A neutral head of state above politics is a stabilizer republics keep trying and failing to replace.' },
-  { m:'This house believes effective altruism has corrupted modern philanthropy.', pro:'It reduces moral life to a spreadsheet and lets the rich buy moral cover with cold cost-per-life math.', con:'Measuring impact rescued giving from vanity and vibes; the alternative is feeling good while helping less.' },
-  { m:'This house would ban single-use plastics outright.', pro:'A hard ban is the only thing that has ever moved industry off a material choking the oceans.', con:'Blunt bans push users to higher-carbon substitutes and hit the disabled who rely on single-use tools.' },
-  { m:'This house believes sports betting should be banned.', pro:'Legal betting turned every game into a vector for addiction and quietly corrupts the players inside it.', con:'Prohibition just hands the market to offshore books with zero protections; regulation beats a black market.' },
-  { m:'This house would require a license to become a parent.', pro:'We license far lower-stakes acts than raising a human; screening could prevent foreseeable abuse.', con:'Reproductive licensing is the door to eugenics and hands the state power no government should hold.' },
-];
+// The ~1,100 `kind:'ai'` documents already in Firestore are LEFT IN PLACE
+// and simply never queried again (the board reads `live_*` keys now). None
+// of them ever carried a stake, so nothing is stranded; purging them is one
+// query whenever it is worth the write cost.
+//
+// Gone with them: MOTION_BANK / LEGACY_MOTIONS, ensureMarkets, seedActivity,
+// judgeMotion, resolveAiMarket, settleMarket, voidMarket, and the `resolve`
+// / `seed` / `reset` actions, plus scheduled-predict-sweep.mjs, whose only
+// job was draining a board of markets nobody had bet on.
 
-const MOTION_BANK = [...asMarketBank(), ...LEGACY_MOTIONS];
-
-function newRoomId(){ return 'ai-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7); }
-const AI_TARGET_OPEN = 7;
-const HOUSE_SEED = 100;        // opening liquidity per side so a fresh market isn't an empty 0-pool book
-// Judge attempts before a market is voided and every stake returned. The judge
-// call is a network round trip to a model, so a transient failure is expected
-// and worth retrying; a market that fails this many times is malformed, not
-// unlucky, and holding stakes hostage waiting for it is worse than refunding.
-const MAX_JUDGE_FAILS = 5;
-// Stagger lock windows so the board churns: some resolve within minutes (so the
-// "recently resolved" feed fills fast and stays alive), some hold open longer.
-function aiLockWindowMs(i){ const floor = 6 + ((i || 0) % 4) * 9; return (floor + Math.floor(Math.random() * 12)) * 60 * 1000; } // ~6-45 min
-
-function newMarketDoc(pick, i){
-  return {
-    kind: 'ai', liveKey: 'ai_open', motion: pick.m, proName: 'Pro', conName: 'Con',
-    proCase: pick.pro, conCase: pick.con, format: 'quick',
-    proUid: '', conUid: '',
-    status: 'open', lockAt: new Date(Date.now() + aiLockWindowMs(i)),
-    createdAt: FieldValue.serverTimestamp(), poolPro: HOUSE_SEED, poolCon: HOUSE_SEED, betCount: 0, verdict: null,
-  };
-}
-
-async function ensureMarkets(db) {
-  // Single-field query (liveKey) so no composite index is needed.
-  const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
-  const need = AI_TARGET_OPEN - open.size;
-  if (need <= 0) return;
-  // Avoid minting a motion that's already open OR sitting in the resolved feed,
-  // so open and settled cards never collide (which would shrink the visible
-  // resolved feed after dedupe).
-  const settled = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
-  const taken = new Set([...open.docs, ...settled.docs].map(d => (d.data().motion || '').trim().toLowerCase()));
-  const pool = MOTION_BANK.filter(p => !taken.has(p.m.trim().toLowerCase()));
-  const batch = db.batch();
-  for (let i = 0; i < need; i++) {
-    const pick = (pool.length ? pool : MOTION_BANK)[Math.floor(Math.random() * (pool.length ? pool.length : MOTION_BANK.length))];
-    if (pool.length) pool.splice(pool.indexOf(pick), 1);
-    batch.set(db.collection('predict_markets').doc(newRoomId()), newMarketDoc(pick, i));
-  }
-  await batch.commit();
-}
-
-// One-time activity seed: judge a handful of motions and store them already
-// settled, so "recently resolved" shows real AI verdicts from the first load.
-// Idempotent-ish: no-op once enough settled markets exist. No fake leaderboard
-// entries are created — the skill ladder stays real.
-async function seedActivity(db, origin, want) {
-  const settled = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
-  let need = Math.max(0, (want || 5) - settled.size);
-  if (need <= 0) return 0;
-  // Exclude motions already open OR settled so seeded resolved cards never
-  // collide with an open card (which would hide them after the board dedupe).
-  const open = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
-  const have = new Set([...settled.docs, ...open.docs].map(d => (d.data().motion || '').trim().toLowerCase()));
-  const pool = MOTION_BANK.filter(p => !have.has(p.m.trim().toLowerCase()));
-  let made = 0;
-  for (let i = 0; i < need && i < pool.length; i++) {
-    const pick = pool[i];
-    const j = await judgeMotion(origin, { motion: pick.m, proCase: pick.pro, conCase: pick.con });
-    // judgeMotion returns null when it cannot get a real verdict. Skip rather
-    // than seed the "recently resolved" feed with a fabricated one: these cards
-    // are the public evidence that the judge works, so a made-up verdict here
-    // would be the most misleading place in the product to put one.
-    if (!j) continue;
-    // Plausible opening book: weight the seeded pool toward the eventual loser a
-    // little so payouts read realistically; these are house points, not bets.
-    const a = HOUSE_SEED + Math.floor(Math.random() * 240), b = HOUSE_SEED + Math.floor(Math.random() * 240);
-    await db.collection('predict_markets').doc(newRoomId()).set({
-      kind: 'ai', liveKey: 'ai_settled', motion: pick.m, proName: 'Pro', conName: 'Con',
-      proCase: pick.pro, conCase: pick.con, format: 'quick', proUid: '', conUid: '',
-      status: 'settled', verdict: j.verdict, rfd: j.rfd,
-      poolPro: j.verdict === 'pro' ? a : b, poolCon: j.verdict === 'pro' ? b : a,
-      betCount: 0, createdAt: FieldValue.serverTimestamp(),
-      lockAt: new Date(Date.now() - 60000), settledAt: FieldValue.serverTimestamp(),
-    });
-    made++;
-  }
-  return made;
-}
-
-// Ask the AI judge to call a market's motion. Returns { verdict, rfd }.
-// Side labels are BLINDED to A/B in random order before judging, so the model
-// can't lean on an affirmative/primacy bias (which made every verdict come back
-// "pro"). The A/B winner is mapped back to pro/con after.
-async function judgeMotion(origin, m) {
-  const flip = Math.random() < 0.5;                    // 50% present con first
-  const sideA = flip ? { tag: 'con', text: m.conCase || '' } : { tag: 'pro', text: m.proCase || '' };
-  const sideB = flip ? { tag: 'pro', text: m.proCase || '' } : { tag: 'con', text: m.conCase || '' };
-  const sys = 'You are an impartial competitive-debate judge. Two sides argued the motion. Decide which side better discharged its burden on the merits of the cases as written. Ignore which side spoke first. Be decisive, no draws. Respond ONLY with compact JSON: {"winner":"A"|"B","reason":"one tight sentence on why, naming the clash that decided it"}';
-  const usr = 'Motion: ' + m.motion + '\n\nSide A: ' + sideA.text + '\n\nSide B: ' + sideB.text + '\n\nWhich side wins, A or B? JSON only.';
-  const r = await fetch(origin + '/api/claude', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, stream: false, system: sys, messages: [{ role: 'user', content: usr }], _feature: 'predict-resolve' }),
-  });
-  const txt = await r.text();
-  let inner = txt;
-  try { const j = JSON.parse(txt); if (j && Array.isArray(j.content)) inner = j.content.map(c => c.text || '').join(''); } catch (e) {}
-  const a = inner.indexOf('{'), b = inner.lastIndexOf('}');
-  if (a >= 0 && b > a) { try {
-    const o = JSON.parse(inner.slice(a, b + 1));
-    const w = String(o.winner || '').toUpperCase();
-    if (w === 'A' || w === 'B') return { verdict: (w === 'A' ? sideA.tag : sideB.tag), rfd: String(o.reason || '').slice(0, 240) };
-  } catch (e) {} }
-  // No verdict. Previously this returned (motion.length % 2 === 0 ? 'pro' : 'con')
-  // so that a parse miss still resolved, which meant real balances could pay out
-  // on the parity of a character count. Deterministic is not the same as judged.
-  // Returning null hands the decision back to the caller, which retries and
-  // eventually voids rather than inventing a winner.
-  return null;
-}
-
-// Void a market and refund every stake at face value. Used when the judge
-// cannot produce a verdict after MAX_JUDGE_FAILS attempts. Mirrors the debit
-// taken in `bet` (balance -= stake), so a refund is the exact inverse.
-// Deliberately does NOT touch predict_leaderboard: a round nobody judged is not
-// a prediction anyone got right or wrong, so rating and the win/loss record
-// stay where they were. liveKey moves off 'ai_open'/'ai_settled', which is what
-// the board queries, so a voided market simply leaves the board.
-async function voidMarket(db, mRef, pm, fails) {
-  const bets = await mRef.collection('bets').get();
-  const batch = db.batch();
-  batch.update(mRef, {
-    status: 'void', liveKey: 'ai_void', verdict: null,
-    rfd: 'Voided: no judgment could be produced for this market. All stakes returned.',
-    judgeFails: fails, settledAt: FieldValue.serverTimestamp(),
-  });
-  bets.forEach((b) => {
-    const d = b.data();
-    if (d.stake > 0) {
-      batch.update(db.collection('predict_balances').doc(d.uid), {
-        balance: FieldValue.increment(d.stake), updatedAt: FieldValue.serverTimestamp(),
-      });
-    }
-  });
-  await batch.commit();
-  return { refunded: bets.size };
-}
-
-// Settle a market to a verdict (parimutuel). Shared by human-round settle + AI resolve.
-async function settleMarket(db, mRef, pm, verdict, rfd) {
-  const bets = await mRef.collection('bets').get();
-  const total = (pm.poolPro || 0) + (pm.poolCon || 0);
-  const winnerPool = verdict === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0);
-  const batch = db.batch();
-  batch.update(mRef, { status: 'settled', liveKey: 'ai_settled', verdict, rfd: rfd || pm.rfd || '', settledAt: FieldValue.serverTimestamp() });
-  bets.forEach((b) => {
-    const d = b.data();
-    const won = d.pick === verdict;
-    const impliedProb = total > 0 ? ((d.pick === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0)) / total) : 0.5;
-    const payout = (won && winnerPool > 0) ? Math.floor(d.stake * total / winnerPool) : 0;
-    const ratingDelta = won ? Math.round(6 + 30 * (1 - impliedProb)) : -Math.round(6 + 30 * impliedProb);
-    if (payout > 0) batch.update(db.collection('predict_balances').doc(d.uid), { balance: FieldValue.increment(payout), updatedAt: FieldValue.serverTimestamp() });
-    batch.set(db.collection('predict_leaderboard').doc(d.uid), {
-      uid: d.uid, name: d.name || 'Anon', rating: FieldValue.increment(ratingDelta),
-      bets: FieldValue.increment(1), wins: FieldValue.increment(won ? 1 : 0),
-      net: FieldValue.increment(won ? (payout - d.stake) : -d.stake), updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  });
-  await batch.commit();
-  return { settled: bets.size, pool: total };
-}
-
-// Resolve one AI market if it's past lockAt. Claim-guarded so it judges once.
-async function resolveAiMarket(db, origin, room) {
-  const mRef = db.collection('predict_markets').doc(room);
-  const claimed = await db.runTransaction(async (t) => {
-    const s = await t.get(mRef);
-    if (!s.exists) return null;
-    const md = s.data();
-    if (md.kind !== 'ai' || md.status === 'settled' || md.status === 'resolving') return null;
-    if (!ms(md.lockAt) || Date.now() < ms(md.lockAt)) return null;
-    t.update(mRef, { status: 'resolving', liveKey: 'ai_resolving' });
-    return md;
-  });
-  if (!claimed) return null;
-
-  // A throw here (fetch rejects on DNS, timeout, or a 5xx that never parses)
-  // must land in the same place as a null: the market has been claimed into
-  // 'resolving', and an exception escaping this function would leave it there
-  // permanently, since the claim guard refuses to re-enter a resolving market.
-  let judged = null;
-  try { judged = await judgeMotion(origin, claimed); } catch (e) { judged = null; }
-
-  // The judge could not return a verdict. Do not settle: a market with no
-  // judgment behind it has no business paying anyone. Release the claim so the
-  // next sweep retries, and count the attempt. The claim guard rejects
-  // 'resolving', so failing to revert here would strand the market forever.
-  if (!judged) {
-    const fails = (claimed.judgeFails || 0) + 1;
-    if (fails < MAX_JUDGE_FAILS) {
-      await mRef.update({ status: 'open', liveKey: 'ai_open', judgeFails: fails });
-      return null;
-    }
-    // Out of attempts. Void it and return every stake. No verdict means no
-    // winners and no losers, so ratings are untouched and nobody is charged
-    // for our inability to judge.
-    const fresh = await mRef.get();
-    await voidMarket(db, mRef, fresh.data(), fails);
-    return null;
-  }
-
-  const fresh = await mRef.get();
-  await settleMarket(db, mRef, fresh.data(), judged.verdict, judged.rfd);
-  return judged.verdict;
-}
 
 export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -344,7 +124,7 @@ export default async (request, context) => {
   const db = getDb();
   // 'list'/'resolve'/'seed' are public market upkeep (no economy mutation, self-
   // limiting): they keep the board fresh whether or not anyone is signed in.
-  const PUBLIC_ACTIONS = { list: 1, resolve: 1, seed: 1, reset: 1 };
+  const PUBLIC_ACTIONS = { list: 1 };
   if (!uid && !PUBLIC_ACTIONS[action]) return errorResponse('Sign in to do that', 401, request);
 
   // ── state: my balance + (optional) a market + my bet + top leaderboard ──
@@ -385,6 +165,12 @@ export default async (request, context) => {
     const lockAt = new Date(Date.now() + lockSec * 1000);
     const doc = {
       room, proUid, conUid,
+      // The board queries by liveKey. Real markets carry `live_*` and the
+      // retired AI ones carried `ai_*`, so the two can never share a board
+      // again by accident. Markets opened before 2026-08-25 have no key at
+      // all, which is why the board starts empty rather than resurrecting
+      // 464 dead countdowns from rounds that ended months ago.
+      liveKey: 'live_open',
       proName: String(body.proName || 'Pro').slice(0, 40),
       conName: String(body.conName || 'Con').slice(0, 40),
       motion: String(body.motion || '').slice(0, 300),
@@ -458,7 +244,12 @@ export default async (request, context) => {
         if (md.status !== 'open') throw new Error('closed');
         const lockMs = md.lockAt && md.lockAt.toMillis ? md.lockAt.toMillis() : md.lockAt;
         if (lockMs && Date.now() >= lockMs) throw new Error('locked');
-        if (uid === md.proUid || uid === md.conUid) throw new Error('self-exclusion');
+        // Own side only. A debater backing themselves is a debater with
+        // every incentive already pointing at winning; a debater backing
+        // their OPPONENT is match-fixing with a receipt, so that branch is
+        // the one that throws.
+        if (uid === md.proUid && pick !== 'pro') throw new Error('wrong-side');
+        if (uid === md.conUid && pick !== 'con') throw new Error('wrong-side');
         const existingBet = await t.get(betRef);
         if (existingBet.exists) throw new Error('already-bet');
         const bal = await t.get(balRef);
@@ -481,7 +272,7 @@ export default async (request, context) => {
       return jsonResponse({ ok: true, balance: result.balance }, 200, request);
     } catch (e) {
       const msg = String(e.message || e);
-      const map = { 'no-market': 'No open market', 'closed': 'Betting is closed', 'locked': 'Betting locked at the middle speeches', 'self-exclusion': "You can't bet on a round you're in", 'already-bet': 'You already bet this round', 'insufficient': 'Not enough points' };
+      const map = { 'no-market': 'No open market', 'closed': 'Betting is closed', 'locked': 'Betting locked at the middle speeches', 'wrong-side': "You're in this round. You can back yourself, not your opponent.", 'already-bet': 'You already bet this round', 'insufficient': 'Not enough points' };
       return errorResponse(map[msg] || 'Could not place bet', 400, request);
     }
   }
@@ -553,6 +344,7 @@ export default async (request, context) => {
       const vBatch = db.batch();
       vBatch.update(mRef, {
         status: 'voided',
+        liveKey: 'live_void',
         voidReason: 'no_server_verdict',
         voidedAt: FieldValue.serverTimestamp(),
       });
@@ -574,7 +366,7 @@ export default async (request, context) => {
     const winnerPool = verdict === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0);
 
     const batch = db.batch();
-    batch.update(mRef, { status: 'settled', verdict, settledAt: FieldValue.serverTimestamp() });
+    batch.update(mRef, { status: 'settled', liveKey: 'live_settled', verdict, settledAt: FieldValue.serverTimestamp() });
 
     bets.forEach((b) => {
       const d = b.data();
@@ -600,39 +392,34 @@ export default async (request, context) => {
     return jsonResponse({ ok: true, verdict, settled: bets.size, pool: total }, 200, request);
   }
 
-  // ── list: the live AI market board (Kalshi-style) ──────────────────────
+  // ── list: the board of markets on real rounds ──────────────────────────
+  // Only markets `open` created, i.e. one per live round that actually
+  // happened. There is no minting here any more and nothing to sweep: if the
+  // board is empty, nobody is debating right now.
+  //
+  // Stale guard: a human round's lockAt is minutes after it opens, and a
+  // market whose round ended without a recorded server verdict just sits at
+  // `open` forever (settle voids it, but only if a debater's browser asks).
+  // A card counting down from a round that finished last March is the same
+  // lie as an invented one, so anything older than OPEN_TTL_MS drops off the
+  // board. It stays in Firestore; it just stops being advertised.
   if (action === 'list') {
-    const origin = new URL(request.url).origin;
-    try { await ensureMarkets(db); } catch (e) {}
-    // Resolve up to 2 overdue markets inline (bounded latency); the cron + the
-    // next loads sweep the rest.
-    try {
-      const openish = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
-      let did = 0;
-      for (const d of openish.docs) {
-        if (did >= 2) break;
-        if (ms(d.data().lockAt) && Date.now() >= ms(d.data().lockAt)) { await resolveAiMarket(db, origin, d.id); did++; }
-      }
-    } catch (e) {}
+    const OPEN_TTL_MS = 3 * 60 * 60 * 1000;
     const balance = uid ? await ensureBalance(db, uid) : null;
     const out = { ok: true, balance, signedIn: !!uid, markets: [] };
     try {
-      const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
-      const settledSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_settled').get();
-      const settledSorted = settledSnap.docs.sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0));
-      const openSorted = openSnap.docs.sort((a, b) => (ms(a.data().lockAt) || 0) - (ms(b.data().lockAt) || 0));
-      // Dedupe by motion so the board never shows the same question twice (open
-      // wins over settled; newest settled wins over older). Guards against the
-      // inline-resolver / seed race producing duplicate cards.
-      const seenMotion = new Set();
-      let settledShown = 0;
-      for (const d of [...openSorted, ...settledSorted]) {
-        const data = d.data();
-        const key = (data.motion || '').trim().toLowerCase();
-        if (key && seenMotion.has(key)) continue;
-        if (data.status === 'settled') { if (settledShown >= 6) continue; settledShown++; }
-        if (key) seenMotion.add(key);
-        const pm = publicMarket(data, d.id);
+      const now = Date.now();
+      const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'live_open').get();
+      const settledSnap = await db.collection('predict_markets').where('liveKey', '==', 'live_settled').get();
+      const fresh = openSnap.docs.filter((d) => {
+        const at = ms(d.data().createdAt) || ms(d.data().lockAt) || 0;
+        return at && (now - at) < OPEN_TTL_MS;
+      }).sort((a, b) => (ms(b.data().createdAt) || 0) - (ms(a.data().createdAt) || 0));
+      const settled = settledSnap.docs
+        .sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0))
+        .slice(0, 6);
+      for (const d of [...fresh, ...settled]) {
+        const pm = publicMarket(d.data(), d.id);
         if (uid) { const bet = await d.ref.collection('bets').doc(uid).get(); pm.myBet = bet.exists ? { pick: bet.data().pick, stake: bet.data().stake } : null; }
         out.markets.push(pm);
       }
@@ -643,51 +430,6 @@ export default async (request, context) => {
       if (uid) { const meLb = await db.collection('predict_leaderboard').doc(uid).get(); out.rating = meLb.exists ? (meLb.data().rating || 1000) : 1000; out.tier = tierFor(out.rating); }
     } catch (e) { out.leaderboard = []; }
     return jsonResponse(out, 200, request);
-  }
-
-  // ── resolve: judge + settle overdue AI markets (cron or on-demand) ──────
-  if (action === 'resolve') {
-    const origin = new URL(request.url).origin;
-    const room = body.room && String(body.room).slice(0, 80);
-    if (room) { const v = await resolveAiMarket(db, origin, room); return jsonResponse({ ok: true, verdict: v }, 200, request); }
-    // sweep all overdue (bounded)
-    let n = 0;
-    try {
-      const openSnap = await db.collection('predict_markets').where('liveKey', '==', 'ai_open').get();
-      for (const d of openSnap.docs) { if (n >= 10) break; if (ms(d.data().lockAt) && Date.now() >= ms(d.data().lockAt)) { await resolveAiMarket(db, origin, d.id); n++; } }
-    } catch (e) {}
-    try { await ensureMarkets(db); } catch (e) {}
-    return jsonResponse({ ok: true, resolved: n }, 200, request);
-  }
-
-  // ── seed: one-time activity seed (real AI verdicts into recently-resolved) ──
-  if (action === 'seed') {
-    const origin = new URL(request.url).origin;
-    let made = 0;
-    try { made = await seedActivity(db, origin, Math.min(8, parseInt(body.want, 10) || 5)); } catch (e) {}
-    try { await ensureMarkets(db); } catch (e) {}
-    return jsonResponse({ ok: true, seeded: made }, 200, request);
-  }
-
-  // ── reset: rebuild a clean board. SAFETY: refuses once any real bet exists,
-  // so it can never wipe live positions. Only useful pre-launch to clear seed
-  // collisions. ──
-  if (action === 'reset') {
-    const all = await db.collection('predict_markets').get();
-    const realBets = all.docs.reduce((n, d) => n + (d.data().betCount || 0), 0);
-    if (realBets > 0) return errorResponse('Reset disabled: the board has live bets', 403, request);
-    for (const d of all.docs) {
-      const bets = await d.ref.collection('bets').get();
-      const batch = db.batch();
-      bets.docs.forEach(b => batch.delete(b.ref));
-      batch.delete(d.ref);
-      await batch.commit();
-    }
-    const origin = new URL(request.url).origin;
-    try { await ensureMarkets(db); } catch (e) {}
-    let made = 0;
-    try { made = await seedActivity(db, origin, 6); } catch (e) {}
-    return jsonResponse({ ok: true, reset: true, seeded: made }, 200, request);
   }
 
   return errorResponse('Unknown action', 400, request);
