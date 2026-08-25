@@ -14880,8 +14880,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* The drawn set lives in the ranked band's script (it is the surface
      that always runs; this one is desktop-only), and both surfaces draw
      from it so one debater wears one picture down the whole page. */
-  function pfpArt(seed, taken){
-    return typeof A.pfp === 'function' ? A.pfp(seed, taken) : '';
+  /* Falls back to the board's own emblem rather than to nothing: an empty
+     circle on the edge of the screen is the one outcome this rail must
+     never produce, and the emblem is what every other surface degrades to. */
+  function pfpArt(seed, taken, name){
+    var art = typeof A.pfp === 'function' ? A.pfp(seed, taken) : '';
+    if (art) return art;
+    return typeof A.emblem === 'function' ? A.emblem(seed, name, anon(name), {}) : '';
   }
   var wantsEngine = false;
   function face(r, i, taken){
@@ -14897,7 +14902,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         wantsEngine = true;
         attrs = ' data-lbr-own="' + esc(payload) + '"';
       }
-      inner = pfpArt(seed, taken);
+      inner = pfpArt(seed, taken, r && r.name);
     } else if (r && r.photoURL){
       // Their own account photo, over a set picture. onerror is
       // load-bearing: googleusercontent URLs go stale when an account
@@ -14905,9 +14910,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // the edge of the screen. Dropping the <img> reveals what is behind.
       inner = '<img src="' + esc(r.photoURL) + '" alt="" loading="lazy" decoding="async"'
         + ' referrerpolicy="no-referrer" onerror="this.parentNode.removeChild(this)">'
-        + pfpArt(seed, taken);
+        + pfpArt(seed, taken, r && r.name);
     } else {
-      inner = pfpArt(seed, taken);
+      inner = pfpArt(seed, taken, r && r.name);
     }
     return '<span class="lbr-pic"><span class="lbr-ava"' + attrs + '>' + inner + '</span>'
       + '<span class="lbr-rk">' + (i + 1) + '</span></span>';
@@ -15007,6 +15012,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     window.addEventListener('resize', onMove, { passive: true });
   }
 
+  /* The picture set arrives on a DEFERRED script, and the board data
+     arrives on a fetch that was kicked off at the top of the page. Those
+     two race, and on a fast connection the fetch wins: a 5-minute-cached
+     endpoint can answer in tens of milliseconds while there are still
+     thousands of lines of this document left to parse. When it won, every
+     tile that needed a drawn picture rendered EMPTY and nothing repainted
+     it, which is what "missing images on the leaderboard pop out" was.
+
+     So the rail waits for both. The timeout is the important half: a
+     blocked or failed /js/pfp-set.js must cost texture, never the rail,
+     so at 3 seconds it paints anyway and the tiles fall back to the
+     board's emblem. */
+  function setReady(){
+    if (window.DBPfp) return Promise.resolve();
+    return new Promise(function(resolve){
+      var done = false;
+      function go(){ if (!done){ done = true; resolve(); } }
+      var tag = document.querySelector('script[src="/js/pfp-set.js"]');
+      if (tag){
+        tag.addEventListener('load', go);
+        tag.addEventListener('error', go);
+      }
+      setTimeout(go, 3000);
+    });
+  }
   var painted = false;
   function paint(j){
     if (painted) return;
@@ -15015,8 +15045,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     watch();
     try { if (window.gtag) gtag('event', 'lb_rail_view'); } catch (e) {}
   }
-  if (window.__lbTop && window.__lbTop.then) window.__lbTop.then(paint);
-  else if (window.__lbTopReq) window.__lbTopReq.then(paint).catch(function(){});
+  function paintWhenReady(j){ setReady().then(function(){ paint(j); }); }
+  if (window.__lbTop && window.__lbTop.then) window.__lbTop.then(paintWhenReady);
+  else if (window.__lbTopReq) window.__lbTopReq.then(paintWhenReady).catch(function(){});
 
   rail.addEventListener('click', function(e){
     var a = e.target && e.target.closest ? e.target.closest('[data-lbr]') : null;
