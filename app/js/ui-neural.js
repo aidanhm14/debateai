@@ -21,12 +21,14 @@
   // tell it's at half resolution, and a 2560×1440 backing buffer (full
   // DPR on retina) is ~14MB of texture memory for a background canvas
   // that's rarely the user's focus. 1× DPR drops it to ~3.7MB.
-  // 2026-08-25: DPR cap raised 1 -> 2. The 2026-05-27 cut was made when
+  // 2026-08-25: DPR cap raised 1 -> 1.5. The 2026-05-27 cut was made when
   // this layer only painted on near-black, where half resolution genuinely
-  // was invisible. On the light landing arm the web IS visible against
-  // cream, and at 1x the .5px edges and ~1.5px nodes antialiased into grey
-  // smudges. Capped at 2 so a 3x phone does not allocate a 9x buffer.
-  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
+  // was invisible; at 1x the .5px edges and ~1.5px nodes antialias into
+  // grey smudges on both arms. Full 2x read too hard-edged for a layer
+  // that is meant to sit behind the page, so 1.5 is the settled point
+  // (Aidan, same day): most of the sharpening, none of the etched look,
+  // and ~8MB of backing buffer on a retina desktop rather than ~14MB.
+  var W,H,dpr=Math.min(window.devicePixelRatio||1,1.5);
   var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   var reduced=false;
   try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
@@ -92,8 +94,11 @@
         G=lightWeb?64:(isLight?130:68),
         B=lightWeb?68:(isLight?180:68);
     var rgb=R+','+G+','+B;
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.34:(isLight?.07:.18))+')';
-    NODE_COLOR='rgba('+rgb+','+(lightWeb?.68:(isLight?.2:.4))+')';
+    // Dark carries the same small contrast lift the light arm got: the
+    // sharper render alone does not compensate for red-on-near-black,
+    // where the edges were sitting a couple of levels off the backdrop.
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.34:(isLight?.07:.22))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.68:(isLight?.2:.46))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
     PULSE_COLOR=lightWeb?'rgba(200,60,60,.7)':'rgba('+rgb+','+(isLight?.3:.55)+')';
