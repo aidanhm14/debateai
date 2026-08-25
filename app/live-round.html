@@ -47,6 +47,14 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      must stay in sync (scripts/test-judge-roster.mjs asserts it). -->
 <script src="/js/judge-roster.js"></script>
 <script src="/js/judge-intro.js"></script>
+<!-- The shared judge choices. This page only reads DETAILS from it (the
+     Short / Medium / Extensive ballot length agreed for the round); the
+     styles, paradigms and brains it also carries belong to /judge. Loaded
+     without defer so the inline script can read it at parse time, and
+     BALLOT_DETAILS below falls back to its own copy of the three targets
+     if it ever fails to load, because a missing helper must never be the
+     reason a finished round gets no ballot. -->
+<script src="/js/judge-options.js"></script>
 <script defer src="/js/track.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
@@ -1720,6 +1728,21 @@ body.speech-live .transcript-area{margin-top:4px}
 .jd-mini--go{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.12);color:#4ade80}
 [data-theme="light"] .jd-mini--go{color:#15803d}
 .jd-hint{font-size:.7rem;color:var(--text-ghost,var(--text-dim));line-height:1.5;flex:1;min-width:160px}
+/* Ballot length. Deliberately quieter than the paradigm cards above it:
+   this is a shape setting, not a judging decision, and it should not
+   compete with the lens for the eye. */
+.jd-len{margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}
+.jd-len-title{font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-ghost,var(--text-dim));font-weight:800}
+.jd-len-note{font-size:.7rem;line-height:1.5;color:var(--text-ghost,var(--text-dim));margin:4px 0 9px}
+.jd-len-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.jd-len-btn{min-width:0;text-align:left;padding:8px 10px;border-radius:9px;border:1px solid var(--border);
+  background:transparent;color:var(--text);font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+.jd-len-btn:hover:not([disabled]){border-color:var(--text-dim)}
+.jd-len-btn[disabled]{cursor:default;opacity:.75}
+.jd-len-btn.is-on{border-color:var(--accent,#ef4444);background:rgba(239,68,68,.1)}
+.jd-len-btn b{display:block;font-size:.76rem;line-height:1.2}
+.jd-len-btn span{display:block;font-size:.64rem;line-height:1.3;margin-top:2px;color:var(--text-ghost,var(--text-dim))}
+@media(max-width:420px){.jd-len-row{grid-template-columns:1fr}}
 
 /* Reveal. Fires once per newly agreed archetype, ~1.6s, then removes
    itself. prefers-reduced-motion drops the movement, not the card. */
@@ -3550,6 +3573,95 @@ html.stage-mode .stage-ov{display:block}
   // back to "<name> conventions apply" so an unknown key never breaks the
   // ballot. Keep blocks terse and format-specific; this is the lens, not
   // a textbook.
+  // ── Ballot length. How much the judge WRITES about a finished round,
+  //    agreed for the round rather than per reader.
+  //
+  //    Every live round used to be judged at one hardcoded target: a
+  //    10-18 sentence RFD plus a 900-1300 word full ballot, whatever the
+  //    two people in the room wanted. That is right for a tournament
+  //    round and wrong for a stranger who dropped into a five-minute
+  //    Quick Clash and wants to know who won.
+  //
+  //    It is ROUND STATE, not a preference, because the ballot is one
+  //    shared artifact: the verdict syncs to both debaters and to every
+  //    spectator, so two people holding two different lengths would mean
+  //    whichever client generated first silently decided for the room.
+  //    It lives on the round doc and either debater may set it, with NO
+  //    consent handshake, and the difference from the motion-proposal
+  //    flow is the whole reason that is safe: a motion change changes the
+  //    contest, and length cannot. It never moves the winner, the
+  //    speaker points, the criteria, or which flaws get named. The panel
+  //    copy says exactly that, so nobody reads it as a thumb on the
+  //    scale.
+  //
+  //    Values and word targets mirror DETAILS in
+  //    lib/judge-delivery.mjs, which is what the server prepends to the
+  //    same call as a LENGTH block. Read them from js/judge-options.js
+  //    when it loaded, so there is one source of truth, and fall back to
+  //    this copy when it did not: a helper script that failed is never a
+  //    good reason for a finished round to get no ballot.
+  //
+  //    NOT the same control as js/ballot-read.js, which decides how much
+  //    of what was written is on screen, per reader, after the fact. The
+  //    two compose: a round judged Short has no long-form beat, so a
+  //    reader on Full lands on the reason for decision instead of on
+  //    nothing.
+  var BALLOT_DETAILS = {
+    short: {
+      name: 'Short',
+      tag: 'The call and the reason',
+      deep: false,
+      rfd: '4-7 sentence RFD in 1-2 short paragraphs. About 110 to 190 words. Name the deciding issue, the test that settled it, the drop or the weighing that made the difference, and the one change that flips it. Do not tour every clash. Short is a budget on words, never on rigour: the deciding issue is still named and the fix still appears.',
+      rfd4: '5-8 sentence RFD in 1-2 short paragraphs. About 110 to 190 words. Name the decisive comparison, the one half-call that set the top of the ranking, and the single change that moves a team up. Do not walk every half-call.',
+      feedback: '2-3 sentences: one strength, then the one fix that matters most.'
+    },
+    medium: {
+      name: 'Medium',
+      tag: 'The standard ballot',
+      deep: true,
+      deepWords: [700, 1100],
+      rfd: '8-14 sentence RFD. Open with the deciding issue, walk the clashes that carried weight, name drops, do explicit weighing, and close with what the losing side needed to win. Quote specific lines from the transcript.',
+      rfd4: '10-18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG and OO-vs-CO explicitly, do the half-call diagonals, name drops, weigh magnitude against probability against timeframe, and quote specific lines.',
+      feedback: '3-5 sentences: what they did right, what they needed to beat the team above them, one concrete fix.'
+    },
+    extensive: {
+      name: 'Extensive',
+      tag: 'Argument by argument',
+      deep: true,
+      deepWords: [1400, 2200],
+      rfd: '14-20 sentence RFD. Open with the deciding issue, walk every clash that carried weight, name every consequential drop, do the weighing out loud on a named axis, and close with what the losing side needed. The long-form ballot underneath carries the argument-by-argument walk, so go deep on what decided it rather than running the whole flow twice.',
+      rfd4: '16-22 sentence RFD. Lead with the 1st-place team, resolve every half-call including both diagonals, judge each extension on its own terms, name every consequential drop, and justify the full 1-2-3-4. The long-form ballot underneath carries the argument-by-argument walk, so do not run the whole flow twice.',
+      feedback: '5-7 sentences: the strongest contribution quoted, the costliest moment quoted, and one habit to carry forward.'
+    }
+  };
+
+  // The round's agreed length, always a real entry. Unknown or missing
+  // values fall to Medium rather than through a coerced string, so a
+  // value nobody chose can never assert one.
+  function ballotDetailKey(){
+    var k = state && state.ballotDetail;
+    return BALLOT_DETAILS[k] ? k : 'medium';
+  }
+  function ballotDetail(){
+    var shared = window.DEBATABLE_JUDGE_OPTIONS && window.DEBATABLE_JUDGE_OPTIONS.details;
+    var key = ballotDetailKey();
+    var local = BALLOT_DETAILS[key];
+    var upstream = shared && shared[key];
+    // Word targets and the deep flag come from the shared file when it
+    // is there; the prompt sentences are this page's own, because the
+    // live ballot's schema fields have no twin on /judge.
+    if (upstream) {
+      return {
+        name: upstream.name || local.name,
+        tag: upstream.short || local.tag,
+        deep: upstream.deep !== undefined ? upstream.deep : local.deep,
+        deepWords: upstream.words || local.deepWords,
+        rfd: local.rfd, rfd4: local.rfd4, feedback: local.feedback
+      };
+    }
+    return local;
+  }
+
   var JUDGE_RULES = {
     apda: [
       "- APDA is impromptu. Fabricated citations ('Smith 2022 finds...') are a strike against the debater, not a credit. General-knowledge claims ('studies generally show', 'the historical pattern') are the correct register.",
@@ -3992,6 +4104,7 @@ html.stage-mode .stage-ov{display:block}
     fcLoop: null,
     lastBallot: null,      // latest rendered ballot (stage overlay)
     rfdDeep: null,         // long-form full ballot text, synced via round doc
+    ballotDetail: 'medium', // agreed ballot length, synced via round doc
     ratingChanges: null,   // per-uid rating deltas, written by live-judge onto the round doc
     deepRfdPending: false, // deep-ballot call in flight (shows the writing note)
     deepRfdRequested: false, // guard so the generating client fires it once
@@ -9610,6 +9723,8 @@ html.stage-mode .stage-ov{display:block}
   // code: PM/LO/DPM/DLO/MG/MO/GW/OW), winningBench (gov/opp), and
   // teamFeedback{} keyed by side. parseBallot accepts both shapes.
   function buildBpBallotPrompt(f, transcript){
+    // The length the two debaters agreed for this round's ballot.
+    var bd = ballotDetail();
     var teamNamesLine = f.sides.map(function(s){
       var label = f.sideLabels[s];
       var nm = (state.teamNames && state.teamNames[s]) || (s === 'og' ? state.proName : s === 'oo' ? state.conName : '');
@@ -9652,9 +9767,9 @@ html.stage-mode .stage-ov{display:block}
       '  "speakerScores": { "PM": <num>, "LO": <num>, "DPM": <num>, "DLO": <num>, "MG": <num>, "MO": <num>, "GW": <num>, "OW": <num> },',
       '  "winningBench": "gov" | "opp",',
       '  "summary": "<2-3 sentences. The short read: which team took the round, the call that put them there, and the one thing the team below them needed. Plain language a first-time watcher follows. Never contradict the RFD below it.>",',
-      '  "rfd": "<10–18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG (gov bench order) and OO-vs-CO (opp bench order) explicitly — explain whether each closing extended legitimately or got under-cut. Do half-call diagonal comparison (CG vs OO; CO vs OG). Name dropped arguments. Do weighing: magnitude vs probability vs timeframe. Quote specific lines from the transcript.>",',
+      '  "rfd": "<' + bd.rfd4 + '>",',
       '  "teamFeedback": {',
-      '    "og": "<3–5 sentences for Opening Government: what their model + opening case did right, what they could have done to beat CG, one concrete fix.>",',
+      '    "og": "<' + bd.feedback + ' For Opening Government: their model and opening case, and what they needed to beat CG.>",',
       '    "oo": "<same for Opening Opposition>",',
       '    "cg": "<same for Closing Government: did the extension land? Was the GW global weighing or partner-recap?>",',
       '    "co": "<same for Closing Opposition>"',
@@ -9705,6 +9820,9 @@ html.stage-mode .stage-ov{display:block}
       return buildBpBallotPrompt(f, transcript);
     }
 
+    // The length the two debaters agreed for this round's ballot.
+    var bd = ballotDetail();
+
     var system = [
       "You are a tournament-grade " + f.name + " judge. Two HUMAN debaters just finished a round and you are deciding the ballot. Be honest, specific, rigorous, and DEEP — these are real debaters paying for tournament-grade adjudication. A shallow ballot wastes their round.",
       "",
@@ -9746,9 +9864,9 @@ html.stage-mode .stage-ov{display:block}
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
       '  "summary": "<2-3 sentences. The short read, for someone who wants the call and nothing else: who won, the single issue the round turned on, and the one thing the losing side needed. Plain language a first-time watcher follows. Never contradict the RFD below it.>",',
-      '  "rfd": "<8–14 sentence RFD. Open with the deciding issue in one sentence. Then walk through the 2–3 key clashes by name, who won each and why. Name drops. Do explicit weighing. Quote specific lines. Close with one sentence on what the losing side could have done to win it.>",',
-      '  "proFeedback": "<5–8 sentences for the Pro speaker: 1) one specific strategic strength (what worked + why), 2) one technical area to fix with a concrete example from their speech, 3) one big-picture observation about their approach to this format.>",',
-      '  "conFeedback": "<5–8 sentences for the Con speaker: same structure as proFeedback.>",',
+      '  "rfd": "<' + bd.rfd + '>",',
+      '  "proFeedback": "<' + bd.feedback + ' Tie every point to a concrete moment in their speech.>",',
+      '  "conFeedback": "<Same structure and length as proFeedback, for the Con speaker.>",',
       '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>}, "strategy": {"pro": <n>, "con": <n>}, "persuasion": {"pro": <n>, "con": <n>} }',
       "}",
       "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = command of language and rhetorical control as read from the transcript — never a substitute for warrants. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
@@ -10452,6 +10570,18 @@ html.stage-mode .stage-ov{display:block}
 
   function generateDeepRfd(b){
     if (state.deepRfdRequested || state.rfdDeep) return;
+    // Short means short. Running the long-form second beat under a Short
+    // ballot would hand the room the exact thing it asked not to get, so
+    // the verdict and its reason for decision stand alone. deepRfdSlotHtml
+    // already falls back to the RFD when there is no full ballot, so the
+    // pane lands on real text rather than on nothing.
+    var bdDeep = ballotDetail();
+    if (bdDeep.deep === false){
+      state.deepRfdRequested = true;
+      state.deepRfdPending = false;
+      renderDeepRfd();
+      return;
+    }
     state.deepRfdRequested = true;
     state.deepRfdPending = true;
     renderDeepRfd();
@@ -10482,7 +10612,7 @@ html.stage-mode .stage-ov{display:block}
     ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(assignedJudgeBallotLines()).concat(paradigmBallotLines()).concat([
       '',
       'HARD RULES:',
-      '- MINIMUM 700 words. Target 900 to 1300. A ballot under 700 words means you summarized instead of adjudicating; go deeper, not longer-winded — depth comes from covering more of the flow, not from restating the same rulings.',
+      '- MINIMUM ' + (bdDeep.deepWords || [700,1100])[0] + ' words. Target ' + (bdDeep.deepWords || [700,1100])[0] + ' to ' + (bdDeep.deepWords || [700,1100])[1] + '. Under the minimum means you summarized instead of adjudicating; go deeper, not longer-winded. Depth comes from covering more of the flow, never from restating a ruling you already made.',
       '- Walk EVERY substantive argument either side ran, one at a time, not just the two or three biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).',
       '- Quote short verbatim lines from the transcript so every ruling points at the exact moment it happened.',
       fourTeam
@@ -10515,6 +10645,11 @@ html.stage-mode .stage-ov{display:block}
         system: system,
         messages: [{ role: 'user', content: user }],
         _feature: 'live-round',
+        // The server prepends its own LENGTH block from
+        // lib/judge-delivery.mjs to this same call. Send the agreed
+        // length so the two layers say one thing; without it the block
+        // defaults to Medium and argues with the word target above.
+        _judgeDetail: ballotDetailKey(),
       }),
     }).then(function(r){
       if (!r.ok) throw new Error('deep ballot API ' + r.status);
@@ -10640,6 +10775,10 @@ html.stage-mode .stage-ov{display:block}
         system: p.system,
         messages: [{ role:'user', content: p.user }],
         _feature: 'live-round',
+        // Same reason as the deep ballot below: the server's LENGTH
+        // block rides this call too, and a Short round whose schema says
+        // 4-7 sentences must not also be told Medium.
+        _judgeDetail: ballotDetailKey(),
       }),
     }).then(function(r){
       if (!r.ok){
@@ -14919,6 +15058,68 @@ html.stage-mode .stage-ov{display:block}
     try { gtag('event', 'judge_nominate', { judge: key, format: state.formatKey }); } catch(e){}
   }
 
+  // Ballot length, set by either debater with no handshake. The
+  // paradigm needs both benches because it decides how the round is
+  // heard; this decides only how much gets written about it afterwards,
+  // and it can never move the winner, the points, or the criteria, so
+  // holding it hostage to agreement would be ceremony.
+  //
+  // Settable for the whole round rather than only before Speech 1: the
+  // lens has to lock early because the speeches were delivered to it,
+  // and length is decided entirely after the last speech ends.
+  function setBallotLength(key){
+    if (!ballotLengthIsLive()) return;
+    if (!BALLOT_DETAILS[key] || state.ballotDetail === key) return;
+    state.ballotDetail = key;
+    renderJudgeDraft();
+    var ref = getRoundDocRef();
+    if (ref){
+      ref.set({ ballotDetail: key }, { merge: true }).catch(function(e){
+        console.warn('[ballot length] sync failed', e);
+      });
+    }
+    try { gtag('event', 'live_round_ballot_length', { detail: key, format: state.formatKey }); } catch(e){}
+  }
+
+  // Open until the ballot exists. Once the judge has written, changing
+  // the setting would describe a ballot nobody is going to get.
+  function ballotLengthIsLive(){
+    return ballotLengthState() === 'open';
+  }
+
+  // Why the row is or is not interactive, as one value, so the buttons
+  // and the sentence under them can never disagree. An earlier version
+  // derived the two separately and told somebody with no seat that the
+  // ballot was already written.
+  function ballotLengthState(){
+    var side = mySide();
+    if (isSpectator() || (side !== 'pro' && side !== 'con')) return 'watching';
+    if (state.lastBallot || state.rfdDeep) return 'written';
+    return state.phase === 'round' ? 'open' : 'watching';
+  }
+
+  function ballotLengthHtml(){
+    var live = ballotLengthIsLive();
+    var current = ballotDetailKey();
+    var row = ['short','medium','extensive'].map(function(k){
+      var d = BALLOT_DETAILS[k];
+      return '<button type="button" class="jd-len-btn' + (k === current ? ' is-on' : '') + '"' +
+        ' data-bl="' + k + '"' + (live ? '' : ' disabled') + '>' +
+        '<b>' + escHtml(d.name) + '</b><span>' + escHtml(d.tag) + '</span></button>';
+    }).join('');
+    var phase = ballotLengthState();
+    var note = phase === 'open'
+      ? 'Either of you can set this. It changes how much the judge writes, never who wins or the speaker points.'
+      : phase === 'written'
+        ? 'The ballot is written. Length is set for this round.'
+        : 'The debaters set how long this round\'s ballot runs.';
+    return '<div class="jd-len">' +
+      '<div class="jd-len-title">Ballot length</div>' +
+      '<p class="jd-len-note">' + escHtml(note) + '</p>' +
+      '<div class="jd-len-row">' + row + '</div>' +
+    '</div>';
+  }
+
   // Respawn: drop both nominations back to the default and reopen the
   // grid. Either bench can call it, because a draft one side regrets is
   // not an agreement worth holding them to.
@@ -14985,6 +15186,8 @@ html.stage-mode .stage-ov{display:block}
     }
     var card = e.target.closest ? e.target.closest('.jd-card') : null;
     if (card && !card.disabled){ nominateJudge(card.getAttribute('data-jk')); return; }
+    var len = e.target.closest ? e.target.closest('.jd-len-btn') : null;
+    if (len && !len.disabled){ setBallotLength(len.getAttribute('data-bl')); return; }
     var re = e.target.closest ? e.target.closest('#jdRedraft') : null;
     if (re){ redraftJudge(); }
   }
@@ -15108,6 +15311,7 @@ html.stage-mode .stage-ov{display:block}
         '<p class="jd-note">' + escHtml(note) + '</p>' +
         '<div class="jd-grid">' + cards + '</div>' +
         actions +
+        ballotLengthHtml() +
       '</div>';
   }
 
@@ -15797,6 +16001,14 @@ html.stage-mode .stage-ov{display:block}
       state.allowAudienceCams = d.allowAudienceCams;
       paintAudCamsToggle();
       audCamOnPolicyChange();
+    }
+    // Ballot length, set by whichever debater touched it. Both sides and
+    // every spectator read the same value, so the client that ends up
+    // generating cannot silently pick a different length from the one on
+    // screen. An unknown value is ignored rather than adopted.
+    if (typeof d.ballotDetail === 'string' && d.ballotDetail !== state.ballotDetail && BALLOT_DETAILS[d.ballotDetail]){
+      state.ballotDetail = d.ballotDetail;
+      try { renderJudgeDraft(); } catch(e){}
     }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // Pending resolution change, if either side has asked for one.

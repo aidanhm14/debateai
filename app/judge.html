@@ -1356,7 +1356,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   var $ = function(id){ return document.getElementById(id); };
   var busy = false;
-  var JUDGE_OPTIONS = window.DEBATABLE_JUDGE_OPTIONS || { styles:{}, paradigms:{}, brains:{} };
+  var JUDGE_OPTIONS = window.DEBATABLE_JUDGE_OPTIONS || { styles:{}, paradigms:{}, brains:{}, manners:{}, details:{} };
   var activeJudgeStyle = 'auto';
   var lastJudgeChoice = { style:'auto', paradigm:'auto', brain:'claude' };
 
@@ -1370,7 +1370,11 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var paradigm = JUDGE_OPTIONS.paradigms[paradigmKey] || JUDGE_OPTIONS.paradigms.auto;
     var brainKey = validChoice('brains', $('judgeBrain').value, 'claude');
     var brain = JUDGE_OPTIONS.brains[brainKey] || JUDGE_OPTIONS.brains.claude;
-    $('judgeChoiceCurrent').textContent = style.name + ' · ' + paradigm.name + ' · ' + brain.name;
+    var summaryManner = JUDGE_OPTIONS.manners[validChoice('manners', $('judgeManner').value, 'plain')] || {};
+    var summaryDetail = JUDGE_OPTIONS.details[validChoice('details', $('judgeDetail').value, 'medium')] || {};
+    $('judgeChoiceCurrent').textContent = style.name + ' · ' + paradigm.name + ' · ' + brain.name
+      + (summaryManner.name ? ' · ' + summaryManner.name : '')
+      + (summaryDetail.name ? ' · ' + summaryDetail.name : '');
     $('paradigmHelp').innerHTML = '';
     $('paradigmHelp').appendChild(document.createTextNode(paradigm.description + ' '));
     var paradigmLink = document.createElement('a');
@@ -1434,7 +1438,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('judgeParadigm').addEventListener('change', syncJudgeChoice);
     $('judgeBrain').addEventListener('change', syncJudgeChoice);
     syncJudgeChoice();
-    if (params.get('style') || params.get('paradigm') || params.get('brain')) $('judgeChoice').open = true;
+    if (params.get('style') || params.get('paradigm') || params.get('brain') || params.get('manner') || params.get('detail')) $('judgeChoice').open = true;
 
     // Grey out a brain that is not answering right now, rather than
     // letting someone pick it and eat an error after pasting a whole
@@ -1629,9 +1633,43 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     return lines;
   }
 
+  // ── The verdict RFD's own length, per the reader's "How much feedback"
+  //    choice. The server prepends a LENGTH block from lib/judge-delivery
+  //    to this same call, and the JSON schema below used to hardcode
+  //    "8-14 sentence RFD" against it, so a Short selection sent the model
+  //    two lengths at once and the schema, being the more specific and the
+  //    later instruction, generally won. Short then only ever meant "skip
+  //    the long ballot", which is not what the control says it does. These
+  //    strings are what make the two layers agree. Keep the word targets in
+  //    step with DETAILS in lib/judge-delivery.mjs. ────────────────────
+  var RFD_SPECS = {
+    short: {
+      two: '3-5 sentence RFD in 1-2 short paragraphs separated by \\n\\n. About 110 to 190 words total. Name the deciding issue, the test that settled it, the drop or the weighing that made the difference, and the one change that flips it. Do not tour every clash. Short is a budget on words, never on rigour: the deciding issue is still named and the fix still appears. Bold 2-3 short, load-bearing phrases.',
+      four: '4-6 sentence RFD in 1-2 short paragraphs separated by \\n\\n. About 110 to 190 words total. Name the decisive comparison, the one half-call that set the top of the ranking, and the single change that moves a team up. Do not walk all six half-calls. Bold 2-3 short, load-bearing phrases.',
+      twoFeedback: '2-3 sentences. One strategic strength tied to the transcript, then the one fix that matters most. Bold exactly 2 short phrases: the strength and the fix.',
+      fourFeedback: '2-3 sentences. One strength tied to the round, then the one fix that matters most. Bold exactly 2 short phrases: the strength and the fix.'
+    },
+    medium: {
+      two: '8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue, walk through the key clashes, name drops, do explicit weighing, and close with what the losing side needed to win. Bold 5-8 short, load-bearing phrases.',
+      four: '12-18 sentence RFD in 4-5 short paragraphs separated by \\n\\n. State the decisive comparison, resolve the five relevant half-calls, explain the closing extensions and whip weighing, name drops, then justify the complete 1st-to-4th ranking. Bold 6-10 short, load-bearing phrases.',
+      twoFeedback: '5-8 sentences in 2 short paragraphs with one strategic strength, one technical fix tied to the transcript, and one big-picture format observation. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.',
+      fourFeedback: '5-8 sentences in 2 short paragraphs. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.'
+    },
+    extensive: {
+      two: '14-20 sentence RFD in 5-6 short paragraphs separated by \\n\\n. Open with the deciding issue, walk every clash that carried weight, name every consequential drop, do the weighing out loud on a named axis, and close with what the losing side needed to win. A separate long-form ballot is written underneath this one and carries the argument-by-argument walk, so go deep on the issues that decided it rather than attempting the whole flow twice. Bold 8-12 short, load-bearing phrases.',
+      four: '18-24 sentence RFD in 5-6 short paragraphs separated by \\n\\n. State the decisive comparison, resolve all six half-calls, explain the closing extensions and whip weighing, name every consequential drop, then justify the complete 1st-to-4th ranking. A separate long-form ballot underneath carries the argument-by-argument walk, so do not attempt the whole flow twice. Bold 10-14 short, load-bearing phrases.',
+      twoFeedback: '7-10 sentences in 2-3 short paragraphs with the strongest strategic choice quoted from the round, the costliest technical error, and one habit to carry forward. Bold exactly 3 short phrases: the strength, the fix, and the habit.',
+      fourFeedback: '7-10 sentences in 2-3 short paragraphs with the strongest contribution quoted, the costliest moment, and one habit to carry forward. Bold exactly 3 short phrases: the strength, the fix, and the habit.'
+    }
+  };
+
+  function rfdSpec(detailKey){
+    return RFD_SPECS[detailKey] || RFD_SPECS.medium;
+  }
+
   // ── Format-native ballot prompt. BP and WUDC stay four-team from
   //    setup through the final ranking and speaker points. ─────────
-  function buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, userRanking, humanReason, isVoice, styleKey, paradigmKey, customParadigm){
+  function buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, userRanking, humanReason, isVoice, styleKey, paradigmKey, customParadigm, detailKey){
     var auto = formatKey === 'auto';
     var f = fmtOf(formatKey);
     var four = isFourTeam(f);
@@ -1644,17 +1682,18 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       "- Use a 0-30 speaker point scale unless the identified format uses a different one."
     ] : ["- " + f.name + " conventions apply."].concat(JUDGE_RULES[formatKey] || []);
     var lensLines = judgeLensLines(styleKey, paradigmKey, customParadigm);
+    var lenSpec = rfdSpec(validChoice('details', detailKey, 'medium'));
     var schema = four ? [
       "{",
       '  "winner": "og" | "oo" | "cg" | "co",',
       '  "ranking": [',
-      '    {"team":"og","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"PM","name":"<speaker name>","points":<50-100>},{"role":"DPM","name":"<speaker name>","points":<50-100>}],"feedback":"<5-8 sentences in 2 short paragraphs. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>"},',
+      '    {"team":"og","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"PM","name":"<speaker name>","points":<50-100>},{"role":"DPM","name":"<speaker name>","points":<50-100>}],"feedback":"<' + lenSpec.fourFeedback + '>"},',
       '    {"team":"oo","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"LO","name":"<speaker name>","points":<50-100>},{"role":"DLO","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"},',
       '    {"team":"cg","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MG","name":"<speaker name>","points":<50-100>},{"role":"GW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"},',
       '    {"team":"co","rank":<unique rank 1-4>,"name":"<team name>","speakers":[{"role":"MO","name":"<speaker name>","points":<50-100>},{"role":"OW","name":"<speaker name>","points":<50-100>}],"feedback":"<same structure as OG feedback>"}',
       "  ],",
       '  "summary": "<2-3 sentences. The short read: which team took the round, the call that put them there, and the one thing the team below them needed. Plain language a first-time watcher follows. No bolding. Never contradict the RFD below it.>",',
-      '  "rfd": "<12-18 sentence RFD in 4-5 short paragraphs separated by \\n\\n. State the decisive comparison, resolve the five relevant half-calls, explain the closing extensions and whip weighing, name drops, then justify the complete 1st-to-4th ranking. Bold 6-10 short, load-bearing phrases.>",',
+      '  "rfd": "<' + lenSpec.four + '>",',
       '  "divergence": "<3-5 sentences comparing the human ranking with yours, or naming the moment the ranking turned if no human call was given. Bold the one decisive phrase.>"',
       "}"
     ] : [
@@ -1665,8 +1704,8 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       '  "proPoints": <number>,',
       '  "conPoints": <number>,',
       '  "summary": "<2-3 sentences. The short read, for someone who wants the call and nothing else: who won, the single issue the round turned on, and the one thing the losing side needed. Plain language a first-time watcher follows. No bolding. Never contradict the RFD below it.>",',
-      '  "rfd": "<8-14 sentence RFD in 3-4 short paragraphs separated by \\n\\n. Open with the deciding issue, walk through the key clashes, name drops, do explicit weighing, and close with what the losing side needed to win. Bold 5-8 short, load-bearing phrases.>",',
-      '  "proFeedback": "<5-8 sentences in 2 short paragraphs with one strategic strength, one technical fix tied to the transcript, and one big-picture format observation. Bold exactly 3 short phrases: the strength, the fix, and the habit to carry forward.>",',
+      '  "rfd": "<' + lenSpec.two + '>",',
+      '  "proFeedback": "<' + lenSpec.twoFeedback + '>",',
       '  "conFeedback": "<5-8 sentences in 2 short paragraphs with the same structure and bolding as proFeedback.>",',
       '  "divergence": "<3-5 sentences comparing the human call with yours, or naming the moment the round turned if no human call was given. Bold the one decisive phrase.>"',
       "}"
@@ -1901,7 +1940,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var style = JUDGE_OPTIONS.styles[lastJudgeChoice.style] || JUDGE_OPTIONS.styles.auto;
     var paradigm = JUDGE_OPTIONS.paradigms[lastJudgeChoice.paradigm] || JUDGE_OPTIONS.paradigms.auto;
     var brain = JUDGE_OPTIONS.brains[lastJudgeChoice.brain] || JUDGE_OPTIONS.brains.claude;
-    var ballotContext = brain.name + ' · ' + style.name + ' · ' + paradigm.name;
+    var detailStamp = JUDGE_OPTIONS.details[lastJudgeChoice.detail] || {};
+    var ballotContext = brain.name + ' · ' + style.name + ' · ' + paradigm.name
+      + (detailStamp.name ? ' · ' + detailStamp.name : '');
     var scoreGrid = $('scoreGrid');
     scoreGrid.textContent = '';
     scoreGrid.classList.toggle('four', four);
@@ -2227,7 +2268,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     $('loading').scrollIntoView({ behavior:'smooth', block:'center' });
     try { gtag('event', 'judge_round_submit', { format: formatKey, source: usedVoice ? 'listen' : 'paste', judge_style:styleKey, paradigm:paradigmKey, brain:brainKey, manner:mannerKey, detail:detailKey }); } catch(e){}
 
-    var p = buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm);
+    var p = buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm, detailKey);
 
     // One attempt. Rejects with a labelled error so the retry loop below
     // can tell a dropped connection apart from a ballot we cannot read:

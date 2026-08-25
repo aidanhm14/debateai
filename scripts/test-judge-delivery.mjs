@@ -159,6 +159,32 @@ t('the /judge detail picker offers every detail and nothing else',
 t('the /judge page sends the manner field', judgeHtml.includes('_judgeManner'));
 t('the /judge page sends the detail field', judgeHtml.includes('_judgeDetail'));
 
+// ── the live round. Its ballot length is round state on the round doc
+// rather than a picker, because the verdict is one shared artifact: two
+// debaters holding two lengths would mean whichever client generated
+// first decided for the room. What has to hold is that its own table
+// offers exactly the same three lengths as the server, agrees with the
+// server on which of them run a long-form second beat, and that both of
+// its judging calls tell the server which length was agreed. Without
+// that last part the server's LENGTH block defaults to medium and
+// argues with the client's own schema, which is the state this page
+// shipped in before the control existed.
+const liveHtml = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const liveTable = liveHtml.slice(liveHtml.indexOf('var BALLOT_DETAILS = {'), liveHtml.indexOf('var JUDGE_RULES = {'));
+t('the live round has a ballot-length table', liveTable.length > 200);
+const liveKeys = [...liveTable.matchAll(/^    ([a-z]+): \{$/gm)].map((m) => m[1]);
+t('the live round offers every length and nothing else',
+  DETAIL_KEYS.slice().sort().join(',') === liveKeys.slice().sort().join(','));
+for (const k of DETAIL_KEYS) {
+  const m = liveTable.match(new RegExp(k + "\\s*:\\s*\\{[\\s\\S]*?deep:\\s*(true|false)"));
+  t('the live round states deep for ' + k, !!m);
+  if (m) t('the live round deep matches the server for ' + k, (m[1] === 'true') === DETAILS[k].deep);
+}
+const liveSends = (liveHtml.match(/_judgeDetail:/g) || []).length;
+t('both live-round judging calls send the agreed length', liveSends >= 2);
+t('the live round skips the long ballot on a length that is not deep',
+  /bdDeep\.deep === false/.test(liveHtml));
+
 
 console.log((fail ? 'FAIL' : 'ok') + ' — judge delivery: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
