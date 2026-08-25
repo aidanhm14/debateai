@@ -86,11 +86,34 @@
     return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
   function relTime(ms){
-    const d = Date.now() - ms;
+    const d = Math.max(0, Date.now() - ms);
     if (d < 60000) return 'now';
     if (d < 3600000) return Math.floor(d / 60000) + 'm';
     if (d < 86400000) return Math.floor(d / 3600000) + 'h';
-    return Math.floor(d / 86400000) + 'd';
+    if (d < 31536000000) return Math.floor(d / 86400000) + 'd';
+    return Math.floor(d / 31536000000) + 'y';
+  }
+  function fullTime(ms){
+    try { return new Date(ms).toLocaleString([], { dateStyle:'medium', timeStyle:'short' }); }
+    catch(e){ return ''; }
+  }
+  function dayKey(ms){
+    const d = new Date(ms);
+    return [d.getFullYear(), d.getMonth(), d.getDate()].join('-');
+  }
+  function dayLabel(ms){
+    const d = new Date(ms);
+    const today = new Date();
+    const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+    if (dayKey(ms) === dayKey(today.getTime())) return 'Today';
+    if (dayKey(ms) === dayKey(yesterday.getTime())) return 'Yesterday';
+    try { return d.toLocaleDateString([], { month:'short', day:'numeric', year:d.getFullYear() === today.getFullYear() ? undefined : 'numeric' }); }
+    catch(e){ return ''; }
+  }
+  function avatarHue(name){
+    let hash = 0;
+    String(name || '').split('').forEach(c => { hash = ((hash << 5) - hash + c.charCodeAt(0)) | 0; });
+    return Math.abs(hash) % 360;
   }
   function track(ev, meta){ try { if (window.gtag) gtag('event', ev, meta || {}); } catch(e){} }
 
@@ -101,7 +124,7 @@
     pane.innerHTML =
       '<div class="disc">' +
         '<aside class="disc-rail" aria-label="Channels">' +
-          '<div class="disc-rail-head">Channels</div>' +
+          '<div class="disc-rail-head"><span>Chat rooms</span><span class="disc-open"><i></i>open</span></div>' +
           CHANNELS.map(c =>
             '<button type="button" class="disc-ch" data-ch="' + c.id + '">' +
               '<span class="disc-ch-hash">#</span>' + c.label +
@@ -111,7 +134,11 @@
         '</aside>' +
         '<section class="disc-main">' +
           '<header class="disc-head">' +
-            '<div class="disc-head-top"><b id="discChName"></b><span class="disc-topic" id="discTopic"></span></div>' +
+            '<div class="disc-head-copy">' +
+              '<div class="disc-head-top"><b id="discChName"></b></div>' +
+              '<div class="disc-topic" id="discTopic"></div>' +
+            '</div>' +
+            '<div class="disc-activity is-quiet" id="discActivity"><i></i><span>Opening room</span></div>' +
             '<div class="disc-id" id="discIdent"></div>' +
           '</header>' +
           '<div class="disc-scroll" id="discScroll" aria-live="polite" aria-label="Messages"></div>' +
@@ -124,6 +151,7 @@
       rail: pane.querySelector('.disc-rail'),
       name: pane.querySelector('#discChName'),
       topic: pane.querySelector('#discTopic'),
+      activity: pane.querySelector('#discActivity'),
       ident: pane.querySelector('#discIdent'),
       scroll: pane.querySelector('#discScroll'),
       newPill: pane.querySelector('#discNewPill'),
@@ -150,7 +178,10 @@
     if (!ch) return;
     if (ch.anon){
       els.inputRow.innerHTML =
-        '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + ANON_MSG_MAX + '" placeholder="Say something. Enter to send." autocomplete="off"></textarea>' +
+        '<div class="disc-compose">' +
+          '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + ANON_MSG_MAX + '" placeholder="Drop a motion, ask for a round, or disagree with someone." autocomplete="off"></textarea>' +
+          '<span class="disc-keyhint">Enter sends · Shift + Enter adds a line</span>' +
+        '</div>' +
         '<div class="disc-input-meta">' +
           '<button id="discReroll" class="disc-reroll" type="button" title="Pick a new anonymous handle">re-roll handle</button>' +
           '<span id="discCount" class="disc-count">0/' + ANON_MSG_MAX + '</span>' +
@@ -162,7 +193,10 @@
       });
     } else if (user && !user.isAnonymous){
       els.inputRow.innerHTML =
-        '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + MSG_MAX + '" placeholder="Message #' + escHtml(ch.label) + '. Enter to send." autocomplete="off"></textarea>' +
+        '<div class="disc-compose">' +
+          '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + MSG_MAX + '" placeholder="Message #' + escHtml(ch.label) + '." autocomplete="off"></textarea>' +
+          '<span class="disc-keyhint">Enter sends · Shift + Enter adds a line</span>' +
+        '</div>' +
         '<div class="disc-input-meta">' +
           '<span id="discCount" class="disc-count">0/' + MSG_MAX + '</span>' +
           '<button id="discSend" class="disc-send" type="button">Send</button>' +
@@ -221,28 +255,64 @@
     // Discord-style grouping: consecutive same-author rows within
     // 5 minutes collapse under one header.
     const grouped = prev && prev.uid && m.uid && prev.uid === m.uid && (m.ts - prev.ts) < 300000;
+    const classes = ['disc-msg'];
+    if (grouped) classes.push('disc-msg--grouped');
+    if (user && m.uid === user.uid) classes.push('disc-msg--mine');
+    if ((Date.now() - m.ts) < 15 * 60000) classes.push('is-fresh');
+    const stamp = fullTime(m.ts);
+    const iso = new Date(m.ts).toISOString();
     const av = m.photo
       ? '<img class="disc-av" src="' + escHtml(m.photo) + '" alt="" referrerpolicy="no-referrer">'
-      : '<span class="disc-av disc-av--txt">' + escHtml((m.name || '?')[0].toUpperCase()) + '</span>';
+      : '<span class="disc-av disc-av--txt" style="--avatar-hue:' + avatarHue(m.name) + '">' + escHtml((m.name || '?')[0].toUpperCase()) + '</span>';
     if (grouped){
-      return '<div class="disc-msg disc-msg--grouped"><div class="disc-body">' + escHtml(m.text) + '</div></div>';
+      return '<div class="' + classes.join(' ') + '" title="' + escHtml(stamp) + '"><div class="disc-body">' + escHtml(m.text) + '</div></div>';
     }
-    return '<div class="disc-msg">' +
+    return '<div class="' + classes.join(' ') + '">' +
       av +
       '<div class="disc-msg-main">' +
-        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'debater') + '</b><span class="disc-time">' + relTime(m.ts) + '</span></div>' +
+        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'debater') + '</b><time class="disc-time" datetime="' + iso + '" title="' + escHtml(stamp) + '">' + relTime(m.ts) + '</time></div>' +
         '<div class="disc-body">' + escHtml(m.text) + '</div>' +
       '</div>' +
     '</div>';
   }
 
+  function paintActivity(msgs){
+    if (!els.activity) return;
+    els.activity.className = 'disc-activity is-quiet';
+    const label = els.activity.querySelector('span');
+    if (!msgs.length){ label.textContent = 'New room'; return; }
+    const age = Math.max(0, Date.now() - msgs[msgs.length - 1].ts);
+    if (age < 15 * 60000){
+      els.activity.className = 'disc-activity is-live';
+      label.textContent = age < 60000 ? 'Active now' : 'Active ' + Math.floor(age / 60000) + 'm ago';
+    } else if (age < 24 * 3600000){
+      els.activity.className = 'disc-activity is-recent';
+      label.textContent = 'Last post ' + Math.floor(age / 3600000) + 'h ago';
+    } else {
+      label.textContent = 'Last post ' + relTime(msgs[msgs.length - 1].ts) + ' ago';
+    }
+  }
+
+  function loadingHtml(){
+    return '<div class="disc-empty"><span class="disc-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span><b>Opening room</b><span>Pulling in the latest messages.</span></div>';
+  }
+
   function paint(msgs){
+    paintActivity(msgs);
     if (!msgs.length){
-      els.scroll.innerHTML = '<div class="disc-empty">Quiet in here. Say the first thing.</div>';
+      els.scroll.innerHTML = '<div class="disc-empty"><span class="disc-empty-mark">#</span><b>Quiet room.</b><span>Say the first thing.</span></div>';
       return;
     }
     let html = '';
-    for (let i = 0; i < msgs.length; i++) html += messageRowHtml(msgs[i], msgs[i-1]);
+    let lastDay = '';
+    for (let i = 0; i < msgs.length; i++){
+      const nextDay = dayKey(msgs[i].ts);
+      if (nextDay !== lastDay){
+        html += '<div class="disc-day"><span>' + escHtml(dayLabel(msgs[i].ts)) + '</span></div>';
+        lastDay = nextDay;
+      }
+      html += messageRowHtml(msgs[i], msgs[i-1]);
+    }
     const wasPinned = pinned;
     els.scroll.innerHTML = html;
     if (wasPinned) els.scroll.scrollTop = els.scroll.scrollHeight;
@@ -252,7 +322,7 @@
   // ── firestore channels ─────────────────────────────────────
   function subscribeFs(ch){
     if (!db) { els.scroll.innerHTML = '<div class="disc-empty">Chat is unavailable right now.</div>'; return; }
-    els.scroll.innerHTML = '<div class="disc-empty">Loading&hellip;</div>';
+    els.scroll.innerHTML = loadingHtml();
     unsub = db.collection('community_channels').doc(ch.id).collection('messages')
       .orderBy('createdAt', 'desc').limit(40)
       .onSnapshot(snap => {
@@ -315,7 +385,7 @@
     }).catch(()=>{});
   }
   function startAnon(){
-    els.scroll.innerHTML = '<div class="disc-empty">Loading&hellip;</div>';
+    els.scroll.innerHTML = loadingHtml();
     anonLastId = null;
     pollAnon();
     schedAnon();
@@ -369,6 +439,10 @@
     els.rail.querySelectorAll('.disc-ch').forEach(b => b.classList.toggle('is-on', b.getAttribute('data-ch') === ch.id));
     els.name.textContent = '#' + ch.label;
     els.topic.textContent = ch.topic;
+    if (els.activity){
+      els.activity.className = 'disc-activity is-quiet';
+      els.activity.querySelector('span').textContent = 'Opening room';
+    }
     pinned = true;
     els.newPill.hidden = true;
     teardownFeed();
