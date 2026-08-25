@@ -572,7 +572,13 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/atlas',       label: 'Debate atlas' },
-      { href: '/community',   label: 'Community', strong: true },
+      // 2026-08-25, Aidan: "this button should be bigger and highlighted
+      // better bc community matters in building chats". Promoted from
+      // tier 2 (`strong`) to the column's flagship tile. Watch &
+      // community had no `big` row at all, so its most important
+      // destination was rendering at the same weight as everything
+      // under it. Demoting is deleting `big` and restoring `strong`.
+      { href: '/community',   label: 'Community', big: true },
       // Sits with Community and the Atlas: all three answer "who else is
       // out there and what do they want". This one is the only surface
       // where a visitor tells us what to run rather than reading what we
@@ -828,7 +834,7 @@
     '/judge-paradigms': { desc: 'What judges actually reward', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
     '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M3 20.2h18"/><path d="M9.3 20.2v-8.6h5.4v8.6"/><path d="M3.9 20.2v-5.4h5.4"/><path d="M14.7 20.2v-6.8h5.4v6.8"/><path d="M12 3.2l1.16 2.35 2.6.38-1.88 1.83.44 2.58L12 9.11l-2.32 1.21.44-2.58-1.88-1.83 2.6-.38z"/>' },
     '/atlas':          { desc: 'Map of real debate programs', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.2 2.4 3.4 5.4 3.4 8.6s-1.2 6.2-3.4 8.6c-2.2-2.4-3.4-5.4-3.4-8.6s1.2-6.2 3.4-8.6z"/>' },
-    '/community':      { desc: 'Find people and clubs', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
+    '/community':      { desc: 'Find people, clubs, and someone to argue with', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
     '/what-to-debate': { desc: 'Post a motion, upvote the rest', icon: '<path d="M4.6 6.2a1.8 1.8 0 0 1 1.8-1.8h11.2a1.8 1.8 0 0 1 1.8 1.8v7.2a1.8 1.8 0 0 1-1.8 1.8H9.4l-4.8 3.8v-3.8a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M12 7.4v3.4M12 12.6v.1"/>' },
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
