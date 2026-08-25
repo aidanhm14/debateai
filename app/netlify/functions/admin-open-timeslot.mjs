@@ -3,18 +3,17 @@
  * The THIRD touch on The Debatable Open, and the only one that asks for
  * something back rather than asking someone to enter.
  *
- * Why it exists. The Open is drop-in: doors open at 10 AM Eastern and
- * stay open, which removes the "be free at 9 AM on a Saturday" problem
- * and replaces it with a worse one at this size. A round needs two
- * people awake at the same moment. With a field in single digits,
- * everyone arriving at a different hour means nobody debates, and the
- * tournament fails for a reason that has nothing to do with how many
- * people signed up. /tournaments already names three rush hours; nothing
- * anywhere asks a single entrant to commit to one.
+ * Why it exists. A round needs two people online at the same moment,
+ * and at this field size that is the only thing that can kill the day.
+ * The event used to answer this with three published sessions, which
+ * split a field of eighteen across twelve hours and made the problem
+ * worse while looking generous. As of 2026-08-25 there is ONE session,
+ * 10:00 AM Eastern, and this email is the commitment ask that goes with
+ * it: not "which hour suits you" but "confirm you will be there".
  *
- * So this email asks them to reply with an hour. The replies are the
- * product: they tell the organiser whether noon has five people or one,
- * while there is still time to move people around.
+ * The replies are the product: they tell the organiser how many of the
+ * field are actually turning up at 10, while there is still time to
+ * chase the ones who are not.
  *
  * THE COHORT IS INVERTED relative to admin-open-reminder.mjs, and that
  * is the whole difference between the two. The reminder skips anyone
@@ -59,15 +58,16 @@ const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
-const SUBJECT     = 'Pick a time for Saturday';
+const SUBJECT     = 'Saturday is one session: 10 AM Eastern';
 const EVENT_LABEL = 'Saturday, August 29';
 // Doors. Past this the question is moot: they are either there or they
 // are not, and an email asking them to plan is late rather than useful.
 const DOORS_OPEN_MS = Date.parse('2026-08-29T10:00:00-04:00');
 
-// Short by design. One ask, no pitch, no money, no preface. The three
-// hours are the ones published in the run-of-day on /tournaments; if
-// those move, move them here in the same commit.
+// Short by design. One ask, no pitch, no money, no preface. The hour is
+// the one published in the run-of-day on /tournaments, on
+// /tournament-rules and in the sitewide strip; if it moves, move it in
+// all of them in the same commit.
 function renderEmail({ firstName, uid, tournamentName }) {
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
@@ -75,24 +75,29 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    You're in for ${esc(tournamentName)} on ${esc(EVENT_LABEL)}. One thing would
-    make it better: tell me roughly when you're turning up.
+    You're in for ${esc(tournamentName)} on ${esc(EVENT_LABEL)}. One change
+    since you entered, and it is the only thing you need to know.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Doors are open all day, but a round needs two people online at once. There
-    are three times where everyone aims to be around:
+    We were running three sessions across the day. We are running one:
   </p>
 
-  <p style="font-size:1rem;line-height:1.9;margin:0 0 16px;font-weight:700">
-    12 PM Eastern<br>
-    3 PM Eastern<br>
-    6 PM Eastern
+  <p style="font-size:1.15rem;line-height:1.6;margin:0 0 16px;font-weight:800">
+    10:00 AM Eastern<br>
+    <span style="font-size:.9rem;font-weight:600;color:#6b6b76">Delhi 7:30 PM &middot; Lagos 3 PM &middot; London 3 PM &middot; New York 10 AM</span>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    Reply with one and I'll make sure someone is there. If none of those work,
-    say what does and I'll try to match it.
+    A round needs two people online at the same moment, and a field spread
+    across twelve hours never gets there. So everyone is on the same hour.
+    There is no second session and no make-up round: if you are not in the
+    room at 10:00, you do not play.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    Reply YES if you'll be there and I'll make sure you get paired quickly.
+    Reply NO if you can't and I'll take you off the bracket, no hard feelings.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>

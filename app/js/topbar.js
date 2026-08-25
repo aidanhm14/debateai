@@ -2448,8 +2448,8 @@
   if (now > EVENT_OVER) return;
 
   var tail = (now >= EVENT_DAY)
-    ? 'sessions 7 AM, 3 PM & 8 PM ET'
-    : 'free to enter';
+    ? 'one session, 10 AM ET'
+    : '10 AM ET, free to enter';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
@@ -2656,9 +2656,9 @@
     wrap.innerHTML =
       '<div class="ui-open-card">' +
         '<button type="button" class="ui-open-x" aria-label="Close">&times;</button>' +
-        '<span class="ui-open-tag">' + (today ? 'Today' : 'Sat Aug 29') + '</span>' +
+        '<span class="ui-open-tag">' + (today ? 'Today, 10 AM ET' : 'Sat Aug 29 \u00b7 10 AM ET') + '</span>' +
         '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
-        '<p class="ui-open-p">The Debatable Open is a one day online tournament. You turn up whenever suits you, get paired with a real person, and every round ends with a written verdict. Rush hours at 12, 3 and 6 PM Eastern are when pairing is fastest. $100 for first, $50 for second, $25 for third.</p>' +
+        '<p class="ui-open-p">The Debatable Open is a one session online tournament. Doors open at <strong>10:00 AM Eastern</strong>, you are paired with a real person, and every round ends with a written verdict. There is no second session and no make-up round. $100 for first, $50 for second, $25 for third.</p>' +
         '<p class="ui-open-fine">Free to enter. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
         '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
         '<button type="button" class="ui-open-no">Not interested</button>' +

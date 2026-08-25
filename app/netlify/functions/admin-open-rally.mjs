@@ -44,7 +44,7 @@ const SUBJECT   = 'The Debatable Open is this Saturday. Free entry, cash prizes.
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, no traction
 // numbers. The prize ladder, the $850 scale-up at 50+ entrants, the
-// 10 AM doors and the 12/3/6 rush hours are the ones published on
+// 10 AM doors and the single-session rule are the ones published on
 // /tournament-rules; if those change, change these.
 function renderEmail({ firstName, uid, tournamentName }) {
   const cta   = `${SITE_URL}/tournaments#enter`;
@@ -55,11 +55,11 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>${esc(tournamentName)} runs this Saturday, August 29.</strong>
-    Doors open 10:00 AM Eastern and stay open all day. Drop in whenever,
-    get paired with a real person, and argue it out. Every round ends with a
-    written verdict that says what decided it, and the top of the standings
-    goes to a streamed elimination final in the evening.
+    <strong>${esc(tournamentName)} runs this Saturday, August 29, in one
+    session at 10:00 AM Eastern.</strong> Be in the room at 10:00, get paired
+    with a real person, and argue it out. Every round ends with a written
+    verdict that says what decided it, and the top of the standings goes to a
+    streamed elimination final at about 1:15 PM Eastern.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -74,10 +74,10 @@ function renderEmail({ firstName, uid, tournamentName }) {
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Come at a rush hour.</strong> Pairing works when people are online
-    at the same moment, so the day has three: 12:00 PM, 3:00 PM, and
-    6:00 PM Eastern. Turn up at one of those and the queue is at its
-    fullest. Rounds at any hour count the same.
+    <strong>There is one session and no make-up round.</strong> Pairing only
+    works when people are online at the same moment, so the whole field is
+    being held to one hour: 10:00 AM Eastern. If you are not in the room then,
+    you do not play.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
