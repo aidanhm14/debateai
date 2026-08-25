@@ -894,7 +894,14 @@
     if (value.kind === 'pfp' && typeof value.id === 'string') {
       var lib = pfpLib();
       if (!lib) return { kind:'pfp', id:value.id.slice(0, 32) };   // set not loaded yet
-      return lib.has(value.id) ? { kind:'pfp', id:value.id } : null;
+      /* canWear, not has: since 2026-08-25 the library also carries the
+         photo tier the first-screen rail draws from, and those are not
+         wearable. Without this an id posted by hand would put a
+         stranger's photograph on somebody's account. Falls back to has()
+         for a cached older library, where the two are equivalent because
+         it holds no photo ids at all. */
+      var ok = lib.canWear ? lib.canWear(value.id) : lib.has(value.id);
+      return ok ? { kind:'pfp', id:value.id } : null;
     }
     return null;
   }

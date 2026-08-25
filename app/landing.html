@@ -7457,8 +7457,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      a centred composition is not detectable without a ruler, and taking
      it back would be that same jolt in the case where something has
      already gone wrong. */
+  /* 2026-08-25, Aidan, on the rail sitting under the example board: "move
+     this left and like 5% smaller to afford the space appropriately." The
+     rail grew (54 -> 68px tiles) and came back onto the page (peek 12 ->
+     -8px), so it now wants ~36px more than the old shift gave it. Two
+     moves, because one alone would not pay for it: the composition slides
+     further left, and it scales to .95 about its own centre, which hands
+     back another ~2.5% of the wrap width on the right side, roughly 32px
+     at the 1280px cap. Scale rather than a narrower max-width: a cap
+     change reflows the headline and the board into different line breaks,
+     while a scale is the same composition, 5% smaller, exactly as asked.
+     Desktop only, same as the rail. */
   @media(min-width:1101px){
-    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(-52px,-3.2vw,-30px))}
+    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(-88px,-5.4vw,-56px)) scale(.95)}
   }
   /* The copy column is a flex column with ONE gap, so its three blocks
      (the CTA cluster, the Open card, the globe) are evenly spaced by the
@@ -8747,14 +8758,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      over the edge" means, so it is a variable and not a magic number),
      and how far the card reaches back over the page. */
   .lbr{
-    --lbr-ava:54px;
-    /* 2026-08-24, Aidan on the collapsed dock: "have these hanging out
-       just a bit more." Peek 22px -> 12px, so a face shows ~42px of its
-       54px instead of ~32px and reads as a face at a glance rather than
-       as a sliver. The rail intrudes 10px further into the page; the
-       first screen already shifts 30-52px left of centre for it (see
-       html.lbr-ready .fscreen-wrap), so nothing else moves. */
-    --lbr-peek:12px;
+    /* 2026-08-25, Aidan: "push out a bit more too and increase sizes ...
+       needs to LOOK like a leaderboard peeking out at the side." 54 -> 68
+       so a tile carries a recognisable picture rather than a thumbnail,
+       which is what the photo tier needs to be worth having. */
+    --lbr-ava:68px;
+    /* Peek is how far the rail sits PAST the right edge, so a negative
+       value pulls it back onto the page: 22 -> 12 -> -8. Every tile is now
+       whole, with a margin of page outside it, which is the difference
+       between a clipped column and a board that peeks. The first screen
+       gives back the room it takes (html.lbr-ready .fscreen-wrap), so
+       nothing else moves. */
+    --lbr-peek:-8px;
     --lbr-card:212px;
     /* Collapsed the tiles are discs; opened, the rail becomes a panel and
        the tiles square off to match the cards beside them (2026-08-24,
@@ -8819,6 +8834,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Their real photo paints OVER the emblem behind it, so removing a dead
      <img> in onerror reveals the emblem rather than leaving a hole. */
   .lbr-ava img{z-index:1}
+  /* The stand-in is an <img> too since the photo tier landed, so it needs
+     to be pinned back under that rule by name. Without this the stand-in
+     wins on document order and covers the account photo it is standing in
+     for, which is the tier order exactly backwards. */
+  .lbr-ava .db-pfp{z-index:0}
   /* Dock falloff: the pointed-at face grows most, its neighbours less.
      :has drives the "one above" half; a browser without it simply
      magnifies the hovered face alone, which still reads correctly. */
@@ -8832,11 +8852,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Rank pip. Outboard corner of the circle, and a sibling of it rather
      than a child (see .lbr-pic above). */
   .lbr-rk{
-    position:absolute;left:-4px;bottom:-2px;z-index:2;
-    min-width:19px;height:19px;padding:0 4px;border-radius:10px;
+    position:absolute;left:-5px;bottom:-2px;z-index:2;
+    /* Grew with the tile (2026-08-25). A 19px pip on a 68px face reads as
+       a speck rather than as a rank. */
+    min-width:23px;height:23px;padding:0 5px;border-radius:12px;
     display:flex;align-items:center;justify-content:center;
     background:#0f0c0d;color:#fff;border:1.5px solid rgba(255,255,255,.24);
-    font-family:var(--font-mono,ui-monospace,monospace);font-size:.62rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1
+    font-family:var(--font-mono,ui-monospace,monospace);font-size:.72rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1
   }
   .lbr-list .lbr-item:first-child .lbr-rk{background:#dc2626;border-color:rgba(255,255,255,.36)}
   [data-theme="light"] .lbr-rk{background:#1a1a1f;border-color:rgba(255,255,255,.6)}
@@ -13859,12 +13881,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      same 49 tiles, and a second copy would drift the moment one was added.
      ~9KB, deferred, and this page is the only one that loads it eagerly.
 
-     The set is drawn rather than sourced: the references were screenshots
-     of real profile pictures from another app, containing a child,
-     identifiable adults and copyrighted characters. See the header of
-     pfp-set.js for the whole reasoning. */
+     Two tiers live in there. The rail and this board draw the PHOTO tier
+     (2026-08-25, Aidan: "bring back the real photos - never reverse
+     this"), because a column of drawn tiles reads as clip art at 54px and
+     the rail's whole job is to look like a board of people. The drawn set
+     is what the picker offers. See the header of pfp-set.js. */
   function pfpArt(seed, taken){
-    return (global_DBPfp() && global_DBPfp().pickSvg) ? global_DBPfp().pickSvg(seed, taken) : '';
+    var lib = global_DBPfp();
+    if (!lib) return '';
+    /* Photos first, and pickSvg only for a cached older library that has
+       no photo tier, so a stale script costs register rather than tiles. */
+    if (lib.pickPhotoSvg) return lib.pickPhotoSvg(seed, taken);
+    return lib.pickSvg ? lib.pickSvg(seed, taken) : '';
   }
   function global_DBPfp(){ return window.DBPfp; }
 

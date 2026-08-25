@@ -7,15 +7,27 @@
  * nobody replaced. Then: "those should be options yea" and "i want more
  * variety too".
  *
- * WHY THIS IS DRAWN AND NOT SOURCED. The references were phone screenshots
- * of real profile pictures from another app, and that set could not ship:
- * it contained a child, several identifiable adults, and copyrighted
- * characters. The rule ("never an unlicensed photo of a real person, and
- * never a new board face without explicit consent and an 18+ confirmation")
- * has no exception for examples. So the register is redrawn, original, and
- * ours outright. Nothing here depicts a real person or an existing
- * character; where a tile is in the neighbourhood of a familiar idea it is
- * built from generic shapes, not from that thing's design.
+ * TWO TIERS, AND THEY ARE NOT INTERCHANGEABLE.
+ *
+ * PHOTOS (2026-08-25) are the pictures Aidan supplied and asked for twice,
+ * the second time as a standing instruction: "bring back the real photos -
+ * never reverse this". They are phone screenshots of profile pictures from
+ * another app. They are what the first-screen rail draws, because the rail
+ * has to read as a board of people at a glance and a drawn set reads as
+ * clip art at that size. His call, his site, his risk, recorded here so it
+ * is not relitigated by the next agent who reads the old rule and reverts
+ * it. ONE image from the batch is deliberately absent and stays absent: it
+ * is a photograph of a child, which is not the site owner's consent to
+ * give. If the batch is ever re-cropped, do not put it back.
+ *
+ * They are the STAND-IN tier only. They are not offered in the picker, so
+ * nobody's account can come to be identified by a stranger's photograph,
+ * and any truer tier (a built avatar, an account's own photo) still
+ * outranks them everywhere.
+ *
+ * DRAWN tiles are the pickable set: original, ours outright, and nothing
+ * in them depicts a real person or an existing character. That is why the
+ * picker draws from SET and never from PHOTOS.
  *
  * RULES THAT KEEP THEM READABLE AT 54px, which is the only size that
  * matters here: flat fills, no hairlines under 2px, no gradients, one
@@ -24,7 +36,8 @@
  *
  * ADDING ONE: append to SET with a stable id (the id is what gets stored
  * on an account, so renaming one silently changes somebody's picture).
- * Keep `group` accurate; the picker renders by group.
+ * Keep `group` accurate; the picker renders by group. A PHOTOS id is never
+ * stored on an account, so those may be re-cut freely.
  */
 (function (global) {
   'use strict';
@@ -347,8 +360,27 @@
       + '<path d="M12 36c0 12 9 20 20 20s20-8 20-20" stroke="#e8e3d8" stroke-width="4.6" fill="none" stroke-linecap="round"/>' }
   ];
 
+  /* ── The photo tier ──────────────────────────────────────────────
+     Cropped square from the circle in each source screenshot at 320px,
+     which is 2x the largest tile the rail ever paints. Ids are stable so
+     a `taken` map keeps behaving, but nothing stores one on an account
+     (see the header), so they are safe to re-cut. */
+  var PHOTOS = [
+    { id:'pic-cap',     name:'Cap',     src:'/img/pfp/cap.jpg' },
+    { id:'pic-cash',    name:'Cash',    src:'/img/pfp/cash.jpg' },
+    { id:'pic-chibi',   name:'Chibi',   src:'/img/pfp/chibi.jpg' },
+    { id:'pic-danbo',   name:'Box',     src:'/img/pfp/danbo.jpg' },
+    { id:'pic-default', name:'Default', src:'/img/pfp/default.jpg' },
+    { id:'pic-duo',     name:'Duo',     src:'/img/pfp/duo.jpg' },
+    { id:'pic-krispy',  name:'Krispy',  src:'/img/pfp/krispy.jpg' },
+    { id:'pic-lisa',    name:'Lisa',    src:'/img/pfp/lisa.jpg' },
+    { id:'pic-pug',     name:'Pug',     src:'/img/pfp/pug.jpg' },
+    { id:'pic-snow',    name:'Snow',    src:'/img/pfp/snow.jpg' }
+  ];
+
   var BY_ID = {};
   for (var i = 0; i < SET.length; i++) BY_ID[SET[i].id] = SET[i];
+  for (var pi = 0; pi < PHOTOS.length; pi++) BY_ID[PHOTOS[pi].id] = PHOTOS[pi];
 
   function art(id) {
     var it = BY_ID[id];
@@ -357,9 +389,19 @@
   /* size defaults to filling its box; the tile is always square and always
      cropped, so a non-square host never distorts one. */
   function svg(id, size) {
+    var it = BY_ID[id];
+    var dim = size == null ? '100%' : (typeof size === 'number' ? size + 'px' : size);
+    /* A photo tile answers the same call and returns markup the same
+       callers can drop in place, so no surface has to know which tier it
+       got. It keeps the db-pfp class because that is what the stylesheets
+       key the stand-in layer on, and it must stay BEHIND an account's own
+       photo where both are present. */
+    if (it && it.src) {
+      return '<img class="db-pfp" src="' + it.src + '" alt="" width="' + dim + '" height="' + dim + '"'
+        + ' loading="lazy" decoding="async" aria-hidden="true">';
+    }
     var a = art(id);
     if (!a) return '';
-    var dim = size == null ? '100%' : (typeof size === 'number' ? size + 'px' : size);
     return '<svg class="db-pfp" viewBox="0 0 64 64" width="' + dim + '" height="' + dim + '"'
       + ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice">'
       + a + '</svg>';
@@ -373,11 +415,12 @@
   /* Stable per seed (a picture that reshuffles on refresh reads as broken)
      and deduped within one surface via `taken` (the same ghost twice on one
      board reads as a bug). Probes forward from the hashed slot. */
-  function pick(seed, taken) {
-    var h = hash(seed), n = SET[h % SET.length].id, k;
+  function pick(seed, taken, pool) {
+    var list = pool && pool.length ? pool : SET;
+    var h = hash(seed), n = list[h % list.length].id, k;
     if (taken) {
-      for (k = 0; k < SET.length; k++) {
-        n = SET[(h + k) % SET.length].id;
+      for (k = 0; k < list.length; k++) {
+        n = list[(h + k) % list.length].id;
         if (!taken[n]) break;
       }
       taken[n] = 1;
@@ -385,9 +428,21 @@
     return n;
   }
   function pickSvg(seed, taken, size) { return svg(pick(seed, taken), size); }
+  /* What the first-screen rail calls. Separate from pickSvg rather than a
+     flag on it, so a surface that wants the drawn set cannot get photos by
+     forgetting an argument. */
+  function pickPhoto(seed, taken) { return pick(seed, taken, PHOTOS); }
+  function pickPhotoSvg(seed, taken, size) { return svg(pickPhoto(seed, taken), size); }
 
+  /* `list` stays the DRAWN set on purpose: it is what the picker renders,
+     and a photo tile must never become something an account can wear. */
   global.DBPfp = {
-    list: SET, byId: BY_ID, has: function (id) { return !!BY_ID[id]; },
-    art: art, svg: svg, pick: pick, pickSvg: pickSvg, hash: hash
+    list: SET, photos: PHOTOS, byId: BY_ID,
+    has: function (id) { return !!BY_ID[id]; },
+    /* Membership check for the three server allow-lists and the topbar
+       probe, which may only ever accept a pickable id. */
+    canWear: function (id) { return !!BY_ID[id] && !BY_ID[id].src; },
+    art: art, svg: svg, pick: pick, pickSvg: pickSvg,
+    pickPhoto: pickPhoto, pickPhotoSvg: pickPhotoSvg, hash: hash
   };
 })(typeof window !== 'undefined' ? window : this);

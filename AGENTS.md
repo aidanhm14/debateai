@@ -341,6 +341,25 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   the generated bank is dormant in castFaces, not deleted. The visible
   cast is therefore all male until a new consented batch exists; do not
   fix that by reintroducing generated faces.
+  **2026-08-25: the LEADERBOARD RAIL's stand-in pictures are the supplied
+  photo batch, and that is a standing instruction.** Aidan, on the drawn
+  set that replaced them: "bring back the real photos - never reverse
+  this". `app/img/pfp/*` are cropped from phone screenshots of profile
+  pictures from another app; the first-screen rail (`#lbRail`) draws them
+  and nothing else. This overrides the "consented stills only" rule ABOVE
+  for that one surface, knowingly and at his direction, so do not revert
+  it on the strength of the paragraphs above it. Three things bound it and
+  they are not his to waive on somebody else's behalf, so leave them
+  alone: (1) the eleventh image in the batch is a photograph of a CHILD
+  and is not in the repository, and must not be added if the batch is ever
+  re-cropped; (2) the photos are the stand-in tier only, never offered in
+  the avatar picker, so no account can come to be identified by a
+  stranger's photograph (`DBPfp.canWear` is what enforces that, and the
+  sanitiser in `avatar.js` calls it rather than `has`); (3) a real
+  account's own avatar or photo still outranks them everywhere. The
+  ROUNDS board above is a DIFFERENT surface and is unchanged: it still
+  runs consented stills only, because those seats carry names and results
+  and these tiles do not.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
