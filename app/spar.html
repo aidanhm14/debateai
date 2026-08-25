@@ -1684,6 +1684,79 @@ h1 em{color:var(--accent);font-style:normal}
   animation:wl-fade-in .18s ease;
 }
 @keyframes wl-fade-in{from{opacity:0}to{opacity:1}}
+
+/* ── Guest sign-in popup, searching screen (2026-08-25) ──────
+   Aidan, on a screenshot of the green "get pinged" strip: "have this be
+   like a pop up to encourage google sign in on the spar page."
+
+   This is NOT the auto-pop retired on 2026-08-23. That one opened the
+   shared chooser OVER the gate card, which put the same two buttons on
+   screen twice and covered the half only the card has. This one fires
+   on the SEARCHING screen, where a guest is queued with nothing to do
+   and the only sign-in surface is a 12px strip, and while it is open
+   that strip hides (see paint() in the alerts block), so the offer is
+   still only on screen once.
+
+   It never blocks the round: the search keeps running behind it, and
+   both renderMatched and renderConsentGate close it on arrival, so a
+   match can never open under a dialog.
+
+   z-index sits above the topbar (1000), the bell toasts (9999), the
+   beta strip (10000) and the DM modal (10001), and deliberately below
+   the bell panel (99998) and the match overlay (100000). */
+.sip-back{
+  position:fixed; inset:0; z-index:10050;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  background:rgba(0,0,0,.66);
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  overscroll-behavior:contain;
+  animation:wl-fade-in .18s ease;
+}
+@keyframes sip-rise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+.sip{
+  width:100%; max-width:392px;
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:18px; box-shadow:0 24px 60px rgba(0,0,0,.45);
+  padding:22px 22px 18px; text-align:center;
+  animation:sip-rise .22s cubic-bezier(.2,.8,.3,1);
+}
+.sip-bell{
+  width:44px; height:44px; margin:0 auto 12px; border-radius:999px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(34,197,94,.14); color:#22c55e;
+}
+.sip h3{margin:0 0 7px;font-size:1.12rem;font-weight:800;color:var(--text);line-height:1.28}
+.sip p{margin:0 0 16px;font-size:.86rem;line-height:1.55;color:var(--text-dim)}
+.sip .gate-google{margin-bottom:8px}
+.sip-alt{
+  display:block; width:100%; padding:10px; border:none; background:none;
+  font:inherit; font-size:.82rem; font-weight:700; color:var(--text-dim);
+  cursor:pointer; border-radius:10px;
+}
+.sip-alt:hover{color:var(--text)}
+.sip-not{
+  display:block; width:100%; margin-top:2px; padding:8px; border:none;
+  background:none; font:inherit; font-size:.78rem; color:var(--text-ghost);
+  cursor:pointer;
+}
+.sip-not:hover{color:var(--text-dim)}
+/* Outranks the .sip p rule above, which would otherwise paint the
+   footnote at body weight. */
+.sip p.sip-foot{margin:10px 0 0;font-size:.72rem;color:var(--text-ghost);line-height:1.5}
+/* Phone: a bottom sheet, so the thumb reaches Continue with Google and
+   the searching screen stays visible above it. */
+@media(max-width:560px){
+  .sip-back{padding:0;align-items:flex-end}
+  .sip{
+    max-width:none; border-radius:18px 18px 0 0; border-bottom:none;
+    padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));
+    animation:sip-sheet .24s cubic-bezier(.2,.8,.3,1);
+  }
+}
+@keyframes sip-sheet{from{transform:translateY(100%)}to{transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .sip,.sip-back{animation:none}
+}
 .wl-modal{
   background:var(--bg-card); border:1px solid var(--border);
   border-radius:18px; box-shadow:var(--shadow-lg);
@@ -2733,6 +2806,152 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }, 500);
   }
 
+  // ── Guest sign-in popup on the searching screen (2026-08-25) ─
+  // Aidan, on a screenshot of the green "get pinged" strip: "have this
+  // be like a pop up to encourage google sign in on the spar page."
+  //
+  // Read this next to autoPopAuthModal above, which was cut two days
+  // earlier for being a pop nobody needed. The difference is the screen
+  // it stands on. That one covered the GATE, which is already a full
+  // sign-in card, so it charged a dismissal for a path that was on
+  // screen anyway and hid the reasons to take it. This one stands on
+  // the SEARCHING screen, where a guest is queued, has nothing to do
+  // until somebody arrives, and the entire sign-in surface is a 12px
+  // strip below the fold on a phone. So it adds a door rather than
+  // covering one, and the strip hides while it is up so the offer is
+  // still only on screen once.
+  //
+  // Three rules it must keep, because a popup on the one screen where a
+  // stranger might arrive is easy to make hostile:
+  //  1. It never covers a round. A consent card or a match closes it
+  //     (closeSignInPop at the top of both renderers), and it refuses
+  //     to open once either is on the way.
+  //  2. It never blocks the search. The queue doc, the heartbeat and
+  //     the poll all keep running behind it, and the card says so.
+  //  3. Once per session, whatever the visitor does with it. Dismiss,
+  //     sign in, or close it with Escape: it does not come back on the
+  //     next requeue. Guests requeue often, and a wall that returns
+  //     every time is the thing that makes people leave the tab.
+  var SIP_KEY = 'da-spar-signin-pop';
+  // Same Google mark the gate card carries, so the two doors match.
+  var SIP_GOOGLE_SVG = '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
+  var SIP_AFTER_SEC = 25;              // the wait is real by then, not a blink
+  var SIP_ALERTS_PENDING = 'da-alerts-after-signin';  // same key the strip sets
+  var sipPrevOverflow = '';
+  // Whether a ping could actually ARRIVE for this visitor. Measured, not
+  // assumed: a browser that has blocked notifications never gets one, and
+  // iOS has no Push API at all outside a home-screen install. In both
+  // cases the ping headline is a promise that cannot happen, so the card
+  // leads with it only when it can, and otherwise leads with what an
+  // account gives regardless. Same tests the alerts strip runs below.
+  function sipPushOk(){
+    try { if (window.Notification && window.Notification.permission === 'denied') return false; } catch(_) {}
+    try { return ('serviceWorker' in navigator) && ('PushManager' in window); } catch(_) { return false; }
+  }
+  function signInPopOpen(){ return !!document.getElementById('sparSignInPop'); }
+  function closeSignInPop(){
+    var b = document.getElementById('sparSignInPop');
+    if (!b) return;
+    b.remove();
+    document.body.style.overflow = sipPrevOverflow;
+    sipPrevOverflow = '';
+    document.removeEventListener('keydown', sipEscClose);
+  }
+  function sipEscClose(e){ if (e.key === 'Escape') dismissSignInPop('esc'); }
+  // Spent for the session on ANY outcome, including a sign-in that the
+  // visitor abandons at Google's own screen.
+  function sipSpend(){ try { sessionStorage.setItem(SIP_KEY, '1'); } catch(e){} }
+  function dismissSignInPop(how){
+    sipSpend();
+    closeSignInPop();
+    try { if (window.gtag) gtag('event', 'spar_signin_pop_dismiss', { how: how || 'button' }); } catch(e){}
+  }
+  function maybeSignInPop(){
+    if (signInPopOpen()) return;
+    if (!state.user || state.named) return;                 // nothing to ask a named account for
+    if (state.inConsent || state.roundNavPending) return;    // a round is arriving; never cover it
+    if (document.getElementById('sparGateCard')) return;     // the gate IS this offer, in full
+    if (!document.getElementById('countdownNum')) return;    // searching screen is not up
+    // Never stack on the age gate. renderSearching paints BEHIND that
+    // dialog (joinQueue stops at daAskAgeBand and returns), so without
+    // this the popup gets built underneath a modal at z-index 2^31 and
+    // is waiting there when the visitor answers, having asked for
+    // nothing. Caught by opening the page as a first-time visitor.
+    if (document.getElementById('daAgeGate')) return;
+    // And never on a clock that has not started. elapsed is measured off
+    // joinedAtMs, which is 0 until the queue join actually goes through,
+    // so a zero there reads as decades elapsed and would fire this on
+    // arrival rather than after a real wait.
+    if (!state.joinedAtMs) return;
+    try { if (sessionStorage.getItem(SIP_KEY)) return; } catch(e){}
+    openSignInPop();
+  }
+  function openSignInPop(){
+    var left = guestRoundsLeft();
+    var push = sipPushOk();
+    var back = document.createElement('div');
+    back.className = 'sip-back';
+    back.id = 'sparSignInPop';
+    back.innerHTML =
+      '<div class="sip" role="dialog" aria-modal="true" aria-labelledby="sipTitle">' +
+        '<div class="sip-bell" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>' +
+        // The rounds line is the honest half of both variants: guest
+        // rounds are finite and run out, so say the account keeps them
+        // before the wall does rather than after.
+        '<h3 id="sipTitle">' + (push
+          ? 'Get pinged when someone goes live'
+          : 'Keep the rounds you have played') + '</h3>' +
+        '<p>' + (push
+          ? 'Leave the tab and we will tell you the moment someone is looking for a round. '
+            + 'The ping routes to your account, so it takes a free sign-in, and the rounds you have already played stay yours.'
+          : 'A free sign-in keeps the rounds you have already debated, along with your ballots and your record. '
+            + 'Your opponent also meets a real name instead of a guest.') +
+        '</p>' +
+        '<button class="gate-google" id="sipGoogle" type="button">' + SIP_GOOGLE_SVG + 'Continue with Google</button>' +
+        '<button class="sip-alt" id="sipEmail" type="button">Other ways to sign in</button>' +
+        '<button class="sip-not" id="sipNot" type="button">Not now</button>' +
+        '<p class="sip-foot">Your place in the queue is not affected. The search keeps running either way.</p>' +
+      '</div>';
+    document.body.appendChild(back);
+    sipPrevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // Tap outside closes, but only when the press STARTED outside, so a
+    // drag off the sheet on a phone does not dismiss it.
+    var downOnBack = false;
+    back.addEventListener('pointerdown', function(e){ downOnBack = (e.target === back); });
+    back.addEventListener('click', function(e){
+      if (e.target === back && downOnBack) dismissSignInPop('backdrop');
+      downOnBack = false;
+    });
+    document.addEventListener('keydown', sipEscClose);
+    document.getElementById('sipGoogle').addEventListener('click', function(){
+      sipSpend();
+      // Someone signing in from THIS card wanted the ping, not the
+      // account, so leave the flag the alerts block resumes on.
+      try { sessionStorage.setItem(SIP_ALERTS_PENDING, '1'); } catch(e){}
+      try { if (window.gtag) gtag('event', 'spar_signin_pop_click', { method: 'google' }); } catch(e){}
+      closeSignInPop();
+      doGoogleSignIn();
+    });
+    document.getElementById('sipEmail').addEventListener('click', function(){
+      sipSpend();
+      try { sessionStorage.setItem(SIP_ALERTS_PENDING, '1'); } catch(e){}
+      try { if (window.gtag) gtag('event', 'spar_signin_pop_click', { method: 'chooser' }); } catch(e){}
+      closeSignInPop();
+      // The gate's inline email form needs the gate card's DOM, which is
+      // not on this screen, so the other paths come from the shared
+      // chooser (2026-08-12). Google is the fallback if it never loaded.
+      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+      else doGoogleSignIn();
+    });
+    document.getElementById('sipNot').addEventListener('click', function(){ dismissSignInPop('button'); });
+    var el = document.getElementById('sipGoogle');
+    if (el && el.focus) { try { el.focus({ preventScroll: true }); } catch(e){ } }
+    // Tag the variant. One blended conversion rate would hide whichever
+    // of the two asks is doing the work.
+    try { if (window.gtag) gtag('event', 'spar_signin_pop_shown', { rounds_left: left, format: formatParam, variant: push ? 'ping' : 'record' }); } catch(e){}
+  }
+
   // ── Gate live count: who is waiting on the other side ────────
   // "3 others are waiting live right now" above the sign-in buttons, so
   // the account ask has a person attached to it. The queue number is
@@ -3228,6 +3447,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       function paint(){
         var s = stateNow();
         if (!s) { cta.hidden = true; shown = ''; return; }
+        // The popup is this card's guest state, larger. Two of the same
+        // offer on one screen is exactly what got the 2026-08-23 auto-pop
+        // cut, so the strip stands down while it is open and paints again
+        // (shown reset) the moment it closes.
+        if (s === 'guest' && signInPopOpen()) { cta.hidden = true; shown = ''; return; }
         if (s !== shown){
           titleEl.textContent = COPY[s][0];
           bodyEl.textContent = COPY[s][1];
@@ -4170,6 +4394,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // crashed rendering the match.
   var radarHandle = null;
   function renderMatched(roomName, peerName, peerAvatar){
+    closeSignInPop();
     removeWaitRail();
     try { gtag('event', 'spar_match_found', { format: formatParam, wait_sec: state.joinedAtMs ? Math.floor((Date.now() - state.joinedAtMs) / 1000) : 0 }); } catch(e){}
 
@@ -4291,6 +4516,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function startCountdown(){
     if (state.countdownInterval) clearInterval(state.countdownInterval);
     state.pingAsked = false;
+    state.sipAsked = false;
     state.countdownInterval = setInterval(function(){
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
       var num = document.getElementById('countdownNum');
@@ -4306,6 +4532,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (elapsed >= 12 && !state.aiOfferDismissed){
         var offer = document.getElementById('aiOpponentOffer');
         if (offer) offer.hidden = false;
+      }
+      // Sign-in popup for guests. Asked once, on a flag like pingAsked
+      // above, so it cannot re-fire on the 250ms tick; a requeue resets
+      // the flag but sessionStorage still holds it to once per session.
+      if (elapsed >= SIP_AFTER_SEC && !state.sipAsked){
+        state.sipAsked = true;
+        maybeSignInPop();
       }
     }, 250);
   }
@@ -4762,6 +4995,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function renderConsentGate(d){
+    closeSignInPop();
     removeWaitRail();
     var me = state.user.uid;
     var peerUid = d.matchedWith;
