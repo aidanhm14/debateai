@@ -8619,7 +8619,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="fs-ballot" id="fsBallot">
         <div class="fs-ballot-wait" id="fsWait">The AI judge is deciding <span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
         <div class="fs-ballot-card fs-fade" id="fsBallotCard">
-          <span class="fs-ballot-k">AI judge&rsquo;s decision</span>
+          <span class="fs-ballot-k" id="fsBallotK">AI judge&rsquo;s decision</span>
           <div class="fs-ballot-top">
             <b id="fsWinner">Pro wins</b>
             <span id="fsScore">88 &ndash; 62</span>
@@ -10786,7 +10786,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var el = {};
   ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB','fsSample',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
-   'fsOddsLive','fsBallot','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
+   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig']
     .forEach(function(id){ el[id] = document.getElementById(id); });
@@ -10889,6 +10889,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
+  /* Whether the card in the slot actually has a decision to show. The
+     eyebrow names the card's author ("AI judge's decision"), which is a
+     claim about content, so it only gets to say that once the content is
+     there. An empty verdict used to paint the label over a blank block,
+     which reads as a broken card rather than one still working. */
+  var verdictReady = false;
   // The verdict is the payoff, so it holds LONGER than the deciding
   // animation. Before 2026-08-22 the split was 4600/2600, which meant a
   // visitor glancing at the card mostly caught "The AI judge is deciding".
@@ -11016,6 +11022,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = 'Invited';
       el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = 'Yours';
       el.fsBallot.classList.remove('is-in');
+      verdictReady = false;
       elapsed = 0;
       return;
     }
@@ -11042,6 +11049,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .replace(/^[A-Za-z]+ wins /, '')
       .replace(/^[a-z]/, function(c){ return c.toUpperCase(); });
 
+    verdictReady = !!(el.fsWinner.textContent.trim()
+      && el.fsWhy && el.fsWhy.textContent.trim());
+    if (el.fsBallotK){
+      el.fsBallotK.textContent = verdictReady ? 'AI judge\u2019s decision' : 'Generating result';
+    }
+
     price = r.open;
     hist = [];
     var seed = r.open;
@@ -11061,6 +11074,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
 
   function settle(){
+    /* Nothing to reveal without a decision. The waiting line keeps running
+       instead, so the slot never shows a label over an empty card. */
+    if (!verdictReady) return;
     el.fsBallot.classList.add('is-in');
     if (el.fsOddsLive){ el.fsOddsLive.classList.add('is-settled'); el.fsOddsLive.innerHTML = '<i></i>Result ready'; }
     // 2026-08-22: the winner line is always the winner's green. It used to
