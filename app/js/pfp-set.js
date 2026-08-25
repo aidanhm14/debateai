@@ -397,8 +397,20 @@
        key the stand-in layer on, and it must stay BEHIND an account's own
        photo where both are present. */
     if (it && it.src) {
-      return '<img class="db-pfp" src="' + it.src + '" alt="" width="' + dim + '" height="' + dim + '"'
-        + ' loading="lazy" decoding="async" aria-hidden="true">';
+      /* EAGER, deliberately. Every consumer of this tier paints above the
+         fold on the first screen, so a lazy tile cannot start its fetch
+         until layout has run and the picture arrives after the column it
+         belongs to. Six tiles at ~19KB is not a budget worth deferring.
+         (It also sidesteps a preview-browser artifact that reports the
+         document hidden, where Chrome defers lazy images indefinitely and
+         the rail reads as broken when it is not.)
+         Intrinsic size only when a caller asked for a real one: the
+         stylesheets size the tile to its box, and width="100%" is not a
+         valid attribute value, so passing the default through would put
+         a junk attribute on every tile. */
+      var box = (typeof size === 'number') ? ' width="' + size + '" height="' + size + '"' : '';
+      return '<img class="db-pfp" src="' + it.src + '" alt=""' + box
+        + ' decoding="async" aria-hidden="true">';
     }
     var a = art(id);
     if (!a) return '';
