@@ -109,6 +109,8 @@
       /* Warning, not decoration: amber is the state colour per the
          2026-05-19 brand rule, red is reserved for actions. */
       '#ditAuth .da-inapp{font-size:13.5px;line-height:1.5;margin:0 0 14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(245,158,11,.38);background:rgba(245,158,11,.10);color:' + sub + '}' +
+      '#ditAuth .da-copy{display:inline-block;margin-top:6px;padding:5px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.55);background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}' +
+      '#ditAuth .da-copy:hover{background:rgba(245,158,11,.18)}' +
       '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:' + sub + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}' +
       '#ditAuth .da-or::before,#ditAuth .da-or::after{content:"";flex:1;height:1px;background:' + line + '}' +
       '#ditAuth .da-form{margin-top:8px}' +
@@ -185,6 +187,31 @@
     } catch (e) { return false; }
   }
 
+  // Shared so every module tests "can this browser complete an OAuth
+  // sign-in" against ONE definition. signup-nudge.js prompted Google One
+  // Tap with no check at all: on 2026-08-24 that fired 314 times across
+  // 340 paid TikTok sessions, every one of them inside TikTok's webview,
+  // where Google refuses OAuth outright. A second copy of this regex is
+  // how the two drift apart, so there is only this one.
+  window.__ditIsInAppBrowser = isInAppBrowser;
+
+  // navigator.clipboard needs a secure context AND is missing in some
+  // webviews; the execCommand path is the one that still works there.
+  function legacyCopy(text, done){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (done) done();
+    } catch (e) {}
+  }
+
   var GOOGLE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
 
   var APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>';
@@ -238,7 +265,7 @@
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google and Apple sign-in do not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome.</p>'
+      ? '<p class="da-inapp">Google and Apple sign-in do not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome. <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
     c.innerHTML =
       '<button class="da-x" aria-label="Close">×</button>' +
@@ -272,6 +299,22 @@
         '<button type="button" class="da-link" id="daModeSwitch">' + (creating ? 'Sign in' : 'Create an account') + '</button></p>' +
       '<p class="da-note">Private. I never sell your data or post for you. Sign out anytime.</p>';
     c.querySelector('.da-x').addEventListener('click', close);
+    // "Open it in Safari or Chrome" is not an instruction anyone can follow
+    // inside a webview with no address bar. Hand them the URL.
+    var copyBtn = c.querySelector('#daCopyLink');
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      var url = location.href;
+      var done = function(){
+        copyBtn.textContent = 'Copied';
+        setTimeout(function(){ try { copyBtn.textContent = 'Copy link'; } catch (e) {} }, 2200);
+        try { if (window.gtag) gtag('event', 'inapp_copy_link', { path: location.pathname }); } catch (e) {}
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(done, function(){ legacyCopy(url, done); });
+        } else { legacyCopy(url, done); }
+      } catch (e) { legacyCopy(url, done); }
+    });
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
     c.querySelector('#daEmailForm').addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);

@@ -400,8 +400,14 @@
     // Landing owns the most resilient Google flow: popup first, then a
     // redirect fallback for Safari and in-app browsers. Use its hidden
     // delegate when present so every landing CTA shares that path.
+    // ...except in an in-app browser, where that delegate's popup AND its
+    // redirect fallback both fail (Google refuses OAuth in embedded
+    // webviews; the redirect dies because our authDomain is a different
+    // domain and third-party storage is partitioned). Every paid TikTok
+    // visitor lands on the landing, so this delegate was the dead end
+    // they hit. Fall through to the shared modal, which carries email.
     try {
-      var landingDelegate = document.getElementById('googleSignupBtn');
+      var landingDelegate = inAppBrowser() ? null : document.getElementById('googleSignupBtn');
       if (landingDelegate) { landingDelegate.click(); return; }
     } catch(e){}
     // Other pages open Google's account chooser directly from this click.
@@ -524,9 +530,33 @@
     } catch (e) {}
   }
 
+  // The webview you get tapping a link inside TikTok, Instagram, Facebook,
+  // Snapchat, X or LinkedIn cannot complete a Google sign-in: Google
+  // refuses OAuth in embedded webviews and answers `disallowed_useragent`.
+  // auth-modal.js owns the canonical test; this falls back to a copy of it
+  // only when that module has not loaded on the page.
+  function inAppBrowser(){
+    try {
+      if (typeof window.__ditIsInAppBrowser === 'function') return window.__ditIsInAppBrowser();
+      var ua = navigator.userAgent || '';
+      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      if (/iPhone|iPad|iPod/i.test(ua) && !/Safari/i.test(ua) && !/CriOS|FxiOS/i.test(ua)) return true;
+      return false;
+    } catch (e) { return false; }
+  }
+
   function tryOneTap(){
     try {
       if (window.__DB_NATIVE) return;
+      // MEASURED 2026-08-24: paid TikTok traffic landed 340 sessions and
+      // One Tap was attempted on 314 of them. It cannot succeed in that
+      // webview, so every one was a sign-in prompt thrown at a stranger
+      // on arrival that was guaranteed to fail. Skipped, and counted, so
+      // the size of the skipped population stays visible.
+      if (inAppBrowser()) {
+        try { if (window.gtag) gtag('event', 'one_tap_skipped_webview', { path: location.pathname }); } catch (e) {}
+        return;
+      }
       if (getConfig().skip) return;
       if (typeof firebase === 'undefined' || !firebase.auth) return;
       // Someone whose last sign-in on this device was Apple has picked
@@ -628,10 +658,15 @@
     var optin = cfg.inviteOptIn
       ? '<label class="su-optin"><input type="checkbox"> <span>Email me occasional round invites and product updates.</span></label>'
       : '';
+    // A button promising Google in a browser that cannot run Google is a
+    // promise the next tap breaks. Email sign-in works perfectly in these
+    // webviews, so that is what gets offered and what the label says.
+    var inApp = inAppBrowser();
+    var ctaLabel = inApp ? 'Continue with email' : 'Continue with Google';
     var g = '<svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>';
     bar = document.createElement('div');
     bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-label', 'Sign in with Google to save your work');
+    bar.setAttribute('aria-label', inApp ? 'Sign in with email to save your work' : 'Sign in with Google to save your work');
     if (isModal()) {
       bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
       bar.setAttribute('aria-modal', 'true');
@@ -643,7 +678,7 @@
           (parts.body ? '<p class="su-line">' + parts.body + '</p>' : '') +
           optin +
           '<div class="su-actions">' +
-            '<button type="button" class="su-cta">' + g + 'Continue with Google</button>' +
+            '<button type="button" class="su-cta">' + (inApp ? '' : g) + ctaLabel + '</button>' +
             '<button type="button" class="su-later">Not now</button>' +
           '</div>' +
         '</div>';
@@ -655,7 +690,7 @@
       bar.innerHTML =
         '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
         optin +
-        '<button type="button" class="su-cta">' + g + 'Continue with Google</button>' +
+        '<button type="button" class="su-cta">' + (inApp ? '' : g) + ctaLabel + '</button>' +
         '<button type="button" class="su-close" aria-label="Dismiss">\u00d7</button>';
     }
     document.body.appendChild(bar);

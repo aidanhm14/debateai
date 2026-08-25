@@ -261,7 +261,11 @@ function joinedAtMs(data) {
 // server-side (e874e61e). The identity metered is the anonymous Firebase
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
-const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS || 0);
+// 2026-08-24: default ONE, not zero (founder's sixth call on this gate).
+// See the matching block in spar.html for the paid-traffic measurement
+// behind it. The env var still overrides in both directions with no
+// deploy: GUEST_FREE_ROUNDS=0 closes the trial, =2 widens it.
+const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
