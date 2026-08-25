@@ -9,16 +9,20 @@
 // lib/rating-apply.mjs) so the rank comes from wins against people,
 // not points from the judge.
 //
-// Consent: a user_ratings doc only exists because both debaters
-// consented to a public competitive record (eligibility() enforces
-// leaderboardConsent / public visibility before a round rates), so
-// serving names + records here publishes nothing the debater did not
-// already agree to put on the board.
+// Consent: an OPT-OUT since 2026-08-24. A round rates unless a debater
+// explicitly kept it off (eligibility() honours an explicit `false` on
+// either side, and an async round consents by being published public),
+// so this endpoint can serve a name for a round nobody affirmatively
+// ticked a box for. That is the decision, not an oversight: the old
+// dual opt-in produced 0 rated rounds out of 400. The comment that used
+// to sit here still described the opt-in rule and was wrong from the
+// day the rule flipped.
 //
 // Rankable vs provisional uses the one definition in lib/rating.mjs:
 // rd <= PROVISIONAL_RD and games >= MIN_RATED_GAMES. Provisional
 // debaters are returned after every rankable one, flagged, and the
-// client shows them without a rank number.
+// client shows them without a rank number. Within the provisional tail
+// the order is the conservative floor, not the raw rating.
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';

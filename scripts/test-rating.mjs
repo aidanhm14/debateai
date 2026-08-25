@@ -5,7 +5,8 @@
 // the implementation is wrong no matter how sensible everything else
 // looks. Every other assertion here is a property check on top of it.
 import {
-  updateRating, applyRound, displayRating, isRankable, tierFor,
+  updateRating, applyRound, displayRating, isRankable, tierFor, conservativeRating,
+  PROVISIONAL_RD,
   defaultRatingDoc, DEFAULT_RATING, DEFAULT_RD,
 } from '../app/netlify/functions/lib/rating.mjs';
 import { eligibility } from '../app/netlify/functions/lib/rating-apply.mjs';
@@ -115,6 +116,15 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   t('one lucky win is not rankable', !isRankable({ rd: 290, games: 1 }));
   t('thin record is not rankable',   !isRankable({ rd: 80,  games: 2 }));
   t('real record is rankable',        isRankable({ rd: 80,  games: 12 }));
+  // The rankable line is coupled to the /claim seed floor: a record
+  // imported from Tabroom sits at RD 240 and must never rank off
+  // self-reported history. test-record-seed asserts the margin from the
+  // seed side; assert it here too, so someone raising the line in this
+  // file sees the reason in this file.
+  t('the rankable line stays clear of the claimed-record seed floor',
+    PROVISIONAL_RD * 2 < 240);
+  t('a 1-0 is never ranked, however lucky',
+    !isRankable({ rd: 286, games: 1 }) && !isRankable({ rd: 120, games: 2 }));
   t('provisional beats tier lookup', tierFor(1950, true) === 'Unranked');
 }
 
@@ -167,17 +177,48 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   t('live with mutual consent is eligible', eligibility('live', liveBase).ok);
   t('live verdict marked participant-written',
     eligibility('live', liveBase).verdictSource === 'participant');
-  t('live missing one consent excluded',
-    eligibility('live', { ...liveBase, leaderboardConsent: { p1: true } }).reason === 'consent_missing');
-  t('live no consent map excluded',
-    eligibility('live', { ...liveBase, leaderboardConsent: {} }).reason === 'consent_missing');
-  t('live consent must be true not truthy',
-    eligibility('live', { ...liveBase, leaderboardConsent: { p1: true, c1: 'yes' } }).reason === 'consent_missing');
+  // Consent is an OPT-OUT (2026-08-24). These three asserted the old
+  // dual-opt-in rule and were left behind when it flipped, so the guard
+  // was failing on main while asserting a privacy model the code had
+  // already stopped implementing. Rewritten to pin what it does now:
+  // silence rates, and only an explicit false stops the round.
+  t('live with one side silent still rates',
+    eligibility('live', { ...liveBase, leaderboardConsent: { p1: true } }).ok);
+  t('live with no consent map still rates',
+    eligibility('live', { ...liveBase, leaderboardConsent: {} }).ok);
+  t('live with no consent field at all still rates',
+    eligibility('live', { ...liveBase, leaderboardConsent: undefined }).ok);
+  t('explicit false on either side stops the round',
+    eligibility('live', { ...liveBase, leaderboardConsent: { p1: false, c1: true } }).reason === 'opted_out'
+    && eligibility('live', { ...liveBase, leaderboardConsent: { p1: true, c1: false } }).reason === 'opted_out');
+  t('only a real false opts out, not a falsy value',
+    eligibility('live', { ...liveBase, leaderboardConsent: { p1: 0, c1: true } }).ok);
   t('live con win maps to b',
     eligibility('live', { ...liveBase, ballot: { winner: 'con' } }).outcome === 'b');
 
   t('unknown source rejected', eligibility('nope', liveBase).reason === 'unknown_source');
   t('missing doc rejected',    eligibility('async', null).reason === 'not_found');
+}
+
+
+// ── conservative ordering ───────────────────────────────────────────
+// The ladder SHOWS rating and SORTS by the bottom of the interval, so an
+// unproven round costs position rather than buying it.
+{
+  const oneWin  = { rating: 1776, rd: 286, games: 1 };  // 1-0, unmeasured
+  const record  = { rating: 1669, rd: 211, games: 4 };  // 3-1, real record
+  t('conservative floor is rating minus two RD',
+    conservativeRating({ rating: 1500, rd: 100 }) === 1300);
+  t('a 3-1 record outranks a 1-0 despite a lower rating',
+    conservativeRating(record) > conservativeRating(oneWin));
+  t('the higher raw rating is still the one displayed',
+    displayRating(oneWin).rating > displayRating(record).rating);
+  t('displayRating carries the same floor the board sorts on',
+    displayRating(record).floor === Math.round(conservativeRating(record)));
+  t('missing fields fall back to defaults, never NaN',
+    Number.isFinite(conservativeRating({})) && Number.isFinite(conservativeRating(null)));
+  t('shrinking RD raises the floor without moving the rating',
+    conservativeRating({ rating: 1600, rd: 80 }) > conservativeRating({ rating: 1600, rd: 250 }));
 }
 
 console.log(`rating lib: ${pass} passed, ${fail} failed`);

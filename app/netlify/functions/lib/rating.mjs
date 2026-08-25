@@ -30,6 +30,19 @@ const EPSILON = 0.000001;
 
 // Above this RD we do not claim to know someone's strength. They still
 // have a rating and it still moves; it just does not rank publicly.
+//
+// 110 IS LOAD-BEARING AND COUPLED, so read this before moving it. It was
+// raised to 225 on 2026-08-25 to make /leaderboard's "settles after 3
+// rated rounds" copy literally true (measured, 110 takes about eleven),
+// and scripts/test-record-seed.mjs blocked the commit: it asserts
+// SEED_MIN_RD > PROVISIONAL_RD * 2, which pins this at 119 or below.
+// That margin is an anti-forgery property, not a round number. A /claim
+// seed built from a self-reported Tabroom record sits at an RD floor of
+// 240; at a 225 line it would have dropped under after roughly two real
+// rounds, so a claimed history would have bought a ranked place instead
+// of being earned here. The copy was the cheaper thing to fix, and it
+// was fixed. Raising this again means giving seeds their own explicit
+// never-rank flag first, rather than leaning on the arithmetic gap.
 export const PROVISIONAL_RD = 110;
 export const MIN_RATED_GAMES = 3;
 
@@ -155,6 +168,9 @@ export function displayRating(r) {
     provisional,
     // A 95% interval. Honest about a thin record without hiding the number.
     range: [Math.round(rating - 1.96 * rd), Math.round(rating + 1.96 * rd)],
+    // The order-by value, exposed so a board never recomputes it from a
+    // rounded rating and quietly disagrees with the ladder it renders.
+    floor: Math.round(conservativeRating(r)),
     tier: tierFor(rating, provisional),
   };
 }
@@ -171,6 +187,24 @@ export function tierFor(rating, provisional) {
   if (provisional) return 'Unranked';
   for (const [floor, name] of TIERS) if (rating >= floor) return name;
   return 'Newcomer';
+}
+
+// What the ladder ORDERS by, as opposed to what it SHOWS.
+//
+// Glickman's conservative estimate: the bottom of the 95% interval, so
+// being unmeasured costs you position until you have played enough to
+// shrink RD. Ordering by raw rating instead puts whoever happened to win
+// their first round above someone carrying a 3-1 record, which is the
+// exact failure the isRankable comment below refuses to publish, just
+// moved one row down. Measured on the real backfill (2026-08-25): raw
+// order put four 1-0 debaters at RD ~286 on top of the only two people
+// with real records; this order puts the records first.
+//
+// The rating is still the number a debater sees. This is only the sort.
+export function conservativeRating(r) {
+  const rating = Number.isFinite(r?.rating) ? r.rating : DEFAULT_RATING;
+  const rd = Number.isFinite(r?.rd) ? r.rd : DEFAULT_RD;
+  return rating - 2 * rd;
 }
 
 // Only rank people we actually know something about. An empty ladder is

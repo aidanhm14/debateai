@@ -10,7 +10,7 @@
 // wins against people, not points from the judge.
 // scripts/test-judge-integrity.mjs asserts this stays true.
 import { withDeadline } from './firestore.mjs';
-import { displayRating, isRankable } from './rating.mjs';
+import { displayRating, isRankable, conservativeRating } from './rating.mjs';
 
 // The rating ladder, ordered rankable-first then rating. Names joined
 // from user_profiles with a rating_changes fallback so a row never
@@ -80,6 +80,7 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
       rating: disp.rating,
       rd: disp.rd,
       range: disp.range,
+      floor: disp.floor,
       tier: disp.tier,
       provisional: disp.provisional,
       rankable: isRankable(d),
@@ -92,11 +93,19 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     };
   });
 
-  // Rankable debaters hold the ranked places, ordered by rating.
-  // Provisionals follow, also by rating, but the client shows them
-  // without a rank number: an empty ladder is more honest than one
-  // topped by someone who won a single round.
-  rows.sort((a, b) => (Number(b.rankable) - Number(a.rankable)) || (b.rating - a.rating));
+  // Rankable debaters hold the ranked places, ordered by rating: they
+  // have all cleared the uncertainty bar, so the rating is the claim.
+  //
+  // Provisionals follow, ordered by the CONSERVATIVE floor rather than by
+  // rating. Sorting the tail by raw rating was the same bug the rankable
+  // bar exists to prevent, one row further down: measured on the real
+  // backfill, four debaters at 1-0 and RD ~286 sat above the only two
+  // people with a record, and the landing rail numbers every row it
+  // renders, so those four were being presented as the top of the board.
+  // Ranking by the bottom of the interval makes an unproven round cost
+  // position instead of buying it.
+  rows.sort((a, b) => (Number(b.rankable) - Number(a.rankable))
+    || (a.rankable ? (b.rating - a.rating) : (conservativeRating(b) - conservativeRating(a))));
   return rows;
 }
 
