@@ -2353,9 +2353,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // the ask now sits. The gate still leads with who is waiting live
   // (/api/spar-queue) so the ask is "sign in and meet them".
   //
-  // The guest machinery below is KEPT dormant, not deleted: spar-pair.mjs
-  // owns the real allowance (GUEST_FREE_ROUNDS env, default 0 there too),
-  // and re-opening the trial is an env flip plus raising this constant.
+  // spar-pair.mjs owns the real allowance (GUEST_FREE_ROUNDS env, default
+  // 1 there too). This number only paints the client-side state.
   // The number here is COSMETIC either way — a client-side count is a
   // localStorage entry and a localStorage entry is not a limit.
   var GUEST_FREE_ROUNDS = 1;
@@ -4470,11 +4469,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }).catch(function(err){
       console.warn('[spar] queue join failed:', err);
       // Pattern-match on the error so the user gets a real next step
-      // instead of a raw Firebase error code. Each branch maps to one
-      // of the four most-likely failure modes documented above the
-      // function: rules misconfig (1), composite-index missing
-      // surfacing as a permission error too sometimes, network drop,
-      // unknown.
+      // instead of a raw Firebase error code or an internal diagnosis.
       var raw = (err && (err.message || err.code)) || 'unknown';
       var msg;
       if (/resource-exhausted|resource_exhausted|quota|429/i.test(raw)) {
@@ -4484,7 +4479,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // round, which doesn't touch the queue.
         msg = "Live matching is temporarily at capacity, so we can't reach the queue right now. Take an AI round instead, or check back in a bit.";
       } else if (/permission|denied|insufficient/i.test(raw)) {
-        msg = "Couldn't join the queue (permissions). The Firestore rule for matchmaking_queue likely needs updating to allow signed-in users to write their own doc. Skip to AI for now.";
+        msg = "Couldn't join the live queue. Try again, or take an AI round instead.";
       } else if (/network|offline|unavailable|failed-precondition/i.test(raw)) {
         msg = "Network problem reaching the queue. Check your connection and try again.";
       } else {
