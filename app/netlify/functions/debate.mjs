@@ -550,10 +550,25 @@ ${rail(m)}
         <span class="otherway-body">Drop the motion on the live board. Another debater accepts, you both join a video room, AI judges the round at the end.</span>
         <span class="otherway-arr">→</span>
       </a>
-      <a class="otherway-card" href="/exhibition">
-        <span class="otherway-eye">Exhibition · two AI brains</span>
-        <span class="otherway-title">Watch two AI brains argue it out</span>
-        <span class="otherway-body">Pick two of six brains (Claude, GPT, Grok, Gemini, DeepSeek, Open Lab) and watch the round before you face one yourself.</span>
+      <!-- 2026-08-24, internal-link rebalance. This card used to point at
+           /exhibition, which server-renders 10 crawlable words (it is a
+           JS app shell) and was delisted from the sitemap in the same
+           commit. It was therefore spending 56 internal links — one from
+           every dossier — on a page Google cannot rank, while
+           /debate-an-ai carried the entire "debate ai / ai debate / ai
+           debater / debating ai" query family on 13 inbound links and
+           sat at positions 64-93 for all of it. Measured in Search
+           Console, 3 months to 2026-08-22. The anchor text is the query,
+           deliberately: with six pages on this site titled around an AI
+           opponent, anchor text is what tells Google which one is the
+           answer. /exhibition is still reachable from the nav and from
+           /ai-vs-ai-debate, which is the 1,318-word page that already
+           ranks position 7 for "ai vs ai debate" and is the better
+           destination for that intent anyway. -->
+      <a class="otherway-card" href="/debate-an-ai">
+        <span class="otherway-eye">AI · on demand</span>
+        <span class="otherway-title">Debate an AI on this motion</span>
+        <span class="otherway-body">No waiting for an opponent. The AI takes the other side in your format, holds a real clock, takes points of information, and a separate AI judge writes the ballot.</span>
         <span class="otherway-arr">→</span>
       </a>
       <a class="otherway-card" href="/debate-strangers">
@@ -567,7 +582,15 @@ ${rail(m)}
 
   <footer class="dfoot">
     <span>© 2026 Debatable</span>
-    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/exhibition">Exhibition</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a></span>
+    <!-- 2026-08-24: the second of this file's two links to /exhibition,
+         which was delisted from the sitemap the same day for rendering
+         10 crawlable words. /watch takes the slot: 1,241 words, the
+         right destination for "watch a round" intent, and sitting under
+         "Crawled - currently not indexed" in Search Console on 10
+         inbound links, which is the shape of a page Google has seen and
+         judged not worth keeping. 56 more links from this family is the
+         cheapest test of whether that judgement moves. -->
+    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/watch">Watch rounds</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a></span>
   </footer>
 </main>
 

@@ -31,6 +31,28 @@ const DYNAMIC = new Set([
 ]);
 
 const URLS = [
+  // ── DELISTED 2026-08-24: app shells with no crawlable content ──────
+  // Measured on production: each of these server-renders between 9 and
+  // 142 words, because the page is a JavaScript shell that paints after
+  // load (several render "Loading…" and nothing else). Google had
+  // already reached the same conclusion on its own — /brain,
+  // /communication-profile and their neighbours sat under "Discovered -
+  // currently not indexed" and "Crawled - currently not indexed" in
+  // Search Console, which is Google declining to spend crawl budget on
+  // them. Submitting a page Google refuses to index is not neutral: it
+  // spends crawl budget the 200 real pages want, and thin pages carry a
+  // site-wide quality cost.
+  // These are all still LIVE and still reachable from the nav; they are
+  // simply not submitted. Relist any one of them the day it
+  // server-renders its content. Word counts as measured:
+  //   /contested 142   /exhibition 10   /what-to-debate 77
+  //   /high-school 36   /communication-profile 9   /registry 125
+  //   /voice-rfd 14    /brain 57
+  // /exhibition is the one worth a second note: it was deliberately
+  // bumped to 0.85 on 2026-05-27 to target "ai vs ai debate", and it
+  // cannot win that query with 10 words. /ai-vs-ai-debate is 1,318 words
+  // and already ranks position 7 for it, so the two were competing and
+  // the thin one was holding the higher priority.
   { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-24' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
@@ -58,16 +80,11 @@ const URLS = [
   // /replays serves the same document, so it is deliberately NOT listed;
   // submitting both would be two URLs for one page against one canonical.
   { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-10' },
-  // Contested now: fault lines harvested from X nightly, published after
-  // review. Daily changefreq because the content genuinely turns over on
-  // that cadence, which is the whole reason the page exists.
-  { path: '/contested',       changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-11' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // the founder's brief ("promote exhibition debate via SEO improvements
   // strategy"). The page now ships HowTo + SoftwareApplication
   // JSON-LD targeting "ai vs ai debate" + "watch ai debate" intents.
-  { path: '/exhibition',      changefreq: 'weekly',  priority: '0.85' },
   // High-intent SEO landing pages targeting specific query clusters.
   // /debate-an-ai and /debate-online are direct phrase-match doorways
   // from Google for the "debate an ai" / "online debate" intents the
@@ -75,7 +92,13 @@ const URLS = [
   // taken by the typed-mode product page. /compare positions Debatable
   // next to general AI assistants without villain framing — anchor
   // pages targeting comparison-query SERPs.
-  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-10' },
+  // 2026-08-24: priority 0.92 -> 0.95 and lastmod bumped. This page is
+  // now the site's single declared answer for the "debate ai / ai debate
+  // / ai debater / debating ai" family, which was sitting at positions
+  // 64-93 across every variant on 13 inbound internal links while six
+  // other pages on this site carried an AI opponent in their title. The
+  // dossier, guide and motion families now link it by name.
+  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-24' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-24' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
@@ -198,7 +221,6 @@ const URLS = [
   // every vote. Not in DYNAMIC: an empty board does not change daily, so
   // claiming today's date on every crawl would be the exact lastmod lie
   // the header warns about. Bump this date when the board has real traffic.
-  { path: '/what-to-debate',  changefreq: 'daily',   priority: '0.82', lastmod: '2026-08-12' },
   { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
   // Record import: the arrival door for debaters with a Tabroom history.
   { path: '/claim',           changefreq: 'weekly',  priority: '0.84', lastmod: '2026-08-19' },
@@ -235,7 +257,6 @@ const URLS = [
   // page to judge the domain on. Added 2026-08-19 after a Salt Lake City
   // debate coach reported the domain blocked at the school firewall.
   { path: '/unblock',         changefreq: 'monthly', priority: '0.70', lastmod: '2026-08-19' },
-  { path: '/high-school',     changefreq: 'monthly', priority: '0.75' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
   { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   // Company context. /investors distinguishes current product status
@@ -269,8 +290,6 @@ const URLS = [
   // three. Listing them costs nothing and stops discovery depending on
   // how deep a crawl happens to go.
   { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
-  { path: '/communication-profile', changefreq: 'monthly', priority: '0.60' },
-  { path: '/registry',              changefreq: 'weekly',  priority: '0.50' },
   { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-10' },
   { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80' },
   { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80' },
@@ -392,9 +411,7 @@ const URLS = [
   // and now carries noindex,follow. /verify is the public certificate
   // check linked from /credentials.
   { path: '/partners',          changefreq: 'monthly', priority: '0.70' },
-  { path: '/voice-rfd',         changefreq: 'monthly', priority: '0.55' },
   { path: '/verify',            changefreq: 'monthly', priority: '0.55' },
-  { path: '/brain',             changefreq: 'monthly', priority: '0.65' },
   { path: '/privacy-extension', changefreq: 'yearly',  priority: '0.30' },
   { path: '/privacy',           changefreq: 'yearly',  priority: '0.30' },
   { path: '/terms',             changefreq: 'yearly',  priority: '0.30' },

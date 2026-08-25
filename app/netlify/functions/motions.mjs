@@ -309,7 +309,11 @@ ${topNav()}
 ${bodyInner}
 <footer class="foot">
   <span>&copy; 2026 Debatable</span>
-  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/practice">Practice</a></span>
+  <!-- 2026-08-24: /debate-an-ai added to the footer row, which rides all
+       26 motion pages. Same internal-link rebalance as the dossier and
+       guide families: that page carried the whole "debate ai" query
+       family on 13 inbound links. -->
+  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/debate-an-ai">Debate an AI</a> &middot; <a href="/practice">Practice</a></span>
 </footer>
 </main>
 </body></html>`;
@@ -478,7 +482,7 @@ function renderHubPage() {
 <span class="stamp"><span class="dot"></span> Motion library</span>
 <h1 class="hub-h1">Every motion, both sides.</h1>
 <p class="hub-intro">Real motions in the phrasing tournaments actually use. Each one carries what the motion is asking, the case on both sides with claim, warrant, and impact, the clash the round turns on, and the mistakes that lose it. Then you run it against an AI opponent and get a ballot.</p>
-<p class="hub-intro">Looking for issue explainers instead of tournament motions? Those live at <a href="/debate">the dossiers</a>. Format rules and structure live under <a href="/learn">Learn</a>.</p>
+<p class="hub-intro">Looking for issue explainers instead of tournament motions? Those live at <a href="/debate">the dossiers</a>. Format rules and structure live under <a href="/learn">Learn</a>. Want a round on one of these right now? <a href="/debate-an-ai">Debate an AI</a> takes the other side on demand.</p>
 ${groups}
 `;
 

@@ -414,12 +414,25 @@ ${guide.faqs && guide.faqs.length ? `<script type="application/ld+json">${jsonLd
     <ul>${relatedItems.map(g => `<li><a href="/learn/guides/${esc(g.slug)}">${esc(g.question)}</a></li>`).join('')}</ul>
   </section>` : ''}
 
+  <!-- 2026-08-24, internal-link rebalance. This block rides every guide,
+       so what it lists decides where a large share of the site's internal
+       links land. It was sending all of them at /debate-strangers, which
+       already ranks 1-5 for its whole query family and has no headroom
+       left, and at /debate-online, which is the strongest page on the
+       site. The two additions are the pages with the measured headroom:
+       /debate-an-ai (13 inbound links, carrying "debate ai" and its
+       variants at positions 64-93) and /online-debate-platforms (5
+       inbound, carrying "online debate platform / debating site / debate
+       website" at 54-85). Anchor text is the query for the same reason
+       as the dossier card. -->
   <section class="related">
     <div class="related-head">Put it in a round</div>
     <ul>
+      <li><a href="/debate-an-ai">Debate an AI opponent out loud</a></li>
       <li><a href="/debate-strangers">Debate people online on video</a></li>
       <li><a href="/debate-online">Compare live, AI, and scheduled rounds</a></li>
       <li><a href="/topics/">Browse motions by format</a></li>
+      <li><a href="/online-debate-platforms">Online debate platforms compared</a></li>
     </ul>
   </section>
 
