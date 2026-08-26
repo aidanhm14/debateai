@@ -365,8 +365,7 @@
       '<div class="da-status" role="status"></div>' +
       '<div class="da-err" role="alert"></div>' +
       '<p class="da-switch">' + (creating ? 'Already have an account? ' : 'New to Debatable? ') +
-        '<button type="button" class="da-link" id="daModeSwitch">' + (creating ? 'Sign in' : 'Create an account') + '</button></p>' +
-      '<p class="da-note">Private. I never sell your data or post for you. Sign out anytime.</p>';
+        '<button type="button" class="da-link" id="daModeSwitch">' + (creating ? 'Sign in' : 'Create an account') + '</button></p>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
     // "Open it in Safari or Chrome" is not an instruction anyone can follow
