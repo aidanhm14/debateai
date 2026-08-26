@@ -651,6 +651,13 @@
       { href: '/schools', label: 'For schools' },
       { href: '/story',   label: 'Story' },
       { href: '/future',  label: 'Vision' },
+      // 2026-08-26: the privacy policy had no nav entry anywhere, so the
+      // only way to it was the landing footer. It belongs in this strip
+      // for the same reason the rest of it does: chrome a visitor goes
+      // looking for on purpose, not product to be discovered. Terms sits
+      // beside it because a reader who wants one usually wants both.
+      { href: '/privacy', label: 'Privacy' },
+      { href: '/terms',   label: 'Terms' },
     ]},
   ];
 
