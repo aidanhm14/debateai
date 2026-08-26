@@ -194,6 +194,22 @@ fi
 # ever learning who it is scoring. Both were verified non-vacuous by
 # deliberately breaking them. Same hard-fail, soft-skip posture.
 # ──────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
+# Eval-corpus guard. The rule it pins: a verdict our own judge wrote
+# must never become the ground truth our own judge is scored against.
+# That mistake does not surface as a failure, it surfaces as a very
+# good accuracy number, so it needs a guard rather than care.
+# ──────────────────────────────────────────────────────────────────
+EVALCORPUS_GUARD="$REPO_ROOT/scripts/test-eval-corpus.mjs"
+if [ -f "$EVALCORPUS_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-eval-corpus.mjs >/tmp/eval-corpus-guard.log 2>&1); then
+    echo "[eval-corpus-guard] commit blocked - the benchmark label rules no longer hold:" >&2
+    tail -20 /tmp/eval-corpus-guard.log >&2
+    echo "[eval-corpus-guard] see scripts/test-eval-corpus.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 BRAIN_GUARD="$REPO_ROOT/scripts/test-brain.mjs"
 if [ -f "$BRAIN_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-brain.mjs >/tmp/brain-guard.log 2>&1); then

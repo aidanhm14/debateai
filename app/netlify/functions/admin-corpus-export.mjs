@@ -18,6 +18,9 @@ import { scrubText } from './lib/pii-scrub.mjs';
 // The allowlists + scrub-field set live in lib/corpus-schema.mjs so the
 // manifest endpoint documents the exact schema this file enforces.
 import { SCRUB_FIELDS, ALLOWED_TOP, ALLOWED_CONTEXT } from './lib/corpus-schema.mjs';
+// Round-shaped eval records + the rule that stops our own judge's
+// verdicts from being scored as ground truth against itself.
+import { toEvalRound, LABEL_SOURCES } from './lib/eval-corpus.mjs';
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -94,9 +97,49 @@ export default async (request) => {
   const after = url.searchParams.get('after'); // ISO date string, optional
   const formatFilter = url.searchParams.get('format'); // optional format slug
   const kindFilter = url.searchParams.get('kind'); // optional kind
-  const mode = url.searchParams.get('mode'); // 'preference' | default row-per-doc
+  const mode = url.searchParams.get('mode'); // 'preference' | 'rounds' | default row-per-doc
 
   try {
+    // ── mode=rounds: round-shaped records for the eval harness ──────
+    // The base mode emits one row per generation, which is the shape a
+    // lab wants and the wrong shape for scripts/eval (it wants a round:
+    // motion, format, transcript, and what the verdict was). This mode
+    // reshapes the same consented, anonymized rows into that.
+    //
+    // Every record carries `labelSource` and `accuracyGold`. Rounds we
+    // judged ourselves come back accuracyGold:false, and the fixture
+    // builder refuses to write an expected-winner for them, because
+    // scoring our judge against its own past verdicts would produce a
+    // very high accuracy number that means nothing. They still export:
+    // stability, position/verbosity bias and speaker-point calibration
+    // all need a transcript rather than a ground truth, and those are
+    // the evals that actually protect the ladder.
+    if (mode === 'rounds') {
+      const snapR = await db.collection('generations')
+        .where('contributable', '==', true).limit(MAX_LIMIT).get();
+      let rowsR = snapR.docs.map((d) => toEvalRound(anonymize(d), d.id));
+      if (formatFilter) rowsR = rowsR.filter((r) => r.format === formatFilter);
+      if (kindFilter) rowsR = rowsR.filter((r) => r.kind === kindFilter);
+      // A round with no transcript is not a round for eval purposes.
+      rowsR = rowsR.filter((r) => r.evalUses.length > 0).slice(0, limit);
+
+      const counts = {};
+      for (const r of rowsR) counts[r.labelSource] = (counts[r.labelSource] || 0) + 1;
+      const bodyR = rowsR.map((r) => JSON.stringify(r)).join('\n') + (rowsR.length ? '\n' : '');
+      return new Response(bodyR, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/x-jsonlines; charset=utf-8',
+          'X-Round-Count': String(rowsR.length),
+          'X-Scanned': String(snapR.size),
+          // Reported so a zero is visible as a zero rather than read as
+          // "no accuracy problem". Today this is 0 by construction.
+          'X-Accuracy-Gold': String(rowsR.filter((r) => r.accuracyGold).length),
+          'X-Label-Sources': JSON.stringify(counts),
+        },
+      });
+    }
+
     // ── mode=preference: (chosen, rejected) pairs from ratings ───────
     // The differentiated product. For each format+kind bucket, pair a
     // highly-rated AI output (chosen) against a poorly-rated one (rejected)
