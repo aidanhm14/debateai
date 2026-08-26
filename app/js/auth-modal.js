@@ -275,14 +275,24 @@
     if (mode !== 'signin' && mode !== 'signup') mode = lastMethod() ? 'signin' : 'signup';
     var creating = mode === 'signup';
     var last = lastMethod();
-    // Which email path leads. Creating an account defaults to the emailed
-    // link: a password is a thing to invent now and remember later, and
-    // that is the barrier this is here to remove. Signing in defaults to
-    // the password form, because someone who set one will reach for it,
-    // unless the last thing that worked on this device was a link.
+    // WHICH EMAIL PATH LEADS, and this rule was backwards until
+    // 2026-08-26. It defaulted a returning visitor to the PASSWORD form
+    // unless their last method was a link, which meant the biggest group
+    // on this site (Google accounts, 204 of 215) was shown a password
+    // field for an account that HAS NO PASSWORD. Firebase cannot help
+    // there either: email-enumeration protection is on for this project,
+    // so a password attempt against a Google-only account comes back
+    // `auth/invalid-credential` and the only honest rendering of that is
+    // "email or password is incorrect", which is true and useless. The
+    // founder hit it on his own account and had nowhere to go.
+    //
+    // So the default inverts: the emailed LINK leads, because a link
+    // works for every account there is, and the password form is the
+    // specialisation for the one group that provably has a password,
+    // which is the group whose last sign-in on this device WAS one.
     var emailMode = forceEmailMode === 'link' || forceEmailMode === 'password'
       ? forceEmailMode
-      : (creating || last === 'emaillink') ? 'link' : 'password';
+      : last === 'email' ? 'password' : 'link';
     var linkMode = emailMode === 'link';
     if (last === 'apple' && !window.__DB_NATIVE) last = '';
     var lastHint = !creating && last
@@ -612,11 +622,19 @@
 
   function emailAuthMessage(err, mode) {
     var code = (err && err.code) || '';
-    if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') return 'That email already has an account. Check the password, or use Sign in.';
+    if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') return 'That email already has an account. If you made it with Google, use Continue with Google above.';
     if (code === 'auth/user-disabled') return 'That account is disabled. Contact support.';
     if (code === 'auth/invalid-email') return 'Enter a valid email.';
     if (code === 'auth/weak-password') return 'Use a stronger password with at least 8 characters.';
-    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Email or password is incorrect.';
+    // Email-enumeration protection is ON for this project, so Firebase
+    // collapses "wrong password" and "no such account" into one code and
+    // will never tell us which. "Email or password is incorrect" is the
+    // literal truth and a dead end: the most likely reason a password
+    // fails here is that the account is a Google one and has no password
+    // at all. Name the two doors that can actually open instead. Naming
+    // them costs nothing in enumeration terms, because it is a
+    // conditional and confirms nothing about whether the account exists.
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'That email and password do not match. If you made this account with Google, use Continue with Google above, or email yourself a sign-in link.';
     if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
     if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
     if (code === 'auth/operation-not-allowed') return isInAppBrowser() ? 'Email sign-in is temporarily unavailable. Open the site in Safari or Chrome and try Google.' : 'Email sign-in is temporarily unavailable. Continue with Google.';
@@ -954,6 +972,136 @@
 
   // Finishes the round trip. Runs on load on every page, so it is gated
   // on a cheap URL test first and only then pays for the Firebase SDK.
+  // The completion half, reusable. Called on load with the address we
+  // stashed when the link was sent, and again from renderLinkReturn with
+  // an address the visitor typed on a different browser.
+  function finishEmailLink(email, href, onFail) {
+    var name = '';
+    try { name = localStorage.getItem(LINK_NAME_KEY) || ''; } catch (e) {}
+
+    // Same shape as the Google path: notifications.js signs nearly
+    // every visitor in anonymously, so currentUser is usually a
+    // truthy anonymous user. Link that account when it is free to
+    // link, and fall back to a plain sign-in when the email already
+    // owns an account, rather than failing the whole trip.
+    //
+    // The fallback re-derives from the same href, and that is CORRECT
+    // rather than lucky: measured against the live API on 2026-08-26, a
+    // link attempt that fails with EMAIL_EXISTS leaves the one-time code
+    // unspent, and the same code then signs in fine. Only a SUCCESSFUL
+    // use consumes it. Do not "fix" this into err.credential on the
+    // strength of the Google path, which fails for a different reason.
+    var credential = firebase.auth.EmailAuthProvider.credentialWithLink(email, href);
+    var current = auth.currentUser;
+    var attempt = current && current.isAnonymous && current.linkWithCredential
+      ? current.linkWithCredential(credential).catch(function (err) {
+          var code = (err && err.code) || '';
+          if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+            return auth.signInWithEmailLink(email, href);
+          }
+          throw err;
+        })
+      : auth.signInWithEmailLink(email, href);
+
+    return attempt.then(function (result) {
+      var user = (result && result.user) || auth.currentUser;
+      if (name && user && user.updateProfile && !user.displayName) {
+        return user.updateProfile({ displayName: name }).catch(function () {});
+      }
+    }).then(function () {
+      try {
+        localStorage.removeItem(LINK_EMAIL_KEY);
+        localStorage.removeItem(LINK_NAME_KEY);
+      } catch (e) {}
+      // Strip the link parameters so a refresh does not re-run a
+      // now-spent code and surface an error on a page that worked.
+      var clean = window.location.pathname + window.location.hash;
+      try { history.replaceState(null, '', clean); } catch (e) {}
+      finishSignIn('email_link');
+    }).catch(function (err) {
+      var code = (err && err.code) || '';
+      try { localStorage.removeItem(LINK_EMAIL_KEY); } catch (e) {}
+      var msg = code === 'auth/invalid-action-code'
+        ? 'That sign-in link has expired or was already used. Send a fresh one below, or use Continue with Google.'
+        : code === 'auth/invalid-email'
+          ? 'That email does not match the link. Try again.'
+          : 'Could not finish signing you in. Send a fresh link below, or use Continue with Google.';
+      if (typeof onFail === 'function') { onFail(msg, code); return; }
+      stripLinkParams();
+      // Force the LINK form, never the password one. Someone whose
+      // link just failed needs a fresh link or Google, and a password
+      // field is a door that may not exist for their account.
+      openAuthModal('signin', { emailMode: 'link' });
+      setErr(msg);
+    });
+  }
+
+  // The link was opened somewhere other than the browser that asked for
+  // it, so Firebase needs the address restated. Asking here rather than
+  // in a native prompt keeps the question visible, the answer retryable,
+  // and Google on the same card for anyone who would rather not bother.
+  // Take the link parameters off the address bar once we hold the href
+  // in a closure. Leaving them there is not cosmetic: emailLinkSettings()
+  // builds the continue URL from destination(), so a visitor who gives up
+  // on a dead link and sends themselves a FRESH one would get a link whose
+  // continue URL still carried the dead oobCode, and the return trip would
+  // then arrive holding two codes with no way to tell which is live.
+  function stripLinkParams() {
+    try {
+      var clean = window.location.pathname + window.location.hash;
+      history.replaceState(null, '', clean);
+    } catch (e) {}
+  }
+
+  function renderLinkReturn(href) {
+    stripLinkParams();
+    openAuthModal('signin');
+    var c = home(); if (!c) return;
+    c.innerHTML =
+      '<button class="da-x" aria-label="Close">\u00d7</button>' +
+      '<h2>Finish signing in</h2>' +
+      '<p class="da-sub">Confirm the email this link was sent to. Restating it is what stops a forwarded link signing in whoever finds it.</p>' +
+      '<form class="da-form" id="daLinkForm" novalidate>' +
+        '<label class="da-label" for="daLinkEmail">Email</label>' +
+        '<input class="da-input" id="daLinkEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
+        '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daLinkBtn">Finish signing in</button>' +
+      '</form>' +
+      '<div class="da-err" role="alert"></div>' +
+      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBail">Use another way in</button></p>';
+    var xBtn = c.querySelector('.da-x');
+    if (xBtn) xBtn.addEventListener('click', close);
+    c.querySelector('#daLinkBail').addEventListener('click', function () {
+      renderChooser('signin', 'link');
+    });
+    c.querySelector('#daLinkForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      setErr('');
+      var input = c.querySelector('#daLinkEmail');
+      var typed = (input && input.value || '').trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(typed)) { setErr('Enter the email the link was sent to.'); return; }
+      var btn = c.querySelector('#daLinkBtn');
+      btn.disabled = true;
+      btn.textContent = 'Signing you in\u2026';
+      finishEmailLink(typed, href, function (msg, code) {
+        // Stay on this card. A wrong address is a typo, not a dead end,
+        // and re-rendering the chooser would throw away the href. The
+        // copy is card-specific because the shared message points at a
+        // Google button and a send form that this card does not carry;
+        // pointing someone at a control that is not on screen is how a
+        // helpful error becomes another dead end.
+        btn.disabled = false;
+        btn.textContent = 'Finish signing in';
+        setErr(code === 'auth/invalid-email' || code === 'auth/user-not-found'
+          ? 'That address does not match this link. Check it and try again.'
+          : code === 'auth/invalid-action-code'
+            ? 'This link has expired or was already used. Use another way in, below.'
+            : 'Could not finish signing you in. Use another way in, below.');
+      });
+    });
+    var first = c.querySelector('#daLinkEmail');
+    if (first) first.focus();
+  }
+
   function completeEmailLink() {
     var href = window.location.href;
     if (!/[?&]oobCode=/.test(href) || !/[?&]mode=signIn/.test(href)) return;
@@ -967,55 +1115,16 @@
         // asked for it. Firebase requires the address to be re-stated,
         // which is what stops a leaked link from signing in whoever
         // found it.
-        if (!email) {
-          email = (window.prompt('Confirm the email this link was sent to') || '').trim();
-          if (!email) return;
-        }
-        var name = '';
-        try { name = localStorage.getItem(LINK_NAME_KEY) || ''; } catch (e) {}
-
-        // Same shape as the Google path: notifications.js signs nearly
-        // every visitor in anonymously, so currentUser is usually a
-        // truthy anonymous user. Link that account when it is free to
-        // link, and fall back to a plain sign-in when the email already
-        // owns an account, rather than failing the whole trip.
-        var credential = firebase.auth.EmailAuthProvider.credentialWithLink(email, href);
-        var current = auth.currentUser;
-        var attempt = current && current.isAnonymous && current.linkWithCredential
-          ? current.linkWithCredential(credential).catch(function (err) {
-              var code = (err && err.code) || '';
-              if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
-                return auth.signInWithEmailLink(email, href);
-              }
-              throw err;
-            })
-          : auth.signInWithEmailLink(email, href);
-
-        attempt.then(function (result) {
-          var user = (result && result.user) || auth.currentUser;
-          if (name && user && user.updateProfile && !user.displayName) {
-            return user.updateProfile({ displayName: name }).catch(function () {});
-          }
-        }).then(function () {
-          try {
-            localStorage.removeItem(LINK_EMAIL_KEY);
-            localStorage.removeItem(LINK_NAME_KEY);
-          } catch (e) {}
-          // Strip the link parameters so a refresh does not re-run a
-          // now-spent code and surface an error on a page that worked.
-          var clean = window.location.pathname + window.location.hash;
-          try { history.replaceState(null, '', clean); } catch (e) {}
-          finishSignIn('email_link');
-        }).catch(function (err) {
-          var code = (err && err.code) || '';
-          try { localStorage.removeItem(LINK_EMAIL_KEY); } catch (e) {}
-          openAuthModal('signin');
-          setErr(code === 'auth/invalid-action-code'
-            ? 'That sign-in link has expired or was already used. Send a fresh one.'
-            : code === 'auth/invalid-email'
-              ? 'That email does not match the link. Try again.'
-              : 'Could not finish signing you in. Send a fresh link.');
-        });
+        //
+        // This used to be a native window.prompt(), and a prompt is the
+        // wrong instrument for a step a sign-in depends on. It fires
+        // during load, a browser is entitled to suppress it, and
+        // dismissing it returned an empty string that this function
+        // treated as "give up" IN SILENCE: the visitor was left on a
+        // signed-out page holding a link that had visibly done nothing,
+        // with no way to tell a sign-in had been in flight at all.
+        if (!email) { renderLinkReturn(href); return; }
+        finishEmailLink(email, href);
       } catch (e) {}
     });
   }
@@ -1072,7 +1181,10 @@
       });
     }
     lastFocus = document.activeElement;
-    renderChooser(mode);
+    // opts.emailMode lets a caller pin which email door leads, for the
+    // cases where the default would be actively wrong: a failed link
+    // must not land on a password form.
+    renderChooser(mode, opts && opts.emailMode);
     modal.classList.add('on');
     document.body.classList.add('signin-modal-open');
     try { document.documentElement.classList.toggle('da-auth-locked', locked); } catch (e) {}
