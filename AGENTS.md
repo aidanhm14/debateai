@@ -97,7 +97,14 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │   ├── tts-humanize.mjs       strips stage directions, picks
 │   │       │   │                            intensity, normalizes pauses.
 │   │       │   └── appcheck.mjs           Firebase App Check verification.
-│   │       ├── partner-match.mjs, duo-pair.mjs
+│   │       ├── spar-pair.mjs + lib/motion-draft.mjs + lib/draft-motions.mjs
+│       │     The pre-round MOTION DRAFT on /spar. Five motions, two
+│       │     blind strikes each, then a coin flip splits the motion
+│       │     call from the side call. motion-draft.mjs is PURE and
+│       │     owns every decision; spar-pair applies it inside the
+│       │     existing consent transaction. See the "Motion draft"
+│       │     section below before touching it.
+│       ├── partner-match.mjs, duo-pair.mjs
 │       │     2v2 matchmaking. partner-match forms the duo (invite code
 │       │     or pool handshake); duo-pair matches two duos into one
 │       │     four-seat room. The duo queue doc is keyed by TEAM, not
@@ -384,6 +391,50 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
 - **Pricing is locked** (school-vs-consumer contradiction resolved 2026-08-11, Aidan chose $550): Free $0, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, **Program $550/season**. Consumer tiers are still $0 in beta; Tokens and $20 tournament prize entry are live money. **A school roster is always the $550 season license, never a seat plan** — do not quote Team to a coach. (Individual + Team flipped to annual 2026-05-14; Individual $5→$10 and Team $20→$50 on 2026-06-27 per the unit-economics audit. **The Lifetime tier was removed from all pricing displays 2026-07-03** — it is no longer offered; the backend `lifetime` plan entitlement stays intact for any existing grants. See soul.md §7 + decision log.)
+
+## Motion draft (/spar, pre-round)
+
+Five motions land, both debaters strike two BLIND, the strikes reveal
+together, and a coin flip splits what is left: one debater calls the
+motion (when more than one survived), the other calls their side.
+
+```
+lib/motion-draft.mjs      PURE: slate, coin flip, phase machine, resolution
+lib/draft-motions.mjs     GENERATED pool. Regenerate, never hand-edit:
+                            node scripts/gen-draft-motions.mjs
+spar-pair.mjs             applies the draft inside the CONSENT transaction
+scripts/test-motion-draft.mjs   runs in the pre-commit hook
+```
+
+Five things that are easy to break by accident:
+
+- **Survivors is not always one.** Two strikes each from five, blind, can
+  OVERLAP, so it is 1, 2 or 3 and never 0 or 5. Overlap happens in about
+  seven drafts out of ten, so the motion-pick beat is the common path, not
+  an edge case. Any copy or layout you add has to read right for all three.
+- **Never mirror both sides' strikes onto both queue docs before both have
+  committed.** A queue doc is readable by its owner, so that hands whoever
+  strikes second the other's picks in devtools, which is the whole draft.
+  Each doc carries only its own owner's strikes until the merge.
+- **Never auto-fill the PEER's strikes.** A short set from the person who
+  is actually here gets filled from the seed; a missing set from the person
+  who is not gets no help at all, and the pair unwinds through the existing
+  ghost path. Striking for an absent debater is how a room opens onto an
+  empty chair, which is the 411-round finding. The pick beats are the
+  opposite on purpose: both sides have proven presence by then, so either
+  may expire the clock and the round survives a slow click.
+- **Timeout resolution is seeded, never random at call time.** Both clients
+  and the server derive it independently, so a `Math.random()` here lands
+  two browsers on two different motions.
+- **A draft is only built when BOTH queue docs carry `draftOptIn`.** That is
+  what keeps the rollout per-surface. `/debate-chat` and the background
+  "Spar live" pairs ride the same `matchmaking_queue` and cannot render a
+  board; hand one to them and they sit on it until the reaper sweeps them.
+
+`?draftdemo=1` renders the board against a synthetic pair with every POST
+short-circuited (`&overlap=0` forces the clean split, `&role=side` holds the
+side call). Use it before changing timings or copy: the draft is a sequence
+of timed beats and reading the diff tells you nothing about the feel.
 
 ## The AI judge integrity layer (READ BEFORE TOUCHING JUDGING)
 
