@@ -8113,7 +8113,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      markup and its tick engine stay (they also drive the clock), only
      the strip is hidden; restore = delete this rule. */
   .fs-board .fs-odds{display:none}
-  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:88px}
+  /* Reserves the scorecard's own height (2026-08-26). It was 88px, which
+     was exactly one winner line plus a paragraph; five axis rows are
+     twice that, and without the reservation the link underneath jumps
+     down every time a card settles. */
+  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:198px}
   /* Small label over the decision so the card names its own author: the
      AI judge. Same voice as .fs-sample. */
   .fs-ballot-k{display:block;margin-bottom:5px;font-size:.58rem;font-weight:800;letter-spacing:.13em;
@@ -8143,6 +8147,50 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-board .fs-ballot-top span{color:rgba(26,26,31,.66)}
   .fs-board .fs-ballot-card p{margin:0;font-size:.78rem;line-height:1.5;color:rgba(245,239,231,.7)}
   [data-theme="light"] .fs-board .fs-ballot-card p{color:rgba(26,26,31,.64)}
+  /* The scorecard. Five axes, one row each: label, the left seat's mark,
+     a bar whose split is scaled off the margin between the two marks (the
+     raw ratio makes a 9-6 axis look like a coin toss), the right seat's
+     mark. The winner's name up top takes its own seat colour, so a red
+     winner over a red-heavy card reads as one statement. It is ONE grid
+     for the whole card rather than a grid per row, so the label column
+     sizes itself to the longest label at any width and every bar still
+     starts on the same line; per-row grids need a hardcoded label width
+     and "Persuasion" outgrew it. */
+  .fs-card{display:grid;grid-template-columns:auto 2.2ch 1fr 2.2ch;
+    align-items:center;gap:5px 8px;margin-top:8px}
+  .fs-board .fs-card-k{font-size:.63rem;font-weight:800;letter-spacing:.04em;
+    color:rgba(245,239,231,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  [data-theme="light"] .fs-board .fs-card-k{color:rgba(26,26,31,.58)}
+  .fs-board .fs-card-n{font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+    font-size:.68rem;font-weight:700;letter-spacing:0;text-align:right;color:rgba(245,239,231,.5)}
+  .fs-board .fs-card-n--b{text-align:left}
+  [data-theme="light"] .fs-board .fs-card-n{color:rgba(26,26,31,.5)}
+  /* The side that took the axis states its number at full strength; the
+     other one stays quiet. Two numbers at equal weight would make every
+     row look tied. */
+  .fs-board .fs-card-n.is-up{color:#4ade80}
+  .fs-board .fs-card-n--b.is-up{color:#f87171}
+  [data-theme="light"] .fs-board .fs-card-n.is-up{color:#16a34a}
+  [data-theme="light"] .fs-board .fs-card-n--b.is-up{color:#dc2626}
+  .fs-card-bar{position:relative;height:6px;border-radius:999px;overflow:hidden;
+    background:rgba(239,68,68,.4);display:block}
+  [data-theme="light"] .fs-card-bar{background:rgba(220,38,38,.28)}
+  .fs-card-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;
+    background:rgba(74,222,128,.85);transition:width .5s ease}
+  [data-theme="light"] .fs-card-bar i{background:rgba(22,163,74,.85)}
+  /* The score line is the colour key: a dot per name in that seat's
+     colour, which is why no legend row is needed above the axes. */
+  .fs-board .fs-ballot-top span i{display:inline-block;width:6px;height:6px;border-radius:50%;
+    margin-right:4px;vertical-align:baseline;background:#4ade80}
+  .fs-board .fs-ballot-top span i.b{background:#f87171;margin-left:9px}
+  [data-theme="light"] .fs-board .fs-ballot-top span i{background:#16a34a}
+  [data-theme="light"] .fs-board .fs-ballot-top span i.b{background:#dc2626}
+  .fs-board .fs-ballot-card.is-b .fs-ballot-top b{color:#f87171}
+  [data-theme="light"] .fs-board .fs-ballot-card.is-b .fs-ballot-top b{color:#dc2626}
+  @media(max-width:420px){
+    .fs-card{gap:5px 6px}
+    .fs-board .fs-card-k{font-size:.58rem}
+  }
   /* A judged example is proof, then an invitation. Blue keeps this prompt
      distinct from the red primary action and the green judge result. */
   .fs-bring{position:relative;z-index:4;display:inline-flex;align-items:center;gap:5px;margin-top:10px;
@@ -8154,6 +8202,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fs-board .fs-tile-nm i,.fs-board .fs-odds-live i,.fs-board .fs-ballot-wait span{animation:none}
     .fs-open-fig svg,.fs-open-fig::before{animation:none}
     .fs-ballot.is-in .fs-ballot-card{animation:none}
+    .fs-card-bar i{transition:none}
   }
 
   /* Challenge card (2026-08-24). A creator tile plus an empty seat, so the
@@ -8630,7 +8679,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <b id="fsWinner">Pro wins</b>
             <span id="fsScore">88 &ndash; 62</span>
           </div>
-          <p id="fsWhy"></p>
+          <!-- 2026-08-26, per the founder: the paragraph of reasoning is
+               replaced by a scorecard ("do a ranking on diff stuff like
+               logical consistency, persuasion ... i need less text").
+               This REVERSES the 08-22 why-line, which itself reversed a
+               cut made that morning; the reason it can go is that the
+               rows now carry the same job visually. Green is always the
+               LEFT seat and red always the RIGHT seat, on the numbers,
+               the bars and the winner line, so colour alone says who
+               took each axis. The seats flip on a coin toss at load, so
+               the colours follow the seat, never the person. The rfd
+               strings stay in the data (they are the authored record and
+               the ballot copy elsewhere reads them); nothing on the card
+               prints them. -->
+          <div class="fs-card" id="fsCard"></div>
         </div>
       </div>
 
@@ -10792,7 +10854,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var el = {};
   ['fsCount','fsMotion','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB','fsSample',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
-   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsWhy','fsPrev','fsNext',
+   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig']
     .forEach(function(id){ el[id] = document.getElementById(id); });
@@ -11005,6 +11067,100 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     paintDelta();
   }
 
+  /* The scorecard (2026-08-26). Five axes, the plain-language cut of the
+     rubric the real ballot scores: strategy is the sixth and it is the
+     one a stranger cannot read off a card, so it sits this out. The marks
+     are DERIVED from the round's speaker points, not authored per round:
+     each side's mean is its own points over ten, and the per-axis gaps
+     are dealt from a seed made of the motion text. So one card always
+     shows the same scorecard, different cards break on different axes,
+     and no card can contradict the score printed above it. The loser
+     takes an axis outright when the round was close, draws one when it
+     was clear, and takes none in a blowout, which is what a ballot
+     actually looks like at each of those margins. */
+  var AXES = ['Logic','Rebuttal','Weighing','Clarity','Persuasion'];
+
+  function cardSeed(str){
+    var h = 2166136261, i;
+    for (i = 0; i < str.length; i++){
+      h ^= str.charCodeAt(i);
+      h = (h * 16777619) >>> 0;
+    }
+    return h || 1;
+  }
+  function cardRand(seed){
+    var s = seed;
+    return function(){
+      s ^= s << 13; s >>>= 0;
+      s ^= s >>> 17;
+      s ^= s << 5;  s >>>= 0;
+      return s / 4294967296;
+    };
+  }
+  function cardShuffle(arr, rnd){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = Math.floor(rnd() * (i + 1)), t = arr[i];
+      arr[i] = arr[j]; arr[j] = t;
+    }
+  }
+  function axisMarks(r, pts){
+    var A = parseFloat(pts[0]) / 10, B = parseFloat(pts[1]) / 10;
+    if (!(A > 0) || !(B > 0)) return null;
+    var winA = r.won === 'a';
+    var W = winA ? A : B, L = winA ? B : A;
+    var d = Math.max(W - L, 0);
+    var tail = d < 1.5 ? -1 : (d < 3 ? 0 : 1);
+    var rest = (5 * d - tail) / 4;
+    var spread = [rest + 1, rest + 0.4, rest - 0.4, rest - 1];
+    var jit = [0.8, 0.35, 0, -0.35, -0.8];
+    var rnd = cardRand(cardSeed(r.motion));
+    cardShuffle(spread, rnd); cardShuffle(jit, rnd);
+    // The loser's chance goes on the axis the winner is weakest on, which
+    // is the only way it survives the cap: against a winner already at 10
+    // the tail gap can only produce a draw.
+    var lo = 0, q = 0, gaps = [], i;
+    for (i = 1; i < jit.length; i++) if (jit[i] < jit[lo]) lo = i;
+    for (i = 0; i < AXES.length; i++) gaps.push(i === lo ? tail : spread[q++]);
+    var rows = [], w, l;
+    for (i = 0; i < AXES.length; i++){
+      w = Math.min(10, Math.max(4, Math.round(W + jit[i])));
+      // The loser is capped a mark below perfect: taking an axis is fine,
+      // taking it with a 10 on a round they lost is not.
+      l = Math.min(9, Math.max(3, Math.round(w - gaps[i])));
+      rows.push({ k: AXES[i], a: winA ? w : l, b: winA ? l : w });
+    }
+    return rows;
+  }
+  function paintCard(r, pts){
+    if (!el.fsCard) return;
+    el.fsCard.textContent = '';
+    var rows = axisMarks(r, pts);
+    if (!rows) return;
+    rows.forEach(function(row){
+      // Scaled off the MARGIN, not the raw ratio: 9 against 6 is a rout on
+      // a ten-point axis and 60/40 does not look like one. Nine points of
+      // bar per mark of lead, capped so neither side ever disappears.
+      var share = Math.min(88, Math.max(12, 50 + (row.a - row.b) * 9));
+      var k = document.createElement('span');
+      k.className = 'fs-card-k';
+      k.textContent = row.k;
+      var na = document.createElement('span');
+      na.className = 'fs-card-n' + (row.a > row.b ? ' is-up' : '');
+      na.textContent = row.a;
+      var bar = document.createElement('span');
+      bar.className = 'fs-card-bar';
+      bar.setAttribute('aria-hidden', 'true');
+      var fill = document.createElement('i');
+      fill.style.width = share + '%';
+      bar.appendChild(fill);
+      var nb = document.createElement('span');
+      nb.className = 'fs-card-n fs-card-n--b' + (row.b > row.a ? ' is-up' : '');
+      nb.textContent = row.b;
+      el.fsCard.appendChild(k); el.fsCard.appendChild(na);
+      el.fsCard.appendChild(bar); el.fsCard.appendChild(nb);
+    });
+  }
+
   function paintRound(i){
     var r = ROUNDS[i];
     el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
@@ -11040,23 +11196,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     el.fsNameAmini.textContent = r.a.nm;
     el.fsNameBmini.textContent = r.b.nm;
     el.fsWinner.textContent = (r.won === 'a' ? r.a.nm : r.b.nm) + ' wins';
+    if (el.fsBallotCard) el.fsBallotCard.classList.toggle('is-b', r.won === 'b');
     // The score strings are "aPts - bPts" on the 100 scale. Render them
     // name-attributed so the numbers read as each debater's speaker
     // points rather than a bare sports line a newcomer has to decode.
+    // The dot before each name is the colour key the scorecard rows use.
     var pts = String(r.score).split(/\s*[-–]\s*/);
-    el.fsScore.textContent = pts.length === 2
-      ? r.a.nm + ' ' + pts[0] + ' · ' + r.b.nm + ' ' + pts[1]
-      : r.score;
-    // The justification, in plain words. The rfd strings open with
-    // "<winner> wins because/by ...", which duplicates the bold line
-    // above, so the why-line drops the "<Name> wins" stem and reads as
-    // the answer to why: "Because he proves ...", "By defining ...".
-    if (el.fsWhy) el.fsWhy.textContent = r.rfd
-      .replace(/^[A-Za-z]+ wins /, '')
-      .replace(/^[a-z]/, function(c){ return c.toUpperCase(); });
+    el.fsScore.textContent = '';
+    if (pts.length === 2){
+      el.fsScore.appendChild(document.createElement('i'));
+      el.fsScore.appendChild(document.createTextNode(r.a.nm + ' ' + pts[0] + ' '));
+      var dotB = document.createElement('i'); dotB.className = 'b';
+      el.fsScore.appendChild(dotB);
+      el.fsScore.appendChild(document.createTextNode(r.b.nm + ' ' + pts[1]));
+    } else {
+      el.fsScore.textContent = r.score;
+    }
+    paintCard(r, pts);
 
     verdictReady = !!(el.fsWinner.textContent.trim()
-      && el.fsWhy && el.fsWhy.textContent.trim());
+      && el.fsCard && el.fsCard.children.length >= 4);
     if (el.fsBallotK){
       el.fsBallotK.textContent = verdictReady ? 'AI judge\u2019s decision' : 'Generating result';
     }
