@@ -3,6 +3,12 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { sendToUser } from './lib/webpush.mjs';
 import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
+import {
+  STRIKE_SEC, PICK_SEC, STRIKES_PER_SIDE,
+  draftSeed, createDraft, sanitizeStrikes, autoStrikes,
+  advance as advanceDraft, actorFor, applyMotionPick, applySidePick,
+  autoResolve, draftResult,
+} from './lib/motion-draft.mjs';
 
 // Server-side pair-matcher for /spar.
 //
@@ -70,6 +76,53 @@ function cleanParadigm(s) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, PARADIGM_MAX);
+}
+
+// ── motion draft ────────────────────────────────────────────────────
+// The pre-round veto (lib/motion-draft.mjs). Off unless BOTH queue docs
+// opted in, which is what keeps it a per-surface rollout: /spar sets
+// draftOptIn, /debate-chat and the background "Spar live" pairs do not, and
+// a client that cannot render a draft must never be handed one. It would sit
+// on a card it does not understand until the reaper swept it, which is
+// exactly what /debate-chat did when the consent gate went universal.
+const DRAFT_ENABLED = process.env.SPAR_DRAFT_ENABLED !== '0';
+
+// Grace on the server's own clock check. The client runs the visible
+// countdown, so its zero and ours are never the same instant; without slack
+// an honest expire POST lands a second early and gets refused, and the round
+// stalls on a beat both people already watched run out.
+const DRAFT_EXPIRE_GRACE_MS = 1500;
+
+// The only fields a resolved draft changes on the match. Side assignment
+// stops being the lex-sorted uid pair from phase 1 and becomes the thing one
+// debater actually chose, so proUid/conUid and their names are rewritten
+// together. Returns null on an unfinished draft, which is what keeps a room
+// from opening on a motion nobody settled.
+function draftFinals(draft, mine, theirs, myUid, peerUid) {
+  const res = draftResult(draft, myUid, peerUid);
+  if (!res) return null;
+  const myShort = shortName(mine);
+  const peerShort = shortName(theirs);
+  const nameOf = (uid) => (String(uid) === String(myUid) ? myShort : peerShort);
+  return {
+    pairedMotion: res.motion,
+    proUid: res.proUid,
+    conUid: res.conUid,
+    proName: nameOf(res.proUid),
+    conName: nameOf(res.conUid),
+  };
+}
+
+function draftPhaseMs(phase) {
+  return (phase === 'strike' ? STRIKE_SEC : PICK_SEC) * 1000;
+}
+
+function phaseAtMs(doc) {
+  const at = doc && doc.draftPhaseAt;
+  if (!at) return 0;
+  if (typeof at.toMillis === 'function') return at.toMillis();
+  if (at.seconds != null) return at.seconds * 1000;
+  return 0;
 }
 
 // Queue docs are user-writable. Copy only the compact, enumerated avatar
@@ -505,12 +558,65 @@ export default async (request) => {
   const format = String(body?.format || '').trim().toLowerCase();
   // Separate throttle lanes — see the isThrottled comment. A consent
   // click must never 429 because the queue poller POSTed recently.
-  if (action === 'consent') {
+  if (action === 'consent' || action === 'draft' || action === 'solo') {
+    // Draft picks share the consent lane, not the pair lane: both are human
+    // clicks on a clock, and a 429 on either one strands a live handshake.
     if (isThrottled(myUid + ':consent', CONSENT_THROTTLE_MS)) {
       return errorResponse('Consent attempts throttled. Wait a moment.', 429, request);
     }
   } else if (isThrottled(myUid)) {
     return errorResponse('Pair attempts throttled. Wait a moment.', 429, request);
+  }
+
+  // ── action: 'solo' — the draft against the AI fallback ──────────────
+  //
+  // Stateless: no Firestore, no queue doc, no room. The queue timing out is
+  // already the disappointing half of that moment, so the draft ritual stays
+  // identical rather than degrading into a motion the machine picked.
+  //
+  // Two calls, and the split is the fairness argument. The first returns the
+  // slate and a seed and NOT the AI's strikes, because a slate that arrived
+  // with the opponent's picks attached is a blind phase in name only. The
+  // second takes the human's committed strikes and only then computes the
+  // AI's from the same seed. The seed is namespaced to this uid and checked,
+  // so it cannot be used to fish for somebody else's slate.
+  //
+  // Placed ABOVE the guest gate on purpose: this opens no room with a real
+  // person in it, so it must not spend a guest's live-round allowance.
+  if (action === 'solo') {
+    if (!DRAFT_ENABLED) return jsonResponse({ ok: false, reason: 'draft_off' }, 200, request);
+    const AI_UID = 'ai';
+    const fmt = VALID_FORMATS.has(format) ? format : 'quick';
+    const rawSeed = String(body?.seed || '');
+    const seedPrefix = 'solo:' + myUid + ':';
+
+    if (!body?.strikes) {
+      const seed = seedPrefix + Date.now().toString(36);
+      const draft = createDraft(seed, fmt, myUid, AI_UID);
+      return jsonResponse({
+        ok: true,
+        seed,
+        slate: draft.slate,
+        motionUid: draft.motionUid,
+        sideUid: draft.sideUid,
+      }, 200, request);
+    }
+
+    if (!rawSeed.startsWith(seedPrefix)) {
+      return jsonResponse({ ok: false, reason: 'bad_seed' }, 200, request);
+    }
+    // Rebuilt from the seed rather than stored. Same five motions, same coin
+    // flip, no state to keep between the two calls.
+    const draft = createDraft(rawSeed, fmt, myUid, AI_UID);
+    const submitted = sanitizeStrikes(draft, body.strikes);
+    const mine = submitted.length === STRIKES_PER_SIDE
+      ? submitted
+      : autoStrikes(draft, myUid, submitted);
+    const next = advanceDraft({
+      ...draft,
+      strikes: { [myUid]: mine, [AI_UID]: autoStrikes(draft, AI_UID, []) },
+    }, myUid, AI_UID);
+    return jsonResponse({ ok: true, draft: next, aiUid: AI_UID }, 200, request);
   }
 
   if (!peerUid || peerUid === myUid) {
@@ -578,6 +684,8 @@ export default async (request) => {
       paradigms: FieldValue.delete(),
       consents: FieldValue.delete(),
       readyCheck: FieldValue.delete(),
+      draft: FieldValue.delete(),
+      draftPhaseAt: FieldValue.delete(),
       matchedWith: FieldValue.delete(),
       matchedWithName: FieldValue.delete(),
       matchedWithPhoto: FieldValue.delete(),
@@ -659,12 +767,67 @@ export default async (request) => {
         }
         const consents = { ...(mine.consents || {}) };
         consents[myUid] = true;
+
+        // On a drafting pair, accepting IS submitting your two strikes, and
+        // that is deliberate: striking is an act, so it proves presence the
+        // way a button that says "ready" never did (the 411-round finding).
+        // A short or junk set is FILLED rather than refused, because the
+        // client auto-submits at zero and a refusal there would kill a round
+        // over a slow reader who was sitting right there.
+        //
+        // Note what is NOT done here: the peer's missing strikes are never
+        // auto-filled. Striking for an absent person is how a room opens
+        // onto an empty chair. Their silence unwinds the pair through the
+        // ghost path above, exactly as a silent consent always has.
+        const draft = mine.draft || null;
+        let nextDraft = null;
+        if (draft) {
+          const submitted = sanitizeStrikes(draft, body?.strikes);
+          const strikes = submitted.length === STRIKES_PER_SIDE
+            ? submitted
+            : autoStrikes(draft, myUid, submitted);
+          // BLIND MEANS BLIND, and this is the line that makes it true.
+          // A queue doc is readable by its owner, so mirroring both sides'
+          // strikes onto both docs would hand whoever strikes second the
+          // first striker's picks in devtools, which is the entire draft.
+          // Each doc therefore carries only its OWN owner's strikes while
+          // the strike beat is live; the peer's set is read here, out of
+          // the peer's doc, inside the transaction, and the merged set is
+          // written to both docs only once both sides have committed.
+          const theirStrikes = (theirs.draft && theirs.draft.strikes) || {};
+          nextDraft = advanceDraft(
+            { ...draft, strikes: { ...theirStrikes, ...(draft.strikes || {}), [myUid]: strikes } },
+            myUid,
+            peerUid,
+          );
+        }
+
         if (!consents[peerUid]) {
           // I'm in; the peer still has my note to read. Mirror the flag
           // onto both docs so both clients can render progress.
-          tx.update(myRef, { consents });
+          //
+          // My draft goes on MY doc only. The peer gets the handshake flag
+          // and nothing else: at this moment they have not struck, so any
+          // strike of mine on their doc is a leak of the blind phase.
+          tx.update(myRef, nextDraft ? { consents, draft: nextDraft } : { consents });
           tx.update(peerRef, { consents });
           return { ok: true, pending: 'peer' };
+        }
+
+        // Both sides struck, and the draft still has beats to run. The pair
+        // holds in 'consent' rather than flipping to 'matched': a room that
+        // opened here would open on an undecided motion and unassigned
+        // sides. The reveal, the motion call and the side call all happen
+        // through the 'draft' action below.
+        if (nextDraft && nextDraft.phase !== 'done') {
+          const patch = {
+            consents,
+            draft: nextDraft,
+            draftPhaseAt: FieldValue.serverTimestamp(),
+          };
+          tx.update(myRef, patch);
+          tx.update(peerRef, patch);
+          return { ok: true, drafting: nextDraft.phase, actor: actorFor(nextDraft) };
         }
         // Both sides in — finalize. Every matched-shape field was
         // already written in phase 1; this flip is what subscribeMyDoc
@@ -674,6 +837,8 @@ export default async (request) => {
           matchedAt: FieldValue.serverTimestamp(),
           consents,
           pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
+          ...(nextDraft ? { draft: nextDraft } : {}),
+          ...(nextDraft ? draftFinals(nextDraft, mine, theirs, myUid, peerUid) || {} : {}),
         };
         // Per-side, not in `finals`: each doc skips the OTHER uid. This is
         // what stops the matcher handing you back the person you are in a
@@ -700,6 +865,104 @@ export default async (request) => {
     } catch (err) {
       console.error('[spar-pair] consent transaction error:', err?.message || err);
       return errorResponse('Consent transaction failed: ' + (err?.message || 'unknown'), 500, request);
+    }
+  }
+
+  // ── action: 'draft' — the motion/side beats after both sides strike ──
+  //
+  // Two shapes. A PICK carries `pick` ('motion' | 'side') and `value`, and
+  // only the debater who holds that power may send it; the coin flip in
+  // lib/motion-draft.mjs decides who that is, and the pure layer enforces it
+  // so the check cannot drift between here and the client.
+  //
+  // An EXPIRE carries `expire: true` and may come from EITHER side. That
+  // asymmetry against the strike phase is the point: by the time a pick clock
+  // is running, both people have already proven they are here by striking, so
+  // the round should not die over one slow click. During strikes the opposite
+  // holds and silence unwinds the pair, because silence there means nobody is
+  // in the chair. An expire is checked against the SERVER's own phase clock,
+  // never the caller's word, or a client could skip a beat it is losing.
+  if (action === 'draft') {
+    try {
+      const result = await db.runTransaction(async (tx) => {
+        const [mineSnap, theirsSnap] = await Promise.all([tx.get(myRef), tx.get(peerRef)]);
+        if (!mineSnap.exists) return { ok: false, reason: 'consent_state_gone' };
+        const mine = mineSnap.data();
+        const theirs = theirsSnap.exists ? theirsSnap.data() : null;
+        // Already finalized by the other side's pick. Not an error: both
+        // clients watch the same doc and either may have raced here.
+        if (mine.status === 'matched' && mine.matchedWith === peerUid) {
+          return { ok: true, matched: true, room: mine.room, already: true };
+        }
+        if (mine.status !== 'consent' || mine.matchedWith !== peerUid) {
+          return { ok: false, reason: 'consent_state_gone' };
+        }
+        if (!theirs || theirs.status !== 'consent' || theirs.matchedWith !== myUid) {
+          return { ok: false, reason: 'peer_gone' };
+        }
+        const draft = mine.draft;
+        if (!draft) return { ok: false, reason: 'no_draft' };
+        if (draft.phase !== 'motion' && draft.phase !== 'side') {
+          return { ok: false, reason: 'wrong_phase', phase: draft.phase };
+        }
+
+        let next;
+        if (body?.expire) {
+          const elapsed = Date.now() - phaseAtMs(mine);
+          if (elapsed + DRAFT_EXPIRE_GRACE_MS < draftPhaseMs(draft.phase)) {
+            return { ok: false, reason: 'too_early', phase: draft.phase };
+          }
+          next = autoResolve(draft);
+        } else {
+          const pick = String(body?.pick || '');
+          const applied = pick === 'motion'
+            ? applyMotionPick(draft, myUid, String(body?.value || ''))
+            : pick === 'side'
+              ? applySidePick(draft, myUid, String(body?.value || ''))
+              : { ok: false, reason: 'bad_pick' };
+          if (!applied.ok) return { ok: false, reason: applied.reason };
+          next = applied.draft;
+        }
+        next = advanceDraft(next, myUid, peerUid);
+
+        if (next.phase !== 'done') {
+          const patch = { draft: next, draftPhaseAt: FieldValue.serverTimestamp() };
+          tx.update(myRef, patch);
+          tx.update(peerRef, patch);
+          return { ok: true, drafting: next.phase, actor: actorFor(next) };
+        }
+
+        // Draft resolved. This is the flip subscribeMyDoc navigates on, and
+        // it is the first moment the round has a motion and real sides.
+        const finals = {
+          status: 'matched',
+          matchedAt: FieldValue.serverTimestamp(),
+          draft: next,
+          pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
+          ...(draftFinals(next, mine, theirs, myUid, peerUid) || {}),
+        };
+        tx.update(myRef, {
+          ...finals,
+          skipUids: FieldValue.arrayUnion(peerUid),
+          ['matchSkipAt.' + peerUid]: FieldValue.serverTimestamp(),
+        });
+        tx.update(peerRef, {
+          ...finals,
+          skipUids: FieldValue.arrayUnion(myUid),
+          ['matchSkipAt.' + myUid]: FieldValue.serverTimestamp(),
+        });
+        return { ok: true, matched: true, room: mine.room };
+      });
+      // Same charge point as the consent finalize: the room opens here for a
+      // drafting pair, so this is where a guest round is spent. `already`
+      // guards the double-charge when both clients race the final pick.
+      if (result?.matched && !result.already) {
+        await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
+      }
+      return jsonResponse(result, 200, request);
+    } catch (err) {
+      console.error('[spar-pair] draft transaction error:', err?.message || err);
+      return errorResponse('Draft transaction failed: ' + (err?.message || 'unknown'), 500, request);
     }
   }
 
@@ -917,6 +1180,17 @@ export default async (request) => {
       const readyCheck = !(myParadigm || theirParadigm) && !crossFormat;
       const needsConsent = true;
 
+      // The motion draft. Both docs must have opted in: a client that
+      // cannot render a draft must never be handed one, or it sits on a card
+      // it does not understand until the reaper sweeps it. The slate is
+      // seeded off the sorted uid pair plus the room, so both sides could
+      // derive the same five motions independently and a rematch later in
+      // the session draws a fresh five.
+      const wantsDraft = DRAFT_ENABLED && !!mine.draftOptIn && !!theirs.draftOptIn;
+      const draft = wantsDraft
+        ? createDraft(draftSeed(myUid, peerUid, room), pairedFormat, myUid, peerUid)
+        : null;
+
       if (needsConsent) {
         const proposal = {
           ...common,
@@ -937,6 +1211,11 @@ export default async (request) => {
           // Presence is the thing being checked now, so having nothing
           // to read no longer answers it.
           consents: { [myUid]: false, [peerUid]: false },
+          // A drafting pair carries no motion until the draft names one.
+          // `common.pairedMotion` is whatever either side queued with, and
+          // showing it here would put a motion on screen that the strikes
+          // are about to overrule.
+          ...(draft ? { draft, draftPhaseAt: FieldValue.serverTimestamp(), pairedMotion: '' } : {}),
         };
         tx.update(myRef, {
           ...proposal,

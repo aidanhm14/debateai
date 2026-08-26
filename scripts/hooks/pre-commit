@@ -159,6 +159,26 @@ if [ -f "$BRACKET_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# ──────────────────────────────────────────────────────────────────
+# Motion draft. The pre-round veto decides what two real people argue
+# and which side each of them takes, so a regression here is a round
+# that opens wrong in front of an opponent rather than a stack trace
+# anybody sees. The guards that matter: a client cannot strike more
+# than its allowance (four strikes from one side leaves one survivor
+# of that side's choosing, which is the whole draft), a client cannot
+# exercise the other debater's power, and a timeout resolves the same
+# way on both sides.
+# ──────────────────────────────────────────────────────────────────
+DRAFT_GUARD="$REPO_ROOT/scripts/test-motion-draft.mjs"
+if [ -f "$DRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-motion-draft.mjs >/tmp/draft-guard.log 2>&1); then
+    echo "[draft-guard] commit blocked — the motion draft no longer holds:" >&2
+    tail -20 /tmp/draft-guard.log >&2
+    echo "[draft-guard] see scripts/test-motion-draft.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 SPEAKS_GUARD="$REPO_ROOT/scripts/test-speaker-score.mjs"
 if [ -f "$SPEAKS_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-speaker-score.mjs >/tmp/speaks-guard.log 2>&1); then

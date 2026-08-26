@@ -883,6 +883,245 @@ h1 em{color:var(--accent);font-style:normal}
 }
 @keyframes mf-phase-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
+/* ── MOTION DRAFT ──────────────────────────────────────────────────
+   The pre-round veto. Five motions, two strikes each, blind, then a
+   coin-flip split: one debater calls the motion, the other calls the
+   side. Reads as a draft board, not as a form.
+
+   The whole surface is built to survive a 320px phone without a
+   horizontal scrollbar, because the strike beat is the one screen where
+   a mis-tap costs a motion the person wanted. Cards are full-width rows
+   on mobile and stay that way; nothing here is a grid that reflows
+   under a thumb. */
+.draft-wrap{max-width:660px;margin:0 auto;width:100%}
+
+/* #daExpAsk is the sitewide "do you already debate?" chooser (topbar.js ->
+   audience-mode.js): position:fixed, z-index 99990, and on a 375px screen it
+   sits straight over motions 4 and 5. It asks a question with no deadline;
+   the draft runs a 14 second clock on tap targets that cost a motion if you
+   miss. It waits. Restored the moment the board comes down. */
+body.draft-live #daExpAsk{display:none !important}
+
+/* Phase clock. One bar, not a ring: the strike beat has five cards
+   under it and a ring next to a face competes with them for the eye. */
+.draft-clock{
+  position:relative;height:3px;border-radius:2px;overflow:hidden;
+  background:var(--border);margin:0 0 18px;
+}
+.draft-clock i{
+  position:absolute;inset:0;display:block;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent),#f97316);
+  transform-origin:left center;
+  animation:draft-clock var(--draft-dur,14s) linear forwards;
+}
+@keyframes draft-clock{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* Last three seconds. The bar is thin, so urgency has to come from
+   colour and pulse rather than from size. */
+.draft-clock.hot i{background:linear-gradient(90deg,#ef4444,#f97316);animation-name:draft-clock,draft-hot}
+@keyframes draft-hot{0%,100%{opacity:1}50%{opacity:.45}}
+
+.draft-head{text-align:center;margin:0 0 16px}
+.draft-step{
+  display:inline-flex;align-items:center;gap:7px;font-size:.63rem;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--text-ghost);
+}
+.draft-step b{color:var(--accent);font-weight:800}
+.draft-title{
+  font-size:clamp(1.15rem,4.2vw,1.6rem);font-weight:800;line-height:1.18;
+  margin:8px 0 4px;letter-spacing:-.01em;
+}
+.draft-title em{font-style:normal;color:var(--accent)}
+.draft-sub{font-size:.8rem;color:var(--text-dim);margin:0;line-height:1.45}
+.draft-count{
+  /* min-width stops the sentence reflowing as digits drop 14 -> 9 -> 0;
+     text-align:right keeps a single digit against the "s" instead of
+     leaving a gap in the middle of the phrase. */
+  display:inline-block;min-width:1.4em;text-align:right;
+  font-variant-numeric:tabular-nums;font-weight:800;color:var(--text);
+}
+/* Keeps "12s left" off two lines. The count is inline-block with a min-width
+   so the layout does not jitter as digits change, and that is exactly what
+   let the line break between the number and the unit. */
+.draft-nb{white-space:nowrap}
+
+/* ── the slate ─────────────────────────────────────────────────── */
+.draft-slate{display:flex;flex-direction:column;gap:8px;margin:16px 0 0;list-style:none;padding:0}
+.draft-card{
+  position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;
+  padding:13px 14px;border-radius:12px;text-align:left;
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font:inherit;font-size:.87rem;line-height:1.4;
+  cursor:pointer;transition:border-color .16s,background .16s,transform .12s,opacity .3s;
+  animation:draft-deal .34s cubic-bezier(.2,.9,.3,1) both;
+  animation-delay:calc(var(--i,0) * 55ms);
+}
+@keyframes draft-deal{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.draft-card:hover:not(:disabled){border-color:var(--accent);transform:translateX(2px)}
+.draft-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.draft-card:disabled{cursor:default}
+.draft-num{
+  flex:0 0 auto;width:22px;height:22px;border-radius:6px;margin-top:1px;
+  display:grid;place-items:center;font-size:.68rem;font-weight:800;
+  background:var(--border);color:var(--text-ghost);
+  font-variant-numeric:tabular-nums;transition:background .16s,color .16s;
+}
+.draft-card:hover:not(:disabled) .draft-num{background:var(--accent);color:#fff}
+/* basis 0, not auto. With `flex:1 1 auto` the text claims its full content
+   width, and under the mobile flex-wrap it took a line of its own and left
+   the number stranded above it. */
+.draft-text{flex:1 1 0;min-width:0}
+
+/* Struck by me. The slash is drawn, not a text-decoration, so it can
+   animate across the card at the moment of the strike. */
+.draft-card.struck{opacity:.42;border-color:var(--border);background:transparent}
+.draft-card.struck .draft-num{background:transparent;color:var(--text-ghost)}
+.draft-card.struck .draft-text{color:var(--text-ghost)}
+.draft-card.struck::after{
+  content:'';position:absolute;left:12px;right:12px;top:50%;height:2px;
+  background:var(--accent);border-radius:2px;transform-origin:left center;
+  animation:draft-slash .22s ease-out both;
+}
+@keyframes draft-slash{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* Struck by the opponent: same slash, their colour, and it lands during
+   the reveal rather than on a click. */
+.draft-card.struck-them::after{background:#f97316}
+.draft-card.struck-both::after{background:linear-gradient(90deg,var(--accent),#f97316)}
+
+/* A flex child, deliberately NOT absolutely positioned. Absolute put it on
+   top of the motion text, and the longest motion on the board is exactly the
+   one most likely to survive and carry a badge, so the overlap landed on the
+   single line the reveal exists to show. */
+.draft-by{
+  flex:0 0 auto;align-self:center;
+  font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-ghost);padding:2px 0 2px 10px;border-radius:5px;
+  animation:draft-by-in .3s ease .12s both;white-space:nowrap;
+}
+@keyframes draft-by-in{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+
+/* Survivor. The one thing on screen that should feel earned. */
+.draft-card.alive{
+  border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);
+  animation:draft-alive .4s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes draft-alive{
+  0%{transform:none}
+  45%{transform:scale(1.025)}
+  100%{transform:none}
+}
+.draft-card.alive .draft-num{background:var(--accent);color:#fff}
+.draft-card.locked{
+  border-color:var(--accent);border-width:2px;
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+}
+
+/* ── faces + roles ─────────────────────────────────────────────── */
+.draft-vs{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  margin:0 0 14px;
+}
+.draft-vs-side{display:flex;align-items:center;gap:8px;min-width:0}
+.draft-vs-side .draft-vs-name{
+  font-size:.76rem;font-weight:700;min-width:0;max-width:124px;
+  /* The NAME clamps to one line; the state line under it must not inherit
+     that clamp or "you called the motion" renders as "you called the m...".
+     Overridden on .draft-vs-state below. */
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.draft-vs-face{
+  width:34px;height:34px;border-radius:50%;overflow:hidden;flex:0 0 auto;
+  background:var(--border);display:grid;place-items:center;
+  font-size:.72rem;font-weight:800;color:var(--text-dim);
+  border:2px solid transparent;transition:border-color .2s;
+}
+.draft-vs-face svg,.draft-vs-face img{width:100%;height:100%;display:block}
+.draft-vs-side.ready .draft-vs-face{border-color:#22c55e}
+.draft-vs-side.acting .draft-vs-face{border-color:var(--accent);animation:draft-acting 1.5s ease-in-out infinite}
+@keyframes draft-acting{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+.draft-vs-mid{
+  font-size:.6rem;font-weight:800;letter-spacing:.14em;color:var(--text-ghost);
+  flex:0 0 auto;
+}
+.draft-vs-state{
+  display:block;font-size:.58rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text-ghost);margin-top:1px;
+  white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;
+}
+.draft-vs-side.ready .draft-vs-state{color:#22c55e}
+
+/* The coin. Two faces on one card, flipped in 3D, landing on the role
+   this debater actually holds. */
+.draft-coin-wrap{display:grid;place-items:center;margin:6px 0 16px;perspective:700px}
+.draft-coin{
+  width:64px;height:64px;border-radius:50%;position:relative;
+  transform-style:preserve-3d;animation:draft-flip 1.15s cubic-bezier(.3,.7,.4,1) both;
+}
+.draft-coin span{
+  position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;
+  backface-visibility:hidden;font-size:.56rem;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;text-align:center;line-height:1.15;padding:6px;
+}
+.draft-coin .cf{background:var(--accent);color:#fff}
+.draft-coin .cb{background:#f97316;color:#fff;transform:rotateY(180deg)}
+@keyframes draft-flip{
+  0%{transform:rotateY(0) scale(.7);opacity:0}
+  15%{opacity:1}
+  100%{transform:rotateY(1080deg) scale(1);opacity:1}
+}
+@media (prefers-reduced-motion:reduce){
+  .draft-coin{animation-duration:.01ms}
+  .draft-card{animation:none}
+  .draft-clock i{animation-duration:var(--draft-dur,14s)}
+}
+
+/* ── side pick ─────────────────────────────────────────────────── */
+.draft-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 0}
+.draft-side-btn{
+  padding:18px 12px;border-radius:14px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font:inherit;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  transition:border-color .16s,transform .12s,background .16s;
+  animation:draft-deal .3s cubic-bezier(.2,.9,.3,1) both;
+}
+.draft-side-btn:nth-child(2){animation-delay:70ms}
+.draft-side-btn:hover{border-color:var(--accent);transform:translateY(-2px)}
+.draft-side-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.draft-side-name{font-size:1.02rem;font-weight:800;letter-spacing:-.01em}
+.draft-side-sub{font-size:.68rem;color:var(--text-dim);text-align:center;line-height:1.3}
+
+/* ── final lock ────────────────────────────────────────────────── */
+.draft-final{
+  border:2px solid var(--accent);border-radius:14px;padding:18px 16px;
+  background:color-mix(in srgb,var(--accent) 8%,transparent);
+  animation:draft-lock .45s cubic-bezier(.2,1.3,.4,1) both;text-align:center;
+}
+@keyframes draft-lock{
+  0%{opacity:0;transform:scale(.9)}
+  60%{transform:scale(1.02)}
+  100%{opacity:1;transform:scale(1)}
+}
+.draft-final-motion{font-size:1rem;font-weight:700;line-height:1.35;margin:0 0 12px}
+.draft-final-sides{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.draft-badge{
+  font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 9px;border-radius:6px;background:var(--accent);color:#fff;
+}
+.draft-badge.con{background:#f97316}
+.draft-note{
+  font-size:.7rem;color:var(--text-ghost);margin:12px 0 0;line-height:1.4;
+}
+.draft-actions{display:flex;gap:9px;justify-content:center;margin:18px 0 0;flex-wrap:wrap}
+
+@media (max-width:420px){
+  .draft-card{padding:11px 12px;font-size:.83rem;gap:10px}
+  /* Under 420px the badge drops to its own line under the motion rather
+     than squeezing the text into a column two words wide. */
+  .draft-card{flex-wrap:wrap}
+  .draft-by{align-self:flex-start;padding:4px 0 0 34px;width:100%}
+  .draft-sides{gap:8px}
+  .draft-side-btn{padding:15px 8px}
+}
+
 /* The promise. This is the line that stops the Withdraw reflex: the
    wait has a floor, and hitting it costs the user nothing. */
 .mf-hold{
@@ -2236,6 +2475,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     consentTimer: null,            // auto-pass countdown interval
     consentPending: 0,             // spar-pair said 'consent' but my doc snapshot hasn't landed yet
     lastConsentDoc: null,          // latest consent snapshot — POST-failure card recovery
+    draftKey: '',                  // fingerprint of the rendered draft beat (skip echo re-renders)
+    draftTimer: null,              // phase countdown interval
+    draftRevealTimer: null,        // reveal hold / expire retry
+    draftPicks: [],                // my strikes, local until the POST commits them
+    draftSubmitting: false,        // one strike submission per beat
+    draftRevealed: false,          // the reveal is a one-time beat per draft
+    aiDraft: null,                 // AI-fallback draft, resolved client-side after the reveal
     noticeUntil: 0,                // hold a queue-stats notice against tryMatch repaints
     watchPollInterval: null,       // "watch a live round" panel refresh
     roundNavPending: false,        // fallback guard once spar-pair succeeds
@@ -4504,6 +4750,248 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     } catch (e) { /* never block the flow on a logging failure */ }
   }
 
+  // ── AI fallback draft ───────────────────────────────────────────
+  // The queue timed out. That is already the disappointing half of the
+  // moment, so the ritual stays the same rather than degrading into a
+  // motion the machine picked: same five, same two strikes, same coin.
+  // The AI's strikes come from the server and only after ours are
+  // committed, so the blind phase is blind here too.
+  //
+  // Everything after the reveal resolves locally. There is no opponent left
+  // to protect once both sets are on screen, so a round trip per beat would
+  // buy nothing.
+  var AI_DRAFT_UID = 'ai';
+
+  function beginAIDraft(){
+    removeWaitRail();
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        '<div class="draft-head">' +
+          '<div class="draft-step">AI opponent</div>' +
+          '<h1 class="draft-title">No human yet. <em>Dealing the motions</em>.</h1>' +
+          '<p class="draft-sub">Same draft, same strikes. You stay in the queue while you play.</p>' +
+        '</div>' +
+        '<div class="orb-wrap"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
+      '</div>';
+    document.body.classList.add('draft-live');
+    try { gtag('event', 'spar_ai_fallback', { format: formatParam, draft: 1 }); } catch(e){}
+    logMissedMatch('fallback');
+    draftPost({ action: 'solo', format: formatParam }, 'solo').then(function(j){
+      if (!j || !j.ok || !j.slate || !j.slate.length){
+        // The draft is a flourish; the round is the product. A failed slate
+        // must never cost someone their AI round.
+        console.warn('[spar] solo slate unavailable, handing off plain');
+        goToPractice('', '');
+        return;
+      }
+      state.aiDraft = {
+        seed: j.seed, slate: j.slate,
+        motionUid: j.motionUid, sideUid: j.sideUid,
+        strikes: {}, motionId: null, side: null, phase: 'strike',
+      };
+      state.draftPicks = [];
+      state.draftSubmitting = false;
+      renderAIStrike();
+    });
+  }
+
+  function goToPractice(motion, side){
+    document.body.classList.remove('draft-live');
+    var params = new URLSearchParams({ format: formatParam, now: '1', handoff: 'spar-draft' });
+    if (motion) params.set('motion', motion);
+    if (side) params.set('side', side === 'pro' ? 'prop' : 'opp');
+    location.href = '/practice?' + params.toString();
+  }
+
+  function aiFaceHtml(){
+    return '<div class="draft-vs">' +
+        '<div class="draft-vs-side acting">' +
+          draftFaceHtml(currentPublicAvatarIdentity(), (state.user && state.user.uid) || '', 'You') +
+          '<span class="draft-vs-name">You<span class="draft-vs-state">striking</span></span>' +
+        '</div>' +
+        '<div class="draft-vs-mid">VS</div>' +
+        '<div class="draft-vs-side acting">' +
+          '<span class="draft-vs-face">AI</span>' +
+          '<span class="draft-vs-name">AI opponent<span class="draft-vs-state">striking</span></span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderAIStrike(){
+    var dr = state.aiDraft;
+    var cards = dr.slate.map(function(m, i){
+      return '<button type="button" class="draft-card" data-ai-strike="' + escHtml(m.id) + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+        '</button>';
+    }).join('');
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftClockHtml() +
+        aiFaceHtml() +
+        draftHeadHtml('Step 1 of 2', 'Strike <em>two</em> motions.',
+          'The AI is striking two as well. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_STRIKE_SEC + '</span>s left.</span>') +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+    shell.querySelectorAll('[data-ai-strike]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-ai-strike');
+        var at = state.draftPicks.indexOf(id);
+        if (at >= 0){ state.draftPicks.splice(at, 1); btn.classList.remove('struck'); return; }
+        if (state.draftPicks.length >= DRAFT_STRIKES) return;
+        state.draftPicks.push(id);
+        btn.classList.add('struck');
+        if (state.draftPicks.length >= DRAFT_STRIKES) submitAIStrikes();
+      });
+    });
+    startDraftClock(DRAFT_STRIKE_SEC, submitAIStrikes);
+  }
+
+  function submitAIStrikes(){
+    if (state.draftSubmitting) return;
+    state.draftSubmitting = true;
+    clearDraftTimer();
+    shell.querySelectorAll('[data-ai-strike]').forEach(function(b){ b.disabled = true; });
+    draftPost({
+      action: 'solo', format: formatParam,
+      seed: state.aiDraft.seed, strikes: state.draftPicks.slice(),
+    }, 'solo-strike').then(function(j){
+      if (!j || !j.ok || !j.draft){ goToPractice('', ''); return; }
+      state.aiDraft = j.draft;
+      // A beat of hesitation before the reveal. Instant would read as a
+      // lookup table rather than an opponent.
+      state.draftRevealTimer = setTimeout(renderAIReveal, 700);
+    });
+  }
+
+  function renderAIReveal(){
+    var dr = state.aiDraft;
+    var me = state.user.uid;
+    var by = draftStruckBy(dr);
+    var survivors = draftSurvivors(dr);
+    var cards = dr.slate.map(function(m, i){
+      var who = by[m.id] || [];
+      var mineHit = who.indexOf(me) >= 0;
+      var theirsHit = who.indexOf(AI_DRAFT_UID) >= 0;
+      var cls = 'draft-card', label = '';
+      if (mineHit && theirsHit){ cls += ' struck struck-both'; label = 'both struck'; }
+      else if (mineHit){ cls += ' struck'; label = 'you struck'; }
+      else if (theirsHit){ cls += ' struck struck-them'; label = 'AI struck'; }
+      else { cls += ' alive'; label = 'survives'; }
+      return '<div class="' + cls + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+          '<span class="draft-by">' + escHtml(label) + '</span>' +
+        '</div>';
+    }).join('');
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftHeadHtml('The reveal',
+          survivors.length === 1 ? 'One motion <em>left standing</em>.' : survivors.length + ' motions <em>survived</em>.',
+          '') +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+    state.draftRevealTimer = setTimeout(advanceAIDraft, DRAFT_REVEAL_MS);
+  }
+
+  // Local phase machine, valid only because both strike sets are already on
+  // screen. The human-vs-human draft never does this: there the server owns
+  // every transition, because there a client deciding its own side would
+  // decide to win.
+  function advanceAIDraft(){
+    var dr = state.aiDraft;
+    var survivors = draftSurvivors(dr);
+    if (!dr.motionId){
+      if (survivors.length === 1){ dr.motionId = survivors[0].id; }
+      else if (String(dr.motionUid) === String(state.user.uid)){ return renderAIMotionPick(survivors); }
+      else { dr.motionId = survivors[0].id; }  // the AI's call, taken deterministically
+    }
+    if (!dr.side){
+      if (String(dr.sideUid) === String(state.user.uid)) return renderAISidePick();
+      // The AI called the side, so ours is the remainder.
+      dr.side = Math.random() < 0.5 ? 'pro' : 'con';
+      return finishAIDraft(dr.side === 'pro' ? 'con' : 'pro');
+    }
+    finishAIDraft(dr.side);
+  }
+
+  function renderAIMotionPick(survivors){
+    var cards = survivors.map(function(m, i){
+      return '<button type="button" class="draft-card" data-ai-motion="' + escHtml(m.id) + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+        '</button>';
+    }).join('');
+    shell.innerHTML =
+      '<div class="draft-wrap">' + draftClockHtml() + draftCoinHtml(true, 'the motion') +
+        draftHeadHtml('Step 2 of 2', 'You call the <em>motion</em>.',
+          'The AI takes the side you leave it. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>') +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+    shell.querySelectorAll('[data-ai-motion]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        clearDraftTimer();
+        state.aiDraft.motionId = btn.getAttribute('data-ai-motion');
+        advanceAIDraft();
+      });
+    });
+    startDraftClock(DRAFT_PICK_SEC, function(){
+      state.aiDraft.motionId = survivors[0].id;
+      advanceAIDraft();
+    });
+  }
+
+  function renderAISidePick(){
+    var motion = draftMotionText(state.aiDraft);
+    shell.innerHTML =
+      '<div class="draft-wrap">' + draftClockHtml() + draftCoinHtml(true, 'your side') +
+        draftHeadHtml('Step 2 of 2', 'Pick your <em>side</em>.',
+          'This is the motion you are arguing. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>') +
+        '<div class="draft-final"><p class="draft-final-motion">' + escHtml(motion) + '</p>' +
+          '<div class="draft-final-sides"><span class="draft-badge">the motion</span></div></div>' +
+        '<div class="draft-sides">' +
+          '<button type="button" class="draft-side-btn" data-ai-side="pro">' +
+            '<span class="draft-side-name">Proposition</span>' +
+            '<span class="draft-side-sub">You argue for it. You speak first.</span></button>' +
+          '<button type="button" class="draft-side-btn" data-ai-side="con">' +
+            '<span class="draft-side-name">Opposition</span>' +
+            '<span class="draft-side-sub">You argue against it. You answer them.</span></button>' +
+        '</div>' +
+      '</div>';
+    shell.querySelectorAll('[data-ai-side]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        clearDraftTimer();
+        finishAIDraft(btn.getAttribute('data-ai-side'));
+      });
+    });
+    startDraftClock(DRAFT_PICK_SEC, function(){
+      finishAIDraft(Math.random() < 0.5 ? 'pro' : 'con');
+    });
+  }
+
+  function finishAIDraft(mySide){
+    clearDraftTimer();
+    var motion = draftMotionText(state.aiDraft);
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftHeadHtml('Locked', 'Round <em>set</em>.', 'Loading your AI round…') +
+        '<div class="draft-final">' +
+          '<p class="draft-final-motion">' + escHtml(motion) + '</p>' +
+          '<div class="draft-final-sides">' +
+            '<span class="draft-badge' + (mySide === 'con' ? ' con' : '') + '">You: ' +
+              (mySide === 'pro' ? 'Proposition' : 'Opposition') + '</span>' +
+            '<span class="draft-badge' + (mySide === 'pro' ? ' con' : '') + '">AI: ' +
+              (mySide === 'pro' ? 'Opposition' : 'Proposition') + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    try { gtag('event', 'spar_ai_draft_done', { format: formatParam, side: mySide }); } catch(e){}
+    setTimeout(function(){ goToPractice(motion, mySide); }, 1400);
+  }
+
   function renderFallback(){
     removeWaitRail();
     shell.innerHTML =
@@ -4690,6 +5178,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       lang: state.lang || 'en',
       blockedUids: blockedUids.slice(-100),
       status: 'waiting',
+      // Motion draft opt-in. spar-pair only builds a draft when BOTH docs
+      // carry this, which is what keeps the rollout per-surface: a client
+      // that cannot render a draft board must never be handed one, or it
+      // sits on a card it does not understand until the reaper sweeps it.
+      // Follows the client switch, not a constant: with ?draft=0 the board is
+      // off, and a server-built draft would then land on the plain consent
+      // card, which can accept but has no way to call a motion or a side.
+      // The pair would sit there until the reaper swept it.
+      draftOptIn: DRAFT_ENABLED_CLIENT,
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     }).then(function(){
       try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
@@ -4908,6 +5405,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function clearConsentTimer(){
+    // The draft runs its own clock on the same screen. Every unwind path
+    // (teardown, navigate, decline, ghost) already calls this one, so
+    // hanging the draft timer off it is what stops a countdown firing into
+    // a page that has already moved on.
+    clearDraftTimer();
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
     clearWaitPhases();
   }
@@ -5027,7 +5529,528 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     } catch(e){}
   }
 
+  // ── MOTION DRAFT ────────────────────────────────────────────────
+  // The pre-round veto. Five motions land, both debaters strike two with
+  // the other side's picks hidden, the strikes reveal together, and a coin
+  // flip splits the two remaining powers: one debater calls the motion
+  // (when more than one survived), the other calls their side.
+  //
+  // The server owns every decision (lib/motion-draft.mjs, applied inside
+  // spar-pair's consent transaction). This file renders what the doc says
+  // and posts intent. It never computes a phase, a survivor set that
+  // matters, or a side, because a client that could decide its own side
+  // would decide to win.
+  //
+  // Blind is enforced on the SERVER, not here: until both sides commit,
+  // each queue doc carries only its own owner's strikes, so there is
+  // nothing in this browser to peek at. Do not "helpfully" mirror them.
+  // Client kill switch, independent of the server's SPAR_DRAFT_ENABLED. ?draft=0
+  // turns the board off for one visit, which is how it gets debugged against
+  // the plain consent card without a deploy.
+  var DRAFT_ENABLED_CLIENT = (new URLSearchParams(location.search)).get('draft') !== '0';
+  var DRAFT_STRIKE_SEC = 14;   // must match STRIKE_SEC in lib/motion-draft.mjs
+  var DRAFT_PICK_SEC = 9;      // must match PICK_SEC
+  var DRAFT_STRIKES = 2;       // must match STRIKES_PER_SIDE
+  var DRAFT_REVEAL_MS = 2300;  // reveal beat before the pick UI takes over
+
+  function draftStruckBy(dr){
+    // id -> array of uids who struck it. Only meaningful once both sides
+    // are in; before that a doc holds one owner's strikes and nothing else.
+    var out = {};
+    var st = (dr && dr.strikes) || {};
+    Object.keys(st).forEach(function(u){
+      (st[u] || []).forEach(function(id){ (out[id] = out[id] || []).push(u); });
+    });
+    return out;
+  }
+  function draftSurvivors(dr){
+    var struck = draftStruckBy(dr);
+    return ((dr && dr.slate) || []).filter(function(m){ return !struck[m.id]; });
+  }
+  function draftMyStrikes(dr, uid){
+    var st = (dr && dr.strikes) || {};
+    return st[uid] || [];
+  }
+  function draftMotionText(dr){
+    var hit = ((dr && dr.slate) || []).filter(function(m){ return m.id === dr.motionId; })[0];
+    return hit ? hit.text : '';
+  }
+
+  function clearDraftTimer(){
+    if (state.draftTimer){ clearInterval(state.draftTimer); state.draftTimer = null; }
+    if (state.draftRevealTimer){ clearTimeout(state.draftRevealTimer); state.draftRevealTimer = null; }
+  }
+
+  // One countdown driver for every beat. `onZero` is what the clock is FOR,
+  // so it always fires: the strike beat auto-submits whatever is selected
+  // (the server fills the rest), and a pick beat asks the server to expire.
+  function startDraftClock(secs, onZero){
+    clearDraftTimer();
+    var left = secs;
+    var bar = document.getElementById('draftClock');
+    if (bar) bar.style.setProperty('--draft-dur', secs + 's');
+    var num = document.getElementById('draftSecs');
+    if (num) num.textContent = left;
+    state.draftTimer = setInterval(function(){
+      left--;
+      if (num) num.textContent = Math.max(0, left);
+      if (bar && left <= 3) bar.classList.add('hot');
+      if (left <= 0){
+        clearDraftTimer();
+        try { onZero(); } catch(e){ console.warn('[spar] draft clock handler failed', e); }
+      }
+    }, 1000);
+  }
+
+  function draftFaceHtml(identity, uid, name){
+    var inner = (identity && window.DBAvatar && DBAvatar.publicSvg)
+      ? DBAvatar.publicSvg(identity, '100%', { uid: uid, name: name })
+      : escHtml(initialsFor(name));
+    return '<span class="draft-vs-face">' + inner + '</span>';
+  }
+
+  // The two faces across the top, carrying state rather than decoration:
+  // who has locked their strikes, and whose clock is running right now.
+  // `mine`/`theirs` are 'ready' | 'acting' | ''.
+  function draftVsHtml(d, mineState, theirsState, mineLabel, theirsLabel){
+    var me = state.user || {};
+    var peerName = d.matchedWithName || 'Opponent';
+    return '<div class="draft-vs">' +
+        '<div class="draft-vs-side ' + mineState + '">' +
+          draftFaceHtml(currentPublicAvatarIdentity(), me.uid || '', me.displayName || 'You') +
+          '<span class="draft-vs-name">You' +
+            '<span class="draft-vs-state">' + escHtml(mineLabel || '') + '</span>' +
+          '</span>' +
+        '</div>' +
+        '<div class="draft-vs-mid">VS</div>' +
+        '<div class="draft-vs-side ' + theirsState + '">' +
+          draftFaceHtml(d.matchedWithAvatar, d.matchedWith || '', peerName) +
+          '<span class="draft-vs-name">' + escHtml(peerName) +
+            '<span class="draft-vs-state">' + escHtml(theirsLabel || '') + '</span>' +
+          '</span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function draftClockHtml(){
+    return '<div class="draft-clock" id="draftClock"><i></i></div>';
+  }
+
+  function draftHeadHtml(step, title, sub){
+    return '<div class="draft-head">' +
+        '<div class="draft-step">' + step + '</div>' +
+        '<h1 class="draft-title">' + title + '</h1>' +
+        (sub ? '<p class="draft-sub">' + sub + '</p>' : '') +
+      '</div>';
+  }
+
+  // ── entry point ─────────────────────────────────────────────────
+  // Called from renderConsentGate when the proposal carries a draft.
+  function renderDraft(d){
+    var dr = d.draft;
+    var me = state.user.uid;
+    var peerUid = d.matchedWith;
+    var consents = d.consents || {};
+    var phase = String(dr.phase || 'strike');
+    var iStruck = draftMyStrikes(dr, me).length >= DRAFT_STRIKES;
+    var theyStruck = !!consents[peerUid];
+
+    // Snapshot streams echo every write. Re-render only when the draft
+    // actually moved, or the countdown restarts on every mirrored write and
+    // the strike beat becomes unplayable.
+    var key = [peerUid, phase, iStruck ? 1 : 0, theyStruck ? 1 : 0,
+               dr.motionId || '', dr.side || ''].join('|');
+    if (state.inConsent && state.draftKey === key) return;
+    var firstRender = !state.inConsent;
+    state.inConsent = true;
+    state.draftKey = key;
+    state.consentKey = '';
+    state.lastConsentDoc = d;
+    state.consentPending = 0;
+    if (firstRender){
+      state.draftPicks = [];
+      state.draftRevealed = false;
+      state.draftSubmitting = false;
+      document.body.classList.add('draft-live');
+      pauseSearchForConsent();
+      closeSignInPop();
+      removeWaitRail();
+      sparChime();
+      try { gtag('event', 'spar_draft_open', { format: d.pairedFormat || formatParam }); } catch(e){}
+    }
+    document.title = '● Draft · Spar';
+
+    if (phase === 'strike'){
+      if (iStruck) return renderDraftHold(d);
+      return renderDraftStrike(d);
+    }
+    // Strikes are in, so the handshake's own auto-pass net has done its job
+    // and must stop. It fires a DECLINE at CONSENT_DECIDE_SEC, and the hold
+    // beat below arms it: a peer who strikes at 40s lands us in the reveal
+    // with that timer still running, and it would unwind a pair that both
+    // people just committed to. Cleared here, before any draft clock starts,
+    // because clearConsentTimer also clears the draft clock.
+    clearConsentTimer();
+
+    // The doc now carries both sides. Play the reveal once, then hand over
+    // to whichever pick beat is live.
+    if (!state.draftRevealed){
+      state.draftRevealed = true;
+      return renderDraftReveal(d);
+    }
+    if (phase === 'motion') return renderDraftMotionPick(d);
+    if (phase === 'side') return renderDraftSidePick(d);
+    // 'done' arrives as a status flip to 'matched'; subscribeMyDoc navigates.
+    return renderDraftHold(d);
+  }
+
+  // ── beat 1: strike ──────────────────────────────────────────────
+  function renderDraftStrike(d){
+    var dr = d.draft;
+    var fmtLabel = escHtml(FORMAT_LABELS[d.pairedFormat] || String(d.pairedFormat || '').toUpperCase());
+    var cards = (dr.slate || []).map(function(m, i){
+      return '<button type="button" class="draft-card" data-draft-strike="' + escHtml(m.id) + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+        '</button>';
+    }).join('');
+
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftClockHtml() +
+        draftVsHtml(d, 'acting', '', 'striking', 'striking') +
+        draftHeadHtml(
+          'Step 1 of 2 &middot; <b>' + fmtLabel + '</b>',
+          'Strike <em>two</em> motions.',
+          'They are striking two as well, and they cannot see yours. Whatever survives is what you argue. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_STRIKE_SEC + '</span>s left.</span>'
+        ) +
+        '<div class="draft-slate">' + cards + '</div>' +
+        '<p class="draft-note" id="draftHint">Pick the two you least want to argue.</p>' +
+      '</div>';
+
+    var hint = document.getElementById('draftHint');
+    shell.querySelectorAll('[data-draft-strike]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.getAttribute('data-draft-strike');
+        var at = state.draftPicks.indexOf(id);
+        if (at >= 0){
+          // Un-strike. Nothing is committed until the POST, so taking one
+          // back has to be free; a mis-tap that costs a motion is the worst
+          // thing this screen can do.
+          state.draftPicks.splice(at, 1);
+          btn.classList.remove('struck');
+        } else {
+          if (state.draftPicks.length >= DRAFT_STRIKES) return;
+          state.draftPicks.push(id);
+          btn.classList.add('struck');
+        }
+        var left = DRAFT_STRIKES - state.draftPicks.length;
+        if (hint){
+          hint.textContent = left > 0
+            ? (left === 1 ? 'One more strike.' : 'Pick the two you least want to argue.')
+            : 'Locking them in.';
+        }
+        if (state.draftPicks.length >= DRAFT_STRIKES) submitDraftStrikes(d, false);
+      });
+    });
+
+    // The clock's job. An empty or short set is filled server-side from the
+    // shared seed, so a timeout costs the choice, never the round.
+    startDraftClock(DRAFT_STRIKE_SEC, function(){ submitDraftStrikes(d, true); });
+  }
+
+  function submitDraftStrikes(d, auto){
+    if (state.draftSubmitting) return;
+    state.draftSubmitting = true;
+    clearDraftTimer();
+    if (DEMO){ state.draftSubmitting = false; window.__draftDemoAdvance(state.draftPicks.slice()); return; }
+    shell.querySelectorAll('[data-draft-strike]').forEach(function(b){ b.disabled = true; });
+    var hint = document.getElementById('draftHint');
+    if (hint) hint.textContent = auto ? 'Time. Filling the rest.' : 'Locked in. Waiting on them.';
+    try { gtag('event', 'spar_draft_strike', { auto: !!auto, count: state.draftPicks.length }); } catch(e){}
+    sendConsent(d.matchedWith, true, false, state.draftPicks.slice());
+  }
+
+  // ── holding: my half is in, theirs is not ───────────────────────
+  function renderDraftHold(d){
+    var dr = d.draft;
+    var me = state.user.uid;
+    var mine = draftMyStrikes(dr, me);
+    var struckMine = {};
+    mine.forEach(function(id){ struckMine[id] = 1; });
+    var cards = (dr.slate || []).map(function(m, i){
+      return '<div class="draft-card' + (struckMine[m.id] ? ' struck' : '') + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+        '</div>';
+    }).join('');
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftVsHtml(d, 'ready', 'acting', 'locked in', 'striking') +
+        draftHeadHtml(
+          'Step 1 of 2',
+          'Your strikes are <em>in</em>.',
+          escHtml(d.matchedWithName || 'They') + ' still has two to spend. Both sets reveal together.'
+        ) +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+    // No local clock here on purpose. A peer who never strikes is a peer who
+    // never proved they are at the keyboard, and unwinding that pair is the
+    // consent gate's existing ghost job (startConsentCountdown), not a
+    // second timer racing it from this screen.
+    if (!DEMO) startConsentCountdown(d.matchedWith, CONSENT_DECIDE_SEC, false, false);
+  }
+
+  // ── beat 2: the reveal ──────────────────────────────────────────
+  function renderDraftReveal(d){
+    var dr = d.draft;
+    var me = state.user.uid;
+    var peerUid = d.matchedWith;
+    var peerName = d.matchedWithName || 'Them';
+    var by = draftStruckBy(dr);
+    var survivors = draftSurvivors(dr);
+
+    var cards = (dr.slate || []).map(function(m, i){
+      var who = by[m.id] || [];
+      var mineHit = who.indexOf(me) >= 0;
+      var theirsHit = who.indexOf(peerUid) >= 0;
+      var cls = 'draft-card';
+      var label = '';
+      if (mineHit && theirsHit){ cls += ' struck struck-both'; label = 'both struck'; }
+      else if (mineHit){ cls += ' struck'; label = 'you struck'; }
+      else if (theirsHit){ cls += ' struck struck-them'; label = peerName + ' struck'; }
+      else { cls += ' alive'; label = 'survives'; }
+      return '<div class="' + cls + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+          '<span class="draft-by">' + escHtml(label) + '</span>' +
+        '</div>';
+    }).join('');
+
+    // Overlap is the common case (roughly seven drafts in ten), so the
+    // headline has to read right for one survivor AND for three.
+    var line = survivors.length === 1
+      ? 'One motion <em>left standing</em>.'
+      : survivors.length + ' motions <em>survived</em>.';
+
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftVsHtml(d, 'ready', 'ready', 'struck', 'struck') +
+        draftHeadHtml('The reveal', line,
+          survivors.length === 1
+            ? 'Your strikes and theirs did not overlap, so the round is already decided.'
+            : 'You struck the same motion, so more than one is still live.') +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+
+    // Hold the reveal long enough to read, then let the doc's phase drive
+    // the next beat. Re-render through renderDraft rather than jumping
+    // straight to a pick: the phase may have moved while this played.
+    state.draftRevealTimer = setTimeout(function(){
+      state.draftRevealTimer = null;
+      if (!state.inConsent || !state.lastConsentDoc) return;
+      state.draftKey = '';
+      try { renderDraft(state.lastConsentDoc); } catch(e){ console.warn('[spar] draft reveal handoff failed', e); }
+    }, DRAFT_REVEAL_MS);
+  }
+
+  // ── the coin, shown once before whichever pick this debater holds ──
+  function draftCoinHtml(iCall, what){
+    return '<div class="draft-coin-wrap">' +
+        '<div class="draft-coin">' +
+          '<span class="cf">' + (iCall ? 'you<br>call' : 'they<br>call') + '</span>' +
+          '<span class="cb">' + escHtml(what) + '</span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // ── beat 3: the motion call ─────────────────────────────────────
+  function renderDraftMotionPick(d){
+    var dr = d.draft;
+    var me = state.user.uid;
+    var iCall = String(dr.motionUid) === String(me);
+    var survivors = draftSurvivors(dr);
+    var peerName = d.matchedWithName || 'They';
+
+    if (!iCall){
+      shell.innerHTML =
+        '<div class="draft-wrap">' +
+          draftClockHtml() +
+          draftVsHtml(d, 'ready', 'acting', 'side: yours', 'picking motion') +
+          draftHeadHtml('The coin', escHtml(peerName) + ' calls the <em>motion</em>.',
+            'The flip gave them the last word on what you argue, so it gave you the last word on which side you take. ' +
+            '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>') +
+          '<div class="draft-slate">' +
+            survivors.map(function(m, i){
+              return '<div class="draft-card alive" style="--i:' + i + '">' +
+                  '<span class="draft-num">' + (i + 1) + '</span>' +
+                  '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+                '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      // Either side may expire a pick beat: both people already proved they
+      // are here by striking, so a slow click must not cost the round. The
+      // server checks its own clock, so an early POST is simply refused.
+      startDraftClock(DRAFT_PICK_SEC + 2, function(){ sendDraftExpire(d.matchedWith); });
+      return;
+    }
+
+    var cards = survivors.map(function(m, i){
+      return '<button type="button" class="draft-card" data-draft-motion="' + escHtml(m.id) + '" style="--i:' + i + '">' +
+          '<span class="draft-num">' + (i + 1) + '</span>' +
+          '<span class="draft-text">' + escHtml(m.text) + '</span>' +
+        '</button>';
+    }).join('');
+
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftClockHtml() +
+        draftCoinHtml(true, 'the motion') +
+        draftHeadHtml('Step 2 of 2', 'You call the <em>motion</em>.',
+          'They get the last word on their side in return. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>') +
+        '<div class="draft-slate">' + cards + '</div>' +
+      '</div>';
+
+    shell.querySelectorAll('[data-draft-motion]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        shell.querySelectorAll('[data-draft-motion]').forEach(function(b){ b.disabled = true; });
+        btn.classList.add('locked');
+        clearDraftTimer();
+        try { gtag('event', 'spar_draft_motion_pick', {}); } catch(e){}
+        sendDraftPick(d.matchedWith, 'motion', btn.getAttribute('data-draft-motion'));
+      });
+    });
+    startDraftClock(DRAFT_PICK_SEC, function(){ sendDraftExpire(d.matchedWith); });
+  }
+
+  // ── beat 4: the side call ───────────────────────────────────────
+  function renderDraftSidePick(d){
+    var dr = d.draft;
+    var me = state.user.uid;
+    var iCall = String(dr.sideUid) === String(me);
+    var motion = draftMotionText(dr);
+    var peerName = d.matchedWithName || 'They';
+    var lockedByStrikes = !dr.autoMotion && draftSurvivors(dr).length === 1;
+
+    var motionBlock =
+      '<div class="draft-final">' +
+        '<p class="draft-final-motion">' + escHtml(motion) + '</p>' +
+        '<div class="draft-final-sides">' +
+          '<span class="draft-badge">the motion</span>' +
+        '</div>' +
+      '</div>';
+
+    if (!iCall){
+      shell.innerHTML =
+        '<div class="draft-wrap">' +
+          draftClockHtml() +
+          draftVsHtml(d, 'ready', 'acting', 'motion: yours', 'picking side') +
+          draftHeadHtml('Locked', 'This is the <em>motion</em>.',
+            escHtml(peerName) + ' is choosing which side to take. ' +
+            '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>') +
+          motionBlock +
+        '</div>';
+      startDraftClock(DRAFT_PICK_SEC + 2, function(){ sendDraftExpire(d.matchedWith); });
+      return;
+    }
+
+    shell.innerHTML =
+      '<div class="draft-wrap">' +
+        draftClockHtml() +
+        draftCoinHtml(true, 'your side') +
+        draftHeadHtml(
+          lockedByStrikes ? 'The strikes decided it' : 'Step 2 of 2',
+          'Pick your <em>side</em>.',
+          'This is the motion you are arguing. ' +
+          '<span class="draft-nb"><span class="draft-count" id="draftSecs">' + DRAFT_PICK_SEC + '</span>s.</span>'
+        ) +
+        motionBlock +
+        '<div class="draft-sides">' +
+          '<button type="button" class="draft-side-btn" data-draft-side="pro">' +
+            '<span class="draft-side-name">Proposition</span>' +
+            '<span class="draft-side-sub">You argue for it. You speak first.</span>' +
+          '</button>' +
+          '<button type="button" class="draft-side-btn" data-draft-side="con">' +
+            '<span class="draft-side-name">Opposition</span>' +
+            '<span class="draft-side-sub">You argue against it. You answer them.</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+
+    shell.querySelectorAll('[data-draft-side]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        shell.querySelectorAll('[data-draft-side]').forEach(function(b){ b.disabled = true; });
+        clearDraftTimer();
+        try { gtag('event', 'spar_draft_side_pick', { side: btn.getAttribute('data-draft-side') }); } catch(e){}
+        sendDraftPick(d.matchedWith, 'side', btn.getAttribute('data-draft-side'));
+      });
+    });
+    startDraftClock(DRAFT_PICK_SEC, function(){ sendDraftExpire(d.matchedWith); });
+  }
+
+  // ── posts ───────────────────────────────────────────────────────
+  function draftPost(payload, label){
+    if (!firebaseAuth || !firebaseAuth.currentUser) return Promise.resolve({});
+    return firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/.netlify/functions/spar-pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+        body: JSON.stringify(payload),
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; });
+    }).catch(function(err){
+      console.warn('[spar] draft ' + label + ' POST failed', err);
+      return {};
+    });
+  }
+
+  function sendDraftPick(peerUid, pick, value){
+    if (DEMO){ window.__draftDemoPick(pick, value); return; }
+    draftPost({ action: 'draft', peerUid: peerUid, pick: pick, value: value }, pick).then(function(j){
+      if (j && j.ok) return;
+      // The doc stream drives every transition, so a soft failure only needs
+      // to give the buttons back. 'too_early' cannot happen on a real pick,
+      // and 'wrong_phase' means the doc already moved past this beat.
+      var reason = (j && (j.reason || j.error)) || 'unknown';
+      if (reason === 'wrong_phase' || reason === 'consent_state_gone') return;
+      console.warn('[spar] draft pick refused:', reason);
+      recoverDraftCard();
+    });
+  }
+
+  // Either side asks the server to resolve an expired pick beat. The server
+  // verifies its OWN phase clock, so this can be fired optimistically and a
+  // refusal costs one retry rather than a stalled round.
+  function sendDraftExpire(peerUid){
+    if (DEMO){ return; }
+    draftPost({ action: 'draft', peerUid: peerUid, expire: true }, 'expire').then(function(j){
+      if (j && j.ok) return;
+      if (j && j.reason === 'too_early'){
+        // Our clock ran ahead of the server's. Try once more just past the
+        // grace window rather than leaving the beat hanging.
+        state.draftRevealTimer = setTimeout(function(){ sendDraftExpire(peerUid); }, 1800);
+      }
+    });
+  }
+
+  function recoverDraftCard(){
+    if (!state.inConsent || !state.lastConsentDoc || !state.lastConsentDoc.draft) return;
+    state.draftKey = '';
+    state.draftSubmitting = false;
+    try { renderDraft(state.lastConsentDoc); } catch(e){}
+  }
+
   function renderConsentGate(d){
+    // A drafting pair gets the draft board instead of the accept card. The
+    // draft subsumes the ready check: striking is an act, so it proves the
+    // same presence a Ready button was standing in for.
+    if (DRAFT_ENABLED_CLIENT && d && d.draft && d.draft.slate && d.draft.slate.length){
+      return renderDraft(d);
+    }
     closeSignInPop();
     removeWaitRail();
     var me = state.user.uid;
@@ -5265,7 +6288,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     document.title = '● Match found · Spar';
   }
 
-  function sendConsent(peerUid, accept, auto){
+  function sendConsent(peerUid, accept, auto, strikes){
     if (!firebaseAuth || !firebaseAuth.currentUser) return;
     // A human pass buys a breather. Without it the poll loop proposes the
     // next person in the same second, which reads as the queue arguing with
@@ -5279,7 +6302,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + idToken,
         },
-        body: JSON.stringify({ action: 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid }),
+        body: JSON.stringify({
+          action: 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid,
+          // Only on a drafting pair. The server sanitises this hard (an
+          // over-long set would hand one side the whole draft) and fills a
+          // short one from the shared seed.
+          strikes: Array.isArray(strikes) ? strikes : undefined,
+        }),
       });
     }).then(function(res){
       return res.json().catch(function(){ return {}; }).then(function(j){
@@ -5312,11 +6341,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return;
       }
       console.warn('[spar] consent POST soft-failed:', reason);
+      if (state.lastConsentDoc && state.lastConsentDoc.draft){ recoverDraftCard(); return; }
       recoverConsentCard();
     }).catch(function(err){
       // Network blip mid-click: same recovery. The auto-pass timers
       // (mine or the peer's) still backstop a never-delivered decline.
       console.warn('[spar] consent POST failed', err);
+      if (state.lastConsentDoc && state.lastConsentDoc.draft){ recoverDraftCard(); return; }
       recoverConsentCard();
     });
   }
@@ -5330,8 +6361,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function exitConsentToSearch(d){
+    document.body.classList.remove('draft-live');
     state.inConsent = false;
     state.consentKey = '';
+    state.draftKey = '';
+    state.draftPicks = [];
+    state.draftSubmitting = false;
+    state.draftRevealed = false;
+    clearDraftTimer();
     state.consentPending = 0;
     state.lastConsentDoc = null;
     clearConsentTimer();
@@ -5665,7 +6702,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         matchedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(function(){});
     }
-    renderFallback();
+    // Draft against the AI too, so the drop-off is a different opponent
+    // rather than a worse ritual. renderFallback stays as the plain path and
+    // beginAIDraft falls back to it on any failure.
+    if (DRAFT_ENABLED_CLIENT) beginAIDraft();
+    else renderFallback();
   }
 
   // ── Zombie-tab guard ─────────────────────────────────────────────
@@ -5811,9 +6852,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function teardownQueue(){
+    document.body.classList.remove('draft-live');
     if (state.consentTimer){ clearInterval(state.consentTimer); state.consentTimer = null; }
+    // Inlined rather than routed through clearConsentTimer, so the draft's
+    // own clocks have to be dropped here too. A surviving draft clock fires
+    // its onZero into a page that has already navigated into the round.
+    if (state.draftTimer){ clearInterval(state.draftTimer); state.draftTimer = null; }
+    if (state.draftRevealTimer){ clearTimeout(state.draftRevealTimer); state.draftRevealTimer = null; }
     state.inConsent = false;
     state.consentKey = '';
+    state.draftKey = '';
+    state.draftPicks = [];
+    state.draftSubmitting = false;
+    state.draftRevealed = false;
     state.consentPending = 0;
     state.lastConsentDoc = null;
     document.title = BASE_TITLE;
@@ -6857,12 +7908,96 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
   setInterval(function(){ if (!document.hidden) loadSchedRounds(); }, 120 * 1000);
 
+  // ── Draft demo view ─────────────────────────────────────────────
+  // ?draftdemo=1 renders the real draft board against a synthetic pair, with
+  // every POST short-circuited. Same precedent as the landing's ?first=
+  // debug arm: this surface is a sequence of timed beats, so the only honest
+  // way to judge the feel of it (or to change it later) is to watch it run
+  // without needing two signed-in humans and a live queue.
+  //
+  // It touches no Firestore and joins no queue. Add &overlap=0 to force the
+  // clean split where the strikes decide the motion outright, and
+  // &role=side to hold the side call instead of the motion call.
+  var DEMO = (new URLSearchParams(location.search)).get('draftdemo');
+  function runDraftDemo(){
+    var qs = new URLSearchParams(location.search);
+    var me = 'demo-me';
+    var peer = 'demo-peer';
+    state.user = state.user || { uid: me, displayName: 'You', isAnonymous: false, photoURL: '' };
+    state.named = true;
+    var slate = [
+      { id: 'm1', text: 'This house would ban billionaires.' },
+      { id: 'm2', text: 'This house would abolish the electoral college.' },
+      { id: 'm3', text: 'This house believes the ends justify the means.' },
+      { id: 'm4', text: 'This house would make voting compulsory.' },
+      { id: 'm5', text: 'This house would abolish intellectual property for medicines.' },
+    ];
+    var overlap = qs.get('overlap') !== '0';
+    var iCallMotion = qs.get('role') !== 'side';
+    var doc = {
+      matchedWith: peer,
+      matchedWithName: 'Rin A.',
+      matchedWithAvatar: null,
+      pairedFormat: 'apda',
+      consents: { 'demo-me': false, 'demo-peer': false },
+      draft: {
+        v: 1, seed: 'demo', slate: slate,
+        motionUid: iCallMotion ? me : peer,
+        sideUid: iCallMotion ? peer : me,
+        strikes: {}, motionId: null, side: null, phase: 'strike',
+      },
+    };
+    // Stand in for the server: apply the strikes, advance the beat, re-render.
+    window.__draftDemoAdvance = function(myStrikes){
+      var d = doc.draft;
+      d.strikes[me] = myStrikes && myStrikes.length === 2 ? myStrikes : ['m1', 'm2'];
+      d.strikes[peer] = overlap ? [d.strikes[me][0], 'm5'] : null;
+      if (!d.strikes[peer]){
+        var free = slate.map(function(m){ return m.id; }).filter(function(id){ return d.strikes[me].indexOf(id) < 0; });
+        d.strikes[peer] = [free[0], free[1]];
+      }
+      doc.consents[me] = true; doc.consents[peer] = true;
+      var struck = {};
+      Object.keys(d.strikes).forEach(function(u){ d.strikes[u].forEach(function(id){ struck[id] = 1; }); });
+      var alive = slate.filter(function(m){ return !struck[m.id]; });
+      if (alive.length === 1){ d.motionId = alive[0].id; d.phase = 'side'; }
+      else { d.phase = 'motion'; }
+      state.draftKey = '';
+      renderDraft(doc);
+    };
+    window.__draftDemoPick = function(pick, value){
+      var d = doc.draft;
+      if (pick === 'motion'){ d.motionId = value; d.phase = 'side'; }
+      else { d.side = value; d.phase = 'done'; }
+      state.draftKey = '';
+      if (d.phase === 'done'){
+        shell.innerHTML = '<div class="draft-wrap">' +
+          draftHeadHtml('Locked', 'Round <em>set</em>.', 'Opening the room…') +
+          '<div class="draft-final"><p class="draft-final-motion">' +
+            escHtml(draftMotionText(d)) + '</p>' +
+            '<div class="draft-final-sides"><span class="draft-badge">demo complete</span></div>' +
+          '</div></div>';
+        return;
+      }
+      state.draftRevealed = true;
+      renderDraft(doc);
+    };
+    renderDraft(doc);
+  }
+
   // ── Boot ─────────────────────────────────────────────
   // Sidebar mounts immediately; renderWaitlistContent shows/hides the
   // inbox button once auth resolves.
   buildWaitlistRail();
   renderWaitlistContent();
   loadSchedRounds();
+
+  if (DEMO){
+    // Deliberately before the auth branch: the demo must not join a queue,
+    // write a doc, or care whether anyone is signed in.
+    try { runDraftDemo(); } catch(e){ console.error('[spar] draft demo failed', e); }
+    return;
+  }
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
