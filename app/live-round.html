@@ -2100,6 +2100,35 @@ body.speech-live .rmb-change{display:none}
 .rmb-rec{
   display:flex;align-items:center;gap:8px;flex-shrink:0;
 }
+/* The recording pill lives in the round meta bar, and that bar is hidden
+   the moment the ballot screen takes over. Capture now runs past that
+   point (reveal, then reactions), so the ballot screen carries its own
+   indicator. People are on camera; the screen has to say so. */
+/* Painted rather than tinted, and deliberately not theme-split: the
+   ballot panel is paper in every theme while the stage behind it is
+   dark, so a translucent wash lands on two different grounds and a pale
+   red on the paper one measures about 1.3:1. Solid #b91c1c carries white
+   at 5.9:1 wherever it ends up. */
+.rec-tail{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 14px;padding:10px 14px;border-radius:12px;
+  background:#b91c1c;border:1px solid #b91c1c;
+  color:#fff;font-size:.78rem;font-weight:700;
+}
+.rec-tail-dot{
+  width:8px;height:8px;border-radius:50%;background:#fff;flex-shrink:0;
+  box-shadow:0 0 6px rgba(255,255,255,.7);
+  animation:rec-pulse 1.4s ease-in-out infinite;
+}
+.rec-tail-note{color:rgba(255,255,255,.86);font-weight:600}
+.rec-tail-btn{
+  margin-left:auto;padding:7px 12px;border-radius:9px;
+  background:transparent;border:1px solid rgba(255,255,255,.62);
+  color:#fff;font-family:inherit;font-size:.72rem;font-weight:750;
+  letter-spacing:.04em;text-transform:uppercase;cursor:pointer;
+}
+.rec-tail-btn:hover{background:rgba(255,255,255,.18)}
+body.spectator-mode .rec-tail{display:none}
 .rmb-rec-btn{
   display:inline-flex;align-items:center;gap:7px;
   min-height:40px;padding:8px 13px;border-radius:10px;
@@ -6793,6 +6822,7 @@ html.stage-mode .stage-ov{display:block}
       if (BOARD_SHARE && status === 'recording') startRoundBoard();
       else stopRoundBoardIfOrphaned(status);
     } catch(e){}
+    try { renderRecTail(); } catch(e){}
   }
 
   // Capture starts on its own once two debaters are seated. A replay
@@ -6861,6 +6891,20 @@ html.stage-mode .stage-ov{display:block}
     var d = cloudRec.doc || {};
     var consents = d.recordingConsents || {};
     var mine = state.user ? consents[state.user.uid] : undefined;
+    // Guard, not the live control: this pill sits in the round meta bar
+    // and the ballot screen has replaced it by now, so the button people
+    // actually press during the reaction tail is .rec-tail's. It matters
+    // anyway because the branch below withdraws consent and DELETES the
+    // file, which is the right tool while the debate is still happening
+    // and the wrong one once the verdict is in, so anything that
+    // re-surfaces this pill after the round lands on the graceful path.
+    if (d.recordingStatus === 'recording' && (state.phase === 'ballot' || state.phase === 'ballot-rendered')){
+      if (confirm('End the recording now? Everything captured up to this point is kept.')){
+        try { teardownReel(); } catch(e){}
+        finishCloudRecording();
+      }
+      return;
+    }
     if (d.recordingStatus === 'recording'){
       if (confirm('Stop recording for everyone? The captured replay will not be published.')) chooseCloudRecording(false, false);
       return;
@@ -6888,7 +6932,7 @@ html.stage-mode .stage-ov{display:block}
   // both sides would publish two screen shares of the same ballot.
   var reel = {
     canvas:null, ctx:null, loop:0, stream:null, sharing:false,
-    phase:'', t0:0, ballot:null, cap:0, lines:null,
+    phase:'', t0:0, ballot:null, lines:null, armed:false,
   };
   var REEL_W = 1280, REEL_H = 720;
   // Paint rate of the published board/reel canvas. See the note on
@@ -6896,6 +6940,12 @@ html.stage-mode .stage-ov{display:block}
   // work nobody receives.
   var REEL_FPS = 24;
   var REEL_END = 22000;      // ballot sequence length
+  // Faces-only tail AFTER the reveal. The reveal is the produced part;
+  // this is the part people actually want to watch back, which is the
+  // two of them reading the verdict. The share comes down at REEL_END so
+  // the recording composite falls back to the camera grid, and capture
+  // keeps running for this long before the round closes it.
+  var REEL_REACT = 60000;
   var REEL_MAX_WAIT = 240000; // give up if no ballot ever lands
 
   function shouldDriveReel(){
@@ -6908,51 +6958,56 @@ html.stage-mode .stage-ov{display:block}
     var uids = [state.proUid, state.conUid].filter(Boolean).sort();
     return uids.length ? uids[0] === me : true;
   }
-  function startVerdictReel(){
-    if (reel.canvas){
-      // The round board is already publishing this canvas — hand it the
-      // judging phase instead of restarting the screen share.
-      if (reel.phase === 'round'){
-        reel.phase = 'judging';
-        reel.t0 = Date.now();
-        reel.cap = setTimeout(function(){ stopVerdictReel(); }, REEL_MAX_WAIT);
-      }
+  // The reel is ARMED when the last speech ends and STARTS when the
+  // ballot lands, which is the opposite of what it used to do. It used
+  // to open its screen share at the top of judging and hold a card
+  // reading "the AI judge is writing the ballot" over the whole
+  // generation window, and `preferScreenshare` in the recording layout
+  // pins whatever is shared. So for the minute or two the ballot takes,
+  // the recording was a caption and the two people reacting to their own
+  // round were a corner tile. Nothing is published while the ballot is
+  // written now: the layout falls back to the camera grid and the
+  // waiting is recorded as faces.
+  function armVerdictReel(){
+    if (reel.canvas && reel.phase === 'round'){
+      // The dormant round board is publishing this canvas already (see
+      // BOARD_SHARE) — leave the share up rather than restarting it.
+      reel.armed = true;
       return true;
     }
     if (!shouldDriveReel()) return false;
-    var cv = document.createElement('canvas');
-    cv.width = REEL_W; cv.height = REEL_H;
-    reel.canvas = cv;
-    reel.ctx = cv.getContext('2d');
-    reel.phase = 'judging';
-    reel.t0 = Date.now();
-    reel.ballot = null;
-    try {
-      reel.stream = cv.captureStream(REEL_FPS);
-      room.call.startScreenShare({ mediaStream: reel.stream });
-      reel.sharing = true;
-    } catch(e){
-      console.warn('[reel] screen share unavailable', e);
-      reel.canvas = null;
-      return false;
-    }
-    startReelLoop();
-    // A ballot that never arrives must not leave the recording running
-    // and the room staring at a judging card forever.
-    reel.cap = setTimeout(function(){ stopVerdictReel(); }, REEL_MAX_WAIT);
-    try { gtag('event', 'live_round_verdict_reel'); } catch(e){}
+    reel.armed = true;
     return true;
   }
   function reelShowBallot(b){
-    if (!reel.canvas || reel.phase === 'ballot' || !b) return;
+    if (reel.phase === 'ballot' || !b) return;
+    if (!reel.canvas){
+      if (!reel.armed || !shouldDriveReel()) return;
+      var cv = document.createElement('canvas');
+      cv.width = REEL_W; cv.height = REEL_H;
+      reel.canvas = cv;
+      reel.ctx = cv.getContext('2d');
+      try {
+        reel.stream = cv.captureStream(REEL_FPS);
+        room.call.startScreenShare({ mediaStream: reel.stream });
+        reel.sharing = true;
+      } catch(e){
+        console.warn('[reel] screen share unavailable', e);
+        reel.canvas = null; reel.ctx = null;
+        return;
+      }
+      try { gtag('event', 'live_round_verdict_reel'); } catch(e){}
+    }
     reel.ballot = b;
     reel.lines = null;
     reel.phase = 'ballot';
     reel.t0 = Date.now();
-    if (reel.cap){ clearTimeout(reel.cap); reel.cap = 0; }
+    startReelLoop();
   }
-  function stopVerdictReel(){
-    if (reel.cap){ clearTimeout(reel.cap); reel.cap = 0; }
+  // Take the published canvas down WITHOUT closing the recording. This
+  // is what runs at the end of the reveal: the share goes, the camera
+  // grid comes back, and capture keeps rolling for the reaction tail.
+  function teardownReel(){
     stopReelLoop();
     if (reel.sharing){
       try { room.call.stopScreenShare(); } catch(e){}
@@ -6962,9 +7017,8 @@ html.stage-mode .stage-ov{display:block}
       try { reel.stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
       reel.stream = null;
     }
-    reel.canvas = null; reel.ctx = null; reel.ballot = null; reel.phase = '';
+    reel.canvas = null; reel.ctx = null; reel.ballot = null; reel.phase = ''; reel.armed = false;
     releaseBoardVids();
-    finishCloudRecording();
   }
   // ── Reel drawing helpers
   function reelWrap(ctx, text, maxW){
@@ -7003,6 +7057,11 @@ html.stage-mode .stage-ov{display:block}
     ctx.fillText('itsdebatable.com', 176, REEL_H - 44);
     ctx.globalAlpha = 1;
   }
+  // DORMANT since 2026-08-25: the reel no longer holds a card over the
+  // generation window (see armVerdictReel), so nothing enters the
+  // 'judging' phase and this never paints. Kept rather than deleted, the
+  // same way the round board is, because it is one line to route back to
+  // if a produced waiting screen is ever wanted over the faces.
   function drawJudging(ctx, el){
     reelBg(ctx, el);
     ctx.textAlign = 'center';
@@ -7158,7 +7217,11 @@ html.stage-mode .stage-ov{display:block}
     var el = Date.now() - reel.t0;
     if (reel.phase === 'ballot'){
       drawBallotFrame(reel.ctx, el);
-      if (el > REEL_END){ stopVerdictReel(); return; }
+      // End of the produced outro. The share comes down and the
+      // recording carries on over the camera grid, so the tail of the
+      // file is the two of them reacting rather than a held card. The
+      // finish itself is scheduled by holdRecordingThroughBallot.
+      if (el > REEL_END){ teardownReel(); return; }
     } else if (reel.phase === 'round'){
       drawRoundBoard(reel.ctx, el);
     } else {
@@ -7230,6 +7293,11 @@ html.stage-mode .stage-ov{display:block}
   // Recording stopped mid-round (someone withdrew, or the server closed
   // it): tear the board down so the room isn't stuck staring at it.
   function stopRoundBoardIfOrphaned(status){
+    // The verdict reveal exists ONLY to reach the recording, so if the
+    // capture ended under it (someone withdrew consent, the server
+    // closed the round) the share has no reason to be on anyone's
+    // screen either.
+    if (reel.phase === 'ballot' && status !== 'recording'){ teardownReel(); return; }
     if (reel.phase !== 'round') return;
     if (status === 'recording') return;
     stopReelLoop();
@@ -7398,7 +7466,92 @@ html.stage-mode .stage-ov{display:block}
     ctx.globalAlpha = 1;
   }
 
+  // ── When capture ends ──────────────────────────────────────────────
+  // `finish` is what stops Daily, and until now it fired the instant the
+  // last speech ended, on whichever client ended it. Two things were
+  // wrong with that. The ballot is the point of the round and it is
+  // written AFTER the last speech, so every replay stopped one moment
+  // early. And the verdict reel only runs on ONE client (lowest seated
+  // uid), so when the other side ended the last speech it finished the
+  // recording out from under the driver mid-reveal, which is roughly
+  // half of rounds.
+  //
+  // Now both seated clients run the same clock instead: hold at the last
+  // speech, and when the ballot lands schedule the finish for the length
+  // of the reveal plus the reaction tail. They schedule the same delay
+  // off the same event, so whoever fires first is firing at the right
+  // moment, and a driver whose tab dies no longer strands the capture.
+  var recFin = { timer: 0 };
+  function recordingIsLive(){
+    var st = (cloudRec.doc || {}).recordingStatus;
+    return st === 'recording' || st === 'starting';
+  }
+  function scheduleRecordingFinish(ms){
+    if (recFin.timer) clearTimeout(recFin.timer);
+    recFin.timer = setTimeout(function(){ recFin.timer = 0; finishCloudRecording(); }, Math.max(0, ms));
+  }
+  // Last speech is in. Keep capturing; the ballot has not been written
+  // yet, let alone read. The long backstop only exists so a ballot that
+  // never arrives cannot leave a room recording all day.
+  //
+  // The off-side calls joinRecordingHold and NOT this, because it must
+  // never take the "nothing is recording, close it" branch: its copy of
+  // the recording doc can lag the round doc by a snapshot, and a finish
+  // sent off a stale idle status would stop a capture the other client
+  // is in the middle of revealing on. Closing an unrecorded round stays
+  // the job of the client that actually ended the last speech.
+  function joinRecordingHold(){
+    if (isSpectator() || !recordingIsLive()) return;
+    scheduleRecordingFinish(REEL_MAX_WAIT + REEL_END + REEL_REACT);
+  }
+  function holdRecordingThroughBallot(){
+    if (isSpectator()) return;
+    if (!recordingIsLive()){ finishCloudRecording(); return; }
+    joinRecordingHold();
+  }
+  // While capture runs past the last speech the round meta bar is hidden,
+  // so this is the only thing telling two people they are still on
+  // camera. It says what is being captured and gives them the way out.
+  function renderRecTail(){
+    var host = document.getElementById('ballotView');
+    var el = document.getElementById('recTail');
+    var live = !isSpectator() && recordingIsLive() &&
+      (state.phase === 'ballot' || state.phase === 'ballot-rendered');
+    if (!host || !live){
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'recTail';
+      el.className = 'rec-tail';
+      el.innerHTML =
+        '<span class="rec-tail-dot"></span>' +
+        '<span>Still recording</span>' +
+        '<span class="rec-tail-note">The verdict and your reaction go on the replay.</span>' +
+        '<button type="button" class="rec-tail-btn" id="recTailEnd">End recording</button>';
+      host.insertBefore(el, host.firstChild);
+      el.querySelector('#recTailEnd').addEventListener('click', function(){
+        // Ending here is "we are done", not "destroy it": everything
+        // captured stays, and publication still rides the consent the
+        // round already collected.
+        try { teardownReel(); } catch(e){}
+        finishCloudRecording();
+        renderRecTail();
+      });
+    }
+  }
+  // The ballot landed on this screen: reveal, then reactions, then stop.
+  // Deliberately not gated on having armed earlier — a client whose
+  // snapshot delivered the pending flag and the ballot together never
+  // saw the hold, and it is still a seated debater watching a live
+  // capture of a finished round.
+  function endRecordingAfterReactions(){
+    if (isSpectator() || !recordingIsLive()) return;
+    scheduleRecordingFinish(REEL_END + REEL_REACT);
+  }
   function finishCloudRecording(){
+    if (recFin.timer){ clearTimeout(recFin.timer); recFin.timer = 0; }
     if (!state.user || !state.user.getIdToken) return;
     state.user.getIdToken().then(function(token){
       return fetch('/api/round-recording', {
@@ -9620,13 +9773,14 @@ html.stage-mode .stage-ov{display:block}
     // The recording used to stop dead on the last speech, because the
     // ballot takes minutes to write and nobody wants minutes of an empty
     // room on the end of a replay. So every recording ended before the
-    // one moment the round was building toward. The verdict reel fills
-    // that gap instead: a judging card while the ballot is written, then
-    // the verdict, points, scorecard and RFD animated into the footage,
-    // then the recording stops itself. If the reel cannot run (no
-    // recording, not the driver, no call object), the old behaviour
-    // stands and capture ends here.
-    if (!startVerdictReel()) finishCloudRecording();
+    // one moment the round was building toward. Capture now runs on
+    // through: the room is recorded as faces while the ballot is
+    // written, the verdict reel publishes the reveal when it lands, and
+    // the tail is the two of them reacting to it. See
+    // holdRecordingThroughBallot for who stops it and when.
+    holdRecordingThroughBallot();
+    armVerdictReel();
+    try { renderRecTail(); } catch(e){}
     state.phase = 'ballot';
     updateRoundGuide();
     $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
@@ -11472,6 +11626,13 @@ html.stage-mode .stage-ov{display:block}
     // is mid-interstitial.
     state.phase = 'ballot-rendered';
     updateRoundGuide();
+    // The recording's clock runs off the VERDICT, not off this screen.
+    // Both hooks live above the interstitial return on purpose: the reel
+    // is footage for people who were not in the room, so it must not
+    // wait on whether the local debater has pressed through their own
+    // reveal choice.
+    try { endRecordingAfterReactions(); renderRecTail(); } catch(e){ console.warn('[recording]', e); }
+    try { reelShowBallot(b); } catch(e){ console.warn('[reel]', e); }
     if (!state.ballotRevealMode){
       showBallotInterstitial(b);
       return;
@@ -16207,6 +16368,13 @@ html.stage-mode .stage-ov{display:block}
     if (d.ballotPending && !d.ballot && state.phase !== 'ballot' && state.phase !== 'ballot-rendered'){
       state.phase = 'ballot';
       updateRoundGuide();
+      // This branch is the off-side's finishRound: the last speech has
+      // ended, it just ended on the other screen. Arm the same recording
+      // clock here, or only the client that pressed End is holding the
+      // capture open and a driver who drops takes the reaction tail with
+      // them.
+      try { joinRecordingHold(); renderRecTail(); } catch(e){ console.warn('[recording]', e); }
+      try { armVerdictReel(); } catch(e){}
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Judging…';
       $('roundView').classList.add('hidden');
       $('ballotView').classList.remove('hidden');
