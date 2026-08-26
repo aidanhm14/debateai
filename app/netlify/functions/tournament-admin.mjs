@@ -101,6 +101,51 @@ async function loadEntries(db, tid) {
   return snap.docs.map((d) => ({ entryId: d.id, ...d.data() }));
 }
 
+// ── Seating: a paired entry is not in the drop-in queue ────────────
+//
+// `inPairing` is what stops one person owing two opponents a round at
+// once. Until 2026-08-26 ONLY the drop-in queue wrote it, and only
+// report-result cleared it, so the two engines were blind to each
+// other: a debater the director had just paired into Round 1 could
+// press "ready" and be seated a second time, in a second room, against
+// a different opponent. Both rooms auto-post a result, so one entrant
+// banks two results for the same slot and their off-draw opponent gets
+// a result that appears in no released draw.
+//
+// It is not a hypothetical race. `release-round` sets the tournament to
+// `running`, and `running` is the exact status that opens the queue, so
+// publishing a synchronous draw is what opens the door.
+//
+// So every draw now seats its entries and every redraw releases the one
+// it replaced. report-result already clears `inPairing` unconditionally
+// (and says why), so a finished round hands people back either way.
+//
+// Cheap by construction: one batch over at most a few dozen entries,
+// and the pairing ids are already the value the queue's loadPairing
+// parses ('r1-1' splits to the round key 'r1', same as 'd7-1').
+async function applySeating(db, tid, pairings, prevPairings) {
+  const entriesRef = db.collection('tournaments').doc(tid).collection('entries');
+  const seated = new Map();
+  for (const p of pairings || []) {
+    if (p.govEntry) seated.set(p.govEntry, p.pairingId || '');
+    if (p.oppEntry) seated.set(p.oppEntry, p.pairingId || '');
+  }
+  // A redraw must release anyone the new draw does not seat, or the
+  // discarded draw locks them out of the queue with a pairing id that
+  // no longer resolves.
+  const released = [];
+  for (const p of prevPairings || []) {
+    for (const id of [p.govEntry, p.oppEntry]) {
+      if (id && !seated.has(id)) released.push(id);
+    }
+  }
+  if (!seated.size && !released.length) return;
+  const batch = db.batch();
+  for (const [id, pairingId] of seated) batch.update(entriesRef.doc(id), { inPairing: pairingId });
+  for (const id of new Set(released)) batch.update(entriesRef.doc(id), { inPairing: '' });
+  await batch.commit();
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -203,6 +248,13 @@ export default async (request) => {
     if (body.entryFeeCents != null && siteAdmin) {
       patch.entryFeeCents = Math.max(0, Math.min(50000, Math.round(Number(body.entryFeeCents) || 0)));
     }
+    // Whether the drop-in queue runs at all. Nothing could write this
+    // before 2026-08-26, so a director who wanted a SYNCHRONOUS day —
+    // one draw, every room starting together, a real gap between rounds
+    // to talk into — had no way to close the queue except a raw
+    // Firestore edit. The two models want opposite things from the same
+    // field and the choice belongs to whoever is running the day.
+    if (body.dropIn != null && siteAdmin) patch.dropIn = !!body.dropIn;
     // ── Drop-in queue tuning (see queueTuning in tournament-dropin.mjs) ──
     //
     // Both defaults were sized for a long format on one undivided
@@ -297,6 +349,8 @@ export default async (request) => {
       leftOut,
       pairedAt: FieldValue.serverTimestamp(),
     });
+    // Seat the new draw and release whatever a redraw just discarded.
+    await applySeating(db, tid, pairings, existing.exists ? (existing.data().pairings || []) : []);
     return jsonResponse({
       ok: true,
       round: { roundNo, key, pairings, bye: draw.bye || null,
@@ -483,6 +537,7 @@ export default async (request) => {
       }
     });
     await batch.commit();
+    await applySeating(db, tid, pairings, []);
     await t.ref.update({ status: 'break', breakSize: br.size, updatedAt: FieldValue.serverTimestamp() });
 
     return jsonResponse({ ok: true, size: br.size, label, breaking: br.breaking, tieOnLine: !!br.tieOnLine }, 200, request);
@@ -522,6 +577,7 @@ export default async (request) => {
       pairings: next,
       pairedAt: FieldValue.serverTimestamp(),
     });
+    await applySeating(db, tid, next, []);
     return jsonResponse({ ok: true, label, pairings: next }, 200, request);
   }
 

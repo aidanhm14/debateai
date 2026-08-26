@@ -160,6 +160,24 @@ if [ -f "$BRACKET_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Director wall. The one word per room a director reads on an event
+# day, and the two states (stalled, one-seat) that send them looking
+# for a missing person. Guarded because this surface is only ever used
+# live, which is the worst moment to discover a state never fires:
+# the first version timed a stall off `lastSeenAt`, a field the 30s
+# heartbeat rewrites, so `stalled` could not have fired in production.
+# ──────────────────────────────────────────────────────────────────
+DIRECTOR_GUARD="$REPO_ROOT/scripts/test-director.mjs"
+if [ -f "$DIRECTOR_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-director.mjs >/tmp/director-guard.log 2>&1); then
+    echo "[director-guard] commit blocked — the room wall no longer reads rooms correctly:" >&2
+    tail -20 /tmp/director-guard.log >&2
+    echo "[director-guard] see scripts/test-director.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Motion draft. The pre-round veto decides what two real people argue
 # and which side each of them takes, so a regression here is a round
 # that opens wrong in front of an opponent rather than a stack trace

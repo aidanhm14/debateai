@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Director · Debatable</title>
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  /* Broadcast desk. Dark on purpose and NOT theme-aware: this screen
+     sits next to a video switcher in a dim room, and it is the one
+     surface on the site nobody browses casually. */
+  :root{
+    --bg:#070912; --bg-soft:#0d111d; --fg:#e8eef7; --muted:#94a3b8; --dim:#64748b;
+    --accent:#ef4444; --good:#22c55e; --warn:#f59e0b; --live:#f43f5e; --cool:#38bdf8;
+    --card:rgba(255,255,255,.03); --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.5 Archivo,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  a{color:inherit}
+  .wrap{max-width:1600px;margin:0 auto;padding:18px 20px 60px}
+
+  /* ── Header: the whole day in one line ── */
+  .top{display:flex;flex-wrap:wrap;align-items:center;gap:14px;
+    padding:14px 18px;border:1px solid var(--line);border-radius:14px;
+    background:var(--bg-soft);position:sticky;top:0;z-index:20}
+  .top h1{margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
+  .top .sep{width:1px;height:26px;background:var(--line-strong)}
+  .stat{display:flex;flex-direction:column;line-height:1.15}
+  .stat b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+  .stat span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+  .grow{flex:1 1 auto}
+  .motion{width:100%;color:var(--muted);font-size:.9rem;margin:0;padding:0 2px}
+  .motion b{color:var(--fg);font-weight:600}
+
+  select,.btn{background:rgba(255,255,255,.05);color:var(--fg);border:1px solid var(--line-strong);
+    border-radius:9px;padding:7px 12px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+  .btn:hover{background:rgba(255,255,255,.1)}
+  .btn-live{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .pulse{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase}
+  .pulse i{width:7px;height:7px;border-radius:50%;background:var(--good);
+    animation:beat 2s ease-in-out infinite}
+  @keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* ── The wall ── */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:16px}
+  .tile{border:1px solid var(--line);border-radius:14px;background:var(--card);overflow:hidden;
+    display:flex;flex-direction:column;transition:border-color .15s,transform .15s}
+  .tile:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+  /* The two states that need a human are the two that glow. */
+  .tile[data-state="stalled"],.tile[data-state="one-seat"],.tile[data-state="empty"]{
+    border-color:rgba(245,158,11,.5);box-shadow:0 0 0 1px rgba(245,158,11,.18)}
+  .tile[data-state="speaking"]{border-color:rgba(244,63,94,.45)}
+
+  .shot{position:relative;aspect-ratio:16/9;background:#05070e;overflow:hidden}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block}
+  .shot .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--dim);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  .chip{position:absolute;top:9px;left:9px;padding:4px 9px;border-radius:999px;
+    font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
+  .chip[data-s="speaking"]{background:var(--live);border-color:var(--live);color:#fff}
+  .chip[data-s="judging"]{background:rgba(56,189,248,.9);border-color:transparent;color:#04121c}
+  .chip[data-s="complete"]{background:rgba(34,197,94,.85);border-color:transparent;color:#04140a}
+  .chip[data-s="stalled"],.chip[data-s="one-seat"],.chip[data-s="empty"]{
+    background:var(--warn);border-color:transparent;color:#1a1204}
+  .clock{position:absolute;top:9px;right:9px;padding:4px 9px;border-radius:8px;
+    font-variant-numeric:tabular-nums;font-weight:800;font-size:.95rem;
+    background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
+  .clock.warn{color:var(--warn)} .clock.over{color:var(--accent)}
+  .meta-row{position:absolute;bottom:9px;left:9px;right:9px;display:flex;gap:6px;align-items:center}
+  .pill{padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;
+    background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
+  .pill.rec{background:var(--accent);border-color:transparent;color:#fff;display:flex;align-items:center;gap:5px}
+  .pill.rec i{width:6px;height:6px;border-radius:50%;background:#fff;animation:beat 1.4s infinite}
+
+  .body{padding:12px 13px 13px;display:flex;flex-direction:column;gap:9px;flex:1}
+  .seats{display:flex;align-items:center;gap:9px;font-size:.9rem}
+  .seat{flex:1;min-width:0}
+  .seat b{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seat span{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);font-weight:800}
+  .seat.win b{color:var(--good)}
+  .vs{color:var(--dim);font-size:11px;font-weight:800}
+  .sub{font-size:11.5px;color:var(--dim);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .acts{display:flex;gap:7px;margin-top:auto}
+  .acts .btn{flex:1;text-align:center;padding:8px 6px;font-size:.78rem;text-decoration:none}
+
+  .empty-all{padding:60px 20px;text-align:center;color:var(--dim);border:1px dashed var(--line-strong);
+    border-radius:14px;margin-top:16px}
+  .gate{max-width:420px;margin:120px auto;text-align:center;padding:36px;
+    border:1px solid var(--line);border-radius:18px;background:var(--bg-soft)}
+  .gate h2{margin:0 0 8px;font-size:1.35rem}
+  .gate p{color:var(--muted);font-size:.85rem;margin:0 0 20px}
+  .err{color:var(--accent);font-size:12px;margin-top:12px}
+  .note{color:var(--dim);font-size:12px;margin:14px 2px 0}
+  .warnbar{margin-top:14px;padding:11px 14px;border-radius:11px;font-size:.86rem;
+    background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fcd34d}
+  .warnbar b{color:#fde68a}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <h2>Director</h2>
+  <p>The room wall for a live tournament. Admin only.</p>
+  <button class="btn btn-live" id="signin" style="width:100%">Sign in</button>
+  <div class="err" id="gateErr"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <h1 id="tName">Director</h1>
+    <div class="sep"></div>
+    <div class="stat"><b id="sRound">—</b><span>Round</span></div>
+    <div class="stat"><b id="sDone">—</b><span>Results in</span></div>
+    <div class="stat"><b id="sLive">—</b><span>Speaking</span></div>
+    <div class="stat"><b id="sFlag">—</b><span>Need you</span></div>
+    <div class="grow"></div>
+    <select id="roundSel" title="Which draw to watch"></select>
+    <button class="btn" id="refresh">Refresh</button>
+    <span class="pulse"><i></i><span id="pulseTxt">live</span></span>
+  </div>
+  <p class="motion" id="motion"></p>
+  <div id="warn"></div>
+  <div class="grid" id="grid"></div>
+  <p class="note" id="foot"></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  var FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyBmMOsQOTPYFBRVBHRHFVKPOxdNCVQvVXA',
+    authDomain: 'debateos-78ac5.firebaseapp.com',
+    projectId: 'debateos-78ac5',
+    storageBucket: 'debateos-78ac5.firebasestorage.app',
+    messagingSenderId: '860359449192',
+    appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
+  };
+  var app = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+  var auth = firebase.auth();
+  var $ = function(id){ return document.getElementById(id); };
+
+  // Which tournament. Defaults to the Open so the desk opens on the
+  // right event without anyone typing a slug at 9:58 on the morning.
+  var params = new URLSearchParams(location.search);
+  var TKEY = params.get('t') || 'the-debatable-open';
+  var POLL_MS = 5000;
+
+  var state = { rooms: [], serverSkew: 0, round: null, timer: null, pollTimer: null };
+
+  auth.onAuthStateChanged(function(u){
+    if (!u){ $('gate').hidden = false; $('app').hidden = true; return; }
+    $('gate').hidden = true; $('app').hidden = false;
+    start();
+  });
+  $('signin').addEventListener('click', function(){
+    $('gateErr').textContent = '';
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+      .catch(function(e){ $('gateErr').textContent = e.message || 'Sign-in failed'; });
+  });
+  $('refresh').addEventListener('click', function(){ load(); });
+  $('roundSel').addEventListener('change', function(){ load(); });
+
+  function start(){
+    load();
+    if (state.pollTimer) clearInterval(state.pollTimer);
+    // Poll only while the tab is actually being watched. A director's
+    // laptop sits open all day and a background tab has nobody in
+    // front of it, so it should not be paying for reads.
+    state.pollTimer = setInterval(function(){ if (!document.hidden) load(); }, POLL_MS);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+    if (state.timer) clearInterval(state.timer);
+    state.timer = setInterval(tickClocks, 250);
+  }
+
+  function api(path){
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, { headers: { Authorization: 'Bearer ' + tok } })
+        .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); });
+    });
+  }
+
+  function load(){
+    var q = '/api/director?t=' + encodeURIComponent(TKEY);
+    var sel = $('roundSel').value;
+    if (sel) q += '&round=' + encodeURIComponent(sel);
+    api(q).then(function(res){
+      if (!res.ok){ $('foot').textContent = (res.j && res.j.error) || 'Could not load.'; return; }
+      render(res.j);
+    }).catch(function(e){ $('foot').textContent = String(e && e.message || e); });
+  }
+
+  function esc(s){ var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
+
+  var STATE_LABEL = {
+    speaking: 'Speaking', judging: 'Judging', complete: 'Result in',
+    between: 'Between speeches', stalled: 'Stalled', 'one-seat': 'One seat empty',
+    empty: 'Nobody here', unopened: 'Not opened',
+  };
+
+  function render(d){
+    var t = d.tournament || {};
+    var r = d.round || {};
+    state.rooms = d.rooms || [];
+    // Every tile's clock is rebased against the server's clock, not the
+    // browser's. Two machines on this site have been measured 22
+    // seconds apart, and a broadcast clock that disagrees with the room
+    // it is filming is worse than showing no clock at all.
+    state.serverSkew = (Number(d.serverNow) || Date.now()) - Date.now();
+
+    $('tName').textContent = t.name || 'Director';
+    $('sRound').textContent = r.label || '—';
+    $('sDone').textContent = (r.complete || 0) + '/' + (r.total || 0);
+    var speaking = state.rooms.filter(function(x){ return x.state === 'speaking'; }).length;
+    var flagged = state.rooms.filter(function(x){
+      return x.state === 'stalled' || x.state === 'one-seat' || x.state === 'empty';
+    }).length;
+    $('sLive').textContent = speaking;
+    $('sFlag').textContent = flagged;
+    $('sFlag').style.color = flagged ? 'var(--warn)' : '';
+    $('motion').innerHTML = r.motion
+      ? ('<b>Motion:</b> ' + esc(r.motion))
+      : (r.released ? '<b>No motion set on this draw.</b>' : 'This draw has not been released yet, so nobody can see their room.');
+
+    // The one standing hazard on a synchronous day: the queue open at
+    // the same time as a released draw. Both engines seat people, and
+    // until 2026-08-26 neither could see the other.
+    $('warn').innerHTML = (t.dropIn && r.released)
+      ? '<div class="warnbar"><b>The drop-in queue is open while a draw is live.</b> '
+        + 'Entrants can be seated a second time, in a second room, off the draw. '
+        + 'Turn the queue off for a synchronous day.</div>'
+      : '';
+
+    var opts = [];
+    for (var i = 1; i <= (t.prelimRounds || 0); i++) opts.push({ k: 'r' + i, label: 'Round ' + i });
+    for (var e = 1; e <= 4; e++) opts.push({ k: 'e' + e, label: 'Elim ' + e });
+    var sel = $('roundSel');
+    if (sel.options.length !== opts.length){
+      sel.innerHTML = opts.map(function(o){ return '<option value="' + o.k + '">' + o.label + '</option>'; }).join('');
+    }
+    if (r.key) sel.value = r.key;
+
+    var grid = $('grid');
+    if (!state.rooms.length){
+      grid.innerHTML = '';
+      grid.insertAdjacentHTML('beforeend',
+        '<div class="empty-all">No rooms in this draw yet. Pair the round in the control room.</div>');
+      $('foot').textContent = '';
+      return;
+    }
+
+    grid.innerHTML = state.rooms.map(function(room){
+      var st = room.state;
+      var winner = room.result && room.result.winner;
+      var shot = room.shot
+        ? '<img alt="" src="/api/room-shot?room=' + encodeURIComponent(room.room) + '&v=' + room.shot + '">'
+        : '<div class="none">' + (st === 'unopened' ? 'Room not opened' : 'No camera') + '</div>';
+      var rec = room.recording === 'recording'
+        ? '<span class="pill rec"><i></i>REC</span>' : '';
+      var watch = room.watching ? '<span class="pill">' + room.watching + ' watching</span>' : '';
+      var stage = '/live-round?room=' + encodeURIComponent(room.room) + '&stage=1';
+      var spec  = '/live-round?room=' + encodeURIComponent(room.room) + '&spectate=1';
+      return ''
+      + '<div class="tile" data-state="' + esc(st) + '" data-room="' + esc(room.room) + '">'
+      +   '<div class="shot">' + shot
+      +     '<span class="chip" data-s="' + esc(st) + '">' + esc(STATE_LABEL[st] || st) + '</span>'
+      +     '<span class="clock" data-clock="' + esc(room.room) + '"></span>'
+      +     '<div class="meta-row">' + rec + watch + '</div>'
+      +   '</div>'
+      +   '<div class="body">'
+      +     '<div class="seats">'
+      +       '<div class="seat' + (winner === 'gov' ? ' win' : '') + '"><span>Gov</span><b>' + esc(room.gov.name || '—') + '</b></div>'
+      +       '<div class="vs">VS</div>'
+      +       '<div class="seat' + (winner === 'opp' ? ' win' : '') + '" style="text-align:right"><span>Opp</span><b>' + esc(room.opp.name || '—') + '</b></div>'
+      +     '</div>'
+      +     '<div class="sub">'
+      +       '<span>Room ' + room.index + '</span>'
+      +       (room.bracket ? '<span>' + esc(room.bracket) + '</span>' : '')
+      +       '<span>' + room.present + '/2 present</span>'
+      +     '</div>'
+      +     '<div class="acts">'
+      +       '<a class="btn btn-live" href="' + spec + '" target="_blank" rel="noopener">Watch</a>'
+      +       '<a class="btn" href="' + stage + '" target="_blank" rel="noopener">Stage</a>'
+      +       '<button class="btn" data-copy="' + esc(stage) + '">Copy</button>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>';
+    }).join('');
+
+    grid.querySelectorAll('[data-copy]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var url = location.origin + b.getAttribute('data-copy');
+        navigator.clipboard.writeText(url).then(function(){
+          var was = b.textContent; b.textContent = 'Copied';
+          setTimeout(function(){ b.textContent = was; }, 1200);
+        });
+      });
+    });
+
+    $('foot').textContent = 'Watch opens the room invisibly: no tile, no name, no mic. '
+      + 'Stage is the chromeless view for OBS. Updated ' + new Date(d.at).toLocaleTimeString() + '.';
+    tickClocks();
+  }
+
+  // Runs every 250ms off the last payload, so the clock moves smoothly
+  // between five-second polls instead of jumping.
+  function tickClocks(){
+    var now = Date.now() + state.serverSkew;
+    state.rooms.forEach(function(room){
+      var el = document.querySelector('[data-clock="' + CSS.escape(room.room) + '"]');
+      if (!el) return;
+      var t = room.timer;
+      if (!t || !t.updatedAtMs){ el.textContent = ''; return; }
+      // Rebase the speaker's start against the moment they published
+      // it, the same correction applyRemoteTimer makes in the round.
+      var elapsedMs = t.state === 'running'
+        ? t.accumulatedMs + Math.max(0, now - t.updatedAtMs)
+        : t.accumulatedMs;
+      var total = t.totalSec * 1000;
+      var left = total - elapsedMs;
+      var over = left < 0;
+      var secs = Math.floor(Math.abs(left) / 1000);
+      el.textContent = (over ? '+' : '') + Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2);
+      el.className = 'clock' + (over ? ' over' : (left < 30000 ? ' warn' : ''));
+    });
+  }
+})();
+</script>
+</body>
+</html>
