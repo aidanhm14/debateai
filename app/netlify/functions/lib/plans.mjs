@@ -39,8 +39,26 @@
 export const PLAN_PRICING = {
   byok:       { amountCents: 100,  currency: 'usd', interval: 'month', label: '$1/mo' },
   individual: { amountCents: 1000, currency: 'usd', interval: 'year',  label: '$10/year' },
+  voice:      { amountCents: 1200, currency: 'usd', interval: 'month', label: '$12/mo' },
   team:       { amountCents: 5000, currency: 'usd', interval: 'year',  label: '$50/year' },
 };
+
+// VOICE IS MONTHLY AND THAT IS NOT A STYLE CHOICE. soul.md section 7
+// has sold Voice at $12/mo since the tier was written, and the reason is
+// in the 2026-06-27 unit-economics audit: a live voice round is roughly
+// 80% of per-user variable cost, so the annual cadence that makes
+// Individual feel like a tournament fee would lose money on anyone who
+// actually used voice. Every other consumer tier is an entitlement; this
+// one is closer to metered supply wearing a subscription's clothes.
+//
+// It existed on /pricing for months before it existed here: the card, the
+// Reserve button and the JSON-LD Offer all advertised $12/mo while
+// PLAN_PRICING had no `voice` key, so it could not be bought. The voice
+// cap's own bypass list did not name it either, so buying it would not
+// have lifted the cap it was sold to lift. Both are closed now (see the
+// gate in realtime-session.mjs). If Voice is ever withdrawn, take the
+// door out of PURCHASABLE_PLANS and leave the entitlement, the way
+// lifetime was handled, rather than deleting the plan.
 
 // Plans a browser may open checkout for. `lifetime` is deliberately
 // absent: it was withdrawn from sale, and an entitlement that still
@@ -50,6 +68,7 @@ export const PURCHASABLE_PLANS = Object.keys(PLAN_PRICING);
 export const envKeyForPlan = (plan) => ({
   byok: 'STRIPE_PRICE_BYOK',
   individual: 'STRIPE_PRICE_INDIVIDUAL',
+  voice: 'STRIPE_PRICE_VOICE',
   team: 'STRIPE_PRICE_TEAM',
 }[plan]);
 
@@ -99,4 +118,27 @@ function fmt(cents, currency) {
   if (typeof cents !== 'number') return 'nothing';
   const n = (cents / 100).toFixed(2);
   return String(currency || 'usd').toLowerCase() === 'usd' ? `$${n}` : `${n} ${String(currency).toUpperCase()}`;
+}
+
+// ── Who bypasses the voice cap ────────────────────────────────────
+// ONE list, because three minters used to keep their own copy of it and
+// they had already drifted: realtime-session, coach-session and
+// room-judge-session each hardcoded ['individual','lifetime','team',
+// 'byok'], so adding the `voice` tier meant remembering three files.
+// That is the same shape as the bug this whole pass is fixing, where
+// /pricing sold a tier no gate had heard of.
+//
+// A subscription only loses access on an EXPLICIT Stripe-bad status.
+// An unknown or missing status keeps access: Stripe reports states we
+// do not enumerate, and locking a paying customer out over an
+// unrecognised string is the wrong way to be wrong.
+export const VOICE_PRO_PLANS = ['individual', 'lifetime', 'team', 'byok', 'voice'];
+const VOICE_SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
+const KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
+
+export function planBypassesVoiceCap(team) {
+  if (!team || !team.plan) return false;
+  if (!VOICE_PRO_PLANS.includes(team.plan)) return false;
+  if (VOICE_SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) return false;
+  return true;
 }

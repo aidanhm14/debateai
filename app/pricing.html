@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Debatable Pricing · Individual, Voice, and Program Plans</title>
-<meta name="description" content="Choose a Debatable plan for typed rounds, live voice, a study group, or a full school program. Individual is $10/year after beta. Tokens are live now at $4.99/month.">
+<meta name="description" content="Choose a Debatable plan for typed rounds, live voice, a study group, or a full school program. Individual is $10/year, Voice is $12/month, Tokens are $4.99/month.">
 <link rel="canonical" href="https://itsdebatable.com/pricing">
 <script type="application/ld+json">
 {
@@ -286,12 +286,12 @@
   <div class="hero-copy">
     <span class="kicker" id="heroEyebrow">Simple pricing for serious rounds</span>
     <h1 id="heroH1">One tournament fee. A full year of harder rounds.</h1>
-    <p class="lede" id="heroLede">Individual gives you 250 typed requests each month, six AI brains, deeper cases, and memory across rounds. The expected price is $10 for the year.</p>
+    <p class="lede" id="heroLede">Individual gives you 250 typed requests each month, six AI brains, deeper cases, and memory across rounds. It is $10 for the year.</p>
     <div class="hero-actions">
-      <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_hero">Reserve Individual · $10/year</a>
+      <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_hero">Get Individual · $10/year</a>
       <a class="cta ghost" href="/tokens" data-pricing-cta="tokens_hero">Buy 10 voice rounds · $4.99</a>
     </div>
-    <p class="beta-state"><span class="live-dot" aria-hidden="true"></span><span><strong>Beta plans are free to reserve today.</strong> Tokens is the only membership charged now.</span></p>
+    <p class="beta-state" data-beta-copy><span class="live-dot" aria-hidden="true"></span><span><strong>Plans are live.</strong> Voice is billed monthly because a live round costs real money to run. Everything else is annual.</span></p>
     <div class="signal-row" aria-label="What paid plans unlock">
       <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg>Six AI brains</span>
       <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg>Competition depth</span>
@@ -331,7 +331,7 @@
         <div class="tier">Individual</div>
         <div class="price-row"><span class="price">$10</span><span class="cadence">/ year</span></div>
       </div>
-      <span class="billing-state">No charge in beta</span>
+      <span class="billing-state" data-beta-copy>Billed yearly</span>
     </div>
     <p class="sub">For one person who wants deeper prep and a tougher opponent.</p>
     <ul class="feats">
@@ -341,8 +341,8 @@
       <li>Memory that adapts across rounds</li>
       <li class="off">Voice rounds sold separately</li>
     </ul>
-    <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_card">Reserve Individual</a>
-    <p class="note">No card today. Expected price after beta.</p>
+    <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_card">Get Individual</a>
+    <p class="note" data-beta-copy>$10 for the year. Cancel any time.</p>
   </article>
 
   <article class="card" data-plan="voice">
@@ -351,17 +351,18 @@
         <div class="tier">Voice</div>
         <div class="price-row"><span class="price">$12</span><span class="cadence">/ month</span></div>
       </div>
-      <span class="billing-state">No charge in beta</span>
+      <span class="billing-state" data-beta-copy>Billed monthly</span>
     </div>
     <p class="sub">For live spoken rounds, interruptions, and ballots you can use.</p>
     <ul class="feats">
       <li>Live voice rounds against the AI bench</li>
       <li>Memory of every round you have argued</li>
       <li>A coach that works between sessions</li>
+      <li>Unlimited voice rounds, no lifetime cap</li>
       <li>Everything in Individual</li>
     </ul>
-    <a class="cta ghost" href="/app?upgrade=voice" data-checkout="voice" data-pricing-cta="voice_card">Reserve Voice</a>
-    <p class="note">No card today. Expected price after beta.</p>
+    <a class="cta primary" href="/app?upgrade=voice" data-checkout="voice" data-pricing-cta="voice_card">Get Voice</a>
+    <p class="note" data-beta-copy>$12 a month. Cancel any time.</p>
   </article>
 </div>
 
@@ -433,7 +434,7 @@
 
   <details>
     <summary>What does it cost right now?</summary>
-    <p>Individual, Voice, BYOK, and Team are free to reserve during beta, with no card collected. Tokens costs $4.99 per month and is charged today. School programs start with a conversation.</p>
+    <p data-beta-copy>Free gives you one voice round and a handful of typed ones. Individual is $10 for the year. Voice is $12 a month and lifts the voice cap. BYOK is $1 a month if you bring your own Claude key. Team is $50 a year. Tokens is $4.99 a month if you only want more voice rounds. School programs start with a conversation.</p>
   </details>
 
   <details>
@@ -549,7 +550,40 @@
       if (regionInfo.provider === 'razorpay' && regionInfo.prices) {
         applyIndiaPricing(regionInfo.prices);
       }
+      if (regionInfo.betaNoCharge === true) applyBetaCopy();
     } catch (_) { /* keep Stripe defaults */ }
+  }
+
+  // Billing went live on 2026-08-26, so the AUTHORED copy in the markup
+  // describes a page that charges. This puts the beta wording back if the
+  // server says BETA_NO_CHARGE is on again.
+  //
+  // The direction matters and is not arbitrary. The authored default is
+  // the state that charges, so the failure mode of a dead fetch, a JS
+  // error or a crawler is a page that says you will be billed when you
+  // might not be. The opposite default would promise "no card today" to
+  // someone whose card is about to be charged, which is the one error
+  // here that costs a stranger money. Both plan doors stay in the markup
+  // either way; a data value never decides whether a price is on screen,
+  // only how the cadence beside it is described (soul.md, 2026-08-11).
+  function applyBetaCopy() {
+    const beta = {
+      'individual_note': 'No card today. Expected price after beta.',
+      'voice_note': 'No card today. Expected price after beta.',
+    };
+    document.querySelectorAll('[data-beta-copy]').forEach((el) => {
+      if (el.classList.contains('billing-state')) el.textContent = 'No charge in beta';
+      else if (el.classList.contains('note')) el.textContent = beta.individual_note;
+      else if (el.classList.contains('beta-state')) {
+        el.innerHTML = '<span class="live-dot" aria-hidden="true"></span><span>'
+          + '<strong>Beta plans are free to reserve today.</strong> '
+          + 'Tokens is the only membership charged now.</span>';
+      } else {
+        el.textContent = 'Individual, Voice, BYOK, and Team are free to reserve during beta, '
+          + 'with no card collected. Tokens costs $4.99 per month and is charged today. '
+          + 'School programs start with a conversation.';
+      }
+    });
   }
 
   // Razorpay Checkout opens a hosted modal. On success it calls our

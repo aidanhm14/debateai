@@ -3174,7 +3174,11 @@ function setDevPro() {}
 // Accessible/Aggressive tone, GPT/Gemini/Grok/DeepSeek/Open Lab brains)
 // short-circuits through isPro, so flipping this re-enables every gate
 // at once. Paired with the soul.md §7 "all tiers free" framing.
-var BETA_PRO_UNLOCK = true;
+// 2026-08-26: FALSE. Billing is live, so an unconditional unlock would
+// mean the people who pay get exactly what the people who do not pay
+// get, on every gate this flag short-circuits. The original team-doc
+// check below is what runs again.
+var BETA_PRO_UNLOCK = false;
 
 function isPro(team, user) {
   // BETA OVERRIDE (2026-05-18): The product is in beta with every tier
@@ -3203,7 +3207,7 @@ function isPro(team, user) {
   if (plan === 'lifetime') return true;
   var KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
   if (KNOWN_INACTIVE.has(team.status)) return false;
-  return plan === 'individual' || plan === 'team' || plan === 'byok';
+  return plan === 'individual' || plan === 'team' || plan === 'byok' || plan === 'voice';
 }
 
 // Can this account actually USE the five non-Claude brains?
@@ -3240,7 +3244,7 @@ function hasBrainAccess(team, user) {
   if (!team) return false;
   var plan = team.plan;
   if (!plan || plan === 'trial') return false;
-  if (['individual', 'team', 'lifetime', 'byok'].indexOf(plan) === -1) return false;
+  if (['individual', 'team', 'lifetime', 'byok', 'voice'].indexOf(plan) === -1) return false;
   var st = team.status;
   return !st || st === 'active' || st === 'trialing';
 }
@@ -3262,7 +3266,7 @@ function brainPaywallLine(brainName) {
     return brainName + ' is not available in the app. Claude is the free brain.';
   }
   if (CHECKOUT_BETA_NO_CHARGE !== false) {
-    return brainName + ' runs on a paid plan. Beta is free and Claude is the brain it includes, so rounds stay on Claude for now.';
+    return brainName + ' runs on a paid plan. Claude is the brain the free tier includes, so rounds stay on Claude until you upgrade.';
   }
   return 'Upgrade to unlock ' + brainName + '. Individual is $10/year and unlocks all six brains.';
 }
@@ -4389,6 +4393,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4404,8 +4409,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';t = t.replace(/<p[^>]*><\/p>/g, '');
-  return t;
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';t = t.replace(/<p[^>]*><\/p>/g, '');return t;
 }
 
 // Typing-stream throttle. The API already streams in chunks, but rendering
@@ -5346,9 +5350,9 @@ async function callAnyAI(systemPrompt, userPrompt, onChunk, brainKey, opts = {})
 
   // Pro-model picker (e.g. Claude Sonnet vs Haiku). Shadows the global
   // isPro function on purpose since this scope already has __currentTeam.
-  // BETA: everyone runs the Pro model — matches the per-feature unlock
-  // logic above (BETA_PRO_UNLOCK).
-  var isPro = BETA_PRO_UNLOCK || __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime');
+  // Paid plans run the Pro model. BETA_PRO_UNLOCK is false since
+  // 2026-08-26 (billing is live), so this is plan-based again.
+  var isPro = BETA_PRO_UNLOCK || __currentTeam && (__currentTeam.plan === 'individual' || __currentTeam.plan === 'team' || __currentTeam.plan === 'lifetime' || __currentTeam.plan === 'voice');
   var model = isPro && brain.proModel ? brain.proModel : brain.model;
   // Open Lab is a roster, not a model, so its slug is the engine the user
   // picked on /engines rather than a fixed default. Sent as `model` the
@@ -12618,8 +12622,8 @@ function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
   // Apple 3.1.1: no price copy inside the native app.
   var resumeBody = window.__DB_NATIVE ?
-  'Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.' :
-  name + ' will be ' + price + ' once beta ends. Beta is free, so you cannot be charged today. Keep practicing from this signed-in workspace.';
+  'Opening your workspace so your plan choice stays tied to this account.' :
+  name + ' is ' + price + '. Opening your workspace to finish setting it up.';
   var keepPracticing = () => {
     try {if (window.gtag) gtag('event', 'checkout_resume_continue', { plan: plan });} catch (e) {}
     onClose();

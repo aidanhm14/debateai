@@ -94,6 +94,12 @@ export const PLANS = {
   trial:      { requests: 3,    members: 3 },
   byok:       { requests: 9999, members: 1 },
   individual: { requests: 9999, members: 1 },
+  // Voice ($12/mo) carries the text lane too. It costs more per month
+  // than Individual costs per YEAR, so denying a Voice subscriber the
+  // paid brains would be charging the most and granting the least. What
+  // Voice actually buys that nothing else does is the voice cap bypass,
+  // which lives in realtime-session.mjs, not here.
+  voice:      { requests: 9999, members: 1 },
   lifetime:   { requests: 9999, members: 3 },
   team:       { requests: 9999, members: 50 },
 };

@@ -23,6 +23,7 @@ import { dirname, join } from 'node:path';
 import {
   PLAN_PRICING, PURCHASABLE_PLANS, envKeyForPlan,
   priceMatchesCanonical, LEGACY_PRICE_PLANS,
+  VOICE_PRO_PLANS, planBypassesVoiceCap,
 } from '../app/netlify/functions/lib/plans.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,6 +34,9 @@ const ok = (cond, msg) => { checks++; if (!cond) { fails++; console.error('  FAI
 const EXPECTED = {
   byok:       { amountCents: 100,  interval: 'month', label: '$1/mo' },
   individual: { amountCents: 1000, interval: 'year',  label: '$10/year' },
+  // Voice is monthly on purpose (unit economics, not style) and was
+  // advertised on /pricing for months before it existed as a plan.
+  voice:      { amountCents: 1200, interval: 'month', label: '$12/mo' },
   team:       { amountCents: 5000, interval: 'year',  label: '$50/year' },
 };
 for (const [plan, want] of Object.entries(EXPECTED)) {
@@ -90,6 +94,24 @@ for (const plan of PURCHASABLE_PLANS) {
 ok(!PURCHASABLE_PLANS.includes('lifetime'),
   'lifetime is not purchasable (withdrawn 2026-07-03; entitlement kept, door closed)');
 ok(!PLAN_PRICING.lifetime, 'lifetime has no canonical price');
+
+// ── 4b. the voice tier actually lifts the voice cap ────────────────
+// The bug this guards: /pricing sold Voice at $12/mo, and the voice
+// cap's bypass list did not name `voice`, so buying the tier sold to
+// remove the cap removed nothing. Three separate minters kept their own
+// copy of that list, which is why it drifted; there is now one.
+for (const plan of PURCHASABLE_PLANS) {
+  if (plan === 'byok') continue; // BYOK is a key, not a voice entitlement
+  ok(VOICE_PRO_PLANS.includes(plan),
+    `purchasable plan ${plan} is in VOICE_PRO_PLANS (or it cannot lift the voice cap it is sold beside)`);
+}
+ok(planBypassesVoiceCap({ plan: 'voice', status: 'active' }), 'an active voice subscription bypasses the voice cap');
+ok(!planBypassesVoiceCap({ plan: 'voice', status: 'canceled' }), 'a canceled voice subscription does not');
+ok(!planBypassesVoiceCap({ plan: 'trial' }), 'trial does not bypass the voice cap');
+ok(!planBypassesVoiceCap(null), 'no team does not bypass the voice cap');
+ok(planBypassesVoiceCap({ plan: 'lifetime' }), 'lifetime (no status) still bypasses');
+ok(planBypassesVoiceCap({ plan: 'individual', status: 'past_due' }),
+  'past_due is a grace state, not a lockout');
 
 // ── 5. legacy prices resolve deliberately, never by guess ──────────
 ok(Object.keys(LEGACY_PRICE_PLANS).length > 0,

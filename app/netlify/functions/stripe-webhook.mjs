@@ -516,10 +516,12 @@ export default async (request) => {
 function getPlanFromPrice(priceId) {
   const byokPrice = process.env.STRIPE_PRICE_BYOK;
   const individualPrice = process.env.STRIPE_PRICE_INDIVIDUAL;
+  const voicePrice = process.env.STRIPE_PRICE_VOICE;
   const teamPrice = process.env.STRIPE_PRICE_TEAM;
 
   if (priceId === byokPrice) return 'byok';
   if (priceId === individualPrice) return 'individual';
+  if (priceId === voicePrice) return 'voice';
   if (priceId === teamPrice) return 'team';
 
   // A subscription created before a repricing keeps billing against the

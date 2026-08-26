@@ -4616,23 +4616,26 @@ function App() {
 
   // ── Voice usage gate ─────────────────────────────────────────────
   // Tiered access:
-  //   • Anon visitors: 3 free voice sessions (localStorage counter)
-  //   • Signed-in free: 8 lifetime voice sessions (server-truth on
-  //     user_profiles/{uid}.voiceSessionsUsed, client read-only)
-  //   • Pro: no client cap (server-side 6/hour/IP rate limit still applies)
-  // Client-side gate is UX-only; the real enforcement lives in
-  // realtime-session.mjs which checks Firestore on every mint.
-  // MISMATCH (flag): realtime-session.mjs still enforces 3 for signed-in
-  // free (FREE_VOICE_LIFETIME_LIMIT), not 8 — the 2026-05-14 bump never
-  // reached the server. The client now forces the upgrade gate on the
-  // server's 402 regardless, so there's no stuck loop, but "N of 8 left"
-  // overcounts until that server const is aligned to 8 (a cost decision).
-  // 2026-05-14: bumped from 1 / 3 → 3 / 8. Re-framed Voice from a
-  // "Pro feature" to a "New feature" — same engine, same OpenAI
-  // Realtime cost basis, but the previous cap was too stingy for
-  // users meeting Voice for the first time.
-  var ANON_VOICE_LIMIT = 3;
-  var FREE_VOICE_LIMIT = 8;
+  //   • Anon visitors: 1 free voice round
+  //   • Signed-in free: 2 lifetime voice rounds
+  //   • Voice ($12/mo), Individual, Team, BYOK, Lifetime: no cap here
+  //
+  // THE CLIENT GATE IS UX-ONLY. Real enforcement is realtime-session.mjs,
+  // which meters against voice_usage/{uid} — a collection no client can
+  // write. It used to meter against user_profiles/{uid}.voiceSessionsUsed,
+  // which firestore.rules lets the owner write, so the counter could be
+  // reset from the console.
+  //
+  // THESE TWO NUMBERS USED TO LIE. The client said 3 and 8 while the
+  // server enforced 2, and the comment that sat here described the
+  // mismatch as a known flag rather than fixing it, so the page told
+  // people they had 8 rounds and cut them off at 2. They now match the
+  // server defaults. The server values are env-tunable
+  // (ANON_VOICE_ROUNDS / FREE_VOICE_ROUNDS), so if those are ever moved
+  // without touching this file the page under-promises rather than
+  // over-promises, and the server response is what actually decides.
+  var ANON_VOICE_LIMIT = 1;
+  var FREE_VOICE_LIMIT = 2;
   var ANON_USAGE_KEY = 'da-voice-anon-used';
   // Owner allowlist — bypasses the voice cap on the client so the gate
   // never shows the upgrade card to these accounts. Server enforces the
@@ -4669,20 +4672,39 @@ function App() {
     var state = 'ok';
     try {
       var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-      if (u) {
+      // js/notifications.js calls signInAnonymously() on nearly every
+      // page, so currentUser is truthy for a guest and this used to read
+      // them as signed in — handing a guest the larger allowance and
+      // hiding every sign-in prompt. isAnonymous is the difference.
+      var named = !!(u && !u.isAnonymous);
+      if (named) {
         signedIn = true;
         limit = FREE_VOICE_LIMIT;
-        // Pull profile once; voiceSessionsUsed is the server-incremented
-        // counter, plan/tier flags whether they're Pro.
         try {
           var db = firebase.firestore();
-          var snap = await db.collection('user_profiles').doc(u.uid).get();
-          if (snap.exists) {
-            var d = snap.data() || {};
-            used = Math.max(0, parseInt(d.voiceSessionsUsed, 10) || 0);
-            isPro = d.plan === 'pro' || d.plan === 'team' || d.plan === 'lifetime' || d.isPro === true;
+          // voice_usage is the server-written counter. The old profile
+          // field is read only so rounds spent before 2026-08-26 still
+          // show; nothing writes it any more.
+          var snap = await db.collection('voice_usage').doc(u.uid).get();
+          if (snap.exists) used = Math.max(0, parseInt(snap.data().rounds, 10) || 0);
+          if (!used) {
+            var legacy = await db.collection('user_profiles').doc(u.uid).get();
+            if (legacy.exists) used = Math.max(0, parseInt(legacy.data().voiceSessionsUsed, 10) || 0);
           }
-        } catch (e) {/* read failure → treat as fresh; server will enforce real cap */}
+        } catch (e) {/* read failure → treat as fresh; server enforces the real cap */}
+        // Plan lives on TEAMS, never on user_profiles. This used to read
+        // user_profiles.plan, which is never written, so it resolved to
+        // false for everyone — including a paying subscriber, who would
+        // have been shown the upgrade card for a cap the server was
+        // about to let them past.
+        try {
+          var tok = await u.getIdToken();
+          var r = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + tok } });
+          if (r.ok) {
+            var usage = await r.json();
+            isPro = ['individual', 'team', 'lifetime', 'byok', 'voice'].indexOf(usage.plan) !== -1;
+          }
+        } catch (e) {/* unknown plan → fall through; the server still decides */}
         if (OWNER_EMAILS.has(String(u.email || '').toLowerCase())) {
           isPro = true;
         }
@@ -6188,6 +6210,19 @@ function App() {
         // render, and surface a kind='upgrade' error so the renderer
         // can branch (we don't have a renderer for that yet — falls
         // through to the error notice for v1).
+        // Guest past their free round. 401 rather than 402 because
+        // waiting does not clear it and an account is the next step, not
+        // a card. Swap to the sign-in card and open the chooser.
+        if (mintRes.status === 401 && body.code === 'SIGN_IN_REQUIRED') {
+          setVoiceGate((g) => ({ ...g, state: 'sign-in', loading: false }));
+          try {
+            if (typeof gtag === 'function') gtag('event', 'voice_anon_gate', { used: body.used || 0 });
+            if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+          } catch (e) {}
+          var eSign = new Error(body.error || 'That was your free voice round. Sign in to keep going.');
+          eSign.kind = 'sign-in';
+          throw eSign;
+        }
         if (mintRes.status === 402 && body.upgrade) {
           try {await refreshVoiceGate();} catch (e) {}
           // The server is authoritative on the cap. Force the upgrade gate

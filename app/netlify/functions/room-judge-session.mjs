@@ -10,6 +10,10 @@
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
+import {
+  readVoiceUsage, chargeVoiceRound, FREE_VOICE_NAMED,
+} from './lib/voice-usage.mjs';
+import { planBypassesVoiceCap } from './lib/plans.mjs';
 
 const FREE_ROOM_JUDGE_LIMIT = 2;
 
@@ -238,8 +242,11 @@ export default async (request) => {
     const profileSnap = await db.collection('user_profiles').doc(uid).get();
     if (profileSnap.exists) {
       profile = profileSnap.data() || {};
-      voiceUsedBefore = Math.max(0, parseInt(profile.voiceSessionsUsed, 10) || 0);
     }
+    // voice_usage/ is the counter; the profile doc is passed only so
+    // pre-2026-08-26 history carries over (lib/voice-usage.mjs).
+    const usedNow = await readVoiceUsage(db, uid, profile);
+    voiceUsedBefore = usedNow === null ? 0 : usedNow;
   } catch (err) {
     console.warn('[room-judge-session] user profile read failed:', err.message);
   }
@@ -248,10 +255,7 @@ export default async (request) => {
     const teamResult = await getUserTeam(uid);
     const team = teamResult && teamResult.team;
     if (team) {
-      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
-      const KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
-      isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
-        && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+      isPro = planBypassesVoiceCap(team);
     }
   } catch (err) {
     console.warn('[room-judge-session] plan lookup failed:', err.message);
@@ -362,12 +366,18 @@ export default async (request) => {
     ? 'https://api.openai.com/v1/realtime/calls'
     : 'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(model);
 
+  // Charge the shared voice allowance. AWAITED: Lambda freezes the
+  // execution context on return, so the old non-blocking write was
+  // abandoned rather than deferred (the spar-pair lesson, 2026-08-19).
+  // The counter lives in voice_usage/, which no client can write; it
+  // used to live on the caller's own user_profiles doc, which they
+  // could reset. See lib/voice-usage.mjs.
   if (!isPro) {
-    db.collection('user_profiles').doc(uid).set({
-      voiceSessionsUsed: FieldValue.increment(1),
-      roomJudgeSessionsUsed: FieldValue.increment(1),
-      lastRoomJudgeSessionAt: FieldValue.serverTimestamp(),
-    }, { merge: true }).catch(err => console.warn('[room-judge-session] quota inc failed:', err.message));
+    try {
+      await chargeVoiceRound(db, uid, { surface: 'room-judge' });
+    } catch (err) {
+      console.warn('[room-judge-session] voice charge failed:', err.message);
+    }
   }
 
   return new Response(JSON.stringify({

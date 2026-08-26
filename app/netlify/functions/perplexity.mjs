@@ -95,7 +95,7 @@ export default async (request) => {
   // (canceled/unpaid/etc); 'past_due' is a grace state and 'inactive'/null
   // are legacy/race writes that shouldn't lock out paying customers.
   if (team) {
-    const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+    const SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
     const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
     if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
       return errorResponse('Subscription inactive. Please update your billing.', 402, request);

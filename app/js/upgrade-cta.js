@@ -196,7 +196,7 @@
       if (!r.ok) return;
       const data = await r.json();
       const plan = data.plan;
-      const isPaid = plan && plan !== 'trial' && ['individual','team','lifetime','byok'].includes(plan);
+      const isPaid = plan && plan !== 'trial' && ['individual','team','lifetime','byok','voice'].includes(plan);
       if (isPaid) { render('hidden'); return; }
       const used = data.usageThisPeriod || 0;
       const limit = data.usageLimit || 0;

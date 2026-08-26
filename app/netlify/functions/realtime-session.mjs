@@ -34,6 +34,11 @@ import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs'
 import { checkLayers, callerIp } from './lib/rate-limit.mjs';
 import { TOKENS, TOKENS_LIVE, getTokenBalance, spendTokens } from './lib/tokens.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
+import {
+  readVoiceUsage, chargeVoiceRound, freeVoiceLimit,
+  FREE_VOICE_NAMED, FREE_VOICE_ANON,
+} from './lib/voice-usage.mjs';
+import { planBypassesVoiceCap } from './lib/plans.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
 // and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
@@ -44,7 +49,14 @@ import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 // the strongest paid hook. Must match the client const in
 // voice-debate.html (ANON_VOICE_LIMIT 1 / FREE_VOICE_LIMIT 2) or the
 // counter lies. This is the real enforcement; the client gate is UX-only.
-const FREE_VOICE_LIFETIME_LIMIT = 2;
+// 2026-08-26: the number moved to lib/voice-usage.mjs, along with the
+// counter it meters against. Two things were wrong with it here. The
+// value was a hardcoded 2 that could only change with a deploy, and the
+// counter it compared against lived on the caller's own writable
+// user_profiles doc, so "the real enforcement" could be reset from the
+// browser console. Re-exported under the old name because the response
+// bodies below quote it. See the header of lib/voice-usage.mjs.
+const FREE_VOICE_LIFETIME_LIMIT = FREE_VOICE_NAMED;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
@@ -967,6 +979,12 @@ export default async (request, context) => {
   let voiceUsedBefore = 0;
   let tokenFunded = false;
   let tokenBalance = 0;
+  // Which allowance applies. A named account gets the free taste; an
+  // anonymous uid gets less, because minting one is free and unlimited,
+  // so its allowance is a courtesy to a first-time visitor rather than a
+  // boundary (the per-IP layer above is the boundary).
+  const callerIsNamed = !!(earlyDecoded && isNamedAccount(earlyDecoded));
+  const freeLimit = freeVoiceLimit(callerIsNamed);
   try {
     const decoded = earlyDecoded;
     if (decoded){
@@ -979,10 +997,13 @@ export default async (request, context) => {
       const profileSnap = await withTimeout(
         db.collection('user_profiles').doc(signedInUid).get(), 1500, 'voice-cap read'
       ).catch(err => { console.warn('[realtime-session] cap read soft-failed:', err.message); return null; });
-      if (profileSnap && profileSnap.exists){
-        const p = profileSnap.data() || {};
-        voiceUsedBefore = Math.max(0, parseInt(p.voiceSessionsUsed, 10) || 0);
-      }
+      // The counter itself lives in voice_usage/{uid}, which no client
+      // can write. The profile doc is passed in only so a user who
+      // spent rounds before 2026-08-26 keeps that history; see the
+      // migration note in lib/voice-usage.mjs.
+      const legacyProfile = (profileSnap && profileSnap.exists) ? profileSnap.data() : null;
+      const used = await readVoiceUsage(db, signedInUid, legacyProfile);
+      voiceUsedBefore = used === null ? 0 : used;
       // Plan state lives on the TEAMS collection (written by
       // stripe-webhook / razorpay-activate) — user_profiles never gets
       // plan/isPro. Resolve via getUserTeam the way the brain endpoints
@@ -993,15 +1014,27 @@ export default async (request, context) => {
         const teamResult = await withTimeout(getUserTeam(signedInUid), 1500, 'plan read');
         const team = teamResult && teamResult.team;
         if (team){
-          const SUB_PLANS = new Set(['byok', 'individual', 'team']);
-          const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
-          isPro = ['individual', 'lifetime', 'team', 'byok'].includes(team.plan)
-            && !(SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status));
+          isPro = planBypassesVoiceCap(team);
         }
       } catch(planErr){
         console.warn('[realtime-session] plan lookup failed:', planErr && planErr.message);
       }
       } // end non-owner cap reads
+      // An anonymous visitor past their taste is asked to sign in, not
+      // asked to pay: 401 rather than 402, because waiting does not clear
+      // it and an account is the next step, not a card. Same shape as the
+      // brain endpoint's SIGN_IN_REQUIRED (2026-08-19). The token path is
+      // skipped for them on purpose, since buying tokens needs a real
+      // account, so an anonymous uid can never hold a balance.
+      if (!isPro && !callerIsNamed && voiceUsedBefore >= freeLimit){
+        return new Response(JSON.stringify({
+          error: 'SIGN_IN_REQUIRED: That was your free voice round. Sign in to keep going.',
+          code: 'SIGN_IN_REQUIRED',
+          signIn: true,
+          used: voiceUsedBefore,
+          limit: freeLimit,
+        }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+      }
       if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){
         // Token-funded path: past the free cap, a token balance covers
         // the round (TOKENS.VOICE_ROUND per mint). Balance is checked
@@ -1018,7 +1051,7 @@ export default async (request, context) => {
           tokenFunded = true;
         } else {
           return new Response(JSON.stringify({
-            error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions. Upgrade to Pro for unlimited voice.',
+            error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice rounds. Voice is $12 a month for unlimited rounds, or top up with tokens.',
             upgrade: true,
             used: voiceUsedBefore,
             limit: FREE_VOICE_LIFETIME_LIMIT,
@@ -1532,22 +1565,26 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       : 'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(model);
     const sdpHeaders = isGA ? {} : { 'OpenAI-Beta': 'realtime=v1' };
 
-    // Mint succeeded — increment the signed-in user's voice counter
-    // atomically. Fire-and-forget: we don't want a Firestore hiccup
-    // to delay the WebRTC handshake the browser is waiting on. If the
-    // increment fails, the next mint call re-reads the (stale) count
-    // and the user effectively gets one extra session — acceptable
-    // failure mode.
+    // Mint succeeded — charge the round.
+    //
+    // AWAITED. This was fire-and-forget, with a comment calling a lost
+    // increment an "acceptable failure mode". On Lambda it is not a
+    // failure mode, it is the DEFAULT one: Netlify freezes the execution
+    // context when the handler returns, so an unawaited write is not
+    // deferred, it is abandoned. spar-pair.mjs learned this in production
+    // on 2026-08-19, where markGuest only ever landed because a later
+    // request happened to rewrite the same doc. Here there is no later
+    // request to save it, so the counter this whole gate reads was being
+    // written unreliably at best. Bounded at 2s so a Firestore stall
+    // still cannot hold the WebRTC handshake open indefinitely.
     if (signedInUid && !isPro){
       try {
-        getDb().collection('user_profiles').doc(signedInUid).set({
-          voiceSessionsUsed: FieldValue.increment(1),
-          voiceSessionLastAt: FieldValue.serverTimestamp(),
-        }, { merge: true }).catch(function(e){
-          console.warn('[realtime-session] increment failed:', e && e.message);
-        });
+        await withTimeout(chargeVoiceRound(getDb(), signedInUid, {
+          anonymous: !callerIsNamed,
+          surface: 'realtime',
+        }), 2000, 'voice charge');
       } catch(e){
-        console.warn('[realtime-session] increment threw:', e && e.message);
+        console.warn('[realtime-session] voice charge failed:', e && e.message);
       }
     }
 
@@ -1591,7 +1628,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       sdpHeaders,
       voiceUsage: signedInUid ? {
         used: voiceUsedBefore + 1,
-        limit: isPro ? null : FREE_VOICE_LIFETIME_LIMIT,
+        limit: isPro ? null : freeLimit,
         isPro: isPro,
         tokenFunded: tokenFunded,
         tokensSpent: tokenFunded ? TOKENS.VOICE_ROUND : 0,

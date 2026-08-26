@@ -494,6 +494,28 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── voice_usage ──────────────────────────────────────────────────
+    // The voice-round counter (2026-08-26). One doc per uid:
+    // { rounds, anonymous, lastRoundAt, lastSurface }. Written ONLY by
+    // the three Realtime minters on the admin SDK (realtime-session,
+    // coach-session, room-judge-session), so no client write allowance
+    // is listed and the default deny is the point.
+    //
+    // IT USED TO LIVE ON user_profiles/{uid}.voiceSessionsUsed, which
+    // this same file grants the owner full write on. So the person being
+    // metered owned the meter: one set({voiceSessionsUsed: 0}) from the
+    // console refilled the free tier on the most expensive surface we
+    // run. The code called that field "the real enforcement". It was not.
+    //
+    // Owner read is allowed for the same reason guest_rounds allows it:
+    // /voice-debate needs to say how many free rounds are left before
+    // starting one, and reading your own count tells you nothing you
+    // could not have counted yourself.
+    match /voice_usage/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
     // ── partner_pool ─────────────────────────────────────────────────
     // The open half of 2v2 partner matching (/partners). Doc ID === uid.
     // FOUND 2026-08-18: this collection had NO rules at all, so under

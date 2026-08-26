@@ -180,7 +180,7 @@ export default async (request) => {
       }
       const { team } = result;
       teamId = team.id;
-      const SUB_PLANS = new Set(['byok', 'individual', 'team']);
+      const SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
       const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
       if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
         return new Response(JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }), {

@@ -227,7 +227,7 @@ export async function requirePaidPlan(request, featureName) {
   const isPaid =
     plan &&
     plan !== 'trial' &&
-    ['individual', 'team', 'lifetime', 'byok'].includes(plan) &&
+    ['individual', 'team', 'lifetime', 'byok', 'voice'].includes(plan) &&
     (!status || status === 'active' || status === 'trialing');
 
   if (!isPaid) {
