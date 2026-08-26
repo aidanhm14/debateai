@@ -1044,17 +1044,25 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
 .ui-topbar-more-panel{
   position:fixed;top:calc(100% + 14px);left:50%;right:auto;z-index:1001;
-  width:min(1660px,calc(100vw - 40px));
+  width:min(1780px,calc(100vw - 48px));
   display:none;
-  /* Five product columns since 2026-08-19. The ceiling went 1480 -> 1660
-     at the same time: splitting the 15-deep column into two only buys
-     height if the columns that remain are still wide enough to keep a
-     label and its description on one line each. Below ~1400 the fifth
-     column wraps to a second row rather than squeezing all five, which
-     is the lesser evil: a wrapped row is readable, a 150px column is
-     not. */
-  grid-template-columns:220px repeat(5,minmax(0,1fr));
-  column-gap:10px;row-gap:0;
+  /* FOUR product columns, matching the four the panel actually builds
+     in topbar.js. This is the SECOND time it has been set to four: the
+     2026-08-26 four-column rebuild landed here and a parallel session's
+     rebase resolution put the five-column rule back the same day, while
+     keeping the four-column JS. The result was a phantom fifth track,
+     so the columns sat left and roughly 270px of panel stood empty on
+     the right — which is exactly the "spread out" the founder then
+     asked for. If you are reconciling this file again: the column
+     COUNT lives in topbar.js, and this number follows it.
+
+     2026-08-26 (later): ceiling 1660 -> 1780 and the gutter 10 -> 20,
+     per the founder ("take up space across horizontally, spread out").
+     Four columns in a 1660 box left each one 339px; at 1780 with real
+     gutters they run ~350px and the rows stop crowding their own
+     descriptions. */
+  grid-template-columns:240px repeat(4,minmax(0,1fr));
+  column-gap:20px;row-gap:0;
   padding:20px 22px 14px;border-radius:20px;
   /* Solid, not --bg-elev: inside the blurred topbar, backdrop-filter
      can't reach the page behind, so a translucent bg lets the hero
@@ -1068,15 +1076,13 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
 .ui-topbar-more-panel::before{
   content:"";position:absolute;left:0;right:0;bottom:100%;height:18px;
 }
-/* The fold points. Five columns need real width; rather than let them
-   compress until "Find a 2v2 partner" wraps to three lines (which would
-   give the height straight back), drop to four and then three columns
-   and let the grid run to a second row. */
-@media (max-width:1400px){
-  .ui-topbar-more-panel{grid-template-columns:220px repeat(4,minmax(0,1fr))}
-}
-@media (max-width:1150px){
-  .ui-topbar-more-panel{grid-template-columns:220px repeat(3,minmax(0,1fr))}
+/* The panel never folds, and that is measured rather than assumed: the
+   Explore button is display:none under 1280px (the mobile sheet takes
+   over), so the narrowest this thing ever renders is a ~1230px box. The
+   wide gutters above are what has to give there, not the column count —
+   a folded row costs more height than a tight gutter costs legibility. */
+@media (max-width:1460px){
+  .ui-topbar-more-panel{grid-template-columns:220px repeat(4,minmax(0,1fr));column-gap:12px}
 }
 .ui-topbar-more-panel.is-open{
   display:grid;
@@ -1101,7 +1107,9 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 /* Spotlight: the flagship live action anchors the left edge. */
-.ui-topbar-more-spotwrap{display:flex;flex-direction:column;gap:6px;min-width:0;margin-right:10px}
+/* The 20px grid gutter replaces the hand-rolled margin this used to
+   carry, so the spotlight sits on the same rhythm as the columns. */
+.ui-topbar-more-spotwrap{display:flex;flex-direction:column;gap:6px;min-width:0}
 .ui-topbar-more-spot{
   flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:10px;
   min-height:214px;padding:18px 18px 16px;border-radius:16px;text-decoration:none;
@@ -1130,15 +1138,30 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
   font-size:12.5px;font-weight:500;line-height:1.45;
   color:color-mix(in srgb,var(--text,#fff) 62%,transparent);
 }
+/* Faces on one line, caption on the next. Side by side, the caption was
+   sharing a ~180px card with the avatar stack and rendering "Real people
+   first. AI if the queue is quiet." over FIVE lines in a 57px gutter —
+   the exact crop the founder zoomed in on. Wrapping the span to its own
+   full-width row gives it the card instead of the leftovers, and is what
+   makes room for the bigger faces below. column-gap is 0 on purpose: the
+   avatars overlap through their own negative margin, and a gap here
+   fights it. */
 .ui-topbar-more-spot-proof{
-  margin-top:auto;display:flex;align-items:center;gap:9px;min-width:0;
+  margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;
+  column-gap:0;row-gap:9px;min-width:0;
 }
 .ui-topbar-more-spot-proof img{
-  flex:none;width:24px;height:24px;border-radius:999px;object-fit:cover;
+  /* 2026-08-26, the founder on a zoom of this row: "on the images
+     increase their size a bit". 24 -> 32, which is the smallest size a
+     face reads as a face rather than as a coloured dot; the negative
+     margin grows with it so the stack keeps the same overlap ratio and
+     the row's width barely moves. */
+  flex:none;width:32px;height:32px;border-radius:999px;object-fit:cover;
   border:2px solid color-mix(in srgb,var(--accent) 6%,var(--bg-elev-solid,#17171b));
 }
-.ui-topbar-more-spot-proof img + img{margin-left:-11px}
+.ui-topbar-more-spot-proof img + img{margin-left:-13px}
 .ui-topbar-more-spot-proof>span{
+  flex:0 0 100%;
   min-width:0;font-size:11.5px;font-weight:600;line-height:1.3;
   color:color-mix(in srgb,var(--text,#fff) 56%,transparent);
 }
@@ -1188,42 +1211,36 @@ body.ui-sheet-open .upgrade-cta{display:none !important}
    These are the DARK-panel values (panel bg #17171b), so they run bright.
    The light-theme block further down darkens all four for white. */
 .ui-topbar-more-col.ui-col-1{--col:var(--accent,#ef4444)}  /* Debate  · red    */
-.ui-topbar-more-col.ui-col-2{--col:#6ea0f7}                /* Improve · blue   */
-.ui-topbar-more-col.ui-col-3{--col:#a78bfa}                /* Compete · violet */
-.ui-topbar-more-col.ui-col-4{--col:#f472b6}                /* Watch   · pink   */
-.ui-topbar-more-col.ui-col-5{--col:#3ecfbb}                /* Train   · teal   */
+.ui-topbar-more-col.ui-col-2{--col:#3ecfbb}                /* Practice · teal   */
+.ui-topbar-more-col.ui-col-3{--col:#a78bfa}                /* Learn    · violet */
+.ui-topbar-more-col.ui-col-4{--col:#f472b6}                /* Watch    · pink   */
 /* Light theme: the panel goes solid white (--bg-elev-solid), where the
    bright values above sit around 2:1 on body text and read washed out.
    Verified against #ffffff, not assumed from the dark pair — a light and
    dark token pair is not proof that both render (see the standing note in
    memory). Column 1 needs no entry: --accent is already #b91c1c on light. */
 [data-theme="light"] .ui-topbar-more-col.ui-col-2,
-body.light-theme .ui-topbar-more-col.ui-col-2{--col:#1d4ed8}
+body.light-theme .ui-topbar-more-col.ui-col-2{--col:#0f766e}
 [data-theme="light"] .ui-topbar-more-col.ui-col-3,
 body.light-theme .ui-topbar-more-col.ui-col-3{--col:#6d28d9}
 [data-theme="light"] .ui-topbar-more-col.ui-col-4,
 body.light-theme .ui-topbar-more-col.ui-col-4{--col:#be185d}
-[data-theme="light"] .ui-topbar-more-col.ui-col-5,
-body.light-theme .ui-topbar-more-col.ui-col-5{--col:#0f766e}
 /* --col-text: the same accent, but at a strength that clears 4.5:1 as
    TYPE on this theme's panel. Column 1 is the one that actually needed
    splitting: brand red is 4.26:1 on the dark panel, so an active label
    in the Debate column failed while the other three passed. */
 .ui-topbar-more-col.ui-col-1{--col-text:#f87171}
-.ui-topbar-more-col.ui-col-2{--col-text:#6ea0f7}
+.ui-topbar-more-col.ui-col-2{--col-text:#3ecfbb}
 .ui-topbar-more-col.ui-col-3{--col-text:#a78bfa}
 .ui-topbar-more-col.ui-col-4{--col-text:#f472b6}
-.ui-topbar-more-col.ui-col-5{--col-text:#3ecfbb}
 [data-theme="light"] .ui-topbar-more-col.ui-col-1,
 body.light-theme .ui-topbar-more-col.ui-col-1{--col-text:#b91c1c}
 [data-theme="light"] .ui-topbar-more-col.ui-col-2,
-body.light-theme .ui-topbar-more-col.ui-col-2{--col-text:#1d4ed8}
+body.light-theme .ui-topbar-more-col.ui-col-2{--col-text:#0f766e}
 [data-theme="light"] .ui-topbar-more-col.ui-col-3,
 body.light-theme .ui-topbar-more-col.ui-col-3{--col-text:#6d28d9}
 [data-theme="light"] .ui-topbar-more-col.ui-col-4,
 body.light-theme .ui-topbar-more-col.ui-col-4{--col-text:#be185d}
-[data-theme="light"] .ui-topbar-more-col.ui-col-5,
-body.light-theme .ui-topbar-more-col.ui-col-5{--col-text:#0f766e}
 /* Secondary text in the panel, light theme only.
    The alphas below were tuned against the DARK panel, where white at 46
    to 52% still clears 4.5:1. The same alphas of near-black on white land
