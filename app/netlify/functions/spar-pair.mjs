@@ -185,8 +185,19 @@ function skipActive(data, uid) {
   const ghostAt = data?.ghostAt && data.ghostAt[uid];
   if (ghostAt && (Date.now() - tsMs(ghostAt)) <= GHOST_SKIP_TTL_MS) return true;
   const at = data?.skipAt && data.skipAt[uid];
+  // Test the FIELD, not tsMs's return. tsMs defaults a missing stamp to
+  // Date.now() on purpose (an unresolved serverTimestamp means "just
+  // written", and reading it as epoch 0 is the bug that once cancelled
+  // freshly-queued peers as ghosts). That default makes the old
+  // `if (!t) return false` line unreachable, so a uid in skipUids with
+  // no skipAt read as a permanently fresh skip — the exact opposite of
+  // the comment that stood here. Latent before, reachable now: the
+  // ghost path deliberately stamps ghostAt and no skipAt, so every
+  // expired ghost would have fallen straight into it and hidden that
+  // peer for good.
+  if (!at) return false;             // no pass stamp at all = nothing blocking
   const t = tsMs(at);
-  if (!t) return false;              // no stamp (legacy doc) = expired
+  if (!t) return false;
   return (Date.now() - t) <= SKIP_TTL_MS;
 }
 
