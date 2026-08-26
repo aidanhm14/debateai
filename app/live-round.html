@@ -4791,6 +4791,14 @@ html.stage-mode .stage-ov{display:block}
     // a readable record of what was agreed for the rest of the round.
     try { renderJudgeDraft(); } catch(e){}
     try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
+    // Deterministic per-speech reset for the room-audio backstop. bkTick
+    // carries the same guard, but it runs on a 3s timer and the flag it
+    // clears (bk.owning) suppresses the local mic while it is set, so
+    // leaving it to the timer would mute the incoming speaker's own
+    // transcript for the first seconds of their speech. Keyed on the
+    // speech index, so the mid-round renderRound calls (a resolution
+    // change agreed before Speech 1) cannot drop a live capture.
+    try { startBackstopLoop(); if (bk.idx !== state.speechIdx) bkReset(); } catch(e){}
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
@@ -5434,7 +5442,12 @@ html.stage-mode .stage-ov{display:block}
     _liveTranscriptTimer = setTimeout(function(){
       _liveTranscriptTimer = null;
       publishLiveTranscript();
-    }, 750);
+      // 750ms was a write, a listener wake and a render pass on every
+      // client in the room, ~80 times a minute, to move a caption a few
+      // words. 1200ms reads the same to someone following along and cuts
+      // that traffic by a third. The trailing read means the tail of a
+      // speech still lands: endSpeech commits the textarea, not this.
+    }, 1200);
   }
   function publishLiveTranscript(){
     if (isSpectator()) return;
@@ -6096,9 +6109,16 @@ html.stage-mode .stage-ov{display:block}
   function micRender(interim){
     var ta = $('speechText');
     if (!ta) return;
-    var next = [mic.base, state.micFinal, interim]
-      .map(function(s){ return (s || '').trim(); })
-      .filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
+    // While the room-audio backstop owns this speech (see bk, below) the
+    // base IS the whole transcript and the local engine is deliberately
+    // ignored. Merging the two would append a second copy of words the
+    // backup already has, which is the duplication failure the rewrite
+    // rule above exists to prevent.
+    var next = (bk && bk.owning)
+      ? String(mic.base || '').trim()
+      : [mic.base, state.micFinal, interim]
+          .map(function(s){ return (s || '').trim(); })
+          .filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
     if (ta.value !== next) ta.value = next;
     mic.own = next;
     updateWordCount();
@@ -6115,6 +6135,9 @@ html.stage-mode .stage-ov{display:block}
   function micNoteUserEdit(){
     var ta = $('speechText');
     if (!ta || ta.value === mic.own) return;   // our own write, ignore
+    // Typing is the speaker taking the box back. The backstop stops
+    // overwriting them, for the same reason the mic stops fighting them.
+    if (bk) bk.owning = false;
     mic.base = ta.value;
     mic.finals = []; mic.offset = 0;
     state.micFinal = '';
@@ -6436,6 +6459,238 @@ html.stage-mode .stage-ov{display:block}
       srv.stream = null;
     }
     srv.borrowed = false;
+  }
+
+  // ── Backstop transcription: the ROOM's audio, heard by the other side
+  // ───────────────────────────────────────────────────────────────────
+  // Everything above transcribes the speaker's OWN microphone on the
+  // speaker's OWN machine, and every engine in that chain can fail on
+  // precisely the device that matters. Web Speech is absent in Firefox,
+  // switched off in Brave, unreliable on iOS; the server engine needs a
+  // capture this page is already contending for (the camera pipeline
+  // holds one, Daily publishes it). When the chain fails it fails TOTAL:
+  // the judge reads the transcript and nothing else, so a dead mic is a
+  // speech that, to the ballot, never happened.
+  //
+  // The audio is not lost, though. It is in the room, and the person on
+  // the other side is receiving it right now. So when the speaker's
+  // published transcript stops growing while their clock runs, the IDLE
+  // side records the speaker's own Daily audio track and posts segments
+  // to /api/transcribe, then publishes the result back on the round doc
+  // as `backupTranscript`. The speaker's client adopts it into the box,
+  // where it is visible, editable, and committed by endSpeech like any
+  // other text. Nothing downstream learns a new shape.
+  //
+  // Four properties this is built around:
+  //   - It costs NOTHING in the healthy case. It arms only after the
+  //     primary has demonstrably stalled and disarms the moment the
+  //     primary produces again.
+  //   - ONE client runs it, elected by the same idle-lowest-uid rule the
+  //     fact checker uses, so a 2v2 does not post four transcripts of
+  //     one speech.
+  //   - It reaches call-object mode only, which means seated debaters.
+  //     Spectators run the prebuilt iframe and cannot see a remote
+  //     track, and that is correct: an audience browser is not part of
+  //     the record.
+  //   - The MediaStream here WRAPS a room track. Releasing it means
+  //     dropping the reference, never calling stop() — the same rule
+  //     releaseBoardVids follows, and for the same reason: stopping it
+  //     would cut the speaker's audio to everybody.
+  var BK_SEG_MS = 9000;            // a segment lands before it is stale
+  var BK_STALL_MS = 14000;         // primary this quiet, mid-clock, is dead
+  var BK_MIN_ELAPSED_MS = 12000;   // never arm on the first breath
+  var BK_MAX_SEGS = 60;            // ~9 minutes: a ceiling on spend per speech
+  var BK_TICK_MS = 3000;
+  var bk = {
+    loop:0, on:false, owning:false, idx:-1, rec:null, stream:null, mime:'',
+    seq:0, timer:0, parts:[], published:'', lastSeen:null, lastGrowAt:0, adopted:'',
+  };
+  function bkWords(t){
+    t = String(t || '').trim();
+    return t ? t.split(/\s+/).length : 0;
+  }
+  // The active speaker's audio, as this client receives it. Named seats
+  // match by display name, the same mapping refreshBoardTracks uses. The
+  // unnamed fallback applies ONLY when there is exactly one other
+  // debater in the room, because in a 2v2 "the other person" is four
+  // people and guessing would transcribe the wrong one.
+  function bkSpeakerAudioTrack(){
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches && f.speeches[state.speechIdx];
+    if (!sp || !room.call) return null;
+    var wantName = sideBench(f, sp.side) === 'gov' ? state.proName : state.conName;
+    var ps = {};
+    try { ps = room.call.participants() || {}; } catch(e){ return null; }
+    var others = [];
+    Object.keys(ps).forEach(function(k){
+      var p = ps[k];
+      if (!p || p.local) return;                      // never our own mic
+      if (isAudienceName(p.user_name)) return;        // audience cams are not debaters
+      var t = trackOf(p.tracks && p.tracks.audio);
+      if (!t) return;                                 // muted or not yet playable
+      others.push({ name: p.user_name, track: t });
+    });
+    for (var i = 0; i < others.length; i++){
+      if (wantName && others[i].name === wantName) return others[i].track;
+    }
+    return others.length === 1 ? others[0].track : null;
+  }
+  function bkStopCapture(){
+    if (bk.timer){ clearTimeout(bk.timer); bk.timer = 0; }
+    try { if (bk.rec && bk.rec.state === 'recording') bk.rec.stop(); } catch(e){}
+    bk.rec = null;
+    bk.stream = null;   // wraps a room track: drop the reference, never stop it
+    bk.on = false;
+  }
+  function bkReset(){
+    bkStopCapture();
+    bk.idx = state.speechIdx;
+    bk.seq = 0; bk.parts = []; bk.published = '';
+    bk.lastSeen = null; bk.lastGrowAt = 0;
+    bk.owning = false; bk.adopted = '';
+  }
+  function bkPublish(){
+    if (bk.idx !== state.speechIdx) return;      // the speech moved on
+    var text = bk.parts.filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
+    if (!text || text === bk.published) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    bk.published = text;
+    ref.set({
+      backupTranscript: {
+        speechIdx: bk.idx,
+        text: text.slice(0, 8000),
+        by: (state.user && state.user.uid) || '',
+        updatedAtMs: Date.now(),
+      },
+    }, { merge: true }).catch(function(){});
+  }
+  function bkUpload(blob, seq, attempt){
+    if (!blob || blob.size < 2048) return;
+    var fd = new FormData();
+    fd.append('audio', blob, 'segment');
+    fd.append('carry', bk.parts.filter(Boolean).join(' ').slice(-380));
+    fetch('/api/transcribe', { method:'POST', body: fd })
+      .then(function(r){ if (!r.ok) throw new Error('transcribe ' + r.status); return r.json(); })
+      .then(function(d){
+        bk.parts[seq] = (d && d.text) ? String(d.text).trim() : '';
+        bkPublish();
+      })
+      .catch(function(){
+        if ((attempt || 0) < 1) return bkUpload(blob, seq, (attempt || 0) + 1);
+        bk.parts[seq] = '';   // a nine-second hole beats stalling the speech
+      });
+  }
+  function bkSegment(){
+    if (!bk.on || !bk.stream) return;
+    if (bk.seq >= BK_MAX_SEGS){ bkStopCapture(); return; }
+    var chunks = [];
+    try {
+      bk.rec = bk.mime ? new MediaRecorder(bk.stream, { mimeType: bk.mime }) : new MediaRecorder(bk.stream);
+    } catch(e){ bkStopCapture(); return; }
+    var mySeq = bk.seq++;
+    bk.rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+    bk.rec.onstop = function(){
+      // Reopen before uploading, so the seam between segments is
+      // milliseconds rather than a network round trip.
+      if (bk.on) bkSegment();
+      bkUpload(new Blob(chunks, { type: bk.mime || 'audio/webm' }), mySeq, 0);
+    };
+    try { bk.rec.start(); } catch(e){ bkStopCapture(); return; }
+    bk.timer = setTimeout(function(){
+      if (bk.rec && bk.rec.state === 'recording') bk.rec.stop();
+    }, BK_SEG_MS);
+  }
+  function bkStart(){
+    if (bk.on) return;
+    if (!window.MediaRecorder || !window.MediaRecorder.isTypeSupported) return;
+    var track = bkSpeakerAudioTrack();
+    if (!track) return;                 // nothing playable to listen to yet
+    bk.on = true;
+    bk.idx = state.speechIdx;
+    bk.mime = srvMime();
+    bk.stream = new MediaStream([track]);
+    bkSegment();
+    try { gtag('event', 'live_round_backstop_start', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+  }
+  function bkTick(){
+    if (state.phase !== 'round' || !state.user || isSpectator()){ bkStopCapture(); return; }
+    // A new speech carries nothing over, and this has to run before the
+    // my-turn return so the SPEAKER's own owning flag clears too.
+    if (bk.idx !== state.speechIdx) bkReset();
+    if (isMyTurn()) return;             // my own mic owns my own speech
+    if (!CUSTOM_TRACK_OK || !room.call || !room.joined){ bkStopCapture(); return; }
+    if (!isFactCheckDriver()){ bkStopCapture(); return; }
+    // firestore.rules lets a SEATED debater write the round doc, and a
+    // 2v2 partner (proUid2 / conUid2) is not one. Without this a partner
+    // could be elected driver, spend real money transcribing, and have
+    // every publish rejected. Rooms that never wrote seat uids fall
+    // through, because the rule lets anyone signed in write those.
+    if (state.proUid && state.conUid
+        && state.user.uid !== state.proUid && state.user.uid !== state.conUid){
+      bkStopCapture(); return;
+    }
+    if (state.timerState !== 'running'){ bkStopCapture(); return; }
+    var elapsedMs = 0;
+    try { elapsedMs = getElapsed() * 1000; } catch(e){}
+    if (elapsedMs < BK_MIN_ELAPSED_MS) return;
+    var now = Date.now();
+    // state.fcText is the speaker's published transcript, mirrored onto
+    // this client by the snapshot handler and reset at every speech.
+    var seen = String(state.fcText || '');
+    // Our own backup, adopted by the speaker and republished by them,
+    // comes back around looking like the primary producing text. Taken
+    // as growth it would keep pushing the stall deadline forward on the
+    // strength of our own output, so a speech whose mic died once could
+    // never re-arm the backstop after a recovery. Prefix in EITHER
+    // direction counts: the speaker's republish lags our segments, so
+    // what comes back is usually a SHORTER prefix of what we have
+    // published, and testing only one way round measures nothing.
+    var echo = !!bk.published && !!seen
+      && (seen.indexOf(bk.published) === 0 || bk.published.indexOf(seen) === 0);
+    if (bk.lastSeen === null || seen !== bk.lastSeen){
+      bk.lastSeen = seen;
+      if (!echo) bk.lastGrowAt = now;
+    }
+    if (!bk.lastGrowAt) bk.lastGrowAt = now;
+    if (bk.on){
+      // The speaker's own mic came back and is ahead of us. Stand down.
+      if (!echo && bkWords(seen) > bkWords(bk.published) + 5) bkStopCapture();
+      return;
+    }
+    if (now - bk.lastGrowAt < BK_STALL_MS) return;
+    bkStart();
+  }
+  function startBackstopLoop(){
+    if (bk.loop) return;
+    bk.loop = setInterval(function(){ try { bkTick(); } catch(e){} }, BK_TICK_MS);
+  }
+  // The speaker's side of it. Adoption is deliberately narrow: it takes
+  // over only when the local capture has produced essentially nothing,
+  // because a box that is filling is a mic that works and overwriting it
+  // would be exactly the glitch this whole subsystem exists to prevent.
+  // Once adopted, the local engine is muted for the rest of the speech
+  // (bk.owning, read by micRender) rather than merged with, so a mic
+  // that revives cannot append a second copy of what the backup already
+  // holds. Typing takes the box back.
+  function adoptBackupTranscript(text){
+    text = String(text || '').trim();
+    if (!text || text === bk.adopted) return;
+    var ta = $('speechText');
+    if (!ta) return;
+    if (!bk.owning){
+      if (bkWords(ta.value) >= 15) return;    // local capture is doing its job
+      if (bkWords(text) < 8) return;          // too little to be worth a takeover
+      bk.owning = true;
+      toast('Your mic went quiet, so the room audio is being transcribed instead.');
+      try { gtag('event', 'live_round_backstop_adopted', { format: state.formatKey }); } catch(e){}
+    }
+    bk.adopted = text;
+    mic.base = text;
+    mic.finals = []; mic.offset = 0;
+    state.micFinal = '';
+    micRender('');
+    micState('live', 'Room audio');
   }
 
   function setMicActive(on){
@@ -9836,6 +10091,7 @@ html.stage-mode .stage-ov{display:block}
     if (ref) ref.update({
       currentTimer: firebase.firestore.FieldValue.delete(),
       currentTranscript: firebase.firestore.FieldValue.delete(),
+      backupTranscript: firebase.firestore.FieldValue.delete(),
     }).catch(function(){});
     _lastPublishedTranscript = '';
     if (_liveTranscriptTimer){ clearTimeout(_liveTranscriptTimer); _liveTranscriptTimer = null; }
@@ -16340,9 +16596,23 @@ html.stage-mode .stage-ov{display:block}
 
   function onRoundSnapshot(d){
     var changedSetup = false;
+    // ── Snapshot repaint gating ──────────────────────────────────────
+    // This listener fires on EVERY write to the round doc, and during a
+    // speech the live transcript republishes about once a second, so the
+    // three unconditional repaints below were running ~60 times a minute
+    // on both debaters and every spectator, each one rewriting the same
+    // strings into the same nodes. That is main-thread time taken from
+    // the thing the page is actually for, which is the video. Each is
+    // now gated on its own inputs having changed; every one of them has
+    // other call sites for the transitions that genuinely need a
+    // repaint, so nothing here is the only route to a fresh screen.
     if (d.participantAvatars && typeof d.participantAvatars === 'object'){
-      state.participantAvatars = Object.assign({}, state.participantAvatars || {}, d.participantAvatars);
-      updateRoomStage();
+      var avSig = JSON.stringify(d.participantAvatars);
+      if (avSig !== state.avatarSig){
+        state.avatarSig = avSig;
+        state.participantAvatars = Object.assign({}, state.participantAvatars || {}, d.participantAvatars);
+        updateRoomStage();
+      }
     }
     // Visibility is only knowable from the round document, and the
     // admission gate defaults to "ask" until it arrives. Re-check on
@@ -16359,7 +16629,13 @@ html.stage-mode .stage-ov{display:block}
     // before this shipped, or a beat that raced ahead of its count read,
     // leaves the last known number up instead of blanking the pill.
     if (typeof d.watchCount === 'number'){
-      renderWatchCount(d.watchCount, !!d.watchCountCapped);
+      // renderWatchCount ends in updateRoomStage(), so an unchanged
+      // number was repainting both nameplates and both avatars.
+      var wcSig = d.watchCount + '|' + (d.watchCountCapped ? 1 : 0);
+      if (wcSig !== state.watchCountSig){
+        state.watchCountSig = wcSig;
+        renderWatchCount(d.watchCount, !!d.watchCountCapped);
+      }
     }
     // Opponent forfeited (spar 'Next →' was hit by the other side).
     // Show a banner + auto-bounce back to the queue after 4s so we
@@ -16603,6 +16879,16 @@ html.stage-mode .stage-ov{display:block}
       }
     }
 
+    // The speaker's side of the room-audio backstop. The idle client
+    // publishes what it heard; only the speaker adopts it, and only when
+    // their own capture has produced nothing worth keeping. Everyone
+    // else on the round doc reads this field as inert data.
+    if (state.phase === 'round' && d.backupTranscript && isMyTurn()
+        && d.backupTranscript.speechIdx === state.speechIdx
+        && d.backupTranscript.by !== ((state.user && state.user.uid) || '')){
+      try { adoptBackupTranscript(d.backupTranscript.text); } catch(e){}
+    }
+
     // Floor-judge remark sync (hidden feature). The acting debater's
     // client wrote it; every client with the flag on renders it. No-op
     // for everyone else — the doc field is just inert data to them.
@@ -16724,7 +17010,25 @@ html.stage-mode .stage-ov{display:block}
     }
     // Run after phase reconciliation so someone entering a round already
     // in progress is asked as soon as their participant seat is known.
-    maybePromptCloudRecording(d);
+    // cloudRec.doc adopts the fresh document unconditionally, because
+    // other readers hold it; only the relabel and the consent check are
+    // gated. The elapsed readout is driven by cloudRec.tick once a
+    // second, so gating here cannot freeze a running clock.
+    var recSig = [
+      d.recordingStatus || '',
+      d.recordingClosed ? 1 : 0,
+      d.recordingPublishAllowed === true ? 1 : 0,
+      JSON.stringify(d.recordingConsents || {}),
+      d.proUid || '', d.proUid2 || '', d.conUid || '', d.conUid2 || '',
+      d.proName || '', d.proName2 || '', d.conName || '', d.conName2 || '',
+      state.phase,
+    ].join('|');
+    if (recSig !== state.recUiSig){
+      state.recUiSig = recSig;
+      maybePromptCloudRecording(d);
+    } else {
+      cloudRec.doc = d || {};
+    }
   }
 
   function publishRoundInit(){
