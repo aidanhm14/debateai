@@ -316,7 +316,11 @@
     { href: '/coach',         label: 'Coach', wip: true },
     // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
     // label short so the bar still fits at laptop widths.
-    { href: '/room-judge',    label: 'Room'         },
+    // 2026-08-26, per Aidan: pulled off every nav surface while it is
+    // still being built ("don't need this here rn"). /room-judge stays
+    // live and reachable by direct link, same as every other nav
+    // demotion here. Restore = uncomment the row below.
+    // { href: '/room-judge',    label: 'Room'         },
     // FAQ stays off the bar; the landing carries it in-page.
     // 2026-05-22: /champions removed from the topbar nav per user ask.
     // The page stays live + crawlable; just not surfaced in the bar.
