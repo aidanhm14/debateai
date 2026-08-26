@@ -1,21 +1,26 @@
 /* community-channels.js
  *
- * The community chat, channelized (2026-08-11). Replaces
- * community-chat.js as the owner of the Live tab on /community:
- * a channel rail on the left, one live room on the right.
+ * The signed-in channel rooms on /community. Secondary to The
+ * Commons, which is the main room and is not built here.
  *
- * Two kinds of channel, two backends:
- *   - #lobby is the existing anonymous room. Same server-mediated
- *     /api/chat-feed backend as before (per-IP rate limit, length
- *     cap, sanitization), same pinned localStorage handle, polled.
- *     Zero-friction stays zero-friction.
- *   - Every other channel is signed-in Firestore chat at
- *     community_channels/{ch}/messages. Real-time onSnapshot, but
- *     quota-conscious by construction: ONE subscription at a time
- *     (the active channel only, limit 40), detached when the tab is
- *     hidden or the user leaves the pane. Reads are public so
- *     lurkers can see the room is alive before signing in; posting
- *     requires a named Google account (rules enforce it).
+ * THE COMMONS DOES NOT LIVE IN THIS FILE (2026-08-26). It used to,
+ * as an `anon:true` channel called #lobby polling /api/chat-feed
+ * with its own copy of the handle, the send, the rendering and the
+ * failure behaviour. /community now mounts the real room from
+ * js/community-chat.js, the module /chat and /spar already share,
+ * and it is on screen in the rail rather than behind a tab. Two
+ * clients against one endpoint is two poll loops and two chances to
+ * drift, so the lobby is gone rather than duplicated. If you find
+ * yourself adding `fetch('/api/chat-feed')` back here, mount
+ * DEBATEAI_CHAT instead.
+ *
+ * Every channel here is signed-in Firestore chat at
+ * community_channels/{ch}/messages. Real-time onSnapshot, but
+ * quota-conscious by construction: ONE subscription at a time
+ * (the active channel only, limit 40), detached when the tab is
+ * hidden or the user leaves the pane. Reads are public so
+ * lurkers can see the room is alive before signing in; posting
+ * requires a named Google account (rules enforce it).
  *
  * Unread dots: one limit(1) probe per named channel when the pane
  * opens (9 cheap reads), compared against a localStorage lastSeen
@@ -26,7 +31,6 @@
   'use strict';
 
   const CHANNELS = [
-    { id: 'lobby',        label: 'lobby',        topic: 'Anonymous room. No sign-in, say anything.', anon: true },
     { id: 'general',      label: 'general',      topic: 'The main hall. Introduce yourself.' },
     { id: 'find-a-round', label: 'find-a-round', topic: 'Looking for an opponent? Post your format and time.' },
     { id: 'motions',      label: 'motions',      topic: 'Motions worth running, prep, and case ideas.' },
@@ -38,38 +42,21 @@
     { id: 'help',         label: 'help',         topic: 'Stuck on anything? Ask here.' },
   ];
 
-  const ANON_ENDPOINT = '/api/chat-feed';
-  const HANDLE_KEY = 'da-chat-handle';
   const ACTIVE_KEY = 'da-community-channel';
   const SEEN_KEY = 'da-community-seen';
   const MSG_MAX = 500;
-  const ANON_MSG_MAX = 280;
-  const ANON_POLL_MS = 20000;
-  const ANON_POLL_HIDDEN_MS = 60000;
 
   let db = null, auth = null, user = null;
   let active = null;          // channel object
   let unsub = null;           // firestore unsubscribe
-  let anonTimer = null;
-  let anonLastId = null;
   let pinned = true;          // stuck to bottom?
   let paneVisible = false;
   let els = {};
 
   // ── identity ───────────────────────────────────────────────
-  function anonHandle(){
-    let h = null;
-    try { h = localStorage.getItem(HANDLE_KEY); } catch(e){}
-    if (h) return h;
-    if (window.DEBATEAI_SEED && typeof window.DEBATEAI_SEED.buildLurkerPool === 'function'){
-      const pool = (window.DEBATEAI_SEED.buildLurkerPool(80) || [])
-        .filter(p => p.displayName && p.displayName !== 'Anonymous' && p.displayName !== '?' && p.displayName !== '—');
-      if (pool.length) h = pool[Math.floor(Math.random() * pool.length)].displayName;
-    }
-    if (!h) h = 'guest_' + (1000 + Math.floor(Math.random() * 8999));
-    try { localStorage.setItem(HANDLE_KEY, h); } catch(e){}
-    return h;
-  }
+  // The anonymous handle is not read here any more. It belongs to
+  // community-chat.js (localStorage `da-chat-handle`), which owns the
+  // one room that uses it.
 
   function seenMap(){
     try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch(e){ return {}; }
@@ -124,13 +111,13 @@
     pane.innerHTML =
       '<div class="disc">' +
         '<aside class="disc-rail" aria-label="Channels">' +
-          '<div class="disc-rail-head"><span>Chat rooms</span><span class="disc-open"><i></i>open</span></div>' +
+          '<div class="disc-rail-head"><span>Other rooms</span><span class="disc-open"><i></i>open</span></div>' +
           CHANNELS.map(c =>
             '<button type="button" class="disc-ch" data-ch="' + c.id + '">' +
               '<span class="disc-ch-hash">#</span>' + c.label +
               '<i class="disc-dot" hidden></i>' +
             '</button>').join('') +
-          '<div class="disc-rail-foot">Private messages live in your <a href="/spar">inbox on /spar</a>.</div>' +
+          '<div class="disc-rail-foot">These rooms need an account. The Commons, just above, is open to everyone. Private messages live in <a href="/chat">your inbox</a>.</div>' +
         '</aside>' +
         '<section class="disc-main">' +
           '<header class="disc-head">' +
@@ -176,22 +163,7 @@
   function renderInputRow(){
     const ch = active;
     if (!ch) return;
-    if (ch.anon){
-      els.inputRow.innerHTML =
-        '<div class="disc-compose">' +
-          '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + ANON_MSG_MAX + '" placeholder="Drop a motion, ask for a round, or disagree with someone." autocomplete="off"></textarea>' +
-          '<span class="disc-keyhint">Enter sends · Shift + Enter adds a line</span>' +
-        '</div>' +
-        '<div class="disc-input-meta">' +
-          '<button id="discReroll" class="disc-reroll" type="button" title="Pick a new anonymous handle">re-roll handle</button>' +
-          '<span id="discCount" class="disc-count">0/' + ANON_MSG_MAX + '</span>' +
-          '<button id="discSend" class="disc-send" type="button">Send</button>' +
-        '</div>';
-      els.inputRow.querySelector('#discReroll').addEventListener('click', () => {
-        try { localStorage.removeItem(HANDLE_KEY); } catch(e){}
-        renderIdent();
-      });
-    } else if (user && !user.isAnonymous){
+    if (user && !user.isAnonymous){
       els.inputRow.innerHTML =
         '<div class="disc-compose">' +
           '<textarea id="discInput" class="disc-input" rows="1" maxlength="' + MSG_MAX + '" placeholder="Message #' + escHtml(ch.label) + '." autocomplete="off"></textarea>' +
@@ -216,9 +188,8 @@
     const input = els.inputRow.querySelector('#discInput');
     const count = els.inputRow.querySelector('#discCount');
     const send = els.inputRow.querySelector('#discSend');
-    const max = ch.anon ? ANON_MSG_MAX : MSG_MAX;
     input.addEventListener('input', () => {
-      count.textContent = input.value.length + '/' + max;
+      count.textContent = input.value.length + '/' + MSG_MAX;
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 130) + 'px';
     });
@@ -242,9 +213,7 @@
 
   function renderIdent(){
     if (!active) return;
-    if (active.anon){
-      els.ident.innerHTML = 'posting as <b>' + escHtml(anonHandle()) + '</b> &middot; anonymous room';
-    } else if (user && !user.isAnonymous){
+    if (user && !user.isAnonymous){
       els.ident.innerHTML = 'posting as <b>' + escHtml(postingName() || 'you') + '</b>';
     } else {
       els.ident.textContent = 'read-only until you sign in';
@@ -358,53 +327,6 @@
     });
   }
 
-  // ── anon lobby (server-mediated, polled) ───────────────────
-  function pollAnon(){
-    fetch(ANON_ENDPOINT).then(r => r.ok ? r.json() : null).then(j => {
-      if (!j || !Array.isArray(j.rows) || !active || !active.anon) return;
-      // Join rows are dropped, and the server drops them too as of
-      // 2026-08-23. They used to be rendered as "<name> joined" system
-      // lines, but their only writer stopped supplying a name when this
-      // module replaced community-chat.js, so the room filled with
-      // identical "Anonymous joined" rows and the real conversation was
-      // pushed off the bottom of the scroller. Kept as a client-side
-      // guard so any legacy row still in the window never renders.
-      const msgs = j.rows.filter(e => e.kind !== 'join').map(e => ({
-        uid: 'anon:' + (e.handle || ''),
-        name: e.handle || 'guest',
-        photo: '',
-        text: e.text || '',
-        ts: e.at || Date.now(),
-        kind: 'msg',
-      }));
-      const newest = j.rows.length ? String(j.rows[j.rows.length-1].id || '') : '';
-      if (newest === anonLastId) return;
-      anonLastId = newest;
-      paint(msgs);
-      markSeen('lobby');
-    }).catch(()=>{});
-  }
-  function startAnon(){
-    els.scroll.innerHTML = loadingHtml();
-    anonLastId = null;
-    pollAnon();
-    schedAnon();
-  }
-  function schedAnon(){
-    stopAnon();
-    anonTimer = setInterval(pollAnon, document.hidden ? ANON_POLL_HIDDEN_MS : ANON_POLL_MS);
-  }
-  function stopAnon(){
-    if (anonTimer){ clearInterval(anonTimer); anonTimer = null; }
-  }
-  function sendAnon(text){
-    return fetch(ANON_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ handle: anonHandle(), text: text }),
-    }).then(r => { if (!r.ok) throw new Error('post failed'); pollAnon(); });
-  }
-
   // ── shared send ────────────────────────────────────────────
   function doSend(){
     const input = els.inputRow.querySelector('#discInput');
@@ -413,14 +335,13 @@
     if (!text) return;
     const send = els.inputRow.querySelector('#discSend');
     if (send) send.disabled = true;
-    const p = active.anon ? sendAnon(text) : sendFs(text);
-    p.then(() => {
+    sendFs(text).then(() => {
       input.value = '';
       input.style.height = 'auto';
       const count = els.inputRow.querySelector('#discCount');
-      if (count) count.textContent = '0/' + (active.anon ? ANON_MSG_MAX : MSG_MAX);
+      if (count) count.textContent = '0/' + MSG_MAX;
       pinned = true;
-      track('community_msg_sent', { channel: active.id, anon: !!active.anon });
+      track('community_msg_sent', { channel: active.id });
     }).catch(() => {
       input.classList.add('disc-input--err');
       setTimeout(() => input.classList.remove('disc-input--err'), 1600);
@@ -430,7 +351,6 @@
   // ── channel switching ──────────────────────────────────────
   function teardownFeed(){
     if (unsub){ try { unsub(); } catch(e){} unsub = null; }
-    stopAnon();
   }
   function switchChannel(id){
     const ch = CHANNELS.find(c => c.id === id) || CHANNELS[0];
@@ -448,9 +368,7 @@
     teardownFeed();
     renderIdent();
     renderInputRow();
-    if (paneVisible){
-      if (ch.anon) startAnon(); else subscribeFs(ch);
-    }
+    if (paneVisible) subscribeFs(ch);
     track('community_channel_open', { channel: ch.id });
   }
 
@@ -458,7 +376,7 @@
   function probeUnread(){
     if (!db) return;
     const seen = seenMap();
-    CHANNELS.filter(c => !c.anon).forEach(c => {
+    CHANNELS.forEach(c => {
       db.collection('community_channels').doc(c.id).collection('messages')
         .orderBy('createdAt', 'desc').limit(1).get()
         .then(snap => {
@@ -482,17 +400,14 @@
       if (vis === paneVisible) return;
       paneVisible = vis;
       if (vis){
-        if (active.anon) startAnon(); else subscribeFs(active);
+        subscribeFs(active);
         probeUnread();
       } else {
         teardownFeed();
       }
     };
     new MutationObserver(check).observe(els.pane, { attributes: true, attributeFilter: ['style'] });
-    document.addEventListener('visibilitychange', () => {
-      check();
-      if (paneVisible && active && active.anon) schedAnon();
-    });
+    document.addEventListener('visibilitychange', check);
     check();
   }
 
@@ -510,16 +425,17 @@
         });
       }
     } catch(e){}
-    // Default is #lobby, not #general (2026-08-23). Measured the same
-    // day: all nine named channels held zero messages, and #general is
-    // read-only without a named account, so a first-time visitor
-    // clicking Chat landed in an empty room they could not even post
-    // in. #lobby is the one room with anything in it and the only one
-    // that takes a message without signing in. A saved choice still
-    // wins; this only moves where someone with no history starts.
+    // #lobby was the default from 2026-08-23 until The Commons was
+    // mounted properly (2026-08-26). Anyone whose browser still has it
+    // saved is migrated rather than dropped into CHANNELS[0] by the
+    // find() fallback, because that reads as their choice being ignored.
+    // The reason #lobby was the default is now answered better: the one
+    // room with anything in it, and the only one that takes a message
+    // without signing in, is on screen beside the feed.
     let saved = null;
     try { saved = localStorage.getItem(ACTIVE_KEY); } catch(e){}
-    switchChannel(saved || 'lobby');
+    if (saved === 'lobby') saved = null;
+    switchChannel(saved || 'general');
     watchPane();
   }
 

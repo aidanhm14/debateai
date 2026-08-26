@@ -34,6 +34,14 @@
  *   host decides. /spar opens its dm_threads modal, /chat opens the
  *   thread in its own sidebar. A host that passes neither option gets
  *   exactly the old behaviour.
+ *
+ * One poll, many readers (2026-08-26):
+ *   /community renders the room in a rail AND wants a one-line preview
+ *   of it next to the composer on a phone. A second reader that fetches
+ *   for itself is a second poll loop against a rate-limited endpoint,
+ *   which is the exact duplication this module was extracted to avoid.
+ *   `onRows(rows)` hands every reader the rows this instance already
+ *   fetched, so a preview costs nothing.
  */
 (function(){
   'use strict';
@@ -158,12 +166,19 @@
     // clicked. Without both, this is the room exactly as it was.
     const authToken  = typeof opts.authToken === 'function' ? opts.authToken : null;
     const onDm       = typeof opts.onDm === 'function' ? opts.onDm : null;
+    // Optional. Called with the message rows this instance just read, so
+    // a host can paint a preview off the SAME poll instead of opening a
+    // second one.
+    const onRows     = typeof opts.onRows === 'function' ? opts.onRows : null;
     if (!scroller || !inputEl || !sendBtn) return;
 
     let myHandle = ensureHandle();
     let lastIds = new Set();
     let pendingNew = 0;
     let firstFetchDone = false;
+    // Last rows seen, kept only so onRows readers stay correct after an
+    // optimistic send without costing an extra fetch.
+    let lastRows = [];
     // Who the SERVER says we are. Null until a named account's token
     // verifies, which can be several polls after the first paint on a
     // page where auth rehydrates slowly.
@@ -226,6 +241,17 @@
       rows.forEach(r => lastIds.add(r.id));
     }
 
+    function emitRows(rows){
+      lastRows = rows;
+      if (onRows){ try { onRows(rows.slice()); } catch {} }
+      // Broadcast too, so a module that has no reference to this
+      // instance (community-pulse.js and its live dot) can read the
+      // room without opening a poll of its own.
+      try {
+        document.dispatchEvent(new CustomEvent('commons:rows', { detail: { rows: rows.slice() } }));
+      } catch {}
+    }
+
     function renderEmptyOnce(){
       // First-fetch never resolved. Drop the "loading…" placeholder
       // so the user sees the empty-state copy instead of staring at
@@ -248,7 +274,9 @@
         meUid = nextMe;
         // Joins are never rendered (2026-08-23). The server stopped
         // returning them; this filter covers any legacy row.
-        applyRows(data.rows.filter(r => r.kind !== 'join'), identityChanged && firstFetchDone);
+        const msgs = data.rows.filter(r => r.kind !== 'join');
+        applyRows(msgs, identityChanged && firstFetchDone);
+        emitRows(msgs);
       } catch { renderEmptyOnce(); }
     }
 
@@ -279,6 +307,7 @@
         if (data && data.row && !lastIds.has(data.row.id)){
           scroller.insertAdjacentHTML('beforeend', rowHtml(data.row, myHandle, ctx()));
           lastIds.add(data.row.id);
+          emitRows(lastRows.concat([data.row]));
           requestAnimationFrame(() => scrollToBottom(scroller));
         }
       } catch {

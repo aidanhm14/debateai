@@ -8,9 +8,15 @@
  *      30s server cache). Hidden until the endpoint answers.
  *   2. "N waiting to spar" — /api/live-now (matchmaking_queue).
  *      The actionable one: links straight to /spar. Hidden at 0.
- *   3. Latest chat line    — /api/chat-feed (same endpoint the Live
- *      tab polls). Clicking it switches to the Live tab. Hidden
- *      when the room has never spoken.
+ *
+ * The third row used to be the latest chat line, fetched here from
+ * /api/chat-feed. It is gone (2026-08-26) for two reasons: the whole
+ * room is now on screen in the rail, so a 90-character echo of its
+ * last line is a worse copy of something the reader can already see;
+ * and it was a SECOND poll loop against a rate-limited endpoint on a
+ * page that only needs one. Chat freshness still reaches this file,
+ * it just arrives from the room's own poll as a `commons:rows` event
+ * rather than being fetched again. Do not re-add the fetch.
  *
  * Also owns the Live tab's green dot: it used to be hardcoded on,
  * which is exactly the fake-liveness signal this page argues
@@ -33,7 +39,6 @@
 
   var elOnline = document.getElementById('pulseOnline');
   var elSpar   = document.getElementById('pulseSpar');
-  var elChat   = document.getElementById('pulseChat');
   var tabDot   = document.querySelector('.tab[data-tab="live"] .tab-dot');
 
   var chatFresh = false, sparWaiting = 0;
@@ -43,16 +48,10 @@
   function setBarVisible(){
     // The bar itself only appears once at least one row has real
     // content — an empty pill strip is dead chrome.
-    var any = [elOnline, elSpar, elChat].some(function(el){
+    var any = [elOnline, elSpar].some(function(el){
       return el && el.style.display !== 'none' && el.style.display !== '';
     });
     bar.style.display = any ? 'flex' : 'none';
-  }
-
-  function esc(s){
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
-      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
-    });
   }
 
   function paintDot(){
@@ -120,46 +119,25 @@
       .catch(function(){ /* endpoint down — row stays hidden */ });
   }
 
-  function loadChat(){
-    fetch('/api/chat-feed', { method: 'GET' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
-        if (!j || !Array.isArray(j.rows)){ hide(elChat); setBarVisible(); return; }
-        // Messages only, and only rows that actually carry text. This
-        // strip used to take the last row of any kind, which after
-        // 2026-08-11 was almost always a nameless "join" row, so the
-        // pulse read "Anonymous:" with nothing after it. Joins are gone
-        // from the feed now; the filter keeps the strip honest anyway.
-        var msgs = j.rows.filter(function(r){ return r.kind !== 'join' && String(r.text || '').trim(); });
-        if (!msgs.length){ hide(elChat); setBarVisible(); return; }
-        var last = msgs[msgs.length - 1];
-        // The feed's timestamp field is `at`. Reading ts/when/createdAt
-        // always resolved to 0, so chatFresh was permanently false and
-        // the live dot never lit for chat.
-        var when = Number(last.at || last.ts || 0);
-        chatFresh = when > 0 && (Date.now() - when) < CHAT_FRESH_MS;
-        paintDot();
-        var text = String(last.text || '').slice(0, 90);
-        elChat.innerHTML = '<span class="pulse-chat-handle">' + esc(last.handle || 'anon') + ':</span> ' +
-          esc(text) + ' <span class="pulse-go">join the chat →</span>';
-        show(elChat); setBarVisible();
-      })
-      .catch(function(){ /* endpoint down — row stays hidden */ });
-  }
+  /* Chat freshness, from the room's own poll. community-chat.js emits
+     `commons:rows` on every fetch it already makes; nothing here asks
+     the network for it. If the room is not mounted the event never
+     fires and the dot simply stays dark, which is the honest state. */
+  document.addEventListener('commons:rows', function(e){
+    var rows = (e && e.detail && e.detail.rows) || [];
+    var msgs = rows.filter(function(r){ return r.kind !== 'join' && String(r.text || '').trim(); });
+    if (!msgs.length){ chatFresh = false; paintDot(); return; }
+    // The feed's timestamp field is `at`.
+    var when = Number(msgs[msgs.length - 1].at || 0);
+    chatFresh = when > 0 && (Date.now() - when) < CHAT_FRESH_MS;
+    paintDot();
+  });
 
   if (elSpar) elSpar.addEventListener('click', function(){
     try { gtag('event', 'pulse_spar_click'); } catch(e){}
     location.href = '/spar';
   });
-  if (elChat) elChat.addEventListener('click', function(){
-    try { gtag('event', 'pulse_chat_click'); } catch(e){}
-    var liveTab = document.querySelector('.tab[data-tab="live"]');
-    if (liveTab) liveTab.click();
-    var tabs = document.querySelector('.tabs');
-    if (tabs && tabs.scrollIntoView) tabs.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  function tick(){ loadOnline(); loadSpar(); loadChat(); }
+  function tick(){ loadOnline(); loadSpar(); }
   tick();
   setInterval(function(){ if (!document.hidden) tick(); }, POLL_MS);
 })();

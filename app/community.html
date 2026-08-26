@@ -48,12 +48,23 @@
      otherwise. Powers the live MAU number in the Members surface. -->
 <script src="/js/visitor-counter.js"></script>
 <script defer src="/js/auth-modal.js"></script>
-<!-- community-channels.js powers the Chat tab: channel rail +
-     one live room. #lobby keeps the anonymous handle pinned in
-     localStorage and polls /api/chat-feed. The "X just joined!" lines
-     are retired (2026-08-23): their writer had no name to send after
-     channelization, so the room filled with "Anonymous joined". -->
+<!-- The Commons. The same module /chat and /spar mount, against the
+     same /api/chat-feed room, so a message sent on any of the three
+     surfaces is the same message. It is mounted ONCE on this page (see
+     the mountCommons block near the bottom) and MOVED between the rail
+     and the expanded Chat view rather than re-initialised, because a
+     second init is a second poll loop and a second set of listeners
+     against a rate-limited endpoint. Not deferred: the page IIFE below
+     reads window.DEBATEAI_CHAT. -->
 <script src="/js/avatar.js"></script>
+<script src="/js/community-chat.js"></script>
+<!-- community-channels.js owns the SECONDARY signed-in rooms
+     (community_channels/{ch}, Firestore, one live subscription at a
+     time). It used to own an anonymous #lobby channel that polled
+     /api/chat-feed with its own copy of the handle, the send and the
+     rendering; that was the Commons forked into a second client and it
+     was removed 2026-08-26. This module makes no /api/chat-feed
+     request at all now. -->
 <script src="/js/community-channels.js"></script>
 <!-- community-pulse.js renders the live-activity strip above the tabs
      (real presence, spar queue, latest chat line) and owns the Live
@@ -169,22 +180,43 @@ body::before{
    the live #memberCount (visitor-counter.js writes the real count and
    toggles .live to pulse it). Simplified 2026-05-21 from a wall of panels. */
 /* ── Three-column social shell ────────────────────────────────────
-   Nav rail / feed / sidebar, in that order, the way a timeline reads.
-   The feed is the only column that scrolls with real content, so it gets
-   the fluid middle and the two rails stick. Under 1240px everything
-   stacks: rail first (it reverts to the horizontal scroller it used to
-   be), feed, then sidebar. */
-.wrap{max-width:1220px}
+   Nav rail / feed / live room, in that order. The third column used to
+   be a stack of promotional cards; as of 2026-08-26 it leads with The
+   Commons, and the promos sit under it. The point is that a visitor can
+   see people talking without clicking anything: the room was behind a
+   tab, which is a strange place to keep the one part of the page that
+   is alive.
+
+   Column sizes are deliberate. The nav is a label rail, not a panel, so
+   it takes the minimum that fits seven items. The feed is capped rather
+   than fluid because a 900px post is a paragraph. The room is wide
+   enough for a two-line message without a hyphen and no wider.
+
+   Under 1240px everything stacks: rail first (it reverts to the
+   horizontal scroller it used to be), feed, then the room, then the
+   promos. On a phone the feed carries a one-line preview of the room
+   instead, and tapping it opens the same instance full width. */
+.wrap{max-width:1352px}
 .community-layout{
-  display:grid;grid-template-columns:196px minmax(0,1fr) 292px;
-  gap:26px;align-items:start;
+  display:grid;grid-template-columns:198px minmax(0,748px) 348px;
+  gap:24px;align-items:start;justify-content:center;
 }
 .col-nav,.col-main,.col-side{min-width:0}
 @media(min-width:1241px){
-  .col-nav,.col-side{position:sticky;top:84px}
-  .col-side{max-height:calc(100vh - 100px);overflow-y:auto;scrollbar-width:thin}
+  .col-nav{position:sticky;top:84px}
+  /* The rail sticks as one column and scrolls inside itself: the room
+     is the tall thing in it, and a room that scrolls off the top of the
+     viewport is a room you have to hunt for. */
+  .col-side{
+    position:sticky;top:84px;
+    max-height:calc(100vh - 96px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;
+  }
   .col-side::-webkit-scrollbar{width:6px}
   .col-side::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+}
+@media(max-width:1340px){
+  .community-layout{grid-template-columns:190px minmax(0,1fr) 322px;gap:20px}
 }
 @media(max-width:1240px){
   .community-layout{grid-template-columns:1fr;gap:16px}
@@ -325,6 +357,10 @@ body::before{
 [data-theme="light"] #memberYou{color:#15803d}
 #memberCount.live{animation:memCountPulse .9s ease-out}
 @keyframes memCountPulse{0%{color:var(--accent)}100%{color:var(--text)}}
+/* Referenced by .chat-head-dot, .tab .tab-dot, .disc-activity.is-live i
+   and .cmns-dot, and defined nowhere until 2026-08-26, so every live dot
+   on this page sat still. */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .side-links{display:flex;gap:14px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border)}
 .side-links a{font-size:.76rem;font-weight:700;color:var(--text-dim)}
 .side-links a:hover{color:var(--accent)}
@@ -376,7 +412,14 @@ body::before{
   /* Cap the column once the rails are gone. An 850px-wide post is a
      paragraph, not a feed item. */
   .col-main{max-width:660px;margin:0 auto;width:100%}
-  .col-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 14px;align-items:start}
+  .col-side{max-width:660px;margin:0 auto;width:100%}
+  /* The promos go back to a row of cards; the room above them does not,
+     because a chat in a 260px grid cell is unreadable. */
+  .side-quiet{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 14px;align-items:start}
+  /* On a phone the room is reached from the feed preview, not by
+     scrolling past every post to the bottom of the page. The stacked
+     copy at the foot would be a second, duplicate scroller. */
+  #commonsHome{display:none}
 }
 
 /* ── Sidebar-scoped sizing ─────────────────────────────────────────
@@ -415,9 +458,44 @@ body::before{
   margin:0;color:var(--text);
 }
 .main-head-sub{font-size:.82rem;font-weight:600;color:var(--text-ghost);margin:0}
+.head-live[hidden],.exp-inline[hidden]{display:none}
+.head-live{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  font-size:.7rem;font-weight:800;letter-spacing:.04em;color:var(--green);
+  white-space:nowrap;
+}
+.head-live i{
+  width:6px;height:6px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 8px currentColor;animation:pulse 1.6s ease-in-out infinite;
+}
+@media(prefers-reduced-motion:reduce){.head-live i{animation:none}}
 @media(max-width:1240px){
   .main-head{position:static;margin-top:0}
 }
+
+/* ── Inline "do you already debate?" ───────────────────────────
+   One line, dismissible, in the reading order. See the markup comment
+   for why it is not the sitewide corner card on this page. */
+.exp-inline{
+  position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 12px;padding:9px 40px 9px 13px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+}
+.exp-inline-q{font-size:.82rem;font-weight:700;color:var(--text)}
+.exp-inline-row{display:flex;gap:6px;flex-wrap:wrap}
+.exp-inline-b{
+  padding:5px 12px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-family:inherit;
+  font-size:.75rem;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.exp-inline-b:hover{color:var(--accent);border-color:var(--accent);background:rgba(239,68,68,.08)}
+.exp-inline-x{
+  position:absolute;top:6px;right:8px;width:24px;height:24px;
+  border:0;background:none;cursor:pointer;line-height:1;
+  font-family:inherit;font-size:1.05rem;color:var(--text-ghost);
+}
+.exp-inline-x:hover{color:var(--text)}
+.exp-inline-done{font-size:.82rem;color:var(--text-dim);font-weight:600}
 
 /* ── LIVE PULSE BAR ────────────────────────────────────────── */
 /* The "is anything happening right now" strip above the tabs.
@@ -442,8 +520,6 @@ body::before{
   background:#22c55e;box-shadow:0 0 8px #22c55e;
   animation:pulse 1.6s ease-in-out infinite;
 }
-.pulse-chat-handle{color:var(--accent);font-weight:700}
-.pulse-go{color:var(--accent);font-weight:700;letter-spacing:.02em}
 
 /* ── SCHEDULED ROUNDS ─────────────────────────────────────── */
 /* Real entries only (community-schedule.js). Cards are a ruled list,
@@ -606,6 +682,146 @@ body::before{
 .chat-send:active{transform:translateY(1px)}
 .chat-send:disabled{opacity:.55;cursor:not-allowed}
 .chat-send.chat-send-fail{background:#fbbf24;color:var(--ink-lit)}
+
+/* ── THE COMMONS PANEL ─────────────────────────────────────────
+   The room, on the page, in the first viewport. The .chat-* rules
+   above are NOT dead code and must not be swept: community-chat.js
+   writes .chat-row / .chat-msg-head / .chat-msg-text into #commonsScroll,
+   and the "N new" pill is .chat-new-pill. Everything below is the frame
+   around them.
+
+   One instance, two homes. #commonsHome is the rail; #commonsExpanded
+   is the Chat tab. The panel is moved between them, never rebuilt, so
+   there is one poll loop and one send handler on this page. */
+/* No display rule here on purpose: the stacked block above hides
+   #commonsHome under 1240px, and a later same-specificity rule would
+   quietly beat it (it did, first time round). */
+.cmns{
+  position:relative;display:flex;flex-direction:column;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;margin-bottom:16px;
+  height:clamp(360px,58vh,560px);
+}
+.cmns-head{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 14px;border-bottom:1px solid var(--border);
+  background:rgba(var(--surf-rgb-1),.03);
+}
+[data-theme="light"] .cmns-head{background:rgba(0,0,0,.02)}
+.cmns-dot{
+  width:7px;height:7px;border-radius:50%;flex:none;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:pulse 1.6s ease-in-out infinite;
+}
+@media(prefers-reduced-motion:reduce){.cmns-dot{animation:none}}
+.cmns-title{font-size:.92rem;font-weight:800;letter-spacing:-.01em;color:var(--text)}
+.cmns-open{
+  margin-left:auto;font-size:.7rem;font-weight:800;letter-spacing:.04em;
+  color:var(--text-ghost);white-space:nowrap;
+}
+.cmns-open:hover{color:var(--accent)}
+/* The disclosure. Small, but it is the one line that has to be there:
+   the handle is a pseudonym and people read pseudonymous as private. */
+.cmns-note{
+  padding:8px 14px;font-size:.72rem;line-height:1.4;color:var(--text-ghost);
+  border-bottom:1px solid var(--border);
+}
+.cmns-scroll{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:12px 14px;display:flex;flex-direction:column;gap:10px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.cmns-scroll > :first-child{margin-top:auto}
+.cmns-scroll::-webkit-scrollbar{width:7px}
+.cmns-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:7px}
+.cmns-composer{
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--border);background:rgba(var(--surf-rgb-1),.03);
+}
+[data-theme="light"] .cmns-composer{background:rgba(0,0,0,.02)}
+.cmns-row{display:flex;align-items:flex-end;gap:8px}
+.cmns-row .chat-input{min-height:36px;font-size:.9rem}
+.cmns-row .chat-send{padding:9px 15px}
+.cmns-foot{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:7px;font-size:.68rem;color:var(--text-ghost);
+}
+.cmns-foot b{color:var(--text-dim);font-weight:800;word-break:break-all}
+.cmns-foot .chat-char-count{margin-left:auto}
+.cmns .chat-new-pill{bottom:96px}
+
+/* Expanded view (the Chat tab). Same element, taller, with the
+   secondary signed-in rooms underneath it rather than beside it, so
+   there is never a question about which room is the main one. */
+#commonsExpanded .cmns{
+  height:clamp(420px,66vh,700px);
+  margin-bottom:18px;border-color:var(--border-strong);
+  /* Cleared by the fixed topbar when the peek scrolls it into view. */
+  scroll-margin-top:88px;
+}
+@media(max-width:1240px){
+  /* Shorter on a phone so the composer and the rooms under it are both
+     reachable without the room eating the whole screen. svh, not vh:
+     with the browser chrome showing, vh overshoots and pushes the
+     composer under the fold. */
+  #commonsExpanded .cmns{height:clamp(300px,58svh,560px)}
+}
+#commonsExpanded .cmns-title{font-size:1.05rem}
+.live-rooms-head{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 10px;
+}
+.live-rooms-head h2{
+  font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-ghost);
+}
+.live-rooms-head p{font-size:.78rem;color:var(--text-ghost);margin:0}
+
+/* ── Live preview in the feed (stacked widths only) ────────────
+   One line, tappable, fed by the room's own poll through onRows. It
+   never fetches. When the room has said nothing it hides rather than
+   printing an invented line. */
+#commonsPeek{display:none}
+@media(max-width:1240px){
+  #commonsPeek.on{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    padding:11px 13px;margin:0 0 12px;
+    background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+    font-family:inherit;color:var(--text);
+  }
+  #commonsPeek:hover{border-color:var(--border-strong)}
+}
+.peek-dot{
+  width:7px;height:7px;border-radius:50%;flex:none;background:var(--green);
+  box-shadow:0 0 8px var(--green);
+}
+.peek-body{flex:1;min-width:0;font-size:.82rem;line-height:1.35}
+.peek-label{
+  display:block;font-size:.6rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-ghost);margin-bottom:2px;
+}
+.peek-line{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+.peek-line b{color:var(--text);font-weight:800}
+.peek-go{font-size:.7rem;font-weight:800;color:var(--accent);white-space:nowrap}
+
+/* ── Quiet promos ──────────────────────────────────────────────
+   Everything under the room is context. It was competing with the
+   posts and with the chat at the same visual weight; it is one column
+   of small cards now. */
+.side-quiet{padding-top:2px}
+.side-quiet-head{
+  font-size:.62rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--text-ghost);margin:0 0 10px;
+}
+.side-quiet .side-card{padding:12px 14px;margin-bottom:12px;border-radius:12px}
+.side-quiet .side-head{font-size:.62rem;margin-bottom:7px}
+.side-quiet .side-open-title{font-size:.9rem}
+.side-quiet .side-open-sub,.side-quiet .side-discord-sub{font-size:.74rem}
+.side-quiet .side-about p{font-size:.76rem;margin-bottom:6px}
+.side-quiet .side-links{gap:12px;margin-top:9px;padding-top:9px}
+.side-quiet .side-links a{font-size:.72rem}
+.side-quiet .side-discord-name{font-size:.85rem}
+@media(max-width:1240px){
+  .side-quiet-head{grid-column:1/-1}
+}
 
 /* Discussion threads — list of cards, similar shape to disclosure cards
    but vertically denser and with title-first hierarchy. */
@@ -1064,30 +1280,37 @@ body::before{
 
 /* ── Composer ─────────────────────────────────────────────────── */
 .composer{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
-  padding:14px 16px;margin-bottom:14px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  padding:11px 13px;margin-bottom:10px;
 }
-.composer-top{display:flex;gap:12px;align-items:flex-start}
+.composer-top{display:flex;gap:10px;align-items:flex-start}
 .composer-ava{
-  flex:0 0 auto;width:40px;height:40px;border-radius:50%;overflow:hidden;
+  flex:0 0 auto;width:34px;height:34px;border-radius:50%;overflow:hidden;
   display:grid;place-items:center;background:var(--accent-solid,#b91c1c);color:#fff;
-  font-weight:800;font-size:.82rem;letter-spacing:.02em;
+  font-weight:800;font-size:.76rem;letter-spacing:.02em;
 }
 .composer-ava svg,.composer-ava img{width:100%;height:100%;display:block}
 .composer-main{flex:1;min-width:0}
-.composer-modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
-.cmode{
-  padding:5px 12px;border-radius:999px;border:1px solid var(--border);
-  background:transparent;color:var(--text-dim);font-family:inherit;
-  font-size:.7rem;font-weight:800;letter-spacing:.05em;cursor:pointer;
-  transition:all .15s;
+/* Modes are a segmented switch, not three call-to-action pills. They
+   pick a shape for a post you have not written yet; the loud control on
+   this card is Post. */
+.composer-modes{
+  display:inline-flex;gap:2px;flex-wrap:wrap;margin-bottom:7px;
+  padding:2px;border:1px solid var(--border);border-radius:9px;
 }
-.cmode:hover{color:var(--text);border-color:var(--border-strong)}
-.cmode.on{background:var(--accent-solid,#b91c1c);border-color:var(--accent);color:#fff}
+.cmode{
+  padding:4px 10px;border-radius:7px;border:0;
+  background:transparent;color:var(--text-ghost);font-family:inherit;
+  font-size:.72rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.cmode:hover{color:var(--text)}
+.cmode.on{background:rgba(239,68,68,.12);color:var(--accent);font-weight:800}
+[data-theme="light"] .cmode.on{background:rgba(185,28,28,.10)}
 .composer textarea{
-  width:100%;min-height:62px;resize:vertical;
+  width:100%;min-height:42px;resize:vertical;
   background:transparent;border:0;outline:none;
-  color:var(--text);font-family:inherit;font-size:1rem;line-height:1.5;
+  color:var(--text);font-family:inherit;font-size:.95rem;line-height:1.5;
 }
 .composer textarea::placeholder{color:var(--text-ghost)}
 .composer-extra{display:none;gap:8px;flex-wrap:wrap;margin-top:8px}
@@ -1101,22 +1324,30 @@ body::before{
 .composer-extra select:focus,.composer-extra input:focus{border-color:var(--accent)}
 .composer-foot{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
-  margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;
+  margin-top:7px;padding-top:8px;border-top:1px solid var(--border);flex-wrap:wrap;
 }
 .composer-hint{font-size:.7rem;color:var(--text-ghost);font-weight:600;flex:1;min-width:120px}
 .composer-count{font-size:.7rem;color:var(--text-ghost);font-weight:700;font-variant-numeric:tabular-nums}
 .composer-count.warn{color:var(--amber)}
 
 /* ── Type filter chips above the column ───────────────────────── */
-.feed-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.fchip{
-  padding:6px 13px;border-radius:999px;border:1px solid var(--border);
-  background:var(--bg-card);color:var(--text-dim);font-family:inherit;
-  font-size:.72rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;
+/* Filters are navigation, not actions. Six solid red chips read as six
+   primary buttons above a column with one real primary (Post), so the
+   resting state is plain text and the selected one is a quiet tint. */
+.feed-filters{
+  display:flex;gap:2px;flex-wrap:wrap;align-items:center;
+  margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);
 }
-.fchip:hover{color:var(--text);border-color:var(--border-strong)}
-.fchip.on{background:var(--accent-solid,#b91c1c);border-color:var(--accent);color:#fff}
-.fchip .fchip-n{opacity:.65;font-variant-numeric:tabular-nums;margin-left:5px}
+.fchip{
+  padding:5px 10px;border-radius:8px;border:0;
+  background:transparent;color:var(--text-ghost);font-family:inherit;
+  font-size:.76rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.fchip:hover{color:var(--text);background:rgba(127,127,127,.10)}
+.fchip.on{color:var(--accent);background:rgba(239,68,68,.10);font-weight:800}
+[data-theme="light"] .fchip.on{background:rgba(185,28,28,.09)}
+.fchip .fchip-n{opacity:.6;font-variant-numeric:tabular-nums;margin-left:5px}
 
 /* ── The column itself ────────────────────────────────────────── */
 .feed{
@@ -1138,11 +1369,14 @@ body::before{
 .fitem-ava svg,.fitem-ava img{width:100%;height:100%;display:block}
 .fitem-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
 .fitem-head{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:.82rem}
-.fitem-name{font-weight:800;color:var(--text);letter-spacing:-.01em}
+.fitem-name{font-weight:800;color:var(--text);letter-spacing:-.01em;font-size:.88rem}
 a.fitem-name{text-decoration:none}
 a.fitem-name:hover{color:var(--accent);text-decoration:underline}
-.fitem-handle,.fitem-time{color:var(--text-ghost);font-size:.75rem;font-weight:600}
-.fitem-text{font-size:.94rem;line-height:1.55;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.fitem-handle,.fitem-time{color:var(--text-ghost);font-size:.72rem;font-weight:600}
+/* A measure, not a column width. Feed rows run to the full 748px of the
+   middle column, which is roughly 110 characters and past the point
+   where the eye loses the next line. */
+.fitem-text{font-size:.95rem;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;max-width:64ch}
 .fitem-text.clamped{display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
 .fitem-more{
   align-self:flex-start;background:none;border:0;padding:0;cursor:pointer;
@@ -1287,7 +1521,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
    <button class="rail-post" id="railPost" data-goto="feed">Post</button>
    <nav class="tabs">
     <button class="tab on" data-tab="feed"><span class="tab-ico" aria-hidden="true">◉</span>Feed</button>
-    <button class="tab" data-tab="live"><span class="tab-ico" aria-hidden="true">◇</span>Chat <span class="tab-dot"></span></button>
+    <button class="tab" data-tab="live"><span class="tab-ico" aria-hidden="true">◇</span>Live chat <span class="tab-dot"></span></button>
     <button class="tab" data-tab="rounds"><span class="tab-ico" aria-hidden="true">▶</span>Rounds</button>
     <button class="tab" data-tab="cases"><span class="tab-ico" aria-hidden="true">▤</span>Cases</button>
     <button class="tab" data-tab="discussion"><span class="tab-ico" aria-hidden="true">≡</span>Discussions</button>
@@ -1350,7 +1584,27 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   <header class="main-head">
     <h1>Debate community</h1>
     <p class="main-head-sub">Read an argument. Argue back.</p>
+    <!-- Live status. Hidden until the room's own poll says something was
+         said recently; there is no timer that turns it on by itself, so
+         it can never claim activity that is not there. -->
+    <span class="head-live" id="headLive" hidden><i aria-hidden="true"></i><span id="headLiveText"></span></span>
   </header>
+
+  <!-- The sitewide "do you already debate?" question, asked inline.
+       experience-ask.js renders a fixed card at left:16px bottom:76px,
+       which on this page sits on top of the nav rail. It stands down
+       when a page carries its own [data-exp] control near the top of the
+       document (inlineAskReachable), so this row is both the answer to
+       the overlap and a better place to ask: in the reading order,
+       above the thing the answer changes. Same keys, same GA4 event. -->
+  <div class="exp-inline" id="expInline" hidden>
+    <span class="exp-inline-q">Do you already debate?</span>
+    <span class="exp-inline-row">
+      <button type="button" class="exp-inline-b" data-exp="competitive">Yes, I compete</button>
+      <button type="button" class="exp-inline-b" data-exp="new">No, I am new</button>
+    </span>
+    <button type="button" class="exp-inline-x" id="expInlineX" aria-label="Not now">&times;</button>
+  </div>
 
   <!-- ── FEED TAB ─────────────────────────────────────────────────
        The default surface as of 2026-08-19. One scrollable column that
@@ -1366,7 +1620,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         <div class="composer-main">
           <div class="composer-modes">
             <button class="cmode on" data-cmode="take">Take</button>
-            <button class="cmode" data-cmode="lfr">Anyone want to debate?</button>
+            <button class="cmode" data-cmode="lfr">Find a round</button>
             <button class="cmode" data-cmode="clip">Share a clip</button>
           </div>
           <textarea id="composerText" maxlength="1200"
@@ -1408,6 +1662,19 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         </div>
       </div>
     </div>
+
+    <!-- Live room preview, narrow widths only. It reads from the ONE
+         mounted Commons instance through onRows, so it costs no request
+         of its own, and tapping it opens that same instance full width
+         rather than starting a second one. -->
+    <button type="button" id="commonsPeek" aria-label="Open the live group chat">
+      <span class="peek-dot" aria-hidden="true"></span>
+      <span class="peek-body">
+        <span class="peek-label">The Commons · live</span>
+        <span class="peek-line" id="commonsPeekLine"></span>
+      </span>
+      <span class="peek-go" aria-hidden="true">Open &rarr;</span>
+    </button>
 
     <div class="feed-filters" id="feedFilters">
       <button class="fchip on" data-feed="all">Everything</button>
@@ -1493,16 +1760,18 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     </div>
   </div>
 
-  <!-- ── LIVE TAB ──────────────────────────────────────────────
-       Anonymous chat feed. Writes go through /api/chat-feed (server-
-       side rate limit, length cap, sanitization). Messages only: the
-       join rows /api/visitor-tick used to write are retired, and both
-       the endpoint and the renderers now drop them.
+  <!-- ── CHAT TAB ──────────────────────────────────────────────
+       The Commons plus the secondary signed-in rooms. The room itself
+       is not built here: it is #commonsPanel, mounted once in the rail
+       and moved into #commonsExpanded below. Writes go through
+       /api/chat-feed (server-side rate limit, length cap,
+       sanitization). Messages only: the join rows /api/visitor-tick
+       used to write are retired, and both the endpoint and the
+       renderers now drop them.
 
-       The chat is intentionally low-ceremony: handle + message,
-       240ish chars, polled every 8 seconds. No threads, no replies,
-       no votes. The Discussion tab carries the structured forum;
-       this is the back-of-the-room feel. -->
+       The room is intentionally low-ceremony: handle + message, 280
+       chars, polled. No threads, no replies, no votes. The Discussions
+       tab carries the structured forum; this is the back of the room. -->
   <!-- ── ROUNDS TAB ──────────────────────────────────────────
        Lifted from the previous standalone /rounds page. Reads the
        same public_rounds Firestore collection client-side; each
@@ -1518,12 +1787,24 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     </div>
   </div>
 
-  <!-- Chat tab (channelized 2026-08-11). community-channels.js builds
-       the whole channel rail + room DOM into this pane: #lobby keeps
-       the anonymous /api/chat-feed room, every other channel is
-       signed-in Firestore chat. The old single-room markup + its
-       community-chat.js owner are retired; the .chat-* CSS above is
-       inert and can go in a later cleanup. -->
+  <!-- Chat tab. Two things, in priority order.
+
+       #commonsExpanded receives THE SAME #commonsPanel element that
+       lives in the rail. It is moved here, not rebuilt: community-chat.js
+       owns one poll loop, one send handler and one set of listeners per
+       init, so a second init on the same page would double all three
+       against a rate-limited endpoint. Moving a node keeps its listeners;
+       only scrollTop needs restoring, which mountCommons does.
+
+       #livePane is the secondary rooms. community-channels.js builds its
+       whole rail + room DOM into that pane, so nothing may be parked
+       inside it: the module writes pane.innerHTML on boot and would
+       delete it. That is exactly why the expanded slot is a sibling. -->
+  <div id="commonsExpanded" style="display:none"></div>
+  <div class="live-rooms-head" id="liveRoomsHead" style="display:none">
+    <h2>Other rooms</h2>
+    <p>Topic rooms for people with an account. The Commons above is open to everyone.</p>
+  </div>
   <div id="livePane" style="display:none"></div>
 
   <!-- ── PEOPLE TAB (public identity layer) ─────────────────────── -->
@@ -1533,14 +1814,45 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   <div id="personasPane" style="display:none"></div>
   </main><!-- /col-main -->
 
-  <!-- ── SIDEBAR ─────────────────────────────────────────────────────
-       Ambient context, moved out of the feed's way. Everything here used
-       to sit stacked ABOVE the composer, which meant a visitor scrolled
-       past a Discord banner, a schedule panel and a pulse strip before
-       reaching a single post. It is the same markup and the same module
-       hooks (#communityPulse, #communitySchedule), just parked beside the
-       column instead of on top of it. -->
-  <aside class="col-side" aria-label="About this room">
+  <!-- ── LIVE RAIL ───────────────────────────────────────────────────
+       The room first, then context. This column used to open with a
+       spar-night card, a tournament card, a schedule panel and a Discord
+       banner, all at card weight, while the actual conversation sat
+       behind a tab nobody clicked. The promos are all still here and all
+       still wired to the same modules (#communityPulse,
+       #communitySchedule, [data-spar-night], #memberCount); they are
+       under the room and quieter. -->
+  <aside class="col-side" aria-label="Live chat and room context">
+
+    <!-- The Commons lives here at rest and is MOVED into the Chat tab
+         when that tab opens. Keep this wrapper: it is the panel's home
+         address, and mountCommons moves the panel back into it. -->
+    <div id="commonsHome">
+      <section class="cmns" id="commonsPanel" aria-label="The Commons, live group chat">
+        <header class="cmns-head">
+          <span class="cmns-dot" aria-hidden="true"></span>
+          <span class="cmns-title">The Commons</span>
+          <a class="cmns-open" href="/chat" title="Open the full chat and your private messages">Full chat &amp; DMs &rarr;</a>
+        </header>
+        <p class="cmns-note">One room, everyone on the site. Messages here are public. No account needed.</p>
+        <div class="cmns-scroll" id="commonsScroll" aria-live="polite" aria-label="Recent messages in The Commons"></div>
+        <button class="chat-new-pill" id="commonsPill" type="button"></button>
+        <div class="cmns-composer">
+          <div class="cmns-row">
+            <textarea class="chat-input" id="commonsInput" rows="1" placeholder="Say something to the room" autocomplete="off"></textarea>
+            <button class="chat-send" id="commonsSend" type="button">Send</button>
+          </div>
+          <div class="cmns-foot">
+            <span>as <b id="commonsHandle">&hellip;</b></span>
+            <button class="chat-reroll" id="commonsReroll" type="button" title="Pick a new anonymous handle">change</button>
+            <span class="chat-char-count" id="commonsCount"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="side-quiet">
+    <p class="side-quiet-head">Happening now</p>
 
     <!-- Next concentration event. The queue only pairs people who are in
          it at the same time, so the standing weekly hour outranks
@@ -1578,13 +1890,15 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     })();
     </script>
 
-  <!-- Live pulse: real presence + spar queue + latest chat line.
-       Rendered by community-pulse.js; whole strip hidden until at
-       least one signal has real data (no fake-crowd chrome). -->
+  <!-- Live pulse: real presence + spar queue. Rendered by
+       community-pulse.js; whole strip hidden until at least one signal
+       has real data (no fake-crowd chrome). The third pill used to echo
+       the last chat line and is gone: the room itself is directly above
+       this, so the pill was a truncated copy of visible content bought
+       with a second poll against /api/chat-feed. -->
   <div id="communityPulse" aria-label="Live activity right now">
     <span class="pulse-pill" id="pulseOnline"></span>
     <span class="pulse-pill clickable" id="pulseSpar" role="link" title="Jump into the spar queue"></span>
-    <span class="pulse-pill clickable" id="pulseChat" role="button" title="Open the live chat"></span>
   </div>
 
   <!-- Schedule. Emptied 2026-05-21 (the old strip rendered a hand-written
@@ -1625,6 +1939,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         <a href="mailto:aidandavidhollinger@gmail.com?subject=Help%20fund%20Debatable">Help fund it</a>
       </div>
     </div>
+    </div><!-- /side-quiet -->
   </aside>
  </div><!-- /community-layout -->
 
@@ -2976,7 +3291,115 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     renderFeed();
   }
 
+  /* ══ THE COMMONS ═══════════════════════════════════════════════
+     One instance of js/community-chat.js, the module /chat and /spar
+     already mount against /api/chat-feed. Sending from here writes to
+     the same room a message from /chat lands in, and the next poll on
+     either surface picks the other one up. Nothing on this page copies a
+     chat message into the feed, into community_channels, or into any
+     other store: the room is the room.
+
+     It is mounted once and MOVED between #commonsHome (the rail) and
+     #commonsExpanded (the Chat tab). Re-initialising per view would
+     leave the previous instance's setInterval and visibilitychange
+     listener behind on every switch, which is the multiplying-listener
+     failure this design exists to avoid. */
+  var commonsRoom = null;
+
+  function paintCommons(rows){
+    var msgs = (rows || []).filter(function(r){
+      return r.kind !== 'join' && String(r.text || '').trim();
+    });
+    var peek = $('commonsPeek'), line = $('commonsPeekLine');
+    var live = $('headLive'), liveText = $('headLiveText');
+    if (!msgs.length){
+      if (peek) peek.classList.remove('on');
+      if (live) live.hidden = true;
+      return;
+    }
+    var last = msgs[msgs.length - 1];
+    if (peek && line){
+      // textContent on both halves: this is user-written text from an
+      // anonymous room and it never becomes markup.
+      line.textContent = '';
+      var who = document.createElement('b');
+      who.textContent = (last.handle || 'anon') + ': ';
+      line.appendChild(who);
+      line.appendChild(document.createTextNode(String(last.text || '')));
+      peek.classList.add('on');
+    }
+    // Honest status only: derived from a real timestamp, hidden when
+    // the last thing said is older than the freshness window.
+    if (live && liveText){
+      var age = Date.now() - Number(last.at || 0);
+      if (!last.at || age > 15 * 60000){ live.hidden = true; }
+      else {
+        liveText.textContent = age < 60000 ? 'Live now' : 'Active ' + Math.floor(age / 60000) + 'm ago';
+        live.hidden = false;
+      }
+    }
+  }
+
+  function mountCommons(tries){
+    var panel = $('commonsPanel');
+    if (!panel) return;
+    if (!window.DEBATEAI_CHAT || !window.DEBATEAI_CHAT.init){
+      // The module is a plain head script, so this should never wait.
+      // Retry briefly anyway rather than leaving an empty frame; the
+      // page works without it.
+      if ((tries || 0) < 20) setTimeout(function(){ mountCommons((tries || 0) + 1); }, 150);
+      return;
+    }
+    var input = $('commonsInput');
+    commonsRoom = window.DEBATEAI_CHAT.init({
+      scroller:    $('commonsScroll'),
+      inputEl:     input,
+      sendBtn:     $('commonsSend'),
+      handleEl:    $('commonsHandle'),
+      rerollBtn:   $('commonsReroll'),
+      newPill:     $('commonsPill'),
+      charCountEl: $('commonsCount'),
+      // Feeds the phone preview and the header status off this poll.
+      // A second reader with its own fetch would be a second loop.
+      onRows:      paintCommons,
+    }) || null;
+    if (input){
+      input.addEventListener('input', function(){
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+    }
+  }
+
+  /* Move the panel, do not rebuild it. scrollTop does not survive a
+     reparent, so it is carried across by hand. */
+  function placeCommons(expanded){
+    var panel = $('commonsPanel');
+    var dest = expanded ? $('commonsExpanded') : $('commonsHome');
+    if (!panel || !dest) return;
+    if (panel.parentNode === dest) return;
+    var scroller = $('commonsScroll');
+    var at = scroller ? scroller.scrollTop : 0;
+    var wasBottom = scroller
+      ? (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80)
+      : true;
+    dest.appendChild(panel);
+    if (scroller) scroller.scrollTop = wasBottom ? scroller.scrollHeight : at;
+  }
+
+  /* Where each section was last read. Switching to Chat and back used
+     to drop the reader at whatever offset the chat happened to leave
+     them at, which on a phone is halfway down a feed they had not
+     scrolled to. */
+  var tabScroll = {};
+  var currentTab = 'feed';
+
   function tabSwitch(tab){
+    if (tab !== currentTab){
+      tabScroll[currentTab] = window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+    var restore = (tab !== currentTab && typeof tabScroll[tab] === 'number') ? tabScroll[tab] : null;
+    currentTab = tab;
     var casesPane = $('casesPane'), discPane = $('discussionPane'), livePane = $('livePane'), roundsPane = $('roundsPane');
     var peoplePane = $('peoplePane'), personasPane = $('personasPane'), feedPane = $('feedPane');
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
@@ -2987,6 +3410,15 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     discPane.style.display  = (tab === 'discussion') ? '' : 'none';
     if (roundsPane) roundsPane.style.display = (tab === 'rounds') ? '' : 'none';
     if (livePane) livePane.style.display = (tab === 'live') ? '' : 'none';
+    // The Commons leads the Chat tab and the secondary rooms follow it.
+    var commonsExp = $('commonsExpanded'), roomsHead = $('liveRoomsHead');
+    if (commonsExp) commonsExp.style.display = (tab === 'live') ? '' : 'none';
+    if (roomsHead) roomsHead.style.display = (tab === 'live') ? '' : 'none';
+    placeCommons(tab === 'live');
+    // Narrow screens hide the floating feedback pill while the chat
+    // composer is on screen; a 42px button in the bottom-left corner
+    // sits on top of it.
+    try { document.body.classList.toggle('chat-open', tab === 'live'); } catch(e){}
     if (peoplePane) peoplePane.style.display = (tab === 'people') ? '' : 'none';
     if (personasPane) personasPane.style.display = (tab === 'personas') ? '' : 'none';
     if (tab === 'feed') renderFeedSafe();
@@ -2996,11 +3428,26 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     // on page load because most users land on Cases — pre-fetching
     // public_rounds for them would burn reads we don't need.
     if (tab === 'rounds') loadPublicRounds();
+    // After the pane swap, so the document is its new height.
+    if (restore !== null) window.scrollTo(0, restore);
     try { gtag('event','community_tab',{tab:tab}); } catch(e){}
   }
   document.querySelectorAll('.tab').forEach(function(b){
     b.addEventListener('click', function(){ tabSwitch(b.getAttribute('data-tab')); });
   });
+  mountCommons(0);
+  (function(){
+    var peek = $('commonsPeek');
+    if (!peek) return;
+    peek.addEventListener('click', function(){
+      try { gtag('event','community_commons_peek'); } catch(e){}
+      tabSwitch('live');
+      // Land on the room, not near it. Tapping a preview of a
+      // conversation should put the conversation on screen.
+      var panel = $('commonsPanel');
+      if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+  })();
   bootFeed();
   // Anchor links: /community#discussion deep-links to the forum tab,
   // /community#rounds deep-links to the published-rounds tab (also
@@ -3703,6 +4150,49 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     <a href="mailto:aidandavidhollinger@gmail.com" style="color:var(--text-ghost);text-decoration:none">Contact</a>
   </div>
 </aside>
+<script>
+/* Inline "do you already debate?" — see the markup comment above the
+   #expInline row. Rendering it is what makes experience-ask.js stand
+   down (inlineAskReachable), so the fixed corner card stops covering
+   the nav rail. Same localStorage keys, same GA4 event name, same
+   DebatableAudience.set call, so an answer given here is the answer
+   everywhere. Runs at parse time, well inside that module's 2.2s wait. */
+(function(){
+  var KEY = 'debateos-experience', ASKED = 'debateos-experience-asked';
+  var VALID = { competitive:1, new:1, unsure:1 };
+  function read(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+  function write(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+  if (VALID[read(KEY)] || read(ASKED) === '1') return;
+  var box = document.getElementById('expInline');
+  if (!box) return;
+  box.hidden = false;
+  function tag(value){
+    try { if (window.gtag) gtag('event','audience_choice',{ value:value, surface:'community_inline' }); } catch(e){}
+  }
+  box.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('#expInlineX')){
+      // A dismiss answers "may we ask", not the question, so nothing is
+      // written under the experience key and /settings still shows it
+      // unanswered.
+      write(ASKED,'1'); tag('dismissed'); box.remove(); return;
+    }
+    var btn = t.closest('[data-exp]');
+    if (!btn) return;
+    var v = btn.getAttribute('data-exp');
+    write(ASKED,'1');
+    if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(v);
+    else { write(KEY,v); document.documentElement.setAttribute('data-debate-experience', v); }
+    tag(v);
+    box.innerHTML = '<span class="exp-inline-done">' +
+      (v === 'competitive' ? 'Good. We will keep the debate vocabulary.'
+                           : 'Got it. We will keep it in plain English.') +
+      ' Change it any time in settings.</span>';
+    setTimeout(function(){ box.remove(); }, 2600);
+  });
+})();
+</script>
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/onboarding.js"></script>
 
@@ -3728,6 +4218,16 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     .fb-floating{left:12px;right:auto;bottom:12px;width:42px;height:42px;padding:0;font-size:0}
   }
   @media print{ .fb-floating{display:none} }
+  /* The chat composer is full width on a phone and this pill sits in the
+     bottom-left corner on top of it. Desktop keeps the pill: there the
+     composer is in a 348px rail nowhere near the corner. The home-magnet
+     card is the same problem from the other corner, and on a phone it is
+     a bottom sheet across the whole width, so it goes too. Both come
+     back the moment the reader leaves the chat. */
+  @media (max-width:1240px){
+    body.chat-open .fb-floating,
+    body.chat-open #ditHomePop{display:none}
+  }
 </style>
 <a href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20community%20feedback" class="fb-floating" aria-label="Send feedback">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
