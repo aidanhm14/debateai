@@ -32,10 +32,23 @@ eq(bracketOf({ bracket: 'open' }), 'open', 'explicit open');
 eq(bracketOf({}), '', 'no signal at all is unassigned, never a default');
 eq(bracketOf({ bracket: 'grown-up' }), '', 'a junk bracket value is unassigned, not trusted');
 eq(bracketOf({ ageAttested: true }), 'open', 'legacy 18+ attestation reads as open');
-eq(bracketOf({ prizeEligible: true }), 'open', 'legacy prize eligibility reads as open');
 eq(bracketOf({ paidEntry: true }), '', 'a tip says nothing about age');
+
+// prizeEligible is NOT an age claim, and this is the assertion that says so.
+// The founding comp granted it off an account creation date without asking
+// anybody anything, so reading it as 18-plus put entrants who had never
+// stated an age into the adult pairing pool. One of the comped accounts in
+// the live Open is a minor, which is the proof the inference was unsound.
+eq(bracketOf({ prizeEligible: true }), '',
+   'prize eligibility is not an age claim and never places anyone in open');
+eq(bracketOf({ prizeEligible: true, entryKind: 'founding' }), '',
+   'a founding comp entry is unassigned until its owner answers');
+eq(bracketOf({ prizeEligible: true, ageAttested: true }), 'open',
+   'an entry that actually attested is still open, eligibility beside it or not');
 eq(bracketOf({ bracket: 'u18', prizeEligible: true }), 'u18',
    'an explicit under-18 answer is not overridden by a stale eligibility flag');
+eq(bracketOf({ bracket: 'open', prizeEligible: false }), 'open',
+   'an explicit open answer stands without eligibility');
 
 // ── what a register call means ───────────────────────────────────────
 eq(resolveEntryBracket({ ageAttested: true }).bracket, 'open', 'attesting 18+ places you in open');

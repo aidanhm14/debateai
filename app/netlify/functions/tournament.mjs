@@ -470,6 +470,30 @@ export default async (request) => {
         patch.ageAttestedAt = FieldValue.serverTimestamp();
       }
 
+      // ── Answering u18 takes cash eligibility back off ────────────
+      //
+      // Everywhere else `prizeEligible` only ever moves UP, because an
+      // accidental untick would cost somebody a prize. This is the one
+      // direction it has to move down, and it is not an exception to
+      // that rule so much as the published one being enforced: the
+      // rules say cash goes to entrants aged 18 or over, and this
+      // person has just said they are not.
+      //
+      // It matters because of where the flag came from. The founding
+      // comp granted it automatically off an account creation date, so
+      // eight live entries hold it having never stated an age, and one
+      // of those accounts is already in the u18 bracket. Without this,
+      // a minor who answers honestly stays on the cash list on the
+      // strength of a comp that never asked.
+      //
+      // Reversible in the ordinary way: attesting 18+ later re-grants
+      // it through the branch above, so a mis-tap costs one more tap.
+      if (wantBracket === 'u18' && !locked && already.prizeEligible === true) {
+        patch.prizeEligible = false;
+        patch.ageAttested = false;
+        patch.prizeEligibilityClearedAt = FieldValue.serverTimestamp();
+      }
+
       // Absent means unchanged; see MEDIA_CONSENT_VERSION.
       if (body?.mediaConsent === true && already.mediaConsent !== true) {
         patch.mediaConsent = true;
@@ -493,7 +517,9 @@ export default async (request) => {
 
       if (Object.keys(patch).length) await snap.ref.update(patch);
       return {
-        prizeEligible: patch.prizeEligible === true || already.prizeEligible === true,
+        prizeEligible: Object.prototype.hasOwnProperty.call(patch, 'prizeEligible')
+          ? patch.prizeEligible === true
+          : already.prizeEligible === true,
         bracket: patch.bracket || current,
         bracketLocked: locked,
         mediaConsent: Object.prototype.hasOwnProperty.call(patch, 'mediaConsent')

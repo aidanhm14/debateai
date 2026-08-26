@@ -29,6 +29,23 @@
  * as 'open'; anything else reads as unassigned and gets asked one
  * question the next time it opens the page. Registration is idempotent,
  * so answering is a single tap on the button they already pressed.
+ *
+ * `prizeEligible` USED TO BE TRUSTED HERE AND IS NOT ANY MORE
+ * (2026-08-26). It reads like an age claim and is not one. The founding
+ * comp granted it automatically from an ACCOUNT CREATION DATE and wrote
+ * `ageAttested: true` onto the payment record on the server's own say-so,
+ * without ever asking the entrant anything. Eight live entries in the
+ * Open carry it with no attestation on the entry, and the proof that the
+ * inference is unsound is among them: one of the comped accounts is in
+ * the u18 bracket, so the comp asserted 18-plus about a minor.
+ *
+ * Trusting it put people who had never stated their age into the ADULT
+ * pairing pool, which is the one arrangement this module exists to
+ * prevent. The cost of dropping it is that those entries read as
+ * unassigned and get asked, in one tap, on the page they open to debate.
+ * That is the recovery path the published rules already describe. Cash
+ * eligibility is a separate field and is untouched by this: dropping the
+ * inference changes who is PAIRED with whom, never who can be paid.
  */
 
 export const AGE_BRACKETS = ['u18', 'open'];
@@ -54,7 +71,9 @@ export function isBracket(value) {
 export function bracketOf(entry) {
   const e = entry || {};
   if (isBracket(e.bracket)) return e.bracket;
-  if (e.ageAttested === true || e.prizeEligible === true) return 'open';
+  // An age claim the entrant actually made, and nothing else. See the
+  // header note on why prizeEligible is not one.
+  if (e.ageAttested === true) return 'open';
   return '';
 }
 
