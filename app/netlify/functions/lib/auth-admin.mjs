@@ -233,3 +233,45 @@ export async function listAllAuthUsers({ pageSize = 1000, maxPages = 50 } = {}) 
 
   return out;
 }
+
+/**
+ * Generate a sign-in-with-email-link WITHOUT letting Firebase mail it.
+ *
+ * Firebase's own mailer sends from noreply@debateos-78ac5.firebaseapp.com,
+ * a domain we neither own nor have SPF/DKIM alignment on, wrapped in the
+ * stock Identity Toolkit template. Gmail put it straight in Spam on
+ * 2026-08-26 with "similar to messages that were identified as spam in the
+ * past" — which is exactly what that shared, unbranded sender earns.
+ *
+ * `returnOobLink: true` on an ADMIN-authenticated sendOobCode call returns
+ * the link and sends nothing, so we can put it in our own Resend template
+ * from the verified itsdebatable.com sender that every other lifecycle
+ * email already ships from. Same code, same auth, our envelope.
+ *
+ * Returns the raw Firebase action link (host debateos-78ac5.firebaseapp.com).
+ * The caller decides what URL to actually put in front of a human; see
+ * signin-link.mjs, which rehosts it on our own domain.
+ */
+export async function generateEmailSignInLink(email, continueUrl) {
+  if (!email || typeof email !== 'string') throw new Error('email required');
+  const { projectId } = resolveCreds();
+  const token = await getAccessToken();
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/projects/${projectId}/accounts:sendOobCode`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requestType: 'EMAIL_SIGNIN',
+      email,
+      returnOobLink: true,
+      canHandleCodeInApp: true,
+      continueUrl: continueUrl || 'https://itsdebatable.com/practice',
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`sendOobCode ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  if (!data.oobLink) throw new Error('sendOobCode returned no link');
+  return data.oobLink;
+}

@@ -131,6 +131,13 @@
       '#ditAuth .da-err{font-size:13px;font-weight:700;color:#ef4444;margin:10px 4px 0;text-align:center;line-height:1.35}' +
       '#ditAuth .da-err:empty{display:none}' +
       '#ditAuth svg{width:20px;height:20px;flex:none}' +
+      '#ditAuth .da-steps{margin:0 0 16px;padding:0 0 0 20px;color:' + ink + ';font-size:14.5px;line-height:1.5}' +
+      '#ditAuth .da-steps li{margin:0 0 8px}' +
+      '#ditAuth .da-sent-to{font-weight:800;word-break:break-word}' +
+      /* Amber, same as the in-app warning: this is a state the person
+         has to act on, and red is the action colour on this card. */
+      '#ditAuth .da-spam{font-size:13.5px;line-height:1.5;margin:0 0 4px;padding:11px 13px;border-radius:12px;border:1px solid rgba(245,158,11,.42);background:rgba(245,158,11,.10);color:' + ink + '}' +
+      '#ditAuth .da-spam strong{display:block;margin-bottom:3px}' +
       '@media (max-width:380px){#ditAuth{padding:10px}#ditAuth .da-card{padding:26px 20px 20px;border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-btn--hero{font-size:16px}}';
     document.head.appendChild(s);
   }
@@ -336,7 +343,7 @@
           '<label class="da-label" for="daPassword">Password</label>' +
           '<input class="da-input" id="daPassword" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />') +
         '<div class="da-form-meta">' +
-          '<span>' + (linkMode ? 'No password needed.' : creating ? 'Use at least 8 characters.' : '') + '</span>' +
+          '<span>' + (linkMode ? 'We email you a link. Tap it and you are in.' : creating ? 'Use at least 8 characters.' : '') + '</span>' +
           (linkMode || creating ? '' : '<button type="button" class="da-link" id="daForgot">Forgot password?</button>') +
         '</div>' +
         '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
@@ -723,30 +730,78 @@
         reject(bad);
         return;
       }
-      bootstrap(function () {
+      // What completeEmailLink() reads back on the return trip. Stashed
+      // on BOTH send paths, or a link that arrives cannot be finished.
+      function stash() {
         try {
-          auth = firebase.auth();
-          if (auth.useDeviceLanguage) auth.useDeviceLanguage();
-          track('sign_in_start', { method: 'email_link', action: action || 'signup' });
-          auth.sendSignInLinkToEmail(email, emailLinkSettings()).then(function () {
-            try {
-              localStorage.setItem(LINK_EMAIL_KEY, email);
-              if (name) localStorage.setItem(LINK_NAME_KEY, name);
-            } catch (e) {}
-            track('email_link_sent', { action: action || 'signup' });
-            resolve(email);
-          }).catch(function (err) {
-            var wrapped = err || new Error('send-failed');
-            wrapped.userMessage = emailLinkMessage(wrapped);
-            reject(wrapped);
-          });
-        } catch (e) {
-          e.userMessage = isInAppBrowser()
-            ? 'Could not send the link. Try a password instead.'
-            : 'Could not send the link. Continue with Google or a password.';
-          reject(e);
-        }
-      });
+          localStorage.setItem(LINK_EMAIL_KEY, email);
+          if (name) localStorage.setItem(LINK_NAME_KEY, name);
+        } catch (e) {}
+      }
+      function done(via) {
+        stash();
+        track('email_link_sent', { action: action || 'signup', via: via });
+        resolve(email);
+      }
+      track('sign_in_start', { method: 'email_link', action: action || 'signup' });
+
+      // Firebase's own mailer, kept as the fallback only. It sends from
+      // noreply@debateos-78ac5.firebaseapp.com, which Gmail spam-foldered
+      // on 2026-08-26 with "similar to messages that were identified as
+      // spam in the past" — a fair verdict on a shared Google sending
+      // domain carrying the stock template. A link in Spam still beats no
+      // link, so this stays reachable when our own sender cannot run.
+      function viaFirebase() {
+        bootstrap(function () {
+          try {
+            auth = firebase.auth();
+            if (auth.useDeviceLanguage) auth.useDeviceLanguage();
+            auth.sendSignInLinkToEmail(email, emailLinkSettings()).then(function () {
+              done('firebase');
+            }).catch(function (err) {
+              var wrapped = err || new Error('send-failed');
+              wrapped.userMessage = emailLinkMessage(wrapped);
+              reject(wrapped);
+            });
+          } catch (e) {
+            e.userMessage = isInAppBrowser()
+              ? 'Could not send the link. Try a password instead.'
+              : 'Could not send the link. Continue with Google or a password.';
+            reject(e);
+          }
+        });
+      }
+
+      // Our own sender first: /api/signin-link generates the same Firebase
+      // code and mails it from the verified itsdebatable.com address every
+      // other lifecycle email already ships from, with the link rehosted on
+      // our own domain. See netlify/functions/signin-link.mjs.
+      //
+      // Deliberately NOT timed out into the fallback: a slow function that
+      // then succeeds would mail two links off one tap. A failure answers,
+      // and an answer is what switches paths.
+      try {
+        fetch('/api/signin-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email,
+            name: name,
+            continueUrl: window.location.origin + destination(),
+          }),
+        }).then(function (res) {
+          if (res && res.ok) { done('resend'); return; }
+          // A rate limit is OURS and must not be laundered through
+          // Firebase's sender, or the cap means nothing.
+          if (res && res.status === 429) {
+            var busy = new Error('rate-limited');
+            busy.userMessage = 'That is a few links already. Check your inbox and your spam folder, or use a password instead.';
+            reject(busy);
+            return;
+          }
+          viaFirebase();
+        }).catch(function () { viaFirebase(); });
+      } catch (e) { viaFirebase(); }
     });
   }
   window.debatableSendSignInLink = sendSignInLink;
@@ -766,15 +821,124 @@
     if (mode === 'signup' && name.length < 2) { setErr('Enter your name.'); return; }
     var btn = c.querySelector('#daEmailBtn');
     btn.disabled = true;
-    btn.textContent = 'Sending the link\u2026';
+    btn.textContent = 'Sending the link…';
     sendSignInLink(email, name, mode).then(function () {
-      btn.disabled = false;
-      btn.textContent = 'Send it again';
-      setStatus('Link sent to ' + email + '. Open it on this device and you are in.');
+      renderLinkSent(email, mode, name);
     }).catch(function (err) {
       btn.disabled = false;
       btn.textContent = 'Email me a sign-in link';
       setErr((err && err.userMessage) || 'Could not send the link. Try again.');
+    });
+  }
+
+  // A deep link into the webmail that is about to hold the message. Only
+  // for the four providers whose URL is stable and unambiguous; anything
+  // else gets no button rather than a guess that opens the wrong place.
+  // Gmail's search carries `in:anywhere`, which is what makes it find the
+  // message when the filter put it in Spam — the case this exists for.
+  function mailboxLink(email) {
+    var domain = String(email || '').split('@')[1] || '';
+    domain = domain.toLowerCase();
+    if (domain === 'gmail.com' || domain === 'googlemail.com') {
+      return { label: 'Open Gmail', url: 'https://mail.google.com/mail/u/0/#search/from%3Aitsdebatable.com+in%3Aanywhere' };
+    }
+    if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com' || domain === 'msn.com') {
+      return { label: 'Open Outlook', url: 'https://outlook.live.com/mail/0/' };
+    }
+    if (domain === 'yahoo.com' || domain === 'ymail.com') {
+      return { label: 'Open Yahoo Mail', url: 'https://mail.yahoo.com/' };
+    }
+    if (domain === 'icloud.com' || domain === 'me.com' || domain === 'mac.com') {
+      return { label: 'Open iCloud Mail', url: 'https://www.icloud.com/mail/' };
+    }
+    return null;
+  }
+
+  // The sent state is its own screen, not a green line under a form that
+  // still looks unfinished. Someone who has just asked for a link has one
+  // job and needs three things: where it went, what to do when it lands,
+  // and where to look when it does not. The spam line is the reason this
+  // screen exists at all — a link nobody finds is a sign-up that never
+  // happens, and the person cannot know to check Spam unless we say so.
+  function renderLinkSent(email, mode, name) {
+    var c = home(); if (!c) return;
+    var box = mailboxLink(email);
+    c.innerHTML =
+      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
+      '<h2>Check your email</h2>' +
+      '<p class="da-sub">The sign-in link is on its way to <span class="da-sent-to">' + esc(email) + '</span>. It usually lands within a minute.</p>' +
+      '<ol class="da-steps">' +
+        '<li>Open the email from <strong>Debatable</strong> (hello@itsdebatable.com).</li>' +
+        '<li>Tap <strong>Sign in to Debatable</strong>.</li>' +
+        '<li>You land back on this page, signed in. Nothing to remember next time.</li>' +
+      '</ol>' +
+      '<div class="da-spam"><strong>Not there after 2 minutes? Check spam.</strong>' +
+        'A first email from a new sender often lands there. Move it to your inbox and mark it Not spam, and the next one arrives properly.</div>' +
+      (box ? '<a class="da-btn da-btn--primary da-btn--hero" id="daOpenMail" href="' + esc(box.url) + '" target="_blank" rel="noopener">' + esc(box.label) + '</a>' : '') +
+      '<button type="button" class="da-btn" id="daLinkResend">Send it again</button>' +
+      '<div class="da-status" role="status"></div>' +
+      '<div class="da-err" role="alert"></div>' +
+      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBack">Use a different email</button>' +
+        '<span style="opacity:.5"> · </span>' +
+        '<button type="button" class="da-link" id="daLinkPassword">Use a password instead</button></p>';
+
+    var xBtn = c.querySelector('.da-x');
+    if (xBtn) xBtn.addEventListener('click', close);
+    var mail = c.querySelector('#daOpenMail');
+    if (mail) mail.addEventListener('click', function () { track('email_link_open_mailbox', { action: mode }); });
+
+    // Resend, on a cooldown. Tapping it twice in six seconds mails two
+    // links, and the second one silently retires the first, so an
+    // impatient person can end up clicking the dead one.
+    var resend = c.querySelector('#daLinkResend');
+    var left = 0, ticker = null;
+    function cool() {
+      left = 30;
+      resend.disabled = true;
+      resend.textContent = 'Send it again in ' + left + 's';
+      ticker = setInterval(function () {
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(ticker); ticker = null;
+          resend.disabled = false;
+          resend.textContent = 'Send it again';
+          return;
+        }
+        resend.textContent = 'Send it again in ' + left + 's';
+      }, 1000);
+    }
+    cool();
+    resend.addEventListener('click', function () {
+      if (ticker) { clearInterval(ticker); ticker = null; }
+      setErr(''); setStatus('');
+      resend.disabled = true;
+      resend.textContent = 'Sending…';
+      track('email_link_resend', { action: mode });
+      sendSignInLink(email, name, mode).then(function () {
+        setStatus('Sent again. If two arrive, use the newest one.');
+        cool();
+      }).catch(function (err) {
+        resend.disabled = false;
+        resend.textContent = 'Send it again';
+        setErr((err && err.userMessage) || 'Could not send the link. Try again.');
+      });
+    });
+
+    c.querySelector('#daLinkBack').addEventListener('click', function () {
+      if (ticker) clearInterval(ticker);
+      renderChooser(mode, 'link');
+      var next = home() && home().querySelector('#daEmail');
+      if (next) next.value = email;
+      var nm = home() && home().querySelector('#daName');
+      if (nm && name) nm.value = name;
+    });
+    c.querySelector('#daLinkPassword').addEventListener('click', function () {
+      if (ticker) clearInterval(ticker);
+      renderChooser(mode, 'password');
+      var next = home() && home().querySelector('#daEmail');
+      if (next) next.value = email;
+      var nm2 = home() && home().querySelector('#daName');
+      if (nm2 && name) nm2.value = name;
     });
   }
 

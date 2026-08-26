@@ -1325,6 +1325,7 @@ body.draft-live #daExpAsk{display:none !important}
 .gate-email-input:focus{outline:none;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.14)}
 .gate-email-note{font-size:.74rem;color:var(--text-ghost);margin-top:8px;line-height:1.5;text-align:center}
 .gate-email-sent{font-size:.84rem;font-weight:750;color:#15803d;margin-top:10px;line-height:1.45;text-align:center}
+.gate-email-spam{display:block;margin-top:7px;font-weight:650;color:var(--text-dim,#6b6b76)}
 .gate-disclaimer{font-size:.74rem;color:var(--text-ghost);margin-top:12px;line-height:1.55}
 /* "Want to debate anonymously?" reassurance: the REAL Avatar mask
    (DBAvatar.maskSvg, already loaded on this page) beside the copy, so a
@@ -2993,7 +2994,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<label class="gate-email-label" for="gateEmail">Email</label>' +
           '<input class="gate-email-input" id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
           '<button class="gate-guest" id="gateEmailSend" type="submit" style="margin-bottom:0">Email me a sign-in link</button>' +
-          '<div class="gate-email-note">No password. Open the link on this device and you are in.</div>' +
+          '<div class="gate-email-note">No password. We email you a link, you tap it, you are in. Check spam if it is not there in 2 minutes.</div>' +
           '<div class="gate-email-sent" id="gateEmailSent"></div>' +
         '</form>' +
         // "Want to debate anonymously?" (Aidan). The camera is a choice,
@@ -3321,7 +3322,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (btn){ btn.disabled = true; btn.textContent = 'Sending the link\u2026'; }
     send(email, name, 'signup').then(function(to){
       if (btn){ btn.disabled = false; btn.textContent = 'Send it again'; }
-      if (sent) sent.textContent = 'Link sent to ' + to + '. Open it on this device and you are in.';
+      // Spam is the failure mode, not delivery: Gmail filed the old
+      // Firebase-sent link as spam on 2026-08-26, and a link nobody
+      // finds is a sign-up that never happens. Say where to look.
+      if (sent) sent.innerHTML = 'Link sent to ' + escHtml(to) + '. Open it on this device and you are in.'
+        + '<span class="gate-email-spam">Not there after 2 minutes? Check your spam folder for an email from hello@itsdebatable.com, and mark it Not spam.</span>';
       try { gtag('event', 'spar_gate_email_sent', {}); } catch(e){}
     }).catch(function(err){
       if (btn){ btn.disabled = false; btn.textContent = 'Email me a sign-in link'; }
