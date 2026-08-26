@@ -1891,6 +1891,79 @@ body.speech-live .transcript-area{margin-top:4px}
 }
 .ready-hint strong{color:var(--text)}
 
+/* ── Start-speech guidance (2026-08-25, the founder) ────────────────
+   The failure this fixes: people arrive in a working video call and
+   just start talking. The clock never runs, auto-mic never engages, and
+   the transcript the AI judge reads stays empty, so a real speech
+   records as silence and the round dies at speech 0. Nothing on screen
+   competed with the other person's face for attention: the start
+   control is a button in the header and the only prompt was a grey hint
+   line under it. While the speech is the local debater's to start, the
+   button pulses, a line above it points at it, and a docked bar carries
+   it when the header has scrolled off. All of it clears the instant the
+   clock runs, and none of it starts a speech on its own (2026-08-24:
+   NO SPEECH STARTS ITSELF). prefers-reduced-motion drops the movement,
+   never the cue. */
+.btn-play.lr-await{animation:lrAwaitPulse 2s ease-in-out infinite}
+@keyframes lrAwaitPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}
+  55%{box-shadow:0 0 0 11px rgba(220,38,38,0)}
+}
+/* Escalated: the mic says they are already speaking. Faster, and the
+   button says so in the cue line above it. */
+.btn-play.lr-await-hot{animation-duration:.95s}
+.lr-start-cue{
+  grid-column:1/-1;display:flex;align-items:center;gap:9px;margin-top:10px;
+  padding:9px 12px;border-radius:11px;
+  border:1px solid rgba(220,38,38,.42);background:rgba(220,38,38,.09);
+  font-size:.82rem;line-height:1.45;color:var(--text);
+}
+.lr-start-cue.is-hot{border-color:rgba(220,38,38,.75);background:rgba(220,38,38,.16)}
+.lr-start-cue b{font-weight:800}
+.lr-start-cue .lr-cue-mark{
+  flex:none;font-size:1rem;line-height:1;color:var(--accent-solid,#dc2626);
+  animation:lrCueBob 1.5s ease-in-out infinite;
+}
+@keyframes lrCueBob{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
+/* Docked start bar. Only ever appears when the real control is out of
+   view, and it calls the same startSpeechTimer() path, so it can never
+   be a second way to start a round, only the same one within reach. */
+.lr-start-dock{
+  position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+  z-index:318;display:flex;align-items:center;gap:12px;
+  max-width:calc(100% - 24px);padding:9px 10px 9px 16px;border-radius:14px;
+  background:var(--bg-elev,#101014);border:1px solid rgba(220,38,38,.5);
+  box-shadow:0 12px 34px rgba(0,0,0,.4);
+  font-size:.82rem;color:var(--text);animation:lrDockIn .22s ease both;
+}
+@keyframes lrDockIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.lr-start-dock b{font-weight:800}
+.lr-start-dock button{
+  flex:none;padding:10px 16px;border-radius:10px;border:1px solid var(--accent,#dc2626);
+  background:var(--accent-solid,#b91c1c);color:#fff;font-family:inherit;
+  font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;
+}
+.lr-start-dock button:hover{background:#dc2626}
+body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue{display:none!important}
+/* Same posture as #audPops: a fixed overlay has no business floating
+   over the site while the round is a mini player or a PiP window. */
+body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
+@media (max-width:560px){
+  .lr-start-dock{left:12px;right:12px;transform:none;max-width:none;animation:none}
+  .lr-start-dock .lr-dock-text{min-width:0}
+}
+/* Under 760px the action row itself is pinned to the bottom of the
+   window (see the mobile block near the end of this file), so the
+   control is never out of reach and a dock would sit on top of it.
+   The observer already keeps it hidden there; this is the belt. */
+@media (max-width:760px){
+  body.lr-round-live .lr-start-dock{display:none!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .btn-play.lr-await,.lr-start-cue .lr-cue-mark,.lr-start-dock{animation:none}
+  .btn-play.lr-await{box-shadow:0 0 0 3px rgba(220,38,38,.45)}
+}
+
 /* Quiet-room strip (2026-08-23). Amber, not red: an empty room is a
    state of the world, not an error and not a moderation event, and red
    in this page is the speaking pulse and the leave button. Tokens only,
@@ -5557,6 +5630,12 @@ html.stage-mode .stage-ov{display:block}
     state.timerState = 'ended';
   }
   function updatePlayPauseBtn(){
+    updatePlayPauseBtnCore();
+    // After the core, never before: the core rewrites btn.className
+    // wholesale, which would drop the awaiting classes.
+    try { updateStartCue(); } catch(e){}
+  }
+  function updatePlayPauseBtnCore(){
     // Runs on every timer transition, local and remote-mirrored, which is
     // exactly when the speech-1 kickoff strip must appear or clear.
     try { checkKickoffPrompt(); } catch(e){}
@@ -16072,6 +16151,179 @@ html.stage-mode .stage-ov{display:block}
     }
   }
 
+  // ── Start-speech guidance ──────────────────────────────────────────
+  // 2026-08-25 (Aidan): people walk into a working video call and just
+  // start talking. Nobody presses Start speech, so the clock never runs,
+  // auto-mic never engages, and the transcript the judge reads stays
+  // empty: a real speech records as silence and the round dies at
+  // speech 0, which is where the funnel says 92% of them die. The strip
+  // above covers speech 1 only, and only until it is dismissed. This
+  // covers EVERY speech the local debater owns, at the control itself:
+  //   1. the button pulses while the speech is theirs to start,
+  //   2. a line above it says so in words,
+  //   3. a docked bar carries the same control when the header has
+  //      scrolled off, which is most of a phone round,
+  //   4. and if the mic says they are ALREADY SPEAKING with the clock
+  //      still at ready, all three escalate and say what is going wrong.
+  // (4) is the one aimed at the actual behaviour: the person is not
+  // confused about what to do next, they think they have started.
+  // Nothing here starts a speech on its own (2026-08-24: NO SPEECH
+  // STARTS ITSELF), and every path calls the same startSpeechTimer(),
+  // so the judge lock and the clock sync ride along.
+  var startCue = { el:null, dock:null, hot:false, io:null, btnSeen:true,
+                   lvlCall:null, loudMs:0, sig:'', shown:{}, hotShown:{} };
+  var CUE_LOUD = 0.055;      // Daily audioLevel: quiet room floor sits well under this
+  var CUE_LOUD_MS = 2000;    // ~2s of talking before we call it a speech, not a hello
+  var CUE_LVL_MS = 200;      // observer interval
+
+  function prepClockRunning(){
+    if (state.speechIdx !== 0 || !state.prepStartedAtMs || !state.prepMin) return false;
+    return Date.now() < state.prepStartedAtMs + state.prepMin * 60000;
+  }
+  function startCueAwaiting(){
+    if (state.phase !== 'round') return false;
+    if (isSpectator()) return false;
+    if (state.timerState !== 'ready') return false;   // paused is a deliberate stop, not a miss
+    var ms = mySide();
+    if (ms && !isMyTurn()) return false;
+    var btn = $('playPauseBtn');
+    return !!(btn && !btn.disabled);
+  }
+  // The mic is already live in the Daily call, so this costs no new
+  // permission and no second capture: it is the level of the track the
+  // room is already hearing. Runs only while the speech is unstarted
+  // and stops the moment it is not.
+  function startCueLevels(on){
+    var call = room && room.call;
+    if (!call || typeof call.startLocalAudioLevelObserver !== 'function'){ return; }
+    // Only once the call is actually joined: the observer rejects before
+    // there is a local track, and a rejected promise here would surface
+    // as an unhandled rejection in every round on a browser with no mic.
+    if (on && !room.joined) return;
+    if (on && startCue.lvlCall !== call){
+      startCue.lvlCall = call;
+      try {
+        var pr = call.startLocalAudioLevelObserver(CUE_LVL_MS);
+        if (pr && pr.catch) pr.catch(function(){ startCue.lvlCall = null; });
+      } catch(e){ startCue.lvlCall = null; return; }
+      try { call.on('local-audio-level', onStartCueLevel); } catch(e){}
+    } else if (!on && startCue.lvlCall){
+      var prev = startCue.lvlCall;
+      startCue.lvlCall = null;
+      startCue.loudMs = 0;
+      try { prev.off('local-audio-level', onStartCueLevel); } catch(e){}
+      try { prev.stopLocalAudioLevelObserver(); } catch(e){}
+    }
+  }
+  function onStartCueLevel(ev){
+    if (!startCue.lvlCall) return;
+    var lvl = (ev && typeof ev.audioLevel === 'number') ? ev.audioLevel : 0;
+    // Accumulate speech, decay silence, so a cough or a door does not
+    // add up to a speech over a long ready state.
+    if (lvl >= CUE_LOUD) startCue.loudMs = Math.min(CUE_LOUD_MS + 600, startCue.loudMs + CUE_LVL_MS);
+    else if (lvl < CUE_LOUD * 0.5) startCue.loudMs = Math.max(0, startCue.loudMs - CUE_LVL_MS);
+    var hot = startCue.loudMs >= CUE_LOUD_MS;
+    if (hot !== startCue.hot){ startCue.hot = hot; updateStartCue(); }
+  }
+  function startCueGo(via){
+    try { gtag('event', 'live_start_cue_click', { format: state.formatKey, via: via, hot: !!startCue.hot, speech: state.speechIdx }); } catch(e){}
+    startSpeechTimer();
+  }
+  function clearStartCue(){
+    if (startCue.el){ startCue.el.remove(); startCue.el = null; }
+    if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
+    var b = $('playPauseBtn');
+    if (b) b.classList.remove('lr-await', 'lr-await-hot');
+    startCue.hot = false;
+    startCue.sig = '';
+    startCueLevels(false);
+  }
+  function updateStartCue(){
+    var on = startCueAwaiting();
+    if (!on){ clearStartCue(); return; }
+    startCueLevels(true);
+    // A running prep clock is someone deliberately not speaking yet, so
+    // the idle nudge stays out of their way. The "we can hear you" one
+    // does not: delivering a speech into a prep clock is exactly the
+    // mistake this exists to catch.
+    var quiet = prepClockRunning() && !startCue.hot;
+    var sig = (startCue.hot ? 'hot' : (quiet ? 'quiet' : 'idle')) + '|' + state.speechIdx + '|' + (startCue.btnSeen ? 'v' : 'h') + '|' + (kickoffEl ? 'k' : '');
+    if (sig === startCue.sig) return;
+    startCue.sig = sig;
+
+    var btn = $('playPauseBtn');
+    if (btn){
+      btn.classList.toggle('lr-await', !quiet);
+      btn.classList.toggle('lr-await-hot', !!startCue.hot);
+    }
+
+    // 1. The line above the control.
+    var row = document.querySelector('.speech-header .speech-actions');
+    if (quiet || !row){
+      if (startCue.el){ startCue.el.remove(); startCue.el = null; }
+    } else {
+      if (!startCue.el){
+        startCue.el = document.createElement('div');
+        startCue.el.className = 'lr-start-cue';
+        startCue.el.id = 'lrStartCue';
+        row.parentNode.insertBefore(startCue.el, row);
+      }
+      startCue.el.classList.toggle('is-hot', !!startCue.hot);
+      startCue.el.innerHTML = '<span class="lr-cue-mark" aria-hidden="true">▼</span><span>' +
+        (startCue.hot
+          ? '<b>We can hear you. None of it is being recorded.</b> Press Start speech below to put the clock and the transcript on.'
+          : '<b>Your turn.</b> Press Start speech below. Nothing is timed or transcribed until you do.') +
+        '</span>';
+    }
+
+    // 2. The docked control, only when the real one is out of view and
+    // the speech-1 strip is not already carrying one.
+    var wantDock = !quiet && !startCue.btnSeen && !kickoffEl;
+    if (!wantDock){
+      if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
+    } else {
+      if (!startCue.dock){
+        startCue.dock = document.createElement('div');
+        startCue.dock.className = 'lr-start-dock';
+        startCue.dock.id = 'lrStartDock';
+        startCue.dock.innerHTML = '<span class="lr-dock-text"></span><button type="button">▶ Start speech</button>';
+        startCue.dock.querySelector('button').addEventListener('click', function(){ startCueGo('dock'); });
+        document.body.appendChild(startCue.dock);
+      }
+      var txt = startCue.dock.querySelector('.lr-dock-text');
+      if (txt) txt.innerHTML = startCue.hot
+        ? '<b>We can hear you.</b> Nothing is recording yet.'
+        : '<b>Your turn.</b> The clock is not running yet.';
+    }
+
+    if (!startCue.shown[state.speechIdx] && !quiet){
+      startCue.shown[state.speechIdx] = true;
+      try { gtag('event', 'live_start_cue_shown', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+    }
+    if (startCue.hot && !startCue.hotShown[state.speechIdx]){
+      startCue.hotShown[state.speechIdx] = true;
+      try { gtag('event', 'live_start_cue_hot', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+    }
+  }
+  // Watch whether the real control is on screen. One observer for the
+  // life of the page; the dock is a reach problem, not a state change,
+  // so it has to track scrolling rather than timer transitions.
+  function initStartCueWatch(){
+    var btn = $('playPauseBtn');
+    if (!btn || !window.IntersectionObserver) return;
+    startCue.io = new IntersectionObserver(function(entries){
+      for (var i = 0; i < entries.length; i++){
+        var seen = entries[i].isIntersecting && entries[i].intersectionRatio > 0.35;
+        if (seen !== startCue.btnSeen){ startCue.btnSeen = seen; updateStartCue(); }
+      }
+    }, { threshold: [0, 0.36, 1] });
+    startCue.io.observe(btn);
+    // Prep runs on its own clock and nothing else re-evaluates when it
+    // lapses, so a slow poll covers that one transition. Cheap: it exits
+    // on the signature above whenever nothing has moved.
+    setInterval(function(){ try { updateStartCue(); } catch(e){} }, 1000);
+  }
+
   function onRoundSnapshot(d){
     var changedSetup = false;
     if (d.participantAvatars && typeof d.participantAvatars === 'object'){
@@ -16556,6 +16808,7 @@ html.stage-mode .stage-ov{display:block}
 
   // Round controls
   $('playPauseBtn').addEventListener('click', togglePlayPause);
+  try { initStartCueWatch(); } catch(e){}
   $('endSpeechBtn').addEventListener('click', function(){
     // Confirm-out if the timer was never started (likely accidental click).
     if (state.timerState === 'ready'){
