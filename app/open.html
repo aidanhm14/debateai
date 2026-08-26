@@ -629,31 +629,23 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       renderMyRecord(meta, mine);
       return;
     } else if (p === 'live'){
-      // Running with the drop-in queue switched off. Offering a Ready
-      // button here would post to an endpoint that refuses it.
-      say = 'You are in. Wait for the draw.';
-      why = 'This one pairs fixed rounds rather than running a queue. Your pairing appears here when the host releases it.';
-      addWithdraw(acts, t);
+      // Running with the drop-in queue switched off: a SYNCHRONOUS day,
+      // one draw at a time. Offering a Ready button here would post to
+      // an endpoint that refuses it.
+      //
+      // This branch used to end at "your pairing appears here when the
+      // host releases it" AND NEVER SHOW ONE. The room link lived only
+      // in the elim branch below, so on a synchronous prelim day every
+      // entrant was told to wait on a page that had nothing to give
+      // them, for the whole event. The lookup is identical either way,
+      // so it is one function now and both branches call it.
+      var d = drawPairing(mine, acts);
+      say = d.say; why = d.why;
+      if (!d.up) addWithdraw(acts, t);
     } else {
-      // Break or elims. Their pairing is in a released elim round.
-      var r = latestReleased();
-      var pr = r && (r.pairings || []).filter(function(x){
-        return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
-      })[0];
-      if (pr && pr.status !== 'complete'){
-        var side = pr.govEntry === mine.entryId ? 'Gov' : 'Opp';
-        var opp = pr.govEntry === mine.entryId ? pr.oppName : pr.govName;
-        say = 'You are up. ' + side + ' against ' + opp + '.';
-        why = r.motion ? ('Motion: ' + r.motion) : (r.label || '');
-        addLink(acts, 'Join your room', roomUrl(pr, r), true);
-      } else if (pr){
-        var won = (pr.winner === 'gov' && pr.govEntry === mine.entryId) || (pr.winner === 'opp' && pr.oppEntry === mine.entryId);
-        say = won ? 'You won that one.' : 'You lost that one.';
-        why = won ? 'Wait here for the next bracket round.' : 'The bracket plays out below.';
-      } else {
-        say = 'Waiting on the next bracket round.';
-        why = 'It appears here the moment the host releases it.';
-      }
+      // Break or elims. Same lookup, different words around it.
+      var de = drawPairing(mine, acts, true);
+      say = de.say; why = de.why;
     }
 
     box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
@@ -1160,6 +1152,51 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         }).join('');
     });
     tb.innerHTML = html;
+  }
+
+  // Where am I in the draw that is currently on the floor, and can I
+  // walk into the room. Shared by the synchronous-prelim branch and the
+  // elim branch, which want the same three answers in different words:
+  // you are up, that one is done, or nothing is released yet.
+  function drawPairing(mine, acts, elim){
+    var r = latestReleased();
+    var pr = r && (r.pairings || []).filter(function(x){
+      return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
+    })[0];
+    if (pr && pr.status !== 'complete'){
+      var side = pr.govEntry === mine.entryId ? 'Gov' : 'Opp';
+      // Names on this site are 'First L.' shaped, so a full stop after
+      // one reads as 'Tomas L..'. Drop ours when theirs already ends the
+      // sentence.
+      var opp = String((pr.govEntry === mine.entryId ? pr.oppName : pr.govName) || 'your opponent');
+      var stop = /[.!?]$/.test(opp) ? '' : '.';
+      addLink(acts, 'Join your room', roomUrl(pr, r), true);
+      return {
+        up: true,
+        say: 'You are up. ' + side + ' against ' + opp + stop,
+        why: r.motion ? ('Motion: ' + r.motion) : (r.label || ''),
+      };
+    }
+    if (pr){
+      var won = (pr.winner === 'gov' && pr.govEntry === mine.entryId)
+        || (pr.winner === 'opp' && pr.oppEntry === mine.entryId);
+      return {
+        up: false,
+        say: won ? 'You won that one.' : 'You lost that one.',
+        why: elim
+          ? (won ? 'Wait here for the next bracket round.' : 'The bracket plays out below.')
+          : 'The next draw appears here when the host releases it.',
+      };
+    }
+    // Released draw, no pairing with my name on it: on a prelim day
+    // that is the bye, and saying so is better than a blank wait.
+    var bye = r && r.bye && r.bye.entryId === mine.entryId;
+    if (bye) return { up: false, say: 'You have the bye this round.', why: 'It counts as a win. The next draw appears here.' };
+    return {
+      up: false,
+      say: elim ? 'Waiting on the next bracket round.' : 'You are in. Wait for the draw.',
+      why: 'It appears here the moment the host releases it.',
+    };
   }
 
   function latestReleased(){
