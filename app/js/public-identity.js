@@ -26,33 +26,41 @@
      That was accepted once here; names already stored on rows (leaderboard
      entries, queue docs) keep whatever they were written with. ADJECTIVES
      and NOUNS below are deliberately NOT touched in the same pass, so the
-     @handle, which is the identifier-shaped half, stays put. */
+     @handle, which is the identifier-shaped half, stays put.
+
+     2026-08-26, per Aidan ("get rid of the crazy amount of indian names
+     make it more american basic simple"): seven South Asian first names
+     and seven South Asian surnames were swapped for plain American ones,
+     leaving a smaller global sprinkle (Patel, Shah, Khan, Kim, Nguyen and
+     the rest of the pool stay). Both arrays are still 96 long ON PURPOSE:
+     a length change re-rolls every generated alias, and only the entries
+     at the swapped indices move. */
   var FIRST = [
-    'Ari', 'Amara', 'Anika', 'Aya', 'Benji', 'Cleo', 'Dev', 'Eli',
+    'Ari', 'Amara', 'Casey', 'Aya', 'Benji', 'Cleo', 'Dev', 'Eli',
     'Farah', 'Inez', 'Jae', 'Kai', 'Kenji', 'Leila', 'Lina', 'Mara',
-    'Mei', 'Mika', 'Nia', 'Nico', 'Noor', 'Omar', 'Priya', 'Ravi',
+    'Mei', 'Mika', 'Nia', 'Nico', 'Noor', 'Omar', 'Paige', 'Wade',
     'Ren', 'Rin', 'Samira', 'Sana', 'Sasha', 'Theo', 'Yuna', 'Zoya',
-    'Abel', 'Adem', 'Anwar', 'Anja', 'Arjun', 'Ansel', 'Kwame', 'Bilal',
+    'Abel', 'Adem', 'Anwar', 'Anja', 'Aaron', 'Ansel', 'Kwame', 'Bilal',
     'Bo', 'Camila', 'Chidi', 'Dima', 'Diego', 'Ege', 'Enzo', 'Emeka',
     'Esme', 'Eva', 'Fatou', 'Felix', 'Gabi', 'Hiro', 'Hugo', 'Ida',
-    'Ilya', 'Imani', 'Iris', 'Ivan', 'Jonas', 'Juno', 'Kiran', 'Kofi',
+    'Ilya', 'Imani', 'Iris', 'Ivan', 'Jonas', 'Juno', 'Logan', 'Kofi',
     'Lars', 'Lior', 'Lucia', 'Luka', 'Malak', 'Mateo', 'Marco', 'Nadia',
-    'Naomi', 'Neha', 'Niamh', 'Olek', 'Otto', 'Paulo', 'Petra', 'Rafa',
+    'Naomi', 'Reese', 'Niamh', 'Olek', 'Otto', 'Paulo', 'Petra', 'Rafa',
     'Rania', 'Rhea', 'Rosa', 'Selma', 'Sora', 'Tariq', 'Thandi', 'Tomas',
-    'Uma', 'Vera', 'Vikram', 'Yusra', 'Yosef', 'Zaid', 'Zane', 'Zuri'
+    'Uma', 'Vera', 'Wyatt', 'Yusra', 'Yosef', 'Zaid', 'Zane', 'Zuri'
   ];
   var LAST = [
     'Arden', 'Ashby', 'Bell', 'Blake', 'Cedar', 'Chen', 'Cole', 'Dane',
-    'Ellis', 'Frost', 'Gray', 'Hale', 'Hart', 'Iyer', 'Jain', 'Khan',
+    'Ellis', 'Frost', 'Gray', 'Hale', 'Hart', 'Irwin', 'Jacobs', 'Khan',
     'Lane', 'Lin', 'Mori', 'Nash', 'Park', 'Quinn', 'Reed', 'Rivera',
     'Rowan', 'Sato', 'Shah', 'Stone', 'Vale', 'West', 'Wren', 'Young',
-    'Abbott', 'Adler', 'Alvarez', 'Ames', 'Bansal', 'Barnes', 'Beck', 'Boone',
+    'Abbott', 'Adler', 'Alvarez', 'Ames', 'Bishop', 'Barnes', 'Beck', 'Boone',
     'Brandt', 'Cruz', 'Diaz', 'Duarte', 'Eze', 'Falk', 'Fenn', 'Fields',
-    'Finch', 'Gallo', 'Garza', 'Ghosh', 'Grant', 'Haas', 'Hayes', 'Holt',
-    'Ibarra', 'Ikeda', 'Jensen', 'Kaur', 'Keller', 'Kim', 'Kirby', 'Kovac',
+    'Finch', 'Gallo', 'Garza', 'Gibson', 'Grant', 'Haas', 'Hayes', 'Holt',
+    'Ibarra', 'Ikeda', 'Jensen', 'Kramer', 'Keller', 'Kim', 'Kirby', 'Kovac',
     'Lam', 'Larsen', 'Lowe', 'Mackay', 'Mensah', 'Mercer', 'Nakano', 'Navarro',
     'Nguyen', 'Nolan', 'Obi', 'Okafor', 'Ortiz', 'Pace', 'Patel', 'Pereira',
-    'Pike', 'Rao', 'Reyes', 'Roche', 'Sandhu', 'Silva', 'Slater', 'Tan',
+    'Pike', 'Ramsey', 'Reyes', 'Roche', 'Sawyer', 'Silva', 'Slater', 'Tan',
     'Tate', 'Vance', 'Vega', 'Walsh', 'Weber', 'Wolfe', 'Yamada', 'Zhao'
   ];
   var ADJECTIVES = [
