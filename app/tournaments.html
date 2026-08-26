@@ -215,6 +215,25 @@ h1,h2,h3,p{margin-top:0}
 section[id],[id^="faq"]{scroll-margin-top:82px}
 .kicker{display:flex;align-items:center;gap:9px;margin-bottom:12px;font-family:var(--sans);font-size:.67rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
 .kicker:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(217,47,47,.09)}
+/* ── FREE (2026-08-26). "Free to enter" was six small red caps in the
+   status kicker, reading as a status word rather than as the price, on
+   a page whose single biggest objection is what it costs. It is stated
+   three times in the first screen now, at three different volumes: a
+   solid chip in the kicker, the opening clause of the lede, and a mark
+   inside the button itself. All three are STATIC. Nothing here reads
+   entryFeeCents, so a stale doc cannot resurrect a price, which is the
+   2026-08-10 rule; if the event ever charges again, these move in the
+   same commit as the fee. */
+.free-chip{display:inline-flex;align-items:center;padding:6px 11px 5px;border-radius:8px;
+  background:var(--free-chip,var(--red));color:#fff;font-family:var(--sans);font-size:.8rem;font-weight:900;
+  letter-spacing:.15em;line-height:1;box-shadow:0 6px 16px -6px rgba(217,47,47,.7)}
+.lede-free{color:var(--red);font-weight:900;font-size:1.12em;letter-spacing:.005em}
+.btn-free{margin-left:2px;padding:4px 8px 3px;border-radius:6px;background:rgba(0,0,0,.24);
+  font-family:var(--sans);font-size:.78rem;font-weight:900;letter-spacing:.12em;line-height:1}
+@media(max-width:560px){
+  .free-chip{font-size:.7rem;padding:5px 9px 4px;letter-spacing:.11em}
+  .btn-free{font-size:.72rem;padding:4px 7px 3px}
+}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 19px;border:1px solid var(--line-strong);border-radius:999px;background:var(--card);font-family:var(--sans);font-size:.79rem;font-weight:850;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease}
 .btn:hover{transform:translateY(-1px);border-color:var(--ink)}
 .hero-share{margin-top:20px;padding-top:16px;border-top:1px solid var(--line,rgba(0,0,0,.1))}
@@ -630,9 +649,13 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
           <a id="liveBarLink" href="/watch">Watch it</a>
         </div>
 
-        <div class="kicker" id="heroKicker">Registration open &middot; free to enter</div>
+        <!-- The status half is hydrated from the tournament doc; the
+             FREE chip is not, and is a sibling rather than a child of
+             #heroKicker so hydrateHero's textContent write cannot take
+             it off screen. -->
+        <div class="kicker"><span id="heroKicker">Registration open</span><b class="free-chip">FREE TO ENTER</b></div>
         <h1>Get paid to <em>win an argument.</em></h1>
-        <p class="hero-lede" id="heroLede">One day. Real opponents. Cash prizes, and a written verdict on every round.</p>
+        <p class="hero-lede" id="heroLede"><b class="lede-free">FREE TO ENTER.</b> One day. Real opponents. Cash prizes, and a written verdict on every round.</p>
 
         <!-- Social proof, restored to panel scale and moved directly
              above the button, so the sequence a visitor reads is offer,
@@ -660,7 +683,10 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
         </div>
 
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#enter" id="heroEnter">Enter the Open <span class="arrow" aria-hidden="true">&darr;</span></a>
+          <!-- hydrateHero rewrites only firstChild's text node, so the
+               FREE mark and the arrow both survive the swap to the live
+               bracket name. -->
+          <a class="btn btn-primary" href="#enter" id="heroEnter">Enter the Open <b class="btn-free">FREE</b> <span class="arrow" aria-hidden="true">&darr;</span></a>
           <a class="btn" href="#watch-guide">How the day works</a>
         </div>
 
@@ -1037,6 +1063,9 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     color-scheme:dark;--ink-rgb:238,236,230;
     --paper:#0c0b09;--paper-2:#16150f;--card:#181713;--ink:#f3f1ec;--muted:#a09b90;
     --red:#ef4444;--red-dark:#f87171;--red-soft:#2a1615;
+    /* The FREE chip paints white on solid red, so it cannot ride the
+       lightened dark-arm --red: that measures 3.8:1. */
+    --free-chip:#cc2b2b;
     --amber:#fbbf24;--amber-soft:#2a2113;--dark:#101114;--dark-2:#181a1e;
     --gold:#f0b429;--gold-soft:#2b2213;--gold-line:rgba(240,180,41,.34);
     --green:#5fd98a;--green-soft:#12251a;--green-line:rgba(95,217,138,.3);
@@ -1338,14 +1367,20 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
        carries status alone instead of repeating the day back. */
     var kick=document.getElementById('heroKicker');
     if(kick){
-      kick.textContent = t.status==='registration' ? 'Registration open \u00b7 free to enter'
+      /* Status only. The price is the FREE chip beside this element and
+         is never written from here, so the two cannot contradict. */
+      kick.textContent = t.status==='registration' ? 'Registration open'
                        : (t.status==='running' ? 'Live now \u00b7 rounds are running' : 'Tournament');
     }
 
     var lede=document.getElementById('heroLede');
     if(lede&&t.name){
       var pool = t.prizePoolCents>0 ? money(t.prizePoolCents,t.currency)+' in cash prizes' : 'cash prizes';
-      lede.textContent='One day. Real opponents. '+pool+', and a written verdict on every round.';
+      /* innerHTML rather than textContent so the FREE mark survives
+         hydration. Both interpolations are locally built: `pool` comes
+         out of money(), which formats a number, and the rest is a
+         literal. No field off the tournament doc reaches this string. */
+      lede.innerHTML='<b class="lede-free">FREE TO ENTER.<\/b> One day. Real opponents. '+pool+', and a written verdict on every round.';
     }
 
     /* Entrant count. Rendered at headline scale in the hero, so it is
