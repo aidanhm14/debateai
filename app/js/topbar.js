@@ -489,7 +489,7 @@
       // /partners is where a 2v2 team gets formed (and the only place it
       // can be, since a tournament of teams needs the teams to exist
       // first); /tournament is the draw, the tab and the bracket.
-      { href: '/partners',    label: 'Find a 2v2 partner' },
+      { href: '/partners',    label: 'Find a 2v2 partner', plain: 'Find a teammate' },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/tournament',  label: 'Enter a tournament' },
@@ -524,7 +524,7 @@
       // debater who plays a round before finding it is locked out for
       // good. `strong` because that ordering constraint makes discovery
       // time-critical in a way no other row here is.
-      { href: '/claim',       label: 'Import your record', strong: true },
+      { href: '/claim',       label: 'Import your record', plain: 'Bring your past results', strong: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/debate-rating', label: 'How rating works' },
@@ -561,18 +561,24 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
-      { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
+      // 2026-08-26 (the founder): was 'Competitive Voice AI'. The ICP is
+      // NOT competitive debaters, who already have squads and rounds; the
+      // job is bringing this to everyone else. A label whose first word is
+      // 'Competitive' tells that reader the surface is not for them, which
+      // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
+      // the action instead of the audience.
+      { href: '/voice-debate', label: 'Debate the AI', big: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
-      { href: '/flow',        label: 'Flow a speech', wip: true },
+      { href: '/flow',        label: 'Flow a speech', plain: 'Take notes on a speech', wip: true },
       // 2026-07-27: was "Topics and motions", which the landing's plain-
       // audience jargon layer (motion -> topic, lowercase) rendered as
       // the shipped "Topics and topics". The jargon word sits second so
       // the layer yields "Browse topics" with casing intact.
-      { href: '/topics',       label: 'Browse motions' },
+      { href: '/topics',       label: 'Browse motions', plain: 'Browse topics' },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/argument-coach', label: 'Argument coach' },
@@ -589,11 +595,11 @@
       // 2026-08-19: the coach's own surface, not the directory next to
       // it. A roster joined by code, each member's judged rounds, and
       // private rounds the coach sets for pairs.
-      { href: '/squad',        label: 'Coach a squad' },
+      { href: '/squad',        label: 'Coach a squad', plain: 'Coach a team' },
       // 2026-08-19: indexed, live, and reachable from no nav surface.
       // Sits here rather than in Practice because it is prep reading
       // (what a judge rewards before you speak), not the /judge tool.
-      { href: '/judge-paradigms', label: 'Judge paradigms' },
+      { href: '/judge-paradigms', label: 'Judge paradigms', plain: 'How judges decide' },
     ]},
     // The other half of the old "Watch & compete". Spectating and
     // finding people are the same visit: someone here is not trying to
@@ -602,7 +608,7 @@
     // reason its own note below gives: a market settled from a live
     // round's ballot belongs with the round you watch.
     { head: 'Watch & community', links: [
-      { href: '/spectate',    label: 'Spectate live rounds' },
+      { href: '/spectate',    label: 'Spectate live rounds', plain: 'Watch live debates' },
       // 2026-08-10: the debate shows people already watch (Surrounded,
       // Middle Ground, full Oxford Union debates) plus the standing
       // opinion panel measuring whether any of it moves anyone. Sits in
@@ -845,7 +851,7 @@
     '/app#case':       { desc: 'Case builder and prep tools', icon: '<path d="M12 5.2H6.6A2.4 2.4 0 0 0 4.2 7.6v9.8a2.4 2.4 0 0 0 2.4 2.4h9.8a2.4 2.4 0 0 0 2.4-2.4V12"/><path d="M17.7 4.3a2 2 0 0 1 2.8 2.8l-7.3 7.3-3.8 1 1-3.8z"/>' },
     '/judge':          { desc: 'Paste a round, get the verdict', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
     '/live':           { desc: 'Schedule a live round on the board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
-    '/credentials':    { desc: 'Proof of your record', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
+    '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
     '/predict':        { desc: 'Call winners, earn points', icon: '<path d="M4 17l5.5-5.5 3.5 3.5L19.5 8.4"/><path d="M14.8 8.4h4.7v4.7"/>' },
@@ -862,16 +868,16 @@
     // Speech-bubble pair: the page is about watching people argue, and
     // about what the room thinks afterwards.
     '/debate-shows':   { desc: 'Surrounded, and who changed their mind', icon: '<path d="M4.2 6.4a1.8 1.8 0 0 1 1.8-1.8h7.6a1.8 1.8 0 0 1 1.8 1.8v4.4a1.8 1.8 0 0 1-1.8 1.8H8.6L5 15.6v-3H6a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M9.4 15.4h1.2l3.6 3v-3h1.8a1.8 1.8 0 0 0 1.8-1.8V9.2"/>' },
-    '/tournaments':    { desc: 'Brackets, tab, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
-    '/partners':       { desc: 'Team up for two on two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
+    '/tournaments':    { desc: 'Brackets, tab, and results', plain: 'Sign-ups, matchups, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
+    '/partners':       { desc: 'Team up for two on two', plain: 'Pair up and argue two against two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
     '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },
     // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
     // but never got a MENU_META row, so the largest tile in the column
     // was the only one rendering with no sentence under it.
     '/challenges':     { desc: 'Post a claim or a live round, or challenge someone', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
-    '/claim':          { desc: 'Seed your rating from Tabroom', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
+    '/claim':          { desc: 'Seed your rating from Tabroom', plain: 'Bring results you already have', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
     '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
-    '/judge-paradigms': { desc: 'What judges actually reward', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
+    '/judge-paradigms': { desc: 'What judges actually reward', plain: 'What wins a round, in plain terms', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
     '/leaderboard':    { desc: 'Site-wide rankings', icon: '<path d="M3 20.2h18"/><path d="M9.3 20.2v-8.6h5.4v8.6"/><path d="M3.9 20.2v-5.4h5.4"/><path d="M14.7 20.2v-6.8h5.4v6.8"/><path d="M12 3.2l1.16 2.35 2.6.38-1.88 1.83.44 2.58L12 9.11l-2.32 1.21.44-2.58-1.88-1.83 2.6-.38z"/>' },
     '/atlas':          { desc: 'Map of real debate programs', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.2 2.4 3.4 5.4 3.4 8.6s-1.2 6.2-3.4 8.6c-2.2-2.4-3.4-5.4-3.4-8.6s1.2-6.2 3.4-8.6z"/>' },
     '/community':      { desc: 'Find people, clubs, and someone to argue with', icon: '<circle cx="9" cy="8.4" r="3.2"/><path d="M3.6 19.4c.6-3.1 2.6-4.8 5.4-4.8s4.8 1.7 5.4 4.8M15.4 5.6a3.2 3.2 0 0 1 0 5.6M17.2 14.8c2 .6 3 2 3.4 4"/>' },
@@ -879,10 +885,10 @@
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
     '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
-    '/flow':           { desc: 'Speech to flow, clash, and answers', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
-    '/voice-debate':   { desc: 'Realtime speeches, POIs, and a ballot', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
+    '/flow':           { desc: 'Speech to flow, clash, and answers', plain: 'Turns a speech into clear notes', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
+    '/voice-debate':   { desc: 'Talk out loud, it argues back, you get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
-    '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
+    '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', plain: 'Ready-made things to argue about', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
     '/argument-coach': { desc: 'Claim, warrant, impact checks', icon: '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1"/>' },
     '/oral-exam-prep': { desc: 'Defend your work out loud', icon: '<path d="M2.6 9.4L12 4.6l9.4 4.8-9.4 4.8z"/><path d="M6.6 11.9v4.2c3.6 2.7 7.2 2.7 10.8 0v-4.2M21.4 9.4v5"/>' },
   };
@@ -1061,7 +1067,7 @@
       spotWrap.appendChild(spot);
       var spotAlt = el('a', { href: '/voice-debate', role: 'menuitem', class: 'ui-topbar-more-spot-alt' }, [
         el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon('/voice-debate') }),
-        el('span', null, 'Debate Realtime Voice AI'),
+        el('span', null, 'Debate the AI'),
       ]);
       spotAlt.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/voice-debate', via: 'spotlight' }); });
       spotWrap.appendChild(spotAlt);
@@ -1182,7 +1188,12 @@
             el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon(L.href) }),
             el('span', { class: 'ui-topbar-more-item-text' }, [
               el('span', { class: 'ui-topbar-more-item-label' }, [
-                el('span', null, L.label),
+                // data-plain: audience-mode.js swaps textContent to this for
+                // visitors who answered "new"/"unsure", and restores the
+                // authored label for competitive visitors and anyone who
+                // never answered. Its MutationObserver catches these because
+                // the menu is built after that script runs.
+                el('span', L.plain ? { 'data-plain': L.plain } : null, L.label),
                 L.pulse ? el('span', { class: 'ui-topbar-more-live-dot', 'aria-hidden': 'true' }) : null,
               ]),
               // The mark rides the DESCRIPTION line, never the name line.
@@ -1193,7 +1204,7 @@
               // destination did not. The whole point is that a visitor
               // still learns the surface exists.
               meta.desc ? el('span', { class: 'ui-topbar-more-item-desc' }, [
-                el('span', null, meta.desc),
+                el('span', meta.plain ? { 'data-plain': meta.plain } : null, meta.desc),
               ]) : null,
             ]),
             L.wip ? el('span', { class: 'ui-topbar-more-wip ui-topbar-more-wip-over' }, 'In progress') : null,
@@ -1583,7 +1594,10 @@
       }
       // This loop never read `wip`, so /coach rendered here as a finished
       // row on mobile while the same page sat gated in every other menu.
-      sheetLink.appendChild(el('span', { class: 'ui-topbar-sheet-link-label' }, L.label));
+      sheetLink.appendChild(el('span',
+        L.plain ? { class: 'ui-topbar-sheet-link-label', 'data-plain': L.plain }
+                : { class: 'ui-topbar-sheet-link-label' },
+        L.label));
       if (L.wip){
         sheetLink.appendChild(el('span', { class: 'ui-topbar-more-wip' }, 'In progress'));
         gateWip(sheetLink, L, 'sheet');
@@ -1618,7 +1632,10 @@
           role: 'menuitem',
           class: ((pathMatches(L.href) ? 'is-active ' : '') + (L.wip ? 'is-wip' : '')).trim() || null,
         }, [
-          el('span', { class: 'ui-topbar-sheet-more-label' }, L.label),
+          el('span',
+            L.plain ? { class: 'ui-topbar-sheet-more-label', 'data-plain': L.plain }
+                    : { class: 'ui-topbar-sheet-more-label' },
+            L.label),
           L.wip ? el('span', { class: 'ui-topbar-more-wip' }, 'In progress') : null,
         ]);
         if (L.wip) gateWip(a, L, 'sheet');

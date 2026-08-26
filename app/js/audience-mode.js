@@ -42,6 +42,118 @@
     return text;
   }
 
+  /* ── Plain-language glossary ──────────────────────────────────────
+   * 2026-08-26, the founder: choosing "competitive" or "new" has to
+   * actually change how things are articulated, and the target audience
+   * is NOT competitive debaters, who already have squads and rounds.
+   *
+   * Only 20 data-plain annotations existed across three pages, so for
+   * almost every visitor the answer changed nothing. Hand-annotating a
+   * 100-page site does not converge, so the common vocabulary is handled
+   * here and data-plain stays for sentences that need real rewriting.
+   *
+   * This runs ONLY for visitors who said they are new or unsure.
+   * Competitive visitors, and anyone who never answered, see the
+   * authored words untouched — the precision is the point for them.
+   *
+   * Rules that keep an automatic find-and-replace from going wrong:
+   *  - Longest phrases first, so "speaker points" is consumed before
+   *    "points" could ever be looked at.
+   *  - Word boundaries, and only terms whose debate sense dominates on
+   *    this site. Deliberately NOT included: "flow" (flow of the
+   *    argument), "case" (in case, lower case), "round" (round number),
+   *    "impact" and "spread" — each has a common English sense that
+   *    appears on these pages, and a wrong swap is worse than a jargon
+   *    word a reader can look up.
+   *  - Capitalisation of the original's first letter is preserved.
+   *  - Originals are kept in a WeakMap so switching the answer back
+   *    restores the authored wording exactly rather than approximating
+   *    it with a reverse map, which would not round-trip.
+   */
+  var GLOSSARY = [
+    ['points of information', 'interruptions'],
+    ['point of information', 'an interruption'],
+    ['speaker points', 'speaking scores'],
+    ['reason for decision', 'the reasons behind the result'],
+    ['constructive speech', 'opening speech'],
+    ['rebuttal speech', 'response speech'],
+    ['judge paradigm', 'what the judge rewards'],
+    ['the motion', 'the topic'],
+    ['a motion', 'a topic'],
+    ['motions', 'topics'],
+    ['rebuttals', 'responses'],
+    ['rebuttal', 'response'],
+    ['the ballot', 'the result'],
+    ['prelims', 'the early rounds'],
+    // Short, because RFD is usually a LABEL rather than prose and the
+    // long gloss ("the reasons behind the result") overflowed a small
+    // uppercase heading when this was measured on /how-it-works.
+    ['RFD', 'the decision'],
+    ['POIs', 'interruptions'],
+    ['POI', 'an interruption'],
+  ];
+
+  /* Surfaces where the glossary must NOT run. These publish promises
+   * people are held to — the judge charter, the tournament rules, the
+   * legal pages — and two visitors reading materially different wording
+   * of the same rule is a problem no amount of readability is worth.
+   * The acronym expansion above is fine there (it only spells out what
+   * the abbreviation already said); substituting a different word is
+   * not. */
+  var NO_GLOSSARY = /^\/(tournament-rules|judge-integrity|terms|privacy|judge-charter|learn)(\.html)?$/;
+
+  /* Why /learn is on that list, since it is the page a newcomer most
+   * obviously needs plain language on. It is the format GUIDE: the
+   * terms are the subject being taught, not incidental vocabulary.
+   * Measured there before this was added, the glossary retitled the
+   * lesson "03 Rebuttal" to "03 Response" and turned the link "BP POIs"
+   * into "BP Interruptions", which teaches a reader the wrong name for
+   * the thing they came to learn about. Replacing a word is right when
+   * the word is in the way and wrong when the word IS the lesson.
+   * Pages that teach vocabulary belong here; pages that merely use it
+   * do not. */
+
+  function glossaryAllowed() {
+    var path = (location.pathname || '/').replace(/\/$/, '') || '/';
+    return !NO_GLOSSARY.test(path);
+  }
+
+  var originals = (typeof WeakMap === 'function') ? new WeakMap() : null;
+
+  function applyGlossary(value) {
+    var out = value, hit = false;
+    for (var i = 0; i < GLOSSARY.length; i++) {
+      var term = GLOSSARY[i][0], plainWord = GLOSSARY[i][1];
+      var re = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b',
+                          term === term.toUpperCase() ? 'g' : 'gi');
+      out = out.replace(re, function (m) {
+        hit = true;
+        // Keep the original's opening case so a term that started a
+        // sentence does not come back lowercase mid-paragraph.
+        return (m[0] === m[0].toUpperCase() && m[0] !== m[0].toLowerCase())
+          ? plainWord.charAt(0).toUpperCase() + plainWord.slice(1)
+          : plainWord;
+      });
+    }
+    return hit ? out : null;
+  }
+
+  function glossaryNode(node) {
+    if (!originals || !eligible(node)) return;
+    var wantPlain = plainActive() && glossaryAllowed();
+    if (wantPlain) {
+      if (originals.has(node)) return;
+      var next = applyGlossary(node.nodeValue);
+      if (next != null && next !== node.nodeValue) {
+        originals.set(node, node.nodeValue);
+        node.nodeValue = next;
+      }
+    } else if (originals.has(node)) {
+      node.nodeValue = originals.get(node);
+      originals['delete'](node);
+    }
+  }
+
   function read() {
     try {
       var value = localStorage.getItem(KEY) || '';
@@ -58,7 +170,10 @@
     if (!VALID[value]) return;
     try { localStorage.setItem(KEY, value); } catch (e) {}
     apply(value);
-    if (document.body) swapPlainCopy(document.body);
+    if (document.body) {
+      swapPlainCopy(document.body);
+      normalize(document.body);
+    }
     try { window.dispatchEvent(new CustomEvent('debatable:experience', { detail: { value: value } })); } catch (e) {}
   }
 
@@ -92,7 +207,15 @@
   function eligible(node) {
     var parent = node && node.parentElement;
     if (!parent) return false;
-    return !parent.closest('script,style,textarea,input,select,option,code,pre,[data-keep-debate-acronym]');
+    // [data-plain] is excluded because that element's copy is owned by
+    // swapPlainCopy, and letting both mechanisms write the same node
+    // corrupts the revert. Measured: the glossary turned the nav label
+    // "Browse motions" into "Browse topics" FIRST, then swapPlainCopy
+    // stashed that already-rewritten string as the competitive original,
+    // so switching back to competitive restored "Browse topics" and the
+    // authored label was gone for the rest of the session. One owner per
+    // element; the authored text is the source of truth.
+    return !parent.closest('script,style,textarea,input,select,option,code,pre,[data-keep-debate-acronym],[data-plain]');
   }
 
   function normalize(root) {
@@ -101,6 +224,10 @@
       if (eligible(root)) {
         var next = plainMotion(root.nodeValue);
         if (next !== root.nodeValue) root.nodeValue = next;
+        // Acronym expansion above runs for everyone; the glossary only
+        // for visitors who said they are new, and it no-ops back to the
+        // authored wording when that answer changes.
+        glossaryNode(root);
       }
       return;
     }
