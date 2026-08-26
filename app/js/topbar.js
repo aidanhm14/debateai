@@ -446,7 +446,14 @@
     // finding people to do it with. Nothing was dropped and no link
     // changed; the rows moved with their own notes. Tallest column is
     // now Train at 9, so the panel loses about a third of its height.
-    { head: 'Compete', links: [
+    // 2026-08-26: head renamed Compete -> Debate. Room came off the bar
+    // that morning, which left the LINKS-fed Debate column holding two
+    // rows, and the founder asked for four sections instead of five. The
+    // rows here ARE the debate column: entering a contest and where you
+    // stand after it. Nothing moved between LINKS and MORE_GROUPS — a row
+    // in both renders twice, because the sheet draws MORE_GROUPS plus
+    // every LINKS row.
+    { head: 'Debate', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
@@ -521,6 +528,72 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/debate-rating', label: 'How rating works' },
+    ]},
+    // 2026-07-24: Train was two links against six in the columns either
+    // side, so the menu read half-built. Filled with the practice
+    // surfaces and resources that had no nav entry at all:
+    //   /practice   the 15-format typed trainer. The landing links it
+    //                four times and how-it-works twice, but the bar
+    //                points Prep at /app#case (index.html), a different
+    //                app, so the timed-round surface was reachable only
+    //                by following a body link.
+    //   /topics      the motion bank, PF / LD / Policy / BQ / Worlds.
+    //                Indexed, live, and previously unreachable from any
+    //                nav. (APDA stays out of it by design — impromptu,
+    //                no rolling motion.)
+    //   /argument-coach  paste an argument, get claim / warrant / impact.
+    //                noindex; the menu is its internal discovery surface.
+    //   /oral-exam-prep  the viva vertical. Last because it is the
+    //                narrowest audience, not because it is unfinished.
+    // Deliberately NOT added: /research (a corpus-licensing page aimed
+    // at AI labs, not a debater resource) and /exhibition (watching two
+    // AI brains argue is Watch, not Train).
+    // 2026-08-26: the old 'Train' group was split in two. It had been
+    // carrying two different questions — drill on your own against the
+    // machine, and get taught by a person — and the four-column rebuild
+    // needed both of those to be their own section rather than one long
+    // mixed list. The rows are unchanged; only which group holds them is.
+    { head: 'Practice', links: [
+      // 2026-07-30: the 8-week course. First in Practice because it is
+      // the only entry here that sequences the others: each week hands off
+      // to /learn, /coach, and /practice in order. Everything below is a
+      // surface you have to already know you need.
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
+      { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
+      // 2026-08-10: daily-use flow desk. It accepts one speech or a
+      // whole round and keeps true drops distinct from unanswered excerpts.
+      { href: '/flow',        label: 'Flow a speech', wip: true },
+      // 2026-07-27: was "Topics and motions", which the landing's plain-
+      // audience jargon layer (motion -> topic, lowercase) rendered as
+      // the shipped "Topics and topics". The jargon word sits second so
+      // the layer yields "Browse topics" with casing intact.
+      { href: '/topics',       label: 'Browse motions' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/argument-coach', label: 'Argument coach' },
+    // 2026-08-24: removed from Explore per the founder (declutter pass).
+    // Page stays live; restore = uncomment the line below.
+      // { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
+    ]},
+    // The taught half. On desktop this column also carries /how-it-works,
+    // /learn and /coach, which are LINKS rows: the panel composes columns
+    // by intent rather than by which array owns a row (see the column()
+    // block in render), so those three appear here without leaving LINKS.
+    { head: 'Learn', links: [
+      { href: '/coaches',      label: 'Coaches', wip: true },
+      // 2026-08-19: the coach's own surface, not the directory next to
+      // it. A roster joined by code, each member's judged rounds, and
+      // private rounds the coach sets for pairs.
+      { href: '/squad',        label: 'Coach a squad' },
+      // 2026-08-19: indexed, live, and reachable from no nav surface.
+      // Sits here rather than in Practice because it is prep reading
+      // (what a judge rewards before you speak), not the /judge tool.
+      { href: '/judge-paradigms', label: 'Judge paradigms' },
     ]},
     // The other half of the old "Watch & compete". Spectating and
     // finding people are the same visit: someone here is not trying to
@@ -605,62 +678,6 @@
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
       { href: '/chat',        label: 'Chat and DMs' },
-    ]},
-    // 2026-07-24: Train was two links against six in the columns either
-    // side, so the menu read half-built. Filled with the practice
-    // surfaces and resources that had no nav entry at all:
-    //   /practice   the 15-format typed trainer. The landing links it
-    //                four times and how-it-works twice, but the bar
-    //                points Prep at /app#case (index.html), a different
-    //                app, so the timed-round surface was reachable only
-    //                by following a body link.
-    //   /topics      the motion bank, PF / LD / Policy / BQ / Worlds.
-    //                Indexed, live, and previously unreachable from any
-    //                nav. (APDA stays out of it by design — impromptu,
-    //                no rolling motion.)
-    //   /argument-coach  paste an argument, get claim / warrant / impact.
-    //                noindex; the menu is its internal discovery surface.
-    //   /oral-exam-prep  the viva vertical. Last because it is the
-    //                narrowest audience, not because it is unfinished.
-    // Deliberately NOT added: /research (a corpus-licensing page aimed
-    // at AI labs, not a debater resource) and /exhibition (watching two
-    // AI brains argue is Watch, not Train).
-    { head: 'Train', links: [
-      // 2026-07-30: the 8-week course. First in Train because it is the
-      // only entry here that sequences the others: each week hands off to
-      // /learn, /coach, and /practice in order. Everything below is a
-      // surface you have to already know you need.
-    // 2026-08-24: removed from Explore per the founder (declutter pass).
-    // Page stays live; restore = uncomment the line below.
-      // { href: '/masterclass', label: 'Masterclass', strong: true, wip: true },
-      { href: '/voice-debate', label: 'Competitive Voice AI', big: true },
-    // 2026-08-24: removed from Explore per the founder (declutter pass).
-    // Page stays live; restore = uncomment the line below.
-      // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
-      // 2026-08-10: daily-use flow desk. It accepts one speech or a
-      // whole round and keeps true drops distinct from unanswered excerpts.
-      { href: '/flow',        label: 'Flow a speech', wip: true },
-      { href: '/coaches',      label: 'Coaches', wip: true },
-      // 2026-08-19: the coach's own surface, not the directory next to
-      // it. A roster joined by code, each member's judged rounds, and
-      // private rounds the coach sets for pairs. `strong` because
-      // /coaches is where a coach lands by mistake looking for this.
-      { href: '/squad',        label: 'Coach a squad', strong: true },
-      // 2026-07-27: was "Topics and motions", which the landing's plain-
-      // audience jargon layer (motion -> topic, lowercase) rendered as
-      // the shipped "Topics and topics". The jargon word sits second so
-      // the layer yields "Browse topics" with casing intact.
-      { href: '/topics',       label: 'Browse motions' },
-    // 2026-08-24: removed from Explore per the founder (declutter pass).
-    // Page stays live; restore = uncomment the line below.
-      // { href: '/argument-coach', label: 'Argument coach' },
-      // 2026-08-19: indexed, live, and reachable from no nav surface.
-      // Sits in Train rather than Improve because it is prep reading
-      // (what a judge rewards before you speak), not the /judge tool.
-      { href: '/judge-paradigms', label: 'Judge paradigms' },
-    // 2026-08-24: removed from Explore per the founder (declutter pass).
-    // Page stays live; restore = uncomment the line below.
-      // { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
     ]},
     { head: 'Site', links: [
       { href: '/pricing', label: 'Free vs Paid' },
@@ -1050,17 +1067,89 @@
       spotWrap.appendChild(spotAlt);
       panel.appendChild(spotWrap);
 
-      var primaryGroups = [
-        // /spar lives in the spotlight card, so it is not repeated here.
-        { head: 'Debate', links: pageLinks.filter(function(L){
-          return ['/app#case', '/live', '/watch', '/room-judge'].indexOf(L.href) !== -1;
-        })},
-        { head: 'Improve', links: pageLinks.filter(function(L){
-          return ['/how-it-works', '/learn', '/judge', '/credentials', '/coach',
-                  '/judge-integrity'].indexOf(L.href) !== -1;
-        })},
+      // 2026-08-26, per Aidan: "make it 4 sections not 5 and fit
+      // appropriately... highlight independent sections appropriately".
+      // This used to be two LINKS-derived columns plus every non-Site
+      // MORE_GROUPS column, which came to five — and the panel grid is
+      // `250px repeat(4, 1fr)`, so the fifth column was wrapping onto an
+      // implicit second row. It also came to five UNEVEN columns: Room
+      // came off the bar the same morning, leaving Debate with two rows
+      // against Compete's six, so the panel read as one long list, one
+      // stub, and three in between.
+      //
+      // Four columns now, partitioned by INTENT rather than by which
+      // array owns a row:
+      //   Debate    go be in a round with people, and where you stand
+      //   Practice  drill on your own against the machine
+      //   Learn     understand the thing, or get a person to teach it
+      //   Watch     other people's rounds, and the people themselves
+      //
+      // Every column gets exactly ONE flagship tile and ONE second-tier
+      // row, which is what makes a section read as a section: before
+      // this, Compete carried three big tiles and Watch & community
+      // carried two, so weight tracked nothing a visitor could use.
+      // Tier is a PER-COLUMN decision applied to a copy of the row, so
+      // the source arrays keep their own flags and neither the bar nor
+      // the mobile sheet changes.
+      //
+      // Rows still live in LINKS or MORE_GROUPS exactly as before, and
+      // nothing was moved between them: the sheet draws MORE_GROUPS plus
+      // every LINKS row, so a row in both renders twice.
+      var menuPool = pageLinks.slice();
+      MORE_GROUPS.forEach(function(G){
+        if (G.head !== 'Site') menuPool = menuPool.concat(G.links);
+      });
+      // rows: [href, tier] where tier is 'big' | 'strong' | ''. An href
+      // the pool does not hold (commented out by a declutter pass, or
+      // filtered off this page) simply does not render.
+      function column(head, rows){
+        var links = [];
+        rows.forEach(function(r){
+          var row = null;
+          menuPool.forEach(function(L){ if (L.href === r[0]) row = L; });
+          if (!row) return;
+          var clone = {};
+          for (var k in row) if (Object.prototype.hasOwnProperty.call(row, k)) clone[k] = row[k];
+          clone.big = r[1] === 'big';
+          clone.strong = r[1] === 'strong';
+          links.push(clone);
+        });
+        return { head: head, links: links };
+      }
+      // /spar and /voice-debate lead the spotlight card, so /spar is not
+      // repeated here. Voice AI is, because it is the whole reason the
+      // Practice column exists and the spotlight's alt row is one quiet
+      // line rather than a destination anyone reads as a section.
+      var columnGroups = [
+        column('Debate', [
+          ['/challenges',     'big'],
+          ['/tournaments',    'strong'],
+          ['/partners',       ''],
+          ['/private',        ''],
+          ['/leaderboard',    'strong'],
+          ['/claim',          ''],
+        ]),
+        column('Practice', [
+          ['/voice-debate',   'big'],
+          ['/app#case',       'strong'],
+          ['/flow',           ''],
+          ['/topics',         ''],
+        ]),
+        column('Learn', [
+          ['/how-it-works',   'big'],
+          ['/learn',          'strong'],
+          ['/coach',          ''],
+          ['/coaches',        ''],
+          ['/squad',          ''],
+          ['/judge-paradigms', ''],
+        ]),
+        column('Watch & community', [
+          ['/community',      'big'],
+          ['/watch',          'strong'],
+          ['/spectate',       ''],
+          ['/chat',           ''],
+        ]),
       ];
-      var columnGroups = primaryGroups.concat(MORE_GROUPS.filter(function(G){ return G.head !== 'Site'; }));
       // 2026-08-12: each column carries its own accent through a `--col`
       // custom property set by `ui-col-N` in ui.css, and every coloured
       // part of a row (icon tile, active label, big-tile border, the
