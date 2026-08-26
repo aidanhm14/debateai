@@ -36,6 +36,17 @@
         { v: 'new', label: 'No, I am new to it' },
         { v: 'unsure', label: 'Not sure yet' },
       ] },
+    // Asked only of someone who does not compete. "New to debate" says how
+    // much vocabulary to use; it does not say whether they want to be
+    // taught any, and the two answers want opposite things from a word
+    // like "warrant". `when` is what keeps it off a competitor's screen.
+    { key: 'debateIntent', title: 'Want to learn competitive debate, or just argue?',
+      sub: 'Either is fine. It decides whether we name debate terms and explain them, or leave them out.',
+      when: function (a) { return a.debateExperience && a.debateExperience !== 'competitive' && !a.debateIntent; },
+      options: [
+        { v: 'learn', label: 'Teach me competitive debate' },
+        { v: 'argue', label: 'I just want to argue' },
+      ] },
     { key: 'ageRange', title: 'How old are you?', sub: 'A range is all we ask. It keeps matchmaking age-appropriate.',
       options: [
         { v: '13-15', label: '13 to 15' },
@@ -107,6 +118,13 @@
     try { localStorage.setItem('debateos-experience', value); } catch (e) {}
     document.documentElement.setAttribute('data-debate-experience', value);
     if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(value);
+  }
+
+  function applyIntent(value) {
+    if (!/^(learn|argue)$/.test(value || '')) return;
+    try { localStorage.setItem('debateos-intent', value); } catch (e) {}
+    document.documentElement.setAttribute('data-debate-intent', value);
+    if (window.DebatableAudience && window.DebatableAudience.setIntent) window.DebatableAudience.setIntent(value);
   }
 
   function ensureFirestore(cb) {
@@ -183,7 +201,7 @@
   }
 
   // ── modal ──────────────────────────────────────────────────────
-  var card = null, backdrop = null, stepIdx = 0, answers = {}, activeUid = null, avatarOnly = false, sawFace = false;
+  var card = null, backdrop = null, stepIdx = 0, answers = {}, activeUid = null, avatarOnly = false, sawFace = false, seen = {};
   var activeSteps = STEPS;
 
   function unmount() {
@@ -219,7 +237,8 @@
     answers.version = VERSION;
     answers.completedAt = new Date();
     applyExperience(answers.debateExperience);
-    track('onboarding_complete', { experience: answers.debateExperience, age_range: answers.ageRange, role: answers.role, source: answers.source });
+    applyIntent(answers.debateIntent);
+    track('onboarding_complete', { experience: answers.debateExperience, intent: answers.debateIntent, age_range: answers.ageRange, role: answers.role, source: answers.source });
     save(answers);
   }
 
@@ -363,11 +382,26 @@
     advance();
   }
 
+  // A step with a `when` predicate is only shown when the answers so far
+  // call for it, and it is kept out of the dot count too. Past steps count
+  // from `seen` rather than from the index: a step that was SKIPPED is
+  // behind us but was never asked, so a dot for it would be a lie in the
+  // other direction.
+  function stepShows(step, at) {
+    if (seen[at]) return true;
+    if (at <= stepIdx) return false;
+    return !step.when || step.when(answers);
+  }
+
   function renderStep() {
     var step = activeSteps[stepIdx];
+    seen[stepIdx] = 1;
     if (step.kind === 'profile') { renderProfileStep(step); return; }
     var dots = '';
-    for (var i = 0; i < activeSteps.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
+    for (var i = 0; i < activeSteps.length; i++) {
+      if (!stepShows(activeSteps[i], i)) continue;
+      dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
+    }
     var opts = '';
     for (var j = 0; j < step.options.length; j++) {
       var o = step.options[j];
@@ -396,6 +430,7 @@
           } else {
             answers[step.key] = v;
             if (step.key === 'debateExperience') applyExperience(v);
+            if (step.key === 'debateIntent') applyIntent(v);
             advance();
           }
         });
@@ -410,6 +445,7 @@
 
   function advance() {
     stepIdx++;
+    while (stepIdx < activeSteps.length && activeSteps[stepIdx].when && !activeSteps[stepIdx].when(answers)) stepIdx++;
     if (stepIdx >= activeSteps.length) { finish(); return; }
     track('onboarding_step', { step: stepIdx });
     renderStep();
@@ -419,11 +455,12 @@
     if (card) return;
     activeUid = uid;
     stepIdx = 0;
+    seen = {};
     answers = options && options.existing ? Object.assign({}, options.existing) : {};
     avatarOnly = !!(options && options.avatarOnly);
     sawFace = false;
     activeSteps = avatarOnly ? [PROFILE_STEP]
-      : (options && options.experienceOnly ? [STEPS[0]] : STEPS);
+      : (options && options.experienceOnly ? STEPS.slice(0, 2) : STEPS);
     // Warm the portrait engine now so the last step is not a blank grid.
     ensureAvatar(function () {});
     injectStyle();
@@ -459,6 +496,7 @@
           var d = snap && snap.exists ? snap.data() : null;
           if (d && d.onboarding && d.onboarding.debateExperience) {
             applyExperience(d.onboarding.debateExperience);
+            applyIntent(d.onboarding.debateIntent);
             lsMark(user.uid);
             // Questions are done. The face may not be: everyone who signed
             // up before the face step shipped lands here, and an account

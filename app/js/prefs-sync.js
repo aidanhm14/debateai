@@ -78,6 +78,11 @@
     // Beginner vs. competitive presentation mode. This answer changes the
     // terminology and help shown across devices, not just analytics.
     'debateos-experience',
+    // The follow-up asked of a non-competitor: learn competitive debate, or
+    // just argue. It changes whether the AI names circuit terms and teaches
+    // them or drops them entirely, so losing it on a second device silently
+    // changes how rounds read.
+    'debateos-intent',
     // "stop showing me this" — the most annoying thing to lose on a new device
     'debateos-da-onboarded', 'da-welcome-intro', 'debateos-feedback-given',
     'debateos-hindi-prompt-dismissed', 'debateos-support-snooze',

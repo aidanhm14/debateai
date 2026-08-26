@@ -5072,6 +5072,15 @@ function buildPrompt(speech, userSide, motion, history, notes, format, oppStr, o
     if (expChoice === 'new') audienceChoice = 'learning';else
     if (expChoice === 'unsure') audienceChoice = 'curious';
   }
+  // The follow-up half of the same question (js/audience-mode.js, the
+  // landing chooser, onboarding.js, /settings): a non-competitor who
+  // asked to be TAUGHT competitive debate wants the real term named and
+  // glossed; someone who just wants to argue wants it gone. Both are
+  // plain-language rounds, so this never flips the register, it only
+  // decides whether vocabulary gets taught inside it.
+  var learnIntent = '';
+  try {learnIntent = localStorage.getItem('debateos-intent') || '';} catch (e) {}
+  var teachTerms = learnIntent === 'learn';
   // Explicit per-round opponent pick (`da-opp-register`, set by the
   // Normal / Competitive toggle in the setup form) OUTRANKS the
   // onboarding inference. Someone who answered "competing" months ago
@@ -5128,6 +5137,16 @@ ${wantsPlainRegister ? 'The user identified as new to debate or just curious.' :
 - Concrete > abstract. "When the city banned plastic bags in 2019,
   here's what actually happened…" beats any framework name.
 
+${teachTerms ? `
+THEY ASKED TO BE TAUGHT COMPETITIVE DEBATE. Do not hide the vocabulary
+from them, teach it in passing:
+- When a move has a real name, say the plain English first and name the
+  term once, in parentheses. "They never said why that follows (debaters
+  call that a missing warrant)."
+- At most one term per speech. A glossary read aloud is not a round.
+- Teaching never softens the round. You are still arguing to win, and
+  you never coach them on how to beat you.
+` : ''}
 Match the register to the user's stated experience. Do not switch to
 circuit shorthand merely because they have completed another round.
 ────────────────────────────────────────────────────────
@@ -5139,7 +5158,7 @@ circuit shorthand merely because they have completed another round.
   var audienceRegisterReminder = wantsCompetitiveRegister ?
   `FINAL REGISTER: Speak to a circuit-fluent ${audienceChoice === 'coaching' ? 'coach or judge' : 'competitive debater'}. Use ${fmt.name}-native shorthand naturally and precisely. Do not explain basic debate vocabulary.` :
   usePlainRegister ?
-  `FINAL REGISTER OVERRIDE: Speak to an intelligent layperson. Translate every technical instruction above into plain English. Do not say "framework," "warrant," "cross-apply," "impact calculus," "ballot story," or other circuit shorthand unless you immediately explain the term in ordinary language.` :
+  `FINAL REGISTER OVERRIDE: Speak to an intelligent layperson. Translate every technical instruction above into plain English. Do not say "framework," "warrant," "cross-apply," "impact calculus," "ballot story," or other circuit shorthand unless you immediately explain the term in ordinary language.${teachTerms ? ' They asked to be taught competitive debate, so name at most one real term per speech, plain English first and the term in parentheses after.' : ''}` :
   '';
   var isRebuttal = speech.code.includes('R') || speech.code === 'LOR' || speech.code === 'PMR' || speech.code === 'GW' || speech.code === 'OW' || speech.code.startsWith('Reply');
   var isWhip = speech.code === 'GW' || speech.code === 'OW';

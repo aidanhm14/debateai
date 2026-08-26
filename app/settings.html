@@ -322,16 +322,40 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         { id: 'unsure', label: 'Not sure yet', hint: 'Start with the plain-language view.' },
       ]
     };
+    // The follow-up. Only shown to someone who does not compete: a
+    // competitor was never asked whether they want to learn competitive
+    // debate, and rendering the control for them would invite an answer
+    // nothing reads.
+    var intentSpec = {
+      label: 'Learn competitive debate, or just argue',
+      help: 'Both stay in plain English. This decides whether the AI names a debate term and explains it, or leaves it out.',
+      opts: [
+        { id: 'learn', label: 'Teach me', hint: 'Terms get named and explained as they come up.' },
+        { id: 'argue', label: 'Just argue', hint: 'No debate jargon at all.' },
+      ]
+    };
     var current = 'unsure';
     try { current = localStorage.getItem('debateos-experience') || 'unsure'; } catch (e) {}
     if (!/^(competitive|new|unsure)$/.test(current)) current = 'unsure';
+    var intent = '';
+    try { intent = localStorage.getItem('debateos-intent') || ''; } catch (e) {}
+    if (!/^(learn|argue)$/.test(intent)) intent = '';
     $('audienceFields').textContent = '';
     renderField($('audienceFields'), spec, current, function(id){
       try { localStorage.setItem('debateos-experience', id); } catch (e) {}
       document.documentElement.setAttribute('data-debate-experience', id);
       if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(id);
       ga('settings_change', { setting: 'debateos-experience', value: id });
+      paintAudience();
     });
+    if (current !== 'competitive') {
+      renderField($('audienceFields'), intentSpec, intent, function(id){
+        try { localStorage.setItem('debateos-intent', id); } catch (e) {}
+        document.documentElement.setAttribute('data-debate-intent', id);
+        if (window.DebatableAudience && window.DebatableAudience.setIntent) window.DebatableAudience.setIntent(id);
+        ga('settings_change', { setting: 'debateos-intent', value: id });
+      });
+    }
   }
 
   $('resetBtn').addEventListener('click', function(){

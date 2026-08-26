@@ -9527,8 +9527,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        #landing-more has a single flex item and no row-gap applies. */
     .lm-wl-row .aud-choose{margin-top:14px}
     .aud-choose[hidden]{display:none}
-    .aud-choose-btn{appearance:none;border:1px solid var(--text-ghost);background:transparent;color:var(--text-dim);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+    .aud-choose-btn{appearance:none;border:1px solid var(--text-ghost);background:transparent;color:var(--text-dim);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s;text-decoration:none;display:inline-block}
     .aud-choose-btn:hover{color:var(--text);border-color:var(--text-dim)}
+    /* One row per question. Only one is ever unhidden, so the chooser
+       keeps its single-line footprint through both steps. */
+    .aud-step{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+    .aud-step[hidden]{display:none}
     @media(max-width:700px){.aud-choose{width:100%}}
   </style>
   <!-- ── Quick links into the tour (2026-08-22, cards same day) ────
@@ -9711,30 +9715,76 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </script>
   <div class="landing-more" id="landing-more">
     <div class="aud-choose" id="audChoose" hidden>
-      <span class="aud-choose-q">Do you compete in debate?</span>
-      <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
-      <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
+      <div class="aud-step" data-step="exp">
+        <span class="aud-choose-q">Do you compete in debate?</span>
+        <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
+        <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
+      </div>
+      <div class="aud-step" data-step="intent" hidden>
+        <span class="aud-choose-q">Want to learn competitive debate, or just argue?</span>
+        <button type="button" class="aud-choose-btn" data-intent="learn" data-cta="audience-learn">Teach me competitive debate</button>
+        <button type="button" class="aud-choose-btn" data-intent="argue" data-cta="audience-argue">I just want to argue</button>
+      </div>
+      <div class="aud-step" data-step="done" hidden>
+        <span class="aud-choose-q" id="audDoneMsg"></span>
+        <a class="aud-choose-btn" id="audDoneLink" href="/learn"></a>
+      </div>
     </div>
     <script>
       (function(){
         var KEY='debateos-experience';
+        var IKEY='debateos-intent';
         var el=document.getElementById('audChoose');
         if(!el) return;
-        var cur='';
-        try{cur=localStorage.getItem(KEY)||''}catch(e){}
-        if(cur) return;
-        el.hidden=false;
+        // "New to debate" answers how much vocabulary to use. It does not
+        // answer whether the person wants to be taught any, and the two
+        // want opposite things from a word like "warrant". So a
+        // non-competitor gets one follow-up: learn it, or just argue.
+        // A competitor is never asked; they already answered it.
+        var DONE={
+          learn:['We will teach the terms as they come up.','Start with the basics','/learn'],
+          argue:['We will keep the jargon out of it.','Find someone to argue','/spar']
+        };
+        function step(name){
+          var rows=el.querySelectorAll('.aud-step');
+          for(var i=0;i<rows.length;i++)rows[i].hidden=rows[i].getAttribute('data-step')!==name;
+          el.hidden=false;
+        }
+        function get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}
+        var cur=get(KEY), intent=get(IKEY);
+        if(cur==='competitive') return;
+        // Someone who answered the first question before the follow-up
+        // existed still gets asked it, rather than being stuck plain
+        // forever with no way to say which kind of plain they wanted.
+        if(cur){ if(intent) return; step('intent'); }
+        else step('exp');
         el.addEventListener('click',function(e){
-          var btn=e.target.closest&&e.target.closest('[data-exp]');
+          var btn=e.target.closest&&e.target.closest('[data-exp],[data-intent]');
           if(!btn) return;
           var v=btn.getAttribute('data-exp');
-          if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
-          else{
-            try{localStorage.setItem(KEY,v)}catch(err){}
-            document.documentElement.setAttribute('data-debate-experience',v);
+          if(v){
+            if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
+            else{
+              try{localStorage.setItem(KEY,v)}catch(err){}
+              document.documentElement.setAttribute('data-debate-experience',v);
+            }
+            if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_tour_row'});
+            if(v==='competitive')el.hidden=true;
+            else step('intent');
+            return;
           }
-          if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_tour_row'});
-          el.hidden=true;
+          v=btn.getAttribute('data-intent');
+          if(!DONE[v]) return;
+          if(window.DebatableAudience&&window.DebatableAudience.setIntent){window.DebatableAudience.setIntent(v);}
+          else{
+            try{localStorage.setItem(IKEY,v)}catch(err){}
+            document.documentElement.setAttribute('data-debate-intent',v);
+          }
+          if(window.dosTrack)dosTrack('audience_intent',{value:v,surface:'landing_tour_row'});
+          var d=DONE[v], msg=document.getElementById('audDoneMsg'), link=document.getElementById('audDoneLink');
+          if(msg)msg.textContent=d[0];
+          if(link){link.textContent=d[1];link.setAttribute('href',d[2]);link.setAttribute('data-cta','audience-next-'+v);}
+          step('done');
         });
       })();
     </script>

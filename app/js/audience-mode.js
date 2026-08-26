@@ -14,6 +14,15 @@
  * authored debate-register text for competitive visitors and for anyone who
  * never answered. The authored text is stashed on the element so the swap
  * reverses cleanly when the answer changes.
+ *
+ * Intent is the second half of the same question, asked only of someone who
+ * said they do not compete: do they want to LEARN competitive debate, or do
+ * they just want to ARGUE. "New to debate" answers how much vocabulary to
+ * use; it does not answer whether the person wants to be taught any. Both
+ * answers are plain-language visitors, and they want opposite things from
+ * a term like "warrant": the learner wants it named and explained once, the
+ * arguer wants it gone. Lands on <html> as data-debate-intent="learn|argue"
+ * and syncs across devices through prefs-sync.js.
  */
 (function () {
   'use strict';
@@ -22,6 +31,8 @@
 
   var KEY = 'debateos-experience';
   var VALID = { competitive: 1, new: 1, unsure: 1 };
+  var INTENT_KEY = 'debateos-intent';
+  var INTENTS = { learn: 1, argue: 1 };
   var replacements = [
     [/^(\s*)THBT\b\.?\s*/i, '$1This House believes that '],
     [/^(\s*)THBR\b\.?\s*/i, '$1This House believes it regrets '],
@@ -177,6 +188,25 @@
     try { window.dispatchEvent(new CustomEvent('debatable:experience', { detail: { value: value } })); } catch (e) {}
   }
 
+  function readIntent() {
+    try {
+      var value = localStorage.getItem(INTENT_KEY) || '';
+      return INTENTS[value] ? value : '';
+    } catch (e) { return ''; }
+  }
+
+  function applyIntent(value) {
+    if (INTENTS[value]) document.documentElement.setAttribute('data-debate-intent', value);
+    else document.documentElement.removeAttribute('data-debate-intent');
+  }
+
+  function setIntent(value) {
+    if (!INTENTS[value]) return;
+    try { localStorage.setItem(INTENT_KEY, value); } catch (e) {}
+    applyIntent(value);
+    try { window.dispatchEvent(new CustomEvent('debatable:intent', { detail: { value: value } })); } catch (e) {}
+  }
+
   function plainActive() {
     var v = read();
     return v === 'new' || v === 'unsure';
@@ -240,12 +270,19 @@
   window.DebatableAudience = {
     get: read,
     set: set,
+    getIntent: readIntent,
+    setIntent: setIntent,
+    // True only for someone who is not a competitor AND asked to be taught.
+    // A competitor never answered this question, so never read them as
+    // wanting the beginner tour.
+    wantsToLearn: function () { return plainActive() && readIntent() === 'learn'; },
     isCompetitive: function () { return read() === 'competitive'; },
     isPlain: plainActive,
     plainMotion: plainMotion,
   };
 
   apply(read());
+  applyIntent(readIntent());
   function start() {
     normalize(document.body);
     swapPlainCopy(document.body);
