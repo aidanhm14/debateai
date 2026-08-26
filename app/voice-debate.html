@@ -3342,9 +3342,27 @@ var VOICE_MISSIONS = [
 // responsive. This is the deterministic, content-shaped version of
 // "smarter interruptions" without the semantic_vad regression.
 function vadSilenceMs(m) {
-  if (m === 'viva' || m === 'apda') return 2100; // long, reasoned turns — be patient
-  if (m === 'quickclash' || m === 'rebuttal' || m === 'crossex') return 1300; // fast exchanges — stay snappy
-  return 1700; // layjudge / aggressive / steelman — default floor
+  // How long the user has to be CONTINUOUSLY silent before server_vad
+  // declares their turn over and the AI takes the floor. Every number
+  // here is "how long a thinking pause is allowed to be".
+  //
+  // Raised across the board 2026-08-26, per "too interruptive, it needs
+  // to listen better". Prior floors (1300 / 1700 / 2100) came from the
+  // 2026-07-09 pass in the other direction ("delayed response takes a
+  // while"), and they were short enough that an ordinary breath between
+  // clauses read as a finished turn: someone saying "and the second
+  // reason is..." then reaching for the reason got answered mid-sentence.
+  // A longer floor can only ever REDUCE how often the AI cuts in; the
+  // cost is that much extra latency at genuine turn-ends, which the
+  // system prompt already asks for ("let one beat of quiet sit").
+  //
+  // A user who wants it snappier interrupts the AI by speaking, which
+  // still works instantly (interrupt_response stays on). There is no
+  // equivalent escape hatch for being talked over, so the asymmetry
+  // belongs on this side.
+  if (m === 'viva' || m === 'apda') return 2800; // long, reasoned turns — be patient
+  if (m === 'quickclash' || m === 'rebuttal' || m === 'crossex') return 1800; // fast exchanges — still the snappiest lane
+  return 2200; // layjudge / aggressive / steelman — default floor
 }
 
 
@@ -6556,20 +6574,24 @@ function App() {
                     // silence.
                     //
                     // server_vad only declares the user's turn over after
-                    // silence_duration_ms of CONTINUOUS silence. At 1700ms
-                    // (was 800), an ordinary mid-clause breath or "...and so"
-                    // pause never reads as "your turn"; the AI takes the floor
-                    // only on a clear, sustained stop. This can only REDUCE
-                    // barge-ins — a longer silence floor strictly lowers how
-                    // often the AI declares the user done. The trade is ~0.9s
-                    // more latency at genuine turn-ends, which the system
-                    // instructions already ask for ("let one beat of quiet
-                    // sit", "considered over fast comeback").
+                    // silence_duration_ms of CONTINUOUS silence. The floors
+                    // live in vadSilenceMs() (2026-08-26: 1800 / 2200 / 2800
+                    // by mode, up from 1300 / 1700 / 2100) so an ordinary
+                    // mid-clause breath or "...and so" pause never reads as
+                    // "your turn"; the AI takes the floor only on a clear,
+                    // sustained stop. This can only REDUCE barge-ins — a
+                    // longer silence floor strictly lowers how often the AI
+                    // declares the user done. The trade is more latency at
+                    // genuine turn-ends, which the system instructions already
+                    // ask for ("let one beat of quiet sit", "considered over
+                    // fast comeback").
                     //
-                    // To dial responsiveness back up, lower silence_duration_ms
-                    // (1200-1400 is a middle ground). To restore the semantic
-                    // detector, set type:'semantic_vad' + eagerness:'low' and
-                    // drop threshold / prefix_padding_ms / silence_duration_ms.
+                    // To dial responsiveness back up, lower the floors in
+                    // vadSilenceMs(). To restore the semantic detector, set
+                    // type:'semantic_vad' + eagerness:'low' and drop
+                    // threshold / prefix_padding_ms / silence_duration_ms.
+                    // (semantic_vad was tried and reverted: even eagerness
+                    // 'low' scored 1-2s thinking pauses as turn-end.)
                     type: 'server_vad',
                     threshold: 0.5,
                     prefix_padding_ms: 300,

@@ -113,8 +113,13 @@ const before = Date.now();
 api.setFloor(false);
 check('closing after speech marks a pending turn', api.get('pendingTurn') === true);
 const backdate = before - api.get('lastActiveAt');
+// Derived, not hardcoded: TURN_SILENCE_MS moves whenever someone reports the
+// AI cutting in too early, and a literal here fails the next time it does.
+// What matters is that the close BACKDATES by the full silence window minus
+// the handoff, so the one existing silence path fires the turn.
+const expectedBackdate = api.get('TURN_SILENCE_MS') - api.get('PTT_HANDOFF_MS');
 check('handover is scheduled, not immediate',
-  backdate >= 1500 && backdate <= 1700);   // TURN_SILENCE_MS - PTT_HANDOFF_MS
+  backdate >= expectedBackdate - 100 && backdate <= expectedBackdate + 100);
 check('floor is closed', api.get('pttOpen') === false);
 
 // Leaving tap mode must never strand a closed floor as a dead mic.

@@ -366,7 +366,10 @@ export default async (request) => {
   const legacyBody = (m) => JSON.stringify({
     model: m, voice, instructions, modalities: ['audio', 'text'],
     input_audio_transcription: { model: 'gpt-4o-mini-transcribe', language: aiLang },
-    turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500, create_response: true },
+    // Legacy/fallback body only — the authoritative turn_detection is the
+    // client session.update in coach.html (threshold 0.7, silence 1200).
+    // Kept in sync so an account on the beta path is not talked over.
+    turn_detection: { type: 'server_vad', threshold: 0.7, prefix_padding_ms: 300, silence_duration_ms: 1200, create_response: true },
   });
 
   const endpoints = [

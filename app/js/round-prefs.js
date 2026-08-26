@@ -40,7 +40,7 @@
       help: 'How long you can go quiet mid-thought before the AI treats your turn as finished. Longer is safer if you think out loud. Hands free only.',
       opts: [
         { id: 'snappy',   label: 'Short',  hint: 'About 1.2 seconds.', ms: 1200 },
-        { id: 'balanced', label: 'Normal', hint: 'About 2 seconds.',   ms: 2000 },
+        { id: 'balanced', label: 'Normal', hint: 'About 2.4 seconds.', ms: 2400 },
         { id: 'patient',  label: 'Long',   hint: 'About 3.2 seconds.', ms: 3200 },
       ],
     },
