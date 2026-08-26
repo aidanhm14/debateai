@@ -32,6 +32,12 @@
     '/api/deepseek', '/api/extract-claims', '/api/flow', '/api/gemini',
     '/api/grok', '/api/log-generation', '/api/log-opinion-delta',
     '/api/record-extract',
+    // 2026-08-26. Left off at first and the endpoint 401'd every real
+    // browser, so the client fell back to Firebase's own sender — the
+    // exact spam-foldered path /api/signin-link exists to replace. A
+    // gated route missing from this list fails SILENTLY as a working
+    // fallback, which is why it took driving the live form to catch.
+    '/api/signin-link',
     '/api/openai-chat', '/api/openlab', '/api/realtime-session',
     '/api/room-judge-session', '/api/submit-audience-question',
     '/api/suggest-topic', '/api/topic-vote', '/api/transcribe',
