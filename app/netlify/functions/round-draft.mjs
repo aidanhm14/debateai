@@ -40,7 +40,7 @@
 // this file does not second-guess. A client that could pick its own side
 // would pick the winning one.
 
-import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 import {
@@ -110,9 +110,18 @@ export default async (request) => {
   let decoded;
   try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; }
   if (!decoded || !decoded.uid) return errorResponse('Sign in to draft.', 401, request);
-  // Anonymous uids are free and unlimited to mint, and both powers in this
-  // draft belong to an identified person on the other side of a real round.
-  if (!isNamedAccount(decoded)) return errorResponse('Sign in to draft.', 401, request);
+  // Deliberately NOT gated on a named account. /spar gives guests two live
+  // rounds (2026-08-19) and spar-pair stamps those pairs like any other, so
+  // refusing an anonymous uid here would open their room with no strike beat
+  // at all: exactly the silent skip this whole move was made to delete, just
+  // keyed on account type instead of entry surface. Found by tracing a real
+  // stamped pair on 2026-08-26 where one side was an anonymous guest.
+  //
+  // Minting anonymous uids is free, so the authorisation is not WHO you are,
+  // it is whether you are one of the two uids the SERVER wrote into the
+  // stamp. That check is below and it is per-round, which is stronger here
+  // than an account-type test: a named stranger has no more claim on this
+  // draft than an anonymous one.
   const uid = String(decoded.uid);
 
   const db = getDb();
