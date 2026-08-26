@@ -4408,6 +4408,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     seatSeen: null,          // { uid: ts } per-debater presence read from the round doc
     seatLeft: null,          // { uid: ts } per-debater departure marks read from the round doc
     seatLeftMarked: false,   // I have written my own departure mark; stop beating
+    oppGoneAt: 0,            // local ms when the opponent last left the video call (0 = they are in it)
+    oppGoneWaitMs: 0,        // how long to wait on that signal before believing it
+    oppSeenAtGone: 0,        // their seat stamp at that moment; if it moves, they are still on the page
     seatLastSeenMs: 0,       // newest seat heartbeat on the round doc (0 = none yet)
     endedAtMs: 0,            // audience-reported ending, if any (see /api/round-report)
     overReports: 0,          // distinct viewers who have said this round is over
@@ -9213,8 +9216,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var remoteSeats = seats.filter(function(p){ return !p.local; }).length;
     if (remoteSeats > 0) room.everHadRemote = true;
     if (room.remoteSeats !== remoteSeats){
+      var wasSeated = room.remoteSeats > 0;
       room.remoteSeats = remoteSeats;
+      // The video room is the fastest thing this page can observe about
+      // somebody walking out: Daily drops their participant in about a
+      // second, where the seat beat takes a beat and an unannounced
+      // departure used to take the full quiet window. Leaving the CALL is
+      // not leaving the ROUND, though (the tray's Leave call keeps you in
+      // it), so this only starts a short clock. opponentHasLeft() still
+      // requires their heartbeat to have stopped with it.
+      if (wasSeated && remoteSeats === 0) noteOppGone(12000);
+      else if (remoteSeats > 0) clearOppGone();
       try { checkOpponentPresence(); } catch(e){}
+      try { paintRoundQuiet(); } catch(e){}
     }
     // "Waiting to join" is wrong once someone HAS been here: an opponent
     // who drops mid-round gets a message that says what happened instead
@@ -9359,6 +9373,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (!data || typeof data !== 'object') return;
       if (data.t === 'guard-review'){ try { showGuardReviewCard(); } catch(e){} }
       else if (data.t === 'guard-clear'){ try { onGuardCleared(); } catch(e){} }
+      else if (data.t === 'seat-left'){ try { noteOppSaidGone(data.uid); } catch(e){} }
     });
     call.on('participant-left', paintRoom);
     call.on('track-started', paintRoom);
@@ -14902,6 +14917,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // than dropping to zero. A frozen count beats a wrong one.
   var WATCH_HB_MS = 30000;
   var WATCH_STALE_MS = 75000;
+  // Seated debaters beat faster than watchers, because the two answer
+  // different questions. A watcher going quiet moves a count by one; a
+  // DEBATER going quiet is the round ending for the person still sitting
+  // there, and the beat interval is the floor under how fast that can be
+  // noticed when the departure was never announced (a killed tab, a shut
+  // laptop, a dropped connection). The audience count is the expensive
+  // half of the write and rides every third beat, so the faster cadence
+  // costs no extra Firestore reads.
+  var SEAT_HB_MS = 10000;
   // Runaway guard. Past this the pill reads "N+" instead of an exact
   // number, so one enormous room can't quietly become the expensive case
   // this whole change exists to avoid.
@@ -15003,6 +15027,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (!isSpectator()){
       var rref = getRoundDocRef();
       if (rref){
+        var seatBeatN = 0;
         var seatBeat = function(){
           if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
           // A beat already in flight when the seat is marked empty would
@@ -15029,7 +15054,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           // small number) rather than running a leader election that could
           // strand the count when the leader's tab dies.
           var wcol = watchersRef();
-          if (!wcol){ rref.set(beat, { merge: true }).catch(function(){}); return; }
+          seatBeatN++;
+          if (!wcol || (seatBeatN % 3) !== 1){ rref.set(beat, { merge: true }).catch(function(){}); return; }
           wcol.where('ts', '>', new Date(Date.now() - WATCH_STALE_MS))
               .limit(WATCH_COUNT_CAP + 1)
               .get()
@@ -15044,7 +15070,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
               });
         };
         seatBeat();
-        state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
+        state.seatHbInterval = setInterval(seatBeat, SEAT_HB_MS);
         window.addEventListener('pagehide', function(){
           if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
           markSeatLeft();
@@ -15060,7 +15086,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           if (!e || !e.persisted) return;
           state.seatLeftMarked = false;
           seatBeat();
-          if (!state.seatHbInterval) state.seatHbInterval = setInterval(seatBeat, WATCH_HB_MS);
+          if (!state.seatHbInterval) state.seatHbInterval = setInterval(seatBeat, SEAT_HB_MS);
         });
         // Round-abandonment beacon: a debater leaving mid-round is the
         // one exit nothing records. Fires only when the round genuinely
@@ -15099,8 +15125,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // believe it only while it is NEWER than that seat's own heartbeat,
   // which is what makes it safe to write from anywhere: coming back
   // clears it on the next beat, and it can never strand a round that is
-  // genuinely still running. The heartbeat is stopped first, or the beat
-  // 30 seconds later would undo the mark on the way out the door.
+  // genuinely still running. The heartbeat is stopped first, or the next
+  // beat would undo the mark on the way out the door.
   //
   // Best-effort by design. On the deliberate exits the write is awaited
   // (leaveRoundThen below); on pagehide it usually lands and sometimes
@@ -15118,6 +15144,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (!uid || !rref) return Promise.resolve();
       state.seatLeftMarked = true;
       if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
+      // Say it out loud first. The data channel is already open, so this
+      // reaches the other side in milliseconds and, unlike the Firestore
+      // write below, it does not need the browser to keep an unload alive
+      // long enough to finish a request. Belt and braces: the mark is
+      // still what a reader trusts, this is what makes it arrive fast.
+      try {
+        if (room.call && room.joined) room.call.sendAppMessage({ t: 'seat-left', uid: uid }, '*');
+      } catch(e){}
       var patch = { seatLeft: {} };
       patch.seatLeft[uid] = firebase.firestore.FieldValue.serverTimestamp();
       try { gtag('event', 'live_round_seat_left', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
@@ -16649,6 +16683,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // alive" everywhere, or a round reads dead on the page it is watched
   // on and live in the list that offered it.
   var QUIET_MS = 100000;
+  // What a DEBATER waits before calling the other chair empty. The 100s
+  // above is a contract shared with roomIsLiveNow() and watch-live.mjs
+  // about whether a round is still listed, and it stays; this is a
+  // different question asked by the one person the answer costs, and it
+  // is answered against a 10s beat, so ~2 missed beats is enough. Before
+  // 2026-08-26 both used the same 100s and an unannounced departure left
+  // someone talking to an empty tile for a minute and a half.
+  var OPP_QUIET_MS = 25000;
   // A departure is normally announced rather than inferred: markSeatLeft
   // writes seatLeft[uid] the moment a debater actually walks out, so the
   // other side hears about it in the next snapshot instead of waiting
@@ -16683,8 +16725,37 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // check next door deliberately cannot.
     var left = tsMs(state.seatLeft && state.seatLeft[noShowOpponentUid()]);
     if (left && left >= seen) return true;
+    // Fast path: they dropped out of the video room (or said outright
+    // that they were leaving) and their heartbeat has not moved since.
+    // The stamp check is what keeps this honest — anyone who merely left
+    // the call and stayed on the page keeps beating, the stamp advances
+    // past oppSeenAtGone, and this stops applying on its own.
+    if (state.oppGoneAt && seen <= state.oppSeenAtGone &&
+        (Date.now() - state.oppGoneAt) > state.oppGoneWaitMs) return true;
     var mine = tsMs(state.seatSeen[state.user.uid]);
-    return mine > 0 && (mine - seen) > QUIET_MS;
+    return mine > 0 && (mine - seen) > OPP_QUIET_MS;
+  }
+  // Arm the fast path. waitMs is how much benefit of the doubt the signal
+  // earns: a dropped video participant might be a reconnect, so it waits
+  // out a beat; an explicit "I am leaving" over the data channel is the
+  // person telling us, so it waits only long enough for a beat already in
+  // flight to land and contradict it.
+  function noteOppGone(waitMs){
+    var seen = oppLastSeenMs();
+    if (!seen) return;                       // nothing proven about that seat yet
+    if (state.oppGoneAt && waitMs >= state.oppGoneWaitMs) return;  // keep the stronger signal
+    state.oppGoneAt = Date.now();
+    state.oppGoneWaitMs = waitMs;
+    state.oppSeenAtGone = seen;
+  }
+  function clearOppGone(){
+    state.oppGoneAt = 0; state.oppGoneWaitMs = 0; state.oppSeenAtGone = 0;
+  }
+  function noteOppSaidGone(uid){
+    if (!uid || uid !== noShowOpponentUid()) return;
+    noteOppGone(2500);
+    try { paintRoundQuiet(); } catch(e){}
+    try { checkOpponentPresence(); } catch(e){}
   }
   // The Daily room is ground truth ahead of the doc beat, exactly as in
   // checkOpponentPresence: a debater whose seat heartbeat has not
@@ -16841,9 +16912,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     });
   }
   // The strip is time-driven as much as event-driven: a room goes quiet
-  // by the ABSENCE of a write, so there is no snapshot to paint on. 15s
-  // keeps the "N minutes" honest without being a clock on screen.
-  setInterval(function(){ try { paintRoundQuiet(); } catch(e){} }, 15000);
+  // by the ABSENCE of a write, so there is no snapshot to paint on. The
+  // tick used to be 15s, which sat on top of every window above it: a
+  // departure detected at second 12 could still take until second 15 to
+  // appear. It is a DOM read and a string compare, so 4s costs nothing
+  // and stops the poll being the slowest part of the reaction.
+  setInterval(function(){ try { paintRoundQuiet(); } catch(e){} }, 4000);
 
   // ── "Looking for your debater" (pre-grace, and while snoozed) ─────
   // Landing in an empty room with no explanation reads as broken. This
@@ -16975,6 +17049,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // above: a hotseat round has one person driving every control and
       // needs no whose-move strip.
       if (opp && !(state.seatSeen && me && state.seatSeen[me] && state.seatSeen[opp])) live = false;
+      // An opponent who was here and has gone fails the same test as one
+      // who never arrived. Otherwise the strip keeps telling somebody the
+      // round is theirs to open while the quiet strip underneath is
+      // telling them the other chair is empty.
+      if (live && opp && opponentHasLeft()) live = false;
     }
     if (!live){ hideKickoff(); return; }
     var f = FORMATS[state.formatKey];
