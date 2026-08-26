@@ -37,6 +37,11 @@ function cacheSet(key, value) {
   }
 }
 
+// What an entry is called when nobody told us. Kept as a set rather
+// than a string so the older 'Team' default is recognised too, and so
+// the self-heal below can tell a placeholder from a chosen name.
+const PLACEHOLDER_NAMES = new Set(['Entry', 'Team', 'Debater']);
+
 function cleanText(s, max) {
   return String(s || '')
     .replace(/[ -]+/g, ' ')
@@ -431,6 +436,17 @@ export default async (request) => {
         patch.ageAttestedAt = FieldValue.serverTimestamp();
       }
 
+      // A placeholder yields to a real name. Register is idempotent and
+      // people press it again (to tick 18+, to fix a bracket), so this
+      // is the recovery path for an entry that landed as 'Entry' before
+      // its owner had a display name. It only ever replaces a
+      // placeholder, never a name somebody chose.
+      const incoming = cleanText(body?.name, 48);
+      if (incoming && PLACEHOLDER_NAMES.has(String(already.name || ''))) {
+        patch.name = incoming;
+        patch.memberNames = [incoming, ...(Array.isArray(already.memberNames) ? already.memberNames.slice(1) : [])];
+      }
+
       if (Object.keys(patch).length) await snap.ref.update(patch);
       return {
         prizeEligible: patch.prizeEligible === true || already.prizeEligible === true,
@@ -448,8 +464,28 @@ export default async (request) => {
 
     const teamSize = Number(t.data.teamSize) || 1;
     let members = [myUid];
-    let memberNames = [cleanText(body?.name, 48) || 'Debater'];
-    let entryName = cleanText(body?.name, 48) || 'Entry';
+    // The body is not the only place a name exists, and until 2026-08-25
+    // it was treated as though it were: a register call without one
+    // wrote the entry as literally 'Entry' with a member called
+    // 'Debater', and that is what the public tab, the standings, the
+    // pairing card and the live room then showed. One real entrant in
+    // the Open is in that state. Two ways in, both live: /open's
+    // bracket buttons post an age answer with no name and will create
+    // an entry for someone who has not pressed Enter yet, and a
+    // password account that never set a display name resolves to
+    // nothing on the client.
+    //
+    // Every caller here arrived with a VERIFIED ID token, so the name
+    // is read from that before any placeholder. The placeholder is the
+    // same string daPublicName() falls back to on the page, so the two
+    // surfaces cannot print different names for one person. The email
+    // is deliberately NOT used: the tab is public, and a local-part is
+    // half of someone's address.
+    const fallbackName = cleanText(decoded.name, 48)
+      || ('Debater ' + String(myUid).slice(-4).toUpperCase());
+    const sentName = cleanText(body?.name, 48);
+    let memberNames = [sentName || fallbackName];
+    let entryName = sentName || fallbackName;
 
     if (teamSize === 2) {
       // A 2v2 tournament registers a formed duo, not a lone debater.
