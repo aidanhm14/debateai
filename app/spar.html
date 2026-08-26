@@ -2284,6 +2284,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   var SKIP_TTL_MS = 2 * 60 * 1000;
   var SKIP_HARD_COUNT = 2;          // passed on twice = never re-proposed
   var MATCH_SKIP_TTL_MS = 30 * 60 * 1000;  // already in a room together
+  // Mirrors spar-pair's GHOST_SKIP_TTL_MS. A ghosted proposal is nobody's
+  // decision, so it hides that peer for 45s, not for the two minutes a
+  // human pass earns.
+  var GHOST_SKIP_TTL_MS = 45 * 1000;
   var DECLINE_COOLDOWN_MS = 15 * 1000;     // no auto-proposal right after a pass
   function stampMs(at){
     return (at && typeof at.toMillis === 'function') ? at.toMillis()
@@ -2297,6 +2301,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (passes >= SKIP_HARD_COUNT) return true;
     var mAt = stampMs(data.matchSkipAt && data.matchSkipAt[uid]);
     if (mAt && (Date.now() - mAt) <= MATCH_SKIP_TTL_MS) return true;
+    // Live ghost block wins; an expired one falls through, because the
+    // same pair may also carry a human pass that has not run out.
+    var gAt = stampMs(data.ghostAt && data.ghostAt[uid]);
+    if (gAt && (Date.now() - gAt) <= GHOST_SKIP_TTL_MS) return true;
     var at = data.skipAt && data.skipAt[uid];
     var t = (at && typeof at.toMillis === 'function') ? at.toMillis()
           : (at && at.seconds != null) ? at.seconds * 1000 : 0;
@@ -2306,6 +2314,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // My own runtime skip list (uid -> stampMs), replacing the
   // unbounded state.skipUids array so local skips expire too.
   function localSkipActive(uid){
+    var g = state.ghostAtLocal && state.ghostAtLocal[uid];
+    if (g && (Date.now() - g) <= GHOST_SKIP_TTL_MS) return true;
     var t = state.skipAtLocal && state.skipAtLocal[uid];
     return !!t && (Date.now() - t) <= SKIP_TTL_MS;
   }
@@ -4745,6 +4755,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           if (t) state.skipAtLocal[u] = t;
         });
       }
+      // Ghost stamps ride the same local map but expire on their own,
+      // shorter clock — see GHOST_SKIP_TTL_MS.
+      state.ghostAtLocal = {};
+      if (d.ghostAt){
+        Object.keys(d.ghostAt).forEach(function(u){
+          var gt = stampMs(d.ghostAt[u]);
+          if (gt) state.ghostAtLocal[u] = gt;
+        });
+      }
       if (d.status === 'matched' && d.room && d.matchedWith){
         pingMatchFound(d.matchedWithName || '');
         teardownQueue();
@@ -4854,14 +4873,27 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // card renders. Accept POSTs phase 2; pass (or the auto-pass timer,
   // or a dead peer) unwinds both docs back to 'waiting' with a mutual
   // skip so the same pair isn't re-proposed.
-  var CONSENT_DECIDE_SEC = 15;   // reading + deciding window (auto-JOINS at 0 if visible)
+  // 2026-08-26: 15 -> 45. Measured before the change: 208 queue sessions
+  // over 12 days produced ZERO matches while proposals kept firing (17
+  // consent ghosts, 27 stale-peer skips in the same window). A proposal
+  // is a reflex ask, but only for someone already looking at this tab;
+  // the queue deliberately follows people across the site, so the common
+  // case is a chime in a background tab, a switch, a read, a click. That
+  // does not fit in fifteen seconds. The cost is paid by the side that
+  // already accepted, who now waits up to 75s before being freed, and
+  // that side is told on screen that it loses nothing and is requeued
+  // automatically. A match is far scarcer here than 45 seconds.
+  var CONSENT_DECIDE_SEC = 45;   // reading + deciding window (auto-PASSES at 0)
   // Waiting-on-peer net. Tab close no longer deletes queue docs (the
   // queue follows users across the app), so proposing to a ghost is a
   // ROUTINE case: a live deciding peer always acts by ~20s (their own
   // auto-pass), so 30s of silence means dead tab — unwind and move on.
   // Server-side ghost detection (spar-pair GHOST_CONSENT_MS, 25s) sits
   // between the two windows.
-  var CONSENT_WAIT_SEC   = 30;
+  // Must stay ABOVE spar-pair's GHOST_CONSENT_MS (55s), which must stay
+  // above CONSENT_DECIDE_SEC: a live deciding peer always answers by 45s,
+  // so silence past 55s is a dead tab and this net is what reports it.
+  var CONSENT_WAIT_SEC   = 75;
   var BASE_TITLE = document.title;
 
   // Stop the search machinery without dropping my own doc listener —
@@ -4887,8 +4919,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // The point is that the screen moves and stays honest while it does;
   // a still card for thirty seconds is the thing that reads as broken.
   var WAIT_PHASES = [
-    { until: 4,  text: 'Card is on their screen' },
-    { until: 10, text: 'Reading it' },
+    { until: 5,  text: 'Card is on their screen' },
+    { until: 18, text: 'Reading it' },
+    { until: 32, text: 'Still their move' },
     { until: CONSENT_DECIDE_SEC, text: 'Their window is almost up' },
     { until: 1e9, text: 'No answer yet. Holding your place.' },
   ];
@@ -5200,7 +5233,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +
           '<button class="btn ghost" id="consentDeclineBtn">Pass</button>' +
         '</div>' +
-        '<div class="countdown">Auto-join in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+        // 2026-08-26: this said "Auto-join in Ns" while the timer at the
+        // end of it auto-PASSES. The copy was true until 2026-08-10, when
+        // the timeout flipped from auto-accept to auto-pass (411 rounds,
+        // only ~85 with both people present) and this line did not follow.
+        // So the one card shown to anyone paired with a debater who filed
+        // a judge note told them, in as many words, not to click. The
+        // ready-check card above already says "Match expires"; both cards
+        // now say the same true thing.
+        '<div class="countdown">Match expires in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
       '</div>';
     document.getElementById('consentAcceptBtn').addEventListener('click', function(){
       this.disabled = true;

@@ -136,6 +136,15 @@ const STALE_PEER_MS = 3 * 60 * 1000;   // 3 min: well past the 60s AI fallback
 // person stops expiring: once is a slip, twice is an answer.
 const SKIP_TTL_MS = 2 * 60 * 1000;
 const SKIP_HARD_COUNT = 2;
+// A GHOST skip is not a decision anybody made: the peer's tab went quiet
+// for a minute. Two minutes of invisibility for that is the same penalty
+// as a human saying no, and at this queue depth it is usually the only
+// other person awake. 45s is long enough that a genuinely dead tab has
+// been cancelled and swept before we look at it again, short enough that
+// someone who was slow, asleep, or on a stalled snapshot stream can be
+// met inside the same sitting. Stamped in its own map so a ghost can
+// never be mistaken for a pass, or vice versa.
+const GHOST_SKIP_TTL_MS = 45 * 1000;
 // A match that actually opened a room blocks re-offering for a round's
 // length. Without this the pair you just entered a room with is still
 // eligible, sorts to the front by joinedAt, and gets proposed back to you
@@ -170,6 +179,11 @@ function skipActive(data, uid) {
   // Currently in a room together.
   const matchAt = data?.matchSkipAt && data.matchSkipAt[uid];
   if (matchAt && (Date.now() - tsMs(matchAt)) <= MATCH_SKIP_TTL_MS) return true;
+  // A live ghost block wins; an EXPIRED one falls through rather than
+  // returning, because the same pair may also carry a real human pass
+  // that has not run out yet.
+  const ghostAt = data?.ghostAt && data.ghostAt[uid];
+  if (ghostAt && (Date.now() - tsMs(ghostAt)) <= GHOST_SKIP_TTL_MS) return true;
   const at = data?.skipAt && data.skipAt[uid];
   const t = tsMs(at);
   if (!t) return false;              // no stamp (legacy doc) = expired
@@ -385,7 +399,13 @@ async function guestSpent(db, uid) {
 // consent proposals against ghosts are a routine case, not an edge).
 // Must stay above the 20s deciding window plus network slop, and below
 // the waiting side's 30s client timer that triggers the check.
-const GHOST_CONSENT_MS = 25 * 1000;
+// 2026-08-26: 25s -> 55s, following the decide window from 15s to 45s on
+// both clients. The ordering is the whole contract and it is easy to
+// break by tuning one number: decide (45s, /spar CONSENT_DECIDE_SEC and
+// notifications.js COUNTDOWN_S) < ghost (55s, here) < the waiting side's
+// net (75s). Drop this below the decide window and a live peer who is
+// simply reading the card gets cancelled out of the queue as a corpse.
+const GHOST_CONSENT_MS = 55 * 1000;
 
 // One-shot reaper sweep. Marks any waiting doc older than REAPER_MS
 // as cancelled so the next polling cycle stops seeing it. Throttled
@@ -586,7 +606,11 @@ export default async (request) => {
           const proposalAge = Date.now() - tsMs(mine.proposedAt);
           const peerNeverActed = !(mine.consents && mine.consents[peerUid]);
           if (auto && peerNeverActed && proposalAge > GHOST_CONSENT_MS) {
-            tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
+            // ghostAt, not skipAt: see GHOST_SKIP_TTL_MS. Nobody decided
+            // anything here, so the block expires in 45s rather than two
+            // minutes, and it never counts toward the permanent
+            // twice-passed rule.
+            tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['ghostAt.' + peerUid]: FieldValue.serverTimestamp() });
             tx.update(peerRef, {
               status: 'cancelled',
               cancelledAt: FieldValue.serverTimestamp(),
@@ -921,7 +945,7 @@ export default async (request) => {
           myFormatPref: theirFormat,
           peerFormat: myFormat,
         });
-        return { ok: true, pending: 'consent', room, pairedFormat };
+        return { ok: true, pending: 'consent', room, pairedFormat, notifyUid: peerUid, notifyFrom: myShort };
       }
 
       const matched = {
@@ -969,15 +993,30 @@ export default async (request) => {
     // the lane leaks the day that flag changes.
     if (result?.ok && !result.pending) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
 
-    // Web Push on a completed direct (background "Spar live") match. This is
-    // exactly the away/closed case: a debater went available and walked off,
-    // so a system push pulls them back. Server-side here = trusted, no client
-    // relationship-check needed. Best-effort + awaited so the Lambda doesn't
-    // freeze mid-send; sendToUser no-ops when VAPID isn't configured yet.
-    if (result && result.ok && !result.pending && result.proUid && result.conUid) {
+    // Web Push, on the PROPOSAL. This used to be gated on
+    // `result.ok && !result.pending` — the instant-match branch — and the
+    // comment three lines above that gate already conceded the branch is
+    // unreachable, because needsConsent is unconditionally true. So the
+    // one mechanism built to pull an away debater back to a live match
+    // has never fired for anybody. It belongs here anyway: the moment
+    // that needs a human is the proposal, where a card with a countdown
+    // on it dies unanswered if nobody looks.
+    //
+    // Sent to the PEER only. The caller just POSTed from a live client,
+    // so they are demonstrably at a keyboard; the peer is the one who may
+    // be on another tab, another app, or a locked phone. Best-effort and
+    // awaited (Lambda freezes the context on return, so an unawaited send
+    // is abandoned rather than deferred), and sendToUser no-ops for
+    // anyone without a subscription.
+    if (result && result.ok && result.notifyUid) {
       try {
-        const payload = { title: 'Match found', body: 'A debater is ready. Tap to accept.', url: '/spar', tag: 'da-spar-match' };
-        await Promise.allSettled([ sendToUser(result.proUid, payload), sendToUser(result.conUid, payload) ]);
+        const from = result.notifyFrom ? String(result.notifyFrom) : 'A debater';
+        await sendToUser(result.notifyUid, {
+          title: 'Match found',
+          body: from + ' is ready to debate. Tap to accept.',
+          url: '/spar',
+          tag: 'da-spar-match',
+        });
       } catch (e) { /* push is best-effort; never fail the pair on it */ }
     }
 

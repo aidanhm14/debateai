@@ -1676,7 +1676,12 @@
     var HEARTBEAT_MS = 90 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
-    var COUNTDOWN_S = 20;                     // accept window
+    // 2026-08-26: 20 -> 45, matching /spar's CONSENT_DECIDE_SEC. This
+    // overlay is by definition shown to someone doing something else on
+    // another page, which is the case a twenty-second window serves
+    // worst. Must stay BELOW spar-pair's GHOST_CONSENT_MS (55s) so a
+    // live tab always answers before the server calls it a ghost.
+    var COUNTDOWN_S = 45;                     // accept window
     var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
     var VALID =['quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Don't run the matcher ON an active round (notifications.js loads on
@@ -2340,8 +2345,9 @@
     // via waitPhaseTimer.
     var waitPhaseTimer = null;
     var WAIT_PHASES = [
-      { until: 4, text: 'Card is on their screen' },
-      { until: 12, text: 'Reading it' },
+      { until: 5, text: 'Card is on their screen' },
+      { until: 18, text: 'Reading it' },
+      { until: 32, text: 'Still their move' },
       { until: COUNTDOWN_S, text: 'Their window is almost up' },
       { until: Infinity, text: 'No answer yet. Holding your place.' },
     ];
@@ -2410,10 +2416,13 @@
       // Backstop: the server ghost-cancels a silent peer at ~25s, but if
       // that sweep is ever missed this card must not hold the page
       // forever. clearInterval in closeOverlay also clears timeouts.
+      // 75s, above the server's 55s ghost sweep, which is above the peer's
+      // 45s decide window. Those three have to stay in that order or the
+      // backstop starts reporting live peers as ghosts.
       overlay.__tick = setTimeout(function () {
         decline(d, true);
         sparNote('No answer from ' + nm + '. Back in the queue.');
-      }, 45000);
+      }, 75000);
     }
 
     function goToRound(d) {
