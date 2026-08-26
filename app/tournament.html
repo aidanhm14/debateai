@@ -227,6 +227,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
             <select class="in" id="tFormat">
               <option value="apda">APDA Parliamentary</option>
               <option value="quick">Quick Clash</option>
+              <option value="blitz">Blitz (5 min)</option>
               <option value="asian">Asian Parliamentary</option>
               <option value="bp">British Parliamentary</option>
               <option value="worlds">Worlds (WUDC)</option>
@@ -485,7 +486,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       break:'Break announced', elims:'Elims', complete:'Complete', cancelled:'Cancelled' }[s] || s;
   }
   function fmtName(f){
-    return { quick:'Quick Clash', apda:'APDA', bp:'British Parliamentary', worlds:'Worlds',
+    return { quick:'Quick Clash', blitz:'Blitz (5 min)', apda:'APDA', bp:'British Parliamentary', worlds:'Worlds',
       asian:'Asian Parliamentary', ld:'Lincoln-Douglas', pf:'Public Forum',
       policy:'Policy', congress:'Congress' }[f] || f;
   }
@@ -526,10 +527,30 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     renderEntryActions();
     renderNextUp();
     renderDropIn();
-    // One poll on first eligible render: someone returning to the tab
-    // mid-tournament should see the room they were seated in, not an
-    // idle "Ready to debate" button that hides it.
-    if (dropInEligible() && !dropIn.state && !dropIn.busy) dropInPoll();
+    // ── Coming back from a round: rejoin the queue in one tap ────────
+    //
+    // `?ready=1` is what the "Next round" button on the ballot links
+    // to. Rejoining the pool is a DELIBERATE act by design (the
+    // 2026-08-11 empty-chair finding: a tab nobody is sitting at must
+    // not be seated), and pressing a button that says "next round" is
+    // exactly that act. What it must not become is a self-renewing
+    // subscription, so it fires ONCE per page load and the parameter is
+    // stripped from the URL immediately: a reload an hour later must
+    // not silently put an absent person back in the queue.
+    //
+    // Ordered before the plain first-poll below because the server's
+    // 'ready' returns { already: true } untouched for a seated entry,
+    // so it is safe to call in every state and reports the same self.
+    if (dropInEligible() && !dropIn.autoReadyDone && qs.get('ready') === '1'){
+      dropIn.autoReadyDone = true;
+      history.replaceState(null, '', location.pathname + '?t=' + encodeURIComponent(TKEY));
+      dropInCall('ready').then(function(){ if (!dropIn.polling) dropInPoll(); });
+    } else if (dropInEligible() && !dropIn.state && !dropIn.busy) {
+      // One poll on first eligible render: someone returning to the tab
+      // mid-tournament should see the room they were seated in, not an
+      // idle "Ready to debate" button that hides it.
+      dropInPoll();
+    }
     renderDraw();
     renderTab();
     renderBracket();
@@ -852,7 +873,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // never release. It is also the presence check: a tab nobody is
   // sitting at cannot press "still here", so it stops being paired
   // instead of opening a room onto an empty chair.
-  var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
+  var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '', autoReadyDone: false };
 
   function dropInEligible(){
     var t = state.data && state.data.tournament;
@@ -982,6 +1003,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       format: t.format,
       motion: r.motion || '',
       source: 'tournament',
+      // The way back. Without it a debater who finishes a drop-in round
+      // is stranded on the ballot screen with no path to the queue: the
+      // queue lives on THIS page and live-round has never heard of it.
+      // Over seven rounds that is seven chances to wander off, and it
+      // is the single biggest leak in a drop-in day.
+      t: TKEY,
       pro: (gov.memberNames || [])[0] || gov.name || 'Gov',
       con: (opp.memberNames || [])[0] || opp.name || 'Opp',
       proUid: (gov.members || [])[0] || '',

@@ -72,6 +72,64 @@ const READY_TTL_MS = 6 * 60 * 1000;   // mirrors DROPIN_AVAILABLE_MS in the lib
 const MATCH_THROTTLE_MS = 2500;
 const POLL_MIN_MS = 3000;             // per-caller floor, so a hot loop cannot spin the matcher
 
+// ── Queue tuning, and why it cannot stay hardcoded ──────────────────
+//
+// Two numbers govern how the queue feels, and BOTH were sized for a
+// long format on one undivided field. Neither assumption survives a
+// drop-in day:
+//
+//   windowMs   how long a ready slot lives before it goes stale. It is
+//              also the presence check, so it wants to be about one
+//              round long: long enough that a real person waiting is
+//              not dropped, short enough that a closed laptop is.
+//
+//   patienceMs how long the engine holds out for a rematch-free draw
+//              before seating a repeat.
+//
+// The patience default is 4 minutes, which is most of a 5-minute round
+// spent looking at a spinner. Worse, the hold is ALL-OR-NOTHING and
+// PER BRACKET: `pairDropIn` looks for a rematch-free perfect matching
+// over the whole pool, and if one does not exist it returns ZERO
+// pairings — so a single unavoidable repeat freezes every other pair
+// in that bracket too.
+//
+// That is a corner case in a 40-person field and the normal case in a
+// small one. A bracket of N people has only N-1 fresh opponents each,
+// so an 8-person u18 bracket runs out after 7 rounds and a 4-person
+// one after 3. Past that point every single pass hits the hold, and at
+// four minutes a bracket spends more of the hour held than debating.
+//
+// A repeat matchup is also a much smaller cost in a short format than
+// in a long one: it is five minutes on a different motion, not half an
+// hour. So the shorter the round, the less patience is worth.
+//
+// Both are read off the tournament document so a director can turn
+// them on the day without a deploy, which is the right instrument for
+// a live event. Absent an override the defaults are exactly the old
+// values, so nothing that exists today changes behaviour.
+const DEFAULT_WINDOW_MS = READY_TTL_MS;
+const DEFAULT_PATIENCE_MS = 4 * 60 * 1000;
+
+function queueTuning(tData) {
+  const d = tData || {};
+  const num = (v, fallback) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  // Floor the window at 2 minutes. Below that a real person reading a
+  // ballot between rounds would age out of a queue they are standing
+  // in, which is the opposite of the presence check's job.
+  const windowMs = Math.max(2 * 60 * 1000, num(d.dropinWindowMs, DEFAULT_WINDOW_MS));
+  // Patience is clamped to windowMs - 60s inside the library as well;
+  // clamping here too keeps the number this file reports and the number
+  // the engine acts on identical, rather than merely compatible.
+  const patienceMs = Math.max(0, Math.min(
+    num(d.dropinPatienceMs, DEFAULT_PATIENCE_MS),
+    windowMs - 60 * 1000,
+  ));
+  return { windowMs, patienceMs };
+}
+
 function roomFor(tid, key, index) {
   // Same derivation as tournament-admin's, deliberately: a room id is
   // reproducible from the pairing rather than random, so a reload hands
@@ -101,10 +159,15 @@ function myEntryFrom(snap, uid) {
 // What the caller needs to render: am I queued, am I seated, who with,
 // and which room. Derived from the entry doc so there is one source of
 // truth rather than a status field that can disagree with it.
-function selfState(entryDoc, now, pairingDoc) {
+function selfState(entryDoc, now, pairingDoc, windowMs) {
   const d = entryDoc.data();
   const availableAt = Number(d.availableAt || 0);
-  const fresh = availableAt > 0 && now - availableAt <= READY_TTL_MS;
+  // The window is passed in rather than read from the constant, because
+  // a tournament can tune it (see queueTuning) and a slot reported as
+  // live here while the engine treats it as stale is a queue that says
+  // "you are next" to somebody it will never seat.
+  const w = Number(windowMs) > 0 ? Number(windowMs) : READY_TTL_MS;
+  const fresh = availableAt > 0 && now - availableAt <= w;
   const bracket = bracketOf(d);
   return {
     entryId: entryDoc.id,
@@ -124,7 +187,7 @@ function selfState(entryDoc, now, pairingDoc) {
     // asks you to join, the other asks whether you are still there.
     slotExpired: availableAt > 0 && !d.inPairing && !fresh,
     waitingMs: fresh ? Math.max(0, now - availableAt) : 0,
-    expiresInMs: fresh ? Math.max(0, READY_TTL_MS - (now - availableAt)) : 0,
+    expiresInMs: fresh ? Math.max(0, w - (now - availableAt)) : 0,
     pairing: pairingDoc || null,
   };
 }
@@ -192,6 +255,7 @@ export default async (request) => {
 
   const entriesRef = t.ref.collection('entries');
   const now = Date.now();
+  const tuning = queueTuning(t.data);
 
   const allEntries = await entriesRef.get();
   const mine = myEntryFrom(allEntries, myUid);
@@ -202,7 +266,7 @@ export default async (request) => {
 
   if (action === 'leave') {
     await mine.ref.update({ availableAt: 0 });
-    return jsonResponse({ ok: true, self: selfState(await mine.ref.get(), now, null) }, 200, request);
+    return jsonResponse({ ok: true, self: selfState(await mine.ref.get(), now, null, tuning.windowMs) }, 200, request);
   }
 
   if (action === 'ready') {
@@ -212,7 +276,7 @@ export default async (request) => {
     // owing two opponents a round at once.
     if (mine.data().inPairing) {
       const pairing = await loadPairing(t.ref, mine.data().inPairing);
-      return jsonResponse({ ok: true, already: true, self: selfState(mine, now, pairing) }, 200, request);
+      return jsonResponse({ ok: true, already: true, self: selfState(mine, now, pairing, tuning.windowMs) }, 200, request);
     }
     // No bracket, no queue. Silently pairing an unanswered entry would
     // mean guessing an age, and both guesses are wrong in a way that
@@ -222,13 +286,13 @@ export default async (request) => {
       return jsonResponse({
         error: 'BRACKET_REQUIRED',
         message: 'Tell us whether you are 18 or over before you join the queue. Under 18 and 18-plus debate in separate brackets.',
-        self: selfState(mine, now, null),
+        self: selfState(mine, now, null, tuning.windowMs),
       }, 409, request);
     }
     // Written once, never refreshed while waiting. See the header.
     await mine.ref.update({ availableAt: now, readyAt: FieldValue.serverTimestamp() });
     const after = await mine.ref.get();
-    return jsonResponse({ ok: true, self: selfState(after, now, null) }, 200, request);
+    return jsonResponse({ ok: true, self: selfState(after, now, null, tuning.windowMs) }, 200, request);
   }
 
   // ── poll ─────────────────────────────────────────────────────────
@@ -244,7 +308,7 @@ export default async (request) => {
   let matched = null;
 
   if (!spinning && now - lastMatch >= MATCH_THROTTLE_MS) {
-    matched = await attemptPairing(db, t, now);
+    matched = await attemptPairing(db, t, now, tuning);
   }
 
   const fresh = await mine.ref.get();
@@ -260,11 +324,12 @@ export default async (request) => {
       .map((d) => ({ entryId: d.id, ...d.data() }))
       .filter((e) => bracketOf(e) === myBracket),
     now,
+    tuning.windowMs,
   );
 
   return jsonResponse({
     ok: true,
-    self: selfState(fresh, now, pairing),
+    self: selfState(fresh, now, pairing, tuning.windowMs),
     // Honest queue texture: how many people could be paired right now,
     // and whether the engine deliberately held rather than seating a
     // repeat. A spinner that says nothing is why a slow queue reads as
@@ -279,7 +344,7 @@ export default async (request) => {
 // write the pairings and mark both sides seated. It has to be atomic
 // or two concurrent polls seat the same person twice, which is the
 // four-way-write failure duo-pair was rebuilt to avoid.
-async function attemptPairing(db, t, now) {
+async function attemptPairing(db, t, now, tuning) {
   try {
     return await db.runTransaction(async (tx) => {
       const tSnap = await tx.get(t.ref);
@@ -313,7 +378,13 @@ async function attemptPairing(db, t, now) {
         // into `seq`, so each field's draw is independently
         // reproducible from the record when somebody asks why they hit
         // the same opponent twice.
-        const draw = pairDropIn(pool, { tid: t.id + '#' + bracket, seq: trySeq, now });
+        const draw = pairDropIn(pool, {
+          tid: t.id + '#' + bracket,
+          seq: trySeq,
+          now,
+          windowMs: tuning.windowMs,
+          rematchPatienceMs: tuning.patienceMs,
+        });
         held = held || draw.heldForFreshOpponent === true;
         if (!draw.pairings.length) continue;
 

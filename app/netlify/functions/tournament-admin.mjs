@@ -51,7 +51,7 @@ import {
 // contested. Deliberately left for after a real tournament has run.
 
 const VALID_FORMATS = new Set([
-  'quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress',
+  'quick', 'blitz', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress',
 ]);
 
 const NAME_MAX = 80;
@@ -202,6 +202,26 @@ export default async (request) => {
     // webhook owns.
     if (body.entryFeeCents != null && siteAdmin) {
       patch.entryFeeCents = Math.max(0, Math.min(50000, Math.round(Number(body.entryFeeCents) || 0)));
+    }
+    // ── Drop-in queue tuning (see queueTuning in tournament-dropin.mjs) ──
+    //
+    // Both defaults were sized for a long format on one undivided
+    // field, and a short-format drop-in day is neither. The rematch
+    // hold in particular is all-or-nothing per bracket, so on a small
+    // bracket that has run out of fresh opponents it stalls EVERY pair
+    // for its full duration. These are the dial for that, and they are
+    // here rather than in code because the moment you need to turn one
+    // is the middle of a live event.
+    //
+    // Clamped at both ends: a window under 2 minutes ages out a person
+    // reading their ballot, and one over 30 keeps pairing a closed
+    // laptop. Patience above the window is meaningless (the engine
+    // clamps it to window - 60s anyway).
+    if (body.dropinWindowMs != null) {
+      patch.dropinWindowMs = Math.max(120000, Math.min(1800000, Math.round(Number(body.dropinWindowMs) || 0)));
+    }
+    if (body.dropinPatienceMs != null) {
+      patch.dropinPatienceMs = Math.max(0, Math.min(1800000, Math.round(Number(body.dropinPatienceMs) || 0)));
     }
     // Changing team size after entries exist would invalidate every
     // registration, so it is settled at creation.
