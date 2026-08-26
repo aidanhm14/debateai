@@ -89,11 +89,13 @@ const SUBJECT_FN  = (n) => `${n} people have entered the Open. It needs 50.`;
 // this is not the same email: it carries a prize change, which is news
 // the people it affects are entitled to hear once.
 const STAMP       = 'openStatusSentAt';
-// The threshold that restores the pot, and what it restores it to. Both
-// are published on /tournaments, /tournament-rules and the live
-// tournament doc. If one moves they all move, together, or the email
-// becomes the odd one out that someone screenshots.
-const RALLY_TARGET = 50;
+// RETIRED 2026-08-26. This used to be the threshold that restored the
+// pot to $850, and the email promised it in as many words. The
+// escalation is gone: the pot is a flat $100 / $50 / $25 that does not
+// move with the field in either direction, and the rules, /tournaments
+// and the tournament doc all say so now. The constant is deleted rather
+// than left at 50 because an unused threshold is how the old promise
+// crawls back into a template.
 // Event day, for copy. Deliberately NOT FOUNDING_CUTOFF_LABEL: that
 // constant tracks who gets comped, this one tracks when the thing
 // happens, and collapsing them resurrects deadline framing every time
@@ -153,11 +155,16 @@ function renderEmail({ firstName, uid, tournamentName, entered, entryCount, potN
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>It goes back to $850 if more than ${esc(String(RALLY_TARGET))} people
-    enter.</strong> That is written into the official rules, not just this email:
-    past ${esc(String(RALLY_TARGET))} entrants, first place is $500 again, second is
-    $250, third is $100. Nothing else about the day changes, and no entry fee is
-    involved at any point.
+    <strong>Entry is free and there is nothing to ask for.</strong> No fee, no card,
+    no waiver, at any point. You sign in, you click once, and you are in the field
+    playing for the same money as everybody else.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>I am running the day myself.</strong> I direct the rounds live and host
+    the stream between them, dropping into rooms as they run. When I am in your
+    room you will not see me: no camera, no microphone, no name in the list. Your
+    round is only ever put on the stream if both of you opted in to recording.
   </p>
 
   <p style="margin:0 0 22px">

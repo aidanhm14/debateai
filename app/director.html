@@ -76,6 +76,11 @@
     background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
   .pill.rec{background:var(--accent);border-color:transparent;color:#fff;display:flex;align-items:center;gap:5px}
   .pill.rec i{width:6px;height:6px;border-radius:50%;background:#fff;animation:beat 1.4s infinite}
+  .pill.ok{background:rgba(34,197,94,.9);border-color:transparent;color:#04140a}
+  .pill.no{background:#facc15;border-color:transparent;color:#1a1204;font-weight:800}
+  /* A room that must not be broadcast says so on the tile AND on the
+     button, because the button is what gets clicked in a hurry. */
+  .tile[data-stream="no"] .acts .btn-stage{background:rgba(250,204,21,.14);border-color:rgba(250,204,21,.55);color:#fde68a}
 
   .body{padding:12px 13px 13px;display:flex;flex-direction:column;gap:9px;flex:1}
   .seats{display:flex;align-items:center;gap:9px;font-size:.9rem}
@@ -262,15 +267,21 @@
         : '<div class="none">' + (st === 'unopened' ? 'Room not opened' : 'No camera') + '</div>';
       var rec = room.recording === 'recording'
         ? '<span class="pill rec"><i></i>REC</span>' : '';
+      // The stream answer, not the recording answer. Both debaters
+      // opted in (or it is an elim, consented at entry) or it does not
+      // go out, and the tile has to say which at a glance.
+      var stream = room.streamable
+        ? '<span class="pill ok">OK to stream</span>'
+        : '<span class="pill no">Do not stream</span>';
       var watch = room.watching ? '<span class="pill">' + room.watching + ' watching</span>' : '';
       var stage = '/live-round?room=' + encodeURIComponent(room.room) + '&stage=1';
       var spec  = '/live-round?room=' + encodeURIComponent(room.room) + '&spectate=1';
       return ''
-      + '<div class="tile" data-state="' + esc(st) + '" data-room="' + esc(room.room) + '">'
+      + '<div class="tile" data-state="' + esc(st) + '" data-stream="' + (room.streamable ? 'yes' : 'no') + '" data-room="' + esc(room.room) + '">'
       +   '<div class="shot">' + shot
       +     '<span class="chip" data-s="' + esc(st) + '">' + esc(STATE_LABEL[st] || st) + '</span>'
       +     '<span class="clock" data-clock="' + esc(room.room) + '"></span>'
-      +     '<div class="meta-row">' + rec + watch + '</div>'
+      +     '<div class="meta-row">' + rec + stream + watch + '</div>'
       +   '</div>'
       +   '<div class="body">'
       +     '<div class="seats">'
@@ -285,7 +296,9 @@
       +     '</div>'
       +     '<div class="acts">'
       +       '<a class="btn btn-live" href="' + spec + '" target="_blank" rel="noopener">Watch</a>'
-      +       '<a class="btn" href="' + stage + '" target="_blank" rel="noopener">Stage</a>'
+      +       '<a class="btn btn-stage" href="' + stage + '" target="_blank" rel="noopener"'
+      +          (room.streamable ? '' : ' title="Not consented. Watching is fine; putting this on the stream is not."')
+      +          '>Stage</a>'
       +       '<button class="btn" data-copy="' + esc(stage) + '">Copy</button>'
       +     '</div>'
       +   '</div>'
@@ -303,7 +316,9 @@
     });
 
     $('foot').textContent = 'Watch opens the room invisibly: no tile, no name, no mic. '
-      + 'Stage is the chromeless view for OBS. Updated ' + new Date(d.at).toLocaleTimeString() + '.';
+      + 'Stage is the chromeless view for OBS. A room marked Do not stream may be watched to '
+      + 'direct the day but must not be broadcast: one of the two debaters did not opt in. '
+      + 'Updated ' + new Date(d.at).toLocaleTimeString() + '.';
     tickClocks();
   }
 
