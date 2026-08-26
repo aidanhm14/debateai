@@ -37,10 +37,19 @@ function cacheSet(key, value) {
   }
 }
 
-// What an entry is called when nobody told us. Kept as a set rather
-// than a string so the older 'Team' default is recognised too, and so
-// the self-heal below can tell a placeholder from a chosen name.
+// What an entry is called when nobody told us: the bare defaults this
+// file used to write, plus the 'Debater ABCD' shape it writes now and
+// daPublicName() falls back to on the page. The generated shape has to
+// be in here or the fix below becomes its own trap, which is what a
+// live re-register proved: an entry healed from 'Entry' to
+// 'Debater J793' could never then take the real name, because only the
+// bare strings were recognised.
 const PLACEHOLDER_NAMES = new Set(['Entry', 'Team', 'Debater']);
+const GENERATED_NAME_RE = /^Debater [A-Z0-9]{4}$/;
+function isPlaceholderName(value) {
+  const v = String(value || '').trim();
+  return !v || PLACEHOLDER_NAMES.has(v) || GENERATED_NAME_RE.test(v);
+}
 
 function cleanText(s, max) {
   return String(s || '')
@@ -442,7 +451,7 @@ export default async (request) => {
       // its owner had a display name. It only ever replaces a
       // placeholder, never a name somebody chose.
       const incoming = cleanText(body?.name, 48);
-      if (incoming && PLACEHOLDER_NAMES.has(String(already.name || ''))) {
+      if (incoming && isPlaceholderName(already.name)) {
         patch.name = incoming;
         patch.memberNames = [incoming, ...(Array.isArray(already.memberNames) ? already.memberNames.slice(1) : [])];
       }
