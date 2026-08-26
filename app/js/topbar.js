@@ -3089,6 +3089,16 @@
     var ctl = document.querySelector('.theme-toggle');
     if (!ctl) return;
 
+    // One card in that corner at a time. experience-ask.js mounts at
+    // 2.2s and this fires at 3.5s, so on a page where the visitor has
+    // not answered the debate-experience question yet they would stack.
+    // That question is the more valuable of the two (it changes the
+    // whole page's register, this changes a colour), so it wins the slot
+    // and this stays quiet. Deliberately WITHOUT setting the seen flag:
+    // skipping is not showing, so the reminder is still owed and will
+    // appear on a later page once the corner is free.
+    if (document.getElementById('daExpAsk')) return;
+
     var seen = function(){ try { localStorage.setItem(KEY, '1'); } catch (e) {} };
 
     var card = document.createElement('div');
@@ -3120,8 +3130,19 @@
   }
 
   // After the topbar has mounted, and late enough that it is not
-  // competing with the page's own first paint for attention.
-  function arm(){ setTimeout(go, 3500); }
+  // competing with the page's own first paint for attention. Also never
+  // while the tab is hidden: this reminder is once-ever per browser and
+  // its 12-second auto-dismiss sets that flag, so firing it into a
+  // background tab would spend the single showing on nobody.
+  function whenVisible(fn){
+    if (!document.hidden) { fn(); return; }
+    document.addEventListener('visibilitychange', function onVis(){
+      if (document.hidden) return;
+      document.removeEventListener('visibilitychange', onVis);
+      fn();
+    });
+  }
+  function arm(){ whenVisible(function(){ setTimeout(function(){ whenVisible(go); }, 3500); }); }
   if (document.readyState === 'complete') arm();
   else window.addEventListener('load', arm);
 })();

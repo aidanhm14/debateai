@@ -58,6 +58,21 @@
     return false;
   }
 
+  /* Is there an inline chooser the visitor could plausibly find?
+     Rendered (a display:none control is not an ask), and near enough to
+     the top of the document that reading the page gets you to it. */
+  function inlineAskReachable() {
+    var els = document.querySelectorAll('[data-exp]');
+    var limit = (window.innerHeight || 800) * 1.25;
+    var scrolled = window.pageYOffset || document.documentElement.scrollTop || 0;
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i].getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      if (r.top + scrolled < limit) return true;
+    }
+    return false;
+  }
+
   function read(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
@@ -87,7 +102,23 @@
     // A page that asks inline owns the question. /how-it-works puts the
     // fork in the reading order because the answer changes that page
     // more than any other, and two asks on one screen reads as nagging.
-    if (document.querySelector('[data-exp]')) return;
+    //
+    // But only if the visitor can actually REACH the inline one, and
+    // that qualifier is the whole point of this function. Measured on
+    // production 2026-08-26: the landing carries the chooser at y=1198
+    // on an 812px screen, roughly 400px below the fold on a page whose
+    // first screen is gated, so nobody scrolls to it. It still matched
+    // the old querySelector, so the buried control was switching OFF
+    // the corner card on the one page where the question matters most.
+    // The front door was the single page that never asked, which is why
+    // answering it appeared to change nothing for most visitors.
+    //
+    // Position is measured against the DOCUMENT, not the viewport, so a
+    // visitor who has already scrolled does not flip the answer. The
+    // 1.25-viewport allowance keeps /how-it-works owning its own ask
+    // (its fork sits ~384px down, well inside the first screen) while
+    // the landing's below-the-gate row does not qualify.
+    if (inlineAskReachable()) return;
 
     var css = document.createElement('style');
     css.textContent = [
@@ -176,6 +207,20 @@
     });
 
     document.body.appendChild(box);
+
+    // Belt and braces on the entrance. The card's only route to being
+    // visible is the daExpIn keyframe (fill-mode none, so its `from`
+    // state of opacity 0 applies for as long as the animation is
+    // live), which means anything that stalls the animation timeline
+    // leaves a mounted, invisible ask. That is not hypothetical: the
+    // governor pauses animations wholesale, and the timeline does not
+    // advance at all in a non-compositing context. Clearing the
+    // animation once it has had well over its 220ms drops the element
+    // back to its resting style, which is simply visible. A completed
+    // fade sees no change; a stalled one snaps in rather than never
+    // arriving. Cheap insurance on the one thing this file exists to do.
+    setTimeout(function () { box.style.animation = 'none'; }, 400);
+
     track('audience_ask_shown', { surface: 'entry_card' });
   }
 
@@ -183,7 +228,31 @@
      have seen what the site is, and unanswerable in the first 200ms
      when it is still a headline. Also lets the Open strip and the
      topbar settle so nothing lands on top of a moving layout. */
-  function start() { setTimeout(mount, 2200); }
+  /* Never ask a tab nobody is looking at. Two reasons, and the second
+     is the one that actually costs something:
+
+     1. anim-governor.js pauses every animation on a hidden document
+        (a blanket `html.anim-hidden *` rule, no opt-out), and this card
+        fades in via `animation:daExpIn` with fill-mode none. Mounted
+        while hidden it sits paused on the first keyframe at opacity 0,
+        so it is in the DOM and invisible.
+     2. It fires `audience_ask_shown` on mount either way, so a card
+        that painted nothing still counted as having asked. That makes
+        the answer rate look worse than it is and is not recoverable
+        from the data afterwards.
+
+     Waiting costs nothing: the question is only worth asking of someone
+     actually reading the page, which is the same test. */
+  function whenVisible(fn) {
+    if (!document.hidden) { fn(); return; }
+    document.addEventListener('visibilitychange', function onVis() {
+      if (document.hidden) return;
+      document.removeEventListener('visibilitychange', onVis);
+      fn();
+    });
+  }
+
+  function start() { whenVisible(function () { setTimeout(function () { whenVisible(mount); }, 2200); }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
