@@ -89,6 +89,67 @@ const DEBATE_PROMPT =
   + 'crossfire, cross-examination, POI, point of information, rebuttal, '
   + 'summary, final focus, whip, prime minister, speaker points, the flow.';
 
+// ── The silence hallucination ────────────────────────────────────────
+// Measured 2026-08-26 against gpt-4o-transcribe with the hint above: ten
+// seconds of silence does not come back empty, it comes back as OUR OWN
+// PROMPT. Of six runs, three returned the glossary verbatim (one wrapped
+// as "context: ###\n<glossary>\n###") and the rest returned scaffolding
+// fragments ("context:", "The flow"). The hint is what makes the
+// confabulation debate-shaped, and debate-shaped is exactly what nobody
+// downstream questions.
+//
+// So a transcript is checked against the prompt that produced it. A
+// segment whose words are almost all already in the prompt carries no
+// information about the audio, whatever it looks like, and empty is the
+// honest answer. Real speech that reuses glossary words does not trip
+// this: the test is on 3-word shingles and the hint is a comma list
+// nobody speaks in.
+const ECHO_SHINGLE = 3;
+const ECHO_MAX_OVERLAP = 0.8;  // this share of the output already in the prompt
+const ECHO_MAX_WORDS = 600;    // longer than any segment; bounds the loop
+
+// Scaffolding the model invents around an echo. Stripped before the
+// comparison, because "context:" is not in our prompt and would otherwise
+// read as new information.
+const ECHO_SCAFFOLD = /^[\s#*_>-]*(?:context|transcript|note|notes|audio|prompt)\s*[:\-]\s*/i;
+
+function echoWords(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function shingleSet(words, n) {
+  const out = new Set();
+  for (let i = 0; i + n <= words.length; i++) out.add(words.slice(i, i + n).join(' '));
+  return out;
+}
+
+// true when `text` tells us nothing the prompt did not already say.
+export function isPromptEcho(text, promptText) {
+  let raw = String(text || '').trim();
+  // Strip invented scaffolding, possibly nested ("context: ### ...").
+  for (let i = 0; i < 3 && ECHO_SCAFFOLD.test(raw); i++) raw = raw.replace(ECHO_SCAFFOLD, '').trim();
+  const t = echoWords(raw);
+  if (!t.length) return true;              // punctuation, hashes, or nothing
+  const p = echoWords(promptText);
+  if (!p.length) return false;             // no prompt to echo
+  if (t.length < ECHO_SHINGLE) {
+    // Too short to shingle. At this length an echo is a fragment of the
+    // hint, so plain containment is the right test.
+    const bag = new Set(p);
+    return t.every((w) => bag.has(w));
+  }
+  const inPrompt = shingleSet(p, ECHO_SHINGLE);
+  const fromText = shingleSet(t.slice(0, ECHO_MAX_WORDS), ECHO_SHINGLE);
+  if (!fromText.size) return false;
+  let hit = 0;
+  fromText.forEach((g) => { if (inPrompt.has(g)) hit++; });
+  return (hit / fromText.size) >= ECHO_MAX_OVERLAP;
+}
+
 export default async (request) => {
   const CORS = getCorsHeaders(request);
 
@@ -210,7 +271,16 @@ export default async (request) => {
       }), { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
 
-    const text = (await upstream.text() || '').trim();
+    let text = (await upstream.text() || '').trim();
+
+    // A segment that only gave the prompt back describes no audio. Return
+    // it as an empty segment rather than as words: every caller already
+    // handles a silent segment, and none of them can tell a hallucinated
+    // sentence from a real one.
+    if (text && isPromptEcho(text, promptText)) {
+      console.warn('[transcribe] dropped prompt echo', JSON.stringify(text.slice(0, 120)));
+      text = '';
+    }
 
     return new Response(JSON.stringify({ ok: true, text }), {
       status: 200,

@@ -197,6 +197,26 @@ if [ -f "$DRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# ──────────────────────────────────────────────────────────────────
+# Silence-hallucination guard. A transcription model handed ten seconds
+# of silence returns the prompt it was given, not nothing, and our prompt
+# is a debate glossary — so the confabulation arrives debate-shaped and
+# nothing downstream questions it. One live round shipped a constructive
+# whose whole transcript was an invented sentence about how well the
+# speaker had done. The gate must keep refusing the prompt back while
+# still letting real speech through, including speech that reuses the
+# jargon the prompt lists.
+# ──────────────────────────────────────────────────────────────────
+ECHO_GUARD="$REPO_ROOT/scripts/test-transcribe-echo.mjs"
+if [ -f "$ECHO_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-transcribe-echo.mjs >/tmp/echo-guard.log 2>&1); then
+    echo "[echo-guard] commit blocked — the silence gate no longer holds:" >&2
+    tail -20 /tmp/echo-guard.log >&2
+    echo "[echo-guard] see scripts/test-transcribe-echo.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 SPEAKS_GUARD="$REPO_ROOT/scripts/test-speaker-score.mjs"
 if [ -f "$SPEAKS_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-speaker-score.mjs >/tmp/speaks-guard.log 2>&1); then

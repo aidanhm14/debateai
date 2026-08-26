@@ -6379,7 +6379,8 @@ html.stage-mode .stage-ov{display:block}
   // every rule above (full rewrite, user-edit rebaselining, per-speech
   // reset) applies unchanged.
   var SEG_MS = 10000;   // shorter than /judge's 25s: a live speech wants text sooner
-  var srv = { stream:null, rec:null, mime:'', seq:0, timer:0, on:false, fails:0, borrowed:false };
+  var srv = { stream:null, rec:null, mime:'', seq:0, timer:0, on:false, fails:0, borrowed:false,
+              ac:null, an:null, buf:null, meter:0, loud:0, heard:false };
   // The video room already opened the microphone (the camera pipeline's
   // capture, which Daily then publishes). Opening a third one to record
   // segments is a capture the browser does not need to give us, and on
@@ -6399,8 +6400,55 @@ html.stage-mode .stage-ov{display:block}
     for (var i = 0; i < c.length; i++) if (MediaRecorder.isTypeSupported(c[i])) return c[i];
     return '';
   }
-  function srvUpload(blob, mySeq, attempt){
+  // ── Silence gate. Measured 2026-08-26 against gpt-4o-transcribe: ten
+  // seconds of silence does not transcribe to nothing, it transcribes to
+  // whatever the prompt suggested. A real round shipped a Pro Constructive
+  // whose entire transcript was one invented sentence saying the speaker
+  // had done well, and the floor judge then wrote three sentences about a
+  // speech that never happened. /api/transcribe now refuses to hand back
+  // its own prompt, but the cheaper and more honest fix is upstream of it:
+  // do not spend a call on audio nobody spoke into.
+  //
+  // A segment ships only if the mic crossed speech level for long enough
+  // to be a voice. One click or a chair scrape is not enough, which is why
+  // the test is a count of loud samples and not a peak.
+  var LEVEL_HZ = 20;                 // samples per second
+  var SPEECH_RMS = 0.012;            // room tone sits an order of magnitude below
+  var SPEECH_SAMPLES = 8;            // ~400ms of voice inside the segment
+  function srvMeterStart(){
+    if (srv.ac || !srv.stream) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;               // no Web Audio: gate stays open, old behaviour
+      srv.ac = new AC();
+      srv.an = srv.ac.createAnalyser();
+      srv.an.fftSize = 2048;
+      srv.buf = new Float32Array(srv.an.fftSize);
+      srv.ac.createMediaStreamSource(srv.stream).connect(srv.an);
+      srv.meter = setInterval(function(){
+        if (!srv.an) return;
+        try { srv.an.getFloatTimeDomainData(srv.buf); } catch(e){ return; }
+        var sum = 0;
+        for (var i = 0; i < srv.buf.length; i++) sum += srv.buf[i] * srv.buf[i];
+        if (Math.sqrt(sum / srv.buf.length) >= SPEECH_RMS && ++srv.loud >= SPEECH_SAMPLES) srv.heard = true;
+      }, Math.round(1000 / LEVEL_HZ));
+    } catch(e){ srv.ac = null; srv.an = null; }   // gate open on failure
+  }
+  function srvMeterStop(){
+    if (srv.meter){ clearInterval(srv.meter); srv.meter = 0; }
+    try { if (srv.ac && srv.ac.close) srv.ac.close(); } catch(e){}
+    srv.ac = null; srv.an = null; srv.buf = null; srv.loud = 0; srv.heard = false;
+  }
+  // Open when the meter never ran, so a browser without Web Audio, or one
+  // that refused the context, keeps exactly the behaviour it had.
+  function srvHeardSpeech(){ return !srv.an || srv.heard; }
+
+  function srvUpload(blob, mySeq, attempt, heard){
     if (!blob || blob.size < 2048) return;
+    // Silence is a hole in the transcript, not a request for words. Ten
+    // seconds of opus comfort noise clears the size floor above, so the
+    // level meter is what actually stops it.
+    if (heard === false){ mic.finals[mySeq] = ''; micState('idle', 'Listening'); return; }
     var fd = new FormData();
     fd.append('audio', blob, 'segment');
     fd.append('carry', String(state.micFinal || '').slice(-380));
@@ -6422,7 +6470,7 @@ html.stage-mode .stage-ov{display:block}
         micState(txt ? 'live' : 'idle', 'Listening');
       })
       .catch(function(){
-        if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1);
+        if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1, heard);
         mic.finals[mySeq] = '';        // a 10s hole beats stalling the speech
         // Two dead segments with nothing heard yet means the service is
         // down, not that the room is quiet. Say so while the round can
@@ -6442,12 +6490,16 @@ html.stage-mode .stage-ov{display:block}
       return;
     }
     var mySeq = mic.offset + (srv.seq++);
+    // Per-segment verdict. Read and reset before the next segment arms, so
+    // one segment's voice can never vouch for the next one's silence.
+    srv.loud = 0; srv.heard = false;
     srv.rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
     srv.rec.onstop = function(){
+      var heard = srvHeardSpeech();
       // Reopen the mic BEFORE uploading, so the gap between segments is
       // milliseconds rather than a network round trip.
       if (srv.on) srvSegment();
-      srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0);
+      srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0, heard);
     };
     srv.rec.start();
     srv.timer = setTimeout(function(){
@@ -6465,6 +6517,7 @@ html.stage-mode .stage-ov{display:block}
     if (lent){
       srv.borrowed = true;
       srv.stream = new MediaStream([lent]);
+      srvMeterStart();
       micState('idle', 'Listening');
       srvSegment();
       return;
@@ -6474,6 +6527,7 @@ html.stage-mode .stage-ov{display:block}
       .then(function(s){
         if (!srv.on){ try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} return; }
         srv.stream = s;
+        srvMeterStart();
         micState('idle', 'Listening');
         srvSegment();
       })
@@ -6484,6 +6538,7 @@ html.stage-mode .stage-ov{display:block}
   }
   function srvStop(){
     srv.on = false;
+    srvMeterStop();
     if (srv.timer){ clearTimeout(srv.timer); srv.timer = 0; }
     try { if (srv.rec && srv.rec.state === 'recording') srv.rec.stop(); } catch(e){}
     srv.rec = null;
@@ -9643,7 +9698,16 @@ html.stage-mode .stage-ov{display:block}
     if (!f) return;
     var idx = state.speechIdx; // already advanced: index of the NEXT speech
     var next = f.speeches[idx];
-    if (!entry || !entry.text || entry.text === '(skipped)' || entry.text === '(no transcript)') return;
+    if (!entry || entry.skipped || !entry.text || entry.text === '(skipped)' || entry.text === '(no transcript)') return;
+    // A substance floor, matching generateRoundNotes below, and it is the
+    // guard this beat was missing on 2026-08-26: a Pro Constructive came
+    // back as one invented sentence ("The speaker presented their case
+    // effectively, with well-structured contentions and strong warranting")
+    // from a mic nobody spoke into, cleared a non-empty check, and the
+    // judge wrote three confident sentences about arguments that were
+    // never made, naming the debater. A ten-second speech is ~25 words, so
+    // anything under thirty is not a speech to comment on.
+    if (entry.text.trim().split(/\s+/).length < 30) return;
     floorJudgeStatus('Thinking…');
     var soFar = state.log.map(function(sp){
       return sp.code + ' — ' + sp.name + ' (' + (sp.speakerName || sp.side) + '):\n' + (sp.text || '');
@@ -9655,6 +9719,8 @@ html.stage-mode .stage-ov{display:block}
       "- Do NOT call a winner, do NOT give scores, do NOT predict the ballot. The ballot comes at the end of the round.",
       "- Cover: the strongest thing the speaker just did, the biggest thing left hanging (a drop, a missing warrant, an unweighed impact), and what " + (next ? next.code : 'the next speaker') + " most needs to answer.",
       "- Plain varsity-circuit register. No prefaces. Start with the substance.",
+      "- ONLY what is in the transcript. Never invent an argument, a warrant, or an example the speaker did not give, and never praise or fault delivery you cannot see. Two real people are reading this about a round they were in.",
+      "- If the transcript is too thin to comment on (a fragment, a stray line, a speech that plainly did not happen), reply with exactly: SKIP",
     ].concat(roundLangs().some(function(c){ return c !== 'en'; })
         ? ["- Speeches may be in different languages; you read them all. Judge across languages, comment in English."] : [])
      .concat(JUDGE_RULES[state.formatKey] ? ["FORMAT LENS:"].concat(JUDGE_RULES[state.formatKey].slice(0, 4)) : []).join('\n');
@@ -9683,6 +9749,9 @@ html.stage-mode .stage-ov{display:block}
       } catch(e){ /* plain text */ }
       text = String(text || '').trim();
       if (!text) throw new Error('empty remark');
+      // The judge's own out. Nothing renders and nothing syncs, so a thin
+      // speech leaves the panel as it was rather than inviting a guess.
+      if (/^SKIP\b/i.test(text)) { floorJudgeStatus('Listening in'); return; }
       renderFloorRemark({ idx: idx, code: entry.code, text: text });
       floorJudgeStatus('Listening in');
       var ref = getRoundDocRef();
