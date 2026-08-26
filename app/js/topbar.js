@@ -1485,11 +1485,28 @@
       }
       sheet.appendChild(sheetLink);
     });
-    // More group: same curated off-bar links the desktop dropdown carries,
-    // compacted into a two-column grid so the sheet stays one screen tall.
-    sheet.appendChild(el('div', { class: 'ui-topbar-sheet-more-head' }, 'More'));
-    var sheetMore = el('div', { class: 'ui-topbar-sheet-more' });
+    // More groups: the same curated off-bar links the desktop dropdown
+    // carries, and now with the same GROUPING it carries.
+    //
+    // 2026-08-26: this used to flatten every MORE_GROUPS row into ONE
+    // unlabelled two-column grid under a single "More" heading. Measured
+    // on production at 375px before the change: 33 links in a sheet that
+    // scrolled 1460px inside a 751px window, with no heading between the
+    // ninth row and the thirty-third. Desktop reads the identical link
+    // set as four titled columns; the phone got the same content with
+    // the structure stripped out, which is the wrong way round — the
+    // narrower surface is the one that needs the signposting more,
+    // because it can only ever show a fraction of the list at once.
+    //
+    // Each group now prints its own heading above its own grid, so the
+    // scroll passes Compete / Watch & community / Train / Site instead of
+    // nineteen interchangeable rows. No destination is added or removed
+    // here: this is the same data, given back its shape. A group whose
+    // rows are all commented out (the 2026-08-24 declutter pass left
+    // several) prints no heading rather than an empty section.
     MORE_GROUPS.forEach(function(G){
+      if (!G.links || !G.links.length) return;
+      var grid = el('div', { class: 'ui-topbar-sheet-more' });
       G.links.forEach(function(L){
         var a = el('a', {
           href: L.href,
@@ -1501,10 +1518,11 @@
         ]);
         if (L.wip) gateWip(a, L, 'sheet');
         else a.addEventListener('click', function(){ navTrack('nav_more_click', { to: L.href, surface: 'sheet' }); });
-        sheetMore.appendChild(a);
+        grid.appendChild(a);
       });
+      sheet.appendChild(el('div', { class: 'ui-topbar-sheet-more-head' }, G.head));
+      sheet.appendChild(grid);
     });
-    sheet.appendChild(sheetMore);
     // Signed-in users get a direct route to the full account controls.
     // Keep this separate from Sign out so the top-right menu is useful for
     // managing an account, not just leaving it.
@@ -1555,6 +1573,25 @@
     });
     sheet.appendChild(sheetName);
 
+    // ── Settings row (phones only) ──────────────────────────────────
+    // 2026-08-26: the phone top-right was carrying burger + theme +
+    // bell, and on the two pages that mount one, a language picker as
+    // well. Four controls in the tightest strip on the device, and only
+    // two of them are navigation: the bell is an inbox and the burger is
+    // the way into everything else. Appearance is a SETTING. It is
+    // chosen roughly once and then never again, so it was paying for the
+    // scarcest pixels on the page with the lowest use per pixel, and it
+    // is the reason the corner reads as crowded.
+    //
+    // So on phones it moves in here, one tap away behind the burger,
+    // beside the account rows where the other once-and-done choices
+    // already live. It is NOT duplicated: there is a single toggle node
+    // in the document and placeUtilities() re-parents that one node on
+    // the breakpoint, so the existing sync code keeps driving the same
+    // element and cannot fall out of step with a second copy.
+    var sheetUtils = el('div', { class: 'ui-topbar-sheet-utils', hidden: 'hidden' });
+    sheet.appendChild(sheetUtils);
+
     // Social row in the mobile sheet. The desktop rail is icon-only and
     // hidden on phones, so this is where a phone visitor finds the
     // accounts. Labelled, because a bare glyph in a text list is a guess.
@@ -1587,6 +1624,70 @@
     });
 
     mount.replaceChildren(nav, sheetBackdrop, sheet);
+
+    // Move the appearance control between the bar and the sheet as the
+    // phone breakpoint is crossed, so a rotation or a resized window
+    // never leaves it in the wrong place. 560px is the width the rest of
+    // this file already treats as "phone": it is where the nav links go
+    // away and the CSS starts trimming the cluster.
+    //
+    // The label is rendered here rather than in the sheet builder so it
+    // travels with the control and cannot be left behind as an orphan
+    // heading when the toggle goes back to the bar.
+    (function(){
+      var themeCtl = nav.querySelector('.theme-toggle') || sheetUtils.querySelector('.theme-toggle');
+      if (!themeCtl) return;
+      // A LABEL, not just a heading. In the bar this control is a 24px
+      // unlabelled glyph sitting at 0.55 opacity, which is about as close
+      // to invisible as a live control gets, and the founder's ask
+      // (2026-08-26) was the opposite: people should know dark mode is
+      // there, because being able to turn the page down is part of
+      // feeling comfortable on it. Naming it in a full row is what makes
+      // the move into the sheet a discoverability GAIN rather than a
+      // trade — a named row one tap in beats a dim glyph nobody reads.
+      var utilHead = el('span', { class: 'ui-topbar-sheet-utils-label' }, 'Dark mode');
+      // Tapping anywhere on the row is the same as tapping the control.
+      // A 34px circle beside a word is a target that invites a miss.
+      sheetUtils.addEventListener('click', function(ev){
+        if (ev.target === themeCtl || themeCtl.contains(ev.target)) return;
+        themeCtl.click();
+      });
+      var mq = window.matchMedia ? window.matchMedia('(max-width:560px)') : null;
+      function place(){
+        var phone = mq ? mq.matches : (window.innerWidth <= 560);
+        if (phone){
+          if (themeCtl.parentNode !== sheetUtils){
+            sheetUtils.appendChild(utilHead);
+            sheetUtils.appendChild(themeCtl);
+          }
+          sheetUtils.removeAttribute('hidden');
+        } else {
+          if (themeCtl.parentNode === sheetUtils){
+            // Back to its authored slot: before the notification bell if
+            // one has mounted, otherwise at the end of the cluster.
+            var bell = right.querySelector('.ui-bell');
+            if (bell) right.insertBefore(themeCtl, bell);
+            else right.appendChild(themeCtl);
+            if (utilHead.parentNode) utilHead.parentNode.removeChild(utilHead);
+          }
+          sheetUtils.setAttribute('hidden', 'hidden');
+        }
+      }
+      place();
+      if (mq){
+        if (mq.addEventListener) mq.addEventListener('change', place);
+        else if (mq.addListener) mq.addListener(place);
+      }
+      // Belt and braces. A matchMedia 'change' event did not fire under
+      // viewport emulation while this was being verified, which would
+      // have stranded the control in the sheet on a desktop that never
+      // opens one. place() is idempotent and compares parents before
+      // touching the DOM, so running it on every resize costs nothing.
+      var rzT;
+      window.addEventListener('resize', function(){
+        clearTimeout(rzT); rzT = setTimeout(place, 120);
+      });
+    })();
 
     // Hamburger wiring. Open/close toggles aria-expanded + .is-open
     // on the burger, and hidden + .is-open on the sheet/backdrop.
@@ -1707,7 +1808,7 @@
     if (forced) {
       document.documentElement.setAttribute('data-theme', forced);
       document.documentElement.setAttribute('data-lighting', forced === 'light' ? 'light' : 'dark');
-      var ft = document.querySelector('.ui-topbar .theme-toggle');
+      var ft = document.querySelector('.theme-toggle');
       if (ft) ft.style.display = 'none';
       return;
     }
@@ -1817,7 +1918,7 @@
     document.documentElement.setAttribute('data-lighting', lighting);
     syncBtn(saved);
 
-    var btn = document.querySelector('.ui-topbar .theme-toggle');
+    var btn = document.querySelector('.theme-toggle');
     if (!btn) return;
     btn.addEventListener('click', function(){
       var prev = document.documentElement.getAttribute('data-theme') || 'crimson';
@@ -1839,7 +1940,7 @@
     });
 
     function syncBtn(t){
-      var b = document.querySelector('.ui-topbar .theme-toggle');
+      var b = document.querySelector('.theme-toggle');
       if (!b) return;
       var isLight = (t === 'light');
       // Tooltip names the only other state since the cycle is now
@@ -2758,4 +2859,99 @@
   }
 
   timer = setInterval(tick, 1000);
+})();
+
+/* ── Dark-mode reminder (phones, once ever) ─────────────────────────
+   2026-08-26, the founder: "remind users they can use dark mode bc i
+   want ppl to feel comfortable."
+
+   The problem this solves is real and was measured the same day: the
+   theme control is a 24px unlabelled glyph rendered at 0.55 opacity in
+   the busiest corner of the bar, so on a phone it is functionally
+   invisible. Somebody reading at night on a bright white page has no
+   way to know the page can be turned down. That is a comfort problem,
+   which is why it is worth one interruption.
+
+   ONE interruption, and the constraints are what keep this from
+   becoming the clutter the same conversation asked us to remove:
+
+   - Once ever per browser. A localStorage flag, not sessionStorage, so
+     it cannot come back next visit the way the Open ticker does. A
+     reminder that repeats is an ad.
+   - Only on phones. Desktop shows the control in the bar with room
+     around it and does not need telling.
+   - Only when the page is actually LIGHT. Anyone already on a dark
+     theme has solved this for themselves, and telling them about a
+     feature they are using reads as a broken product.
+   - Never over a round. /live-round, /voice-debate and the rest are
+     surfaces where a floating card is something to dismiss mid-speech.
+   - Bottom-centre, above the safe area. The top-right is the corner
+     that was too crowded to begin with, and the two existing floating
+     controls (feedback, community) sit bottom-LEFT.
+   - Self-dismissing after 12 seconds, so ignoring it is a valid answer
+     and it never needs to be tapped.
+
+   Acting on it flips the theme through the real control if one is
+   mounted, so the theme's own persistence and sync run exactly as they
+   do on a normal tap, rather than this module writing theme state on
+   its own and drifting from it. */
+(function(){
+  if (window.__daDarkNudge) return;
+  window.__daDarkNudge = 1;
+
+  var KEY = 'da-dark-nudge-seen';
+  var QUIET = /^\/(live-round|voice-debate|newvoice|room-judge|casual-room|spectate|practice|exhibition|coach|watch)(\.html)?$/;
+
+  function go(){
+    var path = (location.pathname || '/').replace(/\/$/, '') || '/';
+    if (QUIET.test(path)) return;
+    if (window.innerWidth > 560) return;
+    try { if (localStorage.getItem(KEY) === '1') return; } catch (e) { return; }
+
+    var root = document.documentElement;
+    var theme = root.getAttribute('data-theme');
+    var lighting = root.getAttribute('data-lighting');
+    // Both are checked because pages set one or the other, and a page
+    // that declares neither has not committed to a light surface.
+    if (theme !== 'light' && lighting !== 'light') return;
+
+    // Nothing to point at means nothing to offer.
+    var ctl = document.querySelector('.theme-toggle');
+    if (!ctl) return;
+
+    var seen = function(){ try { localStorage.setItem(KEY, '1'); } catch (e) {} };
+
+    var card = document.createElement('div');
+    card.className = 'da-dark-nudge';
+    card.setAttribute('role', 'status');
+    card.innerHTML =
+      '<span class="da-dark-nudge-txt">Reading at night? Dark mode is one tap away.</span>'
+      + '<button type="button" class="da-dark-nudge-go">Turn it on</button>'
+      + '<button type="button" class="da-dark-nudge-x" aria-label="Dismiss">&times;</button>';
+    document.body.appendChild(card);
+    requestAnimationFrame(function(){ card.classList.add('is-in'); });
+
+    var timer = setTimeout(close, 12000);
+    function close(){
+      clearTimeout(timer);
+      card.classList.remove('is-in');
+      setTimeout(function(){ if (card.parentNode) card.parentNode.removeChild(card); }, 220);
+      seen();
+    }
+    card.querySelector('.da-dark-nudge-x').addEventListener('click', close);
+    card.querySelector('.da-dark-nudge-go').addEventListener('click', function(){
+      // Drive the real control so persistence and icon sync ride along.
+      ctl.click();
+      close();
+      try {
+        if (window.gtag) window.gtag('event', 'dark_nudge_accept', { surface: 'topbar' });
+      } catch (e) {}
+    });
+  }
+
+  // After the topbar has mounted, and late enough that it is not
+  // competing with the page's own first paint for attention.
+  function arm(){ setTimeout(go, 3500); }
+  if (document.readyState === 'complete') arm();
+  else window.addEventListener('load', arm);
 })();

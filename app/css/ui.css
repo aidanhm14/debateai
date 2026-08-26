@@ -209,7 +209,7 @@ time,table,[class*="timer"],[class*="score"],[class*="count"],[class*="stat"],[c
   display:flex;align-items:center;justify-content:center;
   padding:0 36px 0 14px;text-align:center;
   overflow:hidden;white-space:nowrap;
-  font-size:.72rem;color:#fff;font-weight:600;letter-spacing:.02em;
+  font-size:max(10.5px,.72rem);color:#fff;font-weight:600;letter-spacing:.02em;
   /* Fully opaque — earlier alpha of `dd` let hero content bleed through when it scrolled under */
   background:#b91c1c;
   border-bottom:1px solid #00000040;
@@ -287,7 +287,7 @@ body.has-beta-strip{padding-top:32px}
 .ui-beta-strip--ticker .ui-strip-run{
   display:flex;align-items:center;flex:none;white-space:nowrap;
   font-family:var(--font-mono);
-  font-size:.7rem;font-weight:700;letter-spacing:.09em;
+  font-size:max(10px,.7rem);font-weight:700;letter-spacing:.09em;
   text-transform:uppercase;color:#fff;
 }
 .ui-beta-strip--ticker .ui-strip-seg{padding:0 14px;flex:none}
@@ -914,7 +914,14 @@ body.has-beta-strip .ui-topbar-sheet{top:88px}
   font-size:1rem;font-weight:800;letter-spacing:.01em;
 }
 .ui-topbar-sheet-cta:hover{background:#dc2626}
-[data-theme="light"] .ui-topbar-sheet{background:rgba(255,255,255,.97);border-bottom-color:rgba(0,0,0,.08)}
+/* 2026-08-26: was rgba(255,255,255,.97). Three percent sounds like
+   nothing and is not: the sheet covers the hero, and a 64px black
+   headline bleeding through at 3% is still plainly readable behind
+   the menu labels, which is what made the phone nav look like it was
+   printed on tracing paper. A navigation surface is opaque. The dark
+   family already was (--bg-elev-solid is solid); only this override
+   was see-through. */
+[data-theme="light"] .ui-topbar-sheet{background:var(--bg-elev-solid,#fff);border-bottom-color:rgba(0,0,0,.08)}
 [data-theme="light"] .ui-topbar-sheet-link{color:#1a1a1f}
 [data-theme="light"] .ui-topbar-sheet-link:hover{background:rgba(0,0,0,.04)}
 [data-theme="light"] .ui-topbar-sheet-link.is-active{color:#dc2626}
@@ -1622,7 +1629,10 @@ body.light-theme .ui-topbar-more-spot-proof>span{
 .ui-topbar-sheet-more-head{
   margin:10px 14px 2px;padding-top:12px;
   border-top:1px solid var(--border, rgba(255,255,255,.08));
-  font-size:.6rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  /* max(): the 2026-08-26 mobile root drop (13.5px) would put a bare
+     .6rem at 8.1px, which is past reading and into decoration. The rem
+     still governs desktop; the floor only engages once the root shrinks. */
+  font-size:max(10px,.6rem);font-weight:700;letter-spacing:.16em;text-transform:uppercase;
   color:color-mix(in srgb, var(--text, #fff) 52%, transparent);
 }
 .ui-topbar-sheet-more{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;padding:0 4px}
@@ -1635,6 +1645,176 @@ body.light-theme .ui-topbar-more-spot-proof>span{
 .ui-topbar-sheet-more a:hover,
 .ui-topbar-sheet-more a:focus-visible{background:rgba(255,255,255,.04);outline:none}
 .ui-topbar-sheet-more a.is-active{color:var(--accent)}
+
+/* ── Dark-mode reminder card ────────────────────────────────────────
+   Bottom-centre so it clears the feedback and community controls, which
+   both sit bottom-left, and clears the topbar entirely — the corner the
+   2026-08-26 pass was decluttering. Sits under modals (z 9000) and over
+   page content. See the module in topbar.js for why it appears at most
+   once per browser. */
+.da-dark-nudge{
+  /* Anchored on both edges rather than left:50% alone. A fixed element
+     positioned only from the left shrink-to-fits into the space that is
+     LEFT of it, so at left:50% on a 375px phone the card was capped at
+     187px and wrapped into a four-line block. Insetting both sides and
+     letting margin centre it gives the pill the full width it is
+     allowed. */
+  position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  margin:0 auto;width:max-content;
+  transform:translateY(14px);
+  z-index:9000;
+  display:flex;align-items:center;gap:10px;
+  max-width:min(94vw,420px);
+  padding:10px 10px 10px 14px;border-radius:999px;
+  background:#17171b;color:#fff;
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 12px 34px rgba(0,0,0,.34);
+  font-family:var(--font-body);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s ease, transform .22s ease;
+}
+.da-dark-nudge.is-in{opacity:1;transform:translateY(0);pointer-events:auto}
+.da-dark-nudge-txt{
+  font-size:12.5px;font-weight:500;line-height:1.25;
+  color:rgba(255,255,255,.86);
+}
+.da-dark-nudge-go{
+  flex:none;
+  padding:7px 12px;border-radius:999px;border:0;
+  background:#b91c1c;color:#fff;
+  font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.01em;
+  cursor:pointer;
+}
+.da-dark-nudge-go:hover{background:#dc2626}
+.da-dark-nudge-x{
+  flex:none;
+  background:transparent;border:0;color:rgba(255,255,255,.6);
+  font-size:16px;line-height:1;cursor:pointer;padding:6px 6px;
+}
+.da-dark-nudge-x:hover{color:#fff}
+@media(prefers-reduced-motion:reduce){
+  .da-dark-nudge{transition:opacity .22s ease}
+  .da-dark-nudge,.da-dark-nudge.is-in{transform:none}
+}
+
+/* ── Mobile type scale ──────────────────────────────────────────────
+   2026-08-26, the founder: "decrease font size in text in a lot of
+   mobile so it simplifies."
+
+   This is the ROOT size and nothing else, deliberately. The obvious
+   alternative was to set h1/h2/p directly on phones, and it was tried
+   and rejected against the live pages: a blanket `h2{font-size:1.4rem}`
+   shrinks the big ones and INFLATES the small ones, measured on
+   /how-it-works where the first h2 is an 11.1px eyebrow and the rule
+   blew it up to 18.9px. Half this site uses low-level headings as
+   labels, so any absolute heading rule is as likely to make a page
+   louder as quieter. Capping h1 was rejected for a different reason:
+   the landing hero is a composition that was deliberately rebuilt
+   around a large visible h1 on 2026-08-19, and a global cap would
+   quietly undo it.
+
+   Scaling the root scales every rem-based size on the page by the same
+   factor, so it can only ever shrink, it preserves the hierarchy each
+   page authored, and the hero stays a hero at a smaller size.
+
+   !important is load-bearing here and it is not laziness. There are six
+   competing `html{font-size}` declarations in play on a typical page
+   (three in this file, three inline per-page), and the inline ones win
+   on source order because this stylesheet is linked before them. Pages
+   land around 16px on phones today; 13.5px is roughly a 16% reduction,
+   with body copy still resolving to ~14px because most body rules sit
+   above 1rem. Do not push this lower without measuring real body text
+   on a real page: the floor is legibility, not a number in this file.
+
+   Scoped to 560px, the width the rest of this file already treats as a
+   phone. The pre-existing 640px rules above are left alone rather than
+   reconciled; they are overridden per-page anyway and untangling six
+   declarations is its own pass. */
+@media(max-width:560px){
+  html{font-size:13.5px !important}
+}
+
+/* ── Mobile sheet: group headings + the settings row ────────────────
+   2026-08-26. The sheet used to print ONE "More" heading and then
+   nineteen rows in a single grid. It now prints a heading per group
+   (Compete / Watch & community / Train / Site), which is the structure
+   the desktop panel always had and the phone never got.
+
+   With several headings instead of one, the old heading rule's 12px
+   top padding plus a full-width rule line repeated four times read as
+   four horizontal bars marching down the sheet. The first heading keeps
+   its divider because it genuinely separates the primary stack above
+   from the secondary grids below; the rest are spacing only, so the
+   groups read as one list with signposts rather than four boxed
+   sections. :not(:first-of-type) is doing that, and it is why the
+   divider does not simply move onto .ui-topbar-sheet-more-head. */
+.ui-topbar-sheet-more-head:not(:first-of-type){
+  border-top:0;
+  padding-top:2px;
+  margin-top:14px;
+}
+
+/* Appearance control, re-parented here from the bar under 560px by
+   placeUtilities() in topbar.js. Every .theme-toggle rule in this file
+   is scoped to `.ui-topbar`, so the moved node arrives with no styling
+   at all — including the absolutely-positioned sun/moon pair, which
+   without the opacity swap renders BOTH glyphs stacked on top of each
+   other. These rules are that styling, restated for its second home
+   rather than un-scoping the originals, which would change how the
+   control looks on desktop. */
+.ui-topbar-sheet-utils{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  position:relative;
+  margin:12px 4px 2px;padding:12px 10px 10px 14px;
+  border-radius:10px;cursor:pointer;
+}
+/* Divider as a pseudo-element, not border-top. A top border on a box
+   with border-radius curls up at both ends, which drew the row as a
+   rounded outline instead of a rule under the list. The radius has to
+   stay for the hover fill, so the line moves off the border. */
+.ui-topbar-sheet-utils::before{
+  content:'';position:absolute;left:10px;right:10px;top:0;
+  border-top:1px solid var(--border, rgba(255,255,255,.08));
+}
+.ui-topbar-sheet-utils[hidden]{display:none}
+.ui-topbar-sheet-utils:hover{background:rgba(255,255,255,.04)}
+[data-theme="light"] .ui-topbar-sheet-utils:hover{background:rgba(0,0,0,.04)}
+/* Named at row weight, not at heading weight. This is a control the
+   founder wants people to NOTICE (2026-08-26), so it is set like the
+   other things you can tap in here rather than like the .16em uppercase
+   section labels above it, which are signposts and read as inert. */
+.ui-topbar-sheet-utils-label{
+  font-size:.9rem;font-weight:600;letter-spacing:-.005em;
+  color:var(--text, #fff);
+}
+[data-theme="light"] .ui-topbar-sheet-utils-label{color:#1a1a1f}
+.ui-topbar-sheet-utils .theme-toggle{
+  position:relative;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;padding:0;border-radius:999px;
+  background:transparent;border:1px solid var(--border-strong, rgba(255,255,255,.18));
+  color:var(--text-dim, rgba(255,255,255,.62));
+  cursor:pointer;font-family:inherit;
+  /* Full opacity, unlike the bar copy: the bar dims its secondary
+     controls until the bar is hovered, and there is no hover on a
+     phone. A 55%-opacity control inside an opened menu just reads as
+     disabled. 34px so it clears the 34px tap-target floor the burger
+     and bell already meet. */
+  opacity:1;
+  transition:color .15s, background .15s, border-color .15s;
+}
+.ui-topbar-sheet-utils .theme-toggle svg{
+  width:15px;height:15px;display:block;
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  transition:opacity .15s;
+}
+.ui-topbar-sheet-utils .theme-toggle .ti-sun{opacity:1}
+.ui-topbar-sheet-utils .theme-toggle .ti-moon{opacity:0}
+[data-theme="light"] .ui-topbar-sheet-utils .theme-toggle{
+  border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.64);
+}
+[data-theme="light"] .ui-topbar-sheet-utils .theme-toggle .ti-sun{opacity:0}
+[data-theme="light"] .ui-topbar-sheet-utils .theme-toggle .ti-moon{opacity:1}
 
 /* ── Social accounts ───────────────────────────────────────────────────
    Rendered from the SOCIALS array in topbar.js. Monochrome at rest so a
