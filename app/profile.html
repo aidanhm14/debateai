@@ -1732,6 +1732,8 @@ function renderSettings(user, profileData){
           <button class="set-btn primary" id="saveSettings" type="button">Save</button>
           <a class="set-btn" href="/pricing">Plan &amp; billing</a>
           <button class="set-btn" id="exportRounds" type="button">Export my rounds</button>
+          <button class="set-btn" id="exportAllData" type="button">Download all my data</button>
+          <button class="set-btn" id="corpusWithdraw" type="button">Withdraw my rounds from research</button>
           <button class="set-btn danger" id="signOutBtn" type="button">Sign out</button>
           <button class="set-btn danger" id="deleteAccountBtn" type="button">Delete account</button>
         </div>
@@ -1872,6 +1874,68 @@ function wireSettings(user, rows){
     });
   }
 
+  // Data-subject rights, self-serve. The privacy policy has always
+  // promised an export and a per-round corpus withdrawal; both were
+  // "email us", which makes a right cost a favour and puts one person in
+  // the loop for every request. Same promises, one click.
+  //
+  // These sit beside "Export my rounds" rather than replacing it: that
+  // one is a 7-field summary of your record, this one is everything the
+  // database holds keyed to your account, including transcripts and your
+  // consent receipts. Different jobs, different sizes.
+  const exportAllBtn = document.getElementById('exportAllData');
+  if (exportAllBtn) {
+    exportAllBtn.addEventListener('click', async () => {
+      exportAllBtn.disabled = true;
+      setStatus('Building your export. Large accounts take a few seconds.', 'ok');
+      try {
+        const t = await user.getIdToken();
+        const res = await fetch('/api/my-data-export', { headers: { Authorization: 'Bearer ' + t } });
+        if (!res.ok) throw new Error('server said ' + res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `debatable-my-data-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setStatus('Downloaded. It includes your rounds, transcripts, and every consent you have given.', 'ok');
+      } catch (e) {
+        setStatus('Export failed: ' + (e.message || 'unknown') + '. Email us and we will send it by hand.', 'err');
+      }
+      exportAllBtn.disabled = false;
+    });
+  }
+
+  const withdrawBtn = document.getElementById('corpusWithdraw');
+  if (withdrawBtn) {
+    withdrawBtn.addEventListener('click', async () => {
+      // Confirmed because it is not reversible from this button: putting
+      // a round back means opting in and debating a new one, since the
+      // opt-in has always applied to future rounds only.
+      if (!window.confirm('Remove every round of yours from the research corpus? They stop appearing in any future export. This does not undo copies already shared, and it does not delete your rounds from your own account.')) return;
+      withdrawBtn.disabled = true;
+      try {
+        const t = await user.getIdToken();
+        const res = await fetch('/api/corpus-withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+          body: JSON.stringify({ all: true }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || ('server said ' + res.status));
+        setStatus(j.withdrawn
+          ? `Withdrew ${j.withdrawn} round${j.withdrawn === 1 ? '' : 's'} from the research corpus.`
+          : 'You had no rounds in the research corpus.', 'ok');
+      } catch (e) {
+        setStatus('Withdrawal failed: ' + (e.message || 'unknown'), 'err');
+      }
+      withdrawBtn.disabled = false;
+    });
+  }
+
   const exportBtn = document.getElementById('exportRounds');
   if(exportBtn){
     exportBtn.addEventListener('click', () => {
@@ -1889,7 +1953,7 @@ function wireSettings(user, rows){
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `debateai-rounds-${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `debatable-rounds-${new Date().toISOString().slice(0,10)}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
