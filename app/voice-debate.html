@@ -2455,6 +2455,146 @@ body[data-layout="setup-v2"] .legacy-setup{display:none}
   border-radius:8px;padding:8px 11px;
 }
 
+/* ── Arena selection guide ────────────────────────────────────────
+   The fast path is a video-game loadout screen: choose the experience,
+   see the opponent + difficulty resolve immediately, then start. The
+   complete form is still available through Fine-tune. */
+.selection-guide{
+  position:relative;overflow:hidden;isolation:isolate;
+  border:1px solid rgba(239,68,68,.22);border-radius:22px;
+  padding:24px;background:
+    radial-gradient(circle at 88% 14%,rgba(239,68,68,.16),transparent 27%),
+    radial-gradient(circle at 72% 88%,rgba(168,85,247,.10),transparent 32%),
+    linear-gradient(145deg,rgba(19,19,28,.98),rgba(7,7,12,.98));
+  box-shadow:0 28px 80px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.04);
+}
+.selection-guide::before{
+  content:'';position:absolute;inset:-35%;z-index:-2;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:34px 34px;transform:perspective(500px) rotateX(58deg) translateY(18%);
+  transform-origin:center bottom;animation:guide-grid-drift 18s linear infinite;
+}
+.selection-guide::after{
+  content:'';position:absolute;left:0;right:0;top:0;height:1px;z-index:3;
+  background:linear-gradient(90deg,transparent,#ef4444 35%,#fecaca 50%,#ef4444 65%,transparent);
+  box-shadow:0 0 22px rgba(239,68,68,.72);
+}
+@keyframes guide-grid-drift{
+  from{background-position:0 0,0 0}
+  to{background-position:0 68px,68px 0}
+}
+.selection-guide__head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px;
+}
+.selection-guide__eyebrow{
+  display:flex;align-items:center;gap:8px;margin-bottom:7px;
+  color:#fca5a5;font-size:.62rem;font-weight:900;letter-spacing:.19em;text-transform:uppercase;
+}
+.selection-guide__eyebrow i{
+  width:7px;height:7px;border-radius:50%;background:#ef4444;
+  box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:guide-ping 2s ease-out infinite;
+}
+@keyframes guide-ping{70%,100%{box-shadow:0 0 0 9px rgba(239,68,68,0)}}
+.selection-guide__head h2{margin:0;color:#fff;font-size:clamp(1.35rem,3vw,2rem);letter-spacing:-.035em;line-height:1.05}
+.selection-guide__head p{margin:7px 0 0;color:#a8a8b6;font-size:.82rem;line-height:1.45;max-width:520px}
+.selection-guide__counter{
+  flex:0 0 auto;color:#787888;font-size:.64rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);padding:7px 10px;border-radius:999px;
+}
+.selection-guide__body{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.85fr);gap:16px;align-items:stretch}
+.mission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.mission-card{
+  position:relative;overflow:hidden;text-align:left;min-height:156px;padding:15px 15px 13px;
+  border:1px solid rgba(255,255,255,.08);border-radius:14px;color:#e9e9ef;
+  background:linear-gradient(150deg,rgba(255,255,255,.052),rgba(255,255,255,.018));
+  cursor:pointer;transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
+  animation:mission-card-in .44s cubic-bezier(.2,.75,.2,1) both;
+}
+.mission-card:nth-child(2){animation-delay:.05s}.mission-card:nth-child(3){animation-delay:.1s}.mission-card:nth-child(4){animation-delay:.15s}
+@keyframes mission-card-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.mission-card::after{
+  content:'';position:absolute;left:-35%;top:-80%;width:32%;height:260%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+  transform:rotate(18deg);transition:left .45s ease;pointer-events:none;
+}
+.mission-card:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.38);background:linear-gradient(150deg,rgba(239,68,68,.09),rgba(255,255,255,.025))}
+.mission-card:hover::after{left:125%}
+.mission-card.is-active{
+  border-color:rgba(239,68,68,.78);background:linear-gradient(145deg,rgba(185,28,28,.25),rgba(69,10,10,.18));
+  box-shadow:0 0 0 1px rgba(239,68,68,.12),0 12px 34px rgba(127,29,29,.18),inset 0 0 32px rgba(239,68,68,.05);
+}
+.mission-card.is-active::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,rgba(252,165,165,.08) 48%,transparent 52%);
+  background-size:100% 220%;animation:mission-scan 3.4s linear infinite;
+}
+@keyframes mission-scan{from{background-position:0 -120%}to{background-position:0 120%}}
+.mission-card__top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.mission-card__code{font:800 .65rem/1 'JetBrains Mono',monospace;color:#71717f;letter-spacing:.08em}
+.mission-card__kicker{font-size:.56rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fca5a5}
+.mission-card__title{font-size:.94rem;font-weight:800;color:#fff;letter-spacing:-.015em;margin-bottom:6px}
+.mission-card__desc{font-size:.7rem;line-height:1.45;color:#aaaab7;min-height:42px}
+.mission-card__stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.mission-card__stats span{font-size:.57rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#858595;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:4px 6px;background:rgba(0,0,0,.18)}
+.mission-card.is-active .mission-card__code,.mission-card.is-active .mission-card__stats span{color:#fecaca}
+.loadout-preview{
+  position:relative;display:flex;flex-direction:column;min-width:0;padding:17px;border-radius:15px;
+  border:1px solid rgba(255,255,255,.08);background:rgba(3,3,8,.52);overflow:hidden;
+}
+.loadout-preview::before{content:'';position:absolute;width:180px;height:180px;border-radius:50%;right:-70px;top:-80px;background:rgba(239,68,68,.12);filter:blur(30px);pointer-events:none}
+.loadout-preview__label{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#777786;font-size:.57rem;font-weight:900;letter-spacing:.17em;text-transform:uppercase}
+.loadout-preview__label span:last-child{color:#86efac;letter-spacing:.09em}
+.loadout-fighter{display:flex;align-items:center;gap:12px;margin:17px 0 14px;position:relative}
+.loadout-fighter__avatar{width:62px;height:62px;border-radius:16px;overflow:hidden;flex:0 0 auto;background:#171720;border:1px solid rgba(239,68,68,.4);box-shadow:0 0 24px rgba(239,68,68,.16)}
+.loadout-fighter__avatar svg{width:100%;height:100%;display:block}
+.loadout-fighter__name{font-size:1rem;font-weight:850;color:#fff;line-height:1.15;letter-spacing:-.02em}
+.loadout-fighter__role{font-size:.63rem;color:#fca5a5;margin-top:4px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.loadout-fighter__bond{font-size:.6rem;color:#777786;margin-top:4px}
+.loadout-meter{display:grid;grid-template-columns:58px 1fr auto;align-items:center;gap:8px;margin:5px 0}
+.loadout-meter__name{font-size:.55rem;color:#777786;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.loadout-meter__track{height:5px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.loadout-meter__fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7f1d1d,#ef4444,#fca5a5);box-shadow:0 0 10px rgba(239,68,68,.45);transition:width .35s ease}
+.loadout-meter__value{font:700 .58rem/1 'JetBrains Mono',monospace;color:#aaaab7;min-width:25px;text-align:right}
+.loadout-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
+.loadout-tags span{font-size:.58rem;font-weight:750;color:#c8c8d2;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);border-radius:6px;padding:5px 7px}
+.loadout-side{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:auto;padding-top:14px}
+.loadout-side button{border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 6px;background:rgba(255,255,255,.025);color:#777786;font-size:.62rem;font-weight:800;cursor:pointer}
+.loadout-side button[aria-pressed="true"]{color:#fff;border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.13)}
+.selection-guide__actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin-top:15px}
+.selection-guide__launch{
+  position:relative;overflow:hidden;border:0;border-radius:12px;padding:14px 18px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;
+  font:850 .9rem/1 inherit;letter-spacing:.04em;cursor:pointer;box-shadow:0 10px 28px rgba(185,28,28,.28);transition:transform .15s,filter .15s;
+}
+.selection-guide__launch:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
+.selection-guide__launch:disabled{opacity:.48;cursor:not-allowed;box-shadow:none}
+.selection-guide__tune{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px 16px;background:rgba(255,255,255,.025);color:#c5c5cf;font:750 .76rem/1 inherit;cursor:pointer}
+.selection-guide__tune:hover{border-color:rgba(255,255,255,.22);color:#fff;background:rgba(255,255,255,.05)}
+.selection-guide__note{margin-top:9px;color:#7c7c8b;font-size:.65rem;text-align:center;line-height:1.4}
+.selection-hidden{display:none!important}
+
+@media (max-width:800px){
+  .selection-guide{padding:18px}.selection-guide__body{grid-template-columns:1fr}.loadout-preview{min-height:245px}
+  .loadout-side{margin-top:12px}.selection-guide__counter{display:none}
+}
+@media (max-width:540px){
+  .selection-guide{padding:15px;border-radius:17px;margin-left:-8px;margin-right:-8px}
+  .selection-guide__head{align-items:flex-start}.selection-guide__head h2{font-size:1.38rem}
+  .mission-grid{
+    display:flex;overflow-x:auto;overflow-y:hidden;gap:9px;padding:1px 15% 8px 1px;
+    scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .mission-grid::-webkit-scrollbar{display:none}
+  .mission-card{flex:0 0 84%;min-height:148px;padding:13px;scroll-snap-align:start}.mission-card__desc{min-height:40px}
+  .loadout-preview{min-height:224px}
+  .selection-guide__actions{grid-template-columns:1fr}.selection-guide__tune{order:2}
+}
+@media (prefers-reduced-motion:reduce){
+  .selection-guide::before,.selection-guide__eyebrow i,.mission-card,.mission-card.is-active::before{animation:none}
+  .mission-card,.loadout-meter__fill{transition:none}
+}
+
 /* Mute button — sits in the live-controls row */
 /* Reserved width: the label walks Mic on -> Listening -> Muted every
    turn and the listening state also injects a dot, a ~40px swing on the
@@ -2651,6 +2791,63 @@ html[data-theme="light"] .setup-grid .smart-card{
   backdrop-filter:none;-webkit-backdrop-filter:none;
 }
 html[data-theme="light"] .setup-grid .summary-card{border-color:rgba(220,38,38,.18)}
+
+/* Selection guide on light surfaces. Keep the arena-console feel while
+   using real dark-on-light card text and controls. */
+html[data-theme="light"] .selection-guide,
+html[data-theme="stone"] .selection-guide{
+  background:
+    radial-gradient(circle at 88% 14%,rgba(220,38,38,.10),transparent 28%),
+    radial-gradient(circle at 72% 88%,rgba(168,85,247,.06),transparent 32%),
+    linear-gradient(145deg,rgba(255,255,255,.98),rgba(247,245,239,.98));
+  border-color:rgba(185,28,28,.22);box-shadow:0 24px 65px rgba(62,45,35,.10),inset 0 1px #fff;
+}
+html[data-theme="light"] .selection-guide::before,
+html[data-theme="stone"] .selection-guide::before{
+  background-image:linear-gradient(rgba(0,0,0,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,.035) 1px,transparent 1px);
+}
+html[data-theme="light"] .selection-guide__head h2,
+html[data-theme="stone"] .selection-guide__head h2{color:#17171c}
+html[data-theme="light"] .selection-guide__head p,
+html[data-theme="stone"] .selection-guide__head p{color:#575760}
+html[data-theme="light"] .selection-guide__counter,
+html[data-theme="stone"] .selection-guide__counter{color:#66666f;border-color:rgba(0,0,0,.09);background:rgba(0,0,0,.025)}
+html[data-theme="light"] .mission-card,
+html[data-theme="stone"] .mission-card{color:#24242a;background:rgba(255,255,255,.7);border-color:rgba(0,0,0,.09)}
+html[data-theme="light"] .mission-card:hover,
+html[data-theme="stone"] .mission-card:hover{background:rgba(220,38,38,.045);border-color:rgba(185,28,28,.3)}
+html[data-theme="light"] .mission-card.is-active,
+html[data-theme="stone"] .mission-card.is-active{background:linear-gradient(145deg,rgba(254,226,226,.9),rgba(255,255,255,.9));border-color:rgba(185,28,28,.58);box-shadow:0 12px 28px rgba(127,29,29,.10)}
+html[data-theme="light"] .mission-card__title,
+html[data-theme="stone"] .mission-card__title{color:#17171c}
+html[data-theme="light"] .mission-card__desc,
+html[data-theme="stone"] .mission-card__desc{color:#575760}
+html[data-theme="light"] .mission-card__code,
+html[data-theme="stone"] .mission-card__code{color:#777780}
+html[data-theme="light"] .mission-card__stats span,
+html[data-theme="stone"] .mission-card__stats span{color:#5e5e67;border-color:rgba(0,0,0,.08);background:rgba(0,0,0,.025)}
+html[data-theme="light"] .loadout-preview,
+html[data-theme="stone"] .loadout-preview{background:rgba(255,255,255,.68);border-color:rgba(0,0,0,.09)}
+html[data-theme="light"] .loadout-fighter__name,
+html[data-theme="stone"] .loadout-fighter__name{color:#17171c}
+html[data-theme="light"] .loadout-fighter__bond,
+html[data-theme="stone"] .loadout-fighter__bond,
+html[data-theme="light"] .loadout-meter__name,
+html[data-theme="stone"] .loadout-meter__name{color:#66666f}
+html[data-theme="light"] .loadout-meter__track,
+html[data-theme="stone"] .loadout-meter__track{background:rgba(0,0,0,.08)}
+html[data-theme="light"] .loadout-meter__value,
+html[data-theme="stone"] .loadout-meter__value{color:#4b4b54}
+html[data-theme="light"] .loadout-tags span,
+html[data-theme="stone"] .loadout-tags span{color:#3f3f47;background:rgba(0,0,0,.03);border-color:rgba(0,0,0,.075)}
+html[data-theme="light"] .loadout-side button,
+html[data-theme="stone"] .loadout-side button{color:#5d5d65;background:rgba(0,0,0,.025);border-color:rgba(0,0,0,.09)}
+html[data-theme="light"] .loadout-side button[aria-pressed="true"],
+html[data-theme="stone"] .loadout-side button[aria-pressed="true"]{color:#991b1b;background:rgba(220,38,38,.08);border-color:rgba(185,28,28,.4)}
+html[data-theme="light"] .selection-guide__tune,
+html[data-theme="stone"] .selection-guide__tune{color:#34343b;background:rgba(0,0,0,.025);border-color:rgba(0,0,0,.10)}
+html[data-theme="light"] .selection-guide__note,
+html[data-theme="stone"] .selection-guide__note{color:#66666f}
 
 /* Step heading + helper */
 html[data-theme="light"] .step-title{color:#1a1a1f}
@@ -3112,6 +3309,27 @@ var MODES = [
 { key: 'aggressive', icon: '', title: 'Sharp Opponent', desc: 'High-pressure adversarial. They will not be polite.' },
 { key: 'steelman', icon: '', title: 'Steelman Drill', desc: 'Defend the position you disagree with. Best version.' },
 { key: 'viva', icon: '', title: 'Viva / Oral Exam', desc: 'Dr. Iyer examines. Surface claim to edge case.' }];
+
+// The first screen should answer a human question, not expose the whole
+// settings model at once. Each mission is a coherent loadout across drill,
+// opponent and council depth. The full controls remain one tap away below.
+var VOICE_MISSIONS = [
+{ key: 'jump-in', code: '01', title: 'Jump in', kicker: 'Recommended',
+  desc: 'A 2-minute clash. We pick the motion so you can start talking.',
+  mode: 'quickclash', personaKey: 'verse', smartness: 1,
+  statA: '2 min', statB: 'Fast start', power: 34 },
+{ key: 'pressure-test', code: '02', title: 'Pressure test me', kicker: 'High heat',
+  desc: 'A relentless opponent attacks the weakest link in your case.',
+  mode: 'aggressive', personaKey: 'ash', smartness: 2,
+  statA: 'Open clock', statB: 'Hard pushback', power: 58 },
+{ key: 'full-ballot', code: '03', title: 'Run a full round', kicker: 'Judged',
+  desc: 'Six compressed speeches, a complete flow, then a judge ballot.',
+  mode: 'apda', personaKey: 'echo', smartness: 3,
+  statA: '6 speeches', statB: 'Full ballot', power: 76 },
+{ key: 'persuade', code: '04', title: 'Win over a skeptic', kicker: 'Plain English',
+  desc: 'Make the argument land with a smart person outside debate.',
+  mode: 'layjudge', personaKey: 'ballad', smartness: 2,
+  statA: 'Open clock', statB: 'Persuasion', power: 48 }];
 
 // Mode-aware turn-detection silence floor (ms). server_vad declares the
 // user's turn over only after this much CONTINUOUS silence, so a bigger
@@ -4075,6 +4293,10 @@ function App() {
   var recordedChunksRef = useRef([]);
   // Show 3 featured opponents by default; user can expand to all 8.
   var [showAllOpponents, setShowAllOpponents] = useState(false);
+  // The mission guide is the default setup surface. Returning users and
+  // format specialists can open the complete control deck without losing
+  // the fast path for everyone else.
+  var [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
 
   // Instructions panel — collapsed by default so the setup page reads
   // simple. Toggled by the "How it works" pill that sits where the old
@@ -7830,7 +8052,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // the AI reads as present and waiting, not as a static graphic.
   // Bigger than the prior right-column orb (280px vs 180px) so it
   // owns the top of the page.
-  el('div', { className: 'setup-orb-hero' },
+  extMode === 'counter' && el('div', { className: 'setup-orb-hero' },
   // Waiting figures — the two debaters stand faintly at their podiums
   // flanking the standby orb, so the setup screen reads as "the room
   // is set, both sides are here waiting to begin" instead of an empty
@@ -7857,31 +8079,27 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   )
   ),
 
-  // 2026-06-08: one-tap quick-start. The setup below is four steps
-  // (motion, side, drill, opponent) on a 2800px page — the actual
-  // Start button sits below the fold, so a first-timer who clicked
-  // "Voice AI" to just argue has to make four decisions and scroll
-  // before anything happens. This CTA collapses all of that into one
-  // tap: roll a concrete random motion (so the AI opens with substance
-  // instead of asking "what are we debating?" on the mic), pre-warm the
-  // mic grant inside the gesture, then fire start() a tick later (once
-  // setMotion has committed and startRef points at the fresh closure —
-  // same path the ext side-panel autoStart uses). The four-step form
-  // stays right below for anyone who'd rather set it up. Only shown
-  // when the voice gate is startable ('ok'); the sign-in / upgrade
-  // gates own the CTA in those states. gtag tags the path so the
-  // quick-start vs. manual round-start split is measurable.
-  voiceGate.state === 'ok' && extMode !== 'counter' && el('div', {
-    className: 'quickstart-wrap',
-    style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, margin: '2px auto 4px' }
-  },
-  el('button', {
-    type: 'button',
-    className: 'cta',
-    disabled: micPerm === 'denied' || voiceGate.loading || preflight.state === 'testing',
-    style: { fontSize: '1.04rem', padding: '13px 32px', fontWeight: 700 },
-    onClick: async () => {
-      try {if (window.gtag) gtag('event', 'voice_quickstart', { had_motion: !!String(motion || '').trim() });} catch (e) {}
+  // Guided loadout. The settings model is still available below, but a
+  // first-time visitor can choose the experience they want in one decision.
+  extMode !== 'counter' && function () {
+    var activeMission = VOICE_MISSIONS.find((mission) =>
+    mission.mode === mode && mission.personaKey === personaKey && mission.smartness === smartness
+    ) || {
+      key: 'custom', code: 'CX', title: 'Custom loadout', kicker: 'Fine-tuned',
+      desc: 'Your own combination of drill, opponent and council depth.',
+      statA: MODES.find((m) => m.key === mode)?.title || 'Custom',
+      statB: 'Ready', power: Math.min(100, 24 + smartness * 14)
+    };
+    var bondNow = bondInfo(getBond(persona.key), persona.key);
+    var modeNow = MODES.find((m) => m.key === mode);
+    var openGate = () => {
+      setShowAdvancedSetup(true);
+      setTimeout(() => {
+        try {document.querySelector('.summary-cta')?.scrollIntoView({ behavior: 'smooth', block: 'center' });} catch (e) {}
+      }, 40);
+    };
+    var launchMission = async () => {
+      try {if (window.gtag) gtag('event', 'voice_guided_start', { mission: activeMission.key, mode: mode });} catch (e) {}
       if (!String(motion || '').trim() && typeof SAMPLE_MOTIONS !== 'undefined' && SAMPLE_MOTIONS.length) {
         try {setMotion(expandMotionAcronyms(SAMPLE_MOTIONS[Math.floor(Math.random() * SAMPLE_MOTIONS.length)].text));} catch (e) {}
       }
@@ -7889,22 +8107,97 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
       if (!ready) {
         setError('Pre-round check did not pass. Fix the microphone or connection shown below, then test again.');
         setErrorKind('preflight');
+        setShowAdvancedSetup(true);
         return;
       }
       setTimeout(() => {try {startRef.current && startRef.current();} catch (e) {}}, 40);
-    }
-  }, 'Start a round →'),
-  el('div', {
-    style: { fontSize: '.78rem', color: 'var(--text-dim, #9b9bab)', opacity: .85, textAlign: 'center', maxWidth: 360, lineHeight: 1.4 }
-  }, micPerm === 'denied' ?
-  'Mic access is blocked. Enable it in your browser to start a voice round.' :
-  "One tap. We pick a motion and a side; grant your mic and the AI opens. Or set it up below.")
-  ),
+    };
+    return el('section', { className: 'selection-guide', 'aria-labelledby': 'selection-guide-title' },
+    el('div', { className: 'selection-guide__head' },
+    el('div', null,
+    el('div', { className: 'selection-guide__eyebrow' }, el('i', { 'aria-hidden': 'true' }), 'Arena loadout'),
+    el('h2', { id: 'selection-guide-title' }, 'What kind of round do you want?'),
+    el('p', null, 'Pick the experience. Your opponent, drill and AI depth lock in together.')
+    ),
+    el('div', { className: 'selection-guide__counter' }, '4 missions available')
+    ),
+    el('div', { className: 'selection-guide__body' },
+    el('div', { className: 'mission-grid', role: 'radiogroup', 'aria-label': 'Round mission' },
+    VOICE_MISSIONS.map((mission) => {
+      var on = activeMission.key === mission.key;
+      return el('button', {
+        key: mission.key, type: 'button', role: 'radio', 'aria-checked': on,
+        className: 'mission-card' + (on ? ' is-active' : ''),
+        onClick: () => {
+          setMode(mission.mode);setPersonaKey(mission.personaKey);rememberPersona(mission.personaKey);setSmartness(mission.smartness);
+          try {if (window.gtag) gtag('event', 'voice_mission_select', { mission: mission.key });} catch (e) {}
+        }
+      },
+      el('div', { className: 'mission-card__top' },
+      el('span', { className: 'mission-card__code' }, '/' + mission.code),
+      el('span', { className: 'mission-card__kicker' }, mission.kicker)
+      ),
+      el('div', { className: 'mission-card__title' }, mission.title),
+      el('div', { className: 'mission-card__desc' }, mission.desc),
+      el('div', { className: 'mission-card__stats' }, el('span', null, mission.statA), el('span', null, mission.statB))
+      );
+    })
+    ),
+    el('aside', { className: 'loadout-preview', 'aria-live': 'polite', 'aria-label': 'Selected round loadout' },
+    el('div', { className: 'loadout-preview__label' }, el('span', null, 'Opponent ready'), el('span', null, 'Online')),
+    el('div', { className: 'loadout-fighter' },
+    window.DBAvatar ?
+    el('div', { className: 'loadout-fighter__avatar', dangerouslySetInnerHTML: { __html: window.DBAvatar.persona(persona.key, '100%') } }) :
+    el('div', { className: 'loadout-fighter__avatar', style: { display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 900 } }, persona.initials),
+    el('div', null,
+    el('div', { className: 'loadout-fighter__name' }, persona.name),
+    el('div', { className: 'loadout-fighter__role' }, persona.archetype),
+    el('div', { className: 'loadout-fighter__bond' }, bondNow.label + (getBond(persona.key) ? ' · ' + getBond(persona.key) + ' rounds' : ' · first meeting'))
+    )
+    ),
+    el('div', { className: 'loadout-meter' },
+    el('span', { className: 'loadout-meter__name' }, 'Pressure'),
+    el('span', { className: 'loadout-meter__track' }, el('i', { className: 'loadout-meter__fill', style: { width: activeMission.power + '%' } })),
+    el('span', { className: 'loadout-meter__value' }, activeMission.power)
+    ),
+    el('div', { className: 'loadout-meter' },
+    el('span', { className: 'loadout-meter__name' }, 'AI depth'),
+    el('span', { className: 'loadout-meter__track' }, el('i', { className: 'loadout-meter__fill', style: { width: smartness * 20 + '%' } })),
+    el('span', { className: 'loadout-meter__value' }, smartness + '/5')
+    ),
+    el('div', { className: 'loadout-tags' },
+    el('span', null, modeNow?.title || mode),
+    el('span', null, activeMission.statA),
+    el('span', null, smartness === 1 ? 'Quick AI' : smartness === 2 ? 'Sharp AI' : smartness === 3 ? 'Tournament AI' : smartness === 4 ? 'Council AI' : 'World Champ AI')
+    ),
+    el('div', { className: 'loadout-side', role: 'radiogroup', 'aria-label': 'Your side' },
+    el('button', { type: 'button', role: 'radio', 'aria-pressed': side === 'gov', onClick: () => setSide('gov') }, 'Government'),
+    el('button', { type: 'button', role: 'radio', 'aria-pressed': side === 'opp', onClick: () => setSide('opp') }, 'Opposition')
+    )
+    )
+    ),
+    el('div', { className: 'selection-guide__actions' },
+    el('button', {
+      type: 'button', className: 'selection-guide__launch',
+      disabled: voiceGate.state === 'ok' && (micPerm === 'denied' || voiceGate.loading || preflight.state === 'testing'),
+      onClick: voiceGate.state === 'ok' ? launchMission : openGate
+    }, voiceGate.state === 'ok' ? preflight.state === 'testing' ? 'Checking mic & connection…' : 'Start this round' : voiceGate.state === 'sign-in' ? 'Continue to sign in' : 'Continue to plans'),
+    el('button', {
+      type: 'button', className: 'selection-guide__tune', 'aria-expanded': showAdvancedSetup,
+      onClick: () => setShowAdvancedSetup((value) => !value)
+    }, showAdvancedSetup ? 'Hide fine-tuning' : 'Fine-tune the loadout')
+    ),
+    el('div', { className: 'selection-guide__note' },
+    micPerm === 'denied' ? 'Microphone access is blocked. Fine-tune the loadout to run the readiness check.' :
+    motion.trim() ? 'Motion locked: ' + motion : 'A motion is picked when you start. Fine-tune to choose your own.'
+    )
+    );
+  }(),
 
   // Group A — the setup steps (motion, side, drill). Wrapper div
   // owns the gap between steps; .setup-grid's own gap doesn't reach
   // through to these grandchildren, so .setup-steps adds it back.
-  el('div', { className: 'setup-steps' },
+  el('div', { className: 'setup-steps' + (extMode !== 'counter' && !showAdvancedSetup ? ' selection-hidden' : '') },
 
   // Step 1: Motion (now first — natural flow is "what do I want to
   // argue?" before "what shape should the round take?"). The mode
@@ -8144,7 +8437,7 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   // Group B — opponent picker, summary, smartness, mic notice,
   // start CTA. Orb moved to the top hero so the duplicate orb
   // card that used to live here is gone.
-  el('div', { className: 'summary-col' },
+  el('div', { className: 'summary-col' + (extMode !== 'counter' && !showAdvancedSetup ? ' selection-hidden' : '') },
 
   // Step 4: Opponent picker.
   // Counter mode is locked to Dr. Iyer (Examiner persona) by the
@@ -8157,7 +8450,10 @@ Tone: varsity-debater register. Specific to the actual exchange — quote the us
   ),
   el('div', { className: 'card' },
   el('div', { className: 'opps' },
-  (showAllOpponents ? PERSONALITIES : PERSONALITIES.slice(0, 3)).map((p) => {
+  (showAllOpponents ? PERSONALITIES : [
+  PERSONALITIES.find((candidate) => candidate.key === personaKey),
+  ...PERSONALITIES.filter((candidate) => candidate.key !== personaKey)].
+  filter(Boolean).slice(0, 3)).map((p) => {
     var r = getBond(p.key);
     var b = bondInfo(r, p.key);
     return el('button', {
