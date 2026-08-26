@@ -351,7 +351,14 @@
       'border:1px solid ' + (dark ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.12)') + ';' +
       'box-shadow:0 14px 44px rgba(0,0,0,.26);font-family:"Archivo",Georgia,serif;font-size:14.5px;font-weight:650;line-height:1.3;' +
       'animation:daWallGoIn .28s cubic-bezier(.2,.8,.2,1)}' +
-      '@keyframes daWallGoIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}' +
+      /* The entry animation moves the bar and NOTHING ELSE. It must never
+         carry opacity: js/anim-governor.js pauses animations on a hidden
+         document, and a bar that mounts while the tab is backgrounded (which
+         is exactly when it mounts, since the OAuth popup takes the focus)
+         would then sit at opacity 0 with no frame to resume from. Caught on
+         production doing precisely that. Paused at frame 0 this is a bar
+         sitting ten pixels low, which nobody will ever notice. */
+      '@keyframes daWallGoIn{from{transform:translate(-50%,10px)}to{transform:translate(-50%,0)}}' +
       '#daWallGo .wg-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '#daWallGo .wg-go{flex:none;min-height:40px;display:inline-flex;align-items:center;padding:9px 17px;border-radius:999px;' +
       'background:#b91c1c;color:#fff;font:inherit;font-weight:800;text-decoration:none;border:0;cursor:pointer;white-space:nowrap}' +
@@ -360,7 +367,7 @@
       'color:' + (dark ? 'rgba(245,241,234,.6)' : 'rgba(20,16,12,.55)') + ';font:inherit;font-size:19px;line-height:1}' +
       '#daWallGo .wg-x:hover{background:' + (dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.05)') + '}' +
       '@media(max-width:520px){#daWallGo{left:12px;right:12px;transform:none;bottom:12px;border-radius:16px;padding:11px 10px 11px 15px}' +
-      '@keyframes daWallGoIn{from{opacity:0}to{opacity:1}}' +
+      '@keyframes daWallGoIn{from{transform:translateY(10px)}to{transform:none}}' +
       '#daWallGo .wg-txt{white-space:normal;font-size:13.5px}}';
     document.head.appendChild(css);
 
