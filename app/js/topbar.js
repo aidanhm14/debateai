@@ -2562,9 +2562,20 @@
   if (window.__daOpenStrip) return;
   window.__daOpenStrip = 1;
 
+  // A page may render the strip STATICALLY (landing.html does, because
+  // it is 1.2 MB and a deferred script cannot run until all of it has
+  // arrived). Wherever this file decides the strip should not exist,
+  // it has to clear that node too, or the static copy outlives every
+  // rule below.
+  function dropStatic(){
+    var e = document.getElementById('openStripStatic');
+    if (e && e.parentNode) e.parentNode.removeChild(e);
+    if (document.body) document.body.classList.remove('has-beta-strip');
+  }
+
   var path = (location.pathname || '/').replace(/\/$/, '') || '/';
-  if (/^\/(tournaments|tournament-rules|unblock)(\.html)?$/.test(path)) return;
-  try { if (sessionStorage.getItem('da-open-strip-dismissed') === '1') return; } catch (e) {}
+  if (/^\/(tournaments|tournament-rules|unblock)(\.html)?$/.test(path)) { dropStatic(); return; }
+  try { if (sessionStorage.getItem('da-open-strip-dismissed') === '1') { dropStatic(); return; } } catch (e) {}
 
   // All boundaries in ET (UTC-4 in August).
   //
@@ -2583,7 +2594,7 @@
   var now = Date.now();
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
   var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
-  if (now > EVENT_OVER) return;
+  if (now > EVENT_OVER) { dropStatic(); return; }
 
   // Segment list for the zipper. Authored money-first because the
   // money is the reason to look, and the segments repeat forever, so
@@ -2607,11 +2618,23 @@
     + ' Free to enter.';
 
   function mount(){
-    if (document.querySelector('.ui-beta-strip')) return;
-    var strip = document.createElement('div');
-    strip.className = 'ui-beta-strip ui-beta-strip--ticker';
-    strip.setAttribute('role', 'region');
-    strip.setAttribute('aria-label', 'Tournament announcement');
+    // Adopt a statically rendered strip instead of building a second
+    // one. The markup is identical by construction (landing.html
+    // carries a copy of the same segments); what this file adds is the
+    // behaviour: pacing, dismiss, and the tab-visibility pause. Before
+    // this, an existing node made mount() return, which on the landing
+    // meant a strip that could never be dismissed and never paced.
+    var strip = document.getElementById('openStripStatic');
+    var adopted = !!strip;
+    if (strip) {
+      strip.hidden = false;
+    } else {
+      if (document.querySelector('.ui-beta-strip')) return;
+      strip = document.createElement('div');
+      strip.className = 'ui-beta-strip ui-beta-strip--ticker';
+      strip.setAttribute('role', 'region');
+      strip.setAttribute('aria-label', 'Tournament announcement');
+    }
 
     // The visual track is aria-hidden and the anchor carries the
     // message as a label, because the run is duplicated for the
@@ -2622,15 +2645,17 @@
       run += '<span class="ui-strip-seg">' + SEGMENTS[i] + '</span>'
            + '<span class="ui-strip-sep" aria-hidden="true">$</span>';
     }
-    strip.innerHTML =
-      '<a class="ui-strip-link" href="/tournaments" data-cta="open-strip" aria-label="' + SPOKEN + '">' +
-        '<span class="ui-strip-track" aria-hidden="true">' +
-          '<span class="ui-strip-run">' + run + '</span>' +
-          '<span class="ui-strip-run">' + run + '</span>' +
-        '</span>' +
-      '</a>' +
-      '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">&times;</button>';
-    document.body.appendChild(strip);
+    if (!adopted) {
+      strip.innerHTML =
+        '<a class="ui-strip-link" href="/tournaments" data-cta="open-strip" aria-label="' + SPOKEN + '">' +
+          '<span class="ui-strip-track" aria-hidden="true">' +
+            '<span class="ui-strip-run">' + run + '</span>' +
+            '<span class="ui-strip-run">' + run + '</span>' +
+          '</span>' +
+        '</a>' +
+        '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">&times;</button>';
+      document.body.appendChild(strip);
+    }
     document.body.classList.add('has-beta-strip');
 
     // Constant speed rather than a constant duration: one run of copy
@@ -2640,16 +2665,39 @@
     // a real zipper and slow enough to read a segment in passing.
     var track = strip.querySelector('.ui-strip-track');
     var runEl = strip.querySelector('.ui-strip-run');
+    var lastDur = 0;
     function pace(){
       if (!track || !runEl) return;
       var w = runEl.getBoundingClientRect().width;
-      if (w > 40) track.style.animationDuration = Math.round(w / 58) + 's';
+      if (w <= 40) return;
+      var d = Math.max(8, Math.round(w / 58));
+      // Only write when it actually changes: reassigning the duration
+      // mid-cycle makes the track jump, so a no-op write is a visible
+      // stutter for nothing.
+      if (d === lastDur) return;
+      lastDur = d;
+      track.style.animationDuration = d + 's';
     }
+    // Measured once, this reliably measures the WRONG width: the first
+    // frame can catch the run mid-layout, and a short run reads as a
+    // short duration, which is how a 968px ticker ended up running in
+    // 6s (161px/s) instead of ~17s. So watch the element instead of
+    // sampling it. Webfonts landing late move the width too.
     if (window.requestAnimationFrame) requestAnimationFrame(pace); else setTimeout(pace, 60);
-    // Webfont arriving late changes the run width under us, so re-pace
-    // once it lands. Cheap, and it is the difference between the loop
-    // being seamless and drifting a few pixels per cycle.
+    // The observer is parked on the element deliberately. A
+    // `new ResizeObserver(pace).observe(el)` with no retained
+    // reference is collectable, and it was collected here: the first
+    // measurement caught the run mid-layout at 8s and nothing ever
+    // corrected it, so a 968px ticker ran at 121px/s. Holding it on
+    // the node ties its life to the strip's.
+    try {
+      if (window.ResizeObserver) { strip.__daRO = new ResizeObserver(pace); strip.__daRO.observe(runEl); }
+    } catch (e) {}
+    // Unconditional backstop. Cheap, and it means the speed is right
+    // even where the observer is missing, throttled, or collected.
+    setTimeout(pace, 400); setTimeout(pace, 1500);
     try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(pace); } catch (e) {}
+    window.addEventListener('resize', pace);
 
     // A CSS animation keeps painting in a backgrounded tab. This rides
     // on ~60 pages, so it pauses with the tab.
