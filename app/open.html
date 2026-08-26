@@ -795,6 +795,41 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       .then(function(){ busy(btn, false); });
   }
 
+  // ── Media consent, asked once for the whole event ───────────────────
+  //
+  // The published rules say day rounds are not broadcast by default, and
+  // that stays true: this is an opt-in, and an entrant who says no plays
+  // exactly the same day. What it replaces is a per-round card in a
+  // five-minute round, which nobody would read and which would cost more
+  // of the round than it is worth.
+  //
+  // NOT A GATE. Both answers are one tap and both go straight on to the
+  // queue. The question is asked once ever and then never again, which
+  // is the only reason it is allowed to sit in front of the Ready
+  // button at all.
+  function mediaAsked(){
+    var me = state.data && state.data.me;
+    return !!(me && me.mediaConsentAsked);
+  }
+
+  function mediaOn(){
+    var me = state.data && state.data.me;
+    return !!(me && me.mediaConsent);
+  }
+
+  function setMediaConsent(yes, btn){
+    var t = state.data && state.data.tournament;
+    if (!t) return;
+    busy(btn, true, 'Saving');
+    api('/api/tournament', { action: 'register', tid: t.tid, mediaConsent: !!yes })
+      .then(function(){
+        try { gtag('event', 'open_media_consent', { tid: t.tid, consent: yes ? 1 : 0 }); } catch(e){}
+        return load();
+      })
+      .catch(function(e){ fail(e.message); })
+      .then(function(){ busy(btn, false); });
+  }
+
   function queueEligible(){
     var t = state.data && state.data.tournament;
     if (!t || t.dropIn === false || t.status !== 'running') return false;
@@ -858,6 +893,33 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       return;
     }
 
+    // Asked once, after the bracket and before the first round. Either
+    // answer moves straight on; nothing about the day changes on a no.
+    //
+    // 18 AND OVER ONLY. A consented round publishes to Watch on its own,
+    // so this box is the difference between a private round and a public
+    // video of a named person. The per-round card asks whether a parent
+    // or guardian approved, and an entry form cannot ask that of anyone
+    // who is not there. Under 18 keeps the per-round card instead, which
+    // is refused here rather than answered badly. The server enforces the
+    // same rule, so this is the wording, not the gate.
+    if (!mediaAsked() && myBracket() === 'open'){
+      box.innerHTML = '<b>One more, then you are in</b>' +
+        '<div class="say">Can your rounds today be recorded?</div>' +
+        '<div class="why">Day rounds are <strong>not recorded by default</strong>. Say yes and your rounds today are captured and can be published on <a href="/watch" style="color:var(--red)">Watch</a>, where the video, audio, display names, and motion appear. ' +
+        'A round only records if <strong>both</strong> debaters said yes, so your answer never puts anyone else on camera. ' +
+        'Say no and you play exactly the same day, nothing is captured, and nobody asks you again. You can change this any time from this page.</div>';
+      [[true, 'Yes, record my rounds'], [false, 'No recording']].forEach(function(pair, i){
+        var b = document.createElement('button');
+        b.className = 'btn btn-lg' + (i === 0 ? ' btn-primary' : '');
+        b.textContent = pair[1];
+        b.addEventListener('click', function(){ setMediaConsent(pair[0], b); });
+        acts.appendChild(b);
+      });
+      addWithdraw(acts, state.data.tournament);
+      return;
+    }
+
     if (self && self.inPairing && self.pairing){
       var p = self.pairing;
       var side = p.govEntry === (mine && mine.entryId) ? 'Gov' : 'Opp';
@@ -900,9 +962,28 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       '<a href="/practice" style="color:var(--red)">Take a round against the AI while you wait</a>. ' +
       'It does not count toward the standings.</div>' : '';
 
+    // Where the media answer lives after it has been given. A consent
+    // that cannot be withdrawn is not consent, so it stays visible and
+    // one tap from changing for the whole day. Withdrawing only affects
+    // rounds from here on: anything already captured is governed by the
+    // per-round controls inside the room.
+    var recLine = myBracket() === 'open'
+      ? '<div class="why" style="margin-top:8px">Recording: <strong>' +
+        (mediaOn() ? 'on for your rounds' : 'off') + '</strong>. ' +
+        '<a href="#" data-media-toggle="1" style="color:var(--red)">' +
+        (mediaOn() ? 'Turn it off' : 'Turn it on') + '</a></div>'
+      : '<div class="why" style="margin-top:8px">Recording: <strong>off unless you turn it on inside a round</strong>. ' +
+        'Under 18, the ask happens in the room rather than here, because it needs a parent or guardian to have approved it.</div>';
+
     box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
-      (why ? '<div class="why">' + esc(why) + '</div>' : '') + quiet +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '') + quiet + recLine +
       (dropIn.err ? '<div class="why" style="color:#fca5a5">' + esc(dropIn.err) + '</div>' : '');
+
+    var toggle = box.querySelector('[data-media-toggle]');
+    if (toggle) toggle.addEventListener('click', function(ev){
+      ev.preventDefault();
+      setMediaConsent(!mediaOn(), null);
+    });
 
     if (action.kind === 'link'){
       addLink(acts, action.label, action.href, true);

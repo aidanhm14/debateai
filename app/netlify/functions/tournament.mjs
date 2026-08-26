@@ -24,6 +24,24 @@ import { standings } from './lib/tournament.mjs';
 const CACHE_TTL_MS = 8000;
 const cache = new Map();
 
+// ── Event-level media consent ───────────────────────────────────────
+//
+// One answer at registration covering every round this entrant plays on
+// the day, read by round-recording.mjs's 'event' action.
+//
+// IT MOVES BOTH WAYS, and that is the difference between it and the 18+
+// attestation sitting next to it. The attestation only ever upgrades,
+// because an accidental untick would cost somebody a prize. Consent is
+// the opposite case: a permission you cannot withdraw is not consent,
+// so an explicit false here is honoured and stored with its own
+// timestamp. What is NOT honoured is silence: a client cached from
+// before this shipped sends no field at all, and treating that as a
+// withdrawal would quietly strip an answer somebody actually gave.
+//
+// The version string is stamped on the entry so a consent given under
+// today's wording cannot be read as agreement to wording written later.
+const MEDIA_CONSENT_VERSION = 'tournament-media-v1-2026-08-26';
+
 function cacheGet(key) {
   const hit = cache.get(key);
   if (!hit || Date.now() - hit.at > CACHE_TTL_MS) return null;
@@ -210,6 +228,13 @@ async function withMine(db, payload, request) {
       bracket: bracketOf(e),
       bracketLabel: BRACKET_LABEL[bracketOf(e)] || '',
       bracketLocked: bracketOf(e) ? !canChangeBracket(e, bracketOf(e) === 'open' ? 'u18' : 'open') : false,
+      // The entrant's own media answer, so the page can ask once and
+      // then stop asking. `mediaConsentAsked` distinguishes "said no"
+      // from "was never asked": everyone who registered before this
+      // shipped is the second, and they are the people the re-consent
+      // prompt exists for.
+      mediaConsent: e.mediaConsent === true,
+      mediaConsentAsked: typeof e.mediaConsent === 'boolean',
     } };
   } catch { return payload; }
 }
@@ -445,6 +470,16 @@ export default async (request) => {
         patch.ageAttestedAt = FieldValue.serverTimestamp();
       }
 
+      // Absent means unchanged; see MEDIA_CONSENT_VERSION.
+      if (body?.mediaConsent === true && already.mediaConsent !== true) {
+        patch.mediaConsent = true;
+        patch.mediaConsentAt = FieldValue.serverTimestamp();
+        patch.mediaConsentVersion = MEDIA_CONSENT_VERSION;
+      } else if (body?.mediaConsent === false && already.mediaConsent === true) {
+        patch.mediaConsent = false;
+        patch.mediaConsentWithdrawnAt = FieldValue.serverTimestamp();
+      }
+
       // A placeholder yields to a real name. Register is idempotent and
       // people press it again (to tick 18+, to fix a bracket), so this
       // is the recovery path for an entry that landed as 'Entry' before
@@ -461,6 +496,9 @@ export default async (request) => {
         prizeEligible: patch.prizeEligible === true || already.prizeEligible === true,
         bracket: patch.bracket || current,
         bracketLocked: locked,
+        mediaConsent: Object.prototype.hasOwnProperty.call(patch, 'mediaConsent')
+          ? patch.mediaConsent
+          : already.mediaConsent === true,
       };
     }
 
@@ -541,6 +579,10 @@ export default async (request) => {
       // '' is a legitimate stored value: it means this entry has not
       // said, and the queue will ask before it pairs them.
       bracket: wantBracket,
+      mediaConsent: body?.mediaConsent === true,
+      ...(body?.mediaConsent === true
+        ? { mediaConsentAt: FieldValue.serverTimestamp(), mediaConsentVersion: MEDIA_CONSENT_VERSION }
+        : {}),
       ...(ageAttested ? { ageAttestedAt: FieldValue.serverTimestamp() } : {}),
       entryKind: 'free',
       wins: 0,
@@ -553,7 +595,13 @@ export default async (request) => {
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
     cache.clear();
-    return jsonResponse({ ok: true, entryId: entryRef.id, prizeEligible: ageAttested, bracket: wantBracket }, 200, request);
+    return jsonResponse({
+      ok: true,
+      entryId: entryRef.id,
+      prizeEligible: ageAttested,
+      bracket: wantBracket,
+      mediaConsent: body?.mediaConsent === true,
+    }, 200, request);
   }
 
   // ── check-in ────────────────────────────────────────────────────
