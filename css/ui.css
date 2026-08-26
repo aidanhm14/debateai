@@ -188,7 +188,10 @@ time,table,[class*="timer"],[class*="score"],[class*="count"],[class*="stat"],[c
    date, the two facts the strip exists to carry, scrolled off above the
    top of the bar. Measured on production 2026-08-22.
 
-   So: one line, always, clipped at the END. The anchor is an
+   So: one line, always, clipped at the END. (Since 2026-08-26 the
+   Open strip runs as a ticker instead and scrolls rather than
+   truncating; the ellipsis path below is what it falls back to under
+   prefers-reduced-motion, and what any other .ui-beta-strip gets.) The anchor is an
    inline-block capped at the strip width, which truncates from the tail
    with an ellipsis instead of centring an over-wide line and cutting
    both ends off it. The hook (prize, then date) is authored first
@@ -218,6 +221,91 @@ time,table,[class*="timer"],[class*="score"],[class*="count"],[class*="stat"],[c
 }
 .ui-beta-strip-dismiss:hover{opacity:1}
 body.has-beta-strip{padding-top:32px}
+
+/* ── The Open ticker: a Times Square zipper, not a banner ──────
+   Aidan, 2026-08-26: "have this actually be red / white with green $
+   symbols in a moving line like those screens on news station
+   buildings in times square ... i want ppl to see the animated nature
+   of that pop up at the top so ppl sign up."
+
+   Scoped to .ui-beta-strip--ticker so the plain strip above is
+   untouched and reverting is one class. Everything the base rule
+   guarantees still holds and is load-bearing, not tidy: the strip is
+   32px, one line, and never wraps, because body.has-beta-strip
+   reserves exactly 32px and .ui-topbar / .ui-nav / .ui-topbar-sheet
+   all offset off that number. A second line clips the wordmark
+   underneath, which is the bug this file already carries a comment
+   about. A marquee cannot wrap by construction, so the ticker
+   actually makes that guarantee stronger than the ellipsis did, and
+   it is why the mobile tail-hide is gone: the full message now fits
+   every width because it scrolls rather than truncates.
+
+   Direction is right-to-left, the way a real zipper runs: content
+   enters at the right edge and travels left, so words arrive in
+   reading order. Moving the track the other way would deliver each
+   sentence backwards.
+
+   Duration is set in JS from the measured run width for a constant
+   px/second, so the speed does not change with viewport or copy
+   length. The value below is the fallback if that measurement never
+   lands. */
+.ui-beta-strip--ticker{
+  justify-content:flex-start;
+  padding:0 40px 0 0;
+  text-align:left;
+  /* Faint horizontal scanlines, the LED-board texture. Sits under the
+     text and over the red, at an alpha low enough to read as grain
+     rather than as stripes. */
+  background:
+    repeating-linear-gradient(180deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px),
+    #b91c1c;
+}
+.ui-beta-strip--ticker .ui-strip-link{
+  display:block;width:100%;max-width:none;height:100%;
+  overflow:hidden;text-overflow:clip;text-decoration:none;
+  /* The message fades out before it reaches the dismiss control
+     instead of sliding under it. */
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 46px),transparent calc(100% - 12px));
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 46px),transparent calc(100% - 12px));
+}
+.ui-beta-strip--ticker .ui-strip-link:hover{text-decoration:none}
+.ui-beta-strip--ticker .ui-strip-track{
+  display:flex;align-items:center;height:100%;width:max-content;
+  animation:ui-strip-zip 44s linear infinite;
+  will-change:transform;
+}
+/* Two identical runs, so translating the track by exactly half its
+   width lands the second run where the first started and the loop has
+   no seam. Any other offset shows a gap once per cycle. */
+.ui-beta-strip--ticker .ui-strip-run{
+  display:flex;align-items:center;flex:none;white-space:nowrap;
+  font-family:var(--font-mono);
+  font-size:.7rem;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:#fff;
+}
+.ui-beta-strip--ticker .ui-strip-seg{padding:0 14px;flex:none}
+/* The green. Checked against the #b91c1c bar rather than picked by
+   eye: #86efac is 4.6:1, which clears AA for text this small, and
+   #4ade80 (the obvious "money green") is 3.7:1 and does not. */
+.ui-beta-strip--ticker .ui-strip-money{
+  color:#86efac;
+  text-shadow:0 0 7px rgba(134,239,172,.5);
+}
+.ui-beta-strip--ticker .ui-strip-sep{
+  flex:none;color:#86efac;opacity:.85;
+  text-shadow:0 0 7px rgba(134,239,172,.45);
+}
+@keyframes ui-strip-zip{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+/* Readable and clickable while the pointer is on it, and not painting
+   in a tab nobody is looking at. */
+.ui-beta-strip--ticker:hover .ui-strip-track,
+.ui-beta-strip--ticker.ui-strip-paused .ui-strip-track{animation-play-state:paused}
+/* A line of text that never stops moving is a genuine problem for some
+   people, so this degrades to the static line it replaced: run one
+   starts at the left edge and the hook is authored first. */
+@media (prefers-reduced-motion:reduce){
+  .ui-beta-strip--ticker .ui-strip-track{animation:none;transform:none}
+}
 
 /* ── Neural constellation canvas (fixed bg) ──────────────── */
 .ui-neural-canvas{

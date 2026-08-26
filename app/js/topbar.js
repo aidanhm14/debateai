@@ -2409,19 +2409,27 @@
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
-/* ── The Debatable Open countdown strip ─────────────────────────
-   One-line dismissible strip pinned above the topbar on every page
-   that loads this file. Uses the dormant .ui-beta-strip CSS in
-   ui.css (fixed top, 32px) — .ui-topbar already offsets itself when
-   body carries .has-beta-strip, and native-bridge.js already hides
+/* ── The Debatable Open ticker ──────────────────────────────────
+   One-line dismissible zipper pinned above the topbar on every page
+   that loads this file. Uses .ui-beta-strip plus the
+   .ui-beta-strip--ticker block in ui.css (fixed top, 32px) —
+   .ui-topbar already offsets itself when body carries
+   .has-beta-strip, and native-bridge.js already hides
    .ui-beta-strip inside the iOS shell, which is wanted: cash-prize
    copy stays out of the App Store build.
 
+   It scrolls (2026-08-26, Aidan asked for a Times Square zipper so the
+   movement itself does the recruiting). What that changed here: the
+   copy is a SEGMENT LIST rather than one sentence, and the phone
+   tail-hide is gone, because a marquee reaches every width instead of
+   truncating past the hook. What it did not change: 32px, one line,
+   never wrapping. Those are load-bearing (see the ui.css block).
+
    Self-retiring: the strip renders nothing after the event day ends
-   (Aug 29, 11:59 PM ET), and the free-entry clause swaps out on its
-   own once the publicly promised Friday deadline passes. Dismiss is
-   sessionStorage, so it stays gone for the visit but returns next
-   session — a 10-day campaign strip, not a permanent banner.
+   (Aug 29, 11:59 PM ET), and the copy swaps to a live-today variant on
+   the morning of the event. Dismiss is sessionStorage, so it stays
+   gone for the visit but returns next session — a campaign ticker,
+   not a permanent banner.
    Skipped on /tournaments and /tournament-rules (no self-ads), and on
    /unblock: that page exists to convince a school filter reviewer the
    domain is Education, and a cash-prize strip above the fold is the
@@ -2453,49 +2461,85 @@
   var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
   if (now > EVENT_OVER) return;
 
-  var tail = (now >= EVENT_DAY)
-    ? 'one session, 10 AM ET'
-    : '10 AM ET, free to enter';
+  // Segment list for the zipper. Authored money-first because the
+  // money is the reason to look, and the segments repeat forever, so
+  // there is no "above the fold" to protect any more: the whole
+  // message reaches every width, including the phones that used to
+  // lose everything past the hook.
+  var when = (now >= EVENT_DAY)
+    ? 'Live today &middot; one session, 10 AM ET'
+    : 'Sat Aug 29 &middot; 10 AM ET';
+  var M = function(t){ return '<b class="ui-strip-money">' + t + '</b>'; };
+  var SEGMENTS = [
+    M('$100') + ' for winning a debate',
+    'The Debatable Open',
+    when,
+    'Free to enter',
+    M('$50') + ' second &middot; ' + M('$25') + ' third',
+    'Enter now &rarr;'
+  ];
+  var SPOKEN = 'The Debatable Open. $100 for winning a debate. '
+    + ((now >= EVENT_DAY) ? 'Live today, one session from 10 AM Eastern.' : 'Saturday August 29, 10 AM Eastern.')
+    + ' Free to enter.';
 
   function mount(){
     if (document.querySelector('.ui-beta-strip')) return;
     var strip = document.createElement('div');
-    strip.className = 'ui-beta-strip';
+    strip.className = 'ui-beta-strip ui-beta-strip--ticker';
     strip.setAttribute('role', 'region');
     strip.setAttribute('aria-label', 'Tournament announcement');
-    // Only the hook survives on a phone. Everything else rides the
-    // .ui-open-strip-tail span, which is hidden under 560px, because
-    // body.has-beta-strip reserves a fixed 32px and this bar is 48px
-    // the moment it wraps to a second line, which clips the wordmark
-    // underneath it. One line on mobile is also the better hook.
-    // The DATE rides in the hook, not the tail. Under 560px the tail is
-    // hidden, so the hook alone has to carry the prize, the day, AND
-    // enough frame that "$100 free" does not read as a giveaway: it is
-    // "$100 for winning a debate", a prize you compete for, which is the
-    // whole anti-scam move (the tail adds "free to enter" where there is
-    // room; it must not add a payment-absence claim, see above).
-    // Keep the hook short enough that the date survives the ellipsis at
-    // ~320px: prize-frame plus day is the ceiling.
-    var msg = '$100 for winning a debate · ' + (now >= EVENT_DAY ? 'live today' : 'Sat Aug 29');
-    var rest = ' · The Debatable Open · ' + tail;
+
+    // The visual track is aria-hidden and the anchor carries the
+    // message as a label, because the run is duplicated for the
+    // seamless loop and a screen reader would otherwise read the whole
+    // announcement twice in a row.
+    var run = '';
+    for (var i = 0; i < SEGMENTS.length; i++) {
+      run += '<span class="ui-strip-seg">' + SEGMENTS[i] + '</span>'
+           + '<span class="ui-strip-sep" aria-hidden="true">$</span>';
+    }
     strip.innerHTML =
-      '<a href="/tournaments" data-cta="open-strip">' + msg +
-      '<span class="ui-open-strip-tail">' + rest + '</span> →</a>' +
-      '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">×</button>';
-    var css = document.createElement('style');
-    css.textContent =
-      '.ui-beta-strip a{text-decoration:none}' +
-      '.ui-beta-strip a:hover{text-decoration:underline}' +
-      '@media (max-width:560px){.ui-open-strip-tail{display:none}}';
-    document.head.appendChild(css);
+      '<a class="ui-strip-link" href="/tournaments" data-cta="open-strip" aria-label="' + SPOKEN + '">' +
+        '<span class="ui-strip-track" aria-hidden="true">' +
+          '<span class="ui-strip-run">' + run + '</span>' +
+          '<span class="ui-strip-run">' + run + '</span>' +
+        '</span>' +
+      '</a>' +
+      '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">&times;</button>';
     document.body.appendChild(strip);
     document.body.classList.add('has-beta-strip');
+
+    // Constant speed rather than a constant duration: one run of copy
+    // is a different width on a phone than on a desktop and different
+    // again on event day, and a fixed duration would make the same
+    // ticker crawl on one and sprint on the other. 58px/s is close to
+    // a real zipper and slow enough to read a segment in passing.
+    var track = strip.querySelector('.ui-strip-track');
+    var runEl = strip.querySelector('.ui-strip-run');
+    function pace(){
+      if (!track || !runEl) return;
+      var w = runEl.getBoundingClientRect().width;
+      if (w > 40) track.style.animationDuration = Math.round(w / 58) + 's';
+    }
+    if (window.requestAnimationFrame) requestAnimationFrame(pace); else setTimeout(pace, 60);
+    // Webfont arriving late changes the run width under us, so re-pace
+    // once it lands. Cheap, and it is the difference between the loop
+    // being seamless and drifting a few pixels per cycle.
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(pace); } catch (e) {}
+
+    // A CSS animation keeps painting in a backgrounded tab. This rides
+    // on ~60 pages, so it pauses with the tab.
+    function vis(){ strip.classList.toggle('ui-strip-paused', document.hidden); }
+    document.addEventListener('visibilitychange', vis);
+    vis();
+
     strip.querySelector('.ui-beta-strip-dismiss').addEventListener('click', function(){
       try { sessionStorage.setItem('da-open-strip-dismissed', '1'); } catch (e) {}
+      document.removeEventListener('visibilitychange', vis);
       strip.remove();
       document.body.classList.remove('has-beta-strip');
     });
-    strip.querySelector('a').addEventListener('click', function(){
+    strip.querySelector('.ui-strip-link').addEventListener('click', function(){
       try { if (typeof gtag === 'function') gtag('event', 'open_strip_click', { path: path }); } catch (e) {}
     });
   }
