@@ -128,6 +128,18 @@
     document.head.appendChild(s);
   })();
 
+  // The 45-second account wall (2026-08-26). Rides every topbar page for
+  // the same reason auth-modal.js does: coverage is the point, and a
+  // per-page include is how a site-wide rule ends up on 54 of 114 pages.
+  // It self-excludes rounds, gated pages, legal text and admin.
+  (function ensureSigninWallLoaded(){
+    if (document.querySelector('script[src*="/js/signin-wall.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/signin-wall.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   // Audience mode rides every topbar page: it stamps
   // data-debate-experience on <html> and swaps data-plain copy for
   // visitors who said they are new to debate, so any page can offer

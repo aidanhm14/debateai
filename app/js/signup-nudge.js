@@ -622,6 +622,12 @@
 
   function mount(attempt){
     if (bar) return;
+    // js/signin-wall.js is armed on this page, so a hard wall lands at
+    // 45 seconds. A dismissible "not now" card first would spend the
+    // one ask this visitor is going to read, and then contradict it.
+    // One Tap is untouched: it is browser chrome, not a second card,
+    // and a visitor it converts never meets the wall at all.
+    if (window.__ditSigninWallArmed) return;
     attempt = attempt || 0;
     var cfg = getConfig();
     if (cfg.skip) return; // page owns its own sign-in CTA (e.g. /spar, /live)

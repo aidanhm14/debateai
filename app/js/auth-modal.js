@@ -90,6 +90,10 @@
     s.textContent =
       '#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:16px;background:' + veil + ';backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:"Archivo","Fraunces",Georgia,"Times New Roman",serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}' +
       '#ditAuth *{box-sizing:border-box}' +
+      /* Locked mode only: the page behind a wall should not scroll away
+         under it. Set on <html> rather than as a filter on body, which
+         would make body a containing block for fixed children. */
+      'html.da-auth-locked,html.da-auth-locked body{overflow:hidden!important}' +
       '#ditAuth.on{display:flex}' +
       '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(408px,100%);max-height:calc(100vh - 32px);max-height:min(720px,calc(100dvh - 32px));overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:30px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
       '#ditAuth .da-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:#ef4444}' +
@@ -134,8 +138,30 @@
   var modal = null, auth = null, lastFocus = null;
   // Set by openAuthModal(mode, {onDone}); consumed once by handOff().
   var onDone = null;
+  // LOCKED mode (2026-08-26). openAuthModal(mode, {locked:true}) opens the
+  // same chooser as a wall rather than a dialog: no ×, Escape does nothing,
+  // a backdrop click does nothing. js/signin-wall.js is the only caller.
+  // Locking the SHARED chooser rather than building a second card is
+  // deliberate — every provider, the anonymous-account linking, the
+  // in-app-browser warning and the emailed-link round trip are the ones
+  // already proven here, and a second sign-in surface is the duplication
+  // the founder has cut twice.
+  var locked = false;
+  var lockCopy = null;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
   function close() {
+    // A locked chooser has no dismissal. Every dismissal path (×, Escape,
+    // backdrop) funnels through here, so refusing here is what makes the
+    // lock hold rather than three separate guards that can drift apart.
+    if (locked) return;
+    forceClose();
+  }
+  function forceClose() {
     // Dismissing the modal abandons whatever action opened it, and the
     // caller has to be TOLD that. handOff() clears the callback before
     // calling close(), so anything still set here is a real dismissal and
@@ -147,6 +173,9 @@
       onDone = null;
       try { abandoned(null, null); } catch (e) {}
     }
+    locked = false;
+    lockCopy = null;
+    try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
     if (lastFocus && lastFocus.focus) {
@@ -248,29 +277,52 @@
       ? forceEmailMode
       : (creating || last === 'emaillink') ? 'link' : 'password';
     var linkMode = emailMode === 'link';
+    if (last === 'apple' && !window.__DB_NATIVE) last = '';
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
          last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
       : '';
-    // Apple is offered on web too as of 2026-08-18: the Services ID
-    // (com.debateai.debateit.web) + return URL were registered in the
-    // Apple Developer portal and wired into the Firebase provider, so
-    // the web popup flow works. Native keeps its plugin path in
-    // doAppleSignIn; the __DB_NATIVE gate only decided visibility.
-    var nativeButtons =
-      '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>';
+    // APPLE IS THE APP'S BUTTON ONLY (2026-08-26, Aidan: "dont allow
+    // apple sign in, bc i cant email ppl for apple, only allow apple for
+    // the APP"). This REVERSES the 2026-08-18 decision to offer it on
+    // web, and the reason is not the plumbing: the Services ID, the
+    // signing key and the Firebase provider config all still work, and
+    // are left in place. Hide My Email is the reason. Apple hands most
+    // accounts a @privaterelay.appleid.com address, and a relay address
+    // is not reachable from our sender: every lifecycle email we run
+    // (the digest, winback, the first-round note, spar night, the Open
+    // announcement) goes out through Resend from a verified debateai.com
+    // domain, and Apple only forwards relay mail from a sender
+    // registered in the developer portal's Sign in with Apple
+    // configuration. So a web Apple signup was an account we could
+    // never email again, on the one surface where the whole point of an
+    // account is that it lets us come back to someone.
+    //
+    // The App Store's login-choice rule is what keeps it in the app:
+    // an iOS app offering Google must also offer Apple. That rule binds
+    // the binary, not the website. Restoring it on web is one condition
+    // (__DB_NATIVE) plus registering the sender with Apple so relay mail
+    // is deliverable, in that order.
+    var nativeButtons = window.__DB_NATIVE
+      ? '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>'
+      : '';
     // See isInAppBrowser(). Google and Apple are still rendered rather than
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google and Apple sign-in do not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome. <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
+      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome. <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
+    // A locked chooser has no close control at all. Rendering a dead × is
+    // worse than rendering none: it reads as a way out and is not one.
+    var headline = (lockCopy && lockCopy.headline) || (creating ? 'Create your account' : 'Welcome back');
+    var subline = (lockCopy && lockCopy.sub) ||
+      (creating ? 'Save your rounds, ballots, and style profile across devices.' : 'Sign in to pick up your rounds, rank, and style profile.');
     c.innerHTML =
-      '<button class="da-x" aria-label="Close">×</button>' +
-      '<h2>' + (creating ? 'Create your account' : 'Welcome back') + '</h2>' +
-      '<p class="da-sub">' + (creating ? 'Save your rounds, ballots, and style profile across devices.' : 'Sign in to pick up your rounds, rank, and style profile.') + '</p>' +
+      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
+      '<h2>' + esc(headline) + '</h2>' +
+      '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
       inAppNote +
       nativeButtons +
@@ -298,7 +350,8 @@
       '<p class="da-switch">' + (creating ? 'Already have an account? ' : 'New to Debatable? ') +
         '<button type="button" class="da-link" id="daModeSwitch">' + (creating ? 'Sign in' : 'Create an account') + '</button></p>' +
       '<p class="da-note">Private. I never sell your data or post for you. Sign out anytime.</p>';
-    c.querySelector('.da-x').addEventListener('click', close);
+    var xBtn = c.querySelector('.da-x');
+    if (xBtn) xBtn.addEventListener('click', close);
     // "Open it in Safari or Chrome" is not an instruction anyone can follow
     // inside a webview with no address bar. Hand them the URL.
     var copyBtn = c.querySelector('#daCopyLink');
@@ -387,7 +440,7 @@
     if (typeof onDone !== 'function') return false;
     var cb = onDone;
     onDone = null;
-    close();
+    forceClose();
     try {
       cb((firebase.auth && firebase.auth().currentUser) || null, method);
     } catch (e) {}
@@ -841,6 +894,10 @@
 
   function openAuthModal(mode, opts) {
     onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
+    locked = !!(opts && opts.locked);
+    lockCopy = (opts && (opts.headline || opts.sub))
+      ? { headline: opts.headline || '', sub: opts.sub || '' }
+      : null;
     injectStyles();
     if (!modal) {
       modal = el('<div id="ditAuth" role="dialog" aria-modal="true" aria-label="Sign in"><div class="da-card" id="ditAuthCard"></div></div>');
@@ -854,10 +911,11 @@
     renderChooser(mode);
     modal.classList.add('on');
     document.body.classList.add('signin-modal-open');
+    try { document.documentElement.classList.toggle('da-auth-locked', locked); } catch (e) {}
     // Retract Google One Tap if it's showing (signup-nudge.js listens);
     // two account choosers at once reads as broken.
     try { window.dispatchEvent(new CustomEvent('debatable:authmodal-open')); } catch (e) {}
-    var closeButton = modal.querySelector('.da-x');
+    var closeButton = modal.querySelector('.da-x') || modal.querySelector('#daG') || modal.querySelector('#daEmail');
     if (closeButton) closeButton.focus();
   }
   window.openAuthModal = openAuthModal;
