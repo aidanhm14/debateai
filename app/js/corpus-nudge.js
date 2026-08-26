@@ -28,8 +28,20 @@
 
   var SHOWN_KEY    = 'debateos-corpus-nudge-shown';
   var COUNT_KEY    = 'debateos-rated-count';
+  var ROUND_KEY    = 'debateos-corpus-rounds-done';
   var CONSENT_KEY  = 'debateos-corpus-contribute';
-  var THRESHOLD    = 3;
+  var THRESHOLD    = 3;   // rated rounds (legacy trigger, see below)
+  var ROUND_THRESHOLD = 2; // COMPLETED rounds (the trigger that actually fires)
+  var BALLOT_DELAY_MS = 4000; // let them read the verdict before we ask
+
+  // WHY TWO TRIGGERS. The rating trigger above was the only one for
+  // months and it never fired: it wants 3 rate signals and the whole
+  // database held 4 of them, so the corpus opt-in was asked once, ever,
+  // and `contributable` sat at 0 while 189 rounds carried a transcript.
+  // Rating is a thing almost nobody does. Finishing a round is the thing
+  // everybody who matters does, so that is what we count now. The rating
+  // path stays because a rating is still a real signal of engagement and
+  // removing it would only lose the rare user who does both.
 
   function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -48,14 +60,56 @@
     if (n >= THRESHOLD) maybeShow();
   };
 
+  function roundCount(){ var n = parseInt(get(ROUND_KEY) || '0', 10); return isFinite(n) ? n : 0; }
+
+  // Called at the BALLOT, once per completed round, by every surface
+  // that finishes one. Delayed rather than instant: the verdict is the
+  // reason they are still on the page, and covering it the millisecond
+  // it renders trades a corpus row for the thing they came for.
+  window.noteRoundComplete = function(){
+    if (alreadyOptedIn() || alreadyDismissed()) return;
+    var n = roundCount() + 1;
+    set(ROUND_KEY, String(n));
+    if (n >= ROUND_THRESHOLD) setTimeout(maybeShow, BALLOT_DELAY_MS);
+  };
+
+  // Pages that would rather not reach for a global can dispatch this on
+  // document instead. Same call, one line, no load-order dependency.
+  try {
+    document.addEventListener('debatable:round-complete', function(){
+      if (typeof window.noteRoundComplete === 'function') window.noteRoundComplete();
+    });
+  } catch (e) {}
+
+  // LOAD-ORDER DRAIN. This module is deferred, but a ballot page can
+  // finish rendering inside a parse-time inline script, which runs
+  // BEFORE any deferred script exists. A direct call from there would
+  // hit undefined and the round would never be counted. So a page may
+  // instead bump window.__corpusRoundsPending and we settle up on load,
+  // the same queue pattern /js/stance-panel.js uses on the same page.
+  function drainPending(){
+    var n = 0;
+    try { n = parseInt(window.__corpusRoundsPending || 0, 10) || 0; } catch (e) { n = 0; }
+    if (n <= 0) return;
+    try { window.__corpusRoundsPending = 0; } catch (e) {}
+    for (var i = 0; i < n && i < 5; i++) window.noteRoundComplete();
+  }
+
   // Also expose a manual trigger for the rare case a page wants to
   // force the prompt (e.g. a "tell me about the research corpus" link).
   window.showCorpusNudge = maybeShow;
 
+  // NAMED accounts only. notifications.js calls signInAnonymously() on
+  // nearly every page, so `currentUser` is truthy for a visitor with no
+  // account at all. Asking them is worse than useless: privacy policy
+  // s7 excludes anonymous traffic from the licensed corpus outright, so
+  // an anonymous yes contributes nothing AND burns the sticky dismissal
+  // that would otherwise catch them after they sign up.
   function isSignedIn(){
     try {
       if (typeof firebase === 'undefined' || !firebase.auth) return false;
-      return !!firebase.auth().currentUser;
+      var u = firebase.auth().currentUser;
+      return !!(u && !u.isAnonymous);
     } catch (e) { return false; }
   }
 
@@ -151,7 +205,7 @@
       +   '<div style="font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:10px">A quick ask</div>'
       +   '<h2 id="corpusNudgeTitle" style="font-family:Georgia,serif;font-size:1.7rem;line-height:1.15;font-weight:700;margin:0 0 14px;letter-spacing:-.01em">Help train better AIs?</h2>'
       +   '<div id="corpusNudgeBody" style="color:rgba(247,245,238,.78);font-size:.98rem;line-height:1.55">'
-      +     '<p style="margin:0 0 10px">You\'ve rated a few rounds now. The rounds you\'re generating here are exactly the data AI research orgs are looking for: structured, format-aware, judge-graded argumentative speech that they can\'t get from reddit or podcasts.</p>'
+      +     '<p style="margin:0 0 10px">You\'ve finished a couple of rounds now. The rounds you\'re generating here are exactly the data AI research orgs are looking for: structured, format-aware, judge-graded argumentative speech that they can\'t get from reddit or podcasts.</p>'
       +     '<p style="margin:0 0 10px">If you opt in, your <strong>future</strong> rounds (typed and voice) become part of an anonymized corpus we may license to those research orgs. Anonymized means stripped of name, email, account id. Past rounds are never affected. Off by default. Toggle off any time in profile settings.</p>'
       +   '</div>'
       +   '<label id="corpusNudgeAgeRow"><input type="checkbox" id="corpusNudgeAge"><span>I confirm I am 18 or older. Rounds from anyone under 18 are never licensed, so this box is required.</span></label>'
@@ -188,14 +242,16 @@
     try {
       if (typeof firebase === 'undefined' || !firebase.auth) return;
       firebase.auth().onAuthStateChanged(function(user){
-        if (user && ratedCount() >= THRESHOLD) maybeShow();
+        if (user && !user.isAnonymous && (ratedCount() >= THRESHOLD || roundCount() >= ROUND_THRESHOLD)) maybeShow();
       });
     } catch (e) { /* host page handles its own auth */ }
   }
 
+  function init(){ drainPending(); attachAuthListener(); }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachAuthListener);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    attachAuthListener();
+    init();
   }
 })();

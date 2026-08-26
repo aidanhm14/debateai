@@ -1285,6 +1285,17 @@ body{
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });
 
+    // A rendered ballot means a completed round. Tell the corpus nudge,
+    // which counts rounds rather than ratings and asks on the second one.
+    // Guarded so a blocked or failed module never touches this page.
+    try {
+      window.__corpusRoundsPending = (window.__corpusRoundsPending || 0) + 1;
+      if (typeof window.noteRoundComplete === 'function') {
+        window.__corpusRoundsPending = 0;
+        window.noteRoundComplete();
+      }
+    } catch(e){}
+
     // Rating widget wiring. Fires when we have a generationId on the
     // payload. Named users rate with their Firebase token; anonymous
     // users rate with the browser-session id that created the row.
@@ -1642,6 +1653,12 @@ body{
 <script defer src="/js/notifications.js"></script>
 <script defer src="/js/coach-fab.js"></script>
 <script defer src="/js/stance-panel.js"></script>
+<!-- Research-corpus opt-in ask. This is the ballot page for voice
+     rounds, which are 121 of the 189 stored transcripts, so it is
+     the single highest-volume moment where a finished round and a
+     signed-in reader exist at the same time. The module gates
+     itself on a named account and on a sticky dismissal. -->
+<script defer src="/js/corpus-nudge.js"></script>
 <!-- Shared sign-in chooser (Google, emailed link, email/password).
      These pages have no topbar, which is what loads it everywhere
      else, so they carry it themselves. -->

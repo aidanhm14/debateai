@@ -81,6 +81,12 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      first stored round; declining means their speeches are never written
      to the server. Gates the kind:'live_round' flush at ballot time. -->
 <script defer src="/js/transcript-consent.js"></script>
+<!-- Research-corpus opt-in ask, fired from renderBallot. A different
+     and much wider consent than transcript-consent.js above: that
+     one stores your round for you, this one licenses an anonymized
+     copy outside Debatable. Conflating them would be a real harm,
+     so they stay two asks with two ledger events. -->
+<script defer src="/js/corpus-nudge.js"></script>
 <!-- Floating / picture-in-picture mini player (Minimize + Pop out). -->
 <script defer src="/js/live-pip.js"></script>
 <!-- Decorative CSS animation repaints every frame whether or not anyone is
@@ -11697,6 +11703,14 @@ html.stage-mode .stage-ov{display:block}
     // the other via the Firestore sync), so this is the one choke point
     // where each side can flush its own consented speeches.
     try { logMyRoundSpeeches(b); } catch(e){}
+    // A rendered ballot is a completed round, so this is where the
+    // research-corpus opt-in gets asked (the module counts rounds and
+    // asks on the second one, after a delay, once ever). Seated
+    // debaters only: a spectator did not debate, and their rounds are
+    // not what the corpus is made of. renderBallot runs long after
+    // parse, so the deferred module is loaded by now and a direct call
+    // is safe.
+    try { if (mySide() && typeof window.noteRoundComplete === 'function') window.noteRoundComplete(); } catch(e){}
     // Pin phase so the Firestore snapshot guard (state.phase ===
     // 'ballot-rendered') stops re-firing renderBallot. Without this,
     // generateBallot's success path enters renderBallot first while
