@@ -257,6 +257,37 @@ export function autoResolve(draft) {
   return d;
 }
 
+// ── publication ─────────────────────────────────────────────────────
+//
+// What a SHARED doc is allowed to say. The queue model got blindness for
+// free, because each doc held only its own owner's strikes. In the room
+// both debaters read one document and Firestore has no field-level read
+// rule, so the full draft stays server-side and this is the projection
+// that goes out: during the strike beat, WHO has committed and never WHAT
+// they struck. Seeing the other side's strikes before committing your own
+// is the one thing that would make the whole beat pointless, so this
+// function is the blindness, not a formatting helper.
+export function publicDraft(draft, phaseAt) {
+  const open = draft.phase === 'strike';
+  const strikes = draft.strikes || {};
+  const submitted = Object.keys(strikes)
+    .filter((uid) => (strikes[uid] || []).length >= STRIKES_PER_SIDE);
+  return {
+    v: draft.v,
+    phase: draft.phase,
+    slate: draft.slate,
+    motionUid: draft.motionUid,
+    sideUid: draft.sideUid,
+    submitted,
+    strikes: open ? {} : strikes,
+    motionId: open ? null : (draft.motionId || null),
+    side: open ? null : (draft.side || null),
+    autoMotion: !!draft.autoMotion,
+    autoSide: !!draft.autoSide,
+    phaseAt: phaseAt || null,
+  };
+}
+
 // ── result ──────────────────────────────────────────────────────────
 //
 // The only thing downstream cares about: which motion, and who is on which

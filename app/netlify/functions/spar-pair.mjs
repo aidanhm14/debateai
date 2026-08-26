@@ -79,12 +79,20 @@ function cleanParadigm(s) {
 }
 
 // ── motion draft ────────────────────────────────────────────────────
-// The pre-round veto (lib/motion-draft.mjs). Off unless BOTH queue docs
-// opted in, which is what keeps it a per-surface rollout: /spar sets
-// draftOptIn, /debate-chat and the background "Spar live" pairs do not, and
-// a client that cannot render a draft must never be handed one. It would sit
-// on a card it does not understand until the reaper swept it, which is
-// exactly what /debate-chat did when the consent gate went universal.
+// THE DRAFT NO LONGER RUNS HERE. It ran on the queue docs for one day and
+// the per-surface rollout was the bug: it needed draftOptIn on BOTH docs,
+// only /spar set it, so any pair that included a background "Spar live"
+// peer or a /debate-chat peer silently skipped the strike beat. Measured
+// 2026-08-26, hours after it shipped: one round drafted, the next ran on
+// an unvetoed motion, and nothing on either screen said why.
+//
+// Every one of those surfaces lands in /live-round, so the draft moved
+// into the room (round-draft.mjs) where the entry surface stops mattering
+// and no beat is racing a page navigation. This function's remaining job
+// is the STAMP: it is the only party that knows a pair was matched off a
+// random motion rather than one a human chose, and round-draft refuses to
+// open a draft without it. Clients cannot write round_drafts, so the
+// stamp cannot be claimed by a round that should keep its own motion.
 const DRAFT_ENABLED = process.env.SPAR_DRAFT_ENABLED !== '0';
 
 // Grace on the server's own clock check. The client runs the visible
@@ -1186,10 +1194,24 @@ export default async (request) => {
       // seeded off the sorted uid pair plus the room, so both sides could
       // derive the same five motions independently and a rematch later in
       // the session draws a fresh five.
-      const wantsDraft = DRAFT_ENABLED && !!mine.draftOptIn && !!theirs.draftOptIn;
-      const draft = wantsDraft
-        ? createDraft(draftSeed(myUid, peerUid, room), pairedFormat, myUid, peerUid)
-        : null;
+      // The stamp. Written for EVERY pair this function makes, because
+      // every one of them was matched onto a motion nobody chose, and
+      // deliberately NOT keyed on draftOptIn any more: which page the peer
+      // happened to be standing on is not a reason for one debater to lose
+      // their veto. round_drafts is unlisted in firestore.rules, so the
+      // default deny makes this server-only in both directions — no client
+      // can forge it and no client can read the strikes it will hold.
+      if (DRAFT_ENABLED) {
+        tx.set(db.collection('round_drafts').doc(room), {
+          eligible: true,
+          uids: [myUid, peerUid],
+          format: pairedFormat,
+          seed: draftSeed(myUid, peerUid, room),
+          names: { [myUid]: myShort, [peerUid]: peerShort },
+          createdAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      }
+      const draft = null;
 
       if (needsConsent) {
         const proposal = {

@@ -2891,6 +2891,98 @@ html.stage-mode .stage-ov{display:block}
   .sov-name{font-size:.95rem}
   .sov-clock{font-size:1.3rem}
 }
+
+/* ── MOTION DRAFT ─────────────────────────────────────────────────
+   The pre-round veto, over the room. Full-surface on purpose: for the
+   ~28s it runs it IS the round, and a board someone can scroll past is
+   a veto someone forgets to use. Kickoff, prep and the transport are
+   all behind it, and startSpeechTimer refuses while it is up, so there
+   is no way to start a speech on a motion still being struck. */
+.draft-board{
+  position:fixed;inset:0;z-index:400;display:grid;place-items:center;
+  padding:20px;background:rgba(8,8,10,.82);backdrop-filter:blur(7px);
+  overflow-y:auto;
+}
+.draft-board.hidden{display:none}
+.draft-board .df-card{
+  width:min(760px,100%);background:var(--bg,#fff);color:var(--text,#111);
+  border:1px solid rgba(127,127,127,.22);border-radius:16px;
+  padding:26px 26px 22px;box-shadow:0 22px 60px rgba(0,0,0,.45);
+}
+.df-head{margin-bottom:18px}
+.df-head .df-step{
+  display:inline-block;font-size:.62rem;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:800;color:var(--accent,#ef4444);margin-bottom:8px;
+}
+.df-head h3{margin:0 0 6px;font-size:1.5rem;line-height:1.2;font-weight:800}
+.df-head h3 em{font-style:normal;color:var(--accent,#ef4444)}
+.df-head p{margin:0;font-size:.9rem;line-height:1.5;opacity:.72}
+.df-motions{display:grid;gap:9px}
+.df-motion{
+  width:100%;text-align:left;font:inherit;font-size:1rem;line-height:1.4;
+  padding:14px 16px;border-radius:11px;cursor:pointer;
+  background:rgba(127,127,127,.10);color:inherit;
+  border:1px solid rgba(127,127,127,.28);
+  transition:transform .12s ease,border-color .12s ease,opacity .12s ease;
+  /* Movement only. The entrance must NEVER carry opacity: something on
+     this page ships animations paused (measured: animation-play-state
+     'paused' on first paint), and with fill-mode both that freezes the
+     card at the keyframe's opacity:0 forever — five motions present in
+     the DOM, invisible on screen, on the one beat the round cannot
+     continue without. Visibility is a base style here, not a frame. */
+  animation:dfIn .26s ease both;animation-delay:calc(var(--i,0) * 45ms);
+}
+.df-motion:hover{transform:translateX(3px);border-color:rgba(127,127,127,.45)}
+.df-motion.struck{
+  border-color:var(--accent,#ef4444);opacity:.5;text-decoration:line-through;
+  text-decoration-color:var(--accent,#ef4444);text-decoration-thickness:2px;
+}
+@keyframes dfIn{from{transform:translateY(7px)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.df-motion{animation:none}.df-motion:hover{transform:none}}
+.df-foot{display:flex;align-items:center;gap:14px;margin-top:18px}
+.df-go{
+  flex:1;font:inherit;font-weight:800;font-size:.95rem;padding:13px 18px;
+  border:0;border-radius:11px;cursor:pointer;background:var(--accent,#ef4444);color:#fff;
+}
+.df-go[disabled]{opacity:.45;cursor:default}
+.df-clock{
+  font-variant-numeric:tabular-nums;font-weight:800;font-size:.95rem;
+  padding:9px 13px;border-radius:9px;border:1px solid rgba(127,127,127,.25);opacity:.8;
+}
+.df-clock.hot{color:var(--accent,#ef4444);border-color:var(--accent,#ef4444);opacity:1}
+.df-reveal{display:grid;gap:7px}
+.df-reveal-row{
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  padding:12px 14px;border-radius:10px;border:1px solid rgba(127,127,127,.2);
+  font-size:.95rem;line-height:1.35;
+}
+.df-reveal-row i{font-style:normal;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;font-weight:800;opacity:.7;white-space:nowrap}
+.df-reveal-row.out{opacity:.5;text-decoration:line-through;text-decoration-color:var(--accent,#ef4444)}
+.df-reveal-row.in{border-color:rgba(34,197,94,.5)}
+.df-reveal-row.in i{color:#16a34a;opacity:1}
+.df-sides{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.df-side{
+  font:inherit;cursor:pointer;padding:20px 16px;border-radius:12px;text-align:center;
+  background:rgba(127,127,127,.10);color:inherit;
+  border:1px solid rgba(127,127,127,.28);transition:transform .12s ease,border-color .12s ease;
+}
+.df-side:hover{transform:translateY(-2px)}
+.df-side b{display:block;font-size:1.3rem;font-weight:800;margin-bottom:3px}
+.df-side i{font-style:normal;font-size:.8rem;opacity:.7}
+.df-side.pro:hover{border-color:#16a34a}
+.df-side.pro b{color:#16a34a}
+.df-side.con:hover{border-color:var(--accent,#ef4444)}
+.df-side.con b{color:var(--accent,#ef4444)}
+@media (max-width:600px){
+  .draft-board{padding:12px}
+  .draft-board .df-card{padding:20px 17px 17px}
+  .df-head h3{font-size:1.22rem}
+  .df-motion{font-size:.94rem;padding:12px 13px}
+  .df-sides{grid-template-columns:1fr}
+}
+/* The board is a modal beat; nothing behind it should be reachable. */
+body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
+
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 </head>
@@ -5555,6 +5647,13 @@ html.stage-mode .stage-ov{display:block}
     // only when the two picks differ, which is the one state the round
     // must not start in: someone would be judged by a lens they never
     // accepted. Speech 1 only; mid-round the picks are already locked.
+    // The motion is not settled until the draft says it is. Starting on
+    // it would run the round on a motion the strikes were about to
+    // overrule, and rewrite both sides mid-speech when they landed.
+    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
+        && window.__lrDraftPending && window.__lrDraftPending()){
+      return;
+    }
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
       state.judgeDraftOpen = true;
       var jDet = document.getElementById('roundDetails');
@@ -13031,6 +13130,301 @@ html.stage-mode .stage-ov{display:block}
     }
     window.__lrRenderMotionProposal = renderMotionProposal;
 
+    // ── MOTION DRAFT (the pre-round veto) ────────────────────────────
+    // Five motions land, both debaters strike two with the other side's
+    // picks hidden, the strikes reveal together, and a coin flip splits
+    // what is left: one debater calls the motion when more than one
+    // survived, the other calls their side. Side choice is what the last
+    // word on the motion costs; handing one person both powers would make
+    // the coin flip decide the round.
+    //
+    // This lived on the /spar queue docs for one day and the per-surface
+    // rollout was the bug: it needed both queue docs to opt in, only /spar
+    // did, so a pair that included a background "Spar live" peer or a
+    // /debate-chat peer silently ran on a motion nobody vetoed. Every one
+    // of those surfaces lands HERE, so the draft moved into the room and
+    // the entry surface stopped mattering.
+    //
+    // The server (round-draft.mjs, over lib/motion-draft.mjs) owns every
+    // decision. This file renders what the round doc says and posts
+    // intent. It never computes a phase, a survivor set that matters, or a
+    // side, because a client that could decide its own side would decide
+    // to win. Blindness is enforced server-side too: during the strike
+    // beat the round doc carries WHO has submitted and never WHAT they
+    // struck, so there is nothing in this browser to peek at.
+    var DRAFT_STRIKES = 2;      // must match STRIKES_PER_SIDE
+    var DRAFT_STRIKE_SEC = 14;  // must match STRIKE_SEC
+    var DRAFT_PICK_SEC = 9;     // must match PICK_SEC
+    var DRAFT_REVEAL_MS = 2300; // both strike sets on screen before the pick UI
+    var dfPicks = [], dfBusy = false, dfTimer = 0, dfRevealUntil = 0, dfOpened = false, dfLastPhase = '';
+
+    function dfDraft(){ return state.draft || null; }
+    function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
+    function dfPending(){ var ph = dfPhase(); return ph && ph !== 'done'; }
+    function dfMyUid(){ return (state.user && state.user.uid) || ''; }
+    function dfIAmDebater(){ return !isSpectator() && !!dfMyUid(); }
+    function dfSubmitted(){
+      var d = dfDraft(); var list = (d && d.submitted) || [];
+      return list.indexOf(dfMyUid()) !== -1;
+    }
+    function dfMotionText(id){
+      var d = dfDraft(); var hit = ((d && d.slate) || []).filter(function(m){ return m.id === id; })[0];
+      return hit ? hit.text : '';
+    }
+    // Survivors, for DISPLAY only. Meaningless (and empty) during the
+    // strike beat, which is the point: the strikes are not here yet.
+    function dfSurvivors(){
+      var d = dfDraft(); if (!d) return [];
+      var struck = {}, st = d.strikes || {};
+      Object.keys(st).forEach(function(u){ (st[u] || []).forEach(function(id){ struck[id] = true; }); });
+      return (d.slate || []).filter(function(m){ return !struck[m.id]; });
+    }
+    function dfStruckBy(id){
+      var d = dfDraft(); var out = [], st = (d && d.strikes) || {};
+      Object.keys(st).forEach(function(u){ if ((st[u] || []).indexOf(id) !== -1) out.push(u); });
+      return out;
+    }
+    function dfNameFor(uid){
+      if (uid === dfMyUid()) return 'You';
+      if (uid === state.proUid) return state.proName || 'Pro';
+      if (uid === state.conUid) return state.conName || 'Con';
+      return 'Opponent';
+    }
+
+    function dfPost(action, extra){
+      if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('no-user'));
+      return state.user.getIdToken().then(function(tok){
+        return fetch('/api/round-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+          body: JSON.stringify(Object.assign({ action: action, room: state.room }, extra || {})),
+        });
+      }).then(function(r){ return r.json().catch(function(){ return {}; }); });
+    }
+
+    // Ask the server to open one. It refuses unless the pair was stamped
+    // eligible at match time, so a /live challenge round or a direct link
+    // keeps the motion its poster chose and this is a no-op there.
+    function dfOpen(){
+      if (dfOpened || dfDraft() || !dfIAmDebater()) return;
+      if (state.speechIdx > 0 || (state.log && state.log.length)) return;
+      dfOpened = true;
+      dfPost('open').catch(function(){ dfOpened = false; });
+    }
+
+    function dfClock(){
+      var d = dfDraft(); if (!d || !d.phaseAt) return null;
+      var total = (d.phase === 'strike' ? DRAFT_STRIKE_SEC : DRAFT_PICK_SEC) * 1000;
+      return Math.max(0, Math.ceil((d.phaseAt + total - Date.now()) / 1000));
+    }
+    // The clock is what the beat is FOR, so zero always does something:
+    // during strikes it commits whatever is selected and lets the server
+    // fill the rest, and on a pick beat it asks the server to expire. A
+    // peer's strikes are never filled from here.
+    function dfOnZero(){
+      if (dfBusy || !dfIAmDebater()) return;
+      var ph = dfPhase();
+      if (ph === 'strike'){
+        if (dfSubmitted()) return;
+        dfBusy = true;
+        dfPost('expire', { strikes: dfPicks.slice() }).catch(function(){}).then(function(){ dfBusy = false; });
+      } else if (ph === 'motion' || ph === 'side'){
+        dfBusy = true;
+        dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; });
+      }
+    }
+
+    function dfHost(){
+      var el = document.getElementById('draftBoard');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = 'draftBoard';
+      el.className = 'draft-board hidden';
+      document.body.appendChild(el);
+      return el;
+    }
+
+    function dfHead(step, title, sub){
+      return '<div class="df-head"><span class="df-step">' + step + '</span>'
+        + '<h3>' + title + '</h3><p>' + sub + '</p></div>';
+    }
+    function dfClockHtml(){
+      var left = dfClock();
+      if (left === null) return '';
+      return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '"><b>' + left + '</b>s</div>';
+    }
+
+    function renderDraft(){
+      var host = dfHost();
+      var d = dfDraft();
+      if (!d || !dfPending() || state.phase === 'ballot' || state.speechIdx > 0){
+        host.className = 'draft-board hidden';
+        host.innerHTML = '';
+        document.body.classList.remove('drafting');
+        if (dfTimer){ clearInterval(dfTimer); dfTimer = 0; }
+        return;
+      }
+      document.body.classList.add('drafting');
+      host.className = 'draft-board';
+      if (!dfTimer) dfTimer = setInterval(function(){
+        var left = dfClock();
+        var n = document.getElementById('dfSecs');
+        if (n) n.textContent = left === null ? '' : left;
+        var c = n && n.parentNode;
+        if (c && left !== null && left <= 3) c.classList.add('hot');
+        if (left === 0) dfOnZero();
+      }, 250);
+
+      // A spectator watches; they hold no power here and a board full of
+      // buttons they cannot press would just be a lie about who decides.
+      if (!dfIAmDebater()){
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Pre-round', 'The debaters are striking motions.',
+                   'Five landed. Each side removes two, blind. Whatever survives is the round.')
+          + '</div>';
+        return;
+      }
+
+      var ph = d.phase;
+      var revealing = ph !== 'strike' && Date.now() < dfRevealUntil;
+
+      if (ph === 'strike'){
+        if (dfSubmitted()){
+          host.innerHTML = '<div class="df-card">'
+            + dfHead('Step 1 of 2', 'Strikes are in.',
+                     'Waiting for ' + escHtml(dfNameFor(state.proUid === dfMyUid() ? state.conUid : state.proUid))
+                     + '. They reveal together.')
+            + dfClockHtml() + '</div>';
+          return;
+        }
+        var cards = (d.slate || []).map(function(m, i){
+          var on = dfPicks.indexOf(m.id) !== -1;
+          return '<button type="button" class="df-motion' + (on ? ' struck' : '') + '" data-df-strike="'
+            + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+        }).join('');
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 1 of 2', 'Strike <em>two</em> motions.',
+                   'Your opponent is striking two as well, and cannot see yours. Whatever survives is the round.')
+          + '<div class="df-motions">' + cards + '</div>'
+          + '<div class="df-foot">' + dfClockHtml()
+          + '<button type="button" class="df-go" id="dfCommit"' + (dfPicks.length === DRAFT_STRIKES ? '' : ' disabled')
+          + '>' + (dfPicks.length === DRAFT_STRIKES ? 'Lock in both strikes' : 'Pick ' + (DRAFT_STRIKES - dfPicks.length) + ' more')
+          + '</button></div></div>';
+        return;
+      }
+
+      if (revealing){
+        var rows = (d.slate || []).map(function(m){
+          var by = dfStruckBy(m.id);
+          return '<div class="df-reveal-row' + (by.length ? ' out' : ' in') + '">'
+            + '<span>' + escHtml(m.text) + '</span>'
+            + '<i>' + (by.length ? by.map(dfNameFor).map(escHtml).join(' + ') : 'survives') + '</i></div>';
+        }).join('');
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('The strikes', 'Both sides are in.', 'Struck by either debater is struck.')
+          + '<div class="df-reveal">' + rows + '</div></div>';
+        setTimeout(renderDraft, Math.max(120, dfRevealUntil - Date.now()));
+        return;
+      }
+
+      if (ph === 'motion'){
+        var mine = d.motionUid === dfMyUid();
+        var surv = dfSurvivors();
+        if (!mine){
+          host.innerHTML = '<div class="df-card">'
+            + dfHead('Step 2 of 2', escHtml(dfNameFor(d.motionUid)) + ' is calling the motion.',
+                     'You call your side next. That is the trade.')
+            + dfClockHtml() + '</div>';
+          return;
+        }
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 2 of 2', 'Call the motion.',
+                   'You won the motion call. Your opponent picks their side after, so choose one you can argue either way.')
+          + '<div class="df-motions">' + surv.map(function(m, i){
+              return '<button type="button" class="df-motion" data-df-motion="' + escHtml(m.id)
+                + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+            }).join('') + '</div>'
+          + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
+        return;
+      }
+
+      if (ph === 'side'){
+        var mineS = d.sideUid === dfMyUid();
+        var motion = dfMotionText(d.motionId);
+        if (!mineS){
+          host.innerHTML = '<div class="df-card">'
+            + dfHead('Step 2 of 2', escHtml(dfNameFor(d.sideUid)) + ' is calling their side.',
+                     'The motion is settled: ' + escHtml(motion))
+            + dfClockHtml() + '</div>';
+          return;
+        }
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 2 of 2', 'Pick your side.',
+                   'You did not call the motion, so you call this. The round is: ' + escHtml(motion))
+          + '<div class="df-sides">'
+          + '<button type="button" class="df-side pro" data-df-side="pro"><b>Pro</b><i>Argue for it</i></button>'
+          + '<button type="button" class="df-side con" data-df-side="con"><b>Con</b><i>Argue against it</i></button>'
+          + '</div><div class="df-foot">' + dfClockHtml() + '</div></div>';
+      }
+    }
+
+    // One delegated listener for the whole board, so a re-render never
+    // leaves a dead handler behind.
+    document.addEventListener('click', function(ev){
+      var host = document.getElementById('draftBoard');
+      if (!host || host.classList.contains('hidden') || !host.contains(ev.target)) return;
+      var strike = ev.target.closest('[data-df-strike]');
+      if (strike){
+        var id = strike.getAttribute('data-df-strike');
+        var at = dfPicks.indexOf(id);
+        if (at !== -1) dfPicks.splice(at, 1);
+        else if (dfPicks.length < DRAFT_STRIKES) dfPicks.push(id);
+        renderDraft();
+        return;
+      }
+      if (ev.target.closest('#dfCommit')){
+        if (dfBusy || dfPicks.length !== DRAFT_STRIKES) return;
+        dfBusy = true;
+        dfPost('strike', { strikes: dfPicks.slice() })
+          .catch(function(){})
+          .then(function(){ dfBusy = false; renderDraft(); });
+        return;
+      }
+      var pick = ev.target.closest('[data-df-motion]');
+      if (pick){
+        if (dfBusy) return;
+        dfBusy = true;
+        dfPost('motion', { motionId: pick.getAttribute('data-df-motion') })
+          .catch(function(){}).then(function(){ dfBusy = false; });
+        return;
+      }
+      var side = ev.target.closest('[data-df-side]');
+      if (side){
+        if (dfBusy) return;
+        dfBusy = true;
+        dfPost('side', { side: side.getAttribute('data-df-side') })
+          .catch(function(){}).then(function(){ dfBusy = false; });
+      }
+    }, true);
+
+    // Snapshot hook. The round doc is the only source of draft truth.
+    window.__lrRenderDraft = function(d){
+      var next = (d && d.draft) || null;
+      if (next && d.draftPhaseAt && d.draftPhaseAt.toMillis) next.phaseAt = d.draftPhaseAt.toMillis();
+      var was = dfLastPhase;
+      state.draft = next;
+      var now = next ? String(next.phase || '') : '';
+      // The reveal beat: the one moment both strike sets are on screen
+      // together. Armed on the transition out of 'strike', never on a
+      // re-render, so a snapshot mid-reveal cannot restart it.
+      if (was === 'strike' && now && now !== 'strike') dfRevealUntil = Date.now() + DRAFT_REVEAL_MS;
+      if (now === 'strike' && was !== 'strike') dfPicks = [];
+      dfLastPhase = now;
+      renderDraft();
+    };
+    window.__lrDraftPending = dfPending;
+    window.__lrOpenDraft = dfOpen;
+
     // ── Motion context (US / world) ──────────────────────────────────
     // Some motions have the same answer everywhere; others turn on where
     // they apply ("ban private schools", "abolish the electoral college").
@@ -16892,6 +17286,11 @@ html.stage-mode .stage-ov{display:block}
       try { renderJudgeDraft(); } catch(e){}
     }
     if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
+    // The pre-round motion draft. Read before the proposal surfaces
+    // below: while a draft is live the motion is not a thing either side
+    // may propose changing, it is a thing they are still settling.
+    if (window.__lrRenderDraft) { try { window.__lrRenderDraft(d); } catch(e){} }
+    if (window.__lrOpenDraft) { try { window.__lrOpenDraft(); } catch(e){} }
     // Pending resolution change, if either side has asked for one.
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
     // Pending side swap, same shape: one debater asked to trade sides.

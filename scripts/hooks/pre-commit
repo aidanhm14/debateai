@@ -207,6 +207,24 @@ fi
 # still letting real speech through, including speech that reuses the
 # jargon the prompt lists.
 # ──────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────
+# Room-draft guard. The draft moved off the queue docs and into the
+# round, which cost the blindness the two-doc model got for free: one
+# shared round doc has no field-level read rule, so publicDraft() is now
+# the only thing standing between the strike beat and a debater who
+# opens devtools, reads the other side's strikes, and strikes to leave
+# the motion they want. Nine mutations are known to be caught.
+# ──────────────────────────────────────────────────────────────────
+ROOMDRAFT_GUARD="$REPO_ROOT/scripts/test-round-draft.mjs"
+if [ -f "$ROOMDRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-round-draft.mjs >/tmp/roomdraft-guard.log 2>&1); then
+    echo "[roomdraft-guard] commit blocked — the room draft no longer holds:" >&2
+    tail -20 /tmp/roomdraft-guard.log >&2
+    echo "[roomdraft-guard] see scripts/test-round-draft.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 ECHO_GUARD="$REPO_ROOT/scripts/test-transcribe-echo.mjs"
 if [ -f "$ECHO_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-transcribe-echo.mjs >/tmp/echo-guard.log 2>&1); then
