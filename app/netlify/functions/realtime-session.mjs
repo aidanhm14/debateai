@@ -975,6 +975,25 @@ export default async (request, context) => {
   // failed mints don't burn the user's quota.
   // signedInUid + earlyDecoded were resolved above (before rate limiting);
   // reuse them rather than verifying the same token a second time.
+  // A caller with NO token cannot be metered at all, so the gate below
+  // simply never ran for them: the free-round wall was bypassable by
+  // omitting the Authorization header. Every voice surface now mints at
+  // least an anonymous session before calling (voice-debate.html does it
+  // in connect()), so a tokenless mint means something is wrong rather
+  // than someone being a guest, and the honest answer is to stop instead
+  // of running uncapped on the most expensive endpoint we have.
+  //
+  // VOICE_ALLOW_TOKENLESS=1 reopens it without a deploy, in case a real
+  // population turns out to reach here with Firebase unavailable.
+  if (!earlyDecoded && !['1','true'].includes(String(process.env.VOICE_ALLOW_TOKENLESS || '').toLowerCase())) {
+    return new Response(JSON.stringify({
+      error: 'SIGN_IN_REQUIRED: We could not start a session for this browser. Reload the page, or sign in to start a voice round.',
+      code: 'SIGN_IN_REQUIRED',
+      signIn: true,
+      reason: 'no_identity',
+    }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+
   let isPro = false;
   let voiceUsedBefore = 0;
   let tokenFunded = false;

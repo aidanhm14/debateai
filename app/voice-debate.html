@@ -4672,10 +4672,11 @@ function App() {
     var state = 'ok';
     try {
       var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-      // js/notifications.js calls signInAnonymously() on nearly every
-      // page, so currentUser is truthy for a guest and this used to read
-      // them as signed in — handing a guest the larger allowance and
-      // hiding every sign-in prompt. isAnonymous is the difference.
+      // currentUser can be the anonymous guest this page mints before a
+      // round (see the mint block in connect()), so a truthy user is not
+      // a signed-in one. Reading it as signed in handed a guest the
+      // larger allowance and hid every sign-in prompt. isAnonymous is
+      // the difference.
       var named = !!(u && !u.isAnonymous);
       if (named) {
         signedIn = true;
@@ -6127,18 +6128,41 @@ function App() {
       if (smartness > 1) {
         setConnectStep('Convening AI council (' + smartness + ' brains)…');
       }
-      // Attach Firebase ID token so the server can attribute the
-      // session to a uid + enforce the 3-lifetime free-tier voice
-      // cap (FREE_VOICE_LIFETIME_LIMIT in realtime-session.mjs).
-      // Anon callers send no token; the server falls back to the
-      // 6/hour/IP rate limit + the client gate at 1 anon session.
+      // Attach a Firebase ID token so the server can meter this round.
+      //
+      // A GUEST IS MINTED HERE IF THERE IS NO SESSION, and that is what
+      // makes the free voice round meterable at all. Nothing else on
+      // this page mints one: signInAnonymously appears only in
+      // practice.html, live.html, live-round.html and tournament.html
+      // (see the same correction in js/notifications.js, 2026-08-22, and
+      // the identical fix in spar.html). So a visitor whose first stop
+      // was /voice-debate sent NO token, the server's gate never ran,
+      // and the only thing between them and unlimited voice was a
+      // per-IP limit. An anonymous uid survives a storage clear, which
+      // is the whole point: it is what voice_usage/{uid} meters.
+      //
+      // Failing to mint is not fatal. The server refuses a tokenless
+      // voice mint outright, so the round stops with an honest ask
+      // rather than quietly running uncapped.
       var authHeader = {};
       try {
-        if (firebase.auth && firebase.auth().currentUser) {
-          var tok = await firebase.auth().currentUser.getIdToken();
+        var vUser = firebase.auth && firebase.auth().currentUser || null;
+        if (!vUser && firebase.auth && firebase.auth().signInAnonymously) {
+          setConnectStep('Getting your session ready…');
+          try {
+            var vCred = await firebase.auth().signInAnonymously();
+            vUser = vCred && vCred.user;
+            try {if (typeof gtag === 'function') gtag('event', 'voice_guest_session', { ok: 1 });} catch (e) {}
+          } catch (mintErr) {
+            console.warn('[voice] guest session failed:', mintErr && mintErr.message);
+            try {if (typeof gtag === 'function') gtag('event', 'voice_guest_session', { ok: 0, code: String(mintErr && mintErr.code || '').slice(0, 40) });} catch (e) {}
+          }
+        }
+        if (vUser) {
+          var tok = await vUser.getIdToken();
           if (tok) authHeader = { 'Authorization': 'Bearer ' + tok };
         }
-      } catch (e) {/* anon fall-through */}
+      } catch (e) {/* server refuses a tokenless mint; handled below */}
       // Examiner-persona override for the empty-motion case. The
       // universal CHARACTER_PREAMBLE on the server tells the AI to
       // open with "what's up{userName}, what are we debating?" — that
