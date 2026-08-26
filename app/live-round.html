@@ -9640,8 +9640,8 @@ html.stage-mode .stage-ov{display:block}
   // the scale.
   //
   // v1 rides the transcript pipeline that already exists: when a speech
-  // ends, the round-so-far goes to /api/claude for a 2-3 sentence
-  // interjection, and the remark syncs through the round doc so every
+  // ends, the round-so-far goes to /api/claude for a one or two
+  // sentence interjection, and the remark syncs through the round doc so every
   // flagged client (both debaters + spectators) sees it between
   // speeches. Desktop-only render (the stage rail is hidden <1000px).
   //
@@ -9668,6 +9668,23 @@ html.stage-mode .stage-ov{display:block}
     var old = document.getElementById('floorRemark');
     if (old) old.remove();
   }
+  // The word cap in the prompt is a request, not a guarantee, and a remark
+  // that overruns covers the video it is commenting on. Keep the first two
+  // sentences and never more than 320 characters. Em-dashes are swept here
+  // too: the model reaches for them even when the prompt says not to, and
+  // they are barred in user-facing copy everywhere else on the site.
+  var FLOOR_REMARK_MAX = 320;
+  function trimFloorRemark(raw){
+    var t = String(raw || '').trim().replace(/\s*[\u2014\u2013]\s*/g, ', ');
+    var parts = t.match(/[^.!?]+[.!?]+(\s|$)/g);
+    if (parts && parts.length > 2) t = parts.slice(0, 2).join('').trim();
+    if (t.length > FLOOR_REMARK_MAX){
+      var cut = t.slice(0, FLOOR_REMARK_MAX);
+      var stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+      t = (stop > 80 ? cut.slice(0, stop + 1) : cut.replace(/[\s,;:]+\S*$/, '') + '\u2026').trim();
+    }
+    return t;
+  }
   function renderFloorRemark(remark){
     if (!remark || typeof remark.idx !== 'number' || !remark.text) return;
     if (remark.idx === _floorRemarkShownIdx) return;
@@ -9685,7 +9702,7 @@ html.stage-mode .stage-ov{display:block}
     card.className = 'floor-remark' + (railVisible ? '' : ' in-panel');
     card.id = 'floorRemark';
     card.innerHTML = '<span class="fr-eyebrow">⚖ Judge · after ' + escHtml(remark.code || 'the speech') + '</span>'
-      + '<div class="fr-body">' + escHtml(remark.text) + '</div>'
+      + '<div class="fr-body">' + escHtml(trimFloorRemark(remark.text)) + '</div>'
       + '<button type="button" class="fr-close" aria-label="Dismiss">×</button>';
     card.querySelector('.fr-close').addEventListener('click', function(){ card.remove(); });
     if (railVisible) host.appendChild(card);
@@ -9715,10 +9732,10 @@ html.stage-mode .stage-ov{display:block}
     var system = [
       "You are a tournament " + f.name + " judge sitting in on a LIVE round between two humans. The last speech in the transcript just ended; the next one has not started. Give brief between-speech color, out loud, like a judge thinking from the sideline.",
       "HARD RULES:",
-      "- 2 to 3 sentences MAXIMUM. This is a between-speech aside, not an RFD.",
+      "- 1 to 2 sentences. 40 WORDS MAXIMUM, hard cap. This is read in a few seconds between speeches, over the video. Long is worse than incomplete.",
       "- Do NOT call a winner, do NOT give scores, do NOT predict the ballot. The ballot comes at the end of the round.",
-      "- Cover: the strongest thing the speaker just did, the biggest thing left hanging (a drop, a missing warrant, an unweighed impact), and what " + (next ? next.code : 'the next speaker') + " most needs to answer.",
-      "- Plain varsity-circuit register. No prefaces. Start with the substance.",
+      "- Name ONE thing: the biggest thing left hanging (a drop, a missing warrant, an unweighed impact) and what " + (next ? next.code : 'the next speaker') + " has to do about it. Skip the praise, skip the recap of what was just said.",
+      "- Plain varsity-circuit register. No em-dashes. No prefaces. No quoting the speech back. Start with the substance.",
       "- ONLY what is in the transcript. Never invent an argument, a warrant, or an example the speaker did not give, and never praise or fault delivery you cannot see. Two real people are reading this about a round they were in.",
       "- If the transcript is too thin to comment on (a fragment, a stray line, a speech that plainly did not happen), reply with exactly: SKIP",
     ].concat(roundLangs().some(function(c){ return c !== 'en'; })
@@ -9732,7 +9749,7 @@ html.stage-mode .stage-ov{display:block}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 220,
+        max_tokens: 120,
         stream: false,
         system: system,
         messages: [{ role: 'user', content: user }],
@@ -9752,6 +9769,7 @@ html.stage-mode .stage-ov{display:block}
       // The judge's own out. Nothing renders and nothing syncs, so a thin
       // speech leaves the panel as it was rather than inviting a guess.
       if (/^SKIP\b/i.test(text)) { floorJudgeStatus('Listening in'); return; }
+      text = trimFloorRemark(text);
       renderFloorRemark({ idx: idx, code: entry.code, text: text });
       floorJudgeStatus('Listening in');
       var ref = getRoundDocRef();
