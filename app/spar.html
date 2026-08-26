@@ -41,6 +41,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<!-- One engine for private threads, shared with /messages and /chat.
+     Owns the resilient listener, the optimistic echo and the retry. -->
+<script src="/js/dm-core.js"></script>
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
 
@@ -2178,6 +2181,17 @@ body.draft-live #daExpAsk{display:none !important}
   border:1px solid var(--border);
   border-bottom-left-radius:4px;
 }
+/* Not landed yet, and failed. The bubble stays on screen either way:
+   the previous build cleared the composer on send, so a failure meant
+   the words were simply gone. A failed bubble is its own retry button. */
+.wl-msg.pending{opacity:.62}
+.wl-msg.failed{
+  cursor:pointer;
+  background:var(--bg-elev); color:var(--text);
+  border:1px dashed rgba(239,68,68,.75);
+}
+.wl-msg.failed:hover{border-color:rgba(239,68,68,1)}
+.wl-msg.failed .wl-msg__time{color:#b91c1c; opacity:1; font-weight:600}
 .wl-msg__time{
   font-size:.6rem; opacity:.75; margin-top:3px;
 }
@@ -6944,10 +6958,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     threads: [],
     threadsUnsub: null,
     unreadThreads: 0,
-    activeThreadUnsub: null,
-    // Thread-doc listener for the open 1:1 thread (read receipt) +
-    // whether the peer has read my latest message.
-    activeThreadDocUnsub: null,
+    // The open thread's DBDM handle (js/dm-core.js). It owns both
+    // listeners, the pending sends and the retry timers; closing the
+    // modal closes it.
+    dm: null,
     peerRead: false,
     // The thread currently open in the modal. Holds enough to send +
     // render without re-reading the doc: { id, participants:[uids],
@@ -7175,46 +7189,35 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         scTime.value = nextHour.toTimeString().slice(0, 5);
       }
     }, 30);
-    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} }
-    wl.activeThreadUnsub = firebaseDb
-      .collection('dm_threads').doc(at.id).collection('messages')
-      .orderBy('createdAt', 'asc').limitToLast(200)
-      .onSnapshot(function(snap){
-        paintDMThread(snap);
-      }, function(err){
-        console.warn('[dm] thread snapshot error', err);
-        var t = document.getElementById('wlThread');
-        if (!t) return;
-        var code = (err && err.code) || '';
-        // A brand-new thread has no doc yet, so the participant get() in
-        // the messages read rule can't resolve and the listen denies.
-        // That's the normal first-conversation state, not a failure.
-        // Anything else must NOT masquerade as an empty thread — the
-        // fake-empty on quota exhaustion is what made DMs feel broken.
-        if (code === 'permission-denied' && !(at && at.lastMessage)){
-          t.innerHTML = '<div class="wl-msg__empty">No messages yet.<br>Send one to start the thread.</div>';
-        } else if (code === 'resource-exhausted'){
-          t.innerHTML = '<div class="wl-msg__empty">Messages are rate-limited right now (daily data budget).<br>Sending still works; reading returns after midnight Pacific.</div>';
-        } else {
-          t.innerHTML = '<div class="wl-msg__empty">Could not load messages right now.<br>Try again in a minute.</div>';
-        }
-      });
-    // Read-receipt listener (1:1 only): watch the thread doc for the
-    // peer's unread hitting zero after my latest send.
-    if (wl.activeThreadDocUnsub){ try { wl.activeThreadDocUnsub(); } catch(e){} wl.activeThreadDocUnsub = null; }
+    // Hand the thread to the shared engine (js/dm-core.js). It owns the
+    // messages listener, the thread-doc listener behind the read
+    // receipt, the optimistic echo, and the retry that brings a denied
+    // listener back. A Firestore listener is dead once it errors, and
+    // every brand-new thread denies (the messages rule resolves a
+    // parent doc that does not exist yet) — which is why the first
+    // message used to need a page reload to appear.
+    if (wl.dm){ try { wl.dm.close(); } catch(e){} wl.dm = null; }
     wl.peerRead = false;
-    if (!at.isGroup){
-      wl.activeThreadDocUnsub = firebaseDb.collection('dm_threads').doc(at.id)
-        .onSnapshot(function(doc){
-          if (!doc.exists) return;
-          var d = doc.data() || {};
-          var peerUid = (at.participants || []).filter(function(u){ return u !== state.user.uid; })[0];
-          var un = d.unread || {};
-          wl.peerRead = d.lastMessageFrom === state.user.uid && !(un[peerUid] > 0);
-          updateReadReceipt();
-        }, function(){ /* receipt is decoration; stay silent on error */ });
-    }
-    markThreadRead(at.id).catch(function(){});
+    wl.dm = DBDM.open({
+      db: firebaseDb,
+      uid: state.user.uid,
+      threadId: at.id,
+      thread: at,
+      maxLength: WL_MSG_MAX,
+      senderName: function(){ return shortNameOf(state.user); },
+      senderPhoto: function(){ return (state.user && state.user.photoURL) || ''; },
+      onMessages: paintDMThread,
+      onThread: function(d){
+        if (!d) return;
+        at.lastMessage = d.lastMessage || at.lastMessage || '';
+        var un = d.unread || {};
+        if (un[state.user.uid] > 0 && wl.dm) wl.dm.markRead();
+        if (at.isGroup) return;
+        var peerUid = (at.participants || []).filter(function(u){ return u !== state.user.uid; })[0];
+        wl.peerRead = d.lastMessageFrom === state.user.uid && !(un[peerUid] > 0);
+        updateReadReceipt();
+      },
+    });
     setTimeout(function(){
       var input = document.getElementById('wlSendInput');
       if (input){
@@ -7244,46 +7247,69 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }, 50);
   }
 
-  function paintDMThread(snap){
+  // Paints a DBDM view: { messages, status }. Messages carry their own
+  // pending / failed state, so a send that has not landed yet is a real
+  // bubble on screen rather than a cleared input and a line of red text.
+  function paintDMThread(v){
     var t = document.getElementById('wlThread');
     if (!t) return;
-    if (snap.empty){
-      var emptyMsg = (wl.activeThread && wl.activeThread.isGroup)
+    var msgs = (v && v.messages) || [];
+    var at = wl.activeThread || {};
+    if (!msgs.length){
+      var note;
+      if (v && v.status === 'loading') note = 'Loading messages…';
+      else if (v && v.status === 'quota') note = 'Messages are rate-limited right now (daily data budget).<br>Sending still works; reading returns after midnight Pacific.';
+      else if (v && v.status === 'error') note = 'Could not load messages right now.<br>Reconnecting…';
+      else note = at.isGroup
         ? 'No messages yet.<br>Kick off the group. Propose a time or a practice motion.'
         : 'No messages yet.<br>Say hi and set up a round.';
-      t.innerHTML = '<div class="wl-msg__empty">' + emptyMsg + '</div>';
+      t.innerHTML = '<div class="wl-msg__empty">' + note + '</div>';
       return;
     }
-    var myUid = state.user.uid;
-    var at = wl.activeThread || {};
+    // Only follow the feed down if the reader is already at the bottom,
+    // or if the newest message is theirs. Slamming scrollTop on every
+    // repaint yanked the thread out from under anyone reading back.
+    var stick = DBDM.nearBottom(t) || msgs[msgs.length - 1].mine;
     var isGroup = !!at.isGroup;
     var pInfo = at.participantInfo || {};
     var lastSender = null;
     t.innerHTML = '';
-    snap.forEach(function(d){
-      var m = d.data();
-      var mine = (m.fromUid === myUid);
-      var when = m.createdAt && m.createdAt.toMillis ? relTime(m.createdAt.toMillis()) : '';
-      var whenAbs = m.createdAt && m.createdAt.toMillis
-        ? new Date(m.createdAt.toMillis()).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
-        : '';
+    msgs.forEach(function(m){
       var div = document.createElement('div');
-      div.className = 'wl-msg ' + (mine ? 'mine' : 'theirs');
-      // In groups, label each incoming message with the sender's name
-      // (collapsed when the same person sends consecutively) so it's
-      // clear who's talking. 1:1 threads stay clean — the title says who.
+      div.className = 'wl-msg ' + (m.mine ? 'mine' : 'theirs')
+        + (m.pending ? ' pending' : '') + (m.failed ? ' failed' : '');
       var senderLabel = '';
-      if (isGroup && !mine && m.fromUid !== lastSender){
-        var nm = (m.fromName) || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater';
+      if (isGroup && !m.mine && m.fromUid !== lastSender){
+        var nm = m.fromName || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater';
         senderLabel = '<div class="wl-msg__sender">' + escHtml(nm) + '</div>';
       }
       lastSender = m.fromUid;
-      div.innerHTML = senderLabel + linkifyMsg(m.text || '') + (when ? '<div class="wl-msg__time" title="' + escHtml(whenAbs) + '">' + escHtml(when) + '</div>' : '');
+      var foot;
+      if (m.failed){
+        div.setAttribute('data-retry', m.id);
+        div.title = 'Tap to send again';
+        foot = '<div class="wl-msg__time">Not sent. Tap to retry.</div>';
+      } else if (m.pending){
+        foot = '<div class="wl-msg__time">Sending…</div>';
+      } else {
+        var whenAbs = new Date(m.at).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+        foot = '<div class="wl-msg__time" title="' + escHtml(whenAbs) + '">' + escHtml(relTime(m.at)) + '</div>';
+      }
+      div.innerHTML = senderLabel + linkifyMsg(m.text || '') + foot;
       t.appendChild(div);
     });
     updateReadReceipt();
-    t.scrollTop = t.scrollHeight;
+    if (stick) t.scrollTop = t.scrollHeight;
   }
+
+  // A failed bubble is the retry button. Delegated because the feed is
+  // rebuilt on every paint.
+  document.addEventListener('click', function(e){
+    var el = e.target && e.target.closest ? e.target.closest('#wlThread [data-retry]') : null;
+    if (!el || !wl.dm) return;
+    if (e.target.closest('.wl-msg__link')) return;
+    wl.dm.retry(el.getAttribute('data-retry')).catch(function(){});
+  });
 
   // "Read" marker under my latest message in a 1:1 thread. Driven by
   // the thread-doc snapshot in renderThreadModal: when the peer's
@@ -7369,35 +7395,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (motion) msg += '\nMotion: ' + motion;
     msg += '\n\nAdd to Google Calendar:\n' + calUrl;
 
-    // Send it via the existing thread machinery
+    // Same send path as a typed message: one engine, so a proposal
+    // gets the same optimistic bubble and the same retry. The inbox
+    // preview is passed explicitly so the thread list shows the date
+    // rather than the first line of a calendar link.
     var at2 = wl.activeThread;
-    var me = state.user.uid;
-    var threadRef = firebaseDb.collection('dm_threads').doc(at2.id);
-    var msgsRef = threadRef.collection('messages');
-    var preview = '📅 ' + label + ' at ' + timeLabel;
-    var participantInfo = Object.assign({}, at2.participantInfo);
-    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
-    var unread = {};
-    at2.participants.forEach(function(uid){
-      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
-    });
     var btn = document.getElementById('wlSchedSend');
+    if (!wl.dm) return;
     if (btn) btn.disabled = true;
-    threadRef.set({
-      participants: at2.participants,
-      participantInfo: participantInfo,
-      lastMessage: preview,
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageFrom: me,
-      unread: unread,
-    }, { merge: true }).then(function(){
-      return msgsRef.add({
-        fromUid: me,
-        fromName: shortNameOf(state.user),
-        text: msg,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    }).then(function(){
+    wl.dm.send(msg, { preview: '📅 ' + label + ' at ' + timeLabel }).then(function(){
       if (btn) btn.disabled = false;
       toggleSchedulePanel(null, false);
       try { gtag('event', 'dm_schedule_propose', {}); } catch(e){}
@@ -7406,7 +7412,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }).catch(function(err){
       if (btn) btn.disabled = false;
       console.warn('[sched] send failed', err && err.message);
-      alert('Could not send. Try again.');
+      alert(DBDM.sendReason(err));
     });
   }
 
@@ -7437,61 +7443,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var at = wl.activeThread;
     var input = document.getElementById('wlSendInput');
     var sendBtn = document.getElementById('wlSendBtn');
-    if (!at || !input || !state.user) return;
+    if (!at || !input || !wl.dm || !state.user) return;
     var text = (input.value || '').trim();
     if (!text) return;
-    if (text.length > WL_MSG_MAX) text = text.slice(0, WL_MSG_MAX);
-    if (sendBtn) sendBtn.disabled = true;
+    // The composer clears immediately because the words are already on
+    // screen as an optimistic bubble. A send that fails keeps them
+    // there, retryable, instead of dropping what was typed.
+    input.value = '';
     var prevErr = document.getElementById('wlSendErr');
     if (prevErr) prevErr.textContent = '';
-    var me = state.user.uid;
-    var threadRef = firebaseDb.collection('dm_threads').doc(at.id);
-    var msgsRef = threadRef.collection('messages');
-    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
-    // Capture pre-send state: if lastMessage was empty on the active
-    // thread object, this is the FIRST message in the thread — i.e.
-    // the recipient just got their challenge accepted. Fire the
-    // notification email after the send lands. 1:1 threads only;
-    // group threads skip per server-side guard.
+    if (sendBtn) sendBtn.disabled = true;
+    // First message in a 1:1 thread means the recipient just had a
+    // challenge accepted, so it also fires the notification email.
+    // The endpoint is idempotent; the local mirror stops a second send
+    // in the same session re-firing before the server stamp lands.
     var isFirstMessage = !at.lastMessage && !at.isGroup;
-    // Make sure my own info is current in participantInfo.
-    var participantInfo = Object.assign({}, at.participantInfo);
-    participantInfo[me] = { name: shortNameOf(state.user), photo: state.user.photoURL || '' };
-    var unread = {};
-    at.participants.forEach(function(uid){
-      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
-    });
-    var threadDoc = {
-      participants: at.participants,
-      participantInfo: participantInfo,
-      lastMessage: preview,
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageFrom: me,
-      unread: unread,
-    };
-    if (at.isGroup){ threadDoc.isGroup = true; threadDoc.groupName = at.groupName || 'Group'; }
-    threadRef.set(threadDoc, { merge: true }).then(function(){
-      return msgsRef.add({
-        fromUid: me,
-        fromName: shortNameOf(state.user),
-        text: text,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    }).then(function(){
-      input.value = '';
+    wl.dm.send(text).then(function(res){
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
       firePushDM(at.participants, at.id); // Web Push the recipient(s)
-      // Fire-and-forget: notify recipient by email on the first DM
-      // in a 1:1 thread. Endpoint is idempotent (server stamps
-      // acceptEmailSentAt) so a race where two clients call it
-      // simultaneously still results in one email. Failures are
-      // silent — the chat is the source of truth, email is a nudge.
-      // Local mirror so future sends in the same session don't re-fire
-      // before the server-side stamp propagates.
-      if (isFirstMessage) {
-        at.lastMessage = preview;
+      if (isFirstMessage && res) {
+        at.lastMessage = res.preview;
         try { gtag('event', 'dm_first_accept', {}); } catch(e){}
         state.user.getIdToken().then(function(idToken){
           return fetch('/api/notify-dm-accept', {
@@ -7507,13 +7480,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);
-      // Surface it. The silent version left users retrying into a void
-      // (2026-07-01) — name the failure, especially the daily-quota one.
       try {
-        var code = (e && e.code) || '';
-        var msg = code === 'resource-exhausted'
-          ? 'Did not send: the daily data budget is used up. Try after midnight Pacific.'
-          : 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Try again.';
         var errEl = document.getElementById('wlSendErr');
         if (!errEl && input && input.parentElement){
           errEl = document.createElement('div');
@@ -7521,16 +7488,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           errEl.style.cssText = 'flex-basis:100%;padding:5px 4px 0;font-size:.75rem;color:#f59e0b';
           input.parentElement.appendChild(errEl);
         }
-        if (errEl) errEl.textContent = msg;
+        if (errEl) errEl.textContent = DBDM.sendReason(e);
       } catch(_e){}
     });
-  }
-
-  function markThreadRead(threadId){
-    if (!state.user) return Promise.resolve();
-    var update = {};
-    update['unread.' + state.user.uid] = 0;
-    return firebaseDb.collection('dm_threads').doc(threadId).update(update);
   }
 
   function startInboxFeed(){
@@ -7825,8 +7785,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     document.body.style.overflow = wlPrevOverflow;
     wlPrevOverflow = '';
     document.removeEventListener('keydown', wlEscClose);
-    if (wl.activeThreadUnsub){ try { wl.activeThreadUnsub(); } catch(e){} wl.activeThreadUnsub = null; }
-    if (wl.activeThreadDocUnsub){ try { wl.activeThreadDocUnsub(); } catch(e){} wl.activeThreadDocUnsub = null; }
+    if (wl.dm){ try { wl.dm.close(); } catch(e){} wl.dm = null; }
   }
 
   // ── Scheduled rounds in the rail (2026-07-14) ────────

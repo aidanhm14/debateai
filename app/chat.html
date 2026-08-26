@@ -33,6 +33,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<!-- One engine for private threads, shared with /spar and /messages.
+     Owns the resilient listener, the optimistic echo and the retry. -->
+<script src="/js/dm-core.js"></script>
 
 <!-- The public room reuses the same client module /community's Live tab
      uses: anonymous handle pinned to localStorage, adaptive polling
@@ -249,6 +252,16 @@ em,i{font-style:normal}
 .cx-msg-time{
   font-size:.72rem;opacity:.62;margin-top:3px;
 }
+/* Not landed yet, and failed. The bubble stays on screen either way —
+   clearing the composer and printing an error line lost the words.
+   A failed bubble is its own retry button. */
+.cx-msg.pending{opacity:.62}
+.cx-msg.failed{
+  cursor:pointer;background:var(--bg-card);color:var(--text);
+  border:1px dashed rgba(239,68,68,.75);
+}
+.cx-msg.failed:hover{border-color:rgba(239,68,68,1)}
+.cx-msg.failed .cx-msg-time{color:#b91c1c;opacity:1;font-weight:700}
 .cx-read{
   align-self:flex-end;font-size:.72rem;color:var(--text-ghost);
   margin:2px 4px 0;
@@ -494,8 +507,7 @@ em,i{font-style:normal}
     conv: 'commons',      // 'commons' | 'dm'
     threads: [],
     threadsUnsub: null,
-    msgsUnsub: null,
-    threadDocUnsub: null,
+    dm: null,             // the open thread's DBDM handle (js/dm-core.js)
     active: null,         // { id, participants, participantInfo, isGroup, groupName }
     peerRead: false,
     commonsStarted: false,
@@ -624,8 +636,7 @@ em,i{font-style:normal}
   /* ══ DIRECT MESSAGES ═══════════════════════════════════════ */
 
   function detachDmListeners(){
-    if (state.msgsUnsub){ try { state.msgsUnsub(); } catch(e){} state.msgsUnsub = null; }
-    if (state.threadDocUnsub){ try { state.threadDocUnsub(); } catch(e){} state.threadDocUnsub = null; }
+    if (state.dm){ try { state.dm.close(); } catch(e){} state.dm = null; }
   }
 
   function paintSidebarSelection(){
@@ -754,36 +765,32 @@ em,i{font-style:normal}
     showPane('thread');
     paintSidebarSelection();
 
-    state.msgsUnsub = fbDb.collection('dm_threads').doc(threadId).collection('messages')
-      .orderBy('createdAt', 'asc').limitToLast(200)
-      .onSnapshot(paintMessages, function(err){
-        var code = (err && err.code) || '';
-        var text;
-        // A thread with no doc yet can't resolve the participant get() in
-        // the messages rule, so a brand-new conversation denies. That is
-        // the normal first-message state, not a failure.
-        if (code === 'permission-denied' && !state.active.lastMessage){
-          text = 'No messages yet. Send one to start the thread.';
-        } else if (code === 'resource-exhausted'){
-          text = 'Messages are rate-limited right now (daily data budget). Sending still works; reading returns after midnight Pacific.';
-        } else {
-          text = 'Could not load this thread right now. Try again in a minute.';
-        }
-        $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">' + text + '</div>';
-      });
-
-    if (!state.active.isGroup){
-      state.threadDocUnsub = fbDb.collection('dm_threads').doc(threadId)
-        .onSnapshot(function(doc){
-          if (!doc.exists) return;
-          var d = doc.data() || {};
-          var un = d.unread || {};
-          state.peerRead = d.lastMessageFrom === myUid && !(un[peer] > 0);
-          paintReadReceipt();
-        }, function(){ /* receipt is decoration */ });
-    }
-
-    markRead(threadId);
+    // Hand the thread to the shared engine (js/dm-core.js). It owns both
+    // listeners, the optimistic echo and the retry that brings a denied
+    // listener back. A Firestore listener is dead once it errors, and
+    // a brand-new thread always errors: the messages rule resolves a
+    // parent doc that does not exist yet. The old code caught that,
+    // painted "No messages yet" and left nothing listening, so a first
+    // message needed a page reload to show up.
+    state.dm = DBDM.open({
+      db: fbDb,
+      uid: myUid,
+      threadId: threadId,
+      thread: state.active,
+      maxLength: MSG_MAX,
+      senderName: function(){ return shortName(state.user); },
+      senderPhoto: function(){ return (state.user && state.user.photoURL) || ''; },
+      onMessages: paintMessages,
+      onThread: function(d){
+        if (!d) return;
+        state.active.lastMessage = d.lastMessage || state.active.lastMessage || '';
+        var un = d.unread || {};
+        if (un[myUid] > 0 && state.dm) state.dm.markRead();
+        if (state.active.isGroup) return;
+        state.peerRead = d.lastMessageFrom === myUid && !(un[peer] > 0);
+        paintReadReceipt();
+      },
+    });
     setTimeout(function(){ input.focus(); }, 40);
     try { gtag('event', 'chat_open_dm', {}); } catch(e){}
   }
@@ -797,27 +804,37 @@ em,i{font-style:normal}
     return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
   }
 
-  function paintMessages(snap){
+  // Paints a DBDM view: { messages, status }. Each message carries its
+  // own pending / failed state, so a send in flight is a real bubble
+  // rather than a cleared composer.
+  function paintMessages(v){
     var host = $('cxThreadScroll');
-    if (snap.empty){
-      host.innerHTML = '<div class="cx-thread-empty">'
-        + (state.active && state.active.isGroup
-            ? 'No messages yet. Kick it off: propose a time or a practice motion.'
-            : 'No messages yet. Say hi and set up a round.')
-        + '</div>';
+    if (!host) return;
+    var a = state.active || {};
+    var msgs = (v && v.messages) || [];
+    if (!msgs.length){
+      var note;
+      if (v && v.status === 'loading') note = 'Loading…';
+      else if (v && v.status === 'quota') note = 'Messages are rate-limited right now (daily data budget). Sending still works; reading returns after midnight Pacific.';
+      else if (v && v.status === 'error') note = 'Could not load this thread right now. Reconnecting…';
+      else note = a.isGroup
+        ? 'No messages yet. Kick it off: propose a time or a practice motion.'
+        : 'No messages yet. Say hi and set up a round.';
+      host.innerHTML = '<div class="cx-thread-empty">' + note + '</div>';
       return;
     }
+    // Follow the feed down only if the reader is already at the bottom,
+    // or the newest message is their own.
+    var stick = DBDM.nearBottom(host) || msgs[msgs.length - 1].mine;
     var myUid = state.user.uid;
-    var a = state.active || {};
     var pInfo = a.participantInfo || {};
     var lastSender = null, lastDay = null;
     host.innerHTML = '';
-    snap.forEach(function(doc){
-      var m = doc.data() || {};
-      var ms = m.createdAt && m.createdAt.toMillis ? m.createdAt.toMillis() : 0;
-      var mine = m.fromUid === myUid;
+    msgs.forEach(function(m){
+      var ms = m.at || 0;
+      var mine = !!m.mine;
 
-      if (ms){
+      if (ms && !m.pending && !m.failed){
         var label = dayLabel(ms);
         if (label !== lastDay){
           var sep = document.createElement('div');
@@ -830,7 +847,8 @@ em,i{font-style:normal}
       }
 
       var div = document.createElement('div');
-      div.className = 'cx-msg' + (mine ? ' mine' : '');
+      div.className = 'cx-msg' + (mine ? ' mine' : '')
+        + (m.pending ? ' pending' : '') + (m.failed ? ' failed' : '');
       var sender = '';
       // Label incoming group messages, collapsed on a run from the same
       // person. A 1:1 thread needs no label; the header says who.
@@ -839,14 +857,32 @@ em,i{font-style:normal}
         sender = '<div class="cx-msg-sender">' + escHtml(nm) + '</div>';
       }
       lastSender = m.fromUid;
-      var abs = ms ? new Date(ms).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
-      div.innerHTML = sender + linkify(m.text || '')
-        + (ms ? '<div class="cx-msg-time" title="' + escHtml(abs) + '">' + escHtml(relTime(ms)) + '</div>' : '');
+      var foot;
+      if (m.failed){
+        div.setAttribute('data-retry', m.id);
+        div.title = 'Tap to send again';
+        foot = '<div class="cx-msg-time">Not sent. Tap to retry.</div>';
+      } else if (m.pending){
+        foot = '<div class="cx-msg-time">Sending…</div>';
+      } else {
+        var abs = ms ? new Date(ms).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+        foot = ms ? '<div class="cx-msg-time" title="' + escHtml(abs) + '">' + escHtml(relTime(ms)) + '</div>' : '';
+      }
+      div.innerHTML = sender + linkify(m.text || '') + foot;
       host.appendChild(div);
     });
     paintReadReceipt();
-    host.scrollTop = host.scrollHeight;
+    if (stick) host.scrollTop = host.scrollHeight;
   }
+
+  // A failed bubble is the retry button. Delegated: the feed is rebuilt
+  // on every paint.
+  document.addEventListener('click', function(e){
+    var el = e.target && e.target.closest ? e.target.closest('#cxThreadScroll [data-retry]') : null;
+    if (!el || !state.dm) return;
+    if (e.target.closest('a')) return;
+    state.dm.retry(el.getAttribute('data-retry')).catch(function(){});
+  });
 
   function paintReadReceipt(){
     var host = $('cxThreadScroll');
@@ -863,94 +899,28 @@ em,i{font-style:normal}
     host.appendChild(d);
   }
 
-  function markRead(threadId){
-    if (!state.user || !fbDb) return;
-    var update = {};
-    update['unread.' + state.user.uid] = 0;
-    fbDb.collection('dm_threads').doc(threadId).update(update).catch(function(){});
-  }
-
   function sendDm(){
     var a = state.active, input = $('cxDmInput'), btn = $('cxDmSend');
-    if (!a || !state.user || !fbDb) return;
+    if (!a || !state.dm || !state.user) return;
     var text = (input.value || '').trim();
     if (!text) return;
-    if (text.length > MSG_MAX) text = text.slice(0, MSG_MAX);
+    // Clear immediately: the words are already on screen as an
+    // optimistic bubble, and a failure keeps them there to retry.
+    input.value = '';
+    autoGrow();
     btn.disabled = true;
     $('cxSendErr').textContent = '';
-
-    var me = state.user.uid;
-    var threadRef = fbDb.collection('dm_threads').doc(a.id);
-    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
-    var pInfo = Object.assign({}, a.participantInfo);
-    pInfo[me] = { name: shortName(state.user), photo: state.user.photoURL || '' };
-    var unread = {};
-    a.participants.forEach(function(uid){
-      unread[uid] = (uid === me) ? 0 : firebase.firestore.FieldValue.increment(1);
-    });
-    var doc = {
-      participants: a.participants,
-      participantInfo: pInfo,
-      lastMessage: preview,
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageFrom: me,
-      unread: unread,
-    };
-    if (a.isGroup){ doc.isGroup = true; doc.groupName = a.groupName || 'Group'; }
-
-    threadRef.set(doc, { merge: true }).then(function(){
-      return threadRef.collection('messages').add({
-        fromUid: me,
-        fromName: shortName(state.user),
-        text: text,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    }).then(function(){
-      input.value = '';
-      autoGrow();
-      a.lastMessage = preview;
+    state.dm.send(text).then(function(res){
+      if (res) a.lastMessage = res.preview;
       btn.disabled = false;
       input.focus();
       try { gtag('event', a.isGroup ? 'chat_group_send' : 'chat_dm_send', {}); } catch(e){}
-      firePushThread(a.participants, a.id);
     }).catch(function(err){
       btn.disabled = false;
-      // Name the failure. A silent one leaves people retrying into a void.
-      var code = (err && err.code) || '';
-      $('cxSendErr').textContent = code === 'resource-exhausted'
-        ? 'Did not send: the daily data budget is used up. Try after midnight Pacific.'
-        : 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Try again.';
+      $('cxSendErr').textContent = DBDM.sendReason(err);
     });
   }
 
-  // Web Push every other participant, GROUPS INCLUDED (2026-08-23).
-  // Messages sent from this page previously pushed nobody, so group
-  // activity only ever reached whoever happened to have the tab open,
-  // which is how a group goes quiet. The server verifies that both the
-  // caller and the recipient are in the thread and writes the text
-  // itself, so there is no spoofing vector, and it no-ops when push is
-  // unconfigured or the recipient has no subscription. Anyone who wants
-  // a loud group quiet mutes it on the bell row.
-  function firePushThread(participants, threadId){
-    try {
-      if (!state.user || !threadId || !Array.isArray(participants)) return;
-      var me = state.user.uid;
-      var others = participants.filter(function(uid){ return uid && uid !== me; });
-      if (!others.length) return;
-      state.user.getIdToken().then(function(tok){
-        others.forEach(function(uid){
-          fetch('/.netlify/functions/push-send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
-          }).catch(function(){});
-        });
-      }).catch(function(){});
-    } catch (e) {}
-  }
-
-  /* These bind to the DM composer only. The room's own input and Send
-     belong to community-chat.js, which binds them itself. */
   $('cxDmSend').addEventListener('click', sendDm);
   $('cxDmInput').addEventListener('keydown', function(e){
     if (e.key === 'Enter' && !e.shiftKey){

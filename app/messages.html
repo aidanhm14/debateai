@@ -22,6 +22,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<!-- One engine for private threads, shared with /spar and /chat.
+     Owns the resilient listener, the optimistic echo and the retry. -->
+<script src="/js/dm-core.js"></script>
 
 <script defer src="/js/track.js"></script>
 <script>
@@ -138,6 +141,12 @@ img.msg-av{display:block}
 .msg-b.them{align-self:flex-start;background:var(--bg-elev);border:1px solid var(--border);border-bottom-left-radius:5px}
 .msg-b.mine{align-self:flex-end;background:var(--accent-solid,#b91c1c);color:#fff;border-bottom-right-radius:5px}
 .msg-b .t{display:block;font-size:.64rem;opacity:.65;margin-top:3px}
+/* Not landed yet, and failed. The bubble stays either way — clearing the
+   composer and printing an error line lost the words. Tap to retry. */
+.msg-b.pending{opacity:.62}
+.msg-b.failed{cursor:pointer;background:var(--bg-elev);color:var(--text);border:1px dashed rgba(239,68,68,.75)}
+.msg-b.failed:hover{border-color:rgba(239,68,68,1)}
+.msg-b.failed .t{color:#b91c1c;opacity:1;font-weight:700}
 .msg-link{color:inherit;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
 .msg-link:hover{opacity:.85}
 .msg-compose{display:flex;gap:9px;padding:12px 14px;border-top:1px solid var(--border)}
@@ -301,7 +310,7 @@ img.msg-av{display:block}
   var threads = [];            // [{id, data}]
   var activeId = '';
   var activeThread = null;     // {id, participants, participantInfo}
-  var msgsUnsub = null, threadsUnsub = null;
+  var dm = null, threadsUnsub = null;   // dm = the open thread's DBDM handle
   var MSG_MAX = 1000;
   var FORMATS = ['APDA','BP','Policy','LD','PF','Worlds','Asian Parli','Congress'];
   var myFormats = [];
@@ -338,6 +347,20 @@ img.msg-av{display:block}
       if (diff < 604800) return Math.floor(diff/86400) + 'd';
       return (d.getMonth()+1) + '/' + d.getDate();
     } catch(e){ return ''; }
+  }
+
+  // Same shape as fmtTime, from a millisecond stamp. The engine hands
+  // messages a resolved `at` so a just-sent message is not timeless
+  // while its serverTimestamp is still null.
+  function fmtMs(ms){
+    if (!ms) return '';
+    var diff = (Date.now() - ms) / 1000;
+    if (diff < 90) return 'now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h';
+    if (diff < 604800) return Math.floor(diff/86400) + 'd';
+    var d = new Date(ms);
+    return (d.getMonth()+1) + '/' + d.getDate();
   }
 
   // Escape + linkify message text — URLs render as clickable anchors
@@ -437,54 +460,81 @@ img.msg-av{display:block}
     $('msgPeerHint').textContent = activeThread.isGroup ? (activeThread.participants.length + ' members') : 'Tap for profile';
     $('msgPeerAv').outerHTML = avatarHtml(p.name, p.photo).replace('class="msg-av"', 'class="msg-av" id="msgPeerAv"');
     paintThreads();
-    listenMessages();
-    zeroUnread();
+    startThread();
     try { history.replaceState(null, '', '/messages?thread=' + encodeURIComponent(threadId)); } catch(e){}
   }
 
-  function listenMessages(){
-    if (msgsUnsub) msgsUnsub();
-    var feed = $('msgFeed');
-    feed.innerHTML = '<div class="msg-note">Loading&hellip;</div>';
-    msgsUnsub = db.collection('dm_threads').doc(activeId).collection('messages')
-      .orderBy('createdAt', 'asc')
-      .limitToLast(200)
-      .onSnapshot(function(snap){
-        feed.innerHTML = '';
-        if (snap.empty){
-          feed.innerHTML = '<div class="msg-note">No messages yet. Send one to start the thread.</div>';
-          return;
-        }
-        snap.forEach(function(doc){
-          var m = doc.data() || {};
-          var mine = m.fromUid === me.uid;
-          var div = document.createElement('div');
-          div.className = 'msg-b ' + (mine ? 'mine' : 'them');
-          div.innerHTML = linkifyMsg(m.text || '') + '<span class="t">' + esc((activeThread.isGroup && !mine ? (m.fromName || '') + ' · ' : '')) + fmtTime(m.createdAt) + '</span>';
-          feed.appendChild(div);
-        });
-        feed.scrollTop = feed.scrollHeight;
-        zeroUnread();
-      }, function(err){
-        console.warn('[messages] messages listen failed', err && err.code);
-        // A brand-new thread has no doc yet; rules can't resolve the
-        // participant get() so the listen denies. That's expected for
-        // a first conversation: show the composer, not an error.
-        if ((err && err.code) === 'permission-denied' && !(activeThread && activeThread.lastMessage)){
-          feed.innerHTML = '<div class="msg-note">No messages yet. Send one to start the thread.</div>';
-          return;
-        }
-        showBanner(err, 'this conversation');
-        feed.innerHTML = '<div class="msg-note">Could not load messages right now.</div>';
-      });
+  // Hand the thread to the shared engine (js/dm-core.js). A Firestore
+  // listener is dead the moment it errors, and every brand-new thread
+  // errors: the messages rule resolves a parent doc that does not exist
+  // yet, so the listen denies. The old code caught that, painted "No
+  // messages yet" and left nothing listening, so the first message a
+  // person sent did not appear until they reloaded. The engine
+  // re-attaches instead — on the send that creates the thread, on a
+  // timer, and when the tab comes back.
+  function startThread(){
+    if (dm){ try { dm.close(); } catch(e){} dm = null; }
+    dm = DBDM.open({
+      db: db,
+      uid: me.uid,
+      threadId: activeId,
+      thread: activeThread,
+      maxLength: MSG_MAX,
+      senderName: myDmName,
+      senderPhoto: function(){ return (me && me.photoURL) || ''; },
+      onMessages: paintMessages,
+      onThread: function(d){
+        if (!d) return;
+        activeThread.lastMessage = d.lastMessage || activeThread.lastMessage || '';
+        if ((d.unread || {})[me.uid] > 0 && dm) dm.markRead();
+      },
+    });
   }
 
-  function zeroUnread(){
-    if (!activeId || !activeThread || !activeThread.lastMessage) return;
-    var upd = {};
-    upd['unread.' + me.uid] = 0;
-    db.collection('dm_threads').doc(activeId).update(upd).catch(function(){});
+  function paintMessages(v){
+    var feed = $('msgFeed');
+    if (!feed) return;
+    var msgs = (v && v.messages) || [];
+    if (!msgs.length){
+      var note = 'No messages yet. Send one to start the thread.';
+      if (v && v.status === 'loading') note = 'Loading…';
+      else if (v && v.status === 'quota') note = 'Messages are rate-limited right now (daily data budget). Sending still works; reading returns after midnight Pacific.';
+      else if (v && v.status === 'error') note = 'Could not load messages right now. Reconnecting…';
+      feed.innerHTML = '<div class="msg-note">' + note + '</div>';
+      return;
+    }
+    // Follow the feed down only when the reader is already at the
+    // bottom, or when the newest message is their own.
+    var stick = DBDM.nearBottom(feed) || msgs[msgs.length - 1].mine;
+    feed.innerHTML = '';
+    msgs.forEach(function(m){
+      var div = document.createElement('div');
+      div.className = 'msg-b ' + (m.mine ? 'mine' : 'them')
+        + (m.pending ? ' pending' : '') + (m.failed ? ' failed' : '');
+      var foot;
+      if (m.failed){
+        div.setAttribute('data-retry', m.id);
+        div.title = 'Tap to send again';
+        foot = 'Not sent. Tap to retry.';
+      } else if (m.pending){
+        foot = 'Sending…';
+      } else {
+        foot = (activeThread.isGroup && !m.mine ? (m.fromName || '') + ' · ' : '') + fmtMs(m.at);
+      }
+      div.innerHTML = linkifyMsg(m.text || '') + '<span class="t">' + esc(foot) + '</span>';
+      feed.appendChild(div);
+    });
+    if (stick) feed.scrollTop = feed.scrollHeight;
   }
+
+  // A failed bubble is the retry button. Delegated: the feed is rebuilt
+  // on every paint.
+  document.addEventListener('click', function(e){
+    var el = e.target && e.target.closest ? e.target.closest('#msgFeed [data-retry]') : null;
+    if (!el || !dm) return;
+    if (e.target.closest('.msg-link')) return;
+    dm.retry(el.getAttribute('data-retry')).catch(function(){});
+  });
 
   // The name that goes out on a DM. This matters more here than on a
   // render surface: fromName is STAMPED INTO EVERY MESSAGE DOCUMENT, so a
@@ -525,50 +575,27 @@ img.msg-av{display:block}
     } catch (e) {}
   }
 
-  // ── send (same doc shapes as /spar so both surfaces interop) ─────
+  // ── send (one engine, same doc shapes as /spar and /chat) ────────
   function send(){
     var input = $('msgInput'), btn = $('msgSend'), errBox = $('msgSendErr');
-    if (!activeThread || !me) return;
+    if (!activeThread || !dm || !me) return;
     var text = (input.value || '').trim();
     if (!text) return;
-    if (text.length > MSG_MAX) text = text.slice(0, MSG_MAX);
+    // Clear immediately: the words are already on screen as an
+    // optimistic bubble, and a failure keeps them there to retry.
+    input.value = '';
     btn.disabled = true;
     errBox.classList.remove('on');
-    var threadRef = db.collection('dm_threads').doc(activeThread.id);
-    var preview = text.length > 80 ? text.slice(0, 77) + '…' : text;
-    var pInfo = Object.assign({}, activeThread.participantInfo);
-    pInfo[me.uid] = { name: myDmName(), photo: me.photoURL || '' };
-    var unread = {};
-    (activeThread.participants || []).forEach(function(uid){
-      unread[uid] = (uid === me.uid) ? 0 : firebase.firestore.FieldValue.increment(1);
-    });
-    var threadDoc = {
-      participants: activeThread.participants,
-      participantInfo: pInfo,
-      lastMessage: preview,
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastMessageFrom: me.uid,
-      unread: unread,
-    };
-    if (activeThread.isGroup){ threadDoc.isGroup = true; threadDoc.groupName = activeThread.groupName || 'Group'; }
-    threadRef.set(threadDoc, { merge: true }).then(function(){
-      return threadRef.collection('messages').add({
-        fromUid: me.uid,
-        fromName: myDmName(),
-        text: text,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    }).then(function(){
-      input.value = '';
+    dm.send(text).then(function(res){
       btn.disabled = false;
-      activeThread.lastMessage = preview;
+      if (res) activeThread.lastMessage = res.preview;
       input.focus();
       try { gtag('event', 'dm_send', { surface: 'messages' }); } catch(e){}
       firePushThread(activeThread.participants, activeThread.id);
     }).catch(function(e){
       btn.disabled = false;
       console.warn('[messages] send failed', e && e.code, e && e.message);
-      errBox.textContent = 'Message did not send' + ((e && e.code) ? ' (' + e.code + ')' : '') + '. Try again.';
+      errBox.textContent = DBDM.sendReason(e);
       errBox.classList.add('on');
     });
   }
