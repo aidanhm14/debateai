@@ -12,10 +12,17 @@
 // email/password on web; Apple is also shown in the iOS shell to satisfy
 // App Store login-choice rules.
 //
-// The emailed link is the lowest-friction path and the default for
-// someone creating an account: no password to invent, and nothing to
-// remember on the next visit. Password sign-in stays first for people
-// who already have one, since that is what they will reach for.
+// ONE DOOR. The card does not ask whether you are signing in or signing
+// up, because its two leading paths do not care: Google signs in or
+// creates in one tap, and an emailed link mints the account when the
+// address has none. The question is asked in the one place the answer
+// changes what happens, inside the password form, where a password is
+// either created or checked.
+//
+// The emailed link is the lowest-friction path and the default: no
+// password to invent, and nothing to remember on the next visit. The
+// password form is the specialisation for the small group that provably
+// has one (see renderChooser for why that default inverted).
 // Completing a link is handled on load by completeEmailLink() below,
 // which runs on every page topbar.js touches.
 // ──────────────────────────────────────────────────────────────────
@@ -125,6 +132,7 @@
       '#ditAuth .da-form-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 2px 0;color:' + sub + ';font-size:12px;line-height:1.4}' +
       '#ditAuth .da-link{padding:0;border:0;background:transparent;color:#dc2626;font:inherit;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}' +
       '#ditAuth .da-switch{margin:16px 0 0;text-align:center;color:' + sub + ';font-size:13px}' +
+      '#ditAuth .da-switch--row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}' +
       '#ditAuth .da-status{font-size:13px;font-weight:700;color:#15803d;margin:10px 4px 0;text-align:center;line-height:1.35}' +
       '#ditAuth .da-status:empty{display:none}' +
       '#ditAuth .da-note{font-size:13px;color:' + sub + ';margin:14px 4px 0;line-height:1.45;text-align:center}' +
@@ -333,9 +341,26 @@
       : '';
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
-    var headline = (lockCopy && lockCopy.headline) || (creating ? 'Create your account' : 'Welcome back');
+    // ONE DOOR (2026-08-26). The card used to run a sign-in/sign-up split
+    // across the whole chooser, and the split was a fiction on the two
+    // paths that carry nearly everyone: Continue with Google signs in or
+    // creates in the same tap, and an emailed link does too (Firebase
+    // mints the account when the address has none). So the card was
+    // asserting a choice the flows never made, and it contradicted
+    // itself doing it: the wall opened headed "Sign in to keep going"
+    // over a form asking for a Name with "Already have an account? Sign
+    // in" underneath it. Three answers to one question on one card.
+    //
+    // The split survives in exactly one place, because there it is real:
+    // a password either exists or has to be created, and Firebase needs
+    // to be told which. That toggle now lives INSIDE the password door
+    // (see daModeSwitch below) instead of governing the whole card.
+    var headline = (lockCopy && lockCopy.headline) ||
+      (creating ? 'Sign in or create an account' : 'Welcome back');
     var subline = (lockCopy && lockCopy.sub) ||
-      (creating ? 'Save your rounds, ballots, and style profile across devices.' : 'Sign in to pick up your rounds, rank, and style profile.');
+      (creating
+        ? 'One link does both. Your rounds, ballots, XP and place on the board live on the account.'
+        : 'Pick up your rounds, rank, and style profile.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
       '<h2>' + esc(headline) + '</h2>' +
@@ -353,19 +378,26 @@
           '<label class="da-label" for="daPassword">Password</label>' +
           '<input class="da-input" id="daPassword" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />') +
         '<div class="da-form-meta">' +
-          '<span>' + (linkMode ? 'We email you a link. Tap it and you are in.' : creating ? 'Use at least 8 characters.' : '') + '</span>' +
+          '<span>' + (linkMode
+            ? 'We email you a link. It works whether you have an account or not.'
+            : creating ? 'Use at least 8 characters.' : 'For accounts that already have a password.') + '</span>' +
           (linkMode || creating ? '' : '<button type="button" class="da-link" id="daForgot">Forgot password?</button>') +
         '</div>' +
         '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
           (linkMode ? 'Email me a sign-in link' : creating ? 'Create account' : 'Sign in with email') + '</button>' +
-        '<p class="da-switch" style="margin-top:11px">' +
+        '<p class="da-switch da-switch--row" style="margin-top:11px">' +
           '<button type="button" class="da-link" id="daEmailModeSwitch">' +
-            (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button></p>' +
+            (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button>' +
+          // The only surviving sign-in/sign-up question, and it is asked
+          // where the answer changes what happens: a password is created
+          // or it is checked. The link door never renders it.
+          (linkMode ? '' :
+            '<button type="button" class="da-link" id="daModeSwitch">' +
+              (creating ? 'I already have a password' : 'No password yet? Create one') + '</button>') +
+        '</p>' +
       '</form>' +
       '<div class="da-status" role="status"></div>' +
-      '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch">' + (creating ? 'Already have an account? ' : 'New to Debatable? ') +
-        '<button type="button" class="da-link" id="daModeSwitch">' + (creating ? 'Sign in' : 'Create an account') + '</button></p>';
+      '<div class="da-err" role="alert"></div>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
     // "Open it in Safari or Chrome" is not an instruction anyone can follow
@@ -387,15 +419,26 @@
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
     c.querySelector('#daEmailForm').addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
-    c.querySelector('#daModeSwitch').addEventListener('click', function () { renderChooser(creating ? 'signin' : 'signup'); });
+    // Carry what has been typed across either switch. Retyping an address
+    // because you changed your mind about passwords is the kind of small
+    // tax that loses people at the last step.
+    function reRender(nextMode, nextEmailMode) {
+      var typedEmail = (c.querySelector('#daEmail') || {}).value || '';
+      var typedName = (c.querySelector('#daName') || {}).value || '';
+      renderChooser(nextMode, nextEmailMode);
+      var next = home();
+      if (!next) return;
+      var e = next.querySelector('#daEmail');
+      var n = next.querySelector('#daName');
+      if (e && typedEmail) e.value = typedEmail;
+      if (n && typedName) n.value = typedName;
+    }
+    var modeSwitch = c.querySelector('#daModeSwitch');
+    if (modeSwitch) modeSwitch.addEventListener('click', function () {
+      reRender(creating ? 'signin' : 'signup', 'password');
+    });
     c.querySelector('#daEmailModeSwitch').addEventListener('click', function () {
-      // Carry a typed address across the switch. Retyping it because you
-      // changed your mind about passwords is the kind of small tax that
-      // loses people at the last step.
-      var typed = (c.querySelector('#daEmail') || {}).value || '';
-      renderChooser(mode, linkMode ? 'password' : 'link');
-      var next = home() && home().querySelector('#daEmail');
-      if (next && typed) next.value = typed;
+      reRender(mode, linkMode ? 'password' : 'link');
     });
     if (c.querySelector('#daForgot')) c.querySelector('#daForgot').addEventListener('click', doPasswordReset);
   }
@@ -1165,6 +1208,15 @@
   }
 
   function openAuthModal(mode, opts) {
+    // A caller asking for 'signup' is saying "this person needs an
+    // account", not "this person is new", and almost every one of them
+    // passes it blind. A device that has signed in before is evidence
+    // the caller does not have, so it wins: the card drops the Name
+    // field rather than asking a returning debater to introduce
+    // themselves again. Only the outermost open is corrected; the
+    // password door's own create/sign-in toggle re-renders directly and
+    // must be able to reach 'signup'.
+    if (mode === 'signup' && lastMethod()) mode = 'signin';
     onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
     locked = !!(opts && opts.locked);
     lockCopy = (opts && (opts.headline || opts.sub))

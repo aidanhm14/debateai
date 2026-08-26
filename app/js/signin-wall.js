@@ -262,9 +262,10 @@
     track('signin_wall_shown', { path: location.pathname, seconds: seconds, arrival: arrival ? 1 : 0, views: views });
     window.openAuthModal('signup', {
       locked: true,
-      // Neutral on purpose: the chooser lets someone flip between
-      // creating an account and signing in without the headline going
-      // stale, and either one ends the wall.
+      // True on both sides, which is the point: the chooser is one door
+      // now (see auth-modal.js), so "sign in" covers the person who has
+      // an account and the person whose first link makes one, and either
+      // one ends the wall.
       headline: 'Sign in to keep going',
       sub: 'Free, and it takes one tap. Rounds, ballots, XP and your place on the board all live on the account, so nothing you do here is lost.'
     });
