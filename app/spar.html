@@ -41,6 +41,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<!-- The challenge-a-friend card renders QR codes locally. The invite URL
+     never leaves the browser to be encoded by a third-party image API. -->
+<script defer src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"
+        integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb"
+        crossorigin="anonymous"></script>
 <!-- One engine for private threads, shared with /messages and /chat.
      Owns the resilient listener, the optimistic echo and the retry. -->
 <script src="/js/dm-core.js"></script>
@@ -461,6 +466,61 @@ h1 em{color:var(--accent);font-style:normal}
    Lift the fill and use the stronger (theme-tinted) border so it reads as
    a real chip — red border on crimson, white on grey. */
 [data-lighting="dark"] .countdown{background:rgba(255,255,255,.045);border-color:var(--border-strong)}
+
+/* Challenge-a-friend. This is a second way to fill the same live seat,
+   not a separate room system: the invite resolves to the host's waiting
+   queue doc, then spar-pair runs the ordinary ready-check and draft. */
+.friend-challenge{
+  max-width:520px;margin:0 auto 18px;padding:16px;
+  border:1px solid rgba(34,197,94,.38);border-radius:15px;
+  background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(34,197,94,.025));
+  text-align:left;box-shadow:0 12px 34px rgba(0,0,0,.16);
+}
+.friend-challenge__top{display:flex;align-items:flex-start;gap:12px}
+.friend-challenge__mark{
+  flex:none;width:34px;height:34px;border-radius:10px;
+  display:grid;place-items:center;background:rgba(34,197,94,.15);
+  border:1px solid rgba(34,197,94,.38);color:#4ade80;
+}
+.friend-challenge__copy{min-width:0;flex:1}
+.friend-challenge__eyebrow{
+  display:block;margin-bottom:3px;color:#4ade80;font-size:.58rem;font-weight:900;
+  letter-spacing:.14em;text-transform:uppercase;
+}
+.friend-challenge h2{margin:0;color:var(--text);font-size:1rem;line-height:1.25;letter-spacing:-.01em}
+.friend-challenge p{margin:5px 0 0;color:var(--text-dim);font-size:.76rem;line-height:1.48}
+.friend-challenge__actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.friend-challenge__actions .btn{min-height:40px;padding:9px 15px;font-size:.74rem}
+.friend-challenge__link{display:flex;gap:8px;margin-top:10px}
+.friend-challenge__link input{
+  min-width:0;flex:1;height:40px;padding:0 11px;border-radius:9px;
+  background:var(--bg);border:1px solid var(--border);color:var(--text-dim);
+  font:500 .68rem/1.2 'Geist Mono',ui-monospace,SFMono-Regular,monospace;
+}
+.friend-challenge__link input:focus{outline:2px solid rgba(34,197,94,.34);outline-offset:1px}
+.friend-challenge__qr{
+  display:flex;align-items:center;gap:14px;margin-top:12px;padding:12px;
+  border:1px solid var(--border);border-radius:12px;background:var(--bg);
+}
+.friend-challenge__qr[hidden]{display:none}
+.friend-challenge__qr-code{
+  flex:none;width:142px;height:142px;padding:8px;border-radius:8px;background:#fff;
+  display:grid;place-items:center;overflow:hidden;
+}
+.friend-challenge__qr-code img,.friend-challenge__qr-code canvas{display:block;max-width:100%;height:auto}
+.friend-challenge__qr-copy{font-size:.72rem;line-height:1.5;color:var(--text-dim)}
+.friend-challenge__qr-copy strong{display:block;color:var(--text);font-size:.8rem;margin-bottom:3px}
+.friend-challenge--incoming{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.07)}
+.friend-challenge--incoming .friend-challenge__mark{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.13);color:#60a5fa}
+.friend-challenge--incoming .friend-challenge__eyebrow{color:#60a5fa}
+@media(max-width:520px){
+  .friend-challenge{padding:14px;margin-bottom:16px}
+  .friend-challenge__actions{display:grid;grid-template-columns:1fr 1fr}
+  .friend-challenge__actions .btn:first-child{grid-column:1/-1}
+  .friend-challenge__link{display:block}
+  .friend-challenge__link input{width:100%}
+  .friend-challenge__qr{flex-direction:column;text-align:center}
+}
 
 .btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
 /* Quiet escape links under the primary action — Cancel / Skip to AI.
@@ -2717,6 +2777,25 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // the `quick` key for compatibility, but URLs and saved preferences no
   // longer select competitive formats.
   var qs = new URLSearchParams(location.search);
+  // A friend invite identifies a WAITING queue record, never a user id or
+  // a room id. Reloading the host creates a fresh token, so old links stop
+  // resolving instead of becoming permanent handles for an account.
+  function cleanFriendInviteToken(value){
+    value = String(value || '').trim();
+    return /^[A-Za-z0-9_-]{16,48}$/.test(value) ? value : '';
+  }
+  function makeFriendInviteToken(){
+    try {
+      var bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      var raw = '';
+      for (var i = 0; i < bytes.length; i++) raw += String.fromCharCode(bytes[i]);
+      return btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    } catch(e){
+      return (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 28);
+    }
+  }
+  var incomingFriendInvite = cleanFriendInviteToken(qs.get('invite'));
   var FORMATS = ['quick'];
   var FORMAT_LABELS = {
     quick: 'Casual 1v1',
@@ -2833,6 +2912,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
   var matchProfile = null;
   try { matchProfile = cleanMatchProfile(JSON.parse(localStorage.getItem(MATCH_PROFILE_KEY) || 'null')); } catch(e){}
+  // A known friend does not need the seven-question public matchmaker. Use
+  // the neutral defaults for this one queue record and take them straight
+  // to the invite after the normal account and age checks.
+  if (incomingFriendInvite && !matchProfile) matchProfile = defaultMatchProfile();
 
   function mpEl(tag, cls, text){
     var node = document.createElement(tag);
@@ -3154,6 +3237,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     profileFlowOpen: false,        // auth refreshes must not open or paint beneath the flow
     ratings: null,                 // public ladder rows, loaded only for Closest rating
     ratingsLoading: null,
+    friendInviteToken: makeFriendInviteToken(), // opaque token friends resolve while I wait
+    incomingFriendInvite: incomingFriendInvite,
+    friendInviteLookupDone: false,
+    friendInviteLookupBusy: false,
+    friendInvitePeerUid: '',
   };
 
   // No forced AI fallback (product decision): the user stays in the
@@ -4019,6 +4107,145 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '</div>';
   }
 
+  function friendInviteUrl(){
+    var u = new URL('/spar', location.origin);
+    u.searchParams.set('invite', state.friendInviteToken);
+    u.searchParams.set('format', formatParam);
+    return u.toString();
+  }
+
+  function friendChallengeHtml(){
+    if (state.incomingFriendInvite){
+      return '<section class="friend-challenge friend-challenge--incoming" id="friendChallengeCard" aria-live="polite">' +
+        '<div class="friend-challenge__top">' +
+          '<span class="friend-challenge__mark" aria-hidden="true">&#8599;</span>' +
+          '<span class="friend-challenge__copy">' +
+            '<span class="friend-challenge__eyebrow">Friend challenge</span>' +
+            '<h2 id="friendInviteStatusTitle">Joining your friend</h2>' +
+            '<p id="friendInviteStatusBody">Finding their waiting seat. You will both confirm before the room opens.</p>' +
+          '</span>' +
+        '</div>' +
+      '</section>';
+    }
+    var url = friendInviteUrl();
+    return '<section class="friend-challenge" id="friendChallengeCard">' +
+      '<div class="friend-challenge__top">' +
+        '<span class="friend-challenge__mark" aria-hidden="true">&#8644;</span>' +
+        '<span class="friend-challenge__copy">' +
+          '<span class="friend-challenge__eyebrow">Waiting alone?</span>' +
+          '<h2>Challenge a friend</h2>' +
+          '<p>The first friend to open this link gets the seat. Your live queue stays active, so whoever is ready first starts the match.</p>' +
+        '</span>' +
+      '</div>' +
+      '<div class="friend-challenge__actions">' +
+        '<button class="btn primary" id="shareFriendInviteBtn" type="button">Send invite</button>' +
+        '<button class="btn" id="copyFriendInviteBtn" type="button">Copy link</button>' +
+        '<button class="btn" id="showFriendQrBtn" type="button" aria-expanded="false">Show QR</button>' +
+      '</div>' +
+      '<div class="friend-challenge__link">' +
+        '<input id="friendInviteLink" type="text" readonly aria-label="Friend challenge link" value="' + escHtml(url) + '">' +
+      '</div>' +
+      '<div class="friend-challenge__qr" id="friendInviteQr" hidden>' +
+        '<div class="friend-challenge__qr-code" id="friendInviteQrCode" aria-label="QR code for the friend challenge"></div>' +
+        '<div class="friend-challenge__qr-copy"><strong>Scan to take the open seat</strong>The same ready-check still runs before either camera or mic turns on.</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function paintFriendInviteStatus(title, body){
+    var titleEl = document.getElementById('friendInviteStatusTitle');
+    var bodyEl = document.getElementById('friendInviteStatusBody');
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.textContent = body;
+  }
+
+  function copyFriendInvite(url, button){
+    function done(){
+      if (!button) return;
+      var old = button.textContent;
+      button.textContent = 'Copied';
+      setTimeout(function(){ if (button) button.textContent = old; }, 1600);
+      try { gtag('event', 'spar_friend_invite_copy', { format: formatParam }); } catch(e){}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(done).catch(function(){ copyFallback(); });
+      return;
+    }
+    copyFallback();
+    function copyFallback(){
+      var field = document.createElement('textarea');
+      field.value = url;
+      field.setAttribute('readonly', '');
+      field.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(field);
+      field.select();
+      try { document.execCommand('copy'); done(); } catch(e){}
+      field.remove();
+    }
+  }
+
+  function mountFriendInviteQr(tries){
+    var host = document.getElementById('friendInviteQrCode');
+    if (!host || host.firstChild) return;
+    if (typeof window.QRCode !== 'function'){
+      if ((tries || 0) < 30) setTimeout(function(){ mountFriendInviteQr((tries || 0) + 1); }, 100);
+      else host.textContent = 'QR unavailable';
+      return;
+    }
+    try {
+      new window.QRCode(host, {
+        text: friendInviteUrl(), width: 126, height: 126,
+        colorDark: '#0b0b0d', colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.M,
+      });
+    } catch(e){ host.textContent = 'QR unavailable'; }
+  }
+
+  function refreshFriendInviteLink(){
+    var field = document.getElementById('friendInviteLink');
+    if (field) field.value = friendInviteUrl();
+    var qr = document.getElementById('friendInviteQrCode');
+    if (qr && qr.firstChild){ qr.innerHTML = ''; mountFriendInviteQr(0); }
+  }
+
+  function wireFriendChallenge(){
+    if (state.incomingFriendInvite) return;
+    var url = friendInviteUrl();
+    var field = document.getElementById('friendInviteLink');
+    var shareBtn = document.getElementById('shareFriendInviteBtn');
+    var copyBtn = document.getElementById('copyFriendInviteBtn');
+    var qrBtn = document.getElementById('showFriendQrBtn');
+    var qr = document.getElementById('friendInviteQr');
+    if (field) field.addEventListener('click', function(){ field.select(); });
+    if (copyBtn) copyBtn.addEventListener('click', function(){ copyFriendInvite(friendInviteUrl(), copyBtn); });
+    if (shareBtn) shareBtn.addEventListener('click', function(){
+      url = friendInviteUrl();
+      if (navigator.share){
+        navigator.share({
+          title: 'Challenge me on Debatable',
+          text: 'Take the open seat in my live debate.',
+          url: url,
+        }).then(function(){
+          try { gtag('event', 'spar_friend_invite_share', { format: formatParam, method: 'webshare' }); } catch(e){}
+        }).catch(function(err){
+          if (!err || err.name !== 'AbortError') copyFriendInvite(url, shareBtn);
+        });
+      } else {
+        copyFriendInvite(url, shareBtn);
+      }
+    });
+    if (qrBtn && qr) qrBtn.addEventListener('click', function(){
+      var show = qr.hidden;
+      qr.hidden = !show;
+      qrBtn.textContent = show ? 'Hide QR' : 'Show QR';
+      qrBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show){
+        mountFriendInviteQr(0);
+        try { gtag('event', 'spar_friend_invite_qr', { format: formatParam }); } catch(e){}
+      }
+    });
+  }
+
   // Delegated so it survives every renderSearching repaint (tryMatch
   // rewrites shell.innerHTML on a 2s poll; a directly-bound listener would
   // be dropped on the first tick).
@@ -4098,6 +4325,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // spans and bails if either is missing) but is display:none in CSS.
       '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
+      friendChallengeHtml() +
       // Round alerts. Moved above the quiet links 2026-08-24: measured
       // 3,369 spar_queue_join events against 20 opt-ins, while every
       // person who pressed the button became a real subscriber (20 of
@@ -4361,6 +4589,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // who hit the wall and never search. It now fires inside joinQueue,
     // when a search actually begins, so the public count is real intent.
     mountGlobalMap('globalDebateMap');
+    wireFriendChallenge();
     wireSetupCard();
     mountWaitRail();
     // After mountWaitRail, which tears the rail down first and stops the
@@ -4486,6 +4715,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
     var modeLabel = document.getElementById('setupModeLabel');
     if (modeLabel) modeLabel.textContent = setupModeText();
+    refreshFriendInviteLink();
     if (state.queueDocRef){
       state.queueDocRef.update({ format: key }).catch(function(){});
     }
@@ -5653,6 +5883,55 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // (2) the polling query can fail and
   // every spar request falls through to the AI fallback at 4 min.
   // ──────────────────────────────────────────────────────────
+  function resolveIncomingFriendInvite(attempt){
+    if (!state.incomingFriendInvite || state.friendInviteLookupDone || !firebaseDb){
+      return Promise.resolve();
+    }
+    if (state.friendInviteLookupBusy) return Promise.resolve();
+    state.friendInviteLookupBusy = true;
+    return firebaseDb.collection('matchmaking_queue')
+      .where('friendInviteToken', '==', state.incomingFriendInvite)
+      .limit(3)
+      .get()
+      .then(function(snap){
+        state.friendInviteLookupBusy = false;
+        var host = null;
+        snap.forEach(function(doc){
+          if (host || doc.id === state.user.uid) return;
+          var d = doc.data() || {};
+          if (d.status !== 'waiting') return;
+          if (window.daAgeBandsOk && !window.daAgeBandsOk(
+                (window.daAgeBand && window.daAgeBand()) || '', d.ageBand)) return;
+          host = doc;
+        });
+        if (host){
+          state.friendInviteLookupDone = true;
+          state.friendInvitePeerUid = host.id;
+          paintFriendInviteStatus('Your friend is here', 'Opening the ready-check. Both of you still confirm before the room opens.');
+          updateDiag({ last: 'friend invite' });
+          try { gtag('event', 'spar_friend_invite_open', { format: formatParam, result: 'found' }); } catch(e){}
+          attemptMatch(host.id, host.data());
+          return;
+        }
+        // A link can beat the host's first Firestore write by a fraction of
+        // a second. Retry briefly before calling it expired.
+        if ((attempt || 0) < 3){
+          return new Promise(function(resolve){ setTimeout(resolve, 650); })
+            .then(function(){ return resolveIncomingFriendInvite((attempt || 0) + 1); });
+        }
+        state.friendInviteLookupDone = true;
+        paintFriendInviteStatus('That invite is no longer open', 'Your friend may have matched already. We kept you in the live queue.');
+        try { gtag('event', 'spar_friend_invite_open', { format: formatParam, result: 'expired' }); } catch(e){}
+      })
+      .catch(function(err){
+        state.friendInviteLookupBusy = false;
+        state.friendInviteLookupDone = true;
+        console.warn('[spar] friend invite lookup failed', err);
+        paintFriendInviteStatus('Could not reach that invite', 'Your normal live search is still active.');
+        try { gtag('event', 'spar_friend_invite_open', { format: formatParam, result: 'error' }); } catch(e){}
+      });
+  }
+
   function joinQueue(){
     if (!firebaseDb) return;
     if (state.profileFlowOpen) return;
@@ -5727,6 +6006,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // never written to Firestore.
       matchMode: matchProfile.mode || 'fast',
       blockedUids: blockedUids.slice(-100),
+      // Opaque, per-page token used by /spar?invite=. It only resolves while
+      // this doc is waiting; the first successful spar-pair transaction
+      // consumes the seat by moving both docs out of waiting.
+      friendInviteToken: state.friendInviteToken,
+      // The friend-side half of the same handshake. A host whose queue
+      // snapshot sees this exact claim ranks it ahead of public candidates.
+      friendInviteClaim: state.incomingFriendInvite || '',
       status: 'waiting',
       // Motion draft opt-in. spar-pair only builds a draft when BOTH docs
       // carry this, which is what keeps the rollout per-surface: a client
@@ -5754,8 +6040,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         }
       }); } catch(e){}
       subscribeMyDoc();
-      startMatchPolling();
       startQueueHeartbeat();
+      // A friend link gets first shot at the seat. The ordinary queue starts
+      // immediately after the lookup, and attemptMatch's in-flight guard
+      // prevents it from racing the direct proposal in this tab.
+      if (state.incomingFriendInvite){
+        resolveIncomingFriendInvite(0).then(startMatchPolling, startMatchPolling);
+      } else {
+        startMatchPolling();
+      }
     }).catch(function(err){
       console.warn('[spar] queue join failed:', err);
       // Pattern-match on the error so the user gets a real next step
@@ -7010,17 +7303,25 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return (d.joinedAt && d.joinedAt.seconds) || 0;
   }
 
+  function friendInviteOrder(doc){
+    var d = doc && doc.data ? doc.data() : {};
+    return d.friendInviteClaim && d.friendInviteClaim === state.friendInviteToken ? 0 : 1;
+  }
+
   function orderMatchCandidates(others){
     var list = others.slice();
     var mode = (matchProfile && matchProfile.mode) || 'fast';
     // First available remains the universal tie-break, so a preference
     // never strands two eligible people in a thin queue.
-    list.sort(function(a, b){ return joinedOrder(a) - joinedOrder(b); });
+    // A person who opened MY challenge link comes before the public queue.
+    // If several friends open it, joinedAt keeps the promise that the first
+    // arrival gets the seat.
+    list.sort(function(a, b){ return friendInviteOrder(a) - friendInviteOrder(b) || joinedOrder(a) - joinedOrder(b); });
     if (mode === 'viewpoint'){
       list.sort(function(a, b){
         var av = a.data().matchMode === 'viewpoint' ? 0 : 1;
         var bv = b.data().matchMode === 'viewpoint' ? 0 : 1;
-        return av - bv || joinedOrder(a) - joinedOrder(b);
+        return friendInviteOrder(a) - friendInviteOrder(b) || av - bv || joinedOrder(a) - joinedOrder(b);
       });
       return Promise.resolve(list);
     }
@@ -7030,7 +7331,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       list.sort(function(a, b){
         var ar = Number.isFinite(ratings[a.id]) ? ratings[a.id] : 1500;
         var br = Number.isFinite(ratings[b.id]) ? ratings[b.id] : 1500;
-        return Math.abs(ar - mine) - Math.abs(br - mine) || joinedOrder(a) - joinedOrder(b);
+        return friendInviteOrder(a) - friendInviteOrder(b) || Math.abs(ar - mine) - Math.abs(br - mine) || joinedOrder(a) - joinedOrder(b);
       });
       return list;
     });
@@ -7199,6 +7500,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
                  // age_check_failed: transient band read error, retry.
                  || reason === 'age_mismatch' || reason === 'age_check_failed'
                  || reason === 'skipped_peer' || reason === 'blocked_peer');
+        if (soft && state.friendInvitePeerUid === peerUid){
+          state.friendInvitePeerUid = '';
+          paintFriendInviteStatus('That seat is not available', 'The invite may have been claimed already. We kept you in the live queue.');
+        }
         // Soft fails are recoverable — keep polling. Surface them in
         // the diag line so the user can see retries happening instead
         // of staring at a silent countdown. Hard fails still get the
