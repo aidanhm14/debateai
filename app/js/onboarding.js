@@ -29,25 +29,24 @@
   var VERSION = 3;
 
   var STEPS = [
-    { key: 'debateExperience', title: 'Do you already do competitive debate?',
-      sub: 'This changes how much debate terminology and format detail we show you.',
+    { key: 'debateExperience', title: 'Your debate background',
+      sub: 'Pick the closest fit.',
       options: [
-        { v: 'competitive', label: 'Yes, I compete' },
-        { v: 'new', label: 'No, I am new to it' },
+        { v: 'competitive', label: 'I compete' },
+        { v: 'new', label: 'I am new' },
         { v: 'unsure', label: 'Not sure yet' },
       ] },
     // Asked only of someone who does not compete. "New to debate" says how
     // much vocabulary to use; it does not say whether they want to be
     // taught any, and the two answers want opposite things from a word
     // like "warrant". `when` is what keeps it off a competitor's screen.
-    { key: 'debateIntent', title: 'Want to learn competitive debate, or just argue?',
-      sub: 'Either is fine. It decides whether we name debate terms and explain them, or leave them out.',
+    { key: 'debateIntent', title: 'What do you want to do?',
       when: function (a) { return a.debateExperience && a.debateExperience !== 'competitive' && !a.debateIntent; },
       options: [
         { v: 'learn', label: 'Teach me competitive debate' },
-        { v: 'argue', label: 'I just want to argue' },
+        { v: 'argue', label: 'Just let me argue' },
       ] },
-    { key: 'ageRange', title: 'How old are you?', sub: 'A range is all we ask. It keeps matchmaking age-appropriate.',
+    { key: 'ageRange', title: 'Your age range', sub: 'Used for age-appropriate matching.',
       options: [
         { v: '13-15', label: '13 to 15' },
         { v: '16-18', label: '16 to 18' },
@@ -55,30 +54,31 @@
         { v: '25+', label: '25 or older' },
         { v: 'na', label: 'Prefer not to say' },
       ] },
-    { key: 'role', title: 'What best describes you?',
+    { key: 'role', title: 'Which fits best?',
       options: [
-        { v: 'hs_debater', label: 'High school debater' },
-        { v: 'college_debater', label: 'College debater' },
+        { v: 'hs_debater', label: 'High school' },
+        { v: 'college_debater', label: 'College' },
         { v: 'coach', label: 'Coach or teacher' },
-        { v: 'professional', label: 'Professional (law, sales, pitches)' },
+        { v: 'professional', label: 'Professional' },
         { v: 'new', label: 'New to debate' },
       ] },
-    { key: 'formats', title: 'Which formats do you debate?', sub: 'Pick any that apply.', multi: true,
-      // s: size tier ('lg' | 'sm', default medium) — the biggest circuits
-      // render bigger so the wall of chips has a visual hierarchy.
+    // Format detail only helps someone already in a circuit. Asking a new
+    // visitor to decode ten acronyms is the opposite of onboarding.
+    { key: 'formats', title: 'Your formats', sub: 'Pick any.', multi: true,
+      when: function (a) { return a.debateExperience === 'competitive' || a.role === 'coach'; },
       options: [
-        { v: 'bp', label: 'BP', s: 'lg' },
+        { v: 'bp', label: 'BP' },
         { v: 'asian_parli', label: 'Asian Parli' },
-        { v: 'wsdc', label: 'WSDC', s: 'lg' },
+        { v: 'wsdc', label: 'WSDC' },
         { v: 'apda', label: 'APDA' },
-        { v: 'pf', label: 'Public Forum', s: 'lg' },
+        { v: 'pf', label: 'Public Forum' },
         { v: 'ld', label: 'LD' },
-        { v: 'policy', label: 'Policy', s: 'lg' },
-        { v: 'congress', label: 'Congress', s: 'sm' },
-        { v: 'mun', label: 'MUN', s: 'sm' },
-        { v: 'unsure', label: 'Not sure yet', s: 'sm' },
+        { v: 'policy', label: 'Policy' },
+        { v: 'congress', label: 'Congress' },
+        { v: 'mun', label: 'MUN' },
+        { v: 'unsure', label: 'Not sure yet' },
       ] },
-    { key: 'source', title: 'How did you hear about Debatable?',
+    { key: 'source', title: 'How did you find us?',
       options: [
         { v: 'friend', label: 'Friend or teammate' },
         { v: 'coach_school', label: 'Coach or school' },
@@ -94,8 +94,8 @@
     // every account created before this shipped has already answered the
     // questions and would otherwise never be asked for a face.
     { key: 'profile', kind: 'profile',
-      title: 'Pick your face',
-      sub: 'This is what the leaderboard and every round shows. You can change it later in your profile.' },
+      title: 'Choose your profile',
+      sub: 'Shown on the leaderboard and in rounds. Change it any time.' },
   ];
 
   // The face step, reachable on its own for accounts that predate it.
@@ -148,25 +148,24 @@
     s.textContent =
       '.ob-backdrop{position:fixed;inset:0;z-index:2147483500;background:rgba(8,6,7,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:0;transition:opacity .26s ease}' +
       '.ob-backdrop.is-in{opacity:1}' +
-      '.ob-card{box-sizing:border-box;position:fixed;left:50%;top:50%;z-index:2147483501;transform:translate(-50%,-46%);opacity:0;transition:transform .3s ease,opacity .3s ease;width:min(420px,calc(100vw - 32px));border-radius:18px;background:#16090b;color:#fff;border:1px solid rgba(220,38,38,.42);box-shadow:0 30px 80px rgba(0,0,0,.5);font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;padding:22px 22px 16px}' +
+      '.ob-card{box-sizing:border-box;position:fixed;left:50%;top:50%;z-index:2147483501;transform:translate(-50%,-46%);opacity:0;transition:transform .3s ease,opacity .3s ease;width:min(400px,calc(100vw - 32px));border-radius:16px;background:#16090b;color:#fff;border:1px solid rgba(220,38,38,.36);box-shadow:0 24px 64px rgba(0,0,0,.46);font-family:"Archivo","Inter",system-ui,-apple-system,sans-serif;padding:24px 24px 18px}' +
       '.ob-card.is-in{transform:translate(-50%,-50%);opacity:1}' +
-      '.ob-dots{display:flex;gap:5px;margin:0 0 12px}' +
-      '.ob-dots i{width:18px;height:3px;border-radius:2px;background:rgba(255,255,255,.16)}' +
-      '.ob-dots i.on{background:#dc2626}' +
-      '.ob-title{font-size:1.18rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;margin:0 0 4px}' +
-      '.ob-sub{font-size:.85rem;line-height:1.45;color:rgba(255,255,255,.68);margin:0 0 14px}' +
-      '.ob-opts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}' +
-      '.ob-opt{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:#fff;border-radius:999px;padding:9px 14px;font-family:inherit;font-size:.86rem;font-weight:600;cursor:pointer;transition:border-color .12s,background .12s}' +
+      '.ob-progress{margin:0 0 18px}' +
+      '.ob-progress-label{display:flex;justify-content:space-between;align-items:center;margin:0 0 7px;color:rgba(255,255,255,.58);font-size:.7rem;font-weight:700}' +
+      '.ob-progress-track{display:block;height:3px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}' +
+      '.ob-progress-track i{display:block;height:100%;border-radius:inherit;background:#dc2626}' +
+      '.ob-title{font-size:1.28rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;margin:0 0 7px}' +
+      '.ob-sub{font-size:.84rem;line-height:1.4;color:rgba(255,255,255,.64);margin:0 0 17px}' +
+      '.ob-opts{display:grid;grid-template-columns:1fr;gap:9px;margin:0}' +
+      '.ob-opts--multi{grid-template-columns:repeat(2,minmax(0,1fr))}' +
+      '.ob-opt{width:100%;border:1px solid rgba(255,255,255,.17);background:rgba(255,255,255,.045);color:#fff;border-radius:11px;padding:11px 13px;font-family:inherit;font-size:.86rem;font-weight:650;text-align:left;cursor:pointer;transition:border-color .12s,background .12s}' +
       '.ob-opt:hover{border-color:rgba(255,255,255,.4)}' +
       '.ob-opt.sel{background:#dc2626;border-color:#dc2626}' +
-      '.ob-opt--wide{flex:1 1 100%;text-align:left}' +
-      '.ob-opt--lg{font-size:1.02rem;font-weight:700;padding:12px 19px}' +
-      '.ob-opt--sm{font-size:.76rem;padding:7px 11px;opacity:.85}' +
       // face step
       '.ob-name{width:100%;box-sizing:border-box;border-radius:11px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:#fff;font-family:inherit;font-size:.92rem;font-weight:600;padding:11px 13px;margin:0 0 12px}' +
       '.ob-name:focus{outline:none;border-color:#dc2626}' +
       '.ob-name::placeholder{color:rgba(255,255,255,.42);font-weight:500}' +
-      '.ob-faces{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 10px}' +
+      '.ob-faces{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:0 0 11px}' +
       '.ob-face{position:relative;padding:0;border-radius:12px;overflow:hidden;border:2px solid transparent;background:rgba(255,255,255,.05);cursor:pointer;aspect-ratio:1/1;line-height:0;transition:border-color .12s,transform .12s}' +
       '.ob-face:hover{transform:translateY(-2px)}' +
       '.ob-face svg,.ob-face img{width:100%;height:100%;display:block;object-fit:cover}' +
@@ -179,7 +178,7 @@
       '[data-theme="light"] .ob-face{background:rgba(0,0,0,.04)}' +
       '[data-theme="light"] .ob-mini{border-color:rgba(0,0,0,.2);color:rgba(0,0,0,.72)}' +
       '[data-theme="light"] .ob-mini:hover{border-color:rgba(0,0,0,.45);color:#1a1a1f}' +
-      '.ob-foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px}' +
+      '.ob-foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px}' +
       '.ob-skip{border:none;background:transparent;color:rgba(255,255,255,.68);cursor:pointer;font-family:inherit;font-size:.8rem;padding:6px 0}' +
       '.ob-skip:hover{color:#fff}' +
       '.ob-next{border:none;border-radius:999px;background:#fff;color:#1a1a1f;font-family:inherit;font-size:.84rem;font-weight:700;padding:9px 18px;cursor:pointer}' +
@@ -187,7 +186,8 @@
       '.ob-next[hidden]{display:none}' +
       '[data-theme="light"] .ob-card{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.32)}' +
       '[data-theme="light"] .ob-sub{color:rgba(0,0,0,.64)}' +
-      '[data-theme="light"] .ob-dots i{background:rgba(0,0,0,.14)}' +
+      '[data-theme="light"] .ob-progress-label{color:rgba(0,0,0,.54)}' +
+      '[data-theme="light"] .ob-progress-track{background:rgba(0,0,0,.12)}' +
       '[data-theme="light"] .ob-opt{border-color:rgba(0,0,0,.2);background:rgba(0,0,0,.03);color:#1a1a1f}' +
       '[data-theme="light"] .ob-opt:hover{border-color:rgba(0,0,0,.45)}' +
       '[data-theme="light"] .ob-opt.sel{background:#dc2626;border-color:#dc2626;color:#fff}' +
@@ -195,7 +195,7 @@
       '[data-theme="light"] .ob-skip:hover{color:#1a1a1f}' +
       '[data-theme="light"] .ob-next{background:#dc2626;color:#fff}' +
       '[data-theme="light"] .ob-next:hover{background:#b91c1c}' +
-      '@media (max-width:520px){.ob-card{top:auto;bottom:0;left:0;transform:translateY(16px);width:100vw;border-radius:18px 18px 0 0;border-left:none;border-right:none;border-bottom:none}.ob-card.is-in{transform:translateY(0)}}' +
+      '@media (max-width:520px){.ob-card{top:auto;bottom:0;left:0;transform:translateY(16px);width:100vw;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0;border-left:none;border-right:none;border-bottom:none;padding:22px 20px 18px}.ob-card.is-in{transform:translateY(0)}}' +
       '@media (prefers-reduced-motion:reduce){.ob-card,.ob-backdrop{transition:none}}';
     document.head.appendChild(s);
   }
@@ -292,7 +292,7 @@
     if (!wrap || !window.DBAvatar) return;
     faceConfigs = [];
     var html = '';
-    for (var i = 0; i < 8; i++) {
+    for (var i = 0; i < 4; i++) {
       // Seeded off the uid so a face a user liked is still there if they
       // reopen at the same batch, rather than reshuffling under them.
       var cfg = DBAvatar.randomConfig(String(activeUid || 'anon') + ':' + faceBatch + ':' + i);
@@ -316,22 +316,20 @@
 
   function renderProfileStep(step) {
     sawFace = true;
-    var dots = '';
-    for (var i = 0; i < activeSteps.length; i++) dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
     var u = authUser();
     card.innerHTML =
-      '<div class="ob-dots">' + dots + '</div>' +
+      progressMarkup() +
       '<h2 class="ob-title">' + step.title + '</h2>' +
       '<p class="ob-sub">' + step.sub + '</p>' +
       '<input class="ob-name" type="text" maxlength="40" autocomplete="name" placeholder="Display name" value="'
         + escAttr(u && u.displayName ? u.displayName : '') + '">' +
       '<div class="ob-faces"></div>' +
       '<div class="ob-face-acts">' +
-        '<button type="button" class="ob-mini" data-a="more">Show me more</button>' +
-        '<button type="button" class="ob-mini" data-a="build">Build your own</button>' +
+        '<button type="button" class="ob-mini" data-a="more">More faces</button>' +
+        '<button type="button" class="ob-mini" data-a="build">Customize</button>' +
       '</div>' +
       '<div class="ob-foot">' +
-        '<button type="button" class="ob-skip">Skip for now</button>' +
+        '<button type="button" class="ob-skip">Not now</button>' +
         '<button type="button" class="ob-next">Save</button>' +
       '</div>';
 
@@ -393,28 +391,41 @@
     return !step.when || step.when(answers);
   }
 
+  function progressMarkup() {
+    var total = 0, current = 0;
+    for (var i = 0; i < activeSteps.length; i++) {
+      if (!stepShows(activeSteps[i], i)) continue;
+      total++;
+      if (i <= stepIdx) current = total;
+    }
+    if (!total) total = 1;
+    if (!current) current = 1;
+    var pct = Math.round(current / total * 100);
+    return '<div class="ob-progress">' +
+      '<span class="ob-progress-label">Question ' + current + ' of ' + total + '</span>' +
+      '<span class="ob-progress-track" role="progressbar" aria-label="Questionnaire progress" aria-valuemin="1" aria-valuemax="' + total + '" aria-valuenow="' + current + '">' +
+        '<i style="width:' + pct + '%"></i>' +
+      '</span>' +
+    '</div>';
+  }
+
   function renderStep() {
     var step = activeSteps[stepIdx];
     seen[stepIdx] = 1;
     if (step.kind === 'profile') { renderProfileStep(step); return; }
-    var dots = '';
-    for (var i = 0; i < activeSteps.length; i++) {
-      if (!stepShows(activeSteps[i], i)) continue;
-      dots += '<i class="' + (i <= stepIdx ? 'on' : '') + '"></i>';
-    }
     var opts = '';
     for (var j = 0; j < step.options.length; j++) {
       var o = step.options[j];
-      opts += '<button type="button" class="ob-opt' + (step.multi ? '' : ' ob-opt--wide') + (o.s ? ' ob-opt--' + o.s : '') + '" data-v="' + o.v + '">' + o.label + '</button>';
+      opts += '<button type="button" class="ob-opt" data-v="' + o.v + '"' + (step.multi ? ' aria-pressed="false"' : '') + '>' + o.label + '</button>';
     }
     card.innerHTML =
-      '<div class="ob-dots">' + dots + '</div>' +
+      progressMarkup() +
       '<h2 class="ob-title">' + step.title + '</h2>' +
-      (step.sub ? '<p class="ob-sub">' + step.sub + '</p>' : '<p class="ob-sub"></p>') +
-      '<div class="ob-opts">' + opts + '</div>' +
+      (step.sub ? '<p class="ob-sub">' + step.sub + '</p>' : '') +
+      '<div class="ob-opts' + (step.multi ? ' ob-opts--multi' : '') + '">' + opts + '</div>' +
       '<div class="ob-foot">' +
-        '<button type="button" class="ob-skip">Skip for now</button>' +
-        '<button type="button" class="ob-next"' + (step.multi ? '' : ' hidden') + '>Next</button>' +
+        '<button type="button" class="ob-skip">Not now</button>' +
+        '<button type="button" class="ob-next"' + (step.multi ? '' : ' hidden') + '>Continue</button>' +
       '</div>';
     card.querySelector('.ob-skip').addEventListener('click', skip);
     var picked = [];
@@ -425,8 +436,8 @@
           var v = btn.getAttribute('data-v');
           if (step.multi) {
             var at = picked.indexOf(v);
-            if (at >= 0) { picked.splice(at, 1); btn.classList.remove('sel'); }
-            else { picked.push(v); btn.classList.add('sel'); }
+            if (at >= 0) { picked.splice(at, 1); btn.classList.remove('sel'); btn.setAttribute('aria-pressed', 'false'); }
+            else { picked.push(v); btn.classList.add('sel'); btn.setAttribute('aria-pressed', 'true'); }
           } else {
             answers[step.key] = v;
             if (step.key === 'debateExperience') applyExperience(v);
