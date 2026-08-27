@@ -30,13 +30,13 @@ import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 
 // Formats a four-person room can run.
 //
-// APDA and Quick Clash are genuinely 2v2 here. Asian Parli is 3v3 in
-// the wild and Worlds/BP are FOUR teams of two, so a four-person room
-// running those is a compression, not the real thing: the two benches
-// split their side's speeches between them and the closing-half teams
-// do not exist. That is a legitimate drill and a useful one, but it is
-// not a BP round, and nothing in the product should claim it is.
-const VALID_FORMATS = new Set(['quick', 'apda', 'bp', 'worlds', 'asian']);
+// APDA and Quick Clash are genuinely 2v2 here. The LD option is clearly
+// labelled LD-style because tournament Lincoln-Douglas is 1v1; this
+// platform variant keeps its framework-first structure while partners
+// alternate the bench's speeches. Asian Parli is 3v3 in the wild and
+// Worlds/BP are FOUR teams of two, so a four-person room running those
+// is a compression, not the real thing.
+const VALID_FORMATS = new Set(['quick', 'ld', 'apda', 'bp', 'worlds', 'asian']);
 
 const MOTION_MAX = 280;
 const PARADIGM_MAX = 240;

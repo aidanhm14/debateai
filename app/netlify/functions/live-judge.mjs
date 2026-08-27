@@ -178,10 +178,12 @@ export default async (request, context) => {
   if (!snap.exists) return errorResponse('No such round', 404, request);
   const d = snap.data();
 
-  // Only the two debaters may ask for the ballot. A spectator triggering
-  // it is harmless to the verdict but would let anyone spend three juror
-  // calls on any public room they can see.
-  if (uid !== d.proUid && uid !== d.conUid) return errorResponse('Not a participant', 403, request);
+  // Any occupied seat may ask for the ballot. A 2v2 partner is a real
+  // participant even though the verdict remains bench against bench.
+  // Spectators stay out because a public room id must not buy them three
+  // provider calls.
+  const participantUids = [d.proUid, d.proUid2, d.conUid, d.conUid2].filter(Boolean);
+  if (!participantUids.includes(uid)) return errorResponse('Not a participant', 403, request);
 
   // Already server-judged. Idempotent by design: a retry after a dropped
   // response must not re-run the panel and must not re-settle.

@@ -37,11 +37,10 @@ import { notifyProposal, notifyTeamFormed } from './lib/partner-email.mjs';
 // consent gate. Debaters have already learned that interaction there,
 // and the failure modes are known: ghost tabs, dead peers, races.
 
-// Formats a 2v2 makes sense in. Asian Parli and WSDC are 3v3 in the
-// wild but run 2v2 here (live-round seats two per bench); BP/Worlds
-// are 2-per-team by definition. LD, Policy, and the Career trio are
-// 1v1 by construction and never reach this surface.
-const TEAM_FORMATS = new Set(['quick', 'apda', 'bp', 'worlds', 'asian']);
+// Formats available to the four-seat room. Tournament LD remains 1v1;
+// `ld` here is the labelled LD-style team variant requested for this
+// platform, with partners alternating speeches on each bench.
+const TEAM_FORMATS = new Set(['quick', 'ld', 'apda', 'bp', 'worlds', 'asian']);
 
 const NOTE_MAX = 160;
 const NAME_MAX = 48;
