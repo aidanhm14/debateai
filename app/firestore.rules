@@ -944,6 +944,58 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
+    // ── voice_transcripts ────────────────────────────────────────────
+    // Incremental capture of what was actually said in a round, written
+    // DURING the round by app/js/voice-transcript.js (newvoice, coach,
+    // room-judge, live-round).
+    //
+    // RESTORED 2026-08-26. This block was collateral damage in c3463c79
+    // (2026-07-31, spectator voting), which reverted ~40 rule blocks
+    // while adding one. Every capture write since has been denied and
+    // swallowed by the module's own .catch handlers, so the collection
+    // holds 4 documents, all from 29-31 July. Do not delete it again
+    // without deleting the module that writes to it.
+    //
+    // Distinct from voice_rounds above, which is a finished-ballot
+    // artifact: written once inside generateRFD, publicly readable
+    // because a ballot can be shared, and immutable after creation. A
+    // round abandoned before the ballot never produces one.
+    //
+    // These are private. A transcript is a record of a person speaking,
+    // they consented to storage rather than to publication, and nothing
+    // on the site renders someone else's. Read is owner-only even though
+    // the ballot built from it may be public.
+    //
+    // The header is mutable by its owner because status, counts and the
+    // eventual score land as the round progresses. The uid is pinned on
+    // update so a document cannot be reassigned to another account.
+    match /voice_transcripts/{transcriptId} {
+      allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && stringUnder('motion', 1024)
+                    && stringUnder('surface', 64);
+      allow update: if isSignedIn()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      // Append-only. Chunks are never updated or deleted, so a stored
+      // transcript cannot be quietly edited after the fact, which is
+      // what makes it usable as a record of the round.
+      //
+      // Ownership is checked against the uid ON THE CHUNK rather than by
+      // get()-ing the parent header. A get() inside a rule is a billed
+      // read on every single chunk write, and capture writes a chunk
+      // every ten seconds of every round.
+      match /chunks/{seq} {
+        allow read:   if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow create: if isSignedIn()
+                      && request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
     // ── waitlist_posts ───────────────────────────────────────────────
     // /spar left-rail "open invites" board. Anyone signed in can read
     // the board; you can only create/edit/delete your own post. Note

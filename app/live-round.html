@@ -81,6 +81,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      first stored round; declining means their speeches are never written
      to the server. Gates the kind:'live_round' flush at ballot time. -->
 <script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 <!-- Research-corpus opt-in ask, fired from renderBallot. A different
      and much wider consent than transcript-consent.js above: that
      one stores your round for you, this one licenses an anonymized
@@ -2479,6 +2480,16 @@ body.spectator-mode .rec-tail{display:none}
 .transcript-title{min-width:220px;flex:1;display:flex;flex-direction:column;gap:3px;line-height:1.4}
 .transcript-title strong{font-size:.9rem;color:var(--text);font-weight:800}
 .transcript-options{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+/* Storage disclosure. A one-time modal is consent; it is not a standing
+   answer to "is this being recorded right now", which is a question a
+   person can reasonably ask at any point in a round. This line answers it
+   in place, in both directions, and links to the control. */
+.cap-note{font-size:.78rem;line-height:1.45;color:var(--text-dim)}
+.cap-note .cap-dot{display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#dc2626;margin-right:5px;vertical-align:middle}
+.cap-note.cap-off .cap-dot{background:var(--text-dim);opacity:.55}
+.cap-note a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
 .transcript-options .word-count{font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Mic state. The judge reads the transcript and nothing else, so the one
    question this answers is whether words are actually being captured
@@ -3400,6 +3411,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           <div class="transcript-title">
             <strong>Live transcript</strong>
             <span id="micHint">Live transcribes the active speaker. Edit the text directly anytime.</span>
+            <span id="capNote" class="cap-note" hidden></span>
           </div>
           <div class="transcript-options">
             <button class="btn btn-mic" id="micBtn" type="button">Start mic</button>
@@ -4994,6 +5006,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // auth settles renders once as a spectator and once as a debater.
     var _tTitle = document.querySelector('.transcript-title strong');
     if (_tTitle) _tTitle.textContent = spectator ? 'Live captions' : 'Live transcript';
+    try { renderCapNote(); } catch(e){}
     var _langSel = $('langSelect');
     if (_langSel){
       _langSel.title = spectator
@@ -10393,6 +10406,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       skipped: !!opts.skipped,
     };
     state.log.push(entry);
+    try { capPushSpeech(entry); } catch(e){}
     state.speechIdx++;
     try { pmLockCheck(); } catch(e){}
     publishSpeech(entry);
@@ -11252,6 +11266,131 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // is a request, not an authorization.
   // Skipped for 4-team and partnered formats: a bench filter there would
   // sweep a partner's speeches under the wrong person's consent.
+  // ── Incremental capture (the round survives the tab) ──────────────
+  // The flush below is a single write at ballot time, so until now a
+  // live round that ended any other way stored NOTHING: a debater who
+  // closed the tab, lost the connection, or hit a ballot failure lost
+  // every word they had said. That is the same hole app/js/voice-
+  // transcript.js was written to close on the spoken surfaces, so this
+  // reuses that module rather than growing a second pipeline. Each
+  // ended speech lands in an append-only chunk during the round.
+  //
+  // Consent gates it: VoiceTranscript.start() resolves null unless the
+  // storage prompt was answered yes, and it shares TranscriptConsent's
+  // in-flight promise, so it cannot stack a second modal on top of
+  // maybeAskRoundConsent().
+  //
+  // Only the speeches THIS person delivered are captured, under their
+  // own uid, matching the flush below: one debater's yes cannot cover
+  // words the other one said. Partnered and four-team rounds are left
+  // out for the same reason, which is what privacy.html section 6
+  // already tells people.
+  var cap = { session: null, starting: false, done: false };
+
+  function capEligible(){
+    if (isSpectator()) return false;
+    var side = mySide();
+    if (side !== 'pro' && side !== 'con') return false;
+    if (!state.user) return false;
+    var f = FORMATS[state.formatKey];
+    if (!f || isFourTeam(f)) return false;
+    if (state.proUid2 || state.conUid2) return false;
+    return true;
+  }
+
+  function capMySideKey(){
+    var f = FORMATS[state.formatKey];
+    if (!f) return null;
+    return mySide() === 'pro' ? f.sides[0] : f.sides[1];
+  }
+
+  function capEnsure(){
+    if (cap.session || cap.starting || cap.done) return;
+    if (!capEligible() || !window.VoiceTranscript) return;
+    cap.starting = true;
+    try {
+      VoiceTranscript.start({
+        surface: 'live-round',
+        motion: state.motion || '',
+        mode: 'live',
+        format: state.formatKey || '',
+        side: mySide() || ''
+      }).then(function(sess){
+        cap.starting = false;
+        cap.session = sess || null;
+        renderCapNote();
+      }).catch(function(){ cap.starting = false; renderCapNote(); });
+    } catch(e){ cap.starting = false; }
+  }
+
+  // Called for every speech this client finalises. A speech on the other
+  // bench arrives through the round snapshot, not through endSpeech, so
+  // the side check is belt and braces rather than the only guard.
+  function capPushSpeech(entry){
+    try {
+      if (!entry || entry.skipped) return;
+      if (!capEligible()) return;
+      if (entry.side !== capMySideKey()) return;
+      var text = (entry.text || '').trim();
+      if (!text || text === '(no transcript)' || text === '(skipped)') return;
+      capEnsure();
+      var push = function(){
+        if (!cap.session) return;
+        cap.session.push({
+          who: 'you',
+          text: text,
+          t: typeof entry.atMs === 'number' ? entry.atMs : null,
+          phase: entry.code || ''
+        });
+      };
+      // start() is async and the first speech ends before it resolves,
+      // so the first turn waits a beat rather than being dropped.
+      if (cap.session) push();
+      else setTimeout(push, 1200);
+    } catch(e){}
+  }
+
+  function capFinish(b){
+    try {
+      if (!cap.session || cap.done) return;
+      cap.done = true;
+      var side = mySide();
+      var pts = b ? (side === 'pro' ? b.proPoints : b.conPoints) : null;
+      cap.session.finish({
+        status: 'complete',
+        score: typeof pts === 'number' ? pts : undefined,
+        won: (b && b.winner) ? b.winner === side : undefined,
+        roundId: state.room || ''
+      });
+    } catch(e){}
+  }
+
+  // ── Saying so, in the round, while it is running ──────────────────
+  // The consent modal is answered once and then never seen again, which
+  // makes "is this stored, and what is it used for" unanswerable from
+  // inside a round without going to find the privacy page. This states
+  // it in place and states the negative too: a person who declined
+  // should be able to see that their decline is holding.
+  function renderCapNote(){
+    var el = $('capNote');
+    if (!el) return;
+    if (!capEligible()){ el.hidden = true; return; }
+    var granted = !!(window.TranscriptConsent && TranscriptConsent.granted());
+    var asked = !!(window.TranscriptConsent && TranscriptConsent.state() !== 'unset');
+    if (!asked){ el.hidden = true; return; }
+    el.hidden = false;
+    el.className = 'cap-note' + (granted ? '' : ' cap-off');
+    // Kept short on purpose. This row is directly above Start speech and
+    // the pane is already tight enough that the buttons have been fought
+    // back above the fold more than once; a four-line notice here would
+    // cost the control it sits under.
+    el.innerHTML = granted
+      ? '<span class="cap-dot"></span>Saved to your account. The text trains the AI judge, without your name. '
+        + '<a href="/privacy#transcripts" target="_blank" rel="noopener">What is stored</a>'
+      : '<span class="cap-dot"></span>Not being stored, so this ballot cannot be reopened later. '
+        + '<a href="/profile#settings" target="_blank" rel="noopener">Change</a>';
+  }
+
   var corpusFlushed = false;
   function maybeAskRoundConsent(){
     // Only signed-in debaters get the ask. Spectators store nothing, and
@@ -11261,7 +11400,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var s = mySide();
     if (s !== 'pro' && s !== 'con') return;
     if (!state.user || !window.TranscriptConsent) return;
-    TranscriptConsent.ensure();
+    TranscriptConsent.ensure().then(function(){
+      try { renderCapNote(); } catch(e){}
+      // A yes given mid-round opens capture immediately rather than
+      // waiting for the next speech to end.
+      try { capEnsure(); } catch(e){}
+    }).catch(function(){});
   }
   function logMyRoundSpeeches(b){
     if (corpusFlushed) return;
@@ -12272,6 +12416,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // the other via the Firestore sync), so this is the one choke point
     // where each side can flush its own consented speeches.
     try { logMyRoundSpeeches(b); } catch(e){}
+    try { capFinish(b); } catch(e){}
     // A rendered ballot is a completed round, so this is where the
     // research-corpus opt-in gets asked (the module counts rounds and
     // asks on the second one, after a delay, once ever). Seated
