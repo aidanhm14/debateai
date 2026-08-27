@@ -304,6 +304,19 @@ if [ -f "$ROSTER_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Live-round judge types. The browser shows one of three levels beside
+# the resolution; the server-written ballot must apply that exact same
+# value, or the selection becomes cosmetic.
+LEVEL_GUARD="$REPO_ROOT/scripts/test-judge-levels.mjs"
+if [ -f "$LEVEL_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-judge-levels.mjs >/tmp/judge-level-guard.log 2>&1); then
+    echo "[judge-level-guard] commit blocked: visible and server judge types drifted:" >&2
+    tail -30 /tmp/judge-level-guard.log >&2
+    echo "[judge-level-guard] see scripts/test-judge-levels.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Debate-brain guard. The stored brain is concatenated into the system
 # prompt of every future round its owner runs, so the allow-list in

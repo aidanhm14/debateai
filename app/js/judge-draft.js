@@ -500,6 +500,7 @@
   function lensByKey(k) {
     var l = lenses();
     for (var i = 0; i < l.length; i++) if (l[i].key === k) return l[i];
+    for (var j = 0; j < l.length; j++) if (l[j].key === 'chair') return l[j];
     return l[0] || null;
   }
 
@@ -694,7 +695,8 @@
       bindClicks();
       lensHost = el;
       onLensPick = typeof opts.onPick === 'function' ? opts.onPick : null;
-      lensPickKey = opts.selected || lensPickKey || 'chair';
+      var picked = lensByKey(opts.selected || lensPickKey || 'chair');
+      lensPickKey = picked ? picked.key : 'chair';
       paintLenses();
     },
 

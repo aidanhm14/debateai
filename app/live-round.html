@@ -40,13 +40,6 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      defer on purpose: the inline round script below reads it at parse
      time, and a deferred copy would not exist yet. -->
 <script src="/js/judge-lenses.js"></script>
-<!-- The rotating judge roster + intro card. Loaded without defer for the
-     same parse-time reason as judge-lenses.js. Assignment is a seeded
-     draw on the room id, so both clients derive the same judge with no
-     write; lib/judge-roster.mjs is the server-side twin and the two
-     must stay in sync (scripts/test-judge-roster.mjs asserts it). -->
-<script src="/js/judge-roster.js"></script>
-<script src="/js/judge-intro.js"></script>
 <!-- The shared judge choices. This page only reads DETAILS from it (the
      Short / Medium / Extensive ballot length agreed for the round); the
      styles, paradigms and brains it also carries belong to /judge. Loaded
@@ -1746,10 +1739,12 @@ body.speech-live .transcript-area{margin-top:4px}
 [data-theme="light"] .jd-state--pending{color:#b91c1c}
 .jd-chev{font-size:.7rem;color:var(--text-dim);flex:none;transition:transform .18s ease}
 .jd.is-open .jd-chev{transform:rotate(180deg)}
+.jd.is-live .jd-head{cursor:default}
+.jd.is-live .jd-chev{display:none}
 .jd-body{display:none;padding:2px 14px 14px}
 .jd.is-open .jd-body{display:block}
 .jd-note{font-size:.75rem;line-height:1.5;color:var(--text-dim);margin:0 0 11px}
-.jd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:9px}
+.jd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .jd-card{position:relative;text-align:left;padding:11px 12px 12px;border-radius:11px;
   border:1px solid var(--border);background:rgba(255,255,255,.02);cursor:pointer;
   color:var(--text);font:inherit;transition:border-color .15s ease,background .15s ease,transform .15s ease}
@@ -1766,6 +1761,13 @@ body.speech-live .transcript-area{margin-top:4px}
 .jd-card-tag{font-size:.72rem;line-height:1.45;color:var(--text-dim);margin-bottom:8px}
 .jd-card ul{margin:0;padding-left:14px;display:flex;flex-direction:column;gap:3px}
 .jd-card li{font-size:.68rem;line-height:1.45;color:var(--text-dim)}
+.setup-judge-block{margin-top:16px}
+.setup-judge-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.setup-judge-grid .jd-card{padding:10px 11px;min-width:0}
+.setup-judge-grid .jd-card-tag{margin:0}
+.setup-judge-grid .jd-card[aria-pressed="true"]{
+  border-color:var(--jx);background:color-mix(in srgb,var(--jx) 10%,transparent);
+}
 .jd-marks{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;min-height:19px}
 .jd-mark{font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800;
   padding:3px 7px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim)}
@@ -1794,7 +1796,7 @@ body.speech-live .transcript-area{margin-top:4px}
 .jd-len-btn.is-on{border-color:var(--accent,#ef4444);background:rgba(239,68,68,.1)}
 .jd-len-btn b{display:block;font-size:.76rem;line-height:1.2}
 .jd-len-btn span{display:block;font-size:.64rem;line-height:1.3;margin-top:2px;color:var(--text-ghost,var(--text-dim))}
-@media(max-width:420px){.jd-len-row{grid-template-columns:1fr}}
+@media(max-width:640px){.jd-grid,.jd-len-row,.setup-judge-grid{grid-template-columns:1fr}}
 
 /* Reveal. Fires once per newly agreed archetype, ~1.6s, then removes
    itself. prefers-reduced-motion drops the movement, not the card. */
@@ -3270,6 +3272,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         </div>
         <!-- What "This House" is, before anyone has to ask. -->
         <div class="rmb-house" id="setupHouse" hidden></div>
+        <div class="setup-judge-block">
+          <div class="label">Judge type <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
+          <div class="setup-judge-grid" id="setupJudgeTypes" aria-label="Judge type"></div>
+        </div>
         <div class="label">Format</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -4140,12 +4146,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
   // ── JUDGE ARCHETYPES ─────────────────────────────────────────────
   //
-  // Real circuit paradigm types, not characters. Every one of these is
-  // a lens an actual judge writes on their Tabroom paradigm, and every
-  // debater has lost a round to one of them. Both sides read the card
-  // before the round and have to AGREE on which lens judges them, so
-  // the paradigm is a known quantity going in instead of something you
-  // reverse-engineer from the RFD afterwards.
+  // Three experience levels, shared with /spar. Both sides read the
+  // choices before the round and have to agree on which type judges it.
   //
   // `lens` is what ships into the ballot prompt. It shifts EMPHASIS
   // only: what to resolve first, how hard to punish a drop, how much
@@ -4155,18 +4157,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // could flip a ballot on its own would make the draft a weapon
   // rather than a setting, which is the whole thing to avoid.
   //
-  // 'chair' is the default and is deliberately lens-free: it is the
-  // behaviour every round on this site has today, so a room that never
-  // opens the draft is judged exactly as it was before this shipped.
-  // The roster now lives in js/judge-lenses.js so /spar can show the
-  // same paradigms before the round starts. The fallback is deliberately
-  // 'chair' alone: if that file fails to load, the draft offers the
-  // lens-free default and the round is judged exactly as it was before
-  // any of this existed, rather than half a roster nobody can agree on.
+  // 'chair' is the default and is deliberately lens-free. The choices
+  // live in js/judge-lenses.js so /spar and this page cannot drift.
   var JUDGE_ARCHETYPES = (window.JUDGE_LENSES && window.JUDGE_LENSES.length)
     ? window.JUDGE_LENSES
     : [{
-        key: 'chair', name: 'Standard chair', accent: '#9aa4b2',
+        key: 'chair', name: 'Standard', accent: '#9aa4b2',
         tag: 'I judge the flow and I weigh what you weighed.',
         bullets: [
           'Decides on what was actually said, nothing imported.',
@@ -4179,6 +4175,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function judgeArchetype(key){
     for (var i = 0; i < JUDGE_ARCHETYPES.length; i++){
       if (JUDGE_ARCHETYPES[i].key === key) return JUDGE_ARCHETYPES[i];
+    }
+    for (var j = 0; j < JUDGE_ARCHETYPES.length; j++){
+      if (JUDGE_ARCHETYPES[j].key === 'chair') return JUDGE_ARCHETYPES[j];
     }
     return JUDGE_ARCHETYPES[0];
   }
@@ -4456,7 +4455,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     deepRfdNotified: false, // full-ballot ready notice fires once per client
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     paradigm: prefill.paradigm, // agreed judge instructions from /spar consent
-    // ── Judge draft. Each bench nominates an archetype; the lens only
+    // ── Judge type. Each bench nominates one of three experience levels;
+    // the type only
     // binds when BOTH benches are on the same key, so nobody is judged
     // by a paradigm they did not read and accept. Seeded to 'chair' on
     // both sides so an untouched room is already agreed on the default
@@ -4464,7 +4464,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     judgePicks: { pro: 'chair', con: 'chair' },
     judgeLocked: 'chair',      // the agreed key, or '' while the benches differ
     judgeRevealed: '',         // last key we played the reveal for
-    judgeDraftOpen: false,     // card grid expanded
+    judgeDraftOpen: false,     // post-start detail expansion; pre-Speech-1 stays visible
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
@@ -4575,10 +4575,24 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   } catch(e){ console.warn('[Firebase] init failed', e); }
 
   // ── Setup view rendering
+  function renderSetupJudgeTypes(){
+    var host = $('setupJudgeTypes');
+    if (!host) return;
+    var current = judgeLockKey() || 'chair';
+    host.innerHTML = JUDGE_ARCHETYPES.map(function(level){
+      return '<button type="button" class="jd-card" data-setup-jk="' + level.key + '"' +
+        ' aria-pressed="' + (level.key === current ? 'true' : 'false') + '" style="--jx:' + level.accent + '">' +
+        '<div class="jd-card-name"><span class="jd-dot"></span>' + escHtml(level.name) + '</div>' +
+        '<div class="jd-card-tag">' + escHtml(level.tag) + '</div>' +
+      '</button>';
+    }).join('');
+  }
+
   function renderSetup(){
     var f = FORMATS[state.formatKey];
     if (document.activeElement !== $('motionDisplay')) $('motionDisplay').textContent = state.motion || '';
     renderHouseGloss();
+    renderSetupJudgeTypes();
     // For 4-team formats, render a chip per team (OG / OO / CG / CO).
     // The 2-side formats keep the original pro/con chip pair.
     var sideChips = isFourTeam(f)
@@ -5772,13 +5786,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
       state.judgeDraftOpen = true;
-      var jDet = document.getElementById('roundDetails');
-      if (jDet) jDet.open = true;
       renderJudgeDraft();
       var jHint = $('readyHint');
       if (jHint){
         jHint.style.display = '';
-        jHint.innerHTML = '<strong>Settle the judge first.</strong> You and your opponent picked different judge paradigms. Land on the same card, or either of you can hit Re-draft to reset to Standard chair. Then start the round.';
+        jHint.innerHTML = '<strong>Settle the judge first.</strong> You and your opponent picked different judge types. Pick the same option above, or reset to Standard. Then start the round.';
       }
       var jd = document.getElementById('judgeDraft');
       if (jd && jd.scrollIntoView) jd.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -9775,7 +9787,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     startJoinRequestHost();   // now a participant + room doc exists
     renderRound();
     startPrepBanner();
-    try { maybePlayAssignedJudgeIntro(); } catch(e){}
     try { startRoomTips(); } catch(e){}
     try { gtag('event', 'live_round_start', { format: state.formatKey }); } catch(e){}
   }
@@ -10682,7 +10693,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
-      ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       ...contextFrameBallotLines(),
@@ -10783,7 +10793,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
-      ...assignedJudgeBallotLines(),
       ...paradigmBallotLines(),
       ...audienceBallotLines(),
       ...contextFrameBallotLines(),
@@ -11690,7 +11699,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       'You are the tournament judge who just issued the verdict in a ' + f.name + ' round between real people. The verdict is FINAL. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner, the points, or the ranking.',
       '',
       'FORMAT LENS:',
-    ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(assignedJudgeBallotLines()).concat(paradigmBallotLines()).concat([
+    ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(paradigmBallotLines()).concat([
       '',
       'HARD RULES:',
       '- MINIMUM ' + (bdDeep.deepWords || [700,1100])[0] + ' words. Target ' + (bdDeep.deepWords || [700,1100])[0] + ' to ' + (bdDeep.deepWords || [700,1100])[1] + '. Under the minimum means you summarized instead of adjudicating; go deeper, not longer-winded. Depth comes from covering more of the flow, never from restating a ruling you already made.',
@@ -13269,6 +13278,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   $('formatSel').addEventListener('change', function(){
     state.formatKey = this.value;
     renderSetup();
+  });
+  $('setupJudgeTypes').addEventListener('click', function(e){
+    var card = e.target && e.target.closest ? e.target.closest('[data-setup-jk]') : null;
+    if (!card) return;
+    var level = judgeArchetype(card.getAttribute('data-setup-jk'));
+    state.judgePicks = { pro: level.key, con: level.key };
+    state.judgeLocked = level.key;
+    renderSetupJudgeTypes();
+    try { gtag('event', 'live_round_setup_judge_type', { judge: level.key, format: state.formatKey }); } catch(err){}
   });
   $('startBtn').addEventListener('click', startRound);
 
@@ -16666,9 +16684,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       el = document.createElement('div');
       el.id = 'judgeDraft';
       el.className = 'jd';
-      var det = document.getElementById('roundDetails');
-      var body = det && det.querySelector('.rd-body');
-      if (body) body.insertBefore(el, body.firstChild);
+      // Judge type is a primary round term. Keep it beside the
+      // resolution at the top, never inside Round details.
+      var motionBar = document.getElementById('roundMotionBar');
+      if (motionBar && motionBar.parentNode) motionBar.parentNode.insertBefore(el, motionBar.nextSibling);
       else rv.insertBefore(el, rv.firstChild);
       el.addEventListener('click', onJudgeDraftClick);
     }
@@ -16678,6 +16697,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function onJudgeDraftClick(e){
     var head = e.target.closest ? e.target.closest('.jd-head') : null;
     if (head){
+      // Before Speech 1 the three choices must remain visible.
+      if (judgeDraftIsLive()) return;
       state.judgeDraftOpen = !state.judgeDraftOpen;
       renderJudgeDraft();
       return;
@@ -16724,7 +16745,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var shown = judgeArchetype(locked || picks[side] || 'chair');
 
     el.style.setProperty('--jx', shown.accent);
-    el.classList.toggle('is-open', !!state.judgeDraftOpen);
+    el.classList.toggle('is-live', live);
+    el.classList.toggle('is-open', live || !!state.judgeDraftOpen);
     el.classList.toggle('is-agreed', !!locked);
 
     var stateChip = locked
@@ -16738,7 +16760,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (spectatorJudge) spectatorJudge.textContent = 'Judge: ' + headline;
     var subline = locked
       ? shown.tag
-      : 'Both sides have to land on the same paradigm before the round can start. Untouched means you both take Standard chair.';
+      : 'Both sides must pick the same judge type before the round can start. Reset returns both sides to Standard.';
 
     // Initials only once a judge is actually agreed. While the benches
     // differ, a two-letter mark for one side's nomination reads like a
@@ -16749,7 +16771,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '<div class="jd-head">' +
         '<div class="jd-seal">' + seal + '</div>' +
         '<div class="jd-head-main">' +
-          '<div class="jd-eyebrow">Judge paradigm</div>' +
+          '<div class="jd-eyebrow">Judge type</div>' +
           '<div class="jd-name">' + escHtml(headline) + '</div>' +
           '<div class="jd-tag">' + escHtml(subline) + '</div>' +
         '</div>' +
@@ -16757,14 +16779,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<span class="jd-chev">&#9660;</span>' +
       '</div>';
 
-    var aj = (typeof assignedJudge === 'function') ? assignedJudge() : null;
     var note = live
       ? (iAmDebater
-          ? (aj
-              ? 'This round drew ' + aj.name + ' from the bench. Happy with the draw? Do nothing. Or agree on a card below with your opponent to override it; a lens binds when you both pick the same one, and it shifts what the ballot emphasises, never who wins.'
-              : 'Pick the lens you want judging this round. It binds when your opponent picks the same one, and it can shift what the ballot emphasises, never who wins.')
-          : 'The debaters are agreeing on a paradigm. It binds only when both pick the same card.')
-      : 'Locked in for this round. The ballot reads through this lens.';
+          ? 'Choose Casual viewer, Standard, or Experienced. The type locks when your opponent picks the same option.'
+          : 'The debaters are agreeing on one of three judge types.')
+      : 'Locked in for this round. The ballot uses this judge type.';
 
     var cards = JUDGE_ARCHETYPES.map(function(a){
       var mine = side && picks[side] === a.key;
@@ -16793,13 +16812,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var actions = '';
     if (live && iAmDebater){
       var hint = locked
-        ? 'Agreed on ' + shown.name + '. Re-draft if either of you wants to reopen it.'
+        ? 'Agreed on ' + shown.name + '. Either side can reset to Standard.'
         : (picks[theirSide] && picks[theirSide] !== 'chair'
             ? 'Your opponent is on ' + judgeArchetype(picks[theirSide]).name + '. Tap that card to agree, or hold your pick.'
-            : 'Nothing binds until you both pick the same card.');
+            : 'Pick the same type to lock it for the round.');
       actions =
         '<div class="jd-actions">' +
-          '<button type="button" class="jd-mini" id="jdRedraft">Re-draft</button>' +
+          '<button type="button" class="jd-mini" id="jdRedraft">Reset to Standard</button>' +
           '<span class="jd-hint">' + escHtml(hint) + '</span>' +
         '</div>';
     }
@@ -16809,52 +16828,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<p class="jd-note">' + escHtml(note) + '</p>' +
         '<div class="jd-grid">' + cards + '</div>' +
         actions +
-        ballotLengthHtml() +
+        (live ? '' : ballotLengthHtml()) +
       '</div>';
   }
 
-  // Agreed archetype as ballot-prompt lines. Kept separate from
-  // paradigmBallotLines() so a /spar-consented note and a drafted
-  // archetype can both apply without either overwriting the other.
-  // Same guard either way: emphasis yes, verdict no.
-  // ── the assigned judge ─────────────────────────────────────────
-  // Every round is heard by a judge drawn from the roster, seeded on
-  // the room id: both clients (and the server ballot path) derive the
-  // same judge independently, and neither debater can reroll it. An
-  // agreed non-chair lens outranks the draw, because two people who
-  // both chose a paradigm outrank a random assignment. Same walls as
-  // every lens: emphasis only, never the verdict.
-  function assignedJudge(){
-    if (!window.JudgeRoster || !state.room) return null;
-    return JudgeRoster.draw(state.room);
-  }
-  function assignedJudgeBallotLines(){
-    var key = judgeLockKey();
-    if (key && key !== 'chair') return [];   // agreed lens outranks the draw
-    var j = assignedJudge();
-    if (!j || !j.lens) return [];
-    return [
-      "",
-      "ASSIGNED JUDGE PARADIGM (\"" + j.name + "\") — assigned to this round the way a tab room assigns a judge; neither debater chose it, and both were shown it before the round started. Apply it as your evaluative posture ON TOP of the adjudication method above. It may shift emphasis: what you resolve first, how hard you punish a drop, how much rope you give jargon or speed, what earns speaker points. It may NOT override honest adjudication. If it ever conflicts with deciding the round on the flow, the flow wins. It may sharpen a burden both sides accepted; it may NOT invent a new one, and it may NEVER be read to require something a debater had no notice of before the round. Where the paradigm is ambiguous, read it the way that does not cost anyone the round. Name the judge once in the RFD so the debaters can see who heard the round.",
-      "PARADIGM: " + j.lens,
-    ];
-  }
-  // The intro card, once per round, on whichever transition put this
-  // client into the live round. Skipped when both benches agreed a
-  // lens; the agreed-lens reveal already played for that case.
-  function maybePlayAssignedJudgeIntro(){
-    if (state.judgeIntroShown) return;
-    var key = judgeLockKey();
-    if (key && key !== 'chair') { state.judgeIntroShown = true; return; }
-    var j = assignedJudge();
-    if (!j || !window.JudgeIntro) return;
-    state.judgeIntroShown = true;
-    JudgeIntro.show(j, {
-      eyebrow: isSpectator() ? 'Judging this round' : 'Your judge this round',
-      foot: 'Assigned by the tab room. A different judge hears every round.',
-      autoMs: 12000,
-    });
-  }
+  // The one agreed judge type as ballot-prompt lines. The server ballot
+  // path reads the same judgePicks map through lib/judge-levels.mjs.
   function judgeLensBallotLines(){
     var key = judgeLockKey();
     if (!key || key === 'chair') return [];
@@ -17840,7 +17819,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       try { pmInitSpectator(); pmLockCheck(); } catch(e){}
       try { svInitSpectator(); } catch(e){}
       startPrepBanner();
-      try { maybePlayAssignedJudgeIntro(); } catch(e){}
     }
 
     // Speech reconciliation
@@ -18136,6 +18114,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       status: 'round',
       speechIdx: 0,
       prepMin: state.prepMin || 0,
+      judgePicks: state.judgePicks || { pro: 'chair', con: 'chair' },
       // Spar rounds are watchable by default; the /spar "Watch a live
       // round" panel lists public rounds. A debater can flip this to
       // drop the round from that list (go-private toggle, follow-up).

@@ -884,6 +884,16 @@ h1 em{color:var(--accent);font-style:normal}
 [data-theme="light"] .setup-head .setup-flag{color:#b91c1c;border-color:rgba(185,28,28,.45)}
 @keyframes setupFlagPulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.setup-head .setup-flag::before{animation:none}}
+.setup-judge-top{
+  margin:0 0 10px;padding:12px 13px;border:1px solid rgba(239,68,68,.24);
+  border-radius:12px;background:rgba(239,68,68,.045);
+}
+.setup-judge-top .paradigm-row label{color:var(--text);font-size:.78rem}
+.setup-judge-top .jb-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.setup-judge-top .jb-strip-btn{min-width:0;width:100%}
+@media(max-width:520px){
+  .setup-judge-top .jb-strip{grid-template-columns:1fr}
+}
 /* Numbered accordion steps (2026-08-18 simplification). Three <details>
    rows, collapsed by default; the summary line carries the current pick
    so a closed card still tells the truth about what is set. */
@@ -2719,10 +2729,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   try { storedFormat = localStorage.getItem('debateos-spar-format') || ''; } catch(e){}
   var formatParam = (qs.get('format') || storedFormat || 'quick').toLowerCase();
   if (FORMATS.indexOf(formatParam) < 0) formatParam = 'quick';
-  // Whether the "Judge & language" step starts open. Collapsed by
-  // default (2026-08-18 accordion pass); a saved judge note or a
-  // non-English language forces it open so a tuned setting is never
-  // hidden behind a closed row.
+  // Whether the language step starts open. Judge type is no longer in
+  // this disclosure; the three choices stay visible at the top of the
+  // setup card.
   var setupOpen = false;
   // Summary-row value only; kept to the bare label so it never
   // ellipsizes on a 375px viewport (measured: suffixes clipped there).
@@ -2744,10 +2753,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // if the opponent independently lands on the same card.
   var storedLens = 'chair';
   try { storedLens = localStorage.getItem('debateos-judge-lens') || 'chair'; } catch(e){}
+  if (['lay','chair','tech'].indexOf(storedLens) < 0) storedLens = 'chair';
 
+  // Retire the old free-form judge note. It was a second judge setting
+  // beside the selectable type and could silently survive in storage.
+  // A live round now has exactly one judge value: lay, chair, or tech.
   var storedParadigm = '';
-  try { storedParadigm = cleanParadigm(localStorage.getItem('debateos-spar-paradigm')); } catch(e){}
-  if (storedParadigm) setupOpen = true; // a saved judge note keeps its step open
+  try { localStorage.removeItem('debateos-spar-paradigm'); } catch(e){}
 
   // Debating language. Shares the `debateos-ai-lang` key with
   // /live-round's picker, so a choice made here is what the round's mic
@@ -3106,26 +3118,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
     return run;
   }
-
-  // Judge presets for the setup card. Each fills the judge-instructions note
-  // with a canonical archetype in the register real Tabroom paradigms use
-  // (lay/flay/flow is the spectrum pools actually describe judges with).
-  // Presets are plain note text, capped at PARADIGM_MAX, so the opponent
-  // consent card and the ballot guard treat them like any hand-typed note.
-  var JUDGE_PRESETS = [
-    { key: 'lay', label: 'Lay judge',
-      text: 'Judge as a lay judge: plain English only, no debate jargon. Reward the clearer story and explained evidence, not speed or drops.' },
-    { key: 'flay', label: 'Flay judge',
-      text: 'Judge as a flay judge: flow the round but cap speed at conversational. Drops only count when their importance is explained plainly. Weigh scope and severity simply.' },
-    { key: 'flow', label: 'Flow judge',
-      text: 'Judge strictly on the flow, tech over truth. Drops are conceded. Reward explicit comparative weighing and clean extensions; punish offense that skips a speech.' },
-    { key: 'policymaker', label: 'Policymaker',
-      text: 'Judge as a policymaker: does the plan actually work? Weigh solvency mechanics, cost-benefit, and real-world precedent over abstract theory.' },
-    { key: 'truth', label: 'Truth > tech',
-      text: 'Truth over tech: a technically won but factually wrong argument still loses. Overclaimed evidence gets discounted even when dropped. Reward honest, defensible claims.' },
-    { key: 'k', label: 'K-friendly',
-      text: 'Open to kritiks and framework-level argument. Method and representations matter; reward links drawn from what the opponent actually said.' }
-  ];
 
   // ── State ────────────────────────────────────────────
   var state = {
@@ -4121,21 +4113,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // The local player-build remains visible as a compact loadout.
       // Change opens the full-screen arcade flow without leaving the queue.
       matchProfileCardHtml() +
-      // Round setup — pick the style you propose, and optionally tell
-      // the judge how to evaluate. These ride on the queue doc and only
-      // become round terms after the opponent reads + accepts them on
-      // the consent card.
-      //
-      // Reorganized 2026-08-18 (the founder: the open card was overwhelming).
-      // Everything now lives in three numbered <details> steps, all
-      // collapsed by default, each summary row naming the current pick.
-      // The queue works untouched; opening a step is optional tuning.
-      // The lens strip moved INSIDE step 2 — it read as a wall of faces
-      // above the fold. Every control keeps its id, so the matchmaking
-      // wiring below and judge-draft.js hooks are unchanged.
+      // Round setup. Judge type is a primary round term, so its three
+      // choices stay visible. Format, language, and the read-only model
+      // council remain secondary disclosures.
       '<div class="setup-card arc" id="setupCard">' +
         '<div class="setup-head">Round setup<span class="setup-flag">Interruptions scored</span>' +
-          '<span>Defaults are fine, you can just wait for your match. Anything you change, your opponent approves before the round starts.</span></div>' +
+          '<span>Choose how experienced the judge should be. Your opponent approves the same type before Speech 1.</span></div>' +
+        '<div class="setup-judge-top">' +
+          '<div class="paradigm-row">' +
+            '<label>Judge type <span class="opt">both sides agree before the round</span></label>' +
+            '<div id="lensStrip"></div>' +
+          '</div>' +
+        '</div>' +
         // Step 1 — debate style. Cards keep `data-fmt` and the
         // `styleChips` id so the existing delegated handler and
         // switchFormat's `.on` toggle drive them unchanged.
@@ -4155,39 +4144,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '</div>' +
           '</div>' +
         '</details>' +
-        // Step 2 — how the round is judged + spoken. The lens strip
-        // (live-round paradigms, one judge in the room) and the judge
-        // note (rides the consent handshake) are both judge tuning, so
-        // they share the step. Open when a saved note or non-English
-        // language means the user already tuned something here.
+        // Step 2 — spoken language only. Judge type stays above this
+        // disclosure so it cannot be missed.
         '<details class="setup-step" id="setupStepJudge"' + (setupOpen ? ' open' : '') + '>' +
-          '<summary><span class="setup-step-n">2</span><span class="setup-step-t">Judge &amp; language</span>' +
-            '<span class="setup-step-v" id="setupJudgeValue">Optional</span>' +
+          '<summary><span class="setup-step-n">2</span><span class="setup-step-t">Language</span>' +
+            '<span class="setup-step-v" id="setupJudgeValue">English</span>' +
             '<span class="setup-step-chev" aria-hidden="true">▾</span></summary>' +
           '<div class="setup-step-body">' +
-          '<div class="paradigm-row">' +
-            '<label>Judge lens <span class="opt">how the one judge in your round reads it</span></label>' +
-            '<div id="lensStrip"></div>' +
-          '</div>' +
-          '<div class="paradigm-row">' +
-            '<label for="paradigmInput">Judge note <span class="opt">optional · your opponent reads it before accepting</span></label>' +
-            // Judge presets: one tap fills the note with a real-pool archetype
-            // (lay/flay/flow etc., language mirrored from practice.html's
-            // JUDGE_PARADIGMS, distilled from live Tabroom paradigms). The
-            // preset is just TEXT in the same note field, so the consent
-            // handshake and the live-round ballot guard apply unchanged and
-            // the opponent reads the exact lens they are agreeing to.
-            '<div class="arc-grid" data-dense id="judgePresets" data-arc-menu="spar-lens" aria-label="Judge note preset">' +
-            JUDGE_PRESETS.map(function(p){
-              return '<button type="button" class="arc-opt judge-preset-chip" data-arc-opt data-preset="' + p.key + '"' +
-                ' data-arc-value="' + p.key + '" data-arc-label="' + escHtml(p.label) + '">' +
-                '<span class="arc-opt-name">' + escHtml(p.label) + '</span>' +
-                '</button>';
-            }).join('') +
-            '</div>' +
-            '<textarea id="paradigmInput" maxlength="' + PARADIGM_MAX + '" rows="2" placeholder="Or write your own. e.g. Weigh probability before magnitude. Punish drops hard."></textarea>' +
-            '<div class="paradigm-meta"><span id="paradigmSaved"></span><span id="paradigmCount">0/' + PARADIGM_MAX + '</span></div>' +
-          '</div>' +
           '<div class="paradigm-row">' +
             '<label for="sparLangSelect">Debating in <span class="opt">your opponent reads live-translated captions</span></label>' +
             '<select id="sparLangSelect" class="spar-lang-select">' +
@@ -4522,23 +4485,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       } catch (e) {}
     })(0);
 
-    // Step-2 summary value: name what is actually tuned (preset label,
-    // a custom note, a non-English language) so the collapsed row is
-    // honest; 'Optional' when nothing is.
+    // Step-2 summary value names the spoken language. Judge type is
+    // already visible above it and never gets summarized behind a row.
     function syncJudgeStepValue(){
       var el = document.getElementById('setupJudgeValue');
       if (!el) return;
-      var parts = [];
-      var cur = cleanParadigm(state.paradigm);
-      if (cur){
-        var label = 'Custom note';
-        for (var i = 0; i < JUDGE_PRESETS.length; i++) if (JUDGE_PRESETS[i].text === cur) label = JUDGE_PRESETS[i].label;
-        parts.push(label);
+      el.textContent = 'English';
+      for (var i = 0; i < SPAR_LANGS.length; i++){
+        if (SPAR_LANGS[i][0] === state.lang) el.textContent = SPAR_LANGS[i][1];
       }
-      if (state.lang !== 'en'){
-        for (var j = 0; j < SPAR_LANGS.length; j++) if (SPAR_LANGS[j][0] === state.lang) parts.push(SPAR_LANGS[j][1]);
-      }
-      el.textContent = parts.length ? parts.join(' · ') : 'Optional';
     }
     syncJudgeStepValue();
     var chips = document.getElementById('styleChips');
@@ -4548,63 +4503,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (b) switchFormat(b.getAttribute('data-fmt'));
       });
     }
-    var ta = document.getElementById('paradigmInput');
-    if (!ta) return;
-    ta.value = state.paradigm || '';
-    var count = document.getElementById('paradigmCount');
-    var saved = document.getElementById('paradigmSaved');
-    if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
-    // Preset chips light up when the note matches their text exactly; any
-    // hand edit dims them (the note is the truth, chips are shortcuts).
-    var presetWrap = document.getElementById('judgePresets');
-    function syncPresetChips(){
-      if (!presetWrap) return;
-      var cur = cleanParadigm(ta.value);
-      Array.prototype.forEach.call(presetWrap.querySelectorAll('[data-preset]'), function(b){
-        var p = null;
-        for (var i = 0; i < JUDGE_PRESETS.length; i++) if (JUDGE_PRESETS[i].key === b.getAttribute('data-preset')) p = JUDGE_PRESETS[i];
-        b.classList.toggle('on', !!p && cur === p.text);
-      });
-    }
-    syncPresetChips();
-    if (presetWrap){
-      presetWrap.addEventListener('click', function(ev){
-        var b = ev.target && ev.target.closest ? ev.target.closest('[data-preset]') : null;
-        if (!b) return;
-        var p = null;
-        for (var i = 0; i < JUDGE_PRESETS.length; i++) if (JUDGE_PRESETS[i].key === b.getAttribute('data-preset')) p = JUDGE_PRESETS[i];
-        if (!p) return;
-        // Tap again to clear; tap a different chip to swap.
-        ta.value = (cleanParadigm(ta.value) === p.text) ? '' : p.text;
-        try { gtag('event', 'spar_judge_preset', { preset: p.key, format: formatParam }); } catch(e){}
-        ta.dispatchEvent(new Event('input'));
-      });
-    }
-    var deb = null;
-    function save(){
-      var v = cleanParadigm(ta.value);
-      if (v === state.paradigm) return;
-      state.paradigm = v;
-      try { localStorage.setItem('debateos-spar-paradigm', v); } catch(e){}
-      try { gtag('event', 'spar_paradigm_set', { format: formatParam, len: v.length }); } catch(e){}
-      if (state.queueDocRef){
-        state.queueDocRef.update({ paradigm: v }).then(function(){
-          if (saved) saved.textContent = v ? 'Saved. Your opponent reads this before accepting.' : 'Cleared.';
-        }).catch(function(){});
-      } else if (saved){
-        saved.textContent = v ? 'Saved.' : '';
-      }
-      syncJudgeStepValue();
-    }
-    ta.addEventListener('input', function(){
-      if (count) count.textContent = ta.value.length + '/' + PARADIGM_MAX;
-      if (saved) saved.textContent = '';
-      syncPresetChips();
-      if (deb) clearTimeout(deb);
-      deb = setTimeout(save, 600);
-    });
-    ta.addEventListener('blur', save);
-
     // Debating-language select. Persists to the shared key /live-round
     // reads, updates the queue doc live so the matcher (and a future
     // language-aware pairing pass) can see it, and re-tints when the
