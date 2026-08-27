@@ -374,7 +374,11 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The
   signed-out `/spar` gate deliberately displays "12 live" as the founder's
-  conversion call; operational queue surfaces keep using real counts.
+  conversion call; operational queue surfaces keep using real counts. Its
+  surrounding cast is the eight consented real stills plus
+  `fictional-sydney.jpg` and `fictional-sofia.jpg`, which Aidan supplied and
+  confirmed are fake on 2026-08-27. Those two are atmosphere for this gate,
+  not records of real rounds and not additions to the ROUNDS board cast.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",
