@@ -60,6 +60,21 @@ import { FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 // Resend outage) the run falls back to the last domain known to work rather
 // than refusing, because a lookup hiccup should not be a new way for the
 // button to stop. The response says which source was used.
+//
+// 2026-08-27: this fired for real. EMAIL_FROM is
+// `Debatable <hello@itsdebatable.com>` and itsdebatable.com is NOT in the list
+// Resend reports verified, so the card refused rather than 403ing 340 times
+// into an error tally nobody reads. The DNS is published (DKIM, SPF and the
+// feedback MX all resolve on itsdebatable.com), so the domain is added to
+// Resend and simply not verified yet; finishing that in the Resend dashboard
+// is the real fix and needs no deploy. Until then OPEN_ANNOUNCE_FROM is set in
+// the Netlify production context to aidan@debateai.com, the address the
+// August 19 run sent 210 emails from with zero errors.
+//
+// NOTE for whoever hits this next: EMAIL_FROM is the default for every OTHER
+// sender in lib/email.mjs, and none of them carry this guard. While it points
+// at an unverified domain they are all silently 403ing, which is exactly how
+// Spar Night sent zero emails from 2026-07-22 to 08-05.
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Debatable <hello@debateai.com>';
