@@ -173,6 +173,8 @@ test('admin live totals use the same burst quarantine', () => {
 
 test('edge filter remains narrow and configured in both Netlify layouts', () => {
   assert.doesNotMatch(edgeFilter, /googlebot|bingbot/i);
+  assert.match(edgeFilter, /method: 'GET'/);
+  assert.doesNotMatch(edgeFilter, /method:\s*\[[^\]]*HEAD/);
   assert.match(appNetlify, /edge_functions = "netlify\/edge-functions"/);
   assert.match(rootNetlify, /edge_functions = "app\/netlify\/edge-functions"/);
 });

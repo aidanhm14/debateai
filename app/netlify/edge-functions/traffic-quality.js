@@ -46,5 +46,7 @@ export default function trafficQuality(request) {
 
 export const config = {
   path: '/*',
-  method: ['GET', 'HEAD'],
+  // Netlify's Edge Functions manifest currently accepts GET but not HEAD.
+  // HEAD responses are not HTML pageviews, so only GET needs this boundary.
+  method: 'GET',
 };
