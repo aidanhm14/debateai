@@ -153,7 +153,7 @@
     });
     rail.appendChild(muteBtn);
 
-    var skipBtn = el('button', 'afl-btn', 'Skip');
+    var skipBtn = el('button', 'afl-btn', cfg.skipLabel || 'Skip');
     skipBtn.type = 'button';
     rail.appendChild(skipBtn);
 
@@ -177,8 +177,13 @@
 
     steps.forEach(function (step, i) {
       var panel = el('section', 'afl-panel');
+      if (step.className) panel.className += ' ' + step.className;
       var inner = el('div', 'afl-panel-in');
       inner.appendChild(el('p', 'afl-step', 'Step ' + (i + 1) + ' of ' + steps.length));
+      if (step.visual && step.visual.nodeType === 1) {
+        step.visual.classList.add('afl-visual');
+        inner.appendChild(step.visual);
+      }
       inner.appendChild(el('h2', 'afl-q', step.q));
       if (step.hint) inner.appendChild(el('p', 'afl-hint', step.hint));
 
@@ -188,6 +193,7 @@
 
       step.options.forEach(function (opt) {
         var b = el('button', 'afl-opt');
+        if (opt.className) b.className += ' ' + opt.className;
         b.type = 'button';
         b.setAttribute('role', 'radio');
         b.setAttribute('aria-checked', answers[step.key] === opt.value ? 'true' : 'false');
@@ -221,13 +227,15 @@
 
     /* ── launch panel ── */
     var launch = cfg.launch || {};
-    var lp = el('section', 'afl-panel');
+    var lp = el('section', 'afl-panel afl-panel--launch');
     var lpIn = el('div', 'afl-panel-in');
     lpIn.appendChild(el('p', 'afl-step', 'Ready'));
     lpIn.appendChild(el('h2', 'afl-q', launch.title || 'That is the setup.'));
     if (launch.hint) lpIn.appendChild(el('p', 'afl-hint', launch.hint));
     var summary = el('ul', 'afl-summary');
     lpIn.appendChild(summary);
+    var launchExtra = el('div', 'afl-launch-extra');
+    lpIn.appendChild(launchExtra);
     var goBtn = el('button', 'afl-go', launch.cta || 'Start the round');
     goBtn.type = 'button';
     goBtn.addEventListener('click', function () {
@@ -248,13 +256,19 @@
     function paintSummary() {
       summary.innerHTML = '';
       steps.forEach(function (step) {
+        if (step.summary === false) return;
         var picked = null;
         step.options.forEach(function (o) { if (o.value === answers[step.key]) picked = o; });
         var li = el('li');
         li.appendChild(el('span', null, step.summaryLabel || step.q));
-        li.appendChild(el('b', null, picked ? picked.label : String(answers[step.key])));
+        li.appendChild(el('b', null, picked ? (picked.summaryLabel || picked.label) : String(answers[step.key])));
         summary.appendChild(li);
       });
+      launchExtra.innerHTML = '';
+      if (typeof launch.extra === 'function') {
+        var extra = launch.extra(answers);
+        if (extra && extra.nodeType === 1) launchExtra.appendChild(extra);
+      }
     }
 
     var at = 0;
