@@ -448,6 +448,25 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .mkt-q{font-size:1.08rem;font-weight:700;line-height:1.3;margin-bottom:12px}
   .mkt-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--faint);margin-top:12px;font-family:var(--mono)}
   .mkt-meta b{color:var(--dim);font-weight:700}
+  /* Price history is recorded by the market function after every accepted
+     bet. Volatility is the average absolute move between those prices, so
+     this is a reading of the real pool rather than a decorative sparkline. */
+  .vol{margin:12px 0 10px;padding:10px 11px 8px;border:1px solid var(--bd);border-radius:10px;background:var(--panel2)}
+  .vol-head,.vol-foot{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .vol-title{font-size:.7rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--tx)}
+  .vol-stat{font-family:var(--mono);font-size:.64rem;color:var(--faint)}
+  .vol-stat b{color:var(--pro-d);font-size:.74rem}
+  .vol-plot{position:relative;margin-top:7px;padding-left:31px}
+  .vol-y{position:absolute;left:0;top:0;bottom:0;width:27px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;font-family:var(--mono);font-size:.54rem;color:var(--faint);line-height:1}
+  .vol-chart{display:block;width:100%;height:112px;border:1px solid var(--bd);border-radius:7px;background:var(--panel);overflow:visible}
+  .vol-chart .vg{stroke:var(--bd);stroke-width:1;vector-effect:non-scaling-stroke}
+  .vol-chart .vmid{stroke:var(--bd2);stroke-dasharray:4 5}
+  .vol-chart .varea{fill:rgba(21,128,61,.08)}
+  .vol-chart .vline{fill:none;stroke:var(--pro);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .vol-chart .vdot{fill:var(--panel);stroke:var(--pro);stroke-width:3;vector-effect:non-scaling-stroke}
+  .vol-foot{padding-left:31px;margin-top:5px;font-family:var(--mono);font-size:.57rem;color:var(--faint)}
+  .vol-foot strong{color:var(--pro-d)}
+  @media(max-width:560px){.vol-chart{height:92px}.vol-stat{flex-basis:100%}}
   .outcome{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .out-btn{flex:1;text-align:left;background:var(--panel2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--tx);font-family:inherit;position:relative;overflow:hidden;transition:.13s}
   .out-btn:hover{border-color:var(--bd2)}
@@ -1462,6 +1481,40 @@ body.has-beta-strip{padding-top:84px}
   function pct(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); if(tot<=0) return 50; return Math.round(((side==='pro'?market.poolPro:market.poolCon)/tot)*100); }
   function multi(market, side){ var tot=(market.poolPro||0)+(market.poolCon||0); var p=side==='pro'?market.poolPro:market.poolCon; if(!p) return null; return (tot/p); }
 
+  function marketVolatility(m){
+    var raw=Array.isArray(m.priceHistory)?m.priceHistory:[];
+    var points=raw.map(function(point){ return Number(point&&point.proPct); }).filter(function(n){ return Number.isFinite(n)&&n>=0&&n<=100; });
+    var recorded=points.length;
+    if(!recorded) points=[pct(m,'pro')];
+    var moves=[];
+    for(var i=1;i<points.length;i++) moves.push(Math.abs(points[i]-points[i-1]));
+    var avg=moves.length?moves.reduce(function(sum,n){return sum+n;},0)/moves.length:null;
+    var current=points[points.length-1];
+    var w=640,h=132,pad=10,spanX=w-(pad*2),spanY=h-(pad*2);
+    var coords=points.map(function(n,index){
+      var x=points.length===1?w/2:pad+(index/(points.length-1))*spanX;
+      var y=pad+((100-n)/100)*spanY;
+      return {x:x,y:y};
+    });
+    var line=coords.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
+    var area=line+' '+coords[coords.length-1].x.toFixed(1)+','+(h-pad)+' '+coords[0].x.toFixed(1)+','+(h-pad);
+    var aria='Market volatility. Pro backing is '+Math.round(current)+' percent.'+(avg!=null?' Average absolute move is '+avg.toFixed(1)+' percentage points per bet.':' One recorded price so far.');
+    var stat=avg!=null?'<span class="vol-stat"><b>'+avg.toFixed(1)+' pts</b> average move per bet</span>':'<span class="vol-stat">Waiting for two recorded prices</span>';
+    var start=m.betCount>0&&recorded<2?'Tracking starts with the next bet':'Market open';
+    return '<div class="vol">'+
+      '<div class="vol-head"><span class="vol-title">Market volatility</span>'+stat+'</div>'+
+      '<div class="vol-plot"><div class="vol-y" aria-hidden="true"><span>100</span><span>50</span><span>0</span></div>'+
+      '<svg class="vol-chart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" role="img" aria-label="'+esc(aria)+'">'+
+        '<line class="vg" x1="'+pad+'" y1="'+pad+'" x2="'+(w-pad)+'" y2="'+pad+'"></line>'+
+        '<line class="vg vmid" x1="'+pad+'" y1="'+(h/2)+'" x2="'+(w-pad)+'" y2="'+(h/2)+'"></line>'+
+        '<line class="vg" x1="'+pad+'" y1="'+(h-pad)+'" x2="'+(w-pad)+'" y2="'+(h-pad)+'"></line>'+
+        (coords.length>1?'<polygon class="varea" points="'+area+'"></polygon><polyline class="vline" points="'+line+'"></polyline>':'')+
+        '<circle class="vdot" cx="'+coords[coords.length-1].x.toFixed(1)+'" cy="'+coords[coords.length-1].y.toFixed(1)+'" r="5"></circle>'+
+      '</svg></div>'+
+      '<div class="vol-foot"><span>'+start+'</span><span><strong>Pro '+Math.round(current)+'%</strong> now</span></div>'+
+    '</div>';
+  }
+
   // Hot/cold. A market opens with both pools at zero (the 100-a-side house
   // seed went with the AI board on 2026-08-25), so a side's distance from
   // 50% IS how far real money has moved it since it opened. That makes the
@@ -1508,6 +1561,7 @@ body.has-beta-strip{padding-top:84px}
       sub+
       '<div class="outcome">'+outcomeBtn(m,'pro')+'</div>'+
       '<div class="outcome">'+outcomeBtn(m,'con')+'</div>'+
+      marketVolatility(m)+
       (locked ? '' : bet) + pos +
       // Countdown can hit zero while status is still 'open' (the resolver
       // runs on a cron, so there is a gap). Without this branch the meta

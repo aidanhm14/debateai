@@ -57,6 +57,13 @@ async function ensureBalance(db, uid) {
 }
 
 function ms(v){ return v ? (v.toMillis ? v.toMillis() : v) : null; }
+function publicPriceHistory(m) {
+  if (!m || !Array.isArray(m.priceHistory)) return [];
+  return m.priceHistory.slice(-60).map((point) => ({
+    at: Math.max(0, Number(point && point.at) || 0),
+    proPct: Math.max(0, Math.min(100, Number(point && point.proPct) || 0)),
+  })).filter((point) => point.at > 0);
+}
 function publicMarket(m, id) {
   if (!m) return null;
   return {
@@ -74,6 +81,7 @@ function publicMarket(m, id) {
     poolPro: m.poolPro || 0,
     poolCon: m.poolCon || 0,
     betCount: m.betCount || 0,
+    priceHistory: publicPriceHistory(m),
     verdict: m.verdict || null,
     rfd: m.rfd || '',
     settledAt: ms(m.settledAt),
@@ -176,7 +184,12 @@ export default async (request, context) => {
       motion: String(body.motion || '').slice(0, 300),
       format: String(body.format || '').slice(0, 40),
       status: 'open', lockAt, createdAt: FieldValue.serverTimestamp(),
-      poolPro: 0, poolCon: 0, betCount: 0, verdict: null,
+      poolPro: 0, poolCon: 0, betCount: 0,
+      // The client draws market volatility from this server-owned trace.
+      // One point per accepted bet makes the graph identical for everyone;
+      // keeping only the last 60 bounds the document and response size.
+      priceHistory: [{ at: Date.now(), proPct: 50 }],
+      verdict: null,
     };
     await ref.set(doc);
     return jsonResponse({ ok: true, market: publicMarket(doc, room) }, 200, request);
@@ -260,11 +273,21 @@ export default async (request, context) => {
         // not on 0.
         const lbRef = db.collection('predict_leaderboard').doc(uid);
         const lbSnap = await t.get(lbRef);
+        const nextPoolPro = (md.poolPro || 0) + (pick === 'pro' ? stake : 0);
+        const nextPoolCon = (md.poolCon || 0) + (pick === 'con' ? stake : 0);
+        const nextTotal = nextPoolPro + nextPoolCon;
+        const nextProPct = nextTotal > 0 ? Math.round((nextPoolPro / nextTotal) * 1000) / 10 : 50;
+        const history = Array.isArray(md.priceHistory) ? md.priceHistory.slice(-59) : [];
+        // Markets created before this field shipped cannot be reconstructed
+        // from aggregate pools. Start their trace now instead of inventing a
+        // path for old bets that we never recorded.
+        history.push({ at: Date.now(), proPct: nextProPct });
         t.update(balRef, { balance: FieldValue.increment(-stake), updatedAt: FieldValue.serverTimestamp() });
         t.set(betRef, { uid, name, pick, stake, createdAt: FieldValue.serverTimestamp() });
         t.update(mRef, {
           [pick === 'pro' ? 'poolPro' : 'poolCon']: FieldValue.increment(stake),
           betCount: FieldValue.increment(1),
+          priceHistory: history,
         });
         if (!lbSnap.exists) t.set(lbRef, { uid, name, rating: 1000, bets: 0, wins: 0, net: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
         return { balance: balance - stake };
