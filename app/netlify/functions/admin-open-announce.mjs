@@ -73,13 +73,16 @@ const SUBJECT = `The Debatable Open - Free Tournament on the 29th - $100 for fir
 const SUBJECT_COMPED = SUBJECT;
 const SUBJECT_PAID   = SUBJECT;
 
-// The stamp for THIS send. The 2026-08-19 run wrote openAnnounceSentAt on 210
-// of the 334 profiles, and the skip that makes a run resumable does not know
-// one announcement from the next: reusing that field would have silently
-// dropped two thirds of the list from a second, different email. A new send
-// gets a new field. openAnnounceSentAt stays untouched as the record of who
-// got the August 19 one.
-const STAMP = 'openReminderSentAt';
+// The stamp for THIS send, and the name is date-scoped on purpose. The skip
+// that makes a run resumable cannot tell one announcement from another, so a
+// reused field does not error, it silently drops whoever the earlier send
+// reached and reports success. Measured across the 343 accounts before
+// picking: openAnnounceSentAt 210, openReminderSentAt 208, openRallySentAt
+// 259, updateAug18SentAt 210, sparNightSentAt 280. The obvious name
+// (openReminderSentAt) was already taken by admin-open-reminder.mjs and would
+// have cut this list from 329 to 121 without saying so. Check the live field
+// counts before naming the next one; do not reason from the file you are in.
+const STAMP = 'openAug27SentAt';
 
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, one ask, no
