@@ -48,6 +48,9 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      if it ever fails to load, because a missing helper must never be the
      reason a finished round gets no ballot. -->
 <script src="/js/judge-options.js"></script>
+<!-- Background briefs retry transient model failures once, then provide a
+     neutral local context frame so setup never ends in a dead error state. -->
+<script src="/js/motion-brief.js"></script>
 <script defer src="/js/track.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
@@ -14395,22 +14398,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       var rb = $('rmbBrief');
       if (rb){ rb.hidden = false; rb.textContent = 'Writing a quick brief…'; }
       if (btn){ btn.disabled = true; }
-      var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
-      fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:400, stream:false, system:sys, messages:[{role:'user',content:'Motion: '+motion}], _feature:'live-round-brief' })
-      }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
-        var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
-        text = (text||'').trim();
-        if (text){
-          state.background = text;
-          if (rb) rb.textContent = text;
-          var body = $('motionBriefBody'); if (body && document.activeElement !== body) body.textContent = text;
-          var brief = $('motionBrief'); if (brief) brief.hidden = false;
-          var ref = (typeof getRoundDocRef === 'function') ? getRoundDocRef() : null;
-          if (ref) ref.set({ motion: state.motion||'', background: state.background||'' }, {merge:true}).catch(function(){});
-        } else if (rb){ rb.textContent = 'Could not write a brief. You can debate the motion as-is.'; }
-      }).catch(function(){ if (rb) rb.textContent = 'Could not write a brief. You can debate the motion as-is.'; })
-        .then(function(){ if (btn) btn.disabled = false; });
+      window.MotionBrief.request(motion).then(function(text){
+        state.background = text;
+        if (rb) rb.textContent = text;
+        var body = $('motionBriefBody'); if (body && document.activeElement !== body) body.textContent = text;
+        var brief = $('motionBrief'); if (brief) brief.hidden = false;
+        var ref = (typeof getRoundDocRef === 'function') ? getRoundDocRef() : null;
+        if (ref) ref.set({ motion: state.motion||'', background: state.background||'' }, {merge:true}).catch(function(){});
+      }).then(function(){ if (btn) btn.disabled = false; });
     }
     var gmBtn = $('rebGenMotion');
     if (gmBtn) gmBtn.addEventListener('click', function(){
@@ -18336,19 +18331,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var brief = $('motionBrief'); var body = $('motionBriefBody');
     if (brief){ brief.hidden = false; brief.classList.add('is-loading'); }
     if (body){ body.textContent = 'Writing a quick brief…'; }
-    var sys = 'You are a debate case-writer. Given a motion, write a SHORT factual background brief of 2 to 3 sentences that a debater could read aloud to set context: what the motion is about, the real-world facts and stakes, and the central tension. Neutral, take no side. No jargon, no preamble, no markdown, no em-dashes.';
-    fetch('/api/claude', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, stream: false, system: sys, messages: [{ role: 'user', content: 'Motion: ' + motion }], _feature: 'live-round-brief' })
-    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
-      var text = (j && j.content && j.content[0] && j.content[0].text) || (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || (j && j.text) || '';
-      text = (text || '').trim();
+    window.MotionBrief.request(motion).then(function(text){
       if (brief) brief.classList.remove('is-loading');
-      if (text){ state.background = text; if (body) body.textContent = text; pushSetupSync(); }
-      else if (body){ body.textContent = 'Could not write a brief, but the motion is set. You can use it as-is.'; }
-    }).catch(function(){
-      if (brief) brief.classList.remove('is-loading');
-      if (body){ body.textContent = 'Could not write a brief, but the motion is set.'; }
+      state.background = text;
+      if (body) body.textContent = text;
+      pushSetupSync();
     }).then(function(){ if (btn){ btn.disabled = false; btn.textContent = 'New resolution + brief'; } });
   }
   function pushSetupSync(){

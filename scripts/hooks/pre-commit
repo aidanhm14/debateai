@@ -317,6 +317,19 @@ if [ -f "$LEVEL_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Live-round brief guard. A provider or network failure must not leave the
+# setup card as a dead error state. Both entry points use one helper that
+# retries transient failures and supplies neutral local context.
+BRIEF_GUARD="$REPO_ROOT/scripts/test-live-round-brief.mjs"
+if [ -f "$BRIEF_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-live-round-brief.mjs >/tmp/live-round-brief-guard.log 2>&1); then
+    echo "[live-round-brief-guard] commit blocked: brief fallback no longer recovers:" >&2
+    tail -30 /tmp/live-round-brief-guard.log >&2
+    echo "[live-round-brief-guard] see scripts/test-live-round-brief.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Debate-brain guard. The stored brain is concatenated into the system
 # prompt of every future round its owner runs, so the allow-list in
