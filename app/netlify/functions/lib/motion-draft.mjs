@@ -1,19 +1,18 @@
 // motion-draft.mjs — the pre-round motion draft. PURE. No I/O, no Firestore.
 //
-// Both debaters get the SAME five motions, strike two each with the other
-// side's strikes hidden, and whatever survives runs. A coin flip splits the
-// two powers that are left: one debater calls the motion when more than one
-// survives, the other calls their side. That split is the whole fairness
-// argument. Last word on the motion is real power, so side choice is what
-// it costs; handing one person both would make the flip decide the round.
+// Both debaters get the SAME server-stamped slate, use its strike allowance
+// with the other side's strikes hidden, and whatever survives runs. Casual
+// defaults are five motions and two strikes each; tournament rooms may stamp
+// another pool and count. A coin flip splits the two powers that are left:
+// one debater calls the motion when more than one survives, the other calls
+// their side. That split is the whole fairness argument. Last word on the
+// motion is real power, so side choice is what it costs; handing one person
+// both would make the flip decide the round.
 //
-// The arithmetic that shapes everything here: two strikes each from five,
-// blind, means the strikes can OVERLAP. Survivors is not always one. It is
-// 1 (no overlap), 2 (one shared strike), or 3 (both shared). It can never be
-// 0, because two sides can only ever remove four distinct motions from five,
-// and it can never be 5, because each side must spend both strikes. So the
-// motion-pick beat is not an edge case bolted on, it is the common case:
-// with random strikes it fires more often than it does not.
+// The arithmetic that shapes everything here: blind strikes can OVERLAP,
+// so survivors is not always one. The casual five/two profile leaves 1, 2
+// or 3; the tournament three/one profile leaves 1 or 2. The allowance is
+// capped below half the slate, so a valid draft always keeps a motion alive.
 //
 // Determinism is load-bearing in two directions. The slate is seeded off the
 // pair so both clients could derive it independently, and the auto-picks a
@@ -28,7 +27,7 @@
 
 import { draftPoolFor } from './draft-motions.mjs';
 
-export const DRAFT_VERSION = 1;
+export const DRAFT_VERSION = 2;
 export const SLATE_SIZE = 5;
 export const STRIKES_PER_SIDE = 2;
 
@@ -90,10 +89,15 @@ export function draftSeed(uidA, uidB, room) {
 
 // ── slate ───────────────────────────────────────────────────────────
 
-export function buildSlate(seed, format) {
-  const pool = draftPoolFor(format);
+export function buildSlate(seed, format, options = {}) {
+  const customPool = Array.isArray(options.pool)
+    ? options.pool.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
+  const pool = customPool.length >= 3 ? customPool : draftPoolFor(format);
+  const want = Math.max(3, Math.min(pool.length, 7,
+    Math.round(Number(options.slateSize) || SLATE_SIZE)));
   const rand = mulberry32(hash32('slate:' + seed));
-  const picked = shuffled(pool, rand).slice(0, SLATE_SIZE);
+  const picked = shuffled(pool, rand).slice(0, want);
   return picked.map((text, i) => ({ id: 'm' + (i + 1), text: String(text) }));
 }
 
@@ -109,12 +113,17 @@ export function assignRoles(seed, uidA, uidB) {
   };
 }
 
-export function createDraft(seed, format, uidA, uidB) {
+export function createDraft(seed, format, uidA, uidB, options = {}) {
   const roles = assignRoles(seed, uidA, uidB);
+  const slate = buildSlate(seed, format, options);
+  const maxStrikes = Math.max(1, Math.floor((slate.length - 1) / 2));
+  const strikesPerSide = Math.max(1, Math.min(maxStrikes,
+    Math.round(Number(options.strikesPerSide) || STRIKES_PER_SIDE)));
   return {
     v: DRAFT_VERSION,
     seed: String(seed),
-    slate: buildSlate(seed, format),
+    slate,
+    strikesPerSide,
     motionUid: roles.motionUid,
     sideUid: roles.sideUid,
     strikes: {},
@@ -132,17 +141,27 @@ function slateIds(draft) {
   return (draft && Array.isArray(draft.slate) ? draft.slate : []).map((m) => m.id);
 }
 
+// Old in-flight drafts carry no per-draft allowance. Derive the legacy two
+// from their five-card slate, while custom tournament drafts carry one.
+export function strikesPerSideFor(draft) {
+  const size = slateIds(draft).length || SLATE_SIZE;
+  const max = Math.max(1, Math.floor((size - 1) / 2));
+  return Math.max(1, Math.min(max,
+    Math.round(Number(draft && draft.strikesPerSide) || STRIKES_PER_SIDE)));
+}
+
 // Client input. Never trust the count, the membership, or the uniqueness:
 // a hand-rolled POST striking four motions would leave one survivor of its
 // own choosing, which is the whole draft handed to whoever opens devtools.
 export function sanitizeStrikes(draft, raw) {
   const valid = new Set(slateIds(draft));
+  const required = strikesPerSideFor(draft);
   const out = [];
   const list = Array.isArray(raw) ? raw : [];
   for (const r of list) {
     const id = String(r || '');
     if (valid.has(id) && out.indexOf(id) === -1) out.push(id);
-    if (out.length >= STRIKES_PER_SIDE) break;
+    if (out.length >= required) break;
   }
   return out;
 }
@@ -152,11 +171,12 @@ export function sanitizeStrikes(draft, raw) {
 // way, and so the two sides do not fill identically (which would leave three
 // survivors every single time a pair both went quiet).
 export function autoStrikes(draft, uid, existing) {
+  const required = strikesPerSideFor(draft);
   const have = sanitizeStrikes(draft, existing);
-  if (have.length >= STRIKES_PER_SIDE) return have;
+  if (have.length >= required) return have;
   const rand = mulberry32(hash32('auto:' + (draft && draft.seed) + ':' + String(uid)));
   const rest = shuffled(slateIds(draft).filter((id) => have.indexOf(id) === -1), rand);
-  return have.concat(rest.slice(0, STRIKES_PER_SIDE - have.length));
+  return have.concat(rest.slice(0, required - have.length));
 }
 
 // What is left. Order follows the slate, not the strike order, so the
@@ -173,7 +193,8 @@ export function survivorsOf(draft) {
 
 export function bothStruck(draft, uidA, uidB) {
   const s = (draft && draft.strikes) || {};
-  const done = (u) => Array.isArray(s[u]) && s[u].length === STRIKES_PER_SIDE;
+  const required = strikesPerSideFor(draft);
+  const done = (u) => Array.isArray(s[u]) && s[u].length === required;
   return done(uidA) && done(uidB);
 }
 
@@ -270,12 +291,14 @@ export function autoResolve(draft) {
 export function publicDraft(draft, phaseAt) {
   const open = draft.phase === 'strike';
   const strikes = draft.strikes || {};
+  const required = strikesPerSideFor(draft);
   const submitted = Object.keys(strikes)
-    .filter((uid) => (strikes[uid] || []).length >= STRIKES_PER_SIDE);
+    .filter((uid) => (strikes[uid] || []).length >= required);
   return {
     v: draft.v,
     phase: draft.phase,
     slate: draft.slate,
+    strikesPerSide: required,
     motionUid: draft.motionUid,
     sideUid: draft.sideUid,
     submitted,

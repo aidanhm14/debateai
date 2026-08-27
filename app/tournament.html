@@ -190,6 +190,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .trow .nm{font-size:.95rem;font-weight:700}
   .trow .meta{font-size:.78rem;color:var(--faint);margin-top:2px}
   .trow .sp{margin-left:auto}
+  .published-motions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin:14px 0 0;padding:0;list-style:none;counter-reset:published-motion}
+  .published-motions li{counter-increment:published-motion;display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-size:.84rem;line-height:1.45}
+  .published-motions li:before{content:counter(published-motion,decimal-leading-zero);color:var(--accent);font-size:.7rem;font-weight:900;padding-top:2px}
+  @media(max-width:720px){.published-motions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -281,6 +285,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <p class="sub" id="tDesc" style="margin-top:10px"></p>
       <div id="entryActions" class="btn-row"></div>
       <div id="myRoom"></div>
+    </section>
+
+    <section class="card hidden" id="motionPoolCard">
+      <h2>The published motions</h2>
+      <p class="sub" id="motionPoolRule"></p>
+      <ol class="published-motions" id="motionPoolList"></ol>
     </section>
 
     <!-- Drop-in queue. Hidden unless the tournament actually runs
@@ -524,6 +534,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       t.hostName ? ('hosted by ' + t.hostName) : '',
     ].filter(Boolean).join(' · ');
 
+    renderMotionPool(t);
+
     renderEntryActions();
     renderNextUp();
     renderDropIn();
@@ -555,6 +567,26 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     renderTab();
     renderBracket();
     renderHost();
+  }
+
+  function renderMotionPool(t){
+    var list=$('motionPoolList');
+    var rule=$('motionPoolRule');
+    var draft=t&&t.motionDraft;
+    var motions=draft&&Array.isArray(draft.motions)?draft.motions:[];
+    show('motionPoolCard',motions.length>0);
+    if(!motions.length)return;
+    list.innerHTML='';
+    motions.forEach(function(text){
+      var li=document.createElement('li');
+      li.textContent=String(text||'');
+      list.appendChild(li);
+    });
+    var slate=Number(draft.slateSize)||3;
+    var strikes=Number(draft.strikesPerSide)||1;
+    var strikeWord=strikes===1?'one':strikes===2?'two':String(strikes);
+    rule.textContent=slate+' are drawn for each room. Each side secretly strikes '
+      +strikeWord+'. The strikes reveal together. Every round stays inside this list.';
   }
 
   // The single most useful thing a tournament page can tell someone is
@@ -628,7 +660,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var mine = myEntry();
 
     if (!state.user){
-      host.innerHTML = '<button class="btn" id="signInBtn">Sign in to register</button>';
+      host.innerHTML = '<button class="btn" id="signInBtn">'
+        + (t.registrationOpen ? 'Sign in to register' : 'Sign in if you are entered') + '</button>';
       $('signInBtn').addEventListener('click', signIn);
       return;
     }
@@ -682,8 +715,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       appendPrizeLinks(host, t);
       return;
     }
-    if (t.status !== 'registration'){
-      host.innerHTML = '<span class="note" style="margin-top:0">Registration is closed.</span>';
+    if (!t.registrationOpen){
+      host.innerHTML = '<span class="note" style="margin-top:0">The roster is closed. You can watch the draw and public rooms, but only people already entered can join a round.</span>';
       return;
     }
     var btn = document.createElement('button');
@@ -1103,17 +1136,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     }
 
     if (t.status === 'draft') act('Open registration', function(){ setStatus('registration'); }, true);
-    // 'running' is what OPENS the drop-in queue, and entries stay open
-    // through it (see the OPEN_TO_ENTRY gate in tournament.mjs), so the
-    // old label "Close registration" told the director the opposite of
-    // what the button does. On a drop-in day that mislabel is the whole
-    // event: someone who wants latecomers to keep arriving would avoid
-    // pressing it, and the queue that refuses everyone until it is
-    // pressed would never open.
-    if (t.status === 'registration') act('Start the day (doors stay open)', function(){ setStatus('running'); }, true);
-    // Closing entries is now its own deliberate step in the evening,
-    // which is the point the rules actually describe.
-    if (t.status === 'running') act('Close entries', function(){ setStatus('break'); });
+    // Starting the day opens the participant queue and locks the roster in
+    // the same transition. The public tournament page and spectator links
+    // stay open; only new competitive entries close.
+    if (t.status === 'registration') act('Start the day (lock roster)', function(){ setStatus('running'); }, true);
+    if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
 
     var nextRound = (t.currentRound || 0) + 1;
     var pendingPrelim = (state.data.rounds || []).filter(function(r){
@@ -1256,11 +1283,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (releaseForm){
       var rf = document.createElement('div');
       rf.style.cssText = 'margin-top:16px;padding:16px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px';
+      var usesDraft=!!(t.motionDraft&&Array.isArray(t.motionDraft.motions)&&t.motionDraft.motions.length);
       rf.innerHTML =
         '<div style="font-size:.9rem;font-weight:800;margin-bottom:4px">' + esc(releaseForm.label) + ' is drawn but not released</div>' +
-        '<p class="note" style="margin-top:0">Nobody can see the pairings yet. Add the motion and release when you are ready.</p>' +
-        '<label class="f" for="releaseMotion">Motion</label>' +
-        '<input class="in" id="releaseMotion" maxlength="280" placeholder="This House would abolish private schooling">' +
+        (usesDraft
+          ? '<p class="note" style="margin-top:0">Nobody can see the pairings yet. Each room will draw '+esc(t.motionDraft.slateSize||3)+' motions from the published pool and each side will strike '+((Number(t.motionDraft.strikesPerSide)||1)===1?'one':esc(t.motionDraft.strikesPerSide))+'.</p>'
+          : '<p class="note" style="margin-top:0">Nobody can see the pairings yet. Add the motion and release when you are ready.</p><label class="f" for="releaseMotion">Motion</label><input class="in" id="releaseMotion" maxlength="280" placeholder="This House would abolish private schooling">') +
         '<div class="btn-row"><button class="btn btn-primary" id="releaseBtn">Release ' + esc(releaseForm.label) + '</button></div>';
       host.appendChild(rf);
       var relBtn = rf.querySelector('#releaseBtn');
@@ -1269,7 +1297,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         adminCall({
           action: 'release-round', tid: t.tid,
           roundNo: releaseForm.roundNo, kind: releaseForm.kind,
-          motion: (rf.querySelector('#releaseMotion').value || ''),
+          motion: usesDraft ? '' : ((rf.querySelector('#releaseMotion').value || '')),
         }, relBtn);
       });
     }

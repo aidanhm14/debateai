@@ -3,6 +3,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { pairDropIn, availableForDropIn } from './lib/tournament.mjs';
 import { AGE_BRACKETS, BRACKET_LABEL, bracketOf, partitionByBracket } from './lib/tournament-bracket.mjs';
+import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 
 // ── Drop-in pairing: the queue that turns "turn up whenever" into a round ──
 //
@@ -356,6 +357,7 @@ async function attemptPairing(db, t, now, tuning) {
 
       const snap = await tx.get(t.ref.collection('entries'));
       const entries = snap.docs.map((d) => ({ entryId: d.id, ...d.data() }));
+      const entriesById = new Map(entries.map((e) => [String(e.entryId), e]));
 
       const pools = partitionByBracket(entries);
       const startSeq = Number(tData.dropinSeq || 0);
@@ -423,6 +425,25 @@ async function attemptPairing(db, t, now, tuning) {
         });
 
         for (const p of pairings) {
+          const setup = tournamentRoomSetup(
+            t.id,
+            tData,
+            p,
+            entriesById,
+            t.id + '|' + key + '|' + p.pairingId,
+          );
+          if (setup) {
+            tx.set(db.collection('room_admissions').doc(p.room), {
+              ...setup.admission,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+            if (setup.draft) {
+              tx.set(db.collection('round_drafts').doc(p.room), {
+                ...setup.draft,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+            }
+          }
           // Clearing availableAt as they are seated is what keeps a
           // player out of the next pass while they are mid-round; the
           // result handler is what puts them back in the pool.

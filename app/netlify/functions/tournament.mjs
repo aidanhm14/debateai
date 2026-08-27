@@ -3,6 +3,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { AGE_BRACKETS, BRACKET_LABEL, bracketOf, canChangeBracket, partitionByBracket, resolveEntryBracket } from './lib/tournament-bracket.mjs';
 import { standings } from './lib/tournament.mjs';
+import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/tournament-motion-pool.mjs';
 
 // ── Tournament, participant and spectator side ─────────────────────
 //
@@ -78,6 +79,7 @@ function cleanText(s, max) {
 }
 
 function publicTournament(id, d) {
+  const registrationOpen = tournamentRegistrationOpen(d);
   return {
     tid: id,
     slug: d.slug || id,
@@ -100,6 +102,11 @@ function publicTournament(id, d) {
     entryCount: Number(d.entryCount) || 0,
     champion: d.champion || null,
     isPublic: !!d.isPublic,
+    // Public spectating and participant entry are separate permissions.
+    // The event stays listed after the roster closes, while every entry
+    // surface reads this one server-derived boolean.
+    registrationOpen,
+    motionDraft: publicTournamentMotionDraft(d),
     // Prize-bracket fields (entry-checkout.mjs / stripe-webhook.mjs).
     // Fee lives on the doc so pricing is a data decision, not a deploy;
     // 0 or missing means the tournament is free-only.
@@ -381,23 +388,9 @@ export default async (request) => {
 
   // ── register ────────────────────────────────────────────────────
   //
-  // 'registration' AND 'running', and that pair is load-bearing rather
-  // than lenient. This gate used to be 'registration' only, which was
-  // right when every tournament was synchronous: register, close the
-  // doors, pair the field, run rounds. A DROP-IN day inverts that.
-  // tournament-dropin.mjs refuses to seat anyone unless the status is
-  // 'running', so under the old rule the two states were mutually
-  // exclusive and the Open could only ever be half-open: either people
-  // could enter and no round could start, or rounds ran and every
-  // latecomer was refused.
-  //
-  // The published rules and the announcement email both promise the
-  // second thing does not happen ("doors open at 10:00 AM Eastern and
-  // stay open through the day", "turning up late does not shut you
-  // out"), so the engine has to be able to hold both at once. Entries
-  // close when the director moves to 'break' or 'elims' in the
-  // evening, which is what the rules describe and what the control
-  // room's own button now says.
+  // Registration is pre-event. Starting the day fixes the roster while
+  // leaving every GET public, so a visitor can watch the draw and rooms
+  // without becoming a participant after pairings have begun.
   if (action === 'register') {
     // Named accounts only, found by the 2026-08-22 dry run: this action
     // accepted an anonymous token and even granted it prizeEligible on a
@@ -411,8 +404,11 @@ export default async (request) => {
     if (decoded.firebase?.sign_in_provider === 'anonymous') {
       return errorResponse('Create an account to enter a tournament.', 403, request);
     }
-    const OPEN_TO_ENTRY = new Set(['registration', 'running']);
-    if (!OPEN_TO_ENTRY.has(String(t.data.status || ''))) {
+    // Existing entrants may still correct their bracket answer through this
+    // idempotent action. The closed door applies to creating a new entry,
+    // not to repairing the roster that already exists.
+    const already = await existingEntryFor(myUid);
+    if (!already && !tournamentRegistrationOpen(t.data)) {
       return errorResponse('Registration is not open for this tournament.', 409, request);
     }
 
@@ -528,7 +524,6 @@ export default async (request) => {
       };
     }
 
-    const already = await existingEntryFor(myUid);
     if (already) {
       const applied = await applyBracket(already);
       cache.clear();

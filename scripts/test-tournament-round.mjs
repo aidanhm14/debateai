@@ -102,5 +102,34 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'verification goes through the tournament entries, not the room string alone');
 }
 
+// ── video admission is roster-backed, not a client role claim ──────────────
+{
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const roomSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'create-daily-room.mjs'), 'utf8');
+  const dropinSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'tournament-dropin.mjs'), 'utf8');
+  const adminSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'tournament-admin.mjs'), 'utf8');
+  const clientSrc = readFileSync(
+    join(here, '..', 'app', 'live-round.html'), 'utf8');
+
+  ok(/collection\('room_admissions'\)/.test(roomSrc),
+    'room creation reads the server-written admission record');
+  ok(/allowed\.indexOf\(String\(who\.uid\)\)/.test(roomSrc),
+    'participant admission requires the verified uid on the room roster');
+  ok(/privacy:\s*admission\.tournament\s*\?\s*'private'\s*:\s*'public'/.test(roomSrc),
+    'tournament Daily rooms are private while casual rooms remain public');
+  ok(/admission\.tournament\s*&&\s*!token/.test(roomSrc),
+    'a tournament room never falls back to a tokenless join');
+  ok(/room_admissions/.test(dropinSrc) && /room_admissions/.test(adminSrc),
+    'drop-in and synchronous tournament pairing both stamp room admission');
+  ok(/Authorization[^\n]+Bearer/.test(clientSrc),
+    'the live-room client sends its verified identity when requesting a participant token');
+}
+
 console.log(`\ntournament-round: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -98,9 +98,10 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │   │                            intensity, normalizes pauses.
 │   │       │   └── appcheck.mjs           Firebase App Check verification.
 │   │       ├── round-draft.mjs + lib/motion-draft.mjs + lib/draft-motions.mjs
-│       │     The pre-round MOTION DRAFT, in the ROOM. Five motions, two
-│       │     blind strikes each, then a coin flip splits the motion
-│       │     call from the side call. motion-draft.mjs is PURE and
+│       │     The pre-round MOTION DRAFT, in the ROOM. Casual rounds use
+│       │     five motions and two blind strikes each; a tournament may
+│       │     stamp its own server-side pool and counts. A coin flip splits
+│       │     the motion call from the side call. motion-draft.mjs is PURE and
 │       │     owns every decision; round-draft runs it over the round
 │       │     doc, spar-pair only STAMPS which pairs are eligible.
 │       │     See the "Motion draft" section below before touching it.
@@ -394,9 +395,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 
 ## Motion draft (in the ROOM, pre-round)
 
-Five motions land, both debaters strike two BLIND, the strikes reveal
-together, and a coin flip splits what is left: one debater calls the
-motion (when more than one survived), the other calls their side.
+The default is five motions with two BLIND strikes per side. A tournament
+room may carry a server-stamped draft profile instead. The Debatable Open
+draws three motions from its published pool of twenty and gives each side
+one blind strike. The strikes reveal together, and a coin flip splits what
+is left: one debater calls the motion (when more than one survived), the
+other calls their side.
 
 **It runs in /live-round, not on the /spar queue** (moved 2026-08-26, the
 same day it shipped on the queue). It was gated on `draftOptIn` being on
@@ -419,12 +423,13 @@ scripts/test-round-draft.mjs    runs in the pre-commit hook
 scripts/test-motion-draft.mjs   runs in the pre-commit hook
 ```
 
-Five things that are easy to break by accident:
+Things that are easy to break by accident:
 
 - **Survivors is not always one.** Two strikes each from five, blind, can
-  OVERLAP, so it is 1, 2 or 3 and never 0 or 5. Overlap happens in about
-  seven drafts out of ten, so the motion-pick beat is the common path, not
-  an edge case. Any copy or layout you add has to read right for all three.
+  OVERLAP, so the casual profile leaves 1, 2 or 3. One strike each from
+  three leaves 1 or 2. Overlap happens often, so the motion-pick beat is a
+  normal path, not an edge case. Any copy or layout you add has to read
+  right for every server-stamped profile and survivor count.
 - **`publicDraft()` IS the blindness. Treat it as security, not
   formatting.** Two queue docs used to give it away for free: each side
   could only hold its own strikes. One shared round doc has no field-level
@@ -443,14 +448,14 @@ Five things that are easy to break by accident:
 - **Timeout resolution is seeded, never random at call time.** Both clients
   and the server derive it independently, so a `Math.random()` here lands
   two browsers on two different motions.
-- **Eligibility is STAMPED by the server, never claimed by a client.**
-  `spar-pair` writes `round_drafts/{room}` for every pair it makes, because
-  it is the only party that knows the pair was matched onto a motion nobody
-  chose. `round-draft` refuses to open without that stamp, which is what
-  keeps a /live challenge round, a direct link, and a tournament round on
-  the motion a human picked on purpose. Clients cannot write there, so the
-  stamp cannot be forged. Do NOT re-key this on a per-surface opt-in: that
-  is the bug the move fixed.
+- **Eligibility and configuration are STAMPED by the server, never claimed
+  by a client.** `spar-pair` writes `round_drafts/{room}` for every casual
+  pair it makes. Tournament pairing writes the same eligibility stamp plus
+  its public pool and three/one counts. `round-draft` refuses to open
+  without that stamp and ignores client-supplied configuration. Clients
+  cannot write there, so neither eligibility nor the tournament pool can be
+  forged. Do NOT re-key this on a per-surface opt-in: that is the bug the
+  move fixed.
 
 - **Nothing may start a speech while a draft is pending.**
   `startSpeechTimer` refuses, ahead of the judge lock. Otherwise the round

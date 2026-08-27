@@ -1,0 +1,144 @@
+// Tournament motion pools and room admission shapes. PURE. No I/O.
+//
+// The public pool is event data with competitive consequences, so it lives
+// in one server-side source rather than being copied between the announcement
+// page and the pairing functions. The Debatable Open predates document-backed
+// pools, so its published slate is the versioned fallback below. Future events
+// can carry the same fields directly on their tournament document.
+
+const OPEN_SLUG = 'the-debatable-open';
+const MOTION_MAX = 280;
+const POOL_MAX = 40;
+
+export const THE_DEBATABLE_OPEN_MOTIONS = Object.freeze([
+  'This House would ban members of national legislatures from trading individual stocks.',
+  'This House would make voting compulsory.',
+  'This House would lower the voting age to 16.',
+  'This House would elect judges rather than appoint them.',
+  'This House would replace cash bail with supervised release for nonviolent defendants.',
+  'This House would make public university tuition-free.',
+  'This House would ban smartphones during the school day.',
+  'This House would end legacy preferences in university admissions.',
+  'This House would require one year of national or civic service after secondary school.',
+  'This House believes remote work has done more good than harm.',
+  'This House would ban non-compete agreements.',
+  'This House would make the four-day workweek the standard.',
+  'This House would introduce congestion pricing in major cities.',
+  'This House would ban private jet ownership.',
+  'This House would ban targeted advertising to minors.',
+  'This House would make algorithmic social media feeds opt-in.',
+  'This House would require clear labels on AI-generated media.',
+  'This House would ban facial recognition in public spaces.',
+  'This House would prohibit social media accounts for children under 16.',
+  'This House believes news organizations should not endorse political candidates.',
+]);
+
+export function cleanMotionPool(raw) {
+  const out = [];
+  const seen = new Set();
+  for (const value of Array.isArray(raw) ? raw : []) {
+    const text = String(value || '')
+      .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, MOTION_MAX);
+    const key = text.toLowerCase();
+    if (text.length < 18 || seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= POOL_MAX) break;
+  }
+  return out;
+}
+
+function sourcePool(tournament) {
+  const t = tournament || {};
+  const stored = cleanMotionPool(t.motionPool);
+  if (stored.length >= 3) return stored;
+  return String(t.slug || '') === OPEN_SLUG ? THE_DEBATABLE_OPEN_MOTIONS.slice() : [];
+}
+
+export function tournamentDraftConfig(tournament) {
+  const t = tournament || {};
+  const pool = sourcePool(t);
+  if (pool.length < 3) return null;
+
+  const defaultSlate = String(t.slug || '') === OPEN_SLUG ? 3 : 5;
+  const slateSize = Math.max(3, Math.min(pool.length, 7,
+    Math.round(Number(t.motionSlateSize) || defaultSlate)));
+  const maxStrikes = Math.max(1, Math.floor((slateSize - 1) / 2));
+  const defaultStrikes = String(t.slug || '') === OPEN_SLUG ? 1 : 2;
+  const strikesPerSide = Math.max(1, Math.min(maxStrikes,
+    Math.round(Number(t.motionStrikesPerSide) || defaultStrikes)));
+
+  return { pool, slateSize, strikesPerSide, blind: true };
+}
+
+export function publicTournamentMotionDraft(tournament) {
+  const config = tournamentDraftConfig(tournament);
+  if (!config) return null;
+  return {
+    motions: config.pool.slice(),
+    slateSize: config.slateSize,
+    strikesPerSide: config.strikesPerSide,
+    blind: true,
+  };
+}
+
+// Registration is a pre-event act. Once the director starts the day, the
+// public page remains a spectator surface but the roster is fixed.
+export function tournamentRegistrationOpen(tournament) {
+  const t = tournament || {};
+  return String(t.status || '') === 'registration' && t.registrationClosed !== true;
+}
+
+function membersOf(entry) {
+  return (Array.isArray(entry && entry.members) ? entry.members : [])
+    .filter(Boolean)
+    .map(String);
+}
+
+function firstName(entry, fallback) {
+  const names = Array.isArray(entry && entry.memberNames) ? entry.memberNames.filter(Boolean) : [];
+  return String(names[0] || entry?.name || fallback).slice(0, 60);
+}
+
+export function tournamentRoomSetup(tid, tournament, pairing, entriesById, seed) {
+  const p = pairing || {};
+  const entries = entriesById instanceof Map ? entriesById : new Map();
+  const gov = entries.get(String(p.govEntry || '')) || null;
+  const opp = entries.get(String(p.oppEntry || '')) || null;
+  const govMembers = membersOf(gov);
+  const oppMembers = membersOf(opp);
+  const uids = Array.from(new Set(govMembers.concat(oppMembers)));
+  if (!p.room || !govMembers.length || !oppMembers.length
+      || uids.length !== govMembers.length + oppMembers.length) return null;
+
+  const draftConfig = tournamentDraftConfig(tournament);
+  const oneOnOne = govMembers.length === 1 && oppMembers.length === 1;
+  const names = oneOnOne ? {
+    [govMembers[0]]: firstName(gov, p.govName || 'Gov'),
+    [oppMembers[0]]: firstName(opp, p.oppName || 'Opp'),
+  } : {};
+
+  return {
+    admission: {
+      kind: 'tournament',
+      tournamentId: String(tid || ''),
+      room: String(p.room),
+      entryIds: [String(p.govEntry || ''), String(p.oppEntry || '')],
+      uids,
+      spectatorAccess: 'public',
+    },
+    draft: draftConfig && oneOnOne ? {
+      eligible: true,
+      source: 'tournament',
+      tournamentId: String(tid || ''),
+      uids,
+      names,
+      format: String(tournament?.format || ''),
+      seed: String(seed || p.room),
+      draftConfig,
+    } : null,
+  };
+}

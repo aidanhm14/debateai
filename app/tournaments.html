@@ -626,10 +626,11 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
     <a class="wordmark" href="/" aria-label="Debatable home"><span>Debat</span><b>able</b><span class="product-tag">Tournaments</span></a>
     <nav class="topnav" aria-label="Tournament page" data-da-pill-slot>
       <a href="#watch-guide">How it works</a>
+      <a href="#motion-pool">Motions</a>
       <a href="#faq">Questions</a>
       <a href="/tournament-rules">Rules</a>
       <a href="/watch">Watch</a>
-      <a class="top-cta" href="#enter">Enter</a>
+      <a class="top-cta" href="#enter" id="topEnter">Enter</a>
     </nav>
   </div>
 </header>
@@ -957,6 +958,32 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
     </div>
   </section>
 
+  <section class="motion-pool" id="motion-pool">
+    <style>
+      .motion-pool{padding:54px 0;border-top:1px solid var(--line);background:var(--paper-2)}
+      .motion-pool .section-head{margin-bottom:22px}
+      .motion-pool-rule{max-width:78ch;margin:0 0 24px;padding:15px 17px;border:1px solid var(--line-strong);border-left:4px solid var(--red);border-radius:12px;background:var(--card);font-family:var(--sans);font-size:.96rem;line-height:1.65;color:var(--ink)}
+      .motion-pool-rule strong{font-weight:900}
+      .motion-pool-list{counter-reset:motion;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 18px;margin:0;padding:0;list-style:none}
+      .motion-pool-list li{counter-increment:motion;display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:var(--card);font-family:var(--sans);font-size:.9rem;line-height:1.48;color:var(--ink)}
+      .motion-pool-list li:before{content:counter(motion,decimal-leading-zero);font-size:.72rem;font-weight:900;letter-spacing:.04em;color:var(--red-dark);padding-top:2px}
+      .motion-pool-status{font-family:var(--sans);font-size:.92rem;color:var(--muted)}
+      @media(max-width:760px){.motion-pool{padding:40px 0}.motion-pool-list{grid-template-columns:1fr}.motion-pool-list li{font-size:.87rem}}
+    </style>
+    <div class="shell">
+      <div class="section-head">
+        <div>
+          <div class="kicker">Published motion pool</div>
+          <h2>Twenty motions. No surprise topics.</h2>
+        </div>
+        <p>Every motion used on tournament day comes from this list.</p>
+      </div>
+      <p class="motion-pool-rule" id="motionPoolRule"><strong>Three motions appear in each room.</strong> Each side secretly strikes one. The strikes reveal together. If the same motion is struck twice, one side calls the motion from the two survivors and the other calls its side.</p>
+      <p class="motion-pool-status" id="motionPoolStatus">Loading the published list&hellip;</p>
+      <ol class="motion-pool-list" id="openMotionPool" hidden></ol>
+    </div>
+  </section>
+
   <!-- Entry sits ABOVE the run-of-day explainer on purpose (moved
        2026-08-19). The page asks for one thing; making someone read
        four steps and a FAQ before they can do it is how a landing
@@ -1020,12 +1047,12 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
           <span class="run-time">3 &middot; A minute later</span>
           <div>
             <h3>Debate a real person</h3>
-            <p>You get a motion, a side, and a few minutes to think, then you speak.</p>
-            <div class="run-motions" aria-label="Example debate motions">
-              <span>Ban members of Congress from trading stocks</span>
-              <span>Send the National Guard into cities to cut crime</span>
-              <span>Ban under-16s from TikTok and Instagram</span>
-              <span>Tax billion-dollar college endowments</span>
+            <p>Three motions are drawn from the <a href="#motion-pool">published pool of twenty</a>. Each side strikes one in secret, then the room settles the motion and sides.</p>
+            <div class="run-motions" aria-label="Motion draft rules">
+              <span>3 motions drawn</span>
+              <span>1 blind strike each</span>
+              <span>Strikes reveal together</span>
+              <span>Only published motions circulate</span>
             </div>
           </div>
         </li>
@@ -1150,7 +1177,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
         </details>
         <details class="faq-item">
           <summary>What if I enter and then cannot make it?</summary>
-          <p>Nothing happens. There is no set start you can miss, so an entry you never use costs you nothing and costs nobody else a round. If you paid in and the day falls through entirely, ask before entries close and you get the fee back.</p>
+          <p>Nothing is charged. If you do not appear, you are not paired. The roster locks when the tournament starts, but a person already registered may join the pairing pool later while preliminary rounds are still running.</p>
         </details>
         <details class="faq-item">
           <summary>Will I be on a stream?</summary>
@@ -1343,7 +1370,37 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   }
 
   var PLACE=['First','Second','Third','Fourth','Fifth'];
+  function renderMotionPool(t){
+    var list=document.getElementById('openMotionPool');
+    var status=document.getElementById('motionPoolStatus');
+    var rule=document.getElementById('motionPoolRule');
+    var draft=t&&t.motionDraft;
+    var motions=draft&&Array.isArray(draft.motions)?draft.motions:[];
+    if(!list||!status)return;
+    if(!motions.length){
+      status.textContent='The published list could not be loaded. Refresh to retry.';
+      list.hidden=true;
+      return;
+    }
+    list.innerHTML='';
+    motions.forEach(function(text){
+      var li=document.createElement('li');
+      li.textContent=String(text||'');
+      list.appendChild(li);
+    });
+    list.hidden=false;
+    status.hidden=true;
+    if(rule){
+      var slate=Math.max(1,Number(draft.slateSize)||3);
+      var strikes=Math.max(1,Number(draft.strikesPerSide)||1);
+      var strikeWord=strikes===1?'one':strikes===2?'two':String(strikes);
+      rule.innerHTML='<strong>'+slate+' motions appear in each room.</strong> Each side secretly strikes '
+        +strikeWord+'. The strikes reveal together. If the same motion is struck twice, one side calls the motion from the survivors and the other calls its side.';
+    }
+  }
   function hydrateHero(t){
+    var registrationOpen=t.registrationOpen===true;
+    renderMotionPool(t);
     var split=Array.isArray(t.prizeSplit)?t.prizeSplit:[];
     var box=document.getElementById('heroPrizes');
     if(box&&split.length){
@@ -1369,7 +1426,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     if(kick){
       /* Status only. The price is the FREE chip beside this element and
          is never written from here, so the two cannot contradict. */
-      kick.textContent = t.status==='registration' ? 'Registration open'
+      kick.textContent = registrationOpen ? 'Registration open'
                        : (t.status==='running' ? 'Live now \u00b7 rounds are running' : 'Tournament');
     }
 
@@ -1380,7 +1437,9 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
          hydration. Both interpolations are locally built: `pool` comes
          out of money(), which formats a number, and the rest is a
          literal. No field off the tournament doc reaches this string. */
-      lede.innerHTML='<b class="lede-free">FREE TO ENTER.<\/b> One day. Real opponents. '+pool+', and a written verdict on every round.';
+      lede.innerHTML=registrationOpen
+        ? '<b class="lede-free">FREE TO ENTER.<\/b> One day. Real opponents. '+pool+', and a written verdict on every round.'
+        : '<b class="lede-free">THE FIELD IS SET.<\/b> The tournament is public to watch. Only people already on the roster can enter a round.';
     }
 
     /* Entrant count. Rendered at headline scale in the hero, so it is
@@ -1394,18 +1453,36 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     /* The eligibility distinction is stated unconditionally rather
        than inferred from a possibly stale entryFeeCents field. */
     function setText(id,txt){var e=document.getElementById(id);if(e)e.textContent=txt}
-    setText('enterHead','Free to enter. $100 to win.');
-    setText('enterSub','Sign in, click once, done. Then be in the room at 10:00 AM ET on Saturday, August 29. That is the only session. There is no second one and no make-up round.');
+    setText('enterHead',registrationOpen?'Free to enter. $100 to win.':'The roster is closed. The audience is open.');
+    setText('enterSub',registrationOpen
+      ? 'Sign in, click once, done. Then be in the room at 10:00 AM ET on Saturday, August 29. That is the only session. There is no second one and no make-up round.'
+      : 'If you signed up before the tournament started, open your event page. Everyone else can watch the draw, standings, and public rooms.');
     var note=document.getElementById('enterNote');
     if(note){
-      note.innerHTML='Entry is free and no purchase is necessary. Under 18 and 18 and over are paired as separate brackets, and cash prizes go to the 18 and over bracket, void where prohibited. '+
-        'The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent.';
+      note.innerHTML=registrationOpen
+        ? 'Entry is free and no purchase is necessary. Under 18 and 18 and over are paired as separate brackets, and cash prizes go to the 18 and over bracket, void where prohibited. The <a href="/tournament-rules">official rules</a> carry eligibility, the payout ladder, and streaming consent.'
+        : 'Spectators do not need an account. A viewer token has no camera, microphone, or participant seat. The <a href="/tournament-rules">official rules</a> still govern the event.';
     }
     setText('faqCostQ','What does it cost to enter?');
     setText('faqCostA','Nothing. There is one door, it is free, and there is no fee to waive. Age decides two things and you answer it once when you enter: which bracket you are paired in, since under 18 and 18 and over debate separately, and whether the cash can reach you. Under 18 plays for the placement and the ranking while that cash moves to the next entrant who is 18 or over.');
 
     var cta=document.getElementById('heroEnter');
-    if(cta&&(t.status==='registration'||t.status==='running'))cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
+    if(cta){
+      if(registrationOpen){
+        cta.href='#enter';
+        cta.firstChild.nodeValue='Enter '+(t.name||'the bracket')+' ';
+      }else{
+        cta.href='/tournament?t='+encodeURIComponent(t.slug||t.tid);
+        cta.firstChild.nodeValue='Watch the tournament ';
+        var freeMark=cta.querySelector('.btn-free');if(freeMark)freeMark.hidden=true;
+      }
+    }
+    var topEnter=document.getElementById('topEnter');
+    if(topEnter&&!registrationOpen){topEnter.href='/tournament?t='+encodeURIComponent(t.slug||t.tid);topEnter.textContent='Watch'}
+    var freeBtnEl=document.getElementById('enterFreeBtn');
+    var ageEl=document.getElementById('enterAgeGroup');
+    if(freeBtnEl&&!registrationOpen){freeBtnEl.disabled=true;freeBtnEl.textContent='Roster closed'}
+    if(ageEl&&!registrationOpen)ageEl.hidden=true;
 
     // Countdown. Ticking digits are aria-hidden; the sentence beside
     // them carries the same fact for a screen reader, because a live
@@ -1437,13 +1514,9 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
   fetch('/api/tournament',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     var list=(j&&j.tournaments)||[];
     var t=null;
-    // 'registration' OR 'running'. A drop-in day spends the whole event
-    // in 'running' (that is the only status the pairing queue seats
-    // anyone in), so matching 'registration' alone made this card
-    // disappear the moment the doors actually opened, which is the one
-    // hour it matters most. Prefer a bracket still in registration when
-    // both exist, so an upcoming event does not get hidden behind one
-    // already under way.
+    // Keep a running event on the page because this card becomes the
+    // spectator and registered-entrant handoff after the roster closes.
+    // Prefer an event still accepting entries when both exist.
     for(var i=0;i<list.length;i++){if(list[i].status==='registration'){t=list[i];break}}
     if(!t){for(var j=0;j<list.length;j++){if(list[j].status==='running'){t=list[j];break}}}
     if(!t){
@@ -1461,7 +1534,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     var bits=[];
     if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in prizes');
     if(t.startsAt)bits.push('Starts '+t.startsAt);
-    document.getElementById('enterMeta').textContent=bits.join(' · ')||(t.status==='running'?'Running now, doors still open':'Registration open');
+    document.getElementById('enterMeta').textContent=bits.join(' · ')||(t.status==='running'?'Running now · roster closed':'Registration open');
     try{hydrateHero(t)}catch(e){console.warn('[tournaments] hero hydrate failed:',e)}
     reflectExistingEntry();
   }).catch(function(e){
@@ -1643,6 +1716,11 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     var namedNow=!!(auth&&auth.currentUser&&!auth.currentUser.isAnonymous);
     ev('tournament_enter_click',{mode:mode,signed_in:namedNow,bracket:pickedBracket()||'unanswered',ready:!!current});
     if(!current)return;
+    if(current.registrationOpen!==true){
+      say('The roster is closed. You can still watch the tournament, but new entries cannot join a round.','bad');
+      ev('tournament_enter_blocked',{reason:'roster_closed'});
+      return;
+    }
     // The age question IS blocking now, and it is the only thing that
     // is. It used to govern who could be PAID, which is why an unticked
     // box was fine to wave through; it now also governs which field you

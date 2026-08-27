@@ -19,8 +19,13 @@ import {
   draftSeed, buildSlate, assignRoles, createDraft,
   sanitizeStrikes, autoStrikes, survivorsOf, bothStruck,
   advance, actorFor, applyMotionPick, applySidePick, autoResolve, draftResult,
+  strikesPerSideFor, publicDraft,
 } from '../app/netlify/functions/lib/motion-draft.mjs';
 import { DRAFT_MOTIONS, draftPoolFor } from '../app/netlify/functions/lib/draft-motions.mjs';
+import {
+  THE_DEBATABLE_OPEN_MOTIONS, publicTournamentMotionDraft,
+  tournamentRegistrationOpen, tournamentRoomSetup,
+} from '../app/netlify/functions/lib/tournament-motion-pool.mjs';
 
 let n = 0;
 const ok = (cond, msg) => { n++; assert.ok(cond, msg); };
@@ -40,6 +45,52 @@ Object.keys(DRAFT_MOTIONS).forEach((k) => {
     ok(!/[—]/.test(m), 'em-dash in motion copy (' + k + '): ' + m);
   });
 });
+
+// ── tournament profile: three motions, one blind strike each ──────
+eq(THE_DEBATABLE_OPEN_MOTIONS.length, 20, 'the published Open pool has exactly twenty motions');
+eq(new Set(THE_DEBATABLE_OPEN_MOTIONS.map((m) => m.toLowerCase())).size, 20,
+  'the published Open pool has no duplicate motions');
+THE_DEBATABLE_OPEN_MOTIONS.forEach((m) => {
+  ok(!/[—]/.test(m), 'the published pool has no em-dash: ' + m);
+  ok(m.length >= 18, 'the published pool has no stub motion: ' + m);
+});
+const openEvent = { slug: 'the-debatable-open', status: 'registration', format: 'blitz' };
+const openConfig = publicTournamentMotionDraft(openEvent);
+eq(openConfig.slateSize, 3, 'the Open offers three motions per room');
+eq(openConfig.strikesPerSide, 1, 'the Open gives each side one strike');
+eq(openConfig.motions, THE_DEBATABLE_OPEN_MOTIONS, 'the public announcement and room draw share one pool');
+ok(tournamentRegistrationOpen(openEvent), 'registration is open before the event starts');
+ok(!tournamentRegistrationOpen({ ...openEvent, status: 'running' }), 'starting the event locks the roster');
+
+const td0 = createDraft(seed + '|open', 'blitz', A, B, {
+  pool: openConfig.motions,
+  slateSize: openConfig.slateSize,
+  strikesPerSide: openConfig.strikesPerSide,
+});
+eq(td0.slate.length, 3, 'tournament draft draws three motions');
+eq(strikesPerSideFor(td0), 1, 'tournament draft carries its one-strike allowance');
+eq(sanitizeStrikes(td0, ['m1', 'm2']), ['m1'], 'a tournament client cannot spend two strikes');
+eq(publicDraft(td0, 1).strikesPerSide, 1, 'the room receives the tournament strike count');
+let td = advance({ ...td0, strikes: { [A]: ['m1'], [B]: ['m2'] } }, A, B);
+eq(survivorsOf(td), ['m3'], 'different tournament strikes leave one motion');
+eq(td.phase, 'side', 'one tournament survivor skips the motion call');
+td = advance({ ...td0, strikes: { [A]: ['m1'], [B]: ['m1'] } }, A, B);
+eq(survivorsOf(td), ['m2', 'm3'], 'overlapping tournament strikes leave two survivors');
+eq(td.phase, 'motion', 'overlapping tournament strikes open the fair motion call');
+
+const roomSetup = tournamentRoomSetup(
+  'tid123', openEvent,
+  { room: 'Debatable-tid123-r1-1', pairingId: 'r1-1', govEntry: 'g', oppEntry: 'o' },
+  new Map([
+    ['g', { entryId: 'g', members: [A], memberNames: ['Alice'] }],
+    ['o', { entryId: 'o', members: [B], memberNames: ['Bob'] }],
+  ]),
+  'room-seed',
+);
+eq(roomSetup.admission.uids.sort(), [A, B].sort(), 'room admission contains only the paired roster');
+eq(roomSetup.admission.spectatorAccess, 'public', 'the tournament remains public to watch');
+eq(roomSetup.draft.draftConfig.slateSize, 3, 'the pairing stamps the three-motion room config');
+eq(roomSetup.draft.draftConfig.strikesPerSide, 1, 'the pairing stamps the one-strike room config');
 ok(draftPoolFor('casual') === DRAFT_MOTIONS.quick, 'unknown format falls back to the quick pool');
 ok(draftPoolFor('') === DRAFT_MOTIONS.quick, 'empty format falls back to the quick pool');
 

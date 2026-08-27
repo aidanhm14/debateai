@@ -9629,13 +9629,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     state.dailyMounted = true;
     updateRoomStage();
     setCallStatus('Creating video room…', 'closed');
-    fetch('/api/create-daily-room', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // role lets the server mint spectators a hidden-presence token
-      // (no name tile in the grid). Client-claimed and safe to trust:
-      // claiming "debater" only gets what every joiner already has.
-      body: JSON.stringify({ name: state.room, role: isSpectator() ? 'viewer' : 'debater' }),
+    var roomToken = state.user && state.user.getIdToken
+      ? state.user.getIdToken().catch(function(){ return ''; })
+      : Promise.resolve('');
+    roomToken.then(function(tok){
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+      return fetch('/api/create-daily-room', {
+        method: 'POST',
+        headers: headers,
+        // Tournament rooms verify a debater role against the paired roster;
+        // viewers still receive a hidden, receive-only token.
+        body: JSON.stringify({ name: state.room, role: isSpectator() ? 'viewer' : 'debater' }),
+      });
     }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
       .then(function(res){
         if (!res.ok){
@@ -13396,7 +13402,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     window.__lrRenderMotionProposal = renderMotionProposal;
 
     // ── MOTION DRAFT (the pre-round veto) ────────────────────────────
-    // Five motions land, both debaters strike two with the other side's
+    // A slate lands, both debaters use the server-declared strike count
+    // with the other side's
     // picks hidden, the strikes reveal together, and a coin flip splits
     // what is left: one debater calls the motion when more than one
     // survived, the other calls their side. Side choice is what the last
@@ -13417,13 +13424,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // to win. Blindness is enforced server-side too: during the strike
     // beat the round doc carries WHO has submitted and never WHAT they
     // struck, so there is nothing in this browser to peek at.
-    var DRAFT_STRIKES = 2;      // must match STRIKES_PER_SIDE
     var DRAFT_STRIKE_SEC = 14;  // must match STRIKE_SEC
     var DRAFT_PICK_SEC = 9;     // must match PICK_SEC
     var DRAFT_REVEAL_MS = 2300; // both strike sets on screen before the pick UI
     var dfPicks = [], dfBusy = false, dfTimer = 0, dfRevealUntil = 0, dfOpened = false, dfLastPhase = '';
 
     function dfDraft(){ return state.draft || null; }
+    function dfStrikeCount(){ var d = dfDraft(); return Math.max(1, Number(d && d.strikesPerSide) || 2); }
+    function dfCountWord(n){ return n === 1 ? 'one' : n === 2 ? 'two' : String(n); }
     function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
     function dfPending(){ var ph = dfPhase(); return ph && ph !== 'done'; }
     function dfMyUid(){ return (state.user && state.user.uid) || ''; }
@@ -13543,9 +13551,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // A spectator watches; they hold no power here and a board full of
       // buttons they cannot press would just be a lie about who decides.
       if (!dfIAmDebater()){
+        var spectatorSlate = (d.slate || []).length;
+        var spectatorStrikes = dfStrikeCount();
         host.innerHTML = '<div class="df-card">'
           + dfHead('Pre-round', 'The debaters are striking motions.',
-                   'Five landed. Each side removes two, blind. Whatever survives is the round.')
+                   dfCountWord(spectatorSlate).replace(/^./, function(c){ return c.toUpperCase(); })
+                   + ' landed. Each side removes ' + dfCountWord(spectatorStrikes)
+                   + ', blind. Whatever survives is the round.')
           + '</div>';
         return;
       }
@@ -13554,6 +13566,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       var revealing = ph !== 'strike' && Date.now() < dfRevealUntil;
 
       if (ph === 'strike'){
+        var strikeCount = dfStrikeCount();
         if (dfSubmitted()){
           host.innerHTML = '<div class="df-card">'
             + dfHead('Step 1 of 2', 'Strikes are in.',
@@ -13568,12 +13581,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
         }).join('');
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Strike <em>two</em> motions.',
-                   'Your opponent is striking two as well, and cannot see yours. Whatever survives is the round.')
+          + dfHead('Step 1 of 2', 'Strike <em>' + dfCountWord(strikeCount) + '</em> motion' + (strikeCount === 1 ? '.' : 's.'),
+                   'Your opponent is striking ' + dfCountWord(strikeCount)
+                   + ' as well, and cannot see yours. Whatever survives is the round.')
           + '<div class="df-motions">' + cards + '</div>'
           + '<div class="df-foot">' + dfClockHtml()
-          + '<button type="button" class="df-go" id="dfCommit"' + (dfPicks.length === DRAFT_STRIKES ? '' : ' disabled')
-          + '>' + (dfPicks.length === DRAFT_STRIKES ? 'Lock in both strikes' : 'Pick ' + (DRAFT_STRIKES - dfPicks.length) + ' more')
+          + '<button type="button" class="df-go" id="dfCommit"' + (dfPicks.length === strikeCount ? '' : ' disabled')
+          + '>' + (dfPicks.length === strikeCount
+            ? (strikeCount === 1 ? 'Lock in strike' : 'Lock in strikes')
+            : 'Pick ' + (strikeCount - dfPicks.length) + ' more')
           + '</button></div></div>';
         return;
       }
@@ -13643,12 +13659,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         var id = strike.getAttribute('data-df-strike');
         var at = dfPicks.indexOf(id);
         if (at !== -1) dfPicks.splice(at, 1);
-        else if (dfPicks.length < DRAFT_STRIKES) dfPicks.push(id);
+        else if (dfPicks.length < dfStrikeCount()) dfPicks.push(id);
         renderDraft();
         return;
       }
       if (ev.target.closest('#dfCommit')){
-        if (dfBusy || dfPicks.length !== DRAFT_STRIKES) return;
+        if (dfBusy || dfPicks.length !== dfStrikeCount()) return;
         dfBusy = true;
         dfPost('strike', { strikes: dfPicks.slice() })
           .catch(function(){})

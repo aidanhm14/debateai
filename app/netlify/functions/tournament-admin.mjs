@@ -5,6 +5,7 @@ import {
   pairPrelimRound, standings, breakField, elimPairings, elimLabel,
   advanceElim, resultPatch, byePatch,
 } from './lib/tournament.mjs';
+import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 
 // ── Tournament control room ────────────────────────────────────────
 //
@@ -144,6 +145,38 @@ async function applySeating(db, tid, pairings, prevPairings) {
   for (const [id, pairingId] of seated) batch.update(entriesRef.doc(id), { inPairing: pairingId });
   for (const id of new Set(released)) batch.update(entriesRef.doc(id), { inPairing: '' });
   await batch.commit();
+}
+
+// Every tournament room is publicly watchable but roster-controlled for
+// camera and microphone access. A motion draft stamp is added when the event
+// publishes a pool; an admission stamp is added for every tournament.
+async function stampTournamentRooms(db, tid, tournament, pairings, entries, seedPrefix) {
+  const byId = new Map((entries || []).map((e) => [String(e.entryId), e]));
+  const batch = db.batch();
+  let writes = 0;
+  for (const p of pairings || []) {
+    const setup = tournamentRoomSetup(
+      tid,
+      tournament,
+      p,
+      byId,
+      String(seedPrefix || tid) + '|' + String(p.pairingId || p.room),
+    );
+    if (!setup) continue;
+    batch.set(db.collection('room_admissions').doc(p.room), {
+      ...setup.admission,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    writes += 1;
+    if (setup.draft) {
+      batch.set(db.collection('round_drafts').doc(p.room), {
+        ...setup.draft,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      writes += 1;
+    }
+  }
+  if (writes) await batch.commit();
 }
 
 export default async (request) => {
@@ -351,6 +384,7 @@ export default async (request) => {
     });
     // Seat the new draw and release whatever a redraw just discarded.
     await applySeating(db, tid, pairings, existing.exists ? (existing.data().pairings || []) : []);
+    await stampTournamentRooms(db, tid, t.data, pairings, entries, key);
     return jsonResponse({
       ok: true,
       round: { roundNo, key, pairings, bye: draw.bye || null,
@@ -538,6 +572,7 @@ export default async (request) => {
     });
     await batch.commit();
     await applySeating(db, tid, pairings, []);
+    await stampTournamentRooms(db, tid, t.data, pairings, entries, key);
     await t.ref.update({ status: 'break', breakSize: br.size, updatedAt: FieldValue.serverTimestamp() });
 
     return jsonResponse({ ok: true, size: br.size, label, breaking: br.breaking, tieOnLine: !!br.tieOnLine }, 200, request);
@@ -578,6 +613,8 @@ export default async (request) => {
       pairedAt: FieldValue.serverTimestamp(),
     });
     await applySeating(db, tid, next, []);
+    const allEntries = await loadEntries(db, tid);
+    await stampTournamentRooms(db, tid, t.data, next, allEntries, key);
     return jsonResponse({ ok: true, label, pairings: next }, 200, request);
   }
 

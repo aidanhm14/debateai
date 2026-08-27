@@ -16,9 +16,11 @@
 // (uid, or a salted IP hash for tokenless guests) as user_id. That
 // attribution is what lets peer reports turn into strikes, and lets
 // eject use Daily's ban:true so removed users can't rejoin the live
-// session. Rooms stay public and the token is OPTIONAL on join, so
-// stale cached clients keep working. Every check fails OPEN — a
-// Firestore outage must never take video down.
+// session. Casual rooms stay public and the token is OPTIONAL on join,
+// so stale cached clients keep working. Their safety checks fail OPEN: a
+// Firestore outage must never take casual video down. Tournament rooms
+// are the deliberate exception. They are private, the server admission
+// record decides participant vs viewer, and missing admission fails closed.
 //
 // Env vars (set in Netlify):
 //   DAILY_API_KEY  — Bearer token from daily.co (Developers section)
@@ -34,6 +36,7 @@
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
+import { parseTournamentRoom } from './lib/tournament-round.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 
@@ -86,6 +89,24 @@ async function banFor(keys){
   return null;
 }
 
+async function tournamentAdmission(name){
+  if (!parseTournamentRoom(name)) return { tournament: false, data: null };
+  let db;
+  try { db = getDb(); }
+  catch (e) { return { tournament: true, error: 'unavailable' }; }
+  try {
+    const snap = await withDeadline(db.collection('room_admissions').doc(name).get(), 2000);
+    if (!snap || !snap.exists) return { tournament: true, error: 'missing' };
+    const data = snap.data() || {};
+    if (data.kind !== 'tournament' || data.room !== name) {
+      return { tournament: true, error: 'invalid' };
+    }
+    return { tournament: true, data };
+  } catch (e) {
+    return { tournament: true, error: 'unavailable' };
+  }
+}
+
 export default async (req) => {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'POST only' });
 
@@ -112,6 +133,7 @@ export default async (req) => {
   try { body = await req.json(); } catch { return jsonResponse(400, { error: 'Invalid JSON' }); }
   const name = safeRoomName(body && body.name);
   if (!name || name.length < 3) return jsonResponse(400, { error: 'name required (>=3 chars, alphanumeric/hyphen)' });
+  const role = body && body.role === 'viewer' ? 'viewer' : 'debater';
 
   // Video-ban gate. uid ban and IP ban both block.
   const who = await identify(req);
@@ -146,6 +168,35 @@ export default async (req) => {
       reason: ban.reason || 'violation',
       error: 'Removed from video rooms for a safety violation.',
     });
+  }
+
+  // A tournament is public to watch and private to enter. Pairing writes
+  // this record before either link exists. Unlike the general safety reads
+  // above, the admission check fails closed because guessing a room name
+  // must never produce a participant token.
+  const admission = await tournamentAdmission(name);
+  if (admission.tournament) {
+    if (!admission.data) {
+      const invalid = admission.error === 'missing' || admission.error === 'invalid';
+      return jsonResponse(invalid ? 403 : 503, {
+        error: invalid
+          ? 'This tournament room is not open.'
+          : 'Tournament admission could not be verified. Try again.',
+      });
+    }
+    if (role === 'viewer') {
+      if (admission.data.spectatorAccess !== 'public') {
+        return jsonResponse(403, { error: 'This tournament room is not open to spectators.' });
+      }
+    } else {
+      const allowed = Array.isArray(admission.data.uids) ? admission.data.uids.map(String) : [];
+      if (!who.uid || allowed.indexOf(String(who.uid)) === -1) {
+        return jsonResponse(403, {
+          rosterOnly: true,
+          error: 'Only the people assigned to this tournament room can join with a camera and microphone.',
+        });
+      }
+    }
   }
 
   // Room expires in 24h. Adjust if you want longer-lived rooms.
@@ -191,7 +242,7 @@ export default async (req) => {
   const createRoom = (props) => fetch(DAILY_API + '/rooms', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name, privacy: 'public', properties: props }),
+    body: JSON.stringify({ name, privacy: admission.tournament ? 'private' : 'public', properties: props }),
   });
   let recordingAvailable = recordingEnabled();
   let resp = await createRoom(properties);
@@ -256,15 +307,14 @@ export default async (req) => {
   // Spectators (role:'viewer' from the client) join HIDDEN via the
   // token's `permissions`: no name tile in the grid, no people-list
   // row, and no send path even if the iframe's AV gate is stripped.
-  // The page's own "N watching" pill is the audience count. The role is
-  // client-claimed and safe to trust: claiming "debater" only gets what
-  // every joiner already has, claiming "viewer" only restricts.
+  // The page's own "N watching" pill is the audience count. Casual-room
+  // roles remain client hints. Tournament roles were checked against the
+  // server-written admission record above, and those rooms require tokens.
   // `permissions` is a documented MEETING-TOKEN property — this block
   // deliberately does NOT touch the room create body (see the loud
   // comment above about one bad room key silently killing recording),
   // and a rejected mint retries without it so identity attribution
   // survives on plans that lack the permissions API.
-  const role = body && body.role === 'viewer' ? 'viewer' : 'debater';
   const tokenProps = {
     room_name: name,
     user_id: (who.uid || who.ipKey).slice(0, 36),
@@ -279,13 +329,17 @@ export default async (req) => {
   let token = null;
   try {
     let tr = await mintToken(tokenProps);
-    if (!tr.ok && tokenProps.permissions){
+    if (!tr.ok && tokenProps.permissions && !admission.tournament){
       console.warn('[create-daily-room] viewer permissions rejected (' + tr.status + '), reminting without');
       delete tokenProps.permissions;
       tr = await mintToken(tokenProps);
     }
     if (tr.ok) token = (await tr.json()).token || null;
   } catch (e) { /* tokenless join still works */ }
+
+  if (admission.tournament && !token) {
+    return jsonResponse(503, { error: 'Could not issue a secure tournament room token. Try again.' });
+  }
 
   // room.url is the canonical URL (e.g., https://debateai.daily.co/Debatable-c123).
   // We return both name + url so callers can either iframe-embed the

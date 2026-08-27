@@ -44,10 +44,10 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 import {
-  STRIKE_SEC, PICK_SEC, STRIKES_PER_SIDE,
+  STRIKE_SEC, PICK_SEC,
   createDraft, sanitizeStrikes, advance, actorFor,
   applyMotionPick, applySidePick, autoResolve, autoStrikes,
-  draftResult, survivorsOf, publicDraft,
+  draftResult, survivorsOf, publicDraft, strikesPerSideFor,
 } from './lib/motion-draft.mjs';
 
 // Grace on the server's own clock check. The client runs the visible
@@ -154,7 +154,13 @@ export default async (request) => {
 
       if (!draft) {
         if (action !== 'open') return { ok: false, reason: 'no_draft' };
-        draft = createDraft(String(st.seed || room), String(st.format || ''), uids[0], uids[1]);
+        draft = createDraft(
+          String(st.seed || room),
+          String(st.format || ''),
+          uids[0],
+          uids[1],
+          st.draftConfig || {},
+        );
         phaseAt = Date.now();
         tx.set(stateRef, {
           draft,
@@ -179,13 +185,14 @@ export default async (request) => {
 
       if (action === 'strike') {
         if (draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
+        const required = strikesPerSideFor(draft);
         // Your own strikes only, once. Re-striking after committing would
         // let someone watch the phase flip and then change their mind.
-        if ((draft.strikes[uid] || []).length >= STRIKES_PER_SIDE) {
+        if ((draft.strikes[uid] || []).length >= required) {
           return { ok: true, draft: publicDraft(draft, phaseAt) };
         }
         const mine = sanitizeStrikes(draft, body && body.strikes);
-        if (mine.length < STRIKES_PER_SIDE) return { ok: false, reason: 'need_two' };
+        if (mine.length < required) return { ok: false, reason: 'need_strikes', required };
         draft = Object.assign({}, draft, {
           strikes: Object.assign({}, draft.strikes, { [uid]: mine }),
         });
@@ -216,7 +223,7 @@ export default async (request) => {
           // one choice the beat exists to give them.
           const partial = sanitizeStrikes(draft, body && body.strikes);
           fill.forEach((u) => {
-            if ((next[u] || []).length >= STRIKES_PER_SIDE) return;
+            if ((next[u] || []).length >= strikesPerSideFor(draft)) return;
             next[u] = autoStrikes(draft, u, u === uid ? partial : next[u]);
           });
           draft = advance(Object.assign({}, draft, { strikes: next }), uids[0], uids[1]);
