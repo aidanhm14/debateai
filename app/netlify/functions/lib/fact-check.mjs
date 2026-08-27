@@ -59,14 +59,12 @@ const SEVERITIES = new Set(['false', 'distorted']);
 // single spaces only. Same function as clash-map.mjs, duplicated rather
 // than imported so neither file owns the other's parsing.
 //
-// KNOWN LIMIT, and it fails in the safe direction: this strips everything
-// outside a-z0-9, so a Devanagari or Cyrillic quote normalizes to an empty
-// string and its flag is dropped. A round debated in Hindi therefore gets
-// no fact checks rather than unverified ones. Widening the character class
-// is the fix when a non-Latin round needs this; leaving the gate open for
-// scripts it cannot verify is not.
+// Keep letters and numbers from every Unicode script. Live rounds are not
+// English-only, and stripping Devanagari, Cyrillic or Arabic made a real
+// quote normalize to an empty string and fail the safety gate. Punctuation
+// and casing still drift harmlessly; invented quotes still fail.
 function norm(s) {
-  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 // The nit gate, and it is here because the prompt could not hold the line

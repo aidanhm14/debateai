@@ -45,6 +45,16 @@ t('punctuation and casing drift still matches',
   parseFactChecks(json([{ ...good, quote: 'Forty percent of American households -- cannot cover a four hundred dollar emergency!' }]), d, { grounded: true }).length === 1);
 t('a two-word "quote" cannot match half the speech',
   parseFactChecks(json([{ ...good, quote: 'It is not' }]), d, { grounded: true }).length === 0);
+t('a verbatim Devanagari quote survives',
+  parseFactChecks(json([{ ...good,
+    quote: 'भारत की जनसंख्या एक अरब से अधिक है',
+    correction: 'भारत की जनसंख्या 1.4 अरब से अधिक है।',
+  }]), { ...d, text: 'भारत की जनसंख्या एक अरब से अधिक है और यह दावा भाषण में स्पष्ट है।' }, { grounded: true }).length === 1);
+t('an invented Devanagari quote is dropped',
+  parseFactChecks(json([{ ...good,
+    quote: 'यह वाक्य भाषण में कभी नहीं कहा गया',
+    correction: 'सुधार',
+  }]), { ...d, text: 'भारत की जनसंख्या एक अरब से अधिक है।' }, { grounded: true }).length === 0);
 
 // ── the bar ─────────────────────────────────────────────────────────
 t('only false and distorted are broadcast',

@@ -4417,19 +4417,26 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     admitPoll: null,
     roundDocSeen: false,
     lastFloorRemark: null, // latest between-speech judge remark (stage overlay)
+    roundNotes: [],        // shared structured notes, one row per finished speech
+    rnSnapshotReady: false, // suppress old-note alerts on the first snapshot
+    rnNotified: {},        // note rows already surfaced as local notifications
     factChecks: [],        // flags raised to the audience, from the round doc
     fcText: '',            // live transcript the driver client checks against
     fcLastWords: 0,        // word count at the last check, so we only re-check new material
     fcCount: 0,            // passes spent this round (FC_MAX_PER_ROUND ceiling)
     fcInFlight: false,
+    fcFinalQueue: null,    // final speech-tail pass waiting behind a periodic pass
     fcDisabled: false,     // server said the checker is unconfigured; stop asking
     fcLoop: null,
+    fcSnapshotReady: false, // suppress old-card alerts on the first snapshot only
+    fcNotified: {},        // card ids already surfaced as local notifications
     lastBallot: null,      // latest rendered ballot (stage overlay)
     rfdDeep: null,         // long-form full ballot text, synced via round doc
     ballotDetail: 'medium', // agreed ballot length, synced via round doc
     ratingChanges: null,   // per-uid rating deltas, written by live-judge onto the round doc
     deepRfdPending: false, // deep-ballot call in flight (shows the writing note)
     deepRfdRequested: false, // guard so the generating client fires it once
+    deepRfdNotified: false, // full-ballot ready notice fires once per client
     mySideHint: prefill.mySide, // 'pro' | 'con' | '' — URL-passed side hint
     paradigm: prefill.paradigm, // agreed judge instructions from /spar consent
     // ── Judge draft. Each bench nominates an archetype; the lens only
@@ -7808,21 +7815,26 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         if (!isFinite(pv) || !isFinite(cv2)) continue;
         var bp = ease((el - 6000 - a * 320) / 800);
         if (bp <= 0) continue;
-        var by = 566 + a * 32, bx = REEL_W / 2 - 320, bw = 640;
+        var by = 566 + a * 32, bx = REEL_W / 2 - 320, bw = 270, gap = 100;
         reelFade(ctx, bp);
         ctx.textAlign = 'right';
         ctx.font = '650 17px "Inter","Archivo",sans-serif';
         ctx.fillStyle = 'rgba(240,237,230,.6)';
         ctx.fillText(AX[a][1], bx - 16, by + 13);
-        ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(239,68,68,.6)';
+        // Two full tracks, not one zero-sum split. A 9 and a 9 both
+        // animate to 90% because each speaker owns an independent scale.
+        ctx.fillStyle = 'rgba(240,237,230,.14)';
         ctx.fillRect(bx, by, bw, 10);
-        var share = (pv + cv2) ? pv / (pv + cv2) : 0.5;
+        ctx.fillRect(bx + bw + gap, by, bw, 10);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(bx, by, bw * share * bp, 10);
+        ctx.fillRect(bx, by, bw * Math.max(0.1, Math.min(1, pv / 10)) * bp, 10);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(bx + bw + gap, by, bw * Math.max(0.1, Math.min(1, cv2 / 10)) * bp, 10);
         ctx.font = '700 15px "Inter","Archivo",sans-serif';
         ctx.fillStyle = 'rgba(240,237,230,.75)';
-        ctx.fillText(pv + ' · ' + cv2, bx + bw + 16, by + 12);
+        ctx.textAlign = 'center';
+        ctx.fillText(pv + '/10', bx + bw + 25, by + 10);
+        ctx.fillText(cv2 + '/10', bx + bw + gap - 25, by + 10);
       }
     }
     // 10.2s the reason for decision, revealed a line at a time
@@ -9993,6 +10005,31 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     try { return localStorage.getItem('lr-round-notes') !== '0'; } catch(e){ return true; }
   }
   var _rnGenerated = {};
+  function roundNoteNoticeKey(n){
+    return String(n && [n.idx, n.atMs || '', n.code || ''].join('|') || '');
+  }
+  function notifyRoundNotes(notes){
+    if (!roundNotesOn()) return;
+    (notes || []).forEach(function(n){
+      var key = roundNoteNoticeKey(n);
+      if (!key || state.rnNotified[key]) return;
+      state.rnNotified[key] = true;
+      var label = n.code || ('Speech ' + ((Number(n.idx) || 0) + 1));
+      if (window.daNotify){
+        window.daNotify({
+          id: 'round-notes-' + key,
+          eyebrow: 'Round notes',
+          title: 'Notes ready for ' + label,
+          body: 'Shared notes for that speech have been generated.',
+          href: '#roundNotes',
+          glyph: '✦',
+          duration: 7000
+        });
+      } else {
+        toast('Round notes ready for ' + label + '.');
+      }
+    });
+  }
   // 2026-08-24, the founder: "there aren't any notes being provided or
   // structured nicely." Three separate things were wrong and each one
   // renders as the same dead header.
@@ -10147,6 +10184,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       state.roundNotes = (state.roundNotes || []).concat([row]);
       if (state.rnPending) delete state.rnPending[idx];
       renderRoundNotes();
+      notifyRoundNotes([row]);
       var ref = getRoundDocRef();
       if (ref) ref.update({
         roundNotes: firebase.firestore.FieldValue.arrayUnion(row),
@@ -10192,7 +10230,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // current speech until they hit End; everyone else gets them at once.
   var FC_TICK_MS = 20000;        // one pass per 20s of speech at most
   var FC_MIN_NEW_WORDS = 55;     // and only when there is new material
-  var FC_MAX_PER_ROUND = 10;     // hard ceiling on spend per round
+  var FC_MIN_FINAL_WORDS = 12;   // catch the last claim after the speech ends
+  var FC_MAX_PER_ROUND = 16;     // periodic passes plus one final sweep per speech
   var FC_MAX_CARDS = 4;          // newest four; older ones scroll off
 
   // The user's preference only. Whether the checker is CONFIGURED is
@@ -10206,10 +10245,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // excluded; the lowest remaining participant uid drives. Falls back to
   // the lowest known uid when the round only ever names one participant,
   // so a solo practice room still gets checked.
-  function isFactCheckDriver(){
+  function isFactCheckDriver(speechIdx){
     if (!state.user || isSpectator()) return false;
     var f = FORMATS[state.formatKey];
-    var sp = f && f.speeches[state.speechIdx];
+    var idx = (typeof speechIdx === 'number') ? speechIdx : state.speechIdx;
+    var sp = f && f.speeches[idx];
     if (!sp) return false;
     var speakingFirst = sideBench(f, sp.side) === 'gov';
     var speaking = speakingFirst ? [state.proUid, state.proUid2] : [state.conUid, state.conUid2];
@@ -10227,23 +10267,39 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }, FC_TICK_MS);
   }
 
-  function factCheckTick(){
-    if (state.fcDisabled || !factCheckOn() || state.phase !== 'round') return;
-    if (state.fcInFlight || (state.fcCount || 0) >= FC_MAX_PER_ROUND) return;
-    if (!isFactCheckDriver()) return;
-    var text = (state.fcText || '').trim();
+  function flushFinalFactCheck(){
+    var queued = state.fcFinalQueue;
+    state.fcFinalQueue = null;
+    if (queued) factCheckTick(queued);
+  }
+
+  function factCheckTick(opts){
+    opts = opts || {};
+    if (state.fcDisabled || !factCheckOn()) return;
+    if ((!opts.force && state.phase !== 'round') || (opts.force && state.phase === 'setup')) return;
+    if ((state.fcCount || 0) >= FC_MAX_PER_ROUND) return;
+    if (state.fcInFlight){
+      // The speech can end while its periodic pass is still running. Keep
+      // the final tail and run it as soon as that request clears.
+      if (opts.force) state.fcFinalQueue = opts;
+      return;
+    }
+    var idx = (typeof opts.speechIdx === 'number') ? opts.speechIdx : state.speechIdx;
+    if (!isFactCheckDriver(idx)) return;
+    var text = String(opts.text != null ? opts.text : state.fcText || '').trim();
     if (!text) return;
     var words = text.split(/\s+/).length;
-    if (words < 40 || words - (state.fcLastWords || 0) < FC_MIN_NEW_WORDS) return;
+    var lastWords = Number.isFinite(Number(opts.lastWords)) ? Number(opts.lastWords) : (state.fcLastWords || 0);
+    var minNew = opts.force ? FC_MIN_FINAL_WORDS : FC_MIN_NEW_WORDS;
+    if (words < 40 || words - lastWords < minNew) return;
 
     var f = FORMATS[state.formatKey];
-    var sp = f && f.speeches[state.speechIdx];
+    var sp = f && f.speeches[idx];
     if (!sp) return;
-    var idx = state.speechIdx;
     var speaker = speakerNameFor(f, idx);
     var sideLabel = (f.sideLabels && f.sideLabels[sp.side]) || '';
     state.fcInFlight = true;
-    state.fcLastWords = words;
+    if (idx === state.speechIdx) state.fcLastWords = words;
     state.fcCount = (state.fcCount || 0) + 1;
 
     var already = (state.factChecks || []).map(function(c){ return c.claim; });
@@ -10261,14 +10317,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         state.fcInFlight = false;
-        if (!j) return;
+        if (!j){ flushFinalFactCheck(); return; }
         // The endpoint reports itself unavailable rather than erroring on
         // every pass, so stop asking for the rest of the round.
-        if (j.disabled){ state.fcDisabled = true; renderFactChecks(); return; }
+        if (j.disabled){ state.fcDisabled = true; renderFactChecks(); flushFinalFactCheck(); return; }
         var flags = Array.isArray(j.flags) ? j.flags : [];
-        if (!flags.length) return;
-        publishFactChecks(flags, idx, sp.code, speaker, sideLabel);
-      }).catch(function(){ state.fcInFlight = false; });
+        if (flags.length) publishFactChecks(flags, idx, sp.code, speaker, sideLabel);
+        flushFinalFactCheck();
+      }).catch(function(){ state.fcInFlight = false; flushFinalFactCheck(); });
   }
 
   function publishFactChecks(flags, idx, code, speaker, sideLabel){
@@ -10279,7 +10335,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         id: idx + '_' + Date.now() + '_' + i,
         speechIdx: idx, code: code || '', speaker: speaker || '', side: sideLabel || '',
         quote: fl.quote, claim: fl.claim, correction: fl.correction,
-        severity: fl.severity, grounded: !!fl.grounded,
+        severity: fl.severity, grounded: !!fl.grounded, absence: !!fl.absence,
         sources: (fl.sources || []).slice(0, 2),
         atMs: Date.now(),
       };
@@ -10291,6 +10347,36 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       factChecks: firebase.firestore.FieldValue.arrayUnion.apply(null, rows),
     }).catch(function(){});
     try { gtag('event', 'live_round_fact_check', { format: state.formatKey, severity: rows[0].severity, grounded: rows[0].grounded }); } catch(e){}
+  }
+
+  function factCheckNoticeKey(c){
+    return String(c && (c.id || [c.speechIdx, c.quote, c.correction].join('|')) || '');
+  }
+
+  function notifyFactChecks(cards){
+    if (!factCheckOn()) return;
+    (cards || []).forEach(function(c){
+      var key = factCheckNoticeKey(c);
+      if (!key || state.fcNotified[key]) return;
+      // The person speaking gets the card after they finish, never as
+      // house coaching in the middle of a judged speech.
+      if (state.phase === 'round' && c.speechIdx === state.speechIdx && isMyTurn()) return;
+      state.fcNotified[key] = true;
+      var speaker = c.speaker || 'a speaker';
+      if (window.daNotify){
+        window.daNotify({
+          id: 'fact-' + key,
+          eyebrow: 'Live fact check',
+          title: 'Claim flagged in ' + speaker + '\'s speech',
+          body: c.correction || 'The fact-check notes are ready.',
+          href: '#factChecks',
+          glyph: '!',
+          duration: 8500
+        });
+      } else {
+        toast('Fact-check notes ready for ' + speaker + '.');
+      }
+    });
   }
 
   function renderFactChecks(){
@@ -10438,6 +10524,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       overran: elapsed > sp.time + 5,
       skipped: !!opts.skipped,
     };
+    // Solo and legacy rooms may have no idle client to run the final
+    // fact-check sweep. This call is ignored when the speaker is not the
+    // elected driver, so normal two-sided rooms still make one request.
+    try { factCheckTick({ force: true, speechIdx: state.speechIdx, text: entry.text, lastWords: state.fcLastWords || 0 }); } catch(e){}
     state.log.push(entry);
     try { capPushSpeech(entry); } catch(e){}
     state.speechIdx++;
@@ -10458,6 +10548,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Release any card held from the speech that just ended.
     state.fcText = ''; state.fcLastWords = 0;
     try { renderFactChecks(); } catch(e){}
+    try { notifyFactChecks(state.factChecks); } catch(e){}
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
@@ -10724,7 +10815,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '  "conFeedback": "<Same structure and length as proFeedback, for the Con speaker.>",',
       '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>}, "strategy": {"pro": <n>, "con": <n>}, "persuasion": {"pro": <n>, "con": <n>} }',
       "}",
-      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = whether the argument was built to move a reasonable listener through concrete stakes, a pictureable and checkable world, and a specific move you can name. Never score charm, confidence, volume, pace, fluency, polish, vocabulary, accent, dialect, or delivery. Persuasion never repairs a missing warrant, never rescues a side with no offense, and decides only a tie the flow left genuinely level. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
+      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone, never a share of ten. Both sides can earn an 8 or 9 on the same axis. Reward strong work at full value: 9–10 exceptional, 7–8 strong, 5–6 mixed, 3–4 weak, 1–2 absent or seriously deficient. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = whether the argument was built to move a reasonable listener through concrete stakes, a pictureable and checkable world, and a specific move you can name. Never score charm, confidence, volume, pace, fluency, polish, vocabulary, accent, dialect, or delivery. Persuasion never repairs a missing warrant, never rescues a side with no offense, and decides only a tie the flow left genuinely level. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
       "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, and weak warrants. If a side ran no real arguments, say so plainly.",
@@ -11553,6 +11644,24 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (slot) slot.innerHTML = deepRfdSlotHtml();
   }
 
+  function notifyDeepRfdReady(){
+    if (!state.rfdDeep || state.deepRfdNotified) return;
+    state.deepRfdNotified = true;
+    if (window.daNotify){
+      window.daNotify({
+        id: 'full-ballot-ready',
+        eyebrow: 'Judge notes',
+        title: 'Full ballot ready',
+        body: 'The judge\'s detailed notes have been generated.',
+        href: '#ballotView',
+        glyph: '✦',
+        duration: 8500
+      });
+    } else {
+      toast('The judge\'s detailed notes are ready.');
+    }
+  }
+
   function generateDeepRfd(b){
     if (state.deepRfdRequested || state.rfdDeep) return;
     // Short means short. Running the long-form second beat under a Short
@@ -11665,6 +11774,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       state.deepRfdPending = false;
       state.rfdDeep = text;
       renderDeepRfd();
+      notifyDeepRfdReady();
       // Sync so the opponent and spectators render the same full
       // ballot. Participants may update the round doc; spectators
       // never reach this function.
@@ -12671,8 +12781,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     } catch(e){ return ''; }
   }
 
-  // Judge's scorecard: the ballot's per-axis dimensions block as one
-  // tug-of-war bar per axis (green = Pro share, red = Con share). All
+  // Judge's scorecard: every side owns a full 1-10 scale on every axis.
+  // These are not shares of one ten-point pool: two excellent speeches
+  // can both earn 9, and one person's bar never consumes the other's. All
   // four axes must validate or nothing renders — old ballots stored
   // before the schema carried dimensions, and any model that ignores
   // the field, degrade to the exact pre-scorecard layout. Spectators
@@ -12696,17 +12807,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           return '';
         }
         if (AXES[i][0] === 'persuasion') persuasionShown = true;
-        pv = Math.max(0, Math.min(10, pv)); cv = Math.max(0, Math.min(10, cv));
-        var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
+        pv = Math.max(1, Math.min(10, pv)); cv = Math.max(1, Math.min(10, cv));
         rows.push(
           '<div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;margin:7px 0">' +
             '<span style="font-size:.8rem;font-weight:600;opacity:.85">' + AXES[i][1] + '</span>' +
-            '<span style="display:flex;align-items:center;gap:8px">' +
-              '<b style="font-size:.8rem;color:#22c55e;font-variant-numeric:tabular-nums;min-width:22px;text-align:right">' + escHtml(String(pv)) + '</b>' +
-              '<span style="flex:1;height:7px;border-radius:99px;overflow:hidden;display:flex;background:rgba(239,68,68,.72)">' +
-                '<i style="display:block;height:100%;width:' + share + '%;background:#22c55e"></i>' +
-              '</span>' +
-              '<b style="font-size:.8rem;color:#ef4444;font-variant-numeric:tabular-nums;min-width:22px">' + escHtml(String(cv)) + '</b>' +
+            '<span style="display:grid;grid-template-columns:minmax(54px,auto) 1fr 38px;gap:5px 8px;align-items:center">' +
+              '<span style="font-size:.68rem;font-weight:700;color:#22c55e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(state.proName) + '</span>' +
+              '<span style="height:7px;border-radius:99px;overflow:hidden;background:rgba(127,127,127,.2)"><i style="display:block;height:100%;width:' + (pv * 10) + '%;background:#22c55e;border-radius:inherit"></i></span>' +
+              '<b style="font-size:.72rem;color:#22c55e;font-variant-numeric:tabular-nums;text-align:right">' + escHtml(String(pv)) + '/10</b>' +
+              '<span style="font-size:.68rem;font-weight:700;color:#ef4444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(state.conName) + '</span>' +
+              '<span style="height:7px;border-radius:99px;overflow:hidden;background:rgba(127,127,127,.2)"><i style="display:block;height:100%;width:' + (cv * 10) + '%;background:#ef4444;border-radius:inherit"></i></span>' +
+              '<b style="font-size:.72rem;color:#ef4444;font-variant-numeric:tabular-nums;text-align:right">' + escHtml(String(cv)) + '/10</b>' +
             '</span>' +
           '</div>'
         );
@@ -12714,7 +12825,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       return '<div class="dim-scorecard" style="margin:0 0 18px;border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:13px 16px 9px">' +
         '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">' +
           '<span style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.65">Judge&#39;s scorecard</span>' +
-          '<span style="font-size:.74rem;opacity:.72"><b style="color:#22c55e">' + escHtml(state.proName) + '</b> vs <b style="color:#ef4444">' + escHtml(state.conName) + '</b> · each axis 1 to 10</span>' +
+          '<span style="font-size:.74rem;opacity:.72">Each category is scored independently from 1 to 10</span>' +
         '</div>' +
         rows.join('') +
         (persuasionShown
@@ -17751,6 +17862,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       newOnes.forEach(function(sp){ state.log.push(sp); });
     }
     if (typeof d.speechIdx === 'number' && d.speechIdx > state.speechIdx && state.phase === 'round'){
+      // The 20-second loop can miss a claim in the last few sentences.
+      // Sweep that tail before advancing and clearing the transcript.
+      try { factCheckTick({ force: true, speechIdx: state.speechIdx, text: state.fcText, lastWords: state.fcLastWords || 0 }); } catch(e){}
       state.speechIdx = d.speechIdx;
       // A queued spoken translation from the finished speech must not
       // talk over the next speaker.
@@ -17849,18 +17963,49 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Fact-check sync. One client checks; this is how the other debater
     // and every spectator read the same cards. Guests included, since
     // the round doc is publicly readable.
-    if (Array.isArray(d.factChecks) && d.factChecks.length !== (state.factChecks || []).length){
-      state.factChecks = d.factChecks.slice();
-      try { renderFactChecks(); } catch(e){}
+    // Older round docs have no empty array until the first row is written.
+    // Treat that first no-field snapshot as the baseline so the first new
+    // card still alerts instead of being mistaken for old history.
+    if (!state.fcSnapshotReady && !Array.isArray(d.factChecks)) state.fcSnapshotReady = true;
+    if (Array.isArray(d.factChecks)){
+      var firstFactSnapshot = !state.fcSnapshotReady;
+      var incomingFactChecks = d.factChecks.slice();
+      if (firstFactSnapshot){
+        state.fcSnapshotReady = true;
+        // A late join renders the existing record without replaying every
+        // old card as a fresh alert.
+        incomingFactChecks.forEach(function(c){
+          var key = factCheckNoticeKey(c);
+          if (key) state.fcNotified[key] = true;
+        });
+      }
+      if (incomingFactChecks.length !== (state.factChecks || []).length){
+        state.factChecks = incomingFactChecks;
+        try { renderFactChecks(); } catch(e){}
+        if (!firstFactSnapshot){ try { notifyFactChecks(incomingFactChecks); } catch(e){} }
+      }
     }
 
     // Round-notes sync. The acting debater's client wrote the notes for
     // the speech that just ended; this is how the opponent and every
     // spectator read the same ones. Length check mirrors factChecks:
     // arrayUnion rows only ever grow.
-    if (Array.isArray(d.roundNotes) && d.roundNotes.length !== (state.roundNotes || []).length){
-      state.roundNotes = d.roundNotes.slice();
-      try { renderRoundNotes(); } catch(e){}
+    if (!state.rnSnapshotReady && !Array.isArray(d.roundNotes)) state.rnSnapshotReady = true;
+    if (Array.isArray(d.roundNotes)){
+      var firstNotesSnapshot = !state.rnSnapshotReady;
+      var incomingRoundNotes = d.roundNotes.slice();
+      if (firstNotesSnapshot){
+        state.rnSnapshotReady = true;
+        incomingRoundNotes.forEach(function(n){
+          var key = roundNoteNoticeKey(n);
+          if (key) state.rnNotified[key] = true;
+        });
+      }
+      if (incomingRoundNotes.length !== (state.roundNotes || []).length){
+        state.roundNotes = incomingRoundNotes;
+        try { renderRoundNotes(); } catch(e){}
+        if (!firstNotesSnapshot){ try { notifyRoundNotes(incomingRoundNotes); } catch(e){} }
+      }
     }
 
     // Ballot pending — other side shows 'Ballot generating…' the
@@ -17914,6 +18059,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       state.rfdDeep = d.rfdDeep;
       state.deepRfdPending = false;
       try { renderDeepRfd(); } catch(e){}
+      try { notifyDeepRfdReady(); } catch(e){}
     }
 
     // Rating deltas — written by live-judge after it applies the round

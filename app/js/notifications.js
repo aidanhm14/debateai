@@ -326,7 +326,52 @@
       try { (sfx.notify || sfx.success || function(){})(); } catch (_) {}
     }).catch(function () {});
   }
-  try { window.daEnsureSfx = daEnsureSfx; window.daAlert = daAlert; window.daPing = daPing; } catch (_) {}
+  // Shared local notification for work that finishes away from the control
+  // that started it. Live fact checks, prep notes and full ballots use this
+  // instead of each inventing another toast. It is deliberately local to
+  // the page: OS notifications are for another tab or a closed app, while
+  // these results belong to the surface already in front of the user.
+  function daNotify(opts){
+    opts = (typeof opts === 'string') ? { title: opts } : (opts || {});
+    injectStyles();
+    var host = document.getElementById('da-bell-toasts');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'da-bell-toasts';
+      host.setAttribute('aria-live', 'polite');
+      host.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(host);
+    }
+    var href = String(opts.href || '');
+    var t = document.createElement(href ? 'a' : 'div');
+    t.className = 'da-bell-toast';
+    if (href) t.href = href;
+    if (opts.id) t.dataset.noticeId = String(opts.id);
+    t.setAttribute('role', href ? 'link' : 'status');
+    var glyph = String(opts.glyph || '✓').slice(0, 2);
+    t.innerHTML =
+      '<span class="da-bell-toast__blank">' + escHtml(glyph) + '</span>' +
+      '<span class="da-bell-toast__main">' +
+        (opts.eyebrow ? '<span class="da-bell-toast__eyebrow">' + escHtml(opts.eyebrow) + '</span>' : '') +
+        '<span class="da-bell-toast__name">' + escHtml(opts.title || 'Ready') + '</span>' +
+        (opts.body ? '<span class="da-bell-toast__preview">' + escHtml(opts.body) + '</span>' : '') +
+      '</span>';
+    host.appendChild(t);
+    requestAnimationFrame(function () { t.classList.add('in'); });
+    if (opts.sound !== false) daPing();
+    var duration = Math.max(2500, Math.min(12000, Number(opts.duration) || 6500));
+    setTimeout(function () {
+      t.classList.remove('in');
+      setTimeout(function () { if (t.parentNode) t.remove(); }, 320);
+    }, duration);
+    return t;
+  }
+  try {
+    window.daEnsureSfx = daEnsureSfx;
+    window.daAlert = daAlert;
+    window.daPing = daPing;
+    window.daNotify = daNotify;
+  } catch (_) {}
 
   // The matchmaking + in-round pages fire SFX from their own inline code
   // (spar.html's match chime at the foreground matcher, live-round.html's
