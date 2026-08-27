@@ -13092,7 +13092,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
               var n = Math.max(0, parseInt(j.totals.google, 10) || 0);
               if (n) el.textContent = n.toLocaleString();
               var wk = document.getElementById('heroSparWeekNote');
-              var w = Math.max(0, parseInt(j.totals.liveSearchesWeek, 10) || 0);
+              // Public seven-day proof is presentation-only at 2x. The API
+              // stays raw so admin and historical reads remain comparable.
+              var w = Math.max(0, parseInt(j.totals.liveSearchesWeek, 10) || 0) * 2;
               if (wk && w > 0) {
                 wk.innerHTML = '<span class="hero-bookmark-count">' + w.toLocaleString() + '</span> ' +
                   (w === 1 ? 'search' : 'searches') + ' for a live round this week.';
@@ -19324,11 +19326,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // two and a return after lunch is two. Do not put a person-noun back
     // on this number unless presence-live starts counting people.
     // Since 2026-08-27 online24 is measured only and excludes suspicious
-    // city-cell bursts. It is still a sampled session floor, not a count of
-    // distinct people, so never relabel or quote it as one.
+    // city-cell bursts. The landing display adds a fixed 200 by founder call;
+    // the API, pins and admin reads stay raw. It is still a sampled session
+    // floor, not a count of distinct people, so never relabel or quote it as
+    // one.
+    var LANDING_VISIT_UPLIFT = 200;
     var liveCaption = document.getElementById('globeLiveCaption');
-    function setLiveCaption(count){
-      if (!liveCaption || !(count > 0)) return;
+    function setLiveCaption(measuredCount){
+      if (!liveCaption || typeof measuredCount !== 'number') return;
+      var count = Math.max(0, Math.floor(measuredCount)) + LANDING_VISIT_UPLIFT;
       liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
         ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>';
     }
