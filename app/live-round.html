@@ -1687,6 +1687,12 @@ body.speech-live .transcript-area{margin-top:4px}
   font-size:.82rem;color:var(--text,#fff)}
 .prep-banner strong{font-variant-numeric:tabular-nums;font-size:1rem}
 .prep-banner.is-over{background:rgba(255,255,255,.04);border-color:var(--border)}
+.prep-start-btn{
+  margin-left:4px;padding:6px 16px;font-size:.78rem;letter-spacing:.03em;
+  background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.42);color:#86efac;
+}
+.prep-start-btn:hover{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.6)}
+[data-theme="light"] .prep-start-btn{color:#166534}
 
 /* ── Judge draft ──────────────────────────────────────────────────
    Pre-round beat: both benches read the paradigm cards, nominate, and
@@ -2228,9 +2234,9 @@ body.speech-live .rmb-change{display:none}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
-/* Full-round cloud recording. OFF unless somebody asks for it: a seated
-   debater presses Record, and every other seated debater must agree before
-   capture starts (see maybeAutoStartRecording for why auto-capture went).
+/* Full-round cloud recording. OFF until everyone opts in: each seated
+   person gets the choice before Speech 1, and the Record control can ask
+   again later. Capture starts only after every seat agrees.
    Every seated debater must opt in for this
    round before Daily starts capture. The pill stays visible throughout
    the round so nobody can miss whether recording is waiting, live, or
@@ -3308,7 +3314,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       <div class="panel-section">
         <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
         <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Click Start to launch the video room and begin Speech 1. Both speakers should join the same room.</p>
-        <p style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Once the round starts, choose Ask to record. If every debater agrees, the full round appears on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+        <p style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
       </div>
     </div>
 
@@ -3424,7 +3430,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
         <div class="row speech-actions">
-          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start speech</button>
+          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
           <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
           <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
@@ -3433,7 +3439,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
                prevent accidental clicks. Hidden for non-spar rounds. -->
           <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
         </div>
-        <div class="ready-hint" id="readyHint">Click <strong>▶ Start speech</strong> when you're ready, the timer doesn't start until you do.</div>
+        <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
              the ghost-room fix (the seat heartbeat, ~100s), but nothing
@@ -3596,7 +3602,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             <div class="label" style="margin-bottom:6px">Speech sequence</div>
             <div class="sequence-list" id="sequenceList"></div>
           </div>
-          <p class="rd-note">Rounds are not recorded by default. Ask to record sits beside the resolution, and every seated debater has to agree before capture starts.</p>
+          <p class="rd-note">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Ask to record stays beside the resolution if you want to revisit the choice.</p>
         </div>
       </details>
     </div>
@@ -5309,13 +5315,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = 'End speech →'; endBtn.className = 'btn btn-end'; }
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
-        if (myTurn && ms){
-          hint.innerHTML = noMic
-            ? 'Type your speech in the box below. Hit <strong>▶ Start speech</strong> to start the clock.'
-            : 'Hit <strong>▶ Start speech</strong>. The mic engages automatically so the AI captures your speech for the ballot.';
-        } else {
-          hint.innerHTML = 'Click <strong>▶ Start speech</strong> when you\'re ready, the timer doesn\'t start until you do.';
-        }
+        hint.textContent = noMic
+          ? 'Starts the timer. Type your speech below for the judge.'
+          : 'Starts the timer, mic, and live transcript.';
       }
       // preventScroll: the caret belongs in the transcript, but the
       // scroll focus() drags with it would push the resolution and the
@@ -5907,13 +5909,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (state.timerState !== 'ready') { try { pmOpen(); } catch(e){} }
     var btn = $('playPauseBtn');
     if (!btn) return;
+    var speechHeader = document.querySelector('.speech-header');
+    var readyHint = $('readyHint');
+    function actionState(next){
+      if (speechHeader) speechHeader.setAttribute('data-action-state', next);
+    }
     if (state.phase === 'round' && isSpectator()){
+      actionState('waiting');
       btn.textContent = 'Audience mode';
       btn.className = 'btn btn-control-locked';
       return;
     }
     var ms = state.phase === 'round' ? mySide() : null;
     if (ms && !isMyTurn()){
+      actionState('waiting');
       var f = FORMATS[state.formatKey];
       var sp = f && f.speeches[state.speechIdx];
       var firstSide = sp ? sideBench(f, sp.side) === 'gov' : true;
@@ -5923,16 +5932,28 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       return;
     }
     if (state.timerState === 'ready'){
-      btn.textContent = '▶ Start speech';
+      actionState('start');
+      btn.textContent = ms ? '▶ Start my speech' : '▶ Start speech';
       btn.className = 'btn btn-play';
+      if (readyHint){
+        readyHint.hidden = false;
+        readyHint.textContent = state.micSupport.available
+          ? 'Starts the timer, mic, and live transcript.'
+          : 'Starts the timer. Type your speech below for the judge.';
+      }
     } else if (state.timerState === 'running'){
+      actionState('active');
       btn.textContent = '⏸ Pause';
       btn.className = 'btn btn-pause';
+      if (readyHint) readyHint.hidden = true;
     } else if (state.timerState === 'paused'){
+      actionState('active');
       btn.textContent = '▶ Resume';
       btn.className = 'btn btn-play';
+      if (readyHint){ readyHint.hidden = false; readyHint.textContent = 'Paused. Resume when you are ready.'; }
     } else {
-      btn.textContent = '▶ Start speech';
+      actionState('start');
+      btn.textContent = ms ? '▶ Start my speech' : '▶ Start speech';
       btn.className = 'btn btn-play';
     }
   }
@@ -7352,16 +7373,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     bd.className = 'rec-consent-backdrop';
     bd.innerHTML =
       '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle">' +
-        '<div class="rec-consent-kicker">Nothing is recording yet</div>' +
+        '<div class="rec-consent-kicker">Everyone chooses</div>' +
         '<h2 id="cloudRecTitle">Record this round?</h2>' +
-        '<p>Rounds are <strong>not recorded by default</strong>. Capture only starts if <strong>every seated debater</strong> says yes here, and it stops the moment anyone says no. If a replay is published it means the <strong>video, audio, display names, and motion</strong> appear on Watch, where signed-in users can make and share clips.</p>' +
-        '<p>Say no and nothing is captured. Nobody is asked to justify it, it does not affect the debate or the ballot, and the answer is not remembered: a later round asks again. If you want the round but not your face, close this and switch your camera to Avatar first.</p>' +
+        '<p>Nothing records unless <strong>everyone in the round says yes</strong>. A replay includes the video, audio, display names, and motion. It can appear on Watch for clips and sharing.</p>' +
+        '<p>Say no and the round continues normally. You can use Avatar first if you want a replay without showing your face.</p>' +
         '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
           '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
         '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
         '<div class="rec-consent-actions">' +
-          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, do not record</button>' +
-          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, record it</button>' +
+          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, continue</button>' +
+          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, if everyone agrees</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(bd);
@@ -7466,9 +7487,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // already rolling. A stranger arriving for their first round met a red
   // recording light before they had said a word.
   //
-  // Recording is now entirely opt-in: nothing captures until a seated
-  // debater presses Record and every other seated debater agrees. The
-  // server needed no change, because the all-agreed branch in
+  // Recording is entirely opt-in: nothing captures until every seated
+  // person agrees. The page now asks once before Speech 1, and the Record
+  // control can reopen the choice later. The server needed no change,
+  // because the all-agreed branch in
   // round-recording.mjs already starts capture on consent; this function
   // is kept as a no-op so the call sites and the doc-snapshot flow stay
   // intact, and so restoring it is one edit rather than an archaeology
@@ -7535,9 +7557,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }, driver ? 400 : 4000);
   }
 
-  // The card appears for one reason only: the OTHER debater asked to
-  // record and is waiting on an answer. Nobody is interrupted about
-  // recording in a round where nobody wants one.
+  // Ask every seated person once, before speech 1, whether this round
+  // should be recorded. Capture still starts only after every seat says
+  // yes. A later request also prompts anyone who has not answered yet.
   function maybePromptCloudRecording(d){
     setCloudRecordingUi(d);
     if (cloudRec.prompted || state.phase !== 'round' || !state.user || isSpectator()) return;
@@ -7547,9 +7569,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (Object.prototype.hasOwnProperty.call(consents, state.user.uid)) return;
     if (d.recordingClosed || ['processing','stopped','closed'].indexOf(d.recordingStatus) >= 0) return;
     var asked = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
-    if (!asked) return;
+    var everyonePresent = participants.every(function(uid){
+      return !!(state.seatSeen && state.seatSeen[uid]);
+    });
+    if (everyonePresent && participants.length === 2 && opponentHasLeft()) everyonePresent = false;
+    var openingChoice = state.speechIdx === 0 && state.timerState === 'ready' && everyonePresent;
+    if (!asked && !openingChoice) return;
     cloudRec.prompted = true;
-    setTimeout(showCloudRecordingConsent, 650);
+    showCloudRecordingConsent();
   }
 
   function handleCloudRecordingButton(){
@@ -16741,7 +16768,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         +   '<strong id="prepVal">' + state.prepMin + ':00</strong>'
         +   '<button type="button" id="prepPlus" class="prep-step" aria-label="More prep time"' + (state.prepMin >= PREP_MAX ? ' disabled' : '') + '>+</button>'
         + '</span>'
-        + '<button type="button" id="prepStartBtn" class="btn btn-primary" style="margin-left:4px;padding:6px 16px;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase">&#9654; Start prep</button>';
+        + '<button type="button" id="prepStartBtn" class="btn prep-start-btn">&#9654; Start prep</button>';
       var mn = document.getElementById('prepMinus');
       if (mn) mn.addEventListener('click', function(){ adjustPrep(-1); });
       var pl = document.getElementById('prepPlus');
@@ -17202,7 +17229,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // the video fold. Back on, and as of 2026-08-24 it is an OFFER, not a timer:
   // it names whose move it is and carries the start control, but nothing starts
   // on its own. Flip to false to retire the strip again.
-  var KICKOFF_STRIP_ON = true;
+  // 2026-08-26: retired again after the speech controls moved into the
+  // main speech card and became a single, full-width action. On phones
+  // that action is pinned under the thumb, so the fixed strip would be a
+  // second Start button for the same thing.
+  var KICKOFF_STRIP_ON = false;
   var kickoffEl = null, kickoffMode = '', kickoffDismissed = false;
   // 2026-08-24 (the founder): NO SPEECH STARTS ITSELF. This retires the
   // 8s countdown, and the 20s one before it, for good. Still true HERE
@@ -17507,48 +17538,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (btn){
       btn.classList.toggle('lr-await', !quiet);
       btn.classList.toggle('lr-await-hot', !!startCue.hot);
+      if (startCue.hot && !quiet) btn.textContent = '▶ Start my speech';
     }
 
-    // 1. The line above the control.
-    var row = document.querySelector('.speech-header .speech-actions');
-    if (quiet || !row){
-      if (startCue.el){ startCue.el.remove(); startCue.el = null; }
-    } else {
-      if (!startCue.el){
-        startCue.el = document.createElement('div');
-        startCue.el.className = 'lr-start-cue';
-        startCue.el.id = 'lrStartCue';
-        row.parentNode.insertBefore(startCue.el, row);
-      }
-      startCue.el.classList.toggle('is-hot', !!startCue.hot);
-      startCue.el.innerHTML = '<span class="lr-cue-mark" aria-hidden="true">▼</span><span>' +
-        (startCue.hot
-          ? (startCueCanAuto()
-              ? '<b>We can hear you and none of it is being recorded.</b> Starting your speech now, or press Start speech below.'
-              : '<b>We can hear you. None of it is being recorded.</b> Press Start speech below to put the clock and the transcript on.')
-          : '<b>Your turn.</b> Press Start speech below. Nothing is timed or transcribed until you do.') +
-        '</span>';
-    }
-
-    // 2. The docked control, only when the real one is out of view and
-    // the speech-1 strip is not already carrying one.
-    var wantDock = !quiet && !startCue.btnSeen && !kickoffEl;
-    if (!wantDock){
-      if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
-    } else {
-      if (!startCue.dock){
-        startCue.dock = document.createElement('div');
-        startCue.dock.className = 'lr-start-dock';
-        startCue.dock.id = 'lrStartDock';
-        startCue.dock.innerHTML = '<span class="lr-dock-text"></span><button type="button">▶ Start speech</button>';
-        startCue.dock.querySelector('button').addEventListener('click', function(){ startCueGo('dock'); });
-        document.body.appendChild(startCue.dock);
-      }
-      var txt = startCue.dock.querySelector('.lr-dock-text');
-      if (txt) txt.innerHTML = startCue.hot
-        ? (startCueCanAuto() ? '<b>We can hear you.</b> Starting your speech now.' : '<b>We can hear you.</b> Nothing is recording yet.')
-        : '<b>Your turn.</b> The clock is not running yet.';
-    }
+    // The speech card now carries one large Start action. Keep the audio
+    // safety net, but do not grow a second instruction bar or a duplicate
+    // floating button around it.
+    if (startCue.el){ startCue.el.remove(); startCue.el = null; }
+    if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
 
     if (!startCue.shown[state.speechIdx] && !quiet){
       startCue.shown[state.speechIdx] = true;
@@ -18822,6 +18819,23 @@ body.lr-mini .rmb-vidtoggle,body.lr-pip .rmb-vidtoggle{display:none}
 .speech-header .ready-hint{grid-column:1/-1;margin-top:0}
 .speech-header .round-quiet{grid-column:1/-1}
 .speech-header .spectator-meta{margin-top:6px}
+
+/* Ready has one decision. The full speech controls only appear after the
+   clock starts, so End and Skip cannot compete with the action that gets
+   a first-time visitor into the round. */
+.speech-header[data-action-state="start"] .speech-actions{display:grid;grid-template-columns:1fr}
+.speech-header[data-action-state="start"] #playPauseBtn{
+  width:100%;min-height:62px;border-radius:14px;
+  font-size:1rem;letter-spacing:.01em;text-transform:none;
+  box-shadow:0 10px 26px rgba(185,28,28,.24);
+}
+.speech-header[data-action-state="start"] #endSpeechBtn,
+.speech-header[data-action-state="start"] #skipSpeechBtn,
+.speech-header[data-action-state="start"] #forfeitNextBtn,
+.speech-header[data-action-state="active"] #skipSpeechBtn{display:none!important}
+.speech-header[data-action-state="start"] .ready-hint{
+  text-align:center;font-size:.76rem;line-height:1.35;color:var(--text-dim);
+}
 
 /* ── 4. Secondary sections. Closed by default, each summary carrying the
       one fact that decides whether it is worth opening. */
