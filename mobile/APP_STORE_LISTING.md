@@ -6,7 +6,11 @@ em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
 ---
 
 ## Identity
-- **App name:** Debatable
+- **App Store name:** Debatable: Live Voice Debate
+- **In-app product name:** Debatable
+- **Name constraint:** App Store Connect reports that the exact `Debatable`
+  listing name is already in use. The descriptive store title above was
+  accepted on 2026-08-27. Do not restore `TryDebatable`.
 - **Subtitle (30 char max):** Voice debate coach + rounds
 - **Bundle ID:** com.debateai.debateit
 - **Primary category:** see the note below. Education reaches people
