@@ -648,7 +648,10 @@ circuit," not "philosophy seminar."
 
 Case generation has one shared standard in
 `app/netlify/functions/lib/prompts.mjs`, applied to `caseBase`,
-`motionDesigner`, and both case-edit prompts. Keep these distinctions intact:
+`motionDesigner`, and both case-edit prompts. The live `/practice` engine
+carries the same rules in `app/practice.html` and `CASE_CONSTRUCTION` in
+`app/netlify/functions/lib/voice-guidelines.mjs`. Keep these distinctions
+intact:
 
 - **Fair architecture, committed advocacy.** Before writing for one side,
   the model must be able to identify at least two intuitive ballot paths for

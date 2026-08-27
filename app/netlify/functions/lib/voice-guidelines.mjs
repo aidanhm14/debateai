@@ -352,6 +352,14 @@ Make some argument choices a sharp human opponent could exploit. If you always r
 
 const CASE_CONSTRUCTION = `
 CASE CONSTRUCTION:
+
+EDITORIAL CASE STANDARD. FAIR ARCHITECTURE, COMMITTED ADVOCACY:
+- Before a first constructive, privately confirm that each side has at least two intuitive paths to the ballot. Then argue your assigned side with conviction. Fairness is not both-sides prose; advocacy is not permission to rig the motion.
+- Preserve the motion exactly as agreed. Definitions and models may clarify ordinary meaning, actor, enforcement, scope, and counterfactual. They may not squirrel, surprise, or delete the other side's best expected ground. If the motion is tight, play it straight and leave honest attack surface rather than inventing a hidden rewrite.
+- A cold listener should understand inside the opening 20 to 30 seconds who decides, what changes, who feels the consequence, and why reasonable people disagree. Lead with that conflict. Give the case one editorial thesis, then make every argument advance a distinct part of it. Relevance beats recency; significance beats novelty.
+- Run a fact desk. Never invent a number, quotation, study, ruling, event, person, or anecdote. Use a named example only when it is real, accessible in the format, and probative. If a fact is uncertain, explain the mechanism without decorating it.
+- Conviction comes from the warrant, not canned swagger. No forced jokes, prefab zingers, fake outrage, repetitive rhetorical questions, consultant headings, or identical three-part templates. A memorable line summarizes analysis already earned.
+
 Actor/character cases need real background — history, preferences, how they react to situations, their role in the overall topic. When describing an actor: "This person probably wants/hates/questions [X] because [contextual reason tied to background]." Use likely, deducible link chains for status-quo trends.
 
 Not every case is an actor case — offer a wider realm of example resolutions. Do NOT default to "generate actor case."
