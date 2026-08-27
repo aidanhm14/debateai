@@ -16,9 +16,10 @@
 // pipelines are NOT interchangeable and this endpoint is still the right
 // one for the Visitors card:
 //
-//   presence_daily (here)  gated to HUMANS. First beat waits for one
-//                          interaction or 20s of visible dwell, so the
-//                          /today crawl is excluded. Undercounts.
+//   presence_daily (here)  gated to HUMANS. Since gate v2 on 2026-08-27,
+//                          the first beat requires browser-trusted input;
+//                          server UA and rate gates run before the write.
+//                          Undercounts deliberately.
 //   events page_view       UNGATED. Every visit, crawler included, with
 //                          `automated` and `engaged` flags so a reader
 //                          filters rather than the client dropping.
@@ -50,8 +51,9 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, getStaleShared, wantsFresh } from './lib/admin-cache.mjs';
+import { isSuspiciousPresenceCell } from './lib/presence-quality.mjs';
 
-const CACHE_KEY = 'admin:visitors';
+const CACHE_KEY = 'admin:visitors:trusted-v1';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const LIVE_WINDOW_MS = 30 * 60 * 1000;
 const FIVE_MIN = 5 * 60 * 1000;
@@ -103,12 +105,32 @@ export default async (request) => {
 
     // ── Right now, from the rolling snapshot ────────────────────────
     let online5 = 0;
+    let online30 = 0;
+    let suppressedLiveSessions = 0;
     const liveCities = {};
+    const liveCells = new Map();
     liveSnap.docs.forEach((d) => {
       const p = d.data() || {};
-      if (now - (Number(p.lastSeen) || 0) <= FIVE_MIN) online5 += 1;
-      const label = [p.city, p.country].filter(Boolean).join(', ') || 'unknown';
-      liveCities[label] = (liveCities[label] || 0) + 1;
+      if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+      const key = p.lat + ',' + p.lng;
+      const cell = liveCells.get(key) || {
+        city: p.city || '', country: p.country || '', n: 0, n30: 0, n5: 0,
+      };
+      cell.n += 1;
+      cell.n30 += 1;
+      if (now - (Number(p.lastSeen) || 0) <= FIVE_MIN) cell.n5 += 1;
+      if (!cell.city && p.city) cell.city = p.city;
+      liveCells.set(key, cell);
+    });
+    liveCells.forEach((cell) => {
+      if (isSuspiciousPresenceCell(cell)) {
+        suppressedLiveSessions += cell.n;
+        return;
+      }
+      online5 += cell.n5;
+      online30 += cell.n30;
+      const label = [cell.city, cell.country].filter(Boolean).join(', ') || 'unknown';
+      liveCities[label] = (liveCities[label] || 0) + cell.n;
     });
 
     // ── The trend, from the daily rollup ────────────────────────────
@@ -131,7 +153,8 @@ export default async (request) => {
 
     const result = {
       online5,
-      online30: liveSnap.size,
+      online30,
+      suppressedLiveSessions,
       liveSampled: liveSnap.size >= MAX_LIVE,
       today: series[series.length - 1] ? series[series.length - 1].sessions : 0,
       d7: sum(7),

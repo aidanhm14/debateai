@@ -116,43 +116,45 @@
   // was built to do. The crawl is WANTED. Counting it as visitors was
   // the bug, and it reached both the landing globe and /admin.
   //
-  // Two gates, and neither needs an IP, a user-agent sniff, or a shared
-  // rate limiter:
+  // Two gates:
   //   1. `navigator.webdriver` vetoes outright. This catches automation
   //      frameworks; it does NOT catch the search renderers, which
-  //      deliberately do not set it. Gate 2 is what handles those.
-  //   2. The first beat waits for one real interaction, or for
-  //      PRESENCE_DWELL_MS of VISIBLE dwell (hidden time does not count)
-  //      for someone who is only reading. A renderer executes for a few
-  //      seconds and never scrolls or clicks.
+  //      deliberately do not set it. The server has independent user-agent,
+  //      rate, and cell-burst guards for those.
+  //   2. The first beat waits for a browser-trusted pointer, touch, or key
+  //      event. Passive dwell was removed on 2026-08-27 after cloud renderers
+  //      stayed alive long enough to satisfy the old 20-second timer.
   //
   // Later beats are ungated: the tab already proved itself, and
   // `_da_plast` survives same-tab navigation exactly like `_da_sid`, so
   // a person who engaged on page one is counted from page two onward
   // without re-earning it.
   //
-  // Accepted cost, and it is the safe direction: a real visitor who
-  // lands, reads nothing, touches nothing and leaves inside 20 seconds
-  // is not counted. Presence should mean presence.
+  // Accepted cost, and it is the safe direction: a real visitor who reads
+  // without touching the page is not counted. Presence should mean presence.
   const PRESENCE_MS = 5 * 60 * 1000;
   const PRESENCE_MIN_GAP_MS = 2 * 60 * 1000;
-  const PRESENCE_DWELL_MS = 20 * 1000;
-  const PRESENCE_SIGNALS = ['pointerdown', 'keydown', 'scroll', 'touchstart', 'wheel'];
+  const PRESENCE_GATE_VERSION = '2';
+  const PRESENCE_SIGNALS = ['pointerdown', 'keydown', 'touchstart'];
 
   let presenceAutomated = false;
   try {
     presenceAutomated = navigator.webdriver === true;
   } catch (e) {}
 
-  // A tab that has already beaten is already trusted.
-  let presenceReady = Number(sessionStorage.getItem('_da_plast') || 0) > 0;
-  let presenceDwellTimer = null;
+  // Gate versioning invalidates tabs trusted by the retired dwell rule. A
+  // same-tab navigation only stays trusted if an interaction opened v2.
+  let presenceReady = false;
+  try {
+    if (sessionStorage.getItem('_da_pgate') === PRESENCE_GATE_VERSION) {
+      presenceReady = Number(sessionStorage.getItem('_da_plast') || 0) > 0;
+    } else {
+      sessionStorage.removeItem('_da_plast');
+      sessionStorage.removeItem('_da_pgate');
+    }
+  } catch (e) {}
 
   function presenceGateOff() {
-    if (presenceDwellTimer) {
-      clearInterval(presenceDwellTimer);
-      presenceDwellTimer = null;
-    }
     PRESENCE_SIGNALS.forEach(function (t) {
       try {
         window.removeEventListener(t, presenceUnlock, true);
@@ -160,9 +162,11 @@
     });
   }
 
-  function presenceUnlock() {
+  function presenceUnlock(event) {
     if (presenceReady) return;
+    if (!event || event.isTrusted !== true) return;
     presenceReady = true;
+    try { sessionStorage.setItem('_da_pgate', PRESENCE_GATE_VERSION); } catch (e) {}
     presenceGateOff();
     presenceBeat();
   }
@@ -175,16 +179,6 @@
         window.addEventListener(t, presenceUnlock, true);
       }
     });
-    // Visible dwell only. A backgrounded tab is not someone reading, and
-    // a prerendered or preloaded page can sit hidden for a long time.
-    let visibleMs = 0;
-    let lastTick = Date.now();
-    presenceDwellTimer = setInterval(function () {
-      const now = Date.now();
-      if (!document.hidden) visibleMs += now - lastTick;
-      lastTick = now;
-      if (visibleMs >= PRESENCE_DWELL_MS) presenceUnlock();
-    }, 2000);
   }
 
   function presenceBeat() {
@@ -549,8 +543,8 @@
     post('session_end', baseMeta({
       duration_s: Math.floor((Date.now() - sessionStart) / 1000),
       // Did this session ever prove a human was here? Same gate the
-      // presence beat uses (one real interaction, or 20s of VISIBLE
-      // dwell). Written here rather than enforced at the door so a
+      // presence beat uses (one browser-trusted interaction). Written
+      // here rather than enforced at the door so a
       // session that never engaged is still on the record as a visit.
       engaged: presenceReady,
       views: pageViews,

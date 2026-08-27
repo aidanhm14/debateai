@@ -6,15 +6,10 @@
  *
  * Designed as a BACKGROUND layer: faint dotted continents (from
  * /js/world-data.js's land raster), glowing red pins at real
- * locations, no interaction, pointer-events none. Since 2026-08-14 the
- * server blends a constant ambient-baseline layer into the payload
- * (PRESENCE_BASELINE in presence-live.mjs, the founder's call): seeded pins
- * over a fixed global city pool, padding online24 by the same amount.
- * Raised to 200 over a 138-city pool on 2026-08-18, which lands as ~80
- * lit cities a day rather than a denser cluster on the same dots. Real
- * count = online24 - baseline, and the measured part is the only thing
- * that moves between refreshes. Do not "fix" that away client-side;
- * the switch lives server-side (PRESENCE_BASELINE=0).
+ * locations, no interaction, pointer-events none. Since 2026-08-27 the
+ * payload is measured only: no seeded cities and no count baseline.
+ * Concentrated renderer bursts are withheld by the server, and each pin
+ * represents one visited location rather than an exact city total.
  *
  * Used in:
  *   - app/spar.html    — full-page background behind the matchmaking UI
@@ -34,10 +29,9 @@
  *                    so the page can render an honest caption ("N visits
  *                    in the last 24 hours") somewhere in its own DOM.
  *                    payload.online24 is the count (online30 / online5
- *                    are still returned). These are SESSIONS, not people:
- *                    a sid is per-tab and per-visit, and the server caps
- *                    each map cell so one datacenter cannot carry the
- *                    number. Word any caption as visits, never people.
+ *                    are still returned). These are quality-filtered
+ *                    SESSIONS, not people: a sid is per-tab and per-visit.
+ *                    Word any caption as visits, never people.
  *
  * Requires /js/world-data.js (waits for 'world-data:ready' if needed).
  */

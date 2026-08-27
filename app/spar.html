@@ -4810,11 +4810,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // Ambient activity floor for the public /spar strip. The raw Firestore
   // counters (metrics/spar_attempts) undercount real "find a round"
-  // intent — plenty of presses never reach the logger — so the weekly and
-  // monthly numbers are padded the same way the presence globe pads its
-  // ambient count (soul.md, PRESENCE_BASELINE). These only touch the /spar
-  // display; the stored counters are never mutated, and the raw value is
-  // always recoverable as (shown - baseline).
+  // intent — plenty of presses never reach the logger. These older /spar
+  // display-only floors are separate from the presence API, which has been
+  // measured and unpadded since 2026-08-27. The stored counters are never
+  // mutated, and the raw value is always recoverable as (shown - baseline).
   var SPAR_WEEK_BASELINE = 380;
   var SPAR_MONTH_BASELINE = 500;
 
@@ -5075,12 +5074,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // ── Real presence pins (/api/presence-live) ─────────────────────
   // People seen on the site in the last 24 hours, city-level, fed
-  // by the anonymous track.js beat. When we have real pins, the globe
-  // shows ONLY them (every glowing dot is a real location) and the
+  // by the anonymous track.js beat. The server excludes suspicious cell
+  // bursts and publishes one dot per retained location. When we have pins,
+  // the globe shows ONLY them and the
   // arcs + "Room forming" pills are disabled so nothing fabricated
   // rides on real data. When the fetch fails or comes back empty, the
   // globe falls back to the ambient decorative city pool, unlabeled,
-  // exactly as before. Server response is shared-cached 60s, so the
+  // exactly as before. Server response is shared-cached 5 minutes, so the
   // 2-min repoll costs ~1 cache read.
   var presenceLive = null;
   var presencePollTimer = null;
