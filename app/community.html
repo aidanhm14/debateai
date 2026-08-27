@@ -1976,6 +1976,30 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+
+  function screenCommunityContent(surface, fields){
+    if (!currentUser || typeof currentUser.getIdToken !== 'function') {
+      return Promise.reject(new Error('Sign in before posting.'));
+    }
+    return currentUser.getIdToken().then(function(token){
+      return fetch('/api/community-content-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ surface: surface, fields: fields || {} })
+      }).catch(function(){
+        throw new Error('Could not screen this content. Try again.');
+      });
+    }).then(function(response){
+      return response.json().catch(function(){ return {}; }).then(function(data){
+        if (!response.ok) throw new Error(data.error || 'Content blocked by the safety filter.');
+        return true;
+      });
+    });
+  }
+  window.screenCommunityContent = screenCommunityContent;
   function toast(msg){
     var t = document.createElement('div');
     t.className = 'toast'; t.textContent = msg;
@@ -2427,12 +2451,12 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       if (!text) return;
       btn.disabled = true;
       var me = shortName(currentUser);
-      colRef.add({
+      screenCommunityContent('case_comment', { text: text }).then(function(){ return colRef.add({
         authorUid: currentUser.uid,
         authorName: me,
         text: text,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(function(){
+      }); }).then(function(){
         firebaseDb.collection('shared_cases').doc(c.id)
           .update({ commentCount: firebase.firestore.FieldValue.increment(1) })
           .catch(function(){});
@@ -2446,9 +2470,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         btn.disabled = false;
         applyFilters();
         try { gtag('event','case_comment',{ format: normalizeFormat(c.format) }); } catch(e){}
-      }).catch(function(){
+      }).catch(function(err){
         btn.disabled = false;
-        toast('Could not post. Try again.');
+        toast((err && err.message) || 'Could not post. Try again.');
       });
     }
     btn.addEventListener('click', post);
@@ -3194,7 +3218,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
     var btn = $('composerPost');
     if (btn){ btn.disabled = true; btn.textContent = 'Posting…'; }
-    firebaseDb.collection('forum_posts').add(doc).then(function(){
+    screenCommunityContent('composer', { content: text }).then(function(){
+      return firebaseDb.collection('forum_posts').add(doc);
+    }).then(function(){
       if (ta) ta.value = '';
       if ($('lfrWhen')) $('lfrWhen').value = '';
       updateComposerCount();
@@ -3202,7 +3228,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       try { gtag('event', 'community_post', { kind: composerMode }); } catch(e){}
     }).catch(function(err){
       console.warn('[feed] post failed', err);
-      toast('Could not post. Try again.');
+      toast((err && err.message) || 'Could not post. Try again.');
     }).finally(function(){
       if (btn){ btn.disabled = false; btn.textContent = 'Post'; }
     });
@@ -3840,7 +3866,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       var publicName = shortName(currentUser);
       var btn = $('ntPost');
       btn.textContent = 'Posting…'; btn.disabled = true;
-      firebaseDb.collection('forum_posts').add({
+      screenCommunityContent('thread', { title: title, content: content }).then(function(){ return firebaseDb.collection('forum_posts').add({
         authorUid: currentUser.uid,
         authorName: publicName,
         authorPhoto: currentUser.photoURL || '',
@@ -3854,7 +3880,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         voteScore: 0,
         voteCount: 0,
         replyCount: 0,
-      }).then(function(){
+      }); }).then(function(){
         try { gtag('event','community_thread_post',{category:category}); } catch(e){}
         try { window.SFX && window.SFX.send && window.SFX.send(); } catch(_){}
         toast('✓ Thread posted.');
@@ -3862,7 +3888,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       }).catch(function(err){
         btn.textContent = 'Post thread'; btn.disabled = false;
         try { window.SFX && window.SFX.error && window.SFX.error(); } catch(_){}
-        toast('Post failed: ' + (err.message || 'unknown'));
+        toast((err && err.message) || 'Post failed. Try again.');
       });
     });
   }
@@ -4052,7 +4078,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       var publicName = shortName(currentUser);
       var btn = $('postReplyBtn');
       btn.textContent = 'Posting…'; btn.disabled = true;
-      firebaseDb.collection('forum_posts').add({
+      screenCommunityContent('reply', { content: body }).then(function(){ return firebaseDb.collection('forum_posts').add({
         authorUid: currentUser.uid,
         authorName: publicName,
         authorPhoto: currentUser.photoURL || '',
@@ -4065,7 +4091,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         voteScore: 0,
         voteCount: 0,
-      }).then(function(){
+      }); }).then(function(){
         // Bump replyCount on the parent thread (rule allows
         // signed-in user to update vote/reply counts only).
         firebaseDb.collection('forum_posts').doc(threadId).update({
@@ -4076,7 +4102,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         btn.textContent = 'Post reply'; btn.disabled = false;
       }).catch(function(err){
         btn.textContent = 'Post reply'; btn.disabled = false;
-        toast('Reply failed: ' + (err.message || 'unknown'));
+        toast((err && err.message) || 'Reply failed. Try again.');
       });
     });
   }

@@ -335,16 +335,24 @@
     if (!text) return;
     const send = els.inputRow.querySelector('#discSend');
     if (send) send.disabled = true;
-    sendFs(text).then(() => {
+    const screening = typeof window.screenCommunityContent === 'function'
+      ? window.screenCommunityContent('channel', { text: text })
+      : Promise.reject(new Error('Content screening is unavailable. Try again.'));
+    screening.then(() => sendFs(text)).then(() => {
       input.value = '';
       input.style.height = 'auto';
       const count = els.inputRow.querySelector('#discCount');
       if (count) count.textContent = '0/' + MSG_MAX;
       pinned = true;
       track('community_msg_sent', { channel: active.id });
-    }).catch(() => {
+    }).catch((err) => {
       input.classList.add('disc-input--err');
-      setTimeout(() => input.classList.remove('disc-input--err'), 1600);
+      input.setCustomValidity((err && err.message) || 'Message blocked by the safety filter.');
+      input.reportValidity();
+      setTimeout(() => {
+        input.classList.remove('disc-input--err');
+        input.setCustomValidity('');
+      }, 1600);
     }).then(() => { if (send) send.disabled = false; input.focus(); });
   }
 

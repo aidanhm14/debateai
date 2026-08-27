@@ -20,6 +20,10 @@ const privacy = read('app/privacy.html');
 const practice = read('app/practice.html');
 const voice = read('app/voice-debate.html');
 const coach = read('app/coach.html');
+const community = read('app/community.html');
+const channels = read('app/js/community-channels.js');
+const communityCheck = read('app/netlify/functions/community-content-check.mjs');
+const commons = read('app/netlify/functions/chat-feed.mjs');
 const report = read('app/netlify/functions/report-user.mjs');
 const pair = read('app/netlify/functions/spar-pair.mjs');
 const listing = read('mobile/APP_STORE_LISTING.md');
@@ -75,6 +79,19 @@ ok('terms contain zero tolerance, filtering, blocking, and 24-hour action', () =
   assert.match(terms, /<strong>Blocking\.<\/strong>/);
   assert.match(terms, /within 24 hours/i);
   assert.match(terms, /remove the offending content[\s\S]*eject, suspend, or terminate/i);
+});
+
+ok('public community writes pass through objectionable-content filters', () => {
+  for (const surface of ['composer', 'case_comment', 'thread', 'reply', 'channel']) {
+    assert.match(communityCheck, new RegExp(`${surface}: \\[`, 'i'));
+  }
+  assert.match(communityCheck, /checkAll\(rules\.map/);
+  assert.match(community, /screenCommunityContent\('case_comment'[\s\S]{0,180}colRef\.add/);
+  assert.match(community, /screenCommunityContent\('composer'[\s\S]{0,180}forum_posts'\)\.add/);
+  assert.match(community, /screenCommunityContent\('thread'[\s\S]{0,200}forum_posts'\)\.add/);
+  assert.match(community, /screenCommunityContent\('reply'[\s\S]{0,200}forum_posts'\)\.add/);
+  assert.match(channels, /screenCommunityContent\('channel'[\s\S]{0,220}sendFs\(text\)/);
+  assert.match(commons, /checkContent\(\{[\s\S]{0,100}kind: 'message'[\s\S]{0,180}contentCheck\.ok/);
 });
 
 ok('native-facing production and legal copy does not advertise beta testing', () => {
