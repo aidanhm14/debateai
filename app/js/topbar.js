@@ -1021,7 +1021,7 @@
 
     // Desktop navigation disclosure. The old rail rendered ten text links
     // plus "More" at once, which made the header feel like a sitemap. Keep
-    // one quiet Explore trigger beside the two highlighted actions, then
+    // one clear Explore trigger beside the two highlighted actions, then
     // reveal the full grouped menu only when the visitor asks for it.
     //
     // Hover is the fast desktop path. Click, focus, Escape and outside-click
@@ -1321,9 +1321,8 @@
       + '<circle cx="8" cy="8" r="6.4"/><path d="M6.2 6.1a1.9 1.9 0 1 1 2.4 2.2c-.5.2-.8.6-.8 1.1v.3"/><path d="M8 12.1h.01"/></svg>'
       + '<span>How this works</span>';
     howBtn.addEventListener('click', function(){ navTrack('nav_howitworks_click', { from: location.pathname }); });
-    right.appendChild(howBtn);
-
     right.appendChild(buildExplore());
+    right.appendChild(howBtn);
     pageLinks.filter(function(L){ return L.hot || L.money || L.bounty || L.cta || L.rail; }).forEach(function(L){
       var active = !L.external && pathMatches(L.href);
       // No `title` on text links — the label is already visible, and the
