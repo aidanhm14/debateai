@@ -140,6 +140,12 @@ function renderEmail({ firstName, uid, registered }) {
     Or paste this in: <a href="${cta}" style="color:#dc2626">${cta}</a>
   </p>
 
+  <p style="${P}">
+    The site is vibe coded and the UI needs work. We are making it better
+    before tournament day. It is still early, and we are open to your help with
+    where this product goes, both its growth and its long term vision.
+  </p>
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Feel free to write us feedback too!</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
