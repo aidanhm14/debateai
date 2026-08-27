@@ -20,6 +20,7 @@ import { settleMarket } from './lib/settle.mjs';
 import { marketId as mkMarketId } from './lib/credits.mjs';
 import { seasonFor } from './lib/judge-charter.mjs';
 import { runPanel } from './lib/judge-run.mjs';
+import { speakerScoreFromDims } from './lib/speaker-score.mjs';
 import { auditRecord, writeAudit } from './lib/judge-audit.mjs';
 import { judgmentId as mkJudgmentId } from './lib/judgment.mjs';
 import {
@@ -94,15 +95,25 @@ async function makeAiTurn(store, n, kind, speech, now) {
 }
 
 function ballotPrompt(d, clashMap) {
-  const system = buildAdjudicationBlock() +
+  const casual = String(d.format || '').toLowerCase() === 'quick';
+  const pointShape = casual
+    ? '"propPoints":<1-100 one decimal>,"oppPoints":<1-100 one decimal>,'
+    : '"propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,';
+  const extraAxis = casual
+    ? ',"strategy":{"prop":<1-10 int>,"opp":<1-10 int>}'
+    : '';
+  const system = buildAdjudicationBlock({ format: d.format || '' }) +
     '\n\nASYNC ROUND BALLOT. Three recorded speeches: Prop opening, Opp answer, Prop reply (the reply may be waived). ' +
     'Judge ONLY what is in the transcripts. Weigh the actual clash, not what could have been said. ' +
-    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp","propPoints":<25-30 one decimal>,"oppPoints":<25-30 one decimal>,"decidingIssue":"<8 words or fewer naming the ONE clash that decided it>","rfd":"<=150 words, plain register, open with the deciding clash, close with the single thing the losing side needed to change, no em dashes",' +
-    '"dimensions":{"clarity":{"prop":<1-10 int>,"opp":<1-10 int>},"reasoning":{"prop":<1-10 int>,"opp":<1-10 int>},"responsiveness":{"prop":<1-10 int>,"opp":<1-10 int>},"weighing":{"prop":<1-10 int>,"opp":<1-10 int>},"persuasion":{"prop":<1-10 int>,"opp":<1-10 int>}}} ' +
+    'Return STRICT JSON, nothing else: {"winner":"prop"|"opp",' + pointShape + '"decidingIssue":"<8 words or fewer naming the ONE clash that decided it>","rfd":"<=150 words, plain register, open with the deciding clash, close with the single thing the losing side needed to change, no em dashes",' +
+    '"dimensions":{"clarity":{"prop":<1-10 int>,"opp":<1-10 int>},"reasoning":{"prop":<1-10 int>,"opp":<1-10 int>},"responsiveness":{"prop":<1-10 int>,"opp":<1-10 int>},"weighing":{"prop":<1-10 int>,"opp":<1-10 int>}' + extraAxis + ',"persuasion":{"prop":<1-10 int>,"opp":<1-10 int>}}} ' +
     'For "decidingIssue": name the substantive clash, not the outcome. "Whether the ad libraries answer accountability" is an issue. "Opp was more responsive" is not. ' +
     'For "dimensions": score each side alone on each axis. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with what the other side actually said. weighing = impact comparison and ballot-story crystallization. ' +
-    'persuasion = whether the case moved a reasonable listener hearing it once: concrete stakes, a world you can picture, an argument built to be understood the first time. Persuasion is NOT delivery, fluency, confidence, accent, or polish, and a transcript cannot tell you those anyway. Score it only where you can name the argumentative move that earned it. It never overrides the flow. ' +
-    'Score the axes independently from the flow; they should differ where the round differed and need not average to the speaker points.';
+    (casual ? 'strategy = focus and time spent on what decided the round. ' : '') +
+    'persuasion = whether the case moved a reasonable listener hearing it once: concrete stakes, a world you can picture, an argument built to be understood the first time. Persuasion is NOT delivery, fluency, confidence, accent, or polish, and a transcript cannot tell you those anyway. Score it only where you can name the argumentative move that earned it. It never overrides the arguments. ' +
+    (casual
+      ? 'The public score out of 100 is derived from the six axes at the published weights. Score every axis honestly and use the whole range.'
+      : 'Score the axes independently; they should differ where the round differed and need not average to the legacy points.');
   const t = {};
   for (const turn of d.turns || []) t[turn.n] = turn.transcript || '[transcript unavailable]';
   const user =
@@ -130,7 +141,7 @@ function deepBallotPrompt(d) {
   const propName = (d.prop && d.prop.name) || 'Prop';
   const oppName = (d.opp && d.opp.name) || 'Opp';
   const winName = b.winner === 'prop' ? propName : oppName;
-  const system = buildAdjudicationBlock() +
+  const system = buildAdjudicationBlock({ format: d.format || '' }) +
     '\n\nTHE FULL BALLOT, ASYNC ROUND. The panel verdict on this round is already issued and FINAL; it is included in the message. Your job is the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner or the points.' +
     '\n\nHARD RULES:' +
     '\n- MINIMUM 450 words. Target 550 to 900. This round is three short recorded speeches, so depth comes from walking all of them completely, not from padding.' +
@@ -145,7 +156,7 @@ function deepBallotPrompt(d) {
   const user =
     'Motion: ' + d.motion + '\nFormat: ' + (FORMAT_NAMES[d.format] || d.format) +
     '\n\nVERDICT ALREADY ISSUED (final, do not re-litigate): winner = ' + winName + ' (' + b.winner + ').' +
-    ' Speaker points: ' + propName + ' ' + b.propPoints + ', ' + oppName + ' ' + b.oppPoints + '.' +
+    (b.scoreScale === 100 ? ' Scores out of 100: ' : ' Legacy points: ') + propName + ' ' + b.propPoints + ', ' + oppName + ' ' + b.oppPoints + '.' +
     (b.decidingIssue ? ' Deciding issue: ' + b.decidingIssue + '.' : '') +
     (b.rfd ? '\nShort RFD already shown: ' + b.rfd : '') +
     '\n\nPROP OPENING (' + propName + '):\n' + (t[1] || '[missing]') +
@@ -337,7 +348,11 @@ export default async () => {
 
           const { system, user } = ballotPrompt(d, clashMap);
           const season = seasonFor(Date.now());
-          const judged = await runPanel(season, system, user, { aKey: 'prop', bKey: 'opp', singleModel: JUDGE_MODEL });
+          const casual = String(d.format || '').toLowerCase() === 'quick';
+          const judged = await runPanel(season, system, user, {
+            aKey: 'prop', bKey: 'opp', singleModel: JUDGE_MODEL,
+            scoreScale: casual ? 100 : 30,
+          });
 
           // Nobody voted. Every juror failed, which is a transient
           // provider problem rather than an undecidable round, so leave
@@ -350,7 +365,23 @@ export default async () => {
             continue;
           }
 
-          const ballot = judged.ballot;
+          let ballot = judged.ballot;
+          if (casual) {
+            const axes = ['clarity', 'reasoning', 'responsiveness', 'weighing', 'strategy', 'persuasion'];
+            if (!ballot.dimensions || !axes.every((axis) => ballot.dimensions[axis])) {
+              throw new Error('casual ballot missing complete six-axis scorecard');
+            }
+            const propScore = speakerScoreFromDims(ballot.dimensions, 'prop');
+            const oppScore = speakerScoreFromDims(ballot.dimensions, 'opp');
+            if (propScore == null || oppScore == null) throw new Error('casual ballot score could not be derived');
+            ballot = {
+              ...ballot,
+              propPoints: propScore,
+              oppPoints: oppScore,
+              scoreScale: 100,
+              pointsDerived: true,
+            };
+          }
           const judgedAt = Date.now();
           // A decided round keeps sweepAt set so the NEXT sweep pass
           // writes the long-form full ballot (see the 'complete' branch

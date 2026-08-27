@@ -65,6 +65,8 @@ function publicTournament(id, d) {
     tid: id,
     slug: d.slug || id,
     name: d.name || 'Tournament',
+    // Missing format means a historical event created under the old
+    // APDA default. New events always store `quick` explicitly.
     format: d.format || 'apda',
     teamSize: Number(d.teamSize) || 1,
     status: d.status || 'draft',

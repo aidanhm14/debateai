@@ -9,17 +9,28 @@
 > round" for actions. The iOS app ships as "Debatable"; its bundle ID
 > remains unchanged for App Store compatibility.
 
+> **CASUAL 1V1 ONLY (Aidan's call, 2026-08-27).** Debatable is one
+> person against one person, arguing one question in plain language.
+> Competitive debate formats, tournament rule sets, and team debate are
+> not part of the public product. Do not expose APDA, BP, PF, LD, Policy,
+> Worlds, Congress, MUN, 2v2, or other named formats in setup, navigation,
+> marketing, metadata, or public guides. The old parsers, prompts, and
+> stored fields may remain dormant where deletion would break saved
+> rounds or migration history. Dormant code is compatibility, not a
+> supported product surface. This decision supersedes every format-first
+> statement retained later in this document.
+
 **A living document of what this product is, who it's for, how it sounds, and why the decisions were made the way they were. When a new contributor (or a new Claude session) loads this repo, read this file first. If a change would contradict something here, either the change or this file is wrong. don't ship the change without reconciling.**
 
 ---
 
 ## 1. What this is (one sentence)
 
-Debatable is a **live arena for spoken argument, open to anyone who wants to argue something out.** Competitive debate is where the engine is sharpest and professionals are a second room, but neither is the door (see §2, rewritten 2026-08-12). Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
+Debatable is a **live arena for casual one-on-one spoken argument, open to anyone who wants to argue something out.** One person takes each side, a simple clock keeps the round moving, and the judge explains what won. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
 
 **Brand system:** the product name is **"Debatable"**, hosted at **itsdebatable.com**. It is the only public name across visible copy, metadata, structured data, generated audio, native labels, and extensions. CTAs describe the action instead of acting as a second brand. The canonical full-round surface is `/practice`; retired public URLs only survive as server-side redirects.
 
-Not a chatbot. Not a writing assistant. Not a research tool. A **live sparring partner** that gives you real speeches against a clock, then grades you like a judge would.
+Not a chatbot. Not a writing assistant. Not a research tool. A **live one-on-one argument** against a person or AI, followed by a judge's ballot.
 
 ## 2. Who it's for
 
@@ -38,9 +49,9 @@ for anyone. Copy rules that follow from it, and they are enforceable:
   credential. **That carve-out was retired 2026-08-22:** the founder's
   credential is gone from every public surface along with the name, so
   "Debater" now survives only as a role inside a round.
-- **Never gate the reader on knowing a format.** A stranger should not
-  have to decode "Asian Parli" before they understand what a round is.
-  Formats are what the product is good at; they are not the invitation.
+- **Do not expose competitive formats.** A stranger gets one casual 1v1
+  structure. There is no format picker, team option, or tournament
+  rulebook to decode.
 - **The three things the pitch leads with now:** anyone can argue,
   you can become influential, and you can debate a streamer because
   the matchups pay high XP.
@@ -59,9 +70,9 @@ twice and recorded at the top of the decision log: the leaderboard
 rail's stand-in pictures), and do not caption a real person with
 an invented name, score, or ballot.
 
-**Sharpest use case (where the engine is genuinely better than anything else):**
-- Competitive debate, HS through college
-- Format-accurate across APDA, BP, Policy, LD, PF, Worlds (WUDC), Asian Parli, Congress, MUN, and Quick Clash
+**Core use case:**
+- Casual one-on-one arguments between people
+- A plain pro-versus-con structure with no assumed debate knowledge
 - Audience is **global**. The "~80% Indian" traffic figure (Apr 2026) was an ad-driven anonymous spike, not a durable base; see §8. Don't hard-code copy to one geography. Direction is a broad global-community framing, not an India-targeted one.
 
 **Secondary (same engine, different room):**
@@ -83,11 +94,11 @@ Each gets its own landing page under `/{slug}` with audience-tuned copy and a di
 
 Five things, in order of importance:
 
-1. **Format accuracy.** Policy gets tagged-card delivery. LD gets value/criterion. BP gets extensions + whip structure. APDA is impromptu with no fake citations. No other AI-debate tool does this. they all speak in generic "Harvard debate society" English. This is the hardest moat to copy because it requires actually knowing debate.
+1. **Frictionless 1v1.** One person, one person, one question. Nobody has to choose a format or learn tournament jargon before the argument starts.
 
-2. **Voice round + judge RFD.** You can run a timed speech, hear pushback, take POIs, and get a judge ballot. That's the moat against ChatGPT. voice + timer + format-specific structure.
+2. **Voice round + judge RFD.** You can argue out loud, hear pushback, interrupt, and get a judge ballot. Voice, pressure, and a clear verdict are the moat.
 
-3. **Built from inside the activity.** The product was written by someone who competed, and it shows in the format rules, the voice banks, and the judge paradigms. **The founder is ANONYMOUS on every public surface as of 2026-08-22** (see the decision log): no name, no school, no title, no year, no photo. Sell the depth, never the credential. "Built from inside competitive debate" is the sanctioned phrasing; "a national APDA champion at UChicago" is not, anywhere.
+3. **Arguments that actually push back.** The AI stays on its side, responds to what was said, and does not turn the round into a lecture. **The founder is ANONYMOUS on every public surface as of 2026-08-22** (see the decision log): no name, no school, no title, no year, no photo.
 
 4. **Six brains + HD voice on paid.** Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. DeepSeek (added 2026-05-15) routes direct to the DeepSeek API and pins to `deepseek-chat`; Open Lab (added same day) routes through OpenRouter and defaults to Nous Hermes 4 405B with an env-overrideable pool that also covers Mistral Large, Qwen3-235B, and Llama 4 Maverick/Scout. The $10/year Individual tier is where users get the full engine. BYOK is Anthropic-only and labeled as such. (Currently in beta — every tier is $0 while we figure out pricing; see §7.)
 

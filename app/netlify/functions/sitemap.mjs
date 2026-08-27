@@ -27,7 +27,7 @@ const SITE_ORIGIN = 'https://itsdebatable.com';
 const STABLE_DATE = '2026-07-22'; // bumped when meaningful content changes (2026-07-22: domain cutover to itsdebatable.com changed every page's canonical URL; 2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
   '/', '/community', '/live',
-  '/champions', '/leaderboard', '/exhibition',
+  '/champions', '/leaderboard',
 ]);
 
 const URLS = [
@@ -98,7 +98,6 @@ const URLS = [
   // 64-93 across every variant on 13 inbound internal links while six
   // other pages on this site carried an AI opponent in their title. The
   // dossier, guide and motion families now link it by name.
-  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-24' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-27' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
@@ -141,19 +140,12 @@ const URLS = [
   { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-27' },
   { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
-  // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
-  // debate" — the exact-match phrase the /exhibition product page
-  // can't claim with its single-word slug. Static HTML, rich JSON-LD
-  // (HowTo + SoftwareApplication + FAQPage + BreadcrumbList), strong
-  // CTA into /exhibition. Same playbook as /debate-an-ai → /voice-debate.
-  { path: '/ai-vs-ai-debate',                         changefreq: 'weekly',  priority: '0.88', lastmod: '2026-08-10' },
   // Dedicated SEO doorway for "ai debate judge" / "judge a debate
   // round" / "debate ballot" intents. Paste-a-round produces a
   // tournament-grade RFD + speaker points; PF-first, targets the
   // lay-parent-judge gap. Same playbook as /debate-an-ai.
   { path: '/judge',                                   changefreq: 'weekly',  priority: '0.88' },
   { path: '/benchmark',                               changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-23' },
-  { path: '/judge-paradigms',                         changefreq: 'monthly', priority: '0.82' },
   { path: '/judge-integrity',                         changefreq: 'monthly', priority: '0.80' },
   { path: '/engines',                                 changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-30' },
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
@@ -176,29 +168,9 @@ const URLS = [
   // specific question-style query that has higher commercial intent
   // and lower competition than the generic /learn/formats entries.
   // Add new slugs here when guide-bank.mjs grows.
-  { path: '/learn/guides',                          changefreq: 'weekly',  priority: '0.86' },
-  { path: '/learn/guides/asian-parli-pm-opening',   changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/wsdc-reply-speech',        changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/pf-crossfire-questions',   changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/bp-poi',                   changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/viva-exam-questions',      changefreq: 'monthly', priority: '0.84' },
-  { path: '/learn/guides/apda-opp-case',            changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/guides/policy-speed-reading',     changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/guides/ld-value-criterion',       changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/guides/asian-parli-whip',         changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/guides/bp-closing-extension',     changefreq: 'monthly', priority: '0.80' },
-  { path: '/learn/guides/apda-pmr',                 changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/wsdc-first-prop',          changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/pf-summary-speech',        changefreq: 'monthly', priority: '0.82' },
   // 2026-07-14 top-funnel guides pack: the question-style queries a new
   // debater types before they know any format ("how to practice debate
   // online"). Highest-intent organic surface; priorities reflect that.
-  { path: '/learn/guides/how-to-practice-debate-online',        changefreq: 'monthly', priority: '0.84' },
-  { path: '/learn/guides/how-to-practice-debate-alone',         changefreq: 'monthly', priority: '0.84' },
-  { path: '/learn/guides/how-to-get-better-at-debating',        changefreq: 'monthly', priority: '0.84' },
-  { path: '/learn/guides/how-to-win-a-debate',                  changefreq: 'monthly', priority: '0.84' },
-  { path: '/learn/guides/how-to-prepare-for-a-debate-tournament', changefreq: 'monthly', priority: '0.82' },
-  { path: '/learn/guides/how-to-improve-your-rebuttals',        changefreq: 'monthly', priority: '0.82' },
   // Debate fundamentals deep-content surface. Each is the canonical
   // ranking target for a foundational concept query.
   { path: '/learn/fundamentals',                       changefreq: 'weekly',  priority: '0.88' },
@@ -238,7 +210,6 @@ const URLS = [
   // want Google to re-fetch everything under the new origin.
   { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
   { path: '/why-debatable',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
-  { path: '/learn',           changefreq: 'monthly', priority: '0.85' },
   // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory and
   // Netlify's automatic pretty-URL normalization 301s the slashless form
   // to the trailing-slash one (verified live 2026-08-10; it outranks the
@@ -294,16 +265,6 @@ const URLS = [
   // three. Listing them costs nothing and stops discovery depending on
   // how deep a crawl happens to go.
   { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
-  { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
-  { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
-  { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
-  { path: '/topics/big-questions',        changefreq: 'monthly', priority: '0.75', lastmod: '2026-08-27' },
-  { path: '/topics/world-schools',        changefreq: 'monthly', priority: '0.75' },
-  { path: '/topics/congress',             changefreq: 'monthly', priority: '0.75' },
-  { path: '/topics/asian-parliamentary',  changefreq: 'monthly', priority: '0.85' },
-  { path: '/topics/british-parliamentary',changefreq: 'monthly', priority: '0.85' },
-  { path: '/topics/mun',                  changefreq: 'monthly', priority: '0.75' },
-  { path: '/topics/apda',                 changefreq: 'monthly', priority: '0.85' },
   // Issue-debate pages (/debate/{slug}). Two-sided sample AI debates on
   // high-search-volume questions at the debate × AI/tech intersection.
   // Each is an indexable, off-nav SEO landing whose only job is to rank
@@ -414,7 +375,6 @@ const URLS = [
   // single search target; the singular page is operational draw/tab UI
   // and now carries noindex,follow. /verify is the public certificate
   // check linked from /credentials.
-  { path: '/partners',          changefreq: 'monthly', priority: '0.70' },
   { path: '/verify',            changefreq: 'monthly', priority: '0.55' },
   { path: '/privacy-extension', changefreq: 'yearly',  priority: '0.30' },
   { path: '/privacy',           changefreq: 'yearly',  priority: '0.30' },

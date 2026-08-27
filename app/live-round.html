@@ -10,7 +10,7 @@
 <title>Live Round · Debatable</title>
 <script>/* Broadcast view (?stage=1): class lands pre-paint so the chrome never flashes in. */
 if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className+=' stage-mode';</script>
-<meta name="description" content="Two humans, AI judge. In-platform video room + per-speech timer + transcript capture + tournament-grade ballot." />
+<meta name="description" content="A casual one-on-one argument with live video, a simple clock, transcript capture, and an AI ballot scored out of 100." />
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
@@ -3279,7 +3279,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           <div class="label">Judge type <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
           <div class="setup-judge-grid" id="setupJudgeTypes" aria-label="Judge type"></div>
         </div>
-        <div class="label">Format</div>
+        <div class="label">Round type</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
       <div class="panel-section">
@@ -3305,20 +3305,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         </div>
       </div>
       <div class="panel-section">
-        <div class="label">Format</div>
+        <div class="label">Round type</div>
         <div class="field">
           <select id="formatSel">
-            <option value="quick">General · open clash, constructive and rebuttal each</option>
-            <optgroup label="Competition styles">
-              <option value="apda">APDA Parliamentary · 6 speeches</option>
-              <option value="bp">British Parliamentary · 8 speeches</option>
-              <option value="worlds">Worlds (WUDC) · 8 speeches</option>
-              <option value="asian">Asian Parliamentary · 8 speeches</option>
-              <option value="ld">Lincoln-Douglas · 7 segments</option>
-              <option value="pf">Public Forum · 11 segments</option>
-              <option value="policy">Policy (CX) · 12 segments</option>
-              <option value="congress">Student Congress</option>
-            </optgroup>
+            <option value="quick">Casual 1v1 · open clash, one person per side</option>
           </select>
         </div>
         <div class="label">Speech sequence</div>
@@ -3759,11 +3749,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // links, queue docs, and mid-flight rounds keep resolving). Open
     // clash: interruptions are legit and the AI captures them in the
     // transcript + ballot; competition styles live behind Options.
-    quick: { name:'General', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
-      { code:'P1', name:'Pro Constructive', side:'pro', time:300 },
-      { code:'C1', name:'Con Constructive', side:'con', time:300 },
-      { code:'P2', name:'Pro Rebuttal',     side:'pro', time:180 },
-      { code:'C2', name:'Con Rebuttal',     side:'con', time:180 },
+    quick: { name:'Casual 1v1', sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
+      { code:'P1', name:'Pro Opening', side:'pro', time:300 },
+      { code:'C1', name:'Con Opening and Response', side:'con', time:300 },
+      { code:'P2', name:'Pro Closing', side:'pro', time:180 },
+      { code:'C2', name:'Con Closing', side:'con', time:180 },
     ]},
     // 'blitz' is the tournament sprint: FIVE MINUTES of speech, total.
     // Built for a drop-in day where the whole point is volume — a
@@ -4125,15 +4115,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "- The INDIA CIRCUIT (IIMUN, HMUN India, DAIMUN, Delhi MUN) uses a MORE FORMAL register than American MUN. 'Honorable Chair, the delegate of [country] would like to bring to the attention of the august committee...' is the norm. Calibrate accordingly.",
     ],
     quick: [
-      "- General open format: one constructive and one rebuttal a side. Plain English only — no debate jargon to evaluate.",
-      "- SCORE EACH SIDE OUT OF 30 on the lay ballot: strength of the overall argument (0-15), strength of responses to the opponent's case (0-10), structure and comprehension, meaning claim then warrant then impact (0-5). The higher total wins. State the three components and the totals in the RFD.",
+      "- Casual one-on-one: one opening and one closing a side. Plain English only. Do not apply a tournament format or tournament jargon.",
+      "- SCORE EACH PERSON OUT OF 100: argument strength (0-50), responses to the other person's case (0-35), and structure and clarity (0-15). The higher total wins. State the three components and the totals in the decision.",
       "- The split is deliberate: a side with the weaker case CAN win on responses plus structure. When that is what happened, open the RFD by saying so.",
       "- The second constructive carries two jobs (answer the first case, then build its own). Judge both. A second constructive that only rebuts, or only builds, is incomplete.",
-      "- Rebuttals bring NO new arguments. New examples for an argument already made are fine. Penalize a new argument in a rebuttal by discounting it, not by tanking the whole score.",
+      "- Closings bring no new arguments. New examples for an argument already made are fine. Discount a new argument introduced only in a closing.",
       "- Interruptions and crosstalk are legitimate here. If the transcript shows an interjection, judge how it was handled: credit a speaker who absorbs or answers it cleanly, credit a sharp interjection that lands, and never penalize a speaker merely for being interrupted.",
       "- Reward: punch, named specifics, clean engagement with the other side.",
-      "- Penalize: throat-clearing, recap, generic moralizing, jargon imports from other formats.",
-      "- Speaker scale is 1-10 effort, not a debate-speaks scale. 6-8 typical; 9-10 is rare clean clash. It is separate from the 30-point rubric and does not decide the round.",
+      "- Penalize: throat-clearing, recap, generic moralizing, and tournament jargon.",
     ],
     blitz: [
       "- Blitz is five minutes of speech total: 90-second openings, 60-second replies. Judge it as a SHORT format on its own terms, never as a truncated long one.",
@@ -4193,7 +4182,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   var prefill = {
     motion: qs.get('motion') || '',
     background: qs.get('background') || '',
-    format: qs.get('format') || 'quick',
+    format: 'quick',
     pro:    qs.get('pro')    || '',
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
@@ -4210,12 +4199,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // mySide() returns null for both partners (signed in, matches
     // neither named seat), which classifies them as SPECTATORS and
     // locks them out of their own round.
-    pro2:    qs.get('pro2')    || '',
-    con2:    qs.get('con2')    || '',
-    proUid2: qs.get('proUid2') || '',
-    conUid2: qs.get('conUid2') || '',
-    proTeam: qs.get('proTeam') || '',
-    conTeam: qs.get('conTeam') || '',
+    pro2: '',
+    con2: '',
+    proUid2: '',
+    conUid2: '',
+    proTeam: '',
+    conTeam: '',
     // Explicit side hint from /live.html — survives anonymous users
     // (no Firebase UID) and same-account-two-tabs testing where UID
     // matching collapses both viewers onto one side. Empty string for
@@ -4613,7 +4602,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // routinely assume an AI judge only scores the prepared speeches.
       '<span class="tag tag-judge">Interruptions scored</span>' +
       (state.formatKey === 'quick'
-        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Open clash. <strong style="color:var(--text)">The AI judge hears every interruption and weighs it in the ballot.</strong> Human judges can watch and score public rounds. Competition styles are in the Format menu below.</div>'
+        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Casual 1v1. <strong style="color:var(--text)">The AI judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
         : '') +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
@@ -4858,7 +4847,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         ? 'The ballot is ready on both screens.'
         : 'The AI judge has control.';
       detailText = rawPhase === 'ballot-rendered'
-        ? 'Read the decision, reasoning, speaker points, and fixes together.'
+        ? 'Read the decision, reasoning, scores out of 100, and fixes together.'
         : 'Both screens move here automatically while the judge weighs the transcripts.';
       pillText = rawPhase === 'ballot-rendered' ? 'Ready' : 'Judging';
     }
@@ -7785,7 +7774,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // room for a scorecard and seven lines of reasoning in 720px, and a
     // reader of a replay can only take one of them at a time anyway.
     var detail = el < 10200;
-    // 3.2s speaker points, counting up
+    // 3.2s argument scores, counting up
     var pp = detail ? ease((el - 3200) / 1500) * Math.min(1, (10200 - el) / 500) : 0;
     if (pp > 0){
       var cards = [
@@ -7803,7 +7792,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         ctx.fillText(isFinite(val) ? (Math.round(val * pp * 10) / 10).toFixed(1) : '—', cards[c].x, 480);
         ctx.font = '600 16px "Inter","Archivo",sans-serif';
         ctx.fillStyle = 'rgba(240,237,230,.45)';
-        ctx.fillText('SPEAKER POINTS', cards[c].x, 506);
+        ctx.fillText('SCORE OUT OF 100', cards[c].x, 506);
       }
     }
     // 6.0s scorecard bars, each growing on its own beat
@@ -11694,15 +11683,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     } else {
       verdictLines = 'VERDICT ALREADY ISSUED (final, do not re-litigate): winner = '
         + (b.winner === 'pro' ? state.proName + ' (' + f.sideLabels[f.sides[0]] + ')' : state.conName + ' (' + f.sideLabels[f.sides[1]] + ')')
-        + '. Speaker points: ' + state.proName + ' ' + (b.proPoints != null ? b.proPoints : '?')
+        + '. Scores out of 100: ' + state.proName + ' ' + (b.proPoints != null ? b.proPoints : '?')
         + ', ' + state.conName + ' ' + (b.conPoints != null ? b.conPoints : '?') + '.'
         + (b.rfd ? '\nShort RFD already shown to the room: ' + b.rfd : '');
     }
     var system = [
-      'You are the tournament judge who just issued the verdict in a ' + f.name + ' round between real people. The verdict is FINAL. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debaters keep and reread. Explain the verdict; never contradict or soften the winner, the points, or the ranking.',
+      'You just issued the verdict in a casual one-on-one argument between real people. The verdict is FINAL. Your job now is the full written reason for decision. Explain the verdict in plain language. Never contradict or soften the winner or the scores.',
       '',
-      'FORMAT LENS:',
-    ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(paradigmBallotLines()).concat([
+      'ROUND LENS:',
+    ].concat(JUDGE_RULES[state.formatKey] || []).concat(judgeLensBallotLines()).concat(assignedJudgeBallotLines()).concat(paradigmBallotLines()).concat([
       '',
       'HARD RULES:',
       '- MINIMUM ' + (bdDeep.deepWords || [700,1100])[0] + ' words. Target ' + (bdDeep.deepWords || [700,1100])[0] + ' to ' + (bdDeep.deepWords || [700,1100])[1] + '. Under the minimum means you summarized instead of adjudicating; go deeper, not longer-winded. Depth comes from covering more of the flow, never from restating a ruling you already made.',
@@ -12943,7 +12932,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           '<input type="checkbox" id="lbConsentCheckbox" checked />' +
           '<div class="lb-body">' +
             '<strong>This round is on the public leaderboard</strong>' +
-            'Your result' + (typeof myPointsForLb === 'number' ? ' and ' + myPointsForLb + ' speaker points' : '') +
+            'Your result' + (typeof myPointsForLb === 'number' ? ' and ' + myPointsForLb + '/100' : '') +
             ' are counted on /leaderboard, win or lose. Untick to keep this one off; it only affects your own row, and your opponent decides theirs.' +
             '<span class="lb-status" id="lbConsentStatus"></span>' +
           '</div>' +
@@ -12965,19 +12954,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
       ballotCouncilHtml(b) +
-      // "of 100" renders only when the ballot is on the 1-100 scale
-      // (points above 30); pre-rework ballots re-rendered from Firestore
-      // are on the old 30-point scale and keep the bare label.
+      // Current public ballots always use the 1-100 scale.
       '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
           '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : ', ') + '</div>' +
-          '<div class="pts-label">Speaker points' + (Math.max(b.proPoints || 0, b.conPoints || 0) > 30 ? ' · of 100' : '') + '</div>' +
+          '<div class="pts-label">Argument score · out of 100</div>' +
         '</div>' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.conName) + ' · ' + escHtml(f.sideLabels[f.sides[1]]) + '</div>' +
           '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : ', ') + '</div>' +
-          '<div class="pts-label">Speaker points' + (Math.max(b.proPoints || 0, b.conPoints || 0) > 30 ? ' · of 100' : '') + '</div>' +
+          '<div class="pts-label">Argument score · out of 100</div>' +
         '</div>' +
       '</div>' +
       // Reading depth. The judge writes the same decision at three
@@ -13257,8 +13244,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '',
         winnerName + ' (' + winnerSide + ') wins.',
         '',
-        state.proName + ': ' + (b.proPoints != null ? b.proPoints + ' speaks' : ''),
-        state.conName + ': ' + (b.conPoints != null ? b.conPoints + ' speaks' : ''),
+        state.proName + ': ' + (b.proPoints != null ? b.proPoints + '/100' : ''),
+        state.conName + ': ' + (b.conPoints != null ? b.conPoints + '/100' : ''),
         '',
         'RFD: ' + judgePlain(b.rfd || ''),
         '',
@@ -14759,7 +14746,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             ctx.fillText(String(seat.pts), mid, y + 172);
             ctx.font = '700 19px ' + SANS;
             ctx.fillStyle = 'rgba(255,255,255,0.38)';
-            ctx.fillText('SPEAKER POINTS', mid, y + 200);
+            ctx.fillText('SCORE OUT OF 100', mid, y + 200);
           } else if (lit){
             ctx.font = '900 30px ' + SANS;
             ctx.fillStyle = accent;

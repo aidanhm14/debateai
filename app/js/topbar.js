@@ -290,7 +290,7 @@
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
-    { href: '/app#case',      label: 'Prep', strong: true },
+    { href: '/practice',      label: 'AI round', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
@@ -492,11 +492,7 @@
       // and the mobile sheet draws MORE_GROUPS *plus* every LINKS row —
       // so the Explore entry comes out as the rail entry goes in. Same
       // trade the /predict row made on 2026-08-20.
-      // 2026-07-28: the two surfaces behind running a real competition.
-      // /partners is where a 2v2 team gets formed (and the only place it
-      // can be, since a tournament of teams needs the teams to exist
-      // first); /tournament is the draw, the tab and the bracket.
-      { href: '/partners',    label: 'Find a 2v2 partner', plain: 'Find a teammate' },
+      // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/tournament',  label: 'Enter a tournament' },
@@ -606,7 +602,7 @@
       // 2026-08-19: indexed, live, and reachable from no nav surface.
       // Sits here rather than in Practice because it is prep reading
       // (what a judge rewards before you speak), not the /judge tool.
-      { href: '/judge-paradigms', label: 'Judge paradigms', plain: 'How judges decide' },
+      { href: '/judge-integrity', label: 'Judge integrity', plain: 'How judging is checked' },
     ]},
     // The other half of the old "Watch & compete". Spectating and
     // finding people are the same visit: someone here is not trying to
@@ -855,8 +851,7 @@
     '/spar':           { desc: 'Random matchmaking, right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
     '/debate-online':  { desc: 'Live, AI, and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
-    '/learn':          { desc: 'Lessons, drills, and formats', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
-    '/app#case':       { desc: 'Case builder and prep tools', icon: '<path d="M12 5.2H6.6A2.4 2.4 0 0 0 4.2 7.6v9.8a2.4 2.4 0 0 0 2.4 2.4h9.8a2.4 2.4 0 0 0 2.4-2.4V12"/><path d="M17.7 4.3a2 2 0 0 1 2.8 2.8l-7.3 7.3-3.8 1 1-3.8z"/>' },
+    '/learn':          { desc: 'Clear claims, rebuttals, and weighing', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
     '/judge':          { desc: 'Record together or upload a transcript', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
     '/live':           { desc: 'Schedule a live round on the board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
@@ -877,7 +872,6 @@
     // about what the room thinks afterwards.
     '/debate-shows':   { desc: 'Surrounded, and who changed their mind', icon: '<path d="M4.2 6.4a1.8 1.8 0 0 1 1.8-1.8h7.6a1.8 1.8 0 0 1 1.8 1.8v4.4a1.8 1.8 0 0 1-1.8 1.8H8.6L5 15.6v-3H6a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M9.4 15.4h1.2l3.6 3v-3h1.8a1.8 1.8 0 0 0 1.8-1.8V9.2"/>' },
     '/tournaments':    { desc: 'Brackets, tab, and results', plain: 'Sign-ups, matchups, and results', icon: '<path d="M8 4.6h8v4.7a4 4 0 0 1-8 0zM8 6.3H4.7c0 2.7 1.5 4.3 3.5 4.6M16 6.3h3.3c0 2.7-1.5 4.3-3.5 4.6M12 13.2v3.1M8.4 19.7h7.2M10 16.3h4l.9 3.4H9.1z"/>' },
-    '/partners':       { desc: 'Team up for two on two', plain: 'Pair up and argue two against two', icon: '<circle cx="8.4" cy="9.2" r="2.6"/><circle cx="15.6" cy="9.2" r="2.6"/><path d="M4.2 18.6a4.2 4.2 0 0 1 8.4 0M11.4 18.6a4.2 4.2 0 0 1 8.4 0"/>' },
     '/tournament':     { desc: 'Register, draw, tab, bracket', icon: '<path d="M4.7 5.6h14.6M6.8 5.6v4.1a5.2 5.2 0 0 0 10.4 0V5.6M12 14.9v3.3M8.6 20.2h6.8"/>' },
     // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
     // but never got a MENU_META row, so the largest tile in the column
@@ -896,7 +890,7 @@
     '/flow':           { desc: 'Speech to flow, clash, and answers', plain: 'Turns a speech into clear notes', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
     '/voice-debate':   { desc: 'Talk out loud, it argues back, you get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
-    '/topics':         { desc: 'PF, LD, Policy, BQ, Worlds', plain: 'Ready-made things to argue about', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
+    '/topics':         { desc: 'Ready-made things to argue about', plain: 'Ready-made things to argue about', icon: '<path d="M4 6.6h1.6M4 12h1.6M4 17.4h1.6M8.6 6.6H20M8.6 12H20M8.6 17.4H20"/>' },
     '/argument-coach': { desc: 'Claim, warrant, impact checks', icon: '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.1"/>' },
     '/oral-exam-prep': { desc: 'Defend your work out loud', icon: '<path d="M2.6 9.4L12 4.6l9.4 4.8-9.4 4.8z"/><path d="M6.6 11.9v4.2c3.6 2.7 7.2 2.7 10.8 0v-4.2M21.4 9.4v5"/>' },
   };
@@ -1139,14 +1133,13 @@
           ['/challenges',     'big'],
           ['/debate-online',  'strong'],
           ['/tournaments',    'strong'],
-          ['/partners',       ''],
           ['/private',        ''],
           ['/leaderboard',    'strong'],
           ['/claim',          ''],
         ]),
         column('Practice', [
           ['/voice-debate',   'big'],
-          ['/app#case',       'strong'],
+          ['/practice',       'strong'],
           ['/judge',          ''],
           ['/flow',           ''],
           ['/topics',         ''],
@@ -1157,7 +1150,7 @@
           ['/coach',          ''],
           ['/coaches',        ''],
           ['/squad',          ''],
-          ['/judge-paradigms', ''],
+          ['/judge-integrity', ''],
         ]),
         column('Watch & community', [
           ['/community',      'big'],

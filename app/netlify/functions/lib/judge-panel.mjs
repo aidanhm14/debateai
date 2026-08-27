@@ -83,7 +83,7 @@ export function normalizeVote(juror, ballot, aKey, bKey) {
 // in judge-run.mjs and both renderers: a required axis missing drops the
 // card, an optional one missing just means this ballot predates it.
 const REQUIRED_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
-const OPTIONAL_AXES = ['persuasion'];
+const OPTIONAL_AXES = ['strategy', 'persuasion'];
 const DIM_AXES = [...REQUIRED_AXES, ...OPTIONAL_AXES];
 
 function normalizeDims(dm, aKey, bKey) {
@@ -267,8 +267,8 @@ function medianDims(cast) {
     const a = median(withDims.map((v) => v.dimensions[axis] && v.dimensions[axis].a));
     const b = median(withDims.map((v) => v.dimensions[axis] && v.dimensions[axis].b));
     if (a === null || b === null) {
-      // A panel mixing a juror that scored persuasion with one that did
-      // not still has a real median on the four required axes. Dropping
+      // A panel mixing a juror that scored a newer optional axis with
+      // one that did not still has a real median on the required axes. Dropping
       // the whole card there would let one juror's omission delete a
       // scorecard the rest of the panel agreed on.
       if (REQUIRED_AXES.includes(axis)) return null;

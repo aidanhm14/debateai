@@ -57,9 +57,11 @@ export const ALLOWED_MIME = new Set([
   'video/webm', 'video/mp4', 'video/quicktime',
 ]);
 
-export const FORMATS = new Set(['quick', 'apda', 'bp', 'worlds', 'asian', 'pf', 'ld', 'policy']);
+// New challenges are casual 1v1 only. FORMAT_NAMES keeps historical
+// labels so an old completed round is displayed accurately.
+export const FORMATS = new Set(['quick']);
 export const FORMAT_NAMES = {
-  quick: 'Quick Clash', apda: 'APDA', bp: 'British Parli', worlds: 'Worlds',
+  quick: 'Casual 1v1', apda: 'APDA', bp: 'British Parli', worlds: 'Worlds',
   asian: 'Asian Parli', pf: 'Public Forum', ld: 'Lincoln-Douglas', policy: 'Policy',
 };
 
@@ -76,14 +78,10 @@ export const AI_MAX_OPEN = 2;        // never more than this many AI challenges 
 export const AI_MIN_BOARD = 3;       // only seed while open-public count is below this
 export const AI_CHALLENGE_TTL_MS = 72 * 60 * 60 * 1000; // unanswered AI challenges retire
 export const SEED_MOTIONS = [
-  { motion: 'This House would ban political parties from accepting corporate donations.', format: 'bp' },
   { motion: 'Social media has done more harm than good to democratic debate.', format: 'quick' },
-  { motion: 'This House would make voting compulsory for citizens over eighteen.', format: 'asian' },
-  { motion: 'AI art should be eligible for copyright.', format: 'pf' },
-  { motion: 'This House would abolish legacy preference in college admissions.', format: 'apda' },
+  { motion: 'AI art should be eligible for copyright.', format: 'quick' },
   { motion: 'Cities should make public transit free.', format: 'quick' },
-  { motion: 'This House believes exams reward the wrong skills.', format: 'worlds' },
-  { motion: 'Justice requires abolishing plea bargaining in criminal cases.', format: 'ld' },
+  { motion: 'Exams reward the wrong skills.', format: 'quick' },
 ];
 
 export function mediaStore() {
@@ -173,7 +171,7 @@ export async function speechToMp3(text) {
       voice: process.env.ASYNC_TTS_VOICE || 'onyx',
       input: text,
       response_format: 'mp3',
-      instructions: 'Varsity debater on the circuit: confident, measured pace, real conviction, no announcer voice.',
+      instructions: 'Natural conversational argument: confident, measured pace, real conviction, no announcer voice and no competitive debate jargon.',
     }),
   });
   if (!r.ok) throw new Error('tts ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 160));

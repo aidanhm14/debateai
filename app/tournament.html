@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Tournament · Debatable</title>
-<meta name="description" content="Register a team, see the draw, find your room, and follow the tab and the bracket as a tournament runs.">
+<meta name="description" content="Enter a casual one-on-one event, see the draw, find your room, and follow the standings and bracket.">
 <!-- Operational draw, room, and tab UI. The public search landing is
      /tournaments; indexing both pages splits the same tournament intent. -->
 <meta name="robots" content="noindex,follow">
@@ -204,7 +204,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   <header class="head">
     <div class="kicker" id="kicker">Tournaments</div>
     <h1 id="title">Tournaments</h1>
-    <p class="lede" id="lede">Register a team, get your draw, debate your round, and watch the tab move.</p>
+    <p class="lede" id="lede">Enter, get your draw, argue your round, and watch the standings move.</p>
   </header>
 
   <div id="err" class="err hidden"></div>
@@ -219,7 +219,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     <section class="card">
       <h2>Run your own</h2>
-      <p class="sub">Set it up, open registration, and the draw, the tab and the bracket are handled for you. Rounds happen in the same rooms the rest of the site uses, with the AI judge on every one.</p>
+      <p class="sub">Set up a casual 1v1 event, open registration, and the draw, standings, and bracket are handled for you. Every AI ballot scores both sides out of 100.</p>
       <div id="createBox" class="hidden">
         <div class="fields">
           <div>
@@ -227,24 +227,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
             <input class="in" id="tName" maxlength="80" placeholder="Winter Invitational">
           </div>
           <div>
-            <label class="f" for="tFormat">Format</label>
+            <label class="f" for="tFormat">Round type</label>
             <select class="in" id="tFormat">
-              <option value="apda">APDA Parliamentary</option>
-              <option value="quick">Quick Clash</option>
-              <option value="blitz">Blitz (5 min)</option>
-              <option value="asian">Asian Parliamentary</option>
-              <option value="bp">British Parliamentary</option>
-              <option value="worlds">Worlds (WUDC)</option>
-              <option value="ld">Lincoln-Douglas</option>
-              <option value="pf">Public Forum</option>
-              <option value="policy">Policy</option>
+              <option value="quick">Casual 1v1</option>
             </select>
           </div>
           <div>
             <label class="f" for="tTeamSize">Entries are</label>
             <select class="in" id="tTeamSize">
-              <option value="1">Solo debaters</option>
-              <option value="2">Teams of two</option>
+              <option value="1">One person per side</option>
             </select>
           </div>
           <div>
@@ -311,7 +302,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     <section class="card">
       <h2>The tab</h2>
-      <p class="sub">Ordered by ballots won, then speaker points.</p>
+      <p class="sub">Ordered by ballots won, then argument score out of 100.</p>
       <div class="tbl-scroll"><table id="tabTable"><tbody></tbody></table></div>
     </section>
 
@@ -466,7 +457,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   function renderList(list){
     show('listView', true);
     var host = $('tlist');
-    if (!list.length){
+    var publicList = list.filter(function(t){ return t.format === 'quick' && Number(t.teamSize || 1) === 1; });
+    if (!publicList.length){
       // Honest empty state. Nothing here invents a tournament that
       // does not exist, and the page still shows a host how to make
       // the first one.
@@ -474,15 +466,14 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       return;
     }
     host.innerHTML = '';
-    list.forEach(function(t){
+    publicList.forEach(function(t){
       var a = document.createElement('a');
       a.className = 'trow';
       a.href = '/tournament?t=' + encodeURIComponent(t.slug || t.tid);
       var live = (t.status === 'running' || t.status === 'elims' || t.status === 'break');
       a.innerHTML =
         '<div><div class="nm">' + esc(t.name) + '</div>' +
-        '<div class="meta">' + esc(fmtName(t.format)) + ' · ' +
-          (t.teamSize === 2 ? 'teams of two' : 'solo') +
+        '<div class="meta">' + esc(fmtName(t.format)) + ' · one person per side' +
           (t.startsAt ? ' · ' + esc(t.startsAt) : '') +
           ' · ' + t.entryCount + ' entered</div></div>' +
         '<div class="sp"><span class="pill ' + (live ? 'pill-live' : t.status === 'registration' ? 'pill-soon' : 'pill-done') + '">' +
@@ -496,9 +487,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       break:'Break announced', elims:'Elims', complete:'Complete', cancelled:'Cancelled' }[s] || s;
   }
   function fmtName(f){
-    return { quick:'Quick Clash', blitz:'Blitz (5 min)', apda:'APDA', bp:'British Parliamentary', worlds:'Worlds',
-      asian:'Asian Parliamentary', ld:'Lincoln-Douglas', pf:'Public Forum',
-      policy:'Policy', congress:'Congress' }[f] || f;
+    return f === 'quick' ? 'Casual 1v1' : 'Legacy event';
   }
 
   // ── Detail ──────────────────────────────────────────────────────
@@ -519,8 +508,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var t = state.data.tournament;
     document.title = t.name + ' · Debatable';
     $('title').textContent = t.name;
-    $('kicker').textContent = fmtName(t.format) + (t.teamSize === 2 ? ' · two on two' : '');
-    $('lede').textContent = t.description || 'Register, get your draw, debate your round, and follow the tab.';
+    $('kicker').textContent = fmtName(t.format);
+    $('lede').textContent = t.description || 'Enter, get your draw, argue your round, and follow the standings.';
     $('tDesc').textContent = '';
     var live = (t.status === 'running' || t.status === 'elims');
     var pill = $('statusPill');
@@ -721,16 +710,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     }
     var btn = document.createElement('button');
     btn.className = 'btn btn-primary';
-    btn.textContent = t.teamSize === 2 ? 'Register my team' : 'Register';
+    btn.textContent = 'Register';
     btn.addEventListener('click', function(){ register(btn); });
     host.appendChild(btn);
     state.affiliationInput = affiliationField(host, t, '', null);
     appendPrizeLinks(host, t);
-    if (t.teamSize === 2){
-      var link = document.createElement('a');
-      link.className = 'btn'; link.href = '/partners'; link.textContent = 'Find a partner';
-      host.appendChild(link);
-    }
   }
 
   // Cash-prize tournaments (prizePoolCents > 0) carry the official
@@ -1067,7 +1051,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       return;
     }
     var mine = myEntry();
-    tb.innerHTML = '<tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+    tb.innerHTML = '<tr><th>#</th><th>Entrant</th><th>W</th><th>L</th><th>Score</th></tr>' +
       rows.map(function(r){
         var me = mine && r.entryId === mine.entryId;
         var aff = r.affiliation
@@ -1428,8 +1412,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     api('/api/tournament-admin', {
       action: 'create',
       name: $('tName').value,
-      format: $('tFormat').value,
-      teamSize: parseInt($('tTeamSize').value, 10),
+      format: 'quick',
+      teamSize: 1,
       prelimRounds: parseInt($('tRounds').value, 10),
       breakSize: parseInt($('tBreak').value, 10),
       startsAt: $('tStarts').value,

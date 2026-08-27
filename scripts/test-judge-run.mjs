@@ -20,13 +20,13 @@ let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + n); } };
 
 const asyncParse = makeBallotParser('prop', 'opp');
-const liveParse = makeBallotParser('pro', 'con');
+const liveParse = makeBallotParser('pro', 'con', 100);
 const j = (o) => JSON.stringify(o);
 
 // ── the two surfaces read their own keys, and only their own ─────────
-const liveBallot = liveParse(j({ winner: 'pro', proPoints: 28.4, conPoints: 27.1, rfd: 'x' }));
+const liveBallot = liveParse(j({ winner: 'pro', proPoints: 84.4, conPoints: 71.1, rfd: 'x' }));
 ok(liveBallot.winner === 'pro', 'live keeps a pro winner');
-ok(liveBallot.proPoints === 28.4 && liveBallot.conPoints === 27.1, 'live reads pro/con points');
+ok(liveBallot.proPoints === 84.4 && liveBallot.conPoints === 71.1, 'live reads pro/con points');
 ok(!('propPoints' in liveBallot), 'live does not emit async keys');
 
 const asyncBallot = asyncParse(j({ winner: 'opp', propPoints: 26, oppPoints: 29, rfd: 'x' }));
@@ -35,23 +35,25 @@ ok(asyncBallot.propPoints === 26 && asyncBallot.oppPoints === 29, 'async reads p
 ok(!('proPoints' in asyncBallot), 'async does not emit live keys');
 
 // A live parser handed an async-shaped ballot must NOT silently invent a
-// winner from foreign keys. Both point fields are absent, so both clamp
-// to the 27 default and the a-side wins the tie. What matters is that it
+// winner from foreign keys. Both point fields are absent, so both use
+// the 55 default and the a-side wins the tie. What matters is that it
 // does not read propPoints as if it were proPoints.
-const crossed = liveParse(j({ winner: 'prop', propPoints: 30, oppPoints: 25, rfd: 'x' }));
-ok(crossed.proPoints === 27 && crossed.conPoints === 27, 'foreign point keys are NOT read across surfaces');
+const crossed = liveParse(j({ winner: 'prop', propPoints: 90, oppPoints: 45, rfd: 'x' }));
+ok(crossed.proPoints === 55 && crossed.conPoints === 55, 'foreign point keys are NOT read across surfaces');
 ok(crossed.winner === 'pro', 'unrecognised winner falls back to the points comparison, not the foreign string');
 
 // ── winner fallback ──────────────────────────────────────────────────
-ok(liveParse(j({ proPoints: 29, conPoints: 26, rfd: '' })).winner === 'pro', 'missing winner derives from points (a)');
-ok(liveParse(j({ proPoints: 26, conPoints: 29, rfd: '' })).winner === 'con', 'missing winner derives from points (b)');
-ok(liveParse(j({ winner: 'nonsense', proPoints: 26, conPoints: 29, rfd: '' })).winner === 'con', 'garbage winner derives from points');
+ok(liveParse(j({ proPoints: 79, conPoints: 66, rfd: '' })).winner === 'pro', 'missing winner derives from points (a)');
+ok(liveParse(j({ proPoints: 66, conPoints: 79, rfd: '' })).winner === 'con', 'missing winner derives from points (b)');
+ok(liveParse(j({ winner: 'nonsense', proPoints: 66, conPoints: 79, rfd: '' })).winner === 'con', 'garbage winner derives from points');
 
 // ── the speaker-point clamp, which feeds the ladder ──────────────────
-ok(liveParse(j({ winner: 'pro', proPoints: 47, conPoints: 3, rfd: '' })).proPoints === 30, 'points clamp high to 30');
-ok(liveParse(j({ winner: 'pro', proPoints: 47, conPoints: 3, rfd: '' })).conPoints === 25, 'points clamp low to 25');
-ok(liveParse(j({ winner: 'pro', proPoints: 'abc', conPoints: null, rfd: '' })).proPoints === 27, 'non-numeric points default to 27');
-ok(liveParse(j({ winner: 'pro', proPoints: 28.46, conPoints: 27, rfd: '' })).proPoints === 28.5, 'points round to one decimal');
+ok(liveParse(j({ winner: 'pro', proPoints: 147, conPoints: -3, rfd: '' })).proPoints === 100, '100-scale points clamp high');
+ok(liveParse(j({ winner: 'pro', proPoints: 147, conPoints: -3, rfd: '' })).conPoints === 1, '100-scale points clamp low');
+ok(liveParse(j({ winner: 'pro', proPoints: 'abc', conPoints: null, rfd: '' })).proPoints === 55, '100-scale non-numeric points default to 55');
+ok(liveParse(j({ winner: 'pro', proPoints: 78.46, conPoints: 67, rfd: '' })).proPoints === 78.5, '100-scale points round to one decimal');
+ok(asyncParse(j({ winner: 'prop', propPoints: 47, oppPoints: 3, rfd: '' })).propPoints === 30, 'legacy points still clamp high to 30');
+ok(asyncParse(j({ winner: 'prop', propPoints: 47, oppPoints: 3, rfd: '' })).oppPoints === 25, 'legacy points still clamp low to 25');
 
 // ── rfd + malformed input ────────────────────────────────────────────
 ok(liveParse(j({ winner: 'pro', proPoints: 28, conPoints: 27, rfd: 'z'.repeat(3000) })).rfd.length === 1600, 'rfd truncates at 1600');
@@ -78,10 +80,10 @@ ok(parseDims(null, 'pro', 'con') === null && parseDims('nope', 'pro', 'con') ===
 // broke this file's own fixture and, with it, every commit in the repo,
 // which is a cheap way to learn that the four originals are a FLOOR and
 // anything after them is additive.
-const withNew = { ...dims, persuasion: { pro: 6, con: 9 } };
-const five = parseDims(withNew, 'pro', 'con');
-ok(five !== null && Object.keys(five).length === 5, 'a newer ballot keeps every axis it scored');
-ok(five.persuasion.con === 9, 'the added axis survives with its scores');
+const withNew = { ...dims, strategy: { pro: 7, con: 5 }, persuasion: { pro: 6, con: 9 } };
+const six = parseDims(withNew, 'pro', 'con');
+ok(six !== null && Object.keys(six).length === 6, 'a newer ballot keeps every axis it scored');
+ok(six.strategy.pro === 7 && six.persuasion.con === 9, 'the added axes survive with their scores');
 const four = parseDims(dims, 'pro', 'con');
 ok(four !== null && Object.keys(four).length === 4,
   'a ballot judged before the new axis existed still renders its four');

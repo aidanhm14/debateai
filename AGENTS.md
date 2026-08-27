@@ -22,6 +22,13 @@ the switch date. The hero surface is no longer frozen.
 
 Debatable is a voice-first adversarial-argument trainer at
 **itsdebatable.com**. **Debatable is the only public product name.**
+As of 2026-08-27, every public round is **casual 1v1**: one person on
+each side, no teams, format picker, or tournament rulebook. Competitive
+debate formats are not part of the site. Legacy format parsers, prompts,
+and stored fields may remain dormant only to preserve old rounds and
+migration compatibility. Do not expose them in setup, navigation,
+marketing, metadata, or public guides. `/partners` and the old format
+guide routes redirect into the casual product.
 Do not put retired names in visible copy, accessibility labels,
 structured-data aliases, social metadata, generated audio, or CTA copy.
 Use plain actions such as "Start debating" and "Start a round."
@@ -53,10 +60,8 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   ├── landing.html           ~2700 lines, marketing entry. Same rules.
 │   ├── live.html              live tournament rooms (Daily.co video)
 │   ├── spar.html              live-human sparring matchmaking + AI fallback
-│   ├── partners.html         2v2 partner matching. Invite code OR an
-│   │                            open pool ranked by a 5-question fit
-│   │                            quiz (js/partner-fit.js); a formed duo
-│   │                            queues as a unit against another duo.
+│   ├── partners.html         retired 2v2 compatibility page. Public
+│   │                            routing sends /partners to /spar.
 │   ├── tournament.html       one tournament: register, draw, tab,
 │   │                            bracket, plus a host-only control room.
 │   │                            /tournaments (plural) is the separate

@@ -203,7 +203,14 @@ export default async (request, context) => {
 
   let judged;
   try {
-    judged = await runPanel(season, system, user, { aKey: 'pro', bKey: 'con', singleModel: JUDGE_MODEL });
+    judged = await runPanel(season, system, user, {
+      aKey: 'pro',
+      bKey: 'con',
+      singleModel: JUDGE_MODEL,
+      // Only new casual rooms use the 100-point parser. A saved legacy
+      // room keeps the scale it was shown before anyone spoke.
+      scoreScale: String(d.format || '').toLowerCase() === 'quick' ? 100 : 30,
+    });
   } catch (err) {
     console.error('[live-judge] panel failed', room, err.message);
     return jsonResponse({ ok: false, code: 'judge_failed', error: err.message }, 200, request);

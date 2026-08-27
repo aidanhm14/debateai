@@ -224,6 +224,70 @@ export const RUBRICS = {
       'Persuasion never overrides the flow. It is scored on its own axis and may break a tie the flow left level. Delivery, fluency, accent, and confidence are not persuasion and are not scored at all.',
     ],
   },
+
+  // ── adjudication-2026-08c ───────────────────────────────────────
+  //
+  // New public rounds use one casual 1v1 method and one 100-point
+  // score. Earlier rubric versions stay byte-for-byte intact so an old
+  // ballot can always be checked against the promise it received.
+  'adjudication-2026-08c': {
+    version: 'adjudication-2026-08c',
+    publishedAt: Date.UTC(2026, 7, 27),
+    title: 'How a casual 1v1 is scored',
+    summary:
+      'One person argues Pro and one argues Con. The judge decides from what both people actually said, names the issue that decided the round, and gives each side one argument score from 1 to 100. Competitive debate formats and their special rules are not used.',
+    tests: [
+      { key: 'claim', label: 'Clear claim', body: 'The side states what it wants the listener to believe.' },
+      { key: 'reason', label: 'Reasoning', body: 'Each important claim has a believable explanation connecting it to the conclusion.' },
+      { key: 'example', label: 'Support', body: 'Examples, facts, or concrete scenarios support the reasoning instead of replacing it.' },
+      { key: 'responsive', label: 'Direct response', body: 'The side answers the strongest point the other person actually made.' },
+      { key: 'comparative', label: 'Comparison', body: 'The side explains why its consequence matters more than the other side\'s consequence.' },
+      { key: 'accuracy', label: 'Accuracy', body: 'A flatly false claim earns no credit merely because it went unanswered.' },
+      { key: 'follow-through', label: 'Follow-through', body: 'The side carries its key idea through the round and answers the response to it.' },
+      { key: 'understood', label: 'Understood once', body: 'A reasonable listener can follow the argument the first time they hear it.' },
+    ],
+    weighing: [
+      { rank: 1, label: 'Reasoning', body: 'A conclusion with a complete explanation beats a larger claim with a missing link.' },
+      { rank: 2, label: 'Direct response', body: 'A point that survives the other side\'s best answer beats one that was left unanswered.' },
+      { rank: 3, label: 'Probability and stakes', body: 'The judge compares how likely each consequence is and how much it matters.' },
+      { rank: 4, label: 'Specificity', body: 'A concrete route to a consequence beats a broad prediction with no stated mechanism.' },
+      { rank: 5, label: 'Persuasion, only after substance', body: 'If the substantive comparison is genuinely level, the argument that a reasonable listener could best understand and believe takes the round. Charm, confidence, accent, fluency, and volume never count.' },
+    ],
+    dimensions: [
+      { key: 'clarity', label: 'Clarity', scale: '1 to 10', body: 'Could a listener follow the argument the first time?' },
+      { key: 'reasoning', label: 'Reasoning', scale: '1 to 10', body: 'Did the claims have complete and believable explanations?' },
+      { key: 'responsiveness', label: 'Responses', scale: '1 to 10', body: 'Did the side answer what the other person actually said?' },
+      { key: 'weighing', label: 'Comparison', scale: '1 to 10', body: 'Did the side explain which consequences mattered more and why?' },
+      { key: 'strategy', label: 'Focus', scale: '1 to 10', body: 'Did the side spend its time on the issues that decided the round?' },
+      { key: 'persuasion', label: 'Persuasion', scale: '1 to 10', body: 'Did the argument move a reasonable listener through concrete stakes and a checkable story? Not charm, confidence, accent, fluency, polish, or volume.' },
+    ],
+    speakerPoints: {
+      scale: '1 to 100, one decimal',
+      body:
+        'The public argument score is derived from the six dimensions. Reasoning counts 25 percent, responses 20 percent, comparison 20 percent, clarity 15 percent, focus 10 percent, and persuasion 10 percent. The judge cannot replace that calculation with a separate impression. The score does not decide the winner and is reported separately from the verdict.',
+    },
+    decidingIssue: {
+      body:
+        'Every ballot names the one question that decided the round and explains why one side answered it better. A ballot that cannot name that question has summarized the conversation instead of deciding it.',
+    },
+    deadlock: {
+      body: 'When the main issue is genuinely even, the judge states which published comparison resolved it instead of inventing a tie-break.',
+      ladder: [
+        'The side with the more complete explanation.',
+        'The side that better answered the other person\'s strongest point.',
+        'The side with the more likely and better-supported consequence.',
+        'Persuasion, only when the substantive comparison is still genuinely level.',
+      ],
+    },
+    outOfBounds: [
+      'No invented support. The judge never fills a missing fact, mechanism, or answer because it seems plausible.',
+      'No invented arguments. The judge never credits a point nobody made.',
+      'No format penalty. Competitive debate conventions, named formats, and unstated jargon are not part of a casual 1v1 ballot.',
+      'No identity or delivery bias. Name, school, accent, fluency, confidence, volume, and apparent experience never affect the verdict or score.',
+      'Persuasion never overrides the arguments. It may resolve only a substantive tie and may never repair a missing reason or response.',
+      'A judge preference may shift emphasis. It may never name a winner, dictate a score, invent a burden, or add a rule that both sides did not see before the round.',
+    ],
+  },
 };
 
 // ── seasons ─────────────────────────────────────────────────────────
@@ -282,7 +346,10 @@ export const SEASONS = [
   {
     id: '2026-persuasion',
     from: Date.UTC(2026, 7, 12),
-    to: Date.UTC(2027, 3, 1),
+    // This window was open when the next rubric was published. Closing
+    // it at a future UTC boundary preserves every earlier ballot under
+    // this exact configuration and avoids backdating the new method.
+    to: Date.UTC(2026, 7, 28),
     rubricVersion: 'adjudication-2026-08b',
     published: true,
     panel: {
@@ -315,6 +382,20 @@ export const SEASONS = [
       + 'DeepSeek is wired as a standby family so the third seat can be re-pinned without a new provider integration.',
   },
 ];
+
+// Reuse the exact panel object whose three models and effort pins were
+// verified live for the previous season. No provider, model, effort, or
+// quorum changes at this boundary; only the published rubric changes.
+SEASONS.push({
+  id: '2026-casual-1v1',
+  from: Date.UTC(2026, 7, 28),
+  to: Date.UTC(2027, 3, 1),
+  rubricVersion: 'adjudication-2026-08c',
+  published: true,
+  panel: SEASONS[SEASONS.length - 1].panel,
+  note:
+    'New rounds use one casual one-on-one method and one score out of 100. Competitive format rules and team structures are not used. The verified panel and its effort pins are unchanged.',
+});
 
 export const SEASON_IDS = SEASONS.map((s) => s.id);
 

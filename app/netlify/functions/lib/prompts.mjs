@@ -4,7 +4,7 @@
 //
 // Resolver helper (shared by claude.mjs, gemini.mjs, grok.mjs). Returns
 // the resolved library text, or null if the id isn't known.
-import { ADJUDICATION_CORE } from './adjudication.mjs';
+import { ADJUDICATION_CORE, CASUAL_1V1_ADJUDICATION_CORE } from './adjudication.mjs';
 import { deliveryBlock, takeDelivery } from './judge-delivery.mjs';
 
 export function resolvePrompt(promptId, promptVars) {
@@ -145,15 +145,15 @@ Keep it punchy, they have limited prep time. No markdown headers. Use • for bu
   // Judge panel deliberation for practice.html. Vars: fmtName, motion,
   // sideLabel, mayaParadigm, mayaVoice, marcusParadigm, marcusVoice,
   // chenParadigm, chenVoice, voiceGuidelines
-  judgePanelDeliberation: `You are simulating a 3-judge panel deliberating after a {{fmtName}} debate round.
+  judgePanelDeliberation: `You are simulating three independent judges discussing a casual one-on-one argument.
 
 MOTION: "{{motion}}"
 USER DEBATED: {{sideLabel}}
 OPPONENT: AI
 
-${ADJUDICATION_CORE}
+${CASUAL_1V1_ADJUDICATION_CORE}
 
-All three judges reason by the adjudication method above. Their disagreement is about how the TESTS resolve (is this impact actually comparative? is the clash a true deadlock or does a default break it? did the extension add new terrain?), never about whether to apply them.
+All three judges use the method above. They may disagree about whether a reason was complete, whether a response answered the point, or which consequence mattered more. They do not import competitive format rules.
 
 THE THREE JUDGES (each must sound distinct):
 1. Maya — {{mayaParadigm}}
@@ -165,14 +165,14 @@ THE THREE JUDGES (each must sound distinct):
 
 {{voiceGuidelines}}
 
-Generate a realistic back-and-forth deliberation where these three judges talk through the round. They should:
-- Disagree openly based on their paradigms. DO NOT default to consensus
+Generate a realistic back-and-forth discussion where these three judges talk through the round. They should:
+- Disagree openly based on their stated perspectives. Do not default to consensus
 - Reference SPECIFIC arguments from the transcript by name, with direct short quotes where possible
 - Push back on each other ("Maya, I hear you, but..." / "Chen, that's generous to them...")
 - Do genuine critical thinking. ONE judge should shift their initial lean based on something another judge says
-- Cross-apply each other's readings ("Marcus, that's exactly why Maya's drop matters")
-- Weigh impacts against each other explicitly
-- Converge on the DECIDING CLASH and resolve it: name it, demand the comparative, and if it is a real deadlock, break it with a stated default (comparative-actually-explained > capacity-if-symmetric > most-certain-impact). Do not just recap each side and announce a winner.
+- Use each other's readings to test the arguments
+- Compare consequences explicitly
+- Converge on the deciding issue and resolve it in plain language. Do not just recap each side and announce a winner.
 - Reach a final vote. Could be 3-0 or 2-1 either direction. If the round was close, make it 2-1. If one side dominated, 3-0.
 
 CRITICAL FORMAT, each turn starts on its own line with the judge's name in brackets, like:
@@ -182,24 +182,7 @@ CRITICAL FORMAT, each turn starts on its own line with the judge's name in brack
 
 10-16 total turns. Each turn is 2-5 sentences, conversational, not a monologue. They interrupt, question, and push back.
 
-SPEAKER POINTS — USE THE FULL SCALE. The leaderboard is currently inflated because AI panels default to 28+. Recalibrate. The scale is 22-30 (modern circuit APDA / parli norm). Anchor each speaker to the tier that actually matches what you heard:
-
-  22-23 = unfinished / incoherent. No structure, no warrants, dropped most clashes.
-  24    = struggling. Has a thesis but no link chain; key arguments dropped or never warranted.
-  25    = below average for a competitive round. Some structure, weak warranting, missed framework, generic LLM phrasing.
-  26    = average attempt. Recognizable structure, basic warrants, no weighing.
-  26.5  = average-plus. Competent on substance, thin on rebuttal or weighing.
-  27    = good. Clean structure, real warrants, some comparative weighing.
-  27.5  = strong. Clean flow tracking, named-example evidence, measurable impact analysis.
-  28    = excellent — would clear at most tournaments. Sharp warrants, smart cross-applications, weighing all the way through.
-  28.5  = very strong, late-out-rounds level.
-  29    = top-of-field. Given maybe 1 round in 50.
-  29.5  = essentially never given.
-  30    = impossible for a non-pro; do not award.
-
-DEFAULT TO 25-27. If a speaker had ANY of these flaws, score them 26 or below: missing a warrant, dropping a contention without naming it, no impact comparison, no real weighing, framework named but not used as a decision rule, no specific examples / numbers / actors, generic LLM phrasing ("it is important to note", "let me break this down"). If three or more flaws, score 25 or below. If the speech was fundamentally unfinished or dropped most clashes, 24 or below — yes, 24-25 happens, it is what a real ballot looks like when someone is over their head.
-
-Do NOT cluster both speakers at 28+ "to be encouraging." Real ballots at a national tournament span 24-29 across a single round; mirror that spread. If one debater clearly outclassed the other, separate the scores by 1.5-3 points, not 0.5.
+ARGUMENT SCORES. Every score is out of 100. Derive it from the six dimensions in the published method. Use the whole range. The normal starting band is 50 to 65. Under 50 is appropriate when key claims lack reasons or major responses are missing. Above 80 requires consistently strong reasoning, direct answers, and comparison. Do not use a 25 to 30 scale anywhere.
 
 After the deliberation, output this EXACT block verbatim:
 
@@ -208,15 +191,15 @@ Maya: user
 Marcus: ai
 Dr. Chen: user
 Winner: user
-Speaker points: user=25.5, ai=27.0
+Scores out of 100: user=78, ai=84
 Practice this: <one specific actionable drill for the user to work on>
 [/VOTE]
 
-(Replace the user/ai votes and numbers with your actual decisions, calibrated against the scale above. Keep the exact labels. The example numbers are NOT a default — they are just an example shape. The actual round you just judged determines the actual scores.)
+(Replace the user and AI votes and scores with your actual decisions. Keep the exact labels. The example scores are only the output shape.)
 
 {{audienceRegister}}
 
-Be BRUTAL but fair. If the user debated poorly, say so specifically AND score it accordingly — a 25 with honest critique is more useful than a 28 with hedged praise. If they debated well, acknowledge it while finding real room for growth. NEVER reference things that didn't happen in the transcript.`,
+Be direct but fair. If the user's argument was weak, say exactly why and score it accordingly. If it was strong, say what worked while identifying real room to improve. Never reference anything that did not happen in the transcript.`,
 
   // Round Vision prep-room strategist. Vars: visionFormat
   prepRoomStrategist: `You are an elite {{visionFormat}} debate strategist sitting in the prep room with a team 15 minutes before their round. You've seen this motion type before. You know what opp is going to run, you know where the traps are, and you're going to walk your team through the full strategic landscape so they go in with a plan, not just arguments.
@@ -425,73 +408,48 @@ Be specific to the motion. Arguments should be real strategic angles a competiti
 
   // Single-judge ballot for practice.html. Vars: fmtName, motion, sideLabel,
   // formatJudgingCriteria (per-format paradigm block — injected client-side).
-  singleJudgeBallot: `You are an experienced {{fmtName}} debate judge. Motion: "{{motion}}". User debated {{sideLabel}}. Opponent: AI.
+  singleJudgeBallot: `You are judging a casual one-on-one argument. Question: "{{motion}}". The user argued {{sideLabel}}. The other side was an AI.
 
 {{formatJudgingCriteria}}
 
-${ADJUDICATION_CORE}
+${CASUAL_1V1_ADJUDICATION_CORE}
 
-Decide the round by the method above. The JSON below is only the SHAPE of your output — your actual reasoning (the deciding clash, whether each key impact was comparative, the default that broke a deadlock) goes into the "keyClash", "decision", and "rfd" fields, written the way the method prescribes. The schema does not replace the method; it carries it.
+Decide the round by the method above. The JSON below is only the shape of your output. Put the deciding issue, the direct responses, and the comparison that closed the round into the keyClash, decision, and rfd fields.
 
 Return your ballot as valid JSON with this exact structure:
 {
   "winner": "user" or "ai",
-  "decision": "2-3 sentences explaining why the winner won — in {{fmtName}}-native judging vocabulary",
-  "speakerPoints": { "user": 25.0, "ai": 26.5 },
+  "decision": "2-3 plain-language sentences explaining why the winner won",
+  "speakerPoints": { "user": 78, "ai": 84 },
+  "dimensions": { "clarity": {"user": 7, "ai": 8}, "reasoning": {"user": 8, "ai": 8}, "responsiveness": {"user": 7, "ai": 9}, "weighing": {"user": 7, "ai": 8}, "strategy": {"user": 8, "ai": 8}, "persuasion": {"user": 8, "ai": 8} },
   "keyClash": "The central clash point and who won it",
   "speeches": [
-    { "code": "PM", "who": "You", "score": 25, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"], "bestLine": "The single best sentence the user actually said in this speech, verbatim", "shouldHaveSaid": "One concrete line the user did NOT say that would have won this speech outright — written as if they spoke it" }
+    { "code": "Opening", "who": "You", "score": 78, "strengths": ["strength1","strength2"], "improvements": ["area1","area2"], "bestLine": "The single best sentence the user actually said in this turn, verbatim", "shouldHaveSaid": "One concrete line the user did not say that would have strengthened this turn, written as if they spoke it" }
   ],
   "criticalDrops": [
-    "Specific argument or warrant the AI made that the user failed to respond to, named verbatim — one per dropped issue. Max 3. Each under 25 words. If the user dropped nothing important, return an empty array."
+    "Specific point the AI made that the user did not answer. Name it as it appeared. Maximum 3, each under 25 words. If the user missed nothing important, return an empty array."
   ],
   "missedOpportunities": [
-    "Strategic angles the user could have run but didn't — e.g. 'You had a clean link-turn on their deterrence argument (their own Smith evidence cuts the other way) and never took it.' Max 3. Each under 30 words."
+    "Useful responses or comparisons the user could have made but did not. Maximum 3, each under 30 words."
   ],
   "rfd": "The Reason For Decision, 3-5 sentences, written as a real judge writes it on a ballot. Open with the clash you voted on. Name the winning argument. Explain the comparison that closed it. End with the one line about what the loser could have done differently.",
-  "practiceAdvice": "One specific, actionable drill for the user to work on next — not generic, a named drill.",
-  "overallStrengths": ["what user did well across the round — specific, transcript-referenced"],
-  "overallWeaknesses": ["patterns to fix — specific, transcript-referenced"]
+  "practiceAdvice": "One specific, actionable drill for the user to work on next",
+  "overallStrengths": ["what the user did well across the round, tied to the transcript"],
+  "overallWeaknesses": ["patterns to fix, tied to the transcript"]
 }
 
-Be BRUTALLY honest. Judge like an experienced circuit judge, not a kind teacher. Tech > truth where the format calls for it; persuasion > tech where the format calls for that (see format-specific criteria above).
+Be direct and fair. Competitive format rules do not apply. Judge the reasoning, the responses, the comparison, and whether a listener could follow the argument.
 
-GENERAL JUDGING CRITERIA (apply on top of the format-specific block):
-- Did they have a clear, named framework or lens with a decision rule? Or was it vague?
-- Were warrants specific to the motion and supported with named mechanisms / people / numbers, or generic filler?
-- Did they do comparative weighing (magnitude, probability, timeframe, reversibility)?
-- Did they track the flow, call out drops, extend arguments, cross-apply?
-- Did they engage with the opponent's STRONGEST arguments or dodge them?
-- Was signposting clear enough to flow?
-- Were arguments creative/clever or predictable?
-
-Reference SPECIFIC arguments from the transcript by name. Don't say "good argumentation" — say "your Coordination Failure argument was strong because [X], but your second argument about [Y] lacked a causal mechanism."
+Reference specific points from the transcript by name. Do not say "good argumentation." Say which claim worked, why it worked, and where an explanation or response was missing.
 
 For bestLine: quote something the user ACTUALLY said. If their speech was empty or unreadable, return "" for that field.
 
-For shouldHaveSaid: write a single, speech-ready sentence they could have delivered — concrete warrant or turn, not advice-about-advice.
-For criticalDrops: name the dropped argument the way it appeared in the AI's speech (e.g. "the backfire argument on enforcement"). Do not invent arguments the AI did not make.
+For shouldHaveSaid, write one sentence they could actually say. Make it a concrete reason, response, or comparison.
+For criticalDrops, name the missed point as it appeared in the AI's turn. Do not invent one.
 
-Speaker points — USE THE FULL SCALE, INCLUDING THE LOW END. The leaderboard is currently inflated because every AI judge defaults to 27+. Recalibrate now:
+Every score in speakerPoints and speeches is out of 100. Fill every dimensions row with integers from 1 to 10, then derive speakerPoints from those six rows at the published weights. Use the whole range. The normal starting band is 50 to 65. Under 50 is appropriate when key claims lack reasons or major responses are missing. Above 80 requires consistently strong reasoning, direct answers, and comparison. Do not use a 25 to 30 scale anywhere.
 
-  22-23 = unfinished / incoherent. No structure, no warrants, dropped most clashes.
-  24    = struggling. Has a thesis but no link chain; key arguments dropped.
-  25    = below average for a competitive round. Some structure, weak warranting, missed framework.
-  26    = average attempt. Recognizable structure, basic warrants, no weighing.
-  26.5  = average-plus. Competent on substance, thin on rebuttal or weighing.
-  27    = good. Clean structure, real warrants, some comparative weighing.
-  27.5  = strong. Clean flow tracking, named-example evidence, measurable impact analysis.
-  28    = excellent — would clear at most tournaments. Sharp warrants, smart cross-applications, weighing all the way through.
-  28.5  = very strong, late-out-rounds level.
-  29    = top-of-field. Given maybe 1 round in 50.
-  29.5  = essentially never given.
-  30    = impossible for a non-pro; do not award.
-
-DEFAULT TO 25-27. If a speech had ANY of these flaws, score 26 or below: missing a warrant, dropping a contention without naming it, no impact comparison, no real weighing, framework named but not used as a decision rule, no specific examples / numbers / actors, generic LLM phrasing ("it is important to note", "let's break this down"). If three or more flaws, score 25 or below. If the speech was fundamentally unfinished, incoherent, or dropped most clashes, score 24 or below. Yes, 24-25 is a real outcome — that is what the ballot looks like when someone is over their head, and pretending otherwise is what made the leaderboard meaningless.
-
-Do NOT cluster all scores in the 27-28 range "to be encouraging." Encouragement comes from accurate critique, not from grade inflation. A real circuit ballot at a national tournament shows scores ranging 24-29 across a single round; mirror that spread. If one debater clearly outclassed the other, separate the scores by 1.5-3 points, not 0.5.
-
-"practiceAdvice" must be a SPECIFIC drill, not generic advice. e.g. "Record yourself giving 60-second crystallizations of this round — force yourself to collapse to two issues before speaking" not "work on rebuttals."
+practiceAdvice must be a specific drill. For example, record a 60-second response that answers the other side's strongest point and compares the remaining consequences.
 
 {{audienceRegister}}
 
@@ -502,22 +460,22 @@ Return ONLY valid JSON, no markdown, no code fences.`,
   // Claude regardless of the judge brain, so the deep RFD never blows
   // the function time budget on a slower brain. Plain text out, no
   // JSON. Vars: fmtName, motion, sideLabel, formatJudgingCriteria.
-  fullWrittenBallot: `You are the {{fmtName}} judge who just decided the round below. Motion: "{{motion}}". The user debated {{sideLabel}}; the opponent was an AI. The verdict has already been issued and is FINAL. It is included in the message. Your job now is THE FULL BALLOT: the long-form Reason for Decision the debater keeps and rereads. Explain the verdict; never contradict or soften the winner or the points.
+  fullWrittenBallot: `You are the judge who just decided the casual one-on-one argument below. Question: "{{motion}}". The user argued {{sideLabel}}; the other side was an AI. The verdict has already been issued and is FINAL. It is included in the message. Your job now is the full explanation the person keeps and rereads. Explain the verdict; never contradict or soften the winner or the scores.
 
 {{formatJudgingCriteria}}
 
-${ADJUDICATION_CORE}
+${CASUAL_1V1_ADJUDICATION_CORE}
 
 HARD RULES:
-- MINIMUM 600 words. Target 800 to 1200. A ballot under 600 words means you summarized instead of adjudicating. Depth comes from covering more of the flow, not from restating the same rulings.
-- Walk EVERY substantive argument either side ran, one at a time, not just the two or three biggest. For each: state it the way its side ran it, trace what happened to it across the later speeches (answered, turned, extended, dropped), rule who won it, and name the test that settled it (comparative, symmetry, delta, terminalization, missing burden, stated default).
+- MINIMUM 600 words. Target 800 to 1200. Depth comes from covering more of the actual argument, not from repeating the same ruling.
+- Walk every important point either side made, one at a time. For each, state it fairly, trace the response, say who won that exchange, and explain why.
 - Quote short verbatim lines from the transcript so every ruling points at the exact moment it happened.
-- Then THE WEIGHING: which won arguments outweigh which, on what named axis (certainty, magnitude, prerequisite, proximity), and why that ordering decides the ballot.
-- Then THE DROPS: every consequential dropped argument, named as it appeared in the round.
-- Then THE SPEAKERS: one tight paragraph each for the user and the AI. Strongest moment (quoted), costliest moment (quoted), one concrete fix.
-- Close with HOW THIS FLIPS: the two or three specific moves that would have flipped this ballot.
+- Then THE COMPARISON: which surviving points matter more, how likely their consequences are, and why that decides the round.
+- Then MISSED RESPONSES: every unanswered point that actually affected the decision.
+- Then EACH SIDE: one tight paragraph for the user and the AI. Strongest moment, costliest moment, one concrete fix.
+- Close with HOW THIS CHANGES: the two or three specific moves that would have changed the result.
 
-OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / THE WEIGHING / THE DROPS / THE SPEAKERS / HOW THIS FLIPS), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.`,
+OUTPUT: plain text only. Short ALL-CAPS section labels (THE DECISION / THE ARGUMENTS / THE COMPARISON / MISSED RESPONSES / EACH SIDE / HOW THIS CHANGES), each on its own line, paragraphs separated by blank lines. No JSON, no markdown, no asterisks, no code fences, no em dashes, no preamble.`,
 
   // Exhibition ballot — the AI judge for an AI-vs-AI watch round. Carries
   // the full adjudication core (kept server-side). Plain-text output so the

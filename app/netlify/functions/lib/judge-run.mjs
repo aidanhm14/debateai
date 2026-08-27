@@ -38,7 +38,7 @@ const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
 // scorecard at all, where it used to yield four. The renderers take the
 // same floor, so the two halves agree.
 const REQUIRED_AXES = ['clarity', 'reasoning', 'responsiveness', 'weighing'];
-const OPTIONAL_AXES = ['persuasion'];
+const OPTIONAL_AXES = ['strategy', 'persuasion'];
 const DIM_AXES = [...REQUIRED_AXES, ...OPTIONAL_AXES];
 
 // Output budget per juror. Was 900, which had stopped being enough
@@ -89,18 +89,25 @@ export function parseDims(raw, aKey, bKey) {
 }
 
 /**
- * Build a ballot parser bound to a pair of side keys. Points are clamped
- * to the 25-30 speaker scale server-side: a juror that returns 47 or 3
- * would otherwise flow straight through fromRound() into the ladder.
+ * Build a ballot parser bound to a pair of side keys and an explicit
+ * score scale. Legacy callers default to 30. New casual callers pass
+ * 100, so an in-flight old round is never silently reinterpreted.
  */
-export function makeBallotParser(aKey, bKey) {
+export function makeBallotParser(aKey, bKey, scoreScale = 30) {
   const aPts = `${aKey}Points`;
   const bPts = `${bKey}Points`;
+  const scale100 = Number(scoreScale) === 100;
   return function parseBallot(text) {
     const m = String(text || '').match(/\{[\s\S]*\}/);
     if (!m) throw new Error('no JSON in ballot output');
     const j = JSON.parse(m[0]);
-    const clamp = (x) => Math.max(25, Math.min(30, Math.round(Number(x) * 10) / 10 || 27));
+    const clamp = (x) => {
+      const n = Number(x);
+      if (!Number.isFinite(n)) return scale100 ? 55 : 27;
+      return scale100
+        ? Math.max(1, Math.min(100, Math.round(n * 10) / 10))
+        : Math.max(25, Math.min(30, Math.round(n * 10) / 10));
+    };
     const aPoints = clamp(j[aPts]);
     const bPoints = clamp(j[bPts]);
     let winner = j.winner === aKey || j.winner === bKey ? j.winner : null;
@@ -139,7 +146,7 @@ export async function runPanel(season, system, user, opts = {}) {
   const aKey = opts.aKey || 'prop';
   const bKey = opts.bKey || 'opp';
   const singleModel = opts.singleModel || 'claude-sonnet-5';
-  const parseBallot = makeBallotParser(aKey, bKey);
+  const parseBallot = makeBallotParser(aKey, bKey, opts.scoreScale);
 
   const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
   const wanted = (panelCfg && panelCfg.jurors) || [];

@@ -135,9 +135,9 @@ function t(label, cond) {
     /not charm|Not charm/.test(persuasion.body) && /accent/i.test(persuasion.body));
 
   const bounds = rubric.outOfBounds.join(' ').toLowerCase();
-  t('persuasion cannot override the flow', bounds.includes('persuasion never overrides the flow'));
-  t('no penalty for an unstated norm', bounds.includes('no penalty for a norm nobody stated'));
-  t('a paradigm cannot invent a burden', bounds.includes('may never invent a new one'));
+  t('persuasion cannot override the arguments', bounds.includes('persuasion never overrides the arguments'));
+  t('competitive format penalties are excluded', bounds.includes('no format penalty'));
+  t('a judge preference cannot invent a burden', bounds.includes('invent a burden'));
 
   // Persuasion sits at the BOTTOM of the weighing order. If it ever
   // climbs, a well-delivered case starts beating a better-warranted one.
@@ -147,6 +147,9 @@ function t(label, cond) {
     rubric.weighing.slice(0, -1).every((w) => !/persuasion/i.test(w.label)));
 
   t('the rubric requires a deciding issue', !!(rubric.decidingIssue && rubric.decidingIssue.body));
+  t('the newest rubric is casual 1v1', /casual 1v1/i.test(rubric.title));
+  t('the newest rubric publishes a 100-point score', /1 to 100/.test(rubric.speakerPoints.scale));
+  t('the newest rubric scores focus', rubric.dimensions.some((d) => d.key === 'strategy'));
 
   // The pin is a promise about what judged your round, so it has to be
   // complete. A juror with no model id is a seat nobody can check.
@@ -275,12 +278,11 @@ function t(label, cond) {
   t('the tally names the deciding issue', !!tallied.decidingIssue);
 }
 
-// ── 2d. the paradigm pickers match their data source ────────────────
+// ── 2d. the public judge exposes only casual 1v1 styles ─────────────
 //
-// /judge's paradigm <select> is hardcoded markup, not built from
-// js/judge-options.js, so adding a paradigm to the data file leaves the
-// dropdown missing it and every deep link to it lands on an empty
-// selection. That shipped once. This is the guard.
+// Legacy competitive paradigms remain in the data source so an old saved
+// ballot can still be explained accurately. They must not reappear in the
+// public picker now that new rounds are casual 1v1 only.
 {
   const opts = readFileSync(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
   const judge = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
@@ -309,8 +311,12 @@ function t(label, cond) {
   t('the paradigm list parsed', keys.length >= 10);
 
   const select = judge.slice(judge.indexOf('id="judgeParadigm"'), judge.indexOf('</select>', judge.indexOf('id="judgeParadigm"')));
-  const missing = keys.filter((k) => !select.includes('value="' + k + '"'));
-  t('every paradigm is in the /judge dropdown', missing.length === 0);
+  const publicKeys = [...select.matchAll(/value="([a-z]+)"/g)].map((m) => m[1]);
+  const casualKeys = ['auto', 'communication', 'moved', 'teaching', 'custom'];
+  t('the /judge dropdown contains only casual styles',
+    publicKeys.length === casualKeys.length && casualKeys.every((k) => publicKeys.includes(k)));
+  t('legacy competitive paradigms stay out of the public picker',
+    ['tabula', 'policymaker', 'stock', 'games', 'truth', 'hypothesis'].every((k) => !publicKeys.includes(k)));
 
   // A guide card that deep-links to a paradigm the picker cannot select
   // is a dead link, which is how the same defect surfaces to a user.

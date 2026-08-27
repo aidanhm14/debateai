@@ -24,6 +24,48 @@
 
 import { deliveryBlock, takeDelivery } from './judge-delivery.mjs';
 
+// The only method used for new public rounds. The tournament-oriented
+// core below remains available for old saved rounds whose format key is
+// not `quick`; routing a historical ballot through a different method
+// would rewrite the promise after the person spoke.
+export const CASUAL_1V1_ADJUDICATION_CORE = `CASUAL 1V1 JUDGING METHOD. Read this before scoring.
+
+Debatable runs one casual one-on-one argument. One person is Pro and one is Con. Competitive debate formats are not part of Debatable. Do not import a named format, team role, circuit convention, technical burden, or unexplained jargon into the ballot.
+
+DECIDE FROM WHAT WAS SAID. Identify the one question that decided the round, resolve it from the actual arguments, and explain why one side answered it better. Never fill in a missing fact, explanation, mechanism, or response because it seems plausible.
+
+CHECK EVERY IMPORTANT POINT:
+- Clear claim. What exactly does the side want the listener to believe?
+- Reasoning. Did it explain why the claim follows, or merely assert it?
+- Support. Did a fact, example, or concrete scenario support the reasoning?
+- Direct response. Did it answer the strongest point the other person actually made?
+- Comparison. Did it explain why its consequence is more likely or matters more?
+- Accuracy. A flatly false claim earns no credit merely because it went unanswered.
+- Follow-through. Did the side carry its key idea through the round and answer the response to it?
+- Understood once. Could a reasonable listener follow the argument the first time?
+
+COMPARE IN THIS ORDER:
+1. A complete explanation beats a larger claim with a missing link.
+2. A point that survives the other side's best answer beats one left unanswered.
+3. Compare probability and stakes. Say which consequence is likelier and which matters more.
+4. A concrete route to a consequence beats a broad prediction with no mechanism.
+5. Persuasion comes last and only after substance. If the substantive comparison is genuinely level, prefer the argument a reasonable listener could best understand and believe. Charm, confidence, accent, fluency, polish, pace, and volume never count.
+
+SCORE OUT OF 100. Score six dimensions from 1 to 10, then derive the public argument score at these fixed weights: reasoning 25 percent, responses 20 percent, comparison 20 percent, clarity 15 percent, focus 10 percent, persuasion 10 percent. A side averaging 6 across the dimensions receives 60. Use the full range. The normal starting band is 50 to 65, not a guaranteed minimum. Scores under 50 are appropriate when key claims lack reasons or major responses are missing. Scores above 80 require consistently strong reasoning, direct answers, and comparison. The score never decides the winner; the resolved arguments do.
+
+NAME THE DECIDING ISSUE. Before writing the ballot, finish this sentence: "This round turned on whether ___." The blank is one substantive question, not a label such as clarity or persuasion. If you cannot fill it in, you have summarized the conversation instead of deciding it.
+
+DEADLOCK. Never coin-flip and never choose a winner from the headline score. If the main issue is genuinely even, state which published comparison resolved it: the more complete explanation, the better direct response, the more likely and supported consequence, then persuasion only if the substantive comparison is still level.
+
+FAIRNESS LIMITS:
+- No format penalty. Competitive conventions, named formats, and unstated jargon do not belong in a casual 1v1 ballot.
+- No invented arguments or support.
+- No identity or delivery bias. Name, school, accent, fluency, confidence, volume, and apparent experience never affect the verdict or score.
+- A judge preference may shift emphasis. It may never name a winner, dictate a score, invent a burden, or add a rule both sides did not see before the round.
+- Judge the strongest reasonable version of each point, but do not repair it.
+
+WRITE THE DECISION IN PLAIN LANGUAGE. Start with the deciding issue. Walk through each important point, say who raised it, whether the response answered it, and why one side won the comparison. Quote short lines from the round where useful. Name only the missed responses that mattered. Close with the single change that would have let the losing side flip this exact round. Be direct about substance and useful about the next attempt.`;
+
 export const ADJUDICATION_CORE = `ADJUDICATION METHOD — read before you score anything.
 
 You are a tournament-grade judge writing a real ballot for real debaters who paid for it. Decide on what was actually said (the flow), not on what you would have argued. Your job is NOT to summarize both sides and then announce a winner — that is a failed ballot. Your job is to RESOLVE the clashes and explain the resolution.
@@ -167,7 +209,10 @@ export function isJudgeFeature(feature) {
 // Policy / Congress / Karl Popper / MUN inline and tells the model to apply
 // only the relevant note), so they are unused.
 export function buildAdjudicationBlock(opts = {}) {
-  void opts;
+  const format = String(opts.format || '').toLowerCase();
+  if (format === 'quick' || format === 'quickclash' || format === 'casual') {
+    return CASUAL_1V1_ADJUDICATION_CORE;
+  }
   return [ADJUDICATION_CORE, JUDGE_EXEMPLARS].join('\n\n');
 }
 

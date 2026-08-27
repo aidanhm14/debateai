@@ -51,9 +51,7 @@ import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 // silently accepts machine results has no answer when one is
 // contested. Deliberately left for after a real tournament has run.
 
-const VALID_FORMATS = new Set([
-  'quick', 'blitz', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress',
-]);
+const VALID_FORMATS = new Set(['quick']);
 
 const NAME_MAX = 80;
 const DESC_MAX = 600;
@@ -212,10 +210,10 @@ export default async (request) => {
   if (action === 'create') {
     const name = cleanText(body?.name, NAME_MAX);
     if (!name) return errorResponse('Give the tournament a name.', 400, request);
-    const format = String(body?.format || 'apda').toLowerCase();
+    const format = String(body?.format || 'quick').toLowerCase();
     if (!VALID_FORMATS.has(format)) return errorResponse('Unknown format', 400, request);
 
-    const teamSize = Number(body?.teamSize) === 2 ? 2 : 1;
+    const teamSize = 1;
     const prelimRounds = Math.max(1, Math.min(9, Number(body?.prelimRounds) || 4));
     const breakSize = Math.max(0, Math.min(32, Number(body?.breakSize) || 4));
 
