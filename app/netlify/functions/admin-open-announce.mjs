@@ -165,6 +165,15 @@ function renderEmail({ firstName, uid, registered }) {
     of our growth, and take an active part in it.
   </p>
 
+  <p style="${P}">
+    <strong>What's new:</strong> a quick questionnaire that matches you against
+    people with a similar style and level, a real ranking system so your
+    standing means something, appeals so a close round can go to a human
+    judge, and an AI that follows along and catches interruptions and
+    questions as they happen. We are also working on connection reliability
+    this week.
+  </p>
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Feel free to write us feedback too!</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
