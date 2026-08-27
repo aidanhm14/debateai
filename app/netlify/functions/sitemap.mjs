@@ -53,7 +53,7 @@ const URLS = [
   // cannot win that query with 10 words. /ai-vs-ai-debate is 1,318 words
   // and already ranks position 7 for it, so the two were competing and
   // the thin one was holding the higher priority.
-  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-26' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-27' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
@@ -99,7 +99,7 @@ const URLS = [
   // other pages on this site carried an AI opponent in their title. The
   // dossier, guide and motion families now link it by name.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-24' },
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-24' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-27' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
   { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },
@@ -112,12 +112,12 @@ const URLS = [
   // "debate people online" / "debate strangers" / "omegle for debate"
   // query cluster. Sister to /debate-online, focused on the random-human
   // /spar path (which is noindex itself, so this is the indexable doorway).
-  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-10' },
+  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-27' },
   // 2026-07-27 doorway pack. /omegle-alternative targets the huge
   // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
   // the query volume did not). /bet-on-your-words left the sitemap
   // 2026-08-22 when the betting cluster was removed (it 301s to /watch).
-  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-07-27' },
+  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-27' },
   // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
   // to '/argue-online' with force=true. Submitting the redirecting URL
   // landed as "Page with redirect" in Search Console: never indexed, and
@@ -138,7 +138,7 @@ const URLS = [
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
   // Comparison intent: "free online debate platform" and plural variants.
-  { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-24' },
+  { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-27' },
   { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
   // 2026-05-27 plane session: dedicated SEO doorway for "ai vs ai
@@ -248,7 +248,7 @@ const URLS = [
   { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   // Interactive evergreen acquisition tool. Users can filter 57 reviewed
   // motions by subject, age, and format, then start a prefilled round.
-  { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-12' },
+  { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-27' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   // Network-access page for school IT. Indexable on purpose: when a
   // district's filter blocks the domain, the coach's first move is a
@@ -294,10 +294,10 @@ const URLS = [
   // three. Listing them costs nothing and stops discovery depending on
   // how deep a crawl happens to go.
   { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
-  { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-10' },
-  { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80' },
-  { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80' },
-  { path: '/topics/big-questions',        changefreq: 'monthly', priority: '0.75' },
+  { path: '/topics/public-forum',         changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
+  { path: '/topics/lincoln-douglas',      changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
+  { path: '/topics/policy',               changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-27' },
+  { path: '/topics/big-questions',        changefreq: 'monthly', priority: '0.75', lastmod: '2026-08-27' },
   { path: '/topics/world-schools',        changefreq: 'monthly', priority: '0.75' },
   { path: '/topics/congress',             changefreq: 'monthly', priority: '0.75' },
   { path: '/topics/asian-parliamentary',  changefreq: 'monthly', priority: '0.85' },

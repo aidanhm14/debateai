@@ -93,7 +93,7 @@ check('robots policy leaves public facts crawlable',
   /User-agent: \*\s+Allow: \//.test(robots)
   && !/Disallow: \/(?:llms\.txt|debatable)(?:\s|$)/.test(robots));
 check('sitemap marks changed brand surfaces fresh',
-  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-26'/.test(sitemap)
+  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-27'/.test(sitemap)
   && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-27'/.test(sitemap));
 
 console.log(`\n${passed} passed, ${failed} failed`);

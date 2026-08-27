@@ -8,6 +8,7 @@
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <meta name="theme-color" content="#fbfaf7">
   <link rel="canonical" href="https://itsdebatable.com/debate-topic-generator">
+  <script>(function(){try{if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.setAttribute('data-embed','true')}catch(e){}}());</script>
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Debatable">
   <meta property="og:url" content="https://itsdebatable.com/debate-topic-generator">
@@ -131,6 +132,26 @@
     .conversion h2{color:#fff;margin-bottom:7px}
     .conversion p{color:rgba(255,255,255,.72);margin:0}
     .conversion .btn{white-space:nowrap}
+    .embed-share{margin:0 auto 64px;padding:24px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    .embed-share h2{margin-bottom:7px;font-size:1.45rem}
+    .embed-share p{margin:0 0 14px}
+    .embed-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:stretch}
+    .embed-row textarea{min-height:92px;resize:vertical;border:1px solid var(--line-strong);border-radius:9px;padding:11px;background:var(--paper);color:var(--ink);font:600 .74rem/1.5 var(--mono)}
+    .embed-row button{min-width:150px;border:0;border-radius:9px;padding:11px 16px;background:var(--ink);color:#fff;font-weight:800;cursor:pointer}
+    .embed-row button:hover{background:var(--red)}
+    .embed-credit{display:none;margin:18px 0 0;text-align:center;font-size:.8rem;color:var(--muted)}
+    .embed-credit a{font-weight:800;color:var(--ink)}
+    html[data-embed="true"] .top,
+    html[data-embed="true"] .topic-hero .intro,
+    html[data-embed="true"] .section-rule,
+    html[data-embed="true"] .faq,
+    html[data-embed="true"] .conversion,
+    html[data-embed="true"] .embed-share,
+    html[data-embed="true"] .footer{display:none}
+    html[data-embed="true"] .topic-hero{display:block;padding:18px 16px 8px}
+    html[data-embed="true"] .topic-hero .generator{width:100%;max-width:none}
+    html[data-embed="true"] .results-section{padding:10px 16px 24px}
+    html[data-embed="true"] .embed-credit{display:block}
     @media(max-width:860px){
       .topic-card{grid-template-columns:auto minmax(0,1fr)}
       .topic-actions{grid-column:2;flex-direction:row;min-width:0}
@@ -153,6 +174,8 @@
       .format-table td:last-child{padding-bottom:14px}
       .conversion{grid-template-columns:1fr;padding:24px}
       .conversion .btn{width:100%}
+      .embed-row{grid-template-columns:1fr}
+      .embed-row button{min-height:46px}
     }
   </style>
 </head>
@@ -246,6 +269,18 @@
         <p id="resultSummary" aria-live="polite">Three balanced motions, ready to use.</p>
       </div>
       <div class="results" id="topicResults" aria-live="polite"></div>
+      <p class="embed-credit"><a href="https://itsdebatable.com/debate-topic-generator" target="_blank" rel="noopener">Powered by Debatable</a></p>
+    </section>
+
+    <section class="wrap embed-share" aria-labelledby="embed-title">
+      <p class="eyebrow">Free to publish</p>
+      <h2 id="embed-title">Embed the motion generator.</h2>
+      <p>Add a one-topic version to a club, classroom, newsletter, or resource page. The attribution link keeps the source clear.</p>
+      <div class="embed-row">
+        <textarea id="embedCode" readonly aria-label="Embed code">&lt;iframe src="https://itsdebatable.com/debate-topic-generator?embed=1&amp;count=1" title="Debate topic generator" width="100%" height="720" loading="lazy" style="border:0;border-radius:12px"&gt;&lt;/iframe&gt;
+&lt;p&gt;&lt;a href="https://itsdebatable.com/debate-topic-generator"&gt;Debate topic generator by Debatable&lt;/a&gt;&lt;/p&gt;</textarea>
+        <button id="copyEmbed" type="button">Copy embed code</button>
+      </div>
     </section>
 
     <section class="section-rule">
@@ -300,6 +335,7 @@
 
   <script>
   (function () {
+    var isEmbed = document.documentElement.getAttribute('data-embed') === 'true';
     var topics = [
       {m:'Schools should prohibit students from using generative AI for graded homework.',c:'technology',l:['middle','high'],f:['classroom','pf','worlds'],x:'Academic integrity vs. learning with new tools'},
       {m:'Governments should require licenses for developers of frontier AI systems.',c:'technology',l:['high','college'],f:['pf','worlds','bp'],x:'Public safety vs. open innovation'},
@@ -399,6 +435,7 @@
         if (controls.audience.value !== 'all') q.set('age', controls.audience.value);
         if (controls.format.value !== 'all') q.set('format', controls.format.value);
         if (controls.count.value !== '3') q.set('count', controls.count.value);
+        if (isEmbed) q.set('embed', '1');
         history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
       } catch (error) {}
     }
@@ -466,6 +503,16 @@
       controls.audience.selectedIndex = 1 + Math.floor(Math.random() * (controls.audience.options.length - 1));
       controls.format.selectedIndex = Math.floor(Math.random() * controls.format.options.length);
       generate();
+    });
+    document.getElementById('copyEmbed').addEventListener('click', function () {
+      var button = this;
+      var code = document.getElementById('embedCode').value;
+      function done() { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy embed code'; }, 1600); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done);
+      } else {
+        var area = document.getElementById('embedCode'); area.focus(); area.select(); document.execCommand('copy'); done();
+      }
     });
     readQuery();
     generate();
