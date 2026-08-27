@@ -112,6 +112,10 @@
     // whether to trust us with an account; blocking that answer
     // behind the account is backwards.
     /^\/(privacy|terms)(?:\.html)?(?:[/?#]|$)/,
+    // Reference pages need uninterrupted fact-checking. A reporter or
+    // researcher should be able to verify claims and download assets
+    // without an account wall entering the source material.
+    /^\/(press|research)(?:\.html)?(?:[/?#]|$)/,
     // Not visitor surfaces.
     /^\/(admin|offline|og-image|native|god|_more-preview)/
   ];
