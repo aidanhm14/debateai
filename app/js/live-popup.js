@@ -329,7 +329,11 @@
         badge: 'LIVE NOW',
         headline: pick.motion || 'A debate is running',
         who: (pick.proName || 'Debater') + ' vs ' + (pick.conName || 'Debater'),
-        meta: pick.status === 'ballot' ? 'JUDGING' : 'IN PROGRESS',
+        // watch-live announces a room from the moment both debaters are
+        // seated (2026-08-27), which is before the clock starts, so the
+        // meta line reads off `started` rather than asserting a speech.
+        meta: pick.status === 'ballot' ? 'JUDGING'
+          : (pick.started === false ? 'STARTING' : 'IN PROGRESS'),
         cta: 'Watch this round',
         href: '/live-round?room=' + encodeURIComponent(pick.room) + '&spectate=1',
         // Versioned by the shot timestamp: a new still is a new URL,
