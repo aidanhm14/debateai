@@ -466,6 +466,11 @@
       // something, take the other side. It is `big` because it is the
       // shortest path from landing on the site to being in a round.
       { href: '/challenges',  label: 'Claims & challenges', big: true },
+      // The broad organic doorway. Search Console showed only 25 internal
+      // links to it while /practice had 208, even though /debate-online is
+      // the canonical answer for the "debate online" query. Keep it in
+      // Explore and the mobile sheet, not the permanent rail.
+      { href: '/debate-online', label: 'Debate online', strong: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2026-08-22: the two real-money surfaces get a way in. Both take
       // a card today and neither was reachable from the nav, so the
@@ -848,6 +853,7 @@
   var MENU_META = {
     '/home':           { desc: 'What is happening right now', icon: '<path d="M4.4 10.6L12 4.4l7.6 6.2M6.2 9.2v9.2a1.4 1.4 0 0 0 1.4 1.4h8.8a1.4 1.4 0 0 0 1.4-1.4V9.2M9.8 19.8v-5.4h4.4v5.4"/>' },
     '/spar':           { desc: 'Random matchmaking, right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
+    '/debate-online':  { desc: 'Live, AI, and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
     '/learn':          { desc: 'Lessons, drills, and formats', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
     '/app#case':       { desc: 'Case builder and prep tools', icon: '<path d="M12 5.2H6.6A2.4 2.4 0 0 0 4.2 7.6v9.8a2.4 2.4 0 0 0 2.4 2.4h9.8a2.4 2.4 0 0 0 2.4-2.4V12"/><path d="M17.7 4.3a2 2 0 0 1 2.8 2.8l-7.3 7.3-3.8 1 1-3.8z"/>' },
@@ -1131,6 +1137,7 @@
       var columnGroups = [
         column('Debate', [
           ['/challenges',     'big'],
+          ['/debate-online',  'strong'],
           ['/tournaments',    'strong'],
           ['/partners',       ''],
           ['/private',        ''],
