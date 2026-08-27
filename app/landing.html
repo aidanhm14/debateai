@@ -8281,6 +8281,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      than the 16:9 tile, so centring them cuts the face at the chin. Bias the
      crop upward, which is where a head sits in all nineteen files. */
   .fs-board.is-chal .fs-tile--speaking img{object-position:50% 22%}
+  .fs-board.is-chal.is-matched .fs-tile--speaking img{object-position:50% 50%}
   /* Empty seat: a dashed outline reading as a chair nobody is in, matching
      the .cs-claim dashed treatment further down the page. */
   .fs-board.is-chal .fs-tile--open{border:1px dashed rgba(245,239,231,.34);background:rgba(245,239,231,.05)}
@@ -8766,12 +8767,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            watchlist band uses. No verdict, no points, no viewer read,
            because none of those exist for a round that has not happened. -->
       <div class="fs-chal" id="fsChal">
-        <p class="fs-chal-line">Nobody has taken the other seat yet. Climb the ladder and it can be yours.</p>
+        <p class="fs-chal-line" id="fsChalLine">Nobody has taken the other seat yet. Climb the ladder and it can be yours.</p>
         <div class="fs-chal-row">
           <a class="fs-chal-cta" href="/spar" data-cta="first-screen-challenge-start">Start a round</a>
-          <a class="fs-chal-alt" href="#creator-sweepstakes" data-cta="first-screen-challenge-how">How the seat gets filled</a>
+          <a class="fs-chal-alt" id="fsChalAlt" href="#creator-sweepstakes" data-cta="first-screen-challenge-how">How the seat gets filled</a>
         </div>
-        <p class="fs-chal-note">None confirmed, none affiliated, none endorsing.</p>
+        <p class="fs-chal-note" id="fsChalNote">None confirmed, none affiliated, none endorsing.</p>
       </div>
     </div>
 
@@ -10842,27 +10843,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        credited in /img/creator-watchlist/README.md. If a creator ever
        actually debates, that round belongs in the deck above with a real
        ballot, not here. */
-    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Topic of your choice.',
+    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'MrBeast', img:'mrbeast' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Streaming full time is a better bet than a degree.',
       a:{ nm:'IShowSpeed', img:'ishowspeed' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Streamers shape young men more than schools do.',
       a:{ nm:'Kai Cenat', img:'kaicenat' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Topic of your choice.',
+    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'HasanAbi', img:'hasanabi' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Gambling sponsorships should be banned from streaming.',
       a:{ nm:'xQc', img:'xqc' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Parasocial attachment is bad for the people who feel it.',
       a:{ nm:'Pokimane', img:'pokimane' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Topic of your choice.',
+    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'Destiny', img:'destiny' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Comedy should have no protected subjects.',
       a:{ nm:'Konstantin Kisin', img:'konstantinkisin' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'An interview tests an argument better than a debate does.',
       a:{ nm:'Mehdi Hasan', img:'mehdihasan' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Topic of your choice.',
+    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'Lex Fridman', img:'lexfridman' }, b:{ nm:'Open seat' } }
   ];
+
+  /* Wildcard matchups use the same no-verdict card as an open challenge,
+     but both seats are filled from the ordinary rotating portrait cast.
+     They make the open-topic invitation recur with two matched people too,
+     without pretending either creator challenge has already been accepted. */
+  ROUNDS.push(
+    { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
+      a:{ nm:'Sarah' }, b:{ nm:'Victor' } },
+    { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
+      a:{ nm:'Claire' }, b:{ nm:'Nick' } },
+    { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
+      a:{ nm:'Hannah' }, b:{ nm:'Malik' } },
+    { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
+      a:{ nm:'Lucas' }, b:{ nm:'Sofia' } }
+  );
 
   /* 2026-08-18, per the founder: circulate the deck. Each page load shuffles the
      round order and flips seats on a coin toss so a returning visitor sees
@@ -10954,10 +10970,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      survives if the roster ever shrinks again. Adding a face to the bank
      without adding a character puts it straight back on the bench, so the
      two lists move together.
-     Challenge cards (kind:'challenge') carry no character: their names are
-     real people and their portraits are fixed files, so castFaces must
-     never deal them a stock tile. They fall through the FS_MALE/FS_FEMALE
-     test below and keep the img they were authored with.
+     Creator challenge cards carry no character: their names are real people
+     and their portraits are fixed files, so castFaces must never deal them a
+     stock tile. Matched wildcard cards deliberately use ordinary cast names,
+     so both of their seats receive a rotating portrait below.
 
      FACE_ROOM is not decoration. Several stills were shot in the same room and
      the board shows two portraits side by side, so an unguarded deal
@@ -11043,7 +11059,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
-   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig']
+   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig',
+   'fsChalLine','fsChalAlt','fsChalNote']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
   var tileA = board && board.querySelector('.fs-tile--speaking');
@@ -11134,7 +11151,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       t = order[i]; order[i] = order[j]; order[j] = t;
     }
     for (i = 0, j = 0; i < ROUNDS.length; i++) {
-      if (ROUNDS[i].kind !== 'challenge') continue;
+      if (ROUNDS[i].kind !== 'challenge' || ROUNDS[i].matched) continue;
       ROUNDS[i].seat = order[j++ % order.length];
     }
   })();
@@ -11359,16 +11376,39 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        returns before any of it is painted rather than painting it and
        hiding it. */
     var isChal = r.kind === 'challenge';
+    var isMatched = isChal && !!r.matched;
     board.classList.toggle('is-chal', isChal);
+    board.classList.toggle('is-matched', isMatched);
     tileA.classList.toggle('fs-tile--open', false);
-    tileB.classList.toggle('fs-tile--open', isChal);
+    tileB.classList.toggle('fs-tile--open', isChal && !isMatched);
     if (isChal){
-      el.fsFaceA.src = '/img/creator-watchlist/' + r.a.img + '.jpg';
-      el.fsFaceA.alt = r.a.nm;
-      el.fsFaceB.src = BLANK_PX;
-      if (el.fsOpenFig) el.fsOpenFig.innerHTML = seatFigure(r.seat);
-      el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = 'Invited';
-      el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = 'Yours';
+      if (isMatched){
+        el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
+        el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
+        el.fsFaceA.alt = ''; el.fsFaceB.alt = '';
+        if (el.fsOpenFig) el.fsOpenFig.innerHTML = '';
+        el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Matched';
+        el.fsNameB.textContent = r.b.nm; el.fsSideB.textContent = 'Matched';
+        if (el.fsChalLine) el.fsChalLine.textContent = 'Choose the topic. We match you with someone ready to argue the other side.';
+        if (el.fsChalAlt){
+          el.fsChalAlt.textContent = 'How matching works'; el.fsChalAlt.href = '/how-it-works';
+          el.fsChalAlt.setAttribute('data-cta', 'first-screen-match-how');
+        }
+        if (el.fsChalNote) el.fsChalNote.hidden = true;
+      } else {
+        el.fsFaceA.src = '/img/creator-watchlist/' + r.a.img + '.jpg';
+        el.fsFaceA.alt = r.a.nm;
+        el.fsFaceB.src = BLANK_PX; el.fsFaceB.alt = '';
+        if (el.fsOpenFig) el.fsOpenFig.innerHTML = seatFigure(r.seat);
+        el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Invited';
+        el.fsNameB.textContent = r.b.nm; el.fsSideB.textContent = 'Yours';
+        if (el.fsChalLine) el.fsChalLine.textContent = 'Nobody has taken the other seat yet. Climb the ladder and it can be yours.';
+        if (el.fsChalAlt){
+          el.fsChalAlt.textContent = 'How the seat gets filled'; el.fsChalAlt.href = '#creator-sweepstakes';
+          el.fsChalAlt.setAttribute('data-cta', 'first-screen-challenge-how');
+        }
+        if (el.fsChalNote) el.fsChalNote.hidden = false;
+      }
       el.fsBallot.classList.remove('is-in');
       verdictReady = false;
       elapsed = 0;
