@@ -110,7 +110,7 @@
       '#ditAuth .da-sub{font-size:15px;color:' + sub + ';margin:0 0 20px;line-height:1.5;max-width:32ch}' +
       '#ditAuth .da-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:13px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font-family:inherit;text-decoration:none;margin-top:10px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}' +
       '#ditAuth .da-btn:hover{border-color:' + hover + ';box-shadow:0 8px 22px rgba(0,0,0,.08);transform:translateY(-1px)}' +
-      '#ditAuth .da-btn:disabled{opacity:.62;cursor:wait;transform:none;box-shadow:none}' +
+      '#ditAuth .da-btn:disabled{opacity:.62;cursor:not-allowed;transform:none;box-shadow:none}' +
       '#ditAuth .da-btn--google{background:#fff;color:#16130f;border-color:rgba(0,0,0,.14)}' +
       '#ditAuth .da-btn--apple{background:#050505;color:#fff;border-color:#050505}' +
       '#ditAuth .da-btn--apple:hover{background:#1b1b1b;border-color:#1b1b1b}' +
@@ -122,6 +122,9 @@
       '#ditAuth .da-inapp{font-size:13.5px;line-height:1.5;margin:0 0 14px;padding:10px 12px;border-radius:10px;border:1px solid rgba(245,158,11,.38);background:rgba(245,158,11,.10);color:' + sub + '}' +
       '#ditAuth .da-copy{display:inline-block;margin-top:6px;padding:5px 10px;border-radius:8px;border:1px solid rgba(245,158,11,.55);background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}' +
       '#ditAuth .da-copy:hover{background:rgba(245,158,11,.18)}' +
+      '#ditAuth .da-terms{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:12px;border:1px solid ' + line + ';border-radius:12px;background:' + field + ';color:' + sub + ';font-size:12.5px;line-height:1.45}' +
+      '#ditAuth .da-terms input{width:18px;height:18px;margin:1px 0 0;flex:none;accent-color:#dc2626}' +
+      '#ditAuth .da-terms a{color:#dc2626;font-weight:750;text-decoration:underline;text-underline-offset:2px}' +
       '#ditAuth .da-or{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:' + sub + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}' +
       '#ditAuth .da-or::before,#ditAuth .da-or::after{content:"";flex:1;height:1px;background:' + line + '}' +
       '#ditAuth .da-form{margin-top:8px}' +
@@ -276,6 +279,32 @@
     if (m && e) e.textContent = '';
   }
 
+  // APP STORE UGC TERMS (2026-08-26). Apple Guideline 1.2 requires an
+  // affirmative terms agreement before registration OR login. Version the
+  // receipt so a future material safety change can be presented again.
+  var TERMS_VERSION = '2026-08-26';
+  var TERMS_KEY = 'debatable-terms-accepted-' + TERMS_VERSION;
+  function termsAccepted() {
+    try { return localStorage.getItem(TERMS_KEY) === '1'; } catch (e) { return false; }
+  }
+  function rememberTerms(accepted) {
+    try {
+      if (accepted) localStorage.setItem(TERMS_KEY, '1');
+      else localStorage.removeItem(TERMS_KEY);
+    } catch (e) {}
+  }
+  function requireTerms() {
+    var c = home();
+    var input = c && c.querySelector('#daTerms');
+    if ((input && input.checked) || (!input && termsAccepted())) {
+      rememberTerms(true);
+      return true;
+    }
+    setErr('Agree to the Terms of Use before signing in.');
+    try { if (input) input.focus(); } catch (e) {}
+    return false;
+  }
+
   function renderChooser(mode, forceEmailMode) {
     var c = home(); if (!c) return;
     // No explicit mode: someone who has signed in on this device before
@@ -339,6 +368,7 @@
     var inAppNote = inApp
       ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome. <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
+    var acceptedTerms = termsAccepted();
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
     // ONE DOOR (2026-08-26). The card used to run a sign-in/sign-up split
@@ -367,6 +397,7 @@
       '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
       inAppNote +
+      '<label class="da-terms"><input id="daTerms" type="checkbox" ' + (acceptedTerms ? 'checked ' : '') + '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. Debatable has zero tolerance for objectionable content or abusive users.</span></label>' +
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
       '<div class="da-or">or use email</div>' +
@@ -416,6 +447,18 @@
         } else { legacyCopy(url, done); }
       } catch (e) { legacyCopy(url, done); }
     });
+    var terms = c.querySelector('#daTerms');
+    function syncTerms() {
+      var accepted = !!(terms && terms.checked);
+      rememberTerms(accepted);
+      ['#daApple', '#daG', '#daEmailBtn'].forEach(function (selector) {
+        var button = c.querySelector(selector);
+        if (button) button.disabled = !accepted;
+      });
+      if (accepted) setErr('');
+    }
+    if (terms) terms.addEventListener('change', syncTerms);
+    syncTerms();
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
     c.querySelector('#daEmailForm').addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
@@ -454,6 +497,7 @@
   }
 
   function finishSignIn(method) {
+    rememberTerms(true);
     try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
     // Remember how this person signs in, normalized to the provider
     // family. Next visit the modal opens in sign-in mode with their
@@ -507,6 +551,7 @@
   }
 
   function doGoogle() {
+    if (!requireTerms()) return;
     setErr('');
     bootstrap(function () {
       try {
@@ -599,6 +644,7 @@
   // @capacitor-firebase/authentication plugin — see mobile/IOS_SETUP.md.
   // Exposed as window.dbAppleSignIn so the native sign-in UI can call it.
   function doAppleSignIn() {
+    if (!requireTerms()) return;
     setErr('');
     bootstrap(function () {
       try {
@@ -685,6 +731,7 @@
 
   function doEmailPassword(event) {
     if (event) event.preventDefault();
+    if (!requireTerms()) return;
     setErr('');
     setStatus('');
     var c = home();
@@ -868,6 +915,7 @@
 
   function doEmailLink(event) {
     if (event) event.preventDefault();
+    if (!requireTerms()) return;
     setErr('');
     setStatus('');
     var c = home();

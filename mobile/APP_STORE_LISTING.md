@@ -103,8 +103,18 @@ reviewer taps Start, then provides a timed debate and an AI judge ballot.
 
 Native iOS features include Sign in with Apple, push alerts for live opponents,
 native sharing, app deep links, a persistent app tab bar, and microphone and
-camera permission handling. The app is free in beta. It contains no web
-checkout, pricing link, or external purchase call to action.
+camera permission handling. The app includes a free round allowance. It
+contains no web checkout, pricing link, or external purchase call to action.
 
-Live human rounds include visible report and block controls. Account deletion
-is available in Me > Account & settings > Delete account.
+Before registration or login, every sign-in method requires the user to agree
+to the Terms of Use. The agreement states that Debatable has zero tolerance
+for objectionable content or abusive users.
+
+Live human rounds include a visible Report control on the opponent card. The
+report dialog filters reports by safety reason and includes a Block option,
+checked by default. Blocking sends the safety report to Debatable, removes the
+user from the current round immediately, and prevents the two accounts from
+being matched again. Debatable reviews safety reports within 24 hours and
+removes confirmed offending content and users.
+
+Account deletion is available in Me > Account & settings > Delete account.

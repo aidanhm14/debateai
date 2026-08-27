@@ -92,6 +92,20 @@ if [ -f "$PRICE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# App Store production-compliance guard. The iOS shell loads live web code,
+# so Guideline 1.2 safety controls and Guideline 2.2 production wording can
+# regress without a binary change. Keep the reviewer-visible proof and the
+# server enforcement in the same gate.
+IOS_REVIEW_GUARD="$REPO_ROOT/scripts/test-ios-review-compliance.mjs"
+if [ -f "$IOS_REVIEW_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ios-review-compliance.mjs >/tmp/ios-review-guard.log 2>&1); then
+    echo "[ios-review-guard] commit blocked - App Store safety or production requirements no longer hold:" >&2
+    tail -30 /tmp/ios-review-guard.log >&2
+    echo "[ios-review-guard] see scripts/test-ios-review-compliance.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Brand-entity guard. "Debatable" is a crowded, generic name, so the
 # homepage, canonical /debatable definition page, sitemap, and llms.txt

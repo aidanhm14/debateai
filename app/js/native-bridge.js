@@ -9,10 +9,9 @@
         so any script or stylesheet can branch on it.
      2. hides IN-APP PURCHASE surfaces. Apple Guideline 3.1.1 forbids
         linking out to web / Stripe payment for digital subscriptions, and
-        3.1.3 forbids even *steering* users to buy elsewhere. Since the
-        product is free in beta, the clean, fully-compliant move is to hide
-        every pricing / upgrade / checkout surface in the native build.
-        (When real Apple IAP lands, swap the hide for an IAP purchase flow.)
+        3.1.3 forbids even *steering* users to buy elsewhere. The native
+        build therefore hides every pricing / upgrade / checkout surface.
+        (When Apple IAP lands, swap the hide for an IAP purchase flow.)
 
    Load it FIRST (before other app scripts) on any page the app can reach.
    ────────────────────────────────────────────────────────────────── */

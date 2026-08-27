@@ -1046,6 +1046,12 @@ export default async (request) => {
     + '-' + Date.now().toString(36);
   const proUid = pair[0];
   const conUid = pair[1];
+  // A report with Block writes this server-owned relationship. Queue-doc
+  // blockedUids remains a fast client hint, but it cannot be the authority:
+  // clearing app storage or changing devices must not restore a blocked
+  // pairing. Read both directions in the same transaction as the queue docs.
+  const myBlockRef = db.collection('user_blocks').doc(myUid).collection('blocked').doc(peerUid);
+  const peerBlockRef = db.collection('user_blocks').doc(peerUid).collection('blocked').doc(myUid);
 
   // Fire the stale-doc reaper on the side. We don't await because the
   // user's polling loop will pick the cleaner queue on its next tick
@@ -1055,9 +1061,11 @@ export default async (request) => {
 
   try {
     const result = await db.runTransaction(async (tx) => {
-      const [mineSnap, theirsSnap] = await Promise.all([
+      const [mineSnap, theirsSnap, myBlockSnap, peerBlockSnap] = await Promise.all([
         tx.get(myRef),
         tx.get(peerRef),
+        tx.get(myBlockRef),
+        tx.get(peerBlockRef),
       ]);
 
       if (!mineSnap.exists || !theirsSnap.exists) {
@@ -1092,7 +1100,7 @@ export default async (request) => {
       if (skipActive(mine, peerUid) || skipActive(theirs, myUid)) {
         return { ok: false, reason: 'skipped_peer' };
       }
-      if (blocked(mine, peerUid) || blocked(theirs, myUid)) {
+      if (myBlockSnap.exists || peerBlockSnap.exists || blocked(mine, peerUid) || blocked(theirs, myUid)) {
         return { ok: false, reason: 'blocked_peer' };
       }
       // Age separation is enforced BEFORE this transaction, from the
