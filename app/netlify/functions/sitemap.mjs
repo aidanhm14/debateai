@@ -273,9 +273,13 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
-  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-26' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-27' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
-  { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-07-22' },
+  { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-08-27' },
+  // Verified facts, founder background, reporting angles, and official
+  // assets for journalists and resource editors. The page exists to make
+  // earned coverage easier to fact-check and link to.
+  { path: '/press',           changefreq: 'monthly', priority: '0.64', lastmod: '2026-08-27' },
   // Weekly rather than monthly: the splits on this page move as answers
   // land, so the content genuinely changes without the markup changing.
   { path: '/debate-shows',    changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-10' },

@@ -85,7 +85,7 @@ check('brand page disambiguates similarly named products',
 check('AI guide names the official product and domain first',
   llms.startsWith('# Debatable\n\n> Debatable is the live online debate platform at https://itsdebatable.com/'));
 check('AI guide is dated and disambiguates the brand',
-  llms.includes('Last reviewed: 2026-08-26')
+  llms.includes('Last reviewed: 2026-08-27')
   && llms.includes('independent from other apps, websites, or organizations'));
 check('AI guide links the canonical identity page',
   llms.includes('[Debatable official facts](https://itsdebatable.com/debatable)'));
@@ -94,7 +94,7 @@ check('robots policy leaves public facts crawlable',
   && !/Disallow: \/(?:llms\.txt|debatable)(?:\s|$)/.test(robots));
 check('sitemap marks changed brand surfaces fresh',
   /path: '\/'[\s\S]{0,100}lastmod: '2026-08-26'/.test(sitemap)
-  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-26'/.test(sitemap));
+  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-27'/.test(sitemap));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
