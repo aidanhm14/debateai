@@ -6,15 +6,18 @@
 //        → { link, expires } — a short-lived Daily access link to the
 //          mp4. Fetched lazily at play time because Daily links expire;
 //          the client re-requests when a link goes stale.
+//   POST /api/recordings { action: 'view', id }
+//        → records one playback session after the media actually starts.
 //
 // Only published recordings are ever readable here; everything else
 // 404s identically so the endpoint doesn't leak what exists.
 
-import { getDb } from './lib/firestore.mjs';
-import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { getDb, FieldValue } from './lib/firestore.mjs';
+import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
+const RECORDING_ID = /^[a-z0-9][a-z0-9-]{7,79}$/i;
 
 // Trim to the last sentence end inside the limit, falling back to the last
 // word break, so a long RFD ends on a full thought rather than mid-word.
@@ -47,6 +50,7 @@ function publicShape(id, d){
     // thumbnail visible, playback refused below. It is how a redundant
     // round comes down without emptying the feed.
     teaser: d.teaser === true,
+    viewCount: Math.max(0, Number(d.viewCount) || 0),
   };
 }
 
@@ -64,8 +68,31 @@ async function namedCaller(req){
 }
 
 export default async (req) => {
-  if (req.method !== 'GET') return errorResponse('GET only', 405, req);
+  if (req.method === 'OPTIONS') return corsResponse(req);
   const db = getDb();
+
+  if (req.method === 'POST'){
+    let body;
+    try { body = await req.json(); }
+    catch { return errorResponse('Invalid JSON', 400, req); }
+
+    const id = String(body && body.id || '');
+    if (!body || body.action !== 'view' || !RECORDING_ID.test(id)){
+      return errorResponse('Invalid view', 400, req);
+    }
+
+    const ref = db.collection('recordings').doc(id);
+    const snap = await ref.get();
+    const d = snap.exists ? (snap.data() || {}) : {};
+    if (!snap.exists || d.published !== true || d.teaser === true){
+      return errorResponse('Not found', 404, req);
+    }
+    const viewCount = Math.max(0, Number(d.viewCount) || 0) + 1;
+    await ref.update({ viewCount: FieldValue.increment(1) });
+    return jsonResponse({ ok: true, viewCount }, 200, req);
+  }
+
+  if (req.method !== 'GET') return errorResponse('GET or POST only', 405, req);
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
 

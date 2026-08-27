@@ -186,6 +186,7 @@ export async function syncFromDaily(db, limit = 100){
       publishedAuto: publishEligible,
       publishManaged: true,
       publishOverridden: false,
+      viewCount: 0,
       createdAt: FieldValue.serverTimestamp(),
     });
     if (wantsWarm) warm.push(rec.id);

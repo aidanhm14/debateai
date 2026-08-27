@@ -153,6 +153,11 @@ function humanDate(startTs) {
   });
 }
 
+function humanViews(count) {
+  const n = Math.max(0, Number(count) || 0);
+  return n.toLocaleString('en-US') + (n === 1 ? ' view' : ' views');
+}
+
 // The refusal /play now answers with. It is a page rather than a bare
 // status because the thing that follows this URL is sometimes a person in
 // an address bar, and "401" on its own tells them nothing about what to
@@ -239,8 +244,10 @@ export function renderPage(id, d) {
   const thumbs = thumbsFor(d, youtubeId);
   const thumb = thumbs[0];
   const teaser = d.teaser === true;
+  const viewCount = Math.max(0, Number(d.viewCount) || 0);
 
   const facts = [formatName, dateHuman, durHuman].filter(Boolean);
+  const displayFacts = teaser ? facts : facts.concat(humanViews(viewCount));
   const versus = pro && con ? `${pro} against ${con}` : '';
 
   const description = isStream
@@ -266,6 +273,13 @@ export function renderPage(id, d) {
     // publish a guessed date for a recording with no start timestamp.
     ...(uploadDate ? { uploadDate } : {}),
     ...(Number(d.duration) > 0 ? { duration: isoDuration(d.duration) } : {}),
+    ...(viewCount > 0 ? {
+      interactionStatistic: {
+        '@type': 'InteractionCounter',
+        interactionType: { '@type': 'WatchAction' },
+        userInteractionCount: viewCount,
+      },
+    } : {}),
     publisher: {
       '@type': 'Organization',
       name: 'Debatable',
@@ -294,9 +308,11 @@ export function renderPage(id, d) {
     </div>`
     : '';
 
-  const factRow = facts.length
-    ? `<div class="facts">${facts.map(f => `<span>${esc(f)}</span>`).join('')}</div>`
+  const factRow = displayFacts.length
+    ? `<div class="facts">${displayFacts.map((f, i) => `<span${!teaser && i === displayFacts.length - 1 ? ' id="viewCount"' : ''}>${esc(f)}</span>`).join('')}</div>`
     : '';
+
+  const viewPayload = jsonLd({ action: 'view', id });
 
   return `<!doctype html>
 <html lang="en"><head>
@@ -391,7 +407,7 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
     ? // The YouTube player when the round is on the channel, so the watch
       // time counts there instead of being split away from it. nocookie
       // is the same player without the tracking cookie on first load.
-      `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${youtubeId}"
+      `<div class="embed"><iframe id="roundYoutube" src="https://www.youtube-nocookie.com/embed/${youtubeId}?enablejsapi=1&amp;origin=${encodeURIComponent(SITE_ORIGIN)}"
       title="${esc(shortTitle)}" loading="lazy" allowfullscreen
       allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
       referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
@@ -426,6 +442,42 @@ footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--border);color
     <a href="/">Debatable</a>
   </footer>
 </div>
+${youtubeId && !teaser ? `<script>
+(function(){
+  var pending = false;
+  var payload = ${viewPayload};
+  var key = 'da-replay-view:' + payload.id;
+  function recordView(){
+    if (pending) return;
+    try { if (sessionStorage.getItem(key)) return; } catch(e){}
+    pending = true;
+    fetch('/api/recordings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).then(function(r){
+      if (!r.ok) throw new Error('view');
+      return r.json();
+    }).then(function(j){
+      try { sessionStorage.setItem(key, '1'); } catch(e){}
+      var node = document.getElementById('viewCount');
+      if (node) node.textContent = Number(j.viewCount || 0).toLocaleString() + (Number(j.viewCount) === 1 ? ' view' : ' views');
+    }).catch(function(){ pending = false; });
+  }
+
+  window.onYouTubeIframeAPIReady = function(){
+    new YT.Player('roundYoutube', {
+      events: { onStateChange: function(e){
+        if (e.data === YT.PlayerState.PLAYING) recordView();
+      } }
+    });
+  };
+  var api = document.createElement('script');
+  api.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(api);
+})();
+</script>` : ''}
 </body></html>`;
 }
 

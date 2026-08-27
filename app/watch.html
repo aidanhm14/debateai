@@ -380,6 +380,7 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
    down the left edge. Spread across the row it read as a table. */
 .card .foot{margin-top:5px;color:var(--faint);font-size:13.5px;display:flex;flex-direction:column;gap:1px}
 .card .foot span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view-total{font-weight:700;color:var(--dim)}
 /* Filter chips. Client-side only, over whatever the feed already
    holds, so no chip can ever ask the server for a second list. */
 .feed-chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:14px;scrollbar-width:none}
@@ -911,6 +912,10 @@ footer a{color:var(--dim)}
       return new Date(unixSec * 1000).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
     } catch(e){ return ''; }
   }
+  function fmtViews(count){
+    count = Math.max(0, Number(count) || 0);
+    return count.toLocaleString() + (count === 1 ? ' view' : ' views');
+  }
   // Relative for anything recent, absolute once "43 weeks ago" stops
   // meaning anything. Same shape every video site prints under a title.
   function timeAgo(unixSec){
@@ -1022,6 +1027,8 @@ footer a{color:var(--dim)}
   var currentLink = null;   // { link, expires }
   var activeClip = null;    // clip object while clip playback is clamped
   var marks = { start: null, end: null };
+  var viewNodes = {};
+  var viewRequests = {};
 
   function metaLine(rec){
     var bits = [];
@@ -1029,7 +1036,41 @@ footer a{color:var(--dim)}
     if (rec.proName && rec.conName) bits.push(esc(rec.proName) + ' vs ' + esc(rec.conName));
     if (rec.startTs) bits.push(fmtDate(rec.startTs));
     if (rec.duration) bits.push(fmtTime(rec.duration));
+    bits.push(fmtViews(rec.viewCount));
     return bits.join(' · ');
+  }
+
+  function updateViewCount(recId, count){
+    count = Math.max(0, Number(count) || 0);
+    if (recCache[recId]) recCache[recId].viewCount = count;
+    if (viewNodes[recId]) viewNodes[recId].textContent = fmtViews(count);
+    if (current && current.id === recId){
+      current.viewCount = count;
+      $('playerMeta').textContent = metaLine(current).replace(/&amp;/g, '&');
+    }
+  }
+
+  function recordView(rec){
+    if (!rec || !rec.id || rec.teaser || viewRequests[rec.id]) return;
+    var key = 'da-replay-view:' + rec.id;
+    try { if (sessionStorage.getItem(key)) return; } catch(e){}
+
+    viewRequests[rec.id] = true;
+    fetch('/api/recordings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'view', id: rec.id }),
+      keepalive: true,
+    }).then(function(r){
+      if (!r.ok) throw new Error('view');
+      return r.json();
+    }).then(function(j){
+      try { sessionStorage.setItem(key, '1'); } catch(e){}
+      updateViewCount(rec.id, j.viewCount);
+    }).catch(function(){
+      // A later play attempt can retry if the first write was interrupted.
+      delete viewRequests[rec.id];
+    });
   }
 
   // ── The sign-in gate on playback ─────────────────────────────────
@@ -1367,6 +1408,9 @@ footer a{color:var(--dim)}
     p.load();
     syncOwnerUI();
     console.warn('[watch] replay reloaded without CORS; thumbnail picker unavailable');
+  });
+  $('player').addEventListener('play', function(){
+    recordView(current);
   });
 
   // Clamp clip playback: stop at the clip's end. Seeking away exits
@@ -1763,10 +1807,13 @@ footer a{color:var(--dim)}
           '<h3>' + esc(rec.title) + '</h3>' +
           '<div class="foot">' +
             '<span>' + (rec.proName && rec.conName ? esc(rec.proName) + ' vs ' + esc(rec.conName) : 'Debatable') + '</span>' +
-            '<span>' + (rec.teaser ? 'Dropping soon' : timeAgo(rec.startTs)) + '</span>' +
+            '<span>' + (rec.teaser
+              ? 'Dropping soon'
+              : '<b class="view-total">' + fmtViews(rec.viewCount) + '</b> · ' + timeAgo(rec.startTs)) + '</span>' +
           '</div>' +
         '</div>' +
       '</div>';
+    if (!rec.teaser) viewNodes[rec.id] = a.querySelector('.view-total');
     a.addEventListener('click', function(e){
       // Let the browser have any click that asks for a new context:
       // modified, middle, or a click the page cannot improve on.
