@@ -1857,14 +1857,62 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
       return wholeText || text;
     } catch(e){}
     var combined = '';
+    var sawSse = false;
     text.split(/\n+/).forEach(function(line){
       var item = line.trim();
       if (!item) return;
-      if (item.indexOf('data:') === 0) item = item.slice(5).trim();
+      if (item.indexOf('data:') === 0){
+        sawSse = true;
+        item = item.slice(5).trim();
+      } else if (/^(?:event:|id:|retry:|:)/.test(item)){
+        sawSse = true;
+        return;
+      }
       if (!item || item === '[DONE]') return;
       try { combined += modelText(JSON.parse(item)); } catch(e){}
     });
-    return combined || text;
+    // An SSE stream with no text is not plain text. The old fallback
+    // returned the raw message_start/thinking events here, so the caller
+    // saw a non-empty "answer" and sent transport debris to parseBallot.
+    // That bypassed the retry path and produced the exact result-format
+    // error this branch was meant to prevent.
+    return sawSse ? combined : text;
+  }
+
+  function isSseResponse(raw, contentType){
+    return /text\/event-stream/i.test(String(contentType || ''))
+      || /(?:^|\n)\s*(?:event:|data:|: keepalive)/.test(String(raw || ''));
+  }
+
+  function sseStreamComplete(raw){
+    var complete = false;
+    String(raw || '').split(/\n+/).forEach(function(line){
+      var item = line.trim();
+      if (item === 'event: message_stop') complete = true;
+      if (item.indexOf('data:') !== 0) return;
+      item = item.slice(5).trim();
+      if (item === '[DONE]') { complete = true; return; }
+      try {
+        var chunk = JSON.parse(item);
+        if (chunk && chunk.type === 'message_stop') complete = true;
+        if (chunk && Array.isArray(chunk.choices) && chunk.choices.some(function(choice){
+          return choice && choice.finish_reason != null;
+        })) complete = true;
+        if (chunk && Array.isArray(chunk.candidates) && chunk.candidates.some(function(candidate){
+          return candidate && candidate.finishReason;
+        })) complete = true;
+      } catch(e){}
+    });
+    return complete;
+  }
+
+  function readModelResponse(raw, contentType){
+    var streamed = isSseResponse(raw, contentType);
+    return {
+      text: extractModelResponse(raw),
+      streamed: streamed,
+      complete: !streamed || sseStreamComplete(raw)
+    };
   }
 
   function brainHeaders(brainKey){
@@ -2170,9 +2218,12 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
         })
       });
     }).then(function(r){
+      var contentType = r.headers.get('content-type') || '';
       return r.text().then(function(raw){
         if (!r.ok) throw new Error('full ballot API ' + r.status);
-        var text = (extractModelResponse(raw) || '').trim();
+        var response = readModelResponse(raw, contentType);
+        if (!response.complete) throw new Error('full ballot stream incomplete');
+        var text = (response.text || '').trim();
         if (!text) throw new Error('full ballot empty');
         return text;
       });
@@ -2270,10 +2321,9 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
     var p = buildPrompt(motion, roundBackground, formatKey, teamNames, transcript, submittedRanking, humanReason, usedVoice, styleKey, paradigmKey, customParadigm, detailKey);
 
-    // One attempt. Rejects with a labelled error so the retry loop below
-    // can tell a dropped connection apart from a ballot we cannot read:
-    // the first is worth retrying and is not the user's fault, the second
-    // is neither.
+    // One attempt. Transport and ballot-shape failures are labelled so the
+    // retry loop can absorb both without making the user press the button
+    // again. HTTP and account errors still fail fast.
     function attemptBallot(headers){
       return fetch(brain.endpoint, {
         method: 'POST',
@@ -2295,20 +2345,28 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           _judgeDetail: detailKey
         })
       }).then(function(r){
+        var contentType = r.headers.get('content-type') || '';
         return r.text().then(function(raw){
           if (!r.ok) throw new Error(serviceError(raw, r.status, brain.name));
-          // A truncated stream arrives as a 200 with a few hundred bytes and
-          // no terminating event. Measured on a real report: 639 bytes,
-          // message_start plus content_block_start, nothing else. Calling
-          // that a bad ballot is what sent one user rewriting a five-line
-          // transcript over and over for a fault on our side.
-          var text = extractModelResponse(raw);
-          if (!text || !text.trim()){
+          // A truncated stream can die before OR after the first text delta.
+          // Both arrive as HTTP 200. Require the provider's terminal event,
+          // otherwise partial JSON gets mislabeled as a completed answer and
+          // bypasses the retry path.
+          var response = readModelResponse(raw, contentType);
+          var text = response.text;
+          if (!response.complete || !text || !text.trim()){
             var e = new Error('The connection to the judge dropped before the ballot came back.');
             e.transient = true;
             throw e;
           }
-          return text;
+          var parsed = parseBallot(text, formatKey);
+          if (!parsed){
+            var formatError = new Error('The judge returned a ballot we could not read.');
+            formatError.transient = true;
+            formatError.ballotFormat = true;
+            throw formatError;
+          }
+          return parsed;
         });
       });
     }
@@ -2316,11 +2374,17 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     var ATTEMPTS = 3;
     function runAttempt(headers, n){
       return attemptBallot(headers).catch(function(err){
-        if (!err || !err.transient || n >= ATTEMPTS) throw err;
+        if (!err || !err.transient) throw err;
+        if (n >= ATTEMPTS){
+          err.message = 'The judge could not complete a readable ballot after three attempts. Your transcript is still here. Try once more.';
+          throw err;
+        }
         // Jittered, so a room full of debaters ending rounds together does
         // not retry in lockstep.
         var wait = (n === 1 ? 1500 : 4000) + Math.floor(Math.random() * 1200);
-        $('loading').querySelector('.lbl').textContent = 'The connection dropped. Trying again…';
+        $('loading').querySelector('.lbl').textContent = err.ballotFormat
+          ? 'The ballot format was incomplete. Fixing it…'
+          : 'The connection dropped. Trying again…';
         return new Promise(function(resolve){ setTimeout(resolve, wait); })
           .then(function(){ return runAttempt(headers, n + 1); });
       });
@@ -2328,9 +2392,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
     brainHeaders(brainKey).then(function(headers){
       return runAttempt(headers, 1);
-    }).then(function(raw){
-      var parsed = parseBallot(raw, formatKey);
-      if (!parsed) throw new Error('The judge answered, but not in the ballot format we can read. Try again, and if it keeps happening tell us at the feedback link.');
+    }).then(function(parsed){
       renderBallot(parsed, formatKey, submittedRanking);
       try { gtag('event', 'judge_round_ballot', { format: formatKey, winner: parsed.winner, judge_style:styleKey, paradigm:paradigmKey, brain:brainKey }); } catch(e){}
       // Second beat: the long-form full ballot, fired only after the
