@@ -37,6 +37,9 @@
    'debatable:maybe-later')).
    ────────────────────────────────────────────────────────────── */
 (function(){
+  // Native entry points already own their account moments. The global web
+  // nudge otherwise sits on top of the persistent app tab bar.
+  if (window.__DB_NATIVE) return;
   if (window.__debateaiSignupNudge) return;
   window.__debateaiSignupNudge = true;
 

@@ -3075,6 +3075,10 @@
    do on a normal tap, rather than this module writing theme state on
    its own and drifting from it. */
 (function(){
+  // The native shell owns its bottom edge and hides the web theme control.
+  // A floating reminder here points at a control the user cannot see and
+  // collides with the app tab bar.
+  if (window.__DB_NATIVE) return;
   if (window.__daDarkNudge) return;
   window.__daDarkNudge = 1;
 

@@ -29,6 +29,10 @@
    ────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
+  // Native has a persistent Me tab with the same preference in account
+  // settings. A fixed sitewide prompt here covered the first-run profile
+  // and competed with the app's own bottom navigation.
+  if (window.__DB_NATIVE || document.documentElement.classList.contains('dbnative')) return;
   if (window.__daExperienceAsk) return;
   window.__daExperienceAsk = true;
 

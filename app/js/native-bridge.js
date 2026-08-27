@@ -30,6 +30,11 @@
       if (/ DebatableApp\//.test(ua)) return true;
       /* Keep recognizing the user-agent token sent by the first native build. */
       if (new RegExp(' Debate' + 'ItApp/').test(ua)) return true;
+      // Responsive QA without a simulator. The query switch is accepted on
+      // local origins only, so it can never turn the public website into the
+      // native shell.
+      if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+          && new URLSearchParams(location.search).has('native-preview')) return true;
     } catch (e) {}
     return false;
   }
