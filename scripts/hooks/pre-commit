@@ -106,6 +106,19 @@ if [ -f "$IOS_REVIEW_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Live-video signup gate. The client, Firestore rules, server matcher, and
+# background pill are four doors into the same human queue; a partial revert
+# silently restores an anonymous or email-only bypass on one of them.
+SPAR_GOOGLE_GUARD="$REPO_ROOT/scripts/test-spar-google-gate.mjs"
+if [ -f "$SPAR_GOOGLE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-spar-google-gate.mjs >/tmp/spar-google-guard.log 2>&1); then
+    echo "[spar-google-guard] commit blocked - live video no longer has one Google-only door:" >&2
+    tail -30 /tmp/spar-google-guard.log >&2
+    echo "[spar-google-guard] see scripts/test-spar-google-gate.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Brand-entity guard. "Debatable" is a crowded, generic name, so the
 # homepage, canonical /debatable definition page, sitemap, and llms.txt

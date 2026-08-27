@@ -20,6 +20,11 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
+    function isGoogleAccount() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -456,18 +461,16 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: signed-in owners, including Firebase anonymous guests.
-      //    The first guest round reopened on 2026-08-24, but this rule was
-      //    left named-only and rejected every guest before spar-pair could
-      //    apply its server-side allowance. Rules cannot count completed
-      //    rounds, so the rule admits only the caller's own waiting doc and
-      //    spar-pair remains the chokepoint that meters GUEST_FREE_ROUNDS.
+      //  - create: Google-authenticated owners only (2026-08-27). Live video
+      //    no longer has an anonymous preview or an email-only queue lane.
+      //    spar-pair repeats the provider check against the verified token,
+      //    so both the queue write and the room-opening chokepoint agree.
       //
       //  - update/delete stay isSignedIn() on purpose: they only touch a
       //    doc the caller already owns, so a stale ANONYMOUS doc left by
       //    the trial era can still be released rather than stranded.
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
+      allow create: if isGoogleAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status == 'waiting';

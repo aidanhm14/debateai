@@ -1536,16 +1536,51 @@ body.draft-live #daExpAsk{display:none !important}
 }
 .waitlist-empty strong{color:var(--text);font-weight:700}
 
-/* The sign-in gate. Since 2026-08-23 this is the front door for every
-   signed-out visitor: live pairing requires a named account, and the
-   shared sign-in chooser pops over this card on arrival (see
-   autoPopAuthModal). */
+/* The sign-in gate. Live video pairing is a Google-account feature.
+   The surrounding frames use only the consented 18+ webcam-still bank
+   (face46-49, face51-54) so a signed-out visitor sees people before the
+   account ask without inventing a new identity or result for anyone. */
+.gate-scene{
+  position:relative;width:min(940px,calc(100vw - 32px));min-height:650px;
+  margin-left:50%;transform:translateX(-50%);
+  display:grid;place-items:center;
+}
 .gate{
+  position:relative;z-index:2;
   background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
   padding:32px 28px;max-width:440px;width:100%;text-align:center;
+  box-shadow:0 24px 80px rgba(0,0,0,.48);
 }
 .gate h2{font-size:1.4rem;font-weight:900;letter-spacing:-.015em;margin-bottom:10px;color:var(--text)}
 .gate p{font-size:.92rem;color:var(--text-dim);line-height:1.55;margin-bottom:18px}
+.gate-cams{position:absolute;inset:0;z-index:1;pointer-events:none}
+.gate-cam{
+  position:absolute;width:178px;aspect-ratio:16/9;overflow:hidden;
+  border-radius:14px;border:1px solid rgba(255,255,255,.22);
+  background:#08080a;box-shadow:0 18px 42px rgba(0,0,0,.42);
+}
+.gate-cam img{display:block;width:100%;height:100%;object-fit:cover}
+.gate-cam::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.34));
+}
+.gate-cam:nth-child(1){left:4px;top:5%;transform:rotate(-3deg)}
+.gate-cam:nth-child(2){left:-26px;top:37%;transform:rotate(2deg)}
+.gate-cam:nth-child(3){left:20px;bottom:4%;transform:rotate(-1.5deg)}
+.gate-cam:nth-child(4){left:132px;bottom:-5px;transform:rotate(2.5deg)}
+.gate-cam:nth-child(5){right:4px;top:5%;transform:rotate(3deg)}
+.gate-cam:nth-child(6){right:-26px;top:37%;transform:rotate(-2deg)}
+.gate-cam:nth-child(7){right:20px;bottom:4%;transform:rotate(1.5deg)}
+.gate-cam:nth-child(8){right:132px;bottom:-5px;transform:rotate(-2.5deg)}
+@media(max-width:860px){
+  .gate-scene{width:min(560px,calc(100vw - 24px));min-height:0;display:flex;flex-direction:column}
+  .gate-cams{
+    position:relative;inset:auto;width:calc(100% + 12px);margin:0 -6px 12px;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;
+  }
+  .gate-cam{position:relative;inset:auto!important;width:auto;transform:none!important;border-radius:9px}
+  .gate-cam:nth-child(n+5){display:none}
+}
 /* The email sign-in button. Deliberately NOT var(--accent) (#ef4444):
    measured 2026-08-18, white on that red is 3.76:1 at this size, and the
    3:1 allowance only covers text >=18.66px bold while this renders at
@@ -1598,10 +1633,9 @@ body.draft-live #daExpAsk{display:none !important}
 .gate-anon-copy{font-size:.78rem;line-height:1.5;color:var(--text-ghost)}
 .gate-anon-copy strong{color:var(--text);font-weight:750}
 @media(max-width:420px){.gate-anon-face{width:50px;height:50px}}
-/* Live-count line on the gate: who is actually waiting in the queue
-   right now (/api/spar-queue), so signing in is an ask with a person on
-   the other side of it. Green pulse only when the count is real and
-   nonzero; the quiet state dims to grey like the meta-strip dot. */
+/* Signed-out conversion signal. The founder called a fixed 12-person
+   display for this gate on 2026-08-27; it is intentionally not the raw
+   queue count used on operational matching surfaces. */
 .gate-live{display:flex;align-items:center;justify-content:center;gap:8px;margin:-6px 0 16px;font-size:.86rem;font-weight:650;color:var(--text)}
 .gate-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.7);animation:gateLivePulse 1.6s ease-in-out infinite;flex-shrink:0}
 .gate-live[data-quiet] .gate-live-dot{background:#6b7280;box-shadow:none;animation:none;opacity:.55}
@@ -1628,6 +1662,8 @@ body.draft-live #daExpAsk{display:none !important}
    untouched. */
 @media (orientation:landscape) and (max-height:600px){
   .wrap:not(.spar-search-layout){align-items:flex-start;padding:14px 22px 40px}
+  .gate-scene{min-height:0}
+  .gate-cams{display:none}
   .gate .eyebrow{margin-bottom:8px}
   .gate h2{font-size:1.15rem;margin-bottom:6px}
   .gate p{font-size:.86rem;line-height:1.42;margin-bottom:12px}
@@ -3334,30 +3370,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(u && !u.isAnonymous);
   }
 
+  function isGoogleUser(u){
+    if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return false;
+    return u.providerData.some(function(p){ return p && p.providerId === 'google.com'; });
+  }
+
   // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-08-24 (the founder, SIXTH flip on this gate: "dont require google
-  // sign in for first time use of the omegle feature, its 2nd time they
-  // need google or other signin"): the allowance is ONE. A stranger gets
-  // a whole round with a real person, then the wall, which is the
-  // 2026-08-19 shape at half the length rather than the 08-23 zero.
-  //
-  // What moved the call is paid traffic. On 2026-08-24 TikTok ads
-  // delivered 340 sessions in a day; 339 were inside TikTok's in-app
-  // webview, where Google refuses OAuth outright. A gate whose only door
-  // is a named account is not a conversion ask for that population, it is
-  // a locked door, and the measured result was 0 queue joins and 0 rounds
-  // from the whole day's spend. One free round gives them the thing the
-  // ad promised before anything is asked of them.
-  //
-  // The 08-23 reasoning still holds for the SECOND round and that is where
-  // the ask now sits. The gate still leads with who is waiting live
-  // (/api/spar-queue) so the ask is "sign in and meet them".
-  //
-  // spar-pair.mjs owns the real allowance (GUEST_FREE_ROUNDS env, default
-  // 1 there too). This number only paints the client-side state.
-  // The number here is COSMETIC either way — a client-side count is a
-  // localStorage entry and a localStorage entry is not a limit.
-  var GUEST_FREE_ROUNDS = 1;
+  // 2026-08-27 (the founder): the anonymous live-round preview is retired.
+  // Human video pairing now requires Google before the queue doc is written.
+  // Keep the old meter reads for historical guest records and clean recovery,
+  // but a zero allowance means this page never mints or queues a new guest.
+  // spar-pair.mjs and firestore.rules enforce the same door server-side.
+  var GUEST_FREE_ROUNDS = 0;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -3403,12 +3427,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
   }
 
-  // May this session queue at all? Named accounts always; guests until the
-  // allowance is gone.
+  // The live-video queue is Google-only. Email/password accounts remain real
+  // accounts everywhere else, but this surface asks them to continue with
+  // Google before putting another person on the other side of a camera.
   function canQueue(u){
-    if (!u) return false;
-    if (isNamedUser(u)) return true;
-    return guestRoundsLeft() > 0;
+    return isGoogleUser(u);
   }
 
   // Nothing on this page's script set mints an anonymous session, and
@@ -3469,8 +3492,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     shell.innerHTML =
       '<div class="gate" id="sparGuestBoot">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<h2>Finding you an opponent.</h2>' +
-        '<p>Two rounds on the house, no account needed.</p>' +
+        '<h2>Opening the live-video door.</h2>' +
+        '<p>Continue with Google to join.</p>' +
       '</div>';
   }
 
@@ -3626,70 +3649,37 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (staleRoom) staleRoom.hidden = true;
     if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
     shell.innerHTML =
-      '<div class="gate" id="sparGateCard">' +
-        '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<h2>' + (gateSpent()
-          ? 'That was your last free round.'
-          : 'Sign in to join the live queue.') + '</h2>' +
-        '<p>' + (gateSpent()
-          ? 'Sign in and the rounds you just debated stay yours.'
-          : 'Debate a real person on video. An AI judge writes the ballot.') + '</p>' +
-        '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
+      '<div class="gate-scene">' +
+        '<div class="gate-cams" aria-hidden="true">' +
+          '<span class="gate-cam"><img src="/img/round/faces/face46.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face52.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face47.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face51.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face48.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face54.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face49.jpg" alt="" decoding="async"></span>' +
+          '<span class="gate-cam"><img src="/img/round/faces/face53.jpg" alt="" decoding="async"></span>' +
+        '</div>' +
+        '<div class="gate" id="sparGateCard">' +
+        '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
+        '<h2>Join a live debate.</h2>' +
+        '<p>Continue with Google to debate a real person on video. An AI judge decides who won.</p>' +
+        '<div class="gate-live" id="gateLive"><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText">12 live now</span></div>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
-          'Continue with Google' +
+          'Sign up with Google' +
         '</button>' +
-        '<button class="gate-guest" id="emailStartBtn" type="button">Sign in with email</button>' +
-        // Hidden until asked for, so the card still reads as two
-        // buttons. Name is collected because the person on the other
-        // side of a live round sees it; an emailed link with no name
-        // seats them as a blank.
-        '<form class="gate-email" id="gateEmailForm" hidden>' +
-          '<label class="gate-email-label" for="gateName">Name</label>' +
-          '<input class="gate-email-input" id="gateName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' +
-          '<label class="gate-email-label" for="gateEmail">Email</label>' +
-          '<input class="gate-email-input" id="gateEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
-          '<button class="gate-guest" id="gateEmailSend" type="submit" style="margin-bottom:0">Email me a sign-in link</button>' +
-          '<div class="gate-email-note">No password. We email you a link, you tap it, you are in. Check spam if it is not there in 2 minutes.</div>' +
-          '<div class="gate-email-sent" id="gateEmailSent"></div>' +
-        '</form>' +
-        // "Want to debate anonymously?" (Aidan). The camera is a choice,
-        // and Avatar mode is the reassurance a signed-out stranger needs
-        // BEFORE the sign-in ask, so show the REAL mask the room sees
-        // (DBAvatar.maskSvg, already loaded on this page) beside the copy.
-        // The name still shows: accountability is the one thing a live
-        // human opponent is owed, so do not imply it is hidden too.
-        '<div class="gate-anon">' +
-          '<div class="gate-anon-face">' + ((window.DBAvatar && DBAvatar.maskSvg) ? DBAvatar.maskSvg({}, '100%') : '') + '</div>' +
-          '<div class="gate-anon-copy">' +
-            '<strong>Want to debate anonymously?</strong> ' +
-            'Switch your camera to Avatar in the round and the room sees this mask move as you speak, never your face. ' +
-            (gateSpent() ? 'Your rounds carry over, and your ' : 'Your ') + 'name still shows to opponents.' +
-          '</div>' +
-        '</div>' +
         // Age line. Live rounds pair strangers, so the standing 13-17
         // supervision rule from the terms belongs at this door, not only
         // in a legal page nobody opens. /safety is the readable version.
         '<div class="gate-disclaimer">Under 18? Debatable requires consent from a parent, guardian, or coach. <a href="/safety">How we keep rounds safe</a>.</div>' +
-        openNudgeHtml('gate-open-line') +
-        '<a class="discord-schedule-link" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="dot" aria-hidden="true"></span>Discord for times and forum threads</a>' +
-        '<a class="ai-alt" href="/voice-debate?mode=quickclash&handoff=spar-gate">Start Realtime Voice AI instead →</a>' +
         '<div id="gateError"></div>' +
+        '</div>' +
       '</div>';
-    // Neither button opens the shared chooser any more (2026-08-23, the
-    // founder twice, on the same screenshot: "get rid of this pop up
-    // above the one below it"). Google runs Google; email opens a form
-    // ON this card. The chooser is still the fallback inside each
-    // handler for a page that loaded without auth-modal.js.
+    // One action on purpose. Live video is Google-only, so this button
+    // goes directly to Google and no email or anonymous door is rendered.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
-    document.getElementById('emailStartBtn').addEventListener('click', openGateEmail);
-    var gateEmailForm = document.getElementById('gateEmailForm');
-    if (gateEmailForm) gateEmailForm.addEventListener('submit', sendGateEmailLink);
-    startGateLiveCount();
-    // Split the two gates in GA4. They are different asks with different
-    // audiences, so one blended conversion rate would hide whichever is
-    // working. `spent` is the post-round wall; the other is the fallback.
-    try { gtag('event', 'spar_gate_view', { required: 1, reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
+    try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: 12 }); } catch(e){}
   }
 
   // ── Gate auto-pop: RETIRED the same day it shipped ───────────
@@ -3879,141 +3869,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { if (window.gtag) gtag('event', 'spar_signin_pop_shown', { rounds_left: left, format: formatParam, variant: push ? 'ping' : 'record' }); } catch(e){}
   }
 
-  // ── Gate live count: who is waiting on the other side ────────
-  // "3 others are waiting live right now" above the sign-in buttons, so
-  // the account ask has a person attached to it. The queue number is
-  // REAL (/api/spar-queue, no floor, no padding): whoever signs in off
-  // it has to actually meet somebody. When the queue is quiet it falls
-  // back to the last-24h visit figure from /api/presence-live, worded
-  // as visits, the same honesty rule as the globe caption. Refreshes
-  // every 30s while the gate is up; both endpoints are shared-cached
-  // server-side, so an ad-spike of gates costs a handful of reads a
-  // minute total.
-  var gateLiveTimer = null;
-  var gateLiveLogged = false;
-  function paintGateLiveCount(){
-    var host = document.getElementById('gateLive');
-    if (!host){
-      if (gateLiveTimer){ clearInterval(gateLiveTimer); gateLiveTimer = null; }
-      return;
-    }
-    fetch('/api/spar-queue').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-      var el = document.getElementById('gateLive');
-      var txt = document.getElementById('gateLiveText');
-      if (!el || !txt) return;
-      var waiting = (d && Number(d.waiting)) || 0;
-      if (waiting > 0){
-        txt.textContent = waiting === 1
-          ? 'Someone is waiting live right now.'
-          : waiting + ' others are waiting live right now.';
-        el.removeAttribute('data-quiet');
-        el.hidden = false;
-      } else {
-        // Quiet queue: fall back to the ambient figure rather than
-        // claiming a waiter who is not there.
-        var n = presenceLive && presenceLive.online24;
-        if (n > 0){
-          txt.textContent = n + ' visits in the last 24 hours. Sign in and get matched.';
-          el.setAttribute('data-quiet', '1');
-          el.hidden = false;
-        } else {
-          el.hidden = true;
-        }
-      }
-      if (!gateLiveLogged){
-        gateLiveLogged = true;
-        try { gtag('event', 'spar_gate_live_count', { waiting: waiting }); } catch(e){}
-      }
-    }).catch(function(){});
-  }
-  function startGateLiveCount(){
-    // The globe's presence fetch also feeds the quiet-queue fallback;
-    // kick it if it has not run yet.
-    if (!presenceLive) { try { fetchPresenceLive(); } catch(e){} }
-    paintGateLiveCount();
-    if (gateLiveTimer) clearInterval(gateLiveTimer);
-    gateLiveTimer = setInterval(function(){
-      if (document.hidden) return;
-      paintGateLiveCount();
-    }, 30000);
-  }
-
-  // Reveal the email form in place of the button that asked for it.
-  // If auth-modal.js never arrived there is no send to call, so the
-  // chooser is the fallback rather than a dead form.
-  function openGateEmail(){
-    // The iOS production app must present the zero-tolerance terms before
-    // every registration or login path. The shared chooser owns that
-    // agreement, so the native gate never bypasses it with this inline form.
-    if (window.__DB_NATIVE && typeof window.openAuthModal === 'function'){
-      window.openAuthModal('signup');
-      return;
-    }
-    var form = document.getElementById('gateEmailForm');
-    if (!form || typeof window.debatableSendSignInLink !== 'function'){
-      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
-      return;
-    }
-    form.hidden = false;
-    var btn = document.getElementById('emailStartBtn');
-    if (btn) btn.hidden = true;
-    var email = document.getElementById('gateEmail');
-    if (email) { try { email.focus(); } catch(e){} }
-    try { gtag('event', 'spar_gate_email_open', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
-  }
-
-  function sendGateEmailLink(ev){
-    if (ev) ev.preventDefault();
-    var send = window.debatableSendSignInLink;
-    if (typeof send !== 'function'){
-      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
-      return;
-    }
-    var btn = document.getElementById('gateEmailSend');
-    var sent = document.getElementById('gateEmailSent');
-    var ge = document.getElementById('gateError');
-    var email = ((document.getElementById('gateEmail') || {}).value || '').trim();
-    var name = ((document.getElementById('gateName') || {}).value || '').trim();
-    if (ge) ge.innerHTML = '';
-    if (sent) sent.textContent = '';
-    // Same bar the modal holds a signup to: the name is what an opponent
-    // reads on the other bench.
-    if (name.replace(/\s+/g, ' ').length < 2){
-      if (ge) ge.innerHTML = '<div class="error">Enter your name.</div>';
-      return;
-    }
-    if (btn){ btn.disabled = true; btn.textContent = 'Sending the link\u2026'; }
-    send(email, name, 'signup').then(function(to){
-      if (btn){ btn.disabled = false; btn.textContent = 'Send it again'; }
-      // Spam is the failure mode, not delivery: Gmail filed the old
-      // Firebase-sent link as spam on 2026-08-26, and a link nobody
-      // finds is a sign-up that never happens. Say where to look.
-      if (sent) sent.innerHTML = 'Link sent to ' + escHtml(to) + '. Open it on this device and you are in.'
-        + '<span class="gate-email-spam">Not there after 2 minutes? Check your spam folder for an email from hello@itsdebatable.com, and mark it Not spam.</span>';
-      try { gtag('event', 'spar_gate_email_sent', {}); } catch(e){}
-    }).catch(function(err){
-      if (btn){ btn.disabled = false; btn.textContent = 'Email me a sign-in link'; }
-      if (ge) ge.innerHTML = '<div class="error">' + escHtml((err && err.userMessage) || 'Could not send the link. Try again.') + '</div>';
-    });
-  }
-
   function doGoogleSignIn(){
-    // Same native-only routing as the email door above. Web keeps the direct
-    // one-tap Google path; the app gets the required terms agreement first.
+    // Native still routes through the required terms agreement before auth.
+    // Web keeps the direct one-tap Google path.
     if (window.__DB_NATIVE && typeof window.openAuthModal === 'function'){
       window.openAuthModal('signup');
       return;
     }
     if (!firebaseAuth){
       var gateError = document.getElementById('gateError');
-      if (gateError) gateError.innerHTML = '<div class="error">Sign-in didn\'t load. Refresh the page or skip to the AI fallback.</div>';
+      if (gateError) gateError.innerHTML = '<div class="error">Google sign-in did not load. Refresh the page and try again.</div>';
       return;
     }
     // Straight to Google. This button says "Continue with Google", and
     // routing it through the shared chooser answered that click with a
     // modal whose biggest button said the same words — the duplicate the
-    // founder cut on 2026-08-23. The chooser is still one tap away on
-    // the email button, which is where the other paths live.
+    // founder cut on 2026-08-23. Live video now has no second provider
+    // path on this card, so the click stays direct.
     var provider = new firebase.auth.GoogleAuthProvider();
     var current = firebaseAuth.currentUser;
     var signInPromise;
@@ -7038,8 +6910,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // spent the last round, or the optimistic local count was stale).
       // recoverConsentCard would hand back buttons that cannot work, so take
       // the screen instead.
-      if (j.__status === 403 && j.code === 'SIGN_IN_REQUIRED'){
-        markGuestSpent();
+      if (j.__status === 403 && (j.code === 'SIGN_IN_REQUIRED' || j.code === 'GOOGLE_SIGN_IN_REQUIRED')){
+        if (j.code === 'SIGN_IN_REQUIRED') markGuestSpent();
         state.inConsent = false;
         leaveQueueQuietly();
         renderGate();
@@ -7325,8 +7197,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       state.pairInFlight = false;
       // The guest allowance is gone. Not a pairing failure and not something
       // retrying fixes, so stop polling and hand the screen to the gate.
-      if (r.status === 403 && r.body && r.body.code === 'SIGN_IN_REQUIRED') {
-        markGuestSpent();
+      if (r.status === 403 && r.body && (r.body.code === 'SIGN_IN_REQUIRED' || r.body.code === 'GOOGLE_SIGN_IN_REQUIRED')) {
+        if (r.body.code === 'SIGN_IN_REQUIRED') markGuestSpent();
         leaveQueueQuietly();
         renderGate();
         return;
@@ -8792,10 +8664,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. With the guest allowance at 0 (2026-08-23)
-        // mintGuestSession() refuses immediately and the sign-in gate is
-        // the front door; if the trial ever comes back, this line
-        // re-opens the guest lane with it.
+        // No session at all. The zero guest allowance makes
+        // mintGuestSession() refuse immediately, so Google is the door.
         if (!mintGuestSession()) renderGate();
       }
     });

@@ -324,22 +324,11 @@ function joinedAtMs(data) {
 
 // ── The guest lane ────────────────────────────────────────────────
 //
-// 2026-08-23 (the founder, FIFTH flip on this gate: "actually require
-// google or gmail sign in to use the live omegle debating feature ... we
-// need conversion to be much better"): the guest allowance is ZERO. Live
-// pairing requires a named account again, which restores the 2026-08-18
-// posture and closes the 2026-08-19 two-round trial. The call is about
-// sign-ups: a guest who plays two rounds and bounces leaves nothing — no
-// account, no way to reach them, no record they can come back to. The
-// gate shows who is waiting live (see /api/spar-queue) so the ask is
-// "sign in and meet them", not a wall in front of an empty room, and the
-// /spar client now pops the sign-in chooser on arrival.
-//
-// The metering machinery below is deliberately KEPT, not deleted: setting
-// GUEST_FREE_ROUNDS=2 in the Netlify env re-opens the trial with no deploy,
-// and guest_rounds/ keeps its history. With the allowance at 0 a guest is
-// refused before any Firestore read (see the handler), so the lane costs
-// nothing while it is off.
+// 2026-08-27 (the founder): no anonymous preview for human video pairing.
+// The /spar door is Google-only, enforced below from the verified token
+// before either queue document can be paired. The old metering machinery is
+// retained only to read and preserve historical guest-round records; an env
+// override must not reopen the lane behind the current product decision.
 //
 // Metered here rather than in the client because the client cannot hold a
 // limit: localStorage clears, and the counter it used to keep was the same
@@ -347,11 +336,7 @@ function joinedAtMs(data) {
 // server-side (e874e61e). The identity metered is the anonymous Firebase
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
-// 2026-08-24: default ONE, not zero (founder's sixth call on this gate).
-// See the matching block in spar.html for the paid-traffic measurement
-// behind it. The env var still overrides in both directions with no
-// deploy: GUEST_FREE_ROUNDS=0 closes the trial, =2 widens it.
-const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);
+const GUEST_FREE_ROUNDS = 0;
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -625,6 +610,17 @@ export default async (request) => {
       strikes: { [myUid]: mine, [AI_UID]: autoStrikes(draft, AI_UID, []) },
     }, myUid, AI_UID);
     return jsonResponse({ ok: true, draft: next, aiUid: AI_UID }, 200, request);
+  }
+
+  // Human video pairing is Google-only. This is checked from the verified
+  // token, not from the client-written queue doc, so an anonymous session,
+  // email account, old tab, or handcrafted request cannot bypass the door.
+  // The AI-only draft above remains available because it seats no stranger.
+  if (decoded.firebase?.sign_in_provider !== 'google.com') {
+    return jsonResponse({
+      error: 'Continue with Google to join a live video round.',
+      code: 'GOOGLE_SIGN_IN_REQUIRED',
+    }, 403, request);
   }
 
   if (!peerUid || peerUid === myUid) {

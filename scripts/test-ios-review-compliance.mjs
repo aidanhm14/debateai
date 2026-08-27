@@ -45,8 +45,8 @@ ok('every shared sign-in method enforces the agreement', () => {
 });
 
 ok('native spar sign-in cannot bypass the shared terms chooser', () => {
-  assert.match(spar, /function openGateEmail\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,250}window\.openAuthModal\('signup'\)/);
   assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,250}window\.openAuthModal\('signup'\)/);
+  assert.doesNotMatch(spar, /id="(?:emailStartBtn|gateEmailForm)"/, 'retired spar email path returned without a native terms guard');
 });
 
 ok('live report flow exposes block and removes the blocked round', () => {

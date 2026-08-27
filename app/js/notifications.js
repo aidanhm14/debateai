@@ -1771,10 +1771,13 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
-    // 2026-08-18: the BACKGROUND pill is named accounts only. Being
-    // silently matchable sitewide while browsing is a different decision
-    // from trying a round on the page that offers one, and /spar meters
-    // guests rather than refusing them (2026-08-19).
+    function isGoogleUser(u) {
+      return !!(u && !u.isAnonymous && Array.isArray(u.providerData) &&
+        u.providerData.some(function(p){ return p && p.providerId === 'google.com'; }));
+    }
+    // 2026-08-27: the background pill follows /spar's Google-only video
+    // door. Otherwise an email or anonymous session could write a queue doc
+    // here even though the foreground page and server refuse the round.
     //
     // CORRECTION 2026-08-22: this comment used to say "this file signs
     // nearly every visitor in anonymously for the bell". It does not,
@@ -1786,7 +1789,7 @@
     // first stop was /spar. That page now mints its own guest session.
     // Do not restore the claim from a stale doc.
     function isQueueUser(u) {
-      return isRealUser(u);
+      return isGoogleUser(u);
     }
     // Both of these are written INTO the matchmaking_queue doc, which the
     // opponent reads, so neither may ever fall back to a real identity.
@@ -1820,13 +1823,10 @@
           cb(u);
         }
         // Going available means a stranger can be paired into a live
-        // round with you, so it needs a real account. An anonymous
-        // session is treated as signed out here and routed to the
-        // chooser rather than quietly minted into the queue.
+        // video round with you, so this follows the Google-only /spar door.
         var u = auth.currentUser;
-        if (isRealUser(u)) { use(u); return; }
-        if (window.openAuthModal) window.openAuthModal();
-        else try { location.href = '/spar'; } catch (e) {}
+        if (isGoogleUser(u)) { use(u); return; }
+        try { location.href = '/spar'; } catch (e) {}
       });
     }
 

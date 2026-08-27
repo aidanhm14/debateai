@@ -369,6 +369,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   runs consented stills only, because those seats carry names and results
   and these tiles do not.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
+- **Live video is Google-only, with no anonymous preview** (2026-08-27).
+  `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
+  background "Spar live" pill must agree. Email/password remains a real
+  account everywhere else, and anonymous AI rounds are unchanged. The
+  signed-out `/spar` gate deliberately displays "12 live" as the founder's
+  conversion call; operational queue surfaces keep using real counts.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",
