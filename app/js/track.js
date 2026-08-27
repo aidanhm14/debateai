@@ -60,6 +60,16 @@
     sessionStorage.setItem('_da_sst', String(sessionStart));
   }
 
+  // The first page in the tab is the acquisition door. Keep it for the
+  // whole session so a queue join, round start, ballot, or signup can be
+  // attributed after the visitor has navigated away from that page.
+  // This deliberately follows the existing per-tab session lifetime.
+  let sessionEntryPath = location.pathname || '/';
+  try {
+    sessionEntryPath = sessionStorage.getItem('_da_entry_path') || sessionEntryPath;
+    sessionStorage.setItem('_da_entry_path', sessionEntryPath);
+  } catch (e) {}
+
   // Durable anonymous id. sessionId resets per tab; this survives, so
   // the signed-out half of the funnel (side_selected -> prediction_saved
   // -> signup_completed) can be joined into one subject. Never sent as
@@ -366,6 +376,7 @@
     const m = {
       session_id: sessionId,
       path: location.pathname,
+      entry_path: sessionEntryPath,
     };
     if (campaign && campaign.utm_source) {
       m.utm_source = campaign.utm_source;
@@ -377,6 +388,12 @@
     }
     return m;
   }
+
+  // Apply the same session entry to subsequent GA4 events. The gtag
+  // bridge below adds it independently to the first-party event copy.
+  try {
+    if (typeof window.gtag === 'function') window.gtag('set', { entry_path: sessionEntryPath });
+  } catch (e) {}
 
   // Public API — usable from page scripts: window.track('forum_post', {topic:'...'})
   window.track = function (event, metadata) {
