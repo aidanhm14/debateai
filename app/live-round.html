@@ -14337,6 +14337,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       try{ gtag('event','live_round_dm_open'); }catch(e){}
     }
     function closeDm(){ var m=$('dmModal'); if(!m) return; m.hidden=true; m.classList.remove('is-open'); }
+    function notifyDmEmail(threadId,messageId,attempt){
+      if(!state.user||!threadId||!messageId) return;
+      state.user.getIdToken(attempt>0).then(function(tok){
+        return fetch('/api/notify-dm', { method:'POST', keepalive:true, headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body:JSON.stringify({threadId:threadId,messageId:messageId}) });
+      }).then(function(res){
+        if(attempt<1&&(res.status===401||res.status>=500)) setTimeout(function(){notifyDmEmail(threadId,messageId,attempt+1);},1500);
+      }).catch(function(){
+        if(attempt<1) setTimeout(function(){notifyDmEmail(threadId,messageId,attempt+1);},1500);
+      });
+    }
     function sendDm(){
       var me=state.user&&state.user.uid; var d=state.oppDm||{};
       var ta=$('dmText'), st=$('dmStatus'), btn=$('dmSend');
@@ -14346,15 +14356,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if(btn) btn.disabled=true; if(st) st.textContent='Sending…';
       var tid=[me,d.uid].sort().join('_');
       var ref=firebaseDb.collection('dm_threads').doc(tid);
+      var msgRef=ref.collection('messages').doc();
       var nm=myName();
       var pInfo={}; pInfo[me]={name:nm,photo:(state.user.photoURL||'')}; pInfo[d.uid]={name:d.name||'Opponent',photo:''};
       var unread={}; unread[me]=0; unread[d.uid]=firebase.firestore.FieldValue.increment(1);
       var preview=text.length>80?text.slice(0,77)+'…':text;
       ref.set({ participants:[me,d.uid], participantInfo:pInfo, lastMessage:preview, lastMessageAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessageFrom:me, unread:unread }, {merge:true})
-        .then(function(){ return ref.collection('messages').add({ fromUid:me, fromName:nm, text:text, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
+        .then(function(){ return msgRef.set({ fromUid:me, fromName:nm, text:text, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
         .then(function(){ if(ta) ta.value=''; if(btn) btn.disabled=false; if(st) st.textContent='Sent. They will see it in their notifications.'; try{ gtag('event','live_round_dm_send'); }catch(e){}
           // Web Push the opponent's devices (server verifies the shared thread; no-ops until VAPID is configured).
-          try { state.user.getIdToken().then(function(tok){ fetch('/.netlify/functions/push-send', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body: JSON.stringify({ recipientUid: d.uid, threadId: tid }) }).catch(function(){}); }).catch(function(){}); } catch(_){}
+          try { state.user.getIdToken().then(function(tok){
+            fetch('/.netlify/functions/push-send', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body: JSON.stringify({ recipientUid: d.uid, threadId: tid }) }).catch(function(){});
+          }).catch(function(){}); } catch(_){}
+          notifyDmEmail(tid,msgRef.id,0);
           setTimeout(closeDm, 1500); })
         .catch(function(e){ if(btn) btn.disabled=false; if(st) st.textContent='Could not send. Try again.'; try{ console.warn('[live-round dm]', e); }catch(_){} });
     }

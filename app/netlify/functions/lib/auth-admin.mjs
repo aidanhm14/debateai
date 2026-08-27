@@ -154,7 +154,7 @@ async function getAccessToken() {
  * with listAllAuthUsers entries plus `email` and `displayName`.
  * Returns null if the UID doesn't exist.
  *
- * Used by /api/notify-dm-accept to resolve the recipient's email
+ * Used by /api/notify-dm to resolve the recipient's email
  * server-side (the client never sees other users' emails through
  * Firestore rules). One Identity Toolkit accounts:lookup call.
  */

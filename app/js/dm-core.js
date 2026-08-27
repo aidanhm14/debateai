@@ -281,7 +281,32 @@
           fromName: nameOf(),
           text: text,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }).then(function () {
+          notifyByEmail(entry.id, 0);
         });
+      });
+    }
+
+    // The email carries no DM content or thread metadata, only a generic
+    // "new message" notice linking to /chat. keepalive lets the request
+    // finish if the sender navigates away immediately after the write.
+    function notifyByEmail(messageId, attempt) {
+      var authUser = null;
+      try { authUser = firebase.auth().currentUser; } catch (e) {}
+      if (!authUser || authUser.uid !== uid || !messageId) return;
+      authUser.getIdToken(attempt > 0).then(function (token) {
+        return fetch('/api/notify-dm', {
+          method: 'POST',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ threadId: threadId, messageId: messageId }),
+        });
+      }).then(function (response) {
+        if (attempt < 1 && (response.status === 401 || response.status >= 500)) {
+          setTimeout(function () { notifyByEmail(messageId, attempt + 1); }, 1500);
+        }
+      }).catch(function () {
+        if (attempt < 1) setTimeout(function () { notifyByEmail(messageId, attempt + 1); }, 1500);
       });
     }
 

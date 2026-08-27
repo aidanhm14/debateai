@@ -71,7 +71,8 @@ export function toText(html) {
 // stream. 'digest' is also suppressed by wauDigestOptOut. 'winback' is also
 // suppressed by wauDigestOptOut OR winbackOptOut (preserves the existing
 // scheduled-winback behavior). 'onboarding' and 'transactional' are
-// suppressed only by the global switch.
+// suppressed only by the global switch. 'dm' has its own switch so a person
+// can mute message alerts without muting account email.
 
 export function isOptedOut(profile, stream) {
   if (!profile) return true;
@@ -79,6 +80,7 @@ export function isOptedOut(profile, stream) {
   if (stream === 'digest') return !!profile.wauDigestOptOut;
   if (stream === 'winback') return !!(profile.wauDigestOptOut || profile.winbackOptOut);
   if (stream === 'sparnight') return !!(profile.wauDigestOptOut || profile.sparNightOptOut);
+  if (stream === 'dm') return !!profile.dmOptOut;
   // 'partner' is deliberately NOT suppressed by the digest flag. It is
   // an alert about a specific person asking to team up with you, which
   // is closer to a reply than to a mailing list, so it rides its own
@@ -227,7 +229,8 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   // Spar Night reminders are bulk by the same definition (one send, many
   // recipients, non-transactional), including the anonymous RSVP list.
   if (stream === 'digest' || stream === 'winback' || stream === 'onboarding'
-      || stream === 'sparnight' || stream === 'sparrsvp' || stream === 'open') {
+      || stream === 'sparnight' || stream === 'sparrsvp' || stream === 'open'
+      || stream === 'dm') {
     const url = unsubUrl(uid, stream);
     if (url) {
       allHeaders['List-Unsubscribe'] = `<${url}>`;

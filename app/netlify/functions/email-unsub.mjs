@@ -16,7 +16,7 @@
  * write-on-GET exception: undo links only appear on pages a human already
  * rendered, never in an email body.
  *
- * Streams: digest | winback | onboarding | all
+ * Streams: digest | winback | sparnight | sparrsvp | partner | open | stream | dm | onboarding | all
  *   digest              -> user_profiles/{u}.wauDigestOptOut = true
  *   winback             -> user_profiles/{u}.winbackOptOut  = true
  *   onboarding or all   -> user_profiles/{u}.emailOptOut    = true (global kill-switch)
@@ -38,7 +38,7 @@ import { esc, brandHeader, unsubUrl, verifyUnsubToken, isOptedOut, SITE_URL } fr
 // handful of follow-ups around a prize event. Its own flag, because
 // someone who wants to hear about a tournament and someone who wants a
 // weekly digest are not the same person.
-const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'open', 'stream', 'onboarding', 'all'];
+const STREAMS = ['digest', 'winback', 'sparnight', 'sparrsvp', 'partner', 'open', 'stream', 'dm', 'onboarding', 'all'];
 const RSVP_STREAM = 'sparrsvp';
 
 const FLAG_BY_STREAM = {
@@ -54,6 +54,7 @@ const FLAG_BY_STREAM = {
   // Live-stream alerts. Own flag: the most frequent bulk send here, so
   // leaving it must not mean leaving tournament news too.
   stream: 'streamOptOut',
+  dm: 'dmOptOut',
   onboarding: 'emailOptOut',
   all: 'emailOptOut',
 };
@@ -70,6 +71,7 @@ const STOP_SENTENCE = {
   partner: 'Partner match alerts stop here. Nothing else changes.',
   open: 'Tournament emails stop here. Nothing else changes.',
   stream: 'Live stream alerts stop here. Nothing else changes.',
+  dm: 'Direct-message email alerts stop here. Your messages stay in your inbox.',
   onboarding: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
   all: 'All Debatable email stops here, except confirmations for rounds you schedule yourself.',
 };
@@ -82,6 +84,7 @@ const CONFIRM_SENTENCE = {
   partner: 'This stops the partner match alerts. Nothing else changes.',
   open: 'This stops emails about tournaments. Nothing else changes.',
   stream: 'This stops the emails telling you a round is on air. Nothing else changes.',
+  dm: 'This stops email alerts for new direct messages. Your messages stay in your inbox.',
   onboarding: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
   all: 'This stops all Debatable email, except confirmations for rounds you schedule yourself.',
 };
@@ -94,6 +97,7 @@ const RESUME_SENTENCE = {
   partner: 'Partner match alerts are back on.',
   open: 'Tournament emails are back on.',
   stream: 'Live stream alerts are back on.',
+  dm: 'Direct-message email alerts are back on.',
   onboarding: 'Debatable email is back on.',
   all: 'Debatable email is back on.',
 };
@@ -256,7 +260,7 @@ export default async (req) => {
       ? (stream === 'onboarding' || stream === 'all'
           // "Back on" for the global switch clears the per-stream flags
           // too; otherwise the promise on the page would be empty.
-          ? { emailOptOut: false, wauDigestOptOut: false, winbackOptOut: false, sparNightOptOut: false }
+          ? { emailOptOut: false, wauDigestOptOut: false, winbackOptOut: false, sparNightOptOut: false, dmOptOut: false }
           : { [FLAG_BY_STREAM[stream]]: false })
       : { [FLAG_BY_STREAM[stream]]: true };
     await db.doc(`user_profiles/${uid}`).set({

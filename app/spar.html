@@ -7718,11 +7718,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       isGroup: false,
       groupName: '',
     };
-    // Hydrate lastMessage from the existing doc (if any). isFirstMessage
-    // in sendThreadMessage keys off at.lastMessage; without this, the
-    // first send of EVERY session on an existing thread re-hit the
-    // /api/notify-dm-accept email endpoint (only server idempotency
-    // stopped duplicate emails).
+    // Hydrate lastMessage from the existing doc so the thread header and
+    // optimistic send state start from the same server snapshot.
     firebaseDb.collection('dm_threads').doc(wl.activeThread.id).get().then(function(doc){
       if (doc.exists && wl.activeThread && wl.activeThread.id === doc.id){
         wl.activeThread.lastMessage = (doc.data() || {}).lastMessage || '';
@@ -8088,30 +8085,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var prevErr = document.getElementById('wlSendErr');
     if (prevErr) prevErr.textContent = '';
     if (sendBtn) sendBtn.disabled = true;
-    // First message in a 1:1 thread means the recipient just had a
-    // challenge accepted, so it also fires the notification email.
-    // The endpoint is idempotent; the local mirror stops a second send
-    // in the same session re-firing before the server stamp lands.
-    var isFirstMessage = !at.lastMessage && !at.isGroup;
     wl.dm.send(text).then(function(res){
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
       firePushDM(at.participants, at.id); // Web Push the recipient(s)
-      if (isFirstMessage && res) {
-        at.lastMessage = res.preview;
-        try { gtag('event', 'dm_first_accept', {}); } catch(e){}
-        state.user.getIdToken().then(function(idToken){
-          return fetch('/api/notify-dm-accept', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-            body: JSON.stringify({ threadId: at.id }),
-          });
-        }).catch(function(e){
-          // Silent: email is a nudge, not load-bearing for the round.
-          console.warn('[dm] notify-dm-accept failed', e && e.message);
-        });
-      }
+      if (res) at.lastMessage = res.preview;
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;
       console.warn('[dm] send failed', e);

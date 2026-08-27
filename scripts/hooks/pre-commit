@@ -574,6 +574,23 @@ if [ -f "$SENDER_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# DM email guard. A new message has four independent send surfaces,
+# and the retired implementation covered only the first message from
+# one of them. Keep every composer on the same authenticated endpoint,
+# keep retries idempotent by message id, and keep private thread content
+# out of the email-provider payload.
+# ──────────────────────────────────────────────────────────────────
+DM_EMAIL_GUARD="$REPO_ROOT/scripts/test-dm-email.mjs"
+if [ -f "$DM_EMAIL_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-dm-email.mjs >/tmp/dm-email-guard.log 2>&1); then
+    echo "[dm-email-guard] commit blocked - DM email delivery or privacy no longer holds:" >&2
+    tail -20 /tmp/dm-email-guard.log >&2
+    echo "[dm-email-guard] see scripts/test-dm-email.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Blocks guard. /api/blocks answers an opponent's case, and the one
 # thing it must never do is hand a debater a citation to read. A
 # fabricated card read in a real round loses that round and costs the
