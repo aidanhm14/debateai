@@ -93,6 +93,23 @@ if [ -f "$PRICE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Brand-entity guard. "Debatable" is a crowded, generic name, so the
+# homepage, canonical /debatable definition page, sitemap, and llms.txt
+# must resolve to the same organization and founder ids. A broken or
+# stale identity graph makes search engines and AI answers merge this
+# product with unrelated apps that use the same word.
+# ──────────────────────────────────────────────────────────────────
+BRAND_ENTITY_GUARD="$REPO_ROOT/scripts/test-seo-brand-entity.mjs"
+if [ -f "$BRAND_ENTITY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-seo-brand-entity.mjs >/tmp/brand-entity-guard.log 2>&1); then
+    echo "[brand-entity] commit blocked — the public brand facts no longer resolve to one entity:" >&2
+    grep '^FAIL' /tmp/brand-entity-guard.log >&2 || tail -20 /tmp/brand-entity-guard.log >&2
+    echo "[brand-entity] see scripts/test-seo-brand-entity.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Judge-integrity guard. Blocks a commit that breaks a promise the
 # public /judge-integrity page makes: the season calendar staying
 # contiguous, the rubric hash staying content-addressed, an even panel
