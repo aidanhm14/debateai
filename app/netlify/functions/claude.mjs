@@ -13,6 +13,7 @@ import { getBrainBlock } from './lib/brain.mjs';
 import { buildAdjudicationBlock, isJudgeFeature } from './lib/adjudication.mjs';
 import { deliveryBlock, takeDelivery } from './lib/judge-delivery.mjs';
 import { recordTrip } from './lib/rate-limit.mjs';
+import { withSseHeartbeat } from './lib/sse-heartbeat.mjs';
 
 // Allowed models — only permit specific, cost-controlled models
 // Reasoning-model note that bit the async panel and will bite here next:
@@ -298,57 +299,6 @@ async function checkSignedInBetaLimit(userId) {
     entries.slice(-2500).forEach(([k, v]) => signedInBetaHistory.set(k, v));
   }
   return { ok: history.length <= SIGNED_IN_BETA_DAILY_MAX, count: history.length };
-}
-
-// Keep a streamed response alive through a silent upstream. See the long
-// note at the return site for the measurement that made this necessary.
-//
-// The beat fires only when BOTH are true: nothing has arrived for
-// HEARTBEAT_MS, and the last bytes we forwarded ended on an SSE event
-// boundary. The second condition is the one that matters: a comment spliced
-// into a half-delivered event corrupts it, so when in doubt we skip the beat
-// and wait. Real gaps start after a complete event, so in practice it fires.
-const HEARTBEAT_MS = 4000;
-
-function withHeartbeat(upstream, enabled) {
-  if (!upstream || !enabled) return upstream;
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-  const reader = upstream.getReader();
-  let timer = null;
-  let lastAt = Date.now();
-  let atBoundary = true;   // nothing sent yet, so we are trivially at one
-
-  return new ReadableStream({
-    start(controller) {
-      timer = setInterval(() => {
-        if (!atBoundary) return;
-        if (Date.now() - lastAt < HEARTBEAT_MS) return;
-        try { controller.enqueue(enc.encode(': keepalive\n\n')); lastAt = Date.now(); } catch {}
-      }, 1000);
-
-      (async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-            lastAt = Date.now();
-            atBoundary = /\n\n$/.test(dec.decode(value, { stream: true }));
-          }
-          controller.close();
-        } catch (err) {
-          try { controller.error(err); } catch {}
-        } finally {
-          clearInterval(timer);
-        }
-      })();
-    },
-    cancel(reason) {
-      clearInterval(timer);
-      return reader.cancel(reason);
-    },
-  });
 }
 
 export default async (request, context) => {
@@ -792,7 +742,7 @@ export default async (request, context) => {
     // Injected ONLY at an event boundary. Chunk boundaries can split an SSE
     // event mid-JSON, and a comment spliced into the middle of one would
     // corrupt the very payload this is protecting.
-    return new Response(withHeartbeat(clientBody, body.stream === true && response.ok), {
+    return new Response(withSseHeartbeat(clientBody, body.stream === true && response.ok), {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',

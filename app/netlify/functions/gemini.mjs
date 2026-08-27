@@ -10,6 +10,7 @@ import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { applyBrain } from './lib/brain.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
+import { withSseHeartbeat } from './lib/sse-heartbeat.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -223,11 +224,12 @@ export default async (request, context) => {
     }
 
     // Stream the response back
-    return new Response(response.body, {
+    return new Response(withSseHeartbeat(response.body, useStream && response.ok), {
       status: 200,
       headers: {
         'Content-Type': useStream ? 'text/event-stream' : 'application/json',
         'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
         ...CORS,
       },
     });

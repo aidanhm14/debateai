@@ -32,6 +32,7 @@ import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { applyBrain } from './lib/brain.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
+import { withSseHeartbeat } from './lib/sse-heartbeat.mjs';
 import { resolveOpenSlug, DEFAULT_OPEN_SLUG } from './lib/engines.mjs';
 
 const PRODUCTION_ORIGINS = [
@@ -230,11 +231,12 @@ export default async (request, context) => {
     // Echo the engine that actually ran. The client labels the output
     // with this rather than with what it asked for, so a fallback or an
     // ops pin shows up in the UI instead of being invisible.
-    return new Response(response.body, {
+    return new Response(withSseHeartbeat(response.body, body.stream === true && response.ok), {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
         'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
         'X-Debatable-Engine': model,
         'Access-Control-Expose-Headers': 'X-Debatable-Engine',
         ...CORS,

@@ -10,6 +10,7 @@ import { applyUserFingerprint } from './lib/user-fingerprints.mjs';
 import { applyBrain } from './lib/brain.mjs';
 import { requirePaidPlan } from './lib/auth.mjs';
 import { applyAdjudicationForFeature } from './lib/adjudication.mjs';
+import { withSseHeartbeat } from './lib/sse-heartbeat.mjs';
 
 const PRODUCTION_ORIGINS = [
   'https://debateos1.netlify.app',
@@ -197,11 +198,12 @@ export default async (request, context) => {
       }),
     });
 
-    return new Response(response.body, {
+    return new Response(withSseHeartbeat(response.body, body.stream === true && response.ok), {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
         'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
         ...CORS,
       },
     });
