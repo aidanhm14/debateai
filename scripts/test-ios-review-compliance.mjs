@@ -18,6 +18,8 @@ const round = read('app/live-round.html');
 const terms = read('app/terms.html');
 const privacy = read('app/privacy.html');
 const practice = read('app/practice.html');
+const voice = read('app/voice-debate.html');
+const coach = read('app/coach.html');
 const report = read('app/netlify/functions/report-user.mjs');
 const pair = read('app/netlify/functions/spar-pair.mjs');
 const listing = read('mobile/APP_STORE_LISTING.md');
@@ -79,6 +81,9 @@ ok('native-facing production and legal copy does not advertise beta testing', ()
   for (const [name, source] of Object.entries({ terms, privacy, practice, listing })) {
     assert.doesNotMatch(source, /\bbeta\b/i, `${name} still contains beta language`);
   }
+  assert.match(voice, /nativeApp \? 'Voice' : 'Voice · Beta'/);
+  assert.match(voice, /nativeApp \?[\s\S]{0,120}href: '\/terms'[\s\S]{0,300}href: '\/safety'[\s\S]{0,100}Voice mode is in beta/i);
+  assert.match(coach, /<div id="freeMeter" class="free-meter" data-native-hide>Free in beta/i);
 });
 
 if (process.exitCode) {
