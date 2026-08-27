@@ -129,8 +129,24 @@
   }
   function unseen(key) { return seenItems().indexOf(key) < 0; }
 
+  /* Mid-round in ANOTHER tab. SKIP above only knows this tab's path, so a
+     debater who opened a second tab while speaking got the card anyway —
+     the one case the SKIP list exists to prevent. js/round-presence.js
+     heartbeats from the round tab; read it inline (same key and window as
+     that file) so a page without the writer fails open rather than throws.
+     Checked per cycle, not once at boot, because the round usually starts
+     after this page was opened. */
+  function busyInRound() {
+    try {
+      var d = JSON.parse(localStorage.getItem('da-round-presence') || 'null');
+      if (!d || !d.kind) return false;
+      return (now() - (d.at || 0)) <= 150000;
+    } catch (e) { return false; }
+  }
+
   function gated() {
     if (force || demo) return false;
+    if (busyInRound()) return true;
     if (now() - readNum(localStorage, SNOOZE_KEY) < SNOOZE_MS) return true;
     if (readNum(sessionStorage, COUNT_KEY) >= MAX_PER_SESSION) return true;
     if (now() - readNum(sessionStorage, LAST_KEY) < GAP_MS) return true;

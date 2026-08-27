@@ -63,6 +63,21 @@
     try { return Date.now() - (parseInt(localStorage.getItem(key), 10) || 0) < DAY; } catch (e) { return false; }
   }
 
+  // ── already mid-round in another tab? ────────────────────────────
+  // js/round-presence.js heartbeats from the round (and /spar) tab. Both
+  // halves of this module offer a NEW round, and a debater who opened the
+  // landing in a second tab while speaking in the first was getting both:
+  // quietly enlisted in the queue, then handed a card telling them to go
+  // debate. Read it inline so a missing writer fails open. Same key and
+  // window as js/round-presence.js.
+  function busyInRound() {
+    try {
+      var d = JSON.parse(localStorage.getItem('da-round-presence') || 'null');
+      if (!d || !d.kind) return false;
+      return (Date.now() - (d.at || 0)) <= 150000;
+    } catch (e) { return false; }
+  }
+
   // ── auto-enlist (signed-in named accounts only) ──────────────────
   function tryAutoEnlist() {
     if (fresh(AUTO_KEY)) return;
@@ -77,7 +92,7 @@
       var u = auth.currentUser;
       if (!u) return;               // keep waiting; onAuthStateChanged may still land
       clearInterval(t);
-      if (u.isAnonymous || api.isAvailable()) return;
+      if (u.isAnonymous || api.isAvailable() || busyInRound()) return;
       stamp(AUTO_KEY);
       api.setAvailable(true, true);
       emit('live_pull_autoenlist', {});
@@ -251,6 +266,7 @@
   }
 
   function pull(trigger) {
+    if (busyInRound()) return;   // they are already in one
     fetch('/api/live-now', { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
@@ -352,6 +368,7 @@
   }
 
   function boot() {
+    if (busyInRound()) return;   // mid-round in another tab: offer nothing
     tryAutoEnlist();
     if (fresh(SNOOZE_KEY)) return;
     armPull();

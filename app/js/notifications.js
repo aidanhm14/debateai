@@ -256,8 +256,27 @@
   // and an alert by definition fires when nobody is interacting.
   // In-round / matchmaking pages have their own louder surfaces; a
   // background "someone is live" ping on top of a live round is noise.
-  var DA_ON_ROUND_PAGE = /\/(live-round|voice-debate|exhibition|casual-room|spar)/.test(location.pathname);
+  var DA_ON_ROUND_PAGE = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge|spar)/.test(location.pathname);
   function daMatchCardUp(){ try { return !!document.querySelector('.da-match-overlay'); } catch (_) { return false; } }
+  // ── busy in ANOTHER tab ─────────────────────────────────────────
+  // A path test answers for this tab only, so a debater who opened a
+  // second tab mid-round read as idle here and got invited into a round
+  // they were already in. js/round-presence.js publishes a heartbeat from
+  // the round (and matchmaker) tab; this is the read side. Inlined rather
+  // than taken off window.DARoundPresence because this file can load
+  // first — a missing writer must fail open, never throw. Keep the key
+  // and the freshness window in step with that file.
+  var DA_PRESENCE_KEY = 'da-round-presence';
+  var DA_PRESENCE_FRESH_MS = 150 * 1000;
+  function daPresenceKind() {
+    try {
+      var d = JSON.parse(localStorage.getItem(DA_PRESENCE_KEY) || 'null');
+      if (!d || !d.kind) return '';
+      return (Date.now() - (d.at || 0) > DA_PRESENCE_FRESH_MS) ? '' : d.kind;
+    } catch (_) { return ''; }
+  }
+  // True on a round/queue page OR while any other tab is running one.
+  function daBusyRound() { return DA_ON_ROUND_PAGE || !!daPresenceKind(); }
 
   var _daSfxLoad = null;
   function daEnsureSfx(){
@@ -897,7 +916,7 @@
       liveSeenUids = ids;
       if (!prev) return;                       // first poll = baseline, not news
       if (!signedInReal) return;               // no queue to join, no ping
-      if (DA_ON_ROUND_PAGE || daMatchCardUp()) return;
+      if (daBusyRound() || daMatchCardUp()) return;
       if (Date.now() - lastLivePing < LIVE_PING_COOLDOWN_MS) return;
       var fresh = [];
       for (var uid in ids) if (!prev[uid] && uid !== myUid) fresh.push(ids[uid]);
@@ -1715,6 +1734,16 @@
     // pill), so only users who chose it ever write to the queue. With
     // those two guarantees the public-page exclusion is no longer needed.
     var ON_PUBLIC = false;
+    // Those two answer for THIS tab. js/round-presence.js publishes the same
+    // fact across tabs, so a second tab opened mid-round stops reading as
+    // idle and queueing the debater for a second round. 'round' behaves like
+    // ON_ROUND (step out of the queue: the round tab has no card to answer
+    // an invite with, so a peer accepting lands in an empty room); 'spar'
+    // behaves like ON_SPAR (that tab's foreground matcher owns the doc, so
+    // stay off it rather than delete it).
+    function inRound() { return ON_ROUND || daPresenceKind() === 'round'; }
+    function inSpar() { return ON_SPAR || daPresenceKind() === 'spar'; }
+    function busyElsewhere() { return inRound() || inSpar(); }
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
@@ -1911,6 +1940,13 @@
       // A manual opt-in is an explicit "match me now", so it clears any
       // lingering post-decline quiet window.
       if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
+      if (available && myUid && busyElsewhere()) {
+        // Already debating (or already queued from the matchmaker tab).
+        // Keep the standing intent, leave that tab's queue doc alone, and
+        // say why nothing happened instead of silently doing nothing.
+        if (!quiet) sparNote(inRound() ? "You're already in a round in another tab. We'll make you matchable again when it ends." : "Your other tab is already looking for an opponent.");
+        return;
+      }
       if (available && myUid && !ON_ROUND && !ON_SPAR) {
         if (quiet) suppressAvailableNoteOnce = true;
         goAvailable();
@@ -1938,7 +1974,7 @@
       uid: function () { return myUid || null; }
     };
     function goAvailable() {
-      if (!myUid || ON_ROUND || ON_SPAR || ON_PUBLIC) return;
+      if (!myUid || busyElsewhere() || ON_PUBLIC) return;
       // Going available is a click. That click is the last user gesture we
       // are guaranteed before a match lands, and browsers only unlock audio
       // on a gesture — so load + unlock the sound bank here, not at ping
@@ -1995,7 +2031,7 @@
     // stale_peer_skip), so a green "Available" pill can never sit on a doc
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     function requeue() {
-      if (!myUid || !myRef || !available || ON_ROUND || ON_SPAR || ON_PUBLIC || overlay || navigating) return;
+      if (!myUid || !myRef || !available || busyElsewhere() || ON_PUBLIC || overlay || navigating) return;
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       if (!humanAround()) return;            // zombie-screen guard: rejoin on next real touch
       docGone = false;
@@ -2028,6 +2064,35 @@
       if (hbTimer) { clearInterval(hbTimer); hbTimer = null; }
       if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
     }
+
+    // ── the round can start AFTER this tab went available ────────────
+    // Accept a match in the other tab (or open a round from anywhere) and
+    // this tab is still queued, still scanning, and still able to pop a
+    // card mid-round. The path guards all ran once, at boot, so nothing
+    // caught that. This does: a localStorage read every 10s, no network,
+    // running whether or not the tab is visible. It steps out of the queue
+    // for as long as the round lasts and steps back in when it ends, so
+    // availability survives the round instead of being spent by it.
+    var pausedForRound = false;
+    function busyGuard() {
+      if (busyElsewhere()) {
+        if (!available || pausedForRound) return;
+        pausedForRound = true;
+        if (overlay && pendingMatch) decline(pendingMatch, true);   // frees the peer
+        else closeOverlay();
+        consentRoom = null; awaitingPeer = false; handledRoom = null;
+        stopTimers();
+        if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
+        // Only a round drops the doc. On /spar that doc belongs to the
+        // matchmaker tab and deleting it would cancel their search.
+        if (inRound() && myRef) myRef.delete().catch(function () {});
+        return;
+      }
+      if (!pausedForRound) return;
+      pausedForRound = false;
+      if (available && myUid && !ON_PUBLIC && !navigating && !overlay) goAvailable();
+    }
+    setInterval(busyGuard, 10 * 1000);
 
     // ── own-doc listener: drives the match card ──
     function watchOwnDoc() {
@@ -2100,7 +2165,7 @@
           consentRoom = null;
           awaitingPeer = false;
           sparNote('Opponent passed. Still looking.');
-          if (available && !ON_ROUND && !ON_SPAR) { startTimers(); scan(); }
+          if (available && !busyElsewhere()) { startTimers(); scan(); }
         }
       }, function (err) { console.warn('[spar-live] own-doc listen failed', err && err.message); });
     }
@@ -2162,7 +2227,16 @@
     }
 
     // ── match-found card ──
+    // The doc behind the card that is currently up, so the cross-tab guard
+    // below can pass on it properly (release the peer) instead of just
+    // yanking the card off the screen.
+    var pendingMatch = null;
     function showMatch(d) {
+      // Mid-round in another tab. Pass rather than render: the debater
+      // cannot take this round, and passing frees the peer now instead of
+      // stranding them for the length of the countdown.
+      if (busyElsewhere()) { decline(d, true); return; }
+      pendingMatch = d;
       stopTimers();
       closeOverlay();
       daAlert(daAway() ? 3 : 1); // repeats only when away, so it carries from another tab/room
@@ -2219,6 +2293,7 @@
       }, 1000);
     }
     function closeOverlay() {
+      pendingMatch = null;
       // Sweep the phase stepper here too, not only where the card is
       // swapped: every teardown path (decline, timeout, peer passed,
       // navigation) goes through this one function, and an interval
@@ -2482,7 +2557,7 @@
       if (cooldownTimer) clearTimeout(cooldownTimer);
       cooldownTimer = setTimeout(function () {
         cooldownTimer = null;
-        if (available && myUid && !ON_ROUND && !ON_SPAR && !ON_PUBLIC && !overlay && !navigating && !document.hidden) {
+        if (available && myUid && !busyElsewhere() && !ON_PUBLIC && !overlay && !navigating && !document.hidden) {
           goAvailable();
         }
       }, Math.max(0, declineUntil - Date.now()));
@@ -2504,7 +2579,7 @@
       // feeds the server's ghost-cancel heuristic, which is how a peer
       // waiting on a dead tab gets released instead of stranded.
       if (wasPending) sendConsent(d && d.matchedWith, false, !!auto);
-      if (!available || ON_ROUND || ON_SPAR) return;
+      if (!available || busyElsewhere()) return;
       // Don't re-invite someone who just declined (or let an invite time out).
       // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
       // back to 'waiting' so they aren't stranded, drop our own queue doc so
@@ -2551,7 +2626,7 @@
         // loud, because being silently matchable is not consent.
         // Match cards still always require an Accept; nothing here can
         // pull anyone into a round without a tap.
-        if (queueUser && !available && !ON_ROUND && !ON_SPAR) {
+        if (queueUser && !available && !busyElsewhere()) {
           var optedOut = false;
           try { optedOut = localStorage.getItem(LSKEY) === '0'; } catch (e) {}
           if (!optedOut && agBand()) {
@@ -2566,7 +2641,7 @@
             return;
           }
         }
-        if (queueUser && available && !ON_ROUND && !ON_SPAR && !ON_PUBLIC) goAvailable();
+        if (queueUser && available && !busyElsewhere() && !ON_PUBLIC) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
@@ -2575,7 +2650,7 @@
           // peer could match it and accept into an empty room (ghost match).
           // Keep the flag so availability resumes on the next eligible page.
           // On /spar we leave the doc to the page's own foreground flow.
-          if (queueUser && available && (ON_ROUND || ON_PUBLIC)) {
+          if (queueUser && available && (inRound() || ON_PUBLIC)) {
             ensureFirestore(function () {
               try { window.firebase.firestore().collection('matchmaking_queue').doc(queueUser.uid).delete().catch(function () {}); } catch (e) {}
             });
