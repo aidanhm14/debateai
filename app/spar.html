@@ -3819,24 +3819,37 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if ((Date.now() / 1000 - sec) >= 100) return false;
     // lastSeenAt is written by EITHER debater, so it survives one of
     // them walking out: the person left behind keeps beating and the
-    // abandoned room keeps advertising here. A departure mark is
-    // written the moment a debater actually leaves, and it counts only
-    // while it is newer than that seat's own heartbeat, so coming back
-    // clears it on the next beat. Same rule as /api/watch-live.
-    var gone = d.seatLeft, seen = d.seatSeen;
-    if (gone && seen){
-      var ms = function(v){
-        if (!v) return 0;
-        if (typeof v.toMillis === 'function') return v.toMillis();
-        if (typeof v.seconds === 'number') return v.seconds * 1000;
-        return typeof v === 'number' ? v : 0;
-      };
-      for (var uid in gone){
-        if (!Object.prototype.hasOwnProperty.call(gone, uid)) continue;
-        var l = ms(gone[uid]);
-        if (l && l >= ms(seen[uid])) return false;
-      }
+    // abandoned room keeps advertising here. So count SEATS, not beats.
+    // seatSeen is per-uid presence from each debater's own 30s heartbeat,
+    // and seatLeft is a departure mark that counts only while it is newer
+    // than that seat's own beat, so coming back clears it on the next one.
+    //
+    // Two seats, and the motion draft settled. Same rule as
+    // /api/watch-live, and it has to be the same rule: until 2026-08-27
+    // this list was the loose one (any fresh beat, one person is enough)
+    // while every other surface on the site ran the strict one, so a room
+    // showed LIVE here and nowhere else, and a spectator taking the
+    // invitation could walk in on one person waiting alone.
+    var ms = function(v){
+      if (!v) return 0;
+      if (typeof v.toMillis === 'function') return v.toMillis();
+      if (typeof v.seconds === 'number') return v.seconds * 1000;
+      return typeof v === 'number' ? v : 0;
+    };
+    var seen = d.seatSeen, gone = d.seatLeft || {}, present = 0, now = Date.now();
+    for (var uid in seen){
+      if (!Object.prototype.hasOwnProperty.call(seen, uid)) continue;
+      var beat = ms(seen[uid]);
+      if (!beat || now - beat >= 100000) continue;
+      var left = ms(gone[uid]);
+      if (left && left >= beat) continue;
+      present++;
     }
+    if (present < 2) return false;
+    // While the draft is open they are still striking motions and do not
+    // yet know their sides, so the motion on this row is not the motion
+    // they will argue.
+    if (!d.draftResolvedAt && d.draft && d.draft.phase !== 'done') return false;
     return true;
   }
   function renderWatchRow(id, d){

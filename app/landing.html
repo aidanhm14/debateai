@@ -22584,6 +22584,13 @@ window.addEventListener('load', function(){
 
   function roundStatus(r){
     if (r.status === 'ballot') return 'Being judged';
+    // watch-live announces a room once BOTH debaters are seated, which is
+    // before anyone presses start (2026-08-27). `started` is the only
+    // thing that knows the clock is running; without this the strip would
+    // print "Speech 1" over two people still setting up. `=== false` on
+    // purpose, so a payload cached from before the field existed keeps
+    // the old label rather than reading every round as unstarted.
+    if (r.started === false) return 'Getting started';
     var n = (typeof r.speechIdx === 'number' ? r.speechIdx : 0) + 1;
     return 'Speech ' + n;
   }

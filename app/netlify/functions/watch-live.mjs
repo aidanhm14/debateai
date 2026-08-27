@@ -5,8 +5,8 @@
 // (isPrivate !== true). Powers the /arena stage and the /tournaments
 // watch window; the handoff URL is /live-round?room={id}&spectate=1
 // (or &stage=1 for the chromeless broadcast view). A round is listed
-// only once BOTH debaters are present and a speech has run — see
-// roundIsWatchable below.
+// only once BOTH debaters are present and the motion draft is settled —
+// see roundIsWatchable below.
 //
 // Honesty: no floor, no padding. Empty list = nothing live. Cached 12s
 // shared so the discovery pages together don't hammer Firestore.
@@ -22,19 +22,20 @@ const MAX_ROUNDS = 6;
 const SHOT_FRESH_MS = 75 * 1000;     // match room-shot's serve window
 const SEAT_FRESH_MS = 100 * 1000;    // a debater counts as in the room this long
 
-// A round is ANNOUNCED only when two people are in it and the round has
-// actually begun. 2026-08-23, the founder: "its too early to announce a
-// room thats actually empty."
+// A round is ANNOUNCED only when two people are actually in it. 2026-08-23,
+// the founder: "its too early to announce a room thats actually empty."
 //
-// The old rule was any round doc with a fresh heartbeat and a status of
-// round/ballot, and a round doc exists from the moment ONE person opens
-// the page. So a debater who arrived first, alone, waiting, was
-// advertised sitewide as a live round to watch, and a spectator who took
-// the invitation walked into one person sitting in silence. That is the
-// same class as the 411-rounds finding: a record written at intent time
-// read as evidence of the thing happening.
+// The rule that shipped that day had a second clause — a speech must have
+// run — and that clause is REMOVED as of 2026-08-27, on the founder's call
+// after a real round went unadvertised. Measured over the 300 most recent
+// live_rounds: 122 had both seats present, and only 37 ever got past
+// speech 0. So the speech clause was hiding roughly 85 rooms that had two
+// real people, two live cameras, and nobody watching, while /spar's own
+// list (looser rule, same collection) advertised them the whole time. A
+// gate that answers "no" seven times out of eight is not protecting a
+// spectator from an empty room, it is a dark discovery surface.
 //
-// Two conditions, both off fields the round doc already carries:
+// What survives is the part that was actually about emptiness:
 //   seatSeen  per-uid presence written by each seated debater's 30s
 //             heartbeat. Two fresh entries means two people are here.
 //             The doc-level lastSeenAt cannot answer this, because
@@ -49,10 +50,16 @@ const SEAT_FRESH_MS = 100 * 1000;    // a debater counts as in the room this lon
 //             opponent wrote the mark for them, clears it on their very
 //             next beat. Absence of a mark proves nothing, so the
 //             staleness rule above still carries a tab that just died.
-//   started   a speech has actually run: the published currentTimer is
-//             running, or the round is past speech one, or it has
-//             reached the ballot. Prep time and two people staring at
-//             each other are not yet a round worth watching.
+//   draft     the motion draft runs inside the room, and while it is
+//             open the two of them are still striking motions and have
+//             not been told which side they are on. A spectator who
+//             walks in then is watching a negotiation, and the motion on
+//             the card is not the motion they will argue. Settled means
+//             phase 'done', a draftResolvedAt stamp, or no draft at all.
+//
+// `started` is REPORTED, never gated on: the callers label the card off
+// it ("Speech 2" vs "Getting started") so a room in prep is discoverable
+// without anything on screen claiming a speech is under way.
 
 // Firestore Timestamp, Date, or millis — every shape the client has
 // written over the life of these fields.
@@ -63,6 +70,22 @@ function ms(v) {
     : v && typeof v._seconds === 'number' ? v._seconds * 1000
     : v && typeof v.seconds === 'number' ? v.seconds * 1000
     : 0;
+}
+
+// A speech has actually run: the published currentTimer is running, or
+// the round is past speech one, or it has reached the ballot.
+function roundHasStarted(d) {
+  const t = d.currentTimer || {};
+  return t.state === 'running'
+    || (typeof d.speechIdx === 'number' && d.speechIdx > 0)
+    || d.status === 'ballot';
+}
+
+function draftSettled(d) {
+  if (d.draftResolvedAt) return true;
+  const draft = d.draft;
+  if (!draft || typeof draft !== 'object') return true;   // never drafted
+  return draft.phase === 'done';
 }
 
 function roundIsWatchable(d) {
@@ -80,11 +103,7 @@ function roundIsWatchable(d) {
     }
   }
   if (present < 2) return false;
-  const t = d.currentTimer || {};
-  const started = t.state === 'running'
-    || (typeof d.speechIdx === 'number' && d.speechIdx > 0)
-    || d.status === 'ballot';
-  return !!started;
+  return draftSettled(d);
 }
 
 // Rooms where a debater has a camera on publish a still every ~25s
@@ -152,6 +171,7 @@ export default async (request) => {
         proName: String(d.proName || '').slice(0, 40),
         conName: String(d.conName || '').slice(0, 40),
         speechIdx: typeof d.speechIdx === 'number' ? d.speechIdx : 0,
+        started: roundHasStarted(d),
       });
     });
 
