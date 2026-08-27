@@ -513,6 +513,7 @@ h1 em{color:var(--accent);font-style:normal}
 .friend-challenge--incoming{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.07)}
 .friend-challenge--incoming .friend-challenge__mark{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.13);color:#60a5fa}
 .friend-challenge--incoming .friend-challenge__eyebrow{color:#60a5fa}
+#friendChallengeHome,#friendChallengeSlot{display:contents}
 @media(max-width:520px){
   .friend-challenge{padding:14px;margin-bottom:16px}
   .friend-challenge__actions{display:grid;grid-template-columns:1fr 1fr}
@@ -2028,7 +2029,7 @@ body.draft-live #daExpAsk{display:none !important}
 }
 .wait-rail__body{
   padding:20px 24px 24px;
-  display:flex; flex:1; min-height:0; flex-direction:column; gap:18px;
+  display:flex; flex:1; min-height:0; flex-direction:column; gap:14px;
   overflow-y:auto; scrollbar-width:thin;
 }
 .wait-rail__card{
@@ -2249,11 +2250,20 @@ body.draft-live #daExpAsk{display:none !important}
 
 /* In the rail it is one of the rail's cards, not a floating panel. */
 #sparRoomSlot{display:contents}
+.wait-rail__body .friend-challenge{
+  max-width:none; margin:0; padding:14px; box-shadow:none;
+  border-radius:15px; flex:none;
+}
+.wait-rail__body .friend-challenge p{font-size:.73rem; line-height:1.42}
+.wait-rail__body .friend-challenge__actions{margin-top:10px}
+.wait-rail__body .friend-challenge__actions .btn{min-height:36px; padding:7px 11px}
+.wait-rail__body .friend-challenge__link{display:none}
 .wait-rail__body .spar-room{
-  max-width:none; margin:0; box-shadow:none; border-radius:15px; flex:none;
+  max-width:none; margin:0; box-shadow:none; border-radius:15px;
+  flex:1 0 280px; min-height:280px;
   background:color-mix(in srgb, var(--bg-elev) 68%, transparent);
 }
-.wait-rail__body .spar-room__scroll{height:clamp(120px,17vh,190px); padding:8px 14px}
+.wait-rail__body .spar-room__scroll{height:auto; min-height:160px; flex:1; padding:10px 14px}
 .wait-rail__body .spar-room__head{padding:11px 14px}
 .wait-rail__body .spar-room__composer{padding:9px 11px; background:transparent}
 .wait-rail__body .spar-room__sub{display:none}
@@ -2291,8 +2301,8 @@ body.draft-live #daExpAsk{display:none !important}
 @media (min-width: 1281px) and (max-height: 820px){
   .wait-rail__head{ padding:18px 20px 16px }
   .wait-rail__body{ padding:16px 20px 20px; gap:14px }
-  .wait-rail__pad{ min-height:96px }
   .wait-rail__link{ padding:9px 11px }
+  .wait-rail__body .spar-room{flex-basis:230px; min-height:230px}
 }
 
 /* Drawer behavior is now universal (see .waitlist-rail above); the FAB
@@ -4132,7 +4142,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<span class="friend-challenge__copy">' +
           '<span class="friend-challenge__eyebrow">Waiting alone?</span>' +
           '<h2>Challenge a friend</h2>' +
-          '<p>The first friend to open this link gets the seat. Your live queue stays active, so whoever is ready first starts the match.</p>' +
+          '<p>Send one link. The first friend to open it gets the seat while your public search stays active.</p>' +
         '</span>' +
       '</div>' +
       '<div class="friend-challenge__actions">' +
@@ -4323,7 +4333,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // spans and bails if either is missing) but is display:none in CSS.
       '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
-      friendChallengeHtml() +
+      // The friend card starts here for phones and narrower laptops. On
+      // wide screens mountWaitRail moves the SAME node into the top of the
+      // right rail, so its listeners and QR state survive a resize.
+      '<div id="friendChallengeHome">' + friendChallengeHtml() + '</div>' +
       // Round alerts. Moved above the quiet links 2026-08-24: measured
       // 3,369 spar_queue_join events against 20 opt-ins, while every
       // person who pressed the button became a real subscriber (20 of
@@ -4787,26 +4800,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── While-you-wait rail (right side, searching only) ─────
-  // The 4-minute window is long enough that "stare at the countdown"
-  // is bad UX. The rail gives the wait a job: a warm-up motion +
-  // scratchpad (persisted to localStorage so it survives navigation
-  // into the round), the "your spot follows you" reassurance, and
-  // safe links into the rest of the app — safe because searching now
-  // flips the background-availability flag (see joinQueue).
-  var WARMUP_MOTIONS = [
-    'Social media platforms should ban political advertising.',
-    'Voting should be compulsory.',
-    'Elite universities do more harm than good.',
-    'Targeted advertising to minors should be banned.',
-    'Space exploration is a waste of public money.',
-    'Cash bail should be abolished.',
-    'AI tutors will do more for educational equality than smaller class sizes.',
-    'Every citizen should complete a year of national service.',
-    'Professional athletes are overpaid.',
-    'Every citizen should receive a universal basic income.',
-    'The nuclear family is an outdated ideal.',
-    'Private schools should be banned.',
-  ];
+  // The rail keeps the live social choices in reach: invite someone you
+  // know, talk in Commons, or choose another way to start a round. It does
+  // not turn the wait into a worksheet or show random example motions.
 
   function mountWaitRail(){
     removeWaitRail();
@@ -4817,11 +4813,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     rail.id = 'waitRail';
     rail.className = 'wait-rail';
     rail.setAttribute('aria-label', 'Things to do while you wait');
-    var savedPad = '';
-    var experience = '';
-    try { savedPad = localStorage.getItem('da-spar-warmup') || ''; } catch(e){}
-    try { experience = localStorage.getItem('debateos-experience') || ''; } catch(e){}
-    var warmupLabel = experience === 'competitive' ? 'Warm-up motion' : 'Practice question';
     rail.innerHTML =
       '<div class="wait-rail__head">' +
         '<div class="wait-rail__status"><span class="live-dot"></span>Match search active</div>' +
@@ -4838,49 +4829,32 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         openNudgeHtml('wait-rail__open-line') +
       '</div>' +
       '<div class="wait-rail__body">' +
-        // The Commons goes first in the body: the rail is the only part
-        // of this screen that stays in view (sticky, full height), and a
-        // room nobody sees is a room nobody posts in. The practice
-        // question and the links scroll below it.
+        // The direct friend door leads. Commons gets the remaining height
+        // instead of sharing it with a random practice-motion worksheet.
+        '<div id="friendChallengeSlot"></div>' +
         '<div id="sparRoomSlot"></div>' +
-        '<div class="wait-rail__card">' +
-          '<div class="wait-rail__label">' + warmupLabel + ' <button class="wait-rail__shuffle" id="warmupShuffle" type="button">New question</button></div>' +
-          '<div class="wait-rail__motion" id="warmupMotion"></div>' +
-          '<textarea class="wait-rail__pad" id="warmupPad" placeholder="Sketch three claims, your strongest rebuttal, and your weighing."></textarea>' +
-          '<span class="wait-rail__saved">Saved in this browser as you type.</span>' +
-        '</div>' +
         '<div class="wait-rail__links">' +
-          '<a class="wait-rail__link" href="/app#case"><span class="wait-rail__link-index">01</span><span class="wait-rail__link-copy"><strong>Prep a full case</strong><span>Turn a motion into a structured case.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
-          '<a class="wait-rail__link" href="/voice-debate?mode=quickclash&handoff=spar-wait-rail"><span class="wait-rail__link-index">02</span><span class="wait-rail__link-copy"><strong>Debate Voice AI now</strong><span>Start a casual 1v1 immediately against an AI opponent.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
-          '<a class="wait-rail__link" href="/live"><span class="wait-rail__link-index">03</span><span class="wait-rail__link-copy"><strong>Browse scheduled rounds</strong><span>Pick a time when other debaters are online.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
-          '<a class="wait-rail__link wait-rail__link--discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="wait-rail__link-index">04</span><span class="wait-rail__link-copy"><strong>Set a time in Discord</strong><span>Coordinate directly with the community.</span></span><span class="wait-rail__arrow" aria-hidden="true">↗</span></a>' +
+          '<a class="wait-rail__link" href="/voice-debate?mode=quickclash&handoff=spar-wait-rail"><span class="wait-rail__link-index">01</span><span class="wait-rail__link-copy"><strong>Debate Voice AI now</strong><span>Start a casual 1v1 immediately against an AI opponent.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
+          '<a class="wait-rail__link" href="/live"><span class="wait-rail__link-index">02</span><span class="wait-rail__link-copy"><strong>Browse scheduled rounds</strong><span>Pick a time when other people are online.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
+          '<a class="wait-rail__link wait-rail__link--discord" href="' + DISCORD_INVITE + '" target="_blank" rel="noopener noreferrer"><span class="wait-rail__link-index">03</span><span class="wait-rail__link-copy"><strong>Set a time in Discord</strong><span>Coordinate directly with the community.</span></span><span class="wait-rail__arrow" aria-hidden="true">↗</span></a>' +
         '</div>' +
       '</div>';
     host.appendChild(rail);
-    var motionEl = rail.querySelector('#warmupMotion');
-    // Live-discourse tier (js/topic-pulse.js), additive to WARMUP_MOTIONS.
-    // Read at shuffle time rather than captured once, so a motion that
-    // lands after the rail mounts is still reachable on the next click.
-    function warmupPool(){
-      var live = (window.TopicPulse && window.TopicPulse.texts()) || [];
-      return WARMUP_MOTIONS.concat(live);
-    }
-    var idx = Math.floor(Math.random() * WARMUP_MOTIONS.length);
-    function showMotion(){
-      var pool = warmupPool();
-      if (motionEl) motionEl.textContent = pool[idx % pool.length];
-    }
-    showMotion();
-    var shuffle = rail.querySelector('#warmupShuffle');
-    if (shuffle) shuffle.addEventListener('click', function(){ idx++; showMotion(); });
-    var pad = rail.querySelector('#warmupPad');
-    if (pad){
-      pad.value = savedPad;
-      pad.addEventListener('input', function(){
-        try { localStorage.setItem('da-spar-warmup', pad.value); } catch(e){}
-      });
+    positionFriendChallenge();
+    if (!state.friendResizeBound){
+      state.friendResizeBound = true;
+      window.addEventListener('resize', function(){ positionFriendChallenge(); });
     }
     updatePingedLine();
+  }
+
+  function positionFriendChallenge(){
+    var card = document.getElementById('friendChallengeCard');
+    var home = document.getElementById('friendChallengeHome');
+    var slot = document.getElementById('friendChallengeSlot');
+    var wide = window.matchMedia && window.matchMedia('(min-width:1281px)').matches;
+    var dest = (wide && slot) ? slot : home;
+    if (card && dest && card.parentNode !== dest) dest.appendChild(card);
   }
 
   // 2026-08-23, per Aidan: the "we pinged N people" line is gone from the
