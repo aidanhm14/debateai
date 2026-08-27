@@ -2322,16 +2322,27 @@ body.spectator-mode .rec-tail{display:none}
   background:rgba(0,0,0,.76);backdrop-filter:blur(7px);
 }
 .rec-consent-card{
-  width:min(520px,100%);padding:24px;border-radius:18px;
-  background:var(--bg-elev,#111118);border:1px solid var(--border-strong,rgba(255,255,255,.14));
+  width:min(600px,100%);padding:0;border-radius:18px;overflow:hidden;
+  background:var(--bg-elev,#111118);border:1px solid rgba(239,68,68,.42);
   box-shadow:0 24px 80px rgba(0,0,0,.5);
 }
-.rec-consent-kicker{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:850;color:var(--accent,#ef4444);margin-bottom:9px}
-.rec-consent-card h2{font-size:1.35rem;letter-spacing:-.02em;margin:0 0 9px;color:var(--text)}
-.rec-consent-card p{font-size:.9rem;line-height:1.58;color:var(--text-dim);margin:0 0 12px}
+.rec-consent-head{padding:24px 24px 20px;background:linear-gradient(135deg,rgba(185,28,28,.16),rgba(185,28,28,.04));border-bottom:1px solid rgba(239,68,68,.24)}
+.rec-consent-body{padding:20px 24px 24px}
+.rec-consent-kicker{display:flex;align-items:center;gap:8px;font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;font-weight:850;color:#f87171;margin-bottom:10px}
+.rec-consent-kicker::before{content:"";width:9px;height:9px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.14)}
+.rec-consent-card h2{font-size:clamp(1.45rem,4vw,1.75rem);line-height:1.18;letter-spacing:-.025em;margin:0 0 10px;color:var(--text)}
+.rec-consent-card p{font-size:.9rem;line-height:1.58;color:var(--text-dim);margin:0}
 .rec-consent-card p strong{color:var(--text)}
-.rec-consent-check{display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:11px;background:var(--ui-soft);border:1px solid var(--border);font-size:.8rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
-.rec-consent-check input{margin-top:2px;accent-color:var(--accent,#ef4444)}
+.rec-consent-why{margin:0 0 16px!important;color:var(--text)!important;font-size:.95rem!important}
+.rec-consent-facts{display:grid;gap:8px;margin:0 0 14px}
+.rec-consent-fact{display:grid;grid-template-columns:30px 1fr;gap:11px;padding:11px 12px;border-radius:11px;background:var(--ui-soft);border:1px solid var(--border)}
+.rec-consent-fact-num{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.34);color:#f87171;font-size:.72rem;font-weight:850}
+.rec-consent-fact strong{display:block;color:var(--text);font-size:.82rem;margin-bottom:2px}
+.rec-consent-fact span:last-child{display:block;color:var(--text-dim);font-size:.78rem;line-height:1.48}
+.rec-consent-choice{padding:11px 12px;margin-bottom:0!important;border-left:3px solid var(--green,#22c55e);background:rgba(34,197,94,.07);color:var(--text-dim)!important;font-size:.8rem!important}
+.rec-consent-choice a{color:var(--text);font-weight:750}
+.rec-consent-check{display:flex;align-items:flex-start;gap:10px;padding:13px;margin-bottom:12px;border-radius:11px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);font-size:.8rem;line-height:1.45;color:var(--text);cursor:pointer}
+.rec-consent-check input{width:18px;height:18px;margin-top:1px;flex:none;accent-color:var(--accent,#ef4444)}
 /* Inline failure line. A toast is the wrong surface for an error raised
    by a modal that covers the screen, so the card says it itself. */
 .rec-consent-error{
@@ -2348,8 +2359,14 @@ body.spectator-mode .rec-tail{display:none}
      (URL bar hidden), which would let the card grow taller than what the
      user can actually see and strand the actions under the browser bar. */
   .rec-consent-backdrop{padding:14px;align-items:flex-end}
-  .rec-consent-card{padding:20px 18px;max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0}
-  .rec-consent-actions{margin-top:16px}
+  .rec-consent-card{max-height:92dvh;overflow-y:auto;border-radius:18px 18px 0 0}
+  .rec-consent-head{padding:20px 18px 17px}
+  .rec-consent-body{padding:17px 18px 20px}
+  .rec-consent-actions{
+    position:sticky;bottom:0;z-index:1;margin:16px -18px -20px;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+    background:var(--bg-elev,#111118);border-top:1px solid var(--border)
+  }
   .rec-consent-actions button{flex:1 1 auto;min-height:48px;justify-content:center}
 }
 .rec-consent-no{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
@@ -3345,7 +3362,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
             <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
               <span class="rmb-rec-dot" aria-hidden="true"></span>
-              <span id="rmbRecLabel">Ask to record</span>
+              <span id="rmbRecLabel">Request recording</span>
             </button>
             <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden></span>
           </div>
@@ -3600,7 +3617,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             <div class="label" style="margin-bottom:6px">Speech sequence</div>
             <div class="sequence-list" id="sequenceList"></div>
           </div>
-          <p class="rd-note">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Ask to record stays beside the resolution if you want to revisit the choice.</p>
+          <p class="rd-note">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.</p>
         </div>
       </details>
     </div>
@@ -7334,7 +7351,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var errBox = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecError');
     var yesLabel = yes && yes.textContent;
     if (errBox){ errBox.textContent = ''; errBox.classList.remove('is-on'); }
-    if (yes){ yes.disabled = true; if (consent) yes.textContent = 'Starting…'; }
+    if (yes){ yes.disabled = true; if (consent) yes.textContent = 'Saving…'; }
     if (no) no.disabled = true;
     cloudRecordingPost({
       action: 'consent',
@@ -7342,7 +7359,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       adultOrGuardianApproved: !!adultOrGuardianApproved,
     }).then(function(){
       closeCloudRecordingModal();
-      toast(consent ? 'Consent saved. If everyone agrees, the replay will appear on Watch.' : 'This round will not record unless you change your choice.');
+      toast(consent ? 'You agreed. Recording starts only after every seated person agrees.' : 'No recording will start. The round continues normally.');
       try { gtag('event', 'live_round_recording_consent', { granted: consent ? 1 : 0 }); } catch(e){}
     }).catch(function(error){
       // The modal covers the screen, so the failure is reported INSIDE it.
@@ -7366,6 +7383,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       toast('Recording needs at least two signed-in seated debaters.');
       return;
     }
+    var consents = d.recordingConsents || {};
+    var requested = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
     // Do not stack this on top of the separate transcript-storage ask.
     // The recording prompt returns as soon as that one is answered.
     if (document.getElementById('tcRoot')){
@@ -7375,17 +7394,26 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var bd = document.createElement('div');
     bd.className = 'rec-consent-backdrop';
     bd.innerHTML =
-      '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle">' +
-        '<div class="rec-consent-kicker">Everyone chooses</div>' +
-        '<h2 id="cloudRecTitle">Record this round?</h2>' +
-        '<p>Nothing records unless <strong>everyone in the round says yes</strong>. A replay includes the video, audio, display names, and motion. It can appear on Watch for clips and sharing.</p>' +
-        '<p>Say no and the round continues normally. You can use Avatar first if you want a replay without showing your face.</p>' +
-        '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
-          '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
-        '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
-        '<div class="rec-consent-actions">' +
-          '<button type="button" class="rec-consent-no" id="cloudRecNo">No, continue</button>' +
-          '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>Yes, if everyone agrees</button>' +
+      '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle" aria-describedby="cloudRecWhy">' +
+        '<div class="rec-consent-head">' +
+          '<div class="rec-consent-kicker">' + (requested ? 'Recording request received' : 'Public replay request') + '</div>' +
+          '<h2 id="cloudRecTitle">' + (requested ? 'Do you agree to record this round?' : 'Request a recording?') + '</h2>' +
+          '<p class="rec-consent-why" id="cloudRecWhy"><strong>Why you are being asked:</strong> a replay lets both sides review the round and share useful moments after the ballot.</p>' +
+        '</div>' +
+        '<div class="rec-consent-body">' +
+          '<div class="rec-consent-facts" aria-label="Recording details">' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, display names, resolution, and ballot reveal.</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">2</span><span><strong>Who can see it</strong><span>The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>Only after every seated person agrees for this round. If anyone says no, no recording starts.</span></span></div>' +
+          '</div>' +
+          '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
+            '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
+          '<p class="rec-consent-choice">Saying no does not affect your seat, the clock, or the ballot. Your choice applies only to this round. You can switch to Avatar before agreeing if you do not want your camera image in the replay. <a href="/privacy#recordings" target="_blank" rel="noopener">Read the recording policy.</a></p>' +
+          '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
+          '<div class="rec-consent-actions">' +
+            '<button type="button" class="rec-consent-no" id="cloudRecNo">No, do not record</button>' +
+            '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>I agree to record this round</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(bd);
@@ -7444,11 +7472,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       } else if (status === 'declined'){
         label.textContent = mine === false ? 'Allow recording' : 'Not recording'; detail.textContent = 'A debater declined';
       } else if (status === 'awaiting_consent'){
-        label.textContent = mine === true ? 'Withdraw request' : 'Record round';
-        var waiting = participants.filter(function(uid){ return consents[uid] !== true; });
-        detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + ' agreed';
+        if (mine === true){
+          label.textContent = 'Withdraw request';
+          var waiting = participants.filter(function(uid){ return consents[uid] !== true; });
+          detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + ' agreed';
+        } else {
+          label.textContent = 'Review recording request';
+          var requester = participants.find(function(uid){ return consents[uid] === true; });
+          detail.textContent = requester ? cloudRecordingName(d, requester) + ' asked' : 'Your consent is needed';
+        }
       } else {
-        label.textContent = 'Ask to record'; detail.textContent = participants.length >= 2 ? 'Everyone must agree' : 'Needs identified seats';
+        label.textContent = 'Request recording'; detail.textContent = participants.length >= 2 ? 'Opens consent review' : 'Needs identified seats';
       }
     }
 
@@ -7472,53 +7506,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       else stopRoundBoardIfOrphaned(status);
     } catch(e){}
     try { renderRecTail(); } catch(e){}
-  }
-
-  // Capture starts on its own once two debaters are seated. A replay
-  // that was never captured cannot be published later however the vote
-  // goes, so the choice people are actually asked to make is whether the
-  // thing gets published, not whether it exists. Publication stays gated
-  // on every seated yes, server side.
-  //
-  // The lowest seated uid drives it, the same rule the verdict reel uses,
-  // so two clients do not race two Daily start calls. The other side is a
-  // backstop four seconds later in case the driver never loaded. The
-  // server transaction is idempotent either way.
-  // RETIRED 2026-08-22 (Aidan: the recording scares people away). Rounds
-  // used to start capturing the moment two debaters were seated, and the
-  // consent card that followed asked whether to PUBLISH something that was
-  // already rolling. A stranger arriving for their first round met a red
-  // recording light before they had said a word.
-  //
-  // Recording is entirely opt-in: nothing captures until every seated
-  // person agrees. The page now asks once before Speech 1, and the Record
-  // control can reopen the choice later. The server needed no change,
-  // because the all-agreed branch in
-  // round-recording.mjs already starts capture on consent; this function
-  // is kept as a no-op so the call sites and the doc-snapshot flow stay
-  // intact, and so restoring it is one edit rather than an archaeology
-  // exercise. Do not re-enable it without a decision-log entry.
-  function maybeAutoStartRecording(){ return; }
-
-  function unusedAutoStartRecording(d){
-    if (cloudRec.autoTried || !state.user || isSpectator() || state.phase !== 'round') return;
-    var participants = cloudRecordingParticipants(d || {});
-    if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
-    var consents = (d && d.recordingConsents) || {};
-    // Someone already said no in this round. Auto-start must never be the
-    // thing that walks over that; the server refuses it too.
-    if (participants.some(function(uid){ return consents[uid] === false; })) return;
-    var st = (d && d.recordingStatus) || 'idle';
-    if (d && d.recordingClosed) return;
-    if (['starting','recording','stopping','processing','stopped','closed','stop_failed','failed'].indexOf(st) >= 0) return;
-    var driver = participants.slice().sort()[0] === state.user.uid;
-    cloudRec.autoTried = true;
-    setTimeout(function(){
-      var now = cloudRec.doc || {};
-      var st2 = now.recordingStatus || 'idle';
-      if (now.recordingClosed || ['starting','recording','stopping','processing','stopped','closed','stop_failed','failed'].indexOf(st2) >= 0) return;
-      cloudRecordingPost({ action: 'autostart' }).catch(function(){ cloudRec.autoTried = false; });
-    }, driver ? 400 : 4000);
   }
 
   // Ask every seated person once, before speech 1, whether this round
@@ -18817,18 +18804,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 .rmb-change{min-height:30px}
 .round-motion-bar .rmb-house,.round-motion-bar .rmb-brief{font-size:.8rem}
 
-/* Recording is a quiet secondary action until it is actually pending or
-   running, at which point the .pending / .recording rules below it in
-   the cascade take over and make it loud again. */
+/* Recording changes what leaves the room, so even the idle action keeps
+   a visible border and red status dot. Pending and live states still take
+   over through the stronger state selectors above. */
 .rmb-rec-btn{
-  background:transparent;border-color:transparent;
-  text-transform:none;letter-spacing:.01em;font-size:.72rem;font-weight:700;
-  min-height:36px;padding:7px 10px;
+  background:rgba(185,28,28,.06);border-color:rgba(239,68,68,.32);
+  color:var(--text);text-transform:none;letter-spacing:.01em;font-size:.72rem;font-weight:750;
+  min-height:38px;padding:8px 11px;
 }
-.rmb-rec-btn:hover{background:var(--ui-soft);border-color:var(--border)}
+.rmb-rec-btn:hover{background:rgba(185,28,28,.12);border-color:rgba(239,68,68,.55)}
+.rmb-rec:not(.recording):not(.pending) .rmb-rec-dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
 .rmb-tools{padding-top:10px;gap:6px}
 .lr-pip-btn{min-height:34px}
-/* Same quiet weight as Ask to record: present, not competing with the
+/* Same secondary weight as Request recording: present, not competing with the
    resolution. Hidden where the video column does not exist as a column. */
 .rmb-vidtoggle{
   background:transparent;border-color:transparent;color:var(--text-dim);

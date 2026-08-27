@@ -65,7 +65,7 @@ async function roundMeta(db, roomName){
     const recordingConsentComplete = participants.length >= 2
       && participants.every(uid => consents[uid] === true)
       && d.recordingPublishAllowed === true
-      && /^round-recording-v1-/.test(d.recordingConsentVersion || '');
+      && /^round-recording-v(?:1|2)-/.test(d.recordingConsentVersion || '');
     return {
       // Read by the caller and stripped before the rest is written to the
       // recording doc. A round asks for this when a seated debater

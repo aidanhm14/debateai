@@ -15,7 +15,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
-const CONSENT_VERSION = 'round-recording-v1-2026-08-10';
+const CONSENT_VERSION = 'round-recording-v2-2026-08-27';
 const CONSENT_SCOPE = 'Store this round\'s video, audio, display names, and motion; publish the full replay on Watch so signed-in users can make and share clips.';
 
 function safeRoomName(value){
@@ -197,7 +197,7 @@ export default async (req) => {
   const action = String(body.action || 'consent');
   const room = safeRoomName(body.room);
   if (!room || room !== String(body.room || '')) return errorResponse('Invalid room', 400, req);
-  if (!['consent', 'finish', 'autostart'].includes(action)) return errorResponse('Unknown action', 400, req);
+  if (!['consent', 'finish'].includes(action)) return errorResponse('Unknown action', 400, req);
   if (action === 'consent' && typeof body.consent !== 'boolean') return errorResponse('consent must be true or false', 400, req);
   if (action === 'consent' && body.consent && body.adultOrGuardianApproved !== true){
     return errorResponse('Adult or guardian approval is required to record', 400, req);
@@ -226,44 +226,16 @@ export default async (req) => {
         recordingUpdatedAtMs: now,
       };
 
-      // ── autostart ─────────────────────────────────────────────
-      // Capture begins when two debaters are seated, before anyone has
-      // agreed to anything, because a replay that was never captured
-      // cannot be published later no matter who consents. PUBLICATION is
-      // untouched by this: recordingPublishAllowed stays false until
-      // every seated debater says yes, which is the gate
-      // recordings-admin reads before anything reaches Watch.
-      //
-      // A `false` already on the consent map blocks this outright. That
-      // is the whole point of the rule that a no is asked again next
-      // round rather than assumed: within THIS round a no is final, and
-      // auto-start must never be the thing that overrides it.
-      if (action === 'autostart'){
-        const declined = participants.some(uid => consents[uid] === false);
-        const busy = ['starting', 'recording', 'stopping', 'processing', 'stop_failed'].includes(round.recordingStatus);
-        const late = round.status === 'ballot' || !!round.ballot;
-        if (declined || busy || late || round.recordingClosed){
-          update.recordingStatus = round.recordingStatus || 'idle';
-        } else {
-          effect = 'start';
-          update.recordingStatus = 'starting';
-          update.recordingAutoStarted = true;
-          // Explicitly false, not absent. Every publish gate reads this
-          // field, and an auto-started capture has earned no permission.
-          update.recordingPublishAllowed = false;
-        }
-      } else if (action === 'finish'){
+      if (action === 'finish'){
         if (['starting', 'recording', 'stopping', 'stop_failed'].includes(round.recordingStatus)) effect = 'stop';
         update.recordingStatus = effect === 'stop' ? 'processing' : (round.recordingStatus || 'idle');
         update.recordingClosed = true;
         update.recordingStopReason = 'round_complete';
         update.recordingStoppedAtMs = now;
-        // The round ended and the yeses never came in. Silence is not a
-        // no, but it is not a yes either, and an auto-started capture of
-        // someone who never agreed does not get to sit in storage on the
-        // strength of never having been published. It goes with the same
-        // deletion the explicit no triggers.
-        if (round.recordingPublishAllowed !== true && (round.recordingAutoStarted === true || effect === 'stop')){
+        // Consent-first recording means this is normally true whenever a
+        // recorder exists. Keep the deletion guard for a legacy capture or
+        // a withdrawal that raced the finish request.
+        if (round.recordingPublishAllowed !== true && effect === 'stop'){
           update.recordingDeleteRequested = true;
         }
       } else {
@@ -302,9 +274,9 @@ export default async (req) => {
             update.recordingDeleteRequested = true;
           }
         } else if (allAgreed && !round.recordingClosed && ['starting', 'recording'].includes(round.recordingStatus)){
-          // Capture is already rolling from the auto-start. The last yes
-          // does not start anything, it unlocks publication of what is
-          // being captured.
+          // A legacy client may have left the round in a starting state.
+          // Even there, publication remains locked until every current
+          // participant has independently agreed.
           update.recordingPublishAllowed = true;
           update.recordingConsentCompleteAtMs = now;
         } else if (allAgreed && !round.recordingClosed && !['starting', 'recording', 'processing'].includes(round.recordingStatus)){
@@ -379,7 +351,7 @@ export default async (req) => {
     await db.runTransaction(async tx => {
       const snap = await tx.get(ref);
       const round = snap.data() || {};
-      const permitted = round.recordingPublishAllowed === true || round.recordingAutoStarted === true;
+      const permitted = round.recordingPublishAllowed === true;
       if (round.recordingStatus === 'starting' && permitted && !round.recordingClosed){
         live = true;
         tx.set(ref, {

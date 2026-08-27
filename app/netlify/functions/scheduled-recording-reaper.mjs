@@ -1,19 +1,11 @@
 // Close out recordings whose round walked away.
 //
-// Capture starts on its own now (round-recording's `autostart`), so every
-// live round enters `recording` and the only thing that ends it cleanly is
-// the client calling `finish`. A closed tab, a crashed browser or a round
-// nobody bothered to finish never sends that call, which used to leave the
-// round doc reading `recording` forever: measured 2026-08-19, four rounds
-// were stuck that way, one of them for eleven hours.
-//
-// That was cosmetic while capture needed consent first. It is not cosmetic
-// now. The deletion promise in the privacy policy ("a round that ends
-// without every seat agreeing has its recording deleted") is carried by
-// `recordingDeleteRequested`, and `finish` is what sets it. No finish, no
-// flag, and an unconsented capture sits at Daily indefinitely. This job is
-// what makes that promise true for rounds that end badly, which is most of
-// the ways a round ends.
+// Capture starts only after every seated participant agrees. Once it is
+// running, the client normally calls `finish`; a closed tab, crashed browser
+// or abandoned round does not. That used to leave the round doc reading
+// `recording` forever: measured 2026-08-19, four rounds were stuck that way,
+// one of them for eleven hours. This job closes consented recordings whose
+// clients disappeared and marks any legacy unconsented file for deletion.
 //
 // Liveness comes from `lastSeenAt`, the seat heartbeat both debaters write
 // every 30 seconds (WATCH_HB_MS in live-round.html). Ten minutes of
