@@ -100,6 +100,8 @@
      page-specific rules override ui.css's defaults via cascade order. -->
 <link rel="stylesheet" href="/css/ui.css">
 <link rel="stylesheet" href="/css/arcade.css">
+<link rel="stylesheet" href="/css/arcade-flow.css">
+<script src="/js/arcade-flow.js"></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -594,6 +596,64 @@ h1 em{color:var(--accent);font-style:normal}
 /* Round setup — style + judge-instructions proposal under the search
    controls. These are not matching filters; they become proposed round
    terms the opponent can accept/pass before the round starts. */
+.match-profile-card{
+  position:relative;overflow:hidden;max-width:560px;margin:18px auto 0;padding:16px 18px;
+  background:
+    radial-gradient(circle at 92% 10%,rgba(239,68,68,.16),transparent 36%),
+    var(--bg-card);
+  border:1px solid rgba(239,68,68,.34);border-radius:14px;text-align:left;
+}
+.match-profile-card::after{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:.07;
+  background-image:linear-gradient(rgba(255,255,255,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.7) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+.match-profile-card > *{position:relative;z-index:1}
+.match-profile-head{display:flex;align-items:center;gap:10px}
+.match-profile-rank{
+  flex:none;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;
+  background:var(--accent-solid,#b91c1c);color:#fff;font-size:.66rem;font-weight:900;
+  box-shadow:0 0 20px var(--accent-glow);
+}
+.match-profile-title{min-width:0;flex:1}
+.match-profile-title strong{display:block;font-size:.84rem;color:var(--text)}
+.match-profile-title span{display:block;margin-top:1px;font-size:.68rem;color:var(--text-ghost)}
+.match-profile-edit{
+  flex:none;padding:7px 11px;border-radius:9px;border:1px solid var(--border-strong);
+  background:rgba(255,255,255,.03);color:var(--text);font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;
+}
+.match-profile-edit:hover{border-color:var(--accent);color:var(--accent)}
+.match-profile-stats{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.match-profile-chip{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;
+  border:1px solid var(--border);background:rgba(255,255,255,.025);
+  color:var(--text-dim);font-size:.68rem;font-weight:700;
+}
+.match-profile-chip b{color:var(--text);font-weight:800}
+.match-profile-privacy{margin:10px 0 0;font-size:.66rem;line-height:1.45;color:var(--text-ghost)}
+
+/* Match-profile questionnaire. ArcadeFlow owns the mechanics; these
+   additions give this particular run the player-build atmosphere without
+   changing /brain or /native, which share the same engine. */
+.afl.match-profile-flow{
+  isolation:isolate;
+  background:
+    radial-gradient(circle at 12% 18%,rgba(239,68,68,.20),transparent 28%),
+    radial-gradient(circle at 88% 82%,rgba(59,130,246,.12),transparent 30%),
+    var(--bg,#0a0a0c);
+}
+.afl.match-profile-flow::before{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.055;
+  background-image:linear-gradient(currentColor 1px,transparent 1px),linear-gradient(90deg,currentColor 1px,transparent 1px);
+  background-size:32px 32px;
+  -webkit-mask-image:radial-gradient(circle at center,#000,transparent 80%);
+  mask-image:radial-gradient(circle at center,#000,transparent 80%);
+}
+.match-profile-flow .afl-step::before{content:'PLAYER BUILD  ·  '}
+.match-profile-flow .afl-opt{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.match-profile-flow .afl-q{max-width:640px}
+.match-profile-flow .afl-summary b{text-align:right}
+
 .setup-card{
   max-width:560px;margin:18px auto 0;padding:16px 18px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
@@ -2449,6 +2509,193 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   try { storedLang = sparLangValid(localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale')); } catch(e){}
   if (storedLang !== 'en') setupOpen = true; // a non-English pick keeps its step open
 
+  // ── Matchmaker profile ────────────────────────────────────────
+  // A short player-build before the queue. The three political takes
+  // NEVER leave this device. The queue sees only the neutral matching
+  // rule: similar rating, another person who asked for a viewpoint clash,
+  // or first available. Answers do not alter the judge or rank a belief.
+  var MATCH_PROFILE_VERSION = 1;
+  var MATCH_PROFILE_KEY = 'da-spar-match-profile-v1';
+  var MATCH_PROFILE_LABELS = {
+    background: {
+      first: 'First live round', occasional: 'A few conversations', regular: 'I do this often', competitive: 'Competition experience'
+    },
+    goal: {
+      pressure: 'Pressure-test my view', rethink: 'Change my mind', persuade: 'Persuade someone', clip: 'Make a great clip'
+    },
+    mode: {
+      viewpoint: 'Viewpoint clash', rating: 'Closest rating', fast: 'First available'
+    },
+    clipIntent: {
+      ask: 'Ask me after the round', private: 'Keep me off public replays'
+    }
+  };
+  function allowedProfileValue(group, value, fallback){
+    return Object.prototype.hasOwnProperty.call(MATCH_PROFILE_LABELS[group], value) ? value : fallback;
+  }
+  function cleanMatchProfile(raw){
+    if (!raw || Number(raw.version) !== MATCH_PROFILE_VERSION) return null;
+    var takes = Array.isArray(raw.takes) ? raw.takes.slice(0, 3) : [];
+    while (takes.length < 3) takes.push(0);
+    takes = takes.map(function(v){
+      v = Math.round(Number(v) || 0);
+      return Math.max(-2, Math.min(2, v));
+    });
+    return {
+      version: MATCH_PROFILE_VERSION,
+      background: allowedProfileValue('background', String(raw.background || ''), 'first'),
+      takes: takes,
+      goal: allowedProfileValue('goal', String(raw.goal || ''), 'pressure'),
+      mode: allowedProfileValue('mode', String(raw.mode || ''), 'viewpoint'),
+      clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private')
+    };
+  }
+  function defaultMatchProfile(){
+    return cleanMatchProfile({
+      version: MATCH_PROFILE_VERSION,
+      background: 'first', takes: [0, 0, 0], goal: 'pressure', mode: 'viewpoint', clipIntent: 'private'
+    });
+  }
+  var matchProfile = null;
+  try { matchProfile = cleanMatchProfile(JSON.parse(localStorage.getItem(MATCH_PROFILE_KEY) || 'null')); } catch(e){}
+
+  function stanceOptions(){
+    return [
+      { value: '2', label: 'Strongly agree', sub: 'I would defend this side.' },
+      { value: '1', label: 'Lean agree', sub: 'More yes than no.' },
+      { value: '0', label: 'Unsure', sub: 'I could be moved either way.' },
+      { value: '-1', label: 'Lean disagree', sub: 'More no than yes.' },
+      { value: '-2', label: 'Strongly disagree', sub: 'I would attack this side.' }
+    ];
+  }
+
+  function matchProfileSteps(profile){
+    profile = profile || defaultMatchProfile();
+    return [
+      {
+        key: 'background', q: 'How much live debate have you done?',
+        hint: 'This is debate background, not your identity. It helps us pitch the round at the right level.',
+        summaryLabel: 'Background', 'default': profile.background,
+        options: [
+          { value: 'first', label: 'This is my first one', sub: 'Keep the structure simple.' },
+          { value: 'occasional', label: 'A few conversations', sub: 'I have argued politics with people before.' },
+          { value: 'regular', label: 'I do this often', sub: 'Give me someone who pushes back.' },
+          { value: 'competitive', label: 'Competition experience', sub: 'I know my way around a timed round.' }
+        ]
+      },
+      {
+        key: 'take0', q: 'Government should guarantee a universal basic income.',
+        hint: 'Example take 1 of 3. This answer stays on your device.',
+        summaryLabel: 'Basic income', 'default': String(profile.takes[0]), options: stanceOptions()
+      },
+      {
+        key: 'take1', q: 'Social platforms should ban political advertising.',
+        hint: 'Example take 2 of 3. There is no correct answer in the matchmaker.',
+        summaryLabel: 'Political ads', 'default': String(profile.takes[1]), options: stanceOptions()
+      },
+      {
+        key: 'take2', q: 'Voting should be compulsory.',
+        hint: 'Example take 3 of 3. Your takes do not change the judge or your rating.',
+        summaryLabel: 'Compulsory voting', 'default': String(profile.takes[2]), options: stanceOptions()
+      },
+      {
+        key: 'goal', q: 'What do you want from this round?',
+        hint: 'The match is better when you know what the round is for.',
+        summaryLabel: 'Round goal', 'default': profile.goal,
+        options: [
+          { value: 'pressure', label: 'Pressure-test my view', sub: 'Find the weakest link in what I believe.' },
+          { value: 'rethink', label: 'Change my mind', sub: 'Give the strongest version of the other side.' },
+          { value: 'persuade', label: 'Persuade someone', sub: 'I want a real clash and a clear verdict.' },
+          { value: 'clip', label: 'Make a great clip', sub: 'High energy, sharp exchanges, no cheap shots.' }
+        ]
+      },
+      {
+        key: 'mode', q: 'How should we choose your opponent?',
+        hint: 'Rating uses public round results. Viewpoint clash finds another person who also asked to be challenged.',
+        summaryLabel: 'Matching', 'default': profile.mode,
+        options: [
+          { value: 'viewpoint', label: 'Viewpoint clash', sub: 'Prioritize someone who also wants the other side to push back.' },
+          { value: 'rating', label: 'Closest rating', sub: 'Prioritize a similar ladder rating, Elo-style.' },
+          { value: 'fast', label: 'First available', sub: 'Take the next eligible person in line.' }
+        ]
+      },
+      {
+        key: 'clipIntent', q: 'Want your best clips published online?',
+        hint: 'This is a preference, not recording consent. Nothing records or publishes unless everyone separately agrees in the round.',
+        summaryLabel: 'Public clips', 'default': profile.clipIntent,
+        options: [
+          { value: 'ask', label: 'Ask me after the round', sub: 'If the exchange is good, show me the recording choice.' },
+          { value: 'private', label: 'Keep me off public replays', sub: 'Do not use this preference to suggest publishing.' }
+        ]
+      }
+    ];
+  }
+
+  function profileFromAnswers(a){
+    return cleanMatchProfile({
+      version: MATCH_PROFILE_VERSION,
+      background: a.background,
+      takes: [a.take0, a.take1, a.take2],
+      goal: a.goal,
+      mode: a.mode,
+      clipIntent: a.clipIntent
+    }) || defaultMatchProfile();
+  }
+
+  function saveMatchProfileLocal(){
+    try { localStorage.setItem(MATCH_PROFILE_KEY, JSON.stringify(matchProfile)); } catch(e){}
+  }
+
+  function applyMatchProfileExperience(){
+    if (!matchProfile) return;
+    var value = matchProfile.background === 'competitive' ? 'competitive'
+      : (matchProfile.background === 'first' ? 'new' : 'unsure');
+    try { localStorage.setItem('debateos-experience', value); } catch(e){}
+    document.documentElement.setAttribute('data-debate-experience', value);
+    if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(value);
+  }
+
+  function startMatchProfileFlow(opts){
+    opts = opts || {};
+    if (state.profileFlowOpen) return;
+    state.profileFlowOpen = true;
+    if (!window.ArcadeFlow){
+      matchProfile = matchProfile || defaultMatchProfile();
+      saveMatchProfileLocal();
+      applyMatchProfileExperience();
+      state.profileReady = true;
+      state.profileFlowOpen = false;
+      if (opts.onDone) opts.onDone();
+      return;
+    }
+    var run = window.ArcadeFlow.start({
+      label: 'Build your matchmaker profile',
+      steps: matchProfileSteps(matchProfile),
+      launch: {
+        title: 'Profile locked in.',
+        hint: 'We use your chosen matching rule when more than one eligible person is waiting. Change it anytime from the queue.',
+        cta: opts.editing ? 'Save changes' : 'Enter the queue'
+      },
+      onDone: function(answers){
+        matchProfile = profileFromAnswers(answers);
+        saveMatchProfileLocal();
+        applyMatchProfileExperience();
+        state.profileReady = true;
+        state.profileFlowOpen = false;
+        paintMatchProfileCard();
+        try { gtag('event', 'spar_match_profile_saved', { mode: matchProfile.mode, goal: matchProfile.goal, clips: matchProfile.clipIntent }); } catch(e){}
+        if (opts.onDone) opts.onDone();
+      },
+      onClose: function(){
+        state.profileFlowOpen = false;
+        if (opts.onClose) opts.onClose();
+      }
+    });
+    var root = document.querySelector('.afl');
+    if (root) root.classList.add('match-profile-flow');
+    return run;
+  }
+
   // Judge presets for the setup card. Each fills the judge-instructions note
   // with a canonical archetype in the register real Tabroom paradigms use
   // (lay/flay/flow is the spectrum pools actually describe judges with).
@@ -2506,6 +2753,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     aiOfferDismissed: false,       // user explicitly chose to keep waiting
     aiLeaving: false,              // one navigation even if the write is slow
     zombieParked: false,           // queue parked after hours unattended; first touch rejoins
+    profileReady: !!matchProfile,  // first visit completes the player-build before queueing
+    profileFlowOpen: false,        // auth refreshes must not open or paint beneath the flow
+    ratings: null,                 // public ladder rows, loaded only for Closest rating
+    ratingsLoading: null,
   };
 
   // No forced AI fallback (product decision): the user stays in the
@@ -2521,6 +2772,46 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // their proposed formats differ.
 
   var shell = document.getElementById('shell');
+  function profileLabel(group, value){
+    return (MATCH_PROFILE_LABELS[group] && MATCH_PROFILE_LABELS[group][value]) || value || '';
+  }
+  function matchProfileCardInner(){
+    var p = matchProfile || defaultMatchProfile();
+    var answered = p.takes.filter(function(v){ return Number(v) !== 0; }).length;
+    return '<div class="match-profile-head">' +
+        '<span class="match-profile-rank" aria-hidden="true">MP</span>' +
+        '<span class="match-profile-title"><strong>Matchmaker profile</strong><span>Local political take map · ' + answered + '/3 positions set</span></span>' +
+        '<button type="button" class="match-profile-edit" id="editMatchProfileBtn">Change</button>' +
+      '</div>' +
+      '<div class="match-profile-stats">' +
+        '<span class="match-profile-chip">Match <b>' + escHtml(profileLabel('mode', p.mode)) + '</b></span>' +
+        '<span class="match-profile-chip">Goal <b>' + escHtml(profileLabel('goal', p.goal)) + '</b></span>' +
+        '<span class="match-profile-chip">Clips <b>' + escHtml(profileLabel('clipIntent', p.clipIntent)) + '</b></span>' +
+      '</div>' +
+      '<p class="match-profile-privacy">Your political answers stay on this device. The queue sees only the neutral matching rule above. Publishing still needs a separate yes from everyone in the round.</p>';
+  }
+  function matchProfileCardHtml(){
+    return '<div class="match-profile-card" id="matchProfileCard">' + matchProfileCardInner() + '</div>';
+  }
+  function paintMatchProfileCard(){
+    var card = document.getElementById('matchProfileCard');
+    if (card) card.innerHTML = matchProfileCardInner();
+  }
+  function renderProfileGate(){
+    removeWaitRail();
+    shell.innerHTML =
+      '<div class="gate" id="sparProfileGate">' +
+        '<div class="eyebrow"><span class="pip"></span>Build your matchup</div>' +
+        '<h2>What kind of argument do you want?</h2>' +
+        '<p>Seven quick picks set your level, example takes, round goal, matching rule, and clip preference.</p>' +
+        '<button type="button" class="btn primary" id="startMatchProfileBtn">Build my profile</button>' +
+        '<div class="gate-disclaimer">Political answers stay on this device. Skip uses neutral defaults.</div>' +
+      '</div>';
+    var b = document.getElementById('startMatchProfileBtn');
+    if (b) b.addEventListener('click', function(){
+      startMatchProfileFlow({ onDone: joinQueue, onClose: renderProfileGate });
+    });
+  }
   // Delegated DM action for the live queue list. Bound once on the stable
   // shell so it survives every renderWaitlist() re-render (the queue list
   // re-paints on each poll). Clicking "Message them" on a peer who's
@@ -2529,6 +2820,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // the random pair. openDMThread no-ops for signed-out users.
   if (shell){
     shell.addEventListener('click', function(e){
+      var editProfile = e.target && e.target.closest ? e.target.closest('#editMatchProfileBtn') : null;
+      if (editProfile){
+        e.preventDefault();
+        startMatchProfileFlow({ editing: true, onDone: function(){
+          if (state.queueDocRef) state.queueDocRef.update({ matchMode: matchProfile.mode }).catch(function(){});
+        }});
+        return;
+      }
       var btn = e.target && e.target.closest ? e.target.closest('[data-dm-uid]') : null;
       if (!btn) return;
       var uid = btn.getAttribute('data-dm-uid');
@@ -3562,6 +3861,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<span class="ql-sep">·</span>' +
         '<button type="button" class="link-btn" id="aiNowLink">Open Realtime Voice AI</button>' +
       '</div>' +
+      // The local player-build remains visible as a compact loadout.
+      // Change opens the full-screen arcade flow without leaving the queue.
+      matchProfileCardHtml() +
       // Round setup — pick the style you propose, and optionally tell
       // the judge how to evaluate. These ride on the queue doc and only
       // become round terms after the opponent reads + accepts them on
@@ -5169,10 +5471,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // ──────────────────────────────────────────────────────────
   function joinQueue(){
     if (!firebaseDb) return;
+    if (state.profileFlowOpen) return;
     // Guests queue too, until their free rounds are spent (see the guest
     // rounds block). Everyone else — no session at all, or a guest who is
     // out of rounds — gets the gate.
     if (!canQueue(state.user)){ renderGate(); return; }
+    // First visit gets the player-build before the queue doc exists. A
+    // returning visitor keeps the saved device profile and can change it
+    // from the searching screen without losing their place.
+    if (!state.profileReady || !matchProfile){
+      startMatchProfileFlow({ onDone: joinQueue, onClose: renderProfileGate });
+      return;
+    }
     // Age band before the first queue join, asked once ever
     // (js/age-gate.js). The answer rides the queue doc below and
     // spar-pair enforces the minor-with-minor rule server-side.
@@ -5224,6 +5534,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       format: formatParam,
       paradigm: state.paradigm || '',
       lang: state.lang || 'en',
+      // Neutral matchmaking preference only. The political take answers
+      // that informed the user's choice remain in localStorage and are
+      // never written to Firestore.
+      matchMode: matchProfile.mode || 'fast',
       blockedUids: blockedUids.slice(-100),
       status: 'waiting',
       // Motion draft opt-in. spar-pair only builds a draft when BOTH docs
@@ -6480,6 +6794,60 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       });
   }
 
+  // Public ladder ratings already power /leaderboard. Load them only when
+  // the person asks for a closest-rating matchup; no extra private profile
+  // or political answer is needed. Missing ratings use the 1500 starting
+  // point, which is the honest comparison for a new account.
+  function loadRatingMap(){
+    if (state.ratings) return Promise.resolve(state.ratings);
+    if (state.ratingsLoading) return state.ratingsLoading;
+    state.ratingsLoading = fetch('/api/leaderboard-ratings').then(function(res){
+      return res.ok ? res.json() : { rows: [] };
+    }).then(function(data){
+      var map = {};
+      (data && Array.isArray(data.rows) ? data.rows : []).forEach(function(row){
+        if (row && row.uid && Number.isFinite(Number(row.rating))) map[row.uid] = Number(row.rating);
+      });
+      state.ratings = map;
+      return map;
+    }).catch(function(){
+      state.ratings = {};
+      return state.ratings;
+    });
+    return state.ratingsLoading;
+  }
+
+  function joinedOrder(doc){
+    var d = doc && doc.data ? doc.data() : {};
+    return (d.joinedAt && d.joinedAt.seconds) || 0;
+  }
+
+  function orderMatchCandidates(others){
+    var list = others.slice();
+    var mode = (matchProfile && matchProfile.mode) || 'fast';
+    // First available remains the universal tie-break, so a preference
+    // never strands two eligible people in a thin queue.
+    list.sort(function(a, b){ return joinedOrder(a) - joinedOrder(b); });
+    if (mode === 'viewpoint'){
+      list.sort(function(a, b){
+        var av = a.data().matchMode === 'viewpoint' ? 0 : 1;
+        var bv = b.data().matchMode === 'viewpoint' ? 0 : 1;
+        return av - bv || joinedOrder(a) - joinedOrder(b);
+      });
+      return Promise.resolve(list);
+    }
+    if (mode !== 'rating') return Promise.resolve(list);
+    return loadRatingMap().then(function(ratings){
+      var mine = Number.isFinite(ratings[state.user.uid]) ? ratings[state.user.uid] : 1500;
+      list.sort(function(a, b){
+        var ar = Number.isFinite(ratings[a.id]) ? ratings[a.id] : 1500;
+        var br = Number.isFinite(ratings[b.id]) ? ratings[b.id] : 1500;
+        return Math.abs(ar - mine) - Math.abs(br - mine) || joinedOrder(a) - joinedOrder(b);
+      });
+      return list;
+    });
+  }
+
   function tryMatch(){
     if (state.cancelled || !state.user || !firebaseDb) return;
     var queue = firebaseDb.collection('matchmaking_queue');
@@ -6525,12 +6893,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         updateDiag({ last: 'cooldown after pass' });
         return;
       }
-      others.sort(function(a, b){
-        var as = (a.data().joinedAt && a.data().joinedAt.seconds) || 0;
-        var bs = (b.data().joinedAt && b.data().joinedAt.seconds) || 0;
-        return as - bs;
+      orderMatchCandidates(others).then(function(ordered){
+        if (state.cancelled || !ordered.length) return;
+        attemptMatch(ordered[0].id, ordered[0].data());
       });
-      attemptMatch(others[0].id, others[0].data());
     }).catch(function(err){
       console.warn('[spar] queue query failed', err);
       // A read-only failure (the query 429s but the join write went
@@ -8015,6 +8381,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (queuedOptimistically) joinQueue(); else renderGate();
         fetchGuestRounds(state.user.uid).then(function(){
           if (!state.user || state.named || state.inConsent) return;
+          if (state.profileFlowOpen) return;
           var mayQueue = canQueue(state.user);
           if (queuedOptimistically && !mayQueue){
             // Mirror was stale in the visitor's favour (another tab spent the
@@ -8085,7 +8452,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 </script>
 
 <script defer src="/js/signup-nudge.js"></script>
-<script defer src="/js/onboarding.js"></script>
 <script defer src="/js/notifications.js"></script>
 </body>
 </html>
