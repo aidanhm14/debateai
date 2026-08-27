@@ -6,6 +6,7 @@ import {
   advanceElim, resultPatch, byePatch,
 } from './lib/tournament.mjs';
 import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
+import { checkContent } from './lib/content-guard.mjs';
 
 // ── Tournament control room ────────────────────────────────────────
 //
@@ -63,6 +64,12 @@ function cleanText(s, max) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max);
+}
+
+function checkedMotion(raw) {
+  const motion = cleanText(raw, MOTION_MAX);
+  const guard = checkContent({ text: motion, kind: 'motion', minLength: 0 });
+  return guard.ok ? { ok: true, motion } : { ok: false, error: guard.reason };
 }
 
 function slugify(s) {
@@ -364,11 +371,13 @@ export default async (request) => {
     if (draw.error) return errorResponse(draw.error, 400, request);
 
     const pairings = draw.pairings.map((p, i) => ({ ...p, room: roomFor(tid, key, i) }));
+    const checked = checkedMotion(body?.motion);
+    if (!checked.ok) return errorResponse(checked.error, 400, request);
     await roundRef.set({
       roundNo,
       kind: 'prelim',
       label: 'Round ' + roundNo,
-      motion: cleanText(body?.motion, MOTION_MAX),
+      motion: checked.motion,
       status: 'pending',
       pairings,
       bye: draw.bye || null,
@@ -405,7 +414,11 @@ export default async (request) => {
       status: 'released',
       releasedAt: FieldValue.serverTimestamp(),
     };
-    if (body.motion != null) patch.motion = cleanText(body.motion, MOTION_MAX);
+    if (body.motion != null) {
+      const checked = checkedMotion(body.motion);
+      if (!checked.ok) return errorResponse(checked.error, 400, request);
+      patch.motion = checked.motion;
+    }
     await roundRef.update(patch);
     await t.ref.update({
       currentRound: roundNo,
@@ -547,12 +560,14 @@ export default async (request) => {
     const key = roundKey('elim', 1);
     const pairings = elimPairings(br.breaking, label, 1)
       .map((p, i) => ({ ...p, room: roomFor(tid, key, i) }));
+    const checked = checkedMotion(body?.motion);
+    if (!checked.ok) return errorResponse(checked.error, 400, request);
 
     await t.ref.collection('rounds').doc(key).set({
       roundNo: 1,
       kind: 'elim',
       label,
-      motion: cleanText(body?.motion, MOTION_MAX),
+      motion: checked.motion,
       status: 'pending',
       pairings,
       breaking: br.breaking,
@@ -601,11 +616,13 @@ export default async (request) => {
     const label = elimLabel(winners.length);
     const next = elimPairings(winners, label, nextRound)
       .map((p, i) => ({ ...p, room: roomFor(tid, key, i) }));
+    const checked = checkedMotion(body?.motion);
+    if (!checked.ok) return errorResponse(checked.error, 400, request);
     await t.ref.collection('rounds').doc(key).set({
       roundNo: nextRound,
       kind: 'elim',
       label,
-      motion: cleanText(body?.motion, MOTION_MAX),
+      motion: checked.motion,
       status: 'pending',
       pairings: next,
       pairedAt: FieldValue.serverTimestamp(),

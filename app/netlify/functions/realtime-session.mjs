@@ -60,6 +60,7 @@ const FREE_VOICE_LIFETIME_LIMIT = FREE_VOICE_NAMED;
 import { DEBATE_VOICE } from './lib/voice-guidelines.mjs';
 import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
+import { checkContent, SENSITIVE_MOTION_POLICY } from './lib/content-guard.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
    When smartness > 1, the function calls Claude / Gemini / Grok /
@@ -1109,6 +1110,13 @@ export default async (request, context) => {
       ? Math.max(0.25, Math.min(4.0, rawSpeed))
       : 1.0;
     const motion = String(body.motion || '').slice(0, 500);
+    const motionGuard = checkContent({ text: motion, kind: 'motion', minLength: 0 });
+    if (!motionGuard.ok) {
+      return new Response(JSON.stringify({
+        error: motionGuard.reason,
+        code: 'SENSITIVE_MOTION',
+      }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
     const side = ['gov', 'opp', 'pm', 'lo', 'mg', 'mo', 'pmr', 'lor'].includes(
       (body.side || '').toLowerCase()
     ) ? body.side.toLowerCase() : 'opp';
@@ -1375,12 +1383,13 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       : '';
     const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
       ? body.difficulty.toLowerCase() : 'standard';
+    const motionPolicyBlock = SENSITIVE_MOTION_POLICY + '\n\n';
     const instructions = mode === 'clash'
-      ? clashLanguageBlock + backgroundBlock + modeBlock +
+      ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + modeBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
         CLASH_DIFFICULTY[difficulty] +
         audienceRegisterBlock
-      : languageBlock +
+      : motionPolicyBlock + languageBlock +
         debateVocabBlock +
         (councilResearch ? councilResearch + '\n\n' : '') +
         (exemplarBlock ? exemplarBlock + '\n\n' : '') +

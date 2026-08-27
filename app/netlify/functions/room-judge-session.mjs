@@ -14,6 +14,7 @@ import {
   readVoiceUsage, chargeVoiceRound, FREE_VOICE_NAMED,
 } from './lib/voice-usage.mjs';
 import { planBypassesVoiceCap } from './lib/plans.mjs';
+import { checkContent, SENSITIVE_MOTION_POLICY } from './lib/content-guard.mjs';
 
 const FREE_ROOM_JUDGE_LIMIT = 2;
 
@@ -135,6 +136,7 @@ function buildRoomJudgeInstructions({ displayName, platform, format, motion, roo
 
 Host: ${name}.
 Format: ${fmt}.
+${SENSITIVE_MOTION_POLICY}
 ${motionLine}
 ${titleLine}
 ${paradigmLine}
@@ -232,6 +234,13 @@ export default async (request) => {
 
   let body;
   try { body = await request.json(); } catch { body = {}; }
+  const motionGuard = checkContent({ text: clean(body.motion, 220), kind: 'motion', minLength: 0 });
+  if (!motionGuard.ok) {
+    return new Response(JSON.stringify({
+      error: motionGuard.reason,
+      code: 'SENSITIVE_MOTION',
+    }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
 
   const db = getDb();
   let isPro = false;

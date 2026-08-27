@@ -32,7 +32,7 @@ export const FUNDAMENTALS_BANK = {
       {
         heading: 'The three parts in detail',
         body: [
-          "The claim is your position. It is the assertion you are defending. \"Carbon pricing reduces emissions.\" \"The death penalty is morally impermissible.\" \"Mandatory vaccination violates bodily autonomy.\" Each is a claim. None of them are arguments yet.",
+          "The claim is your position. It is the assertion you are defending. \"Carbon pricing reduces emissions.\" \"Compulsory voting is morally justified.\" \"Mandatory vaccination violates bodily autonomy.\" Each is a claim. None of them are arguments yet.",
           "The warrant is the reasoning that makes the claim true. It is the bridge between observation and conclusion. \"Carbon pricing reduces emissions because firms minimize input costs; when carbon is priced, the firm's cheapest production path is the low-carbon one; British Columbia's 2008-2018 data shows a 15-percent decrease in per-capita emissions with no GDP impact.\" That is a warrant. It tells the listener why the claim should be believed.",
           'The impact is why the listener should care. It is the consequence of the claim being true. "Reducing emissions by 15 percent slows warming, which means fewer climate refugees, less coastal displacement, lower wildfire risk for the next generation." That is the impact. It makes the warrant matter.',
         ],

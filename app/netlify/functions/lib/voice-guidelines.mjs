@@ -243,15 +243,15 @@ Each move below is a discrete, named thing. Deploy when the round shape calls fo
 THE FLIP. Keep opp's premise; reverse their conclusion. Number the flips. A four-way flip on a single opp argument is devastating because each flip steals one of their warrants for free. Worked example (Sudan opp on "boots on the ground deters abuse"):
   Flip 1 — the rebel leader is a strongman; Western presence is the exact reason he doubles down on violence to look unscared.
   Flip 2 — kill rebel leaders and you fracture the group into smaller, more violent cells.
-  Flip 3 — peacekeeping forces empirically commit civilian abuses (sexual assault, friendly-fire deaths) at scale.
+  Flip 3 — peacekeeping forces can commit documented misconduct and civilian harms at scale.
   Flip 4 — peacekeepers themselves become high-value targets, because killing enough of them is how the West pulls out.
 Flips beat counter-arguments because you don't need new warrants — you ride opp's.
 
 BURDEN NEGOTIATION. The first 30 seconds of an opener should renegotiate the burden, not just open the case. "Opposition's burden is not to prove the war ends without us; it's to show government makes violence infinitely worse." Lower yours, raise theirs. Watch for opps who try to give themselves a low burden ("we just need to show some good comes of intervention") and call it explicitly: "their burden is much higher than they're admitting — they have to prove [specific bar]."
 
-EVEN-IF CASCADE. Late-speaker move (whip / MO / OW). Show every world the judge might believe is closed. "Even if their counterfactual holds. Even if the war ends without us. Even if civilian casualties are equal on both sides. We still win on residual harm: the SAF as a stable post-war government continues genocide for 50 years." Each "even if" is a concession that buys you immunity from one possible judge concern.
+EVEN-IF CASCADE. Late-speaker move (whip / MO / OW). Show every world the judge might believe is closed. "Even if their counterfactual holds. Even if the war ends without us. Even if civilian harms are equal on both sides. We still win on residual harm: the SAF as a stable post-war government entrenches authoritarian rule for decades." Each "even if" is a concession that buys you immunity from one possible judge concern.
 
-COMPARATIVE COUNTERFACTUAL. Don't just describe your world — describe THEIRS, in 5-year terms. "Their counterfactual is the SAF wins and governs Sudan through ongoing low-intensity genocide. That's their stable end-state. Ours is a brokered power-share with external enforcement. Theirs is a stable end-state in name only." Speakers who only argue their own world lose to speakers who paint and dismantle opp's.
+COMPARATIVE COUNTERFACTUAL. Don't just describe your world, describe THEIRS in 5-year terms. "Their counterfactual is the SAF wins and governs Sudan through entrenched authoritarian rule. That's their stable end-state. Ours is a brokered power-share with external enforcement. Theirs is a stable end-state in name only." Speakers who only argue their own world lose to speakers who paint and dismantle opp's.
 
 MECHANISM-CALL. Primary rebuttal form: "They asserted X. No mechanism. They didn't tell you HOW, WHO, WHEN, or WHAT makes it actually happen." Cheap and devastating because the burden is theirs — you don't need a counter, you just need to name the gap. Pair with "for doubt" / "lol" tonal flourishes when the gap is egregious.
 
@@ -1458,7 +1458,7 @@ IMPACT (pick one register; don't smear):
 - Marxist / historical-materialist: capitalism causes war (Lenin), causes climate (Malm, Klein), causes alienation (Marx 1844), causes nature / social-reproduction crises (Fraser, Federici).
 - Frankfurt school: instrumental reason / one-dimensionality (Marcuse, Adorno).
 - Postcolonial Marxism: capitalism is racial from the start (Robinson Black Marxism), accumulation by dispossession (Harvey).
-- Bifo / autonomist: semiocapitalism causes psychic exhaustion, depression, suicide.
+- Bifo / autonomist: semiocapitalism causes psychic exhaustion, burnout, and isolation.
 - Bataille: general economy — system's repressed expenditure returns as catastrophic sacrifice (war, ecocide).
 
 ALT (real options, not vague "reject"):
@@ -1730,7 +1730,7 @@ REAL AUTHORS / VOICES (don't invent):
 - Climate science: Michael Mann (Penn — hockey stick), Katharine Hayhoe (Nature Conservancy), Gavin Schmidt (NASA GISS), James Hansen (Columbia), Friederike Otto (Imperial — attribution).
 - Energy systems: Daniel Yergin (S&P, "The Prize"), Jesse Jenkins (Princeton ZERO Lab), Vaclav Smil (Manitoba — energy realist), Mark Z. Jacobson (Stanford — 100% renewables advocate, contested).
 - Climate economics: William Nordhaus (Yale, Nobel 2018 — DICE model), Nicholas Stern (LSE — Stern Review), Joseph Stiglitz (Columbia), Cameron Hepburn (Oxford).
-- Critical / degrowth: Naomi Klein "This Changes Everything," Jason Hickel "Less Is More," Kate Raworth "Doughnut Economics," Andreas Malm "How to Blow Up a Pipeline," Mike Davis (late) "Late Victorian Holocausts."
+- Critical / degrowth: Naomi Klein "This Changes Everything," Jason Hickel "Less Is More," Kate Raworth "Doughnut Economics," Andreas Malm "How to Blow Up a Pipeline," Mike Davis "Ecology of Fear."
 - Climate justice: Mary Robinson (former Irish president), Tasneem Essop (Climate Action Network), Vanessa Nakate, Mohamed Adow (Power Shift Africa).
 - Climate denial / lukewarmism (for completeness): Bjorn Lomborg, Roger Pielke Jr. (Colorado).
 
@@ -1928,7 +1928,7 @@ NEG (moral / permissible) AUTHOR LIBRARY:
 
 FRAMEWORK PAIRINGS:
 - AFF: Kantian (deterrence requires intent-to-use → intending mass civilian death → CI violation), Just War Theory (jus in bello — discrimination + proportionality violated by any plausible use), Structural Violence (uranium colonialism; Indigenous bear extraction harms), Existential Risk Reframe (Bostrom/Ord longtermism — nuclear arsenal as current-existential-risk-tier threat).
-- NEG: Walzerian Supreme Emergency (deterrence prevents great-power war; possession-without-use is lesser evil), Utilitarianism (long peace since 1945), Realism (anarchic system requires self-help; unilateral disarmament = suicide), Conditional Intent Counter (Nye — intending deterrence ≠ intending use).
+- NEG: Walzerian Supreme Emergency (deterrence prevents great-power war; possession-without-use is lesser evil), Utilitarianism (long peace since 1945), Realism (anarchic system requires self-help; unilateral disarmament creates extreme vulnerability), Conditional Intent Counter (Nye — intending deterrence ≠ intending use).
 
 CONTENTION ARCHETYPES:
 - AFF C1: deterrence requires immoral intent (Drummond / Kant). AFF C2: nuclear winter — regional exchange = global catastrophe (Robock). AFF C3: existential risk — NC3 cyber vulnerabilities, accidental launch history (Stanislav Petrov 1983, Cuban Missile Crisis near-misses). AFF C4: environmental justice — uranium mining destroys Indigenous land.
@@ -2293,7 +2293,7 @@ const TOPIC_KEYWORDS = {
     medium: [
       'incarceration', 'prison', 'jail', 'bail', 'sentencing',
       'policing', 'police violence', 'mass arrests', 'racial disparities',
-      'criminal record', 'reentry', 'death penalty', 'capital punishment',
+      'criminal record', 'reentry', 'sentencing reform', 'mandatory minimums',
       'juvenile justice', 'three-strikes', 'crack vs powder',
     ],
   },
@@ -2541,7 +2541,7 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 - WHEN YOU MAY CALL TIGHT: only if you are on Opposition AND the motion meets the TIGHT-CALL TAXONOMY bar above — TRUISM, TAUTOLOGY, OVERWHELMINGLY STRONG, or ABUSIVE. Hard ≠ tight. A motion you find difficult is still debatable; do not call tight on it.
 - FREQUENCY: vanishingly rare. In a real APDA season, tight calls happen in perhaps 1-3% of rounds. Default = debate the case. If you can imagine ANY skilled Opp beating this case, the case is winnable, not tight. A spurious tight call is worse than losing a balanced round — it teaches the user the wrong reflex and reads as ducking work.
 - HOW TO CALL IT (30-SECOND TIGHT CALL FORMAT): open LOC by stating clearly "I'm calling tight on this case." Then in 30 seconds: (1) name the sub-category — truism / tautology / overwhelming / abusive — (2) state why no skilled Opp could beat the case under full development, (3) name what Gov would have had to write for the motion to be debatable. Then stop. Do NOT continue into substantive rebuttal — that surrenders the tight call.
-- WHAT NOT TO DO: never "soft tight" by saying "this is basically tight, but I'll engage anyway." Either call it and stop, or debate it and don't mention tightness. Mid-speech complaining about tightness is a tell of a weak Opp. Never call tight on motions like "THW abolish capitalism" / "THW ban the death penalty" / "THBT free trade is a net good" — those are CONTROVERSIAL but DEBATABLE. Call tight only on cases like "THW oppose all genocide" / "THBT slavery was bad" / "THW oppose nuclear proliferation by terrorists" — where no defensible Opp path exists.
+- WHAT NOT TO DO: never "soft tight" by saying "this is basically tight, but I'll engage anyway." Either call it and stop, or debate it and don't mention tightness. Mid-speech complaining about tightness is a tell of a weak Opp. Never call tight on motions like "THW abolish capitalism" / "THW ban private schools" / "THBT free trade is a net good". Those are controversial but debatable. Call tight only when the proposition is definitionally true or the opposition has no coherent burden.
 - GOVERNMENT-SIDE DEFENSE: if you (as Gov) are tight-called by the user, defend the tight call by showing Opp could have won under full development — name 2-3 plausible Opp positions you'd have respected, run the comparative weighing those positions would have triggered. Demonstrating the debatable terrain IS the defense.
 
 ═══ MOTION SEMANTICS & FIAT (official APDA wording-guide canon) ═══
@@ -2576,7 +2576,7 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 - DEMAND-SIDE CONSTRAINT: attack solvency from the other side of the market ("even if these governments want to reform to win firms back, the firms have no incentive to return; that demand side is missing from their argument").
 - MECHANISM COUNT WINS LINE-BY-LINE WARS: stacking many independent, individually warranted mechanisms on the crux question wins rounds (a real RFD counted eleven and voted on their totality). One-line answers ("popular uprising is good because authoritarianism is bad") lose to mechanized analysis every time.
 - IMPACT SIZING DISCIPLINE: claim the impact your link work supports and no more. Judges haircut "billions starve" to "maybe hundreds of thousands" when the contagion link is unproven, even unanswered. The lighter, provable version of your impact is stronger than the inflated one.
-- CHARACTERIZE THE MEDIAN CASE: on any category motion (abuses, regulation, crime), pin down in the first speech what the TYPICAL instance looks like; both teams leaving "sometimes genocide, sometimes bad labor conditions" unresolved is the most common judge complaint.
+- CHARACTERIZE THE MEDIAN CASE: on any category motion (regulation, labor, institutions), pin down in the first speech what the TYPICAL instance looks like. Both teams leaving "sometimes severe misconduct, sometimes bad labor conditions" unresolved is the most common judge complaint.
 - LOR SHAPE: open with the ballot count ("two ballots with substantial weighing"), build only on conceded or under-answered material, flag concessions by speech name ("MG just concedes the investment flight"), bite bullets explicitly and win the trade. Weigh as a named triad: scope, magnitude, prerequisite ("famine kills more people than bullets"; "desperation increases the incentive to abuse, so their offense runs through our ballot").
 - PMR SHAPE: expose a tension BETWEEN the two Opp speeches only if it engages the causal chain (a tension attack that ignores the mechanism gets discounted); relocate the debate's center to ground you win (the norm-setting ballot); weigh by population of affected cases ("we impact the 50% of regimes that may reform; they impact the 5% already lost").
 
@@ -2597,7 +2597,7 @@ APDA SPECIFICS (American Parliamentary — Harvard, Yale, Brown, Princeton circu
 - MOVEMENT-STRATEGY MOTIONS ("TH, as [movement], would...", "THS the centering of X within [movement]"): the actor is a movement, so the interest structure is coalition math — legitimacy, capture risk, message discipline, who becomes the face, independence versus resources. The recurring trade: absorption into a powerful patron (a ruling party's women's wing, a security establishment's embrace of its critics) buys reach and protection at the price of independence and the ability to dissent; centering an inoculating in-group voice (veteran testimony, Jewish anti-war organizations) buys credibility at the price of re-centering the already-powerful and displacing the primary stakeholders. Argue both sides of that trade with named mechanisms, never as vibes.
 - COMPARATIVE-MODEL MOTIONS ("X is preferable to Y as the primary mechanism for Z"): no status-quo side exists; both teams defend a full functioning world built on their instrument, with symmetric burdens. The "primary mechanism" wording makes "some of both" coexistence arguments off-motion. Find the ONE load-bearing difference between the models (who holds the risk, who owns the decision) and trace it through both calm and crisis; pro-con listing loses to that every time.
 - AUSTRALS-SELECTION ROUNDS: three motions drop; each team privately ranks 1-3 with the judge; any motion ranked last by EITHER team is struck; the judge selects from what survives; the round starts 15 minutes after selection. Strategy: your 3 is a veto — spend it where the opponents' prep advantage is largest, not on the motion you merely dislike, and prep expecting everyone's second choice to be debated.
-- CONTENT-WARNING NORMS (2026 circuit standard): heavy motions (genocide discourse, gender-based violence, ethnic-membership rules) drop with content warnings and an opt-out-to-backup-motion process. Register discipline follows: full substantive seriousness, no glibness, no edge. The playful register that fits a soccer-ownership round is a speaks penalty on a genocide-discourse round.
+- SITE MOTION BOUNDARY: Debatable does not originate or accept motions about abortion or reproductive policy, sexual or domestic violence, suicide or self-harm, child abuse, torture or graphic violence, school or mass shootings, capital punishment or assisted dying, genocide or ethnic cleansing. Offer a safer backup motion. A content warning is not the fallback because the unwanted subject has already landed.
 - CLARIFICATION CULTURE: motions rounds run a clarification window, and the standard asks are always the same — timespacing, category scope ("same league or different leagues?"), definitional boundaries, which pathways stay open. As Gov, pre-empt all four inside your first minute so the clarifications have nothing left to grab; as Opp, use unresolved scope as the seed of your burden negotiation, not as a complaint.
 `,
 
@@ -2638,7 +2638,7 @@ BP-SPECIFIC VOICE (British Parliamentary — Oxford, Cambridge, Euros, Worlds-ad
 - Rounds that flipped on closing benches at Vietnam 2024 / Panama 2025 / Sofia 2026 did so when closing named 4-5 specific actors with specific incentives and traced the chain. Generic "the international community will respond" loses to: "Russia surges weapons to RSF because its Wagner gold operation in Sudan funds the Sahel proxy operation, which is downstream of the Ukraine war's drain on Russian conventional capacity." Modern WUDC closing benches are functionally IR seminars compressed into 7 minutes.
 
 ═══ FIVE-YEAR COUNTERFACTUAL HORIZON ═══
-- The Manual's role-fulfillment criteria reward closing benches that paint BOTH worlds (motion world AND status-quo world) at a 5-year horizon. "Without the motion, things stay as they are" loses to a closing that names what the status-quo equilibrium actually looks like in 2030 (RSF wins, business-as-usual genocide stabilizes, regional refugee crisis enters European politics, etc.). The team that paints BOTH stable end-states wins comparative.
+- The Manual's role-fulfillment criteria reward closing benches that paint BOTH worlds (motion world AND status-quo world) at a 5-year horizon. "Without the motion, things stay as they are" loses to a closing that names what the status-quo equilibrium actually looks like in 2030 (RSF wins, authoritarian rule stabilizes, a regional displacement crisis enters European politics, etc.). The team that paints BOTH stable end-states wins comparative.
 `,
 
   worlds: `

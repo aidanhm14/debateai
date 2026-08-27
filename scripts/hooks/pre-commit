@@ -229,6 +229,16 @@ fi
 # exercise the other debater's power, and a timeout resolves the same
 # way on both sides.
 # ──────────────────────────────────────────────────────────────────
+SENSITIVE_MOTION_GUARD="$REPO_ROOT/scripts/test-sensitive-motions.mjs"
+if [ -f "$SENSITIVE_MOTION_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-sensitive-motions.mjs >/tmp/sensitive-motion-guard.log 2>&1); then
+    echo "[sensitive-motion-guard] commit blocked: a highly triggering motion can surface again:" >&2
+    tail -30 /tmp/sensitive-motion-guard.log >&2
+    echo "[sensitive-motion-guard] see scripts/test-sensitive-motions.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 DRAFT_GUARD="$REPO_ROOT/scripts/test-motion-draft.mjs"
 if [ -f "$DRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-motion-draft.mjs >/tmp/draft-guard.log 2>&1); then

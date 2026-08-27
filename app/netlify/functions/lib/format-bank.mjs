@@ -288,7 +288,7 @@ export const FORMAT_BANK = {
       'Judges vary widely; read every paradigm.',
     ],
     sampleMotions: [
-      'Resolved: A just society ought not use the death penalty.',
+      'Resolved: In a democracy, voting ought to be a moral obligation.',
       'Resolved: Individual rights ought to be valued above the collective good.',
       'Resolved: A just government ought to prioritize liberty over equality.',
       'Resolved: It is morally permissible to break an unjust law.',

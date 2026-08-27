@@ -24,6 +24,7 @@ import {
   readVoiceUsage, chargeVoiceRound, FREE_VOICE_NAMED,
 } from './lib/voice-usage.mjs';
 import { planBypassesVoiceCap } from './lib/plans.mjs';
+import { checkContent, SENSITIVE_MOTION_POLICY } from './lib/content-guard.mjs';
 
 const FREE_VOICE_LIFETIME_LIMIT = FREE_VOICE_NAMED; // shared, env-tunable (lib/voice-usage.mjs)
 
@@ -186,6 +187,8 @@ function buildCoachInstructions({ displayName, debaterProfile, styleProfile, fin
 
 ${personaLine}
 
+${SENSITIVE_MOTION_POLICY}
+
 Home format with this debater: ${formatLine}.
 
 ${memoryBlock || '(No long-term memory loaded for this user yet. Be a great generalist debate coach and ask one targeted question to anchor.)'}
@@ -341,6 +344,13 @@ export default async (request) => {
   const format = clean(body.format, 30) || clean(profile.preferredFormat, 30);
   const drill = ALLOWED_DRILLS.has((body.drill || '').toLowerCase()) ? body.drill.toLowerCase() : 'open';
   const motion = clean(body.motion, 180);
+  const motionGuard = checkContent({ text: motion, kind: 'motion', minLength: 0 });
+  if (!motionGuard.ok) {
+    return new Response(JSON.stringify({
+      error: motionGuard.reason,
+      code: 'SENSITIVE_MOTION',
+    }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
   // Transcription language pin (2-letter code, default English). Without a
   // pin the transcriber auto-detects and mishears become other languages.
   const aiLang = /^[a-z]{2}$/.test(String(body.aiLanguage || '').toLowerCase()) ? String(body.aiLanguage).toLowerCase() : 'en';

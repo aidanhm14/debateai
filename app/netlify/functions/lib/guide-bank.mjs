@@ -683,8 +683,8 @@ export const GUIDE_BANK = {
       {
         heading: 'How to pick (and how to lose by picking badly)',
         body: [
-          'Read the resolution. Ask: what is this resolution actually about? "Resolved: The United States ought to abolish capital punishment" is about justice, but more specifically about state-imposed irreversible harm. Justice + CI or Justice + the harm principle both fit. Wellbeing + Util feels off because the resolution centers on permissibility, not aggregate outcome.',
-          "Reach test: can you defend the criterion? If you pick Kantian ethics, you'll get attacked on edge cases (the murderer at the door, the categorical imperative formula). If you can't articulate the response, pick a different criterion. The Util defense is generally the most forgiving because it follows everyday moral reasoning.",
+          'Read the resolution. Ask: what is this resolution actually about? "Resolved: In a democracy, voting ought to be a moral obligation" is about civic duty, but more specifically about what citizens owe one another. Justice + reciprocity or legitimacy + participation both fit. Wellbeing + Util feels off because the resolution centers on obligation, not aggregate outcome.',
+          "Reach test: can you defend the criterion? If you pick Kantian ethics, you'll get attacked on edge cases involving conflicting duties and the categorical imperative formula. If you can't articulate the response, pick a different criterion. The Util defense is generally the most forgiving because it follows everyday moral reasoning.",
           'Link test: do your contentions actually hit the criterion? If your value is Justice and your criterion is Util, but your contentions are about respecting individual rights, the framework and the case don\'t link. The judge picks up on this. A simpler framework (Justice / preventing exploitation) that your contentions actually warrant beats a fancy framework that doesn\'t fit.',
         ],
       },
@@ -693,7 +693,7 @@ export const GUIDE_BANK = {
         body: [
           'Your opponent will attack one of three things: the value (why Justice and not Wellbeing?), the criterion (why Util and not Kantian?), or the link between your contentions and the criterion (your evidence doesn\'t prove what you say it proves).',
           "For value attacks: have a clean two-sentence reason. \"Justice is the value because the resolution is about state action, and state action requires justification on Justice grounds before consequence grounds.\"",
-          'For criterion attacks: be ready with the standard objection-and-response. If you ran Kant, you should know the murderer-at-the-door objection and your Korsgaard-style response. If you ran Util, you should know the experience-machine objection.',
+          'For criterion attacks: be ready with the standard objection-and-response. If you ran Kant, you should know the conflicting-duties objection and your response. If you ran Util, you should know the experience-machine objection.',
           "For link attacks: this is where most LD rounds are actually won and lost. Make sure each contention explicitly says \"and this hits the criterion because X.\" Don't make the judge do the linking work.",
         ],
       },
@@ -701,7 +701,7 @@ export const GUIDE_BANK = {
         heading: 'When to run a non-standard framework',
         body: [
           'Most rounds, run a standard framework. Standard frameworks are well-warranted by 200 years of philosophical literature; you don\'t need to invent.',
-          "Non-standard frameworks (Levinasian ethics, Foucauldian power analysis, capabilities approach) work when (a) the resolution genuinely engages the framework and (b) you've done the reading. Running Foucault on a death penalty round to sound smart, without being able to defend the framework, loses the round on framework debate before contentions even matter.",
+          "Non-standard frameworks (Levinasian ethics, Foucauldian power analysis, capabilities approach) work when (a) the resolution genuinely engages the framework and (b) you've done the reading. Running Foucault on a compulsory-voting round to sound smart, without being able to defend the framework, loses the round on framework debate before contentions even matter.",
           'A solid intermediate: Capabilities approach (Sen / Nussbaum) for development and welfare resolutions, Care ethics (Gilligan / Noddings) for relational and dependency resolutions. Both have enough literature to defend and enough specificity to differentiate from generic Util.',
         ],
       },

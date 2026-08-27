@@ -387,6 +387,15 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   Those seven are atmosphere for this gate, not records of real rounds and
   not additions to the ROUNDS board cast.
 - **No em-dashes in user-facing copy.** Periods, commas, semicolons only.
+- **No abortion or highly triggering motions.** This is a site-wide content
+  boundary, not a content-warning preference. Hardcoded banks, AI-picked
+  motions, examples, public challenge forms, scheduled rounds, and custom
+  motion endpoints must refuse abortion and reproductive-policy debates;
+  sexual or domestic violence; suicide or self-harm; child abuse; torture,
+  school or mass shootings, and other graphic violence; capital punishment
+  or assisted dying; genocide or ethnic cleansing. Replace the motion with a
+  safer civic, technology, culture, economics, or everyday-life clash. Do not
+  solve this by adding a warning or an opt-out after the topic is shown.
 - **Banned phrases** (these rot the brand): "Free during beta", "no
   sign-up required", "unlimited" on Free, "Pay nothing", "holistic",
   "robust framework", "let's dive in", "let's unpack", "let's break

@@ -299,13 +299,13 @@ export const MOTION_LIBRARY = {
         {
           title: 'Inaction is a choice with a body count',
           claim: 'Refusing to act is not moral neutrality.',
-          warrant: 'The deontologist who will not lie to the murderer at the door has chosen the outcome where the victim dies. Clean hands are a description of the agent, not of the world.',
+          warrant: 'The deontologist who will not lie to an official pursuing an innocent person has chosen the outcome where the person is captured. Clean hands are a description of the agent, not of the world.',
           impact: 'A theory that lets you avoid responsibility for foreseeable deaths by declining to touch the lever is optimizing for the agent\'s self-image over actual people.',
         },
         {
           title: 'Rules are consequences in disguise',
           claim: 'The constraints Opp defends are justified by what happens when societies abandon them.',
-          warrant: 'Ask why torture is wrong and the answer arrives as consequences: it produces bad intelligence, corrupts institutions, licenses escalation. The rule is a compressed prediction.',
+          warrant: 'Ask why coercing an innocent person is wrong and the answer arrives as consequences: it produces bad information, corrupts institutions, and licenses escalation. The rule is a compressed prediction.',
           impact: 'Opp is running consequentialism with extra steps. Once that is established, the round is about which level to evaluate at, and Prop already conceded rules are useful heuristics.',
         },
       ],
@@ -348,7 +348,7 @@ export const MOTION_LIBRARY = {
         'Only listing atrocities. Prop concedes the examples and says they were bad calculations, not bad frameworks. Have the structural answer.',
       ],
     },
-    related: ['free-will-is-an-illusion', 'moral-progress-is-real', 'immoral-to-have-children-in-the-current-era', 'a-just-society-ought-not-use-the-death-penalty'],
+    related: ['free-will-is-an-illusion', 'moral-progress-is-real', 'immoral-to-have-children-in-the-current-era', 'public-services-should-be-available-by-default'],
     keywords: ['this house believes the ends justify the means', 'ends justify the means debate', 'consequentialism vs deontology debate motion', 'apda ethics motion'],
   },
 
@@ -418,7 +418,7 @@ export const MOTION_LIBRARY = {
     },
     mistakes: {
       prop: [
-        'Refusing to answer "what about murderers." Answer it in the first speech, on your terms, before Opp frames it.',
+        'Refusing to answer the hard case of people convicted of serious violent crimes. Answer it in the first speech, on your terms, before Opp frames it.',
         'Running only the racial-disparity argument. It is true and it argues for reform, not abolition, unless you link it to the structure.',
       ],
       opp: [
@@ -426,7 +426,7 @@ export const MOTION_LIBRARY = {
         'Missing the relabeling attack. It is your best line and it needs to land in your first speech.',
       ],
     },
-    related: ['abolish-the-death-penalty-worldwide', 'decriminalize-sex-work', 'replace-juries-with-professional-judges', 'abolish-parole-boards'],
+    related: ['public-services-should-be-available-by-default', 'decriminalize-sex-work', 'replace-juries-with-professional-judges', 'abolish-parole-boards'],
     keywords: ['this house would abolish prisons', 'prison abolition debate', 'abolish prisons arguments for and against', 'prison abolition motion analysis'],
   },
 
@@ -1764,82 +1764,82 @@ export const MOTION_LIBRARY = {
 
   // ── LINCOLN-DOUGLAS ─────────────────────────────────────────────
 
-  'a-just-society-ought-not-use-the-death-penalty': {
-    slug: 'a-just-society-ought-not-use-the-death-penalty',
-    motion: 'Resolved: A just society ought not use the death penalty.',
+  'public-services-should-be-available-by-default': {
+    slug: 'public-services-should-be-available-by-default',
+    motion: 'Resolved: A just government ought to make public services available by default rather than by application.',
     format: 'ld',
     formats: 'Lincoln-Douglas',
     domain: 'ethics',
     difficulty: 'Medium',
-    summary: 'A values resolution. The value and criterion do more work than any contention, and most rounds are decided there.',
+    summary: 'A values resolution about whether justice requires government to remove administrative barriers or preserve individual choice.',
     reading: {
-      asks: 'Whether capital punishment is compatible with justice. The word "just" is the operative term: this is a normative resolution, not a policy one, so pure empirics without a framework will not carry.',
-      burden: 'Aff must show the practice is incompatible with justice itself, not merely badly administered. Neg can win by showing retribution is a legitimate aim of a just system, even if this system executes it imperfectly.',
-      ground: 'Aff typically runs Justice with a criterion of protecting rights or minimising irreversible state error. Neg typically runs Justice with a criterion of retributive desert or societal safety. Whoever wins the criterion usually wins the round.',
+      asks: 'Whether a just government should enroll eligible people in public services automatically or require an affirmative application.',
+      burden: 'Aff must show that administrative friction is an injustice rather than an ordinary part of delivery. Neg can win by showing that default enrollment weakens consent, accuracy, or accountability.',
+      ground: 'Aff typically runs Justice with a criterion of equal practical access. Neg typically runs Autonomy or Legitimacy with a criterion of informed consent and responsible administration.',
     },
     prop: {
-      line: 'A punishment that cannot be corrected requires a certainty the state has repeatedly failed to deliver.',
+      line: 'A right that disappears behind paperwork is not equally available in practice.',
       args: [
         {
-          title: 'Irreversibility plus fallibility',
-          claim: 'Justice systems make errors, and this is the one punishment that cannot be undone.',
-          warrant: 'Over 190 people sentenced to death in the US have been exonerated. That is the detected error rate, so the true rate is higher by construction.',
-          impact: 'A just society cannot adopt a practice whose error mode is the execution of an innocent person, because no compensation exists after the fact.',
+          title: 'Friction falls unevenly',
+          claim: 'Applications burden people with the least time, language access, and institutional knowledge.',
+          warrant: 'The same form costs more when a person works irregular hours, lacks reliable internet, or cannot hire help.',
+          impact: 'A formally universal service becomes least accessible to the people it was designed to reach.',
         },
         {
-          title: 'Arbitrary application',
-          claim: 'Who receives death tracks race, geography, and defence funding rather than culpability.',
-          warrant: 'Sentencing outcomes vary sharply by victim race and by county. The same offence produces different sentences depending on the prosecutor\'s office.',
-          impact: 'Justice requires like cases treated alike. If the distribution is arbitrary, the practice fails the definition of justice regardless of whether any individual sentence is deserved.',
+          title: 'The government already has the facts',
+          claim: 'Many eligibility decisions use information the state already holds.',
+          warrant: 'Income, age, residence, and enrollment status are routinely verified elsewhere in government.',
+          impact: 'Making a person re-prove known facts adds exclusion without adding accuracy.',
         },
         {
-          title: 'The state as killer',
-          claim: 'A society that prohibits killing while performing it undermines the norm it is enforcing.',
-          warrant: 'The prohibition on taking life derives its force from being unconditional. An exception held by the state, applied to a captive person who poses no present threat, is not self-defence.',
-          impact: 'The expressive harm is to the norm itself, which is the thing the criminal law depends on across every other offence.',
+          title: 'Defaults preserve opt-out',
+          claim: 'Automatic access can coexist with a clear right to decline.',
+          warrant: 'A default changes the starting point, not the final choice.',
+          impact: 'The model captures access gains without forcing participation.',
         },
       ],
     },
     opp: {
-      line: 'Justice includes giving people what they are owed, and for the worst offences that includes a proportionate response.',
+      line: 'Consent and accurate delivery matter more than making enrollment invisible.',
       args: [
         {
-          title: 'Retributive desert',
-          claim: 'Proportionality is a requirement of justice, not a concession to vengeance.',
-          warrant: 'Kant\'s treatment holds that punishment respects the offender as a rational agent who chose the act. A response that fails to match the gravity treats the victim as worth less than the offence took.',
-          impact: 'On a retributive criterion, abolishing the maximum penalty for the maximum offence is itself an injustice, which meets Aff on the value rather than dodging it.',
+          title: 'Enrollment is not consent',
+          claim: 'Some services create obligations, data sharing, or interactions a person may reasonably reject.',
+          warrant: 'An application makes the terms visible before the relationship begins.',
+          impact: 'A government that treats silence as permission weakens individual control over public systems.',
         },
         {
-          title: 'Administration is separable from the practice',
-          claim: 'Aff\'s evidence indicts the current system, not the punishment.',
-          warrant: 'Wrongful convictions and racial disparity are arguments for better procedure: mandatory review, evidentiary standards, funded defence. A just society is the one that fixes those, not one that concludes the penalty is impermissible.',
-          impact: 'The resolution asks about a just society. In that society the administration problems Aff cites are stipulated away, and Aff\'s case largely goes with them.',
+          title: 'Government records are stale',
+          claim: 'Automatic decisions inherit errors and outdated information at scale.',
+          warrant: 'A short application can verify present circumstances that a tax or residence database no longer reflects.',
+          impact: 'Wrongful enrollment wastes scarce resources and can create repayment or compliance problems for the recipient.',
         },
         {
-          title: 'Some acts sever the social contract',
-          claim: 'Certain offences represent a total rejection of the terms of membership.',
-          warrant: 'Locke and Hobbes both locate a point at which the offender has placed themselves outside the protection the contract provides. The society is not obliged to guarantee continued life to someone who has refused the condition on which it rests.',
-          impact: 'This grounds the penalty in the same contractarian logic Aff uses for rights, which prevents Aff from claiming the entire rights framework.',
+          title: 'Assisted application is the narrower fix',
+          claim: 'Governments can reduce friction without eliminating the application beat.',
+          warrant: 'Pre-filled forms, navigators, and one-stop portals preserve an explicit confirmation while removing most paperwork.',
+          impact: 'Neg reaches Aff\'s access benefit with less risk to consent and accuracy.',
         },
       ],
     },
     clash: {
-      question: 'Is the death penalty unjust in principle, or just in principle and unjust in practice?',
-      prop: 'Aff wins by showing irreversibility is not an administrative feature but a property of the punishment, so no procedural fix reaches it.',
-      opp: 'Neg wins by holding the resolution to its own terms: a just society has the procedures, so the empirical failures Aff cites are outside the world the resolution describes.',
+      question: 'Does justice require automatic access, or only an application process that people can realistically complete?',
+      prop: 'Aff wins by showing that paperwork predictably excludes eligible people and that opt-out protects autonomy.',
+      opp: 'Neg wins by proving that explicit confirmation is necessary for consent and current information, then offering assisted applications as the narrower fix.',
     },
     mistakes: {
       prop: [
-        'Running deterrence statistics as the lead. It is a policy argument in a values round and Neg will say so.',
-        'Never defining justice. If you leave the value uncontested, Neg\'s retributive criterion decides the round.',
+        'Treating every form as pointless. Neg will name services where current information and consent matter.',
+        'Never explaining opt-out. Without it, Neg wins the autonomy objection immediately.',
       ],
       opp: [
-        'Defending the current system. The resolution says "a just society," so stipulate the fixed procedures and argue from there.',
-        'Running only cost or deterrence. Both are policy frames and neither answers the value question Aff is asking.',
+        'Defending confusing paperwork. Concede the access problem and defend one explicit confirmation step.',
+        'Relying on fraud alone. The stronger case is consent plus accuracy, not suspicion of applicants.',
       ],
     },
-    related: ['civil-disobedience-in-a-democracy-is-morally-justified', 'abolish-prisons', 'the-ends-justify-the-means', 'abolish-the-death-penalty-worldwide'],
-    keywords: ['a just society ought not use the death penalty', 'ld death penalty resolution', 'lincoln douglas death penalty case', 'death penalty value criterion'],
+    related: ['civil-disobedience-in-a-democracy-is-morally-justified', 'individual-rights-above-the-collective-good', 'a-just-government-ought-to-provide-universal-basic-income', 'voting-ought-to-be-a-moral-obligation'],
+    keywords: ['public services by default debate', 'automatic enrollment debate', 'administrative burden debate', 'lincoln douglas public services case'],
   },
 
   'civil-disobedience-in-a-democracy-is-morally-justified': {
@@ -1916,7 +1916,7 @@ export const MOTION_LIBRARY = {
         'Skipping the courts argument. It is your best answer to the permanent-minority case.',
       ],
     },
-    related: ['a-just-society-ought-not-use-the-death-penalty', 'the-ends-justify-the-means', 'whistleblowers-should-receive-absolute-legal-immunity', 'supports-the-existence-of-separatist-movements'],
+    related: ['public-services-should-be-available-by-default', 'the-ends-justify-the-means', 'whistleblowers-should-receive-absolute-legal-immunity', 'supports-the-existence-of-separatist-movements'],
     keywords: ['civil disobedience is morally justified resolution', 'ld civil disobedience case', 'lincoln douglas civil disobedience', 'civil disobedience value criterion'],
   },
 
@@ -1963,7 +1963,7 @@ export const MOTION_LIBRARY = {
       args: [
         {
           title: 'The timing evidence is hard to explain away',
-          claim: 'Adolescent depression, self-harm, and anxiety rose sharply from roughly 2012 across multiple countries.',
+          claim: 'Adolescent anxiety, sleep disruption, and school disengagement rose sharply from roughly 2012 across multiple countries.',
           warrant: 'The inflection tracks smartphone and platform adoption, appears in several national datasets, and is concentrated among girls, which matches the appearance-comparison mechanism.',
           impact: 'Even at a modest effect size, applied to essentially every adolescent in a developed country, the aggregate magnitude is enormous.',
         },

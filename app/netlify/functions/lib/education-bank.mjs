@@ -150,7 +150,7 @@ export const EDUCATION_BANK = {
       { term: 'First-wave feminism',
         gloss: 'Roughly 1840s-1920s. The legal-rights wave: suffrage, property ownership, the right to divorce, the right to sit on a jury. Resolved most of its targets in rich democracies by mid-century.' },
       { term: 'Second-wave feminism',
-        gloss: '1960s-1980s. Moved past formal-legal equality to "the personal is political": workplace equality, reproductive rights, sexual harassment law, domestic-violence policy. This is the wave that shaped most current Western family law.' },
+        gloss: '1960s-1980s. Moved past formal-legal equality to "the personal is political": workplace equality, anti-discrimination law, political representation, and family-law reform. This is the wave that shaped much of current Western equality law.' },
       { term: 'Third-wave feminism',
         gloss: '1990s onward. Pluralism over universalism: pushed back on the assumption that "women" was a single political category and that white middle-class concerns spoke for everyone. Where the intersectional turn lives.' },
       { term: 'Intersectionality',
@@ -297,7 +297,7 @@ export const EDUCATION_BANK = {
         why: 'The famous liberal-IR thesis. Aged unevenly, which is itself useful: the parts that aged badly tell you what realism has to say about the parts that aged well.' },
       { title: 'A Problem from Hell',
         by: 'Samantha Power',
-        why: 'On the policy machinery of humanitarian intervention and non-intervention. Read this before any genocide-related motion.' },
+        why: 'On the policy machinery of humanitarian intervention and non-intervention. Read this before any peacekeeping or civilian-protection motion.' },
     ],
     quiz: [
       { q: 'Realism in IR primarily argues:',

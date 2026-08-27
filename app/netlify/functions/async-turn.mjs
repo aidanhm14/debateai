@@ -22,6 +22,7 @@ import {
 // The avatar option keys live in one place. A local copy of them fell
 // behind the designer and silently rewrote people's saved avatars.
 import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
+import { checkContent } from './lib/content-guard.mjs';
 
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 
@@ -81,6 +82,8 @@ export default async (request) => {
     if (turnN === 1) {
       const motion = String(body.motion || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (motion.length < 8) return errorResponse('Give the motion at least a full sentence.', 400, request);
+      const motionGuard = checkContent({ text: motion, kind: 'motion' });
+      if (!motionGuard.ok) return errorResponse(motionGuard.reason, 400, request);
       const format = FORMATS.has(body.format) ? body.format : 'quick';
       const visibility = body.visibility === 'unlisted' ? 'unlisted' : 'public';
 

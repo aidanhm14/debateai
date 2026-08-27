@@ -18,9 +18,10 @@
 //   - URL spam / link dumps
 //   - Length floor + ceiling (per kind)
 //   - Control characters + zero-width abuse (homoglyph filler)
+//   - Sensitive subjects on motion surfaces only
 //
 // What it deliberately DOESN'T catch:
-//   - Controversial political positions (debate motions cover these)
+//   - Controversial political positions outside the motion-only boundary
 //   - Profanity-as-emphasis ("that argument is fucking cooked" is fine)
 //   - Quoted slur references ("the n-word's reclamation history") — the
 //     analytical/quoted form is allowed; raw use is not
@@ -117,6 +118,37 @@ const SEXUAL_MINOR_PATTERNS = [
   /\bloli(con)?\b/i,
   /\bshota(con)?\b/i,
 ];
+
+// Motion-only boundary. These subjects are not offered on Debatable even
+// when a speaker intends to handle them seriously. Keep this separate from
+// the general message and case checks: a moderation report may need to name
+// one of these categories, and an already-recorded transcript still needs to
+// reach its judge without a keyword filter deleting ordinary analysis.
+//
+// The user-facing reason stays generic. The stable category lets every
+// surface show one consistent safer-topic response without echoing the term
+// that was blocked.
+export const SENSITIVE_MOTION_PATTERNS = [
+  /\b(abortion|abortions|abort(ed|ing)?\s+(a\s+)?pregnancy|terminat(e|ing|ion\s+of)\s+(a\s+)?pregnancy|pro[- ]choice|pro[- ]life|reproductive\s+(rights?|access|justice))\b/i,
+  /\b(rapes?|rapist|sexual\s+(assault|violence|abuse|exploitation)|marital\s+rape|gender[- ]based\s+violence|violence\s+against\s+women|domestic\s+(violence|abuse)|incest|sex\s+trafficking|femicide)\b/i,
+  /\b(suicides?|suicidal|self[- ]harm|assisted\s+(suicide|dying)|physician[- ]assisted\s+(suicide|dying)|euthanasia|right\s+to\s+die|medical\s+aid\s+in\s+dying)\b/i,
+  /\b(child\s+(abuse|neglect|exploitation|trafficking)|sexual\s+abuse\s+of\s+(children|kids|minors))\b/i,
+  /\b(school\s+shootings?|mass\s+shootings?|mass\s+murder|serial\s+killers?|tortures?|graphic\s+(violence|injury|death))\b/i,
+  /\b(death\s+penalty|capital\s+punishment)\b/i,
+  /\b(genocide|genocidal|ethnic\s+cleansing|holocaust)\b/i,
+];
+
+export function isSensitiveMotion(text) {
+  const normalized = normalize(text).trim();
+  return !!normalized && SENSITIVE_MOTION_PATTERNS.some((re) => re.test(normalized));
+}
+
+// Voice sessions need the same rule in their system prompt because a user
+// can speak a motion after the ephemeral session has already been minted.
+export const SENSITIVE_MOTION_POLICY = `SITE MOTION BOUNDARY:
+- Do not propose, accept, sharpen, or debate motions about abortion or reproductive policy; sexual or domestic violence; suicide or self-harm; child abuse; torture, school or mass shootings, or graphic violence; capital punishment or assisted dying; genocide or ethnic cleansing.
+- If the user introduces one of those subjects, say only that Debatable does not run that subject, then offer one safer civic, technology, culture, economics, or everyday-life motion.
+- Keep examples non-graphic. Do not turn a safe motion into an extreme-harm scenario.`;
 
 // Harassment pattern: NAME followed by SLUR. The standalone slur regexes
 // already block "n-word", but "[someone] is a [slur]" deserves a more
@@ -224,6 +256,14 @@ export function checkContent({ text, kind = 'default', minLength, maxLength } = 
       ok: false,
       reason: `Too long (${trimmed.length}/${max} characters). Trim it down.`,
       category: 'too_long',
+    };
+  }
+
+  if (kind === 'motion' && isSensitiveMotion(trimmed)) {
+    return {
+      ok: false,
+      reason: 'That motion is too sensitive for this site. Pick a different subject.',
+      category: 'sensitive_motion',
     };
   }
 

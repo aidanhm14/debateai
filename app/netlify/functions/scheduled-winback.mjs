@@ -68,7 +68,7 @@ const MIN_GAP_USER_MS = 21 * DAY_MS; // per-user: at most one win-back / 21d
 // lowercased lookup folds in. Same alias approach as the wau-digest.
 const FORMAT = {
   apda:       { label: 'APDA',        motion: 'This House would abolish the right to inherit wealth.' },
-  bp:         { label: 'BP',          motion: 'This House believes that the news should not report on suicides.' },
+  bp:         { label: 'BP',          motion: 'This House regrets the dominance of streaming services in music.' },
   worlds:     { label: 'Worlds',      motion: 'This House would let citizens vote directly on the national budget.' },
   pf:         { label: 'Public Forum', motion: 'Resolved: The benefits of nuclear energy outweigh the risks.' },
   ld:         { label: 'LD',          motion: 'Resolved: A just society ought to prioritize equality over liberty.' },
