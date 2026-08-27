@@ -1951,12 +1951,9 @@ body.speech-live .transcript-area{margin-top:4px}
    competed with the other person's face for attention: the start
    control is a button in the header and the only prompt was a grey hint
    line under it. While the speech is the local debater's to start, the
-   button pulses, a line above it points at it, and a docked bar carries
-   it when the header has scrolled off. All of it clears the instant the
-   clock runs. 2026-08-26: the escalated state below does now start the
-   speech, on sustained speech only and with one press back out. See the
-   startCue block in the script for why that narrows the 2026-08-24 rule
-   (NO SPEECH STARTS ITSELF) rather than reversing it.
+   button pulses. Sustained talking escalates that cue into a fixed
+   reminder that the clock and transcript are still off. Nothing starts
+   until the speaker presses Start speech.
    prefers-reduced-motion drops the movement, never the cue. */
 .btn-play.lr-await{animation:lrAwaitPulse 2s ease-in-out infinite}
 @keyframes lrAwaitPulse{
@@ -2017,32 +2014,24 @@ body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
   .btn-play.lr-await,.lr-start-cue .lr-cue-mark,.lr-start-dock{animation:none}
   .btn-play.lr-await{box-shadow:0 0 0 3px rgba(220,38,38,.45)}
 }
-/* The clock started because the mic heard a speech being delivered into
-   a stopped clock (2026-08-26). Green, not red: the round is recording
-   now, which is the outcome the person wanted. It carries the way back
-   out, because the one thing that must never happen is a debater held
-   to a clock that started on a hello. */
-.lr-autostart-note{
+/* The room mic heard sustained talking while the speech clock was off.
+   This is a reminder, not an automatic start: conversation and mic checks
+   must never spend someone's speech time. */
+.lr-start-reminder{
   position:fixed;top:64px;left:50%;transform:translateX(-50%);
   max-width:540px;width:calc(100% - 32px);z-index:320;
   display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;
-  background:var(--bg-elev,#16131a);border:1px solid rgba(34,197,94,.55);
+  background:var(--bg-elev,#16131a);border:1px solid rgba(220,38,38,.65);
   box-shadow:0 6px 20px rgba(0,0,0,.26);
   font-family:inherit;font-size:.87rem;line-height:1.5;color:var(--text,#fff);
   animation:lrNoteIn .22s ease both;
 }
 @keyframes lrNoteIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
-.lr-autostart-note b{font-weight:800}
-.lr-autostart-note .lr-note-sub{color:var(--text-dim,rgba(255,255,255,.62))}
-.lr-autostart-note button{
-  flex:none;padding:8px 12px;border-radius:9px;
-  border:1px solid var(--border,rgba(255,255,255,.18));background:transparent;
-  color:var(--text-dim,rgba(255,255,255,.72));font-family:inherit;font-size:.78rem;cursor:pointer;
-}
-.lr-autostart-note button:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.34))}
-body.spectator-mode .lr-autostart-note,
-body.lr-mini .lr-autostart-note,body.lr-pip .lr-autostart-note{display:none!important}
-@media (prefers-reduced-motion:reduce){ .lr-autostart-note{animation:none} }
+.lr-start-reminder b{font-weight:800}
+.lr-start-reminder .lr-note-sub{color:var(--text-dim,rgba(255,255,255,.62))}
+body.spectator-mode .lr-start-reminder,
+body.lr-mini .lr-start-reminder,body.lr-pip .lr-start-reminder{display:none!important}
+@media (prefers-reduced-motion:reduce){ .lr-start-reminder{animation:none} }
 
 /* Quiet-room strip (2026-08-23). Amber, not red: an empty room is a
    state of the world, not an error and not a moderation event, and red
@@ -5731,10 +5720,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
   function prepareTimer(targetSec){
     stopTimer();
-    // Every moment a clock goes back to ready is a moment the "your
-    // speech started" bar has stopped being true. Loading a new speech
-    // and undoing an auto-start are both this.
-    try { hideAutoStartNote(); } catch(e){}
+    // Loading a new speech clears any stale talking-before-start reminder.
+    try { hideStartCueReminder(); } catch(e){}
     state.timerTotalSec = targetSec;
     state.timerElapsed = 0;
     state.timerStart = 0;
@@ -17418,36 +17405,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // (4) is the one aimed at the actual behaviour: the person is not
   // confused about what to do next, they think they have started.
   //
-  // 2026-08-26 (the founder): "a lot of times ppl think they started
-  // their speech but didn't so make sure if u hear them talking without
-  // it start to resolve it." So (4) stopped being a louder sign and
-  // became a resolution: keep hearing a speech being delivered into a
-  // stopped clock and the clock starts, on its own, with the mic and the
-  // transcript. This NARROWS the 2026-08-24 rule (NO SPEECH STARTS
-  // ITSELF) rather than reversing it, and the distinction is the whole
-  // design. That rule was written against a COUNTDOWN, which starts on a
-  // number and can therefore land on someone still fixing a mic or not
-  // finished saying hello. This starts on EVIDENCE: a clock that begins
-  // only while the room is hearing sustained speech cannot start into
-  // silence, which is the failure the rule exists to prevent. What it
-  // can still get wrong is what the speech WAS, so a hello can never
-  // cost anyone their speech: the bar it starts says plainly what just
-  // happened and carries one press back out, an undone speech never
-  // auto-starts again, and a running prep clock or an unsettled judge
-  // keeps the nudge and never the start.
-  // Every path here calls the same startSpeechTimer(), so the judge lock
-  // and the clock sync ride along.
+  // 2026-08-27 (the founder): if someone is talking before starting their
+  // speech, remind them that they can start it. The room mic is evidence
+  // that the cue is needed, not permission to press Start for them. A mic
+  // check, a hello, or between-round conversation must never spend speech
+  // time. The reminder appears once per speech and the real Start speech
+  // control remains the only path that starts the clock and transcript.
   var startCue = { el:null, dock:null, hot:false, io:null, btnSeen:true,
                    lvlCall:null, loudMs:0, sig:'', shown:{}, hotShown:{},
-                   note:null, noteTimer:0, autoSpent:{}, autoOff:{},
-                   autoMicOn:false, autoBase:null, autoIdx:-1 };
+                   reminder:null, reminderTimer:0, reminded:{} };
   var CUE_LOUD = 0.055;      // Daily audioLevel: quiet room floor sits well under this
   var CUE_LOUD_MS = 2000;    // ~2s of talking before we call it a speech, not a hello
-  // The start bar. Higher than the warning on purpose: this one acts, so
-  // it wants a speech rather than a sentence. Loud samples accumulate and
-  // silence decays them, so ~3.4s is roughly six seconds of real talking
-  // with its natural gaps, and no amount of coughing ever reaches it.
-  var CUE_AUTO_MS = 3400;
   var CUE_LVL_MS = 200;      // observer interval
 
   function prepClockRunning(){
@@ -17494,97 +17462,45 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var lvl = (ev && typeof ev.audioLevel === 'number') ? ev.audioLevel : 0;
     // Accumulate speech, decay silence, so a cough or a door does not
     // add up to a speech over a long ready state.
-    if (lvl >= CUE_LOUD) startCue.loudMs = Math.min(CUE_AUTO_MS + 600, startCue.loudMs + CUE_LVL_MS);
+    if (lvl >= CUE_LOUD) startCue.loudMs = Math.min(CUE_LOUD_MS + 600, startCue.loudMs + CUE_LVL_MS);
     else if (lvl < CUE_LOUD * 0.5) startCue.loudMs = Math.max(0, startCue.loudMs - CUE_LVL_MS);
     var hot = startCue.loudMs >= CUE_LOUD_MS;
-    if (hot !== startCue.hot){ startCue.hot = hot; updateStartCue(); }
-    if (startCue.loudMs >= CUE_AUTO_MS && startCueCanAuto()) startCueAutoStart();
+    if (hot !== startCue.hot){
+      startCue.hot = hot;
+      updateStartCue();
+      if (hot) showStartCueReminder();
+    }
   }
-  // Armed only where a start is both possible and unambiguous. Read this
-  // as the list of places the founder's rule still wins outright.
-  function startCueCanAuto(){
-    if (!startCueAwaiting()) return false;
-    // A running prep clock is someone deliberately not speaking yet, and
-    // the talking over it is as likely to be "ready?" as a speech. The
-    // hot cue still fires there, which is the right amount of help.
-    if (prepClockRunning()) return false;
-    // They already told us this was not a speech. Never ask twice.
-    if (startCue.autoOff[state.speechIdx] || startCue.autoSpent[state.speechIdx]) return false;
-    // startSpeechTimer refuses speech 1 while the two judge picks differ,
-    // and lands the caller in the judge draft instead. Triggering that
-    // from a microphone would be a panel opening itself mid-sentence.
-    if (state.speechIdx === 0 && !judgeLockKey()) return false;
-    return true;
+  function hideStartCueReminder(){
+    if (startCue.reminderTimer){ clearTimeout(startCue.reminderTimer); startCue.reminderTimer = 0; }
+    if (startCue.reminder){ startCue.reminder.remove(); startCue.reminder = null; }
   }
-  function startCueAutoStart(){
+  function showStartCueReminder(){
     var idx = state.speechIdx;
-    startCue.autoSpent[idx] = true;
-    // Remember what to put back if this turns out to have been a hello:
-    // whether the mic was ours to switch on, and what the transcript box
-    // held before it was.
-    var ta = $('speechText');
-    startCue.autoMicOn = !state.micActive;
-    startCue.autoBase = ta ? ta.value : '';
-    startCue.autoIdx = idx;
-    try { gtag('event', 'live_start_cue_autostart', { format: state.formatKey, speech: idx }); } catch(e){}
-    startSpeechTimer();
-    // Only claim it if it actually ran. The judge lock is checked above,
-    // but startSpeechTimer owns the decision and may grow other refusals.
-    if (state.timerState === 'running') showAutoStartNote();
-  }
-  function hideAutoStartNote(){
-    if (startCue.noteTimer){ clearTimeout(startCue.noteTimer); startCue.noteTimer = 0; }
-    if (startCue.note){ startCue.note.remove(); startCue.note = null; }
-  }
-  function showAutoStartNote(){
-    hideAutoStartNote();
+    if (!startCueAwaiting() || startCue.reminded[idx]) return;
+    startCue.reminded[idx] = true;
+    hideStartCueReminder();
     var el = document.createElement('div');
-    el.className = 'lr-autostart-note';
-    el.id = 'lrAutoStartNote';
+    el.className = 'lr-start-reminder';
+    el.id = 'lrStartReminder';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'assertive');
     el.innerHTML =
       '<span style="flex:1;min-width:0">' +
-        '<b>Your speech started.</b> ' +
-        '<span class="lr-note-sub">You were talking with the clock still off, so the timer and the transcript are running now.</span>' +
-      '</span>' +
-      '<button type="button" id="lrAutoUndo">I was not speaking</button>';
+        '<b>Your speech has not started.</b> ' +
+        '<span class="lr-note-sub">We can hear you, but the clock and transcript are still off. Tap Start my speech to begin.</span>' +
+      '</span>';
     document.body.appendChild(el);
-    el.querySelector('#lrAutoUndo').addEventListener('click', startCueUndo);
-    startCue.note = el;
-    // Long enough to read and act on mid-speech, short enough that it is
-    // not still sitting over the round a minute in.
-    startCue.noteTimer = setTimeout(hideAutoStartNote, 15000);
-  }
-  // The way back out. Puts the speech back exactly where it was: clock at
-  // ready and zero, the mic off if we were the ones who turned it on, and
-  // the few words it caught out of the transcript. The off-side mirror is
-  // republished, so nobody is left watching a clock that stopped existing.
-  function startCueUndo(){
-    var idx = startCue.autoIdx;
-    hideAutoStartNote();
-    if (idx !== state.speechIdx || state.timerState !== 'running') return;
-    startCue.autoOff[idx] = true;
-    try { gtag('event', 'live_start_cue_undo', { format: state.formatKey, speech: idx, sec: Math.round(getElapsed()) }); } catch(e){}
-    if (startCue.autoMicOn && state.micActive){ try { setMicActive(false); } catch(e){} }
-    var ta = $('speechText');
-    var base = startCue.autoBase;
-    // Only ever remove what the mic added. If they typed in the meantime
-    // the value no longer starts with the base and the box is left alone.
-    if (ta && typeof base === 'string' && ta.value !== base && ta.value.indexOf(base) === 0){
-      ta.value = base;
-      try { micResetBuffer(); } catch(e){}
-      try { updateWordCount(); } catch(e){}
-      try { schedulePublishLiveTranscript(); } catch(e){}
-    }
-    document.body.classList.remove('speech-live');
-    prepareTimer(state.timerTotalSec);
-    try { publishTimerState(); } catch(e){}
-    toast('Clock stopped. Press Start speech when you are ready.');
+    startCue.reminder = el;
+    startCue.reminderTimer = setTimeout(hideStartCueReminder, 9000);
+    try { gtag('event', 'live_start_cue_reminder', { format: state.formatKey, speech: idx }); } catch(e){}
   }
   function startCueGo(via){
     try { gtag('event', 'live_start_cue_click', { format: state.formatKey, via: via, hot: !!startCue.hot, speech: state.speechIdx }); } catch(e){}
     startSpeechTimer();
   }
   function clearStartCue(){
+    hideStartCueReminder();
     if (startCue.el){ startCue.el.remove(); startCue.el = null; }
     if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
     var b = $('playPauseBtn');
