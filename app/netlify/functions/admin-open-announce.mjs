@@ -66,71 +66,65 @@ const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
 const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || undefined;
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
-// Two subjects, because the old one asserted "your entry is free" to every
-// inbox it reached, including the accounts arriving now that have to pay.
-const SUBJECT_COMPED = `The Debatable Open, August 29. Your entry is free.`;
-const SUBJECT_PAID   = `The Debatable Open, August 29. $100 for winning an argument.`;
+// One subject now. The two-subject split existed while a founding comp made
+// entry free for some accounts and not others; entry is free for everyone, so
+// a second version is a way to get one of them wrong. Aidan's wording, 2026-08-27.
+const SUBJECT = `The Debatable Open - Free Tournament on the 29th - $100 for first place`;
+const SUBJECT_COMPED = SUBJECT;
+const SUBJECT_PAID   = SUBJECT;
+
+// The stamp for THIS send. The 2026-08-19 run wrote openAnnounceSentAt on 210
+// of the 334 profiles, and the skip that makes a run resumable does not know
+// one announcement from the next: reusing that field would have silently
+// dropped two thirds of the list from a second, different email. A new send
+// gets a new field. openAnnounceSentAt stays untouched as the record of who
+// got the August 19 one.
+const STAMP = 'openReminderSentAt';
 
 // ── Template ─────────────────────────────────────────────────────────────────
 // Voice rules that bind here: no em-dashes, no preface, one ask, no
 // traction numbers. Prizes and dates are the ones published on
 // /tournaments and /tournament-rules; if those change, change these.
 
-// `comped` is resolved per recipient from their Auth creation time and is
-// now VESTIGIAL in the copy: entry is free for everyone as of 2026-08-22,
-// so there is no fee to be waived from and no two-version email to get
-// wrong. It stays on the row because the send log records who was comped
-// under the old model, and deleting it would rewrite that history.
-function renderEmail({ firstName, uid, tournamentName, startsAt, comped }) {
-  const cta   = `${SITE_URL}/tournaments#enter`;
-  const rules = `${SITE_URL}/tournament-rules`;
-  const when  = startsAt ? esc(startsAt) : 'Saturday, August 29';
+// Body copy is Aidan's, verbatim, 2026-08-27. Everything factual in it was
+// checked against the live tournament doc and the published page before it
+// shipped: entryFeeCents 0, prizeSplit [10000, 5000, 2500], startsAtISO
+// 2026-08-29T14:00:00Z, and /tournaments states the 12:30 prelim end, the
+// 1:15 final, and the separate under-18 and 18-and-over brackets in its own
+// words. If any of those move, this copy is wrong and has to move with them.
+function renderEmail({ firstName, uid, registered }) {
+  const cta = 'https://itsdebatable.com/tournaments';
+  const P = 'font-size:.95rem;line-height:1.6;margin:0 0 14px';
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
+  <p style="${P}">Hey ${esc(firstName)},</p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Win $100 for winning an argument.</strong> ${esc(tournamentName)} puts
-    $175 on the line: $100 for first, $50 for second, $25 for third. It runs
-    ${when}, online, from wherever you are.
+  <p style="${P}">
+    The Debatable Open runs this Saturday, August 29. Doors open at
+    <strong>10:00 AM EASTERN</strong>, prelims run until 12:30, and the final is
+    streamed at 1:15. It is <strong>FREE TO ENTER</strong>. $100 for first, $50
+    for second, $25 for third.
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Entry is free.</strong> No fee, no card, nothing to ask me for.
-    Enter on the tournaments page and tick the 18 or older box the prizes
-    require, and you are playing for the money on the same terms as everyone
-    else in the field.
+  <p style="${P}">${esc(String(registered))} people are registered so far.</p>
+
+  <p style="${P}">
+    We'll provide a rundown of the tournament structure tomorrow. Under-18 and
+    18+ brackets are separate for safety.
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Enter the Open &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Enter here &rarr;</a>
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    You get paired with a real opponent and debate. Rounds are short, and every one
-    ends with a written verdict that says what actually decided it, so a round you
-    lose still tells you something. The final is streamed. There is no fixed start
-    time, so turning up late does not shut you out.
+  <p style="${P}">
+    Or paste this in: <a href="${cta}" style="color:#dc2626">${cta}</a>
   </p>
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    You do not need to have competed before. The default format is written for
-    people who never have.
-  </p>
-
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    Forward this to whoever you want in your bracket. It is free for them too.
-  </p>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Feel free to write us feedback too!</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
-
-  <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
-    age when entering, and are void where prohibited. An entrant under 18 plays
-    the same field for the placement and the ranking. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
-    carry eligibility and the payout ladder.
-  </p>
 
   ${renderFooter({
     uid,
@@ -182,6 +176,12 @@ export default async (request) => {
     }, 409, request);
   }
   const tourn = { id: openSnap.docs[0].id, ...(openSnap.docs[0].data() || {}) };
+  // "N people are registered so far" is read from the doc at send time, not
+  // frozen into the copy. The sentence was written on a day the field held 25
+  // and the send runs in batches over the days before the event, so a literal
+  // would be quietly wrong by Friday and understate the thing it is there to
+  // sell. Falls back to the number as written if the field is ever missing.
+  const registeredCount = Number.isFinite(Number(tourn.entryCount)) ? Number(tourn.entryCount) : 25;
 
   const authUsers = await listAllAuthUsers().catch((err) => {
     console.error('[open-announce] listAllAuthUsers failed:', err.message);
@@ -219,7 +219,7 @@ export default async (request) => {
     // one-click unsubscribe in the footer.
     if (!prof) noProfile++;
     if (prof && isOptedOut(prof, STREAM)) { optedOut++; continue; }
-    if (prof && prof.openAnnounceSentAt) { alreadySent++; continue; }
+    if (prof && prof[STAMP]) { alreadySent++; continue; }
 
     eligible++;
     if (dryRun) {
@@ -232,16 +232,13 @@ export default async (request) => {
     // directly here. Auth still carries a display name for a Google sign-in,
     // and 'debater' is the floor.
     const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
-    const comped = Date.parse(user.metadata?.creationTime || '') <= FOUNDING_CUTOFF_MS;
     const res = await sendEmail({
       to: user.email,
-      subject: comped ? SUBJECT_COMPED : SUBJECT_PAID,
+      subject: SUBJECT,
       html: renderEmail({
         firstName,
         uid: user.uid,
-        tournamentName: tourn.name || 'The Debatable Open',
-        startsAt: tourn.startsAt || '',
-        comped,
+        registered: registeredCount,
       }),
       uid: user.uid,
       stream: STREAM,
@@ -262,7 +259,7 @@ export default async (request) => {
       // run rather than disappearing.
       try {
         await db.doc(`user_profiles/${user.uid}`)
-          .set({ openAnnounceSentAt: FieldValue.serverTimestamp() }, { merge: true });
+          .set({ [STAMP]: FieldValue.serverTimestamp() }, { merge: true });
       } catch (stampErr) {
         errors++;
         errorReasons['stamp-failed'] = (errorReasons['stamp-failed'] || 0) + 1;
@@ -282,7 +279,8 @@ export default async (request) => {
     senderVerified: senderOk,
     verifiedDomains: allowed,
     verifiedSource,
-    subject: { comped: SUBJECT_COMPED, paid: SUBJECT_PAID },
+    subject: SUBJECT,
+    registered: registeredCount,
     tournament: { id: tourn.id, name: tourn.name || '', startsAt: tourn.startsAt || '' },
     cutoff: new Date(FOUNDING_CUTOFF_MS).toISOString(),
     accounts: authUsers.length,
