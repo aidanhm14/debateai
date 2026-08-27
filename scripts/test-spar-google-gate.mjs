@@ -35,10 +35,10 @@ const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54'];
 for (const face of expectedFaces) {
   check(spar.includes(`/img/round/faces/face${face}.jpg`), `gate must include consented face${face}`);
 }
-for (const face of ['fictional-sydney', 'fictional-sofia']) {
+for (const face of ['fictional-sydney', 'fictional-sofia', 'fictional-kevin', 'fictional-anna', 'fictional-malik', 'fictional-chloe', 'fictional-mike']) {
   check(spar.includes(`/img/round/faces/${face}.jpg`), `gate must include founder-supplied ${face}`);
 }
-check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 10, 'signed-out gate must carry ten surrounding tiles');
+check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 15, 'wide signed-out gate must carry fifteen surrounding tiles');
 check(!spar.includes('/img/round/faces/face55.jpg'), 'deleted face55 must never return');
 
 if (failures) process.exit(1);
