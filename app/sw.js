@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v2999';
+const CACHE_NAME = 'debateos-v3000';
 
 
 
@@ -85,7 +85,16 @@ self.addEventListener('push', (event) => {
     renotify: true,
     data: { url: data.url || '/' },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  const roundPush = options.tag === 'da-spar-match' || options.tag.startsWith('da-live-');
+  event.waitUntil((roundPush
+    ? self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cls) => {
+        const inRound = cls.some((c) => {
+          try { return /^\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge)(?:\.html)?(?:\/|$)/.test(new URL(c.url).pathname); }
+          catch (e) { return false; }
+        });
+        return inRound ? null : self.registration.showNotification(title, options);
+      })
+    : self.registration.showNotification(title, options)));
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
