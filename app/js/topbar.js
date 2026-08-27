@@ -1380,7 +1380,7 @@
         a.style.background = 'rgba(239,68,68,.10)';
         a.style.border = '1px solid rgba(239,68,68,.35)';
         a.style.borderRadius = '999px';
-        a.style.padding = '5px 12px';
+        a.style.padding = '9px 12px';
         if (!document.getElementById('daSparPulseStyle')){
           var hs = document.createElement('style');
           hs.id = 'daSparPulseStyle';
@@ -1402,7 +1402,7 @@
         a.style.background = '#16a34a';
         a.style.border = '1px solid #15803d';
         a.style.borderRadius = '999px';
-        a.style.padding = '5px 13px';
+        a.style.padding = '9px 13px';
         a.style.boxShadow = '0 6px 18px -8px rgba(22,163,74,.8)';
         if (!document.getElementById('daMoneyPulseStyle')){
           var ms = document.createElement('style');
@@ -1427,7 +1427,7 @@
         a.style.background = '#dc2626';
         a.style.border = '1px solid #b91c1c';
         a.style.borderRadius = '999px';
-        a.style.padding = '5px 13px';
+        a.style.padding = '9px 13px';
         a.style.boxShadow = '0 6px 18px -8px rgba(220,38,38,.8)';
       }
       // `cta` = the one filled pill on the rail. Solid red on white text,

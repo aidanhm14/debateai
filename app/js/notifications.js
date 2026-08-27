@@ -464,8 +464,8 @@
       ':root{--dab-surface:#17171b;--dab-elev:#212127;--dab-border:rgba(255,255,255,.11);--dab-border-strong:rgba(255,255,255,.24);--dab-text:#fff;--dab-dim:rgba(255,255,255,.72);--dab-ghost:rgba(255,255,255,.55);--dab-accent:var(--accent,#ef4444);--dab-ok:var(--success-text,#4ade80);--dab-unread:rgba(239,68,68,.09);--dab-shadow:0 20px 64px rgba(0,0,0,.52)}' +
       'html[data-theme="crimson"],body.crimson-theme{--dab-surface:#1a0a0a;--dab-elev:#241111;--dab-border:rgba(239,68,68,.16);--dab-border-strong:rgba(239,68,68,.3)}' +
       'html[data-theme="light"],html[data-lighting="light"],body.light-theme{--dab-surface:#fffdf8;--dab-elev:#f3efe5;--dab-border:rgba(23,23,22,.12);--dab-border-strong:rgba(23,23,22,.26);--dab-text:#171716;--dab-dim:rgba(23,23,22,.70);--dab-ghost:rgba(23,23,22,.60);--dab-accent:#b91c1c;--dab-ok:#166534;--dab-unread:rgba(185,28,28,.07);--dab-shadow:0 2px 4px rgba(22,19,14,.06),0 24px 60px rgba(22,19,14,.18)}' +
-      '.ui-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;margin-right:6px;border-radius:999px;background:transparent;border:1px solid var(--dab-border);color:var(--dab-dim);cursor:pointer;transition:color .15s,border-color .15s,background .15s;font-family:inherit}' +
-      '.ui-bell--round{flex:0 0 auto;margin-right:0}' +
+      '.ui-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:999px;background:transparent;border:1px solid var(--dab-border);color:var(--dab-dim);cursor:pointer;transition:color .15s,border-color .15s,background .15s;font-family:inherit}' +
+      '.ui-bell--round{flex:0 0 auto}' +
       '.ui-bell:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
       '.ui-bell.has-unread{color:var(--dab-accent);border-color:var(--dab-accent)}' +
       '.ui-bell--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:16px;z-index:99996;background:var(--dab-surface);box-shadow:var(--dab-shadow)}' +
