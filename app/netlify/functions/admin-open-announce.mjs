@@ -146,6 +146,25 @@ function renderEmail({ firstName, uid, registered }) {
     where this product goes, both its growth and its long term vision.
   </p>
 
+  <!-- The number is drawn, not screenshotted. Gmail and Outlook hide images
+       from a sender the reader has not engaged with, and an image-only stat
+       leaves the paragraph under it pointing at a grey box. This renders
+       everywhere, stays sharp on any screen, and needs nothing hosted. -->
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 18px">
+    <tr><td style="border:1px solid #e4e4e0;border-radius:14px;padding:18px 20px;background:#fbfbf9">
+      <div style="font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#6b6b76;margin-bottom:6px">Spar match rate</div>
+      <div style="font-size:2.1rem;font-weight:900;letter-spacing:-.02em;color:#1a1a1f;line-height:1.1">17.4%</div>
+      <div style="font-size:.82rem;color:#b45309;margin-top:4px">411 of 2,368 joins matched, last 30 days</div>
+    </td></tr>
+  </table>
+
+  <p style="${P}">
+    Most people who go looking for a live opponent never find one. The matching
+    is not broken. There is simply nobody else in the queue at that moment. We
+    need more people live at once, so share this with your friends. Keep watch
+    of our growth, and take an active part in it.
+  </p>
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Feel free to write us feedback too!</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">Debatable</p>
