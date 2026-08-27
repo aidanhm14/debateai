@@ -150,10 +150,16 @@ Return ONLY valid JSON matching this schema:
 Return 2 to 12 flow rows depending on the material. Return at most 6 rows in every other array. Use empty arrays when the material cannot support a section.`;
 
 function userMessage({ text, format, motion, perspective }) {
+  const perspectiveInstruction = perspective === 'round'
+    ? 'Flow every represented side. When labels identify You and AI, keep them separate and preserve each explicit side. Include at least one flow row from every side that made a substantive argument. Never collapse both sides into one speaker.'
+    : perspective === 'opponent'
+      ? 'The supplied material is the opponent speech. Flow that speech precisely. Suggested responses and the next-speech plan must help the user answer the opponent, not help the opponent improve its own case.'
+      : 'The supplied material is the user speech. Flow it precisely. Suggested responses and the next-speech plan must help the user repair, extend, or defend that speech.';
   return `ANALYSIS SETTINGS
 Format: ${format || 'Auto'}
 Motion or resolution: ${motion || 'Not supplied'}
 Material type selected by user: ${perspective}
+Perspective instruction: ${perspectiveInstruction}
 
 SUPPLIED SPEECH MATERIAL
 <transcript>

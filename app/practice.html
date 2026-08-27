@@ -7130,6 +7130,13 @@ function App() {
   var [daOnboarded, setDaOnboarded] = useState(() => {
     try {return localStorage.getItem('debateos-da-onboarded') === '1';} catch {return true;}
   });
+  // The first round now produces a two-sided flow automatically. Explain
+  // that once, at the moment someone presses Start Round, rather than
+  // interrupting a timed speech or spending their prep clock on a modal.
+  var [autoFlowNoticeSeen, setAutoFlowNoticeSeen] = useState(() => {
+    try {return localStorage.getItem('debatable-auto-flow-notice-v1') === '1';} catch {return true;}
+  });
+  var [autoFlowNoticeOpen, setAutoFlowNoticeOpen] = useState(false);
 
   // Use-case picker selection. null = picker is open (first-visit users).
   // Once the user picks (or the legacy onboarded flag is set), we never
@@ -7415,8 +7422,13 @@ function App() {
   };
 
   // Start debate
-  var startDebate = () => {
+  var startDebate = (skipAutoFlowNotice) => {
     if (!motion.trim()) return;
+    if (!skipAutoFlowNotice && !isCounterExt && !autoFlowNoticeSeen) {
+      setAutoFlowNoticeOpen(true);
+      try {window.gtag && gtag('event', 'auto_flow_notice_shown', { format: fmt.name });} catch (e) {}
+      return;
+    }
     // Out of credit? Say so HERE, before the person invests prep time.
     // The round is still charged once at goToSpeeches(); without this
     // check a creditless user walked through the full prep phase and
@@ -7428,6 +7440,8 @@ function App() {
     // Setting up a new round closes the previous round's free window; the
     // next one charges again when its speeches start.
     endRoundCredit();
+    setFlowSheet('');
+    setFlowError('');
     // SFX/TTS warmup is decorative — wrap in try/catch so a missing
     // method (e.g. the historic /js/sfx.js collision where window.SFX
     // got overwritten and lost startRound) can't take down the entire
@@ -8208,6 +8222,8 @@ function App() {
   // coach would flow it. Plain-text markdown table so it copies cleanly.
   var [flowSheet, setFlowSheet] = useState('');
   var [flowLoading, setFlowLoading] = useState(false);
+  var [flowError, setFlowError] = useState('');
+  var flowRunRef = useRef(false);
   // Multi-round pattern analysis. After enough rounds exist in history,
   // AI reads the last N and surfaces recurring weaknesses the user can
   // actually train out, what they drop, where their speaker points
@@ -8368,6 +8384,7 @@ Rules:
       setPanelText('');
       setPanelResult(null);
       setFlowSheet('');
+      setFlowError('');
       setPatterns('');
       setDrillPlan(null);
       if (drillPlan.format && FORMATS[drillPlan.format]) setFormat(drillPlan.format);
@@ -8416,55 +8433,138 @@ Rules:
     }
   };
 
-  var genFlowSheet = async (allLog) => {
-    setFlowLoading(true);
-    setFlowSheet('');
-    var tx = allLog.map((l) => `[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
-    var sys = `You are a debate coach reading a round transcript and producing a FLOW SHEET the way a tab-style judge would flow it in real time. Your output is a compact, readable plain-text table a student can use to study the round.
+  // The practice round now uses the purpose-built /api/flow analyzer instead
+  // of asking the selected opponent brain for an unstructured second answer.
+  // Each transcript entry carries participant AND side. The old [PM. You]
+  // labels made it easy for a model to flow only the user's material or merge
+  // You and AI into one bench, especially in formats with four teams.
+  var buildTwoSidedFlowTranscript = (allLog) => {
+    var rows = (allLog || []).filter((l) => l && l.text && l.text !== '(no transcript)');
+    if (!rows.length) return '';
+    // Keep every speech represented under the endpoint's 50k input ceiling.
+    // Equal per-speech budgets preserve both sides and chronology instead of
+    // chopping the last speeches off the round wholesale.
+    var perSpeech = Math.max(600, Math.floor(48000 / rows.length) - 180);
+    return rows.map((l) => {
+      var speech = (SPEECHES || []).find((s) => s.code === l.code);
+      var sideKey = speech && speech.side || '';
+      var sideLabel = sideKey && fmt.sideLabels && fmt.sideLabels[sideKey] || (l.code === 'POI' ? 'Point of Information' : 'Side unclear');
+      var speechText = String(l.text || '');
+      if (speechText.length > perSpeech) speechText = speechText.slice(0, perSpeech) + ' [transcript shortened for flow analysis]';
+      return '[' + (l.code || 'Speech') + '. ' + (l.who || 'Unknown') + ' | ' + sideLabel + (sideKey ? ' [' + sideKey + ']' : '') + ']\n' + speechText;
+    }).join('\n\n');
+  };
 
-OUTPUT FORMAT, plain text (no markdown headers, no backticks). Use this exact structure:
+  var flowResultToText = (result) => {
+    var r = result || {};
+    var clean = (value) => String(value == null ? '' : value).trim().replace(/\u2014/g, ',');
+    var blocks = [];
+    var userSideLabel = fmt.sideLabels && fmt.sideLabels[side] || side;
+    var aiSideLabels = (fmt.sides || []).filter((sideKey) => sideKey !== side).map((sideKey) => fmt.sideLabels && fmt.sideLabels[sideKey] || sideKey);
+    blocks.push('ROUND FLOW, ' + clean(fmt.name) + ' · "' + clean(motion) + '"');
+    blocks.push('BOTH SIDES\nYou: ' + clean(userSideLabel) + '\nAI: ' + clean(aiSideLabels.join(', ') || 'Opposing side'));
 
-ROUND FLOW, ${fmt.name} · "${motion}"
-Side: user=${fmt.sideLabels[side] || side}
-
-ARGUMENT LEDGER
----------------
-For each DISTINCT argument that appeared in the round, one row:
-  [tag] · ran by: [gov/opp or user/ai] · outcome: [won / dropped / turned / conceded / mitigated]
-  Warrant: 1 sentence.
-  Journey: brief speech-by-speech ("PM introduced → LO responded with X → MG extended → MO dropped it").
-  Flow status: whether this argument reaches the ballot or not, and why.
-
-Aim for 5-8 arguments. Don't invent arguments that weren't actually made, only flow what the transcript contains.
-
-KEY CLASHES
------------
-2-3 clashes between the sides. For each:
-  CLASH: [name]
-  Gov/User said: ...
-  Opp/AI said: ...
-  Winner of the clash + one-sentence reason.
-
-DROPS & CONCESSIONS
--------------------
-Every argument that was dropped or conceded, one per line:
-  [speech code]: [who] dropped [argument name], why it matters.
-
-WEIGHING
---------
-One paragraph. What the judge weighs the round on in practice, magnitude/probability/timeframe/reversibility, and whose impacts win under that lens. Be blunt about which side lost the weighing, if either.
-
-Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing paragraph, no "hope this helps."`;
-    try {
-      var raw = '';
-      var ts = window.TypeStream && window.TypeStream.create(setFlowSheet, { cps: 140 });
-      await callAI(sys, 'Full round transcript:\n\n' + tx, (chunk) => {raw = chunk;if (ts) ts.feed(chunk);else setFlowSheet(chunk);}, brain, { voiceFeature: 'feedback' });
-      if (ts) ts.done();
-      setFlowSheet(raw);
-    } catch (e) {
-      setFlowSheet('Could not generate flow sheet: ' + e.message);
+    var overview = r.overview || {};
+    var overviewLines = [];
+    if (overview.thesis) overviewLines.push('Thesis: ' + clean(overview.thesis));
+    if (overview.speech_role) overviewLines.push('Round shape: ' + clean(overview.speech_role));
+    if (r.scope && r.scope.note) overviewLines.push('Scope: ' + clean(r.scope.note));
+    if (overviewLines.length) {
+      blocks.push('ROUND OVERVIEW');
+      blocks.push(overviewLines.join('\n'));
     }
-    setFlowLoading(false);
+
+    var flowRows = Array.isArray(r.flow) ? r.flow : [];
+    if (!flowRows.length) throw new Error('The flow came back without an argument ledger. Try again.');
+    blocks.push('ARGUMENT LEDGER');
+    flowRows.forEach((row, index) => {
+      var lines = [
+      clean(row.id || 'A' + (index + 1)) + ' · ' + clean(row.tag || 'Argument') + ' · ' + clean(row.speaker || 'Side unclear') + ' · ' + clean(row.status || 'unclear').toUpperCase()];
+      if (row.claim) lines.push('Claim: ' + clean(row.claim));
+      if (row.warrant) lines.push('Warrant: ' + clean(row.warrant));
+      if (row.impact) lines.push('Impact: ' + clean(row.impact));
+      if (row.evidence) lines.push('Evidence: ' + clean(row.evidence));
+      if (row.journey) lines.push('Journey: ' + clean(row.journey));
+      if (row.judge_note) lines.push('Flow status: ' + clean(row.judge_note));
+      blocks.push(lines.join('\n'));
+    });
+
+    var clashes = Array.isArray(r.clashes) ? r.clashes : [];
+    if (clashes.length) {
+      blocks.push('KEY CLASHES');
+      clashes.forEach((row) => {
+        var lines = ['Clash: ' + clean(row.name || 'Main clash')];
+        if (row.side_one) lines.push('Side one: ' + clean(row.side_one));
+        if (row.side_two) lines.push('Side two: ' + clean(row.side_two));
+        if (row.comparison) lines.push('Comparison: ' + clean(row.comparison));
+        if (row.edge) lines.push('Edge: ' + clean(row.edge));
+        if (row.reason) lines.push('Reason: ' + clean(row.reason));
+        blocks.push(lines.join('\n'));
+      });
+    }
+
+    var drops = Array.isArray(r.drops) ? r.drops : [];
+    if (drops.length) {
+      blocks.push('DROPS & GAPS');
+      drops.forEach((row) => {
+        var classification = clean(row.classification || 'unanswered_in_material').replace(/_/g, ' ');
+        var lines = [clean(row.argument_id || 'Argument') + ' · ' + classification.toUpperCase()];
+        if (row.dropped_by) lines.push('By: ' + clean(row.dropped_by));
+        if (row.why_it_matters) lines.push('Why it matters: ' + clean(row.why_it_matters));
+        if (row.repair) lines.push('Repair: ' + clean(row.repair));
+        blocks.push(lines.join('\n'));
+      });
+    }
+
+    if (overview.ballot_story) {
+      blocks.push('WEIGHING');
+      blocks.push(clean(overview.ballot_story));
+    }
+
+    var responses = Array.isArray(r.responses) ? r.responses : [];
+    if (responses.length) {
+      blocks.push('REPAIRS FOR THE NEXT ROUND');
+      responses.forEach((row, index) => {
+        var lines = [index + 1 + '. ' + clean(row.target || 'Priority clash') + ' · ' + clean(row.response_type || 'response').toUpperCase()];
+        if (row.line) lines.push('Line: ' + clean(row.line));
+        if (row.why) lines.push('Why: ' + clean(row.why));
+        if (row.proof_needed) lines.push('Proof needed: ' + clean(row.proof_needed));
+        blocks.push(lines.join('\n'));
+      });
+    }
+    return blocks.filter(Boolean).join('\n\n');
+  };
+
+  var genFlowSheet = async (allLog) => {
+    if (flowRunRef.current) return;
+    flowRunRef.current = true;
+    setFlowLoading(true);
+    setFlowError('');
+    setFlowSheet('');
+    try {
+      var tx = buildTwoSidedFlowTranscript(allLog);
+      if (!tx) throw new Error('No completed speeches were available to flow.');
+      var response = await fetch('/api/flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: tx, motion: motion, format: fmt.name, perspective: 'round' })
+      });
+      var data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.result) throw new Error(data.error || 'The flow could not be generated.');
+      var rendered = flowResultToText(data.result);
+      setFlowSheet(rendered);
+      try {window.gtag && gtag('event', 'auto_flow_complete', {
+          format: fmt.name,
+          speeches: (allLog || []).filter((l) => l && (l.who === 'You' || l.who === 'AI')).length,
+          both_sides: (allLog || []).some((l) => l && l.who === 'You') && (allLog || []).some((l) => l && l.who === 'AI')
+        });} catch (e) {}
+    } catch (e) {
+      setFlowError(e && e.message || 'The automatic flow did not finish. Try again.');
+      try {window.gtag && gtag('event', 'auto_flow_failed', { format: fmt.name });} catch (err) {}
+    } finally {
+      flowRunRef.current = false;
+      setFlowLoading(false);
+    }
   };
 
   var genPanelFeedback = async (allLog) => {
@@ -8657,6 +8757,12 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   var genFeedback = async (allLog) => {
     setFbLoading(true);setBallot(null);
     setDeepBallot('');setDeepBallotLoading(false);
+    // Start the flow beside the ballot. It has its own endpoint and state,
+    // so neither result waits for the other and a ballot failure does not
+    // erase the round's argument record.
+    if (!flowSheet && !flowRunRef.current) {
+      try {genFlowSheet(allLog);} catch (e) {}
+    }
     var tx = allLog.map((l) => `[${l.code}. ${l.who}]: ${l.text}`).join('\n\n');
     // Prompt lives server-side as PROMPT_LIBRARY.singleJudgeBallot
     try {
@@ -9272,7 +9378,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   };
 
   // Reset
-  var newRound = () => {clearSession();endRoundCredit();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setRoundGenId(null);setRoundRating(0);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
+  var newRound = () => {clearSession();endRoundCredit();transition('setup', () => {setMotion('');setBackground('');setIdx(0);setLog([]);setFeedback('');setBallot(null);setRoundGenId(null);setRoundRating(0);setNotes('');setAiText('');setAiError('');setShowTx(false);setPanelText('');setPanelResult(null);setFlowSheet('');setFlowError('');setPatterns('');setDrillPlan(null);setCaseSaved(false);setCasePublished(null);});};
 
   // Turn the current ballot into one short, specific practice target.
   // Quick Clash has normalized dimension scores. Other formats expose
@@ -9484,6 +9590,45 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   el('div', { style: { display: 'flex', justifyContent: 'center', marginTop: 14 } },
   el('button', { onClick: () => setQuotaCTA(null), style: { padding: '8px 18px', background: 'transparent', color: 'var(--c-muted)', border: 'none', fontSize: '.72rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, opacity: .45 } }, 'keep previewing locally')
   )
+  )
+  );
+
+  // One-time feature notice. It opens only after Start Round is pressed,
+  // while the setup screen is still idle, so it never consumes prep time or
+  // covers a live speech. Acknowledging it continues the exact start action.
+  var autoFlowNoticeOverlay = autoFlowNoticeOpen && el('div', {
+    onClick: () => setAutoFlowNoticeOpen(false),
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', backdropFilter: 'blur(7px)', WebkitBackdropFilter: 'blur(7px)', zIndex: 1150, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+    role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'autoFlowNoticeTitle'
+  },
+  el('div', {
+    onClick: (e) => e.stopPropagation(),
+    style: { maxWidth: 510, width: '100%', padding: '28px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.38)', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,.62)', textAlign: 'left' }
+  },
+  el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 12 } },
+  el('div', { style: { fontSize: '.62rem', fontWeight: 850, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444' } }, 'Auto flow'),
+  el('button', { type: 'button', onClick: () => setAutoFlowNoticeOpen(false), 'aria-label': 'Close auto flow notice', style: { background: 'transparent', border: 0, color: 'var(--c-muted)', fontSize: '1.35rem', lineHeight: 1, padding: 4, cursor: 'pointer' } }, '×')
+  ),
+  el('h2', { id: 'autoFlowNoticeTitle', style: { margin: '0 0 10px', color: 'var(--c-bright)', fontSize: '1.55rem', lineHeight: 1.16, letterSpacing: '-.025em' } }, 'Both sides, flowed for you.'),
+  el('p', { style: { margin: '0 0 18px', color: 'var(--c-text)', fontSize: '.9rem', lineHeight: 1.58 } }, 'Debatable tracks every completed speech from your side and the AI side. After the last speech, it builds the argument ledger, clashes, drops, and weighing automatically beside your ballot.'),
+  el('div', { style: { display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: 8, alignItems: 'center', marginBottom: 18, padding: '14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'center' } },
+  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: '#fca5a5' } }, 'YOUR SIDE'),
+  el('span', { style: { color: 'var(--c-muted)' } }, '+'),
+  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-text)' } }, 'AI SIDE'),
+  el('span', { style: { color: 'var(--c-muted)' } }, '→'),
+  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: '#ef4444' } }, 'ONE FLOW')
+  ),
+  el('p', { style: { margin: '0 0 20px', color: 'var(--c-muted)', fontSize: '.76rem', lineHeight: 1.5 } }, 'During the round, tap Flow to revisit what each side has said.'),
+  el('button', {
+    type: 'button', className: 'cta', style: { width: '100%', justifyContent: 'center', margin: 0 },
+    onClick: () => {
+      try {localStorage.setItem('debatable-auto-flow-notice-v1', '1');} catch (e) {}
+      setAutoFlowNoticeSeen(true);
+      setAutoFlowNoticeOpen(false);
+      try {window.gtag && gtag('event', 'auto_flow_notice_acknowledged', { format: fmt.name });} catch (e) {}
+      startDebate(true);
+    }
+  }, 'Got it. Start prep')
   )
   );
 
@@ -9752,6 +9897,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   brandPollOverlay,
   accountOverlay,
   quotaCtaOverlay,
+  autoFlowNoticeOverlay,
   helpFloatingButton,
   el('div', { className: 'ambient' }), bar,
   el('div', { className: stageClass },
@@ -10544,6 +10690,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
   brandPollOverlay,
   accountOverlay,
   quotaCtaOverlay,
+  autoFlowNoticeOverlay,
   helpFloatingButton,
   el('div', { className: 'ambient' }), bar,
   el('div', { className: stageClass },
@@ -12548,19 +12695,21 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     el('button', { className: 'cta-ghost speech-btn', onClick: () => endSpeech() }, isUser ? 'End Speech →' : 'Skip →')
     ),
 
-    // In-round tools. Notes + Flow buttons used to live here too
-    // but were dropped 2026-05-10: the speech-screen view is the
-    // wrong moment to nudge a user to open a notes panel — they're
-    // mid-speech, talking to the orb, and the floating pills under
-    // End Speech read as visual clutter. Notes/Flow stay reachable
-    // via the prep screen; in-speech the user just talks. Saved
-    // Cases + the in-round "Save case" shortcut do still belong
-    // here (post-AI-turn capture is a load-bearing flow), but the
-    // whole row is hidden when there's nothing to show.
+    // In-round tools. Flow is deliberately available after the first
+    // completed speech so the one-time notice has a real control to point
+    // at. It shows both sides in speech order. Notes stay off this screen;
+    // opening a writing surface mid-speech is still the wrong interruption.
     (() => {
       var aiSpeechCount = log.filter((l) => l.who === 'AI').length;
-      if (savedCases.length === 0 && aiSpeechCount === 0) return null;
+      var completedSpeechCount = log.filter((l) => l.who === 'You' || l.who === 'AI').length;
+      if (savedCases.length === 0 && completedSpeechCount === 0) return null;
       return el('div', { className: 'row-c', style: { gap: 6, marginTop: 8, flexWrap: 'wrap' } },
+      completedSpeechCount > 0 && el('button', {
+        className: 'cta-ghost',
+        style: { padding: '6px 14px', fontSize: '.68rem', marginTop: 0, opacity: showRoundPanel === 'flow' ? .9 : .55 },
+        onClick: () => setShowRoundPanel(showRoundPanel === 'flow' ? null : 'flow'),
+        'aria-expanded': showRoundPanel === 'flow'
+      }, 'Flow · ' + completedSpeechCount),
       savedCases.length > 0 && el('button', { className: 'cta-ghost', style: { padding: '6px 14px', fontSize: '.68rem', marginTop: 0, opacity: showRoundPanel === 'cases' ? .9 : .4 }, onClick: () => setShowRoundPanel(showRoundPanel === 'cases' ? null : 'cases') }, 'Cases'),
       aiSpeechCount > 0 && el('button', {
         className: 'cta-ghost',
@@ -12599,10 +12748,14 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     }),
     showRoundPanel === 'flow' && el('div', { className: 'round-panel-body' },
     log.length === 0 ? el('div', { style: { color: 'var(--c-dim)', fontSize: '.78rem', textAlign: 'center' } }, 'No speeches yet') :
-    log.map((l, i) => el('div', { key: i, style: { marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--c-border)' } },
-    el('div', { style: { fontSize: '.65rem', fontWeight: 700, color: l.who === 'You' ? '#ef4444' : 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 } }, l.code + '. ' + l.who),
-    el('div', { style: { fontSize: '.78rem', color: 'var(--c-mid)', lineHeight: 1.5, maxHeight: 80, overflow: 'hidden' } }, l.text.slice(0, 300) + (l.text.length > 300 ? '...' : ''))
-    ))
+    log.map((l, i) => {
+      var speech = (SPEECHES || []).find((s) => s.code === l.code);
+      var sideLabel = speech && fmt.sideLabels && fmt.sideLabels[speech.side] || '';
+      return el('div', { key: i, style: { marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--c-border)' } },
+      el('div', { style: { fontSize: '.65rem', fontWeight: 700, color: l.who === 'You' ? '#ef4444' : 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 } }, l.code + '. ' + l.who + (sideLabel ? ' · ' + sideLabel : '')),
+      el('div', { style: { fontSize: '.78rem', color: 'var(--c-mid)', lineHeight: 1.5, maxHeight: 120, overflowY: 'auto' } }, l.text.slice(0, 900) + (l.text.length > 900 ? '...' : ''))
+      );
+    })
     ),
     showRoundPanel === 'cases' && el('div', { className: 'round-panel-body' },
     savedCases.slice(0, 5).map((c) => el('div', { key: c.id, style: { marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--c-border)', cursor: 'pointer' }, onClick: () => {navigator.clipboard.writeText(c.fullText).catch(() => {});} },
@@ -12652,7 +12805,7 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     // to is now genuinely inert: not a link, not focusable, and it says
     // why on hover.
     { id: 'fb-ballot', label: audienceCopy('Ballot', 'Feedback'), shown: true },
-    { id: 'fb-flow', label: audienceCopy('Flow', 'Arguments'), shown: !!flowSheet, why: 'Generate the flow sheet further down to fill this in.' },
+    { id: 'fb-flow', label: flowLoading ? 'Flowing…' : audienceCopy('Flow', 'Arguments'), shown: true },
     { id: 'fb-patterns', label: 'Patterns', shown: !!patterns, why: 'Patterns appear once you have three rounds on record.' },
     { id: 'fb-drill', label: audienceCopy('Drill', 'Practice'), shown: !!drillPlan && !drillPlan.error, why: 'A drill is built from your patterns, so it needs three rounds first.' },
     { id: 'fb-transcript', label: 'Transcript', shown: true }].
@@ -13400,15 +13553,15 @@ Do NOT preface the output with anything. Start with "ROUND FLOW , ". No closing 
     })(),
 
     el('div', { id: 'fb-flow', style: { marginTop: 24, textAlign: 'center', scrollMarginTop: 80 } },
-    !flowSheet && !flowLoading && el('button', {
-      className: 'cta-ghost',
-      style: { fontSize: '.78rem' },
-      onClick: () => genFlowSheet(log)
-    }, 'Generate flow sheet'),
+    !flowSheet && !flowLoading && !flowError && el('div', { style: { fontSize: '.78rem', color: 'var(--c-muted)' } }, 'Your two-sided flow is starting with the ballot.'),
     flowLoading && el('div', { style: { fontSize: '.78rem', color: 'var(--c-muted)' } },
     el('span', { className: 'spinner', style: { marginRight: 8 } }),
-    'Flowing the round…'
+    'Flowing both sides…'
     )
+    ),
+    flowError && !flowLoading && !flowSheet && el('div', { style: { maxWidth: 520, margin: '12px auto 0', padding: '14px 16px', borderRadius: 12, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.32)', color: 'var(--c-text)' } },
+    el('div', { style: { fontSize: '.8rem', lineHeight: 1.5, marginBottom: 10 } }, 'Auto flow did not finish. ' + flowError),
+    el('button', { className: 'cta-ghost', style: { fontSize: '.72rem', margin: 0 }, onClick: () => genFlowSheet(log) }, 'Try flow again')
     ),
     // The flow used to render as one tall monospace slab inside the
     // 640px reading column, which is the wrong shape twice over: a flow
