@@ -54,6 +54,19 @@
     });
   }
 
+  var PROVIDER_NAMES = {
+    anthropic: 'Anthropic',
+    openai: 'OpenAI',
+    google: 'Google',
+    xai: 'xAI',
+    deepseek: 'DeepSeek',
+  };
+
+  function providerName(provider) {
+    var key = String(provider || '').toLowerCase();
+    return PROVIDER_NAMES[key] || provider || 'AI';
+  }
+
   /* One fetch per page load, shared by every mount. The charter is
      edge-cached and identical for everyone, so a second request would
      buy nothing. */
@@ -328,6 +341,10 @@
     '[data-theme="light"] .jb-propose[disabled]{color:var(--jbc-ink,#374151)}',
     '.jb-strip-seat{font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.62}',
     '.jb-strip-note{font-size:.72rem;line-height:1.5;opacity:.7;margin:8px 0 0}',
+    '.jb-method{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}',
+    '.jb-method-card{border:1px solid var(--border,rgba(255,255,255,.12));border-radius:11px;padding:11px 12px;',
+    'background:var(--bg-card,rgba(255,255,255,.03));font-size:.76rem;line-height:1.55}',
+    '.jb-method-card strong{display:block;font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}',
     '.jb-sheet-wrap{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:18px}',
     '.jb-scrim{position:absolute;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(2px)}',
     '.jb-sheet{position:relative;max-width:520px;width:100%;max-height:86vh;overflow-y:auto;',
@@ -358,7 +375,7 @@
     '.jb-test-l{font-weight:700;color:var(--jbc,#9ca3af)}',
     '.jb-foot{font-size:.76rem;line-height:1.55;opacity:.55;margin:16px 0 0}',
     '.jb-foot a{color:inherit;text-decoration:underline}',
-    '@media (max-width:560px){.jb-sheet{padding:18px 16px 14px;max-height:92vh}',
+    '@media (max-width:560px){.jb-method{grid-template-columns:1fr}.jb-sheet{padding:18px 16px 14px;max-height:92vh}',
     '.jb-sheet-name{font-size:1.3rem}.jb-note{font-size:1rem}',
     '.jb-practice{grid-template-columns:1fr;gap:2px 0}.jb-practice dd{margin-bottom:8px}}',
   ].join('');
@@ -391,7 +408,7 @@
        judging them without telling them what that juror wants, which is
        the half of the information that changes how you speak. */
     var cards = b.seated.map(function (s) {
-      var flags = '<span class="arc-badge arc-badge--mono">' + esc(s.model) + '</span>';
+      var flags = '<span class="arc-badge arc-badge--mono">' + esc(providerName(s.provider)) + ' · ' + esc(s.model) + '</span>';
       if (s.overridden) {
         // A disclosed override has to be visible on the card. The whole
         // charter exists because a quiet one is the problem.
@@ -418,10 +435,14 @@
       : '';
 
     return '<div class="arc-grid" data-cols="3">' + cards + '</div>'
+      + '<div class="jb-method">'
+      + '<div class="jb-method-card"><strong>How the council decides</strong>Every brain receives the same transcript and rubric, then votes independently. Two matching votes carry. Speaker points and scorecard axes use the panel median, and any dissent stays separate.</div>'
+      + '<div class="jb-method-card"><strong>How persuasion is scored</strong>Concrete stakes and an understandable, checkable world count. Charm, confidence, fluency, polish, accent, and delivery do not. Persuasion can decide only a tie the flow left level.</div>'
+      + '</div>'
       + '<p class="arc-locked-why" style="margin:12px 0 0">'
       + 'Pinned for the season' + (season ? ' (' + esc(season) + ')' : '') + '. '
       + 'Nobody picks your judges, us included; read them instead. A majority carries. ' + split
-      + 'This panel decides ranked async rounds; a live round is written by one judge in the room, from the same published method. '
+      + 'This council decides ranked async rounds and server-written live ballots. If it cannot be constituted, the ballot names the single-brain fallback. '
       + '<a href="/judge-integrity" style="color:inherit;text-decoration:underline">Read the criteria.</a>'
       + '</p>';
   }
@@ -443,13 +464,12 @@
           + avatarSvg(s, 30)
           + '<span style="text-align:left">'
           + '<span class="jb-strip-name" style="display:block">' + esc(s.name) + '</span>'
-          + '<span class="jb-strip-seat" style="display:block">' + esc(s.seat) + '</span>'
+          + '<span class="jb-strip-seat" style="display:block">' + esc(providerName(s.provider)) + ' · ' + esc(s.model) + '</span>'
           + '</span>'
           + '</button>';
       }).join('')
       + '</div>'
-      + '<p class="jb-strip-note">Ranked async rounds are decided by this three-model panel, and no one picks it, us included. '
-      + 'A live round is different: one judge writes the ballot in the room, from the same published method.</p>';
+      + '<p class="jb-strip-note">Ranked async rounds and server-written live ballots use this council. Each brain reads the same transcript and votes independently; two matching votes carry. Persuasion means argumentative force, never voice or polish.</p>';
   }
 
   /* ── LENSES ─────────────────────────────────────────────────────
@@ -457,8 +477,8 @@
    * The paradigms a LIVE round can be judged under, which is the set
    * that matters on /spar because a spar match becomes a live round.
    * Distinct from the bench above, and the distinction is not cosmetic:
-   * the bench is who judges async rounds and is pinned, while the lens
-   * is the one part of a live ballot the two debaters agree on.
+   * the bench is who judges server-written rounds and is pinned, while
+   * the lens is the one part of a live ballot the two debaters agree on.
    *
    * Picking here is a NOMINATION and nothing more. It rides into the
    * round, and it binds only when the opponent independently lands on

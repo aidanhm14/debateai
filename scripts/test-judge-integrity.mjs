@@ -188,6 +188,45 @@ function t(label, cond) {
     jurors.every((j) => new RegExp('^\\s*' + j.provider + ':', 'm').test(jurorsSrc)));
   t('every pinned provider has an availability check',
     jurors.every((j) => new RegExp("provider === '" + j.provider + "'").test(jurorsSrc)));
+
+  // The public disclosure has to live where people meet the council and
+  // where they read its ballot. A complete audit row hidden behind an API
+  // is evidence, but it is not an explanation.
+  const integrityPage = readFileSync(new URL('../app/judge-integrity.html', import.meta.url), 'utf8');
+  t('integrity page names how the council decides',
+    integrityPage.includes('How the council reaches a decision.')
+      && integrityPage.includes('Same round, separate reads.')
+      && integrityPage.includes('One brain, one vote.'));
+  t('integrity page separates AI persuasion from audience movement',
+    integrityPage.includes('How persuasion is captured.')
+      && integrityPage.includes('The AI score')
+      && integrityPage.includes('The human read'));
+  t('integrity page draws named brain roles from the live charter',
+    integrityPage.includes('(c.bench && c.bench.seated)')
+      && integrityPage.includes('b.temper')
+      && integrityPage.includes('j.pinnedModel'));
+
+  const draftSrc = readFileSync(new URL('../app/js/judge-draft.js', import.meta.url), 'utf8');
+  t('pre-round council names providers, models, method, and persuasion fence',
+    draftSrc.includes("esc(providerName(s.provider)) + ' · ' + esc(s.model)")
+      && draftSrc.includes('How the council decides')
+      && draftSrc.includes('How persuasion is scored'));
+
+  const roundsPage = readFileSync(new URL('../app/rounds.html', import.meta.url), 'utf8');
+  const liveRoundPage = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+  t('published async ballots name the brains actually used',
+    roundsPage.includes('Brains used: ')
+      && roundsPage.includes('p.models')
+      && roundsPage.includes('scorecard axes are panel medians'));
+  t('live ballots name the brains and explain the persuasion score',
+    liveRoundPage.includes('Brains used: ')
+      && liveRoundPage.includes('ballotCouncilHtml(b)')
+      && liveRoundPage.includes('human audience, not the AI score'));
+
+  const judgePage = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
+  t('one-off judge names its selected provider and exact model',
+    judgePage.includes("brain.maker + ' ' + brain.name + ' · ' + brain.model")
+      && judgePage.includes('This one-off ballot uses only'));
 }
 
 // ── 2c. deciding-issue agreement ────────────────────────────────────

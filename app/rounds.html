@@ -156,6 +156,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .ballot .b-panel-tag{display:inline-block;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
     color:var(--ink);background:rgba(29,25,21,.06);border:1px solid rgba(29,25,21,.12);border-radius:99px;padding:3px 9px;margin-right:6px}
   .ballot .b-panel-sp{color:var(--ink-ghost)}
+  .ballot .b-panel-models{display:block;margin-top:5px;color:var(--ink-ghost);font-size:.74rem}
   .ballot .b-panel a{color:var(--red-deep);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(160,40,30,.3)}
   .ballot .b-dissent{margin:0 0 10px;padding:10px 12px;border-left:3px solid #3d6b8c;background:rgba(61,107,140,.06);border-radius:0 10px 10px 0}
   .ballot .b-dissent-h{margin:0 0 4px;font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:#3d6b8c}
@@ -172,6 +173,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .ballot .b-dim-o{color:#3d6b8c}
   .ballot .b-dim-bar{flex:1;height:7px;border-radius:99px;overflow:hidden;background:#3d6b8c;display:block}
   .ballot .b-dim-bar i{display:block;height:100%;background:var(--red)}
+  .ballot .b-dim-note{margin:9px 0 2px;padding-top:9px;border-top:1px solid rgba(29,25,21,.1);font-size:.72rem;line-height:1.5;color:var(--ink-ghost)}
   .ballot .b-rfd{font-size:.98rem;line-height:1.65;color:var(--ink)}
   .ballot .b-deep{margin-top:16px;border-top:1px solid rgba(29,25,21,.12);padding-top:14px}
   .ballot .b-deep-text{font-size:.92rem;line-height:1.65;color:var(--ink);white-space:pre-wrap}
@@ -825,6 +827,22 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // ballot are different objects and a debater is entitled to know which
   // one they got. Dissenting jurors are shown with their own reasoning
   // intact rather than blended into the majority RFD.
+  function brainName(model){
+    var m = String(model || '');
+    if (/^claude/i.test(m)) return 'Anthropic Claude (' + m + ')';
+    if (/^gpt/i.test(m)) return 'OpenAI GPT (' + m + ')';
+    if (/^gemini/i.test(m)) return 'Google Gemini (' + m + ')';
+    if (/^grok/i.test(m)) return 'xAI Grok (' + m + ')';
+    if (/^deepseek/i.test(m)) return 'DeepSeek (' + m + ')';
+    return m || 'model not named';
+  }
+
+  function modelsLine(p, single){
+    var models = p && Array.isArray(p.models) ? p.models.filter(Boolean) : [];
+    if (!models.length) return '';
+    return '<span class="b-panel-models">' + (single ? 'Brain used: ' : 'Brains used: ') + models.map(brainName).map(esc).join(' · ') + '</span>';
+  }
+
   function panelHtml(p){
     try {
       if (!p) return '';
@@ -832,6 +850,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         return '<p class="b-panel"><span class="b-panel-tag">Single judge</span> '
           + (p.degraded ? 'The panel could not be constituted for this round, so one model wrote this ballot.'
                         : 'One model wrote this ballot.')
+          + modelsLine(p, true)
           + ' <a href="/judge-integrity">How judging works</a></p>';
       }
       var cast = Number(p.votesCast)||0, size = Number(p.panelSize)||0;
@@ -847,16 +866,18 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       if (p.dissents && p.dissents.length){
         for (var i=0;i<p.dissents.length;i++){
           var d = p.dissents[i];
-          diss += '<div class="b-dissent"><p class="b-dissent-h">Dissent, for '
+          diss += '<div class="b-dissent"><p class="b-dissent-h">Dissent · ' + esc(brainName(d.model)) + ' · for '
             + esc(d.winner === 'prop' ? 'Proposition' : 'Opposition') + '</p><p>' + esc(d.rfd||'') + '</p></div>';
         }
       }
       return '<p class="b-panel"><span class="b-panel-tag">' + esc(head) + '</span>' + sp
+        + modelsLine(p, false)
+        + '<span class="b-panel-models">Same transcript and rubric, one vote per brain. Two matching votes carry. Speaker points and scorecard axes are panel medians.</span>'
         + ' <a href="/judge-integrity">How judging works</a></p>' + diss;
     } catch(e){ return ''; }
   }
 
-  function dimBarsHtml(b, propName, oppName){
+  function dimBarsHtml(b, propName, oppName, panel){
     try {
       var dm = b && b.dimensions;
       if (!dm) return '';
@@ -866,12 +887,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       // otherwise adding one would have wiped the scorecard off every
       // round judged before today.
       var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['persuasion','Persuasion']];
-      var rows = '', shown = 0;
+      var rows = '', shown = 0, persuasionShown = false;
       for (var i=0;i<AXES.length;i++){
         var a = dm[AXES[i][0]];
         var pv = a && Number(a.prop), ov = a && Number(a.opp);
         if (!a || !isFinite(pv) || !isFinite(ov)) continue;
         shown++;
+        if (AXES[i][0] === 'persuasion') persuasionShown = true;
         pv = Math.max(0, Math.min(10, pv)); ov = Math.max(0, Math.min(10, ov));
         var share = (pv + ov) ? Math.round(pv / (pv + ov) * 100) : 50;
         rows += '<div class="b-dim"><span class="b-dim-l">'+AXES[i][1]+'</span>' +
@@ -880,7 +902,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
           '<b class="b-dim-o">'+ov+'</b></span></div>';
       }
       if (shown < 4) return '';
-      return '<div class="b-dims"><p class="b-dims-h">Judge&#39;s scorecard <span>'+esc(propName)+' vs '+esc(oppName)+' · each axis 1 to 10</span></p>'+rows+'</div>';
+      var persuasionNote = persuasionShown
+        ? '<p class="b-dim-note">Persuasion measures concrete stakes and an understandable, checkable world. It never scores charm, confidence, fluency, polish, accent, or delivery, and it can decide only a tie the flow left level.'
+          + ((panel && panel.resolution !== 'single') ? ' The value shown is the panel median.' : '') + '</p>'
+        : '';
+      return '<div class="b-dims"><p class="b-dims-h">Judge&#39;s scorecard <span>'+esc(propName)+' vs '+esc(oppName)+' · each axis 1 to 10</span></p>'+rows+persuasionNote+'</div>';
     } catch(e){ return ''; }
   }
 
@@ -961,7 +987,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         '<p class="b-win">'+headline+'</p>' +
         panelHtml(pnl) +
         '<p class="b-pts">'+esc(r.prop&&r.prop.name||'Prop')+' '+r.ballot.propPoints+' · '+esc(r.opp&&r.opp.name||'Opp')+' '+r.ballot.oppPoints+' speaker points'+(r.replyWaived?' · reply waived':'')+'</p>' +
-        dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp') +
+        dimBarsHtml(r.ballot, r.prop&&r.prop.name||'Prop', r.opp&&r.opp.name||'Opp', pnl) +
         (r.ballot.decidingIssue ? '<p class="b-issue"><span>Decided on</span>'+esc(r.ballot.decidingIssue)+'</p>' : '') +
         // Reading depth. The winner, the points, the panel and the
         // deciding issue are the ballot at any depth and stay put; only

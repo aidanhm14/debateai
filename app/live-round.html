@@ -690,6 +690,7 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
    only render what it publishes). */
 #roomShift{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:14px 16px}
 #roomShift .rs-head{font-size:.62rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px}
+#roomShift .rs-head span{font-weight:700;letter-spacing:0;text-transform:none;margin-left:7px}
 #roomShift .rs-bars{display:flex;flex-direction:column;gap:9px}
 #roomShift .rs-row{display:grid;grid-template-columns:74px 1fr auto;align-items:center;gap:10px;font-size:.78rem}
 #roomShift .rs-when{color:var(--text-dim);font-weight:700;text-transform:uppercase;font-size:.6rem;letter-spacing:.09em}
@@ -706,6 +707,14 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #roomShift .rs-thin{margin-top:10px;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
 #roomShift .rs-caveats{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);font-size:.68rem;line-height:1.5;color:var(--text-dim)}
 #roomShift .rs-caveats li{margin:2px 0;list-style:none}
+.ballot-council{margin:0 0 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);padding:13px 16px}
+.ballot-council .bc-head{font-size:.64rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px}
+.ballot-council .bc-models{font-size:.78rem;line-height:1.5;font-weight:700;color:var(--text);margin:0 0 5px}
+.ballot-council .bc-method{font-size:.72rem;line-height:1.5;color:var(--text-dim);margin:0}
+.ballot-council .bc-dissent{margin:10px 0 0;padding:9px 11px;border-left:3px solid #60a5fa;background:rgba(96,165,250,.08);border-radius:0 9px 9px 0}
+.ballot-council .bc-dissent strong{display:block;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:#60a5fa;margin-bottom:4px}
+.ballot-council .bc-dissent p{font-size:.74rem;line-height:1.5;color:var(--text-dim);margin:0}
+.ballot-council a{color:var(--accent,#ef4444);font-weight:700}
 .replay-note{flex-basis:100%;margin:8px 0 0;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
 .replay-note a{color:var(--accent,#ef4444);font-weight:700}
 .rfd strong{font-weight:800}
@@ -10767,7 +10776,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '  "conFeedback": "<Same structure and length as proFeedback, for the Con speaker.>",',
       '  "dimensions": { "clarity": {"pro": <n>, "con": <n>}, "reasoning": {"pro": <n>, "con": <n>}, "responsiveness": {"pro": <n>, "con": <n>}, "weighing": {"pro": <n>, "con": <n>}, "strategy": {"pro": <n>, "con": <n>}, "persuasion": {"pro": <n>, "con": <n>} }',
       "}",
-      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = command of language and rhetorical control as read from the transcript — never a substitute for warrants. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
+      "For \"dimensions\": each <n> is an integer 1–10 scoring that side alone. clarity = structure, signposting, intelligibility. reasoning = warrants and link chains. responsiveness = direct clash with the other side's actual arguments. weighing = impact comparison and ballot-story crystallization. strategy = collapse choices, prioritization, time allocation, adapting to how the round actually unfolded. persuasion = whether the argument was built to move a reasonable listener through concrete stakes, a pictureable and checkable world, and a specific move you can name. Never score charm, confidence, volume, pace, fluency, polish, vocabulary, accent, dialect, or delivery. Persuasion never repairs a missing warrant, never rescues a side with no offense, and decides only a tie the flow left genuinely level. Score axes independently from the flow; they should differ where the round differed. proPoints/conPoints MUST cohere with these axes via the weighted blend defined above (a speaker averaging 4s across the axes cannot receive an 80).",
       "",
       "'pro' = " + f.sideLabels[f.sides[0]] + " side. 'con' = " + f.sideLabels[f.sides[1]] + " side. Map the speakers' names exactly.",
       "Be specific to what was said. Quote-style references are great. Do not be sycophantic — call out drops, missed weighing, and weak warrants. If a side ran no real arguments, say so plainly.",
@@ -12144,7 +12153,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }).join('') + '</ul>';
     }
 
-    return '<div class="rs-head">How the room moved</div>' + body;
+    return '<div class="rs-head">How the room moved <span>human audience, not the AI score</span></div>' + body;
   }
 
   // Spectators restate over minutes rather than at the buzzer, and the
@@ -12672,6 +12681,48 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       + '</div>';
   }
 
+  function councilBrainName(model){
+    var m = String(model || '');
+    if (/^claude/i.test(m)) return 'Anthropic Claude (' + m + ')';
+    if (/^gpt/i.test(m)) return 'OpenAI GPT (' + m + ')';
+    if (/^gemini/i.test(m)) return 'Google Gemini (' + m + ')';
+    if (/^grok/i.test(m)) return 'xAI Grok (' + m + ')';
+    if (/^deepseek/i.test(m)) return 'DeepSeek (' + m + ')';
+    return m || 'model not named';
+  }
+
+  function ballotCouncilHtml(b){
+    try {
+      var p = b && b.panel;
+      if (!p) return '';
+      var models = Array.isArray(p.models) ? p.models.filter(Boolean) : [];
+      var names = models.length ? models.map(councilBrainName).map(escHtml).join(' · ') : 'Model not recorded';
+      if (p.resolution === 'single'){
+        return '<div class="ballot-council"><div class="bc-head">Single-brain ballot</div>' +
+          '<p class="bc-models">' + names + '</p>' +
+          '<p class="bc-method">' + (p.degraded ? 'The council could not reach quorum, so the stamped fallback wrote this ballot.' : 'One brain wrote this ballot.') +
+          ' <a href="/judge-integrity">How judging works</a></p></div>';
+      }
+      var cast = Number(p.votesCast) || 0;
+      var wanted = Number(p.jurorsWanted) || Number(p.panelSize) || cast;
+      var tally = p.tally || {};
+      var carried = Math.max(Number(tally.a) || 0, Number(tally.b) || 0);
+      var head = p.unanimous && !p.degraded
+        ? 'AI council · unanimous, ' + cast + ' of ' + cast
+        : 'AI council · ' + carried + ' matching votes from ' + cast + ' cast' + (p.degraded && wanted > cast ? ', ' + (wanted - cast) + ' seat unavailable' : '');
+      var dissents = Array.isArray(p.dissents) ? p.dissents : [];
+      var dissentHtml = dissents.map(function(d){
+        var side = d.winner === 'pro' ? (state.proName || 'Pro') : (state.conName || 'Con');
+        return '<div class="bc-dissent"><strong>Dissent · ' + escHtml(councilBrainName(d.model)) + ' · for ' + escHtml(side) + '</strong>' +
+          '<p>' + judgeHtml(d.rfd || 'No written dissent returned.') + '</p></div>';
+      }).join('');
+      return '<div class="ballot-council"><div class="bc-head">' + escHtml(head) + '</div>' +
+        '<p class="bc-models">Brains used: ' + names + '</p>' +
+        '<p class="bc-method">Same transcript and rubric, one vote per brain. Two matching votes carry. Speaker points and scorecard axes are panel medians, and dissent is kept separate. <a href="/judge-integrity#decision">Read the method</a>.</p>' +
+        dissentHtml + '</div>';
+    } catch(e){ return ''; }
+  }
+
   // Judge's scorecard: the ballot's per-axis dimensions block as one
   // tug-of-war bar per axis (green = Pro share, red = Con share). All
   // four axes must validate or nothing renders — old ballots stored
@@ -12687,7 +12738,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // rework and render only when the ballot carries them, so
       // pre-rework ballots keep their exact 4-row scorecard.
       var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['strategy','Strategy'],['persuasion','Persuasion']];
-      var rows = [];
+      var rows = [], persuasionShown = false;
       for (var i = 0; i < AXES.length; i++){
         var optional = i >= 4;
         var a = dm[AXES[i][0]];
@@ -12696,6 +12747,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           if (optional) continue;
           return '';
         }
+        if (AXES[i][0] === 'persuasion') persuasionShown = true;
         pv = Math.max(0, Math.min(10, pv)); cv = Math.max(0, Math.min(10, cv));
         var share = (pv + cv) ? Math.round(pv / (pv + cv) * 100) : 50;
         rows.push(
@@ -12717,6 +12769,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           '<span style="font-size:.74rem;opacity:.72"><b style="color:#22c55e">' + escHtml(state.proName) + '</b> vs <b style="color:#ef4444">' + escHtml(state.conName) + '</b> · each axis 1 to 10</span>' +
         '</div>' +
         rows.join('') +
+        (persuasionShown
+          ? '<p style="margin:9px 0 2px;padding-top:9px;border-top:1px solid rgba(127,127,127,.2);font-size:.7rem;line-height:1.5;color:var(--text-dim)">Persuasion measures concrete stakes and an understandable, checkable world. It never scores charm, confidence, fluency, polish, accent, or delivery, and it can decide only a tie the flow left level.' + ((b.panel && b.panel.resolution !== 'single') ? ' The value shown is the panel median.' : '') + '</p>'
+          : '') +
       '</div>';
     } catch(e){ return ''; }
   }
@@ -12851,6 +12906,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<div class="verdict-headline">' + escHtml(winnerName) + ' wins</div>' +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
+      ballotCouncilHtml(b) +
       // "of 100" renders only when the ballot is on the 1-100 scale
       // (points above 30); pre-rework ballots re-rendered from Firestore
       // are on the old 30-point scale and keep the bare label.
