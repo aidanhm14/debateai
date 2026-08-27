@@ -373,8 +373,9 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The
-  signed-out `/spar` gate deliberately displays "12 live" as the founder's
-  conversion call; operational queue surfaces keep using real counts. Its
+  signed-out `/spar` gate uses the founder-called 12 as its floor and adds
+  the fresh real queue count from `/api/spar-queue`; operational queue
+  surfaces keep using their unpadded real counts. Its
   surrounding cast is the eight consented real stills plus the seven
   `fictional-*.jpg` screenshots named Sydney, Sofia, Kevin, Anna, Malik,
   Chloe, and Mike, which Aidan supplied and confirmed are fake on 2026-08-27.

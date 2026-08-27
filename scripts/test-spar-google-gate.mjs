@@ -26,7 +26,13 @@ check(notifications.match(/authProvider: 'google\.com'/g)?.length >= 2, 'every b
 check(rules.includes("request.resource.data.authProvider == 'google.com'"), 'Firestore must bind the queue marker to Google auth');
 check(pair.includes("theirs.authProvider !== 'google.com'"), 'matcher must reject a non-Google passive seat');
 
-check(spar.includes('>12 live now</span>'), 'signed-out gate must carry the founder-called 12-live display');
+check(spar.includes('>12 live now</span>'), 'signed-out gate must carry the founder-called 12-live baseline');
+check(spar.includes("var GATE_LIVE_BASE = 12;"), 'signed-out gate must keep 12 as its live-count floor');
+check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must fetch the fresh public queue count');
+check(/function gateLiveTotal\(waiting\)[\s\S]*?return GATE_LIVE_BASE \+/.test(spar), 'signed-out gate must add the real queue count to the 12-live floor');
+const gateLiveBody = spar.match(/function gateLiveTotal\(waiting\)\{([\s\S]*?)\n  \}/)?.[1];
+const gateLiveTotal = gateLiveBody ? Function('waiting', 'var GATE_LIVE_BASE = 12;' + gateLiveBody) : null;
+check(gateLiveTotal && gateLiveTotal(3) === 15 && gateLiveTotal(-2) === 12, 'signed-out gate live-count arithmetic must add waiting people without lowering the floor');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');

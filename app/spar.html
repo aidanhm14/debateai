@@ -1667,9 +1667,8 @@ body.draft-live #daExpAsk{display:none !important}
 .gate-anon-copy{font-size:.78rem;line-height:1.5;color:var(--text-ghost)}
 .gate-anon-copy strong{color:var(--text);font-weight:750}
 @media(max-width:420px){.gate-anon-face{width:50px;height:50px}}
-/* Signed-out conversion signal. The founder called a fixed 12-person
-   display for this gate on 2026-08-27; it is intentionally not the raw
-   queue count used on operational matching surfaces. */
+/* Signed-out conversion signal. Twelve is the founder-called baseline;
+   the fresh public queue count is added once /api/spar-queue returns. */
 .gate-live{display:flex;align-items:center;justify-content:center;gap:8px;margin:-6px 0 16px;font-size:.86rem;font-weight:650;color:var(--text)}
 .gate-live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.7);animation:gateLivePulse 1.6s ease-in-out infinite;flex-shrink:0}
 .gate-live[data-quiet] .gate-live-dot{background:#6b7280;box-shadow:none;animation:none;opacity:.55}
@@ -3651,6 +3650,48 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
 
+  // The founder-called 12 is the floor, not the whole count. Add the
+  // honest, fresh waiting queue so the number rises with people who can
+  // actually be met right now. /api/spar-queue is public, shared-cached
+  // for 15s, and applies the same 120s heartbeat window as this page.
+  var GATE_LIVE_BASE = 12;
+  var gateLivePollTimer = null;
+  var gateLiveViewTracked = false;
+
+  function gateLiveTotal(waiting){
+    return GATE_LIVE_BASE + Math.max(0, Math.floor(Number(waiting) || 0));
+  }
+
+  function paintGateLive(waiting){
+    var text = document.getElementById('gateLiveText');
+    if (!text) return;
+    var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
+    var total = gateLiveTotal(queueWaiting);
+    text.textContent = total + ' live now';
+    if (!gateLiveViewTracked){
+      gateLiveViewTracked = true;
+      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: total, queue_waiting: queueWaiting }); } catch(e){}
+    }
+  }
+
+  function startGateLiveCount(){
+    if (gateLivePollTimer) clearInterval(gateLivePollTimer);
+    gateLiveViewTracked = false;
+    function refresh(){
+      if (!document.getElementById('sparGateCard')){
+        clearInterval(gateLivePollTimer);
+        gateLivePollTimer = null;
+        return;
+      }
+      fetch('/api/spar-queue', { cache: 'no-cache' })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ paintGateLive(d && d.waiting); })
+        .catch(function(){ paintGateLive(0); });
+    }
+    refresh();
+    gateLivePollTimer = setInterval(refresh, 15000);
+  }
+
   function renderGate(){
     if (document.getElementById('sparGateCard')) return;
     // The searching state's grid layout + rail must never leak into the
@@ -3702,7 +3743,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // One action on purpose. Live video is Google-only, so this button
     // goes directly to Google and no email or anonymous door is rendered.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
-    try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: 12 }); } catch(e){}
+    startGateLiveCount();
   }
 
   // ── Gate auto-pop: RETIRED the same day it shipped ───────────
