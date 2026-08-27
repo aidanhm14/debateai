@@ -21,6 +21,10 @@ check(notifications.includes('return isGoogleUser(u);'), 'background queue must 
 check(pair.includes("sign_in_provider !== 'google.com'"), 'matcher must verify the Google provider');
 check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled Google gate');
 check(rules.includes('allow create: if isGoogleAccount()'), 'Firestore must reject non-Google queue creation');
+check(spar.includes("authProvider: 'google.com'"), 'foreground queue must stamp its verified Google provider');
+check(notifications.match(/authProvider: 'google\.com'/g)?.length >= 2, 'every background queue write must stamp Google');
+check(rules.includes("request.resource.data.authProvider == 'google.com'"), 'Firestore must bind the queue marker to Google auth');
+check(pair.includes("theirs.authProvider !== 'google.com'"), 'matcher must reject a non-Google passive seat');
 
 check(spar.includes('>12 live now</span>'), 'signed-out gate must carry the founder-called 12-live display');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');

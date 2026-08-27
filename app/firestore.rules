@@ -466,15 +466,18 @@ service cloud.firestore {
       //    spar-pair repeats the provider check against the verified token,
       //    so both the queue write and the room-opening chokepoint agree.
       //
-      //  - update/delete stay isSignedIn() on purpose: they only touch a
-      //    doc the caller already owns, so a stale ANONYMOUS doc left by
-      //    the trial era can still be released rather than stranded.
+      //  - update stays Google-only and preserves the provider marker.
+      //    Delete stays signed-in so a stale anonymous doc left by the
+      //    trial era can still be released rather than stranded.
       allow read:   if isSignedIn();
       allow create: if isGoogleAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.authProvider == 'google.com'
                     && request.resource.data.status == 'waiting';
-      allow update: if isSignedIn() && queueUid == request.auth.uid;
+      allow update: if isGoogleAccount()
+                    && queueUid == request.auth.uid
+                    && request.resource.data.authProvider == 'google.com';
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 

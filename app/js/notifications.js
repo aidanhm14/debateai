@@ -1988,6 +1988,7 @@
         try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
         myRef.set({
           uid: myUid,
+          authProvider: 'google.com',
           displayName: shortNm(myUser),
           username: publicUsername(myUser),
           photoURL: (myUser && myUser.photoURL) || '',
@@ -2038,7 +2039,7 @@
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
-        uid: myUid, displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        uid: myUid, authProvider: 'google.com', displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
         ageBand: agBand(),
         format: fmt(), status: 'waiting', broaden: true, background: true,
         blockedUids: blockedUids.slice(-100), joinedAt: ts()

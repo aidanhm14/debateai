@@ -1072,6 +1072,22 @@ export default async (request) => {
       if (mine.status !== 'waiting' || theirs.status !== 'waiting') {
         return { ok: false, reason: 'lost_race' };
       }
+      // The caller's verified token proves MY provider above. The peer has
+      // no token on this request, so require the queue marker that Firestore
+      // rules only let a Google-authenticated owner write. This keeps an old
+      // anonymous or email queue doc from becoming the passive seat when a
+      // current Google user initiates the transaction.
+      if (mine.authProvider !== 'google.com') {
+        return { ok: false, reason: 'queue_auth_stale' };
+      }
+      if (theirs.authProvider !== 'google.com') {
+        tx.update(peerRef, {
+          status: 'cancelled',
+          cancelledAt: FieldValue.serverTimestamp(),
+          cancelReason: 'google_sign_in_required',
+        });
+        return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
+      }
       // Stale-peer skip. The client's polling sorts oldest-first, so
       // without this filter every pair attempt would target the oldest
       // ghost in the queue (likely an iOS Safari session that didn't
