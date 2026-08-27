@@ -7493,45 +7493,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // exercise. Do not re-enable it without a decision-log entry.
   function maybeAutoStartRecording(){ return; }
 
-  // ── Tournament rounds: apply the consent given at registration ──────
-  //
-  // This is NOT the retired auto-start above wearing a new name, and the
-  // difference is the only thing that makes it allowable. That one
-  // captured strangers who had agreed to nothing and then asked; this
-  // one runs only when the server can see a `mediaConsent` on BOTH
-  // entrants' tournament entries, ticked on the entry form before the
-  // day began. The server re-checks that itself and starts nothing on a
-  // partial answer, so a forged tournament key or a one-sided opt-in
-  // gets exactly nowhere.
-  //
-  // Why it has to exist at all: with capture fully opt-in, somebody has
-  // to press Record inside the round, and nobody is going to do that in
-  // a five-minute round they are trying to win. Without this a
-  // tournament day produces no video whatsoever.
-  //
-  // Fires at most once per page load. A failure is deliberately silent:
-  // the round is the point, and a debater mid-speech has nothing useful
-  // to do about a recording that did not start.
-  function maybeEventRecording(d){
-    if (cloudRec.eventTried || !state.user || isSpectator() || state.phase !== 'round') return;
-    if ((prefill.source || '') !== 'tournament' || !prefill.tkey) return;
-    var participants = cloudRecordingParticipants(d || {});
-    if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
-    if (d && d.recordingClosed) return;
-    if (d && d.recordingEventConsentApplied === true) return;
-    var consents = (d && d.recordingConsents) || {};
-    // An in-round no is newer than the entry form and outranks it.
-    if (participants.some(function(uid){ return consents[uid] === false; })) return;
-    var st = (d && d.recordingStatus) || 'idle';
-    if (['starting','recording','stopping','processing','stopped','closed','stop_failed','failed'].indexOf(st) >= 0) return;
-    // One caller only. Both clients asking would race two transactions
-    // at the same document to reach the identical result, and the lowest
-    // uid is the same driver rule the round board already uses.
-    if (participants.slice().sort()[0] !== state.user.uid) return;
-    cloudRec.eventTried = true;
-    cloudRecordingPost({ action: 'event', t: prefill.tkey })
-      .catch(function(e){ console.warn('[event recording]', e && e.message); });
-  }
   function unusedAutoStartRecording(d){
     if (cloudRec.autoTried || !state.user || isSpectator() || state.phase !== 'round') return;
     var participants = cloudRecordingParticipants(d || {});
@@ -17999,7 +17960,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     ].join('|');
     if (recSig !== state.recUiSig){
       state.recUiSig = recSig;
-      maybeEventRecording(d);
       maybePromptCloudRecording(d);
     } else {
       cloudRec.doc = d || {};

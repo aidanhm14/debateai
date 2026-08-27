@@ -186,19 +186,17 @@ fi
 # blocks it the same way the judge guard does.
 # ──────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────
-# Age-bracket guard. Under 18 and 18-plus are paired as separate
-# fields, and the reason is safeguarding rather than prize money: a
-# live 1:1 video round between a minor and an adult stranger is the
-# thing the split exists to prevent. The guard tests the real matcher
-# and also reads tournament-dropin.mjs, because a single pool restored
-# there would pass every behavioural assertion on its own.
+# Tournament single-field guard. The August 29 Open has no under-18
+# versus 18-plus split. Legacy answers are ignored by the matcher, the
+# standings are global, and registration carries only an encouragement
+# to be 18+.
 # ──────────────────────────────────────────────────────────────────
-BRACKET_GUARD="$REPO_ROOT/scripts/test-tournament-bracket.mjs"
-if [ -f "$BRACKET_GUARD" ] && command -v node >/dev/null 2>&1; then
-  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-bracket.mjs >/tmp/bracket-guard.log 2>&1); then
-    echo "[bracket-guard] commit blocked — the age split no longer holds:" >&2
-    tail -20 /tmp/bracket-guard.log >&2
-    echo "[bracket-guard] see scripts/test-tournament-bracket.mjs. Never bypass with --no-verify." >&2
+SINGLE_FIELD_GUARD="$REPO_ROOT/scripts/test-tournament-single-field.mjs"
+if [ -f "$SINGLE_FIELD_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-single-field.mjs >/tmp/single-field-guard.log 2>&1); then
+    echo "[single-field-guard] commit blocked: the tournament is no longer one shared field:" >&2
+    tail -20 /tmp/single-field-guard.log >&2
+    echo "[single-field-guard] see scripts/test-tournament-single-field.mjs. Never bypass with --no-verify." >&2
     exit 1
   fi
 fi

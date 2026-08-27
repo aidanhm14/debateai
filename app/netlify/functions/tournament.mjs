@@ -1,7 +1,6 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
-import { AGE_BRACKETS, BRACKET_LABEL, bracketOf, canChangeBracket, partitionByBracket, resolveEntryBracket } from './lib/tournament-bracket.mjs';
 import { standings } from './lib/tournament.mjs';
 import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/tournament-motion-pool.mjs';
 
@@ -24,24 +23,6 @@ import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/t
 
 const CACHE_TTL_MS = 8000;
 const cache = new Map();
-
-// ── Event-level media consent ───────────────────────────────────────
-//
-// One answer at registration covering every round this entrant plays on
-// the day, read by round-recording.mjs's 'event' action.
-//
-// IT MOVES BOTH WAYS, and that is the difference between it and the 18+
-// attestation sitting next to it. The attestation only ever upgrades,
-// because an accidental untick would cost somebody a prize. Consent is
-// the opposite case: a permission you cannot withdraw is not consent,
-// so an explicit false here is honoured and stored with its own
-// timestamp. What is NOT honoured is silence: a client cached from
-// before this shipped sends no field at all, and treating that as a
-// withdrawal would quietly strip an answer somebody actually gave.
-//
-// The version string is stamped on the entry so a consent given under
-// today's wording cannot be read as agreement to wording written later.
-const MEDIA_CONSENT_VERSION = 'tournament-media-v1-2026-08-26';
 
 function cacheGet(key) {
   const hit = cache.get(key);
@@ -150,12 +131,6 @@ function publicEntry(e) {
     byes: Number(e.byes || 0),
     sideCount: e.sideCount || { gov: 0, opp: 0 },
     opponents: Array.isArray(e.opponents) ? e.opponents : [],
-    // Which field this entry plays in. Public because the standings are
-    // published per bracket and a board that cannot say which one a row
-    // belongs to is a board that reads as one merged field again.
-    // It is a coarse age band the entrant chose to publish by entering,
-    // not a birth date, and nothing more precise is stored anywhere.
-    bracket: bracketOf(e),
   };
 }
 
@@ -196,14 +171,10 @@ async function readTournament(db, key) {
   return null;
 }
 
-// ── `me`: the caller's own entry, including the fields publicEntry
-// deliberately withholds ────────────────────────────────────────────
-// publicEntry omits paidEntry / prizeEligible / entryKind because those
-// are one entrant's payment status and nobody else's business. But the
-// entrant themself needs them: since the free-entry cutoff, "I am
-// registered" and "I am eligible for the cash prize" are different
-// facts, and a dashboard that shows only the first would let a free
-// entrant believe they are playing for money.
+// ── `me`: the caller's own entry receipt ────────────────────────────
+// Tournament registration is one shared field. Cash eligibility is
+// verified only if a payout is due, so this payload does not divide the
+// roster by an age or prize-eligibility flag.
 //
 // Unauthenticated callers get no `me` key at all, and a bad or expired
 // token is treated as absent rather than an error: this is a public
@@ -226,51 +197,8 @@ async function withMine(db, payload, request) {
       name: e.name || '',
       status: e.status || 'registered',
       checkedIn: e.status === 'checked_in',
-      paidEntry: e.paidEntry === true,
-      prizeEligible: e.prizeEligible === true,
-      entryKind: e.entryKind || null,
-      // '' means nobody has said which bracket they are in, which the
-      // queue treats as unpairable. The dashboard turns it into one
-      // question rather than letting them discover it at the queue.
-      bracket: bracketOf(e),
-      bracketLabel: BRACKET_LABEL[bracketOf(e)] || '',
-      bracketLocked: bracketOf(e) ? !canChangeBracket(e, bracketOf(e) === 'open' ? 'u18' : 'open') : false,
-      // The entrant's own media answer, so the page can ask once and
-      // then stop asking. `mediaConsentAsked` distinguishes "said no"
-      // from "was never asked": everyone who registered before this
-      // shipped is the second, and they are the people the re-consent
-      // prompt exists for.
-      mediaConsent: e.mediaConsent === true,
-      mediaConsentAsked: typeof e.mediaConsent === 'boolean',
     } };
   } catch { return payload; }
-}
-
-// Standings, one ladder per bracket, concatenated. `rank` is the
-// position inside the bracket, which is the number a competitor is
-// actually reading for and the number the elimination cut is made on.
-function rankByBracket(entries, affById) {
-  const pools = partitionByBracket(entries);
-  const out = [];
-  for (const bracket of [...AGE_BRACKETS, '']) {
-    const pool = bracket ? pools[bracket] : pools.unassigned;
-    if (!pool || !pool.length) continue;
-    standings(pool).forEach((e, i) => {
-      out.push({
-        // An unassigned entry has no standing to report, so it carries
-        // rank 0 rather than a position it did not earn.
-        rank: bracket ? i + 1 : 0,
-        bracket,
-        entryId: e.entryId,
-        name: e.name || 'Team',
-        affiliation: affById.get(e.entryId) || '',
-        wins: e.wins,
-        losses: Number(e.losses || 0),
-        speaks: e.speaks,
-      });
-    });
-  }
-  return out;
 }
 
 export default async (request) => {
@@ -333,17 +261,15 @@ export default async (request) => {
       // The tab. Computed from the same function the pairing engine
       // uses, so what a team sees is exactly what the next draw will
       // be built from.
-      // Ranked WITHIN a bracket, not across the field. Under 18 and
-      // 18-plus are separate contests that happen on the same day, so a
-      // single merged ladder would rank two people who can never meet
-      // and would print a minor above or below an adult as though the
-      // number meant something. Each row carries its bracket and its
-      // rank inside it; the page renders one table per bracket.
-      //
-      // Entries nobody has assigned a bracket to still appear, under
-      // '', because they are registered and the tab is the record of
-      // who entered. They are simply not ranked against anyone.
-      standings: rankByBracket(entries, affById),
+      standings: standings(entries).map((e, i) => ({
+        rank: i + 1,
+        entryId: e.entryId,
+        name: e.name || 'Team',
+        affiliation: affById.get(e.entryId) || '',
+        wins: e.wins,
+        losses: Number(e.losses || 0),
+        speaks: e.speaks,
+      })),
       rounds,
     };
     cacheSet('t:' + key, payload);
@@ -404,104 +330,23 @@ export default async (request) => {
     if (decoded.firebase?.sign_in_provider === 'anonymous') {
       return errorResponse('Create an account to enter a tournament.', 403, request);
     }
-    // Existing entrants may still correct their bracket answer through this
+    // Existing entrants can still update a placeholder name through this
     // idempotent action. The closed door applies to creating a new entry,
-    // not to repairing the roster that already exists.
+    // not to maintaining one already on the roster.
     const already = await existingEntryFor(myUid);
     if (!already && !tournamentRegistrationOpen(t.data)) {
       return errorResponse('Registration is not open for this tournament.', 409, request);
     }
 
-    // Entry is FREE and cash eligibility rides on ONE thing: whether
-    // this person confirmed they are 18 or older (2026-08-22). The
-    // paid door and the founding comp that used to decide this are
-    // both retired; `lib/founding-comp.mjs` stays on disk because the
-    // comp records it wrote are real history that eligibility reads
-    // still honour, but nothing grants a new one.
-    //
-    // The attestation is deliberately an UPGRADE, not a gate. Someone
-    // who entered without ticking the box is a registered competitor,
-    // and register is idempotent, so ticking it later and pressing the
-    // same button is the whole recovery path. It only ever moves in
-    // one direction here: an unticked box on a later call does not
-    // strip eligibility from an entry that already has it, because
-    // that would let a stray click cost somebody a prize.
-    // The age answer now decides TWO things, and they are the same
-    // answer: whether cash can reach this entry, and which field it
-    // plays in (lib/tournament-bracket.mjs). Under 18 and 18-plus are
-    // paired separately, so this is no longer only a prize question.
-    //
-    // It stays an UPGRADE rather than a gate, for the same reason as
-    // before and one new one: a client cached from before this shipped
-    // sends neither field, and event week is the worst possible time
-    // for registration to start rejecting people. An entry with no
-    // answer is registered and simply unpairable until it gives one,
-    // which the queue reports as a question rather than a failure.
-    const { bracket: wantBracket, ageAttested } = resolveEntryBracket(body);
+    // The age selector is retired. Everyone competes in one field, and
+    // cached clients that still submit an age or bracket value are ignored.
 
-    async function applyBracket(snap) {
+    async function applyEntryUpdate(snap) {
       const already = snap.data?.() || {};
-      const current = bracketOf(already);
       const patch = {};
-      let locked = false;
-
-      if (wantBracket && wantBracket !== current) {
-        if (canChangeBracket(already, wantBracket)) {
-          patch.bracket = wantBracket;
-        } else {
-          // Rounds already played in the other bracket. Moving now would
-          // carry a record into a field it was not earned in, and in the
-          // 18+ direction it would put a cash-eligible entrant in the
-          // minors bracket, which is the one arrangement the split
-          // exists to prevent. Refuse both halves together: granting the
-          // attestation while refusing the move is how those two facts
-          // come apart.
-          locked = true;
-        }
-      }
-
-      if (ageAttested && !locked && already.prizeEligible !== true) {
-        patch.prizeEligible = true;
-        patch.ageAttested = true;
-        patch.ageAttestedAt = FieldValue.serverTimestamp();
-      }
-
-      // ── Answering u18 takes cash eligibility back off ────────────
-      //
-      // Everywhere else `prizeEligible` only ever moves UP, because an
-      // accidental untick would cost somebody a prize. This is the one
-      // direction it has to move down, and it is not an exception to
-      // that rule so much as the published one being enforced: the
-      // rules say cash goes to entrants aged 18 or over, and this
-      // person has just said they are not.
-      //
-      // It matters because of where the flag came from. The founding
-      // comp granted it automatically off an account creation date, so
-      // eight live entries hold it having never stated an age, and one
-      // of those accounts is already in the u18 bracket. Without this,
-      // a minor who answers honestly stays on the cash list on the
-      // strength of a comp that never asked.
-      //
-      // Reversible in the ordinary way: attesting 18+ later re-grants
-      // it through the branch above, so a mis-tap costs one more tap.
-      if (wantBracket === 'u18' && !locked && already.prizeEligible === true) {
-        patch.prizeEligible = false;
-        patch.ageAttested = false;
-        patch.prizeEligibilityClearedAt = FieldValue.serverTimestamp();
-      }
-
-      // Absent means unchanged; see MEDIA_CONSENT_VERSION.
-      if (body?.mediaConsent === true && already.mediaConsent !== true) {
-        patch.mediaConsent = true;
-        patch.mediaConsentAt = FieldValue.serverTimestamp();
-        patch.mediaConsentVersion = MEDIA_CONSENT_VERSION;
-      } else if (body?.mediaConsent === false && already.mediaConsent === true) {
-        patch.mediaConsent = false;
-        patch.mediaConsentWithdrawnAt = FieldValue.serverTimestamp();
-      }
 
       // A placeholder yields to a real name. Register is idempotent and
-      // people press it again (to tick 18+, to fix a bracket), so this
+      // people may press it again, so this
       // is the recovery path for an entry that landed as 'Entry' before
       // its owner had a display name. It only ever replaces a
       // placeholder, never a name somebody chose.
@@ -512,20 +357,11 @@ export default async (request) => {
       }
 
       if (Object.keys(patch).length) await snap.ref.update(patch);
-      return {
-        prizeEligible: Object.prototype.hasOwnProperty.call(patch, 'prizeEligible')
-          ? patch.prizeEligible === true
-          : already.prizeEligible === true,
-        bracket: patch.bracket || current,
-        bracketLocked: locked,
-        mediaConsent: Object.prototype.hasOwnProperty.call(patch, 'mediaConsent')
-          ? patch.mediaConsent
-          : already.mediaConsent === true,
-      };
+      return {};
     }
 
     if (already) {
-      const applied = await applyBracket(already);
+      const applied = await applyEntryUpdate(already);
       cache.clear();
       return jsonResponse({ ok: true, already: true, entryId: already.id, ...applied }, 200, request);
     }
@@ -537,11 +373,8 @@ export default async (request) => {
     // wrote the entry as literally 'Entry' with a member called
     // 'Debater', and that is what the public tab, the standings, the
     // pairing card and the live room then showed. One real entrant in
-    // the Open is in that state. Two ways in, both live: /open's
-    // bracket buttons post an age answer with no name and will create
-    // an entry for someone who has not pressed Enter yet, and a
-    // password account that never set a display name resolves to
-    // nothing on the client.
+    // the Open is in that state. A password account that never set a
+    // display name can still resolve to nothing on the client.
     //
     // Every caller here arrived with a VERIFIED ID token, so the name
     // is read from that before any placeholder. The placeholder is the
@@ -590,21 +423,9 @@ export default async (request) => {
       status: 'registered',
       // `paidEntry` means money moved, and the signed Stripe webhook is
       // still the only code that can flip it true. It is now only ever
-      // true of a TIP, which buys nothing, so nothing downstream may
-      // read it as a competitive fact. `prizeEligible` answers the only
-      // question that matters here, "can cash reach this entry", and
-      // since entry is free that is purely the 18+ attestation.
+      // true of a tip, which buys nothing, so nothing downstream may
+      // read it as a competitive fact.
       paidEntry: false,
-      prizeEligible: ageAttested,
-      ageAttested,
-      // '' is a legitimate stored value: it means this entry has not
-      // said, and the queue will ask before it pairs them.
-      bracket: wantBracket,
-      mediaConsent: body?.mediaConsent === true,
-      ...(body?.mediaConsent === true
-        ? { mediaConsentAt: FieldValue.serverTimestamp(), mediaConsentVersion: MEDIA_CONSENT_VERSION }
-        : {}),
-      ...(ageAttested ? { ageAttestedAt: FieldValue.serverTimestamp() } : {}),
       entryKind: 'free',
       wins: 0,
       losses: 0,
@@ -619,9 +440,6 @@ export default async (request) => {
     return jsonResponse({
       ok: true,
       entryId: entryRef.id,
-      prizeEligible: ageAttested,
-      bracket: wantBracket,
-      mediaConsent: body?.mediaConsent === true,
     }, 200, request);
   }
 

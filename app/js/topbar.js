@@ -2989,7 +2989,7 @@
         '<span class="ui-open-tag">' + (today ? 'Today, 10 AM ET' : 'Sat Aug 29 \u00b7 10 AM ET') + '</span>' +
         '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
         '<p class="ui-open-p">The Debatable Open is a one session online tournament. Doors open at <strong>10:00 AM Eastern</strong>, you are paired with a real person, and every round ends with a written verdict. There is no second session and no make-up round. $100 for first, $50 for second, $25 for third.</p>' +
-        '<p class="ui-open-fine">Free to enter. Cash prizes go to entrants 18 or over; under 18 plays the same field for the placement and the ranking.</p>' +
+        '<p class="ui-open-fine">Free to enter. We encourage 18+. Everyone competes in one field. Cash is 18+.</p>' +
         '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
         '<button type="button" class="ui-open-no">Not interested</button>' +
       '</div>';

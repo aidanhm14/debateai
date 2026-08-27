@@ -96,9 +96,9 @@ function renderEmail({ firstName, uid, tournamentName }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">See you Saturday.<br>Debatable</p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their
-    age when entering, and are void where prohibited. An entrant under 18 plays
-    the same field for the placement and the ranking. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
+    Entry is free, and we encourage entrants to be 18+. Everyone competes in one
+    field. Cash prizes go only to eligible winners aged 18 or over, verified before
+    payout, and are void where prohibited. The <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>
     carry eligibility and the payout ladder, including how the pot scales with the field.
   </p>
 

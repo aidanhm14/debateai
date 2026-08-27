@@ -758,70 +758,6 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // room onto an empty chair.
   var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
 
-  var BRACKET_TITLE = { u18: 'Under 18', open: '18 and over', '': 'Bracket not set' };
-
-  // Which field this entrant plays in. '' means they have never said,
-  // which the queue treats as unpairable rather than guessing, so the
-  // page has to ask before it can offer them a round.
-  function myBracket(){
-    var me = state.data && state.data.me;
-    if (me && me.bracket) return me.bracket;
-    var mine = myEntry();
-    return (mine && mine.bracket) || '';
-  }
-
-  function setBracket(choice, btn){
-    var t = state.data && state.data.tournament;
-    if (!t) return;
-    busy(btn, true, 'Saving');
-    api('/api/tournament', {
-      action: 'register',
-      tid: t.tid,
-      bracket: choice,
-      // Choosing the adult bracket IS the 18+ attestation. Two separate
-      // questions asking the same thing is how they end up disagreeing.
-      ageAttested: choice === 'open',
-    })
-      .then(function(){ return load(); })
-      .catch(function(e){ fail(e.message); })
-      .then(function(){ busy(btn, false); });
-  }
-
-  // ── Media consent, asked once for the whole event ───────────────────
-  //
-  // The published rules say day rounds are not broadcast by default, and
-  // that stays true: this is an opt-in, and an entrant who says no plays
-  // exactly the same day. What it replaces is a per-round card in a
-  // five-minute round, which nobody would read and which would cost more
-  // of the round than it is worth.
-  //
-  // NOT A GATE. Both answers are one tap and both go straight on to the
-  // queue. The question is asked once ever and then never again, which
-  // is the only reason it is allowed to sit in front of the Ready
-  // button at all.
-  function mediaAsked(){
-    var me = state.data && state.data.me;
-    return !!(me && me.mediaConsentAsked);
-  }
-
-  function mediaOn(){
-    var me = state.data && state.data.me;
-    return !!(me && me.mediaConsent);
-  }
-
-  function setMediaConsent(yes, btn){
-    var t = state.data && state.data.tournament;
-    if (!t) return;
-    busy(btn, true, 'Saving');
-    api('/api/tournament', { action: 'register', tid: t.tid, mediaConsent: !!yes })
-      .then(function(){
-        try { gtag('event', 'open_media_consent', { tid: t.tid, consent: yes ? 1 : 0 }); } catch(e){}
-        return load();
-      })
-      .catch(function(e){ fail(e.message); })
-      .then(function(){ busy(btn, false); });
-  }
-
   function queueEligible(){
     var t = state.data && state.data.tournament;
     if (!t || t.dropIn === false || t.status !== 'running') return false;
@@ -866,53 +802,6 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var mine = myEntry();
     var say, why = '', action = null;
 
-    // Nobody is paired until they have said which bracket they are in.
-    // Asking here, in the one box that offers rounds, is the whole
-    // recovery path for everyone who entered before the split existed.
-    if (!myBracket()){
-      box.innerHTML = '<b>One question first</b>' +
-        '<div class="say">Are you 18 or over?</div>' +
-        '<div class="why">Under 18 and 18 and over debate in separate brackets, so nobody under 18 is matched with an adult stranger. ' +
-        'Cash prizes are 18 and over only; under 18 plays for the placement and the ranking. You can change this until your first round.</div>';
-      [['open', 'I am 18 or over'], ['u18', 'I am under 18']].forEach(function(pair, i){
-        var b = document.createElement('button');
-        b.className = 'btn btn-lg' + (i === 0 ? ' btn-primary' : '');
-        b.textContent = pair[1];
-        b.addEventListener('click', function(){ setBracket(pair[0], b); });
-        acts.appendChild(b);
-      });
-      addWithdraw(acts, state.data.tournament);
-      return;
-    }
-
-    // Asked once, after the bracket and before the first round. Either
-    // answer moves straight on; nothing about the day changes on a no.
-    //
-    // 18 AND OVER ONLY. A consented round publishes to Watch on its own,
-    // so this box is the difference between a private round and a public
-    // video of a named person. The per-round card asks whether a parent
-    // or guardian approved, and an entry form cannot ask that of anyone
-    // who is not there. Under 18 keeps the per-round card instead, which
-    // is refused here rather than answered badly. The server enforces the
-    // same rule, so this is the wording, not the gate.
-    if (!mediaAsked() && myBracket() === 'open'){
-      box.innerHTML = '<b>One more, then you are in</b>' +
-        '<div class="say">Can your rounds today be recorded?</div>' +
-        '<div class="why">Day rounds are <strong>not recorded by default</strong>. Say yes and your rounds today are captured and can be published on <a href="/watch" style="color:var(--red)">Watch</a>, where the video, audio, display names, and motion appear. ' +
-        'A round only records if <strong>both</strong> debaters said yes, so your answer never puts anyone else on camera. ' +
-        'Say no and you play exactly the same day, nothing is captured, and nobody asks you again. You can change this any time from this page.<br><br>' +
-        '<strong>The founder directs the day and hosts the stream.</strong> He can look into any room to keep things running, and the room never sees him: no camera, no microphone, no name in the list. Your round only reaches the stream if you and your opponent both said yes here.</div>';
-      [[true, 'Yes, record my rounds'], [false, 'No recording']].forEach(function(pair, i){
-        var b = document.createElement('button');
-        b.className = 'btn btn-lg' + (i === 0 ? ' btn-primary' : '');
-        b.textContent = pair[1];
-        b.addEventListener('click', function(){ setMediaConsent(pair[0], b); });
-        acts.appendChild(b);
-      });
-      addWithdraw(acts, state.data.tournament);
-      return;
-    }
-
     if (self && self.inPairing && self.pairing){
       var p = self.pairing;
       var side = p.govEntry === (mine && mine.entryId) ? 'Gov' : 'Opp';
@@ -922,11 +811,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       action = { kind: 'link', href: roomUrl(p, { label: 'Drop-in', motion: '' }), label: 'Join your room' };
     } else if (self && self.queued){
       say = 'In the queue, ' + fmtWait(self.waitingMs) + '.';
-      // The pool is counted inside YOUR bracket, so say so. "6 ready"
-      // while all six are in the other bracket is how a working queue
-      // reads as a broken one.
-      why = (pool > 1 ? pool + ' ready right now in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket. '
-                      : 'Waiting for someone else in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket to be free. ');
+      why = (pool > 1 ? pool + ' ready right now. '
+                      : 'Waiting for someone else to be free. ');
       // Say why a pairable looking pool is not pairing, rather than
       // spinning silently.
       if (dropIn.state && dropIn.state.held){
@@ -941,42 +827,22 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     } else {
       say = 'Say you are ready and you get paired.';
       why = pool > 0
-        ? (pool + ' waiting in the ' + esc(BRACKET_TITLE[myBracket()] || 'same') + ' bracket right now.')
+        ? (pool + ' waiting right now.')
         : 'Play as many rounds as you like.';
       action = { kind: 'btn', label: 'Ready to debate', act: 'ready', primary: true };
     }
 
-    // Splitting the field means each bracket can be thin, especially
-    // early. A queue that offers nothing while it waits is how someone
-    // leaves and does not come back, so offer the AI round. It is
+    // A queue that offers nothing while it waits is how someone leaves
+    // and does not come back, so offer the AI round. It is
     // deliberately labelled as not counting: a practice round that
     // quietly moved the standings would be a way to farm a cash board.
-    var quiet = (self && self.queued && pool <= 1) ? '<div class="why">Quiet in your bracket right now. ' +
+    var quiet = (self && self.queued && pool <= 1) ? '<div class="why">Quiet right now. ' +
       '<a href="/practice" style="color:var(--red)">Take a round against the AI while you wait</a>. ' +
       'It does not count toward the standings.</div>' : '';
 
-    // Where the media answer lives after it has been given. A consent
-    // that cannot be withdrawn is not consent, so it stays visible and
-    // one tap from changing for the whole day. Withdrawing only affects
-    // rounds from here on: anything already captured is governed by the
-    // per-round controls inside the room.
-    var recLine = myBracket() === 'open'
-      ? '<div class="why" style="margin-top:8px">Recording: <strong>' +
-        (mediaOn() ? 'on for your rounds' : 'off') + '</strong>. ' +
-        '<a href="#" data-media-toggle="1" style="color:var(--red)">' +
-        (mediaOn() ? 'Turn it off' : 'Turn it on') + '</a></div>'
-      : '<div class="why" style="margin-top:8px">Recording: <strong>off unless you turn it on inside a round</strong>. ' +
-        'Under 18, the ask happens in the room rather than here, because it needs a parent or guardian to have approved it.</div>';
-
     box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div>' +
-      (why ? '<div class="why">' + esc(why) + '</div>' : '') + quiet + recLine +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '') + quiet +
       (dropIn.err ? '<div class="why" style="color:#fca5a5">' + esc(dropIn.err) + '</div>' : '');
-
-    var toggle = box.querySelector('[data-media-toggle]');
-    if (toggle) toggle.addEventListener('click', function(ev){
-      ev.preventDefault();
-      setMediaConsent(!mediaOn(), null);
-    });
 
     if (action.kind === 'link'){
       addLink(acts, action.label, action.href, true);
@@ -1061,12 +927,6 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   // ── Standings ─────────────────────────────────────────────────────
   //
-  // Two brackets, two ladders. Under 18 and 18-plus are separate
-  // contests run on the same day, so they get separate tables and the
-  // rank in each is the rank inside that bracket. The server already
-  // ranks per bracket; this only has to keep them apart on screen,
-  // because one merged table is exactly the impression the split
-  // exists to remove.
   function renderTab(){
     var rows = state.data.standings || [];
     var tb = $('tabTable').querySelector('tbody');
@@ -1077,16 +937,6 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var mine = myEntry();
     var breakLine = Number(state.data.tournament.breakSize) || 0;
 
-    // Group in a fixed order so the two tables do not swap places as
-    // results land.
-    var order = ['u18', 'open', ''];
-    var groups = {};
-    rows.forEach(function(r){
-      var b = order.indexOf(r.bracket) >= 0 ? r.bracket : '';
-      (groups[b] = groups[b] || []).push(r);
-    });
-    var present = order.filter(function(b){ return (groups[b] || []).length; });
-
     // Before a single round has been debated the tab is every entrant
     // on nil, and the engine still hands back rank 1 through N. Printing
     // that reads as a standing, which it is not: it is entry order
@@ -1095,50 +945,26 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     $('tabTitle').textContent = played ? 'The standings' : 'The field';
     $('tabSub').textContent = played
-      ? 'Wins first, then speaker points, ranked inside each bracket. Under 18 and 18 and over are separate contests and are never paired against each other.'
-      : 'Everyone entered so far, by bracket. The standings replace this the moment the first result lands.';
+      ? 'Wins first, then speaker points. Everyone is ranked in one field.'
+      : 'Everyone entered so far. The standings replace this the moment the first result lands.';
     show('tabNote', played && breakLine > 0);
     if (played && breakLine > 0){
-      $('tabNote').textContent = 'The red line is the break, and each bracket cuts its own top ' + breakLine +
-        '. It moves as results land.';
+      $('tabNote').textContent = 'The red line is the break. The top ' + breakLine + ' advance, and it moves as results land.';
     }
 
-    var html = '';
-    present.forEach(function(b){
-      var list = groups[b];
-      // One bracket in the whole field needs no heading: a header that
-      // says "18 and over" above the only table there is reads as a
-      // filter somebody applied by accident.
-      if (present.length > 1){
-        html += '<tr><th colspan="5" style="padding-top:18px;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)">' +
-          esc(BRACKET_TITLE[b]) + ' &middot; ' + list.length + (list.length === 1 ? ' entrant' : ' entrants') + '</th></tr>';
-      }
-      if (b === ''){
-        // Registered, unpairable, and told so on their own dashboard.
-        // Listed because the tab is the record of who entered, without a
-        // rank they have not earned.
-        html += '<tr><th colspan="5" class="note" style="font-weight:500;text-transform:none;letter-spacing:0">' +
-          'These entrants have not said which bracket they are in yet, so they are not being paired.</th></tr>';
-        html += list.map(function(r){
-          var me = mine && r.entryId === mine.entryId;
-          return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') +
-            '><td colspan="5">' + esc(r.name) + '</td></tr>';
-        }).join('');
-        return;
-      }
-      if (!played){
-        html += '<tr><th colspan="5">Who has entered</th></tr>' +
-          list.slice().sort(function(a, c){ return String(a.name).localeCompare(String(c.name)); })
-            .map(function(r){
-              var me = mine && r.entryId === mine.entryId;
-              return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '><td colspan="5">' + esc(r.name) +
-                (r.affiliation ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>' : '') +
-                '</td></tr>';
-            }).join('');
-        return;
-      }
-      html += '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
-        list.map(function(r){
+    if (!played){
+      tb.innerHTML = '<tr><th colspan="5">Who has entered</th></tr>' +
+        rows.slice().sort(function(a, c){ return String(a.name).localeCompare(String(c.name)); })
+          .map(function(r){
+            var me = mine && r.entryId === mine.entryId;
+            return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '><td colspan="5">' + esc(r.name) +
+              (r.affiliation ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>' : '') +
+              '</td></tr>';
+          }).join('');
+      return;
+    }
+    tb.innerHTML = '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+      rows.map(function(r){
           var me = mine && r.entryId === mine.entryId;
           var aff = r.affiliation
             ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
@@ -1150,9 +976,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
             '<td class="num"' + cut + '>' + r.wins + '</td>' +
             '<td class="num"' + cut + '>' + r.losses + '</td>' +
             '<td class="num"' + cut + '>' + r.speaks + '</td></tr>';
-        }).join('');
-    });
-    tb.innerHTML = html;
+      }).join('');
   }
 
   // Where am I in the draw that is currently on the floor, and can I

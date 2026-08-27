@@ -205,9 +205,9 @@ function renderEmail({ firstName, uid, tournamentName, entered, entryCount, potN
   </p>
 
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Entry is free. Cash prizes go to entrants aged 18 or over who confirm their age
-    when entering, and are void where prohibited. An entrant under 18 plays the same
-    field for the placement and the ranking. Prize amounts are as published on the
+    Entry is free, and we encourage entrants to be 18+. Everyone competes in one
+    field. Cash prizes go only to eligible winners aged 18 or over, verified before
+    payout, and are void where prohibited. Prize amounts are as published on the
     <a href="${rules}" style="color:#dc2626;text-decoration:underline">official rules</a>,
     which carry eligibility and the payout ladder.
   </p>

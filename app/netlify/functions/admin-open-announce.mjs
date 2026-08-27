@@ -108,8 +108,8 @@ const STAMP = 'openAug27SentAt';
 // checked against the live tournament doc and the published page before it
 // shipped: entryFeeCents 0, prizeSplit [10000, 5000, 2500], startsAtISO
 // 2026-08-29T14:00:00Z, and /tournaments states the 12:30 prelim end, the
-// 1:15 final, and the separate under-18 and 18-and-over brackets in its own
-// words. If any of those move, this copy is wrong and has to move with them.
+// 1:15 final, and the single shared field in its own words. If any of those
+// move, this copy is wrong and has to move with them.
 function renderEmail({ firstName, uid, registered }) {
   const cta = 'https://itsdebatable.com/tournaments';
   const P = 'font-size:.95rem;line-height:1.6;margin:0 0 14px';
@@ -128,8 +128,8 @@ function renderEmail({ firstName, uid, registered }) {
   <p style="${P}">${esc(String(registered))} people are registered so far.</p>
 
   <p style="${P}">
-    We'll provide a rundown of the tournament structure tomorrow. Under-18 and
-    18+ brackets are separate for safety.
+    We'll provide a rundown of the tournament structure tomorrow. Everyone
+    competes in one field. We encourage entrants to be 18+.
   </p>
 
   <p style="margin:0 0 22px">

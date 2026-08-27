@@ -11,7 +11,6 @@
 // participant can withdraw to stop future capture immediately.
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { bracketOf } from './lib/tournament-bracket.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 
@@ -198,7 +197,7 @@ export default async (req) => {
   const action = String(body.action || 'consent');
   const room = safeRoomName(body.room);
   if (!room || room !== String(body.room || '')) return errorResponse('Invalid room', 400, req);
-  if (!['consent', 'finish', 'autostart', 'event'].includes(action)) return errorResponse('Unknown action', 400, req);
+  if (!['consent', 'finish', 'autostart'].includes(action)) return errorResponse('Unknown action', 400, req);
   if (action === 'consent' && typeof body.consent !== 'boolean') return errorResponse('consent must be true or false', 400, req);
   if (action === 'consent' && body.consent && body.adultOrGuardianApproved !== true){
     return errorResponse('Adult or guardian approval is required to record', 400, req);
@@ -206,75 +205,6 @@ export default async (req) => {
 
   const db = getDb();
   const ref = db.collection('live_rounds').doc(room);
-
-  // ── 'event': consent that was given before the round, at registration ──
-  //
-  // Auto-start was retired on 2026-08-22 because a stranger arriving for
-  // their first round met a red recording light before they had said a
-  // word. That reasoning is untouched here and this is not a way around
-  // it. The distinction is WHEN the yes happened: an ordinary round asks
-  // someone who has agreed to nothing, while a tournament entrant ticked
-  // a box about this specific event, on the entry form, before the day
-  // started. Consent that precedes the round is not consent chasing it.
-  //
-  // AUTHORITY IS THE ENTRY DOCUMENT, never the request. `t` only says
-  // which tournament to go and read; forging it buys nothing, because
-  // what decides the outcome is `mediaConsent` on the entries that
-  // actually contain the seated uids. A caller who names a tournament
-  // they are not in finds no entries and gets nothing.
-  //
-  // ALL OR NOTHING, and this is the load-bearing half. Capture starts
-  // only if EVERY seated debater's entry carries the consent. One
-  // entrant who opted in cannot put an opponent who did not on camera,
-  // which is the same rule the per-round card enforces, sourced from a
-  // different moment. A partial answer leaves the ordinary opt-in path
-  // exactly as it was.
-  let eventConsent = null;
-  if (action === 'event'){
-    const tkey = String(body.t || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
-    if (!tkey) return errorResponse('Missing tournament', 400, req);
-    try {
-      let tRef = null;
-      const direct = await db.collection('tournaments').doc(tkey).get();
-      if (direct.exists) tRef = direct.ref;
-      else {
-        const bySlug = await db.collection('tournaments').where('slug', '==', tkey).limit(1).get();
-        if (!bySlug.empty) tRef = bySlug.docs[0].ref;
-      }
-      if (!tRef) return errorResponse('Tournament not found', 404, req);
-      const entriesSnap = await tRef.collection('entries').get();
-      const consentedUids = new Set();
-      for (const doc of entriesSnap.docs){
-        const d = doc.data() || {};
-        if (d.mediaConsent !== true) continue;
-        // ── 18 AND OVER ONLY, and this is not a formality ──
-        //
-        // A consented recording AUTO-PUBLISHES to Watch
-        // (recordings-admin.mjs gates publish on recordingConsentComplete
-        // and nothing else), so this flag is the difference between a
-        // private round and a public video of a named person's face.
-        //
-        // The per-round card asks for "I am 18 or older, or my parent or
-        // guardian has approved". An entry-form tick cannot carry that
-        // second clause: nobody is standing over the form to give it, and
-        // stamping adultOrGuardianApproved on a box a 14-year-old ticked
-        // would be inventing the approval rather than collecting it.
-        //
-        // So the whole event-level path is restricted to the adult
-        // bracket. Under-18 rounds are not excluded from recording, they
-        // are excluded from the SHORTCUT: they keep the per-round card,
-        // which asks the guardian question properly and is answered by
-        // both debaters in the room. Same reasoning as the bracket split
-        // itself, one surface further on.
-        if (bracketOf(d) !== 'open') continue;
-        for (const uid of (Array.isArray(d.members) ? d.members : [])) consentedUids.add(uid);
-      }
-      eventConsent = { tkey, consentedUids };
-    } catch (error) {
-      console.warn('[round-recording] event consent lookup failed:', String(error?.message || error).slice(0, 200));
-      return errorResponse('Could not read tournament entries', 503, req);
-    }
-  }
 
   let result;
   try {
@@ -308,46 +238,7 @@ export default async (req) => {
       // is the whole point of the rule that a no is asked again next
       // round rather than assumed: within THIS round a no is final, and
       // auto-start must never be the thing that overrides it.
-      if (action === 'event'){
-        const uids = eventConsent ? eventConsent.consentedUids : new Set();
-        const everyone = participants.every(uid => uids.has(uid));
-        const declined = participants.some(uid => consents[uid] === false);
-        const busy = ['starting', 'recording', 'stopping', 'processing', 'stop_failed'].includes(round.recordingStatus);
-        const late = round.status === 'ballot' || !!round.ballot;
-        // An in-round `false` still wins. Someone who opted in at
-        // registration and changed their mind here has changed their
-        // mind, and the older yes does not get to overrule the newer no.
-        if (!everyone || declined || busy || late || round.recordingClosed){
-          update.recordingStatus = round.recordingStatus || 'idle';
-          update.recordingEventConsentApplied = false;
-        } else {
-          for (const uid of participants){
-            consents[uid] = true;
-            // The receipt records WHERE the yes came from, because
-            // "they ticked a box on the entry form for this event" and
-            // "they pressed yes in this room" are different facts and a
-            // dispute months later needs to be able to tell them apart.
-            tx.set(db.collection('recording_consents').doc(room + '_' + uid + '_' + now), {
-              room,
-              uid,
-              consent: true,
-              decidedAtMs: now,
-              decidedAt: FieldValue.serverTimestamp(),
-              version: CONSENT_VERSION,
-              scope: CONSENT_SCOPE,
-              source: 'tournament_entry',
-              tournament: eventConsent ? eventConsent.tkey : '',
-              adultOrGuardianApproved: true,
-            });
-          }
-          update.recordingConsents = consents;
-          update.recordingEventConsentApplied = true;
-          update.recordingPublishAllowed = true;
-          update.recordingConsentCompleteAtMs = now;
-          update.recordingStatus = 'starting';
-          effect = 'start';
-        }
-      } else if (action === 'autostart'){
+      if (action === 'autostart'){
         const declined = participants.some(uid => consents[uid] === false);
         const busy = ['starting', 'recording', 'stopping', 'processing', 'stop_failed'].includes(round.recordingStatus);
         const late = round.status === 'ballot' || !!round.ballot;
