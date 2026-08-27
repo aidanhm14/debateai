@@ -4395,6 +4395,8 @@ function PolyBackground() {
 
 
 
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4410,9 +4412,7 @@ function PolyBackground() {
         el('polyline', { points: '56,55 60,68 64,55', stroke: '#da7756', strokeWidth: 1, fill: 'none', opacity: .4 }), // Speech lines emanating
         el('line', { x1: 102, y1: 30, x2: 115, y2: 26, stroke: '#da7756', strokeWidth: 1, opacity: .3 }), el('line', { x1: 104, y1: 38, x2: 118, y2: 38, stroke: '#da7756', strokeWidth: .8, opacity: .25 }), el('line', { x1: 102, y1: 46, x2: 114, y2: 50, stroke: '#da7756', strokeWidth: .8, opacity: .2 }))));} /* ═══════════════════════════════════════════════════
 ANTHROPIC API HELPER
-═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';t = t.replace(/<p[^>]*><\/p>/g, '');return t;}
-
-// Typing-stream throttle. The API already streams in chunks, but rendering
+═══════════════════════════════════════════════════ */ /* API key is stored server-side in Netlify environment variables */ /* ── Copy with visual feedback ────── */function copyWithFeedback(text, btnEl) {if (!navigator.clipboard || !text) return;navigator.clipboard.writeText(text).then(function () {if (btnEl) {var orig = btnEl.textContent;btnEl.textContent = 'Copied!';setTimeout(function () {btnEl.textContent = orig;}, 1500);}});} /* ── Clean markdown artifacts from AI output ────── */function cleanOutput(text, asHtml) {if (!text) return text || '';var t = text.replace(/\n{3,}/g, '\n\n');if (!asHtml) {return t.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/^#{1,6}\s+/gm, '');}t = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');t = t.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1<\/strong>');t = t.replace(/\*([^*]+?)\*/g, '<em>$1<\/em>');t = t.replace(/^###\s+(.+)$/gm, '<\/p><h4 class="ai-h4">$1<\/h4><p>');t = t.replace(/^##\s+(.+)$/gm, '<\/p><h3 class="ai-h3">$1<\/h3><p>');t = t.replace(/^#\s+(.+)$/gm, '<\/p><h3 class="ai-h1">$1<\/h3><p>');t = t.replace(/\n\n/g, '<\/p><p class="ai-p">');t = t.replace(/\n/g, '<br>');t = '<p class="ai-p">' + t + '<\/p>';t = t.replace(/<p[^>]*><\/p>/g, '');return t;} // Typing-stream throttle. The API already streams in chunks, but rendering
 // those raw chunks makes the text appear in "blocks" which breaks the typing
 // feel. Instead we accumulate the stream and reveal it character-by-character
 // at ~60fps, using an adaptive step so we never fall so far behind on a fast
@@ -5933,10 +5933,11 @@ REQUIRED SECTIONS:
 
 1. Background (50-100 words): Specific facts, not generic context.
 
-2. Framework as Weapon. Label the strategic function (Exclusion / Burden Shift / Metric Control). At least 3 named, warranted framing points, each with 2-3 roman-numeral warrants. The framework MUST:
-   - Structurally disadvantage Opp's strongest argument category (identify it explicitly in your thinking)
-   - Include explicit WEIGHING CRITERIA (scope, probability, reversibility, timeframe) that naturally favor your arguments
-   - Pass the validation test: Opp probably can't win under this framework, but has a narrow path (so the judge accepts it as fair)
+2. Framework as Decision Rule. Label the strategic function (Priority / Presumption / Metric). At least 2 named, warranted framing points, each with the depth the motion requires. The framework MUST:
+   - Identify the central comparison the judge should make and explain why it fits this motion
+   - Apply the same weighing criteria (scope, probability, reversibility, timeframe) to both sides
+   - Give your case a real strategic advantage only because your analysis satisfies the rule better, never because the rule defines Opposition's best ground out of the round
+   - Pass the fairness test: a strong Opposition team could accept the rule and still win by proving its case
 
 3. 3 arguments built from the top 3 warrants selected in your Phase 2 triage (highest composite scores). Strategically ordered:
    - Argument 1: Most DEFENSIBLE (highest resilience score). hardest for opp to attack
@@ -6104,7 +6105,15 @@ function buildCasePrompt(motion, bg, side, format, depth) {
 
 CRITICAL: Be SUCCINCT. Every sentence must earn its place. Warrants should be tight and punchy (2-3 sentences max), not rambling paragraphs. Examples should be specific and brief. name the case, give the key fact, draw the conclusion. Cut filler words. No throat-clearing. Write like someone who has 7 minutes and zero tolerance for wasted breath.
 
-CRITICAL. CASE BALANCE: The case you write must be COMPETITIVE and DEBATABLE, not one-sided. A good debate case is one where BOTH sides have legitimate, strong arguments. Do NOT write a case where one side automatically wins. The opposition must have real, substantive ground to argue from. If the motion or framing makes it too easy for one side, adjust the resolution, caveats, or framing to create genuine clash. The best cases are ones where the round could go either way depending on execution.
+CRITICAL. FAIR ARCHITECTURE, COMMITTED ADVOCACY: The round must be competitive before the case becomes partisan. Privately identify at least two intuitive, independent winning paths for each side. Keep burdens comparable. Definitions, caveats, and framework may clarify ordinary meaning, but may not erase the other side's strongest expected ground. Then write only the requested side's best honest case with conviction. Do not turn the output into a both-sides essay.
+
+CRITICAL. PRESERVE THE MOTION: Do not silently change the user's motion to make it fair. If it remains tight, incoherent, or built on a false premise after ordinary clarification, say so in the Vulnerability Report and offer one explicitly labeled fairer wording. Never hide a different resolution inside the caveats.
+
+CRITICAL. AUDIENCE AND EDITORIAL VALUE: A cold listener should understand within the opening 20-30 seconds who decides, what changes, who feels the consequence, and why reasonable people disagree. Give the case one clean editorial thesis, then make every argument advance a distinct part of it. Prefer recognizable human stakes and a real practical tension over niche cleverness, culture-war bait, or a stunt premise. A current example is useful only when it sharpens the mechanism. Relevance beats recency.
+
+CRITICAL. FACT DESK: Never invent a statistic, quotation, study, ruling, event, person, or anecdote. Accuracy beats freshness and false precision. There is no citation or name-drop quota. Use a named example only when confident it is real, accessible in this format, and genuinely probative. If a precise fact is uncertain, explain the mechanism without decorating it.
+
+CRITICAL. HUMAN VOICE: Conviction comes from the warrant, not canned swagger. No forced jokes, prefab zingers, fake outrage, repetitive rhetorical questions, consultant headings, or identical three-part structures. Use plain nouns, active verbs, and varied sentence lengths. Earn memorable lines from the substance. Do not manufacture "killer lines."
 
 CRITICAL. BACKGROUNDS: Do NOT invent or include a background section unless the user has explicitly provided background context. If no background was provided, skip the background entirely and go straight to the case structure. Only include a background section if the user wrote one. use their words, do not embellish or add your own.
 
@@ -10142,11 +10151,11 @@ GOOD: "Your causal chain skips from A to C. You said the policy creates incentiv
 WHAT TO EVALUATE:
 1. WARRANT QUALITY: For each warrant, ask: is this specific enough that it could ONLY exist in this case? Or could you copy paste it into any debate? "This harms the economy" is garbage. "This creates a deadweight loss because subsidized producers have no incentive to respond to demand signals, exactly the dynamic that created the EU's butter mountains in the 1980s" is a warrant. Flag every generic warrant.
 
-2. FRAMEWORK TEETH: Does the framework actually resolve disputes, or is it just vibes? Test it: if Gov's impact is X and Opp's impact is Y, does the framework tell the judge which one matters more? If not, it's broken.
+2. FRAMEWORK TEETH AND FAIRNESS: Does the framework actually resolve disputes, or is it just vibes? Test it twice. First, if Gov's impact is X and Opp's impact is Y, does the rule tell the judge how to compare them? Second, could a strong Opp team accept the same rule and still win by proving its case? If the first answer is no, the framework is empty. If the second is no, it is rigged.
 
 3. STRATEGIC VULNERABILITY: This is the most important thing you do. Identify the single argument that a smart opp team would collapse on in the MO to win this round. Tell the debater: "If I'm opp, I'm spending 80% of my MO on THIS, and here's the 3-sentence version of why you lose."
 
-4. AI SMELL TEST: Read each section and ask: does this sound like a confident debater who has done their research, or does it sound like a language model producing balanced analysis? Hedging ("it could be argued"), balance where there should be advocacy ("while there are merits to both sides"), Wikipedia-voice ("X is a concept that refers to"), essay transitions ("Furthermore," "Additionally," "Moreover"). Flag every instance.
+4. AI SMELL TEST: Read each section and ask whether this sounds like a confident debater who understands this motion, or a model performing debate. Flag empty hedging ("it could be argued"), both-sides essay language inside an advocacy case, Wikipedia definitions, essay transitions, canned swagger, forced jokes, prefab zingers, repetitive rhetorical questions, identical three-part structures, and suspiciously precise facts that are not user-supplied or common knowledge.
 
 5. CLICHE DETECTION: Flag any arguments that are so overrun in APDA that every competent opp team has pre-loaded responses. Generic slippery slopes, "education is intrinsically good," vague democracy impacts, "chilling effect" without naming what's chilled.
 
@@ -10164,13 +10173,13 @@ WHAT TO EVALUATE:
 
 12. PRINCIPLED AND CONSEQUENTIALIST LAYERS: Does the case operate on only one level? The strongest cases give the judge multiple independent frameworks. If opp wins the consequentialist debate, does a principled argument still stand? If opp wins the principled debate, do the consequences still favor Gov? A case that only operates on one layer is fragile.
 
-13. HUMOR AND RHETORICAL FLAIR: Does this case sound like it was written by someone who actually wants to win, or does it read like a term paper? Check for:
-   - KILLER LINES: Does the case have at least 2-3 memorable sentences that a judge would underline? Lines sharp enough to stick in someone's head after the round? If every sentence reads at the same flat register, the case has no rhetorical peaks. Tell the debater: "Nothing in this case would make a judge look up from their flow. You need lines that HIT."
-   - WIT AND SHARPNESS: When dismissing weak opposing arguments, does the case do it with flair or with bland hedging? "This argument fails because..." is boring. "This argument has the structural integrity of a wet napkin" lands. If the A2 blocks are all monotone analytical responses with no personality, flag it: "Your A2s read like a textbook. A real debater would say 'this is absurd, and here is why' not 'this argument may be subject to critique.'"
-   - RHETORICAL DEVICES: Is the case using rhetorical questions, vivid imagery, tricolon, antithesis, or punchy one-liners? Or is it wall-to-wall expository prose? The best cases vary their rhythm. A long analytical section should be punctuated by a sharp, short sentence that crystallizes the point. Flag sections that drone on without any rhetorical variation.
-   - PASSION AND CONVICTION: Does the debater sound like they believe what they are saying? Or does the case have the emotional temperature of a refrigerator? Phrases like "it is worth noting" and "one might consider" are passion killers. Replace them with "here is the thing" and "look at what actually happens." If the case reads like the author does not care about the outcome, neither will the judge.
-   - PATHOS/ETHOS/LOGOS BALANCE: Is the case all logos with no emotional hooks? The best cases make you FEEL something. If there is not a single moment in the case where a judge might feel genuine concern, outrage, or recognition, the case is emotionally flat. Flag it: "Your warrants are solid but your case has the emotional range of a spreadsheet. Where is the human being in this argument?"
-   - CALLING OUT BAD ARGUMENTS: Sometimes the most effective feedback is telling the debater that a particular opposing argument is genuinely stupid and can be dismissed with a joke. If the case treats every possible opp response with equal seriousness, that is a mistake. Some arguments deserve to be laughed out of the room. Tell the debater which ones and give them the line to do it with.
+13. AUDIENCE CONTROL AND HUMAN VOICE: Would a smart person outside the circuit understand the conflict and want to hear the answer? Check for:
+   - OPENING CLARITY: Within 20 to 30 seconds, do we know who decides, what changes, who feels it, and why reasonable people disagree? If not, identify the exact fact or conflict that belongs in the lede.
+   - ONE THESIS: Can the case's central story fit in one clean sentence? If arguments do not advance distinct parts of that story, say which ones to merge or cut.
+   - EARNED MEMORABILITY: Does each major section contain one short line that crystallizes analysis already made? Do not request a quota of zingers. Flag lines that sound workshopped, generic, or detached from the warrant.
+   - REAL HUMAN STAKES: Are consequences tied to actual groups and institutions, or to an invented stock character used to manufacture emotion? Reward concrete stakes. Reject synthetic anecdotes.
+   - NATURAL RHYTHM: Look for varied sentence length and clean signposting. Flag wall-to-wall exposition, but also flag mechanical tricolons, repeated questions, and canned confrontation. Personality should sound native to this motion.
+   - FACT DISCIPLINE: Call out any statistic, quotation, study, ruling, event, or person that looks fabricated, unnecessarily obscure, or more precise than the format permits. A case loses credibility faster through one fake detail than through one fewer example.
 
 TONE: Mix honest criticism with genuine encouragement. If a warrant is actually clever, say so: "This is genuinely good. A top team would struggle to answer this cleanly. Protect it in the MG." But NEVER praise mediocre work. The debater needs to know the difference between a 28-speak warrant and a 33-speak warrant.
 

@@ -644,6 +644,37 @@ philosophers (Rawls, Kant, Mill, etc.) unless the motion actually calls
 for ethical philosophy. Default register is "varsity debater on the
 circuit," not "philosophy seminar."
 
+## Debate case editorial standard
+
+Case generation has one shared standard in
+`app/netlify/functions/lib/prompts.mjs`, applied to `caseBase`,
+`motionDesigner`, and both case-edit prompts. Keep these distinctions intact:
+
+- **Fair architecture, committed advocacy.** Before writing for one side,
+  the model must be able to identify at least two intuitive ballot paths for
+  each side with comparable burdens. Then it writes the requested side with
+  conviction. Fairness is not both-sides prose, and advocacy is not permission
+  to rig definitions, caveats, or framework.
+- **Never silently rewrite the motion.** Ordinary clarification is fine. A
+  tight or incoherent motion is flagged in the Vulnerability Report with one
+  explicitly labeled fairer version. It is never replaced inside the
+  resolution or caveats without saying so.
+- **Earn audience attention.** The opening makes the actor, decision, human
+  consequence, and genuine disagreement legible to a cold listener. One
+  editorial thesis holds the case together. Relevance beats recency, and
+  significance beats novelty.
+- **Run a fact desk, not a specificity quota.** Never require a recent event,
+  exact number, thinker, or citation per argument. Use a named example only
+  when it is real, accessible in the format, and probative. Never invent a
+  person or anecdote to manufacture stakes.
+- **Human voice comes from the warrant.** No prefab zingers, forced jokes,
+  fake outrage, or identical rhetorical templates. Memorable lines summarize
+  analysis already earned.
+
+`scripts/test-case-editorial.mjs` runs in the pre-commit hook and blocks the
+old rigged-framework, mandatory-name-drop, and killer-line instructions from
+returning.
+
 ## TTS pipeline
 
 16 personas, same keys across all providers:

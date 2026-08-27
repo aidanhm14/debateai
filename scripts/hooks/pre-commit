@@ -239,6 +239,19 @@ if [ -f "$SENSITIVE_MOTION_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# A forceful one-side case still has to come from a fair round. This pins the
+# shared coin-flip, audience, and fact-desk standards and blocks the old prompt
+# instructions that rigged framework or manufactured authority through quotas.
+CASE_EDITORIAL_GUARD="$REPO_ROOT/scripts/test-case-editorial.mjs"
+if [ -f "$CASE_EDITORIAL_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-case-editorial.mjs >/tmp/case-editorial-guard.log 2>&1); then
+    echo "[case-editorial-guard] commit blocked: case fairness or editorial standards regressed:" >&2
+    tail -30 /tmp/case-editorial-guard.log >&2
+    echo "[case-editorial-guard] see scripts/test-case-editorial.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 DRAFT_GUARD="$REPO_ROOT/scripts/test-motion-draft.mjs"
 if [ -f "$DRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-motion-draft.mjs >/tmp/draft-guard.log 2>&1); then
