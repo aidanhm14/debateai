@@ -67,6 +67,21 @@ node scripts/eval/run-stability-eval.mjs --limit=6 --conditions=repeat,swap
 node scripts/eval/run-stability-eval.mjs --out=scripts/eval/out/stability-YYYY-MM-DD.json
 ```
 
+Run the same-round-twice check on consented, anonymized production rounds:
+
+```bash
+# Save the admin export from /api/admin/corpus-export?mode=rounds as rounds.jsonl
+node scripts/eval/build-corpus-fixtures.mjs --in=rounds.jsonl --out=scripts/eval/out/consented-rounds
+node scripts/eval/run-stability-eval.mjs --dry-run --corpus=scripts/eval/out/consented-rounds/corpus-manifest.json
+ANTHROPIC_API_KEY=sk-ant-... node scripts/eval/run-stability-eval.mjs \
+  --corpus=scripts/eval/out/consented-rounds/corpus-manifest.json \
+  --out=scripts/eval/out/consented-stability-YYYY-MM-DD.json
+```
+
+The production export is one scrubbed transcript per round, not a trusted
+two-bench split. The corpus path therefore runs `repeat` only. It refuses
+`swap` and `pad` instead of guessing which words belong to which side.
+
 Flags: `--conditions=` (default `repeat,swap,pad`), `--pad-every=` (repeat
 every Nth line, default 2, lands around 1.4x), `--concurrency=`, `--temp=`
 (**left unset by default because prod leaves it unset** — self-disagreement
@@ -76,8 +91,10 @@ as above.
 
 ### Reading the output
 
-- **held across all 3 runs** is the headline: the share of rounds whose
-  verdict is a property of the round rather than of the sampling.
+- **held across all requested reads** is the headline: the share of rounds
+  whose verdict is a property of the round rather than of the sampling.
+  That is three reads on the split external fixtures and two on the
+  consented production corpus.
 - **position bias** is paired within a round, so the round's own difficulty
   cancels. For BP it reports the mean rank change of a bench when it is
   printed first; an interval clear of zero is a defect rather than a

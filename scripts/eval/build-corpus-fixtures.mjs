@@ -107,7 +107,8 @@ writeFileSync(
     _about:
       'Consented Debatable rounds as eval material. labelSource records who decided ' +
       'the winner; accuracyGold is true only when a human did. Rounds labeled ' +
-      'ai_verdict are usable for stability, bias and calibration, never accuracy.',
+      'ai_verdict rows are usable for repeat stability and calibration, never accuracy. ' +
+      'Position and padding bias require a trustworthy bench split that this export does not carry.',
     generatedFrom: IN || 'stdin',
     roundCount: manifest.length,
     accuracyGoldCount: manifest.filter((m) => m.accuracyGold).length,

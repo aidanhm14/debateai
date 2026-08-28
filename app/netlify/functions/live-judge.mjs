@@ -107,7 +107,7 @@ function buildPrompt(d) {
     '  "proPoints": <number 1-100, one decimal>,',
     '  "conPoints": <number 1-100, one decimal>,',
     '  "decidingIssue": "<8 words or fewer naming the ONE clash that decided it, the substantive question and not the outcome>",',
-    '  "rfd": "<14-22 sentences: the decision, issue by issue and on the flow. Name each clash that mattered, say who took it and on what, quote the line that settled it where a line settled it, then close with the single thing the losing side needed to change. Do not summarise the speeches back; a debater already knows what they said and is reading this to find out what it was worth.>",',
+    '  "rfd": "<14-22 sentences: the decision, issue by issue and on the flow. Name each clash that mattered, say who took it and on what, and name every consequential drop only when the other side extended it and explained why it mattered to the ballot. Quote the line that settled a clash where a line settled it, then close with the single thing the losing side needed to change. Do not summarise the speeches back; a debater already knows what they said and is reading this to find out what it was worth.>",',
     '  "dimensions": { "clarity": {"pro":<1-10>,"con":<1-10>}, "reasoning": {...}, "responsiveness": {...}, "weighing": {...}, "strategy": {...}, "persuasion": {...} }',
     '}',
     'EVERY DIMENSION IS AN INDEPENDENT 1-10 SCORE FOR EACH SIDE, NOT A SHARE OF TEN. Both sides can earn an 8 or 9 on the same axis. Reward strong work at full value: 9-10 exceptional, 7-8 strong, 5-6 mixed, 3-4 weak, 1-2 absent or seriously deficient.',

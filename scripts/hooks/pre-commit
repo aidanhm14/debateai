@@ -160,6 +160,33 @@ if [ -f "$JUDGE_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Ballot-utility + verdict-stability guards. The ballot must keep naming
+# the decisive clash, consequential drops, and a concrete next move, and
+# the same-round-twice harness must stay capable of reading the consented
+# production corpus. Both protect the rating ladder from quiet prompt or
+# fixture drift.
+# ──────────────────────────────────────────────────────────────────
+BALLOT_UTILITY_GUARD="$REPO_ROOT/scripts/test-ballot-utility.mjs"
+if [ -f "$BALLOT_UTILITY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ballot-utility.mjs >/tmp/ballot-utility-guard.log 2>&1); then
+    echo "[ballot-utility] commit blocked — a production ballot no longer meets its minimum obligations:" >&2
+    grep '^  FAIL' /tmp/ballot-utility-guard.log >&2 || tail -20 /tmp/ballot-utility-guard.log >&2
+    echo "[ballot-utility] see scripts/test-ballot-utility.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+STABILITY_GUARD="$REPO_ROOT/scripts/test-stability.mjs"
+if [ -f "$STABILITY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-stability.mjs >/tmp/stability-guard.log 2>&1); then
+    echo "[stability-guard] commit blocked — the same-round-twice measurement no longer holds:" >&2
+    grep '^FAIL' /tmp/stability-guard.log >&2 || tail -20 /tmp/stability-guard.log >&2
+    echo "[stability-guard] see scripts/test-stability.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Judge-delivery guard. Manner and length are reader-facing controls on
 # the ballot, and the promise attached to them is one a debater cannot
 # check for themselves: asking for a kinder ballot changes the WORDS and

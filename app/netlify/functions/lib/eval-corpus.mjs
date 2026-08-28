@@ -13,11 +13,13 @@
 //
 // What our own rounds ARE good for, with no human label needed:
 //   - stability   (same round twice, does the verdict hold)
-//   - bias        (swap the benches / pad the loser, does it move)
 //   - calibration (do speaker points drift over a season)
 // Those are the evals that protect the ladder, because a systematic
 // bias compounds into a rating while noise averages out. They need a
 // transcript, not a ground truth, which is exactly what we have.
+// Position and padding bias need a trustworthy split between the two
+// benches. The exported corpus is one scrubbed transcript, so it must
+// not claim those tests until that split is stored rather than guessed.
 //
 // What our own rounds are NOT good for is accuracy. That stays on the
 // external fixtures where a human chair announced a call on the record.
@@ -44,14 +46,16 @@ export function usableAsAccuracyGold(labelSource) {
   return ACCURACY_GOLD_SOURCES.has(labelSource);
 }
 
-// Which evals a row can legitimately feed. Stability and bias need only
-// a transcript, so any round long enough to be a round qualifies.
+// Which evals a row can legitimately feed. Repeat stability needs only a
+// transcript, so any round long enough to be a round qualifies. Position
+// and padding bias do not: both need a trustworthy bench split, which
+// this export does not carry.
 export const MIN_TRANSCRIPT_CHARS = 600;
 
 export function evalUsesFor(row) {
   const uses = [];
   const longEnough = (row.transcriptChars || 0) >= MIN_TRANSCRIPT_CHARS;
-  if (longEnough) { uses.push('stability', 'bias'); }
+  if (longEnough) uses.push('stability');
   if (longEnough && row.speakerPoints != null) uses.push('calibration');
   if (usableAsAccuracyGold(row.labelSource)) uses.push('accuracy');
   if (row.labelSource === LABEL_SOURCES.CROWD) uses.push('crowd_agreement');

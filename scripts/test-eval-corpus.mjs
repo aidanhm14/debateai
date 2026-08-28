@@ -57,8 +57,10 @@ ok(liveRow.aiWinner === 'pro', 'side+result resolves the winner our judge picked
 ok(liveRow.labelSource === LABEL_SOURCES.AI_VERDICT,
   'a stored round is labeled ai_verdict, never inferred to be human');
 ok(liveRow.accuracyGold === false, 'a stored round is not accuracy gold');
-ok(liveRow.evalUses.includes('stability') && liveRow.evalUses.includes('bias'),
-  'a stored round still feeds stability and bias');
+ok(liveRow.evalUses.includes('stability'),
+  'a stored round still feeds repeat stability');
+ok(!liveRow.evalUses.includes('bias'),
+  'an unsplit stored transcript never claims to support bench-bias tests');
 ok(liveRow.evalUses.includes('calibration'),
   'speaker points make a round usable for calibration');
 ok(!liveRow.evalUses.includes('accuracy'),

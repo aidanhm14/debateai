@@ -19,7 +19,10 @@
 //
 // Run: node scripts/test-stability.mjs
 // ─────────────────────────────────────────────────────────────
-import { makeReader, padFlow, padRatio, pairwiseAgreement, normalizeFormat } from '../scripts/eval/lib/adjudication-fixtures.mjs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { makeReader, padFlow, padRatio, pairwiseAgreement, normalizeFormat, selectCorpusRounds, loadCorpus } from '../scripts/eval/lib/adjudication-fixtures.mjs';
 import { proportionCI, bootstrapCI, binomTest, nForMargin, nForDetect, fleissKappaMulti, rng, mean } from '../scripts/eval/lib/stats.mjs';
 import { fleissKappa } from '../app/netlify/functions/lib/judge-panel.mjs';
 
@@ -110,7 +113,44 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
   t('format aliases still normalize', normalizeFormat('WUDC') === 'bp' && normalizeFormat('World Schools') === 'wsdc');
 }
 
-// ── 3. pairwise agreement ───────────────────────────────────
+// ── 3. consented production rounds feed repeat stability ───
+{
+  const manifest = {
+    rounds: [
+      { id: 'ready', format: 'quick', transcriptFile: 'ready/transcript.md', evalUses: ['stability'], stabilityConditions: ['repeat'] },
+      { id: 'unsplit-bias', format: 'quick', transcriptFile: 'bias/transcript.md', evalUses: ['bias'], stabilityConditions: ['swap'] },
+      { id: 'wrong-format', format: 'bp', transcriptFile: 'bp/transcript.md', evalUses: ['stability'], stabilityConditions: ['repeat'] },
+    ],
+  };
+  const selected = selectCorpusRounds(manifest, { format: 'quick' });
+  t('a repeat-ready consented round reaches the stability runner', selected.length === 1 && selected[0].id === 'ready');
+  t('a corpus filter normalizes format names', selectCorpusRounds(manifest, { format: 'british-parliamentary' })[0].id === 'wrong-format');
+  t('the corpus runner honors an exact round id', selectCorpusRounds(manifest, { only: 'wrong-format' })[0].id === 'wrong-format');
+  let malformed = false;
+  try { selectCorpusRounds({ nope: [] }); } catch { malformed = true; }
+  t('a malformed corpus manifest fails loudly', malformed);
+
+  const temp = mkdtempSync(join(tmpdir(), 'debatable-stability-'));
+  try {
+    mkdirSync(join(temp, 'ready'));
+    writeFileSync(join(temp, 'ready', 'transcript.md'), 'Pro: warranted case\n\nCon: direct answer\n');
+    writeFileSync(join(temp, 'corpus-manifest.json'), JSON.stringify({ rounds: [manifest.rounds[0]] }));
+    const loaded = loadCorpus(join(temp, 'corpus-manifest.json'));
+    t('the corpus loader reads the scrubbed transcript named by the manifest',
+      loaded.rounds.length === 1 && loaded.loadRound(loaded.rounds[0]).startsWith('Pro: warranted case'));
+
+    const escaped = { ...manifest.rounds[0], transcriptFile: '../outside.md' };
+    writeFileSync(join(temp, 'corpus-manifest.json'), JSON.stringify({ rounds: [escaped] }));
+    const unsafe = loadCorpus(join(temp, 'corpus-manifest.json'));
+    let refusedEscape = false;
+    try { unsafe.loadRound(unsafe.rounds[0]); } catch { refusedEscape = true; }
+    t('the corpus loader refuses a transcript path outside its fixture directory', refusedEscape);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+// ── 4. pairwise agreement ───────────────────────────────────
 {
   t('identical orderings agree fully', pairwiseAgreement(['og', 'oo', 'cg', 'co'], ['og', 'oo', 'cg', 'co']) === 1);
   t('a reversal agrees on nothing', pairwiseAgreement(['og', 'oo', 'cg', 'co'], ['co', 'cg', 'oo', 'og']) === 0);
@@ -118,7 +158,7 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
   t('a missing ordering is not scored as agreement', pairwiseAgreement(null, ['og', 'oo', 'cg', 'co']) === 0);
 }
 
-// ── 4. the statistics ───────────────────────────────────────
+// ── 5. the statistics ───────────────────────────────────────
 {
   // Wilson, not the textbook interval: 0/12 must not return [0,0].
   const zero = proportionCI(0, 12);
@@ -152,7 +192,7 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
   t('mean ignores non-numbers', mean([1, 2, null, 3]) === 2);
 }
 
-// ── 5. kappa must agree with the one prod publishes ─────────
+// ── 6. kappa must agree with the one prod publishes ─────────
 {
   const binary = [
     { a: 3, b: 0 }, { a: 2, b: 1 }, { a: 0, b: 3 }, { a: 1, b: 2 }, { a: 3, b: 0 }, { a: 2, b: 1 },

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAdjudicationBlock } from '../../../app/netlify/functions/lib/adjudication.mjs';
 
@@ -78,6 +78,46 @@ export function selectRounds(gold, { format = '', only = '', limit = 0 } = {}) {
   if (only) rounds = rounds.filter((r) => r.id === only);
   if (limit) rounds = rounds.slice(0, limit);
   return rounds;
+}
+
+// The consented production corpus is deliberately a different source
+// from adjudication-gold.json. Its labels came from the judge under test,
+// so it can measure repeat stability and never adjudication accuracy.
+// build-corpus-fixtures.mjs writes this manifest with unsplit transcripts;
+// unsplit means swap and padding tests are unavailable rather than guessed.
+export function selectCorpusRounds(manifest, { format = '', only = '', limit = 0 } = {}) {
+  if (!manifest || !Array.isArray(manifest.rounds)) {
+    throw new Error('corpus manifest must contain a rounds array');
+  }
+  const normalizedFormat = normalizeFormat(format);
+  let rounds = manifest.rounds.filter((r) =>
+    r && typeof r.id === 'string'
+    && typeof r.transcriptFile === 'string'
+    && Array.isArray(r.evalUses) && r.evalUses.includes('stability')
+    && Array.isArray(r.stabilityConditions) && r.stabilityConditions.includes('repeat')
+    && (!normalizedFormat || normalizeFormat(r.format) === normalizedFormat)
+  );
+  if (only) rounds = rounds.filter((r) => r.id === only);
+  if (limit) rounds = rounds.slice(0, limit);
+  return rounds;
+}
+
+export function loadCorpus(manifestPath, filters = {}) {
+  const absoluteManifest = resolve(String(manifestPath || ''));
+  const manifest = JSON.parse(readFileSync(absoluteManifest, 'utf8'));
+  const fixturesDir = dirname(absoluteManifest);
+  const rounds = selectCorpusRounds(manifest, filters);
+
+  function loadRound(r) {
+    const target = resolve(fixturesDir, r.transcriptFile);
+    const rel = relative(fixturesDir, target);
+    if (isAbsolute(rel) || rel === '..' || rel.startsWith('..' + sep)) {
+      throw new Error(`corpus transcript escapes its fixture directory: ${r.transcriptFile}`);
+    }
+    return readFileSync(target, 'utf8').trim();
+  }
+
+  return { manifest, fixturesDir, rounds, loadRound };
 }
 
 // ── decontaminate a flow note: strip the judge's inline verdict marks so

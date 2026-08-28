@@ -37,7 +37,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  loadGold, resolveFixturesDir, selectRounds, normalizeFormat, makeReader,
+  loadGold, resolveFixturesDir, selectRounds, loadCorpus, normalizeFormat, makeReader,
   buildPrompt, parseBpOrder, parseWinner, pairwiseAgreement, promptTokens, padRatio,
 } from './lib/adjudication-fixtures.mjs';
 import {
@@ -58,18 +58,29 @@ const FORMAT = normalizeFormat(opt('format', ''));
 const LIMIT = parseInt(opt('limit', '0'), 10) || 0;
 const MODEL = process.env.ADJ_MODEL || opt('model', 'claude-sonnet-4-6');
 const OUT = opt('out', '');
+const CORPUS = opt('corpus', '');
 const PAD_EVERY = parseInt(opt('pad-every', '2'), 10) || 2;
 const CONCURRENCY = Math.max(1, parseInt(opt('concurrency', '3'), 10) || 3);
-const CONDITIONS = new Set(String(opt('conditions', 'repeat,swap,pad')).split(',').map((s) => s.trim()).filter(Boolean));
+const CONDITIONS = new Set(String(opt('conditions', CORPUS ? 'repeat' : 'repeat,swap,pad')).split(',').map((s) => s.trim()).filter(Boolean));
 // Temperature is deliberately left UNSET by default, because prod leaves
 // it unset. Self-disagreement at the default temperature is not an
 // artifact of this harness, it is what the site does to a real round.
 const TEMP = opt('temp', '');
 
-const gold = loadGold();
-const fixturesDir = resolveFixturesDir(gold);
-const rounds = selectRounds(gold, { format: FORMAT, only: ONLY, limit: LIMIT });
-const reader = makeReader(fixturesDir);
+const unknownConditions = [...CONDITIONS].filter((c) => !['repeat', 'swap', 'pad'].includes(c));
+if (unknownConditions.length) throw new Error('unknown stability condition(s): ' + unknownConditions.join(', '));
+if (CORPUS && [...CONDITIONS].some((c) => c !== 'repeat')) {
+  throw new Error('consented corpus fixtures are unsplit and support --conditions=repeat only');
+}
+
+const filters = { format: FORMAT, only: ONLY, limit: LIMIT };
+const corpus = CORPUS ? loadCorpus(CORPUS, filters) : null;
+const gold = corpus ? null : loadGold();
+const fixturesDir = corpus ? corpus.fixturesDir : resolveFixturesDir(gold);
+const rounds = corpus ? corpus.rounds : selectRounds(gold, filters);
+const reader = corpus ? null : makeReader(fixturesDir);
+const source = corpus ? 'consented production corpus' : 'external adjudication fixtures';
+if (!rounds.length) throw new Error('no stability-eligible rounds matched the requested filters');
 
 // ── the judge call ──
 //
@@ -151,8 +162,8 @@ function verdictKey(format, raw) {
 /** Build the four prompts for one round. */
 function conditionsFor(r) {
   const format = normalizeFormat(r.format);
-  const blocks = reader.loadBlocks(r);
-  const base = reader.renderRound(r, blocks);
+  const blocks = corpus ? null : reader.loadBlocks(r);
+  const base = corpus ? corpus.loadRound(r) : reader.renderRound(r, blocks);
   const out = [
     { name: 'base', transcript: base },
   ];
@@ -204,6 +215,7 @@ const estTokens = planned.reduce((s, p, i) => s + promptTokens(buildPrompt(round
 const halfWidthPts = 100 * 1.96 * Math.sqrt((0.9 * 0.1) / Math.max(1, rounds.length));
 
 console.log(`\nVerdict stability  ·  ${rounds.length} rounds  ·  ${callsPerRound} calls each  ·  model ${MODEL}${TEMP !== '' ? '  ·  temp ' + TEMP : '  ·  temp default'}`);
+console.log(`source: ${source}`);
 console.log(`fixtures: ${fixturesDir}`);
 console.log(`conditions: base, ${[...CONDITIONS].join(', ')}`);
 console.log(`≈${(estTokens / 1000).toFixed(0)}k input tokens total\n`);
@@ -217,13 +229,17 @@ console.log(`  So ${rounds.length} rounds can catch a GROSS defect and cannot ce
 if (DRY) {
   for (const [i, p] of planned.entries()) {
     const r = rounds[i];
-    const padded = reader.renderRound(r, p.blocks, { pad: { side: p.blocks.second.key, every: PAD_EVERY } });
-    const swapped = reader.renderRound(r, p.blocks, { swap: true });
-    const sameLen = swapped.length === p.base.length;
-    console.log(
-      `• ${r.id.padEnd(28)} ${String(p.format).padEnd(6)} base=${String(p.base.length).padStart(6)}ch  ` +
-      `swap=${sameLen ? 'same length ✓' : 'LENGTH MOVED ✗'}  pad×${padRatio(p.base, padded)}`
-    );
+    if (corpus) {
+      console.log(`• ${r.id.padEnd(28)} ${String(p.format).padEnd(6)} base=${String(p.base.length).padStart(6)}ch  repeat ready ✓`);
+    } else {
+      const padded = reader.renderRound(r, p.blocks, { pad: { side: p.blocks.second.key, every: PAD_EVERY } });
+      const swapped = reader.renderRound(r, p.blocks, { swap: true });
+      const sameLen = swapped.length === p.base.length;
+      console.log(
+        `• ${r.id.padEnd(28)} ${String(p.format).padEnd(6)} base=${String(p.base.length).padStart(6)}ch  ` +
+        `swap=${sameLen ? 'same length ✓' : 'LENGTH MOVED ✗'}  pad×${padRatio(p.base, padded)}`
+      );
+    }
   }
   console.log('\nDry run: prompts assembled, no API calls. Set ANTHROPIC_API_KEY to score.\n');
   process.exit(0);
@@ -257,8 +273,9 @@ for (const [i, plan] of planned.entries()) {
       .filter((k) => verdicts[k] !== undefined)
       .map((k) => `${k}=${verdicts[k] ? verdicts[k].key : 'UNPARSED'}`)
       .join('  ');
-    const stable = verdicts.base && verdicts.repeat && verdicts.swap
-      && verdicts.repeat.key === verdicts.base.key && verdicts.swap.key === verdicts.base.key;
+    const invariants = ['repeat', 'swap'].filter((c) => CONDITIONS.has(c));
+    const stable = verdicts.base && invariants.length
+      && invariants.every((c) => verdicts[c] && verdicts[c].key === verdicts.base.key);
     console.log(`• ${label.padEnd(34)} ${stable ? '✓' : '✗'}  ${shown}`);
   } catch (err) {
     console.log(`• ${label.padEnd(34)} ERROR ${err.message}`);
@@ -290,12 +307,14 @@ const selfTop = flags((r) => sameTop(r, 'repeat'));
 const swapTop = flags((r) => sameTop(r, 'swap'));
 const padSame = flags((r) => sameAs(r, 'pad'));
 
-// Held across all three unpadded runs. This is the headline: the share
-// of rounds where the verdict is a property of the round rather than of
-// the sampling.
-const allThree = results
-  .filter((r) => r.verdicts && r.verdicts.base && r.verdicts.repeat && r.verdicts.swap)
-  .map((r) => (r.verdicts.repeat.key === r.verdicts.base.key && r.verdicts.swap.key === r.verdicts.base.key ? 1 : 0));
+// Held across every requested unpadded comparison. On the external
+// fixtures that is base + repeat + swap. On the unsplit consented corpus
+// it is base + repeat, the exact same-round-twice test.
+const invariantConditions = ['repeat', 'swap'].filter((c) => CONDITIONS.has(c));
+const heldAll = results
+  .filter((r) => r.verdicts && r.verdicts.base && invariantConditions.length
+    && invariantConditions.every((c) => r.verdicts[c]))
+  .map((r) => invariantConditions.every((c) => r.verdicts[c].key === r.verdicts.base.key) ? 1 : 0);
 
 // Position bias: did the bench presented FIRST do better when it was
 // first? Paired within a round, so the round's own difficulty cancels.
@@ -339,12 +358,15 @@ const padFlips = results.filter((r) => r.verdicts && r.verdicts.base && r.verdic
   return { id: r.id, moved: null, tookTop: r.verdicts.pad.top !== r.verdicts.base.top ? 1 : 0 };
 }).filter(Boolean);
 
-// Chance-corrected agreement across the three unpadded runs.
+// Chance-corrected agreement across the available unpadded runs. The
+// consented corpus has two reads per round; the external fixtures have
+// three when both repeat and swap are selected.
+const kappaConditions = ['base', ...invariantConditions];
 const kappaItems = results
-  .filter((r) => r.verdicts && r.verdicts.base && r.verdicts.repeat && r.verdicts.swap)
+  .filter((r) => r.verdicts && kappaConditions.length >= 2 && kappaConditions.every((c) => r.verdicts[c]))
   .map((r) => {
     const counts = {};
-    for (const c of ['base', 'repeat', 'swap']) {
+    for (const c of kappaConditions) {
       const t = r.verdicts[c].top;
       counts[t] = (counts[t] || 0) + 1;
     }
@@ -370,7 +392,7 @@ function line(label, arr, note = '') {
 
 console.log('\n─── VERDICT STABILITY ' + '─'.repeat(46));
 const m = {};
-m.heldAllThree = line('held across all 3 runs (headline)', allThree);
+m.heldAllRequested = line(`held across all ${kappaConditions.length} reads (headline)`, heldAll);
 m.selfAgreement = line('self-agreement (same prompt twice)', selfSame);
 m.selfAgreementTop = line('  ... same winner only', selfTop);
 m.orderRobust = line('survives the order swap', swapSame);
@@ -417,7 +439,7 @@ if (padFlips.length) {
 
 console.log('\n─── AGREEMENT ' + '─'.repeat(54));
 if (kappa) {
-  console.log(`  Fleiss kappa across the 3 unpadded runs: ${kappa.kappa} (${kappaBand(kappa.kappa)}), n=${kappa.n}`);
+  console.log(`  Fleiss kappa across ${kappaConditions.length} unpadded reads: ${kappa.kappa} (${kappaBand(kappa.kappa)}), n=${kappa.n}`);
   console.log(`  observed agreement ${pct(kappa.observed)}, expected by chance ${pct(kappa.expected)}`);
   m.kappa = kappa;
 } else {
@@ -433,6 +455,7 @@ if (OUT) {
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, JSON.stringify({
     ranAt: new Date().toISOString(),
+    source: corpus ? 'consented_corpus' : 'external_fixtures',
     model: MODEL,
     temp: TEMP === '' ? 'default' : Number(TEMP),
     conditions: [...CONDITIONS],

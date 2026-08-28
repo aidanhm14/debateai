@@ -111,9 +111,10 @@ export default async (request) => {
     // builder refuses to write an expected-winner for them, because
     // scoring our judge against its own past verdicts would produce a
     // very high accuracy number that means nothing. They still export:
-    // stability, position/verbosity bias and speaker-point calibration
-    // all need a transcript rather than a ground truth, and those are
-    // the evals that actually protect the ladder.
+    // repeat stability and speaker-point calibration need a transcript
+    // rather than a ground truth, and those are the evals this unsplit
+    // export can honestly feed. Position and padding bias still require
+    // a trustworthy bench split rather than one inferred after the fact.
     if (mode === 'rounds') {
       const snapR = await db.collection('generations')
         .where('contributable', '==', true).limit(MAX_LIMIT).get();
