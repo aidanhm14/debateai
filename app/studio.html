@@ -9,7 +9,8 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <link rel="icon" href="/favicon.ico" sizes="any">
-<script src="https://unpkg.com/@daily-co/daily-js"></script>
+<script src="/vendor/daily-iframe-0.92.2.js"></script>
+<script src="/js/daily-loader.js"></script>
 <style>
 :root{--bg:#0b0b0d;--surface:#141417;--border:rgba(255,255,255,.09);--text:#f4f4f2;
   --dim:rgba(244,244,242,.66);--red:#ef4444;--green:#22c55e;--amber:#f59e0b}
@@ -80,6 +81,8 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   var hostsEl = document.getElementById('hosts');
   var watchersEl = document.getElementById('watchers');
   var restreamEl = document.getElementById('restream');
+  var studioNetwork = 'unknown';
+  var studioCpuHigh = false;
 
   if (title) document.getElementById('ttl').textContent = title;
   if (role === 'cohost') document.getElementById('studioRole').lastChild.nodeValue = 'COHOST STUDIO';
@@ -100,7 +103,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     return;
   }
   if (!window.DailyIframe){
-    fail('Video library did not load.', 'daily-js is blocked or offline. Reload, and if it keeps failing check for an extension blocking unpkg.com.');
+    fail('Video library did not load.', 'The pinned video library and its backup sources are unavailable. Reload, and if it keeps failing check whether an extension is blocking video calls.');
     return;
   }
 
@@ -163,6 +166,21 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     }
   };
 
+  function applySendCap(cap){
+    var next = {
+      video: Object.assign({}, SEND.video, { maxQuality: cap || 'high' }),
+      screenVideo: SEND.screenVideo
+    };
+    return call.updateSendSettings(next);
+  }
+
+  function qualityPressure(){
+    if (studioNetwork === 'bad') return ' · network poor';
+    if (studioNetwork === 'warning') return ' · network unstable';
+    if (studioCpuHigh) return ' · device busy';
+    return '';
+  }
+
   function reportQuality(){
     // Report what the CAMERA actually opened at, not what we asked for.
     // A studio chip that says 1080p while the webcam negotiated 720
@@ -172,11 +190,28 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
       var me = call.participants().local;
       t = me && me.tracks && me.tracks.video && me.tracks.video.persistentTrack;
     } catch(e){}
-    if (!t || !t.getSettings){ qualityEl.textContent = 'quality: camera off'; qualityEl.className = 'chip'; return; }
+    if (!t || !t.getSettings){ qualityEl.textContent = 'quality: camera off' + qualityPressure(); qualityEl.className = 'chip'; return; }
     var s = t.getSettings() || {};
-    if (!s.height){ qualityEl.textContent = 'quality: starting'; qualityEl.className = 'chip'; return; }
-    qualityEl.innerHTML = 'sending <b>' + s.height + 'p' + (s.frameRate ? Math.round(s.frameRate) : '') + '</b>';
-    qualityEl.className = 'chip ' + (s.height >= 720 ? 'ok' : 'warn');
+    if (!s.height){ qualityEl.textContent = 'quality: starting' + qualityPressure(); qualityEl.className = 'chip'; return; }
+    qualityEl.innerHTML = 'sending <b>' + s.height + 'p' + (s.frameRate ? Math.round(s.frameRate) : '') + '</b>' + qualityPressure();
+    qualityEl.className = 'chip ' + (s.height >= 720 && studioNetwork !== 'bad' && !studioCpuHigh ? 'ok' : 'warn');
+  }
+
+  function rememberStudioHealth(){
+    var read = typeof call.getNetworkStats === 'function'
+      ? call.getNetworkStats().catch(function(){ return null; })
+      : Promise.resolve(null);
+    read.then(function(result){
+      // Local support hook only. Connection details never leave the tab.
+      window.__studioMediaDiagnostics = {
+        network: studioNetwork,
+        cpu: studioCpuHigh ? 'high' : 'low',
+        sdk: window.DebatableDaily ? window.DebatableDaily.version : '',
+        source: window.DebatableDaily ? window.DebatableDaily.source() : '',
+        stats: result && result.stats ? result.stats : null
+      };
+      console.info('[studio media health]', window.__studioMediaDiagnostics);
+    });
   }
 
   function reportParticipants(){
@@ -233,7 +268,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     // Send settings are applied AFTER the join. Applying them to a call
     // that has not negotiated yet is a no-op, which is the quiet way
     // this ends up shipping at defaults.
-    call.updateSendSettings(SEND).catch(function(e){
+    applySendCap('high').catch(function(e){
       console.warn('[studio] send settings refused:', e && e.message);
       qualityEl.textContent = 'quality: defaults';
       qualityEl.className = 'chip warn';
@@ -247,6 +282,22 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   call.on('participant-left', reportParticipants);
   call.on('participant-counts-updated', reportParticipants);
   call.on('track-started', reportQuality);
+  call.on('network-quality-change', function(e){
+    studioNetwork = e && e.networkState ? e.networkState : 'unknown';
+    reportQuality();
+    rememberStudioHealth();
+  });
+  call.on('cpu-load-change', function(e){
+    var high = !!(e && e.cpuLoadState === 'high');
+    if (high !== studioCpuHigh){
+      studioCpuHigh = high;
+      applySendCap(high ? 'medium' : 'high').catch(function(err){
+        console.warn('[studio] CPU quality cap refused:', err && err.message);
+      });
+    }
+    reportQuality();
+    rememberStudioHealth();
+  });
   call.on('error', function(e){
     console.warn('[studio] call error:', e);
   });

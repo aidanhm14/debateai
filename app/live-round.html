@@ -102,8 +102,11 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      blinks, brows, mouth) via an on-device tracker inside cam-avatar.js;
      camera pixels and landmarks never leave the device. If either script
      fails to load, mountDaily falls back to the plain iframe and the
-     mode buttons simply don't render. -->
-<script defer src="https://unpkg.com/@daily-co/daily-js"></script>
+     mode buttons simply don't render. The shared loader serves a pinned
+     same-origin SDK first, with exact-version CDN copies only as disaster
+     fallbacks. -->
+<script defer src="/vendor/daily-iframe-0.92.2.js"></script>
+<script defer src="/js/daily-loader.js"></script>
 <script defer src="/js/cam-avatar.js"></script>
 <!-- On-device NSFW watchdog over the outgoing camera + the report →
      strike → ban pipeline (/api/video-moderate). Scores only, never
@@ -316,6 +319,17 @@ button{font-family:inherit}
 .cv-btn--leave:hover{background:rgba(239,68,68,.9);border-color:rgba(239,68,68,.9);color:#fff}
 .cv-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;text-align:center;
   font:600 .84rem/1.5 DM Sans,Archivo,Georgia,serif;color:rgba(255,255,255,.6);max-width:min(320px,80%)}
+/* Daily reports network and device pressure before a call visibly falls
+   apart. Show the state only while degraded, and say what the player is
+   doing about it. Healthy calls stay visually quiet. */
+.cv-quality{position:absolute;top:10px;left:10px;z-index:9;display:none;align-items:center;gap:7px;
+  max-width:min(360px,calc(100% - 20px));padding:8px 11px;border-radius:10px;
+  background:rgba(18,18,20,.92);border:1px solid rgba(245,158,11,.48);color:#fde68a;
+  font:750 .68rem/1.35 DM Sans,Archivo,Georgia,serif;box-shadow:0 8px 24px rgba(0,0,0,.36)}
+.cv-quality.is-visible{display:flex}
+.cv-quality.is-bad{border-color:rgba(239,68,68,.58);color:#fecaca}
+.cv-quality i{width:7px;height:7px;flex:none;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(245,158,11,.14)}
+.cv-quality.is-bad i{box-shadow:0 0 0 4px rgba(239,68,68,.14)}
 /* Leaving or dropping the call used to leave a black rectangle with one
    line of 60%-white text in the middle of it. That reads as a dead end:
    nothing on screen said whether the ROUND was still running, and the
@@ -8520,15 +8534,54 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (c.setPassthrough) try { c.setPassthrough(false); } catch(e){}
     return hintTrack(c.videoTrack, mode === 'camera' ? 'camera' : 'avatar');
   }
-  // A debater is the thing everyone in the room is looking at, so ask
-  // for the top send layer rather than letting the default bandwidth
-  // guess settle it. Wrapped and best-effort: an older daily-js without
-  // updateSendSettings must never take a join down with it, and the call
-  // is a preference, not a requirement.
-  function tuneSendQuality(){
+  // Camera and Avatar have different source needs. Camera is the large
+  // stage and gets a real 720p source; the 640x480 request that used to
+  // ride both modes was stretched across the whole viewer and could never
+  // look sharp. Avatar only needs pixels for local landmark tracking, so
+  // it drops back to VGA while its separate 960x540 canvas stays crisp.
+  // Both cap at 24fps: a talking face gets no useful detail from 60fps,
+  // while encode cost scales almost directly with the frame count.
+  function captureConstraints(mode, facing){
+    var avatar = mode === 'avatar';
+    return {
+      width: { ideal: avatar ? 640 : 1280 },
+      height: { ideal: avatar ? 480 : 720 },
+      frameRate: { ideal: 24, max: 30 },
+      facingMode: facing && facing !== 'user' ? { ideal: facing } : 'user'
+    };
+  }
+  function applyCaptureProfile(c, mode){
+    var track = c && c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks()[0];
+    if (!track || typeof track.applyConstraints !== 'function') return Promise.resolve();
+    return track.applyConstraints(captureConstraints(mode, room.facing || 'user')).catch(function(e){
+      console.warn('[camera profile]', e && e.message);
+    });
+  }
+
+  // A debater is the thing everyone in the room is looking at. Publish a
+  // three-layer ladder so Daily can lower bitrate or resolution without
+  // freezing the picture, then let the room's adaptive-simulcast setting
+  // choose the layer per receiver. CPU protection can temporarily lower
+  // maxQuality without rebuilding the camera.
+  function tuneSendQuality(maxQuality){
     var call = room.call;
-    if (!call || typeof call.updateSendSettings !== 'function') return;
-    try { call.updateSendSettings({ video: { maxQuality: 'high' } }); } catch(e){}
+    if (room.viewer || !call || typeof call.updateSendSettings !== 'function') return;
+    var avatar = camConv.mode === 'avatar';
+    var settings = {
+      video: {
+        maxQuality: maxQuality || 'high',
+        allowAdaptiveLayers: true,
+        encodings: {
+          low: { maxBitrate: 180000, scaleResolutionDownBy: 4, maxFramerate: 15 },
+          medium: { maxBitrate: avatar ? 650000 : 800000, scaleResolutionDownBy: 2, maxFramerate: 24 },
+          high: { maxBitrate: avatar ? 1400000 : 2200000, scaleResolutionDownBy: 1, maxFramerate: 24 }
+        }
+      }
+    };
+    try {
+      var p = call.updateSendSettings(settings);
+      if (p && p.catch) p.catch(function(e){ console.warn('[Daily send settings]', e && e.message); });
+    } catch(e){}
   }
   function ensureAvatarCam(mode){
     // Single-flight on the PROMISE, not the resolved instance: the
@@ -8540,15 +8593,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // in 'avatar' mode they feed the on-device face tracker and nothing
     // else. Degrade to audio-only, then to an empty stream; the avatar
     // animates from mic level alone if it has to.
-    // frameRate is CAPPED, and it was not before. An unconstrained
-    // request takes whatever the device offers, which is 30fps on most
-    // webcams and 60 on plenty of newer ones, and encode cost scales
-    // straight down that number: at 60 the machine pays twice the encoder
-    // for frames a debate does not use. 24 is the paint rate of the board
-    // that composites these feeds and is far above what a person talking
-    // needs; max 30 leaves a device that cannot do 24 somewhere to land
-    // rather than failing the constraint.
-    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, frameRate: { ideal: 24, max: 30 }, facingMode: 'user' } })
+    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode || 'camera', room.facing || 'user') })
       .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
       .catch(function(){ return new MediaStream(); })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); })
@@ -8844,11 +8889,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         if (d && d.camera && d.camera.deviceId) camConv.savedVideoId = d.camera.deviceId;
       }).catch(function(){});
       ensureAvatarCam('avatar').then(function(c){
-        c.setMode('avatar');
-        return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'avatar') });
+        return applyCaptureProfile(c, 'avatar').then(function(){
+          c.setMode('avatar');
+          return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'avatar') });
+        });
       }).then(function(){
         frame.setLocalVideo(true);
         markCamMode('avatar');
+        tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
         camConv.maskAsserted = true;
         showSelfPip();
         toast('Avatar on. The room sees only the animated mask, never your camera. The corner tile is your view of it.');
@@ -8871,11 +8919,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         ensureAvatarCam('camera').then(function(c){
           var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
           if (!hasVideo) throw new Error('no parent camera');
-          c.setMode('camera');
-          return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'camera') }).then(function(){
-            frame.setLocalVideo(true);
-            markCamMode('camera');
-            hideSelfPip();
+          return applyCaptureProfile(c, 'camera').then(function(){
+            c.setMode('camera');
+            return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'camera') }).then(function(){
+              frame.setLocalVideo(true);
+              markCamMode('camera');
+              tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
+              hideSelfPip();
+            });
           });
         }).catch(function(e){
           console.warn('[camera passthrough]', e);
@@ -8885,6 +8936,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           Promise.resolve(restore).then(function(){
             frame.setLocalVideo(true);
             markCamMode('camera');
+            tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
             hideSelfPip();
           }).catch(function(e2){
             console.warn('[camera restore]', e2);
@@ -8898,6 +8950,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         Promise.resolve(restore).then(function(){
           frame.setLocalVideo(true);
           markCamMode('camera');
+          tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
           hideSelfPip();
         }).catch(function(e){
           console.warn('[camera restore]', e);
@@ -8967,16 +9020,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // and a tray with mic, camera flip, screen share and leave. Camera /
   // Avatar / Off stay on the existing cam-modes bar over the top.
   //
-  // Spectators and the audience-camera path deliberately still ride the
-  // prebuilt iframe further down: neither publishes a custom track, so
-  // neither is blocked, and leaving them alone keeps this change to the
-  // one surface that needed it.
+  // Spectators use this same call-object stage in receive-only mode. The
+  // audience-camera path still rides Prebuilt because it is the one path
+  // where a watcher explicitly chooses to join the room with devices.
   var room = {
     call:null, wrap:null, stage:null, aud:null, tray:null, note:null,
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
     micOn:true, sharing:false, canFlip:false, facing:'user',
     remoteSeats:0, everHadRemote:false,
-    viewer:false, soundGate:null,
+    viewer:false, soundGate:null, qualityEl:null,
+    networkState:'unknown', networkReasons:[], cpuHigh:false,
+    receiveCap:'inherit', lastHealthKey:'',
   };
 
   function setRoomNote(msg){
@@ -8984,6 +9038,89 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     room.note.classList.remove('cv-note--card');
     room.note.textContent = msg || '';
     room.note.style.display = msg ? '' : 'none';
+  }
+  function paintMediaHealth(){
+    var el = room.qualityEl;
+    if (!el) return;
+    var msg = '';
+    var bad = room.networkState === 'bad';
+    if (bad){
+      msg = room.viewer
+        ? 'Poor connection. Keeping audio clear and lowering video quality.'
+        : 'Poor connection. Video quality will adjust while audio stays prioritized.';
+    } else if (room.networkState === 'warning'){
+      msg = room.viewer
+        ? 'Connection is unstable. Lowering video quality for smoother playback.'
+        : 'Connection is unstable. Video quality is adjusting automatically.';
+    } else if (room.cpuHigh){
+      msg = room.viewer
+        ? 'This device is busy. Lowering playback quality.'
+        : 'This device is busy. Lowering camera quality.';
+    }
+    el.className = 'cv-quality' + (msg ? ' is-visible' : '') + (bad ? ' is-bad' : '');
+    el.innerHTML = msg ? '<i aria-hidden="true"></i><span></span>' : '';
+    var span = el.querySelector('span');
+    if (span) span.textContent = msg;
+  }
+  function wantedReceiveCap(){
+    if (room.networkState === 'bad') return 0;
+    if (room.networkState === 'warning' || room.cpuHigh) return 1;
+    return 'inherit';
+  }
+  function applyViewerReceiveCap(){
+    var call = room.call;
+    if (!room.viewer || !call || typeof call.updateReceiveSettings !== 'function') return;
+    var cap = wantedReceiveCap();
+    if (room.receiveCap === cap) return;
+    room.receiveCap = cap;
+    // Keep shared screens at the room default so small text stays legible.
+    // Only camera video steps down under receiver pressure.
+    var settings = { '*': { video: { layer: cap } } };
+    try {
+      var p = call.updateReceiveSettings(settings);
+      if (p && p.catch) p.catch(function(e){ console.warn('[Daily receive settings]', e && e.message); });
+    } catch(e){}
+  }
+  function rememberMediaHealth(){
+    var key = room.networkState + '|' + (room.cpuHigh ? 'high' : 'low') + '|' + room.networkReasons.join(',');
+    if (key === room.lastHealthKey) return;
+    room.lastHealthKey = key;
+    var call = room.call;
+    var read = call && typeof call.getNetworkStats === 'function'
+      ? call.getNetworkStats().catch(function(){ return null; })
+      : Promise.resolve(null);
+    read.then(function(result){
+      // Local support hook only. Connection details never leave the tab.
+      window.__lrMediaDiagnostics = {
+        network: room.networkState,
+        reasons: room.networkReasons.slice(0),
+        cpu: room.cpuHigh ? 'high' : 'low',
+        viewer: room.viewer,
+        sdk: window.DebatableDaily ? window.DebatableDaily.version : '',
+        source: window.DebatableDaily ? window.DebatableDaily.source() : '',
+        stats: result && result.stats ? result.stats : null
+      };
+      console.info('[Daily media health]', window.__lrMediaDiagnostics);
+    });
+  }
+  function onNetworkQuality(ev){
+    var next = ev && ev.networkState;
+    if (!next && ev && ev.threshold){
+      next = ev.threshold === 'very-low' ? 'bad' : (ev.threshold === 'low' ? 'warning' : 'good');
+    }
+    if (['good','warning','bad','unknown'].indexOf(next) < 0) next = 'unknown';
+    room.networkState = next;
+    room.networkReasons = ev && Array.isArray(ev.networkStateReasons) ? ev.networkStateReasons.slice(0, 4) : [];
+    applyViewerReceiveCap();
+    paintMediaHealth();
+    rememberMediaHealth();
+  }
+  function onCpuLoad(ev){
+    room.cpuHigh = !!(ev && ev.cpuLoadState === 'high');
+    if (room.viewer) applyViewerReceiveCap();
+    else tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
+    paintMediaHealth();
+    rememberMediaHealth();
   }
   /* The end-state of a call, with the two things someone in it actually
      wants next. Both are stated because the pane going black is exactly
@@ -9068,16 +9205,22 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     aud.setAttribute('aria-label', 'Audience cameras');
     var note = document.createElement('div');
     note.className = 'cv-note';
+    var quality = document.createElement('div');
+    quality.className = 'cv-quality';
+    quality.setAttribute('role', 'status');
+    quality.setAttribute('aria-live', 'polite');
     var tray = document.createElement('div');
     tray.className = 'cv-tray';
     tray.setAttribute('role', 'group');
     tray.setAttribute('aria-label', 'Room controls');
     var audioHost = document.createElement('div');
     audioHost.style.display = 'none';
-    wrap.appendChild(stage); wrap.appendChild(aud); wrap.appendChild(note); wrap.appendChild(tray);
+    wrap.appendChild(stage); wrap.appendChild(aud); wrap.appendChild(note);
+    wrap.appendChild(quality); wrap.appendChild(tray);
     wrap.appendChild(audioHost);
     shell.appendChild(wrap);
     room.wrap = wrap; room.stage = stage; room.aud = aud; room.note = note;
+    room.qualityEl = quality;
     room.tray = tray; room.audioHost = audioHost;
     // No tray for a watcher: mic, camera flip, screen share and leave are
     // all things a guest cannot do in a round they are not in.
@@ -9405,7 +9548,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var want = room.facing === 'user' ? 'environment' : 'user';
     var mode = camConv.mode === 'avatar' ? 'avatar' : 'camera';
     var old = camConv.cam;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480, frameRate: { ideal: 24, max: 30 }, facingMode: { ideal: want } } })
+    navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode, want) })
       .then(function(ms){ return window.DebateCam.start(ms, { mode: mode, label: seatLabel() }); })
       .then(function(c){
         camConv.cam = c;
@@ -9413,6 +9556,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         room.facing = want;
         return state.dailyFrame.setInputDevicesAsync({ videoSource: publishTrackFor(c, mode) }).then(function(){
           if (camConv.mode !== 'off') state.dailyFrame.setLocalVideo(true);
+          tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
           if (camConv.mode === 'avatar') showSelfPip();
           if (old && old !== c) try { old.stop(); } catch(e){}
           paintRoom();
@@ -9489,6 +9633,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       delete room.audios[sid];
     });
     room.joined = false;
+    room.networkState = 'unknown';
+    room.networkReasons = [];
+    room.cpuHigh = false;
+    room.receiveCap = 'inherit';
+    room.lastHealthKey = '';
+    paintMediaHealth();
   }
   function mountCallObject(shell, token, viewer){
     var call = window.DailyIframe.createCallObject({ subscribeToTracksAutomatically: true });
@@ -9531,6 +9681,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     call.on('participant-left', paintRoom);
     call.on('track-started', paintRoom);
     call.on('track-stopped', paintRoom);
+    call.on('network-quality-change', onNetworkQuality);
+    call.on('cpu-load-change', onCpuLoad);
     call.on('active-speaker-change', function(ev){
       room.active = (ev && ev.activeSpeaker && ev.activeSpeaker.peerId) || '';
       paintRoom();
@@ -9609,6 +9761,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         console.warn('[Daily] viewer call object failed, falling back to the plain iframe', e);
       }
     }
+    try { gtag('event', 'live_round_viewer_prebuilt_fallback', {
+      sdk_source: window.DebatableDaily ? (window.DebatableDaily.source() || 'none') : 'loader_missing'
+    }); } catch(e){}
     return !!mountAudienceIframe(shell);
   }
 
@@ -9650,7 +9805,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }
       if (room.wrap){ try { room.wrap.remove(); } catch(e){} }
       room.wrap = null; room.stage = null; room.aud = null;
-      room.note = null; room.tray = null; room.audioHost = null;
+      room.note = null; room.tray = null; room.audioHost = null; room.qualityEl = null;
       room.viewer = false;
       room.active = '';
       room.soundGate = null;
@@ -9822,16 +9977,22 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
   }
 
-  // Up to 8 seconds, then build with whatever is there. A watcher waiting
-  // on a CDN is still better served by a late good mount than an instant
-  // one that asks them for a camera, and the cap means a blocked CDN
-  // still ends in a room rather than in nothing.
+  // Await the shared loader, which serves the pinned same-origin SDK first
+  // and tries two exact-version CDN mirrors only if that file is missing.
+  // The old fixed 8s poll could expire while a fallback source was still
+  // loading and deliberately mount Daily Prebuilt, which is the full call
+  // UI in the screenshot this watch-only stage exists to prevent.
   function whenDailyReady(cb){
     if (window.DailyIframe) { cb(); return; }
-    var waited = 0;
-    var t = setInterval(function(){
+    if (window.DebatableDaily && window.DebatableDaily.load){
+      window.DebatableDaily.load().then(function(){ cb(); }).catch(function(){ cb(); });
+      return;
+    }
+    // A stale HTML shell may predate the loader. Keep a short compatibility
+    // wait, then let the existing raw-room fallback preserve the call.
+    var waited = 0, t = setInterval(function(){
       waited += 120;
-      if (window.DailyIframe || waited >= 8000){ clearInterval(t); cb(); }
+      if (window.DailyIframe || waited >= 4500){ clearInterval(t); cb(); }
     }, 120);
   }
 

@@ -212,6 +212,13 @@ export default async (req) => {
     // is handled where it belongs (unlisted rounds, the admission gate,
     // and /api/audience-cam's own cap of 4 concurrent cameras).
     max_participants: 24,
+    // Daily Adaptive Bitrate is on by default for 1:1, but a room stops
+    // being 1:1 as soon as the first hidden watcher joins. Turn on the
+    // multiparty path explicitly so every receiver gets the best layer
+    // its bandwidth and device can sustain instead of stalling on the
+    // sender's top layer. Both properties are documented Daily room keys.
+    enable_adaptive_simulcast: true,
+    enable_multiparty_adaptive_simulcast: true,
     enable_prejoin_ui: false,       // skip the "set name + cam" prejoin
     enable_screenshare: true,
     enable_chat: true,

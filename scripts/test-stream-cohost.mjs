@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {
   ownerTokenProperties,
@@ -64,12 +65,26 @@ const leadUrl = new URL('https://itsdebatable.com' + studioPath({
 check(leadUrl.searchParams.get('rtmp') === 'rtmp://private-key', 'lead URL receives the RTMP key');
 
 const control = read('app/netlify/functions/stream-control.mjs');
+const liveRoomControl = read('app/netlify/functions/create-daily-room.mjs');
 const studio = read('app/studio.html');
+const liveRound = read('app/live-round.html');
+const loader = read('app/js/daily-loader.js');
 const tournament = read('app/tournaments.html');
 const admin = read('app/admin.html');
 check(control.includes("if (action === 'cohost')"), 'stream control exposes the admin-only cohost action');
 check(control.includes('enable_hidden_participants: true'), 'public viewers are hidden and receive-only');
+check(control.includes('enable_multiparty_adaptive_simulcast: true'), 'broadcast room keeps adaptive simulcast for direct viewers');
+check(liveRoomControl.includes('enable_multiparty_adaptive_simulcast: true'), 'live rounds keep adaptive simulcast after hidden viewers join');
 check(studio.includes("call.on('participant-counts-updated', reportParticipants)"), 'studio tracks hidden public viewers');
+check(studio.includes("call.on('network-quality-change'"), 'studio reacts to network pressure');
+check(studio.includes("call.on('cpu-load-change'"), 'studio reacts to device pressure');
+check(liveRound.includes("call.on('network-quality-change', onNetworkQuality)"), 'live round reacts to network pressure');
+check(liveRound.includes("call.on('cpu-load-change', onCpuLoad)"), 'live round reacts to device pressure');
+check(liveRound.includes("var settings = { '*': { video: { layer: cap } } }"), 'watchers can step down camera video without blurring screen shares');
+check(loader.includes("var VERSION = '0.92.2'"), 'Daily SDK loader is pinned to an exact release');
+check(!/https:\/\/unpkg\.com\/@daily-co\/daily-js["']/.test(studio + liveRound), 'stream pages do not load Daily latest');
+const dailyBundle = fs.readFileSync(path.join(root, 'app/vendor/daily-iframe-0.92.2.js'));
+check(crypto.createHash('sha256').update(dailyBundle).digest('hex') === '4199d9996bafaa500d97362eb109c2a300ffbead41ce5c4df7132517f7ad5636', 'vendored Daily SDK matches the reviewed npm bundle');
 check(tournament.includes("fetch('/api/stream-status'"), 'tournament page reads the public stream status');
 check(tournament.includes('id="publicStreamFrame"'), 'tournament page contains the public player');
 check(admin.includes("action: 'cohost'"), 'admin dashboard can mint a cohost invite');

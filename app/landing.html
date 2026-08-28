@@ -22242,11 +22242,11 @@ window.addEventListener('load', function(){
      a room caps at max_participants (200 here), so a stream that needs
      to reach more than that wants Daily's HLS output rather than a seat
      per viewer. -->
+<script src="/js/daily-loader.js"></script>
 <script>
 (function(){
   'use strict';
 
-  var DAILY_SRC = 'https://unpkg.com/@daily-co/daily-js';
   var IDLE_LEAVE_MS = 15000;
 
   var card = document.getElementById('fsLive');
@@ -22273,14 +22273,10 @@ window.addEventListener('load', function(){
   function loadDaily(){
     if (window.DailyIframe) return Promise.resolve(window.DailyIframe);
     if (sdk) return sdk;
-    sdk = new Promise(function(res, rej){
-      var s = document.createElement('script');
-      s.src = DAILY_SRC;
-      s.async = true;
-      s.onload = function(){ window.DailyIframe ? res(window.DailyIframe) : rej(new Error('no DailyIframe')); };
-      s.onerror = function(){ sdk = null; rej(new Error('daily-js blocked')); };
-      document.head.appendChild(s);
-    });
+    sdk = window.DebatableDaily
+      ? window.DebatableDaily.load()
+      : Promise.reject(new Error('Daily loader unavailable'));
+    sdk.catch(function(){ sdk = null; });
     return sdk;
   }
 

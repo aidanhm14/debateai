@@ -115,6 +115,11 @@ async function createStreamRoom(name){
     exp: Math.floor(Date.now() / 1000) + 12 * 3600,
     max_participants: Math.min(300, parseInt(process.env.DAILY_MAX_PARTICIPANTS, 10) || 200),
     owner_only_broadcast: true,
+    // Direct viewers make this a multiparty WebRTC room even though only
+    // the owner seats publish. Keep a three-layer adaptive path available
+    // for them, including when no RTMP restream is configured.
+    enable_adaptive_simulcast: true,
+    enable_multiparty_adaptive_simulcast: true,
     // Tokenless public viewers stay out of the participant grid and can
     // receive only owner media. The lead and cohost both join as owners.
     enable_hidden_participants: true,
