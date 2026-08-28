@@ -46,10 +46,15 @@ ok(
 ok(judgeLeaseWaitMs({ serverJudgeState: 'failed' }, now) === 0, 'a failed lease is not permanently locked');
 
 const appCheckSource = readFileSync(new URL('../app/js/app-check.js', import.meta.url), 'utf8');
+const liveRoundSource = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
 const gatedBlock = appCheckSource.match(/var GATED = \[([\s\S]*?)\];/);
 const authBlock = appCheckSource.match(/var AUTH_ROUTES = \[([\s\S]*?)\];/);
 ok(gatedBlock && gatedBlock[1].includes("'/api/live-judge'"), 'live judge always mints an App Check token');
 ok(authBlock && authBlock[1].includes("'/api/live-judge'"), 'live judge always carries the Firebase caller token');
+ok(
+  /function generateBallot\(attempt\)\{[\s\S]{0,500}if \(isSpectator\(\)\) return;/.test(liveRoundSource),
+  'spectators never enter the participant-authored fallback judge',
+);
 
 if (failures) {
   console.error(`test-live-judge-recovery: ${failures} failure(s)`);

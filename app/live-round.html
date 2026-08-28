@@ -11986,6 +11986,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
   function generateBallot(attempt){
     attempt = attempt || 1;
+    // Spectators render the shared server result and may invoke only the
+    // stale-pending recovery path above. Falling through to the legacy
+    // client judge lets a watcher locally manufacture a winner after a real
+    // panel split, even though publishBallot() correctly refuses their write.
+    if (isSpectator()) return;
     // Pull audience evals once before the first prompt build so
     // audienceBallotLines() has data. Fire-and-continue on failure; a
     // missing evals read must never block the ballot. Retries reuse
