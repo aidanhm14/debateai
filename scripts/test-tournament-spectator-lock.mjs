@@ -53,7 +53,12 @@ assert.ok(
   'drop-in endpoint must fail closed before auth, Firestore, or pairing work',
 );
 assert.ok(open.includes('if (!t.publicPairingEnabled)'), 'Open page must render spectator mode');
-assert.ok(open.includes('Watch the admin stream.'), 'Open page must direct the public to the admin stream');
+assert.ok(
+  open.includes('Stay here for the main broadcast.') &&
+  open.includes("fetch('/api/stream-status'") &&
+  open.includes('id="mainBroadcastFrame"'),
+  'Open page must direct the public to the embedded admin stream',
+);
 assert.ok(open.includes('!t.publicPairingEnabled || t.dropIn === false'), 'Open queue must honor the launch gate');
 assert.ok(tournament.includes('!t.publicPairingEnabled || t.dropIn === false'), 'generic tournament queue must honor the launch gate');
 

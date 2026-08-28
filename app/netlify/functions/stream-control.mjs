@@ -1,5 +1,6 @@
 // Tournament livestream control. Admin-only start/stop plus cohost invite
-// minting for the public stream shown on /tournaments and /watch.
+// minting for the public stream shown on the homepage, /tournaments, the
+// Open event lobby, and /watch.
 //
 // Contract:
 //   POST /api/stream-control  (Authorization: Bearer <admin firebase token>)

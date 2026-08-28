@@ -1,5 +1,5 @@
 // Public read side of the owner livestream (WS2 Phase 6). The landing
-// page and /watch poll this to decide whether to show the live band.
+// page, the Open event lobby, and /watch poll this to show one broadcast.
 //
 //   GET /api/stream-status → { live, url, title, startedAt }
 //

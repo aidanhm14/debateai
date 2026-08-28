@@ -119,6 +119,21 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .band .when{flex:1 1 220px;font-size:.88rem;color:var(--dim);line-height:1.5}
   .band.is-live{border-color:rgba(34,197,94,.34);background:rgba(34,197,94,.07)}
 
+  /* The event lobby carries the main broadcast while it is live. People
+     waiting on a pairing should not have to leave the page the host is
+     directing them from. The player starts muted because browsers block
+     sound-on autoplay; the instruction beside it makes the one required
+     action explicit. */
+  .main-broadcast{overflow:hidden;padding:0;border-color:rgba(239,68,68,.42);box-shadow:0 24px 70px rgba(0,0,0,.24)}
+  .main-broadcast-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .main-broadcast-live{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;background:var(--red);color:#fff;font-size:.67rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+  .main-broadcast-live i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s ease-in-out infinite}
+  .main-broadcast-title{min-width:0;flex:1;font-size:1rem;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .main-broadcast-unmute{font-size:.73rem;color:var(--dim);font-weight:750}
+  .main-broadcast-frame{display:block;width:100%;aspect-ratio:16/9;border:0;background:#000}
+  .main-broadcast-note{padding:12px 18px;color:var(--dim);font-size:.8rem;line-height:1.5;border-top:1px solid var(--line)}
+  .main-broadcast-note strong{color:var(--fg)}
+
   .event-tabs{position:sticky;top:62px;z-index:12;display:flex;gap:7px;overflow-x:auto;
     margin:18px 0 0;padding:8px;border:1px solid var(--line);border-radius:13px;
     background:rgba(19,19,23,.9);backdrop-filter:blur(16px);scrollbar-width:none}
@@ -284,6 +299,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   </header>
 
   <nav class="event-tabs" aria-label="Tournament sections">
+    <a class="hidden" id="mainBroadcastTab" href="#main-broadcast">Main broadcast</a>
     <a href="#overview">Overview</a>
     <a href="#schedule">Schedule</a>
     <a href="#format">Format and scoring</a>
@@ -294,6 +310,18 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   <div id="err" class="err hidden"></div>
   <div id="ok" class="ok hidden"></div>
+
+  <!-- The public tournament desk. /api/stream-status is the same source
+       /watch and the homepage use, so all three surfaces switch together. -->
+  <section class="card main-broadcast hidden" id="main-broadcast" aria-live="polite">
+    <div class="main-broadcast-head">
+      <span class="main-broadcast-live"><i></i>Live</span>
+      <h2 class="main-broadcast-title" id="mainBroadcastTitle">Main tournament broadcast</h2>
+      <span class="main-broadcast-unmute">Tap the player to unmute</span>
+    </div>
+    <iframe class="main-broadcast-frame" id="mainBroadcastFrame" title="Main tournament broadcast" allow="autoplay; clipboard-write; fullscreen; picture-in-picture" allowfullscreen></iframe>
+    <p class="main-broadcast-note"><strong>Keep this page open between rounds.</strong> The host calls pairings, timing, room changes, and event instructions here.</p>
+  </section>
 
   <!-- What now. The whole point of the page. -->
   <section class="card" id="overview">
@@ -530,6 +558,59 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       .catch(function(e){ fail(e.message); });
   }
 
+  // ── Main broadcast ───────────────────────────────────────────────
+  // This is deliberately the global site stream rather than a tournament
+  // room. The host can speak from /studio, share the director view, or put
+  // a selected Stage tab on screen while every entrant stays on this page.
+  var mainBroadcastWasLive = false;
+  function renderMainBroadcast(s, demo){
+    var live = !!(s && s.live && (demo || s.watchEmbedUrl || s.url));
+    var changed = mainBroadcastWasLive !== live;
+    var section = $('main-broadcast');
+    var tab = $('mainBroadcastTab');
+    var frame = $('mainBroadcastFrame');
+    show('main-broadcast', live);
+    if (tab) tab.classList.toggle('hidden', !live);
+    if (!live){
+      if (mainBroadcastWasLive){
+        frame.removeAttribute('srcdoc');
+        frame.src = 'about:blank';
+      }
+      mainBroadcastWasLive = false;
+      if (changed && state.data) renderNow();
+      return;
+    }
+    $('mainBroadcastTitle').textContent = s.title || 'Main tournament broadcast';
+    if (demo){
+      frame.removeAttribute('src');
+      frame.srcdoc = '<!doctype html><html><body style="margin:0;background:#08090d;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh"><div style="text-align:center"><div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#f87171;font-weight:800">Main broadcast preview</div><div style="font-size:28px;font-weight:800;margin-top:10px">Host desk and event instructions</div><div style="opacity:.65;margin-top:8px">The live Twitch or Daily player fills this frame.</div></div></body></html>';
+    } else {
+      frame.removeAttribute('srcdoc');
+      var want = s.watchEmbedUrl
+        ? s.watchEmbedUrl
+        : s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
+      if (frame.src !== want) frame.src = want;
+    }
+    if (!mainBroadcastWasLive){
+      try { gtag('event', 'open_main_broadcast_shown'); } catch(e){}
+    }
+    mainBroadcastWasLive = true;
+    if (changed && state.data) renderNow();
+  }
+
+  function pollMainBroadcast(){
+    if (WALL_DEMO){
+      renderMainBroadcast({ live:true, title:'Open rehearsal · host desk' }, true);
+      return Promise.resolve();
+    }
+    return fetch('/api/stream-status', { cache:'no-store' })
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('stream status unavailable')); })
+      .then(function(s){ renderMainBroadcast(s, false); })
+      // Keep a player that is already live through a transient status read.
+      // An explicit live:false response still takes it down immediately.
+      .catch(function(){});
+  }
+
   // ── Derived state ─────────────────────────────────────────────────
   function myEntry(){
     if (!state.user || !state.data) return null;
@@ -701,13 +782,17 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (!t.publicPairingEnabled){
       if (isHost()){
         say = 'Public matchmaking is paused.';
-        why = 'Run controlled rounds from the full control room. Everyone else watches the stream.';
+        why = mainBroadcastWasLive
+          ? 'Run controlled rounds from the full control room. Everyone else watches the main broadcast above.'
+          : 'Run controlled rounds from the full control room. The main broadcast appears here when it is live.';
         addLink(acts, 'Full control room', '/tournament?t=' + encodeURIComponent(t.slug || t.tid));
-        addLink(acts, 'Watch the stream', '/watch', true);
+        addLink(acts, mainBroadcastWasLive ? 'Watch above' : 'Watch the stream', mainBroadcastWasLive ? '#main-broadcast' : '/watch', true);
       } else {
-        say = 'Watch the admin stream.';
-        why = 'This tournament room is view-only. Public matches are not open.';
-        addLink(acts, 'Watch the stream', '/watch', true);
+        say = mainBroadcastWasLive ? 'Stay here for the main broadcast.' : 'The main broadcast starts here.';
+        why = mainBroadcastWasLive
+          ? 'The host calls rooms and event instructions in the player above. Public matches are not open.'
+          : 'Keep this page open. The player appears here when the host goes live.';
+        addLink(acts, mainBroadcastWasLive ? 'Watch above' : 'Watch the stream', mainBroadcastWasLive ? '#main-broadcast' : '/watch', true);
       }
       box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div><div class="why">' + esc(why) + '</div>';
       if (mine) renderMyRecord(meta, mine);
@@ -1354,15 +1439,17 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (queueEligible() && !dropIn.polling) queuePoll();
   });
   loadLive();
+  pollMainBroadcast();
 
   // The tournament document is shared-cached for eight seconds server
   // side, so polling faster than this buys nothing and costs reads.
   setInterval(function(){ if (!document.hidden) load(); }, 25000);
   setInterval(function(){ if (!document.hidden) loadLive(); }, 30000);
+  setInterval(function(){ if (!document.hidden) pollMainBroadcast(); }, 15000);
   // A tab left open through a phase change should be right when someone
   // comes back to it, not stale by however long they were away.
   document.addEventListener('visibilitychange', function(){
-    if (!document.hidden){ load(); loadLive(); }
+    if (!document.hidden){ load(); loadLive(); pollMainBroadcast(); }
   });
 })();
 </script>
