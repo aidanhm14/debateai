@@ -438,10 +438,6 @@
       // Explore and the mobile sheet, not the permanent rail.
       { href: '/debate-online', label: 'Debate online', strong: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
-      // 2026-08-27: moved off the permanent rail and back into Explore
-      // at the founder's request. `strong` is the menu's bold tier.
-      { href: '/predict',     label: 'Bet', strong: true },
-      { href: '/bounties',    label: 'Bounties', strong: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
@@ -627,6 +623,11 @@
       // destination was rendering at the same weight as everything
       // under it. Demoting is deleting `big` and restoring `strong`.
       { href: '/community',   label: 'Community', big: true },
+      // 2026-08-27: moved off the permanent rail and back into Explore.
+      // Keep both rows below Watch and Community, not among the paths for
+      // entering a debate. `strong` is the menu's bold tier.
+      { href: '/predict',     label: 'Bet', strong: true },
+      { href: '/bounties',    label: 'Bounties', strong: true },
       // Sits with Community and the Atlas: all three answer "who else is
       // out there and what do they want". This one is the only surface
       // where a visitor tells us what to run rather than reading what we
@@ -1084,8 +1085,6 @@
           ['/challenges',     'big'],
           ['/debate-online',  'strong'],
           ['/tournaments',    'strong'],
-          ['/predict',        'strong'],
-          ['/bounties',       'strong'],
           ['/private',        ''],
           ['/leaderboard',    'strong'],
           ['/claim',          ''],
@@ -1108,6 +1107,8 @@
         column('Watch & community', [
           ['/community',      'big'],
           ['/watch',          'strong'],
+          ['/predict',        'strong'],
+          ['/bounties',       'strong'],
           ['/spectate',       ''],
           ['/chat',           ''],
         ]),
