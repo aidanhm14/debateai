@@ -454,6 +454,28 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
 .livebar a{flex:none;padding:9px 16px;border-radius:10px;background:var(--red);color:#fff;font-family:var(--sans);font-size:.82rem;font-weight:850}
 @media(prefers-reduced-motion:reduce){.livebar i{animation:none}}
 
+/* Public tournament broadcast. It does not exist in the layout while the
+   stream is off. When the admin goes live it is the first thing under the
+   tournament nav, with the same receive-only player /watch uses. */
+.public-stream{padding:24px 0 30px;border-bottom:1px solid var(--line);background:var(--plate);color:#fff}
+.public-stream-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.public-stream-dot{width:10px;height:10px;border-radius:50%;background:#ff5d5d;box-shadow:0 0 0 6px rgba(255,93,93,.17);animation:pipPulse 1.4s ease-in-out infinite}
+.public-stream-label{font-family:var(--sans);font-size:.72rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:#ff8a8a}
+.public-stream-title{font-size:1.12rem;font-weight:800;line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.public-stream-open{margin-left:auto;flex:none;padding:9px 14px;border:1px solid rgba(255,255,255,.22);border-radius:10px;font-family:var(--sans);font-size:.8rem;font-weight:800;color:#fff}
+.public-stream-open:hover{border-color:#fff}
+.public-stream-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.32)}
+.public-stream-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.public-stream-note{margin:11px 2px 0;font-family:var(--sans);font-size:.82rem;line-height:1.5;color:rgba(255,255,255,.7)}
+@media(max-width:640px){
+  .public-stream{padding:17px 0 22px}
+  .public-stream-head{align-items:flex-start;flex-wrap:wrap;gap:9px 11px}
+  .public-stream-title{width:calc(100% - 34px);white-space:normal;font-size:1rem}
+  .public-stream-open{margin-left:21px}
+  .public-stream-frame{border-radius:12px}
+}
+@media(prefers-reduced-motion:reduce){.public-stream-dot{animation:none}}
+
 /* ── Logistics. Everything a person needs to decide, in one glance,
    with no prose to read. This is the band that replaced three
    paragraphs and a four-card "what you need" section. */
@@ -636,6 +658,20 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
 </header>
 
 <main id="main">
+  <section class="public-stream" id="publicStream" hidden aria-live="polite">
+    <div class="shell">
+      <div class="public-stream-head">
+        <span class="public-stream-dot" aria-hidden="true"></span>
+        <span class="public-stream-label">Live tournament</span>
+        <strong class="public-stream-title" id="publicStreamTitle">Live from the arena</strong>
+        <a class="public-stream-open" href="/watch" target="_blank" rel="noopener">Open in Watch</a>
+      </div>
+      <div class="public-stream-frame">
+        <iframe id="publicStreamFrame" title="Live tournament stream" src="about:blank" allow="autoplay; clipboard-write; fullscreen" allowfullscreen></iframe>
+      </div>
+      <p class="public-stream-note">Open to everyone. The lead and cohost broadcast from the studio; viewers can watch but cannot join the camera or microphone.</p>
+    </div>
+  </section>
   <section class="hero" id="watch">
     <div class="shell hero-grid">
       <div>
@@ -1193,18 +1229,61 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
 <script src="/js/spar-night.js" defer></script>
 <script src="/js/share-poster.js" defer></script>
 <script>
-  // Live bar. /api/watch-live reports a public round with a fresh
-  // participant heartbeat; with nothing live, nothing renders. The old
-  // behaviour was a 330px black panel reading "off air right now" as
-  // the largest object on a page whose only job is to get entries.
+  // Public tournament broadcast first, then the ordinary live-round bar.
+  // /api/stream-status is the same cached public read used by /watch. A
+  // broadcast gets the full player here with no account gate. When there
+  // is no tournament broadcast, /api/watch-live may still surface one
+  // ordinary round in the compact hero bar.
   (function(){
     var FORMATS={quick:'Casual 1v1',blitz:'Blitz (5 min)',apda:'APDA',bp:'BP',worlds:'Worlds (WUDC)',asian:'Asian Parli',ld:'LD',pf:'Public Forum',policy:'Policy'};
     var bar=document.getElementById('liveBar');
-    if(!bar)return;
+    var panel=document.getElementById('publicStream');
+    var frame=document.getElementById('publicStreamFrame');
+    var titleEl=document.getElementById('publicStreamTitle');
+    if(!bar||!panel||!frame)return;
     var motionEl=document.getElementById('liveBarMotion');
     var linkEl=document.getElementById('liveBarLink');
-    function hydrate(){
+    var streamOn=false;
+
+    function renderPublicStream(s){
+      var on=!!(s&&s.live&&(s.watchEmbedUrl||s.url));
+      var wasOn=!panel.hidden;
+      var oldHeight=panel.offsetHeight;
+      if(on){
+        var want=s.watchEmbedUrl
+          ? s.watchEmbedUrl
+          : s.url+(s.url.indexOf('?')>=0?'&':'?')+'startVideoOff=true&startAudioOff=true';
+        if(frame.getAttribute('data-stream-src')!==want){
+          frame.src=want;
+          frame.setAttribute('data-stream-src',want);
+        }
+        titleEl.textContent=s.title||'Live from the arena';
+        panel.hidden=false;
+        if(motionEl)motionEl.textContent=s.title||'The tournament is live';
+        if(linkEl)linkEl.href='#publicStream';
+        bar.classList.add('is-on');
+      }else{
+        panel.hidden=true;
+        bar.classList.remove('is-on');
+        if(streamOn){
+          frame.src='about:blank';
+          frame.removeAttribute('data-stream-src');
+        }
+      }
+      streamOn=on;
+
+      // Starting or ending a stream can add or remove a large player above
+      // somebody who is reading lower on the page. Keep their current text
+      // under the cursor instead of moving the document beneath them.
+      if(wasOn!==on&&window.scrollY>80){
+        requestAnimationFrame(function(){window.scrollBy(0,panel.offsetHeight-oldHeight)});
+      }
+      return on;
+    }
+
+    function hydrateRound(){
       fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+        if(streamOn)return;
         var r=(j&&j.rounds&&j.rounds[0])||null;
         if(!r){bar.classList.remove('is-on');return}
         var label=FORMATS[r.format]||String(r.format||'').toUpperCase();
@@ -1213,8 +1292,14 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
         bar.classList.add('is-on');
       }).catch(function(){});
     }
+
+    function hydrate(){
+      fetch('/api/stream-status',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(s){
+        if(!renderPublicStream(s))hydrateRound();
+      }).catch(function(){hydrateRound()});
+    }
     hydrate();
-    setInterval(function(){if(!document.hidden)hydrate()},60000);
+    setInterval(function(){if(!document.hidden)hydrate()},20000);
   })();
 </script>
 <script>

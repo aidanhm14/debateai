@@ -1,15 +1,19 @@
-// Owner livestream control (WS2 Phase 6). Admin-only start/stop for the
-// front-page tournament stream.
+// Tournament livestream control. Admin-only start/stop plus cohost invite
+// minting for the public stream shown on /tournaments and /watch.
 //
 // Contract:
 //   POST /api/stream-control  (Authorization: Bearer <admin firebase token>)
-//     { action: 'start', title?: 'APDA Winter Open — Finals' }
+//     { action: 'start', title?: 'The Open finals' }
 //       → creates a Daily broadcast room (owner_only_broadcast), mints an
 //         owner token for the admin (with cloud recording auto-start when
 //         the Daily plan supports it), writes site_stream/current, and
 //         returns { live, url, token, studioUrl } — studioUrl is the room
 //         URL with the owner token appended, ready to open in a tab and
 //         go on camera.
+//     { action: 'cohost', userName?: 'Friend' }
+//       → mints a second owner token for the current room and returns a
+//         studioUrl that can publish camera, mic, and screen share. It never
+//         contains the RTMP key and never starts a second recording.
 //     { action: 'stop' }
 //       → flips site_stream/current to live:false and asks Daily to stop
 //         any in-flight recording for the room.
@@ -24,6 +28,7 @@
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
+import { ownerTokenProperties, streamerName, studioPath } from './lib/stream-studio.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const STREAM_DOC = 'current';
@@ -109,6 +114,9 @@ async function createStreamRoom(name){
     exp: Math.floor(Date.now() / 1000) + 12 * 3600,
     max_participants: Math.min(300, parseInt(process.env.DAILY_MAX_PARTICIPANTS, 10) || 200),
     owner_only_broadcast: true,
+    // Tokenless public viewers stay out of the participant grid and can
+    // receive only owner media. The lead and cohost both join as owners.
+    enable_hidden_participants: true,
     enable_prejoin_ui: false,
     enable_screenshare: true,
     enable_chat: true,
@@ -135,14 +143,12 @@ async function createStreamRoom(name){
   return { room: await resp.json(), recording: false };
 }
 
-async function mintOwnerToken(roomName, withRecording, userName){
-  const properties = {
-    room_name: roomName,
-    is_owner: true,
-    exp: Math.floor(Date.now() / 1000) + 12 * 3600,
-    user_name: (userName || 'Debatable').slice(0, 60),
-  };
-  if (withRecording) properties.start_cloud_recording = true;
+async function mintOwnerToken(roomName, withRecording, userName, role = 'lead'){
+  const properties = ownerTokenProperties(roomName, {
+    withRecording,
+    userName,
+    role,
+  });
   const resp = await fetch(DAILY_API + '/meeting-tokens', {
     method: 'POST',
     headers: dailyHeaders(),
@@ -151,7 +157,7 @@ async function mintOwnerToken(roomName, withRecording, userName){
   if (!resp.ok){
     // start_cloud_recording needs a recording-capable plan; retry bare
     // so the stream itself still goes out.
-    if (withRecording) return mintOwnerToken(roomName, false, userName);
+    if (withRecording) return mintOwnerToken(roomName, false, userName, role);
     return null;
   }
   const data = await resp.json();
@@ -189,6 +195,7 @@ export default async (req) => {
 
   if (action === 'start'){
     const title = String(body.title || 'Live from the arena').slice(0, 140);
+    const userName = streamerName(body.userName, 'Host');
     const name = 'debatable-live-' + Date.now().toString(36);
     let created;
     try {
@@ -197,20 +204,24 @@ export default async (req) => {
       return errorResponse(e.message, 502, req);
     }
     const url = created.room.url || ('https://' + process.env.DAILY_DOMAIN + '.daily.co/' + name);
-    const token = await mintOwnerToken(name, created.recording, body.userName || 'Host');
+    const token = await mintOwnerToken(name, created.recording, userName, 'lead');
+    if (!token) return errorResponse('Could not create the lead studio token', 502, req);
     // studioUrl points at OUR studio page, not the raw Daily room. The
     // raw room opens Daily prebuilt at its default send settings, which
     // are tuned for a many-person meeting and look soft when they are
     // the only thing on screen. Send quality can only be set through
     // daily-js, so the host needs a page. rawRoomUrl is kept as the
     // escape hatch if /studio ever fails to load.
-    const studioQuery = new URLSearchParams({ url });
-    if (token) studioQuery.set('t', token);
-    if (title) studioQuery.set('title', title);
-    // The RTMP target rides to the studio, which is where daily-js can
-    // actually start the restream. It is a secret (the stream key is the
-    // whole credential), so it comes from env and never from the client.
-    if (RTMP_URL) studioQuery.set('rtmp', RTMP_URL);
+    const studioUrl = studioPath({
+      url,
+      token,
+      title,
+      userName,
+      role: 'lead',
+      // The RTMP target rides only to the lead studio, which is where
+      // daily-js starts the restream. It never enters a cohost invite.
+      rtmp: RTMP_URL,
+    });
 
     await ref.set({
       live: true,
@@ -239,8 +250,33 @@ export default async (req) => {
       recording: created.recording,
       restream: !!RTMP_URL,
       watchEmbedUrl: watchEmbedUrl(),
-      studioUrl: '/studio?' + studioQuery.toString(),
+      studioUrl,
       rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
+    }, 200, req);
+  }
+
+  if (action === 'cohost'){
+    const snap = await ref.get();
+    const cur = snap.exists ? (snap.data() || {}) : {};
+    if (!cur.live || !cur.roomName || !cur.url){
+      return errorResponse('Start the stream before creating a cohost invite', 409, req);
+    }
+
+    const userName = streamerName(body.userName, 'Cohost');
+    const token = await mintOwnerToken(cur.roomName, false, userName, 'cohost');
+    if (!token) return errorResponse('Could not create the cohost studio token', 502, req);
+
+    return jsonResponse({
+      live: true,
+      roomName: cur.roomName,
+      title: cur.title || 'Live from the arena',
+      studioUrl: studioPath({
+        url: cur.url,
+        token,
+        title: cur.title || 'Live from the arena',
+        userName,
+        role: 'cohost',
+      }),
     }, 200, req);
   }
 
@@ -256,7 +292,7 @@ export default async (req) => {
     return jsonResponse({ live: false }, 200, req);
   }
 
-  return errorResponse('Unknown action (start | stop)', 400, req);
+  return errorResponse('Unknown action (start | cohost | stop)', 400, req);
 };
 
 export const config = {

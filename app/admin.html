@@ -909,10 +909,9 @@
   </div>
 
   <!-- Livestream + recordings. Go live creates a Daily broadcast room and
-       flips the live band on /watch; "Open studio" joins that room with the
-       owner token (camera on, cloud recording auto-starts on Daily plans
-       that support it). Sync pulls finished recordings into Firestore so
-       they appear as replays. -->
+       flips the public players on /tournaments and /watch; "Open studio"
+       joins as the lead. A cohost invite mints a second owner token without
+       exposing the RTMP key or starting another recording. -->
   <div class="section" data-pane="broadcast">
     <div class="card">
       <div class="title">
@@ -920,7 +919,7 @@
         <span class="meta" id="stream-meta">checking…</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-        Go live puts a player band on /watch. Open the studio tab, allow the camera, and you are broadcasting; viewers are watch-only. End stream takes the band down and stops the recording. The recording lands hidden, so a camera test never shows up as a replay; Sync it below and publish the ones worth watching.
+        Go live puts the public player on /tournaments and /watch. Open the studio tab, allow the camera, and you are broadcasting. Public viewers are receive-only. A cohost invite gives one trusted person a second camera, mic, and screen-share seat. End stream takes every public player down and stops the recording.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <input id="stream-title" type="text" placeholder="Stream title, e.g. Winter Open · Finals" style="flex:2;min-width:220px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
@@ -928,8 +927,15 @@
         <button id="stream-stop-btn" class="pill-btn">End stream</button>
         <a id="stream-studio-link" class="pill-btn" href="#" target="_blank" rel="noopener" style="display:none">Open studio ↗</a>
         <button id="stream-announce-btn" class="pill-btn">Email the list</button>
+        <a class="pill-btn" href="/tournaments" target="_blank" rel="noopener">View /tournaments ↗</a>
         <a class="pill-btn" href="/watch" target="_blank" rel="noopener">View /watch ↗</a>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <input id="stream-cohost-name" type="text" maxlength="60" placeholder="Cohost name" style="flex:1;min-width:180px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
+        <button id="stream-cohost-btn" class="pill-btn" disabled>Copy cohost invite</button>
+        <input id="stream-cohost-link" type="text" readonly hidden aria-label="Cohost invite link" style="flex:3;min-width:260px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:12px;outline:none">
+      </div>
+      <div id="stream-cohost-line" style="font-size:12px;color:var(--muted);min-height:16px;margin-bottom:5px">Start the stream, then create the private invite. Anyone holding it can broadcast until the room expires.</div>
       <div id="stream-status-line" style="font-size:12px;color:var(--muted);min-height:16px"></div>
       <div id="stream-announce-line" style="font-size:12px;color:var(--muted);min-height:16px"></div>
     </div>
@@ -4274,10 +4280,12 @@ async function refreshStreamStatus(){
     if (s.live){
       meta.textContent = 'LIVE';
       meta.style.color = 'var(--good)';
-      $('stream-status-line').textContent = 'On air: "' + (s.title || '') + '". /watch is showing the player band.';
+      $('stream-status-line').textContent = 'On air: "' + (s.title || '') + '". /tournaments and /watch are showing the public player.';
+      $('stream-cohost-btn').disabled = false;
     } else {
       meta.textContent = 'off air';
       meta.style.color = 'var(--muted)';
+      $('stream-cohost-btn').disabled = true;
     }
   } catch (e){ $('stream-meta').textContent = 'status unavailable'; }
 }
@@ -4295,11 +4303,48 @@ $('stream-start-btn').addEventListener('click', async () => {
     const link = $('stream-studio-link');
     link.href = data.studioUrl;
     link.style.display = '';
-    line.innerHTML = '✓ Live. <b>Open studio</b> in a new tab and allow the camera to start broadcasting.' +
+    $('stream-cohost-btn').disabled = false;
+    line.innerHTML = '✓ Live to everyone on /tournaments and /watch. <b>Open studio</b> in a new tab and allow the camera to start broadcasting.' +
       (data.recording ? ' Cloud recording will start when you join.' : ' Recording is off (Daily plan has no cloud recording).');
     line.style.color = 'var(--good)';
     refreshStreamStatus();
   } catch (e){ line.textContent = 'Failed: ' + (e.message || e); line.style.color = 'var(--accent)'; }
+});
+
+$('stream-cohost-btn').addEventListener('click', async () => {
+  const btn = $('stream-cohost-btn');
+  const line = $('stream-cohost-line');
+  const field = $('stream-cohost-link');
+  btn.disabled = true;
+  line.textContent = 'Creating a private cohost seat…';
+  line.style.color = 'var(--muted)';
+  field.hidden = true;
+  try {
+    const data = await adminPost('/api/stream-control', {
+      action: 'cohost',
+      userName: ($('stream-cohost-name').value || '').trim() || 'Cohost',
+    });
+    const invite = location.origin + data.studioUrl;
+    field.value = invite;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(invite);
+      copied = true;
+    } catch (e) {}
+    if (!copied){
+      field.hidden = false;
+      field.focus();
+      field.select();
+    }
+    line.textContent = copied
+      ? '✓ Cohost invite copied. Send it directly to your friend. It grants camera and mic access to this stream.'
+      : 'Invite ready. Copy the selected link and send it directly to your friend.';
+    line.style.color = 'var(--good)';
+  } catch (e){
+    line.textContent = 'Failed: ' + (e.message || e);
+    line.style.color = 'var(--accent)';
+  }
+  btn.disabled = false;
 });
 
 // Email the list that a round is on air. Two presses, never one: the
@@ -4342,6 +4387,8 @@ $('stream-stop-btn').addEventListener('click', async () => {
   try {
     await adminPost('/api/stream-control', { action: 'stop' });
     $('stream-studio-link').style.display = 'none';
+    $('stream-cohost-btn').disabled = true;
+    $('stream-cohost-link').hidden = true;
     line.textContent = '✓ Stream ended. The live band is down; run Sync in a few minutes to pull the recording.';
     line.style.color = 'var(--good)';
     refreshStreamStatus();

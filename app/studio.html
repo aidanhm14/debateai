@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Broadcast studio · Debatable</title>
-<!-- Owner-only surface reached from /admin with a meeting token in the
-     URL. Never indexed, never linked from a public page. -->
+<!-- Streamer-only surface reached from /admin or a private cohost invite
+     with a meeting token in the URL. Never indexed or linked publicly. -->
 <meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -42,19 +42,22 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
 <body>
 
 <div class="bar">
-  <span class="pill"><i></i>STUDIO</span>
+  <span class="pill" id="studioRole"><i></i>LEAD STUDIO</span>
   <h1 id="ttl">Broadcast studio</h1>
   <span class="spacer"></span>
   <span class="chip" id="quality">quality: negotiating</span>
-  <span class="chip" id="watchers">viewers: 0</span>
+  <span class="chip" id="hosts">hosts: 1</span>
+  <span class="chip" id="watchers">direct viewers: 0</span>
   <span class="chip" id="restream">restream: off</span>
+  <a class="chip" href="/tournaments" target="_blank" rel="noopener">Open the tournament</a>
   <a class="chip" href="/" target="_blank" rel="noopener">Open the homepage</a>
 </div>
 
 <div id="stage"></div>
 
 <p class="note">
-  Everything you send here goes out on the homepage and <b>/watch</b>.
+  Everything you send here goes out on <b>/tournaments</b>, <b>/watch</b>,
+  and the homepage.
   <b>Share screen</b> in the tray below to put a slide deck, a tab, or a
   flow sheet on the stream. Viewers see the screen full-bleed while it is
   running and your camera comes back the moment you stop.
@@ -69,12 +72,16 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   var token = q.get('t') || '';
   var title = q.get('title') || '';
   var rtmpUrl = q.get('rtmp') || '';
+  var role = q.get('role') === 'cohost' ? 'cohost' : 'lead';
+  var userName = (q.get('name') || (role === 'cohost' ? 'Cohost' : 'Host')).slice(0, 60);
   var stage = document.getElementById('stage');
   var qualityEl = document.getElementById('quality');
+  var hostsEl = document.getElementById('hosts');
   var watchersEl = document.getElementById('watchers');
   var restreamEl = document.getElementById('restream');
 
   if (title) document.getElementById('ttl').textContent = title;
+  if (role === 'cohost') document.getElementById('studioRole').lastChild.nodeValue = 'COHOST STUDIO';
 
   function fail(head, body){
     stage.innerHTML = '';
@@ -171,13 +178,13 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     qualityEl.className = 'chip ' + (s.height >= 720 ? 'ok' : 'warn');
   }
 
-  function reportWatchers(){
-    var n = 0;
+  function reportParticipants(){
+    var counts = { present: 0, hidden: 0 };
     try {
-      var ps = call.participants();
-      Object.keys(ps).forEach(function(k){ if (k !== 'local') n++; });
+      counts = call.participantCounts() || counts;
     } catch(e){}
-    watchersEl.innerHTML = 'viewers: <b>' + n + '</b>';
+    hostsEl.innerHTML = 'hosts: <b>' + Math.max(1, Number(counts.present) || 0) + '</b>';
+    watchersEl.innerHTML = 'direct viewers: <b>' + (Number(counts.hidden) || 0) + '</b>';
   }
 
   // Restream to YouTube. Started HERE rather than server-side because
@@ -189,7 +196,10 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   // 1280x720 at 30fps and 2.5 Mbps is inside YouTube's recommended range
   // for 720p30 and well inside what the ladder above already sends.
   function startRestream(){
-    if (!rtmpUrl) { restreamEl.textContent = 'restream: off'; return; }
+    if (!rtmpUrl) {
+      restreamEl.textContent = role === 'cohost' ? 'restream: managed by lead' : 'restream: off';
+      return;
+    }
     restreamEl.textContent = 'restream: starting';
     call.startLiveStreaming({
       endpoints: [{ endpoint: rtmpUrl }],
@@ -229,11 +239,12 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     });
     startRestream();
     reportQuality();
-    reportWatchers();
+    reportParticipants();
   });
-  call.on('participant-updated', function(){ reportQuality(); reportWatchers(); });
-  call.on('participant-joined', reportWatchers);
-  call.on('participant-left', reportWatchers);
+  call.on('participant-updated', function(){ reportQuality(); reportParticipants(); });
+  call.on('participant-joined', reportParticipants);
+  call.on('participant-left', reportParticipants);
+  call.on('participant-counts-updated', reportParticipants);
   call.on('track-started', reportQuality);
   call.on('error', function(e){
     console.warn('[studio] call error:', e);
@@ -243,7 +254,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     qualityEl.className = 'chip';
   });
 
-  var opts = { url: roomUrl, userName: 'Host' };
+  var opts = { url: roomUrl, userName: userName };
   if (token) opts.token = token;
   call.join(opts).catch(function(e){
     fail('Could not join the broadcast room.', (e && e.message) || 'The room may have expired. Start a new stream from /admin.');
