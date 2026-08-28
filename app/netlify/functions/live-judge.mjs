@@ -47,6 +47,47 @@ import { deriveSpeakerScores } from './lib/speaker-score.mjs';
 
 const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
 
+// Netlify's synchronous edge path can cut a request off around 30 seconds.
+// The shared panel ceiling is also 30 seconds, which leaves no time for
+// tallying or the Firestore write: one slow juror can therefore produce a
+// 504 before the ballot exists. Live rooms use a lower ceiling so a slow
+// seat becomes a disclosed missing vote while the function still has time
+// to write the panel result. Async judging keeps the shared 30-second cap.
+const LIVE_JUROR_TIMEOUT_MS = Number(process.env.LIVE_JUDGE_JUROR_TIMEOUT_MS || 22_000);
+
+// `ballotPending` is written by the finishing client before this function is
+// called. If that tab closes, loses App Check, or its request is killed, the
+// old design had no owner left: every watcher displayed the spinner forever.
+// A watcher may ask the server to recover only after this grace period, and
+// a Firestore lease ensures a crowd of watchers still buys one panel.
+export const RECOVERY_GRACE_MS = Number(process.env.LIVE_JUDGE_RECOVERY_GRACE_MS || 75_000);
+export const JUDGE_LEASE_MS = Number(process.env.LIVE_JUDGE_LEASE_MS || 120_000);
+export const FAILURE_COOLDOWN_MS = Number(process.env.LIVE_JUDGE_FAILURE_COOLDOWN_MS || 30_000);
+
+export function timestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function recoveryWaitMs(round, now = Date.now()) {
+  if (!round || round.ballot || round.ballotPending !== true) return Infinity;
+  const pendingAt = timestampMillis(round.ballotPendingAt);
+  if (!pendingAt) return Infinity;
+  const pendingWait = pendingAt + RECOVERY_GRACE_MS - now;
+  const failedAt = timestampMillis(round.serverJudgeFailedAt);
+  const failureWait = failedAt ? failedAt + FAILURE_COOLDOWN_MS - now : 0;
+  return Math.max(0, pendingWait, failureWait);
+}
+
+export function judgeLeaseWaitMs(round, now = Date.now()) {
+  if (!round || round.serverJudgeState !== 'running') return 0;
+  const startedAt = timestampMillis(round.serverJudgeStartedAt);
+  if (!startedAt) return JUDGE_LEASE_MS;
+  return Math.max(0, startedAt + JUDGE_LEASE_MS - now);
+}
+
 // One request here fans out into a multi-juror Anthropic panel, so the
 // caller is metered. Named limits are per-uid and sized so a tournament
 // day (the Open, Aug 29) never touches them: a debater triggers one
@@ -175,19 +216,31 @@ export default async (request, context) => {
   const ref = db.collection('live_rounds').doc(room);
   const snap = await ref.get();
   if (!snap.exists) return errorResponse('No such round', 404, request);
-  const d = snap.data();
+  let d = snap.data();
 
   // Any occupied seat may ask for the ballot. A 2v2 partner is a real
   // participant even though the verdict remains bench against bench.
   // Spectators stay out because a public room id must not buy them three
   // provider calls.
   const participantUids = [d.proUid, d.proUid2, d.conUid, d.conUid2].filter(Boolean);
-  if (!participantUids.includes(uid)) return errorResponse('Not a participant', 403, request);
+  const isParticipant = participantUids.includes(uid);
 
   // Already server-judged. Idempotent by design: a retry after a dropped
   // response must not re-run the panel and must not re-settle.
   if (d.ballot && d.ballot.panel) {
     return jsonResponse({ ok: true, already: true, ballot: d.ballot }, 200, request);
+  }
+
+  // A watcher cannot start an arbitrary panel. Recovery is available only
+  // after a participant has ended the round and left a durable pending mark.
+  // The request still contains only `room`; transcript, format and sides are
+  // read from Firestore exactly as they are for a participant-triggered call.
+  if (!isParticipant) {
+    const wait = recoveryWaitMs(d);
+    if (!Number.isFinite(wait)) return errorResponse('Not a participant', 403, request);
+    if (wait > 0) {
+      return jsonResponse({ ok: false, code: 'recovery_not_ready', retryAfterMs: wait }, 409, request);
+    }
   }
 
   if (FOUR_TEAM_FORMATS.has(String(d.format || '').toLowerCase())) {
@@ -198,6 +251,44 @@ export default async (request, context) => {
   if (speeches.length < 2) return jsonResponse({ ok: false, code: 'no_transcript' }, 200, request);
   if (!d.proUid || !d.conUid) return jsonResponse({ ok: false, code: 'missing_participant' }, 200, request);
 
+  // Claim the panel in the same document the clients already watch. The
+  // transaction rechecks the ballot and recovery gate against fresh state,
+  // so simultaneous participants/watchers cannot fan out provider calls.
+  const now = Date.now();
+  const claim = await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(ref);
+    if (!freshSnap.exists) return { kind: 'missing' };
+    const fresh = freshSnap.data();
+    if (fresh.ballot && fresh.ballot.panel) return { kind: 'done', ballot: fresh.ballot };
+
+    const freshParticipants = [fresh.proUid, fresh.proUid2, fresh.conUid, fresh.conUid2].filter(Boolean);
+    if (!freshParticipants.includes(uid)) {
+      const wait = recoveryWaitMs(fresh, now);
+      if (!Number.isFinite(wait)) return { kind: 'forbidden' };
+      if (wait > 0) return { kind: 'not_ready', retryAfterMs: wait };
+    }
+
+    const leaseWait = judgeLeaseWaitMs(fresh, now);
+    if (leaseWait > 0) return { kind: 'busy', retryAfterMs: leaseWait };
+    tx.update(ref, {
+      serverJudgeState: 'running',
+      serverJudgeStartedAt: FieldValue.serverTimestamp(),
+      serverJudgeAttempt: FieldValue.increment(1),
+    });
+    return { kind: 'claimed', round: fresh };
+  });
+
+  if (claim.kind === 'missing') return errorResponse('No such round', 404, request);
+  if (claim.kind === 'forbidden') return errorResponse('Not a participant', 403, request);
+  if (claim.kind === 'done') return jsonResponse({ ok: true, already: true, ballot: claim.ballot }, 200, request);
+  if (claim.kind === 'not_ready') {
+    return jsonResponse({ ok: false, code: 'recovery_not_ready', retryAfterMs: claim.retryAfterMs }, 409, request);
+  }
+  if (claim.kind === 'busy') {
+    return jsonResponse({ ok: false, code: 'judge_in_progress', retryAfterMs: claim.retryAfterMs }, 202, request);
+  }
+  d = claim.round;
+
   const { system, user } = buildPrompt(d);
   const season = seasonFor(Date.now());
 
@@ -207,12 +298,18 @@ export default async (request, context) => {
       aKey: 'pro',
       bKey: 'con',
       singleModel: JUDGE_MODEL,
+      jurorTimeoutMs: LIVE_JUROR_TIMEOUT_MS,
       // Only new casual rooms use the 100-point parser. A saved legacy
       // room keeps the scale it was shown before anyone spoke.
       scoreScale: String(d.format || '').toLowerCase() === 'quick' ? 100 : 30,
     });
   } catch (err) {
     console.error('[live-judge] panel failed', room, err.message);
+    await ref.update({
+      serverJudgeState: 'failed',
+      serverJudgeFailedAt: FieldValue.serverTimestamp(),
+      serverJudgeStartedAt: FieldValue.delete(),
+    }).catch(() => {});
     return jsonResponse({ ok: false, code: 'judge_failed', error: err.message }, 200, request);
   }
 
@@ -221,10 +318,19 @@ export default async (request, context) => {
   // rather than paying out on a coin we flipped. Same rule the async
   // sweep follows; see lib/judge-panel.mjs.
   if (!judged.ballot || (judged.ballot.winner !== 'pro' && judged.ballot.winner !== 'con')) {
+    const resolution = judged.panel ? judged.panel.resolution : 'no_votes';
+    await ref.update({
+      ballotPending: false,
+      ballotUnresolved: { resolution, at: Date.now() },
+      serverJudgeState: 'unresolved',
+      serverJudgeFinishedAt: FieldValue.serverTimestamp(),
+      serverJudgeStartedAt: FieldValue.delete(),
+      completedAt: FieldValue.serverTimestamp(),
+    });
     return jsonResponse({
       ok: false,
       code: 'unresolved',
-      resolution: judged.panel ? judged.panel.resolution : 'no_votes',
+      resolution,
     }, 200, request);
   }
 
@@ -253,7 +359,12 @@ export default async (request, context) => {
 
   await ref.update({
     ballot,
+    ballotPending: false,
+    ballotUnresolved: FieldValue.delete(),
     status: 'ballot',
+    serverJudgeState: 'complete',
+    serverJudgeFinishedAt: FieldValue.serverTimestamp(),
+    serverJudgeStartedAt: FieldValue.delete(),
     completedAt: FieldValue.serverTimestamp(),
   });
 

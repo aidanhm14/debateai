@@ -147,6 +147,13 @@ export async function runPanel(season, system, user, opts = {}) {
   const bKey = opts.bKey || 'opp';
   const singleModel = opts.singleModel || 'claude-sonnet-5';
   const parseBallot = makeBallotParser(aKey, bKey, opts.scoreScale);
+  // A synchronous live-room function has a harder wall-clock ceiling than
+  // the async sweep. Callers may lower the per-juror ceiling so provider
+  // aborts become disclosed missing votes before the edge kills the whole
+  // function. Omitting it preserves the shared 30-second default.
+  const jurorTimeoutMs = Number.isFinite(Number(opts.jurorTimeoutMs))
+    ? Math.max(1_000, Number(opts.jurorTimeoutMs))
+    : undefined;
 
   const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
   const wanted = (panelCfg && panelCfg.jurors) || [];
@@ -159,7 +166,7 @@ export async function runPanel(season, system, user, opts = {}) {
       throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
     }
     const solo = { id: 'single', provider: 'anthropic', model: singleModel };
-    const r = await callJuror(solo, system, user, JUROR_MAX_TOKENS, parseBallot);
+    const r = await callJuror(solo, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
     if (!r.ok || !r.ballot) throw new Error(`single judge failed: ${r.error || 'no ballot'}`);
     const ballot = r.ballot;
     return {
@@ -186,7 +193,7 @@ export async function runPanel(season, system, user, opts = {}) {
     };
   }
 
-  const results = await callPanel(available, system, user, JUROR_MAX_TOKENS, parseBallot);
+  const results = await callPanel(available, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
   const votes = results
     .filter((r) => r.ok && r.ballot)
     .map((r) => normalizeVote(r, r.ballot, aKey, bKey))

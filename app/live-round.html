@@ -4490,6 +4490,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     quietBusy: false,        // a report is in flight
     quietDone: '',           // outcome of my own report, so the strip stops asking
     hasBallot: false,        // a ballot exists (or is being written) on the round doc
+    ballotRecoveryTimer: null, // watcher-side rescue for an abandoned pending ballot
+    ballotRecoveryAttempts: 0, // bounded locally; the server lease dedupes globally
+    ballotUnresolved: false, // an even panel split is final, never tie-broken
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
@@ -11471,6 +11474,98 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     el.textContent = msg;
   }
 
+  // The participant who ends the last speech normally owns the first judge
+  // request. If that tab closes or the request is cut off, every spectator
+  // used to stare at `ballotPending` forever. After the server's grace
+  // period, any authenticated room viewer may ask it to recover. The request
+  // carries only the room id; the server reads the transcript and uses a
+  // Firestore lease so ten viewers still start one panel.
+  var BALLOT_RECOVERY_GRACE_MS = 80000;
+  var BALLOT_RECOVERY_MAX_ATTEMPTS = 4;
+  function ballotTimestampMs(v){
+    if (!v) return 0;
+    if (typeof v.toMillis === 'function') return v.toMillis();
+    if (typeof v.toDate === 'function') return v.toDate().getTime();
+    var n = Number(v);
+    return isFinite(n) ? n : 0;
+  }
+  function clearBallotRecovery(){
+    if (state.ballotRecoveryTimer){
+      clearTimeout(state.ballotRecoveryTimer);
+      state.ballotRecoveryTimer = null;
+    }
+  }
+  function renderUnresolvedBallot(resolution){
+    clearBallotRecovery();
+    state.ballotUnresolved = true;
+    state.phase = 'ballot-unresolved';
+    updateRoundGuide();
+    $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Panel split';
+    $('roundView').classList.add('hidden');
+    $('ballotView').classList.remove('hidden');
+    $('ballotResult').classList.add('hidden');
+    var host = $('ballotLoading');
+    host.classList.remove('hidden');
+    host.innerHTML = '<div style="color:var(--text);font-weight:800;font-size:1rem">The panel split.</div>'
+      + '<div style="font-size:.8rem;margin-top:8px;color:var(--text-dim)">No winner was recorded. The round stays unresolved, and no ladder or market result moves.</div>'
+      + (resolution ? '<div style="font-size:.7rem;margin-top:8px;color:var(--text-ghost)">' + escHtml(resolution) + '</div>' : '')
+      + '<div style="margin-top:16px"><a class="btn" href="/live">Back to live debates</a></div>';
+  }
+  function scheduleBallotRecovery(roundData, delayOverride){
+    if (state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
+    if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS) return;
+    var pendingAt = ballotTimestampMs(roundData && roundData.ballotPendingAt);
+    if (!pendingAt) return;
+    var delay = typeof delayOverride === 'number'
+      ? delayOverride
+      : Math.max(1000, pendingAt + BALLOT_RECOVERY_GRACE_MS - Date.now());
+    delay = Math.max(1000, Math.min(delay, 120000));
+    state.ballotRecoveryTimer = setTimeout(requestBallotRecovery, delay);
+  }
+  function requestBallotRecovery(){
+    state.ballotRecoveryTimer = null;
+    if (state.lastBallot || state.ballotUnresolved || !state.room) return;
+    var user = state.user;
+    if (!user || !user.getIdToken){
+      scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 2500);
+      return;
+    }
+    state.ballotRecoveryAttempts += 1;
+    ballotStatus('The ballot stalled. Asking the server to resume judging.');
+    user.getIdToken().then(function(token){
+      return fetch('/api/live-judge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ room: state.room }),
+      });
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if (res && res.ok && res.ballot){
+        renderBallot(res.ballot);
+        return;
+      }
+      if (res && res.code === 'unresolved'){
+        renderUnresolvedBallot(res.resolution || 'unresolved');
+        return;
+      }
+      if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
+        scheduleBallotRecovery(
+          { ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS },
+          Math.max(3000, Math.min(Number(res.retryAfterMs) || 12000, 45000))
+        );
+        return;
+      }
+      if (state.ballotRecoveryAttempts < BALLOT_RECOVERY_MAX_ATTEMPTS){
+        scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 15000);
+      } else {
+        ballotStatus('The transcript is saved. A server retry is still available from either debater.');
+      }
+    }).catch(function(){
+      if (state.ballotRecoveryAttempts < BALLOT_RECOVERY_MAX_ATTEMPTS){
+        scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 15000);
+      }
+    });
+  }
+
   // ── Durable round capture (consent-gated) ─────────────────────────
   // A live round used to lose its words when the tab closed: the speech
   // transcripts fed the judge and evaporated. If this signed-in debater
@@ -11929,6 +12024,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           body: JSON.stringify({ room: state.room }),
         });
       }).then(function(r){ return r.json(); }).then(function(res){
+        if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
+          state.serverJudgeTried = false;
+          var retryMs = Math.max(3000, Math.min(Number(res.retryAfterMs) || 10000, 45000));
+          ballotStatus('The judging panel is already working. Checking again in ' + Math.round(retryMs / 1000) + 's.');
+          setTimeout(function(){ generateBallot(attempt); }, retryMs);
+          return;
+        }
+        if (res && res.code === 'unresolved'){
+          renderUnresolvedBallot(res.resolution || 'unresolved');
+          return;
+        }
         if (!res || !res.ok || !res.ballot) throw new Error((res && res.code) || 'server_judge_unavailable');
         renderBallot(res.ballot);
         try { pmSettleVerdict(res.ballot.winner); } catch(e){}
@@ -18089,9 +18195,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<div style="font-size:.92rem;font-weight:700;color:var(--text)">Ballot is generating…</div>' +
         '<div style="font-size:.74rem;margin-top:6px">Reading both transcripts and writing the RFD. Both screens will flip when it lands.</div>';
     }
+    if (d.ballotPending && !d.ballot){
+      scheduleBallotRecovery(d);
+    }
+
+    // A true panel split is a completed unresolved result, not a spinner
+    // and not permission for a single fallback model to pick a winner.
+    if (d.ballotUnresolved && !d.ballot && !state.ballotUnresolved){
+      renderUnresolvedBallot(d.ballotUnresolved.resolution || 'unresolved');
+    }
 
     // Ballot landing, show it on both screens
     if (d.ballot && state.phase !== 'ballot-rendered'){
+      clearBallotRecovery();
       state.phase = 'ballot-rendered';
       updateRoundGuide();
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span> Ballot in';

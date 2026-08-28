@@ -30,7 +30,7 @@
   var GATED = [
     '/api/argument-lint', '/api/blocks', '/api/claude', '/api/coach-session',
     '/api/deepseek', '/api/extract-claims', '/api/flow', '/api/gemini',
-    '/api/grok', '/api/log-generation', '/api/log-opinion-delta',
+    '/api/grok', '/api/live-judge', '/api/log-generation', '/api/log-opinion-delta',
     '/api/record-extract',
     // 2026-08-26. Left off at first and the endpoint 401'd every real
     // browser, so the client fell back to Firebase's own sender — the
@@ -63,7 +63,7 @@
   // endpoints that call isNamedAccount() belong on this list.
   var AUTH_ROUTES = [
     '/api/claude', '/api/gemini', '/api/grok',
-    '/api/openai-chat', '/api/deepseek', '/api/openlab',
+    '/api/openai-chat', '/api/deepseek', '/api/live-judge', '/api/openlab',
     // Added 2026-08-19 with the per-caller metering pass. /api/tts in
     // particular MUST get the token: it now resolves the paid plan from the
     // account rather than trusting body.premium, so a tokenless call means a
