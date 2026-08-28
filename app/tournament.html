@@ -123,6 +123,36 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     border:1px solid var(--line);color:var(--fg);font-size:.9rem}
   .in:focus{outline:2px solid rgba(239,68,68,.5);outline-offset:1px}
   .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 14px}
+  .create-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:18px;margin-top:18px;align-items:start}
+  .create-step{padding:16px 17px;border:1px solid var(--line);border-radius:13px;background:var(--panel-2)}
+  .create-step+.create-step{margin-top:12px}
+  .create-step-k{font-size:.67rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin-bottom:3px}
+  .create-step h3{font-size:.96rem;margin:0 0 4px}
+  .create-step p{font-size:.78rem;color:var(--faint);line-height:1.45}
+  .create-locked{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .create-locked span{padding:6px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(244,244,246,.04);font-size:.72rem;font-weight:750;color:var(--dim)}
+  .rules-preview{position:sticky;top:82px;border:1px solid rgba(239,68,68,.3);border-radius:14px;padding:17px;background:rgba(239,68,68,.07)}
+  .rules-preview .preview-k{font-size:.67rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fca5a5}
+  .rules-preview h3{font-size:1rem;margin:4px 0 4px}
+  .rules-preview p{font-size:.78rem;color:var(--dim);line-height:1.45}
+  .rules-preview ul{list-style:none;margin:13px 0 0;padding:0}
+  .rules-preview li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px;padding:8px 0;border-top:1px solid var(--line);font-size:.8rem;line-height:1.4;color:var(--dim)}
+  .rules-preview li::before{content:'✓';color:#4ade80;font-weight:900}
+  .event-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+  .event-rule{padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}
+  .event-rule b{display:block;font-size:.8rem;margin-bottom:3px}
+  .event-rule span{display:block;color:var(--dim);font-size:.75rem;line-height:1.45}
+  .event-nav{display:flex;gap:7px;overflow-x:auto;margin:0 0 16px;padding:8px;border:1px solid var(--line);border-radius:13px;background:rgba(19,19,23,.88);backdrop-filter:blur(14px);scrollbar-width:none;position:sticky;top:62px;z-index:9}
+  .event-nav::-webkit-scrollbar{display:none}
+  .event-nav a{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:rgba(244,244,246,.05);color:var(--dim);font-size:.73rem;font-weight:800;text-decoration:none}
+  .event-nav a:hover{background:rgba(244,244,246,.1);color:var(--fg)}
+  textarea.in{resize:vertical;min-height:82px;line-height:1.45}
+  @media(max-width:780px){
+    .create-layout{grid-template-columns:1fr}
+    .rules-preview{position:static}
+    .event-rules{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media(max-width:520px){.event-rules{grid-template-columns:1fr}}
 
   table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.87rem}
   th{text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.1em;
@@ -219,46 +249,61 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     <section class="card">
       <h2>Run your own</h2>
-      <p class="sub">Set up a casual 1v1 event, open registration, and the draw, standings, and bracket are handled for you. Every AI ballot scores both sides out of 100.</p>
+      <p class="sub">Set the facts once. The event page, draw, standings, bracket, room wall, and participant instructions all read the same tournament record.</p>
       <div id="createBox" class="hidden">
-        <div class="fields">
+        <input type="hidden" id="tFormat" value="quick">
+        <input type="hidden" id="tTeamSize" value="1">
+        <div class="create-layout">
           <div>
-            <label class="f" for="tName">Name</label>
-            <input class="in" id="tName" maxlength="80" placeholder="Winter Invitational">
+            <section class="create-step" aria-labelledby="create-basics">
+              <div class="create-step-k">1 · Basics</div>
+              <h3 id="create-basics">Name the event and put it on the clock</h3>
+              <p>These are the first facts an entrant sees.</p>
+              <label class="f" for="tName">Tournament name</label>
+              <input class="in" id="tName" maxlength="80" placeholder="Winter Invitational">
+              <label class="f" for="tDescCreate">One-sentence description</label>
+              <textarea class="in" id="tDescCreate" maxlength="600" placeholder="A Saturday one-on-one tournament with written ballots after every round."></textarea>
+              <div class="fields">
+                <div>
+                  <label class="f" for="tStarts">Starts</label>
+                  <input class="in" id="tStarts" maxlength="40" placeholder="Sat 14 Feb, 10:00 ET">
+                </div>
+              </div>
+            </section>
+            <section class="create-step" aria-labelledby="create-competition">
+              <div class="create-step-k">2 · Competition</div>
+              <h3 id="create-competition">Set the path from first round to champion</h3>
+              <p>The engine currently runs one person per side in the casual spoken format.</p>
+              <div class="create-locked" aria-label="Locked round settings">
+                <span>Casual 1v1</span><span>One person per side</span><span>Written ballot</span>
+              </div>
+              <div class="fields">
+                <div>
+                  <label class="f" for="tRounds">Prelim rounds</label>
+                  <input class="in" id="tRounds" type="number" min="1" max="9" value="4">
+                </div>
+                <div>
+                  <label class="f" for="tBreak">Break to</label>
+                  <select class="in" id="tBreak">
+                    <option value="0">No elims</option>
+                    <option value="2">Final</option>
+                    <option value="4" selected>Semifinals</option>
+                    <option value="8">Quarterfinals</option>
+                    <option value="16">Octofinals</option>
+                  </select>
+                </div>
+              </div>
+            </section>
           </div>
-          <div>
-            <label class="f" for="tFormat">Round type</label>
-            <select class="in" id="tFormat">
-              <option value="quick">Casual 1v1</option>
-            </select>
-          </div>
-          <div>
-            <label class="f" for="tTeamSize">Entries are</label>
-            <select class="in" id="tTeamSize">
-              <option value="1">One person per side</option>
-            </select>
-          </div>
-          <div>
-            <label class="f" for="tRounds">Prelim rounds</label>
-            <input class="in" id="tRounds" type="number" min="1" max="9" value="4">
-          </div>
-          <div>
-            <label class="f" for="tBreak">Break to</label>
-            <select class="in" id="tBreak">
-              <option value="0">No elims</option>
-              <option value="2">Final</option>
-              <option value="4" selected>Semifinals</option>
-              <option value="8">Quarterfinals</option>
-              <option value="16">Octofinals</option>
-            </select>
-          </div>
-          <div>
-            <label class="f" for="tStarts">Starts</label>
-            <input class="in" id="tStarts" maxlength="40" placeholder="Sat 14 Feb, 10:00 ET">
-          </div>
+          <aside class="rules-preview" aria-live="polite" aria-labelledby="rulesPreviewTitle">
+            <div class="preview-k">Generated rulebook</div>
+            <h3 id="rulesPreviewTitle">What entrants will be told</h3>
+            <p>Only choices the tournament engine can enforce appear here.</p>
+            <ul id="rulesPreviewList"></ul>
+          </aside>
         </div>
-        <div class="btn-row"><button class="btn btn-primary" id="createBtn">Create it</button></div>
-        <p class="note">A new tournament starts private. It appears on this page once it is reviewed, so you can set one up and test it without an audience.</p>
+        <div class="btn-row"><button class="btn btn-primary" id="createBtn">Create private draft</button></div>
+        <p class="note">The draft is private. You can rehearse the draw and room flow before asking for a public listing.</p>
       </div>
       <div id="createGate">
         <div class="btn-row"><button class="btn" id="hostSignIn">Sign in to host</button></div>
@@ -268,7 +313,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   <!-- ── Detail view ─────────────────────────────────────────── -->
   <div id="detailView" class="hidden">
-    <section class="card">
+    <nav class="event-nav" aria-label="Tournament sections">
+      <a href="#overview">Overview</a>
+      <a href="#eventRulesCard">Format and rules</a>
+      <a href="#motionPoolCard">Motions</a>
+      <a href="#drawCard">Draw</a>
+      <a href="#tabCard">Standings</a>
+      <a href="#hostCard">Control room</a>
+    </nav>
+    <section class="card" id="overview">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span id="statusPill" class="pill pill-done">Draft</span>
         <span class="note" id="tMeta" style="margin-top:0"></span>
@@ -276,6 +329,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <p class="sub" id="tDesc" style="margin-top:10px"></p>
       <div id="entryActions" class="btn-row"></div>
       <div id="myRoom"></div>
+    </section>
+
+    <section class="card" id="eventRulesCard">
+      <h2>Format and rules</h2>
+      <p class="sub">The short contract for this event. The same settings drive the draw and the participant view.</p>
+      <div class="event-rules" id="eventRules"></div>
     </section>
 
     <section class="card hidden" id="motionPoolCard">
@@ -300,7 +359,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <div id="drawBody"></div>
     </section>
 
-    <section class="card">
+    <section class="card" id="tabCard">
       <h2>The tab</h2>
       <p class="sub">Ordered by ballots won, then argument score out of 100.</p>
       <div class="tbl-scroll"><table id="tabTable"><tbody></tbody></table></div>
@@ -358,6 +417,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   var qs = new URLSearchParams(location.search);
   var TKEY = (qs.get('t') || '').trim();
+  // Private visual rehearsal for the creator itself. It never writes a
+  // tournament; the button explains that sign-in on the live page is the
+  // step that turns the preview into a draft.
+  var CREATE_DEMO = !TKEY && qs.get('demo') === 'create';
 
   var state = { user: null, data: null, team: null, poll: null };
 
@@ -446,7 +509,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       state.data = j;
       if (TKEY) renderDetail(); else renderList(j.tournaments || []);
     }).catch(function(e){
-      fail(e.message);
+      if (!CREATE_DEMO) fail(e.message);
       // Never leave the page as a bare error. The list shell still
       // lets a host set one up, which is the useful action here.
       if (!TKEY && !state.data) renderList([]);
@@ -523,6 +586,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       t.hostName ? ('hosted by ' + t.hostName) : '',
     ].filter(Boolean).join(' · ');
 
+    renderEventRules(t);
     renderMotionPool(t);
 
     renderEntryActions();
@@ -556,6 +620,28 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     renderTab();
     renderBracket();
     renderHost();
+  }
+
+  function renderEventRules(t){
+    var host = $('eventRules');
+    if (!host) return;
+    var breakText = Number(t.breakSize) > 0
+      ? ('Top ' + Number(t.breakSize) + ' advance to single elimination.')
+      : 'No elimination bracket. Final standings decide the event.';
+    var roundText = t.dropIn
+      ? 'Enter the ready queue during the prelim window. Completed rounds move the standings.'
+      : (Number(t.prelimRounds || 0) + ' fixed prelim rounds, released by the host.');
+    var items = [
+      ['Round', 'Casual one-on-one. One person per side.'],
+      ['Schedule', (t.startsAt ? (t.startsAt + '. ') : '') + roundText],
+      ['Standings', 'Ballots won first, then argument score out of 100.'],
+      ['Advancement', breakText],
+      ['Decision', 'Every round gets a written AI ballot. Appeals go to a human.'],
+      ['Watch and record', 'Public spectator seats are view-only. Recording requires consent inside the room.'],
+    ];
+    host.innerHTML = items.map(function(item){
+      return '<div class="event-rule"><b>' + esc(item[0]) + '</b><span>' + esc(item[1]) + '</span></div>';
+    }).join('');
   }
 
   function renderMotionPool(t){
@@ -1408,6 +1494,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   function createTournament(){
+    if (CREATE_DEMO){
+      good('Creator preview complete. Sign in on this page to save it as a private draft.');
+      return;
+    }
     busy($('createBtn'), true, 'Creating');
     api('/api/tournament-admin', {
       action: 'create',
@@ -1417,6 +1507,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       prelimRounds: parseInt($('tRounds').value, 10),
       breakSize: parseInt($('tBreak').value, 10),
       startsAt: $('tStarts').value,
+      description: $('tDescCreate').value,
     }).then(function(j){
       location.href = '/tournament?t=' + encodeURIComponent(j.slug || j.tid);
     }).catch(function(e){ busy($('createBtn'), false); fail(e.message); });
@@ -1431,6 +1522,37 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   var cb = $('createBtn'); if (cb) cb.addEventListener('click', createTournament);
   var hs = $('hostSignIn'); if (hs) hs.addEventListener('click', signIn);
 
+  function renderRulesPreview(){
+    var host = $('rulesPreviewList');
+    if (!host) return;
+    var rounds = Math.max(1, Math.min(9, parseInt($('tRounds').value, 10) || 4));
+    var breakSize = Math.max(0, parseInt($('tBreak').value, 10) || 0);
+    var starts = String($('tStarts').value || '').trim();
+    var breakText = breakSize
+      ? ('Top ' + breakSize + ' advance to single elimination.')
+      : 'No elimination bracket. Final standings decide the event.';
+    var lines = [
+      (starts ? ('Starts ' + starts + '.') : 'Start time still needs to be set.'),
+      rounds + (rounds === 1 ? ' preliminary round.' : ' preliminary rounds.'),
+      'Wins rank first. Argument score out of 100 breaks ties.',
+      breakText,
+      'Every round gets a written AI ballot. Appeals go to a human.',
+      'Public spectator seats are view-only. Recording requires consent.',
+    ];
+    host.innerHTML = '';
+    lines.forEach(function(line){
+      var li = document.createElement('li');
+      li.textContent = line;
+      host.appendChild(li);
+    });
+  }
+  ['tStarts','tRounds','tBreak'].forEach(function(id){
+    var el = $(id);
+    if (el){ el.addEventListener('input', renderRulesPreview); el.addEventListener('change', renderRulesPreview); }
+  });
+  renderRulesPreview();
+  if (CREATE_DEMO){ show('createBox', true); show('createGate', false); }
+
   load();
 
   if (auth){
@@ -1443,8 +1565,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       // branch) instead of offering the sign-in button, and hid the
       // drop-in queue behind an eligibility check that could never pass.
       state.user = (u && !u.isAnonymous) ? u : null;
-      show('createBox', !!u);
-      show('createGate', !u);
+      show('createBox', !!u || CREATE_DEMO);
+      show('createGate', !u && !CREATE_DEMO);
       if (state.data){ if (TKEY) renderDetail(); }
     });
   }
