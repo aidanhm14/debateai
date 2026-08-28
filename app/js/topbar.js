@@ -249,43 +249,9 @@
     // eye had nowhere to land. "How it works" is the first question a
     // stranger asks, so it is the one that gets the weight.
     { href: '/how-it-works',  label: 'How it works', compactKeep: true, strong: true },
-    // 2026-08-20: Bet returns to the rail, and the label goes back to
-    // the word two earlier passes took off it. Every note above about
-    // keeping this out of permanent chrome was written to stop the site
-    // scanning as a betting product to someone skimming. the founder has since
-    // moved the product to exactly that ("betting is here", "bring more
-    // betting obviously into the app"), so the objection is retired
-    // rather than overruled: it was optics protecting a different
-    // positioning, and the positioning changed. 2026-08-22: `money`
-    // replaces `hot` on this row per the founder ("make the bet button on
-    // nav green actually, so it screams money") — a filled green pill,
-    // the one green in the bar, so money reads as money. `hot` (the
-    // faint-red treatment) stays available for a future headline tab.
-    // 2026-08-22, later the same day: REMOVED per the founder ("for now
-    // remove betting from website"), reversing this morning's green pill
-    // and the 2026-08-20 restore. The `money` render branch below stays
-    // dormant. 2026-08-22, final pass ("remove betting entirely from the
-    // site tbh we cant do it"): the pages themselves are gone too —
-    // /predict, /floor, /ladder, /bounties and /bet-on-your-words all
-    // 301 away in netlify.toml, so restoring this row also means
-    // restoring the route. 2026-08-23: RESTORED, points-only, per the
-    // founder ("bring back bet on who will win 'tokens for now'").
-    // /predict serves again with its cash-round section hidden; the
-    // other betting routes stay 301'd. This row and the /predict route
-    // move together, per the note above.
-    { href: '/predict', label: 'Bet', money: true, compactKeep: true },
-
-    // 2026-08-23: Bounty sits immediately to the right of Bet, per the
-    // founder. Red rather than green, and the colour is the distinction,
-    // not decoration: Bet is a points market you win by predicting a
-    // result, a bounty is money you put up to make a round HAPPEN, and it
-    // pays for finishing rather than for winning (lib/bounty.mjs splits
-    // the pot evenly, no cut, refunded past the deadline). Green is
-    // already spoken for by the market next door, so the bounty tab takes
-    // the brand red. `bounty` renders its own filled-pill branch below;
-    // it is deliberately not `cta`, which is the rail's single primary
-    // action and lives at the far right edge.
-    { href: '/bounties', label: 'Bounties', bounty: true, compactKeep: true },
+    // 2026-08-27: Bet and Bounties leave the permanent rail for now.
+    // Their routes stay live, and both remain discoverable as bold rows
+    // in the Debate section of Explore (MORE_GROUPS + columnGroups).
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
@@ -472,26 +438,10 @@
       // Explore and the mobile sheet, not the permanent rail.
       { href: '/debate-online', label: 'Debate online', strong: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
-      // 2026-08-22: the two real-money surfaces get a way in. Both take
-      // a card today and neither was reachable from the nav, so the
-      // only people who could find them were the ones already holding a
-      // link. Cash rounds sit under /predict, which is on the rail, so
-      // this row is the bounty board: somebody else pays to watch a
-      // debate happen and the pot goes to the two people who have it.
-      // 2026-08-22, later the same day: REMOVED per the founder ("for now
-      // remove betting from website"), which also 301'd the page away.
-      // 2026-08-23: BACK, per the founder ("bounty comes back and is
-      // advertised well"). The betting sweep caught the wrong page. A
-      // bounty pays both debaters for COMPLETING the round, carries no
-      // winner term, takes no house cut and refunds if the debate never
-      // happens, so there is no outcome to bet on. /predict, /floor,
-      // /ladder and /bet-on-your-words stay out: those were bets.
-      // 2026-08-23 (later the same day): moved OUT of Explore and onto the
-      // rail as 'Bounty', beside Bet, per the founder. A row cannot be in
-      // both without rendering twice — Explore draws MORE_GROUPS in full
-      // and the mobile sheet draws MORE_GROUPS *plus* every LINKS row —
-      // so the Explore entry comes out as the rail entry goes in. Same
-      // trade the /predict row made on 2026-08-20.
+      // 2026-08-27: moved off the permanent rail and back into Explore
+      // at the founder's request. `strong` is the menu's bold tier.
+      { href: '/predict',     label: 'Bet', strong: true },
+      { href: '/bounties',    label: 'Bounties', strong: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
@@ -858,6 +808,7 @@
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
     '/predict':        { desc: 'Call winners, earn points', icon: '<path d="M4 17l5.5-5.5 3.5 3.5L19.5 8.4"/><path d="M14.8 8.4h4.7v4.7"/>' },
+    '/bounties':       { desc: 'Fund a round you want to see', icon: '<path d="M12 3.8v16.4M16.1 7.1c-.9-1-2.2-1.5-4-1.5-2.1 0-3.6 1.1-3.6 2.8 0 3.8 7.1 2 7.1 5.8 0 1.8-1.5 3-3.8 3-1.8 0-3.2-.6-4.2-1.7"/>' },
     // 2026-07-30: these two moved off the rail into the menu, so they now
     // need the icon + one-line description every menu row carries. The
     // descriptions do the disambiguating the one-word labels used to do
@@ -1133,6 +1084,8 @@
           ['/challenges',     'big'],
           ['/debate-online',  'strong'],
           ['/tournaments',    'strong'],
+          ['/predict',        'strong'],
+          ['/bounties',       'strong'],
           ['/private',        ''],
           ['/leaderboard',    'strong'],
           ['/claim',          ''],
