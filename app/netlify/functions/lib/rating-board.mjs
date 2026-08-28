@@ -109,15 +109,23 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
   return rows;
 }
 
-// Composes the top-of-board teaser: rated debaters FIRST, in ladder
-// order, then judge-score entry rows filling the remaining places while
-// the ladder is thin. Pure, so the integrity suite can assert the
+// Composes the top-of-board teaser: rated debaters FIRST, ordered by the
+// rating printed on the teaser, then judge-score entry rows filling the
+// remaining places while the ladder is thin. The full leaderboard keeps
+// the uncertainty-aware rankable/provisional order from fetchRatingRows;
+// this compact surface prints a simple number and rank badge, so those two
+// visible values must agree. Pure, so the integrity suite can assert the
 // ordering property directly: no speaker score, however high, ever
 // outranks a rated debater, and nobody appears twice.
 export function composeTopRows(ratingRows, entryRows, n) {
   const out = [];
   const seen = new Set();
-  for (const r of ratingRows || []) {
+  const orderedRatings = (ratingRows || []).slice().sort((a, b) => {
+    const ar = a && Number.isFinite(a.rating) ? a.rating : -Infinity;
+    const br = b && Number.isFinite(b.rating) ? b.rating : -Infinity;
+    return br - ar;
+  });
+  for (const r of orderedRatings) {
     if (out.length >= n) break;
     if (!r || typeof r !== 'object') continue;
     if (r.uid) {

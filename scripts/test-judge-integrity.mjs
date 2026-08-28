@@ -769,7 +769,11 @@ function t(label, cond) {
   const { composeTopRows } = await import('../app/netlify/functions/lib/rating-board.mjs');
 
   const ratedUid = 'r'.repeat(28);
-  const rated = [{ uid: ratedUid, kind: 'rating', rating: 1420 }];
+  const rated = [
+    { uid: ratedUid, kind: 'rating', rating: 1420 },
+    { uid: 'x'.repeat(28), kind: 'rating', rating: 1776 },
+    { uid: 'y'.repeat(28), kind: 'rating', rating: 1654 },
+  ];
   const entries = [
     { uid: null, kind: 'live', score: 29.9 },            // seed, top speaker score
     { uid: ratedUid, kind: 'voice', score: 29.8 },       // same person's score entry
@@ -777,6 +781,8 @@ function t(label, cond) {
   ];
   const rows = composeTopRows(rated, entries, 8);
   t('no speaker score outranks a rated debater', rows[0] && rows[0].kind === 'rating');
+  t('teaser rank order follows its displayed ratings',
+    rows.slice(0, 3).map((r) => r.rating).join(',') === '1776,1654,1420');
   t('a rated debater never reappears as a score row',
     rows.filter((r) => r.uid === ratedUid).length === 1);
   t('score rows still fill a thin ladder', rows.some((r) => r.kind !== 'rating'));

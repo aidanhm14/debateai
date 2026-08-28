@@ -7,7 +7,8 @@
 // speeches, so raw score is no longer the primary ordering anywhere
 // public. Rows come from the Glicko ladder first (kind:'rating', same
 // user_ratings source as /api/leaderboard-ratings, via the shared
-// lib/rating-board.mjs), and judge-score entries from
+// lib/rating-board.mjs), are ordered by the rating printed on this
+// compact surface, and judge-score entries from
 // `leaderboard_entries` fill the remaining places while the ladder is
 // thin, deduped to one best entry per debater. As rounds rate, the
 // score rows age off the teaser on their own.
@@ -16,7 +17,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v4'; // v3: rows gained photoURL + avatarIdentity. The shared cache survives a deploy, so an unchanged key would keep serving portrait-less rows for a full TTL after ship
+const CACHE_KEY = 'leaderboard-top-v5'; // v5: teaser rows sort by displayed rating. Shared cache survives deploys, so an unchanged key would retain the old order for a full TTL
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
 const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to reach real
                                       // entries below the 48 seeds (realRows scans the same
@@ -122,7 +123,8 @@ export default async (request) => {
       throw ratingResult.reason || entriesResult.reason;
     }
 
-    // Rated debaters, in ladder order, mapped onto the teaser row shape.
+    // Rated debaters mapped onto the teaser row shape. composeTopRows
+    // orders them by the rating this surface prints beside each rank.
     // score stays null on these rows: a Glicko number rendered where a
     // 30-scale speaker score is expected would read as a broken board.
     const ratingRows = (ratingResult.status === 'fulfilled' ? ratingResult.value : []).map((r) => ({
@@ -233,9 +235,10 @@ export default async (request) => {
       });
     });
 
-    // Rated debaters first, entries filling out a thin ladder. Pure and
-    // asserted by scripts/test-judge-integrity.mjs: no speaker score,
-    // however high, outranks a rated debater.
+    // Rated debaters first, ordered by displayed rating, with entries
+    // filling out a thin ladder. Pure and asserted by
+    // scripts/test-judge-integrity.mjs: no speaker score, however high,
+    // outranks a rated debater.
     const ratedUids = new Set(ratingRows.map((r) => r.uid));
     const rows = composeTopRows(ratingRows, entryRows, ROWS);
     const total = ratingRows.length
