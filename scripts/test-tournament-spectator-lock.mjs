@@ -10,6 +10,7 @@ const open = read('app/open.html');
 const tournament = read('app/tournament.html');
 const tournaments = read('app/tournaments.html');
 const watch = read('app/watch.html');
+const director = read('app/director.html');
 const tournamentApi = read('app/netlify/functions/tournament.mjs');
 const dropin = read('app/netlify/functions/tournament-dropin.mjs');
 
@@ -61,6 +62,11 @@ assert.ok(
 );
 assert.ok(open.includes('!t.publicPairingEnabled || t.dropIn === false'), 'Open queue must honor the launch gate');
 assert.ok(tournament.includes('!t.publicPairingEnabled || t.dropIn === false'), 'generic tournament queue must honor the launch gate');
+assert.ok(
+  director.includes("apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join('')") &&
+  !director.includes('AIzaSyBmMOsQOTPYFBRVBHRHFVKPOxdNCVQvVXA'),
+  'director wall must use the active Firebase key so the admin sign-in gate works',
+);
 
 assert.ok(
   dropin.includes("return errorResponse('Public tournament pairing is paused. Watch the admin stream.', 409, request);") &&
