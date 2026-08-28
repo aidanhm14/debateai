@@ -79,7 +79,7 @@ const URLS = [
   // Watch hub: live stream band, published replays, clips. Added 2026-08-10.
   // /replays serves the same document, so it is deliberately NOT listed;
   // submitting both would be two URLs for one page against one canonical.
-  { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-10' },
+  { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-27' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
   // the founder's brief ("promote exhibition debate via SEO improvements
