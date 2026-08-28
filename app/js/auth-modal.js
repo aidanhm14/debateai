@@ -525,6 +525,11 @@
       if (isNew) track('sign_up', { method: method });
     } catch (e) {}
     if (handOff(method)) return;
+    // Close before navigating. Assigning the current URL can be delayed or
+    // treated as a no-op by the browser, while onboarding reacts to the auth
+    // state immediately. Leaving this card mounted hides that onboarding
+    // beneath its higher z-index even though sign-in already succeeded.
+    forceClose();
     window.location.href = window.__DB_NATIVE ? '/native' : destination();
   }
 

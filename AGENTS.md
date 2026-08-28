@@ -130,7 +130,6 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   ├── package.json           Vite dev server (rarely needed for HTML edits)
 │   ├── netlify.toml           MUST stay in sync with /netlify.toml at root
 │   └── sw.js                  bump CACHE_NAME with /sw.js when HTML changes
-├── netlify/functions/         duplicates app/netlify/functions for bundling
 ├── css/, app/css/             mirror each other
 └── sw.js                      bump CACHE_NAME with app/sw.js together
 ```
@@ -754,9 +753,9 @@ Dead code, bugs and superseded infrastructure still get deleted properly.
 
 ## Common pitfalls
 
-- Editing only `app/netlify/...` and forgetting `/netlify/...` (or
-  vice versa). The build pulls from both; the active deploy uses
-  `app/netlify/functions/`.
+- Recreating `/netlify/functions/` at the repository root. The only live
+  function tree is `app/netlify/functions/`; the root `netlify.toml` points
+  there directly.
 - Editing `css/` or `netlify.toml` at root without mirroring into `app/`.
 - Running functions locally without env vars set: every endpoint 500s
   unless you have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,

@@ -106,6 +106,32 @@ if [ -f "$IOS_REVIEW_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Auth-modal lifecycle guard. Onboarding reacts to the completed Firebase
+# session immediately, so the higher-z-index sign-in card must come down before
+# same-page navigation or it can hide onboarding behind a completed login.
+AUTH_MODAL_GUARD="$REPO_ROOT/scripts/test-auth-modal-lifecycle.mjs"
+if [ -f "$AUTH_MODAL_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-auth-modal-lifecycle.mjs >/tmp/auth-modal-guard.log 2>&1); then
+    echo "[auth-modal-guard] commit blocked - successful sign-in can leave the modal over onboarding:" >&2
+    tail -20 /tmp/auth-modal-guard.log >&2
+    echo "[auth-modal-guard] see scripts/test-auth-modal-lifecycle.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# Netlify function-layout guard. A partial root copy is auto-discovered by the
+# local CLI even though production points at app/netlify/functions; without its
+# lib directory every imported helper fails during bundling.
+NETLIFY_LAYOUT_GUARD="$REPO_ROOT/scripts/test-netlify-function-layout.mjs"
+if [ -f "$NETLIFY_LAYOUT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-netlify-function-layout.mjs >/tmp/netlify-layout-guard.log 2>&1); then
+    echo "[netlify-layout-guard] commit blocked - Netlify function discovery is ambiguous:" >&2
+    tail -20 /tmp/netlify-layout-guard.log >&2
+    echo "[netlify-layout-guard] see scripts/test-netlify-function-layout.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Live-video signup gate. The client, Firestore rules, server matcher, and
 # background pill are four doors into the same human queue; a partial revert
 # silently restores an anonymous or email-only bypass on one of them.
