@@ -4631,7 +4631,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     $('proName').value = state.proName;
     $('conName').value = state.conName;
     $('formatSel').value = state.formatKey;
-    $('roomDisplay').textContent = state.room;
+    // The compact spectator shell no longer renders the old room-id row.
+    // A late Firestore setup snapshot still calls renderSetup(), so treat
+    // that display as optional rather than aborting the entire snapshot
+    // before it reaches the saved speech and ballot state.
+    var roomDisplay = $('roomDisplay');
+    if (roomDisplay) roomDisplay.textContent = state.room;
     updateRoomStage();
 
     // Speech sequence preview
