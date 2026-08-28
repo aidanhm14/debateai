@@ -1762,23 +1762,15 @@
     // doc; /spar instead sets the availability flag + sends the user to
     // prep, and the matcher activates on the next page.
     var ON_SPAR = /\/spar(?:\.html)?(?:[/?#]|$)/.test(location.pathname);
-    // Don't run the background matcher on public marketing / landing surfaces
-    // (the homepage especially). A first-time visitor, or a returning signed-in
-    // user who once flipped "Available", should never be yanked off a marketing
-    // page into a live round. The availability flag persists; matching resumes
-    // when they are back in the app (Prep). This was redirecting plain homepage
-    // visitors into /live-round?source=spar-bg ~1s after load. Fixed 2026-06.
-    // 2026-06-15: live matching now runs everywhere the topbar shows
-    // (user ask: "be live for live debates while you scroll"). The
-    // earlier gate that disabled the matcher on public/marketing pages
-    // existed to stop a returning available user from being yanked into
-    // a round on the homepage. That risk is handled differently now:
-    // showMatch is CARD-ONLY (it never auto-navigates — Accept is always
-    // required), so a visitor can't be pulled into a round without an
-    // explicit tap. Availability stays opt-in (the Go-live prompt / the
-    // pill), so only users who chose it ever write to the queue. With
-    // those two guarantees the public-page exclusion is no longer needed.
-    var ON_PUBLIC = false;
+    // Tournament and broadcast surfaces are view-only for the public until
+    // public tournament pairing is deliberately enabled. The shared topbar
+    // loads this matcher on all four pages, and background availability now
+    // defaults on for eligible accounts, so without a route-level pause a
+    // spectator can receive the general Spar "Debater found" card while
+    // watching the admins. /live-round is already covered by ON_ROUND,
+    // including ?spectate=1. Keep the standing availability preference, but
+    // remove the queue doc and do not show the pill or a match card here.
+    var MATCHING_PAUSED = /^\/(?:open|tournament|tournaments|watch)(?:\.html)?(?:\/|$)/.test(location.pathname);
     // Those two answer for THIS tab. js/round-presence.js publishes the same
     // fact across tabs, so a second tab opened mid-round stops reading as
     // idle and queueing the debater for a second round. 'round' behaves like
@@ -1927,14 +1919,9 @@
     }
     function paintPill() {
       if (!pill) return;
-      // On public/marketing/content pages we don't show the "Spar live"
-      // toggle to cold visitors. But once the user IS available (they
-      // went available at /spar), the green "Available" status follows
-      // them everywhere so they know they're still matchable and can
-      // turn it off, which is the whole queue-follows-you promise. So:
-      // always hidden in a round / on /spar; on public pages show ONLY
-      // when available; on app pages show always.
-      var show = myUid && !ON_ROUND && !ON_SPAR && (available || !ON_PUBLIC);
+      // A tournament viewer has one job: watch the admin stream. Hide the
+      // general Spar control there even when availability is standing on.
+      var show = myUid && !ON_ROUND && !ON_SPAR && !MATCHING_PAUSED;
       pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
@@ -1992,7 +1979,7 @@
         if (!quiet) sparNote(inRound() ? "You're already in a round in another tab. We'll make you matchable again when it ends." : "Your other tab is already looking for an opponent.");
         return;
       }
-      if (available && myUid && !ON_ROUND && !ON_SPAR) {
+      if (available && myUid && !ON_ROUND && !ON_SPAR && !MATCHING_PAUSED) {
         if (quiet) suppressAvailableNoteOnce = true;
         goAvailable();
         // Going live = ping the pool of opted-in debaters (server enforces a
@@ -2019,7 +2006,7 @@
       uid: function () { return myUid || null; }
     };
     function goAvailable() {
-      if (!myUid || busyElsewhere() || ON_PUBLIC) return;
+      if (!myUid || busyElsewhere() || MATCHING_PAUSED) return;
       // Going available is a click. That click is the last user gesture we
       // are guaranteed before a match lands, and browsers only unlock audio
       // on a gesture — so load + unlock the sound bank here, not at ping
@@ -2077,7 +2064,7 @@
     // stale_peer_skip), so a green "Available" pill can never sit on a doc
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     function requeue() {
-      if (!myUid || !myRef || !available || busyElsewhere() || ON_PUBLIC || overlay || navigating) return;
+      if (!myUid || !myRef || !available || busyElsewhere() || MATCHING_PAUSED || overlay || navigating) return;
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       if (!humanAround()) return;            // zombie-screen guard: rejoin on next real touch
       docGone = false;
@@ -2136,7 +2123,7 @@
       }
       if (!pausedForRound) return;
       pausedForRound = false;
-      if (available && myUid && !ON_PUBLIC && !navigating && !overlay) goAvailable();
+      if (available && myUid && !MATCHING_PAUSED && !navigating && !overlay) goAvailable();
     }
     setInterval(busyGuard, 10 * 1000);
 
@@ -2603,7 +2590,7 @@
       if (cooldownTimer) clearTimeout(cooldownTimer);
       cooldownTimer = setTimeout(function () {
         cooldownTimer = null;
-        if (available && myUid && !busyElsewhere() && !ON_PUBLIC && !overlay && !navigating && !document.hidden) {
+        if (available && myUid && !busyElsewhere() && !MATCHING_PAUSED && !overlay && !navigating && !document.hidden) {
           goAvailable();
         }
       }, Math.max(0, declineUntil - Date.now()));
@@ -2672,7 +2659,7 @@
         // loud, because being silently matchable is not consent.
         // Match cards still always require an Accept; nothing here can
         // pull anyone into a round without a tap.
-        if (queueUser && !available && !busyElsewhere()) {
+        if (queueUser && !available && !busyElsewhere() && !MATCHING_PAUSED) {
           var optedOut = false;
           try { optedOut = localStorage.getItem(LSKEY) === '0'; } catch (e) {}
           if (!optedOut && agBand()) {
@@ -2687,16 +2674,16 @@
             return;
           }
         }
-        if (queueUser && available && !busyElsewhere() && !ON_PUBLIC) goAvailable();
+        if (queueUser && available && !busyElsewhere() && !MATCHING_PAUSED) goAvailable();
         else {
           stopTimers();
           if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
-          // On a round page OR a public marketing page, proactively clear any
+          // On a round or paused tournament page, proactively clear any
           // lingering waiting doc: there's no own-doc listener here, so a
           // peer could match it and accept into an empty room (ghost match).
           // Keep the flag so availability resumes on the next eligible page.
           // On /spar we leave the doc to the page's own foreground flow.
-          if (queueUser && available && (inRound() || ON_PUBLIC)) {
+          if (queueUser && available && (inRound() || MATCHING_PAUSED)) {
             ensureFirestore(function () {
               try { window.firebase.firestore().collection('matchmaking_queue').doc(queueUser.uid).delete().catch(function () {}); } catch (e) {}
             });

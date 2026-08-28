@@ -386,6 +386,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
+<script defer src="/js/round-presence.js"></script>
 <script defer src="/js/topbar.js"></script>
 
 <script>
@@ -692,6 +693,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       return;
     }
 
+    // Public tournament matchmaking is deliberately dark. The host can run
+    // controlled rooms and the public can watch them, but no visitor gets a
+    // Ready button or a participant-room link until the server advertises an
+    // explicit launch. This is separate from the tournament phase, so moving
+    // the page to `running` can start the broadcast without starting a field.
+    if (!t.publicPairingEnabled){
+      if (isHost()){
+        say = 'Public matchmaking is paused.';
+        why = 'Run controlled rounds from the full control room. Everyone else watches the stream.';
+        addLink(acts, 'Full control room', '/tournament?t=' + encodeURIComponent(t.slug || t.tid));
+        addLink(acts, 'Watch the stream', '/watch', true);
+      } else {
+        say = 'Watch the admin stream.';
+        why = 'This tournament room is view-only. Public matches are not open.';
+        addLink(acts, 'Watch the stream', '/watch', true);
+      }
+      box.innerHTML = '<b>What now</b><div class="say">' + esc(say) + '</div><div class="why">' + esc(why) + '</div>';
+      if (mine) renderMyRecord(meta, mine);
+      return;
+    }
+
     if (!state.user){
       say = p === 'before' ? 'Sign in and enter.' : 'Sign in to compete.';
       why = 'You can read the standings and the bracket without an account. Entering needs one.';
@@ -867,7 +889,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   function queueEligible(){
     var t = state.data && state.data.tournament;
-    if (!t || t.dropIn === false || t.status !== 'running') return false;
+    if (!t || !t.publicPairingEnabled || t.dropIn === false || t.status !== 'running') return false;
     var mine = myEntry();
     return !!(state.user && mine && mine.status !== 'withdrawn' && mine.status !== 'eliminated');
   }

@@ -23,6 +23,11 @@ import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/t
 
 const CACHE_TTL_MS = 8000;
 const cache = new Map();
+// Public tournament matchmaking stays dark until the operator makes an
+// explicit launch decision. Admin-created rooms and spectator feeds do not
+// use this flag. The same env gate is enforced again by tournament-dropin,
+// so a stale client cannot turn a host status change into public pairings.
+const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1';
 
 function cacheGet(key) {
   const hit = cache.get(key);
@@ -78,6 +83,7 @@ function publicTournament(id, d) {
     // a host who wants strict synchronous rounds opts OUT explicitly.
     // Absent means true, so existing tournament docs need no migration.
     dropIn: d.dropIn !== false,
+    publicPairingEnabled: PUBLIC_PAIRING_ENABLED && d.dropIn !== false,
     description: d.description || '',
     startsAt: d.startsAt || '',
     hostName: d.hostName || '',

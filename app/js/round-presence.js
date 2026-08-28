@@ -16,9 +16,10 @@
  * other tab reads it before offering a round. Two kinds, because they
  * mean different things to the matchmaker:
  *
- *   'round' — already debating. Nothing may offer a round, and the queue
- *             doc should be dropped: that tab has no card to answer with,
- *             so a peer accepting into it lands in an empty room.
+ *   'round' — already debating or watching the tournament broadcast.
+ *             Nothing may offer a round, and the queue doc should be
+ *             dropped: that tab has no card to answer with, so a peer
+ *             accepting into it lands in an empty room.
  *   'spar'  — the matchmaker page is open in another tab. It owns the
  *             queue doc there, so a second tab must stay off the doc
  *             rather than delete it.
@@ -46,6 +47,10 @@
   var FRESH_MS = 150 * 1000;
   var ROUND_RE = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge)/;
   var SPAR_RE = /\/spar(?:\.html)?(?:[/?#]|$)/;
+  // Public tournament pages are spectator surfaces for now. Publishing the
+  // same busy signal here also pauses a general Spar matcher left open in a
+  // second tab, which a path guard in the visible tab cannot reach.
+  var SPECTATOR_RE = /^\/(?:open|tournament|tournaments|watch)(?:\.html)?(?:\/|$)/;
   // Which tab wrote the marker. Two round tabs at once is rare, but closing
   // one must not un-busy the other.
   var TAB = 'p' + Math.random().toString(36).slice(2, 10);
@@ -53,7 +58,7 @@
   function path() { try { return location.pathname || ''; } catch (e) { return ''; } }
   function myKind() {
     var p = path();
-    if (ROUND_RE.test(p)) return 'round';
+    if (ROUND_RE.test(p) || SPECTATOR_RE.test(p)) return 'round';
     if (SPAR_RE.test(p)) return 'spar';
     return '';
   }

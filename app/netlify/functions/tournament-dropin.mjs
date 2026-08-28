@@ -48,6 +48,11 @@ import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 // actually showed up.
 
 const READY_TTL_MS = 6 * 60 * 1000;   // mirrors DROPIN_AVAILABLE_MS in the lib
+// This is an operator launch gate, separate from the tournament status. A
+// host can move the event to `running` to start the admin broadcast without
+// unleashing public pairings. It defaults closed and must be enabled
+// explicitly in the environment when the product is ready.
+const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1';
 // A matcher pass is cheap but not free (it reads every entry), and N
 // waiting clients all poll. One attempt per this interval per
 // tournament is plenty: the pool only changes when someone arrives or
@@ -181,6 +186,9 @@ async function loadPairing(tRef, inPairing) {
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
+  if (!PUBLIC_PAIRING_ENABLED) {
+    return errorResponse('Public tournament pairing is paused. Watch the admin stream.', 409, request);
+  }
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Sign in to join the queue.', 401, request);

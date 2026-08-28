@@ -254,6 +254,20 @@ if [ -f "$SINGLE_FIELD_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Public tournament matchmaking is intentionally paused while the event room
+# is a spectator surface. Guard both doors: the sitewide background Spar
+# matcher must stand down on tournament/watch routes, and the server drop-in
+# endpoint must fail closed until its explicit launch flag is enabled.
+TOURNAMENT_SPECTATOR_GUARD="$REPO_ROOT/scripts/test-tournament-spectator-lock.mjs"
+if [ -f "$TOURNAMENT_SPECTATOR_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-spectator-lock.mjs >/tmp/tournament-spectator-guard.log 2>&1); then
+    echo "[tournament-spectator-guard] commit blocked: a spectator can be placed into public matchmaking:" >&2
+    tail -30 /tmp/tournament-spectator-guard.log >&2
+    echo "[tournament-spectator-guard] see scripts/test-tournament-spectator-lock.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Director wall. The one word per room a director reads on an event
 # day, and the two states (stalled, one-seat) that send them looking
