@@ -164,7 +164,7 @@ function renderEmail({ firstName, uid, tournamentName, entered, entryCount, potN
     <strong>I am running the day myself.</strong> I direct the rounds live and host
     the stream between them, dropping into rooms as they run. When I am in your
     room you will not see me: no camera, no microphone, no name in the list. Your
-    round is only ever put on the stream if both of you opted in to recording.
+    every tournament round is recorded, while preliminary footage stays private by default.
   </p>
 
   <p style="margin:0 0 22px">

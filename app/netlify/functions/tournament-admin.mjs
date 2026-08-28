@@ -249,6 +249,10 @@ export default async (request) => {
       status: 'draft',
       currentRound: 0,
       isPublic: false,
+      // All tournament rounds are recorded. This is a product rule, not
+      // a host toggle, so the creator cannot advertise one policy while
+      // the room enforces another.
+      recordingRequired: true,
       entryCount: 0,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

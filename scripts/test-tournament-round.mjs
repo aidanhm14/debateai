@@ -13,6 +13,7 @@
 import {
   parseTournamentRoom, pairingMatches,
 } from '../app/netlify/functions/lib/tournament-round.mjs';
+import { tournamentRoomSetup } from '../app/netlify/functions/lib/tournament-motion-pool.mjs';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + n); } };
@@ -116,6 +117,10 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     join(here, '..', 'app', 'netlify', 'functions', 'tournament-admin.mjs'), 'utf8');
   const clientSrc = readFileSync(
     join(here, '..', 'app', 'live-round.html'), 'utf8');
+  const recordingSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'round-recording.mjs'), 'utf8');
+  const recordingAdminSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'recordings-admin.mjs'), 'utf8');
 
   ok(/collection\('room_admissions'\)/.test(roomSrc),
     'room creation reads the server-written admission record');
@@ -129,6 +134,39 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'drop-in and synchronous tournament pairing both stamp room admission');
   ok(/Authorization[^\n]+Bearer/.test(clientSrc),
     'the live-room client sends its verified identity when requesting a participant token');
+  ok(/recordingRequired:\s*admission\.tournament/.test(roomSrc),
+    'the secure admission response always marks tournament recording required');
+  ok(/tournamentRequired[\s\S]{0,400}action === 'consent' && body\.consent !== true/.test(recordingSrc),
+    'the recording endpoint rejects a tournament decline');
+  ok(/state\.recordingRequired !== false[\s\S]{0,700}recordingStatus !== 'recording'/.test(clientSrc),
+    'Speech 1 is gated on a live tournament recording, not only a modal');
+  ok(/required \? 'Leave tournament room' : 'No, do not record'/.test(clientSrc),
+    'the tournament notice offers exit instead of a recording-decline action');
+  ok(/recording\.isStream !== true && recording\.recordingConsentComplete !== true/.test(recordingAdminSrc),
+    'private tournament footage cannot be manually published without public-use clearance');
+}
+
+// ── tournament recording cannot be disabled ───────────────────────────────
+{
+  const entries = new Map([
+    ['gov', { members: ['alice'], memberNames: ['Alice'] }],
+    ['opp', { members: ['bob'], memberNames: ['Bob'] }],
+  ]);
+  const pairing = {
+    pairingId: 'r1-1', room: 'Debatable-abc123XYZ789-r1-1',
+    govEntry: 'gov', oppEntry: 'opp',
+  };
+  const prelim = tournamentRoomSetup('abc123XYZ789', { recordingRequired: false }, pairing, entries, 'seed');
+  ok(prelim.admission.recordingRequired === true,
+    'even a stale event flag cannot disable tournament recording');
+  ok(prelim.admission.broadcastAllowed === false,
+    'mandatory preliminary capture remains private by default');
+
+  const elim = tournamentRoomSetup('abc123XYZ789', {}, { ...pairing, pairingId: 'e1-1' }, entries, 'seed');
+  ok(elim.admission.recordingRequired === true,
+    'elimination recording is mandatory too');
+  ok(elim.admission.broadcastAllowed === true,
+    'elimination broadcast follows the published tournament rule');
 }
 
 console.log(`\ntournament-round: ${pass} passed, ${fail} failed`);

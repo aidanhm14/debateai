@@ -56,8 +56,10 @@ export async function reapAbandonedRecordings(db, nowMs = Date.now()){
     }
 
     const consented = d.recordingPublishAllowed === true;
+    const requiredCapture = d.recordingMode === 'tournament_required';
+    const keepCapture = consented || requiredCapture;
     const update = {
-      recordingStatus: consented ? 'processing' : 'stopped',
+      recordingStatus: keepCapture ? 'processing' : 'stopped',
       recordingClosed: true,
       recordingStopReason: 'abandoned',
       recordingStoppedAt: FieldValue.serverTimestamp(),
@@ -67,10 +69,10 @@ export async function reapAbandonedRecordings(db, nowMs = Date.now()){
     };
     // Nobody completed the consent, and nobody is left in the room to
     // complete it. The file goes on the next sync pass.
-    if (!consented){ update.recordingDeleteRequested = true; purged++; }
+    if (!keepCapture){ update.recordingDeleteRequested = true; purged++; }
     await doc.ref.set(update, { merge: true });
     reaped++;
-    console.log('[recording-reaper]', doc.id, 'idle', Math.round(idle / 60000) + 'm', consented ? 'kept for publish' : 'marked for deletion');
+    console.log('[recording-reaper]', doc.id, 'idle', Math.round(idle / 60000) + 'm', consented ? 'kept for publish' : requiredCapture ? 'kept private' : 'marked for deletion');
   }
   return { open: snap.size, reaped, purged, skipped };
 }

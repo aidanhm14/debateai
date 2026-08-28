@@ -91,6 +91,9 @@ function publicTournament(id, d) {
     entryCount: Number(d.entryCount) || 0,
     champion: d.champion || null,
     isPublic: !!d.isPublic,
+    // Missing means true for tournaments created before this field was
+    // stamped. Casual live rooms keep their separate opt-in policy.
+    recordingRequired: true,
     // Public spectating and participant entry are separate permissions.
     // The event stays listed after the roster closes, while every entry
     // surface reads this one server-derived boolean.
@@ -338,6 +341,9 @@ export default async (request) => {
     if (decoded.firebase?.sign_in_provider === 'anonymous') {
       return errorResponse('Create an account to enter a tournament.', 403, request);
     }
+    if (body?.recordingAccepted !== true || body?.adultOrGuardianApproved !== true) {
+      return errorResponse('Tournament rounds are recorded. Confirm the recording terms to register.', 400, request);
+    }
     // Existing entrants can still update a placeholder name through this
     // idempotent action. The closed door applies to creating a new entry,
     // not to maintaining one already on the roster.
@@ -362,6 +368,18 @@ export default async (request) => {
       if (incoming && isPlaceholderName(already.name)) {
         patch.name = incoming;
         patch.memberNames = [incoming, ...(Array.isArray(already.memberNames) ? already.memberNames.slice(1) : [])];
+      }
+
+      if (body?.recordingAccepted === true) {
+        patch.recordingAcceptances = {
+          ...(already.recordingAcceptances || {}),
+          [myUid]: {
+            accepted: true,
+            adultOrGuardianApproved: true,
+            version: 'tournament-recording-v1-2026-08-28',
+            acceptedAtMs: Date.now(),
+          },
+        };
       }
 
       if (Object.keys(patch).length) await snap.ref.update(patch);
@@ -441,6 +459,14 @@ export default async (request) => {
       byes: 0,
       sideCount: { gov: 0, opp: 0 },
       opponents: [],
+      recordingAcceptances: {
+        [myUid]: {
+          accepted: true,
+          adultOrGuardianApproved: true,
+          version: 'tournament-recording-v1-2026-08-28',
+          acceptedAtMs: Date.now(),
+        },
+      },
       registeredAt: FieldValue.serverTimestamp(),
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
@@ -458,7 +484,23 @@ export default async (request) => {
   if (action === 'check-in') {
     const mine = await existingEntryFor(myUid);
     if (!mine) return errorResponse('You are not registered for this tournament.', 404, request);
-    await mine.ref.update({ status: 'checked_in', checkedInAt: FieldValue.serverTimestamp() });
+    if (body?.recordingAccepted !== true || body?.adultOrGuardianApproved !== true) {
+      return errorResponse('Tournament rounds are recorded. Confirm the recording terms to check in.', 400, request);
+    }
+    const mineData = mine.data() || {};
+    await mine.ref.update({
+      status: 'checked_in',
+      checkedInAt: FieldValue.serverTimestamp(),
+      recordingAcceptances: {
+        ...(mineData.recordingAcceptances || {}),
+        [myUid]: {
+          accepted: true,
+          adultOrGuardianApproved: true,
+          version: 'tournament-recording-v1-2026-08-28',
+          acceptedAtMs: Date.now(),
+        },
+      },
+    });
     cache.clear();
     return jsonResponse({ ok: true }, 200, request);
   }

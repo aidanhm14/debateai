@@ -220,7 +220,8 @@ export default async (req) => {
     eject_at_room_exp: true,
   };
   // Enabling cloud recording does not start capture. /api/round-recording
-  // starts it only after every seated debater has opted in for this round.
+  // starts ordinary rooms after unanimous opt-in. Tournament rooms use
+  // the mandatory acknowledgement disclosed at registration and room entry.
   //
   // `allow_streaming_from_bucket` USED TO RIDE HERE AND IT IS NOT A ROOM
   // PROPERTY. Daily answers the whole create with
@@ -349,6 +350,8 @@ export default async (req) => {
     url: room.url || ('https://' + domain + '.daily.co/' + name),
     token,
     recordingAvailable,
+    tournamentRoom: admission.tournament,
+    recordingRequired: admission.tournament,
   });
 };
 

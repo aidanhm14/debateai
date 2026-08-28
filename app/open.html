@@ -348,7 +348,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <div class="fact"><b>Check in, then stay reachable</b><span>The queue pairs whoever is ready. A missed room or personal connection failure can become a forfeit after five minutes.</span></div>
       <div class="fact"><b>A written decision</b><span>The published AI panel decides each round except the final. Panel ballots can be appealed to a human.</span></div>
       <div class="fact"><b>The final belongs to the room</b><span>The signed-in audience votes after the last speech. The published vote floor and close-vote rule decide when the panel must stand in.</span></div>
-      <div class="fact"><b>Watching and recording are different</b><span>Spectator seats are view-only. A preliminary round reaches the stream only when both people in it opted in to recording.</span></div>
+      <div class="fact"><b>Every round is recorded</b><span>Entering includes recording. Preliminary footage is private by default. Elimination-round coverage follows the official rules.</span></div>
     </div>
     <div class="rule-actions">
       <a class="btn btn-primary" href="/tournament-rules">Read the official rules</a>
@@ -815,10 +815,16 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     b.textContent = 'Check in';
     b.addEventListener('click', function(){
       busy(b, true, 'Checking in');
-      api('/api/tournament', { action: 'check-in', tid: t.tid })
-        .then(function(){ good('Checked in.'); return load(); })
-        .catch(function(e){ fail(e.message); })
-        .then(function(){ busy(b, false); });
+      confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
+        if (!yes){ busy(b, false); return; }
+        return api('/api/tournament', {
+          action: 'check-in', tid: t.tid,
+          recordingAccepted: true, adultOrGuardianApproved: true,
+        })
+          .then(function(){ good('Checked in. Every round you play will be recorded.'); return load(); })
+          .catch(function(e){ fail(e.message); })
+          .then(function(){ busy(b, false); });
+      });
     });
     host.appendChild(b);
   }
@@ -860,20 +866,33 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   function register(btn){
     var t = state.data.tournament;
-    busy(btn, true, 'Entering');
-    api('/api/tournament', {
-      action: 'register',
-      tid: t.tid,
-      name: daPublicName(state.user),
-      affiliation: state.affInput ? state.affInput.value.trim() : '',
-    })
-      .then(function(){
-        good('You are in.');
-        try { gtag('event', 'open_entered', { tid: t.tid }); } catch(e){}
-        return load();
+    confirmTournamentRecording(t, 'Agree and enter').then(function(yes){
+      if (!yes) return;
+      busy(btn, true, 'Entering');
+      api('/api/tournament', {
+        action: 'register',
+        tid: t.tid,
+        name: daPublicName(state.user),
+        affiliation: state.affInput ? state.affInput.value.trim() : '',
+        recordingAccepted: true,
+        adultOrGuardianApproved: true,
       })
-      .catch(function(e){ fail(e.message); })
-      .then(function(){ busy(btn, false); });
+        .then(function(){
+          good('You are in. Every round you play will be recorded.');
+          try { gtag('event', 'open_entered', { tid: t.tid }); } catch(e){}
+          return load();
+        })
+        .catch(function(e){ fail(e.message); })
+        .then(function(){ busy(btn, false); });
+    });
+  }
+
+  function confirmTournamentRecording(t, confirmLabel){
+    return confirmAction({
+      title: 'Every tournament round is recorded',
+      body: 'Every round is recorded and stored by Debatable. Continue only if you are 18 or older, or a parent or guardian has approved. Preliminary footage is private by default. You can use Avatar mode instead of showing your camera.',
+      confirmLabel: confirmLabel || 'I agree',
+    });
   }
 
   // ── Drop-in queue ─────────────────────────────────────────────────

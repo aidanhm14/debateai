@@ -65,7 +65,7 @@ async function roundMeta(db, roomName){
     const recordingConsentComplete = participants.length >= 2
       && participants.every(uid => consents[uid] === true)
       && d.recordingPublishAllowed === true
-      && /^round-recording-v(?:1|2)-/.test(d.recordingConsentVersion || '');
+      && /^round-recording-v(?:1|2|3)-/.test(d.recordingConsentVersion || '');
     return {
       // Read by the caller and stripped before the rest is written to the
       // recording doc. A round asks for this when a seated debater
@@ -409,13 +409,26 @@ export default async (req) => {
   if (body.action === 'publish'){
     const id = String(body.id || '');
     if (!id) return errorResponse('id required', 400, req);
+    const publishing = body.published !== false;
+    if (publishing){
+      const snap = await db.collection('recordings').doc(id).get();
+      if (!snap.exists) return errorResponse('Not found', 404, req);
+      const recording = snap.data() || {};
+      // A mandatory capture is not blanket public-use permission. Streams
+      // are the broadcast itself; every other recording must carry the
+      // all-party public-use proof written by roundMeta before an admin can
+      // put it on Watch.
+      if (recording.isStream !== true && recording.recordingConsentComplete !== true){
+        return errorResponse('This recording is private and is not cleared for publication.', 409, req);
+      }
+    }
     await db.collection('recordings').doc(id).set({
-      published: body.published !== false,
+      published: publishing,
       publishedAuto: false,
       publishManaged: false,
       publishOverridden: true,
     }, { merge: true });
-    return jsonResponse({ id, published: body.published !== false }, 200, req);
+    return jsonResponse({ id, published: publishing }, 200, req);
   }
 
   // Take a round off the shelf without taking it off the site. `teaser`

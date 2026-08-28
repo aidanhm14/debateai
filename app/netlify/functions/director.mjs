@@ -200,23 +200,16 @@ export default async (request) => {
       recording: live ? String(live.recordingStatus || 'idle') : 'idle',
       // ── May this room be cut into the stream ──
       //
-      // Watching a room and broadcasting it are different acts and only
-      // the second one needs the debaters' yes. The published rules say
-      // a preliminary round reaches the stream only when BOTH debaters
-      // opted in, so the wall has to be able to answer that at a glance:
-      // a director choosing the next shot in ten seconds cannot go and
-      // check two consent records.
+      // Watching a room and broadcasting it are different acts. Every
+      // tournament round is recorded, but preliminary footage is private
+      // by default, so the wall still needs a separate public-use answer.
       //
       // Derived, never asserted. Elimination rounds carry broadcast
       // consent from entry, which is section 8 of the rules. A prelim is
-      // clear only once the all-party gate in round-recording.mjs has
-      // actually fired, which is exactly what a live recordingStatus
-      // means: that status cannot be reached unless every seated
-      // debater's yes was recorded first. Anything else is NOT clear,
-      // including a room we simply have not heard from yet, because the
-      // safe default for putting someone on a broadcast is no.
+      // clear only when the round doc separately permits publication. A
+      // red recording status proves capture, not broadcast permission.
       streamable: liveKey.startsWith('e')
-        || (!!live && ['recording', 'starting'].includes(String(live.recordingStatus || ''))),
+        || (!!live && live.recordingPublishAllowed === true),
       shot: shotById.get(room) || 0,
     };
   });

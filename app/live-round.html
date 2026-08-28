@@ -2237,13 +2237,11 @@ body.speech-live .rmb-change{display:none}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
-/* Full-round cloud recording. OFF until everyone opts in: each seated
-   person gets the choice before Speech 1, and the Record control can ask
-   again later. Capture starts only after every seat agrees.
-   Every seated debater must opt in for this
-   round before Daily starts capture. The pill stays visible throughout
-   the round so nobody can miss whether recording is waiting, live, or
-   stopped. */
+/* Full-round cloud recording. Ordinary rooms are off until every seat
+   opts in. Tournament rooms require each assigned person to acknowledge
+   the disclosed recording terms before Speech 1, then stay on the record
+   through the ballot. The pill stays visible throughout the round so
+   nobody can miss whether recording is waiting, live, or stopped. */
 .rmb-rec{
   display:flex;align-items:center;gap:8px;flex-shrink:0;
 }
@@ -3328,7 +3326,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       <div class="panel-section">
         <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
         <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Click Start to launch the video room and begin Speech 1. Both speakers should join the same room.</p>
-        <p style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+        <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
       </div>
     </div>
 
@@ -3616,7 +3614,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             <div class="label" style="margin-bottom:6px">Speech sequence</div>
             <div class="sequence-list" id="sequenceList"></div>
           </div>
-          <p class="rd-note">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.</p>
+          <p class="rd-note" id="recordingRoundNote">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.</p>
         </div>
       </details>
     </div>
@@ -4467,6 +4465,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     timerTotalSec: 0,
     dailyUrl: null,          // resolved via /api/create-daily-room on Start
     dailyMounted: false,
+    tournamentRoom: (prefill.source || '') === 'tournament' ? null : false,
+    recordingRequired: (prefill.source || '') === 'tournament' ? null : false,
     recognition: null,
     micActive: false,
     micFinal: '',
@@ -5763,6 +5763,26 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
   function startSpeechTimer(){
     if (state.timerState === 'running' || state.timerState === 'ended') return;
+    // A modal is not a security boundary. Tournament Speech 1 also stops
+    // here unless the server-backed room state says the required capture
+    // is already live. A tournament-shaped URL waits for the admission
+    // response instead of briefly falling through as an ordinary room.
+    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
+        && state.recordingRequired !== false){
+      if (state.recordingRequired === null){
+        toast('Checking the tournament recording before Speech 1.');
+        return;
+      }
+      if (!cloudRec.doc || cloudRec.doc.recordingStatus !== 'recording'){
+        showCloudRecordingConsent();
+        if (cloudRec.doc && cloudRec.doc.recordingConsents
+            && state.user && cloudRec.doc.recordingConsents[state.user.uid] === true){
+          holdMandatoryRecordingModal();
+        }
+        toast('Speech 1 opens when the required tournament recording is live.');
+        return;
+      }
+    }
     // 2026-08-18 (the founder): the judge has to be settled before the round
     // starts. judgeLockKey() is 'chair' when both benches sit on the
     // untouched default (that IS agreement, no friction added) and ''
@@ -7296,10 +7316,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     try { gtag('event', 'live_round_record_stop', { dur_sec: Math.round((Date.now() - rec.startedAt)/1000) }); } catch(e){}
   }
 
-  // ── All-party full-round recording. Decisions are per round, never
-  // remembered as a blanket preference. The server verifies the caller is
-  // seated, stamps the exact scope, and starts Daily only after every seat
-  // agrees. A no leaves the debate untouched.
+  // ── Full-round recording. Ordinary rooms make a per-round choice.
+  // Tournament rooms are different: recording is a disclosed condition of
+  // entry, each assigned person acknowledges it here, and the room remains
+  // blocked until every seat has acknowledged and Daily is recording.
   var cloudRec = {
     doc: null,
     busy: false,
@@ -7329,6 +7349,39 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function closeCloudRecordingModal(){
     if (cloudRec.modal && cloudRec.modal.parentNode) cloudRec.modal.parentNode.removeChild(cloudRec.modal);
     cloudRec.modal = null;
+  }
+
+  function tournamentRecordingRequired(){
+    return state.recordingRequired === true;
+  }
+
+  function applyRecordingRequirementCopy(){
+    var setupNote = document.getElementById('recordingSetupNote');
+    var roundNote = document.getElementById('recordingRoundNote');
+    if (tournamentRecordingRequired()){
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Tournament recording required.</strong> Every seat must accept, and the recording must be live, before Speech 1 can begin. Preliminary footage is stored privately by default.';
+      if (roundNote) roundNote.textContent = 'Every tournament round is recorded. Speech 1 stays locked until every assigned person accepts and the recording indicator is live.';
+      return;
+    }
+    if (state.recordingRequired === false){
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
+      if (roundNote) roundNote.textContent = 'Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.';
+    }
+  }
+
+  function holdMandatoryRecordingModal(){
+    var bd = cloudRec.modal;
+    if (!bd) return;
+    var kicker = bd.querySelector('.rec-consent-kicker');
+    var title = bd.querySelector('#cloudRecTitle');
+    var why = bd.querySelector('#cloudRecWhy');
+    var yes = bd.querySelector('#cloudRecYes');
+    var no = bd.querySelector('#cloudRecNo');
+    if (kicker) kicker.textContent = 'Tournament recording accepted';
+    if (title) title.textContent = 'Waiting for the recording to start';
+    if (why) why.innerHTML = '<strong>Stay here.</strong> The round opens when every assigned person has accepted and the recording indicator is live.';
+    if (yes){ yes.disabled = true; yes.textContent = 'Waiting for every seat'; }
+    if (no){ no.disabled = false; no.textContent = 'Leave tournament room'; }
   }
 
   function cloudRecordingPost(payload){
@@ -7362,8 +7415,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       consent: !!consent,
       adultOrGuardianApproved: !!adultOrGuardianApproved,
     }).then(function(){
-      closeCloudRecordingModal();
-      toast(consent ? 'You agreed. Recording starts only after every seated person agrees.' : 'No recording will start. The round continues normally.');
+      if (tournamentRecordingRequired() && consent) holdMandatoryRecordingModal();
+      else closeCloudRecordingModal();
+      toast(tournamentRecordingRequired()
+        ? 'Accepted. The round opens when the required recording is live.'
+        : (consent ? 'You agreed. Recording starts only after every seated person agrees.' : 'No recording will start. The round continues normally.'));
       try { gtag('event', 'live_round_recording_consent', { granted: consent ? 1 : 0 }); } catch(e){}
     }).catch(function(error){
       // The modal covers the screen, so the failure is reported INSIDE it.
@@ -7382,6 +7438,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (cloudRec.modal) return;
     var d = cloudRec.doc || {};
     if (state.phase !== 'round' || d.recordingClosed) return;
+    if (state.recordingRequired === null) return;
     var participants = cloudRecordingParticipants(d);
     if (!state.user || participants.indexOf(state.user.uid) < 0 || participants.length < 2){
       toast('Recording needs at least two signed-in seated debaters.');
@@ -7389,6 +7446,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     var consents = d.recordingConsents || {};
     var requested = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
+    var required = tournamentRecordingRequired();
     // Do not stack this on top of the separate transcript-storage ask.
     // The recording prompt returns as soon as that one is answered.
     if (document.getElementById('tcRoot')){
@@ -7400,23 +7458,30 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     bd.innerHTML =
       '<div class="rec-consent-card" role="dialog" aria-modal="true" aria-labelledby="cloudRecTitle" aria-describedby="cloudRecWhy">' +
         '<div class="rec-consent-head">' +
-          '<div class="rec-consent-kicker">' + (requested ? 'Recording request received' : 'Public replay request') + '</div>' +
-          '<h2 id="cloudRecTitle">' + (requested ? 'Do you agree to record this round?' : 'Request a recording?') + '</h2>' +
-          '<p class="rec-consent-why" id="cloudRecWhy"><strong>Why you are being asked:</strong> a replay lets both sides review the round and share useful moments after the ballot.</p>' +
+          '<div class="rec-consent-kicker">' + (required ? 'Tournament recording' : (requested ? 'Recording request received' : 'Public replay request')) + '</div>' +
+          '<h2 id="cloudRecTitle">' + (required ? 'This tournament round is recorded' : (requested ? 'Do you agree to record this round?' : 'Request a recording?')) + '</h2>' +
+          '<p class="rec-consent-why" id="cloudRecWhy"><strong>' + (required ? 'Condition of entry:' : 'Why you are being asked:') + '</strong> ' +
+            (required ? 'every tournament round is recorded and stored by Debatable.' : 'a replay lets both sides review the round and share useful moments after the ballot.') + '</p>' +
         '</div>' +
         '<div class="rec-consent-body">' +
           '<div class="rec-consent-facts" aria-label="Recording details">' +
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, display names, resolution, and ballot reveal.</span></span></div>' +
-            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">2</span><span><strong>Who can see it</strong><span>The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.</span></span></div>' +
-            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>Only after every seated person agrees for this round. If anyone says no, no recording starts.</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">2</span><span><strong>Who can see it</strong><span>' +
+              (required ? 'Preliminary footage is private by default. Elimination-round broadcast follows the published tournament rules.' : 'The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.') + '</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>' +
+              (required ? 'Before Speech 1, after every assigned person confirms this notice. The round stays closed until recording is live.' : 'Only after every seated person agrees for this round. If anyone says no, no recording starts.') + '</span></span></div>' +
           '</div>' +
           '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
-            '<span>I am 18 or older, or my parent or guardian has approved this recording and the public replay.</span></label>' +
-          '<p class="rec-consent-choice">Saying no does not affect your seat, the clock, or the ballot. Your choice applies only to this round. You can switch to Avatar before agreeing if you do not want your camera image in the replay. <a href="/privacy#recordings" target="_blank" rel="noopener">Read the recording policy.</a></p>' +
+            '<span>I am 18 or older, or my parent or guardian has approved ' +
+              (required ? 'this tournament recording.' : 'this recording and the public replay.') + '</span></label>' +
+          '<p class="rec-consent-choice">' + (required
+            ? 'You cannot play this tournament round off the record. Leave the room and withdraw from the tournament if you cannot be recorded. Avatar mode keeps your raw camera image out of the recording. '
+            : 'Saying no does not affect your seat, the clock, or the ballot. Your choice applies only to this round. You can switch to Avatar before agreeing if you do not want your camera image in the replay. ') +
+            '<a href="/privacy#recordings" target="_blank" rel="noopener">Read the recording policy.</a></p>' +
           '<div class="rec-consent-error" id="cloudRecError" role="alert"></div>' +
           '<div class="rec-consent-actions">' +
-            '<button type="button" class="rec-consent-no" id="cloudRecNo">No, do not record</button>' +
-            '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>I agree to record this round</button>' +
+            '<button type="button" class="rec-consent-no" id="cloudRecNo">' + (required ? 'Leave tournament room' : 'No, do not record') + '</button>' +
+            '<button type="button" class="rec-consent-yes" id="cloudRecYes" disabled>' + (required ? 'Enter recorded round' : 'I agree to record this round') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -7425,7 +7490,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var check = bd.querySelector('#cloudRecAge');
     var yes = bd.querySelector('#cloudRecYes');
     check.addEventListener('change', function(){ yes.disabled = !check.checked; });
-    bd.querySelector('#cloudRecNo').addEventListener('click', function(){ chooseCloudRecording(false, false); });
+    bd.querySelector('#cloudRecNo').addEventListener('click', function(){
+      if (required) location.href = prefill.tkey ? ('/tournament?t=' + encodeURIComponent(prefill.tkey)) : '/open';
+      else chooseCloudRecording(false, false);
+    });
     yes.addEventListener('click', function(){ chooseCloudRecording(true, check.checked); });
     try { bd.querySelector('#cloudRecNo').focus(); } catch(e){}
   }
@@ -7445,58 +7513,71 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var status = (d && d.recordingStatus) || 'idle';
     var seated = !!(state.user && participants.indexOf(state.user.uid) >= 0);
     var active = status === 'recording';
+    var required = tournamentRecordingRequired();
+
+    if (required && active) closeCloudRecordingModal();
 
     box.classList.toggle('recording', active);
     box.classList.toggle('pending', status === 'awaiting_consent' || status === 'starting');
-    btn.disabled = cloudRec.busy || !seated || ['starting','processing','stopped','closed','stop_failed'].indexOf(status) >= 0;
+    btn.disabled = cloudRec.busy || !seated || ['starting','processing','stopped','closed','stop_failed'].indexOf(status) >= 0
+      || (required && active);
     detail.hidden = false;
 
     if (active){
-      label.textContent = seated ? 'Stop recording' : 'Recording';
+      label.textContent = required ? 'Tournament recording' : (seated ? 'Stop recording' : 'Recording');
       // Capture running is not permission to publish. While the yeses are
       // outstanding the pill says so, so nobody reads a red dot as "this
       // is going public".
       detail.textContent = fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now()))) +
-        (d.recordingPublishAllowed === true ? '' : ' · not publishing yet');
+        (d.recordingPublishAllowed === true ? '' : (required ? ' · stored privately' : ' · not publishing yet'));
       if (!cloudRec.tick){
         cloudRec.tick = setInterval(function(){ if (cloudRec.doc) setCloudRecordingUi(cloudRec.doc); }, 1000);
       }
     } else {
       if (cloudRec.tick){ clearInterval(cloudRec.tick); cloudRec.tick = null; }
       if (status === 'starting'){
-        label.textContent = 'Starting recording'; detail.textContent = agreed + '/' + participants.length + ' agreed';
+        label.textContent = required ? 'Starting required recording' : 'Starting recording';
+        detail.textContent = agreed + '/' + participants.length + (required ? ' accepted' : ' agreed');
       } else if (status === 'processing'){
-        label.textContent = d.recordingPublishAllowed === true ? 'Preparing replay' : 'Recording stopped';
-        detail.textContent = d.recordingPublishAllowed === true ? 'Watch and clips soon' : 'Not publishing';
+        label.textContent = d.recordingPublishAllowed === true ? 'Preparing replay' : (required ? 'Tournament recording saved' : 'Recording stopped');
+        detail.textContent = d.recordingPublishAllowed === true ? 'Watch and clips soon' : (required ? 'Private tournament archive' : 'Not publishing');
       } else if (status === 'stopped' || status === 'closed'){
         label.textContent = 'Recording stopped';
         detail.textContent = d.recordingDeleteRequested === true ? 'File deleted' : 'Not publishing';
       } else if (status === 'failed' || status === 'stop_failed'){
         label.textContent = 'Recording unavailable'; detail.textContent = 'Try again'; btn.disabled = !seated;
       } else if (status === 'declined'){
-        label.textContent = mine === false ? 'Allow recording' : 'Not recording'; detail.textContent = 'A debater declined';
+        label.textContent = required ? 'Recording required' : (mine === false ? 'Allow recording' : 'Not recording');
+        detail.textContent = required ? 'Accept before Speech 1' : 'A debater declined';
       } else if (status === 'awaiting_consent'){
         if (mine === true){
-          label.textContent = 'Withdraw request';
+          label.textContent = required ? 'Recording required' : 'Withdraw request';
           var waiting = participants.filter(function(uid){ return consents[uid] !== true; });
-          detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + ' agreed';
+          detail.textContent = waiting.length === 1 ? 'Waiting on ' + cloudRecordingName(d, waiting[0]) : agreed + '/' + participants.length + (required ? ' accepted' : ' agreed');
         } else {
-          label.textContent = 'Review recording request';
+          label.textContent = required ? 'Accept recording requirement' : 'Review recording request';
           var requester = participants.find(function(uid){ return consents[uid] === true; });
-          detail.textContent = requester ? cloudRecordingName(d, requester) + ' asked' : 'Your consent is needed';
+          detail.textContent = required ? 'Required before Speech 1' : (requester ? cloudRecordingName(d, requester) + ' asked' : 'Your consent is needed');
         }
       } else {
-        label.textContent = 'Request recording'; detail.textContent = participants.length >= 2 ? 'Opens consent review' : 'Needs identified seats';
+        label.textContent = required ? 'Review recording requirement' : 'Request recording';
+        detail.textContent = participants.length >= 2 ? (required ? 'Required before Speech 1' : 'Opens consent review') : 'Needs identified seats';
       }
     }
 
     if (status !== cloudRec.lastStatus){
       if (status === 'recording'){
-        toast(cloudRec.doc && cloudRec.doc.recordingPublishAllowed === true
-          ? 'Recording. The replay and clips will appear on Watch.'
-          : 'Recording. It is published only if every debater agrees.');
+        toast(required
+          ? (cloudRec.doc && cloudRec.doc.recordingPublishAllowed === true
+              ? 'Tournament recording is live. This round is cleared for event coverage.'
+              : 'Tournament recording is live and stored privately.')
+          : (cloudRec.doc && cloudRec.doc.recordingPublishAllowed === true
+              ? 'Recording. The replay and clips will appear on Watch.'
+              : 'Recording. It is published only if every debater agrees.'));
       }
-      if (status === 'processing') toast('Recording stopped. The replay is being prepared.');
+      if (status === 'processing') toast(required && d.recordingPublishAllowed !== true
+        ? 'Tournament recording saved privately.'
+        : 'Recording stopped. The replay is being prepared.');
       cloudRec.lastStatus = status;
     }
 
@@ -7512,16 +7593,25 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     try { renderRecTail(); } catch(e){}
   }
 
-  // Ask every seated person once, before speech 1, whether this round
-  // should be recorded. Capture still starts only after every seat says
-  // yes. A later request also prompts anyone who has not answered yet.
+  // Ask every seat once before Speech 1. Ordinary rooms offer a choice.
+  // Tournament rooms hold the participant here until every assigned seat
+  // accepts and the required recording is live.
   function maybePromptCloudRecording(d){
     setCloudRecordingUi(d);
+    if (state.recordingRequired === null) return;
     if (cloudRec.prompted || state.phase !== 'round' || !state.user || isSpectator()) return;
     var participants = cloudRecordingParticipants(d || {});
     var consents = (d && d.recordingConsents) || {};
     if (participants.length < 2 || participants.indexOf(state.user.uid) < 0) return;
-    if (Object.prototype.hasOwnProperty.call(consents, state.user.uid)) return;
+    if (Object.prototype.hasOwnProperty.call(consents, state.user.uid)){
+      if (tournamentRecordingRequired() && consents[state.user.uid] === true
+          && d.recordingStatus !== 'recording'){
+        cloudRec.prompted = true;
+        showCloudRecordingConsent();
+        holdMandatoryRecordingModal();
+      }
+      return;
+    }
     if (d.recordingClosed || ['processing','stopped','closed'].indexOf(d.recordingStatus) >= 0) return;
     var asked = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
     var everyonePresent = participants.every(function(uid){
@@ -7538,6 +7628,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var d = cloudRec.doc || {};
     var consents = d.recordingConsents || {};
     var mine = state.user ? consents[state.user.uid] : undefined;
+    if (tournamentRecordingRequired()){
+      if (d.recordingStatus === 'recording'){
+        toast('This tournament records every round. Recording stops after the ballot.');
+        return;
+      }
+      showCloudRecordingConsent();
+      if (mine === true) holdMandatoryRecordingModal();
+      return;
+    }
     // Guard, not the live control: this pill sits in the round meta bar
     // and the ballot screen has replaced it by now, so the button people
     // actually press during the reaction tail is .rec-tail's. It matters
@@ -9623,6 +9722,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           return;
         }
         state.dailyUrl = res.body.url;
+        state.tournamentRoom = res.body.tournamentRoom === true;
+        state.recordingRequired = res.body.recordingRequired === true;
+        applyRecordingRequirementCopy();
+        // The server response is the authoritative tournament signal.
+        // A URL can claim source=tournament; it cannot turn an ordinary
+        // room into a mandatory recording room.
+        if (cloudRec.doc) maybePromptCloudRecording(cloudRec.doc);
         // Deciding the mount BEFORE daily-js has loaded picks the worse
         // mount for no reason: the library rides a deferred CDN tag and
         // this fetch can land first, which is not hypothetical (measured
@@ -12356,9 +12462,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var ran = d.recordingClosed || ['recording','stopping','processing','stopped','closed']
       .indexOf(d.recordingStatus || '') >= 0;
     if (!ran) return '';
-    // Consent withdrawn mid-round means the file is flagged for deletion,
-    // so promising a replay would be the opposite of what was agreed.
+    // A mandatory preliminary recording can be kept privately without a
+    // public replay. Ordinary rounds still delete a withdrawn capture.
     if (d.recordingPublishAllowed === false){
+      if (d.recordingMode === 'tournament_required'){
+        return '<p class="replay-note">This tournament round was recorded and stored privately. ' +
+          'It does not appear on Watch.</p>';
+      }
       return '<p class="replay-note">This round was not kept. Recording stopped when somebody withdrew, ' +
         'and the file is deleted rather than published.</p>';
     }

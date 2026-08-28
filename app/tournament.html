@@ -638,7 +638,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       ['Standings', 'Ballots won first, then argument score out of 100.'],
       ['Advancement', breakText],
       ['Decision', 'Every round gets a written AI ballot. Appeals go to a human.'],
-      ['Watch and record', 'Public spectator seats are view-only. Recording requires consent inside the room.'],
+      ['Watch and record', 'Public spectator seats are view-only. Every tournament round is recorded. Preliminary footage is private by default.'],
     ];
     host.innerHTML = items.map(function(item){
       return '<div class="event-rule"><b>' + esc(item[0]) + '</b><span>' + esc(item[1]) + '</span></div>';
@@ -754,10 +754,16 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         ci.className = 'btn btn-primary'; ci.textContent = 'Check in';
         ci.addEventListener('click', function(){
           busy(ci, true, 'Checking in');
-          api('/api/tournament', { action: 'check-in', tid: t.tid })
-            .then(function(){ good('Checked in. You are in the next draw.'); return load(); })
-            .catch(function(e){ fail(e.message); })
-            .then(function(){ busy(ci, false); });
+          confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
+            if (!yes){ busy(ci, false); return; }
+            return api('/api/tournament', {
+              action: 'check-in', tid: t.tid,
+              recordingAccepted: true, adultOrGuardianApproved: true,
+            })
+              .then(function(){ good('Checked in. Every round you play will be recorded.'); return load(); })
+              .catch(function(e){ fail(e.message); })
+              .then(function(){ busy(ci, false); });
+          });
         });
         host.appendChild(ci);
       }
@@ -870,29 +876,41 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   function register(btn){
     var t = state.data.tournament;
-    busy(btn, true, 'Registering');
-    var body = {
-      action: 'register',
-      tid: t.tid,
-      name: daPublicName(state.user),
-      affiliation: state.affiliationInput ? state.affiliationInput.value.trim() : '',
-    };
-    var go = Promise.resolve();
-    if (t.teamSize === 2){
-      // A 2v2 tournament enters a FORMED duo. The partnership was
-      // already agreed on /partners, so there is no second consent
-      // step to invent here; we just need its id.
-      go = api('/api/partner-match', { action: 'my-team' }).then(function(j){
-        if (!j.team || (j.team.members || []).length < 2){
-          throw new Error('This tournament takes teams of two. Form a partnership first on the partners page.');
-        }
-        body.teamId = j.team.teamId;
-      });
-    }
-    go.then(function(){ return api('/api/tournament', body); })
-      .then(function(){ good('Registered. Check in when the tournament starts.'); return load(); })
-      .catch(function(e){ fail(e.message); })
-      .then(function(){ busy(btn, false); });
+    confirmTournamentRecording(t, 'Agree and register').then(function(yes){
+      if (!yes) return;
+      busy(btn, true, 'Registering');
+      var body = {
+        action: 'register',
+        tid: t.tid,
+        name: daPublicName(state.user),
+        affiliation: state.affiliationInput ? state.affiliationInput.value.trim() : '',
+        recordingAccepted: true,
+        adultOrGuardianApproved: true,
+      };
+      var go = Promise.resolve();
+      if (t.teamSize === 2){
+        // A 2v2 tournament enters a formed duo. Each partner still
+        // acknowledges the recording rule at check-in and room entry.
+        go = api('/api/partner-match', { action: 'my-team' }).then(function(j){
+          if (!j.team || (j.team.members || []).length < 2){
+            throw new Error('This tournament takes teams of two. Form a partnership first on the partners page.');
+          }
+          body.teamId = j.team.teamId;
+        });
+      }
+      go.then(function(){ return api('/api/tournament', body); })
+        .then(function(){ good('Registered. Every round you play will be recorded.'); return load(); })
+        .catch(function(e){ fail(e.message); })
+        .then(function(){ busy(btn, false); });
+    });
+  }
+
+  function confirmTournamentRecording(t, confirmLabel){
+    return confirmAction({
+      title: 'Every tournament round is recorded',
+      body: 'Every round is recorded and stored by Debatable. Continue only if you are 18 or older, or a parent or guardian has approved. Preliminary footage is private by default. You can use Avatar mode instead of showing your camera.',
+      confirmLabel: confirmLabel || 'I agree',
+    });
   }
 
   // ── Draw ────────────────────────────────────────────────────────
@@ -1538,7 +1556,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       'Wins rank first. Argument score out of 100 breaks ties.',
       breakText,
       'Every round gets a written AI ballot. Appeals go to a human.',
-      'Public spectator seats are view-only. Recording requires consent.',
+      'Public spectator seats are view-only. Every tournament round is recorded. Preliminary footage is private by default.',
     ];
     host.innerHTML = '';
     lines.forEach(function(line){

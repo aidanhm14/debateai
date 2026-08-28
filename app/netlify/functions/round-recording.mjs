@@ -1,22 +1,24 @@
-// All-party consent gate for full-round Daily cloud recording.
+// Full-round Daily cloud recording.
 //
 // POST /api/round-recording
 //   { action: 'consent', room, consent: true, adultOrGuardianApproved: true }
 //   { action: 'consent', room, consent: false }
 //   { action: 'finish', room }
 //
-// Recording is off by default. The server starts it only after every
-// seated participant has independently opted in for this round. Consent
-// is stamped onto live_rounds/{room} before Daily is called, and any
-// participant can withdraw to stop future capture immediately.
+// Ordinary rooms are off by default and start only after every seated
+// participant opts in. Tournament rooms are recorded as a condition of
+// participation: every seat acknowledges the disclosed recording terms
+// before capture starts, and there is no in-room opt-out that would let a
+// competitive round proceed off the record.
 
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
-const CONSENT_VERSION = 'round-recording-v2-2026-08-27';
+const CONSENT_VERSION = 'round-recording-v3-2026-08-28';
 const CONSENT_SCOPE = 'Store this round\'s video, audio, display names, and motion; publish the full replay on Watch so signed-in users can make and share clips.';
+const TOURNAMENT_SCOPE = 'Tournament participation requires this round\'s video, audio, display names, motion, and ballot reveal to be recorded and stored by Debatable. Preliminary capture is not public by default; elimination-round broadcast follows the published tournament rules.';
 
 function safeRoomName(value){
   return String(value || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 80);
@@ -39,6 +41,7 @@ function publicState(round, participants){
     consented: participants.filter(uid => consents[uid] === true).length,
     required: participants.length,
     publishAllowed: round.recordingPublishAllowed === true,
+    recordingRequired: round.recordingMode === 'tournament_required',
   };
 }
 
@@ -205,6 +208,17 @@ export default async (req) => {
 
   const db = getDb();
   const ref = db.collection('live_rounds').doc(room);
+  let admission = null;
+  try {
+    const admissionSnap = await db.collection('room_admissions').doc(room).get();
+    admission = admissionSnap.exists ? (admissionSnap.data() || {}) : null;
+  } catch { /* A missing casual-room admission keeps the optional path. */ }
+  const tournamentRequired = !!(admission
+    && admission.kind === 'tournament'
+    && admission.room === room);
+  if (tournamentRequired && action === 'consent' && body.consent !== true) {
+    return errorResponse('Tournament rounds are recorded. Leave the room or withdraw from the tournament if you cannot be recorded.', 409, req);
+  }
 
   let result;
   try {
@@ -215,6 +229,12 @@ export default async (req) => {
       const participants = participantUids(round);
       if (participants.length < 2) return { error: 'Recording needs at least two identified debaters', status: 409 };
       if (!participants.includes(decoded.sub)) return { error: 'Only seated debaters can choose recording', status: 403 };
+      if (tournamentRequired) {
+        const admitted = Array.isArray(admission?.uids) ? admission.uids.map(String) : [];
+        if (!admitted.includes(decoded.sub) || !participants.every(uid => admitted.includes(uid))) {
+          return { error: 'Tournament recording could not verify the assigned seats', status: 403 };
+        }
+      }
 
       const now = Date.now();
       const consents = { ...(round.recordingConsents || {}) };
@@ -222,6 +242,7 @@ export default async (req) => {
       const update = {
         recordingConsentVersion: CONSENT_VERSION,
         recordingParticipants: participants,
+        recordingMode: tournamentRequired ? 'tournament_required' : 'optional',
         recordingUpdatedAt: FieldValue.serverTimestamp(),
         recordingUpdatedAtMs: now,
       };
@@ -235,7 +256,7 @@ export default async (req) => {
         // Consent-first recording means this is normally true whenever a
         // recorder exists. Keep the deletion guard for a legacy capture or
         // a withdrawal that raced the finish request.
-        if (round.recordingPublishAllowed !== true && effect === 'stop'){
+        if (!tournamentRequired && round.recordingPublishAllowed !== true && effect === 'stop'){
           update.recordingDeleteRequested = true;
         }
       } else {
@@ -247,7 +268,8 @@ export default async (req) => {
           decidedAtMs: now,
           decidedAt: FieldValue.serverTimestamp(),
           version: CONSENT_VERSION,
-          scope: CONSENT_SCOPE,
+          scope: tournamentRequired ? TOURNAMENT_SCOPE : CONSENT_SCOPE,
+          requiredByTournament: tournamentRequired,
           adultOrGuardianApproved: body.consent ? true : false,
         };
         update.recordingConsents = consents;
@@ -257,6 +279,7 @@ export default async (req) => {
         tx.set(db.collection('recording_consents').doc(room + '_' + decoded.sub + '_' + now), receipt);
 
         const allAgreed = participants.every(uid => consents[uid] === true);
+        const tournamentPublishAllowed = tournamentRequired && admission?.broadcastAllowed === true;
         if (!body.consent){
           update.recordingPublishAllowed = false;
           update.recordingStatus = ['starting', 'recording'].includes(round.recordingStatus) ? 'stopping' : 'declined';
@@ -277,7 +300,7 @@ export default async (req) => {
           // A legacy client may have left the round in a starting state.
           // Even there, publication remains locked until every current
           // participant has independently agreed.
-          update.recordingPublishAllowed = true;
+          update.recordingPublishAllowed = tournamentRequired ? tournamentPublishAllowed : true;
           update.recordingConsentCompleteAtMs = now;
         } else if (allAgreed && !round.recordingClosed && !['starting', 'recording', 'processing'].includes(round.recordingStatus)){
           if (round.status === 'ballot' || round.ballot){
@@ -286,7 +309,7 @@ export default async (req) => {
           } else {
             effect = 'start';
             update.recordingStatus = 'starting';
-            update.recordingPublishAllowed = true;
+            update.recordingPublishAllowed = tournamentRequired ? tournamentPublishAllowed : true;
             update.recordingConsentCompleteAtMs = now;
           }
         } else if (!allAgreed && !['starting', 'recording'].includes(round.recordingStatus)){
@@ -352,7 +375,8 @@ export default async (req) => {
       const snap = await tx.get(ref);
       const round = snap.data() || {};
       const permitted = round.recordingPublishAllowed === true;
-      if (round.recordingStatus === 'starting' && permitted && !round.recordingClosed){
+      const requiredCapture = round.recordingMode === 'tournament_required';
+      if (round.recordingStatus === 'starting' && (permitted || requiredCapture) && !round.recordingClosed){
         live = true;
         tx.set(ref, {
           recordingStatus: 'recording',
@@ -377,7 +401,9 @@ export default async (req) => {
       }, { merge: true });
       return errorResponse('Could not confirm recording stopped. Try again.', 502, req);
     }
-    const finalStatus = action === 'finish' && result.round.recordingPublishAllowed === true ? 'processing' : 'stopped';
+    const keepCapture = result.round.recordingPublishAllowed === true
+      || result.round.recordingMode === 'tournament_required';
+    const finalStatus = action === 'finish' && keepCapture ? 'processing' : 'stopped';
     await ref.set({
       recordingStatus: finalStatus,
       recordingStoppedAt: FieldValue.serverTimestamp(),

@@ -942,7 +942,7 @@
         <span class="meta" id="rec-meta">—</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-        Sync pulls finished cloud recordings from Daily. Nothing arrives public: a stream lands hidden until you press publish, and a debate round only publishes itself once every seated debater has consented. Toggle any row to put it up or pull it down. Delete destroys the video file, its clips, and the entry, and a later Sync will not bring it back.
+        Sync pulls finished cloud recordings from Daily. Nothing arrives public: a stream lands hidden until you press publish, ordinary rounds need unanimous opt-in, and tournament preliminary recordings stay private by default. Toggle any eligible row to put it up or pull it down. Delete destroys the video file, its clips, and the entry, and a later Sync will not bring it back.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <button id="rec-sync-btn" class="pill-btn primary">Sync recordings</button>
@@ -4363,6 +4363,8 @@ async function loadRecordings(){
     body.innerHTML = recs.map(r => {
       const date = r.startTs ? new Date(r.startTs * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
       const label = (r.title || r.roomName || r.id).slice(0, 80);
+      const canPublish = r.isStream === true || r.recordingConsentComplete === true;
+      const publishLocked = !r.published && !canPublish;
       return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">' +
         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + label.replace(/"/g, '&quot;') + '">' +
           (r.isStream ? '📡 ' : '') + label + '</span>' +
@@ -4373,8 +4375,8 @@ async function loadRecordings(){
         // real still and adds an embedUrl. Green once set.
         '<button class="pill-btn rec-yt-btn" style="padding:4px 9px;font-size:11px' + (r.youtubeId ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-yt="' + (r.youtubeId || '') + '" title="Attach the YouTube upload of this round">' +
           (r.youtubeId ? 'on yt' : 'yt') + '</button>' +
-        '<button class="pill-btn rec-pub-btn" style="padding:4px 9px;font-size:11px' + (r.published ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-pub="' + (r.published ? '1' : '') + '">' +
-          (r.published ? 'published' : 'hidden') + '</button>' +
+        '<button class="pill-btn rec-pub-btn" style="padding:4px 9px;font-size:11px' + (r.published ? ';color:var(--good);border-color:var(--good)' : '') + '" data-id="' + r.id + '" data-pub="' + (r.published ? '1' : '') + '"' + (publishLocked ? ' disabled title="Private tournament footage is not cleared for publication"' : '') + '>' +
+          (r.published ? 'published' : (publishLocked ? 'private' : 'hidden')) + '</button>' +
         '<button class="pill-btn rec-del-btn" style="padding:4px 9px;font-size:11px;color:var(--accent);border-color:var(--accent)" data-id="' + r.id + '" data-label="' + label.replace(/"/g, '&quot;') + '">delete</button>' +
         '</div>';
     }).join('');

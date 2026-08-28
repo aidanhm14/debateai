@@ -129,6 +129,14 @@ export function tournamentRoomSetup(tid, tournament, pairing, entriesById, seed)
       entryIds: [String(p.govEntry || ''), String(p.oppEntry || '')],
       uids,
       spectatorAccess: 'public',
+      // Tournament participation includes recording. Missing stays true
+      // for events created before the field existed, so an older draw
+      // cannot silently fall back to the optional casual-room policy.
+      recordingRequired: true,
+      // Existing prize-tournament rules already cover elimination-round
+      // broadcast at entry. Preliminary capture is mandatory too, but it
+      // stays out of public replay and the main stream by default.
+      broadcastAllowed: /^e\d+(?:-|$)/.test(String(p.pairingId || '')),
     },
     draft: draftConfig && oneOnOne ? {
       eligible: true,
