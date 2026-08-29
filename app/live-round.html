@@ -265,9 +265,9 @@ button{font-family:inherit}
 .bar-user-out{padding:4px 8px;background:transparent;color:var(--text-dim);border:none;font-size:.68rem;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase}
 .bar-user-out:hover{color:var(--text)}
 
-/* Daily.co iframe, fills the call well under the custom broadcast stage.
-   Spectators and the audience-camera path still ride this; seated
-   debaters get the call-object room below instead. */
+/* Daily.co iframe. Camera-on audience members retain its controls. The
+   receive-only spectator path uses the custom stage below, with a cropped
+   iframe only as the last-resort fallback. */
 .daily-frame{width:100%;height:100%;border:none;background:#000;display:block}
 /* ── Call-object room (seated debaters). Our own tiles and tray, because
    Daily Prebuilt cannot publish the avatar canvas: a MediaStreamTrack
@@ -996,6 +996,22 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 }
 .call-shell .call-card{margin:auto;padding:18px}
 .call-shell .daily-frame{position:absolute;inset:0}
+/* The raw Daily iframe is a disaster fallback for spectators only. Its
+   meeting header and control tray must never become the public product.
+   Give the iframe enough extra height to place both bars outside this
+   shell's overflow crop. The remaining in-video menu is covered by our
+   own live badge. Debaters and camera-on audience members do not receive
+   this class, so their controls remain reachable. */
+.call-shell.is-daily-crop .daily-frame--broadcast-crop{
+  inset:auto 0 auto 0;top:-56px;width:100%;height:calc(100% + 208px);max-width:none
+}
+.call-shell.is-daily-crop::after{
+  content:'LIVE';position:absolute;top:0;right:0;z-index:12;
+  width:82px;height:58px;display:flex;align-items:center;justify-content:center;
+  border-radius:0 0 0 12px;background:rgba(10,10,13,.96);border:0;border-left:1px solid rgba(239,68,68,.58);border-bottom:1px solid rgba(239,68,68,.58);
+  color:#fca5a5;font:850 .64rem/1 DM Sans,Archivo,Georgia,serif;letter-spacing:.14em;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);pointer-events:none
+}
 .bar-logo{display:inline-flex;align-items:baseline;min-width:0;white-space:nowrap;font-family:'Archivo',Georgia,serif;font-size:1.16rem;font-weight:800;letter-spacing:-.015em}
 .bar-logo em{color:var(--accent);font-style:normal}
 .bar-meta{display:flex;align-items:center;min-width:0;gap:14px;font-size:.82rem;color:var(--text-dim);font-weight:650}
@@ -9767,20 +9783,24 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     return !!mountAudienceIframe(shell);
   }
 
-  // The pre-2026-08-24 audience mount, kept as the fallback for a browser
-  // or a daily-js build where the call object does not come up. It puts
-  // the name prompt back, which is worse than watching but better than
-  // not watching.
+  // The pre-2026-08-24 audience mount, kept only for a browser or a
+  // daily-js build where the call object does not come up. Daily Prebuilt
+  // still runs inside the iframe, but its meeting header, participant
+  // count, view selector, menu and bottom control tray are placed outside
+  // the shell's crop. A watcher sees the debate feed and our LIVE badge,
+  // never a Daily call interface.
   function mountAudienceIframe(shell){
     if (!shell || !state.dailyUrl) return null;
     var url = state.dailyUrl + (state.dailyUrl.indexOf('?') >= 0 ? '&' : '?') +
       'startVideoOff=true&startAudioOff=true&videoSource=false&audioSource=false';
     if (viewerToken) url += '&t=' + encodeURIComponent(viewerToken);
     var iframe = document.createElement('iframe');
-    iframe.className = 'daily-frame';
+    iframe.className = 'daily-frame daily-frame--broadcast-crop';
     iframe.src = url;
     iframe.allow = 'autoplay; clipboard-write';
-    iframe.title = 'Live video room';
+    iframe.title = 'Live debate broadcast';
+    iframe.tabIndex = -1;
+    shell.classList.add('is-daily-crop');
     shell.appendChild(iframe);
     viewerFrame = iframe;
     return iframe;
@@ -9791,6 +9811,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // things joined to one room from one tab is doubled audio and a seat
   // spent twice against max_participants.
   function destroyViewerMount(){
+    var shell = $('callShell') || $('jitsiPane');
+    if (shell) shell.classList.remove('is-daily-crop');
     if (viewerFrame){
       var f = viewerFrame; viewerFrame = null;
       try { f.remove(); } catch(e){}
