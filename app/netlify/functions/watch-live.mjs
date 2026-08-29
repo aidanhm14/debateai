@@ -172,6 +172,11 @@ export default async (request) => {
         conName: String(d.conName || '').slice(0, 40),
         speechIdx: typeof d.speechIdx === 'number' ? d.speechIdx : 0,
         started: roundHasStarted(d),
+        // Seated clients maintain this bounded aggregate on the round doc.
+        // Exposing it here adds no watcher-collection fanout and keeps the
+        // public wall honest about the audience actually in each room.
+        watchCount: Math.max(0, Number(d.watchCount) || 0),
+        watchCountCapped: d.watchCountCapped === true,
       });
     });
 

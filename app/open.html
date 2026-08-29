@@ -193,6 +193,7 @@
     -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .tv-foot{display:flex;align-items:center;gap:8px;margin-top:11px}
   .tv-format{font-size:.63rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+  .tv-viewers{font-size:.67rem;font-weight:800;color:rgba(255,255,255,.65);white-space:nowrap}
   .tv-watch{margin-left:auto;padding:7px 11px;border-radius:9px;background:var(--red);color:#fff;text-decoration:none;
     font-size:.72rem;font-weight:850}
   .tv-watch--demo{background:rgba(244,244,246,.08);color:var(--dim);border:1px solid var(--line)}
@@ -619,7 +620,7 @@
   } catch(e){ console.warn('[open] firebase init failed', e); }
 
   var DISCORD_INVITE = 'https://discord.gg/WMHZW9BKvJ';
-  var state = { user: null, data: null, affInput: null, arrivalPromptKey: '' };
+  var state = { user: null, data: null, affInput: null, arrivalPromptKey: '', roomPromptKey: '' };
 
   function $(id){ return document.getElementById(id); }
   function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
@@ -659,7 +660,7 @@
           '<div class="btn-row">' +
             '<button class="btn btn-primary" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
             (opts.linkHref ? '<a class="btn" href="' + esc(opts.linkHref) + '" target="_blank" rel="noopener">' + esc(opts.linkLabel || 'Open link') + '</a>' : '') +
-            '<button class="btn" data-no>Cancel</button>' +
+            '<button class="btn" data-no>' + esc(opts.cancelLabel || 'Cancel') + '</button>' +
           '</div></div>';
       function close(v){ back.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
       function onKey(e){ if (e.key === 'Escape') close(false); }
@@ -831,16 +832,27 @@
 
     renderBand();
     renderNow();
+    appendTournamentChat();
     renderPrizes();
     renderTab();
     renderBracket();
     renderHost();
-    maybePromptArrival();
+    if (!maybePromptRoom()) maybePromptArrival();
   }
 
   function firstSentence(s){
     var m = String(s || '').match(/^[^.]{20,180}\./);
     return m ? m[0] : String(s || '').slice(0, 180);
+  }
+
+  function appendTournamentChat(){
+    var t = state.data && state.data.tournament;
+    var mine = myEntry();
+    var acts = $('nowActions');
+    if (!acts || !state.user || !t || !t.chatThreadId
+        || (!isHost() && (!mine || mine.status === 'withdrawn'))) return;
+    var chat = addLink(acts, 'Tournament chat', '/chat?thread=' + encodeURIComponent(t.chatThreadId));
+    chat.setAttribute('data-tournament-chat', '1');
   }
 
   // ── Countdown band ────────────────────────────────────────────────
@@ -934,13 +946,35 @@
       return;
     }
 
+    // A released director pairing outranks the public drop-in feature flag.
+    // The flag controls whether people can ask the server for new matches;
+    // it must never hide a room the host has already assigned to them.
+    if (state.user && mine && (p === 'live' || p === 'elims')) {
+      var liveRound = latestReleased();
+      var livePairing = liveRound && (liveRound.pairings || []).filter(function(pair){
+        return (pair.govEntry === mine.entryId || pair.oppEntry === mine.entryId)
+          && pair.status !== 'complete' && pair.room;
+      })[0];
+      if (livePairing){
+        var active = drawPairing(mine, acts, p === 'elims');
+        box.innerHTML = '<b>What now</b><div class="say">' + esc(active.say) + '</div>'
+          + '<div class="why">' + esc(active.why || 'Your room is open now.') + '</div>';
+        renderMyRecord(meta, mine);
+        return;
+      }
+    }
+
     // Public tournament matchmaking is deliberately dark. The host can run
     // controlled rooms and the public can watch them, but no visitor gets a
     // Ready button or a participant-room link until the server advertises an
     // explicit launch. This is separate from the tournament phase, so moving
     // the page to `running` can start the broadcast without starting a field.
     if (!t.publicPairingEnabled){
-      if (isHost()){
+      if (!state.user){
+        say = 'Sign in to check your room.';
+        why = 'Tournament rooms are open. Sign in with the account you entered with and your assigned room appears here.';
+        addBtn(acts, 'Sign in and check', signIn, true);
+      } else if (isHost()){
         say = 'Public matchmaking is paused.';
         why = mainBroadcastWasLive
           ? 'Run controlled rounds from the full control room. Everyone else watches the main broadcast above.'
@@ -1066,6 +1100,9 @@
     busy(trigger, true, 'Checking in');
     return confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
       if (!yes){ busy(trigger, false); return; }
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(function(){});
+      }
       return api('/api/tournament', {
         action: 'check-in', tid: t.tid,
         recordingAccepted: true, adultOrGuardianApproved: true,
@@ -1093,6 +1130,46 @@
       linkLabel: 'Join Discord backup',
       linkHref: DISCORD_INVITE,
     }).then(function(yes){ if (yes) checkInNow(t, null); });
+  }
+
+  function maybePromptRoom(){
+    var t = state.data && state.data.tournament;
+    var mine = myEntry();
+    var r = latestReleased();
+    if (!t || !mine || mine.status === 'withdrawn' || !r) return false;
+    var pairing = (r.pairings || []).filter(function(p){
+      return p.govEntry === mine.entryId || p.oppEntry === mine.entryId;
+    })[0];
+    if (!pairing || !pairing.room || pairing.status === 'complete') return false;
+
+    var side = pairing.govEntry === mine.entryId ? 'Gov' : 'Opp';
+    var opponent = pairing.govEntry === mine.entryId ? pairing.oppName : pairing.govName;
+    var href = roomUrl(pairing, r);
+    var key = [t.tid || TKEY, r.kind || 'prelim', r.roundNo, pairing.pairingId || pairing.room].join(':');
+    if (state.roomPromptKey === key) return true;
+    state.roomPromptKey = key;
+
+    document.title = 'ROOM OPEN · ' + t.name;
+    var alertBody = 'You are ' + side + ' against ' + opponent + ' in ' + (r.label || ('Round ' + r.roundNo))
+      + '. Debates are happening now. Enter your room.';
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        var notice = new Notification('Your tournament room is open', {
+          body: alertBody,
+          tag: 'tournament-room-' + key,
+          requireInteraction: true,
+        });
+        notice.onclick = function(){ window.focus(); location.href = href; notice.close(); };
+      } catch(e){}
+    }
+    if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
+    confirmAction({
+      title: 'Your room is open',
+      body: alertBody,
+      confirmLabel: 'Enter room now',
+      cancelLabel: 'Stay on this page',
+    }).then(function(yes){ if (yes) location.href = href; });
+    return true;
   }
   function addWithdraw(host, t){
     var b = document.createElement('button');
@@ -1316,7 +1393,10 @@
     show('watch-live', rounds.length > 0);
     if (!rounds.length) return;
     $('liveWallLabel').textContent = demo ? 'Wall preview' : 'Live control room';
-    $('liveWallCount').textContent = rounds.length + (rounds.length === 1 ? ' room' : ' rooms');
+    var viewerTotal = rounds.reduce(function(sum, room){ return sum + Math.max(0, Number(room.watchCount) || 0); }, 0);
+    var anyCapped = rounds.some(function(room){ return !!room.watchCountCapped; });
+    $('liveWallCount').textContent = rounds.length + (rounds.length === 1 ? ' room' : ' rooms')
+      + ' · ' + viewerTotal + (anyCapped ? '+' : '') + ' watching';
     $('liveSub').textContent = demo
       ? 'Preview only. When public rooms open, every screen becomes a direct spectator door.'
       : 'Pick any room. You enter invisibly, with no camera, mic, or participant tile.';
@@ -1325,12 +1405,24 @@
     host.innerHTML = rounds.map(function(r, i){
       var label = r.status === 'ballot' ? 'Ballot'
         : r.started ? ('Speech ' + (Number(r.speechIdx || 0) + 1)) : 'Getting ready';
+      var viewers = Math.max(0, Number(r.watchCount) || 0);
+      var viewerLabel = viewers + (r.watchCountCapped ? '+' : '') + ' watching';
       var shot = r.shot
         ? '<img alt="" src="/api/room-shot?room=' + encodeURIComponent(r.room) + '&v=' + encodeURIComponent(r.shot) + '">'
         : '<div class="tv-signal">Camera feed pending</div>';
+      var mine = state.data ? myEntry() : null;
+      var draw = state.data ? latestReleased() : null;
+      var assigned = mine && draw && (draw.pairings || []).filter(function(p){
+        return p.room === r.room && (p.govEntry === mine.entryId || p.oppEntry === mine.entryId)
+          && p.status !== 'complete';
+      })[0];
       var action = demo
         ? '<span class="tv-watch tv-watch--demo">Preview</span>'
-        : '<a class="tv-watch" href="/live-round.html?room=' + encodeURIComponent(r.room) + '&spectate=1">Spectate</a>';
+        : assigned
+          ? '<a class="tv-watch" href="' + esc(roomUrl(assigned, draw)) + '">Join your room</a>'
+          : !state.user
+            ? '<a class="tv-watch" href="#overview">Check your room</a>'
+          : '<a class="tv-watch" href="/live-round.html?room=' + encodeURIComponent(r.room) + '&spectate=1">Spectate</a>';
       return '<article class="tv">' +
         '<div class="tv-screen">' + shot +
           '<span class="tv-state"><i></i>' + esc(demo ? 'Demo' : label) + '</span>' +
@@ -1339,7 +1431,8 @@
         '<div class="tv-body">' +
           '<div class="tv-names">' + esc(r.proName || 'Proposition') + ' vs ' + esc(r.conName || 'Opposition') + '</div>' +
           '<div class="tv-motion">' + esc(r.motion || 'Motion settling now') + '</div>' +
-          '<div class="tv-foot"><span class="tv-format">' + esc(FORMATS[r.format] || r.format || 'Round') + '</span>' + action + '</div>' +
+          '<div class="tv-foot"><span class="tv-format">' + esc(FORMATS[r.format] || r.format || 'Round') + '</span>'
+            + '<span class="tv-viewers">' + esc(viewerLabel) + '</span>' + action + '</div>' +
         '</div>' +
       '</article>';
     }).join('');
@@ -1612,6 +1705,7 @@
       // can enter, check in, or queue.
       state.user = (u && !u.isAnonymous) ? u : null;
       if (state.data) render();
+      loadLive();
       if (queueEligible() && !dropIn.polling) queuePoll();
     });
   }
@@ -1624,7 +1718,9 @@
 
   // The tournament document is shared-cached for eight seconds server
   // side, so polling faster than this buys nothing and costs reads.
-  setInterval(function(){ if (!document.hidden) load(); }, 25000);
+  setInterval(function(){
+    if (!document.hidden || (state.user && myEntry())) load();
+  }, 15000);
   setInterval(function(){ if (!document.hidden) loadLive(); }, 30000);
   setInterval(function(){ if (!document.hidden) pollMainBroadcast(); }, 15000);
   // A tab left open through a phase change should be right when someone

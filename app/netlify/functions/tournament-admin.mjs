@@ -186,6 +186,127 @@ async function loadEntries(db, tid) {
   return snap.docs.map((d) => ({ entryId: d.id, ...d.data() }));
 }
 
+// One durable group per tournament. The host can activate it once and every
+// current or late entrant lands in the same thread, with the ordinary chat
+// inbox, unread badge and live notifications doing the distribution work.
+// The deterministic id and welcome message make this safe to retry during a
+// live event without creating duplicate groups or announcements.
+async function ensureTournamentChat(db, tid, t) {
+  const all = await loadEntries(db, tid);
+  const active = all.filter((e) => String(e.status || 'registered') !== 'withdrawn');
+  const participants = [];
+  const participantInfo = {};
+
+  for (const entry of active) {
+    const members = Array.isArray(entry.members) ? entry.members : [];
+    const names = Array.isArray(entry.memberNames) ? entry.memberNames : [];
+    members.forEach((uid, i) => {
+      uid = String(uid || '').trim();
+      if (!uid || participants.includes(uid)) return;
+      participants.push(uid);
+      participantInfo[uid] = {
+        name: cleanText(names[i] || (members.length === 1 ? entry.name : '') || 'Participant', 48),
+        photo: '',
+      };
+    });
+  }
+
+  const hostUid = String(t.data.hostUid || '').trim();
+  if (hostUid && !participants.includes(hostUid)) {
+    participants.push(hostUid);
+    participantInfo[hostUid] = { name: 'Host', photo: '' };
+  }
+  if (!participants.length) throw new Error('The tournament chat needs at least one participant.');
+
+  const safeTid = String(tid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 120);
+  const threadId = String(t.data.chatThreadId || '').trim().replace(/\//g, '').slice(0, 150)
+    || ('tournament_' + safeTid);
+  const ref = db.collection('dm_threads').doc(threadId);
+  const welcomeRef = ref.collection('messages').doc('welcome');
+  const authorUid = hostUid || participants[0];
+  const roundNo = Number(t.data.currentRound) || 0;
+  const welcome = (roundNo > 0 ? ('Round ' + roundNo + ' is live.') : 'The tournament is live.')
+    + ' Use this chat for check-in, technical help, and tournament updates. Post here if you are waiting or cannot enter your room.';
+  let memberCount = participants.length;
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const welcomeSnap = await tx.get(welcomeRef);
+    const old = snap.exists ? (snap.data() || {}) : {};
+    const merged = Array.from(new Set([...(Array.isArray(old.participants) ? old.participants : []), ...participants]));
+    const info = { ...(old.participantInfo || {}) };
+    Object.entries(participantInfo).forEach(([uid, value]) => {
+      info[uid] = { ...value, photo: info[uid]?.photo || '' };
+    });
+    const unread = { ...(old.unread || {}) };
+    merged.forEach((uid) => {
+      if (unread[uid] == null) unread[uid] = uid === authorUid ? 0 : 1;
+    });
+
+    const thread = {
+      isGroup: true,
+      groupName: cleanText((t.data.name || 'Tournament') + ' chat', 80),
+      participants: merged,
+      participantInfo: info,
+      unread,
+      tournamentChat: true,
+      tournamentId: tid,
+    };
+    if (!snap.exists) {
+      Object.assign(thread, {
+        createdBy: authorUid,
+        createdAt: FieldValue.serverTimestamp(),
+        lastMessage: welcome,
+        lastMessageAt: FieldValue.serverTimestamp(),
+        lastMessageFrom: authorUid,
+      });
+    }
+    tx.set(ref, thread, { merge: true });
+    if (!welcomeSnap.exists) {
+      tx.set(welcomeRef, {
+        fromUid: authorUid,
+        fromName: 'Debatable',
+        text: welcome,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+    tx.set(t.ref, { chatThreadId: threadId, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    memberCount = merged.length;
+  });
+  return { chatThreadId: threadId, memberCount };
+}
+
+async function announceTournamentChat(db, t, messageId, text) {
+  const threadId = String(t.data.chatThreadId || '').trim().replace(/\//g, '').slice(0, 150);
+  if (!threadId) return;
+  const ref = db.collection('dm_threads').doc(threadId);
+  const messageRef = ref.collection('messages').doc(messageId);
+  const authorUid = String(t.data.hostUid || '').trim();
+  await db.runTransaction(async (tx) => {
+    const threadSnap = await tx.get(ref);
+    const messageSnap = await tx.get(messageRef);
+    if (!threadSnap.exists || messageSnap.exists) return;
+    const thread = threadSnap.data() || {};
+    const participants = Array.isArray(thread.participants) ? thread.participants : [];
+    const unread = { ...(thread.unread || {}) };
+    participants.forEach((uid) => {
+      unread[uid] = uid === authorUid ? 0 : Math.max(0, Number(unread[uid]) || 0) + 1;
+    });
+    tx.set(messageRef, {
+      fromUid: authorUid || participants[0],
+      fromName: 'Debatable',
+      text,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    tx.set(ref, {
+      lastMessage: text,
+      lastMessageAt: FieldValue.serverTimestamp(),
+      lastMessageFrom: authorUid || participants[0],
+      unread,
+    }, { merge: true });
+  });
+}
+
 // ── Seating: a paired entry is not in the drop-in queue ────────────
 //
 // `inPairing` is what stops one person owing two opponents a round at
@@ -407,8 +528,18 @@ export default async (request) => {
     const next = String(body?.status || '').trim();
     const allowed = new Set(['draft', 'registration', 'running', 'break', 'elims', 'complete', 'cancelled']);
     if (!allowed.has(next)) return errorResponse('Unknown status', 400, request);
+    // Starting the day also opens the shared operations channel. Build it
+    // first so a chat failure never leaves the event half-started.
+    const chat = next === 'running' ? await ensureTournamentChat(db, tid, t) : null;
     await t.ref.update({ status: next, updatedAt: FieldValue.serverTimestamp() });
-    return jsonResponse({ ok: true, status: next }, 200, request);
+    return jsonResponse({ ok: true, status: next, ...(chat || {}) }, 200, request);
+  }
+
+  // Existing running events use this idempotent action to turn the same
+  // channel on without changing tournament status or touching the draw.
+  if (action === 'activate-chat') {
+    const chat = await ensureTournamentChat(db, tid, t);
+    return jsonResponse({ ok: true, ...chat }, 200, request);
   }
 
   // ── pair-round ──────────────────────────────────────────────────
@@ -509,6 +640,14 @@ export default async (request) => {
       status: kind === 'elim' ? 'elims' : 'running',
       updatedAt: FieldValue.serverTimestamp(),
     });
+    const round = snap.data() || {};
+    const roundLabel = cleanText(round.label, 80) || (kind === 'elim' ? 'Elimination round' : ('Round ' + roundNo));
+    await announceTournamentChat(
+      db,
+      t,
+      'rooms_' + kind + '_' + roundNo,
+      roundLabel + ' rooms are open. Check the tournament page for your side and opponent, then enter your room now.',
+    );
     return jsonResponse({ ok: true }, 200, request);
   }
 

@@ -211,6 +211,7 @@
   .nextup b{display:block;font-size:.72rem;font-weight:800;letter-spacing:.1em;
     text-transform:uppercase;color:#fca5a5;margin-bottom:5px}
   .nextup span{font-size:.9rem;color:var(--fg);line-height:1.55}
+  .nextup .btn{margin-top:12px;margin-right:8px;text-decoration:none}
 
   .host-zone{border-color:rgba(245,158,11,.32)}
   .host-zone h2{color:#fbbf24}
@@ -587,7 +588,7 @@
   var CREATE_DEMO = !TKEY && qs.get('demo') === 'create';
 
   var DISCORD_INVITE = 'https://discord.gg/WMHZW9BKvJ';
-  var state = { user: null, data: null, team: null, poll: null, arrivalPromptKey: '' };
+  var state = { user: null, data: null, team: null, poll: null, arrivalPromptKey: '', roomPromptKey: '' };
 
   function $(id){ return document.getElementById(id); }
   function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
@@ -627,7 +628,7 @@
           '<div class="btn-row">' +
             '<button class="btn ' + (opts.danger ? 'btn-danger' : 'btn-primary') + '" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
             (opts.linkHref ? '<a class="btn" href="' + esc(opts.linkHref) + '" target="_blank" rel="noopener">' + esc(opts.linkLabel || 'Open link') + '</a>' : '') +
-            '<button class="btn" data-no>Cancel</button>' +
+            '<button class="btn" data-no>' + esc(opts.cancelLabel || 'Cancel') + '</button>' +
           '</div></div>';
       function close(v){ back.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
       function onKey(e){ if (e.key === 'Escape') close(false); }
@@ -786,7 +787,7 @@
     renderTab();
     renderBracket();
     renderHost();
-    maybePromptArrival();
+    if (!maybePromptRoom()) maybePromptArrival();
   }
 
   function renderEventRules(t){
@@ -889,10 +890,20 @@
     if (link){
       var a = document.createElement('a');
       a.className = 'btn btn-primary';
-      a.style.marginTop = '12px';
       a.href = link.href;
       a.textContent = link.label;
       box.appendChild(a);
+    }
+    // The shared channel is the fallback for every live-day problem. It is
+    // visible beside the next action instead of buried in the general inbox.
+    var canChat = state.user && t.chatThreadId
+      && (isHost() || (mine && mine.status !== 'withdrawn'));
+    if (canChat){
+      var chat = document.createElement('a');
+      chat.className = 'btn' + (link ? '' : ' btn-primary');
+      chat.href = '/chat?thread=' + encodeURIComponent(t.chatThreadId);
+      chat.textContent = 'Tournament chat';
+      box.appendChild(chat);
     }
     host.appendChild(box);
   }
@@ -970,6 +981,9 @@
     busy(trigger, true, 'Checking in');
     return confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
       if (!yes){ busy(trigger, false); return; }
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(function(){});
+      }
       return api('/api/tournament', {
         action: 'check-in', tid: t.tid,
         recordingAccepted: true, adultOrGuardianApproved: true,
@@ -998,6 +1012,46 @@
       linkLabel: 'Join Discord backup',
       linkHref: DISCORD_INVITE,
     }).then(function(yes){ if (yes) checkInNow(t, null); });
+  }
+
+  function maybePromptRoom(){
+    var t = state.data && state.data.tournament;
+    var mine = myEntry();
+    var r = currentRound();
+    if (!t || !mine || mine.status === 'withdrawn' || !r) return false;
+    var p = (r.pairings || []).filter(function(pair){
+      return pair.govEntry === mine.entryId || pair.oppEntry === mine.entryId;
+    })[0];
+    if (!p || !p.room || p.status === 'complete') return false;
+
+    var side = p.govEntry === mine.entryId ? 'Gov' : 'Opp';
+    var opponent = p.govEntry === mine.entryId ? p.oppName : p.govName;
+    var href = roomUrl(p, r, mine);
+    var key = [t.tid || TKEY, r.kind || 'prelim', r.roundNo, p.pairingId || p.room].join(':');
+    if (state.roomPromptKey === key) return true;
+    state.roomPromptKey = key;
+
+    document.title = 'ROOM OPEN · ' + t.name;
+    var alertBody = 'You are ' + side + ' against ' + opponent + ' in ' + (r.label || ('Round ' + r.roundNo))
+      + '. Debates are happening now. Enter your room.';
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        var notice = new Notification('Your tournament room is open', {
+          body: alertBody,
+          tag: 'tournament-room-' + key,
+          requireInteraction: true,
+        });
+        notice.onclick = function(){ window.focus(); location.href = href; notice.close(); };
+      } catch(e){}
+    }
+    if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
+    confirmAction({
+      title: 'Your room is open',
+      body: alertBody,
+      confirmLabel: 'Enter room now',
+      cancelLabel: 'Stay on this page',
+    }).then(function(yes){ if (yes) location.href = href; });
+    return true;
   }
 
   // Cash-prize tournaments (prizePoolCents > 0) carry the official
@@ -1420,6 +1474,19 @@
     if (t.status === 'registration') act('Start the day', function(){ setStatus('running'); }, true);
     if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
 
+    if (t.chatThreadId){
+      var chatLink = document.createElement('a');
+      chatLink.className = 'btn btn-sm';
+      chatLink.href = '/chat?thread=' + encodeURIComponent(t.chatThreadId);
+      chatLink.textContent = 'Tournament chat';
+      chatLink.style.textDecoration = 'none';
+      bar.appendChild(chatLink);
+    } else {
+      act('Activate tournament chat', function(){
+        adminCall({ action: 'activate-chat', tid: t.tid });
+      }, t.status === 'running');
+    }
+
     var nextRound = (t.currentRound || 0) + 1;
     var pendingPrelim = (state.data.rounds || []).filter(function(r){
       return r.kind === 'prelim' && !r.released;
@@ -1690,6 +1757,10 @@
   function adminCall(body, btn){
     return api('/api/tournament-admin', body)
       .then(function(j){
+        if (j.chatThreadId && j.memberCount){
+          good('Tournament chat is active for ' + j.memberCount + ' people.');
+          return load();
+        }
         var round = j.round || {};
         var bits = [];
         if (round.rematches) bits.push(round.rematches + ' rematch(es); the field is short on fresh opponents');
@@ -1784,9 +1855,12 @@
   // is hidden: the payload is shared-cached server-side, but a room
   // full of open laptops still adds up.
   state.poll = setInterval(function(){
-    if (document.hidden) return;
+    if (document.hidden && !(state.user && myEntry())) return;
     load();
-  }, 30000);
+  }, 15000);
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && TKEY) load();
+  });
 })();
 </script>
 <script defer src="/js/auth-modal.js"></script>

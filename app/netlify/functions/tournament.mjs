@@ -98,6 +98,9 @@ function publicTournament(id, d) {
     // The event stays listed after the roster closes, while every entry
     // surface reads this one server-derived boolean.
     registrationOpen,
+    // Opaque deep link into the participant-only group. Firestore rules
+    // still gate the thread and its messages to members of that group.
+    chatThreadId: String(d.chatThreadId || '').trim().replace(/\//g, '').slice(0, 150),
     motionDraft: publicTournamentMotionDraft(d),
     // Prize-bracket fields (entry-checkout.mjs / stripe-webhook.mjs).
     // Fee lives on the doc so pricing is a data decision, not a deploy;
@@ -180,6 +183,35 @@ async function readTournament(db, key) {
   const bySlug = await db.collection('tournaments').where('slug', '==', key).limit(1).get();
   if (!bySlug.empty) return { id: bySlug.docs[0].id, data: bySlug.docs[0].data() };
   return null;
+}
+
+// Registration stays open during prelims, so an activated tournament chat
+// has to grow with the roster. Failure to update chat must not roll back a
+// valid tournament registration; the next idempotent register or host
+// activation heals it.
+async function addMembersToTournamentChat(db, t, members, names) {
+  const threadId = String(t?.data?.chatThreadId || '').trim().replace(/\//g, '').slice(0, 150);
+  if (!threadId) return;
+  const ref = db.collection('dm_threads').doc(threadId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const old = snap.data() || {};
+    const participants = Array.isArray(old.participants) ? old.participants.slice() : [];
+    const participantInfo = { ...(old.participantInfo || {}) };
+    const unread = { ...(old.unread || {}) };
+    (Array.isArray(members) ? members : []).forEach((rawUid, i) => {
+      const uid = String(rawUid || '').trim();
+      if (!uid) return;
+      if (!participants.includes(uid)) participants.push(uid);
+      participantInfo[uid] = {
+        name: cleanText((Array.isArray(names) ? names[i] : '') || 'Participant', 48),
+        photo: participantInfo[uid]?.photo || '',
+      };
+      if (unread[uid] == null) unread[uid] = 1;
+    });
+    tx.set(ref, { participants, participantInfo, unread }, { merge: true });
+  });
 }
 
 // ── `me`: the caller's own entry receipt ────────────────────────────
@@ -388,6 +420,12 @@ export default async (request) => {
 
     if (already) {
       const applied = await applyEntryUpdate(already);
+      const latest = { ...(already.data() || {}) };
+      const incoming = cleanText(body?.name, 48);
+      const latestNames = Array.isArray(latest.memberNames) ? latest.memberNames.slice() : [];
+      if (incoming && isPlaceholderName(latest.name)) latestNames[0] = incoming;
+      await addMembersToTournamentChat(db, t, latest.members, latestNames)
+        .catch((err) => console.error('[tournament-chat] could not refresh entrant', err.message));
       cache.clear();
       return jsonResponse({ ok: true, already: true, entryId: already.id, ...applied }, 200, request);
     }
@@ -470,6 +508,8 @@ export default async (request) => {
       registeredAt: FieldValue.serverTimestamp(),
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
+    await addMembersToTournamentChat(db, t, members, memberNames)
+      .catch((err) => console.error('[tournament-chat] could not add entrant', err.message));
     cache.clear();
     return jsonResponse({
       ok: true,
