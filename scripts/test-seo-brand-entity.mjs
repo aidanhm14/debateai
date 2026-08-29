@@ -73,6 +73,8 @@ check('structured identity keeps Discord and TikTok but pauses X, Twitch and You
 check('shared social row is TikTok plus Discord',
   topbar.includes("key: 'tiktok'")
   && topbar.includes("key: 'discord'")
+  && topbar.includes('size: 19')
+  && topbar.includes('<rect x="1" y="1" width="22" height="22"')
   && !topbar.includes("key: 'x'")
   && !topbar.includes("key: 'twitch'")
   && !topbar.includes("key: 'youtube'"));

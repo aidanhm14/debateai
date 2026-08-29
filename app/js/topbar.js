@@ -710,12 +710,14 @@
       handle: 'Join the server',
       href: 'https://discord.gg/WMHZW9BKvJ',
       brand: '#5865F2',
-      gradient: ['#5865F2'],
-      // Compact Clyde mark: controller shell, two eyes and the smile.
-      icon: '<path d="M7.1 7.2c3.2-1.5 6.6-1.5 9.8 0 1.2 1.8 2 3.9 2.3 6.2-1.2 1.5-2.6 2.6-4.3 3.3l-1-1.4M10.1 15.3l-1 1.4c-1.7-.7-3.1-1.8-4.3-3.3.3-2.3 1.1-4.4 2.3-6.2"/>'
-          + '<circle cx="9.5" cy="12" r=".8" fill="%PAINT%" stroke="none"/>'
-          + '<circle cx="14.5" cy="12" r=".8" fill="%PAINT%" stroke="none"/>'
-          + '<path d="M9.2 14c1.8 1.1 3.8 1.1 5.6 0"/>',
+      size: 19,
+      // 2026-08-29, per the founder: use the supplied filled logo because
+      // the thin outline was hard to notice. White Clyde on its purple tile.
+      icon: '<rect x="1" y="1" width="22" height="22" rx="5.2" fill="#5865F2" stroke="none"/>'
+          + '<path d="M5.2 7.2c4.4-2.5 9.2-2.5 13.6 0 2.4 3 3.2 6.8 2.8 10.4l-3.5 2.1-1.8-3c-2.9 1-5.7 1-8.6 0l-1.8 3-3.5-2.1c-.4-3.6.4-7.4 2.8-10.4z" fill="#fff" stroke="none"/>'
+          + '<circle cx="9" cy="12.3" r="1.35" fill="#5865F2" stroke="none"/>'
+          + '<circle cx="15" cy="12.3" r="1.35" fill="#5865F2" stroke="none"/>'
+          + '<path d="M7.7 15.4c2.8 1.6 5.8 1.6 8.6 0" fill="none" stroke="#5865F2" stroke-width="1.25"/>',
     },
   ];
 
@@ -745,7 +747,8 @@
     // per-entry literal cannot do because the gradient id is generated
     // here, per call. TikTok is the only user: see its note head.
     var body = s.icon.split('%PAINT%').join(stroke);
-    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="' + stroke + '" '
+    var size = s.size || 16;
+    return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="' + stroke + '" '
       + 'stroke-width="' + (s.strokeWidth || 1.9) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
       + defs + body + '</svg>';
   }
