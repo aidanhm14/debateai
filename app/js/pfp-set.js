@@ -12,11 +12,11 @@
  * PHOTOS (2026-08-25) are the pictures Aidan supplied and asked for twice,
  * the second time as a standing instruction: "bring back the real photos -
  * never reverse this". They are phone screenshots of profile pictures from
- * another app. They are what the first-screen rail draws, because the rail
- * has to read as a board of people at a glance and a drawn set reads as
- * clip art at that size. His call, his site, his risk, recorded here so it
- * is not relitigated by the next agent who reads the old rule and reverts
- * it. ONE image from the batch is deliberately absent and stays absent: it
+ * another app. They are what the first-screen rail and the full landing
+ * leaderboard draw, because the supplied pictures are the profile register
+ * Aidan wants on both. His call, his site, his risk, recorded here so it is
+ * not relitigated by the next agent who reads the old rule and reverts it.
+ * ONE image from the batch is deliberately absent and stays absent: it
  * is a photograph of a child, which is not the site owner's consent to
  * give. If the batch is ever re-cropped, do not put it back.
  *
@@ -440,9 +440,9 @@
     return n;
   }
   function pickSvg(seed, taken, size) { return svg(pick(seed, taken), size); }
-  /* What the first-screen rail calls. Separate from pickSvg rather than a
-     flag on it, so a surface that wants the drawn set cannot get photos by
-     forgetting an argument. */
+  /* What the landing leaderboard surfaces call. Separate from pickSvg
+     rather than a flag on it, so a surface that wants the drawn set cannot
+     get photos by forgetting an argument. */
   function pickPhoto(seed, taken) { return pick(seed, taken, PHOTOS); }
   function pickPhotoSvg(seed, taken, size) { return svg(pickPhoto(seed, taken), size); }
 

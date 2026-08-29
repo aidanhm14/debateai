@@ -9742,6 +9742,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       #ranked-band .rb-ava img,#ranked-band .rb-ava svg{display:block;width:100%;height:100%;object-fit:cover}
       #ranked-band .rb-ava .rb-ava-art{position:absolute;inset:0}
       #ranked-band .rb-ava img{position:relative;z-index:1}
+      /* A person's own account photo sits above the supplied stand-in.
+         The latter is later in the DOM, so lower it explicitly. */
+      #ranked-band .rb-ava img.db-pfp{position:absolute;inset:0;z-index:0}
       #ranked-band .rb-ava--anon{border-style:dashed}
       #ranked-band .rb-who{display:flex;min-width:0;flex-direction:column;gap:4px}
       #ranked-band .rb-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.94rem;font-weight:850;letter-spacing:-.01em;color:#fff}
@@ -14393,11 +14396,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      same 49 tiles, and a second copy would drift the moment one was added.
      ~9KB, deferred, and this page is the only one that loads it eagerly.
 
-     Two tiers live in there. The unlabeled first-screen rail draws the
-     PHOTO tier (2026-08-25, the founder: "bring back the real photos -
-     never reverse this"). Ranked rows pair names with results, so their
-     fallback stays an abstract emblem. The drawn set is what the picker
-     offers. See the header of pfp-set.js. */
+     Two tiers live in there. The first-screen rail and the full landing
+     leaderboard draw the PHOTO tier (2026-08-29, the founder, on seeing
+     abstract letter tiles beside the names: "use these"). The drawn set
+     remains what the picker offers. See the header of pfp-set.js. */
   function pfpArt(seed, taken){
     var lib = global_DBPfp();
     if (!lib) return '';
@@ -14412,12 +14414,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function avaCell(r, i, used, taken){
     var masked = avaAnon(r && r.name);
     var seed = (r && r.uid) || (r && r.name) || ('row' + i);
-    /* 2026-08-24: the abstract emblem was the fallback here and it read
-       as crude at podium size, three mismatched tiles in a row. The board
-       now falls back to the same drawn picture set the first-screen rail
-       uses, so a debater wears one face across the whole page. The two
-       truer tiers below are unchanged and still outrank it. */
-    var emblem = (taken && pfpArt(seed, taken)) || avaEmblem(seed, r && r.name, masked, used);
+    /* 2026-08-29: the founder supplied the photo set shown in the rail and
+       explicitly asked for those pictures on this full board too. They are
+       stable per row and de-duplicated across the visible eight. The two
+       truer tiers below are unchanged and still outrank the stand-in. */
+    var emblem = pfpArt(seed, taken) || avaEmblem(seed, r && r.name, masked, used);
     var cls = 'rb-ava' + (masked ? ' rb-ava--anon' : '')
       + (i === 1 ? ' rb-ava--silver' : i === 2 ? ' rb-ava--bronze' : '');
     // The avatar they built comes FIRST, ahead of the Google picture,
@@ -14579,11 +14580,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       + '</span>';
     avaWantsEngine = false;
     var avaUsed = {};           // ink+shape pairs already spent on this board
-    // A row pairs a real name with a real result, so only the person's own
-    // saved avatar or photo may look like a person. Otherwise avaCell uses
-    // the abstract emblem. The stand-in photo tier stays exclusive to the
-    // unlabeled first-screen rail.
-    var avaTaken = null;
+    // The supplied stand-in photos now cover this board as well as the rail.
+    // A saved avatar or account photo still replaces the stand-in inside
+    // avaCell, and the map keeps all eight fallback pictures distinct.
+    var avaTaken = {};
     // Keep all eight places in one compact ladder. The numbered race is
     // easier to scan on both desktop and mobile than a split podium-and-row
     // treatment.
@@ -14660,12 +14660,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (avaWantsEngine) avaUpgrade(host);
   }
   /* The first-screen leaderboard rail (#lbRail) consumes the same rows
-     and borrows these sanitizers and emblem helpers. Its unlabeled tiles
-     may use the founder-supplied stand-ins; named ranked rows do not. */
+     and borrows these sanitizers and picture helpers. Both leaderboard
+     surfaces now share the founder-supplied stand-in tier. */
   window.__rbAva = { emblem: avaEmblem, anon: avaAnon, upgrade: avaUpgrade, fmtScore: fmtScore, pfp: pfpArt };
   /* Debug views may omit the in-flow board while keeping the rail. */
   if (!band) return;
   var fired = false;
+  function boardPicturesReady(){
+    if (window.DBPfp) return Promise.resolve();
+    return new Promise(function(resolve){
+      var done = false;
+      function go(){ if (!done){ done = true; resolve(); } }
+      var tag = document.querySelector('script[src="/js/pfp-set.js"]');
+      if (tag){
+        tag.addEventListener('load', go);
+        tag.addEventListener('error', go);
+      }
+      /* A blocked picture module must not block the standings. avaCell
+         falls back to the inline abstract emblem after this deadline. */
+      setTimeout(go, 3000);
+    });
+  }
   function loadOnce(){
     if (fired) return; fired = true;
     /* The rail already asked for this above the fold, so reuse its
@@ -14677,7 +14692,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     req
       .then(function(j){
         if (!j || !Array.isArray(j.rows)) return renderBoard([], 0, 'error');
-        renderBoard(j.rows, j.total, 'ready');
+        boardPicturesReady().then(function(){ renderBoard(j.rows, j.total, 'ready'); });
       })
       .catch(function(){ renderBoard([], 0, 'error'); });
   }
