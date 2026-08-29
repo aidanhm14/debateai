@@ -20,7 +20,7 @@ const ok = (cond, what) => { if (cond) pass += 1; else fails.push(what); };
     name: entryId,
     bracket,
     members: [entryId],
-    status: 'registered',
+    status: 'checked_in',
     availableAt: now - 30_000,
     wins: 0,
     losses: 0,

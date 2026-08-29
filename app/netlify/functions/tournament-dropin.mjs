@@ -19,33 +19,20 @@ import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 // person can actually stand in, a server loop that seats them, and a
 // room that opens on two people who are both there.
 //
-// ── The slot is a deadline, NOT a heartbeat, and this is load-bearing ──
+// ── Wait priority and presence are separate clocks ─────────────────
 //
-// `availableAt` is the single field the engine reads, and it reads it
-// for two different things: freshness (`availableForDropIn` drops a
-// slot older than DROPIN_AVAILABLE_MS, 6 min) and accrued waiting time
-// (`pairDropIn` measures `now - availableAt` against
-// DROPIN_REMATCH_PATIENCE_MS, 4 min, before it will seat a repeat
-// matchup).
+// `availableAt` is written once when somebody presses Ready and never
+// moves while they wait. It owns accrued wait and oldest-first priority.
+// `lastPollAt` is the presence heartbeat. The open page refreshes that
+// field without resetting the person's place in line, so an active
+// person can wait for an unseen opponent longer than one slot window.
+// Six minutes without a poll makes the entry stale.
 //
-// So the obvious implementation, a 30-second heartbeat that keeps the
-// slot warm, DEADLOCKS the other half: a slot refreshed every 30s never
-// accrues 4 minutes of wait, so the patience gate never releases, and
-// two entrants who have already met sit in the queue forever while the
-// screen says "searching". That is the same deadlock the clamp in the
-// library warns about, reached from the opposite direction, and the
-// clamp does not catch it.
-//
-// Therefore: `availableAt` is written ONCE when you say you are ready
-// and is never refreshed while you wait. Six minutes later the slot
-// expires and you drop out of the pool until you say so again.
-//
-// That expiry is also the presence check, which is the point. The
+// That silence expiry is the presence check. The
 // 2026-08-11 measurement found 390 of 411 rounds never completed a
 // speech because rooms opened onto empty chairs. A tab nobody is
-// sitting at cannot re-arm an expired slot, so it stops being paired
-// within six minutes instead of being seated against someone who
-// actually showed up.
+// sitting at stops polling, so it stops being paired within six minutes
+// instead of being seated against someone who actually showed up.
 
 const READY_TTL_MS = 6 * 60 * 1000;   // mirrors DROPIN_AVAILABLE_MS in the lib
 // This is an operator launch gate, separate from the tournament status. A
@@ -147,12 +134,13 @@ function myEntryFrom(snap, uid) {
 function selfState(entryDoc, now, pairingDoc, windowMs) {
   const d = entryDoc.data();
   const availableAt = Number(d.availableAt || 0);
+  const presentAt = Math.max(availableAt, Number(d.lastPollAt || 0));
   // The window is passed in rather than read from the constant, because
   // a tournament can tune it (see queueTuning) and a slot reported as
   // live here while the engine treats it as stale is a queue that says
   // "you are next" to somebody it will never seat.
   const w = Number(windowMs) > 0 ? Number(windowMs) : READY_TTL_MS;
-  const fresh = availableAt > 0 && now - availableAt <= w;
+  const fresh = availableAt > 0 && now - presentAt <= w;
   return {
     entryId: entryDoc.id,
     name: d.name || 'Entry',
@@ -165,7 +153,7 @@ function selfState(entryDoc, now, pairingDoc, windowMs) {
     // asks you to join, the other asks whether you are still there.
     slotExpired: availableAt > 0 && !d.inPairing && !fresh,
     waitingMs: fresh ? Math.max(0, now - availableAt) : 0,
-    expiresInMs: fresh ? Math.max(0, w - (now - availableAt)) : 0,
+    expiresInMs: fresh ? Math.max(0, w - (now - presentAt)) : 0,
     pairing: pairingDoc || null,
   };
 }
@@ -241,8 +229,8 @@ export default async (request) => {
   const allEntries = await entriesRef.get();
   const mine = myEntryFrom(allEntries, myUid);
   if (!mine) return errorResponse('Register for this tournament first.', 409, request);
-  if ((mine.data().status || 'registered') === 'withdrawn') {
-    return errorResponse('This entry has withdrawn.', 409, request);
+  if ((mine.data().status || 'registered') !== 'checked_in') {
+    return errorResponse('Check in before joining the tournament queue.', 409, request);
   }
 
   if (action === 'leave') {
@@ -259,8 +247,9 @@ export default async (request) => {
       const pairing = await loadPairing(t.ref, mine.data().inPairing);
       return jsonResponse({ ok: true, already: true, self: selfState(mine, now, pairing, tuning.windowMs) }, 200, request);
     }
-    // Written once, never refreshed while waiting. See the header.
-    await mine.ref.update({ availableAt: now, readyAt: FieldValue.serverTimestamp() });
+    // availableAt starts the wait clock; lastPollAt proves this tab is
+    // present without moving that clock. See the header.
+    await mine.ref.update({ availableAt: now, lastPollAt: now, readyAt: FieldValue.serverTimestamp() });
     const after = await mine.ref.get();
     return jsonResponse({ ok: true, self: selfState(after, now, null, tuning.windowMs) }, 200, request);
   }
@@ -281,8 +270,8 @@ export default async (request) => {
     matched = await attemptPairing(db, t, now, tuning);
   }
 
-  const fresh = await mine.ref.get();
   if (!spinning) await mine.ref.update({ lastPollAt: now }).catch(() => {});
+  const fresh = await mine.ref.get();
   const pairing = await loadPairing(t.ref, fresh.data().inPairing);
   const pool = availableForDropIn(
     allEntries.docs.map((d) => ({ entryId: d.id, ...d.data() })),

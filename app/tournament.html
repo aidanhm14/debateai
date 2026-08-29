@@ -1232,13 +1232,10 @@
   // wait reads as a slow wait rather than a broken page, and a room
   // that opens when the server seats you.
   //
-  // The queue slot EXPIRES after six minutes and is deliberately not
-  // refreshed by polling. `availableAt` is the same field the pairing
-  // engine measures accrued waiting time from, so a heartbeat would
-  // reset the wait on every poll and the rematch-patience gate would
-  // never release. It is also the presence check: a tab nobody is
-  // sitting at cannot press "still here", so it stops being paired
-  // instead of opening a room onto an empty chair.
+  // The page heartbeat keeps an active person's presence live without
+  // rewriting `availableAt`, which remains the oldest-first wait clock.
+  // A tab nobody is sitting at stops polling and ages out instead of
+  // opening a room onto an empty chair.
   var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '', autoReadyDone: false };
 
   function dropInEligible(){
@@ -1248,7 +1245,7 @@
     // writes results into the standings the prize bracket comes from.
     if (t.status !== 'running') return false;
     var mine = myEntry();
-    return !!(state.user && mine && mine.status !== 'withdrawn' && mine.status !== 'eliminated');
+    return !!(state.user && mine && mine.status === 'checked_in');
   }
 
   function dropInCall(action){
@@ -1316,7 +1313,7 @@
       if (dropIn.state && dropIn.state.held){
         msg += ' Holding briefly to avoid pairing you with someone you have already debated.';
       }
-      msg += ' Your slot lasts ' + fmtWait(self.expiresInMs) + ' longer.';
+      msg += ' Keep this page open while we look.';
       action = { kind: 'btn', label: 'Leave the queue', act: 'leave', plain: true };
     } else if (self && self.slotExpired){
       msg = 'Your queue slot ran out. Still there?';
@@ -1473,6 +1470,11 @@
     // open through prelims, so late entrants can check in for the next draw.
     if (t.status === 'registration') act('Start the day', function(){ setStatus('running'); }, true);
     if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
+    if (t.status === 'running' && t.dropIn === false) {
+      act('Open live pairing', function(){
+        adminCall({ action: 'update', tid: t.tid, dropIn: true });
+      }, true);
+    }
 
     if (t.chatThreadId){
       var chatLink = document.createElement('a');

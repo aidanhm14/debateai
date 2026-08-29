@@ -212,6 +212,75 @@ function matchGlobally(list) {
   return { pairs: ok ? pairs : null, exhausted };
 }
 
+// The live queue does not need an all-or-nothing draw. If four people
+// are free and only one clean pair exists, seat that pair and leave the
+// other two waiting for their unseen opponents. Requiring a perfect
+// matching here freezes useful rooms behind one awkward history shape.
+// Oldest waiters are passed first, so the first maximum-cardinality
+// solution found also favors the people who have waited longest.
+function matchFreshPartial(list) {
+  const n = list.length;
+  const used = new Array(n).fill(false);
+  const current = [];
+  let best = [];
+  let steps = 0;
+  let exhausted = false;
+  const target = Math.floor(n / 2);
+  const met = list.map((a) => new Set(a.opponents));
+
+  function firstFree() {
+    for (let i = 0; i < n; i += 1) if (!used[i]) return i;
+    return -1;
+  }
+
+  function freeCount() {
+    let count = 0;
+    for (let i = 0; i < n; i += 1) if (!used[i]) count += 1;
+    return count;
+  }
+
+  function solve() {
+    if (best.length === target) return;
+    if (steps > SEARCH_BUDGET) { exhausted = true; return; }
+    if (current.length + Math.floor(freeCount() / 2) <= best.length) return;
+    const i = firstFree();
+    if (i === -1) {
+      if (current.length > best.length) best = current.slice();
+      return;
+    }
+
+    used[i] = true;
+    const candidates = [];
+    for (let j = i + 1; j < n; j += 1) {
+      if (used[j]) continue;
+      if (met[i].has(list[j].entryId) || met[j].has(list[i].entryId)) continue;
+      candidates.push({
+        j,
+        bracket: Math.abs(list[i].wins - list[j].wins),
+        side: Math.abs(sideDebt(list[i]) + sideDebt(list[j])),
+      });
+    }
+    candidates.sort((a, b) => (a.bracket - b.bracket) || (a.side - b.side) || (a.j - b.j));
+    for (const candidate of candidates) {
+      steps += 1;
+      used[candidate.j] = true;
+      current.push([list[i], list[candidate.j]]);
+      solve();
+      current.pop();
+      used[candidate.j] = false;
+      if (best.length === target || exhausted) break;
+    }
+    // Leaving i waiting is legal in a continuous queue and may unlock
+    // more clean pairs among everybody else.
+    solve();
+    used[i] = false;
+    if (current.length > best.length) best = current.slice();
+  }
+
+  solve();
+  return { pairs: best, exhausted };
+}
+
 // Relaxed fallback, used only when no rematch-free draw exists at all
 // (a small field that has run out of fresh opponents) or when the
 // search budget is spent. Still power-paired and still side-aware;
@@ -232,7 +301,10 @@ function matchRelaxed(list) {
     let bestKey = null;
     for (let j = 0; j < remaining.length; j += 1) {
       const b = remaining[j];
+      const aLast = a.opponents[a.opponents.length - 1];
+      const bLast = b.opponents[b.opponents.length - 1];
       const key = [
+        aLast === b.entryId || bLast === a.entryId ? 1 : 0,
         a.opponents.includes(b.entryId) ? 1 : 0,
         Math.abs(a.wins - b.wins),
         Math.abs(sideDebt(a) + sideDebt(b)),
@@ -444,6 +516,10 @@ function availableAtMs(e) {
   return Number(e.availableAt || 0);
 }
 
+function presentAtMs(e) {
+  return Math.max(availableAtMs(e), Number(e.lastPollAt || 0));
+}
+
 /**
  * Everyone who could be paired right now: active, not already in a
  * round, and with a queue slot that has not gone stale. Stale slots are
@@ -452,10 +528,14 @@ function availableAtMs(e) {
 export function availableForDropIn(entries, now, windowMs) {
   const w = Number(windowMs) || DROPIN_AVAILABLE_MS;
   const t = Number(now) || 0;
-  return activeEntries(entries).map(norm).filter((e) => {
+  // Registration keeps the door open. Check-in is what proves the
+  // person is present and may be seated into a live tournament room.
+  return (entries || []).filter((e) => String(e.status || '') === 'checked_in').map(norm).filter((e) => {
     if (e.inPairing) return false;
     const at = availableAtMs(e);
-    return at > 0 && t - at <= w;
+    // Polls refresh presence without rewriting availableAt, so the
+    // original wait time and longest-waiter priority stay intact.
+    return at > 0 && t - presentAtMs(e) <= w;
   });
 }
 
@@ -479,6 +559,9 @@ export function pairDropIn(entries, opts = {}) {
   const next = rng(seed);
 
   const pool = availableForDropIn(entries, now, opts.windowMs);
+  const checkedInField = (entries || [])
+    .filter((e) => String(e.status || '') === 'checked_in')
+    .map(norm);
   const waitingOf = (list) => list
     .slice()
     .sort((a, b) => availableAtMs(a) - availableAtMs(b))
@@ -526,16 +609,47 @@ export function pairDropIn(entries, opts = {}) {
     clean = attempt.pairs;
   }
 
-  // Patience: a repeat matchup is worth waiting a few minutes to avoid,
-  // because the pool widens fast as rounds end. Everyone holds unless
-  // somebody has already waited past the threshold, at which point a
-  // repeat beats another twenty minutes in the queue.
   if (!clean) {
+    const oldestFirst = ranked.slice().sort((a, b) => availableAtMs(a) - availableAtMs(b));
+    const partial = matchFreshPartial(oldestFirst);
+    exhausted = exhausted || partial.exhausted;
+    if (partial.pairs.length) {
+      clean = partial.pairs;
+      const seated = new Set(partial.pairs.flat().map((e) => e.entryId));
+      sitOut = ranked.filter((e) => !seated.has(e.entryId));
+    }
+  }
+
+  // A rematch is a new cycle, not a timer fallback. If anybody in the
+  // available draw still has a checked-in person they have not faced,
+  // hold for that fresh opponent to finish rather than repeat whoever
+  // happened to become free first. Only after the checked-in field is
+  // exhausted may the relaxed matcher begin a later rematch cycle.
+  if (!clean) {
+    const hasFreshOpponent = (entry) => checkedInField.some((other) => (
+      other.entryId !== entry.entryId && !metBefore(entry, other)
+    ));
+    if (pairPool.some(hasFreshOpponent)) {
+      return {
+        pairings: [],
+        waiting: waitingOf(pool),
+        seed,
+        pullUps: 0,
+        rematches: 0,
+        rematchFallback: false,
+        heldForFreshOpponent: true,
+        searchExhausted: exhausted,
+      };
+    }
+    // Even after a full rotation, do not snap the same two people back
+    // together as soon as their ballot lands. A short hold makes the
+    // repeat a later round and gives a late check-in time to widen the
+    // field. This timer can release a repeat only after the fresh-field
+    // gate above has proved there is nobody new left for the pair.
     const windowMs = Number(opts.windowMs) || DROPIN_AVAILABLE_MS;
     const wanted = Number.isFinite(Number(opts.rematchPatienceMs))
       ? Number(opts.rematchPatienceMs)
       : DROPIN_REMATCH_PATIENCE_MS;
-    // Never hold longer than a queue slot survives. See the note above.
     const patience = Math.max(0, Math.min(wanted, windowMs - 60_000));
     const longestWait = pool.reduce((m, e) => Math.max(m, now - availableAtMs(e)), 0);
     if (longestWait < patience) {

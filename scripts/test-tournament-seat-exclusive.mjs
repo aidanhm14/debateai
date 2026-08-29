@@ -33,11 +33,22 @@ check('new draws treat released rooms as opponent history before results land',
     && admin.includes('const drawEntries = entries.map'));
 check('the host can replace a result-free live draw after a bad repeat',
   page.includes("act('Redraw round '") && page.includes("force: true, reseed: true"));
+check('the host can open continuous live pairing without locking registration',
+  page.includes("act('Open live pairing'")
+    && page.includes("action: 'update', tid: t.tid, dropIn: true")
+    && admin.includes("if (body.dropIn != null) patch.dropIn"));
 
 check('drop-in draws create the same user-level reservation',
   dropin.includes("collection('active_tournament_seats').doc(uid)"));
 check('drop-in draws atomically remove general Spar queue docs',
   dropin.includes("tx.delete(db.collection('matchmaking_queue').doc(uid))"));
+check('drop-in API requires the caller to be checked in',
+  dropin.includes("status || 'registered') !== 'checked_in'")
+    && dropin.includes('Check in before joining the tournament queue.'));
+check('drop-in page hides live pairing until the person checks in',
+  page.includes("mine.status === 'checked_in'"));
+check('drop-in engine excludes registered but unchecked entries',
+  /availableForDropIn[\s\S]{0,500}status \|\| ''\) === 'checked_in'/.test(read('app/netlify/functions/lib/tournament.mjs')));
 check('automatic tournament results release the reservation',
   ledger.includes("collection('active_tournament_seats').doc(uid)")
     && /seat\.tid === tid[\s\S]{0,160}tx\.delete\(seatSnap\.ref\)/.test(ledger));

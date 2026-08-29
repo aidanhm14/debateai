@@ -284,6 +284,8 @@ function runPrelims(fieldSize, rounds, seed) {
     availableForDropIn([q(base[0], T), { ...q(base[1], T), inPairing: 'd1-1' }], T).length === 1);
   check('dropin: a withdrawn entry is not available',
     availableForDropIn([q(base[0], T), { ...q(base[1], T), status: 'withdrawn' }], T).length === 1);
+  check('dropin: a registered but unchecked entry is not available',
+    availableForDropIn([q(base[0], T), { ...q(base[1], T), status: 'registered' }], T).length === 1);
 
   // ── availableAt is a DEADLINE, not a heartbeat ──────────────────
   //
@@ -314,6 +316,18 @@ function runPrelims(fieldSize, rounds, seed) {
   const released = pairDropIn(patient, { now: T });
   check('dropin: past the patience threshold the repeat is seated',
     released.pairings.length === 1 && released.rematchFallback === true);
+
+  // Waiting out the timer is not enough while a fresh checked-in
+  // opponent exists elsewhere in the field. A and B have met and are
+  // free; C is checked in but still in a room. A-B must wait for the
+  // rotation rather than becoming an immediate repeat.
+  const freshElsewhere = pairDropIn([
+    { ...q(base[0], T - 5 * 60_000), opponents: ['e2'] },
+    { ...q(base[1], T - 5 * 60_000), opponents: ['e1'] },
+    { ...base[2], inPairing: 'd8-1' },
+  ], { now: T });
+  check('dropin: an unseen checked-in opponent blocks an immediate rematch',
+    freshElsewhere.pairings.length === 0 && freshElsewhere.heldForFreshOpponent === true);
 
   // ── the two rules that are specific to drop-in ──────────────────
   const one = pairDropIn([q(base[0], T)], { now: T });
@@ -372,6 +386,19 @@ function runPrelims(fieldSize, rounds, seed) {
   check('dropin: a repeat is seated once someone has waited past patience',
     waited.pairings.length === 1);
   check('dropin: that draw admits it fell back', waited.rematchFallback === true);
+
+  const fullRotation = [
+    q({ ...base[0], opponents: ['e3', 'e4', 'e2'] }, T - 5 * 60_000),
+    q({ ...base[1], opponents: ['e4', 'e3', 'e1'] }, T - 5 * 60_000),
+    q({ ...base[2], opponents: ['e1', 'e2', 'e4'] }, T - 5 * 60_000),
+    q({ ...base[3], opponents: ['e2', 'e1', 'e3'] }, T - 5 * 60_000),
+  ];
+  const reround = pairDropIn(fullRotation, { now: T });
+  const lastOpp = new Map(fullRotation.map((e) => [e.entryId, e.opponents[e.opponents.length - 1]]));
+  check('dropin: a later rematch cycle avoids the immediately previous opponent',
+    reround.pairings.length === 2 && reround.pairings.every((p) => (
+      lastOpp.get(p.govEntry) !== p.oppEntry && lastOpp.get(p.oppEntry) !== p.govEntry
+    )));
 
   // THE DEADLOCK GUARD. Patience above the staleness window means an
   // entrant ages out of the queue before the hold releases, so nobody
@@ -470,6 +497,11 @@ function runPrelims(fieldSize, rounds, seed) {
       field.forEach((e) => {
         if (now >= e.arrivesAt && !e.inPairing && !e.availableAt) e.availableAt = now;
       });
+      // A visible waiting page polls without moving availableAt, so
+      // presence stays live while accrued queue time remains honest.
+      field.forEach((e) => {
+        if (!e.inPairing && e.availableAt) e.lastPollAt = now;
+      });
 
       const draw = pairDropIn(field, { tid: 'aug29', seq: seq += 1, now });
       const seatedNow = new Set();
@@ -514,8 +546,12 @@ function runPrelims(fieldSize, rounds, seed) {
       winsAfter - winsBefore === seated, (winsAfter - winsBefore) + ' wins for ' + seated + ' rounds');
     check(tag + ': no rematch was seated while a clean draw existed',
       unflaggedRematches === 0, unflaggedRematches + ' unflagged of ' + rematches);
-    check(tag + ': nobody is starved waiting',
-      maxWait <= 30 * 60_000, 'maxWait=' + Math.round(maxWait / 60_000) + 'min');
+    // Under a strict fresh-opponent rotation, one person may need to
+    // wait for the next unseen opponent to finish. Two round lengths is
+    // the ceiling; beyond that the partial matcher is starving them.
+    check(tag + ': nobody waits beyond two round lengths for a fresh opponent',
+      maxWait <= Math.max(30 * 60_000, 2 * roundMs),
+      'maxWait=' + Math.round(maxWait / 60_000) + 'min');
     const spread = field.map((e) => Math.abs(e.sideCount.gov - e.sideCount.opp));
     check(tag + ': nobody ends more than 2 sides skewed',
       Math.max(...spread) <= 2, 'max skew ' + Math.max(...spread));

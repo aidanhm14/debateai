@@ -561,7 +561,7 @@ export default async (request) => {
     // to talk into — had no way to close the queue except a raw
     // Firestore edit. The two models want opposite things from the same
     // field and the choice belongs to whoever is running the day.
-    if (body.dropIn != null && siteAdmin) patch.dropIn = !!body.dropIn;
+    if (body.dropIn != null) patch.dropIn = !!body.dropIn;
     // ── Drop-in queue tuning (see queueTuning in tournament-dropin.mjs) ──
     //
     // Both defaults were sized for a long format on one undivided
