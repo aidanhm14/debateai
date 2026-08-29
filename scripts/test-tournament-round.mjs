@@ -155,6 +155,13 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'the tournament notice offers exit instead of a recording-decline action');
   ok(/recording\.isStream !== true && recording\.recordingConsentComplete !== true/.test(recordingAdminSrc),
     'private tournament footage cannot be manually published without public-use clearance');
+  ok(/action === 'publish-consent'/.test(recordingSrc)
+      && /participants\.every\(uid => publishConsents\[uid\] === true\)/.test(recordingSrc),
+    'a tournament replay becomes public only after every recorded seat approves');
+  ok(/id="cloudRecPublish"/.test(clientSrc)
+      && /id="publishTournamentReplayBtn"/.test(clientSrc)
+      && /action: 'publish-consent'/.test(clientSrc),
+    'people can approve Watch publication before or after their tournament round');
   ok(/cameraMode:[\s\S]{0,220}camConv\.mode/.test(clientSrc),
     'each speech stores the camera mode used for the tournament standings adjustment');
   ok(/Camera \+2[\s\S]{0,100}Avatar −1[\s\S]{0,100}(Off|dark)/.test(clientSrc),

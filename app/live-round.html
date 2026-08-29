@@ -7575,7 +7575,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     });
   }
 
-  function chooseCloudRecording(consent, adultOrGuardianApproved){
+  function chooseCloudRecording(consent, adultOrGuardianApproved, publishConsent){
     if (cloudRec.busy) return;
     cloudRec.busy = true;
     var yes = cloudRec.modal && cloudRec.modal.querySelector('#cloudRecYes');
@@ -7589,6 +7589,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       action: 'consent',
       consent: !!consent,
       adultOrGuardianApproved: !!adultOrGuardianApproved,
+      ...(tournamentRecordingRequired() ? { publishConsent: !!publishConsent } : {}),
     }).then(function(){
       if (tournamentRecordingRequired() && consent) holdMandatoryRecordingModal();
       else closeCloudRecordingModal();
@@ -7651,6 +7652,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
             '<span>I am 18 or older, or my parent or guardian has approved ' +
               (required ? 'this tournament recording.' : 'this recording and the public replay.') + '</span></label>' +
+          (required ? '<label class="rec-consent-check"><input type="checkbox" id="cloudRecPublish" />' +
+            '<span><strong>Also put the finished replay on Watch.</strong> Optional. It publishes only if every person in this round checks this box. Signed-in people can then play it and make shareable clips.</span></label>' : '') +
           '<p class="rec-consent-choice">' + (required
             ? 'You cannot play this tournament round off the record. Leave the room and withdraw from the tournament if you cannot be recorded. Avatar mode keeps your raw camera image out of the recording. '
             : 'Saying no does not affect your seat, the clock, or the ballot. Your choice applies only to this round. You can switch to Avatar before agreeing if you do not want your camera image in the replay. ') +
@@ -7671,7 +7674,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (required) location.href = prefill.tkey ? ('/tournament?t=' + encodeURIComponent(prefill.tkey)) : '/open';
       else chooseCloudRecording(false, false);
     });
-    yes.addEventListener('click', function(){ chooseCloudRecording(true, check.checked); });
+    yes.addEventListener('click', function(){
+      var publish = bd.querySelector('#cloudRecPublish');
+      chooseCloudRecording(true, check.checked, !!(publish && publish.checked));
+    });
     try { bd.querySelector('#cloudRecNo').focus(); } catch(e){}
   }
 
@@ -13015,8 +13021,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // public replay. Ordinary rounds still delete a withdrawn capture.
     if (d.recordingPublishAllowed === false){
       if (d.recordingMode === 'tournament_required'){
-        return '<p class="replay-note">This tournament round was recorded and stored privately. ' +
-          'It does not appear on Watch.</p>';
+        var publishConsents = d.recordingPublishConsents || {};
+        var mineApproved = !!(state.user && publishConsents[state.user.uid] === true);
+        return '<p class="replay-note">This tournament round is stored privately. ' +
+          (mineApproved
+            ? '<strong>You approved the Watch replay.</strong> It publishes when every person in the round approves.'
+            : 'Both people must approve before it appears on Watch. <button class="btn" id="publishTournamentReplayBtn" type="button">Approve Watch replay</button>') +
+          '</p>';
       }
       return '<p class="replay-note">This round was not kept. Recording stopped when somebody withdrew, ' +
         'and the file is deleted rather than published.</p>';
@@ -13736,6 +13747,29 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // Standings, which is theirs to read, stays.
       var nrb = document.getElementById('nextRoundBtn');
       if (nrb) nrb.remove();
+    }
+
+    // Mandatory tournament capture is private by default. A seated person
+    // may separately approve the public Watch replay after seeing the round;
+    // the server publishes only once every recorded seat has agreed.
+    var publishReplayBtn = document.getElementById('publishTournamentReplayBtn');
+    if (publishReplayBtn){
+      publishReplayBtn.addEventListener('click', function(){
+        publishReplayBtn.disabled = true;
+        publishReplayBtn.textContent = 'Saving…';
+        cloudRecordingPost({ action: 'publish-consent', consent: true }).then(function(result){
+          publishReplayBtn.textContent = result && result.publishAllowed
+            ? 'Approved for Watch'
+            : 'Approved, waiting on the other person';
+          toast(result && result.publishAllowed
+            ? 'Replay approved. It will appear on Watch after processing.'
+            : 'You approved the replay. It stays private until everyone in the round approves.');
+        }).catch(function(error){
+          publishReplayBtn.disabled = false;
+          publishReplayBtn.textContent = 'Approve Watch replay';
+          toast((error && error.message) || 'Could not save replay approval.');
+        });
+      });
     }
 
     // After-round band: clicks tagged by outcome (the after-loss D30

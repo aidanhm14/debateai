@@ -48,6 +48,12 @@ check('the host can reopen an all-day rating ladder without erasing completed re
     && admin.includes('ratingCompetition: true')
     && admin.includes('registrationClosed: false')
     && page.includes("act('Reopen rating rounds'"));
+check('a rating ladder cannot be cut into fixed rounds or eliminations',
+  admin.includes("['draft', 'registration', 'break', 'elims'].includes(next)")
+    && /action === 'pair-round'[\s\S]{0,220}ratingCompetition === true/.test(admin)
+    && /action === 'break'[\s\S]{0,220}ratingCompetition === true/.test(admin)
+    && page.includes("t.status === 'running' && !t.ratingCompetition")
+    && open.includes("p === 'live' && !t.ratingCompetition"));
 check('releasing fixed rooms never erases a completed result',
   /release-fixed-seating[\s\S]{0,900}p\.status === 'complete'\) continue/.test(admin));
 check('old fixed-room cards stop acting like the person is still assigned',

@@ -1560,7 +1560,7 @@
     // Starting the day opens the participant queue. Registration remains
     // open through prelims, so late entrants can check in for the next draw.
     if (t.status === 'registration') act('Start the day', function(){ setStatus('running'); }, true);
-    if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
+    if (t.status === 'running' && !t.ratingCompetition) act('End prelims', function(){ setStatus('break'); });
     if (t.status === 'break') {
       act('Reopen rating rounds', function(){
         confirmAction({
@@ -1620,7 +1620,7 @@
       return r.kind === 'prelim' && !r.released;
     })[0];
 
-    if (t.status === 'running' || t.status === 'break'){
+    if (!t.ratingCompetition && (t.status === 'running' || t.status === 'break')){
       if (pendingPrelim){
         // The draw exists but nobody has seen it. Release publishes it
         // together with the motion, so the motion belongs on this step

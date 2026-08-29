@@ -593,6 +593,12 @@ export default async (request) => {
     const next = String(body?.status || '').trim();
     const allowed = new Set(['draft', 'registration', 'running', 'break', 'elims', 'complete', 'cancelled']);
     if (!allowed.has(next)) return errorResponse('Unknown status', 400, request);
+    // An all-day rating ladder has no break or elimination phase. Keep this
+    // server-side so an old cached host page cannot cut the field after the
+    // event has switched to continuous pairing.
+    if (t.data.ratingCompetition === true && ['draft', 'registration', 'break', 'elims'].includes(next)) {
+      return errorResponse('Rating rounds stay open. This event has no fixed-round or elimination phase.', 409, request);
+    }
     // Starting the day also opens the shared operations channel. Build it
     // first so a chat failure never leaves the event half-started.
     const chat = next === 'running' ? await ensureTournamentChat(db, tid, t) : null;
@@ -707,6 +713,9 @@ export default async (request) => {
   // up) without anyone having seen it is the difference between a tab
   // and a spreadsheet.
   if (action === 'pair-round') {
+    if (t.data.ratingCompetition === true) {
+      return errorResponse('This event uses the live rating queue. Checked-in people spawn rounds by pressing Ready.', 409, request);
+    }
     const all = await loadEntries(db, tid);
     // Check-in gates the draw. The page tells every registrant "check
     // in or you will be left out of the draw," and until 2026-08-10
@@ -1008,6 +1017,9 @@ export default async (request) => {
   // ── break ───────────────────────────────────────────────────────
   // Cut the field and build the first elim bracket.
   if (action === 'break') {
+    if (t.data.ratingCompetition === true) {
+      return errorResponse('This event is a continuous rating ladder and cannot break to eliminations.', 409, request);
+    }
     const entries = await loadEntries(db, tid);
     const want = Number(body?.breakSize) || Number(t.data.breakSize) || 4;
     const br = breakField(entries, want);
@@ -1051,6 +1063,9 @@ export default async (request) => {
 
   // ── advance-elim ────────────────────────────────────────────────
   if (action === 'advance-elim') {
+    if (t.data.ratingCompetition === true) {
+      return errorResponse('This event is a continuous rating ladder and has no elimination rounds.', 409, request);
+    }
     const fromRound = Number(body?.roundNo) || 1;
     const fromKey = roundKey('elim', fromRound);
     const snap = await t.ref.collection('rounds').doc(fromKey).get();

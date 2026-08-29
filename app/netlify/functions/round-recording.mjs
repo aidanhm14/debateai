@@ -3,6 +3,7 @@
 // POST /api/round-recording
 //   { action: 'consent', room, consent: true, adultOrGuardianApproved: true }
 //   { action: 'consent', room, consent: false }
+//   { action: 'publish-consent', room, consent: true|false }
 //   { action: 'finish', room }
 //
 // Ordinary rooms are off by default and start only after every seated
@@ -35,12 +36,14 @@ function participantUids(round){
 
 function publicState(round, participants){
   const consents = round.recordingConsents || {};
+  const publishConsents = round.recordingPublishConsents || {};
   return {
     status: round.recordingStatus || 'idle',
     participants,
     consented: participants.filter(uid => consents[uid] === true).length,
     required: participants.length,
     publishAllowed: round.recordingPublishAllowed === true,
+    publishConsented: participants.filter(uid => publishConsents[uid] === true).length,
     recordingRequired: round.recordingMode === 'tournament_required',
   };
 }
@@ -200,8 +203,9 @@ export default async (req) => {
   const action = String(body.action || 'consent');
   const room = safeRoomName(body.room);
   if (!room || room !== String(body.room || '')) return errorResponse('Invalid room', 400, req);
-  if (!['consent', 'finish'].includes(action)) return errorResponse('Unknown action', 400, req);
+  if (!['consent', 'publish-consent', 'finish'].includes(action)) return errorResponse('Unknown action', 400, req);
   if (action === 'consent' && typeof body.consent !== 'boolean') return errorResponse('consent must be true or false', 400, req);
+  if (action === 'publish-consent' && typeof body.consent !== 'boolean') return errorResponse('consent must be true or false', 400, req);
   if (action === 'consent' && body.consent && body.adultOrGuardianApproved !== true){
     return errorResponse('Adult or guardian approval is required to record', 400, req);
   }
@@ -236,8 +240,49 @@ export default async (req) => {
         }
       }
 
+      // Tournament capture and public replay are separate permissions. A
+      // participant may grant or withdraw Watch publication even after the
+      // ballot, and the replay becomes public only when every recorded seat
+      // has independently agreed. Elimination broadcast permission remains
+      // the event-level exception already stamped on the admission.
+      if (action === 'publish-consent') {
+        if (!tournamentRequired) return { error: 'Use the recording choice for an ordinary round.', status: 409 };
+        const now = Date.now();
+        const publishConsents = { ...(round.recordingPublishConsents || {}) };
+        publishConsents[decoded.sub] = body.consent;
+        const allPublishAgreed = participants.every(uid => publishConsents[uid] === true);
+        const publishAllowed = admission?.broadcastAllowed === true || allPublishAgreed;
+        tx.set(ref, {
+          recordingPublishConsents: publishConsents,
+          recordingPublishAllowed: publishAllowed,
+          recordingPublishUpdatedAt: FieldValue.serverTimestamp(),
+          recordingPublishUpdatedAtMs: now,
+        }, { merge: true });
+        tx.set(db.collection('recording_consents').doc(room + '_' + decoded.sub + '_publish_' + now), {
+          room,
+          uid: decoded.sub,
+          consent: body.consent,
+          decidedAtMs: now,
+          decidedAt: FieldValue.serverTimestamp(),
+          version: CONSENT_VERSION,
+          scope: 'Publish this full tournament replay on Watch so signed-in people can play it and make shareable clips.',
+          kind: 'public_replay',
+          requiredByTournament: false,
+        });
+        return {
+          effect: 'none',
+          participants,
+          round: {
+            ...round,
+            recordingPublishConsents: publishConsents,
+            recordingPublishAllowed: publishAllowed,
+          },
+        };
+      }
+
       const now = Date.now();
       const consents = { ...(round.recordingConsents || {}) };
+      const publishConsents = { ...(round.recordingPublishConsents || {}) };
       let effect = 'none';
       const update = {
         recordingConsentVersion: CONSENT_VERSION,
@@ -261,6 +306,10 @@ export default async (req) => {
         }
       } else {
         consents[decoded.sub] = body.consent;
+        if (tournamentRequired && typeof body.publishConsent === 'boolean') {
+          publishConsents[decoded.sub] = body.publishConsent;
+          update.recordingPublishConsents = publishConsents;
+        }
         const receipt = {
           room,
           uid: decoded.sub,
@@ -271,6 +320,7 @@ export default async (req) => {
           scope: tournamentRequired ? TOURNAMENT_SCOPE : CONSENT_SCOPE,
           requiredByTournament: tournamentRequired,
           adultOrGuardianApproved: body.consent ? true : false,
+          publishOnWatchApproved: tournamentRequired ? publishConsents[decoded.sub] === true : body.consent,
         };
         update.recordingConsents = consents;
         // The round doc is publicly readable for spectators, so the full
@@ -279,7 +329,10 @@ export default async (req) => {
         tx.set(db.collection('recording_consents').doc(room + '_' + decoded.sub + '_' + now), receipt);
 
         const allAgreed = participants.every(uid => consents[uid] === true);
-        const tournamentPublishAllowed = tournamentRequired && admission?.broadcastAllowed === true;
+        const tournamentPublishAllowed = tournamentRequired && (
+          admission?.broadcastAllowed === true
+          || participants.every(uid => publishConsents[uid] === true)
+        );
         if (!body.consent){
           update.recordingPublishAllowed = false;
           update.recordingStatus = ['starting', 'recording'].includes(round.recordingStatus) ? 'stopping' : 'declined';
