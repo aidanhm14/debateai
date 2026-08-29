@@ -15,10 +15,11 @@ function check(label, condition) {
   if (!condition) failures.push(label);
 }
 
-check('reminder runs at 6 AM Pacific on August 29',
-  reminder.includes("schedule: '0,5,10,15,20,25,30,35,40,45,50 13 29 8 *'"));
+check('reminder runs once at 6:55 AM Pacific on August 29',
+  reminder.includes("schedule: '55 13 29 8 *'")
+  && reminder.includes("SEND_AT_MS = Date.parse('2026-08-29T06:55:00-07:00')"));
 check('reminder cannot send after contestants should already be in rooms',
-  reminder.includes('now > EVENT_START_MS - 5 * 60_000'));
+  reminder.includes('now >= EVENT_START_MS'));
 check('reminder targets tournament entry members',
   reminder.includes("collection('entries').get()")
   && reminder.includes('entrantUids.add(uid)'));
@@ -34,10 +35,28 @@ check('a failed stamp cannot abort the remaining entrant sends',
   && reminder.includes('stamp failed for'));
 check('email sends contestants to the event page',
   reminder.includes('/open?utm_source=email')
-  && reminder.includes('Open your event page'));
-check('email carries the room, rules, stream, and reconnect instructions',
-  ['Join your room', 'official rules', 'watch page', 'five minutes to return']
+  && reminder.includes('Check in now'));
+check('email puts the schedule first and starts the stream at 6:50 Pacific',
+  reminder.indexOf('<strong>Schedule</strong>') < reminder.indexOf('<strong>Check in:</strong>')
+  && reminder.includes('6:50 AM Pacific, 9:50 AM Eastern')
+  && reminder.includes('landing page')
+  && reminder.includes('tournament room'));
+check('email carries the check-in, room, rules, Discord, and reconnect instructions',
+  ['Join your room', 'official rules', 'five minutes to return', 'https://discord.gg/WMHZW9BKvJ']
     .every((text) => reminder.includes(text)));
+check('email explains resolutions and how a round works',
+  ['three resolutions', 'secretly strike one', '90-second opening', '60-second reply']
+    .every((text) => reminder.includes(text)));
+check('email states the tournament recording, footage, and fair-winner goals',
+  ['Every round is recorded', 'capture strong footage', 'awarding the winners fairly',
+    'separate public-use permission', 'appeal a panel ballot for human review']
+    .every((text) => reminder.includes(text)));
+check('email carries question, spreading, and camera scoring expectations',
+  ['Questions and interruptions', '250 words per minute', 'Camera presence adds 2',
+    'Avatar mode subtracts 1', 'camera off or too dark subtracts 3']
+    .every((text) => reminder.includes(text)));
+check('email supplies matching HTML and plain-text bodies',
+  reminder.includes('html: renderEmail') && reminder.includes('text: renderTextEmail'));
 check('both tournament participant pages prompt registered arrivals to check in',
   [open, tournament].every((page) => page.includes("title: 'You made it. Check in now.'")
     && page.includes("confirmLabel: 'Check in now'")
