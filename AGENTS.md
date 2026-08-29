@@ -534,8 +534,12 @@ The rules that are easy to break by accident:
 - **Never tie-break an even panel split.** `tallyPanel` returns
   `winner: null` and `resolution:'unresolved'` on a tie, and every
   downstream caller must leave it that way. Any tie-break rule is a
-  thumb on the scale and it is ours. A split round voids its market and
-  does not move the ladder.
+  thumb on the scale and it is ours. **No winner is reserved for a
+  complete tied panel.** A short panel, including a 1-1 vote with one
+  missing judge, stays pending and retries; provider failure is not a
+  result. A true no-winner voids its market, preserves both argument
+  scores, and enters the ladder as a Glicko draw so both rating records
+  still update without manufacturing a winner.
 - **Never route an appeal to a model.** `admin-appeals.mjs` must contain
   no provider call and no `schedule` config. The test asserts both. A
   bigger model re-judging the round is the same circularity, and an
