@@ -4522,7 +4522,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     hasBallot: false,        // a ballot exists (or is being written) on the round doc
     ballotRecoveryTimer: null, // watcher-side rescue for an abandoned pending ballot
     ballotRecoveryAttempts: 0, // bounded locally; the server lease dedupes globally
-    ballotUnresolved: false, // an even panel split is final, never tie-broken
+    ballotUnresolved: false, // a complete even panel split is final, never tie-broken
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
@@ -11792,7 +11792,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         renderUnresolvedBallot(res.noWinner || { resolution: res.resolution || 'unresolved' });
         return;
       }
-      if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
+      if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready' || res.code === 'judge_incomplete')){
+        if (res.code === 'judge_incomplete'){
+          var missing = Math.max(1, Number(res.missing) || 1);
+          if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS){
+            ballotStatus('The transcript is saved. The panel is still missing a vote. Either debater can try the server again.');
+            return;
+          }
+          ballotStatus(missing === 1
+            ? 'One judge did not return a vote. The panel is retrying that missing decision.'
+            : 'The panel is missing votes. Judging will retry.');
+        }
         scheduleBallotRecovery(
           { ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS },
           Math.max(3000, Math.min(Number(res.retryAfterMs) || 12000, 45000))
@@ -12260,10 +12270,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // lib/settle.mjs will move credits on. This path sends a room id and
     // nothing else: the browser cannot influence what the judge sees.
     //
-    // On ANY failure we fall through to the client path below. A round
-    // judged in the browser is worth less (it cannot settle a market)
-    // but it is a ballot, and no ballot at all is the worse outcome.
-    // Spectators never trigger it; the server refuses them anyway.
+    // A complete panel result stays authoritative. Ordinary endpoint
+    // failures can still fall through to the legacy client path, but a
+    // short panel cannot: replacing a 1-1 panel plus a missing seat with
+    // one browser-authored vote would make the missing judge a tie-break.
+    // Spectators never trigger the fallback; the server refuses them too.
     if (!state.serverJudgeTried && !isSpectator() && state.user && state.user.getIdToken){
       state.serverJudgeTried = true;
       ballotStatus('The judging panel is reading the round.');
@@ -12279,6 +12290,19 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           var retryMs = Math.max(3000, Math.min(Number(res.retryAfterMs) || 10000, 45000));
           ballotStatus('The judging panel is already working. Checking again in ' + Math.round(retryMs / 1000) + 's.');
           setTimeout(function(){ generateBallot(attempt); }, retryMs);
+          return;
+        }
+        if (res && res.code === 'judge_incomplete'){
+          var incompleteRetryMs = Math.max(3000, Math.min(Number(res.retryAfterMs) || 30000, 45000));
+          var missingVotes = Math.max(1, Number(res.missing) || 1);
+          clearBallotRecovery();
+          ballotStatus(missingVotes === 1
+            ? 'One judge did not return a vote. The panel is retrying that missing decision.'
+            : 'The panel is missing votes. Judging will retry.');
+          scheduleBallotRecovery(
+            { ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS },
+            incompleteRetryMs
+          );
           return;
         }
         if (res && res.code === 'unresolved'){

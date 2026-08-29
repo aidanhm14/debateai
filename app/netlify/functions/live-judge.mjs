@@ -88,6 +88,51 @@ export function judgeLeaseWaitMs(round, now = Date.now()) {
   return Math.max(0, startedAt + JUDGE_LEASE_MS - now);
 }
 
+// "No winner" is a substantive result, not an infrastructure error. It is
+// necessary only when every seat in the promised panel returned a usable
+// vote and the complete panel is tied. A 1-1 result from a three-seat panel,
+// one lone vote, or no votes at all means judging is incomplete and must be
+// retried. `jurorsWanted` catches a provider whose key was unavailable before
+// the calls began; `panelSize` catches a provider that failed during them.
+export function isNecessaryNoWinner(judged) {
+  const panel = judged && judged.panel && typeof judged.panel === 'object' ? judged.panel : {};
+  const tally = panel.tally && typeof panel.tally === 'object' ? panel.tally : {};
+  const votesCast = Math.max(0, Math.trunc(Number(panel.votesCast) || 0));
+  const panelSize = Math.max(0, Math.trunc(Number(panel.panelSize) || 0));
+  const jurorsWanted = Math.max(0, Math.trunc(Number(panel.jurorsWanted) || 0));
+  const expected = jurorsWanted || panelSize;
+  const proVotes = Math.max(0, Math.trunc(Number(tally.a) || 0));
+  const conVotes = Math.max(0, Math.trunc(Number(tally.b) || 0));
+  return panel.resolution === 'unresolved'
+    && panel.degraded !== true
+    && votesCast > 0
+    && expected > 0
+    && votesCast === panelSize
+    && votesCast === expected
+    && proVotes === conVotes;
+}
+
+export function incompletePanelSummary(judged, now = Date.now()) {
+  const panel = judged && judged.panel && typeof judged.panel === 'object' ? judged.panel : {};
+  const tally = panel.tally && typeof panel.tally === 'object' ? panel.tally : {};
+  const votesCast = Math.max(0, Math.trunc(Number(panel.votesCast) || 0));
+  const panelSize = Math.max(votesCast, Math.trunc(Number(panel.panelSize) || 0));
+  const jurorsWanted = Math.max(panelSize, Math.trunc(Number(panel.jurorsWanted) || 0));
+  const expected = jurorsWanted || panelSize;
+  return {
+    at: now,
+    resolution: String(panel.resolution || (votesCast ? 'incomplete' : 'no_votes')).slice(0, 40),
+    votesCast,
+    panelSize: expected,
+    quorum: Math.max(1, Math.trunc(Number(panel.quorum) || 1)),
+    missing: Math.max(0, expected - votesCast),
+    tally: {
+      pro: Math.max(0, Math.trunc(Number(tally.a) || 0)),
+      con: Math.max(0, Math.trunc(Number(tally.b) || 0)),
+    },
+  };
+}
+
 // A split panel is still a ballot. Preserve enough of it to explain both
 // the procedural reason there is no winner and the substantive reasons the
 // judges gave. This is derived only from the panel's returned votes. There
@@ -466,17 +511,42 @@ export default async (request, context) => {
     return jsonResponse({ ok: false, code: 'judge_failed', error: err.message }, 200, request);
   }
 
-  // An even split is NOT tie-broken. It records as a draw on the rating
-  // ladder, while any market voids at face value rather than paying out
-  // on a coin we flipped. Same no-winner rule the async sweep follows;
-  // see lib/judge-panel.mjs.
+  // A complete even split is NOT tie-broken. It records as a draw on the
+  // rating ladder, while any market voids at face value rather than paying
+  // out on a coin we flipped. A short panel is different: missing judges
+  // are an infrastructure failure, not a substantive no-winner result.
   if (!judged.ballot || (judged.ballot.winner !== 'pro' && judged.ballot.winner !== 'con')) {
     const judgedAt = Date.now();
+    if (!isNecessaryNoWinner(judged)) {
+      const partial = incompletePanelSummary(judged, judgedAt);
+      await ref.update({
+        ballotPending: true,
+        // The finishing browser normally writes this first, but its update
+        // and this request race. Stamp it only when absent so a retry never
+        // pushes the watcher-recovery window farther into the future.
+        ...(timestampMillis(d.ballotPendingAt) ? {} : { ballotPendingAt: FieldValue.serverTimestamp() }),
+        ballotUnresolved: FieldValue.delete(),
+        serverJudgeState: 'incomplete',
+        serverJudgeFailedAt: FieldValue.serverTimestamp(),
+        serverJudgeFinishedAt: FieldValue.serverTimestamp(),
+        serverJudgeStartedAt: FieldValue.delete(),
+        serverJudgeLastPartial: partial,
+      });
+      return jsonResponse({
+        ok: false,
+        code: 'judge_incomplete',
+        retryAfterMs: FAILURE_COOLDOWN_MS,
+        ...partial,
+      }, 202, request);
+    }
+
     const noWinner = buildNoWinnerBallot(judged, d, judgedAt);
     await ref.update({
       ballotPending: false,
       ballotUnresolved: noWinner,
       serverJudgeState: 'unresolved',
+      serverJudgeFailedAt: FieldValue.delete(),
+      serverJudgeLastPartial: FieldValue.delete(),
       serverJudgeFinishedAt: FieldValue.serverTimestamp(),
       serverJudgeStartedAt: FieldValue.delete(),
       completedAt: FieldValue.serverTimestamp(),
@@ -544,6 +614,8 @@ export default async (request, context) => {
     ballotUnresolved: FieldValue.delete(),
     status: 'ballot',
     serverJudgeState: 'complete',
+    serverJudgeFailedAt: FieldValue.delete(),
+    serverJudgeLastPartial: FieldValue.delete(),
     serverJudgeFinishedAt: FieldValue.serverTimestamp(),
     serverJudgeStartedAt: FieldValue.delete(),
     completedAt: FieldValue.serverTimestamp(),
