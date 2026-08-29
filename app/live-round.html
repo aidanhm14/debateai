@@ -1980,6 +1980,14 @@ body.speech-live .transcript-area{margin-top:4px}
   margin-top:2px;font-size:.8rem;color:var(--text-dim);
   letter-spacing:.01em;line-height:1.5;
 }
+/* Overtime warning under the clock. No `display` on purpose: the
+   [hidden] attribute is what shows/hides it, and an author display
+   would beat the UA sheet (the /predict + /spar trap). --accent is one
+   of the three tokens this page actually defines. */
+.overtime-note{
+  margin-top:6px;font-size:.74rem;font-weight:600;line-height:1.4;
+  color:var(--accent);letter-spacing:.01em;
+}
 .ready-hint strong{color:var(--text)}
 
 /* ── Start-speech guidance (2026-08-25, the founder) ────────────────
@@ -3518,6 +3526,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           </div>
         </div>
         <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
+        <!-- Overtime warning, shown by drawTimer() once the clock runs
+             past the 15s grace. This is the live disclosure of the
+             deduction the judge prompts apply; the class deliberately
+             sets no `display`, so [hidden] keeps working. -->
+        <div class="overtime-note" id="overtimeNote" hidden></div>
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
         <div class="row speech-actions">
@@ -4542,7 +4555,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     judgeDraftOpen: false,     // post-start detail expansion; pre-Speech-1 stays visible
     room: prefill.room,
     speechIdx: 0,
-    log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, overran }
+    log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, targetSec, overSec, overran }
     timerInterval: null,
     timerState: 'ready',
     timerStart: 0,
@@ -5908,6 +5921,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     return state.timerElapsed;
   }
+  // Overtime grace: seconds past the allotted time that cost nothing.
+  // Shared by the clock cue, the GA event, and the judge tags so the
+  // rule the speaker is shown mid-speech is the rule the ballot applies.
+  var OVERTIME_GRACE_SEC = 15;
   function drawTimer(){
     var elapsed = getElapsed();
     var remaining = state.timerTotalSec - elapsed;
@@ -5926,6 +5943,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (motionClock){
       motionClock.textContent = num.textContent;
       motionClock.className = 'rmb-timer-num' + (warnClass ? ' ' + warnClass : '');
+    }
+    // Overtime costs speaker points (judge prompts carry the scale), so
+    // the room is told WHILE it is happening rather than discovering the
+    // deduction on the ballot. Factual for everyone in the room; clears
+    // itself when the speech ends or the clock resets.
+    var otNote = $('overtimeNote');
+    if (otNote){
+      var showOt = state.timerState === 'running' && remaining < -OVERTIME_GRACE_SEC;
+      if (showOt && otNote.hidden){
+        otNote.textContent = 'Over time. Past the 15 second grace the judge deducts speaker points, more the longer this runs.';
+        otNote.hidden = false;
+      } else if (!showOt && !otNote.hidden){
+        otNote.hidden = true;
+      }
     }
   }
   function prepareTimer(targetSec){
@@ -10939,6 +10970,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // builders can tag the transcript for cross-language judging.
       lang: myLang(),
       durationSec: Math.round(elapsed),
+      // Time discipline (2026-08-29): the allotted time and seconds over
+      // ride the entry so the judge can grade overtime by MAGNITUDE.
+      // `overran` alone was a boolean the prompts could never act on
+      // honestly ("minor overrun is fine, meaningful = poor time
+      // management" with nothing to measure either against). overran
+      // keeps its historical 5s epsilon for old readers; the judged
+      // grace is OVERTIME_GRACE_SEC and lives with the timer cue.
+      targetSec: sp.time,
+      overSec: Math.max(0, Math.round(elapsed - sp.time)),
       // Round-relative start, in ms. Derived from the round clock rather
       // than summed durations so prep, pauses, and setup gaps don't drift
       // the timeline. End is atMs + durationSec*1000. Purely additive;
@@ -10962,6 +11002,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     state.speechIdx++;
     try { pmLockCheck(); } catch(e){}
     publishSpeech(entry);
+    // Overtime past the grace is the thing the judge now deducts for,
+    // so record how often it actually happens and by how much.
+    if (!opts.skipped && entry.overSec > OVERTIME_GRACE_SEC){
+      try { gtag('event', 'live_round_overtime', { speech: sp.code, over_sec: entry.overSec }); } catch(e){}
+    }
     // Clear the currentTimer + currentTranscript mirrors so the next
     // speaker doesn't see the prior speech's elapsed value or transcript
     // flash in for one snapshot tick before their own ready-state takes
@@ -11133,7 +11178,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "FORMAT RULES — judge through this lens:",
       ...(JUDGE_RULES[state.formatKey] || []),
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
-      "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
+      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct 1 speaker point up to 45 seconds over, 2 up to 90 seconds, 3 beyond that, and name the overrun in that team's feedback. Give no credit for material a speech could only reach by running long. Overtime moves speaker points, never the ranking on its own.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -11186,6 +11231,21 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     ];
   }
 
+  // Time tag for the judge transcripts. Carries MAGNITUDE when the
+  // entry has it (post 2026-08-29); older stored rounds fall back to
+  // the bare legacy tag. Overtime inside the grace is deliberately not
+  // tagged at all: the judge is told to ignore it, and showing it would
+  // be noise begging for a deduction nobody earned.
+  function speechTimeTag(l){
+    if (!l || !l.overran) return '';
+    var over = typeof l.overSec === 'number' ? l.overSec : null;
+    if (over != null && over <= OVERTIME_GRACE_SEC) return '';
+    if (over != null && typeof l.targetSec === 'number' && l.targetSec > 0){
+      return ' [OVERRAN: ' + fmtTime(l.targetSec) + ' allotted, spoke '
+        + fmtTime(l.durationSec || (l.targetSec + over)) + ', +' + fmtTime(over) + ' over]';
+    }
+    return ' [OVERRAN]';
+  }
   function buildBallotPrompt(){
     var f = FORMATS[state.formatKey];
     var transcript = state.log.map(function(l){
@@ -11193,7 +11253,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // ("Closing Government" vs "Opening Government") so MG/GW don't
       // get mis-tagged as OG speeches in the judge's transcript.
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
-        + (l.overran ? ' [OVERRAN]' : '')
+        + speechTimeTag(l)
         + (l.skipped ? ' [SKIPPED]' : '')
         + (l.lang && l.lang !== 'en' && XL_NAMES[l.lang] ? ' [DELIVERED IN ' + XL_NAMES[l.lang].toUpperCase() + ']' : '')
         + '\n' + l.text;
@@ -11233,7 +11293,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "  Calibration bands (USE THE LOW END — the old ballots inflated because every AI defaulted to the top quartile): 90+ once a season, cite the exact moments that earned it · 80-89 top speaker at a strong tournament · 70-79 excellent, breaks at most tournaments · 60-69 good, real warrants and some weighing · 50-59 average, arguments present but underdeveloped or unweighed · 40-49 below average, key drops, unwarranted claims, filler · 25-39 struggling, little clash, no link chains · 1-24 collapse or near-forfeit.",
       "  DEFAULT BAND IS 50-65. If a speech was fundamentally unfinished, 40 or below — an honest ballot goes low when someone is over their head. Do NOT cluster both speakers at 75+ to be encouraging. If one debater clearly outclassed the other, separate by 8-15 points, not 2. One decimal place allowed.",
       "  Speaker points score the SPEAKER; the ballot scores the FLOW. A low-point win is legitimate — when the winner has lower points, say so in the RFD and explain it.",
-      "- 'overran' = past time; minor overrun is fine, meaningful overrun = poor time management.",
+      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct inside the Step 3 adjustment and name the overrun in that speaker's feedback: about 2 points up to 45 seconds over, 4 points up to 90 seconds, the full 5 beyond that. Give no credit for material a speech could only reach by running long. Overtime moves speaker points, never the winner; do not flip the ballot on time alone.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -12305,7 +12365,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var fourTeam = isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4;
     var transcript = state.log.map(function(l){
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
-        + (l.overran ? ' [OVERRAN]' : '') + (l.skipped ? ' [SKIPPED]' : '')
+        + speechTimeTag(l) + (l.skipped ? ' [SKIPPED]' : '')
         + '\n' + l.text;
     }).join('\n\n');
     var verdictLines;
