@@ -88,6 +88,73 @@ export function judgeLeaseWaitMs(round, now = Date.now()) {
   return Math.max(0, startedAt + JUDGE_LEASE_MS - now);
 }
 
+// A split panel is still a ballot. Preserve enough of it to explain both
+// the procedural reason there is no winner and the substantive reasons the
+// judges gave. This is derived only from the panel's returned votes. There
+// is deliberately no fourth model call to blend the disagreement into a
+// more confident-sounding answer or to break the tie.
+export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
+  const panel = judged && judged.panel && typeof judged.panel === 'object' ? judged.panel : {};
+  const results = Array.isArray(judged && judged.jurorResults) ? judged.jurorResults : [];
+  const judgeReasons = results
+    .filter((result) => result && result.ok && result.ballot
+      && (result.ballot.winner === 'pro' || result.ballot.winner === 'con'))
+    .map((result, index) => ({
+      jurorId: String(result.jurorId || `juror-${index + 1}`).slice(0, 80),
+      model: String(result.model || '').slice(0, 120),
+      winner: result.ballot.winner,
+      decidingIssue: String(result.ballot.decidingIssue || '').slice(0, 160),
+      rfd: String(result.ballot.rfd || '').slice(0, 1600),
+    }));
+
+  const panelTally = panel.tally && typeof panel.tally === 'object' ? panel.tally : {};
+  const proVotes = Number.isFinite(Number(panelTally.a))
+    ? Math.max(0, Math.trunc(Number(panelTally.a)))
+    : judgeReasons.filter((vote) => vote.winner === 'pro').length;
+  const conVotes = Number.isFinite(Number(panelTally.b))
+    ? Math.max(0, Math.trunc(Number(panelTally.b)))
+    : judgeReasons.filter((vote) => vote.winner === 'con').length;
+  const votesCast = Number.isFinite(Number(panel.votesCast))
+    ? Math.max(0, Math.trunc(Number(panel.votesCast)))
+    : proVotes + conVotes;
+  const panelSize = Number.isFinite(Number(panel.panelSize))
+    ? Math.max(votesCast, Math.trunc(Number(panel.panelSize)))
+    : votesCast;
+  const quorum = Number.isFinite(Number(panel.quorum))
+    ? Math.max(1, Math.trunc(Number(panel.quorum)))
+    : 2;
+  const missing = Math.max(0, panelSize - votesCast);
+
+  let reason;
+  if (!votesCast) {
+    reason = 'No judge returned a usable vote, so the panel could not decide the round.';
+  } else if (votesCast < quorum) {
+    reason = `Only ${votesCast} of ${panelSize || votesCast} judges returned a usable vote. A verdict requires ${quorum} matching votes.`;
+  } else if (proVotes === conVotes) {
+    reason = proVotes >= quorum
+      ? `The panel split ${proVotes} to ${conVotes}. Each side reached ${proVotes} votes, so neither held a strict majority.`
+      : `The panel split ${proVotes} to ${conVotes}. Neither side reached the ${quorum} matching votes required for a verdict.`;
+  } else {
+    const leadingVotes = Math.max(proVotes, conVotes);
+    reason = `The leading side received ${leadingVotes} vote${leadingVotes === 1 ? '' : 's'}, short of the ${quorum} matching votes required for a verdict.`;
+  }
+
+  return {
+    outcome: 'no_winner',
+    resolution: String(panel.resolution || (votesCast ? 'unresolved' : 'no_votes')).slice(0, 40),
+    at: now,
+    reason,
+    proName: String(round.proName || 'Pro').slice(0, 80),
+    conName: String(round.conName || 'Con').slice(0, 80),
+    votesCast,
+    panelSize,
+    quorum,
+    missing,
+    tally: { pro: proVotes, con: conVotes },
+    judgeReasons,
+  };
+}
+
 // One request here fans out into a multi-juror Anthropic panel, so the
 // caller is metered. Named limits are per-uid and sized so a tournament
 // day (the Open, Aug 29) never touches them: a debater triggers one
@@ -231,6 +298,19 @@ export default async (request, context) => {
     return jsonResponse({ ok: true, already: true, ballot: d.ballot }, 200, request);
   }
 
+  // A no-winner ballot is final too. Retrying the endpoint must return the
+  // recorded split, never buy a fresh panel in the hope that a later sample
+  // happens to produce a winner.
+  if (d.ballotUnresolved && d.serverJudgeState === 'unresolved') {
+    return jsonResponse({
+      ok: false,
+      already: true,
+      code: 'unresolved',
+      resolution: d.ballotUnresolved.resolution || 'unresolved',
+      noWinner: d.ballotUnresolved,
+    }, 200, request);
+  }
+
   // A watcher cannot start an arbitrary panel. Recovery is available only
   // after a participant has ended the round and left a durable pending mark.
   // The request still contains only `room`; transcript, format and sides are
@@ -260,6 +340,9 @@ export default async (request, context) => {
     if (!freshSnap.exists) return { kind: 'missing' };
     const fresh = freshSnap.data();
     if (fresh.ballot && fresh.ballot.panel) return { kind: 'done', ballot: fresh.ballot };
+    if (fresh.ballotUnresolved && fresh.serverJudgeState === 'unresolved') {
+      return { kind: 'unresolved', noWinner: fresh.ballotUnresolved };
+    }
 
     const freshParticipants = [fresh.proUid, fresh.proUid2, fresh.conUid, fresh.conUid2].filter(Boolean);
     if (!freshParticipants.includes(uid)) {
@@ -281,6 +364,15 @@ export default async (request, context) => {
   if (claim.kind === 'missing') return errorResponse('No such round', 404, request);
   if (claim.kind === 'forbidden') return errorResponse('Not a participant', 403, request);
   if (claim.kind === 'done') return jsonResponse({ ok: true, already: true, ballot: claim.ballot }, 200, request);
+  if (claim.kind === 'unresolved') {
+    return jsonResponse({
+      ok: false,
+      already: true,
+      code: 'unresolved',
+      resolution: claim.noWinner.resolution || 'unresolved',
+      noWinner: claim.noWinner,
+    }, 200, request);
+  }
   if (claim.kind === 'not_ready') {
     return jsonResponse({ ok: false, code: 'recovery_not_ready', retryAfterMs: claim.retryAfterMs }, 409, request);
   }
@@ -318,19 +410,43 @@ export default async (request, context) => {
   // rather than paying out on a coin we flipped. Same rule the async
   // sweep follows; see lib/judge-panel.mjs.
   if (!judged.ballot || (judged.ballot.winner !== 'pro' && judged.ballot.winner !== 'con')) {
-    const resolution = judged.panel ? judged.panel.resolution : 'no_votes';
+    const judgedAt = Date.now();
+    const noWinner = buildNoWinnerBallot(judged, d, judgedAt);
     await ref.update({
       ballotPending: false,
-      ballotUnresolved: { resolution, at: Date.now() },
+      ballotUnresolved: noWinner,
       serverJudgeState: 'unresolved',
       serverJudgeFinishedAt: FieldValue.serverTimestamp(),
       serverJudgeStartedAt: FieldValue.delete(),
       completedAt: FieldValue.serverTimestamp(),
     });
+
+    // A no-winner result is evidence too. Audit the exact panel after the
+    // room accepts it, matching the decided-ballot order below. If the room
+    // write fails, a retry may run again without leaving an immutable audit
+    // row for a split the room never published.
+    try {
+      await writeAudit(db, auditRecord({
+        judgmentId: judgmentId('live', room),
+        source: 'live',
+        eventId: room,
+        season,
+        jurorResults: judged.jurorResults,
+        panel: judged.panel,
+        motion: d.motion || '',
+        format: d.format || '',
+        clashMapUsed: false,
+        now: judgedAt,
+      }));
+    } catch (err) {
+      console.error('[live-judge] unresolved audit write failed', room, err.message);
+    }
+
     return jsonResponse({
       ok: false,
       code: 'unresolved',
-      resolution,
+      resolution: noWinner.resolution,
+      noWinner,
     }, 200, request);
   }
 

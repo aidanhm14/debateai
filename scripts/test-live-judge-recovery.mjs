@@ -5,6 +5,7 @@ import {
   RECOVERY_GRACE_MS,
   JUDGE_LEASE_MS,
   FAILURE_COOLDOWN_MS,
+  buildNoWinnerBallot,
   recoveryWaitMs,
   judgeLeaseWaitMs,
 } from '../app/netlify/functions/live-judge.mjs';
@@ -44,6 +45,49 @@ ok(
   'an expired lease can be recovered',
 );
 ok(judgeLeaseWaitMs({ serverJudgeState: 'failed' }, now) === 0, 'a failed lease is not permanently locked');
+
+const split = buildNoWinnerBallot({
+  panel: {
+    resolution: 'unresolved', votesCast: 2, panelSize: 3, quorum: 2,
+    tally: { a: 1, b: 1 },
+  },
+  jurorResults: [
+    {
+      ok: true, jurorId: 'anthropic', model: 'claude-test',
+      ballot: { winner: 'pro', decidingIssue: 'comparative harm', rfd: 'Pro won the impact comparison.' },
+    },
+    {
+      ok: true, jurorId: 'openai', model: 'gpt-test',
+      ballot: { winner: 'con', decidingIssue: 'causal link', rfd: 'Con won on causation.' },
+    },
+    { ok: false, jurorId: 'google', model: 'gemini-test', error: 'timeout' },
+  ],
+}, { proName: 'Team Pro', conName: 'Team Con' }, now);
+ok(split.outcome === 'no_winner', 'a split is stored as a first-class no-winner outcome');
+ok(split.tally.pro === 1 && split.tally.con === 1, 'the no-winner ballot preserves the vote split');
+ok(split.missing === 1, 'the no-winner ballot discloses a missing panel seat');
+ok(split.reason.includes('split 1 to 1') && split.reason.includes('2 matching votes'), 'the no-winner ballot explains why no verdict carried');
+ok(split.judgeReasons.length === 2, 'the no-winner ballot preserves every usable judge reason');
+ok(split.judgeReasons[0].decidingIssue === 'comparative harm', 'the deciding issue stays attached to its judge');
+ok(!JSON.stringify(split).includes('undefined'), 'the no-winner ballot contains no Firestore-breaking undefined values');
+
+const lone = buildNoWinnerBallot({
+  panel: { resolution: 'unresolved', votesCast: 1, panelSize: 3, quorum: 2, tally: { a: 1, b: 0 } },
+  jurorResults: [],
+}, {}, now);
+ok(lone.reason.includes('Only 1 of 3 judges') && lone.reason.includes('2 matching votes'), 'a short panel explains the quorum failure');
+
+const empty = buildNoWinnerBallot({
+  panel: { resolution: 'no_votes', votesCast: 0, panelSize: 3, quorum: 2, tally: { a: 0, b: 0 } },
+  jurorResults: [],
+}, {}, now);
+ok(empty.reason.includes('No judge returned a usable vote'), 'a no-vote panel explains the provider failure plainly');
+
+const evenQuorate = buildNoWinnerBallot({
+  panel: { resolution: 'unresolved', votesCast: 4, panelSize: 4, quorum: 2, tally: { a: 2, b: 2 } },
+  jurorResults: [],
+}, {}, now);
+ok(evenQuorate.reason.includes('split 2 to 2') && evenQuorate.reason.includes('strict majority'), 'a quorate even panel explains that matching votes still did not carry');
 
 const appCheckSource = readFileSync(new URL('../app/js/app-check.js', import.meta.url), 'utf8');
 const liveRoundSource = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');

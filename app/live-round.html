@@ -11661,21 +11661,60 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       state.ballotRecoveryTimer = null;
     }
   }
-  function renderUnresolvedBallot(resolution){
+  function renderUnresolvedBallot(noWinner){
     clearBallotRecovery();
-    state.ballotUnresolved = true;
+    if (typeof noWinner === 'string') noWinner = { resolution: noWinner };
+    noWinner = noWinner && typeof noWinner === 'object' ? noWinner : {};
+    state.ballotUnresolved = noWinner;
     state.phase = 'ballot-unresolved';
     updateRoundGuide();
-    $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> Panel split';
+    $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> No winner';
     $('roundView').classList.add('hidden');
     $('ballotView').classList.remove('hidden');
     $('ballotResult').classList.add('hidden');
     var host = $('ballotLoading');
     host.classList.remove('hidden');
-    host.innerHTML = '<div style="color:var(--text);font-weight:800;font-size:1rem">The panel split.</div>'
-      + '<div style="font-size:.8rem;margin-top:8px;color:var(--text-dim)">No winner was recorded. The round stays unresolved, and no ladder or market result moves.</div>'
-      + (resolution ? '<div style="font-size:.7rem;margin-top:8px;color:var(--text-ghost)">' + escHtml(resolution) + '</div>' : '')
-      + '<div style="margin-top:16px"><a class="btn" href="/live">Back to live debates</a></div>';
+    var proName = String(noWinner.proName || state.proName || 'Pro');
+    var conName = String(noWinner.conName || state.conName || 'Con');
+    var tally = noWinner.tally && typeof noWinner.tally === 'object' ? noWinner.tally : {};
+    var proVotes = Math.max(0, Number(tally.pro) || 0);
+    var conVotes = Math.max(0, Number(tally.con) || 0);
+    var votesCast = Math.max(0, Number(noWinner.votesCast) || (proVotes + conVotes));
+    var panelSize = Math.max(votesCast, Number(noWinner.panelSize) || votesCast);
+    var missing = Math.max(0, Number(noWinner.missing) || (panelSize - votesCast));
+    var reason = String(noWinner.reason || 'No side reached the required majority, so the panel did not record a winner.');
+    var judgeReasons = Array.isArray(noWinner.judgeReasons) ? noWinner.judgeReasons : [];
+    var splitHtml = votesCast
+      ? '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px">'
+          + '<span style="padding:6px 10px;border-radius:999px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.08);color:#86efac;font-size:.72rem;font-weight:800">' + escHtml(proName) + ' ' + proVotes + '</span>'
+          + '<span style="padding:6px 10px;border-radius:999px;border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08);color:#fca5a5;font-size:.72rem;font-weight:800">' + escHtml(conName) + ' ' + conVotes + '</span>'
+          + (missing ? '<span style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);font-size:.72rem;font-weight:800">' + missing + ' missing</span>' : '')
+        + '</div>'
+      : '';
+    var reasonsHtml = judgeReasons.map(function(vote, index){
+      var side = vote.winner === 'pro' ? proName : conName;
+      var issue = String(vote.decidingIssue || '');
+      var rfd = String(vote.rfd || 'No written reason returned.');
+      var brain = vote.model ? councilBrainName(vote.model) : 'Judge ' + (index + 1);
+      return '<div style="text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.025);margin-top:10px">'
+        + '<div style="font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">' + escHtml(brain) + ' voted for ' + escHtml(side) + '</div>'
+        + (issue ? '<div style="font-size:.84rem;font-weight:800;color:var(--text);margin-top:7px">Deciding issue: ' + escHtml(issue) + '</div>' : '')
+        + '<div style="font-size:.82rem;line-height:1.6;color:var(--text-dim);margin-top:7px;white-space:pre-wrap">' + judgeHtml(rfd) + '</div>'
+        + '</div>';
+    }).join('');
+    var legacyWhy = !judgeReasons.length
+      ? '<div style="text-align:left;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.025);font-size:.78rem;line-height:1.55;color:var(--text-dim);margin-top:10px">This round was judged before per-judge split reasons were saved.</div>'
+      : '';
+    host.innerHTML = '<div style="max-width:720px;margin:0 auto">'
+      + '<div style="font-size:.66rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)">No winner</div>'
+      + '<div style="color:var(--text);font-weight:900;font-size:1.35rem;line-height:1.2;margin-top:7px">The panel did not reach a majority.</div>'
+      + '<div style="font-size:.84rem;line-height:1.55;margin-top:10px;color:var(--text-dim)">' + escHtml(reason) + '</div>'
+      + splitHtml
+      + '<div style="text-align:left;font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-top:22px">Why the judges disagreed</div>'
+      + reasonsHtml + legacyWhy
+      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">No ladder or market result moves.</div>'
+      + '<div style="margin-top:18px"><a class="btn" href="/live">Back to live debates</a></div>'
+      + '</div>';
   }
   function scheduleBallotRecovery(roundData, delayOverride){
     if (state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
@@ -11710,7 +11749,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         return;
       }
       if (res && res.code === 'unresolved'){
-        renderUnresolvedBallot(res.resolution || 'unresolved');
+        renderUnresolvedBallot(res.noWinner || { resolution: res.resolution || 'unresolved' });
         return;
       }
       if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
@@ -12203,7 +12242,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           return;
         }
         if (res && res.code === 'unresolved'){
-          renderUnresolvedBallot(res.resolution || 'unresolved');
+          renderUnresolvedBallot(res.noWinner || { resolution: res.resolution || 'unresolved' });
           return;
         }
         if (!res || !res.ok || !res.ballot) throw new Error((res && res.code) || 'server_judge_unavailable');
@@ -18373,7 +18412,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // A true panel split is a completed unresolved result, not a spinner
     // and not permission for a single fallback model to pick a winner.
     if (d.ballotUnresolved && !d.ballot && !state.ballotUnresolved){
-      renderUnresolvedBallot(d.ballotUnresolved.resolution || 'unresolved');
+      renderUnresolvedBallot(d.ballotUnresolved);
     }
 
     // Ballot landing, show it on both screens
