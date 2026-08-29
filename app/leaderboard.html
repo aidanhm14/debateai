@@ -71,10 +71,24 @@
 (function(){
   try{
     var t=localStorage.getItem('da-theme');
-    if(!t || t==='day') t='crimson';
+    // `day` is the retired name for the light theme. Leaving it on the
+    // element matches no light selector, so this page fell through to its
+    // dark root tokens even while the rest of the site was white. Normalize
+    // before first paint and persist the real value so topbar.js reads the
+    // same theme when it mounts.
+    if(!t || t==='day'){
+      t='light';
+      localStorage.setItem('da-theme','light');
+    }
+    if(t!=='light' && t!=='crimson' && t!=='grey'){
+      t='light';
+      localStorage.setItem('da-theme','light');
+    }
     document.documentElement.setAttribute('data-theme',t);
+    document.documentElement.setAttribute('data-lighting',t==='light'?'light':'dark');
   }catch(e){
-    document.documentElement.setAttribute('data-theme','crimson');
+    document.documentElement.setAttribute('data-theme','light');
+    document.documentElement.setAttribute('data-lighting','light');
   }
 })();
 </script>
@@ -756,6 +770,13 @@ a.av-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   background:color-mix(in srgb, var(--sc,#888) 12%, transparent);
   border:1px solid color-mix(in srgb, var(--sc,#888) 32%, transparent);
 }
+.rating-story{
+  max-width:48ch;margin:7px 0 0;padding-left:9px;
+  border-left:2px solid color-mix(in srgb,var(--accent) 55%,transparent);
+  color:var(--text-dim);font-size:.76rem;line-height:1.38;
+}
+.rating-story--pod{max-width:36ch;margin-top:9px;font-size:.74rem}
+[data-theme="light"] .rating-story{color:rgba(26,18,8,.72)}
 .lvl-chip{
   display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;
   background:var(--bg-elev);color:var(--text-ghost);
@@ -909,6 +930,7 @@ body.challenge-on .chal-banner{display:flex}
   .cell-score{font-size:.95rem}
   .deb-av{width:38px;height:38px;font-size:.66rem}
   .deb{align-items:flex-start}
+  .rating-story{font-size:.74rem;line-height:1.4}
   .table-mobile-actions{display:flex;margin-top:7px}
   .table-mobile-actions .debater-action{min-height:27px;padding:4px 9px}
 }
@@ -1443,6 +1465,40 @@ function profileHref(r){
   if(!uid || typeof uid!=='string' || uid.length<8) return '';
   return '/users?uid='+encodeURIComponent(uid);
 }
+// RATING_STORY_START
+// A visible one-line read of the ladder facts. This never guesses a
+// biography, personality, age, location, or debate style. Every sentence is
+// derived from the public rating, its provisional state, and the W/D/L record
+// already printed beside it. That makes the board feel alive without turning
+// a number into an invented claim about the person holding it.
+function ratingStory(r){
+  if(!r || !r._ratingRow) return '';
+  const games=Math.max(0,Number(r._rounds)||0);
+  const wins=Math.max(0,Number(r._wins)||0);
+  const draws=Math.max(0,Number(r._draws)||0);
+  const losses=Math.max(0,Number(r._losses)||0);
+  const rating=Number.isFinite(Number(r.score))?Math.round(Number(r.score)):0;
+  if(games===0) return 'Waiting on a first rated result.';
+  if(games===1){
+    if(wins===1 && rating>=1700) return 'One win and already above 1700. A flying start, but the number is still settling.';
+    if(wins===1) return 'One round, one win. A perfect start, with plenty of volatility left.';
+    if(draws===1) return 'Opened with a draw. The rating is still finding its level.';
+    return 'One round in. The next result can move this rating fast.';
+  }
+  if(r._provisional){
+    if(losses===0 && wins>=2) return wins+' wins from '+games+' rounds, still unbeaten. The rating is still settling.';
+    if(wins>losses) return wins+' wins from '+games+' rounds. The rating is still finding its level.';
+    if(losses>wins) return games+' rated rounds in. A couple of wins can still swing this number.';
+    return games+' rated rounds and dead even. The next result breaks the tie.';
+  }
+  const peak=Number.isFinite(Number(r._peak))?Math.round(Number(r._peak)):0;
+  if(peak>0 && rating>=peak) return games+' rated rounds and sitting at a personal best.';
+  if(peak-rating>=40) return 'Chasing a personal best of '+peak+'. The comeback is on the board.';
+  if(wins>losses) return games+' rated rounds, with more wins than losses. This number has earned some weight.';
+  if(losses>wins) return games+' rated rounds. The comeback starts with the next win.';
+  return games+' rated rounds and dead even. The next result breaks the tie.';
+}
+// RATING_STORY_END
 // One plain-language sentence about the person, carried as the title on
 // their row and avatar so hovering anywhere descriptive actually
 // describes them.
@@ -1456,6 +1512,8 @@ function profileTitle(r){
     if(typeof r.score==='number') bits.push((r._provisional?'provisional rating ':'rating ')+Math.round(r.score));
     bits.push((r._wins||0)+'W '+(r._draws||0)+'D '+(r._losses||0)+'L over '+(r._rounds||0)+' rated round'+((r._rounds||0)===1?'':'s'));
     if(r._peak && r._peak>Math.round(r.score||0)) bits.push('peak '+r._peak);
+    const story=ratingStory(r);
+    if(story) bits.push(story.replace(/[.!?]+$/,''));
   } else if(typeof r.score==='number'){
     bits.push('best judged score '+r.score.toFixed(1));
   }
@@ -1919,6 +1977,7 @@ function podHTML(row, place){
   const draws=typeof row._draws==='number'?row._draws:(row.result==='draw'?1:0);
   const losses=typeof row._losses==='number'?row._losses:((row.result==='draw'||row.won)?0:1);
   const streak=row._streak||0;
+  const story=ratingStory(row);
   const wave=podiumWave(row.uid, row.score);
   const laurel = place===1
     ? '<svg class="pod-laurel" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 4c1 0 2 .5 3 1.5M3 8c1 0 2 .5 3 1.5M3 12c1 0 2 .5 3 1.5M13 4c-1 0-2 .5-3 1.5M13 8c-1 0-2 .5-3 1.5M13 12c-1 0-2 .5-3 1.5M8 4v9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
@@ -1939,6 +1998,7 @@ function podHTML(row, place){
             ${provChip(row)}
             ${profileTypeTag(row)}
           </div>
+          ${story?`<p class="rating-story rating-story--pod">${escapeHtml(story)}</p>`:''}
           ${debaterActions(row)}
         </div>
       </div>
@@ -2164,6 +2224,7 @@ function renderTable(rows){
       ? `<span class="live-mark"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px rgba(239,68,68,.18)"></span>live</span>`
       : '';
     const pHref=profileHref(r);
+    const story=ratingStory(r);
     return `
       <div class="board-row${isSelf?' self':''}" role="row" style="--d:${Math.min(i,14)*40}ms"${pHref?` data-profile="${escapeHtml(pHref)}"`:''} title="${escapeHtml(profileTitle(r))}">
         <div class="rank-cell">
@@ -2182,6 +2243,7 @@ function renderTable(rows){
               ${provChip(r)}
               ${profileTypeTag(r)}
             </div>
+            ${story?`<p class="rating-story">${escapeHtml(story)}</p>`:''}
             ${debaterActions(r,'table-mobile-actions')}
           </div>
         </div>

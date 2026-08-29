@@ -170,6 +170,19 @@ if [ -f "$TOURNAMENT_DAY_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Leaderboard rating stories are public claims about real people. Keep them
+# derived only from the rating record, preserve the provisional caveat, and
+# keep light as the first-paint default while dark remains an explicit mode.
+RATING_STORY_GUARD="$REPO_ROOT/scripts/test-leaderboard-rating-story.mjs"
+if [ -f "$RATING_STORY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-leaderboard-rating-story.mjs >/tmp/rating-story-guard.log 2>&1); then
+    echo "[rating-story-guard] commit blocked: leaderboard stories or theme posture drifted:" >&2
+    cat /tmp/rating-story-guard.log >&2
+    echo "[rating-story-guard] see scripts/test-leaderboard-rating-story.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # The former /registry shell called an endpoint that never shipped. Keep the
 # safe redirect and all public navigation aligned until aggregation has an
 # explicit privacy design.
