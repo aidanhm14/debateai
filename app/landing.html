@@ -8429,9 +8429,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-chats-open:hover{color:#fff;border-color:rgba(239,68,68,.6)}
   [data-theme="light"] .fs-chats-open{color:rgba(26,26,31,.68);border-color:rgba(26,26,31,.2)}
   [data-theme="light"] .fs-chats-open:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
-  /* The feed. Newest first, each row one message: room tag, handle,
-     text, age. Rows are anchors into /community so any line someone
-     finds interesting is a door, not a screenshot. */
+  /* The feed. CONVERSATION order, oldest at the top and newest at the
+     bottom (newest-first made every thread read backwards, the bug
+     the founder flagged 2026-08-29). Each row one message: handle,
+     text, age, plus a room tag only when a real row comes from a room
+     other than the tournament. Rows are anchors into /community so
+     any line someone finds interesting is a door, not a screenshot. */
   .fs-chats-list{display:flex;flex-direction:column;gap:4px;min-height:0}
   .fs-chats-msg{display:block;text-decoration:none;color:inherit;border-radius:10px;
     padding:7px 9px;border:1px solid transparent;
@@ -8872,32 +8875,43 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-signin-why">Keep your rounds, climb the board, earn a shot at a creator matchup.</p>
     </div>
 
-    <!-- ── Live chats ── 2026-08-29, founder sketch: the most live
-         community chats sit between the round display and the
-         leaderboard rail. Real rooms and real messages only, from
-         /api/live-chats (shared-cached server read; the landing opens
-         no Firestore connection of its own, the 2026-08-18 rule). The
-         authored state is this honest link card naming the rooms; the
-         fsChats script swaps the room chips for the live feed when
-         real messages arrive, and lights the dot only then. Never seed
-         this panel with invented handles or messages. Hidden under
-         1360px, where there is no third column to hold it. -->
-    <aside class="fs-chats" id="fsChats" aria-label="Live community chats">
+    <!-- ── Tournament chat ── 2026-08-29, founder sketch, re-cut the
+         same day ("make it the tournament chat and then fill it with
+         bots talking back and fourth when a user shows up so it feels
+         active"). The panel is the tournament room now: real messages
+         still arrive from /api/live-chats (shared-cached server read;
+         the landing opens no Firestore connection of its own, the
+         2026-08-18 rule), and on top of them the fsChats script plays
+         an AMBIENT scripted conversation between the seven fictional
+         personas the founder supplied and confirmed fake on 2026-08-27
+         (Sydney, Sofia, Kevin, Anna, Malik, Chloe, Mike). That layer is
+         the founder's explicit call and it REVERSES the original
+         "never seed this panel" rule, with three limits that are not
+         his to waive: the ambient lines are CLIENT-SIDE ONLY and are
+         never written into community_chat or community_channels (a
+         fake message in a real room is a fabricated record other
+         people read and reply to); the personas are only ever the
+         confirmed-fictional seven, never a generated-alias shape that
+         could collide with a real account; and real messages always
+         render too, so the layer is atmosphere around the room, not a
+         replacement for it. Hidden under 1360px, where there is no
+         third column to hold it. -->
+    <aside class="fs-chats" id="fsChats" aria-label="Tournament chat">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
-        <span class="fs-chats-title">Live chats</span>
-        <a class="fs-chats-open" href="/community" data-cta="first-screen-chats-open">Open</a>
+        <span class="fs-chats-title">Tournament chat</span>
+        <a class="fs-chats-open" href="/community#tournament" data-cta="first-screen-chats-open">Open</a>
       </div>
       <div class="fs-chats-list" id="fsChatsList">
         <div class="fs-chats-rooms">
+          <a href="/community#tournament" data-cta="first-screen-chats-room">#tournament</a>
           <a href="/community" data-cta="first-screen-chats-room">The Commons</a>
           <a href="/community" data-cta="first-screen-chats-room">#general</a>
           <a href="/community" data-cta="first-screen-chats-room">#find-a-round</a>
-          <a href="/community" data-cta="first-screen-chats-room">#motions</a>
           <a href="/community" data-cta="first-screen-chats-room">#help</a>
         </div>
       </div>
-      <a class="fs-chats-cta" href="/community" data-cta="first-screen-chats-join">Join the conversation</a>
+      <a class="fs-chats-cta" href="/community#tournament" data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
   </div>
   <!-- The audience chooser ("Do you compete in debate?") used to overlay
@@ -19335,21 +19349,39 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
   })();
 
-  /* fsChats: the "Live chats" column between the board and the
-     leaderboard rail (2026-08-29, founder sketch). Reads /api/live-chats
-     (shared-cached 45s server-side, real messages only, handles never
-     uids). The authored panel is an honest link card naming the rooms;
-     this swaps in the feed only when real messages exist, and lights
-     the green dot only then. All text lands via textContent, never
-     innerHTML: handles and messages are stranger-written. The panel is
-     display:none under 1360px, so nothing fetches until that layout is
-     actually on screen. */
+  /* fsChats: the "Tournament chat" column between the board and the
+     leaderboard rail (2026-08-29, founder sketch; re-cut the same day
+     to the tournament room with an ambient conversation). Two sources,
+     merged by timestamp and rendered in CONVERSATION ORDER, oldest at
+     the top and newest at the bottom. The first cut rendered newest
+     first, which made every thread read backwards (answers above
+     their questions), the bug the founder flagged.
+
+     Source 1, real: /api/live-chats (shared-cached 45s server-side,
+     handles never uids). Real rows always render and always outrank
+     the ambient layer for the reader's trust: they keep their room
+     chip when they come from another room.
+
+     Source 2, ambient: a scripted tournament-day back-and-forth
+     between the seven fictional personas the founder supplied and
+     confirmed fake on 2026-08-27. His explicit call ("fill it with
+     bots talking back and fourth when a user shows up so it feels
+     active"), and it reverses the panel's original never-seed rule.
+     The limits are in the panel's authored comment: client-side only,
+     never written to any real room, only the confirmed-fictional
+     seven, capped per visit so it goes quiet instead of looping.
+     All text lands via textContent, never innerHTML. The panel is
+     display:none under 1360px, so nothing fetches or plays until
+     that layout is actually on screen. */
   (function(){
     var panel = document.getElementById('fsChats');
     var list = document.getElementById('fsChatsList');
     if (!panel || !list || !window.fetch) return;
     var mq = window.matchMedia ? window.matchMedia('(min-width:1360px)') : null;
     var started = false;
+    var realRows = [];
+    var ambientRows = [];
+    var MAX_ROWS = 7;
 
     function relTime(ms){
       var d = Math.max(0, Date.now() - ms);
@@ -19359,35 +19391,42 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       return Math.floor(d / 86400000) + 'd';
     }
 
-    function render(msgs){
-      if (!msgs || !msgs.length) return; // keep the honest room-chip card
+    function renderAll(){
+      var msgs = realRows.concat(ambientRows).filter(function(m){ return m && m.text; });
+      if (!msgs.length) return; // keep the honest room-chip card
+      msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
+      msgs = msgs.slice(-MAX_ROWS);
       var frag = document.createDocumentFragment();
       for (var i = 0; i < msgs.length; i++){
-        var m = msgs[i] || {};
-        if (!m.text) continue;
+        var m = msgs[i];
         var a = document.createElement('a');
         a.className = 'fs-chats-msg';
-        a.href = '/community';
+        a.href = m.room === 'tournament' ? '/community#tournament' : '/community';
         a.setAttribute('data-cta', 'first-screen-chats-msg');
         var meta = document.createElement('span');
         meta.className = 'fs-chats-meta';
-        var room = document.createElement('span');
-        room.className = 'fs-chats-room';
-        room.textContent = String(m.label || '');
+        // One room, one header: tournament rows drop the per-row chip.
+        // A real row from another room keeps its chip so it is never
+        // misread as tournament traffic.
+        if (m.room !== 'tournament'){
+          var room = document.createElement('span');
+          room.className = 'fs-chats-room';
+          room.textContent = String(m.label || '');
+          meta.appendChild(room);
+        }
         var handle = document.createElement('span');
         handle.className = 'fs-chats-handle';
         handle.textContent = String(m.handle || '');
         var age = document.createElement('span');
         age.className = 'fs-chats-age';
         age.textContent = m.at ? relTime(m.at) : '';
-        meta.appendChild(room); meta.appendChild(handle); meta.appendChild(age);
+        meta.appendChild(handle); meta.appendChild(age);
         var text = document.createElement('p');
         text.className = 'fs-chats-text';
         text.textContent = String(m.text);
         a.appendChild(meta); a.appendChild(text);
         frag.appendChild(a);
       }
-      if (!frag.childNodes.length) return;
       list.innerHTML = '';
       list.appendChild(frag);
       panel.classList.add('is-live');
@@ -19395,15 +19434,87 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
     function poll(){
       fetch('/api/live-chats').then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ render(d && d.messages); })
+        .then(function(d){
+          if (d && d.messages && d.messages.length) realRows = d.messages;
+          renderAll();
+        })
         .catch(function(){});
     }
+
+    // ── The ambient conversation ──────────────────────────────────
+    // Only the confirmed-fictional seven. Lines reference each other,
+    // so names are fixed per line rather than shuffled. One thread
+    // opens with its first lines already a few minutes old, the rest
+    // land one at a time on human cadence, then a second thread runs
+    // slower and the layer goes QUIET. A chat that never stops talking
+    // reads as a machine; one that trails off reads as a room.
+    var THREADS = [
+      [
+        { h: 'Kevin', t: 'just finished my round, the judge wrote me a full page' },
+        { h: 'Sofia', t: 'did you win' },
+        { h: 'Kevin', t: 'yeah, took it on the rebuttal' },
+        { h: 'Anna',  t: 'how do I get in, do I need anything?' },
+        { h: 'Malik', t: 'register on the tournament page, check in, then hit ready and it pairs you' },
+        { h: 'Anna',  t: 'ok checked in' },
+        { h: 'Chloe', t: 'gl, the motion pool is rough this year' },
+        { h: 'Sydney', t: 'I struck the water one instantly lol' }
+      ],
+      [
+        { h: 'Mike',  t: 'anyone else waiting on a pairing' },
+        { h: 'Chloe', t: 'just got mine, the room opened right away' },
+        { h: 'Sydney', t: 'who did you draw' },
+        { h: 'Chloe', t: 'no idea, they sound good on the check in list though' },
+        { h: 'Kevin', t: 'everyone starts the ladder at 1500 so one win moves you fast' },
+        { h: 'Mike',  t: 'ok pressing ready' },
+        { h: 'Sofia', t: 'same, see you on the board' }
+      ],
+      [
+        { h: 'Anna',  t: 'that last round was so close' },
+        { h: 'Malik', t: 'the ballot said it came down to one dropped argument' },
+        { h: 'Anna',  t: 'running it back, queueing again' },
+        { h: 'Sydney', t: 'watch out for Sofia, she has won two in a row' },
+        { h: 'Sofia', t: 'two and counting' },
+        { h: 'Kevin', t: 'rematch me then' },
+        { h: 'Sofia', t: 'get in the queue' }
+      ]
+    ];
+
+    function playAmbient(){
+      var first = Math.floor(Math.random() * THREADS.length);
+      var lines = THREADS[first].concat(THREADS[(first + 1) % THREADS.length]);
+      var seedCount = 3;
+      var now = Date.now();
+      for (var i = 0; i < seedCount; i++){
+        var l = lines[i];
+        ambientRows.push({ room: 'tournament', label: '#tournament', handle: l.h, text: l.t,
+          at: now - (seedCount - i) * 130000 });
+      }
+      renderAll();
+      var idx = seedCount;
+      function next(){
+        if (idx >= lines.length) return; // quiet, on purpose
+        var line = lines[idx];
+        var slow = idx >= THREADS[first].length;
+        idx++;
+        setTimeout(function(){
+          if (!document.hidden){
+            ambientRows.push({ room: 'tournament', label: '#tournament',
+              handle: line.h, text: line.t, at: Date.now() });
+            renderAll();
+          } else idx--; // a hidden tab pauses the room rather than aging it
+          next();
+        }, (slow ? 14000 : 6000) + Math.random() * (slow ? 14000 : 8000));
+      }
+      next();
+    }
+
     function start(){
       if (started) return;
       started = true;
       poll();
+      playAmbient();
       setInterval(function(){
-        if (!document.hidden && (!mq || mq.matches)) poll();
+        if (!document.hidden && (!mq || mq.matches)){ poll(); renderAll(); }
       }, 60000);
     }
     // Fetch only once the three-column layout is actually in use; a

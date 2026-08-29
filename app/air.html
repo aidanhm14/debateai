@@ -234,6 +234,7 @@
     rounds: [],            // merged rail entries
     director: {},          // room -> director info (streamable etc.)
     restreamFired: false,
+    holdUntil: 0,          // local start/stop outranks the cached status until this
   };
 
   // ── Auth gate ─────────────────────────────────────────────────────
@@ -283,7 +284,17 @@
   // ── Stream status ─────────────────────────────────────────────────
   function pollStatus(){
     fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
-      state.stream = s || {};
+      s = s || {};
+      // /api/stream-status is CDN-cached ~15s, so right after this page
+      // starts or stops the stream the poll can answer with the OLD
+      // state. Inside the hold window the local record wins; adopting
+      // the stale payload here is what would tear down a broadcast this
+      // page had just started.
+      if (Date.now() < state.holdUntil && state.stream && !!state.stream.live !== !!s.live){
+        paint();
+        return;
+      }
+      state.stream = s;
       // Someone ended the stream elsewhere: stand down cleanly.
       if (state.session && !state.stream.live) teardown('The stream was ended.');
       paint();
@@ -354,6 +365,11 @@
     btn.disabled = true; btn.textContent = 'Starting…';
     post('/api/stream-control', { action: 'start', title: 'Live debates', userName: 'Program' })
       .then(function(data){
+        // The start response is fresher than any cached status poll.
+        state.stream = { live: true, title: data.title || 'Live debates',
+          restream: !!data.restream, restreamActive: false,
+          restreamPlatforms: data.restreamPlatforms || [] };
+        state.holdUntil = Date.now() + 45000;
         var sess = sessionFromStudioUrl(data.studioUrl, 'lead');
         sess.roomName = sess.roomName || data.roomName || '';
         sess.url = sess.url || data.url || '';
@@ -430,17 +446,28 @@
       setLine('That room is not cleared for broadcast. Pick another round, then go on air.');
       return;
     }
-    var constraints = {
-      video: { frameRate: { ideal: 30 } },
-      // Raw tab audio: the round is the signal, so no voice processing.
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      preferCurrentTab: true,
-      selfBrowserSurface: 'include',
-      systemAudio: 'include',
-      surfaceSwitching: 'exclude',
-      monitorTypeSurfaces: 'exclude',
-    };
-    navigator.mediaDevices.getDisplayMedia(constraints).then(function(stream){
+    // Chrome refuses some combinations of the newer capture options
+    // outright (preferCurrentTab together with selfBrowserSurface is a
+    // TypeError in current Chrome), and an option the browser dislikes
+    // must never kill the go-live button. Fall back through simpler
+    // shapes until one opens; only a user refusal stops the chain.
+    // Raw tab audio on the first shape: the round is the signal, so no
+    // voice processing.
+    var CAPTURE_SHAPES = [
+      { video: { frameRate: { ideal: 30 } },
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        preferCurrentTab: true },
+      { video: true, audio: true },
+    ];
+    function openCapture(i){
+      if (i >= CAPTURE_SHAPES.length) return Promise.reject(new Error('the browser refused every capture shape'));
+      return navigator.mediaDevices.getDisplayMedia(CAPTURE_SHAPES[i]).catch(function(e){
+        if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) throw e;
+        console.warn('[air] capture shape ' + i + ' refused:', e && e.message);
+        return openCapture(i + 1);
+      });
+    }
+    openCapture(0).then(function(stream){
       var track = stream.getVideoTracks()[0];
       var crop = (window.CropTarget && track && typeof track.cropTo === 'function')
         ? window.CropTarget.fromElement($('monitor')).then(function(target){ return track.cropTo(target); })
@@ -515,6 +542,8 @@
   $('endBtn').addEventListener('click', function(){
     if (!confirm('End the stream? Every public player goes down, the simulcast stops, and the recording stops.')) return;
     post('/api/stream-control', { action: 'stop' }).then(function(){
+      state.stream = { live: false };
+      state.holdUntil = Date.now() + 45000;
       teardown('Stream ended.');
       pollStatus();
     }).catch(function(e){ setLine('Could not end: ' + (e && e.message || e)); });

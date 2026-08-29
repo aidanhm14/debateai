@@ -31,6 +31,13 @@
   'use strict';
 
   const CHANNELS = [
+    // 2026-08-29: the tournament room, added for the Debatable Open and
+    // surfaced on the landing's first-screen chat panel. Listed first
+    // while a live event runs; demoting it later is moving this row
+    // down, not deleting it. The default channel for a visitor with no
+    // saved choice stays 'general' (set in start()), so adding a row
+    // here does not churn anyone's landing room.
+    { id: 'tournament',   label: 'tournament',   topic: 'The Debatable Open, live today. Pairings, results, and the play by play.' },
     { id: 'general',      label: 'general',      topic: 'The main hall. Introduce yourself.' },
     { id: 'find-a-round', label: 'find-a-round', topic: 'Looking for an opponent? Post a time and jump into a casual 1v1.' },
     { id: 'motions',      label: 'motions',      topic: 'Questions worth arguing and why they clash.' },
@@ -440,7 +447,15 @@
     let saved = null;
     try { saved = localStorage.getItem(ACTIVE_KEY); } catch(e){}
     if (saved === 'lobby') saved = null;
-    switchChannel(saved || 'general');
+    // Deep link: /community#tournament (the landing chat panel's door)
+    // lands in that channel over the saved one; community.html maps the
+    // same hash onto the discussion tab. Any channel id works as a hash.
+    let asked = null;
+    try {
+      const h = (location.hash || '').replace('#', '').toLowerCase();
+      if (CHANNELS.some(c => c.id === h)) asked = h;
+    } catch(e){}
+    switchChannel(asked || saved || 'general');
     watchPane();
   }
 

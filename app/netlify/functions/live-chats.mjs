@@ -11,10 +11,14 @@
 //                           rules allow public read so lurkers can see
 //                           a live room before signing in.
 //
-// Honesty: nothing here is seeded or padded. Messages are returned
-// with their real timestamps and the client shows real relative ages;
-// when there are no messages the panel simply does not render. Never
-// add invented rows to make the panel look busier.
+// Honesty: nothing HERE is seeded or padded. Messages are returned
+// with their real timestamps; never add invented rows to this payload.
+// The landing panel does layer a client-side ambient conversation
+// between the confirmed-fictional personas on top of these rows
+// (founder's call, 2026-08-29, recorded in soul.md); that layer lives
+// entirely in landing.html and must never move server-side, because a
+// fake row in this payload would be indistinguishable from a real one
+// to every consumer.
 //
 // Privacy: handles and channel display names only. uid and photo are
 // NEVER returned — this endpoint is keyless, and chat-feed.mjs already
@@ -22,7 +26,7 @@
 // map to anyone who curls it. Text is truncated server-side so the
 // landing never carries a full transcript of the room.
 //
-// Cost: ~18 doc reads per cache miss (12 Commons tail + 6 channel
+// Cost: ~19 doc reads per cache miss (12 Commons tail + 7 channel
 // limit(1) probes), shared-cached 45s, so the landing's traffic costs
 // ~24 reads a minute worst case. Same posture as spar-queue.mjs /
 // watch-live.mjs. Do NOT wire the landing to Firestore or to
@@ -40,7 +44,7 @@ const CACHE_TTL_MS = 45 * 1000;
 // CHANNELS list in js/community-channels.js. A channel probed but not
 // offered on /community would report life in a room nobody can open,
 // so keep this list matched to that file.
-const CHANNELS = ['general', 'find-a-round', 'motions', 'round-reviews', 'clips', 'help'];
+const CHANNELS = ['tournament', 'general', 'find-a-round', 'motions', 'round-reviews', 'clips', 'help'];
 
 const MAX_MESSAGES = 8;
 const TEXT_MAX = 110;
