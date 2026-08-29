@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const reminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-day-reminder.mjs', 'utf8');
+const kickoffReminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-kickoff-reminder.mjs', 'utf8');
 const cta = fs.readFileSync('app/js/tournament-day-cta.js', 'utf8');
 const landing = fs.readFileSync('app/landing.html', 'utf8');
 const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
@@ -15,11 +16,15 @@ function check(label, condition) {
   if (!condition) failures.push(label);
 }
 
-check('reminder runs once at 6:55 AM Pacific on August 29',
-  reminder.includes("schedule: '55 13 29 8 *'")
-  && reminder.includes("SEND_AT_MS = Date.parse('2026-08-29T06:55:00-07:00')"));
-check('reminder cannot send after contestants should already be in rooms',
-  reminder.includes('now >= EVENT_START_MS'));
+check('detailed rules email runs at the next five-minute mark',
+  reminder.includes("schedule: '*/5 11 29 8 *'")
+  && reminder.includes("SEND_AT_MS = Date.parse('2026-08-29T04:20:00-07:00')")
+  && reminder.includes('now >= DETAILS_CUTOFF_MS'));
+check('separate kickoff reminder runs at 6:55 AM Pacific',
+  kickoffReminder.includes("schedule: '55 13 29 8 *'")
+  && kickoffReminder.includes("SEND_AT_MS = Date.parse('2026-08-29T06:55:00-07:00')"));
+check('kickoff reminder cannot send after contestants should already be in rooms',
+  kickoffReminder.includes('now >= EVENT_START_MS'));
 check('reminder targets tournament entry members',
   reminder.includes("collection('entries').get()")
   && reminder.includes('entrantUids.add(uid)'));
@@ -30,6 +35,9 @@ check('reminder honors the global transactional opt-out',
 check('reminder is idempotent per entrant and tournament',
   reminder.includes('tournamentDayReminderEventId === tournament.id')
   && reminder.includes('tournamentDayReminderSentAt: FieldValue.serverTimestamp()'));
+check('kickoff reminder has a separate idempotency stamp',
+  kickoffReminder.includes('tournamentKickoffReminderEventId === tournament.id')
+  && kickoffReminder.includes('tournamentKickoffReminderSentAt: FieldValue.serverTimestamp()'));
 check('a failed stamp cannot abort the remaining entrant sends',
   reminder.includes("errorReasons['stamp-failed']")
   && reminder.includes('stamp failed for'));
@@ -57,6 +65,15 @@ check('email carries question, spreading, and camera scoring expectations',
     .every((text) => reminder.includes(text)));
 check('email supplies matching HTML and plain-text bodies',
   reminder.includes('html: renderEmail') && reminder.includes('text: renderTextEmail'));
+check('kickoff reminder is short, schedule-first, and points straight to check-in',
+  kickoffReminder.indexOf('<strong>Schedule</strong>') < kickoffReminder.indexOf('The Open starts in five minutes')
+  && kickoffReminder.includes('Check in now &rarr;')
+  && kickoffReminder.includes('The stream is live')
+  && kickoffReminder.includes('Join the <a href="${DISCORD_URL}"'));
+check('kickoff reminder targets the same active entrant cohort',
+  kickoffReminder.includes("collection('entries').get()")
+  && kickoffReminder.includes("new Set(['registered', 'checked_in'])")
+  && kickoffReminder.includes("isOptedOut(profile, 'transactional')"));
 check('both tournament participant pages prompt registered arrivals to check in',
   [open, tournament].every((page) => page.includes("title: 'You made it. Check in now.'")
     && page.includes("confirmLabel: 'Check in now'")

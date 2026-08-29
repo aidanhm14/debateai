@@ -1,9 +1,10 @@
 /* scheduled-tournament-day-reminder.mjs
  *
  * One-time operational reminder for The Debatable Open. Netlify invokes this
- * at 13:55 UTC on August 29, which is 06:55 Pacific and five minutes before
- * the published 07:00 Pacific start. The year guard makes the annual cron
- * inert after the 2026 event.
+ * every five minutes during the 11:00 UTC hour on August 29. The first run
+ * after this deploy sends the full day guide; later runs catch a fresh entrant
+ * only if they do not have the per-event success stamp. The separate kickoff
+ * reminder owns the five-minute-before-start message.
  *
  * This is transactional tournament mail, not a general account blast. The
  * cohort comes from active entry documents, then Firebase Auth supplies each
@@ -17,10 +18,10 @@ import {
   SITE_URL, brandHeader, esc, isOptedOut, renderFooter, sendEmail,
 } from './lib/email.mjs';
 
-const SEND_AT_MS = Date.parse('2026-08-29T06:55:00-07:00');
-const EVENT_START_MS = Date.parse('2026-08-29T07:00:00-07:00');
+const SEND_AT_MS = Date.parse('2026-08-29T04:20:00-07:00');
+const DETAILS_CUTOFF_MS = Date.parse('2026-08-29T05:00:00-07:00');
 const EVENT_NAME = 'The Debatable Open';
-const SUBJECT = 'Starts in 5 minutes: check in for The Debatable Open';
+const SUBJECT = 'The Debatable Open: schedule, check-in, and rules';
 const STATE_DOC = 'config/tournament_day_reminder_20260829';
 const ACTIVE_ENTRY_STATUSES = new Set(['registered', 'checked_in']);
 const PACE_MS = 140;
@@ -159,10 +160,10 @@ async function retryableSend(message) {
 
 export default async () => {
   const now = Date.now();
-  // Scheduled functions can start a little late. Allow a one-minute early
-  // start and any delay before the event begins. Once the first pairings are
-  // due, a new inbox notification would distract people already in rooms.
-  if (now < SEND_AT_MS - 60_000 || now >= EVENT_START_MS) {
+  // This is the detailed advance email. The repeated cron catches a deploy
+  // that misses one slot and reaches new entries during this short window;
+  // the per-user stamp makes every healthy recipient a one-time send.
+  if (now < SEND_AT_MS || now >= DETAILS_CUTOFF_MS) {
     console.log('[tournament-day-reminder] outside the 2026 event window, skipping');
     return;
   }
@@ -275,6 +276,6 @@ export default async () => {
   });
 };
 
-// Exactly 06:55 Pacific, five minutes before the published start. The per-user
-// success stamp keeps a manual retry idempotent if the scheduled run is partial.
-export const config = { schedule: '55 13 29 8 *' };
+// Runs at the next five-minute mark after deploy, then catches new entrants
+// through 04:55 Pacific. The five-minute kickoff reminder is a separate job.
+export const config = { schedule: '*/5 11 29 8 *' };
