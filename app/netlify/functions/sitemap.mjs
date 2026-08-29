@@ -53,14 +53,15 @@ const URLS = [
   // cannot win that query with 10 words. /ai-vs-ai-debate is 1,318 words
   // and already ranks position 7 for it, so the two were competing and
   // the thin one was holding the higher priority.
-  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-27' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-28' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
-  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-07-22' },
+  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-28' },
+  { path: '/learn',           changefreq: 'weekly',  priority: '0.85', lastmod: '2026-08-28' },
   // /today is a moving alias whose response canonicalizes to the dated
   // /today/YYYY-MM-DD page. The dated canonical for today already leads
   // sitemap-motions.xml, so listing the alias here submitted two URLs for
@@ -98,7 +99,8 @@ const URLS = [
   // 64-93 across every variant on 13 inbound internal links while six
   // other pages on this site carried an AI opponent in their title. The
   // dossier, guide and motion families now link it by name.
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-27' },
+  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-28' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-28' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
   { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },
@@ -111,12 +113,12 @@ const URLS = [
   // "debate people online" / "debate strangers" / "omegle for debate"
   // query cluster. Sister to /debate-online, focused on the random-human
   // /spar path (which is noindex itself, so this is the indexable doorway).
-  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-27' },
+  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-28' },
   // 2026-07-27 doorway pack. /omegle-alternative targets the huge
   // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
   // the query volume did not). /bet-on-your-words left the sitemap
   // 2026-08-22 when the betting cluster was removed (it 301s to /watch).
-  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-27' },
+  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-28' },
   // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
   // to '/argue-online' with force=true. Submitting the redirecting URL
   // landed as "Page with redirect" in Search Console: never indexed, and
@@ -137,7 +139,7 @@ const URLS = [
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.
   // Comparison intent: "free online debate platform" and plural variants.
-  { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-27' },
+  { path: '/online-debate-platforms',                 changefreq: 'weekly',  priority: '0.94', lastmod: '2026-08-28' },
   { path: '/online-debate-camp',                      changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-10' },
   { path: '/oral-exam-prep',                          changefreq: 'monthly', priority: '0.82', lastmod: '2026-07-23' },
   // Dedicated SEO doorway for "ai debate judge" / "judge a debate
@@ -244,13 +246,13 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
-  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-27' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-28' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
-  { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-08-27' },
+  { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-08-28' },
   // Verified facts, founder background, reporting angles, and official
   // assets for journalists and resource editors. The page exists to make
   // earned coverage easier to fact-check and link to.
-  { path: '/press',           changefreq: 'monthly', priority: '0.64', lastmod: '2026-08-27' },
+  { path: '/press',           changefreq: 'monthly', priority: '0.64', lastmod: '2026-08-28' },
   // Weekly rather than monthly: the splits on this page move as answers
   // land, so the content genuinely changes without the markup changing.
   { path: '/debate-shows',    changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-10' },

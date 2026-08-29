@@ -3298,7 +3298,7 @@ var MOTIONS_BY_FORMAT = {
   // "This house" framing. The whole point of Quick is that someone with
   // zero debate background can jump in.
   //
-  // 2026-08-26 (Aidan): these are CLAIMS, not questions. They used to be
+  // 2026-08-26 (the founder): these are CLAIMS, not questions. They used to be
   // "Should X?" and a question does not tell you what Pro is for. A round
   // labels one seat Pro and the other Con, so the resolution has to be a
   // sentence one of them can defend word for word: Pro says it is true,
@@ -3677,11 +3677,18 @@ var __signedInStatus = false;
 // Owner allowlist — these signed-in emails get treated as Pro on the
 // client (matching the server-side bypass in lib/auth.mjs) so the
 // owner doesn't see paywalls on their own product. Compared lowercase.
-var OWNER_EMAILS = new Set([
-'aidandavidhollinger@gmail.com']
-);
+var OWNER_EMAIL_HASHES = new Set(['2a7460e5']);
+function emailIdentityHash(email) {
+  var value = String(email || '').trim().toLowerCase();
+  var hash = 2166136261;
+  for (var i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
 function isOwnerEmail(email) {
-  return OWNER_EMAILS.has(String(email || '').toLowerCase());
+  return OWNER_EMAIL_HASHES.has(emailIdentityHash(email));
 }
 function isPro() {return __proStatus;}
 function isSignedIn() {return __signedInStatus;}
@@ -10455,7 +10462,7 @@ Rules:
   };
   var simpleSetupTree = el('div', { style: { maxWidth: 720, width: '100%', margin: '0 auto' } },
   el('div', { style: { textAlign: 'center', marginTop: 6, marginBottom: 22 } },
-  el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a full debate against the AI.'),
+  el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a casual 1v1 against the AI.'),
   el('p', { style: { fontSize: '.95rem', color: 'var(--c-text)', lineHeight: 1.5, margin: '8px auto 0', maxWidth: 600 } }, 'Take a side and argue a casual one-on-one round on the clock. Your opponent pushes back, and the AI judge returns a score out of 100 with a written verdict.')
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
@@ -13935,7 +13942,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   }
   @media print{ .fb-floating{display:none} }
 </style>
-<a href="mailto:aidandavidhollinger@gmail.com?subject=Debatable%20feedback" class="fb-floating" aria-label="Send feedback">
+<a href="mailto:hello@itsdebatable.com?subject=Debatable%20feedback" class="fb-floating" aria-label="Send feedback">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   Feedback
 </a>

@@ -19,7 +19,7 @@ export default async (request) => {
   if (BETA_NO_CHARGE) {
     return jsonResponse({
       error: 'BETA_NO_CHARGE',
-      message: 'Beta is free. Checkout is disabled until pricing goes live.',
+      message: 'Checkout is paused right now. Nothing was charged.',
     }, 403, request);
   }
 

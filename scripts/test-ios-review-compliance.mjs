@@ -100,7 +100,7 @@ ok('native-facing production and legal copy does not advertise beta testing', ()
   }
   assert.match(voice, /nativeApp \? 'Voice' : 'Voice · Beta'/);
   assert.match(voice, /nativeApp \?[\s\S]{0,120}href: '\/terms'[\s\S]{0,300}href: '\/safety'[\s\S]{0,100}Voice mode is in beta/i);
-  assert.match(coach, /<div id="freeMeter" class="free-meter" data-native-hide>Free in beta/i);
+  assert.match(coach, /<div id="freeMeter" class="free-meter" data-native-hide>Free allowance/i);
 });
 
 if (process.exitCode) {

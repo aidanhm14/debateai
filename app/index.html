@@ -3228,13 +3228,22 @@ function isPro(team, user) {
 //
 // This mirrors requirePaidPlan exactly, status included. If that
 // function's rule changes, change this one in the same commit.
-// Mirrors OWNER_EMAILS in practice.html and lib/auth.mjs. index.html
+// Mirrors the owner account in practice.html and lib/auth.mjs. index.html
 // never had this helper, so the first draft of hasBrainAccess called a
 // function that does not exist on this page and would have thrown a
 // ReferenceError the moment the brain picker rendered.
-var OWNER_EMAILS = new Set(['aidandavidhollinger@gmail.com']);
+var OWNER_EMAIL_HASHES = new Set(['2a7460e5']);
+function emailIdentityHash(email) {
+  var value = String(email || '').trim().toLowerCase();
+  var hash = 2166136261;
+  for (var i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
 function isOwnerEmail(email) {
-  return OWNER_EMAILS.has(String(email || '').toLowerCase());
+  return OWNER_EMAIL_HASHES.has(emailIdentityHash(email));
 }
 
 function hasBrainAccess(team, user) {
@@ -4397,6 +4406,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4419,8 +4429,7 @@ ANTHROPIC API HELPER
 // stream that the user is waiting on the animation after the API is done.
 //
 // Same interface as before (update / finish / cancel) so no callsite changes.
-function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
-  var streamed = ''; // everything the API has produced so far
+function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {var streamed = ''; // everything the API has produced so far
   var revealed = 0; // chars the user has seen
   var rafId = null;
   var finished = false;
@@ -14200,7 +14209,7 @@ function FeedbackModal({ onClose, currentTab }) {
       }
       // Also send email as backup
       var body = `Category: ${category}\nTab: ${currentTab}\n${selectedText ? 'Selected text: ' + selectedText + '\n' : ''}\n${description}\n\n[${screenshots.length} screenshot(s) attached in Firestore]`;
-      window.open('mailto:aidandavidhollinger@gmail.com?subject=Feedback: ' + encodeURIComponent(category) + '&body=' + encodeURIComponent(body));
+      window.open('mailto:hello@itsdebatable.com?subject=Feedback: ' + encodeURIComponent(category) + '&body=' + encodeURIComponent(body));
       setSent(true);
     } catch (e) {
       alert('Error sending feedback. Please try again.');
@@ -14688,16 +14697,16 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   )
   )
   ),
-  // Apple 3.1.1: the whole future-pricing card (tier grid + checkout
+  // Apple 3.1.1: the whole pricing card (tier grid + checkout
   // buttons) stays web-only. The native app shows no plan surface.
   team.plan === 'trial' && !window.__DB_NATIVE && el('div', { style: { padding: 22, background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.18)', borderRadius: 14, marginBottom: 24, position: 'relative', overflow: 'hidden' } },
   el('div', { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#ef4444,rgba(239,68,68,.2))' } }),
   el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 } },
   el('span', { style: { width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,.16)' } }),
-  'Free right now in beta'
+  'Plans are live'
   ),
   el('div', { style: { fontFamily: "'Archivo','Fraunces',Georgia,serif", fontWeight: 700, fontSize: '1.35rem', letterSpacing: '-.02em', lineHeight: 1.15, color: 'var(--text,#e4e8f0)', marginBottom: 6 } }, t('team.upgradePlan', 'Upgrade Your Plan')),
-  el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.85rem', lineHeight: 1.6, marginBottom: 16, maxWidth: 560 } }, 'Every tier is free while we\u2019re in beta. The prices below are where things head once we leave it. Think a number is off? Tell us in feedback.'),
+  el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.85rem', lineHeight: 1.6, marginBottom: 16, maxWidth: 560 } }, 'The free tier stays available. Choose a paid plan when you need more capacity or features. Think a number is off? Tell us in feedback.'),
   function () {
     var tiers = [
     { plan: 'byok', price: '$1/mo', sub: 'BYOK \u2022 your Claude key', tag: 'Cheapest' },
@@ -14707,7 +14716,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
     return el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
     tiers.map(function (ti) {return el('button', { key: ti.plan, onClick: () => openCheckout(ti.plan), disabled: actionLoading, className: checkoutPlan === ti.plan ? 'price-card-loading' : '', style: { padding: '15px 16px', background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.16)', borderRadius: 12, cursor: 'pointer', transition: '.2s', position: 'relative', textAlign: 'left', overflow: 'hidden' } },
       ti.tag && el('span', { style: { position: 'absolute', top: 11, right: 11, fontSize: '.54rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,.12)', border: '1px solid rgba(239,68,68,.3)', padding: '2px 7px', borderRadius: 999, letterSpacing: '.06em', textTransform: 'uppercase' } }, ti.tag),
-      el('div', { style: { fontSize: '.55rem', fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 7 } }, 'Free in beta'),
+      el('div', { style: { fontSize: '.55rem', fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 7 } }, 'Available now'),
       el('div', { style: { fontFamily: "'Archivo','Fraunces',Georgia,serif", fontSize: '1.55rem', fontWeight: 700, color: 'var(--text,#e4e8f0)', letterSpacing: '-.02em', lineHeight: 1 } }, ti.price),
       el('div', { style: { fontSize: '.72rem', color: 'var(--text-dim,#94a3b8)', fontWeight: 500, marginTop: 4 } }, ti.sub)
       );})
@@ -17747,7 +17756,7 @@ function App() {
   // blocking anon use entirely, which made Firebase failures in Safari /
   // in-app browsers lock people out. Copy stays in git history if we ever
   // want to restore it.
-  React.createElement('a', { className: 'feedback-trigger', href: 'mailto:aidandavidhollinger@gmail.com?subject=Debatable%20feedback', title: 'Send feedback', 'aria-label': 'Send feedback' },
+  React.createElement('a', { className: 'feedback-trigger', href: 'mailto:hello@itsdebatable.com?subject=Debatable%20feedback', title: 'Send feedback', 'aria-label': 'Send feedback' },
   React.createElement('span', { dangerouslySetInnerHTML: { __html: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' } }),
   'Feedback'
   ),
@@ -18215,7 +18224,7 @@ function App() {
   React.createElement('div', { style: { display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 8 } },
   React.createElement('button', { onClick: () => setLegalPage('terms'), style: { background: 'none', border: 'none', color: 'var(--text-muted,#64748b)', fontSize: '.72rem', cursor: 'pointer', fontFamily: 'inherit', padding: 0 } }, 'Terms of Service'),
   React.createElement('button', { onClick: () => setLegalPage('privacy'), style: { background: 'none', border: 'none', color: 'var(--text-muted,#64748b)', fontSize: '.72rem', cursor: 'pointer', fontFamily: 'inherit', padding: 0 } }, 'Privacy Policy'),
-  React.createElement('a', { href: 'mailto:aidandavidhollinger@gmail.com', style: { color: 'var(--text-muted,#64748b)', fontSize: '.72rem', textDecoration: 'none' } }, 'Contact'),
+  React.createElement('a', { href: 'mailto:hello@itsdebatable.com', style: { color: 'var(--text-muted,#64748b)', fontSize: '.72rem', textDecoration: 'none' } }, 'Contact'),
   React.createElement('a', { href: '/landing', style: { color: 'var(--text-muted,#64748b)', fontSize: '.72rem', textDecoration: 'none' } }, 'About')
   ),
   React.createElement('div', { style: { color: 'var(--text-muted,#4a5568)', fontSize: '.65rem' } }, '\u00A9 ' + new Date().getFullYear() + ' Debatable. All rights reserved.'),
@@ -18253,7 +18262,7 @@ function App() {
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '10. Changes to Terms'),
   React.createElement('p', null, 'We may update these terms from time to time. Continued use of the Service after changes constitutes acceptance of the updated terms.'),
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '11. Contact'),
-  React.createElement('p', null, 'For questions about these terms, contact us at aidandavidhollinger@gmail.com.')
+  React.createElement('p', null, 'For questions about these terms, contact us at hello@itsdebatable.com.')
   ),
   legalPage === 'privacy' && React.createElement('div', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.85rem', lineHeight: 1.8 } },
   React.createElement('p', { style: { color: 'var(--text-muted,#64748b)', fontSize: '.75rem', marginBottom: 16 } }, 'Last updated: April 7, 2026'),
@@ -18270,13 +18279,13 @@ function App() {
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '6. Cookies and Local Storage'),
   React.createElement('p', null, 'We use browser localStorage to save your preferences, saved cases, and session data. We do not use tracking cookies or third-party analytics cookies.'),
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '7. Data Retention and Deletion'),
-  React.createElement('p', null, 'Account data is retained while your account is active. You may request deletion of your account and associated data by contacting aidandavidhollinger@gmail.com. localStorage data can be cleared through your browser settings.'),
+  React.createElement('p', null, 'Account data is retained while your account is active. You may request deletion of your account and associated data by contacting hello@itsdebatable.com. localStorage data can be cleared through your browser settings.'),
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '8. Children\'s Privacy'),
   React.createElement('p', null, 'The Service is intended for users aged 13 and older. We do not knowingly collect information from children under 13. If you believe a child under 13 has provided us with personal information, please contact us.'),
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '9. Your Rights'),
-  React.createElement('p', null, 'You have the right to: access your personal data, request correction of inaccurate data, request deletion of your data, and opt out of communications. Contact aidandavidhollinger@gmail.com to exercise these rights.'),
+  React.createElement('p', null, 'You have the right to: access your personal data, request correction of inaccurate data, request deletion of your data, and opt out of communications. Contact hello@itsdebatable.com to exercise these rights.'),
   React.createElement('h3', { style: { color: 'var(--text-primary,#e4e8f0)', fontSize: '.95rem', fontWeight: 700, marginTop: 20, marginBottom: 8 } }, '10. Contact'),
-  React.createElement('p', null, 'For privacy-related inquiries, contact us at aidandavidhollinger@gmail.com.')
+  React.createElement('p', null, 'For privacy-related inquiries, contact us at hello@itsdebatable.com.')
   )
   )
   )

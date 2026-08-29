@@ -29,10 +29,12 @@ function check(name, condition) {
 const firstEvent = 'Date.UTC(2026, 6, 23, 0, 0, 0)';
 check('Spar Night schedule is shared across client and server',
   sparNight.includes(firstEvent) && rsvp.includes(firstEvent) && reminder.includes(firstEvent));
-check('Spar Night is Wednesday at 8pm Eastern',
-  sparNight.includes('var EVENT_HOUR = 20')
-  && rsvp.includes("const TZ = 'America/New_York'")
-  && reminder.includes('Wednesday, 8:00 PM Eastern'));
+check('Spar Night has three Wednesday sessions',
+  sparNight.includes("{ hour: 7,  name: 'Asia-Pacific night'")
+  && sparNight.includes("{ hour: 15, name: 'Europe night'")
+  && sparNight.includes("{ hour: 20, name: 'US night'")
+  && rsvp.includes('for (const hour of [7, 15, 20])')
+  && reminder.includes('const SESSION_HOURS = [7, 15, 20]'));
 check('Spar Night has a ninety-minute live window',
   sparNight.includes('90 * 60 * 1000')
   && rsvp.includes('90 * 60 * 1000')
@@ -46,8 +48,11 @@ check('RSVP endpoint validates and deduplicates email',
 check('RSVP endpoint has bot and rate controls',
   rsvp.includes("body['bot-field']") && rsvp.includes('RATE_LIMIT = 5'));
 check('scheduled reminder is configured weekly',
-  reminder.includes("schedule: '0 13 * * 3'")
+  reminder.includes("schedule: '0 9 * * 3'")
   && reminder.includes('MIN_GAP_RUN_MS = 5 * DAY_MS'));
+check('scheduled reminder makes no matching-time promise',
+  !reminder.includes('match with a real opponent in\n    seconds')
+  && reminder.includes('live pool has a better chance'));
 check('scheduled reminder honors opt-out and deduplicates addresses',
   reminder.includes("isOptedOut(prof, 'sparnight')")
   && reminder.includes('r.unsubscribed')

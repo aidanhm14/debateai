@@ -1,69 +1,28 @@
-import assert from 'node:assert/strict';
-import handler, {
-  renderVariant,
-  selectVariant,
-  TITLES,
-} from '../netlify/edge-functions/share-title.mjs';
+import fs from 'node:fs';
 
-const fixture = `<!doctype html><head>
-<meta property="og:title" content="${TITLES.bet}" />
-<meta name="twitter:title" content="${TITLES.bet}" />
-<meta name="debatable:share-title-variant" content="bet" />
-</head>`;
+const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
+const appEdge = new URL('../app/netlify/edge-functions/share-title.mjs', import.meta.url);
+const rootEdge = new URL('../netlify/edge-functions/share-title.mjs', import.meta.url);
 
-assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/?share_title=opinion'), 'bet', () => 0),
-  'opinion',
-  'query assignment must win over an existing cookie',
-);
-assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), 'opinion', () => 0),
-  'opinion',
-  'cookie assignment must stay sticky',
-);
-assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.32),
-  'bet',
-  'first third of the random split must receive the bet variant',
-);
-assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.34),
-  'opinion',
-  'middle third of the random split must receive the opinion variant',
-);
-assert.equal(
-  selectVariant(new URL('https://itsdebatable.com/'), '', () => 0.67),
-  'streamers',
-  'final third of the random split must receive the streamers variant',
-);
+function metaContent(attribute, name) {
+  const pattern = new RegExp(`<meta\\b(?=[^>]*\\b${attribute}=["']${name}["'])[^>]*\\bcontent=["']([^"']+)["'][^>]*>`, 'i');
+  return (landing.match(pattern) || [])[1] || '';
+}
 
-const rendered = renderVariant(fixture, 'streamers');
-assert.match(rendered, /og:title" content="Debatable - Strangers vs streamers"/);
-assert.match(rendered, /twitter:title" content="Debatable - Strangers vs streamers"/);
-assert.match(rendered, /share-title-variant" content="streamers"/);
+const ogTitle = metaContent('property', 'og:title');
+const twitterTitle = metaContent('name', 'twitter:title');
+const checks = [
+  ['Open Graph and Twitter titles are present', Boolean(ogTitle && twitterTitle)],
+  ['Open Graph and Twitter use one pinned title', ogTitle === twitterTitle],
+  ['retired title assignment metadata is absent', !landing.includes('debatable:share-title-variant')],
+  ['retired title experiment tracking is absent', !landing.includes('share_title_view') && !landing.includes('__shareTitleAb')],
+  ['retired edge function remains removed', !fs.existsSync(appEdge) && !fs.existsSync(rootEdge)],
+];
 
-let cookie;
-const response = await handler(
-  new Request('https://itsdebatable.com/?share_title=streamers'),
-  {
-    cookies: {
-      get: () => '',
-      set: (value) => { cookie = value; },
-    },
-    next: async () => new Response(fixture, {
-      headers: {
-        'content-type': 'text/html; charset=UTF-8',
-        'content-length': String(fixture.length),
-        etag: '"old"',
-      },
-    }),
-  },
-);
-
-assert.equal(cookie.value, 'streamers');
-assert.equal(response.headers.get('x-debatable-share-title'), 'streamers');
-assert.equal(response.headers.get('content-length'), null);
-assert.equal(response.headers.get('etag'), null);
-assert.match(await response.text(), /Debatable - Strangers vs streamers/);
-
-console.log('share-title edge tests passed');
+let failed = 0;
+for (const [label, ok] of checks) {
+  console.log((ok ? 'PASS ' : 'FAIL ') + label);
+  if (!ok) failed++;
+}
+console.log(`\n${checks.length - failed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

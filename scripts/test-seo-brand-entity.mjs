@@ -16,6 +16,7 @@ function jsonLdNodes(html) {
 
 const landing = read('app/landing.html');
 const about = read('app/debatable.html');
+const press = read('app/press.html');
 const llms = read('app/llms.txt');
 const robots = read('app/robots.txt');
 const sitemap = read('app/netlify/functions/sitemap.mjs');
@@ -24,8 +25,6 @@ const landingNodes = jsonLdNodes(landing);
 const aboutNodes = jsonLdNodes(about);
 const landingOrg = landingNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#org');
 const aboutOrg = aboutNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#org');
-const landingFounder = landingNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#founder');
-const aboutFounder = aboutNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#founder');
 const website = landingNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#website');
 const application = landingNodes.find((node) => node['@id'] === 'https://itsdebatable.com/#app');
 const aboutPage = aboutNodes.find((node) => node['@type'] === 'AboutPage');
@@ -55,30 +54,31 @@ check('organization identifies the official domain',
   landingOrg?.identifier === 'itsdebatable.com'
   && aboutOrg?.identifier === 'itsdebatable.com'
   && /at itsdebatable\.com/.test(landingOrg?.disambiguatingDescription || ''));
-check('organization points to one founder entity',
-  landingOrg?.founder?.['@id'] === 'https://itsdebatable.com/#founder'
-  && aboutOrg?.founder?.['@id'] === 'https://itsdebatable.com/#founder');
-check('founder identity matches across both entity graphs',
-  landingFounder?.name === 'Aidan David Hollinger-Miles'
-  && aboutFounder?.name === landingFounder?.name);
-check('founder entity connects to independent public records',
-  aboutFounder?.sameAs?.includes('https://www.linkedin.com/in/aidan-david-hollinger-miles')
-  && aboutFounder?.sameAs?.includes('https://results.apda.online/core/debaters/5968'));
+check('organization graphs do not publish a founder identity',
+  !landingOrg?.founder
+  && !aboutOrg?.founder
+  && !landingNodes.some((node) => node['@type'] === 'Person')
+  && !aboutNodes.some((node) => node['@type'] === 'Person'));
+check('organization graphs agree on the casual product',
+  landingOrg?.knowsAbout?.includes('Casual one-on-one debate')
+  && aboutOrg?.knowsAbout?.includes('Casual one-on-one debate'));
 check('website and application have stable ids',
   website?.name === 'Debatable'
   && application?.name === 'Debatable'
   && application?.applicationCategory === 'SocialNetworkingApplication');
 check('AboutPage resolves to the canonical organization',
   aboutPage?.mainEntity?.['@id'] === 'https://itsdebatable.com/#org');
-check('founder FAQ answers the founder question',
+check('round FAQ answers the public product question',
   aboutFaq?.mainEntity?.some((item) =>
-    item.name === 'Who built Debatable?'
-    && /Aidan David Hollinger-Miles founded/.test(item.acceptedAnswer?.text || '')));
+    item.name === 'What kind of round does Debatable use?'
+    && /casual 1v1/.test(item.acceptedAnswer?.text || '')));
 check('every structured FAQ question is visible on the page',
   aboutFaq?.mainEntity?.every((item) => visibleHeadings.includes(item.name)));
-check('visible brand page carries the same founder answer',
-  about.includes('<h2 id="founder">Who built Debatable?</h2>')
-  && about.includes('<strong>Aidan David Hollinger-Miles</strong> founded'));
+check('visible brand page carries the same round answer',
+  about.includes('<h2>What kind of round does Debatable use?</h2>')
+  && about.includes('Every public round is a casual 1v1.'));
+check('public identity surfaces do not expose the retired founder identity',
+  !/Aidan|Hollinger|results\.apda\.online|linkedin\.com\/in\/aidan/i.test(landing + about + press + llms));
 check('brand page disambiguates similarly named products',
   about.includes('<h2>Which Debatable is this?</h2>')
   && /independent from other apps, websites, and organizations/.test(about));
@@ -93,8 +93,11 @@ check('robots policy leaves public facts crawlable',
   /User-agent: \*\s+Allow: \//.test(robots)
   && !/Disallow: \/(?:llms\.txt|debatable)(?:\s|$)/.test(robots));
 check('sitemap marks changed brand surfaces fresh',
-  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-27'/.test(sitemap)
-  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-27'/.test(sitemap));
+  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-28'/.test(sitemap)
+  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
+check('sitemap submits the current AI and learn entry pages',
+  /path: '\/debate-an-ai'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap)
+  && /path: '\/learn'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

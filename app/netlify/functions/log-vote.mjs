@@ -31,16 +31,6 @@ function validateVote(side, confidence, phase) {
   return null;
 }
 
-// Hash the voter ID (device cookie) for privacy in logs
-function hashVoterId(voterId) {
-  if (!voterId) return null;
-  const encoder = new TextEncoder();
-  const data = encoder.encode(voterId);
-  // In a real implementation, use crypto.subtle.digest or a server-side hash library
-  // For now, return a truncated base64 for obfuscation
-  return voterId.slice(0, 4) + '...' + voterId.slice(-4);
-}
-
 export default async (req, context) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'POST only' }, 405, req);
 
@@ -102,7 +92,7 @@ export default async (req, context) => {
     }
 
     // Extract client IP for clustering detection (future: compare with other voters)
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('cf-connecting-ip') || 'unknown';
+    const clientIp = callerIp(req);
 
     // Write the vote
     const voteId = phase + '_' + voterId + '_' + roundId;  // composite key for idempotency
@@ -117,7 +107,7 @@ export default async (req, context) => {
       createdAt: FieldValue.serverTimestamp(),
       clientIp,  // for clustering analysis (stored server-side, not exposed to client)
       trustWeight,
-    }, 200, req);
+    });
 
     // If this is a post-vote, compute the delta vs the pre-vote
     let delta = { side_switched: false, confidence_delta: 0 };
@@ -143,3 +133,5 @@ export default async (req, context) => {
     return jsonResponse({ error: e.message }, 500, req);
   }
 };
+
+export const config = { path: '/api/log-vote' };

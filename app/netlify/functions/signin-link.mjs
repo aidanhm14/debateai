@@ -119,7 +119,7 @@ function template({ link, name }) {
     <a href="${esc(link)}" style="color:#b91c1c;word-break:break-all">${esc(link)}</a>
   </p>
   <p style="margin:0 0 8px;font-size:.86rem;color:#6b6b76">The link works once and expires in an hour. If you did not ask to sign in, ignore this and nothing happens.</p>
-  <p style="margin:24px 0 0;font-size:.86rem;color:#6b6b76">Aidan<br>itsdebatable.com</p>
+  <p style="margin:24px 0 0;font-size:.86rem;color:#6b6b76">Debatable<br>itsdebatable.com</p>
 </div>`;
 }
 
@@ -168,7 +168,7 @@ export default async (request) => {
     stream: 'transactional',
     // Replies to a sign-in link are a person who is stuck, and they should
     // reach a human rather than a mailbox nobody reads.
-    replyTo: 'aidandavidhollinger@gmail.com',
+    replyTo: 'hello@itsdebatable.com',
   });
 
   if (!sent.ok) {

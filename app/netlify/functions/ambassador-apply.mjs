@@ -58,7 +58,7 @@ function emailHash(email) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NOTIFY_TO = process.env.AMBASSADOR_NOTIFY_TO || 'aidandavidhollinger@gmail.com';
+const NOTIFY_TO = process.env.AMBASSADOR_NOTIFY_TO || 'hello@itsdebatable.com';
 
 function clamp(s, n) {
   return typeof s === 'string' ? s.trim().slice(0, n) : '';

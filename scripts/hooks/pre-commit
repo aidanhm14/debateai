@@ -145,6 +145,44 @@ if [ -f "$SPAR_GOOGLE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Spectator vote logging is a public client-to-function contract. Keep the
+# Netlify path and Firestore write signature from drifting apart again.
+LOG_VOTE_GUARD="$REPO_ROOT/scripts/test-log-vote.mjs"
+if [ -f "$LOG_VOTE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-log-vote.mjs >/tmp/log-vote-guard.log 2>&1); then
+    echo "[log-vote-guard] commit blocked - spectator votes cannot reach a valid server write:" >&2
+    tail -20 /tmp/log-vote-guard.log >&2
+    echo "[log-vote-guard] see scripts/test-log-vote.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# The former /registry shell called an endpoint that never shipped. Keep the
+# safe redirect and all public navigation aligned until aggregation has an
+# explicit privacy design.
+REGISTRY_ROUTE_GUARD="$REPO_ROOT/scripts/test-registry-route.mjs"
+if [ -f "$REGISTRY_ROUTE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-registry-route.mjs >/tmp/registry-route-guard.log 2>&1); then
+    echo "[registry-route-guard] commit blocked - /registry would dead-end or expose an unreviewed aggregate:" >&2
+    tail -20 /tmp/registry-route-guard.log >&2
+    echo "[registry-route-guard] see scripts/test-registry-route.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# Founder identity was retired from every public surface, including HTML
+# source and sign-in emails. Client entitlement checks keep only a one-way
+# hash so the operator account still behaves correctly without publishing it.
+PUBLIC_IDENTITY_GUARD="$REPO_ROOT/scripts/test-public-identity.mjs"
+if [ -f "$PUBLIC_IDENTITY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-public-identity.mjs >/tmp/public-identity-guard.log 2>&1); then
+    echo "[public-identity-guard] commit blocked - a public surface exposes retired founder identity:" >&2
+    tail -30 /tmp/public-identity-guard.log >&2
+    echo "[public-identity-guard] see scripts/test-public-identity.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Brand-entity guard. "Debatable" is a crowded, generic name, so the
 # homepage, canonical /debatable definition page, sitemap, and llms.txt

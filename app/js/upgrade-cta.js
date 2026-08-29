@@ -13,7 +13,7 @@
   'use strict';
 
   // Native app (App Store build): no upgrade/purchase surfaces. Apple 3.1.1
-  // forbids steering to web payment; beta is free, so the pill just no-ops.
+  // forbids steering to web payment, so the pill just no-ops.
   if (window.__DB_NATIVE || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
 
   const FIREBASE_CONFIG = {
@@ -126,7 +126,7 @@
     body.style.cssText = 'flex:1;min-width:0';
     const title = document.createElement('div');
     title.style.cssText = 'font-weight:800;font-size:.88rem;letter-spacing:.01em;margin-bottom:2px';
-    title.textContent = state === 'capped' ? "You've hit the beta cap" : 'Save your workspace';
+    title.textContent = state === 'capped' ? "You've hit the free cap" : 'Save your workspace';
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'

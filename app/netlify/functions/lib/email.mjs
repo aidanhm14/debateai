@@ -208,7 +208,7 @@ export function senderDomain(from) {
 //          is not verified, because an unverified From does not error where
 //          anyone looks, it 403s silently, which is how every Spar Night
 //          email between Jul 22 and Aug 5 was lost.
-// replyTo: explicit arg > EMAIL_REPLY_TO env > 'aidandavidhollinger@gmail.com'
+// replyTo: explicit arg > EMAIL_REPLY_TO env > 'hello@itsdebatable.com'
 // text:    when omitted, derived from html via toText().
 // For digest/winback/onboarding with a computable unsub URL, RFC 8058
 // one-click headers ride along so mail clients show a native Unsubscribe.
@@ -220,7 +220,7 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   if (!to) return { ok: false, reason: 'no-recipient' };
 
   const resolvedFrom = from || process.env.EMAIL_FROM || 'Debatable <hello@itsdebatable.com>';
-  const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'aidandavidhollinger@gmail.com';
+  const resolvedReplyTo = replyTo || process.env.EMAIL_REPLY_TO || 'hello@itsdebatable.com';
   const resolvedText = text || toText(html);
 
   const allHeaders = { ...(headers || {}) };

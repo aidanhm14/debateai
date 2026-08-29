@@ -77,7 +77,7 @@ import { FOUNDING_CUTOFF_MS } from './lib/founding-comp.mjs';
 const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Debatable <hello@debateai.com>';
-const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'hello@itsdebatable.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 // 2026-08-22: the subject states the ask rather than teasing it. The

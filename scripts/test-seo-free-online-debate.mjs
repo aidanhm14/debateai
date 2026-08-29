@@ -49,22 +49,22 @@ const article = jsonLd.find((entry) => entry['@type'] === 'Article');
 const itemList = jsonLd.find((entry) => entry['@type'] === 'ItemList');
 const faq = jsonLd.find((entry) => entry['@type'] === 'FAQPage');
 
-check('title targets exact free-platform query', title.startsWith('7 Best Free Online Debate Platforms'));
+check('title targets the current platform comparison', title.startsWith('Online Debate Platforms: 13 Compared'));
 check('title fits search display', title.length >= 45 && title.length <= 60);
-check('description contains exact query phrase', description.includes('free online debate platforms'));
+check('description describes the thirteen-platform comparison', /Thirteen platforms compared/.test(description));
 check('description fits search display', description.length >= 120 && description.length <= 160);
 check('one exact-intent H1 is present',
-  h1 === 'The best free online debate platforms in 2026'
+  h1 === 'Online debate platforms, compared'
   && (page.match(/<h1\b/g) || []).length === 1);
-check('lede directly answers exact query', page.includes('<strong>free online debate platform</strong>'));
+check('lede directly answers the online-debate question', page.includes('<strong>debate online</strong>'));
 check('Debatable free access is qualified',
-  page.includes('Debatable offers limited free access to video and AI debates'));
+  page.includes('Debatable offers limited free access to live video and AI rounds'));
 check('access note explains limits',
   page.includes('<strong>What “free” means here.</strong>')
   && page.includes('this guide does not promise permanent or unrestricted access'));
 check('comparison table has access column', page.includes('<th>Free access</th>'));
 check('Debatable row names limited rounds',
-  /<a href="\/spar">Debatable<\/a>[\s\S]{0,100}<td>Limited rounds<\/td>/.test(page));
+  /<a href="\/spar">Debatable<\/a>[\s\S]{0,240}<td>Limited rounds<\/td>/.test(page));
 check('exact-query FAQ is visible', page.includes('<summary>What is the best free online debate platform?</summary>'));
 
 check('canonical points to the substantive comparison',
@@ -73,17 +73,17 @@ check('English and default alternates agree with canonical',
   page.includes('hreflang="en" href="https://itsdebatable.com/online-debate-platforms"')
   && page.includes('hreflang="x-default" href="https://itsdebatable.com/online-debate-platforms"'));
 check('page is fully indexable', page.includes('content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"'));
-check('social titles target exact query',
-  page.includes('<meta property="og:title" content="7 Best Free Online Debate Platforms')
-  && page.includes('<meta name="twitter:title" content="7 Best Free Online Debate Platforms'));
+check('social titles target the current comparison',
+  page.includes('<meta property="og:title" content="Online Debate Platforms: 13 Compared')
+  && page.includes('<meta name="twitter:title" content="Online Debate Platforms: 13 Compared'));
 check('social image has alt text', page.includes('<meta property="og:image:alt"') && page.includes('<meta name="twitter:image:alt"'));
 
 check('all JSON-LD parses', jsonLd.length >= 3 && jsonLd.every((entry) => !entry.parseError));
-check('Article schema targets exact query', article?.headline === '7 Best Free Online Debate Platforms in 2026');
-check('ItemList schema targets exact query', itemList?.name === 'Best free online debate platforms in 2026');
+check('Article schema targets the current comparison', article?.headline === 'Online Debate Platforms: 13 Compared (2026)');
+check('ItemList schema targets the current comparison', itemList?.name === 'Online debate platforms compared in 2026');
 check('Debatable is first in structured comparison', itemList?.itemListElement?.[0]?.name === 'Debatable');
-check('structured Debatable claim qualifies free access',
-  itemList?.itemListElement?.[0]?.description?.startsWith('Limited free access'));
+check('structured Debatable claim avoids unlimited access promises',
+  !/unlimited|no payment required/i.test(itemList?.itemListElement?.[0]?.description || ''));
 check('FAQ schema answers exact query',
   faq?.mainEntity?.some((item) => item.name === 'What is the best free online debate platform?'));
 
@@ -96,10 +96,10 @@ check('alias is not submitted as a competing sitemap URL',
   !sitemap.includes("path: '/free-online-debate-platform'")
   && !staticSitemap.includes('<loc>https://itsdebatable.com/free-online-debate-platform</loc>'));
 check('live sitemap marks comparison fresh and important',
-  /path: '\/online-debate-platforms'[\s\S]{0,120}priority: '0\.92'[\s\S]{0,80}lastmod: '2026-08-10'/.test(sitemap));
+  /path: '\/online-debate-platforms'[\s\S]{0,120}priority: '0\.94'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
 check('static sitemap names exact query and fresh date',
   staticSitemap.includes('"free online debate platform"')
-  && /<loc>https:\/\/itsdebatable\.com\/online-debate-platforms<\/loc>\s+<lastmod>2026-08-10<\/lastmod>/.test(staticSitemap));
+  && /<loc>https:\/\/itsdebatable\.com\/online-debate-platforms<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap));
 
 check('homepage links exact query anchor to comparison',
   landing.includes('<a href="/online-debate-platforms" style="color:var(--text-dim)">Free online debate platforms</a>'));

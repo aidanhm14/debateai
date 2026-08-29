@@ -194,7 +194,7 @@
       msg: '<strong>Signed out, the score is worth nothing.</strong> Sign in and every judged voice round banks XP, moves your level, and puts your best score on the leaderboard.' },
     { match: /^\/learn/,
       delay: 30,
-      msg: "Sign in and I'll track which formats you've drilled, so the AI knows what to push you on." },
+      msg: "Sign in and I'll track which fundamentals you've drilled, so the AI knows what to push you on." },
     { match: /^\/today/,
       delay: 25,
       msg: "Sign in to bookmark today's motion. Tomorrow's lands in your inbox-less feed, not your email." },
@@ -213,7 +213,7 @@
       msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
     { match: /^\/pricing/,
       delay: 25,
-      msg: "Beta is free for everyone. Sign in to keep your rounds when pricing turns on." },
+      msg: "Free and paid plans are live. Sign in to keep your rounds and manage your plan." },
     // /watch is a common first screen for spectators. Sell the two things
     // an account buys a viewer: a held seat in a live room, and clips.
     { match: /^\/(watch|replays)(?:\.html)?(?:[/?#]|$)/,

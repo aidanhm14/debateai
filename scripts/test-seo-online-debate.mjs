@@ -59,25 +59,26 @@ for (const match of landing.matchAll(/<script type="application\/ld\+json">([\s\
 const landingEntities = landingJsonLd.flatMap((entry) => entry['@graph'] || [entry]);
 const homeWebPage = landingEntities.find((entry) => entry['@id'] === 'https://itsdebatable.com/#webpage');
 
-check('title begins with exact query', title.startsWith('Online Debate '));
+check('title begins with exact query', title.startsWith('Debate Online '));
 check('title fits search display', title.length >= 45 && title.length <= 60);
-check('description begins with exact query intent', description.startsWith('Join an online debate'));
+check('description begins with the current watch-or-join intent', description.startsWith('Watch live arguments'));
 check('description fits search display', description.length >= 120 && description.length <= 160);
-check('one transactional H1 is present', h1 === 'Enter the debate pool. Get a real verdict.' && (page.match(/<h1\b/g) || []).length === 1);
-check('hero directly answers transactional intent', page.includes('<strong>Join an online debate</strong>'));
+check('one transactional H1 is present', h1 === 'Debate online. Climb the leaderboard.' && (page.match(/<h1\b/g) || []).length === 1);
+check('hero directly answers the watch-or-join intent', page.includes('Watch a live round, or take a seat against another person'));
 check('first screen offers honest human queue and AI fallback',
-  page.includes('Human match when someone is available. AI fallback when the queue is quiet.')
-  && page.includes('Enter the debate pool'));
+  page.includes('Live, when someone is waiting')
+  && page.includes('Debate a real person')
+  && page.includes('Argue with the AI'));
 check('first screen exposes direct Google sign-in',
-  page.includes('id="poolGoogleSignin"')
-  && page.includes('window.debatableGoogleSignIn'));
+  page.includes('id="doGoogle"')
+  && page.includes("button.addEventListener('click'"));
 check('page loads shared One Tap and account-linking module', page.includes('/js/signup-nudge.js'));
 check('One Tap route uses inline auth without a competing nudge',
   signupNudge.includes("match: /^\\/debate-online")
   && signupNudge.includes('inlineAuth: true')
   && signupNudge.includes('window.debatableGoogleSignIn'));
 check('home redirect popup yields to the page conversion flow',
-  /NO_POPUP = .*debate-online/.test(homeMagnet));
+  /entryPages = \{[\s\S]*?'\/debate-online': true/.test(homeMagnet));
 check('definition FAQ is visible', page.includes('<summary>What is an online debate?</summary>'));
 
 check('canonical points to one clean URL', page.includes('<link rel="canonical" href="https://itsdebatable.com/debate-online">'));
@@ -86,20 +87,20 @@ check('English and default alternates agree with canonical',
   && page.includes('hreflang="x-default" href="https://itsdebatable.com/debate-online"'));
 check('page is fully indexable', page.includes('content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"'));
 check('social titles begin with exact query',
-  page.includes('<meta property="og:title" content="Online Debate ')
-  && page.includes('<meta name="twitter:title" content="Online Debate '));
+  page.includes('<meta property="og:title" content="Debate Online ')
+  && page.includes('<meta name="twitter:title" content="Debate Online '));
 check('social image has alt text', page.includes('<meta property="og:image:alt"') && page.includes('<meta name="twitter:image:alt"'));
 
 check('all JSON-LD parses', jsonLd.length >= 1 && jsonLd.every((entry) => !entry.parseError));
 check('WebPage entity matches canonical',
   webPage?.['@id'] === 'https://itsdebatable.com/debate-online#webpage'
   && webPage?.url === 'https://itsdebatable.com/debate-online'
-  && webPage?.name.startsWith('Online Debate '));
+  && webPage?.name.startsWith('Debate Online '));
 check('application entity carries exact-query aliases',
   application?.alternateName?.includes('Online Debate')
   && application?.alternateName?.includes('Online Debate Platform'));
 check('breadcrumb names the exact query', breadcrumb?.itemListElement?.[1]?.name === 'Online Debate');
-check('path entity describes participation choices', paths?.name === 'Online debate: three ways to participate');
+check('path entity describes participation choices', paths?.name === 'Online debate: ways to play');
 check('FAQ schema defines online debate', faq?.mainEntity?.some((item) => item.name === 'What is an online debate?'));
 
 function hasAliasRedirect(source) {
@@ -111,17 +112,17 @@ check('alias is not submitted as a competing sitemap URL',
   !sitemap.includes("path: '/online-debate'")
   && !staticSitemap.includes('<loc>https://itsdebatable.com/online-debate</loc>'));
 check('live sitemap marks canonical page fresh and primary',
-  /path: '\/debate-online'[\s\S]{0,140}priority: '0\.92'[\s\S]{0,80}lastmod: '2026-08-12'/.test(sitemap));
+  /path: '\/debate-online'[\s\S]{0,140}priority: '0\.92'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
 check('live sitemap marks branded homepage fresh and primary',
-  /path: '\/'[\s\S]{0,100}priority: '1\.0'[\s\S]{0,80}lastmod: '2026-08-12'/.test(sitemap));
+  /path: '\/'[\s\S]{0,100}priority: '1\.0'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
 check('static sitemap names both query word orders', staticSitemap.includes('"online debate" / "debate online"'));
 check('static sitemap marks homepage and debate page fresh',
-  /<loc>https:\/\/itsdebatable\.com\/<\/loc>\s+<lastmod>2026-08-12<\/lastmod>/.test(staticSitemap)
-  && /<loc>https:\/\/itsdebatable\.com\/debate-online<\/loc>\s+<lastmod>2026-08-12<\/lastmod>/.test(staticSitemap));
+  /<loc>https:\/\/itsdebatable\.com\/<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap)
+  && /<loc>https:\/\/itsdebatable\.com\/debate-online<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap));
 
-check('homepage links exact anchor to canonical', landing.includes('<a href="/debate-online" style="color:var(--text-dim)">Online debate</a>'));
+check('homepage links exact anchor to canonical', /<a href="\/debate-online"[^>]*>Debate online<\/a>/.test(landing));
 check('homepage metadata owns branded intent',
-  landing.includes('<title>Debatable | Live Online Debate with Real People or AI</title>')
+  landing.includes('<title>Debatable | Live, Judged Debate With Real People</title>')
   && landing.includes('"@id": "https://itsdebatable.com/#webpage"'));
 check('homepage JSON-LD parses with a branded WebPage entity',
   landingJsonLd.length >= 1

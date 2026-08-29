@@ -7,6 +7,32 @@ const pair = read('app/netlify/functions/spar-pair.mjs');
 const rules = read('app/firestore.rules');
 const notifications = read('app/js/notifications.js');
 
+const publicContractPages = [
+  'app/debate-online.html',
+  'app/debate-strangers.html',
+  'app/debate-an-ai.html',
+  'app/how-it-works.html',
+  'app/omegle-alternative.html',
+  'app/learn.html',
+  'app/debatable.html',
+  'app/press.html',
+  'app/research.html',
+  'app/online-debate-platforms.html',
+];
+
+function publicText(html) {
+  const jsonLd = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
+    .map((match) => match[1])
+    .join(' ');
+  const visible = html
+    .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  return `${visible} ${jsonLd}`.replace(/\s+/g, ' ');
+}
+
 let failures = 0;
 function check(ok, message) {
   if (ok) return;
@@ -36,6 +62,25 @@ check(gateLiveTotal && gateLiveTotal(3) === 15 && gateLiveTotal(-2) === 12, 'sig
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');
+
+const retiredGuestPromise = /two live rounds|two guest rounds|first two live rounds|guest rounds before sign-in/i;
+const retiredPublicFormats = /\b(?:APDA|WSDC|Quick Clash|General Clash|British Parliamentary|Asian Parliamentary|Asian Parli|Public Forum|Lincoln-Douglas|World Schools|Model UN|Karl Popper)\b/i;
+for (const path of publicContractPages) {
+  const source = read(path);
+  check(!retiredGuestPromise.test(source), `${path} must not promise retired guest live rounds`);
+  check(!retiredPublicFormats.test(publicText(source)), `${path} must not expose a retired competitive format`);
+}
+
+for (const path of [
+  'app/landing.html',
+  'app/debate-online.html',
+  'app/debate-strangers.html',
+  'app/how-it-works.html',
+  'app/omegle-alternative.html',
+]) {
+  const source = read(path);
+  check(/live video requires Google sign-in/i.test(source), `${path} must describe the Google-only live door`);
+}
 
 const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54'];
 for (const face of expectedFaces) {

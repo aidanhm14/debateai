@@ -47,7 +47,7 @@ const FROM_EMAIL  = process.env.UPDATE_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Debatable <hello@debateai.com>';
 // Replies ARE the point of beat two, so they should land in the inbox
 // the founder actually reads (the 2026-07-04 contact-email decision).
-const REPLY_TO    = process.env.UPDATE_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const REPLY_TO    = process.env.UPDATE_ANNOUNCE_REPLY_TO || 'hello@itsdebatable.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.UPDATE_ANNOUNCE_BATCH || '20', 10) || 20);
 // Rides the 'open' stream end to end: bulk product/tournament news,
 // suppressed by the digest flag and by openOptOut, and 'open' is on

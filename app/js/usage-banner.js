@@ -275,7 +275,7 @@
 
     const note = document.createElement('p');
     note.className = 'da-cap-note';
-    note.textContent = 'Beta is free today. $10/year is the planned Individual price.';
+    note.textContent = '$10/year is the current Individual price.';
     content.appendChild(note);
     card.appendChild(content);
     root.appendChild(card);
@@ -347,8 +347,8 @@
     const plan = usage.plan || 'trial';
     const isPaid = plan && plan !== 'trial';
 
-    // used > limit means the cap is not actually being enforced (beta:
-    // every tier is $0 and requests keep working past the plan number).
+    // used > limit means the cap is not actually being enforced. An earlier
+    // rollout kept requests working past the plan number.
     // Showing "15 / 3 · cap reached · UPGRADE" is false scarcity wired
     // to a dead upgrade path — hide instead of lying.
     if (limit > 0 && used > limit) { clearRoot(); return; }

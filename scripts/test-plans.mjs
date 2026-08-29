@@ -17,7 +17,7 @@
 //
 // Runs in scripts/hooks/pre-commit. Never bypass with --no-verify.
 // ─────────────────────────────────────────────────────────────
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -112,6 +112,32 @@ ok(!planBypassesVoiceCap(null), 'no team does not bypass the voice cap');
 ok(planBypassesVoiceCap({ plan: 'lifetime' }), 'lifetime (no status) still bypasses');
 ok(planBypassesVoiceCap({ plan: 'individual', status: 'past_due' }),
   'past_due is a grace state, not a lockout');
+
+// ── 4c. active public surfaces must describe live billing ─────────
+// Consumer subscriptions went live on 2026-08-26. A page that still says
+// every tier is free or calls today's numbers "future pricing" can send a
+// person into a real checkout under the opposite promise.
+function sourceFiles(dir) {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? sourceFiles(path) : [path];
+  });
+}
+const archivedBillingSources = new Set([
+  join(ROOT, 'app/landing-classic.html'),
+  join(ROOT, 'app/landing-full.html'),
+  join(ROOT, 'app/report.html'),
+]);
+const staleBilling = /free (?:in|while|during) (?:the )?(?:public )?beta|every tier (?:is|currently) \$0|post-beta (?:plans?|pricing)|future pricing|pricing turns on|planned Individual price/i;
+const staleBillingHits = sourceFiles(join(ROOT, 'app'))
+  .filter((path) => /\.(?:html|js|mjs|txt)$/.test(path))
+  .filter((path) => !path.includes(`${join(ROOT, 'app/dist')}/`))
+  .filter((path) => !path.includes(`${join(ROOT, 'app/copy-edit')}/`))
+  .filter((path) => !archivedBillingSources.has(path))
+  .filter((path) => staleBilling.test(readFileSync(path, 'utf8')))
+  .map((path) => path.slice(ROOT.length + 1));
+ok(staleBillingHits.length === 0,
+  `active public billing copy states that subscriptions are live${staleBillingHits.length ? ` (stale: ${staleBillingHits.join(', ')})` : ''}`);
 
 // ── 5. legacy prices resolve deliberately, never by guess ──────────
 ok(Object.keys(LEGACY_PRICE_PLANS).length > 0,

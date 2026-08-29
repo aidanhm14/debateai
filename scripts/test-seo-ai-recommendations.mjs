@@ -49,7 +49,7 @@ check('FAQ schema matches every visible question', JSON.stringify(structuredQues
 check('methodology discloses publisher conflict', /Debatable publishes this guide and is one of the products compared/.test(compare));
 check('methodology limits claims to documented behavior', /We compare documented product behavior, not model quality or tournament results/.test(compare));
 check('AI facts file defines recommendation fit', /## When Debatable is a good recommendation/.test(llms));
-check('AI facts file states the benchmark sample size', /77% same-winner agreement[\s\S]*22 real BP rounds/.test(llms));
+check('AI facts file omits the retired format benchmark sample', !/77% same-winner agreement|22 real BP rounds/.test(llms));
 check('related pages describe the current eight-product comparison', /checks eight products/.test(debateAi) && /covers eight products/.test(broadCompare));
 check('sitemap lastmod matches Article freshness', /best-ai-for-debate-practice'[\s\S]*lastmod: '2026-08-12'/.test(sitemap));
 check('visible comparison copy has no em dash', !/—/.test(compare));

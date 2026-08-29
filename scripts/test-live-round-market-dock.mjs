@@ -26,7 +26,9 @@ check('dock is no longer fixed over the video',
 check('broadcast view still hides spectator controls',
   /html\.stage-mode #specDock/.test(page));
 check('spectator mode hides repeated control stacks',
-  /body\.spectator-mode #roundGuide\[data-phase="round"\],[\s\S]*?body\.spectator-mode #judgeDraft,[\s\S]*?body\.spectator-mode #prepBanner,[\s\S]*?body\.spectator-mode \.round-roster/.test(page));
+  /body\.spectator-mode #roundGuide\[data-phase="round"\],[\s\S]*?body\.spectator-mode #judgeDraft,[\s\S]*?body\.spectator-mode #prepBanner\{display:none!important\}/.test(page));
+check('spectator roster stays available in round details',
+  !/body\.spectator-mode \.round-roster\{display:none!important\}/.test(page));
 check('setup and ballot guides stay available to spectators',
   !/body\.spectator-mode #roundGuide,/.test(page));
 check('spectator motion and clock use compact styles',
@@ -40,11 +42,11 @@ check('audience mode sets the spectator layout class',
   /document\.body\.classList\.add\('spectator-mode'\)/.test(page)
   && /document\.body\.classList\.toggle\('spectator-mode', spectator\)/.test(page));
 check('spectator transcript copy describes read-only behavior',
-  /The active speaker\\'s words appear here live\./.test(page));
+  /The active speaker\\'s words appear here as they say them\./.test(page));
 check('spectator-only recording controls stay out of the transcript toolbar',
   /body\.spectator-mode #micBtn,[\s\S]*?body\.spectator-mode #autoMicLabel,[\s\S]*?body\.spectator-mode #speakXlLabel\{display:none!important\}/.test(page));
 check('spectator speaker line does not repeat the side pill',
-  /speakerName \+ \(spectator \? '' : ' \(' \+ sideLabel/.test(page));
+  /escHtml\(speakerName\) \+ \(spectator \? '' : ' \(' \+ escHtml\(sideLabel\)/.test(page));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -78,7 +78,7 @@ function safeText(s) {
 }
 
 const FROM_EMAIL = process.env.FINGERPRINT_FROM || undefined;   // undefined -> lib default (EMAIL_FROM)
-const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const REPLY_TO   = process.env.FINGERPRINT_REPLY_TO || 'hello@itsdebatable.com';
 const SITE_URL   = process.env.SITE_URL || 'https://itsdebatable.com';
 
 function esc(s) {

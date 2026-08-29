@@ -50,11 +50,11 @@ const webPage = jsonLd.find((entry) => entry['@type'] === 'WebPage');
 const application = jsonLd.find((entry) => entry['@type'] === 'WebApplication');
 const breadcrumb = jsonLd.find((entry) => entry['@type'] === 'BreadcrumbList');
 
-check('title targets exact query', title.startsWith('Debate People Online |'));
+check('title targets stranger intent', title.startsWith('Debate Strangers Online |'));
 check('title fits search display', title.length >= 45 && title.length <= 60);
-check('description targets exact query', description.startsWith('Debate people online'));
+check('description targets live stranger matching', description.startsWith('Match with a stranger'));
 check('description fits search display', description.length >= 120 && description.length <= 160);
-check('one exact-intent H1 is present', h1 === 'Debate people online. Then settle it.' && (page.match(/<h1\b/g) || []).length === 1);
+check('one exact-intent H1 is present', h1 === 'Debate strangers online. Then settle it.' && (page.match(/<h1\b/g) || []).length === 1);
 check('direct answer is extractable', page.includes('<strong>To debate people online,</strong>'));
 check('supporting H2 answers where intent', page.includes('<h2>Where to debate people online</h2>'));
 check('exact-query FAQ is visible', page.includes('<summary>Where can I debate people online?</summary>'));
@@ -71,7 +71,7 @@ check('all JSON-LD parses', jsonLd.length >= 4 && jsonLd.every((entry) => !entry
 check('WebPage entity matches canonical',
   webPage?.['@id'] === 'https://itsdebatable.com/debate-strangers#webpage'
   && webPage?.url === 'https://itsdebatable.com/debate-strangers'
-  && webPage?.dateModified === '2026-08-10');
+  && webPage?.dateModified === '2026-08-28');
 check('application entity carries query aliases',
   application?.alternateName?.includes('Debate People Online')
   && application?.alternateName?.includes('Debate With People Online'));
@@ -92,20 +92,21 @@ check('aliases are not submitted as competing sitemap URLs',
   !sitemap.includes("path: '/debate-people-online'")
   && !sitemap.includes("path: '/debate-with-people-online'"));
 check('live sitemap marks canonical page fresh',
-  /path: '\/debate-strangers'[\s\S]{0,140}lastmod: '2026-08-10'/.test(sitemap));
+  /path: '\/debate-strangers'[\s\S]{0,140}lastmod: '2026-08-28'/.test(sitemap));
 check('static sitemap snapshot names the query cluster', staticSitemap.includes('debate people online'));
 
-check('homepage links exact anchor to canonical', landing.includes('<a href="/debate-strangers">Debate people online</a>'));
+check('homepage links exact anchor to canonical', /<a href="\/debate-strangers"[^>]*>Debate people online<\/a>/.test(landing));
 check('online-debate hub links exact anchor to canonical', hub.includes('<a href="/debate-strangers">Debate people online</a>'));
 check('comparison page links exact anchor to canonical', platforms.includes('<a href="/debate-strangers">Debate people online</a>'));
 check('AI discovery file identifies canonical page', llms.includes('[Debate people online](https://itsdebatable.com/debate-strangers)'));
 check('guide cluster links human intent to canonical', guides.includes('<a href="/debate-strangers">Debate people online on video</a>'));
-check('online-debate primary CTA explicitly enters the debate pool',
-  /<a class="btn-primary" href="\/spar"[^>]*>[\s\S]*?<span class="btn-primary-title">Enter the debate pool<\/span>/.test(hub));
+check('online-debate primary CTA explicitly enters the live-human path',
+  /<a class="btn-primary" href="\/spar"[^>]*>[\s\S]*?<span class="btn-primary-title">Debate a real person<\/span>/.test(hub));
 check('online-debate primary CTA has a large tap target',
-  /\.btn-primary\{[\s\S]{0,180}min-height:84px/.test(hub));
+  /\.btn-primary\{[\s\S]{0,180}min-height:88px/.test(hub));
 check('online-debate primary CTA stacks first on small screens',
-  /@media\(max-width:680px\)[\s\S]{0,420}\.hero-ctas\{grid-template-columns:1fr\}/.test(hub));
+  /\.hero-ctas\{[\s\S]{0,120}display:flex;flex-direction:column/.test(hub)
+  && /@media\(max-width:680px\)[\s\S]{0,420}\.hero-ctas\{gap:12px\}/.test(hub));
 
 check('visible brand is Debatable, not a fake dot-com name', !visible.includes('Debatable.com'));
 check('visible copy has no em dash', !visible.includes('—'));

@@ -55,7 +55,7 @@ const FALLBACK_VERIFIED = ['debateai.com'];
 const FROM_EMAIL  = process.env.OPEN_ANNOUNCE_FROM || process.env.EMAIL_FROM
                  || 'Debatable <hello@debateai.com>';
 // The ask IS the reply, so this has to reach a person who reads it.
-const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const REPLY_TO    = process.env.OPEN_ANNOUNCE_REPLY_TO || 'hello@itsdebatable.com';
 const BATCH_MAX   = Math.min(60, parseInt(process.env.OPEN_ANNOUNCE_BATCH || '20', 10) || 20);
 const STREAM      = 'open';
 const SUBJECT     = 'Saturday is one session: 10 AM Eastern';

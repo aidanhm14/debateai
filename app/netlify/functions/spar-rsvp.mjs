@@ -77,7 +77,7 @@ function clamp(s, n) {
 }
 
 // ── Next event start (same math as app/js/spar-night.js) ────────────────────
-// Wednesdays 20:00 America/New_York, 90-minute window. Duplicated rather
+// Wednesdays at 7:00, 15:00, and 20:00 America/New_York, 90-minute windows. Duplicated rather
 // than shared because the client copy has to stay dependency-free; if you
 // change one, change all three (here, spar-night.js, scheduled-spar-night.mjs).
 const TZ = 'America/New_York';
@@ -107,9 +107,11 @@ function nextEventStart(nowMs) {
   for (let i = 0; i < 10; i++) {
     const p = nyParts(nowMs + i * 86400000);
     if (p.weekday !== 'Wed') continue;
-    const start = nyToUtc(+p.year, +p.month, +p.day, 20, 0);
-    if (start + LIVE_MS <= nowMs) continue;
-    return Math.max(start, FIRST_EVENT_UTC);
+    for (const hour of [7, 15, 20]) {
+      const start = nyToUtc(+p.year, +p.month, +p.day, hour, 0);
+      if (start + LIVE_MS <= nowMs) continue;
+      return Math.max(start, FIRST_EVENT_UTC);
+    }
   }
   return FIRST_EVENT_UTC;
 }

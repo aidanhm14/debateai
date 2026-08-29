@@ -145,9 +145,8 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>Open Spar Night is today, and it runs three times.</strong>
-    Everyone queues at the same time, so you match with a real opponent in
-    seconds instead of sitting in an empty queue. Take the session that is
-    evening where you are.
+    More people queue at the same time, so the live pool has a better chance
+    of finding an opponent. Take the session that is evening where you are.
   </p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-radius:8px 8px 0 0;font-size:.9rem;line-height:1.5">
@@ -161,7 +160,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
       <span style="color:#6b6b76;font-size:.82rem">Chicago 7 PM, Los Angeles 5 PM</span></td></tr>
   </table>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
-    Ninety minutes each. Pick your format, run a timed round, and the judge
+    Ninety minutes each. Pick a side, run a timed round, and the judge
     ballot lands when it ends.
   </p>
   <p style="margin:0 0 22px">

@@ -36,7 +36,7 @@ const FROM_EMAIL = process.env.OPEN_RALLY_FROM || process.env.EMAIL_FROM
 // Reply-To is the point of this email: "reply and it reaches me" is only
 // true if replies actually land in the founder's inbox rather than at a
 // send-only address on the verified domain.
-const REPLY_TO  = process.env.OPEN_RALLY_REPLY_TO || 'aidandavidhollinger@gmail.com';
+const REPLY_TO  = process.env.OPEN_RALLY_REPLY_TO || 'hello@itsdebatable.com';
 const BATCH_MAX = Math.min(60, parseInt(process.env.OPEN_RALLY_BATCH || '20', 10) || 20);
 const STREAM    = 'open';
 const SUBJECT   = 'The Debatable Open is this Saturday. Free entry, cash prizes.';

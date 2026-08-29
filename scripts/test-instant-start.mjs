@@ -24,8 +24,8 @@ function check(label, ok) {
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
-check('Explore menu advertises realtime voice AI', topbar.includes('Debate Realtime Voice AI') && topbar.includes('Competitive Voice AI'));
-check('practice seeds the saved format', practice.includes("localStorage.getItem('debateos-round-format')"));
+check('Explore menu advertises a casual AI round', topbar.includes("label: 'AI round'") && !topbar.includes("label: 'Competitive Voice AI'"));
+check('practice always starts in casual 1v1', practice.includes("var [format, setFormat] = useState('quick');") && !practice.includes("localStorage.getItem('debateos-round-format')"));
 check('practice seeds the saved side', practice.includes("localStorage.getItem('debateos-round-side')"));
 check('practice seeds the saved voice', practice.includes("localStorage.getItem('debateos-round-voice')"));
 check('practice launch requires an explicit now flag', practice.includes("qs.get('now') === '1'"));

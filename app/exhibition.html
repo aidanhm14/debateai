@@ -26,7 +26,7 @@
       "publisher": { "@type": "Organization", "@id": "https://itsdebatable.com/#org", "name": "Debatable", "url": "https://itsdebatable.com/", "logo": { "@type": "ImageObject", "url": "https://itsdebatable.com/icons/icon-512.png?v=2" } },
       "audience": { "@type": "Audience", "audienceType": "Competitive debaters, debate coaches, debate students researching prep tools" },
       "keywords": "AI vs AI debate, exhibition round, watch AI debate, Claude vs GPT debate, debate demo",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "category": "Free in beta" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "category": "Free allowance available" },
       "featureList": [
         "Pick any two of four brains (Claude, GPT, Grok, DeepSeek) to face off",
         "Format-aware speech generation: APDA, BP, WSDC, PF, LD, Policy",
@@ -117,7 +117,7 @@
         "Give the AIs any motion or pick from a 150+ motion library",
         "Watch the round play out turn-by-turn",
         "Read a judge ballot in the voice of a paradigm at the end",
-        "Free in beta"
+        "Free allowance available"
       ],
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
     },
@@ -894,6 +894,8 @@ function App() {
 
 
 
+
+
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
     }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur, // 4-team: dispatch by the team's brain. 2-side: the side that
@@ -903,9 +905,7 @@ function App() {
         // isn't re-rendering on every delta.
         var lastPaint = 0;var text = await callBrain(sp.brainKey, sys, userPrompt, function (partial) {var now = Date.now();if (now - lastPaint < 200) return;lastPaint = now;queue[i].text = partial;setSpeeches([...queue]);});queue[i].text = text;queue[i].status = 'done';transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;setSpeeches([...queue]);if (voiceOnRef.current) {speechQueueRef.current.push(i);playQueueTick();}} catch (e) {queue[i].status = 'error';queue[i].error = e.message || 'request failed';setSpeeches([...queue]); // Continue with the remaining speeches — one brain failing
         // shouldn't kill the whole exhibition.
-      }
-    };for (var i = 0; i < queue.length; i++) {if (await _loop(i)) break;}
-    setCurrentIdx(-1);
+      }};for (var i = 0; i < queue.length; i++) {if (await _loop(i)) break;}setCurrentIdx(-1);
     setStage('done');
     // Best-effort save to localStorage.
     try {
