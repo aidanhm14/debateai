@@ -517,9 +517,9 @@
     <p class="sub">One session. Be in the room at 10:00 AM ET. There is no second one.</p>
     <ul class="sched">
       <li><div class="t">10:00 AM ET</div><div class="d">Doors open, first pairings<span>Delhi 7:30 PM, Lagos 3 PM, London 3 PM, New York 10 AM. Be in the room. There is no second session and no make-up round.</span></div></li>
-      <li><div class="t">Until 12:30</div><div class="d">Prelims, back to back<span id="schedRounds">Play as many as you like. Every round ends with a written verdict.</span></div></li>
-      <li><div class="t">12:30 PM ET</div><div class="d">Entries close<span id="schedBreak">The top of the standings goes into single elimination.</span></div></li>
-      <li><div class="t">~1:15 PM ET</div><div class="d">The final, streamed<span>It runs on the watch page and the room votes it. The AI ballot is published beside the vote.</span></div></li>
+      <li><div class="t" id="schedRoundsTime">Until 12:30</div><div class="d" id="schedRoundsTitle">Prelims, back to back<span id="schedRounds">Play as many as you like. Every round ends with a written verdict.</span></div></li>
+      <li><div class="t" id="schedBreakTime">12:30 PM ET</div><div class="d" id="schedBreakTitle">Entries close<span id="schedBreak">The top of the standings goes into single elimination.</span></div></li>
+      <li><div class="t" id="schedFinalTime">~1:15 PM ET</div><div class="d" id="schedFinalTitle">The final, streamed<span id="schedFinalCopy">It runs on the watch page and the room votes it. The AI ballot is published beside the vote.</span></div></li>
     </ul>
     <div class="prize" id="prizeBox"></div>
     <p class="note" id="prizeNote"></p>
@@ -533,7 +533,7 @@
       <div class="fact"><b>Casual one-on-one</b><span>Make a point, explain why it holds, and answer what the other person said. No prepared case or citations.</span></div>
       <div class="fact"><b>Five minutes of speech</b><span>Ninety seconds each to open, then sixty seconds each to reply. No preparation time inside the round.</span></div>
       <div class="fact"><b>Three motions, two strikes</b><span>Each room draws three motions from the published pool. Both sides secretly strike one, then settle the motion and sides.</span></div>
-      <div class="fact"><b id="formatRounds">Rounds won lead</b><span>Total wins rank first. Speaker points break a tie: AI argument score, then Camera +2, Avatar −1, Off or dark −3. The posted break line advances to single elimination. Every judged win or loss also updates your <a href="/leaderboard">human Debate Rating</a>.</span></div>
+      <div class="fact"><b id="formatRounds">Rounds won lead</b><span id="formatRoundsCopy">Total wins rank first. Speaker points break a tie: AI argument score, then Camera +2, Avatar −1, Off or dark −3. The posted break line advances to single elimination. Every judged win or loss also updates your <a href="/leaderboard">human Debate Rating</a>.</span></div>
     </div>
   </section>
 
@@ -831,7 +831,19 @@
     $('schedRounds').textContent = 'Play as many as you like. ' + t.prelimRounds +
       ' is the planned prelim count, and every completed round moves the standings and ends with a written verdict.';
     $('formatRounds').textContent = t.prelimRounds + (Number(t.prelimRounds) === 1 ? ' planned prelim' : ' planned prelims');
-    if (t.breakSize){
+    if (t.ratingCompetition){
+      $('schedRoundsTime').textContent = 'Now';
+      $('schedRoundsTitle').childNodes[0].nodeValue = 'Rated rounds, back to back';
+      $('schedRounds').textContent = 'Press Ready whenever you are free. Every completed ballot moves the event rating.';
+      $('schedBreakTime').textContent = 'All day';
+      $('schedBreakTitle').childNodes[0].nodeValue = 'The ladder stays open';
+      $('schedBreak').textContent = 'New people may enter, check in, and join later pairings while the event is live.';
+      $('schedFinalTime').textContent = 'Every ballot';
+      $('schedFinalTitle').childNodes[0].nodeValue = 'The rating updates';
+      $('schedFinalCopy').textContent = 'Everyone started today at 1500. The stored result rebuilds the table if a ballot is corrected.';
+      $('formatRounds').textContent = 'Event rating leads';
+      $('formatRoundsCopy').textContent = 'Everyone starts today at 1500. Every completed tournament ballot moves both ratings. Fresh opponents come first, and rematches wait for a later cycle.';
+    } else if (t.breakSize){
       $('schedBreak').textContent = 'The top ' + t.breakSize + ' of the standings go into single elimination.';
     }
 
@@ -872,7 +884,9 @@
 
     if (p === 'live'){
       clock.innerHTML = 'Doors are open';
-      when.textContent = 'Turn up now, say you are ready, and you get paired with whoever else is free.';
+      when.textContent = t.ratingCompetition
+        ? 'Check in, press Ready, and get a fresh opponent for another rated round.'
+        : 'Turn up now, say you are ready, and you get paired with whoever else is free.';
       return;
     }
     if (p === 'elims'){
@@ -1067,9 +1081,12 @@
     var played = Number(mine.wins || 0) + Number(mine.losses || 0);
     if (!played) return;
     var row = (state.data.standings || []).filter(function(r){ return r.entryId === mine.entryId; })[0];
+    var ratingCompetition = !!(state.data.tournament && state.data.tournament.ratingCompetition);
     host.innerHTML = '<div class="stats">' +
       '<div class="stat"><div class="n">' + mine.wins + '&ndash;' + mine.losses + '</div><div class="k">Your record</div></div>' +
-      '<div class="stat"><div class="n">' + mine.speaks + '</div><div class="k">Speaker points</div></div>' +
+      (ratingCompetition && row
+        ? '<div class="stat"><div class="n">' + Number(row.rating || 1500) + '</div><div class="k">Event rating</div></div>'
+        : '<div class="stat"><div class="n">' + mine.speaks + '</div><div class="k">Speaker points</div></div>') +
       (row ? '<div class="stat"><div class="n">' + row.rank + '</div><div class="k">Place</div></div>' : '') +
       '</div>';
   }
@@ -1313,11 +1330,15 @@
       why = 'It expires so the engine never opens a room onto an empty chair. Still there?';
       action = { kind: 'btn', label: "I'm still here", act: 'ready', primary: true };
     } else {
-      say = 'Say you are ready and you get paired.';
+      say = state.data.tournament.ratingCompetition
+        ? 'Press Ready to spawn another rated round.'
+        : 'Say you are ready and you get paired.';
       why = pool > 0
         ? (pool + ' waiting right now.')
-        : 'Play as many rounds as you like.';
-      action = { kind: 'btn', label: 'Ready to debate', act: 'ready', primary: true };
+        : (state.data.tournament.ratingCompetition
+          ? 'Fresh opponents come first. Rematches wait for a later cycle.'
+          : 'Play as many rounds as you like.');
+      action = { kind: 'btn', label: state.data.tournament.ratingCompetition ? 'Ready for a rated round' : 'Ready to debate', act: 'ready', primary: true };
     }
 
     // A queue that offers nothing while it waits is how someone leaves
@@ -1500,6 +1521,7 @@
   //
   function renderTab(){
     var rows = state.data.standings || [];
+    var ratingCompetition = !!state.data.tournament.ratingCompetition;
     var tb = $('tabTable').querySelector('tbody');
     if (!rows.length){
       tb.innerHTML = '<tr><td class="empty">Nobody has entered yet.</td></tr>';
@@ -1514,16 +1536,18 @@
     // dressed up as a result.
     var played = rows.some(function(r){ return (Number(r.wins) || 0) + (Number(r.losses) || 0) > 0; });
 
-    $('tabTitle').textContent = played ? 'The standings' : 'The field';
-    $('tabSub').textContent = played
+    $('tabTitle').textContent = ratingCompetition ? 'Live rating ladder' : (played ? 'The standings' : 'The field');
+    $('tabSub').textContent = ratingCompetition
+      ? 'Everyone started today at 1500. Every completed tournament ballot moves the number.'
+      : played
       ? 'Wins first, then speaker points. Camera +2, Avatar −1, Off or dark −3 applies only to that tiebreak.'
       : 'Everyone entered so far. The standings replace this the moment the first result lands.';
-    show('tabNote', played && breakLine > 0);
-    if (played && breakLine > 0){
+    show('tabNote', !ratingCompetition && played && breakLine > 0);
+    if (!ratingCompetition && played && breakLine > 0){
       $('tabNote').textContent = 'The red line is the break. The top ' + breakLine + ' advance, and it moves as results land.';
     }
 
-    if (!played){
+    if (!played && !ratingCompetition){
       tb.innerHTML = '<tr><th colspan="5">Who has entered</th></tr>' +
         rows.slice().sort(function(a, c){ return String(a.name).localeCompare(String(c.name)); })
           .map(function(r){
@@ -1534,19 +1558,27 @@
           }).join('');
       return;
     }
-    tb.innerHTML = '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>' +
+    tb.innerHTML = ratingCompetition
+      ? '<tr><th>#</th><th>Who</th><th>Rating</th><th>W</th><th>L</th></tr>'
+      : '<tr><th>#</th><th>Who</th><th>W</th><th>L</th><th>Speaks</th></tr>';
+    tb.innerHTML +=
       rows.map(function(r){
           var me = mine && r.entryId === mine.entryId;
           var aff = r.affiliation
             ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
             : '';
           var cut = (breakLine && r.rank === breakLine) ? ' style="border-bottom:2px solid var(--red)"' : '';
+          var cells = ratingCompetition
+            ? '<td class="num"' + cut + '><strong>' + Number(r.rating || 1500) + '</strong></td>' +
+              '<td class="num"' + cut + '>' + r.wins + '</td>' +
+              '<td class="num"' + cut + '>' + r.losses + '</td>'
+            : '<td class="num"' + cut + '>' + r.wins + '</td>' +
+              '<td class="num"' + cut + '>' + r.losses + '</td>' +
+              '<td class="num"' + cut + '>' + r.speaks + '</td>';
           return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
             '<td class="num"' + cut + '>' + r.rank + '</td>' +
             '<td' + cut + '>' + esc(r.name) + aff + '</td>' +
-            '<td class="num"' + cut + '>' + r.wins + '</td>' +
-            '<td class="num"' + cut + '>' + r.losses + '</td>' +
-            '<td class="num"' + cut + '>' + r.speaks + '</td></tr>';
+            cells + '</tr>';
       }).join('');
   }
 
@@ -1708,8 +1740,10 @@
       hostBtn(acts, 'Open the doors', 'running',
         'Everyone checked in goes into the drop-in queue and rounds start pairing.', true);
     } else if (p === 'live'){
-      hostBtn(acts, 'Close entries', 'break',
-        'The queue stops pairing new rounds and the standings freeze for the break.');
+      hostBtn(acts, t.ratingCompetition ? 'Pause rating rounds' : 'Close entries', 'break',
+        t.ratingCompetition
+          ? 'The queue stops pairing new rounds. Completed ratings remain on the board.'
+          : 'The queue stops pairing new rounds and the standings freeze for the break.');
       hostBtn(acts, 'Back to entries only', 'registration',
         'Stops the queue and puts the tournament back in registration.');
     } else if (p === 'elims'){
