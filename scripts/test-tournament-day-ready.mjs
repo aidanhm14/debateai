@@ -72,6 +72,8 @@ check('tournament motion, format, side and judge controls are locked',
   liveRound.includes('function tournamentControlsLocked()')
   && liveRound.includes('Tournament resolution and sides are fixed by the draw.')
   && liveRound.includes('Tournament format is fixed.')
+  && liveRound.includes("'· fixed by tournament draw'")
+  && liveRound.includes("'· three-judge council fixed'")
   && liveRound.includes('Three-judge council'));
 check('tournament prep is fixed at five minutes',
   liveRound.includes('state.prepMin = tournamentControlsLocked() ? 5')

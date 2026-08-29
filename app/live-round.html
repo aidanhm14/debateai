@@ -3329,7 +3329,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     <!-- ── SETUP ── -->
     <div id="setupView">
       <div class="panel-section">
-        <div class="label">Motion <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
+        <div class="label">Resolution <span id="setupMotionHint" style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· tap to edit before you start</span></div>
         <div class="motion-display" id="motionDisplay" contenteditable="true" spellcheck="true" role="textbox" aria-label="Motion (editable)" data-ph="Type or paste the motion…"></div>
         <button type="button" class="btn" id="randomMotionBtn" style="margin-top:9px;font-size:.74rem;padding:8px 14px;letter-spacing:.04em">Random resolution + brief</button>
         <div class="motion-brief" id="motionBrief" hidden>
@@ -3339,7 +3339,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         <!-- What "This House" is, before anyone has to ask. -->
         <div class="rmb-house" id="setupHouse" hidden></div>
         <div class="setup-judge-block">
-          <div class="label">Judge type <span style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
+          <div class="label">Judge type <span id="setupJudgeHint" style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
           <div class="setup-judge-grid" id="setupJudgeTypes" aria-label="Judge type"></div>
         </div>
         <div class="label">Round type</div>
@@ -4707,6 +4707,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       setupMotion.setAttribute('contenteditable', 'true');
       setupMotion.setAttribute('aria-label', 'Motion (editable)');
     }
+    var setupMotionHint = $('setupMotionHint');
+    if (setupMotionHint) setupMotionHint.textContent = tournamentControlsLocked()
+      ? '· fixed by tournament draw'
+      : '· tap to edit before you start';
+    var setupJudgeHint = $('setupJudgeHint');
+    if (setupJudgeHint) setupJudgeHint.textContent = tournamentControlsLocked()
+      ? '· three-judge council fixed'
+      : '· both sides use the same setting';
     var setupRandom = $('randomMotionBtn');
     if (setupRandom) setupRandom.hidden = tournamentControlsLocked();
     renderHouseGloss();
@@ -5578,7 +5586,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (rdStat){
       var f = FORMATS[state.formatKey] || FORMATS.quick;
       var judge = '';
-      try { judge = state.judgeLocked ? judgeArchetype(state.judgeLocked).name : 'judge not agreed'; } catch(e){}
+      try {
+        judge = tournamentControlsLocked()
+          ? 'Three-judge council'
+          : (state.judgeLocked ? judgeArchetype(state.judgeLocked).name : 'judge not agreed');
+      } catch(e){}
       rdStat.textContent = [f.name, judge].filter(Boolean).join(' · ');
     }
   }
