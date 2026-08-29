@@ -1493,9 +1493,12 @@
         adminCall({ action: 'sync-seating', tid: t.tid });
       });
     }
+    var activePairingIds = new Set((state.data.entries || []).map(function(entry){
+      return String(entry.inPairing || '');
+    }).filter(Boolean));
     var stalledFixed = (state.data.rounds || []).some(function(round){
       return round.kind !== 'dropin' && (round.pairings || []).some(function(p){
-        return p.status !== 'complete';
+        return p.status !== 'complete' && activePairingIds.has(String(p.pairingId || ''));
       });
     });
     if (t.status === 'running' && t.dropIn !== false && stalledFixed) {
