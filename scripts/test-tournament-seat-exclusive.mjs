@@ -54,6 +54,11 @@ check('a rating ladder cannot be cut into fixed rounds or eliminations',
     && /action === 'break'[\s\S]{0,220}ratingCompetition === true/.test(admin)
     && page.includes("t.status === 'running' && !t.ratingCompetition")
     && open.includes("p === 'live' && !t.ratingCompetition"));
+check('only checked-in people appear on a live rating board',
+  api.includes("entries.filter((entry) => entry.status === 'checked_in')")
+    && api.includes('standings(standingEntries)')
+    && page.includes('Only checked-in people appear.')
+    && open.includes('Only checked-in people appear.'));
 check('releasing fixed rooms never erases a completed result',
   /release-fixed-seating[\s\S]{0,900}p\.status === 'complete'\) continue/.test(admin));
 check('old fixed-room cards stop acting like the person is still assigned',

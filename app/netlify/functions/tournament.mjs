@@ -315,7 +315,14 @@ export default async (request) => {
       key: doc.id,
       ...(doc.data() || {}),
     })));
-    const table = standings(entries).map((e) => {
+    // A live rating board is the field that is here, not the registration
+    // list. Keep every completed result in eventRatings so somebody who
+    // checks back in returns with the same Elo, but hide them from the board
+    // until their entry is checked in again.
+    const standingEntries = tournament.ratingCompetition
+      ? entries.filter((entry) => entry.status === 'checked_in')
+      : entries;
+    const table = standings(standingEntries).map((e) => {
       const eventRating = eventRatings.get(String(e.entryId)) || { rating: 1500, games: 0 };
       return {
         entryId: e.entryId,

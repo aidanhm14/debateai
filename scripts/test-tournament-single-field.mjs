@@ -52,7 +52,8 @@ const ok = (cond, what) => { if (cond) pass += 1; else fails.push(what); };
   ok(!dropin.includes('partitionByBracket'), 'the queue has no age partition');
   ok(!dropin.includes('BRACKET_REQUIRED'), 'the queue never blocks on a retired age answer');
   ok(!dropin.includes('tournament-bracket'), 'the retired age-bracket helper is not imported');
-  ok(/standings\(entries\)/.test(api), 'the public standings rank one global field');
+  ok(/standings\((?:entries|standingEntries)\)/.test(api),
+    'the public standings rank one field, optionally limited by live check-in');
   ok(!api.includes('rankByBracket'), 'the API has no per-age standings path');
   ok(!api.includes('resolveEntryBracket'), 'registration does not resolve an age bracket');
   ok(!api.includes('prizeEligible:'), 'registration does not classify the entrant by age');
