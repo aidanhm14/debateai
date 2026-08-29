@@ -157,6 +157,19 @@ if [ -f "$LOG_VOTE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Tournament day has one irreversible action and one critical route. Keep the
+# entrant-only 06:00 Pacific mail, its duplicate-send stamp, and the signed-in
+# homepage /open button aligned through the event deploy.
+TOURNAMENT_DAY_GUARD="$REPO_ROOT/scripts/test-tournament-day-ready.mjs"
+if [ -f "$TOURNAMENT_DAY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-day-ready.mjs >/tmp/tournament-day-guard.log 2>&1); then
+    echo "[tournament-day-guard] commit blocked - the day-of reminder or event-page CTA drifted:" >&2
+    tail -30 /tmp/tournament-day-guard.log >&2
+    echo "[tournament-day-guard] see scripts/test-tournament-day-ready.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # The former /registry shell called an endpoint that never shipped. Keep the
 # safe redirect and all public navigation aligned until aggregation has an
 # explicit privacy design.
