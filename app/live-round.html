@@ -1430,6 +1430,10 @@ body.lr-pip .lr-pip-notice{display:block}
 /* Round panel */
 .panel{
   background:var(--bg);overflow-y:auto;display:flex;flex-direction:column;
+  /* The video split can make this panel phone-narrow while the viewport
+     remains desktop-wide. Its resolution header therefore needs a real
+     panel-width breakpoint, not another window-width media query. */
+  container:round-panel / inline-size;
   /* #audFab is a 34px rail pinned to the right edge at z-index 120, over
      this column at its vertical middle. Nothing reserved room for it, so
      whatever right-aligned content happened to land in that band rendered
@@ -19771,6 +19775,25 @@ body.lr-modal-open .panel{overflow:hidden}
   body.lr-round-live .speech-header .speech-actions #forfeitNextBtn{flex:0 0 auto;min-height:46px}
   body.lr-round-live .panel{padding-bottom:76px}
   body.lr-round-live.spectator-mode .panel{padding-bottom:0}
+}
+/* Short landscape keeps video and console side by side. At that point a
+   1000px viewport produces a roughly 450px console, so viewport-based
+   type sizing made the resolution look like a billboard and squeezed it
+   beside the timer. Stack and size against the console itself. */
+@container round-panel (max-width:520px){
+  .rmb-motion-row{grid-template-columns:minmax(0,1fr);gap:12px}
+  .round-motion-bar .rmb-motion{
+    max-width:none;font-size:clamp(1.9rem,7.5cqi,2.25rem);
+    overflow-wrap:anywhere;text-wrap:pretty;
+  }
+  .rmb-motion-actions{min-width:0;justify-content:flex-start}
+  .rmb-timer{min-width:108px;align-items:flex-start}
+  .rmb-timer-num{font-size:1.65rem}
+}
+@container round-panel (max-width:360px){
+  .round-motion-bar .rmb-motion{font-size:clamp(1.55rem,8cqi,1.85rem)}
+  .rmb-motion-actions{align-items:stretch;flex-direction:column}
+  .rmb-timer{width:100%}
 }
 /* Landscape phones put the video and the console side by side and give
    the console its own scroller (see the landscape block above). A bar
