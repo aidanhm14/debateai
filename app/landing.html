@@ -8388,6 +8388,83 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     font-size:clamp(1rem,1.5vw,1.22rem);line-height:1.25;color:#f5efe7}
   [data-theme="light"] .fs-live-cap{color:#1a1a1f}
   .fs-live-cap:empty{display:none}
+
+  /* ── Live chats panel ── 2026-08-29, founder sketch ────────────────
+     The most live community chats sit in a third column between the
+     round display and the leaderboard rail. Wide desktop only: under
+     1360px the screen already spends its width on the copy, the board
+     and the rail, so the panel stands down entirely rather than
+     squeezing the proof. The column is part of the AUTHORED grid at
+     this width (not toggled by the fetch), the lbr-ready lesson: a
+     layout that appears seconds after load is a jolt on the one thing
+     above the fold. So the panel always renders its header, the real
+     room list and the /community door; the message feed fills in when
+     /api/live-chats answers, and on a failed fetch the panel is still
+     an honest link card that claims no activity. The green dot is
+     liveness signalling and appears ONLY once real messages land. */
+  .fs-chats{display:none}
+  @media(min-width:1360px){
+    .fscreen-wrap{max-width:1600px;grid-template-columns:.78fr 1.2fr minmax(224px,.58fr)}
+    .fs-chats{display:flex;flex-direction:column;grid-column:3;grid-row:1 / span 2;
+      align-self:center;min-width:0;
+      background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
+      border:1px solid rgba(245,239,231,.14);border-radius:18px;
+      padding:15px 15px 13px;color:#f5efe7;
+      box-shadow:0 22px 48px rgba(0,0,0,.42),0 3px 10px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.06)}
+    [data-theme="light"] .fs-chats{background:linear-gradient(168deg,#ffffff 0%,#fdfdfc 58%,#f8f7f5 100%);
+      border-color:rgba(26,26,31,.1);color:#1a1a1f;
+      box-shadow:0 22px 48px rgba(24,22,28,.09),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff}
+  }
+  .fs-chats-top{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .fs-chats-dot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(245,239,231,.28)}
+  [data-theme="light"] .fs-chats-dot{background:rgba(26,26,31,.22)}
+  .fs-chats.is-live .fs-chats-dot{background:#16a34a;
+    box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:fsLiveNowPulse 1.8s ease-out infinite}
+  @media(prefers-reduced-motion:reduce){.fs-chats.is-live .fs-chats-dot{animation:none}}
+  .fs-chats-title{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(245,239,231,.68)}
+  [data-theme="light"] .fs-chats-title{color:rgba(26,26,31,.64)}
+  .fs-chats-open{margin-left:auto;flex:0 0 auto;font-size:.72rem;font-weight:700;text-decoration:none;
+    color:rgba(245,239,231,.72);border:1px solid rgba(245,239,231,.24);border-radius:999px;padding:4px 11px}
+  .fs-chats-open:hover{color:#fff;border-color:rgba(239,68,68,.6)}
+  [data-theme="light"] .fs-chats-open{color:rgba(26,26,31,.68);border-color:rgba(26,26,31,.2)}
+  [data-theme="light"] .fs-chats-open:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
+  /* The feed. Newest first, each row one message: room tag, handle,
+     text, age. Rows are anchors into /community so any line someone
+     finds interesting is a door, not a screenshot. */
+  .fs-chats-list{display:flex;flex-direction:column;gap:4px;min-height:0}
+  .fs-chats-msg{display:block;text-decoration:none;color:inherit;border-radius:10px;
+    padding:7px 9px;border:1px solid transparent;
+    transition:background .15s ease,border-color .15s ease}
+  .fs-chats-msg:hover,.fs-chats-msg:focus-visible{background:rgba(245,239,231,.06);
+    border-color:rgba(245,239,231,.12)}
+  [data-theme="light"] .fs-chats-msg:hover,[data-theme="light"] .fs-chats-msg:focus-visible{
+    background:rgba(26,26,31,.04);border-color:rgba(26,26,31,.08)}
+  .fs-chats-meta{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;min-width:0}
+  .fs-chats-room{flex:none;font-size:.6rem;font-weight:800;letter-spacing:.05em;color:#f87171}
+  [data-theme="light"] .fs-chats-room{color:#dc2626}
+  .fs-chats-handle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:.72rem;font-weight:700;color:rgba(245,239,231,.85)}
+  [data-theme="light"] .fs-chats-handle{color:rgba(26,26,31,.82)}
+  .fs-chats-age{margin-left:auto;flex:none;font-family:var(--font-mono);font-size:.62rem;
+    color:rgba(245,239,231,.56)}
+  [data-theme="light"] .fs-chats-age{color:rgba(26,26,31,.52)}
+  .fs-chats-text{margin:0;font-size:.78rem;line-height:1.4;color:rgba(245,239,231,.72);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.66)}
+  /* Static fallback: the real rooms, named, with no activity claim.
+     What a JS-off visitor (or a failed fetch) sees instead of a feed. */
+  .fs-chats-rooms{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 4px}
+  .fs-chats-rooms a{font-size:.7rem;font-weight:700;text-decoration:none;padding:4px 10px;
+    border-radius:999px;color:rgba(245,239,231,.72);border:1px solid rgba(245,239,231,.18)}
+  .fs-chats-rooms a:hover{color:#fff;border-color:rgba(239,68,68,.6)}
+  [data-theme="light"] .fs-chats-rooms a{color:rgba(26,26,31,.66);border-color:rgba(26,26,31,.16)}
+  [data-theme="light"] .fs-chats-rooms a:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
+  .fs-chats.is-live .fs-chats-rooms{display:none}
+  .fs-chats-cta{margin-top:11px;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
+    color:#fff;background:#dc2626;border-radius:10px;padding:9px 12px;
+    transition:background .15s ease}
+  .fs-chats-cta:hover,.fs-chats-cta:focus-visible{background:#b91c1c}
 </style>
 <style>
 /* ── Arena type roles, applied (2026-08-19 redesign) ─────────────────
@@ -8794,6 +8871,34 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </button>
       <p class="fs-signin-why">Keep your rounds, climb the board, earn a shot at a creator matchup.</p>
     </div>
+
+    <!-- ── Live chats ── 2026-08-29, founder sketch: the most live
+         community chats sit between the round display and the
+         leaderboard rail. Real rooms and real messages only, from
+         /api/live-chats (shared-cached server read; the landing opens
+         no Firestore connection of its own, the 2026-08-18 rule). The
+         authored state is this honest link card naming the rooms; the
+         fsChats script swaps the room chips for the live feed when
+         real messages arrive, and lights the dot only then. Never seed
+         this panel with invented handles or messages. Hidden under
+         1360px, where there is no third column to hold it. -->
+    <aside class="fs-chats" id="fsChats" aria-label="Live community chats">
+      <div class="fs-chats-top">
+        <span class="fs-chats-dot" aria-hidden="true"></span>
+        <span class="fs-chats-title">Live chats</span>
+        <a class="fs-chats-open" href="/community" data-cta="first-screen-chats-open">Open</a>
+      </div>
+      <div class="fs-chats-list" id="fsChatsList">
+        <div class="fs-chats-rooms">
+          <a href="/community" data-cta="first-screen-chats-room">The Commons</a>
+          <a href="/community" data-cta="first-screen-chats-room">#general</a>
+          <a href="/community" data-cta="first-screen-chats-room">#find-a-round</a>
+          <a href="/community" data-cta="first-screen-chats-room">#motions</a>
+          <a href="/community" data-cta="first-screen-chats-room">#help</a>
+        </div>
+      </div>
+      <a class="fs-chats-cta" href="/community" data-cta="first-screen-chats-join">Join the conversation</a>
+    </aside>
   </div>
   <!-- The audience chooser ("Do you compete in debate?") used to overlay
        the foot of this screen; 2026-08-18 (same day it shipped) the founder
@@ -19228,6 +19333,83 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
     refreshReal();
     setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
+  })();
+
+  /* fsChats: the "Live chats" column between the board and the
+     leaderboard rail (2026-08-29, founder sketch). Reads /api/live-chats
+     (shared-cached 45s server-side, real messages only, handles never
+     uids). The authored panel is an honest link card naming the rooms;
+     this swaps in the feed only when real messages exist, and lights
+     the green dot only then. All text lands via textContent, never
+     innerHTML: handles and messages are stranger-written. The panel is
+     display:none under 1360px, so nothing fetches until that layout is
+     actually on screen. */
+  (function(){
+    var panel = document.getElementById('fsChats');
+    var list = document.getElementById('fsChatsList');
+    if (!panel || !list || !window.fetch) return;
+    var mq = window.matchMedia ? window.matchMedia('(min-width:1360px)') : null;
+    var started = false;
+
+    function relTime(ms){
+      var d = Math.max(0, Date.now() - ms);
+      if (d < 60000) return 'now';
+      if (d < 3600000) return Math.floor(d / 60000) + 'm';
+      if (d < 86400000) return Math.floor(d / 3600000) + 'h';
+      return Math.floor(d / 86400000) + 'd';
+    }
+
+    function render(msgs){
+      if (!msgs || !msgs.length) return; // keep the honest room-chip card
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < msgs.length; i++){
+        var m = msgs[i] || {};
+        if (!m.text) continue;
+        var a = document.createElement('a');
+        a.className = 'fs-chats-msg';
+        a.href = '/community';
+        a.setAttribute('data-cta', 'first-screen-chats-msg');
+        var meta = document.createElement('span');
+        meta.className = 'fs-chats-meta';
+        var room = document.createElement('span');
+        room.className = 'fs-chats-room';
+        room.textContent = String(m.label || '');
+        var handle = document.createElement('span');
+        handle.className = 'fs-chats-handle';
+        handle.textContent = String(m.handle || '');
+        var age = document.createElement('span');
+        age.className = 'fs-chats-age';
+        age.textContent = m.at ? relTime(m.at) : '';
+        meta.appendChild(room); meta.appendChild(handle); meta.appendChild(age);
+        var text = document.createElement('p');
+        text.className = 'fs-chats-text';
+        text.textContent = String(m.text);
+        a.appendChild(meta); a.appendChild(text);
+        frag.appendChild(a);
+      }
+      if (!frag.childNodes.length) return;
+      list.innerHTML = '';
+      list.appendChild(frag);
+      panel.classList.add('is-live');
+    }
+
+    function poll(){
+      fetch('/api/live-chats').then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ render(d && d.messages); })
+        .catch(function(){});
+    }
+    function start(){
+      if (started) return;
+      started = true;
+      poll();
+      setInterval(function(){
+        if (!document.hidden && (!mq || mq.matches)) poll();
+      }, 60000);
+    }
+    // Fetch only once the three-column layout is actually in use; a
+    // phone or a half-width window never pays for the feed.
+    if (!mq || mq.matches) start();
+    else if (mq.addEventListener) mq.addEventListener('change', function(e){ if (e.matches) start(); });
   })();
 
   (function(){
