@@ -14,6 +14,12 @@ import {
   parseTournamentRoom, pairingMatches,
 } from '../app/netlify/functions/lib/tournament-round.mjs';
 import { tournamentRoomSetup } from '../app/netlify/functions/lib/tournament-motion-pool.mjs';
+import {
+  buildTournamentScorecard,
+  sideCameraAdjustment,
+  sidePace,
+  TOURNAMENT_SPREAD_WPM,
+} from '../app/netlify/functions/lib/tournament-scoring.mjs';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + n); } };
@@ -124,6 +130,8 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     join(here, '..', 'app', 'netlify', 'functions', 'round-recording.mjs'), 'utf8');
   const recordingAdminSrc = readFileSync(
     join(here, '..', 'app', 'netlify', 'functions', 'recordings-admin.mjs'), 'utf8');
+  const liveJudgeSrc = readFileSync(
+    join(here, '..', 'app', 'netlify', 'functions', 'live-judge.mjs'), 'utf8');
 
   ok(/collection\('room_admissions'\)/.test(roomSrc),
     'room creation reads the server-written admission record');
@@ -147,6 +155,16 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'the tournament notice offers exit instead of a recording-decline action');
   ok(/recording\.isStream !== true && recording\.recordingConsentComplete !== true/.test(recordingAdminSrc),
     'private tournament footage cannot be manually published without public-use clearance');
+  ok(/cameraMode:[\s\S]{0,220}camConv\.mode/.test(clientSrc),
+    'each speech stores the camera mode used for the tournament standings adjustment');
+  ok(/Camera \+2[\s\S]{0,100}Avatar −1[\s\S]{0,100}(Off|dark)/.test(clientSrc),
+    'the room discloses the exact camera adjustments before Speech 1');
+  ok(/tournamentScoring\?\.pro\?\.standingPoints/.test(liveJudgeSrc)
+      && /tournamentScoring\?\.con\?\.standingPoints/.test(liveJudgeSrc),
+    'the tournament ledger uses adjusted standings points rather than changing the ballot');
+  ok(/More than \$\{TOURNAMENT_SPREAD_WPM\} WPM is flagged as spreading/.test(liveJudgeSrc)
+      && /Questions and brief interruptions are allowed and captured/.test(liveJudgeSrc),
+    'the verified tournament prompt carries the published interaction and pace rules');
 }
 
 // ── tournament recording cannot be disabled ───────────────────────────────
@@ -170,6 +188,51 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'elimination recording is mandatory too');
   ok(elim.admission.broadcastAllowed === true,
     'elimination broadcast follows the published tournament rule');
+}
+
+// ── disclosed tournament standings adjustments ───────────────────────────
+{
+  const cameraSpeech = { side: 'pro', text: 'word '.repeat(300), durationSec: 60, cameraMode: 'camera' };
+  const avatarSpeech = { side: 'con', text: 'word '.repeat(180), durationSec: 60, cameraMode: 'avatar' };
+  const scorecard = buildTournamentScorecard({
+    speeches: [cameraSpeech, avatarSpeech],
+    proPoints: 99,
+    conPoints: 80,
+  });
+
+  ok(scorecard.pro.presenceAdjustment === 2 && scorecard.pro.standingPoints === 100,
+    'Camera adds 2 standings points and the result stays capped at 100');
+  ok(scorecard.con.presenceAdjustment === -1 && scorecard.con.standingPoints === 79,
+    'Avatar subtracts 1 standings point');
+  ok(scorecard.pro.paceWpm === 300 && scorecard.pro.spreading === true,
+    'calculated pace above the published threshold is flagged as spreading');
+  ok(TOURNAMENT_SPREAD_WPM === 250,
+    'the spreading threshold stays at the disclosed 250 words per minute');
+
+  const off = sideCameraAdjustment([
+    { side: 'pro', durationSec: 90, cameraMode: 'off' },
+  ], 'pro');
+  ok(off.mode === 'off' && off.adjustment === -3,
+    'Camera Off or a dark tile subtracts 3 standings points');
+
+  const mixed = sideCameraAdjustment([
+    { side: 'pro', durationSec: 90, cameraMode: 'camera' },
+    { side: 'pro', durationSec: 30, cameraMode: 'off' },
+  ], 'pro');
+  ok(mixed.mode === 'mixed' && mixed.adjustment === 0.8,
+    'mixed camera use is weighted by speech time');
+
+  const unknown = sideCameraAdjustment([
+    { side: 'pro', durationSec: 90 },
+  ], 'pro');
+  ok(unknown.mode === 'unknown' && unknown.adjustment === 0,
+    'a legacy speech with no camera evidence receives no invented adjustment');
+
+  const atThreshold = sidePace([
+    { side: 'pro', text: 'word '.repeat(250), durationSec: 60 },
+  ], 'pro');
+  ok(atThreshold.wpm === 250 && atThreshold.spreading === false,
+    'the published rule flags only pace above 250 WPM');
 }
 
 console.log(`\ntournament-round: ${pass} passed, ${fail} failed`);

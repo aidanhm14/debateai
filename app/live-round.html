@@ -3645,7 +3645,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           <div class="round-edit-bar" id="roundEditBar" hidden>
             <div class="reb-summary">
               <span class="reb-note"><span class="reb-title"><span id="rebModeName">General round</span>
-                <span class="reb-flag" id="rebJudgeFlag">Interruptions scored</span></span>
+                <span class="reb-flag" id="rebJudgeFlag">Questions + interruptions scored</span></span>
                 <small id="rebModeSub">4 speeches, then the ballot.</small></span>
               <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
             </div>
@@ -4193,7 +4193,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "- The split is deliberate: a side with the weaker case CAN win on responses plus structure. When that is what happened, open the RFD by saying so.",
       "- The second constructive carries two jobs (answer the first case, then build its own). Judge both. A second constructive that only rebuts, or only builds, is incomplete.",
       "- Closings bring no new arguments. New examples for an argument already made are fine. Discount a new argument introduced only in a closing.",
-      "- Interruptions and crosstalk are legitimate here. If the transcript shows an interjection, judge how it was handled: credit a speaker who absorbs or answers it cleanly, credit a sharp interjection that lands, and never penalize a speaker merely for being interrupted.",
+      "- Questions, interruptions, and crosstalk are legitimate here. If the transcript shows an interjection, judge how it was handled: credit a concise, relevant question that exposes a gap and a speaker who answers it cleanly. Penalize heckling, repeated interruption, talking over an answer, or an irrelevant gotcha. Never penalize a speaker merely for being interrupted.",
+      "- TOURNAMENT PACE: calculated pace above 250 words per minute is flagged as spreading. Speed alone is not a deduction. Lower clarity or strategy only when listener-unfriendly density, poor signposting, or compressed reasoning made the material hard to understand on one hearing.",
       "- Reward: punch, named specifics, clean engagement with the other side.",
       "- Penalize: throat-clearing, recap, generic moralizing, and tournament jargon.",
     ],
@@ -4734,7 +4735,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>' +
       // Sits in the chip row for every format, not just open clash: debaters
       // routinely assume an AI judge only scores the prepared speeches.
-      '<span class="tag tag-judge">Interruptions scored</span>' +
+      '<span class="tag tag-judge">Questions + interruptions scored</span>' +
       (state.formatKey === 'quick'
         ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Casual 1v1. <strong style="color:var(--text)">The AI judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
         : '') +
@@ -7529,8 +7530,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var setupNote = document.getElementById('recordingSetupNote');
     var roundNote = document.getElementById('recordingRoundNote');
     if (tournamentRecordingRequired()){
-      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Tournament recording required.</strong> Every seat must accept, and the recording must be live, before Speech 1 can begin. Preliminary footage is stored privately by default.';
-      if (roundNote) roundNote.textContent = 'Every tournament round is recorded. Speech 1 stays locked until every assigned person accepts and the recording indicator is live.';
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Tournament recording required.</strong> Every seat must accept, and the recording must be live, before Speech 1 can begin. Questions and interruptions are captured for scoring and clips. Standings points use Camera +2, Avatar −1, Off or a dark tile −3. Pace above 250 WPM is flagged as spreading.';
+      if (roundNote) roundNote.textContent = 'Every tournament round is recorded. Questions and interruptions are captured. A sharp question can help; heckling can hurt. Camera +2, Avatar −1, Off or dark −3 on standings points. Speech 1 stays locked until recording is live.';
       return;
     }
     if (state.recordingRequired === false){
@@ -7635,11 +7636,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '</div>' +
         '<div class="rec-consent-body">' +
           '<div class="rec-consent-facts" aria-label="Recording details">' +
-            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, display names, resolution, and ballot reveal.</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, including questions and interruptions, plus display names, resolution, and ballot reveal.</span></span></div>' +
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">2</span><span><strong>Who can see it</strong><span>' +
-              (required ? 'Preliminary footage is private by default. Elimination-round broadcast follows the published tournament rules.' : 'The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.') + '</span></span></div>' +
+              (required ? 'Preliminary footage and generated clips are private by default. Elimination-round broadcast and clips follow the published tournament rules.' : 'The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.') + '</span></span></div>' +
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>' +
               (required ? 'Before Speech 1, after every assigned person confirms this notice. The round stays closed until recording is live.' : 'Only after every seated person agrees for this round. If anyone says no, no recording starts.') + '</span></span></div>' +
+            (required ? '<div class="rec-consent-fact"><span class="rec-consent-fact-num">4</span><span><strong>Questions and spreading</strong><span>A concise, relevant question can improve your score. Heckling or disruptive interruptions can lower it. The AI receives calculated pace, and more than 250 WPM is flagged as spreading. Speed matters only when the argument becomes hard to follow.</span></span></div>' : '') +
+            (required ? '<div class="rec-consent-fact"><span class="rec-consent-fact-num">5</span><span><strong>Camera standings points</strong><span>Camera +2. Avatar −1. Off or a dark tile −3. This adjusts the standings tiebreak, not who wins the argument ballot.</span></span></div>' : '') +
           '</div>' +
           '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
             '<span>I am 18 or older, or my parent or guardian has approved ' +
@@ -10928,6 +10931,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       atMs: state.roundStartedAt ? Math.max(0, (Date.now() - state.roundStartedAt) - Math.round(elapsed * 1000)) : null,
       overran: elapsed > sp.time + 5,
       skipped: !!opts.skipped,
+      // The tournament applies its disclosed camera-presence adjustment
+      // after the argument ballot. Per-speech mode lets mixed use be
+      // weighted by speech time instead of guessed from the final frame.
+      cameraMode: (camConv && ['camera','avatar','off'].indexOf(camConv.mode) >= 0)
+        ? camConv.mode
+        : 'off',
     };
     // Solo and legacy rooms may have no idle client to run the final
     // fact-check sweep. This call is ignored when the speaker is not the
@@ -13456,6 +13465,41 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     } catch(e){ return ''; }
   }
 
+  function tournamentScoringHtml(b){
+    var ts = b && b.tournamentScoring;
+    if (!ts || !ts.pro || !ts.con) return '';
+    function modeLabel(mode){
+      if (mode === 'camera') return 'Camera';
+      if (mode === 'avatar') return 'Avatar';
+      if (mode === 'off') return 'Off or dark';
+      if (mode === 'mixed') return 'Mixed modes';
+      return 'Mode not verified';
+    }
+    function signed(n){
+      n = Number(n) || 0;
+      return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '0');
+    }
+    function sideLine(name, score){
+      var pace = Number(score.paceWpm);
+      return '<div style="padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.08)">' +
+        '<strong style="display:block;font-size:.82rem;margin-bottom:3px">' + escHtml(name) + '</strong>' +
+        '<span style="font-size:.78rem">' + escHtml(String(score.argumentPoints)) +
+          ' argument ' + signed(score.presenceAdjustment) + ' ' + escHtml(modeLabel(score.cameraMode)) +
+          ' = <strong>' + escHtml(String(score.standingPoints)) + ' standings points</strong></span>' +
+        (isFinite(pace) && pace > 0
+          ? '<span style="display:block;margin-top:4px;font-size:.7rem;color:var(--text-dim)">Calculated pace: ' + pace + ' WPM' + (score.spreading ? ', spreading flagged' : '') + '.</span>'
+          : '') +
+      '</div>';
+    }
+    return '<div class="ballot-section" data-stage="1" style="margin:0 0 18px;border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:13px 16px">' +
+      '<div style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.65;margin-bottom:9px">Tournament standings points</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px">' +
+        sideLine(state.proName, ts.pro) + sideLine(state.conName, ts.con) +
+      '</div>' +
+      '<p style="margin:9px 0 0;font-size:.7rem;line-height:1.5;color:var(--text-dim)">Camera +2. Avatar −1. Off or dark −3. Mixed use is weighted by speech time. This changes only the standings tiebreak, never the winner. Pace above ' + escHtml(String(ts.spreadingThresholdWpm || 250)) + ' WPM is flagged; the AI lowers an argument score only when density makes the reasoning hard to follow.</p>' +
+    '</div>';
+  }
+
   // ── after the round: the personalized next step ─────────────────
   // The minutes after a verdict decide whether a loss is an exit or a
   // loop, and until now this surface said nothing to the loser that a
@@ -13600,6 +13644,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           '<div class="pts-label">Argument score · out of 100</div>' +
         '</div>' +
       '</div>' +
+      tournamentScoringHtml(b) +
       // Reading depth. The judge writes the same decision at three
       // depths and printing all three at once is what made a ballot
       // read as a wall of text. One renders at a time; the verdict,
