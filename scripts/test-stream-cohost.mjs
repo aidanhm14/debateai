@@ -152,7 +152,25 @@ check(fallbackBlock.includes("shell.classList.add('is-daily-crop')"), 'spectator
 check(liveRound.includes(".call-shell.is-daily-crop::after"), 'cropped fallback covers the remaining Daily menu with a live badge');
 check(!audienceCamBlock.includes('daily-frame--broadcast-crop'), 'camera-on audience members retain their required call controls');
 check(loader.includes("var VERSION = '0.92.2'"), 'Daily SDK loader is pinned to an exact release');
-check(!/https:\/\/unpkg\.com\/@daily-co\/daily-js["']/.test(studio + liveRound), 'stream pages do not load Daily latest');
+
+// On air (/air): the program switcher that puts live rounds on the main
+// broadcast. Same boundary as the studio: it may hold the lead's one-time
+// simulcast start token, never a platform key, and it must refuse rooms
+// the director marks as not cleared for broadcast.
+const air = read('app/air.html');
+const director = read('app/director.html');
+check(air.includes('content="noindex'), 'On air switcher is never indexed');
+check(air.includes('/vendor/daily-iframe-0.92.2.js'), 'On air switcher uses the pinned vendored Daily SDK');
+check(!air.includes('call.startLiveStreaming({'), 'On air switcher never transmits platform keys itself');
+check(!/rtmps?:\/\//.test(air), 'On air switcher contains no RTMP endpoint');
+check(air.includes("fetch('/api/stream-restream'"), 'On air lead starts the simulcast through the server');
+check(air.includes("sess.role !== 'lead'"), 'only a lead On air session may start the simulcast');
+check(air.includes("action: 'cohost'"), 'On air joins an existing stream through a cohost owner token');
+check(air.includes('streamable === false'), 'On air refuses rooms not cleared for broadcast');
+check(air.includes('startScreenShare({ mediaStream'), 'On air publishes the program capture as the screen share the player promotes');
+check(director.includes('href="/air'), 'director links to the On air switcher');
+
+check(!/https:\/\/unpkg\.com\/@daily-co\/daily-js["']/.test(studio + liveRound + air), 'stream pages do not load Daily latest');
 const dailyBundle = fs.readFileSync(path.join(root, 'app/vendor/daily-iframe-0.92.2.js'));
 check(crypto.createHash('sha256').update(dailyBundle).digest('hex') === '4199d9996bafaa500d97362eb109c2a300ffbead41ce5c4df7132517f7ad5636', 'vendored Daily SDK matches the reviewed npm bundle');
 check(tournament.includes("fetch('/api/stream-status'"), 'tournament page reads the public stream status');

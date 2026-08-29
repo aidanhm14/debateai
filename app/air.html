@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>On air · Debatable</title>
+<!-- The program switcher for the main broadcast. Admin-only, reached from
+     /admin's Broadcast card or the /director wall. Never linked publicly.
+
+     WHY THIS PAGE EXISTS. /studio broadcasts the host's camera, and the
+     director's Stage links render a round as a chromeless broadcast view,
+     but the only way to put an actual live debate ON the stream was the
+     host hand-picking a Stage tab out of Chrome's screen-share dialog and
+     remembering the "also share tab audio" checkbox. This page closes that
+     gap: it previews any live round in a program monitor (the same
+     ?stage=1 view, motion band and lower thirds included), captures the
+     monitor region of its own tab WITH audio in one click, and publishes
+     the capture into the broadcast room as a screen share. The native
+     site player already promotes a screen share full-bleed with the host
+     camera as picture-in-picture, and Daily's simulcast layout does the
+     same, so a round put on air here reaches the homepage, /watch, /open,
+     /tournaments, and every configured external destination.
+
+     Cutting between rounds swaps the monitor iframe while the tab capture
+     keeps running, so a cut is instant and never re-opens the share
+     picker. The capture target is the MONITOR ELEMENT (Chrome region
+     capture, cropTo); if the browser lacks cropTo the full tab goes out
+     and the page says so, because a control rail on the stream beats no
+     stream.
+
+     Security boundary, same as /studio: this page never sees an RTMP key.
+     When it starts the broadcast it is the lead and holds only the
+     one-time simulcast start token, which it posts to /api/stream-restream
+     exactly the way the lead studio does. When it joins a stream someone
+     else started it takes an ordinary cohost owner token and leaves the
+     simulcast to the lead. -->
+<link rel="icon" href="/icons/icon-192.png">
+<script src="/vendor/daily-iframe-0.92.2.js"></script>
+<script src="/js/daily-loader.js"></script>
+<style>
+  /* Broadcast desk styling, matched to /director: dark on purpose and NOT
+     theme-aware. Nobody browses this casually. */
+  :root{
+    --bg:#070912; --bg-soft:#0d111d; --fg:#e8eef7; --muted:#94a3b8; --dim:#64748b;
+    --accent:#ef4444; --good:#22c55e; --warn:#f59e0b; --live:#f43f5e;
+    --card:rgba(255,255,255,.03); --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+  }
+  *{box-sizing:border-box}
+  /* The standing UA-hidden trap: an authored display (the chips are
+     inline-flex) beats the UA sheet's [hidden] rule, which left the
+     PROGRAM ON AIR chip painted after going off air. */
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.5 Archivo,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  em,i{font-style:normal}
+  a{color:inherit}
+  .wrap{max-width:1700px;margin:0 auto;padding:14px 16px 40px}
+
+  .top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+    padding:12px 16px;border:1px solid var(--line);border-radius:14px;background:var(--bg-soft)}
+  .top h1{margin:0;font-size:1.02rem;font-weight:800;letter-spacing:-.01em}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);
+    border:1px solid var(--line-strong);border-radius:999px;padding:5px 11px;white-space:nowrap;font-weight:700}
+  .chip b{color:var(--fg)}
+  .chip.ok b{color:var(--good)}
+  .chip.warn{border-color:rgba(245,158,11,.5);color:#fcd34d}
+  .chip.live{background:#b91c1c;border-color:#b91c1c;color:#fff}
+  .chip.live i{width:7px;height:7px;border-radius:50%;background:#fff;animation:beat 1.4s infinite}
+  @keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
+  .grow{flex:1 1 auto}
+  .btn{background:rgba(255,255,255,.05);color:var(--fg);border:1px solid var(--line-strong);
+    border-radius:9px;padding:8px 14px;font:inherit;font-size:.84rem;font-weight:700;cursor:pointer;text-decoration:none}
+  .btn:hover{background:rgba(255,255,255,.1)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-live{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-live:hover{background:#dc2626}
+  a.btn{display:inline-flex;align-items:center}
+
+  .desk{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;margin-top:14px;align-items:start}
+  @media(max-width:900px){.desk{grid-template-columns:1fr}}
+
+  /* ── Round rail ── */
+  .rail{display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 140px);overflow:auto;padding-right:2px}
+  .rail-head{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:800;margin:4px 2px 0}
+  .rcard{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;
+    cursor:pointer;transition:border-color .15s}
+  .rcard:hover{border-color:var(--line-strong)}
+  .rcard[data-on="yes"]{border-color:var(--accent);box-shadow:0 0 0 1px rgba(239,68,68,.3)}
+  .rcard .shot{position:relative;aspect-ratio:16/9;background:#05070e}
+  .rcard .shot img{width:100%;height:100%;object-fit:cover;display:block}
+  .rcard .shot .none{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);
+    font-size:10px;letter-spacing:.13em;text-transform:uppercase;font-weight:800}
+  .rcard .tag{position:absolute;top:7px;left:7px;padding:3px 8px;border-radius:999px;font-size:9.5px;
+    font-weight:800;letter-spacing:.09em;text-transform:uppercase;background:rgba(7,9,18,.85);
+    border:1px solid var(--line-strong)}
+  .rcard .tag[data-s="speaking"]{background:var(--live);border-color:var(--live);color:#fff}
+  .rcard .tag.nostream{background:#facc15;border-color:transparent;color:#1a1204}
+  .rcard .onair-tag{position:absolute;top:7px;right:7px;padding:3px 8px;border-radius:999px;font-size:9.5px;
+    font-weight:900;letter-spacing:.09em;text-transform:uppercase;background:var(--accent);color:#fff}
+  .rcard .body{padding:9px 11px 11px}
+  .rcard .names{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rcard .names span{color:var(--dim);font-weight:800;font-size:.72rem;padding:0 3px}
+  .rcard .m{color:var(--muted);font-size:11.5px;line-height:1.4;margin-top:3px;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .rcard .sub{margin-top:5px;font-size:10.5px;color:var(--dim);font-weight:700;display:flex;gap:9px;flex-wrap:wrap}
+  .rail-empty{border:1px dashed var(--line-strong);border-radius:12px;padding:26px 14px;
+    text-align:center;color:var(--dim);font-size:.85rem}
+
+  /* ── Program monitor ── */
+  .prog{position:relative}
+  #monitor{position:relative;width:100%;aspect-ratio:16/9;max-height:calc(100vh - 170px);
+    margin:0 auto;background:#000;border:1px solid var(--line-strong);border-radius:12px;overflow:hidden}
+  #monitor iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+  /* The idle slate is INSIDE the capture region on purpose: sharing with
+     no round loaded broadcasts a clean "starting soon" card, not a black
+     rectangle or the control rail. */
+  #slate{position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+    background:radial-gradient(circle at 30% 25%,rgba(239,68,68,.28),transparent 40%),
+               radial-gradient(circle at 72% 75%,rgba(59,130,246,.16),transparent 42%),#05060b}
+  #slate .k{color:#f87171;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+  #slate .b{margin-top:10px;font-size:clamp(26px,3.4vw,44px);font-weight:900;letter-spacing:-.03em}
+  #slate .s{margin-top:9px;color:rgba(255,255,255,.6);font-size:14px;font-weight:600}
+  #monitor.has-room #slate{display:none}
+  .prog-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;
+    font-size:12px;color:var(--dim)}
+  .prog-foot b{color:var(--muted)}
+
+  .note{color:var(--dim);font-size:12px;line-height:1.55;margin:16px 2px 0;max-width:980px}
+  .note b{color:var(--muted)}
+
+  .gate{max-width:420px;margin:120px auto;text-align:center;padding:36px;
+    border:1px solid var(--line);border-radius:18px;background:var(--bg-soft)}
+  .gate h2{margin:0 0 8px;font-size:1.35rem}
+  .gate p{color:var(--muted);font-size:.85rem;margin:0 0 20px}
+  .err{color:var(--accent);font-size:12px;margin-top:12px}
+</style>
+<script defer src="/js/track.js"></script>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <h2>On air</h2>
+  <p>The program switcher for the main broadcast. Admin only.</p>
+  <button class="btn btn-live" id="signin" style="width:100%">Sign in</button>
+  <div class="err" id="gateErr"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <h1>On air</h1>
+    <span class="chip" id="streamChip">stream: checking…</span>
+    <span class="chip" id="airChip" hidden></span>
+    <span class="chip" id="viewersChip" hidden>direct viewers: <b>0</b></span>
+    <span class="chip" id="simChip" hidden></span>
+    <span class="grow"></span>
+    <button class="btn btn-live" id="startBtn" hidden>Start the broadcast</button>
+    <button class="btn btn-live" id="joinBtn" hidden>Join the broadcast</button>
+    <button class="btn btn-live" id="airBtn" hidden>Go on air</button>
+    <button class="btn" id="offBtn" hidden>Off air</button>
+    <button class="btn" id="cameraBtn" hidden>Copy camera invite</button>
+    <button class="btn" id="endBtn" hidden>End stream</button>
+    <a class="btn" href="/director" target="_blank" rel="noopener">Director</a>
+    <a class="btn" href="/watch" target="_blank" rel="noopener">Watch</a>
+  </div>
+
+  <div class="desk">
+    <div class="rail">
+      <div class="rail-head">Live rounds</div>
+      <div id="railList"></div>
+      <div class="rail-empty" id="railEmpty" hidden>No live rounds right now. The slate
+        broadcasts a "starting soon" card until one appears.</div>
+    </div>
+
+    <div class="prog">
+      <div id="monitor">
+        <div id="slate">
+          <div>
+            <div class="k">Debatable · live</div>
+            <div class="b" id="slateTitle">We'll be right back</div>
+            <div class="s">Live debates from itsdebatable.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="prog-foot">
+        <span id="progLine">Pick a round from the rail to preview it here.</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" id="foot">
+    <b>How this works.</b> Preview any live round in the monitor. <b>Go on air</b> captures the
+    monitor (this tab, with its audio) and publishes it into the broadcast as the program feed:
+    the site player shows it full-bleed and any host camera rides picture-in-picture. Clicking
+    another round cuts instantly; the capture never restarts. If a round is silent, click the
+    sound button inside the monitor once. Wear headphones, or mute your studio microphone while
+    a round is on air, so the round's audio does not echo through your mic. Rooms marked
+    <b>Do not stream</b> are preliminary tournament rooms whose recordings are private; this desk
+    refuses to put them on air. The broadcast recording lands hidden on /admin until you publish it.
+  </p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var FIREBASE_CONFIG = {
+    // Keep in sync with /director and the admin pages.
+    apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+    authDomain: 'debateos-78ac5.firebaseapp.com',
+    projectId: 'debateos-78ac5',
+    storageBucket: 'debateos-78ac5.firebasestorage.app',
+    messagingSenderId: '860359449192',
+    appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
+  };
+  firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+  var auth = firebase.auth();
+  var $ = function(id){ return document.getElementById(id); };
+
+  var params = new URLSearchParams(location.search);
+  var TKEY = (params.get('t') || 'the-debatable-open').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+  var WANT_ROOM = (params.get('room') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+  var POLL_MS = 15000;
+
+  var state = {
+    stream: null,          // /api/stream-status payload
+    session: null,         // { url, token, role, roomName, rsToken } once joined
+    call: null,            // Daily call object (publisher only)
+    capture: null,         // MediaStream while on air
+    cropped: false,
+    programRoom: '',       // room id in the monitor, '' = slate
+    rounds: [],            // merged rail entries
+    director: {},          // room -> director info (streamable etc.)
+    restreamFired: false,
+  };
+
+  // ── Auth gate ─────────────────────────────────────────────────────
+  auth.onAuthStateChanged(function(u){
+    if (!u){ $('gate').hidden = false; $('app').hidden = true; return; }
+    $('gate').hidden = true; $('app').hidden = false;
+    boot();
+  });
+  $('signin').addEventListener('click', function(){
+    $('gateErr').textContent = '';
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+      .catch(function(e){ $('gateErr').textContent = e.message || 'Sign-in failed'; });
+  });
+
+  function post(path, body){
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify(body),
+      }).then(function(r){
+        return r.json().catch(function(){ return {}; }).then(function(j){
+          if (!r.ok) throw new Error((j && j.error) || 'That did not go through.');
+          return j;
+        });
+      });
+    });
+  }
+  function getAuthed(path){
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, { headers: { Authorization: 'Bearer ' + tok } })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .catch(function(){ return null; });
+    });
+  }
+
+  var booted = false;
+  function boot(){
+    if (booted) return;
+    booted = true;
+    pollStatus();
+    pollRounds();
+    setInterval(function(){ if (!document.hidden || state.capture) pollStatus(); }, POLL_MS);
+    setInterval(function(){ if (!document.hidden || state.capture) pollRounds(); }, POLL_MS);
+  }
+
+  // ── Stream status ─────────────────────────────────────────────────
+  function pollStatus(){
+    fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
+      state.stream = s || {};
+      // Someone ended the stream elsewhere: stand down cleanly.
+      if (state.session && !state.stream.live) teardown('The stream was ended.');
+      paint();
+    }).catch(function(){});
+  }
+
+  function paint(){
+    // Until the first status answer arrives, no action is offered: a
+    // "Start the broadcast" button flashed at a stream that is already
+    // live is a second stream waiting to be started by accident.
+    if (!state.stream) return;
+    var s = state.stream;
+    var joined = !!state.session;
+    var sharing = !!state.capture;
+    var chip = $('streamChip');
+    if (s.live){
+      chip.className = 'chip live';
+      chip.innerHTML = '<i></i>LIVE · ' + esc(s.title || 'Broadcast');
+    } else {
+      chip.className = 'chip';
+      chip.textContent = 'stream: off air';
+    }
+    $('airChip').hidden = !sharing;
+    if (sharing){
+      $('airChip').className = 'chip live';
+      $('airChip').innerHTML = '<i></i>' + (state.cropped ? 'PROGRAM ON AIR' : 'ON AIR · full tab');
+    }
+    var sim = $('simChip');
+    if (s.live && s.restream){
+      sim.hidden = false;
+      sim.className = 'chip' + (s.restreamActive ? ' ok' : '');
+      sim.innerHTML = s.restreamActive
+        ? 'simulcast <b>on air</b>'
+        : 'simulcast: waiting for the program feed';
+    } else sim.hidden = true;
+
+    $('startBtn').hidden = !!s.live || joined;
+    $('joinBtn').hidden = !s.live || joined;
+    $('airBtn').hidden = !joined || sharing;
+    $('offBtn').hidden = !sharing;
+    $('cameraBtn').hidden = !s.live;
+    $('endBtn').hidden = !s.live;
+  }
+
+  function esc(v){ var d = document.createElement('div'); d.textContent = String(v == null ? '' : v); return d.innerHTML; }
+
+  // ── Start / join the broadcast ────────────────────────────────────
+  // Both paths end in the same place: this page joins the broadcast room
+  // as an owner via a call object that publishes nothing until Go on air.
+  // The tokens ride the studioUrl our own server builds (the exact query
+  // /studio reads), so this page adds no new token surface: as starter it
+  // is the lead and holds the one-time simulcast token; joining a stream
+  // someone else started it takes a plain cohost seat and the simulcast
+  // stays the lead studio's job.
+  function sessionFromStudioUrl(studioUrl, role){
+    var q = new URLSearchParams(String(studioUrl || '').split('?')[1] || '');
+    return {
+      url: q.get('url') || '',
+      token: q.get('t') || '',
+      roomName: q.get('room') || '',
+      rsToken: q.get('rs') || '',
+      role: role,
+    };
+  }
+
+  $('startBtn').addEventListener('click', function(){
+    var btn = $('startBtn');
+    btn.disabled = true; btn.textContent = 'Starting…';
+    post('/api/stream-control', { action: 'start', title: 'Live debates', userName: 'Program' })
+      .then(function(data){
+        var sess = sessionFromStudioUrl(data.studioUrl, 'lead');
+        sess.roomName = sess.roomName || data.roomName || '';
+        sess.url = sess.url || data.url || '';
+        sess.token = sess.token || data.token || '';
+        return joinBroadcast(sess);
+      })
+      .then(pollStatus)
+      .catch(function(e){ setLine('Could not start: ' + (e && e.message || e)); })
+      .then(function(){ btn.disabled = false; btn.textContent = 'Start the broadcast'; });
+  });
+
+  $('joinBtn').addEventListener('click', function(){
+    var btn = $('joinBtn');
+    btn.disabled = true; btn.textContent = 'Joining…';
+    post('/api/stream-control', { action: 'cohost', userName: 'Program' })
+      .then(function(data){
+        var sess = sessionFromStudioUrl(data.studioUrl, 'cohost');
+        sess.roomName = sess.roomName || data.roomName || '';
+        return joinBroadcast(sess);
+      })
+      .catch(function(e){ setLine('Could not join: ' + (e && e.message || e)); })
+      .then(function(){ btn.disabled = false; btn.textContent = 'Join the broadcast'; });
+  });
+
+  function joinBroadcast(sess){
+    if (!window.DailyIframe) return Promise.reject(new Error('The video library did not load. Reload the page.'));
+    if (!sess.url || !sess.token) return Promise.reject(new Error('The broadcast room did not come back with a token.'));
+    var call = window.DailyIframe.createCallObject({
+      videoSource: false,
+      audioSource: false,
+      subscribeToTracksAutomatically: false,
+    });
+    state.call = call;
+    call.on('participant-counts-updated', reportViewers);
+    call.on('participant-joined', reportViewers);
+    call.on('participant-left', reportViewers);
+    call.on('live-streaming-started', function(){
+      if (state.stream) state.stream.restreamActive = true;
+      paint();
+    });
+    call.on('error', function(e){ console.warn('[air] call error:', e); });
+    call.on('left-meeting', function(){ teardown(''); });
+    return call.join({ url: sess.url, token: sess.token, userName: 'Program' }).then(function(){
+      state.session = sess;
+      // The program feed is screen-quality video: full scale, 30fps, and a
+      // bitrate that can hold two moving faces (the studio's slide preset
+      // caps at 15fps, which is wrong for a debate).
+      return call.updateSendSettings({
+        screenVideo: {
+          maxQuality: 'high',
+          encodings: { high: { maxBitrate: 4000000, scaleResolutionDownBy: 1, maxFramerate: 30 } },
+        },
+      }).catch(function(e){ console.warn('[air] send settings refused:', e && e.message); });
+    }).then(function(){
+      reportViewers();
+      setLine('Joined the broadcast. Go on air when the monitor shows what you want out.');
+      paint();
+    });
+  }
+
+  function reportViewers(){
+    var counts = { present: 0, hidden: 0 };
+    try { counts = state.call.participantCounts() || counts; } catch(e){}
+    var chipEl = $('viewersChip');
+    chipEl.hidden = !state.session;
+    chipEl.innerHTML = 'direct viewers: <b>' + (Number(counts.hidden) || 0) + '</b>';
+  }
+
+  // ── Go on air: capture the monitor, publish as the screen share ───
+  $('airBtn').addEventListener('click', function(){
+    if (!state.session) return;
+    var info = state.director[state.programRoom];
+    if (info && info.streamable === false){
+      setLine('That room is not cleared for broadcast. Pick another round, then go on air.');
+      return;
+    }
+    var constraints = {
+      video: { frameRate: { ideal: 30 } },
+      // Raw tab audio: the round is the signal, so no voice processing.
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include',
+      systemAudio: 'include',
+      surfaceSwitching: 'exclude',
+      monitorTypeSurfaces: 'exclude',
+    };
+    navigator.mediaDevices.getDisplayMedia(constraints).then(function(stream){
+      var track = stream.getVideoTracks()[0];
+      var crop = (window.CropTarget && track && typeof track.cropTo === 'function')
+        ? window.CropTarget.fromElement($('monitor')).then(function(target){ return track.cropTo(target); })
+            .then(function(){ state.cropped = true; })
+            .catch(function(e){ state.cropped = false; console.warn('[air] region crop unavailable:', e && e.message); })
+        : Promise.resolve(state.cropped = false);
+      return Promise.resolve(crop).then(function(){
+        if (track) track.addEventListener('ended', function(){ goOffAir('Sharing was stopped from the browser.'); });
+        if (!stream.getAudioTracks().length){
+          setLine('No tab audio in the capture. Stop sharing and pick "This tab" with "Also share tab audio" checked.');
+        }
+        return state.call.startScreenShare({ mediaStream: stream });
+      }).then(function(){
+        state.capture = stream;
+        fireRestream();
+        if (!state.cropped) setLine('On air with the FULL tab (this browser has no region capture), so the control rail is visible on stream. Keep this window clean.');
+        else setLine('On air. Clicking another round cuts instantly.');
+        paint();
+      });
+    }).catch(function(e){
+      if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return;
+      setLine('Capture failed: ' + (e && e.message || e));
+    });
+  });
+
+  $('offBtn').addEventListener('click', function(){ goOffAir('Off air. The broadcast shows the host cameras again.'); });
+
+  function goOffAir(msg){
+    try { if (state.call) state.call.stopScreenShare(); } catch(e){}
+    if (state.capture) state.capture.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+    state.capture = null;
+    state.cropped = false;
+    if (msg) setLine(msg);
+    paint();
+  }
+
+  // As starter this page is the lead and owes the simulcast start, exactly
+  // like /studio's startRestream. Fired on the FIRST go-on-air rather than
+  // at join, so an external destination never opens on an empty room.
+  function fireRestream(){
+    if (state.restreamFired) return;
+    var sess = state.session;
+    if (!sess || sess.role !== 'lead' || !sess.rsToken || !sess.roomName) return;
+    state.restreamFired = true;
+    fetch('/api/stream-restream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomName: sess.roomName, token: sess.rsToken }),
+    }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){
+      if (!r.ok) throw new Error(j.error || 'refused');
+      if (state.stream) state.stream.restreamActive = true;
+      paint();
+    }); }).catch(function(e){
+      state.restreamFired = false;
+      console.warn('[air] simulcast refused:', e && e.message);
+    });
+  }
+
+  // ── Camera invite + end stream ────────────────────────────────────
+  $('cameraBtn').addEventListener('click', function(){
+    var btn = $('cameraBtn');
+    btn.disabled = true;
+    post('/api/stream-control', { action: 'cohost', userName: 'Host' }).then(function(data){
+      return navigator.clipboard.writeText(location.origin + data.studioUrl).then(function(){
+        btn.textContent = 'Invite copied';
+        setTimeout(function(){ btn.textContent = 'Copy camera invite'; }, 1600);
+      });
+    }).catch(function(e){ setLine('Invite failed: ' + (e && e.message || e)); })
+      .then(function(){ btn.disabled = false; });
+  });
+
+  $('endBtn').addEventListener('click', function(){
+    if (!confirm('End the stream? Every public player goes down, the simulcast stops, and the recording stops.')) return;
+    post('/api/stream-control', { action: 'stop' }).then(function(){
+      teardown('Stream ended.');
+      pollStatus();
+    }).catch(function(e){ setLine('Could not end: ' + (e && e.message || e)); });
+  });
+
+  function teardown(msg){
+    goOffAir('');
+    if (state.call){ try { state.call.leave(); state.call.destroy(); } catch(e){} }
+    state.call = null;
+    state.session = null;
+    state.restreamFired = false;
+    $('viewersChip').hidden = true;
+    if (msg) setLine(msg);
+    paint();
+  }
+
+  window.addEventListener('beforeunload', function(e){
+    if (!state.capture) return;
+    e.preventDefault();
+    e.returnValue = 'The program feed is on air from this tab.';
+  });
+
+  function setLine(msg){ $('progLine').textContent = msg; }
+
+  // ── The round rail ────────────────────────────────────────────────
+  function pollRounds(){
+    var pub = fetch('/api/watch-live').then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var dir = getAuthed('/api/director?t=' + encodeURIComponent(TKEY) + '&round=live');
+    Promise.all([pub, dir]).then(function(res){
+      var merged = [];
+      var seen = {};
+      var d = res[1];
+      state.director = {};
+      ((d && d.rooms) || []).forEach(function(room){
+        if (!room || !room.room) return;
+        state.director[room.room] = { streamable: room.streamable !== false, state: room.state };
+        if (room.state === 'empty' || room.state === 'unopened') return;
+        seen[room.room] = true;
+        merged.push({
+          room: room.room,
+          kind: 'tournament',
+          a: (room.gov && room.gov.name) || 'Gov',
+          b: (room.opp && room.opp.name) || 'Opp',
+          motion: room.motion || '',
+          state: room.state,
+          shot: room.shot || 0,
+          watching: Number(room.watching) || 0,
+          streamable: room.streamable !== false,
+        });
+      });
+      (((res[0]) && res[0].rounds) || []).forEach(function(r){
+        if (!r || !r.room || seen[r.room]) return;
+        merged.push({
+          room: r.room,
+          kind: 'public',
+          a: r.proName || 'Pro',
+          b: r.conName || 'Con',
+          motion: r.motion || '',
+          state: r.started === false ? 'starting' : 'speaking',
+          shot: r.shot || 0,
+          watching: Number(r.watchCount) || 0,
+          streamable: true,
+        });
+      });
+      state.rounds = merged;
+      renderRail();
+      if (WANT_ROOM){
+        var want = WANT_ROOM; WANT_ROOM = '';
+        loadRoom(want);
+      }
+    });
+  }
+
+  function renderRail(){
+    var list = $('railList');
+    $('railEmpty').hidden = state.rounds.length > 0;
+    list.innerHTML = state.rounds.map(function(r){
+      var on = r.room === state.programRoom;
+      var shot = r.shot
+        ? '<img alt="" src="/api/room-shot?room=' + encodeURIComponent(r.room) + '&v=' + r.shot + '">'
+        : '<div class="none">No camera</div>';
+      var tag = r.streamable
+        ? '<span class="tag" data-s="' + esc(r.state) + '">' + esc(r.kind === 'tournament' ? r.state : (r.state === 'starting' ? 'getting started' : 'public round')) + '</span>'
+        : '<span class="tag nostream">Do not stream</span>';
+      return '<div class="rcard" data-room="' + esc(r.room) + '" data-on="' + (on ? 'yes' : 'no') + '">'
+        + '<div class="shot">' + shot + tag + (on ? '<span class="onair-tag">Program</span>' : '') + '</div>'
+        + '<div class="body">'
+        +   '<div class="names">' + esc(r.a) + '<span>VS</span>' + esc(r.b) + '</div>'
+        +   (r.motion ? '<div class="m">' + esc(r.motion) + '</div>' : '')
+        +   '<div class="sub"><span>' + (r.kind === 'tournament' ? 'Tournament' : 'Open floor') + '</span>'
+        +     (r.watching ? '<span>' + r.watching + ' watching</span>' : '') + '</div>'
+        + '</div></div>';
+    }).join('');
+    list.querySelectorAll('.rcard').forEach(function(card){
+      card.addEventListener('click', function(){ loadRoom(card.getAttribute('data-room')); });
+    });
+  }
+
+  function loadRoom(room){
+    room = String(room || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+    if (!room || room === state.programRoom) return;
+    var info = state.director[room];
+    // The consent line: a preliminary tournament room whose recording is
+    // private must never reach the program feed. While the capture runs,
+    // loading it IS broadcasting it, so the cut is refused outright.
+    if (state.capture && info && info.streamable === false){
+      setLine('That room is not cleared for broadcast. Go off air first if you only need to check on it.');
+      return;
+    }
+    var monitor = $('monitor');
+    var old = monitor.querySelector('iframe');
+    if (old) old.remove();
+    var frame = document.createElement('iframe');
+    frame.allow = 'autoplay; fullscreen';
+    frame.src = '/live-round?room=' + encodeURIComponent(room) + '&stage=1';
+    monitor.appendChild(frame);
+    monitor.classList.add('has-room');
+    state.programRoom = room;
+    if (info && info.streamable === false){
+      setLine('Previewing a room that is NOT cleared for broadcast. Go on air is blocked while it is loaded.');
+    } else if (state.capture){
+      setLine('Cut. The stream is showing this round.');
+    } else {
+      setLine('Previewing. Go on air to put it on the broadcast.');
+    }
+    renderRail();
+  }
+})();
+</script>
+</body>
+</html>
