@@ -24,7 +24,10 @@ const EVENT_NAME = 'The Debatable Open';
 const SUBJECT = 'The Debatable Open: schedule, check-in, and rules';
 const STATE_DOC = 'config/tournament_day_reminder_20260829';
 const ACTIVE_ENTRY_STATUSES = new Set(['registered', 'checked_in']);
-const PACE_MS = 140;
+// Resend's normal per-second ceiling is the limiting resource here. A slower
+// pace gets the whole live roster through one invocation instead of making the
+// five-minute retry job advance only a few recipients at a time.
+const PACE_MS = 650;
 const DISCORD_URL = 'https://discord.gg/WMHZW9BKvJ';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

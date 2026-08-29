@@ -41,6 +41,8 @@ check('kickoff reminder has a separate idempotency stamp',
 check('a failed stamp cannot abort the remaining entrant sends',
   reminder.includes("errorReasons['stamp-failed']")
   && reminder.includes('stamp failed for'));
+check('detailed roster send stays below the ordinary mail rate ceiling',
+  reminder.includes('const PACE_MS = 650'));
 check('email sends contestants to the event page',
   reminder.includes('/open?utm_source=email')
   && reminder.includes('Check in now'));
@@ -86,6 +88,10 @@ check('arrival prompts recommend the official Discord as a backup',
 check('arrival prompt check-in preserves recording and age approval',
   [open, tournament].every((page) => page.includes("confirmTournamentRecording(t, 'Agree and check in')")
     && page.includes('recordingAccepted: true, adultOrGuardianApproved: true')));
+check('Open prize tiles are compact direct children, not nested boxes',
+  open.includes('grid-template-columns:repeat(3,minmax(0,1fr))')
+  && open.includes('.prize>div')
+  && !open.includes('.prize div'));
 check('homepage CTA is loaded', landing.includes('/js/tournament-day-cta.js'));
 check('homepage CTA is signed-in only and points to the event page',
   cta.includes('!user || user.isAnonymous')
