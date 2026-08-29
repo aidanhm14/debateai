@@ -101,6 +101,9 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'the module never reads a client-supplied source field');
   ok(/govEntry/.test(src) && /members/.test(src),
     'verification goes through the tournament entries, not the room string alone');
+  ok(/collection\('round_drafts'\)/.test(src) && /draftResult\(/.test(src)
+      && /canonicalRound/.test(src),
+    'verified tournament rounds expose the server-only draft result to the judge');
 }
 
 // ── video admission is roster-backed, not a client role claim ──────────────

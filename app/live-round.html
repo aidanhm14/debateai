@@ -1715,7 +1715,7 @@ body.speech-live .rmb-eyebrow{display:none}
    same as the background brief above it. Both fold away while somebody
    is actually speaking. */
 body.speech-live .rmb-house{display:none !important}
-body.speech-live .rmb-motion{font-size:1.02rem;line-height:1.32}
+body.speech-live .rmb-motion{font-size:clamp(1.8rem,3.4vw,3rem);line-height:1.08}
 body.speech-live .transcript-area{margin-top:4px}
 .prep-banner{display:flex;align-items:center;gap:10px;justify-content:center;margin:0 0 14px;padding:10px 14px;
   border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);
@@ -2257,10 +2257,41 @@ body.speech-live .sg-swap{display:none}
 .rmb-change:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.4))}
 body.speech-live .rmb-change{display:none}
 .round-motion-bar .rmb-motion{
-  font-family:'Archivo','Fraunces',Georgia,serif;
-  font-size:clamp(1.55rem,2.5vw,2.15rem);
-  font-weight:650;line-height:1.18;letter-spacing:-.018em;
-  color:var(--text);
+  font-family:'DM Sans','Inter',Arial,sans-serif;
+  font-size:clamp(2.25rem,4.6vw,4.25rem);
+  font-weight:800;line-height:1.08;letter-spacing:-.025em;
+  max-width:30ch;text-wrap:balance;color:var(--text);
+}
+.rmb-motion-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
+  gap:18px;margin-top:8px;
+}
+.rmb-motion-actions{display:flex;align-items:stretch;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.rmb-ai-cue{
+  align-self:center;display:inline-flex;align-items:center;gap:6px;color:var(--blue,#2563eb);
+  font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;
+}
+.rmb-ai-cue b{font-size:1.15rem;line-height:1;animation:rmbCue 1.15s ease-in-out infinite}
+@keyframes rmbCue{50%{transform:translateX(5px)}}
+@media(prefers-reduced-motion:reduce){.rmb-ai-cue b{animation:none}}
+.rmb-timer{
+  min-width:126px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+  padding:9px 13px;border:1px solid var(--border);border-radius:12px;background:var(--ui-surface);
+}
+.rmb-timer-label{font-size:.58rem;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim)}
+.rmb-timer-num{font-variant-numeric:tabular-nums;font-size:clamp(1.65rem,2.8vw,2.35rem);font-weight:900;line-height:1;color:var(--text)}
+.rmb-timer-num.warn,.rmb-timer-num.paused{color:var(--amber)}
+.rmb-timer-num.over{color:var(--accent)}
+.rmb-context-btn{
+  min-height:58px;padding:10px 16px;border-radius:12px;border:1px solid rgba(37,99,235,.34);
+  background:rgba(37,99,235,.09);color:var(--blue,#2563eb);font:850 .76rem/1.1 'DM Sans','Archivo',sans-serif;
+  letter-spacing:.04em;cursor:pointer;white-space:nowrap;
+}
+.rmb-context-btn:hover{background:rgba(37,99,235,.16);border-color:rgba(37,99,235,.58)}
+.rmb-context-btn:disabled{opacity:.55;cursor:wait}
+.rmb-tournament-lock{
+  display:inline-flex;align-items:center;gap:6px;margin-left:2px;font-size:.62rem;font-weight:850;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--text-dim)
 }
 .rmb-tools{
   width:100%;display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap;
@@ -2407,6 +2438,10 @@ body.spectator-mode .rec-tail{display:none}
 .rec-consent-yes:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:640px){
   .round-motion-bar{flex-direction:column;align-items:stretch;gap:14px}
+  .rmb-motion-row{grid-template-columns:1fr;gap:13px}
+  .rmb-motion-actions{justify-content:flex-start}
+  .rmb-timer{align-items:flex-start;min-width:112px}
+  .rmb-context-btn{min-height:54px}
   .rmb-tools{max-width:none;justify-content:flex-start}
   .rmb-rec{justify-content:flex-end}
 }
@@ -3372,7 +3407,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">🎲</button>
             <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
           </span>
-          <div class="rmb-motion" id="rmbMotion">—</div>
+          <div class="rmb-motion-row">
+            <div class="rmb-motion" id="rmbMotion">—</div>
+            <div class="rmb-motion-actions">
+              <div class="rmb-timer" aria-label="Speech timer">
+                <span class="rmb-timer-label" id="rmbTimerState">Ready</span>
+                <strong class="rmb-timer-num" id="rmbTimerNum">0:00</strong>
+              </div>
+              <span class="rmb-ai-cue" id="rmbAiCue">AI tools <b aria-hidden="true">→</b></span>
+              <button type="button" class="rmb-context-btn" id="rmbContextBtn" title="Generate a neutral background brief for this resolution">✦ Generate context</button>
+            </div>
+          </div>
           <!-- Which side argues what, one compact line directly under the
                resolution. The full wording moved to Round details; the
                reason it exists at all is in renderSidesGuide(). -->
@@ -4534,6 +4579,37 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     isPrivate: prefill.isPrivate,
   };
 
+  // Lock immediately for a server-issued tournament link, then keep the
+  // lock only when the admission response confirms the room. The URL is
+  // an optimistic UI hint, never authority for ratings or admission.
+  function tournamentControlsLocked(){
+    return state.tournamentRoom === true
+      || (state.tournamentRoom === null && (prefill.source || '') === 'tournament');
+  }
+
+  function tournamentDraftMotion(round){
+    if (!tournamentControlsLocked()) return '';
+    var draft = round && round.draft;
+    if (!draft || draft.phase !== 'done' || !draft.motionId || !Array.isArray(draft.slate)) return '';
+    var picked = draft.slate.filter(function(m){ return m && m.id === draft.motionId; })[0];
+    return picked && typeof picked.text === 'string' ? picked.text : '';
+  }
+
+  function syncTournamentControls(){
+    var locked = tournamentControlsLocked();
+    document.body.classList.toggle('tournament-room', locked);
+    if (locked){
+      state.judgePicks = { pro:'chair', con:'chair' };
+      state.judgeLocked = 'chair';
+      state.ballotDetail = 'medium';
+      state.prepMin = 5;
+    }
+    try { renderSetup(); } catch(e){}
+    try { renderJudgeDraft(); } catch(e){}
+    try { if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns(); } catch(e){}
+    try { renderSidesGuide(); } catch(e){}
+  }
+
   function publicNameOf(user){
     if (!user) return 'A debater';
     if (window.DBIdentity) return window.DBIdentity.forUser(user).name;
@@ -4603,6 +4679,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function renderSetupJudgeTypes(){
     var host = $('setupJudgeTypes');
     if (!host) return;
+    if (tournamentControlsLocked()){
+      host.innerHTML = '<div class="jd-card is-agreed" aria-label="Three-judge tournament council fixed">' +
+        '<div class="jd-card-name"><span class="jd-dot"></span>Three-judge council</div>' +
+        '<div class="jd-card-tag">All 3 must return. 2 matching votes decide. Fixed for this tournament.</div>' +
+      '</div>';
+      return;
+    }
     var current = judgeLockKey() || 'chair';
     host.innerHTML = JUDGE_ARCHETYPES.map(function(level){
       return '<button type="button" class="jd-card" data-setup-jk="' + level.key + '"' +
@@ -4615,7 +4698,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
   function renderSetup(){
     var f = FORMATS[state.formatKey];
-    if (document.activeElement !== $('motionDisplay')) $('motionDisplay').textContent = state.motion || '';
+    var setupMotion = $('motionDisplay');
+    if (document.activeElement !== setupMotion) setupMotion.textContent = state.motion || '';
+    if (tournamentControlsLocked()){
+      setupMotion.removeAttribute('contenteditable');
+      setupMotion.setAttribute('aria-label', 'Tournament resolution, fixed');
+    } else {
+      setupMotion.setAttribute('contenteditable', 'true');
+      setupMotion.setAttribute('aria-label', 'Motion (editable)');
+    }
+    var setupRandom = $('randomMotionBtn');
+    if (setupRandom) setupRandom.hidden = tournamentControlsLocked();
     renderHouseGloss();
     renderSetupJudgeTypes();
     // For 4-team formats, render a chip per team (OG / OO / CG / CO).
@@ -4661,6 +4754,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     $('proName').value = state.proName;
     $('conName').value = state.conName;
     $('formatSel').value = state.formatKey;
+    $('formatSel').disabled = tournamentControlsLocked();
+    var setupPrep = $('prepSel');
+    if (setupPrep){
+      if (tournamentControlsLocked()) setupPrep.value = '5';
+      setupPrep.disabled = tournamentControlsLocked();
+    }
     // The compact spectator shell no longer renders the old room-id row.
     // A late Firestore setup snapshot still calls renderSetup(), so treat
     // that display as optional rather than aborting the entire snapshot
@@ -4836,6 +4935,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         titleText = 'The debaters control setup.';
         detailText = 'You will follow the same speeches and ballot without camera or mic access.';
         pillText = 'View only';
+      } else if (tournamentControlsLocked()){
+        ownerText = 'FIXED';
+        kickerText = 'Tournament setup';
+        titleText = 'The draw sets the resolution, sides, format, and judge.';
+        detailText = 'You can generate context. The tournament includes five minutes of prep.';
+        pillText = 'Locked';
       }
     } else if (phase === 'round'){
       var sp = f.speeches && f.speeches[state.speechIdx];
@@ -5152,6 +5257,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (state.background){ rmbBr.textContent = state.background; rmbBr.hidden = false; }
       else { rmbBr.hidden = true; rmbBr.textContent = ''; }
     }
+    var contextBtn = $('rmbContextBtn');
+    if (contextBtn){
+      contextBtn.hidden = isSpectator() || state.phase !== 'round' || sidesLocked();
+      contextBtn.textContent = state.background ? '✦ Refresh context' : '✦ Generate context';
+      var aiCue = $('rmbAiCue'); if (aiCue) aiCue.hidden = contextBtn.hidden;
+    }
     renderSidesGuide();
 
     // In-round editor: before Speech 1, debaters can still fix the
@@ -5160,7 +5271,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // line; the tools sit behind the Options toggle.
     var reb = $('roundEditBar');
     if (reb){
-      var canEdit = !isSpectator() && state.speechIdx === 0 && state.phase === 'round';
+      var canEdit = !isSpectator() && !tournamentControlsLocked()
+        && state.speechIdx === 0 && state.phase === 'round';
       reb.hidden = !canEdit;
       var rfs = $('roundFormatSel');
       if (rfs){
@@ -5431,14 +5543,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // what everyone else in the room is doing.
   function updateClockState(){
     var el = $('speechClockState');
-    if (!el) return;
     var word = 'Ready', mod = 'ready';
     if (state.phase !== 'round'){ word = 'Waiting'; mod = 'waiting'; }
     else if (state.timerState === 'running'){ word = 'Speaking'; mod = 'speaking'; }
     else if (state.timerState === 'paused'){ word = 'Paused'; mod = 'paused'; }
     else if (isSpectator() || (mySide() && !isMyTurn())){ word = 'Waiting'; mod = 'waiting'; }
-    el.textContent = word;
-    el.className = 'speech-clock-label is-' + mod;
+    if (el){
+      el.textContent = word;
+      el.className = 'speech-clock-label is-' + mod;
+    }
+    var motionState = $('rmbTimerState');
+    if (motionState) motionState.textContent = word;
   }
 
   // A collapsed section that never says what is inside it reads as
@@ -5785,6 +5900,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     else if (remaining < 30 && state.timerState === 'running') warnClass = 'warn';
     num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
     bar.className = 'timer-bar' + (warnClass && warnClass !== 'paused' ? ' ' + warnClass : '');
+    var motionClock = $('rmbTimerNum');
+    if (motionClock){
+      motionClock.textContent = num.textContent;
+      motionClock.className = 'rmb-timer-num' + (warnClass ? ' ' + warnClass : '');
+    }
   }
   function prepareTimer(targetSec){
     stopTimer();
@@ -8039,9 +8159,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // file is not something the software should need to do. He is right,
   // and the cost was larger than the banner: Daily gives a participant
   // ONE screen track, so for the length of every recorded round the
-  // board held the slot and the real Share screen button was disabled,
-  // which took evidence and slides off the table in exactly the rounds
-  // most worth recording.
+  // board held the slot. Participant screen sharing is no longer offered
+  // in this room UI; the slot is reserved for the short verdict reel.
   //
   // The recording layout is now composed SERVER SIDE by Daily instead
   // (round-recording.mjs): a labelled grid of the real camera tiles with
@@ -9031,9 +9150,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // can be verified rather than assumed.
   //
   // The cost is that Daily's tiles and control tray are ours to build.
-  // That is what this block is: a tile per participant, a screen-share
-  // tile when someone shares, an audience strip for camera spectators,
-  // and a tray with mic, camera flip, screen share and leave. Camera /
+  // That is what this block is: a tile per participant, a verdict-reel
+  // tile when the room publishes it, an audience strip for camera spectators,
+  // and a tray with mic, camera flip, hide-me and leave. Camera /
   // Avatar / Off stay on the existing cam-modes bar over the top.
   //
   // Spectators use this same call-object stage in receive-only mode. The
@@ -9238,7 +9357,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     room.wrap = wrap; room.stage = stage; room.aud = aud; room.note = note;
     room.qualityEl = quality;
     room.tray = tray; room.audioHost = audioHost;
-    // No tray for a watcher: mic, camera flip, screen share and leave are
+    // No tray for a watcher: mic, camera flip, hide-me and leave are
     // all things a guest cannot do in a round they are not in.
     if (!room.viewer) buildTray();
     setRoomNote(room.viewer ? 'Connecting to the video.' : 'Connecting to the video room.');
@@ -9261,14 +9380,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var flip = trayBtn('cvFlip', 'Flip camera', 'Switch between the front and rear camera');
     flip.style.display = 'none';
     flip.addEventListener('click', flipCamera);
-    var share = trayBtn('cvShare', 'Share screen', 'Share your screen with the room');
-    share.addEventListener('click', function(){
-      var call = room.call; if (!call) return;
-      try {
-        if (room.sharing) call.stopScreenShare();
-        else call.startScreenShare();
-      } catch(e){ toast('Screen sharing is unavailable in this browser'); }
-    });
     var self = trayBtn('cvSelf', 'Hide me', 'Hide or show your own camera thumbnail');
     self.addEventListener('click', function(){
       room.selfHidden = !room.selfHidden;
@@ -9307,14 +9418,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     var flip = document.getElementById('cvFlip');
     if (flip) flip.style.display = room.canFlip ? '' : 'none';
-    var share = document.getElementById('cvShare');
-    if (share){
-      // Daily gives a participant one screen track and the board is using
-      // it, so there is nothing truthful this button can offer meanwhile.
-      share.style.display = room.boardLocal ? 'none' : '';
-      share.textContent = room.sharing ? 'Stop sharing' : 'Share screen';
-      share.classList.toggle('is-on', room.sharing);
-    }
     var self = document.getElementById('cvSelf');
     if (self){
       self.textContent = room.selfHidden ? 'Show me' : 'Hide me';
@@ -9909,6 +10012,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         state.dailyUrl = res.body.url;
         state.tournamentRoom = res.body.tournamentRoom === true;
         state.recordingRequired = res.body.recordingRequired === true;
+        syncTournamentControls();
         applyRecordingRequirementCopy();
         // The server response is the authoritative tournament signal.
         // A URL can claim source=tournament; it cannot turn an ordinary
@@ -9990,7 +10094,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         var iframe = document.createElement('iframe');
         iframe.className = 'daily-frame';
         iframe.src = url;
-        iframe.allow = 'camera; microphone; fullscreen; display-capture; autoplay; clipboard-write';
+        iframe.allow = 'camera; microphone; fullscreen; autoplay; clipboard-write';
         iframe.title = 'Live video room';
         shell.appendChild(iframe);
         state.dailyMounted = true;
@@ -10022,7 +10126,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function startRound(){
     // Motion is editable in the setup box (contenteditable). Read it
     // straight from there so a revised motion is what the round uses.
-    state.motion = ($('motionDisplay').textContent || '').trim();
+    if (!tournamentControlsLocked()) state.motion = ($('motionDisplay').textContent || '').trim();
     if (state.motion.length < 5){
       alert('Add a motion first. Tap the Motion box and type or paste it.');
       try { $('motionDisplay').focus(); } catch(e){}
@@ -10038,7 +10142,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     state.teamNames.cg = cgEl ? cgEl.value.trim() : '';
     state.teamNames.co = coEl ? coEl.value.trim() : '';
     state.formatKey = $('formatSel').value;
-    var prepEl = $('prepSel'); state.prepMin = prepEl ? (parseInt(prepEl.value, 10) || 0) : 0;
+    var prepEl = $('prepSel');
+    state.prepMin = tournamentControlsLocked() ? 5 : (prepEl ? (parseInt(prepEl.value, 10) || 0) : 0);
     state.speechIdx = 0;
     state.log = [];
     // Round clock. Every speech entry stores its start as an offset from
@@ -10106,6 +10211,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function startRoomTips(){
     if (isSpectator()) return;
     ROOM_TIPS.forEach(function(t){
+      if (tournamentControlsLocked() && t.key === 'da-tip-motion') return;
       if (tipSeen(t.key)) return;
       setTimeout(function(){
         if (state.phase !== 'round') return;
@@ -13781,10 +13887,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (co) co.addEventListener('input', function(){ if (!state.teamNames) state.teamNames = {}; state.teamNames.co = this.value; updateStartBtn(); });
   })();
   $('formatSel').addEventListener('change', function(){
+    if (tournamentControlsLocked()){
+      this.value = state.formatKey;
+      toast('Tournament format is fixed.');
+      return;
+    }
     state.formatKey = this.value;
     renderSetup();
   });
   $('setupJudgeTypes').addEventListener('click', function(e){
+    if (tournamentControlsLocked()) return;
     var card = e.target && e.target.closest ? e.target.closest('[data-setup-jk]') : null;
     if (!card) return;
     var level = judgeArchetype(card.getAttribute('data-setup-jk'));
@@ -13802,7 +13914,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // Speech 1 begins (renderRound hides the bar at speechIdx > 0).
   (function(){
     function publishRoundMeta(){
-      if (isSpectator()) return;
+      if (isSpectator() || tournamentControlsLocked()) return;
       var ref = getRoundDocRef();
       if (!ref) return;
       ref.update({
@@ -13850,6 +13962,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       return state.timerState !== 'ready';
     }
 
+    function motionChangeLocked(){
+      return tournamentControlsLocked() || motionLocked();
+    }
+
+    function motionLockMessage(){
+      return tournamentControlsLocked()
+        ? 'Tournament resolution and sides are fixed by the draw.'
+        : 'The resolution locked when the first speech started.';
+    }
+
     // Ask for a change. The proposer's own acceptance is implied by
     // proposing, so it is stamped here rather than making them press
     // accept on their own idea.
@@ -13857,8 +13979,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       var ref = proposalRef();
       var uid = myUid();
       if (!ref || !uid) return false;
-      if (motionLocked()){
-        toast('The resolution locked when the first speech started.');
+      if (motionChangeLocked()){
+        toast(motionLockMessage());
         return false;
       }
       var accepts = {};
@@ -13903,8 +14025,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // change onto a contest already underway; the proposal is dropped
       // instead (renderMotionProposal clears it) and the round keeps the
       // resolution both sides walked in arguing.
-      if (motionLocked()){
-        toast('The speech already started, so the round keeps the current resolution.');
+      if (motionChangeLocked()){
+        toast(motionLockMessage());
         return;
       }
       var patch = {};
@@ -13921,6 +14043,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     function commitMotionProposal(p){
       var ref = proposalRef();
       if (!ref || !p || !p.text) return;
+      if (tournamentControlsLocked()) return;
       state.motion = p.text;
       state.background = '';
       var md = $('motionDisplay'); if (md) md.textContent = p.text;
@@ -13955,7 +14078,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // acceptance would swap the motion mid-speech (it happened in a
       // real round). Either participant observing clears it; the write
       // is the same one decline makes, so it is idempotent.
-      if (motionLocked()){
+      if (motionChangeLocked()){
         box.hidden = true;
         if (!isSpectator() && myUid()){
           var lockRef = proposalRef();
@@ -14493,7 +14616,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var swapOfferedLast = null;   // last painted availability, so the sync is not a re-render on every tick
 
     function swapAllowed(){
-      return !isSpectator() && !state.isDuo && !motionLocked()
+      return !isSpectator() && !state.isDuo && !motionChangeLocked()
         && bothSeatsIdentified() && !!myUid();
     }
     // What the sides guide asks before it draws the control: allowed AND
@@ -14550,8 +14673,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
     function proposeSwap(){
       if (!swapAllowed()){
-        toast(motionLocked()
-          ? 'Sides lock when the first speech starts.'
+        toast(motionChangeLocked()
+          ? motionLockMessage()
           : 'You can trade sides once your opponent is in the room.');
         return;
       }
@@ -14620,7 +14743,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }
       // A proposal cannot outlive the window it belongs to. The card
       // going away is the whole message once a speech is running.
-      if (motionLocked()){
+      if (motionChangeLocked()){
         box.hidden = true;
         swapPending = false;
         if (!isSpectator() && myUid() && !swapStaleCleared){ swapStaleCleared = true; clearSwap(''); }
@@ -14708,7 +14831,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // handler, so the render pass sees an unlocked round and leaves
       // the proposal standing. Clearing is an idempotent delete and runs
       // once per page, so both debaters racing it costs one extra write.
-      if (motionLocked() && swapPending){
+      if (motionChangeLocked() && swapPending){
         swapPending = false;
         var box = document.getElementById('swapPropose');
         if (box) box.hidden = true;
@@ -14722,8 +14845,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // when there is not.
     function setMotion(text, source){
       if (!text || text === state.motion) return;
-      if (motionLocked()){
-        toast('The resolution locked when the first speech started.');
+      if (motionChangeLocked()){
+        toast(motionLockMessage());
         var mdL = $('rmbMotion'); if (mdL) mdL.textContent = state.motion || '(motion not set)';
         return;
       }
@@ -14764,11 +14887,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn'), rmbLock = $('rmbLockNote');
     function syncMotionChangeBtns(){
       var seated = state.phase === 'round' && !isSpectator();
-      var show = seated && !motionLocked();
+      var show = seated && !motionChangeLocked();
       if (rmbChange) rmbChange.hidden = !show;
       if (rmbRoll) rmbRoll.hidden = !show;
-      // Once Speech 1 runs the control does not just vanish: it says why.
-      if (rmbLock) rmbLock.hidden = !(seated && motionLocked());
+      // Once locked the control does not just vanish: it says why.
+      if (rmbLock){
+        rmbLock.textContent = tournamentControlsLocked()
+          ? 'Tournament resolution and sides fixed by the draw'
+          : 'Resolution locked after the round starts';
+        rmbLock.hidden = !(seated && motionChangeLocked());
+      }
     }
     window.__lrSyncMotionBtns = syncMotionChangeBtns;
 
@@ -14816,7 +14944,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         var v = ((mmText && mmText.value) || '').trim().replace(/\s+/g, ' ');
         if (!v){ if (mmStatus) mmStatus.textContent = 'Type a resolution first.'; return; }
         if (v === state.motion){ mmClose(); return; }
-        if (motionLocked()){ if (mmStatus) mmStatus.textContent = 'The resolution locked when the first speech started.'; syncMotionChangeBtns(); return; }
+        if (motionChangeLocked()){ if (mmStatus) mmStatus.textContent = motionLockMessage(); syncMotionChangeBtns(); return; }
         setMotion(v, 'modal');
         // On the direct-edit path setMotion only repaints the setup
         // field, so the round view has to be told. On the proposal path
@@ -14835,7 +14963,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     function mmOpen(){
       if (!mmWire()) { openInlineMotionEditor(); return; }
       if (isSpectator()) return;
-      if (motionLocked()){ toast('The resolution locked when the first speech started.'); syncMotionChangeBtns(); return; }
+      if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
       var both = bothSeatsIdentified();
       if (mmSubmit) mmSubmit.textContent = both ? 'Propose change' : 'Save change';
       if (mmHint) mmHint.textContent = both
@@ -14861,7 +14989,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       try { gtag('event', 'live_round_motion_change_inline'); } catch(e){}
     });
     if (rmbRoll) rmbRoll.addEventListener('click', function(){
-      if (motionLocked()){ toast('The resolution locked when the first speech started.'); syncMotionChangeBtns(); return; }
+      if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
       var gm = $('rebGenMotion'); if (gm) gm.click();
       try { gtag('event', 'live_round_motion_roll_inline'); } catch(e){}
     });
@@ -14883,7 +15011,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     });
     var rfs = $('roundFormatSel');
     if (rfs) rfs.addEventListener('change', function(){
-      if (isSpectator() || motionLocked() || !FORMATS[this.value]){ this.value = state.formatKey; return; }
+      if (isSpectator() || motionChangeLocked() || !FORMATS[this.value]){ this.value = state.formatKey; return; }
       state.formatKey = this.value;
       var fsMain = $('formatSel'); if (fsMain) fsMain.value = this.value;
       var pl = $('phaseLabel');
@@ -14911,7 +15039,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     var gmBtn = $('rebGenMotion');
     if (gmBtn) gmBtn.addEventListener('click', function(){
-      if (isSpectator() || motionLocked()) return;
+      if (isSpectator() || motionChangeLocked()) return;
       var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
       var m = pool[Math.floor(Math.random()*pool.length)] || SPAR_MOTIONS[0];
       // Rolling a fresh motion is the same change of contest as typing
@@ -14927,13 +15055,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }
       try { gtag('event','live_round_random_motion_inround'); } catch(e){}
     });
-    var gbBtn = $('rebGenBrief');
-    if (gbBtn) gbBtn.addEventListener('click', function(){
+    function requestRoundBrief(btn){
       if (isSpectator() || motionLocked()) return;
       if (!state.motion){ toast('Set a resolution first.'); return; }
-      genBriefRound(state.motion, gbBtn);
+      genBriefRound(state.motion, btn);
       try { gtag('event','live_round_gen_brief_inround'); } catch(e){}
-    });
+    }
+    var gbBtn = $('rebGenBrief');
+    if (gbBtn) gbBtn.addEventListener('click', function(){ requestRoundBrief(gbBtn); });
+    var contextBtn = $('rmbContextBtn');
+    if (contextBtn) contextBtn.addEventListener('click', function(){ requestRoundBrief(contextBtn); });
   })();
 
   // ── DM your opponent (pre-join). Writes to dm_threads in the exact
@@ -17025,7 +17156,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // are history: changing the lens mid-round would mean the speeches
     // already given were delivered to a different judge than the one
     // scoring them.
-    return state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready';
+    return !tournamentControlsLocked()
+      && state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready';
   }
 
   function judgeLockKey(){
@@ -17039,6 +17171,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // on a newly agreed archetype, repaint. Idempotent: safe to call from
   // a local click and from every remote snapshot.
   function syncJudgeLock(){
+    if (tournamentControlsLocked()){
+      state.judgePicks = { pro:'chair', con:'chair' };
+      state.judgeLocked = 'chair';
+      state.ballotDetail = 'medium';
+      renderJudgeDraft();
+      return;
+    }
     var locked = judgeLockKey();
     var was = state.judgeLocked;
     state.judgeLocked = locked;
@@ -17053,7 +17192,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
 
   function nominateJudge(key){
-    if (isSpectator() || !judgeDraftIsLive()) return;
+    if (tournamentControlsLocked() || isSpectator() || !judgeDraftIsLive()) return;
     var side = mySide();
     if (side !== 'pro' && side !== 'con') return;
     if (!judgeArchetype(key) || judgeArchetype(key).key !== key) return;
@@ -17081,7 +17220,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // lens has to lock early because the speeches were delivered to it,
   // and length is decided entirely after the last speech ends.
   function setBallotLength(key){
-    if (!ballotLengthIsLive()) return;
+    if (tournamentControlsLocked() || !ballotLengthIsLive()) return;
     if (!BALLOT_DETAILS[key] || state.ballotDetail === key) return;
     state.ballotDetail = key;
     renderJudgeDraft();
@@ -17097,7 +17236,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // Open until the ballot exists. Once the judge has written, changing
   // the setting would describe a ballot nobody is going to get.
   function ballotLengthIsLive(){
-    return ballotLengthState() === 'open';
+    return !tournamentControlsLocked() && ballotLengthState() === 'open';
   }
 
   // Why the row is or is not interactive, as one value, so the buttons
@@ -17137,7 +17276,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // grid. Either bench can call it, because a draft one side regrets is
   // not an agreement worth holding them to.
   function redraftJudge(){
-    if (isSpectator() || !judgeDraftIsLive()) return;
+    if (tournamentControlsLocked() || isSpectator() || !judgeDraftIsLive()) return;
     var side = mySide();
     if (side !== 'pro' && side !== 'con') return;
     state.judgePicks = { pro:'chair', con:'chair' };
@@ -17215,6 +17354,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   var judgeSeedDone = false;
   function maybeSeedJudgeFromUrl(){
     if (judgeSeedDone) return;
+    if (tournamentControlsLocked()) { judgeSeedDone = true; return; }
     var key = prefill.judgeSeed;
     if (!key || key === 'chair' || judgeArchetype(key).key !== key) { judgeSeedDone = true; return; }
     if (isSpectator()) { judgeSeedDone = true; return; }
@@ -17229,9 +17369,33 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
   function renderJudgeDraft(){
     if (state.phase !== 'round') return;
-    maybeSeedJudgeFromUrl();
     var el = judgeDraftHost();
     if (!el) return;
+    if (tournamentControlsLocked()){
+      state.judgePicks = { pro:'chair', con:'chair' };
+      state.judgeLocked = 'chair';
+      state.ballotDetail = 'medium';
+      el.style.setProperty('--jx', '#dc2626');
+      el.classList.remove('is-live');
+      el.classList.add('is-open', 'is-agreed');
+      var fixedSpectatorJudge = $('spectatorJudge');
+      if (fixedSpectatorJudge) fixedSpectatorJudge.textContent = 'Judge: Three-judge council';
+      el.innerHTML =
+        '<div class="jd-head">' +
+          '<div class="jd-seal">3</div>' +
+          '<div class="jd-head-main">' +
+            '<div class="jd-eyebrow">Tournament judge</div>' +
+            '<div class="jd-name">Three-judge council</div>' +
+            '<div class="jd-tag">All 3 must return. 2 matching votes decide.</div>' +
+          '</div>' +
+          '<span class="jd-state jd-state--agreed">Fixed</span>' +
+        '</div>' +
+        '<div class="jd-body">' +
+          '<p class="jd-note">Claude, GPT, and Gemini judge independently. All three must return, and two matching votes decide. A missing seat retries. The council cannot be changed in this tournament room.</p>' +
+        '</div>';
+      return;
+    }
+    maybeSeedJudgeFromUrl();
 
     var live = judgeDraftIsLive();
     var side = mySide();
@@ -17370,6 +17534,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
         return;
       }
+      if (tournamentControlsLocked()){
+        banner.innerHTML = '<span>Tournament prep · fixed at 5 minutes</span>'
+          + '<strong>5:00</strong>'
+          + '<button type="button" id="prepStartBtn" class="btn prep-start-btn">&#9654; Start prep</button>';
+        var fixedStart = document.getElementById('prepStartBtn');
+        if (fixedStart) fixedStart.addEventListener('click', function(){ beginPrepClock(true); });
+        return;
+      }
       banner.innerHTML = '<span>Prep time · both sides prepare</span>'
         + '<span class="prep-edit">'
         +   '<button type="button" id="prepMinus" class="prep-step" aria-label="Less prep time"' + (state.prepMin <= 0 ? ' disabled' : '') + '>&minus;</button>'
@@ -17388,7 +17560,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Clamp 0..PREP_MAX, re-render, and push to the round doc so the
     // peer's banner (and the eventual synced clock) matches.
     function adjustPrep(delta){
-      if (isSpectator() || state.prepStartedAtMs) return;
+      if (tournamentControlsLocked() || isSpectator() || state.prepStartedAtMs) return;
       var next = Math.max(0, Math.min(PREP_MAX, (state.prepMin || 0) + delta));
       if (next === state.prepMin) return;
       state.prepMin = next;
@@ -18214,7 +18386,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // and can do nothing else.
     if (d.proUid && d.conUid && state.proUid && state.conUid
         && d.proUid === state.conUid && d.conUid === state.proUid
-        && window.__lrApplySeatSwap){
+        && !tournamentControlsLocked() && window.__lrApplySeatSwap){
       try { window.__lrApplySeatSwap(); } catch(e){}
     }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
@@ -18227,11 +18399,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // every spectator read the same value, so the client that ends up
     // generating cannot silently pick a different length from the one on
     // screen. An unknown value is ignored rather than adopted.
-    if (typeof d.ballotDetail === 'string' && d.ballotDetail !== state.ballotDetail && BALLOT_DETAILS[d.ballotDetail]){
+    if (!tournamentControlsLocked() && typeof d.ballotDetail === 'string'
+        && d.ballotDetail !== state.ballotDetail && BALLOT_DETAILS[d.ballotDetail]){
       state.ballotDetail = d.ballotDetail;
       try { renderJudgeDraft(); } catch(e){}
     }
-    if (d.motion && state.motion !== d.motion){ state.motion = d.motion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = d.motion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
+    var fixedTournamentMotion = tournamentDraftMotion(d);
+    var incomingMotion = fixedTournamentMotion || d.motion;
+    if (incomingMotion && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // The pre-round motion draft. Read before the proposal surfaces
     // below: while a draft is live the motion is not a thing either side
     // may propose changing, it is a thing they are still settling.
@@ -18245,7 +18420,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // card + agreed chip. Additive; a no-op on motions that don't need it.
     if (window.__lrRenderContext) { try { window.__lrRenderContext(d); } catch(e){} }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
-    if (d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
+    if (!tournamentControlsLocked() && d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
     if (d.conName && state.conName !== d.conName){ state.conName = d.conName; var cn=$('conName'); if (cn) cn.value = d.conName; changedSetup = true; }
     if (changedSetup && state.phase === 'setup') renderSetup();
@@ -18259,7 +18434,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Judge draft: adopt the peer's nomination and recompute agreement.
     // Both nominations live on the round doc, so a late joiner, a
     // reload, and a spectator all reconstruct the same draft state.
-    if (d.judgePicks && typeof d.judgePicks === 'object'){
+    if (tournamentControlsLocked()){
+      if (state.judgeLocked !== 'chair' || state.judgePicks.pro !== 'chair' || state.judgePicks.con !== 'chair'){
+        state.judgePicks = { pro:'chair', con:'chair' };
+        state.judgeLocked = 'chair';
+        state.ballotDetail = 'medium';
+        renderJudgeDraft();
+      }
+    } else if (d.judgePicks && typeof d.judgePicks === 'object'){
       var jp = state.judgePicks || { pro:'chair', con:'chair' };
       var jNext = {
         pro: judgeArchetype(d.judgePicks.pro || jp.pro).key,
@@ -18272,7 +18454,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     // Peer adjusted the prep length before the clock started — adopt it
     // and re-render the idle banner so both sides show the same time.
-    if (typeof d.prepMin === 'number' && d.prepMin !== state.prepMin && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
+    if (!tournamentControlsLocked() && typeof d.prepMin === 'number' && d.prepMin !== state.prepMin && !state.prepStartedAtMs && state.phase === 'round' && state.speechIdx === 0){
       state.prepMin = d.prepMin;
       if (state._prepRenderIdle) state._prepRenderIdle();
     }
@@ -18307,7 +18489,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       mountDaily();
       if (typeof d.speechIdx === 'number') state.speechIdx = d.speechIdx;
       if (Array.isArray(d.speeches)) state.log = d.speeches.slice();
-      if (typeof d.prepMin === 'number' && !state.prepMin) state.prepMin = d.prepMin;
+      if (!tournamentControlsLocked() && typeof d.prepMin === 'number' && !state.prepMin) state.prepMin = d.prepMin;
       if (d.createdAt && d.createdAt.toMillis) state.roundCreatedAtMs = d.createdAt.toMillis();
       // Adopt the speaker's clock origin so tap offsets share an axis
       // with the per-speech atMs values.
@@ -18811,12 +18993,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // Motion is edited directly in the contenteditable box. Keep state +
   // the Start button in sync as the user types or pastes.
   $('motionDisplay').addEventListener('input', function(){
+    if (tournamentControlsLocked()){
+      this.textContent = state.motion || '';
+      return;
+    }
     state.motion = ($('motionDisplay').textContent || '').trim();
     updateStartBtn();
     renderHouseGloss();
   });
   // Paste as plain text so pasted rich content doesn't inject markup.
   $('motionDisplay').addEventListener('paste', function(e){
+    if (tournamentControlsLocked()){
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     var t = (e.clipboardData || window.clipboardData).getData('text');
     document.execCommand('insertText', false, t);
@@ -18871,6 +19061,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     body.addEventListener('blur', pushSetupSync);
   })();
   function genRandomResolution(){
+    if (tournamentControlsLocked()) return;
     var btn = $('randomMotionBtn');
     var pool = SPAR_MOTIONS.filter(function(m){ return m !== state.motion; });
     var m = pool[Math.floor(Math.random() * pool.length)] || SPAR_MOTIONS[0];
@@ -19170,7 +19361,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
 
   // ── Boot
-  renderSetup();
+  syncTournamentControls();
   // Audience arrivals declare themselves in the URL — flip into watch
   // mode immediately (no setup-view flash) instead of waiting for auth
   // plus the first round snapshot. The auth event re-runs it to start
@@ -19256,10 +19447,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
    so the round / sync / judging / recording code above stays untouched.
    ══════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Resolution header. One compact band: label, the resolution, and
-      one line saying which way each side argues. The 4px accent rule and
-      the 2.15rem display size made a static string the loudest thing on
-      a screen whose loudest thing should be the clock. */
+/* ── 1. Resolution header. The motion and a second synchronized clock are
+      the two dominant facts. The full speech header keeps its own clock so
+      the time remains visible even when one of the two areas scrolls away. */
 .round-motion-bar{
   padding:15px 24px 14px;gap:10px;
   background:var(--ui-surface);
@@ -19271,8 +19461,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   flex-wrap:wrap;gap:7px;
 }
 .round-motion-bar .rmb-motion{
-  font-size:clamp(1.1rem,1.55vw,1.42rem);
-  font-weight:700;line-height:1.3;letter-spacing:-.008em;
+  font-size:clamp(2.25rem,4.6vw,4.25rem);
+  font-weight:800;line-height:1.08;letter-spacing:-.025em;
 }
 .rmb-lock-note{
   font-size:.62rem;font-weight:650;letter-spacing:.01em;text-transform:none;

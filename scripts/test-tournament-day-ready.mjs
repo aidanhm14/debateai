@@ -6,6 +6,7 @@ const landing = fs.readFileSync('app/landing.html', 'utf8');
 const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
 const tournamentAdmin = fs.readFileSync('app/netlify/functions/tournament-admin.mjs', 'utf8');
 const liveJudge = fs.readFileSync('app/netlify/functions/live-judge.mjs', 'utf8');
+const liveRound = fs.readFileSync('app/live-round.html', 'utf8');
 const failures = [];
 
 function check(label, condition) {
@@ -57,6 +58,29 @@ check('tournament result amendments reverse the old rating first',
 check('the live judge follows the authoritative tournament winner and revision',
   liveJudge.includes('ratingBallot = { ...ballot, winner: winnerIsPro')
   && liveJudge.includes('rev: ratingRevision'));
+check('participant screen sharing is absent from the live-room controls',
+  !liveRound.includes("trayBtn('cvShare'")
+  && !liveRound.includes("display-capture; autoplay"));
+check('the resolution bar includes repeated timer and context controls',
+  liveRound.includes('id="rmbTimerNum"')
+  && liveRound.includes('id="rmbContextBtn"')
+  && liveRound.includes('id="rmbAiCue">AI tools'));
+check('the motion timer is driven by the canonical speech clock',
+  liveRound.includes("var motionClock = $('rmbTimerNum')")
+  && liveRound.includes("motionClock.textContent = num.textContent"));
+check('tournament motion, format, side and judge controls are locked',
+  liveRound.includes('function tournamentControlsLocked()')
+  && liveRound.includes('Tournament resolution and sides are fixed by the draw.')
+  && liveRound.includes('Tournament format is fixed.')
+  && liveRound.includes('Three-judge council'));
+check('tournament prep is fixed at five minutes',
+  liveRound.includes('state.prepMin = tournamentControlsLocked() ? 5')
+  && liveRound.includes('Tournament prep · fixed at 5 minutes')
+  && liveRound.includes('setupPrep.disabled = tournamentControlsLocked()'));
+check('verified tournament ballots ignore client judge preferences',
+  liveJudge.includes("judgePicks: { pro: 'chair', con: 'chair' }")
+  && liveJudge.includes('tourney.canonicalRound?.motion || d.motion')
+  && liveJudge.includes("pairedParadigm: ''"));
 
 if (failures.length) {
   console.error(failures.map((failure) => `FAIL ${failure}`).join('\n'));

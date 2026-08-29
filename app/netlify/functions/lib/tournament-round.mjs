@@ -40,6 +40,7 @@
 // every drop-in round silently stops rating"), reached by the queue
 // that shipped three days after the warning was written.
 import { FieldPath } from './firestore.mjs';
+import { draftResult } from './motion-draft.mjs';
 
 const ROOM_RE = /^Debatable-([A-Za-z0-9]{1,12})-([red]\d{1,3})-(\d{1,3})$/;
 
@@ -137,9 +138,10 @@ export async function verifyTournamentPairing(db, room, proUid, conUid) {
     if (!pairing) return { ok: false, reason: 'room_not_paired' };
     if (!pairing.govEntry || !pairing.oppEntry) return { ok: false, reason: 'incomplete_pairing' };
 
-    const [govSnap, oppSnap] = await Promise.all([
+    const [govSnap, oppSnap, draftSnap] = await Promise.all([
       tRef.collection('entries').doc(String(pairing.govEntry)).get(),
       tRef.collection('entries').doc(String(pairing.oppEntry)).get(),
+      db.collection('round_drafts').doc(String(room)).get(),
     ]);
     if (!govSnap.exists || !oppSnap.exists) return { ok: false, reason: 'missing_entry' };
 
@@ -151,6 +153,24 @@ export async function verifyTournamentPairing(db, room, proUid, conUid) {
     );
     if (!ok) return { ok: false, reason: 'participants_not_in_entries' };
 
+    // The private draft is the authoritative motion and side assignment.
+    // `live_rounds` is writable by the seated clients so it is useful for
+    // synchronising the UI, never for deciding what a tournament ballot
+    // evaluates. Missing and legacy draft rows remain verifiable for the
+    // standings, but carry no canonical result for the caller to apply.
+    let canonicalRound = null;
+    if (draftSnap.exists) {
+      const privateDraft = draftSnap.data() || {};
+      const draftUids = (Array.isArray(privateDraft.uids) ? privateDraft.uids : []).map(String);
+      const samePair = draftUids.length === 2
+        && draftUids.includes(String(proUid)) && draftUids.includes(String(conUid));
+      if (samePair) canonicalRound = draftResult(
+        privateDraft.draft,
+        draftUids[0],
+        draftUids[1],
+      );
+    }
+
     // The entry ids and their members ride back with the verdict so a
     // caller can post the result onto the right two entries without
     // re-reading the pairing. Additive: every existing caller reads only
@@ -159,6 +179,7 @@ export async function verifyTournamentPairing(db, room, proUid, conUid) {
       ok: true, tid: tRef.id, roundKey: parsed.roundKey,
       govEntry: String(pairing.govEntry), oppEntry: String(pairing.oppEntry),
       govMembers: govSnap.data().members || [], oppMembers: oppSnap.data().members || [],
+      canonicalRound,
     };
   } catch (err) {
     console.warn('[tournament-round] verification failed, treating as casual:', err.message);

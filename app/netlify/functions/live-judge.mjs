@@ -487,6 +487,26 @@ export default async (request, context) => {
   }
   d = claim.round;
 
+  // Tournament entry verification is also the ballot-configuration gate.
+  // The room document is participant-writable, so its judgePicks,
+  // pairedParadigm and motion cannot define a prize-round ballot. A verified
+  // room always uses the published Standard lens and, when the server-side
+  // draft has resolved, the private draft's motion. The season independently
+  // pins the three providers and the all-seats-required policy.
+  let tourney = null;
+  if (d.proUid && d.conUid) {
+    tourney = await verifyTournamentPairing(db, room, d.proUid, d.conUid);
+  }
+  if (tourney && tourney.ok) {
+    d = {
+      ...d,
+      motion: tourney.canonicalRound?.motion || d.motion,
+      judgePicks: { pro: 'chair', con: 'chair' },
+      pairedParadigm: '',
+      ballotDetail: 'medium',
+    };
+  }
+
   const { system, user } = buildPrompt(d);
   const season = seasonFor(Date.now());
 
@@ -676,23 +696,15 @@ export default async (request, context) => {
   let rated = null;
   try {
     let consents = d.leaderboardConsent || {};
-    let tourney = null;
     let ratingBallot = ballot;
     let ratingRevision = 0;
     let ratingVerdictSource = '';
     const bothConsented = !!(d.proUid && d.conUid
       && consents[d.proUid] === true && consents[d.conUid] === true);
 
-    // Verified ONCE, and unconditionally, because two different things
-    // depend on it. Consent only needs it when consent is missing, but the
-    // tournament LEDGER needs it on every tournament round, and gating the
-    // lookup on missing consent meant a pair who had already ticked the box
-    // never posted a result to the board. Cheap to run on a casual round:
-    // parseTournamentRoom rejects a non-tournament room id on a regex,
-    // before any read.
-    if (d.proUid && d.conUid) {
-      tourney = await verifyTournamentPairing(db, room, d.proUid, d.conUid);
-    }
+    // The verification already ran before judging because it also fixes the
+    // tournament ballot configuration. Reuse that exact result here so the
+    // judge, consent stamp and tournament ledger all agree on provenance.
 
     // Entering the tournament IS consent to a competitive record, per the
     // rules and the entry copy. Rather than teach rating-apply a second
