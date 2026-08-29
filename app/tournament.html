@@ -844,11 +844,11 @@
     var link = null;
 
     if (!state.user){
-      msg = t.status === 'registration'
+      msg = t.registrationOpen
         ? 'Sign in to register. You can read the draw and the tab without an account.'
         : 'You are watching this one. Sign in if you are competing.';
     } else if (!mine){
-      msg = t.status === 'registration'
+      msg = t.registrationOpen
         ? (t.teamSize === 2
             ? 'You are not entered. This is a two on two, so form a partnership first, then register it.'
             : 'You are not entered yet. Registration is open.')
@@ -857,8 +857,10 @@
       msg = 'You have withdrawn. Talk to the host if that was a mistake.';
     } else if (mine.status === 'eliminated'){
       msg = 'Your run is over. The bracket below plays out without you.';
-    } else if (mine.status === 'registered' && t.status === 'registration'){
-      msg = 'You are registered. Check in when the tournament starts so the host knows you turned up, or you will be left out of the draw.';
+    } else if (mine.status === 'registered' && t.registrationOpen){
+      msg = t.status === 'running'
+        ? 'You are registered. Check in now to enter the next draw.'
+        : 'You are registered. Check in when the tournament starts so the host knows you turned up, or you will be left out of the draw.';
     } else {
       // Find my live pairing, which is the only thing that matters
       // once rounds are running.
@@ -1117,7 +1119,7 @@
       $('drawMotion').textContent = '';
       body.innerHTML = '<div class="empty">' +
         (t.status === 'registration'
-          ? 'Nothing drawn yet. The first pairing goes up when registration closes.'
+          ? 'Nothing drawn yet. The first pairing goes up when the host starts the day.'
           : 'No round has been released yet.') + '</div>';
       return;
     }
@@ -1413,10 +1415,9 @@
     }
 
     if (t.status === 'draft') act('Open registration', function(){ setStatus('registration'); }, true);
-    // Starting the day opens the participant queue and locks the roster in
-    // the same transition. The public tournament page and spectator links
-    // stay open; only new competitive entries close.
-    if (t.status === 'registration') act('Start the day (lock roster)', function(){ setStatus('running'); }, true);
+    // Starting the day opens the participant queue. Registration remains
+    // open through prelims, so late entrants can check in for the next draw.
+    if (t.status === 'registration') act('Start the day', function(){ setStatus('running'); }, true);
     if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
 
     var nextRound = (t.currentRound || 0) + 1;

@@ -85,11 +85,13 @@ export function publicTournamentMotionDraft(tournament) {
   };
 }
 
-// Registration is a pre-event act. Once the director starts the day, the
-// public page remains a spectator surface but the roster is fixed.
+// Registration stays open through prelims unless the tournament document
+// explicitly closes it. Late entrants can check in for the next draw without
+// changing a draw that has already been released.
 export function tournamentRegistrationOpen(tournament) {
   const t = tournament || {};
-  return String(t.status || '') === 'registration' && t.registrationClosed !== true;
+  const status = String(t.status || '');
+  return (status === 'registration' || status === 'running') && t.registrationClosed !== true;
 }
 
 function membersOf(entry) {

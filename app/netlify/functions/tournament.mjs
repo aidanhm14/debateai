@@ -325,9 +325,9 @@ export default async (request) => {
 
   // ── register ────────────────────────────────────────────────────
   //
-  // Registration is pre-event. Starting the day fixes the roster while
-  // leaving every GET public, so a visitor can watch the draw and rooms
-  // without becoming a participant after pairings have begun.
+  // Registration remains open through prelims unless the tournament carries
+  // an explicit registrationClosed stamp. A late entrant joins a later draw;
+  // no registration action changes a draw that has already been released.
   if (action === 'register') {
     // Named accounts only, found by the 2026-08-22 dry run: this action
     // accepted an anonymous token and even granted it prizeEligible on a

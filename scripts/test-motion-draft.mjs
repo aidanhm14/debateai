@@ -72,7 +72,10 @@ eq(openConfig.slateSize, 3, 'the Open offers three motions per room');
 eq(openConfig.strikesPerSide, 1, 'the Open gives each side one strike');
 eq(openConfig.motions, THE_DEBATABLE_OPEN_MOTIONS, 'the public announcement and room draw share one pool');
 ok(tournamentRegistrationOpen(openEvent), 'registration is open before the event starts');
-ok(!tournamentRegistrationOpen({ ...openEvent, status: 'running' }), 'starting the event locks the roster');
+ok(tournamentRegistrationOpen({ ...openEvent, status: 'running' }), 'registration stays open while prelims run');
+ok(!tournamentRegistrationOpen({ ...openEvent, status: 'running', registrationClosed: true }),
+  'the director can explicitly close a running roster');
+ok(!tournamentRegistrationOpen({ ...openEvent, status: 'break' }), 'registration closes at the break');
 
 const td0 = createDraft(seed + '|open', 'blitz', A, B, {
   pool: openConfig.motions,
