@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const reminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-day-reminder.mjs', 'utf8');
 const kickoffReminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-kickoff-reminder.mjs', 'utf8');
+const eloUpdate = fs.readFileSync('app/netlify/functions/admin-open-elo-update.mjs', 'utf8');
+const admin = fs.readFileSync('app/admin.html', 'utf8');
 const cta = fs.readFileSync('app/js/tournament-day-cta.js', 'utf8');
 const landing = fs.readFileSync('app/landing.html', 'utf8');
 const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
@@ -76,6 +78,25 @@ check('kickoff reminder targets the same active entrant cohort',
   kickoffReminder.includes("collection('entries').get()")
   && kickoffReminder.includes("new Set(['registered', 'checked_in'])")
   && kickoffReminder.includes("isOptedOut(profile, 'transactional')"));
+check('the event-day Elo correction targets active entrants only',
+  eloUpdate.includes("new Set(['registered', 'checked_in'])")
+  && eloUpdate.includes('if (!entrants.has(user.uid))')
+  && eloUpdate.includes("isOptedOut(profile, STREAM)"));
+check('the event-day Elo correction is bound to the live rating event',
+  eloUpdate.includes("item.name === EVENT_NAME && item.ratingCompetition === true")
+  && eloUpdate.includes("where('status', '==', 'running')"));
+check('the event-day Elo correction is resumable and cannot double-send',
+  eloUpdate.includes("const STAMP = 'openEloDayUpdate20260829SentAt'")
+  && eloUpdate.includes('profile[STAMP]')
+  && eloUpdate.includes('[STAMP]: FieldValue.serverTimestamp()'));
+check('the event-day email says Elo all day and no elimination break',
+  eloUpdate.includes('gathering Elo across the day')
+  && eloUpdate.includes('There is no elimination break today')
+  && eloUpdate.includes('Ready for a rated round'));
+check('admin exposes the preview-first Elo correction campaign',
+  admin.includes('id="oe-preview"')
+  && admin.includes('id="oe-send" disabled')
+  && admin.includes("wireAnnounceCard('oe', '/api/admin/open-elo-update')"));
 check('both tournament participant pages prompt registered arrivals to check in',
   [open, tournament].every((page) => page.includes("title: 'You made it. Check in now.'")
     && page.includes("confirmLabel: 'Check in now'")
