@@ -658,9 +658,10 @@
   // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch,
   // TikTok and X the same day once those handles were claimed (all five are
   // trydebatable). 2026-08-22, per the founder: INSTAGRAM IS OUT of the nav
-  // rail. 2026-08-29: YouTube and Twitch are out too while the live show runs
-  // on TikTok only. The accounts remain claimed. Restoring one is re-adding
-  // its entry here and its public profile links, not rebuilding stream support.
+  // rail. 2026-08-29: YouTube, Twitch and X are out while the live show runs
+  // on TikTok only; Discord sits beside TikTok as the community door. The
+  // paused accounts remain claimed. Restoring one is re-adding its entry
+  // here and its public profile links, not rebuilding stream support.
   // Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
   // entry; the topbar rail, the mobile sheet row, and the hover colour all
@@ -669,12 +670,8 @@
   // `brand` is the platform's own colour, used for the hover wash. An entry
   // may also carry `gradient`, which paints the glyph itself in the
   // platform's real colours at rest: one stop paints solid, two or more
-  // sweep diagonally. The earlier note here said a second network was the
-  // moment to revisit colour and go back to monochrome. the founder asked for the
-  // opposite, and he is right for one reason: at 16px these marks are read
-  // by colour before shape, and a monochrome Twitch glyph next to a
-  // monochrome TikTok note is a row of grey smudges. Colour is what makes
-  // the rail scannable, so it stays.
+  // sweep diagonally. At 16px these marks are read by colour before shape,
+  // so their real palettes stay.
   //
   // X is the exception that proves the rule rather than a break from it:
   // its mark IS monochrome, so `brand` is `var(--text)` and the glyph
@@ -700,37 +697,25 @@
       gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
       // 2026-08-12, per the founder ("hard to see"): the note head is FILLED and
       // the strokes are heavier than the rail default. This mark carries
-      // far less ink than X by construction. X is a filled slab, while
-      // TikTok is one open ring and one thin curve. At 16px an open ring
-      // next to an enclosed shape
-      // reads as the faint one no matter what colour it is, and the real
-      // mark's head is solid anyway, so outlining it was both weaker and
-      // less accurate. Filling the head roughly doubles the mark's ink.
+      // little ink by construction. At 16px the open ring reads faint, and
+      // the real mark's head is solid anyway, so outlining it was both weaker
+      // and less accurate. Filling the head roughly doubles the mark's ink.
       strokeWidth: 2.5,
       icon: '<circle cx="10.3" cy="14.4" r="4" fill="%PAINT%" stroke="none"/>'
           + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
     },
     {
-      key: 'x',
-      label: 'X',
-      handle: '@trydebatable',
-      href: 'https://x.com/trydebatable',
-      // Not a hex value: X's mark is black on light and white on dark, so
-      // the theme's own text token IS the brand colour. Custom properties
-      // resolve at the element, so this picks up whichever theme block is
-      // live without a per-theme CSS rule.
-      brand: 'var(--text, #fff)',
-      // The one FILLED glyph in the rail, and it has to be. Stroked, X is
-      // two crossing lines with round caps, which reads as a close button
-      // sitting in a nav bar. The real mark is two tapered slabs, so the
-      // path is filled and the svg's stroke is turned off for it.
-      //
-      // Filled from --brand rather than currentColor so it sits at full
-      // strength like the four coloured marks, instead of the 58% wash the
-      // bar applies to inherited glyph colour. It goes in `style` because a
-      // presentation attribute is a weaker source for a var() reference
-      // than an inline declaration.
-      icon: '<path style="fill:var(--brand,currentColor)" stroke="none" d="M18.24 2.6h3.3l-7.22 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.68l7.73-8.84L1.25 2.6h6.83l4.71 6.23zm-1.16 17.52h1.83L7.08 4.48H5.12z"/>',
+      key: 'discord',
+      label: 'Discord',
+      handle: 'Join the server',
+      href: 'https://discord.gg/WMHZW9BKvJ',
+      brand: '#5865F2',
+      gradient: ['#5865F2'],
+      // Compact Clyde mark: controller shell, two eyes and the smile.
+      icon: '<path d="M7.1 7.2c3.2-1.5 6.6-1.5 9.8 0 1.2 1.8 2 3.9 2.3 6.2-1.2 1.5-2.6 2.6-4.3 3.3l-1-1.4M10.1 15.3l-1 1.4c-1.7-.7-3.1-1.8-4.3-3.3.3-2.3 1.1-4.4 2.3-6.2"/>'
+          + '<circle cx="9.5" cy="12" r=".8" fill="%PAINT%" stroke="none"/>'
+          + '<circle cx="14.5" cy="12" r=".8" fill="%PAINT%" stroke="none"/>'
+          + '<path d="M9.2 14c1.8 1.1 3.8 1.1 5.6 0"/>',
     },
   ];
 

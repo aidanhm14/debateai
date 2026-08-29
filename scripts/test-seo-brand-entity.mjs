@@ -20,6 +20,7 @@ const press = read('app/press.html');
 const llms = read('app/llms.txt');
 const robots = read('app/robots.txt');
 const sitemap = read('app/netlify/functions/sitemap.mjs');
+const topbar = read('app/js/topbar.js');
 
 const landingNodes = jsonLdNodes(landing);
 const aboutNodes = jsonLdNodes(about);
@@ -62,6 +63,19 @@ check('organization graphs do not publish a founder identity',
 check('organization graphs agree on the casual product',
   landingOrg?.knowsAbout?.includes('Casual one-on-one debate')
   && aboutOrg?.knowsAbout?.includes('Casual one-on-one debate'));
+check('structured identity keeps Discord and TikTok but pauses X, Twitch and YouTube',
+  landingOrg?.sameAs?.includes('https://discord.gg/WMHZW9BKvJ')
+  && landingOrg?.sameAs?.includes('https://www.tiktok.com/@trydebatable')
+  && aboutOrg?.sameAs?.includes('https://discord.gg/WMHZW9BKvJ')
+  && aboutOrg?.sameAs?.includes('https://www.tiktok.com/@trydebatable')
+  && !landingOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url))
+  && !aboutOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url)));
+check('shared social row is TikTok plus Discord',
+  topbar.includes("key: 'tiktok'")
+  && topbar.includes("key: 'discord'")
+  && !topbar.includes("key: 'x'")
+  && !topbar.includes("key: 'twitch'")
+  && !topbar.includes("key: 'youtube'"));
 check('website and application have stable ids',
   website?.name === 'Debatable'
   && application?.name === 'Debatable'
