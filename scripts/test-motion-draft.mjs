@@ -54,6 +54,13 @@ THE_DEBATABLE_OPEN_MOTIONS.forEach((m) => {
   ok(!/[—]/.test(m), 'the published pool has no em-dash: ' + m);
   ok(m.length >= 18, 'the published pool has no stub motion: ' + m);
 });
+const openMotionCopy = THE_DEBATABLE_OPEN_MOTIONS.join(' ');
+ok(/\bTrump\b/.test(openMotionCopy), 'the published pool includes a Trump resolution');
+ok(/\bIran\b/.test(openMotionCopy), 'the published pool includes an Iran resolution');
+ok(/\bIsrael\b/.test(openMotionCopy), 'the published pool includes an Israel resolution');
+ok(/\bfilibuster\b/i.test(openMotionCopy), 'the published pool includes a filibuster resolution');
+ok(/\btax\b[^.]*\bAI\b|\bAI\b[^.]*\btax\b/i.test(openMotionCopy),
+  'the published pool includes a resolution on taxing AI companies');
 const openEvent = { slug: 'the-debatable-open', status: 'registration', format: 'blitz' };
 const openConfig = publicTournamentMotionDraft(openEvent);
 eq(openConfig.slateSize, 3, 'the Open offers three motions per room');
