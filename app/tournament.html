@@ -865,8 +865,9 @@
     } else {
       // Find my live pairing, which is the only thing that matters
       // once rounds are running.
-      var r = currentRound();
-      var p = r && (r.pairings || []).filter(function(x){
+      var assignment = activePairingFor(mine);
+      var r = assignment ? assignment.round : currentRound();
+      var p = assignment ? assignment.pairing : r && (r.pairings || []).filter(function(x){
         return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
       })[0];
       if (p && mine.inPairing === p.pairingId && p.status !== 'complete'){
@@ -1017,12 +1018,10 @@
   function maybePromptRoom(){
     var t = state.data && state.data.tournament;
     var mine = myEntry();
-    var r = currentRound();
-    if (!t || !mine || mine.status === 'withdrawn' || !r) return false;
-    var p = (r.pairings || []).filter(function(pair){
-      return pair.govEntry === mine.entryId || pair.oppEntry === mine.entryId;
-    })[0];
-    if (!p || !p.room || p.status === 'complete') return false;
+    var assignment = activePairingFor(mine);
+    if (!t || !mine || mine.status === 'withdrawn' || !assignment) return false;
+    var r = assignment.round;
+    var p = assignment.pairing;
 
     var side = p.govEntry === mine.entryId ? 'Gov' : 'Opp';
     var opponent = p.govEntry === mine.entryId ? p.oppName : p.govName;
@@ -1164,10 +1163,69 @@
     return rounds[rounds.length - 1];
   }
 
+  // The live queue creates one round document per matcher pass. Several
+  // documents can therefore hold rooms at the same time, and the last
+  // document alone is never a complete view of the tournament floor.
+  function activeTournamentPairings(){
+    if (!state.data) return [];
+    var activeIds = {};
+    (state.data.entries || []).forEach(function(entry){
+      if (entry.inPairing) activeIds[String(entry.inPairing)] = true;
+    });
+    var out = [];
+    (state.data.rounds || []).forEach(function(round){
+      if (!round.released) return;
+      (round.pairings || []).forEach(function(pairing){
+        if (pairing.room && pairing.status !== 'complete' && activeIds[String(pairing.pairingId || '')]) {
+          out.push({ round: round, pairing: pairing });
+        }
+      });
+    });
+    return out;
+  }
+
+  function activePairingFor(mine){
+    if (!mine || !mine.inPairing) return null;
+    return activeTournamentPairings().filter(function(item){
+      return item.pairing.pairingId === mine.inPairing
+        && (item.pairing.govEntry === mine.entryId || item.pairing.oppEntry === mine.entryId);
+    })[0] || null;
+  }
+
   function renderDraw(){
+    var active = activeTournamentPairings();
     var r = currentRound();
     var body = $('drawBody');
     var t = state.data.tournament;
+    if (active.length){
+      $('drawTitle').textContent = 'Live tournament rooms';
+      $('drawMotion').textContent = active.length + (active.length === 1
+        ? ' room is open now. Its result moves the tournament standings.'
+        : ' rooms are open now. Their results move the tournament standings.');
+      body.innerHTML = '';
+      var mineLive = myEntry();
+      active.forEach(function(item){
+        var p = item.pairing;
+        var round = item.round;
+        var isMine = mineLive && (p.govEntry === mineLive.entryId || p.oppEntry === mineLive.entryId);
+        var row = document.createElement('div');
+        row.className = 'pairing' + (isMine ? ' mine' : '');
+        row.innerHTML =
+          '<div><div class="side">' + esc(p.govName) + '</div><div class="note" style="margin-top:2px">Gov</div></div>' +
+          '<div class="vs">VS</div>' +
+          '<div><div class="side">' + esc(p.oppName) + '</div><div class="note" style="margin-top:2px">Opp</div></div>' +
+          '<div class="sp"><span class="pill pill-live"><span class="dot"></span>' + esc(round.label || 'Live') + '</span></div>';
+        var door = document.createElement('a');
+        door.className = 'btn ' + (isMine && mineLive.inPairing === p.pairingId ? 'btn-primary ' : '') + 'btn-sm';
+        door.textContent = isMine && mineLive.inPairing === p.pairingId ? 'Join your room' : 'Watch';
+        door.href = isMine && mineLive.inPairing === p.pairingId
+          ? roomUrl(p, round, mineLive)
+          : '/live-round.html?room=' + encodeURIComponent(p.room) + '&spectate=1';
+        row.querySelector('.sp').appendChild(door);
+        body.appendChild(row);
+      });
+      return;
+    }
     if (!r){
       $('drawTitle').textContent = 'The draw';
       $('drawMotion').textContent = '';
@@ -1698,6 +1756,18 @@
     // even filling in. Inline inputs instead: type the points if you
     // are recording them, press the winner, done in one click.
     var r = currentRound();
+    var liveRoomsForResults = activeTournamentPairings();
+    if (liveRoomsForResults.length){
+      r = {
+        label: 'Live tournament rooms',
+        pairings: liveRoomsForResults.map(function(item){
+          return Object.assign({}, item.pairing, {
+            _roundNo: item.round.roundNo,
+            _roundKind: item.round.kind,
+          });
+        }),
+      };
+    }
     if (r && (r.pairings || []).length){
       var h = document.createElement('div');
       h.style.cssText = 'margin-top:20px;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)';
@@ -1738,7 +1808,8 @@
               if (!yes) return;
               busy(b, true, 'Saving');
               adminCall({
-                action: 'report-result', tid: t.tid, roundNo: r.roundNo, kind: r.kind,
+                action: 'report-result', tid: t.tid,
+                roundNo: p._roundNo || r.roundNo, kind: p._roundKind || r.kind,
                 pairingId: p.pairingId, winner: win,
                 govSpeaks: gs, oppSpeaks: os, amend: !!amend,
               }, b);

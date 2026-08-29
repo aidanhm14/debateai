@@ -46,10 +46,25 @@ check('the host can release unresolved fixed rooms into the live queue',
 check('releasing fixed rooms never erases a completed result',
   /release-fixed-seating[\s\S]{0,900}p\.status === 'complete'\) continue/.test(admin));
 check('old fixed-room cards stop acting like the person is still assigned',
-  open.includes('mine.inPairing === pair.pairingId')
-    && open.includes('mine.inPairing === p.pairingId')
+  open.includes('activePairingFor(mine)')
+    && open.includes('mine.inPairing === pr.pairingId')
     && page.includes('mine.inPairing === p.pairingId')
     && api.includes("inPairing: String(e.inPairing || '')"));
+check('participant pages index every active tournament room, not only the latest round',
+  [open, page].every((surface) => surface.includes('function activeTournamentPairings()')
+    && surface.includes('function activePairingFor(mine)')));
+check('the Open room wall is restricted to active rooms from this tournament',
+  open.includes('var rounds = activeTournamentPairings().map(function(item)')
+    && open.includes('tournamentPairing: item.pairing')
+    && open.includes('tournamentRound: item.round'));
+check('the tournament draw shows all simultaneously active queue rooms',
+  page.includes("$('drawTitle').textContent = 'Live tournament rooms'")
+    && page.includes('active.forEach(function(item)')
+    && page.includes('Their results move the tournament standings.'));
+check('host result controls preserve the owning round for every live queue room',
+  page.includes('var liveRoomsForResults = activeTournamentPairings()')
+    && page.includes('_roundNo: item.round.roundNo')
+    && page.includes('roundNo: p._roundNo || r.roundNo'));
 
 check('drop-in draws create the same user-level reservation',
   dropin.includes("collection('active_tournament_seats').doc(uid)"));

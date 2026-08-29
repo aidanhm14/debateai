@@ -495,11 +495,11 @@
     <div id="entryMeta"></div>
   </section>
 
-  <!-- Live rounds anyone can watch. Fed by /api/watch-live, the same
-       honest feed /tournaments uses: empty means nothing is live. -->
+  <!-- Live tournament rooms. The tournament pairing ledger supplies
+       membership; /api/watch-live enriches those rooms with presence. -->
   <section class="card hidden" id="watch-live">
     <div class="wall-head">
-      <div><div class="section-k" id="liveWallLabel">Live control room</div><h2>Pick a room</h2></div>
+      <div><div class="section-k" id="liveWallLabel">Tournament floor</div><h2>Live tournament rooms</h2></div>
       <div class="wall-tools"><a class="btn btn-sm" href="/watch">Main broadcast</a><div class="wall-count" id="liveWallCount"></div></div>
     </div>
     <p class="sub" id="liveSub">Every screen opens an invisible spectator seat. No camera, mic, or participant tile.</p>
@@ -721,7 +721,7 @@
           return j;
         });
       })
-      .then(function(j){ state.data = j; render(); })
+      .then(function(j){ state.data = j; render(); loadLive(); })
       .catch(function(e){ fail(e.message); });
   }
 
@@ -950,12 +950,8 @@
     // The flag controls whether people can ask the server for new matches;
     // it must never hide a room the host has already assigned to them.
     if (state.user && mine && (p === 'live' || p === 'elims')) {
-      var liveRound = latestReleased();
-      var livePairing = liveRound && (liveRound.pairings || []).filter(function(pair){
-        return (pair.govEntry === mine.entryId || pair.oppEntry === mine.entryId)
-          && mine.inPairing === pair.pairingId && pair.status !== 'complete' && pair.room;
-      })[0];
-      if (livePairing){
+      var liveAssignment = activePairingFor(mine);
+      if (liveAssignment){
         var active = drawPairing(mine, acts, p === 'elims');
         box.innerHTML = '<b>What now</b><div class="say">' + esc(active.say) + '</div>'
           + '<div class="why">' + esc(active.why || 'Your room is open now.') + '</div>';
@@ -1135,12 +1131,10 @@
   function maybePromptRoom(){
     var t = state.data && state.data.tournament;
     var mine = myEntry();
-    var r = latestReleased();
-    if (!t || !mine || mine.status === 'withdrawn' || !r) return false;
-    var pairing = (r.pairings || []).filter(function(p){
-      return p.govEntry === mine.entryId || p.oppEntry === mine.entryId;
-    })[0];
-    if (!pairing || !pairing.room || pairing.status === 'complete') return false;
+    var assignment = activePairingFor(mine);
+    if (!t || !mine || mine.status === 'withdrawn' || !assignment) return false;
+    var r = assignment.round;
+    var pairing = assignment.pairing;
 
     var side = pairing.govEntry === mine.entryId ? 'Gov' : 'Opp';
     var opponent = pairing.govEntry === mine.entryId ? pairing.oppName : pairing.govName;
@@ -1360,6 +1354,10 @@
       format: t.format,
       motion: (r && r.motion) || '',
       source: 'tournament',
+      // The ballot's next-round action returns to this tournament queue.
+      // Without the tournament key, a completed Open room falls through
+      // to the generic live lobby even though its result belongs here.
+      t: TKEY,
       pro: (gov.memberNames || [])[0] || gov.name || 'Gov',
       con: (opp.memberNames || [])[0] || opp.name || 'Opp',
       proUid: (gov.members || [])[0] || '',
@@ -1390,7 +1388,7 @@
   function renderLiveWall(rounds, demo){
     show('watch-live', rounds.length > 0);
     if (!rounds.length) return;
-    $('liveWallLabel').textContent = demo ? 'Wall preview' : 'Live control room';
+    $('liveWallLabel').textContent = demo ? 'Wall preview' : 'Tournament floor';
     var viewerTotal = rounds.reduce(function(sum, room){ return sum + Math.max(0, Number(room.watchCount) || 0); }, 0);
     var anyCapped = rounds.some(function(room){ return !!room.watchCountCapped; });
     $('liveWallCount').textContent = rounds.length + (rounds.length === 1 ? ' room' : ' rooms')
@@ -1409,15 +1407,13 @@
         ? '<img alt="" src="/api/room-shot?room=' + encodeURIComponent(r.room) + '&v=' + encodeURIComponent(r.shot) + '">'
         : '<div class="tv-signal">Camera feed pending</div>';
       var mine = state.data ? myEntry() : null;
-      var draw = state.data ? latestReleased() : null;
-      var assigned = mine && draw && (draw.pairings || []).filter(function(p){
-        return p.room === r.room && (p.govEntry === mine.entryId || p.oppEntry === mine.entryId)
-          && mine.inPairing === p.pairingId && p.status !== 'complete';
-      })[0];
+      var assigned = mine && r.tournamentPairing
+        && mine.inPairing === r.tournamentPairing.pairingId
+        && (r.tournamentPairing.govEntry === mine.entryId || r.tournamentPairing.oppEntry === mine.entryId);
       var action = demo
         ? '<span class="tv-watch tv-watch--demo">Preview</span>'
         : assigned
-          ? '<a class="tv-watch" href="' + esc(roomUrl(assigned, draw)) + '">Join your room</a>'
+          ? '<a class="tv-watch" href="' + esc(roomUrl(r.tournamentPairing, r.tournamentRound)) + '">Join your room</a>'
           : !state.user
             ? '<a class="tv-watch" href="#overview">Check your room</a>'
           : '<a class="tv-watch" href="/live-round.html?room=' + encodeURIComponent(r.room) + '&spectate=1">Spectate</a>';
@@ -1444,7 +1440,27 @@
     fetch('/api/watch-live', { cache: 'no-cache' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
-        var rounds = (j && j.rounds) || [];
+        // /api/watch-live reports physical room presence. Tournament
+        // pairings are the authority for which rooms belong on this
+        // event page. Joining the two keeps an assigned room visible
+        // while people enter or finish the in-room motion draft, instead
+        // of replacing the tournament with unrelated public debates.
+        var feed = (j && j.rounds) || [];
+        var byRoom = {};
+        feed.forEach(function(room){ byRoom[room.room] = room; });
+        var rounds = activeTournamentPairings().map(function(item){
+          var seen = byRoom[item.pairing.room] || {};
+          return Object.assign({}, seen, {
+            room: item.pairing.room,
+            motion: seen.motion || item.round.motion || '',
+            format: seen.format || state.data.tournament.format || 'quick',
+            status: seen.status || 'round',
+            proName: item.pairing.govName || seen.proName || 'Proposition',
+            conName: item.pairing.oppName || seen.conName || 'Opposition',
+            tournamentPairing: item.pairing,
+            tournamentRound: item.round,
+          });
+        });
         renderLiveWall(rounds, false);
       })
       .catch(function(){ /* a missing watch feed is not an error worth showing */ });
@@ -1524,8 +1540,9 @@
   // elim branch, which want the same three answers in different words:
   // you are up, that one is done, or nothing is released yet.
   function drawPairing(mine, acts, elim){
-    var r = latestReleased();
-    var pr = r && (r.pairings || []).filter(function(x){
+    var assignment = activePairingFor(mine);
+    var r = assignment ? assignment.round : latestReleased();
+    var pr = assignment ? assignment.pairing : r && (r.pairings || []).filter(function(x){
       return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
     })[0];
     if (pr && mine.inPairing === pr.pairingId && pr.status !== 'complete'){
@@ -1567,6 +1584,35 @@
   function latestReleased(){
     var rounds = (state.data.rounds || []).filter(function(r){ return r.released; });
     return rounds.length ? rounds[rounds.length - 1] : null;
+  }
+
+  // A drop-in tournament creates one round document per matcher pass,
+  // so there can be several rooms live at once. `latestReleased()` is
+  // useful for a synchronous draw, but it cannot be the room index.
+  function activeTournamentPairings(){
+    if (!state.data) return [];
+    var activeIds = {};
+    (state.data.entries || []).forEach(function(entry){
+      if (entry.inPairing) activeIds[String(entry.inPairing)] = true;
+    });
+    var out = [];
+    (state.data.rounds || []).forEach(function(round){
+      if (!round.released) return;
+      (round.pairings || []).forEach(function(pairing){
+        if (pairing.room && pairing.status !== 'complete' && activeIds[String(pairing.pairingId || '')]) {
+          out.push({ round: round, pairing: pairing });
+        }
+      });
+    });
+    return out;
+  }
+
+  function activePairingFor(mine){
+    if (!mine || !mine.inPairing) return null;
+    return activeTournamentPairings().filter(function(item){
+      return item.pairing.pairingId === mine.inPairing
+        && (item.pairing.govEntry === mine.entryId || item.pairing.oppEntry === mine.entryId);
+    })[0] || null;
   }
 
   function renderBracket(){
