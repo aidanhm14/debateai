@@ -7,6 +7,8 @@ const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
 const tournamentAdmin = fs.readFileSync('app/netlify/functions/tournament-admin.mjs', 'utf8');
 const liveJudge = fs.readFileSync('app/netlify/functions/live-judge.mjs', 'utf8');
 const liveRound = fs.readFileSync('app/live-round.html', 'utf8');
+const open = fs.readFileSync('app/open.html', 'utf8');
+const tournament = fs.readFileSync('app/tournament.html', 'utf8');
 const failures = [];
 
 function check(label, condition) {
@@ -36,6 +38,18 @@ check('email sends contestants to the event page',
 check('email carries the room, rules, stream, and reconnect instructions',
   ['Join your room', 'official rules', 'watch page', 'five minutes to return']
     .every((text) => reminder.includes(text)));
+check('both tournament participant pages prompt registered arrivals to check in',
+  [open, tournament].every((page) => page.includes("title: 'You made it. Check in now.'")
+    && page.includes("confirmLabel: 'Check in now'")
+    && page.includes("mine.status !== 'registered'")
+    && page.includes("t.status === 'running'")));
+check('arrival prompts recommend the official Discord as a backup',
+  [open, tournament].every((page) => page.includes("linkLabel: 'Join Discord backup'")
+    && page.includes("https://discord.gg/WMHZW9BKvJ")
+    && page.includes('room links, schedule changes, or help if video fails')));
+check('arrival prompt check-in preserves recording and age approval',
+  [open, tournament].every((page) => page.includes("confirmTournamentRecording(t, 'Agree and check in')")
+    && page.includes('recordingAccepted: true, adultOrGuardianApproved: true')));
 check('homepage CTA is loaded', landing.includes('/js/tournament-day-cta.js'));
 check('homepage CTA is signed-in only and points to the event page',
   cta.includes('!user || user.isAnonymous')

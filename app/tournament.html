@@ -423,7 +423,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // step that turns the preview into a draft.
   var CREATE_DEMO = !TKEY && qs.get('demo') === 'create';
 
-  var state = { user: null, data: null, team: null, poll: null };
+  var DISCORD_INVITE = 'https://discord.gg/WMHZW9BKvJ';
+  var state = { user: null, data: null, team: null, poll: null, arrivalPromptKey: '' };
 
   function $(id){ return document.getElementById(id); }
   function show(id, on){ var el = $(id); if (el) el.classList.toggle('hidden', !on); }
@@ -462,6 +463,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
           '<h3>' + esc(opts.title) + '</h3><p>' + esc(opts.body) + '</p>' +
           '<div class="btn-row">' +
             '<button class="btn ' + (opts.danger ? 'btn-danger' : 'btn-primary') + '" data-yes>' + esc(opts.confirmLabel || 'Confirm') + '</button>' +
+            (opts.linkHref ? '<a class="btn" href="' + esc(opts.linkHref) + '" target="_blank" rel="noopener">' + esc(opts.linkLabel || 'Open link') + '</a>' : '') +
             '<button class="btn" data-no>Cancel</button>' +
           '</div></div>';
       function close(v){ back.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
@@ -621,6 +623,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     renderTab();
     renderBracket();
     renderHost();
+    maybePromptArrival();
   }
 
   function renderEventRules(t){
@@ -752,19 +755,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       if (status === 'registered'){
         var ci = document.createElement('button');
         ci.className = 'btn btn-primary'; ci.textContent = 'Check in';
-        ci.addEventListener('click', function(){
-          busy(ci, true, 'Checking in');
-          confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
-            if (!yes){ busy(ci, false); return; }
-            return api('/api/tournament', {
-              action: 'check-in', tid: t.tid,
-              recordingAccepted: true, adultOrGuardianApproved: true,
-            })
-              .then(function(){ good('Checked in. Every round you play will be recorded.'); return load(); })
-              .catch(function(e){ fail(e.message); })
-              .then(function(){ busy(ci, false); });
-          });
-        });
+        ci.addEventListener('click', function(){ checkInNow(t, ci); });
         host.appendChild(ci);
       }
       if (status === 'registered' || status === 'checked_in'){
@@ -808,6 +799,40 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     host.appendChild(btn);
     state.affiliationInput = affiliationField(host, t, '', null);
     appendPrizeLinks(host, t);
+  }
+
+  function checkInNow(t, trigger){
+    busy(trigger, true, 'Checking in');
+    return confirmTournamentRecording(t, 'Agree and check in').then(function(yes){
+      if (!yes){ busy(trigger, false); return; }
+      return api('/api/tournament', {
+        action: 'check-in', tid: t.tid,
+        recordingAccepted: true, adultOrGuardianApproved: true,
+      })
+        .then(function(){ good('Checked in. Every round you play will be recorded.'); return load(); })
+        .catch(function(e){ fail(e.message); })
+        .then(function(){ busy(trigger, false); });
+    });
+  }
+
+  function maybePromptArrival(){
+    var t = state.data && state.data.tournament;
+    var mine = myEntry();
+    if (!t || !mine || mine.status !== 'registered') return;
+    var start = Date.parse(t.startsAtISO || t.startsAt || '');
+    var checkInOpen = t.status === 'running' ||
+      (t.status === 'registration' && !isNaN(start) && Date.now() >= start - 3600000);
+    if (!checkInOpen) return;
+    var key = String(t.tid || TKEY) + ':' + String(mine.entryId || state.user.uid);
+    if (state.arrivalPromptKey === key) return;
+    state.arrivalPromptKey = key;
+    confirmAction({
+      title: 'You made it. Check in now.',
+      body: 'Registration saved your place. Check-in tells the host you are here and makes you eligible for pairings. Check in, keep this page open, and join the Discord as a backup for room links, schedule changes, or help if video fails.',
+      confirmLabel: 'Check in now',
+      linkLabel: 'Join Discord backup',
+      linkHref: DISCORD_INVITE,
+    }).then(function(yes){ if (yes) checkInNow(t, null); });
   }
 
   // Cash-prize tournaments (prizePoolCents > 0) carry the official
