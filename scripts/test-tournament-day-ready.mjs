@@ -102,6 +102,9 @@ check('both tournament participant pages prompt registered arrivals to check in'
     && page.includes("confirmLabel: 'Check in now'")
     && page.includes("mine.status !== 'registered'")
     && page.includes("t.status === 'running'")));
+check('both tournament participant pages make check-in the dominant action',
+  [open, tournament].every((page) => page.includes('Check in to the tournament')
+    && page.includes('.btn-checkin{width:100%;min-height:80px')));
 check('arrival prompts recommend the official Discord as a backup',
   [open, tournament].every((page) => page.includes("linkLabel: 'Join Discord backup'")
     && page.includes("https://discord.gg/WMHZW9BKvJ")
