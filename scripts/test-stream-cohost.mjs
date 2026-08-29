@@ -84,6 +84,7 @@ check(leadUrl.searchParams.get('rs') === 'restream-secret', 'lead URL receives t
 check(leadUrl.searchParams.getAll('out').length === 3, 'lead URL names all safe simulcast destinations');
 
 const targets = streamTargets({
+  STREAM_ENABLED_PLATFORMS: 'twitch,youtube,tiktok',
   STREAM_RTMP_URL: 'rtmps://twitch.example/app/legacy-secret',
   STREAM_TWITCH_CHANNEL: 'trydebatable',
   STREAM_YOUTUBE_RTMP_URL: 'rtmps://youtube.example/live2/youtube-secret',
@@ -101,6 +102,13 @@ const watchLinks = publicRestreamLinks(targets, {
 });
 check(watchLinks.map(x => x.platform).join(',') === 'twitch,youtube,tiktok', 'public links cover every configured channel');
 check(!JSON.stringify(watchLinks).includes('secret'), 'public links contain no ingest credential');
+const tiktokOnlyTargets = streamTargets({
+  STREAM_RTMP_URL: 'rtmps://twitch.example/app/legacy-secret',
+  STREAM_TWITCH_CHANNEL: 'trydebatable',
+  STREAM_YOUTUBE_RTMP_URL: 'rtmps://youtube.example/live2/youtube-secret',
+  STREAM_TIKTOK_RTMP_URL: 'rtmp://tiktok.example/live/tiktok-secret',
+});
+check(tiktokOnlyTargets.map(x => x.platform).join(',') === 'tiktok', 'TikTok is the only enabled target by default');
 check(streamTargets({ STREAM_TIKTOK_RTMP_URL:'javascript:bad' }).length === 0, 'invalid ingest schemes fail closed');
 
 const control = read('app/netlify/functions/stream-control.mjs');

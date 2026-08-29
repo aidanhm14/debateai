@@ -3,6 +3,7 @@
 // public function, written to the stream document, or placed in a cohost URL.
 
 const PLATFORM_ORDER = ['twitch', 'youtube', 'tiktok', 'primary'];
+const DEFAULT_ENABLED_PLATFORMS = ['tiktok'];
 const LABELS = {
   twitch: 'Twitch',
   youtube: 'YouTube',
@@ -31,7 +32,17 @@ function cleanTikTokUser(value) {
   return match ? match[0] : '';
 }
 
+function enabledPlatforms(value) {
+  const requested = String(value || DEFAULT_ENABLED_PLATFORMS.join(','))
+    .toLowerCase().split(',').map((item) => item.trim()).filter(Boolean);
+  return new Set(requested.filter((platform) => PLATFORM_ORDER.includes(platform)));
+}
+
 export function streamTargets(env = {}) {
+  // TikTok-only is the current operating policy. Keeping the allowlist in
+  // front of the stored credentials means older Twitch and YouTube secrets
+  // can remain in Netlify without silently rejoining the next broadcast.
+  const enabled = enabledPlatforms(env.STREAM_ENABLED_PLATFORMS);
   const explicit = {
     twitch: cleanRtmp(env.STREAM_TWITCH_RTMP_URL),
     youtube: cleanRtmp(env.STREAM_YOUTUBE_RTMP_URL),
@@ -49,6 +60,7 @@ export function streamTargets(env = {}) {
 
   const seen = new Set();
   return PLATFORM_ORDER.flatMap((platform) => {
+    if (!enabled.has(platform)) return [];
     const rtmpUrl = explicit[platform] || '';
     if (!rtmpUrl || seen.has(rtmpUrl)) return [];
     seen.add(rtmpUrl);

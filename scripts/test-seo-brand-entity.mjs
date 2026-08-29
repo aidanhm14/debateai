@@ -85,7 +85,7 @@ check('brand page disambiguates similarly named products',
 check('AI guide names the ranked show and official domain first',
   llms.startsWith('# Debatable\n\n> Debatable is the ranked show for live argument at https://itsdebatable.com/'));
 check('AI guide is dated and disambiguates the brand',
-  llms.includes('Last reviewed: 2026-08-28')
+  llms.includes('Last reviewed: 2026-08-29')
   && llms.includes('independent from other apps, websites, or organizations'));
 check('AI guide links the canonical identity page',
   llms.includes('[Debatable official facts](https://itsdebatable.com/debatable)'));
@@ -93,8 +93,8 @@ check('robots policy leaves public facts crawlable',
   /User-agent: \*\s+Allow: \//.test(robots)
   && !/Disallow: \/(?:llms\.txt|debatable)(?:\s|$)/.test(robots));
 check('sitemap marks changed brand surfaces fresh',
-  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-28'/.test(sitemap)
-  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
+  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-29'/.test(sitemap)
+  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-29'/.test(sitemap));
 check('sitemap submits the current AI and learn entry pages',
   /path: '\/debate-an-ai'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap)
   && /path: '\/learn'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));

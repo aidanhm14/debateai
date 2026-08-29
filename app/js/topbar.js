@@ -655,12 +655,12 @@
   ];
 
   // ── Social accounts ────────────────────────────────────────────────
-  // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch, TikTok
-  // and X the same day once those handles were claimed (all five are
+  // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch,
+  // TikTok and X the same day once those handles were claimed (all five are
   // trydebatable). 2026-08-22, per the founder: INSTAGRAM IS OUT of the nav
-  // rail. The handle still exists and the footer and the JSON-LD `sameAs`
-  // still carry it; this is a nav demotion, not a retired account, so
-  // restoring it is re-adding one entry to this array and nothing else.
+  // rail. 2026-08-29: YouTube and Twitch are out too while the live show runs
+  // on TikTok only. The accounts remain claimed. Restoring one is re-adding
+  // its entry here and its public profile links, not rebuilding stream support.
   // Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
   // entry; the topbar rail, the mobile sheet row, and the hover colour all
@@ -680,38 +680,11 @@
   // its mark IS monochrome, so `brand` is `var(--text)` and the glyph
   // inherits the theme's text colour, black on the light bar and white on
   // the dark one. That is the platform's real palette, not a fallback.
-  // The rail is four wide at 30px a slot, so ~126px, down from five and
-  // 158px. Width was never what capped this: measured at 901px, one pixel
-  // above the breakpoint that hides the rail entirely, the five-wide right
-  // group still ended 230px clear of the wordmark with neither the bar nor
-  // the document scrolling sideways. Attention is what caps it, which is
-  // why the count went DOWN rather than a sixth being added. A fifth
-  // network is a rethink of the rail, not another entry.
+  // The rail is two wide now. Width was never what capped it: measured at
+  // 901px, one pixel above the breakpoint that hides the rail entirely, the
+  // old five-wide group still ended 230px clear of the wordmark. Attention
+  // is the cap, so adding another network is an explicit product call.
   var SOCIALS = [
-    {
-      key: 'youtube',
-      label: 'YouTube',
-      handle: '@trydebatable',
-      href: 'https://www.youtube.com/@trydebatable',
-      brand: '#FF0000',
-      // One stop, so the glyph paints solid red rather than sweeping.
-      gradient: ['#FF0000'],
-      // Rounded plate + play triangle.
-      icon: '<rect x="2.6" y="5.3" width="18.8" height="13.4" rx="4.2"/>'
-          + '<path d="M10.2 9.3l5.5 2.7-5.5 2.7z"/>',
-    },
-    {
-      key: 'twitch',
-      label: 'Twitch',
-      handle: 'trydebatable',
-      href: 'https://www.twitch.tv/trydebatable',
-      brand: '#9146FF',
-      gradient: ['#9146FF'],
-      // The glitch: a bevelled panel with the tab dropping off the
-      // bottom-left, plus the two eye bars.
-      icon: '<path d="M7.2 2.7L3.6 6.3v12.6h4.3v3.4l3.6-3.4h2.9l5.9-5.9V2.7z"/>'
-          + '<path d="M11.6 8.2v4.3M15.5 8.2v4.3"/>',
-    },
     {
       key: 'tiktok',
       label: 'TikTok',
@@ -723,15 +696,13 @@
       // sweep is what those offsets read as at 16px. Pink is repeated so it
       // takes the top half of the sweep rather than a third of it: cyan
       // carries the recognition but is the palest colour in the rail
-      // against a white bar, and a two-stop version rendered visibly
-      // fainter than its three neighbours at icon size.
+      // against a white bar, and a two-stop version rendered visibly faint.
       gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
       // 2026-08-12, per the founder ("hard to see"): the note head is FILLED and
       // the strokes are heavier than the rail default. This mark carries
-      // far less ink than its neighbours by construction. YouTube is a
-      // plate with a triangle, Twitch a bevelled panel, X a filled slab,
-      // and TikTok is one open ring and
-      // one thin curve. At 16px an open ring next to three enclosed shapes
+      // far less ink than X by construction. X is a filled slab, while
+      // TikTok is one open ring and one thin curve. At 16px an open ring
+      // next to an enclosed shape
       // reads as the faint one no matter what colour it is, and the real
       // mark's head is solid anyway, so outlining it was both weaker and
       // less accurate. Filling the head roughly doubles the mark's ink.

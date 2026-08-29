@@ -53,7 +53,7 @@ const URLS = [
   // cannot win that query with 10 words. /ai-vs-ai-debate is 1,318 words
   // and already ranks position 7 for it, so the two were competing and
   // the thin one was holding the higher priority.
-  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-28' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-29' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
@@ -246,7 +246,7 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
-  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-28' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-29' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-08-28' },
   // Verified facts, founder background, reporting angles, and official
