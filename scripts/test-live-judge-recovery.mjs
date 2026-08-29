@@ -138,6 +138,10 @@ ok(liveRoundSource.includes('The ladder records a draw'), 'the no-winner screen 
 ok(/d\.ballot \|\| d\.ballotUnresolved \|\| state\.lastBallot/.test(liveRoundSource), 'no-winner speaker points feed each participant record');
 ok((liveRoundSource.match(/res\.code === 'judge_incomplete'/g) || []).length >= 2, 'participants and watchers both retry an incomplete panel');
 ok(liveRoundSource.includes('short panel cannot:'), 'an incomplete panel never falls through to the browser judge');
+ok(
+  /publishBallotPending\(\);[\s\S]{0,1200}waitForPendingWrites[\s\S]{0,500}writesFlushed\.then\(generateBallot/.test(liveRoundSource),
+  'the server judge waits for the final transcript write',
+);
 
 if (failures) {
   console.error(`test-live-judge-recovery: ${failures} failure(s)`);

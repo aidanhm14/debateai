@@ -11002,7 +11002,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // generated, so their screen can show 'Ballot generating…'
     // immediately instead of waiting until the final ballot lands.
     publishBallotPending();
-    generateBallot();
+    // publishSpeech() and publishBallotPending() are queued immediately
+    // before this. The judge reads its transcript from Firestore, so an
+    // HTTP request that outruns those writes can adjudicate a round with
+    // the final speech missing, or reject a short round as no transcript.
+    // Wait for the local Firestore queue to become durable before the
+    // server reads it. A failed flush still falls through to the existing
+    // saved-transcript recovery path instead of freezing the room here.
+    var writesFlushed = firebaseDb && typeof firebaseDb.waitForPendingWrites === 'function'
+      ? firebaseDb.waitForPendingWrites()
+      : Promise.resolve();
+    writesFlushed.then(generateBallot, function(err){
+      console.warn('[Round sync] transcript flush failed before judging', err);
+      generateBallot();
+    });
   }
 
   function publishBallotPending(){
