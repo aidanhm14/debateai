@@ -30,46 +30,25 @@ import { requireAdmin } from './lib/admin-auth.mjs';
 import { FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 import { ownerTokenProperties, streamerName, studioPath } from './lib/stream-studio.mjs';
+import { createHash, randomBytes } from 'node:crypto';
+import {
+  publicPlatforms,
+  publicRestreamLinks,
+  safeStudioTargets,
+  streamTargets,
+} from './lib/stream-targets.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const STREAM_DOC = 'current';
 
-// ── Restream to YouTube Live ────────────────────────────────────────────────
-// Every viewer who watches through the Daily room is a PARTICIPANT in it,
-// so the audience is capped by max_participants and costs participant
-// minutes. Daily's own live streaming does not solve that by itself: it
-// pushes to an endpoint you own and hands back no player.
-//
-// So the room restreams over RTMP to YouTube Live, and the homepage
-// embeds YouTube's player. Viewers pull from YouTube's CDN, which is
-// uncapped and free, and nobody but the debaters ever joins the room.
-// The trade is latency: WebRTC is sub-second, an HLS restream is roughly
-// ten to twenty seconds behind. For watching a debate that is invisible.
-//
-// STREAM_RTMP_URL is the full ingest URL INCLUDING the stream key
-// (rtmp://a.rtmp.youtube.com/live2/xxxx-xxxx-xxxx-xxxx-xxxx). It is a
-// credential: it lives in env, is handed only to the authenticated admin
-// opening the studio, and is never written to Firestore or returned to a
-// public endpoint.
-//
-// STREAM_YOUTUBE_CHANNEL_ID is public and PERSISTENT. YouTube's
-// `embed/live_stream?channel=` form resolves to whatever that channel is
-// currently broadcasting, so nothing has to be re-entered per stream and
-// there is no per-broadcast video id to keep in sync.
-//
-// Neither set: no restream. Everything falls back to the direct-join
-// player, which is exactly today's behaviour.
-const RTMP_URL = process.env.STREAM_RTMP_URL || '';
+// ── Outbound simulcast ─────────────────────────────────────────────────────
+// Each platform URL contains a private stream key. The lead Studio receives
+// only a one-time control token and safe platform names. /api/stream-restream
+// reads these targets server-side and sends them directly to Daily's REST API.
+// The keys never enter the Studio URL, Firestore's public response, or a
+// cohost link. STREAM_RTMP_URL remains a backwards-compatible single target.
+const TARGETS = streamTargets(process.env);
 const YT_CHANNEL = process.env.STREAM_YOUTUBE_CHANNEL_ID || '';
-
-// Twitch restream. YouTube refuses to serve LIVE embeds on external
-// sites unless the channel is monetized with a linked AdSense account,
-// which this one is not, so the YouTube path above cannot actually put
-// a player on the homepage today. Twitch has no such gate: the player
-// embeds freely as long as every domain that serves it is named as a
-// `parent` query param. Set STREAM_TWITCH_CHANNEL to the channel LOGIN
-// (the twitch.tv/<this> part) and point STREAM_RTMP_URL at Twitch
-// ingest (rtmp://live.twitch.tv/app/<stream key>).
 const TWITCH_CHANNEL = process.env.STREAM_TWITCH_CHANNEL || '';
 const TWITCH_PARENTS = (process.env.STREAM_TWITCH_PARENTS
   || 'itsdebatable.com,www.itsdebatable.com,debateos1.netlify.app')
@@ -86,24 +65,26 @@ const SITE_PLAYER = process.env.STREAM_SITE_PLAYER === 'embed' ? 'embed' : 'nati
 const EMBED_URL = process.env.STREAM_EMBED_URL || '';
 
 function watchEmbedUrl(){
-  // An embed only makes sense when a restream is actually feeding it.
-  if (!RTMP_URL) return null;
+  if (!TARGETS.length) return null;
   if (EMBED_URL) return EMBED_URL;
-  if (TWITCH_CHANNEL){
+  if (TWITCH_CHANNEL && TARGETS.some((t) => t.platform === 'twitch')){
     return 'https://player.twitch.tv/?channel=' + encodeURIComponent(TWITCH_CHANNEL)
          + TWITCH_PARENTS.map((p) => '&parent=' + encodeURIComponent(p)).join('')
          + '&autoplay=true&muted=true';
   }
-  if (YT_CHANNEL){
+  if (YT_CHANNEL && TARGETS.some((t) => t.platform === 'youtube')){
     return 'https://www.youtube.com/embed/live_stream?channel='
          + encodeURIComponent(YT_CHANNEL) + '&autoplay=1&mute=1&playsinline=1';
   }
   return null;
 }
 
-function externalWatchUrl(){
-  if (!RTMP_URL || !TWITCH_CHANNEL) return null;
-  return 'https://www.twitch.tv/' + encodeURIComponent(TWITCH_CHANNEL);
+function externalWatchLinks(){
+  return publicRestreamLinks(TARGETS, process.env);
+}
+
+function restreamTokenHash(token){
+  return createHash('sha256').update(token).digest('hex');
 }
 
 function dailyHeaders(){
@@ -193,6 +174,19 @@ async function stopRoomRecording(roomName){
   }
 }
 
+async function stopRoomRestream(roomName){
+  try {
+    const resp = await fetch(DAILY_API + '/rooms/' + encodeURIComponent(roomName) + '/live-streaming/stop', {
+      method: 'POST',
+      headers: dailyHeaders(),
+    });
+    // A non-success simply means no external stream was running.
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default async (req) => {
   if (req.method === 'OPTIONS') return corsResponse(req);
   if (req.method !== 'POST') return errorResponse('POST only', 405, req);
@@ -223,6 +217,9 @@ export default async (req) => {
     const url = created.room.url || ('https://' + process.env.DAILY_DOMAIN + '.daily.co/' + name);
     const token = await mintOwnerToken(name, created.recording, userName, 'lead');
     if (!token) return errorResponse('Could not create the lead studio token', 502, req);
+    const simulcastToken = TARGETS.length ? randomBytes(32).toString('base64url') : '';
+    const platforms = publicPlatforms(TARGETS);
+    const watchLinks = externalWatchLinks();
     // studioUrl points at OUR studio page, not the raw Daily room. The
     // raw room opens Daily prebuilt at its default send settings, which
     // are tuned for a many-person meeting and look soft when they are
@@ -235,9 +232,9 @@ export default async (req) => {
       title,
       userName,
       role: 'lead',
-      // The RTMP target rides only to the lead studio, which is where
-      // daily-js starts the restream. It never enters a cohost invite.
-      rtmp: RTMP_URL,
+      roomName: name,
+      restreamToken: simulcastToken,
+      restreams: safeStudioTargets(TARGETS),
     });
 
     await ref.set({
@@ -252,9 +249,13 @@ export default async (req) => {
       // max_participants and an uncapped one. Null means "no restream,
       // fall back to joining the room".
       watchEmbedUrl: watchEmbedUrl(),
-      restream: !!RTMP_URL,
+      restream: TARGETS.length > 0,
+      restreamActive: false,
+      restreamPlatforms: platforms,
+      restreamTokenHash: simulcastToken ? restreamTokenHash(simulcastToken) : null,
       sitePlayer: SITE_PLAYER,
-      externalWatchUrl: externalWatchUrl(),
+      externalWatchUrl: watchLinks[0] ? watchLinks[0].url : null,
+      externalWatchLinks: watchLinks,
       startedAt: FieldValue.serverTimestamp(),
       startedBy: uid,
       endedAt: null,
@@ -267,10 +268,12 @@ export default async (req) => {
       title,
       token,
       recording: created.recording,
-      restream: !!RTMP_URL,
+      restream: TARGETS.length > 0,
+      restreamPlatforms: platforms,
       watchEmbedUrl: watchEmbedUrl(),
       sitePlayer: SITE_PLAYER,
-      externalWatchUrl: externalWatchUrl(),
+      externalWatchUrl: watchLinks[0] ? watchLinks[0].url : null,
+      externalWatchLinks: watchLinks,
       studioUrl,
       rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
     }, 200, req);
@@ -304,9 +307,14 @@ export default async (req) => {
   if (action === 'stop'){
     const snap = await ref.get();
     const cur = snap.exists ? (snap.data() || {}) : {};
-    if (cur.roomName) await stopRoomRecording(cur.roomName);
+    if (cur.roomName) await Promise.all([
+      stopRoomRecording(cur.roomName),
+      stopRoomRestream(cur.roomName),
+    ]);
     await ref.set({
       live: false,
+      restreamActive: false,
+      restreamTokenHash: null,
       endedAt: FieldValue.serverTimestamp(),
       endedBy: uid,
     }, { merge: true });

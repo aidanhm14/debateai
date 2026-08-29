@@ -57,6 +57,8 @@
       '.dbv-action{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 12px;border:1px solid rgba(255,255,255,.24);border-radius:9px;background:rgba(3,4,7,.72);color:#fff;text-decoration:none;backdrop-filter:blur(10px);font:inherit;font-size:12px;font-weight:800;cursor:pointer}',
       '.dbv-action:hover{background:rgba(20,22,28,.9);border-color:rgba(255,255,255,.5)}',
       '.dbv-action[hidden]{display:none}',
+      '.dbv-platforms{display:flex;align-items:center;gap:8px}',
+      '.dbv-platforms[hidden]{display:none}',
       '.dbv.is-screen .dbv-actions{right:auto;left:12px}',
       '.dbv.is-embed .dbv-actions,.dbv.is-embed .dbv-hud{display:none}',
       '.dbv-off{display:none}',
@@ -135,14 +137,12 @@
     var sound = el('button', 'dbv-action', 'Sound on');
     sound.type = 'button';
     sound.hidden = true;
-    var twitch = el('a', 'dbv-action', 'Twitch');
-    twitch.target = '_blank';
-    twitch.rel = 'noopener';
-    twitch.hidden = true;
+    var platformLinks = el('span', 'dbv-platforms');
+    platformLinks.hidden = true;
     var full = el('button', 'dbv-action', 'Fullscreen');
     full.type = 'button';
     actions.appendChild(sound);
-    actions.appendChild(twitch);
+    actions.appendChild(platformLinks);
     actions.appendChild(full);
     root.appendChild(cams);
     root.appendChild(screen);
@@ -397,13 +397,18 @@
         wantedUrl = nextUrl;
         if (call && joined !== wantedUrl) disconnect();
       }
-      if (status.externalWatchUrl){
-        twitch.href = status.externalWatchUrl;
-        twitch.hidden = false;
-      } else {
-        twitch.removeAttribute('href');
-        twitch.hidden = true;
-      }
+      var links = Array.isArray(status.externalWatchLinks) ? status.externalWatchLinks.slice(0, 3) : [];
+      if (!links.length && status.externalWatchUrl) links = [{ label:'Twitch', url:status.externalWatchUrl }];
+      platformLinks.innerHTML = '';
+      links.forEach(function(link){
+        if (!link || !/^https:\/\//.test(String(link.url || ''))) return;
+        var anchor = el('a', 'dbv-action', link.label || 'Watch');
+        anchor.href = link.url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener';
+        platformLinks.appendChild(anchor);
+      });
+      platformLinks.hidden = !platformLinks.childNodes.length;
       if (!isLive){
         wantedUrl = '';
         embedUrl = '';

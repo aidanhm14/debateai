@@ -49,7 +49,7 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   <span class="chip" id="quality">quality: negotiating</span>
   <span class="chip" id="hosts">hosts: 1</span>
   <span class="chip" id="watchers">direct viewers: 0</span>
-  <span class="chip" id="restream">restream: off</span>
+  <span class="chip" id="restream">simulcast: off</span>
   <a class="chip" href="/tournaments" target="_blank" rel="noopener">Open the tournament</a>
   <a class="chip" href="/open" target="_blank" rel="noopener">Open the event lobby</a>
   <a class="chip" href="/" target="_blank" rel="noopener">Open the homepage</a>
@@ -62,7 +62,8 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   the <b>/open</b> event lobby, and <b>/watch</b>.
   <b>Share screen</b> in the tray below to put a slide deck, a tab, or a
   flow sheet on the stream. Viewers see the screen full-bleed while it is
-  running and your camera comes back the moment you stop.
+  running and your camera comes back the moment you stop. Configured
+  Twitch, YouTube, and TikTok destinations start when the lead joins.
 </p>
 
 <script>
@@ -73,7 +74,13 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   var roomUrl = q.get('url') || '';
   var token = q.get('t') || '';
   var title = q.get('title') || '';
-  var rtmpUrl = q.get('rtmp') || '';
+  var roomName = q.get('room') || '';
+  var restreamToken = q.get('rs') || '';
+  var restreamPlatforms = q.getAll('out').map(function(value){
+    return String(value || '').split(':')[0].toLowerCase();
+  }).filter(function(value, index, all){
+    return /^(twitch|youtube|tiktok|primary)$/.test(value) && all.indexOf(value) === index;
+  });
   var role = q.get('role') === 'cohost' ? 'cohost' : 'lead';
   var userName = (q.get('name') || (role === 'cohost' ? 'Cohost' : 'Host')).slice(0, 60);
   var stage = document.getElementById('stage');
@@ -223,44 +230,56 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
     watchersEl.innerHTML = 'direct viewers: <b>' + (Number(counts.hidden) || 0) + '</b>';
   }
 
-  // Restream to YouTube. Started HERE rather than server-side because
-  // daily-js owns startLiveStreaming and the host is the only participant
-  // holding an owner token. It runs off the room, not off this tab's
-  // uplink, so the restream survives the studio being resized or hidden;
-  // it stops when the room does.
-  //
-  // 1280x720 at 30fps and 2.5 Mbps is inside YouTube's recommended range
-  // for 720p30 and well inside what the ladder above already sends.
+  var PLATFORM_NAMES = { twitch:'Twitch', youtube:'YouTube', tiktok:'TikTok', primary:'external' };
+  function simulcastNames(platforms){
+    return (platforms || restreamPlatforms).map(function(id){ return PLATFORM_NAMES[id] || id; }).join(' + ');
+  }
+
+  // The Studio sends a one-time start token to our server. RTMP keys stay
+  // in Netlify env and are sent directly from /api/stream-restream to Daily.
+  // The same 720p30 composition fans out to every configured destination.
   function startRestream(){
-    if (!rtmpUrl) {
-      restreamEl.textContent = role === 'cohost' ? 'restream: managed by lead' : 'restream: off';
+    if (role === 'cohost') {
+      restreamEl.textContent = 'simulcast: managed by lead';
       return;
     }
-    restreamEl.textContent = 'restream: starting';
-    call.startLiveStreaming({
-      endpoints: [{ endpoint: rtmpUrl }],
-      width: 1280, height: 720, fps: 30, videoBitrate: 2500,
-      layout: { preset: 'default' }
+    if (!restreamToken || !roomName || !restreamPlatforms.length) {
+      restreamEl.textContent = 'simulcast: off';
+      return;
+    }
+    restreamEl.textContent = 'simulcast: starting ' + simulcastNames();
+    fetch('/api/stream-restream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomName: roomName, token: restreamToken })
+    }).then(function(resp){
+      return resp.json().catch(function(){ return {}; }).then(function(data){
+        if (!resp.ok) throw new Error(data.error || 'simulcast start failed');
+        return data;
+      });
+    }).then(function(data){
+      restreamEl.innerHTML = 'simulcast <b>on air</b> · ' + simulcastNames(data.platforms);
+      restreamEl.className = 'chip ok';
     }).catch(function(e){
-      console.warn('[studio] restream refused:', e && e.message);
-      restreamEl.innerHTML = 'restream <b>failed</b>';
+      console.warn('[studio] simulcast refused:', e && e.message);
+      restreamEl.innerHTML = 'simulcast <b>failed</b> · ' + simulcastNames();
       restreamEl.className = 'chip warn';
     });
   }
   call.on('live-streaming-started', function(){
-    restreamEl.innerHTML = 'restream <b>on air</b>';
+    restreamEl.innerHTML = 'simulcast <b>on air</b> · ' + simulcastNames();
     restreamEl.className = 'chip ok';
   });
   call.on('live-streaming-stopped', function(){
-    restreamEl.textContent = 'restream: stopped';
+    restreamEl.textContent = 'simulcast: stopped';
     restreamEl.className = 'chip';
   });
   call.on('live-streaming-error', function(e){
     // Loud on purpose. A silent restream failure means the homepage
     // embed shows nothing while the studio looks perfectly healthy,
     // which is the exact shape of failure this repo keeps finding.
-    console.warn('[studio] restream error:', e);
-    restreamEl.innerHTML = 'restream <b>error</b>';
+    console.warn('[studio] simulcast error:', e);
+    restreamEl.innerHTML = 'simulcast <b>error</b> · ' + simulcastNames();
     restreamEl.className = 'chip warn';
   });
 

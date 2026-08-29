@@ -21,18 +21,21 @@ export default async (req) => {
           live: true,
           url: d.url || '',
           title: d.title || 'Live from the arena',
-          // Present when the round is restreaming to YouTube. Viewers
+          // Present when the room is simulcasting externally. Viewers
           // watch THIS instead of joining the Daily room, which is what
           // takes the audience off max_participants and off participant
           // minutes. Absent means no restream is configured and the
           // player falls back to joining the room directly.
           watchEmbedUrl: d.watchEmbedUrl || null,
           // Native keeps the site player Debatable-owned while the same
-          // room can still restream outward to Twitch. `embed` is an ops
+          // room can still simulcast outward. `embed` is an ops
           // escape hatch for audiences larger than the Daily room cap.
           sitePlayer: d.sitePlayer === 'embed' ? 'embed' : 'native',
           restream: d.restream === true,
+          restreamActive: d.restreamActive === true,
+          restreamPlatforms: Array.isArray(d.restreamPlatforms) ? d.restreamPlatforms : [],
           externalWatchUrl: d.externalWatchUrl || null,
+          externalWatchLinks: Array.isArray(d.externalWatchLinks) ? d.externalWatchLinks : [],
           startedAt: d.startedAt && d.startedAt.toMillis ? d.startedAt.toMillis() : null,
         };
       }

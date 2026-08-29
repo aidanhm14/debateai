@@ -37,10 +37,19 @@ export function studioPath(options = {}) {
   query.set('name', streamerName(options.userName, role === 'cohost' ? 'Cohost' : 'Host'));
   query.set('role', role);
 
-  // The RTMP URL contains the stream key. Keeping this condition inside
-  // the URL builder makes it impossible for a cohost invite to leak it,
-  // even if a future caller accidentally supplies rtmp for both roles.
-  if (role === 'lead' && options.rtmp) query.set('rtmp', String(options.rtmp));
+  // Simulcast keys remain server-side. The lead receives a one-time start
+  // token plus safe endpoint names; a cohost receives neither.
+  if (role === 'lead') {
+    if (options.roomName) query.set('room', String(options.roomName).slice(0, 128));
+    if (options.restreamToken) query.set('rs', String(options.restreamToken).slice(0, 128));
+    (Array.isArray(options.restreams) ? options.restreams : []).forEach((target) => {
+      const platform = String(target && target.platform || '').toLowerCase();
+      const endpoint = String(target && target.endpoint || '');
+      if (/^[a-z]{2,20}$/.test(platform) && /^rtmp_[a-z]{2,20}$/.test(endpoint)) {
+        query.append('out', platform + ':' + endpoint);
+      }
+    });
+  }
   return '/studio?' + query.toString();
 }
 

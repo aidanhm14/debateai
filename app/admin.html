@@ -911,7 +911,7 @@
   <!-- Livestream + recordings. Go live creates a Daily broadcast room and
        flips the public players on /tournaments and /watch; "Open studio"
        joins as the lead. A cohost invite mints a second owner token without
-       exposing the RTMP key or starting another recording. -->
+       exposing any platform stream key or starting another recording. -->
   <div class="section" data-pane="broadcast">
     <div class="card">
       <div class="title">
@@ -919,7 +919,7 @@
         <span class="meta" id="stream-meta">checking…</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:10px;line-height:1.5">
-        Go live puts the native Debatable player on the homepage, /tournaments, the Open event page, and /watch. Open the studio tab, allow the camera, and you are broadcasting. Public viewers are receive-only. When a Twitch RTMP target is configured, the lead studio sends the same broadcast to Twitch at the same time. A cohost invite gives one trusted person a second camera, mic, and screen-share seat. End stream takes every public player down and stops the recording. The recording lands hidden until you sync and publish it below.
+        Go live puts the native Debatable player on the homepage, /tournaments, the Open event page, and /watch. Open the studio tab, allow the camera, and you are broadcasting. Public viewers are receive-only. Configured simulcast targets receive the same feed on Twitch, YouTube Live, and TikTok Live. Platform keys stay server-side and never enter the cohost invite. A cohost invite gives one trusted person a second camera, mic, and screen-share seat. End stream takes every public player down, stops the simulcast, and stops the recording. The recording lands hidden until you sync and publish it below.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <input id="stream-title" type="text" placeholder="Stream title, e.g. Winter Open · Finals" style="flex:2;min-width:220px;padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);font-size:13px;outline:none">
@@ -4273,6 +4273,11 @@ wireAnnounceCard('or', '/api/admin/open-reminder');
 })();
 wireAnnounceCard('ot', '/api/admin/open-timeslot');
 
+function streamPlatformNames(list){
+  const labels = { twitch:'Twitch', youtube:'YouTube', tiktok:'TikTok', primary:'external' };
+  return (Array.isArray(list) ? list : []).map(x => labels[x] || x).join(', ');
+}
+
 async function refreshStreamStatus(){
   try {
     const r = await fetch('/api/stream-status', { cache: 'no-store' });
@@ -4281,8 +4286,9 @@ async function refreshStreamStatus(){
     if (s.live){
       meta.textContent = 'LIVE';
       meta.style.color = 'var(--good)';
+      const platforms = streamPlatformNames(s.restreamPlatforms);
       $('stream-status-line').textContent = 'On air: "' + (s.title || '') + '". The homepage, /tournaments, /open, and /watch are showing the native player.' +
-        (s.restream ? ' Twitch target configured.' : ' Twitch target not configured for this stream.');
+        (platforms ? (s.restreamActive ? ' Simulcasting to ' : ' Simulcast targets ready: ') + platforms + '.' : ' No external simulcast targets are configured.');
       $('stream-cohost-btn').disabled = false;
     } else {
       meta.textContent = 'off air';
@@ -4306,8 +4312,9 @@ $('stream-start-btn').addEventListener('click', async () => {
     link.href = data.studioUrl;
     link.style.display = '';
     $('stream-cohost-btn').disabled = false;
+    const platforms = streamPlatformNames(data.restreamPlatforms);
     line.innerHTML = '✓ Live to everyone on /tournaments and /watch. <b>Open studio</b> in a new tab and allow the camera to start broadcasting.' +
-      (data.restream ? ' The studio will also send to Twitch.' : ' Twitch restream is not configured, so this run stays on Debatable.') +
+      (platforms ? ' The studio will also send to ' + platforms + '.' : ' No external simulcast target is configured, so this run stays on Debatable.') +
       (data.recording ? ' Cloud recording will start when you join.' : ' Recording is off (Daily plan has no cloud recording).');
     line.style.color = 'var(--good)';
     refreshStreamStatus();

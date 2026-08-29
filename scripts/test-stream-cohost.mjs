@@ -11,6 +11,12 @@ import {
   studioPath,
   STREAM_TOKEN_SECONDS,
 } from '../app/netlify/functions/lib/stream-studio.mjs';
+import {
+  dailyEndpointPayload,
+  publicRestreamLinks,
+  safeStudioTargets,
+  streamTargets,
+} from '../app/netlify/functions/lib/stream-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
@@ -49,22 +55,56 @@ const cohostUrl = new URL('https://itsdebatable.com' + studioPath({
   title: 'The final',
   userName: 'Friend',
   role: 'cohost',
-  rtmp: 'rtmp://private-key',
+  roomName: 'room-one',
+  restreamToken: 'restream-secret',
+  restreams: [{ platform:'twitch', endpoint:'rtmp_twitch' }],
 }));
 check(cohostUrl.searchParams.get('t') === 'cohost-secret', 'cohost URL carries its meeting token');
 check(cohostUrl.searchParams.get('role') === 'cohost', 'cohost URL declares its studio role');
 check(cohostUrl.searchParams.get('name') === 'Friend', 'cohost URL carries its display name');
 check(!cohostUrl.searchParams.has('rtmp'), 'cohost URL never carries the RTMP key');
+check(!cohostUrl.searchParams.has('rs'), 'cohost URL never carries the simulcast start token');
+check(!cohostUrl.searchParams.has('out'), 'cohost URL never carries simulcast controls');
 
 const leadUrl = new URL('https://itsdebatable.com' + studioPath({
   url: 'https://example.daily.co/room-one',
   token: 'lead-secret',
   role: 'lead',
-  rtmp: 'rtmp://private-key',
+  roomName: 'room-one',
+  restreamToken: 'restream-secret',
+  restreams: [
+    { platform:'twitch', endpoint:'rtmp_twitch' },
+    { platform:'youtube', endpoint:'rtmp_youtube' },
+    { platform:'tiktok', endpoint:'rtmp_tiktok' },
+  ],
 }));
-check(leadUrl.searchParams.get('rtmp') === 'rtmp://private-key', 'lead URL receives the RTMP key');
+check(!leadUrl.searchParams.has('rtmp'), 'lead URL never carries an RTMP key');
+check(leadUrl.searchParams.get('room') === 'room-one', 'lead URL identifies the room it may simulcast');
+check(leadUrl.searchParams.get('rs') === 'restream-secret', 'lead URL receives the one-time simulcast token');
+check(leadUrl.searchParams.getAll('out').length === 3, 'lead URL names all safe simulcast destinations');
+
+const targets = streamTargets({
+  STREAM_RTMP_URL: 'rtmps://twitch.example/app/legacy-secret',
+  STREAM_TWITCH_CHANNEL: 'trydebatable',
+  STREAM_YOUTUBE_RTMP_URL: 'rtmps://youtube.example/live2/youtube-secret',
+  STREAM_TIKTOK_RTMP_URL: 'rtmp://tiktok.example/live/tiktok-secret',
+  STREAM_YOUTUBE_CHANNEL_ID: 'UC1234567890',
+  STREAM_TIKTOK_USERNAME: '@trydebatable',
+});
+check(targets.map(x => x.platform).join(',') === 'twitch,youtube,tiktok', 'legacy Twitch plus explicit YouTube and TikTok resolve to three targets');
+check(dailyEndpointPayload(targets).length === 3, 'Daily receives all three RTMP destinations');
+check(safeStudioTargets(targets).every(x => !('rtmpUrl' in x)), 'Studio target descriptors contain no stream keys');
+const watchLinks = publicRestreamLinks(targets, {
+  STREAM_TWITCH_CHANNEL: 'trydebatable',
+  STREAM_YOUTUBE_CHANNEL_ID: 'UC1234567890',
+  STREAM_TIKTOK_USERNAME: '@trydebatable',
+});
+check(watchLinks.map(x => x.platform).join(',') === 'twitch,youtube,tiktok', 'public links cover every configured channel');
+check(!JSON.stringify(watchLinks).includes('secret'), 'public links contain no ingest credential');
+check(streamTargets({ STREAM_TIKTOK_RTMP_URL:'javascript:bad' }).length === 0, 'invalid ingest schemes fail closed');
 
 const control = read('app/netlify/functions/stream-control.mjs');
+const restream = read('app/netlify/functions/stream-restream.mjs');
 const liveRoomControl = read('app/netlify/functions/create-daily-room.mjs');
 const studio = read('app/studio.html');
 const liveRound = read('app/live-round.html');
@@ -83,6 +123,13 @@ check(liveRoomControl.includes('enable_multiparty_adaptive_simulcast: true'), 'l
 check(studio.includes("call.on('participant-counts-updated', reportParticipants)"), 'studio tracks hidden public viewers');
 check(studio.includes("call.on('network-quality-change'"), 'studio reacts to network pressure');
 check(studio.includes("call.on('cpu-load-change'"), 'studio reacts to device pressure');
+check(studio.includes("fetch('/api/stream-restream'"), 'lead Studio starts simulcasting through the server');
+check(!studio.includes("q.get('rtmp')"), 'Studio never reads an RTMP key from its URL');
+check(!studio.includes('call.startLiveStreaming({'), 'Studio never transmits platform keys itself');
+check(restream.includes('dailyEndpointPayload(targets)'), 'server fans out to every configured Daily endpoint');
+check(restream.includes('timingSafeEqual'), 'simulcast start token uses timing-safe verification');
+check(control.includes('restreamTokenHash: simulcastToken ? restreamTokenHash(simulcastToken) : null'), 'only the simulcast token hash is stored');
+check(control.includes('stopRoomRestream(cur.roomName)'), 'ending the stream also stops every external destination');
 check(liveRound.includes("call.on('network-quality-change', onNetworkQuality)"), 'live round reacts to network pressure');
 check(liveRound.includes("call.on('cpu-load-change', onCpuLoad)"), 'live round reacts to device pressure');
 check(liveRound.includes("var settings = { '*': { video: { layer: cap } } }"), 'watchers can step down camera video without blurring screen shares');
@@ -104,8 +151,10 @@ check(tournament.includes('DebatableBroadcast.mount(frame'), 'tournament page mo
 check(open.includes("DebatableBroadcast.mount($('mainBroadcastFrame')"), 'Open lobby mounts the native player');
 check(watch.includes("DebatableBroadcast.mount($('liveFrame')"), 'Watch mounts the native player');
 check(control.includes("const SITE_PLAYER = process.env.STREAM_SITE_PLAYER === 'embed' ? 'embed' : 'native'"), 'native site player is the default with an embed escape hatch');
-check(control.includes("'https://www.twitch.tv/'"), 'a configured Twitch restream gets an external watch link');
-check(status.includes('externalWatchUrl: d.externalWatchUrl || null'), 'public status exposes only the safe Twitch channel URL');
+check(control.includes('publicRestreamLinks(TARGETS, process.env)'), 'stream control builds only safe public channel links');
+check(status.includes('externalWatchUrl: d.externalWatchUrl || null'), 'public status keeps the safe single-link compatibility field');
+check(status.includes('externalWatchLinks: Array.isArray(d.externalWatchLinks)'), 'public status exposes safe multi-platform links');
+check(viewer.includes('status.externalWatchLinks'), 'native player links to all active simulcast channels');
 check(landing.includes("var preferEmbed = s.sitePlayer === 'embed' || !s.url"), 'homepage keeps the native player while Twitch runs outward');
 
 console.log(`stream cohost guard: ${passed} assertions passed`);
