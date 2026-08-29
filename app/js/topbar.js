@@ -293,7 +293,9 @@
     // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint.
-    { href: '/coach',         label: 'Coach', wip: true },
+    // 2026-08-29: removed from the menu per the founder ("get rid of ...
+    // coach"). Page stays live; restore = uncomment the line below.
+    // { href: '/coach',         label: 'Coach', wip: true },
     // 2026-07-04: Room judge is the live Zoom / Twitch sidecar. Keep the
     // label short so the bar still fits at laptop widths.
     // 2026-08-26, per Aidan: pulled off every nav surface while it is
@@ -522,7 +524,9 @@
       // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
       // 2026-08-10: daily-use flow desk. It accepts one speech or a
       // whole round and keeps true drops distinct from unanswered excerpts.
-      { href: '/flow',        label: 'Flow a speech', plain: 'Take notes on a speech', wip: true },
+      // 2026-08-29: removed from the menu per the founder ("get rid of flow
+      // a speech"). Page stays live; restore = uncomment the line below.
+      // { href: '/flow',        label: 'Flow a speech', plain: 'Take notes on a speech', wip: true },
       // 2026-07-27: was "Topics and motions", which the landing's plain-
       // audience jargon layer (motion -> topic, lowercase) rendered as
       // the shipped "Topics and topics". The jargon word sits second so
@@ -540,7 +544,9 @@
     // by intent rather than by which array owns a row (see the column()
     // block in render), so those three appear here without leaving LINKS.
     { head: 'Learn', links: [
-      { href: '/coaches',      label: 'Coaches', wip: true },
+      // 2026-08-29: removed from the menu per the founder ("get rid of ...
+      // coaches"). Page stays live; restore = uncomment the line below.
+      // { href: '/coaches',      label: 'Coaches', wip: true },
       // 2026-08-19: the coach's own surface, not the directory next to
       // it. A roster joined by code, each member's judged rounds, and
       // private rounds the coach sets for pairs.
@@ -626,7 +632,8 @@
       // 2026-08-27: moved off the permanent rail and back into Explore.
       // Keep both rows below Watch and Community, not among the paths for
       // entering a debate. `strong` is the menu's bold tier.
-      { href: '/predict',     label: 'Bet', strong: true },
+      // 2026-08-29: relabelled 'Bet' -> 'Betting market' per the founder.
+      { href: '/predict',     label: 'Betting market', strong: true },
       { href: '/bounties',    label: 'Bounties', strong: true },
       // Sits with Community and the Atlas: all three answer "who else is
       // out there and what do they want". This one is the only surface
