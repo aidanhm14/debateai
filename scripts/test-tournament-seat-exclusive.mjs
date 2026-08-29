@@ -11,6 +11,7 @@ const notice = read('app/js/notifications.js');
 const rules = read('app/firestore.rules');
 const page = read('app/tournament.html');
 const open = read('app/open.html');
+const api = read('app/netlify/functions/tournament.mjs');
 
 let passed = 0;
 let failed = 0;
@@ -38,6 +39,17 @@ check('the host can open continuous live pairing without locking registration',
   page.includes("act('Open live pairing'")
     && page.includes("action: 'update', tid: t.tid, dropIn: true")
     && admin.includes("if (body.dropIn != null) patch.dropIn"));
+check('the host can release unresolved fixed rooms into the live queue',
+  admin.includes("action === 'release-fixed-seating'")
+    && admin.includes("await applySeating(db, tid, t.data, [], pairings, entries)")
+    && page.includes("act('Move waiting rooms to live queue'"));
+check('releasing fixed rooms never erases a completed result',
+  /release-fixed-seating[\s\S]{0,900}p\.status === 'complete'\) continue/.test(admin));
+check('old fixed-room cards stop acting like the person is still assigned',
+  open.includes('mine.inPairing === pair.pairingId')
+    && open.includes('mine.inPairing === p.pairingId')
+    && page.includes('mine.inPairing === p.pairingId')
+    && api.includes("inPairing: String(e.inPairing || '')"));
 
 check('drop-in draws create the same user-level reservation',
   dropin.includes("collection('active_tournament_seats').doc(uid)"));

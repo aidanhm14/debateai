@@ -134,6 +134,10 @@ function publicEntry(e) {
     members: Array.isArray(e.members) ? e.members : [],
     memberNames: Array.isArray(e.memberNames) ? e.memberNames : [],
     status: e.status || 'registered',
+    // Public pairing ids already appear on the round. Mirroring the
+    // active one here lets the participant desk distinguish a room the
+    // person still owes from an old unresolved card that was released.
+    inPairing: String(e.inPairing || ''),
     // Who the entry debates for. Optional, and free text on purpose:
     // this is a school, a club, a Discord, or a country, and a fixed
     // list would exclude exactly the informal communities we are

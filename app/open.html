@@ -953,7 +953,7 @@
       var liveRound = latestReleased();
       var livePairing = liveRound && (liveRound.pairings || []).filter(function(pair){
         return (pair.govEntry === mine.entryId || pair.oppEntry === mine.entryId)
-          && pair.status !== 'complete' && pair.room;
+          && mine.inPairing === pair.pairingId && pair.status !== 'complete' && pair.room;
       })[0];
       if (livePairing){
         var active = drawPairing(mine, acts, p === 'elims');
@@ -1412,7 +1412,7 @@
       var draw = state.data ? latestReleased() : null;
       var assigned = mine && draw && (draw.pairings || []).filter(function(p){
         return p.room === r.room && (p.govEntry === mine.entryId || p.oppEntry === mine.entryId)
-          && p.status !== 'complete';
+          && mine.inPairing === p.pairingId && p.status !== 'complete';
       })[0];
       var action = demo
         ? '<span class="tv-watch tv-watch--demo">Preview</span>'
@@ -1528,7 +1528,7 @@
     var pr = r && (r.pairings || []).filter(function(x){
       return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
     })[0];
-    if (pr && pr.status !== 'complete'){
+    if (pr && mine.inPairing === pr.pairingId && pr.status !== 'complete'){
       var side = pr.govEntry === mine.entryId ? 'Gov' : 'Opp';
       // Names on this site are 'First L.' shaped, so a full stop after
       // one reads as 'Tomas L..'. Drop ours when theirs already ends the
@@ -1542,7 +1542,7 @@
         why: r.motion ? ('Motion: ' + r.motion) : (r.label || ''),
       };
     }
-    if (pr){
+    if (pr && pr.status === 'complete'){
       var won = (pr.winner === 'gov' && pr.govEntry === mine.entryId)
         || (pr.winner === 'opp' && pr.oppEntry === mine.entryId);
       return {

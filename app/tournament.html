@@ -869,7 +869,7 @@
       var p = r && (r.pairings || []).filter(function(x){
         return x.govEntry === mine.entryId || x.oppEntry === mine.entryId;
       })[0];
-      if (p && p.status !== 'complete'){
+      if (p && mine.inPairing === p.pairingId && p.status !== 'complete'){
         var side = p.govEntry === mine.entryId ? 'Gov' : 'Opp';
         var opp = p.govEntry === mine.entryId ? p.oppName : p.govName;
         msg = 'You are ' + side + ' against ' + opp + ' in ' + (r.label || 'this round') + '.';
@@ -1193,7 +1193,7 @@
         '<div class="vs">VS</div>' +
         '<div><div class="side">' + esc(p.oppName) + '</div><div class="note" style="margin-top:2px">Opp</div></div>' +
         '<div class="sp">' + result + '</div>';
-      if (isMine && p.status !== 'complete' && p.room){
+      if (isMine && mine.inPairing === p.pairingId && p.status !== 'complete' && p.room){
         var join = document.createElement('a');
         join.className = 'btn btn-primary btn-sm';
         join.textContent = 'Join your room';
@@ -1492,6 +1492,22 @@
       act('Sync active rooms', function(){
         adminCall({ action: 'sync-seating', tid: t.tid });
       });
+    }
+    var stalledFixed = (state.data.rounds || []).some(function(round){
+      return round.kind !== 'dropin' && (round.pairings || []).some(function(p){
+        return p.status !== 'complete';
+      });
+    });
+    if (t.status === 'running' && t.dropIn !== false && stalledFixed) {
+      act('Move waiting rooms to live queue', function(){
+        confirmAction({
+          title: 'Move waiting rooms to live pairing?',
+          body: 'Completed results stay. Unfinished fixed rooms release their seats so checked-in people can press Ready for a new opponent.',
+          confirmLabel: 'Move them',
+        }).then(function(yes){
+          if (yes) adminCall({ action: 'release-fixed-seating', tid: t.tid });
+        });
+      }, true);
     }
 
     var nextRound = (t.currentRound || 0) + 1;

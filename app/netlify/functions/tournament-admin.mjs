@@ -638,6 +638,41 @@ export default async (request) => {
     return jsonResponse({ ok: true, pairings: pairings.length, people: people.size }, 200, request);
   }
 
+  // Switch a live day from stalled fixed rooms into the continuous queue.
+  // Completed pairings and their results stay untouched. Only unresolved
+  // fixed pairings that still own an entry's active seat are released, so
+  // pressing Ready can give that present person a new opponent.
+  if (action === 'release-fixed-seating') {
+    const entries = await loadEntries(db, tid);
+    const byId = new Map(entries.map((entry) => [String(entry.entryId), entry]));
+    const rounds = await t.ref.collection('rounds').get();
+    const pairings = [];
+    for (const roundDoc of rounds.docs) {
+      for (const p of Array.isArray(roundDoc.data().pairings) ? roundDoc.data().pairings : []) {
+        if (!p || p.kind === 'dropin' || p.status === 'complete') continue;
+        const gov = byId.get(String(p.govEntry || ''));
+        const opp = byId.get(String(p.oppEntry || ''));
+        if ((gov && gov.inPairing === p.pairingId) || (opp && opp.inPairing === p.pairingId)) {
+          pairings.push(p);
+        }
+      }
+    }
+    await applySeating(db, tid, t.data, [], pairings, entries);
+    await t.ref.update({
+      status: 'running',
+      dropIn: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    const people = new Set();
+    pairings.forEach((p) => {
+      [p.govEntry, p.oppEntry].forEach((entryId) => {
+        const entry = byId.get(String(entryId || '')) || {};
+        (Array.isArray(entry.members) ? entry.members : []).forEach((uid) => people.add(String(uid)));
+      });
+    });
+    return jsonResponse({ ok: true, releasedPairings: pairings.length, releasedPeople: people.size }, 200, request);
+  }
+
   // ── pair-round ──────────────────────────────────────────────────
   // Generate the next prelim draw. Written as 'pending' so the
   // director can look at it before anyone else can: a draw is not
