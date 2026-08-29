@@ -97,6 +97,7 @@ assert.ok(
   director.includes("post('/api/director/spotlight'") &&
   director.includes('data-spotlight-room=') &&
   open.includes("(r.spotlight ? ' is-spotlight' : '')") &&
+  open.includes('.tv-body{padding:12px 13px 13px;color:#f4f4f5}') &&
   open.includes('The director spotlight is first.') &&
   tournament.includes('pairing.is-spotlight') &&
   tournament.includes('pill-spotlight'),
