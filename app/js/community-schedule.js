@@ -22,11 +22,6 @@
   var REFRESH_MS = 120 * 1000;
   var SOON_MS = 20 * 60 * 1000;
 
-  var FORMAT_LABELS = {
-    quick: 'Quick Clash', apda: 'APDA', bp: 'BP', worlds: 'Worlds (WUDC)',
-    asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy',
-  };
-
   var host = document.getElementById('communitySchedule');
   if (!host) return;
 
@@ -61,9 +56,9 @@
   function gcalLink(r){
     var start = new Date(r.startAt), end = new Date(r.startAt + 45 * 60000);
     function z(d){ return d.toISOString().replace(/[-:]|\.\d{3}/g, ''); }
-    var title = 'Debatable round · ' + (FORMAT_LABELS[r.format] || r.format);
+    var title = 'Debatable casual 1v1';
     var details = (r.motion ? 'Motion: ' + r.motion + '\n' : '') +
-      'Queue at https://itsdebatable.com/spar?format=' + r.format + ' when it starts.';
+      'Queue at https://itsdebatable.com/spar when it starts.';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
       '&text=' + encodeURIComponent(title) +
       '&dates=' + z(start) + '/' + z(end) +
@@ -84,11 +79,11 @@
           '<div class="sched-when">' + (soon ? '<span class="sched-live-dot"></span>starting soon' : esc(fmtWhen(r.startAt))) + '</div>' +
           '<div class="sched-main">' +
             '<div class="sched-motion">' + (r.motion ? esc(r.motion) : '<span class="sched-tbd">Motion TBD, host’s pick</span>') + '</div>' +
-            '<div class="sched-meta">' + esc(FORMAT_LABELS[r.format] || r.format) + ' · hosted by ' + esc(r.hostHandle) + ' · ' + esc(others) + '</div>' +
+            '<div class="sched-meta">Casual 1v1 · hosted by ' + esc(r.hostHandle) + ' · ' + esc(others) + '</div>' +
           '</div>' +
           '<div class="sched-actions">' +
             (soon
-              ? '<a class="btn primary sched-join" href="/spar?format=' + esc(r.format) + '">Join now →</a>'
+              ? '<a class="btn primary sched-join" href="/spar">Join now →</a>'
               : '<button class="btn sched-rsvp' + (r.mine ? ' on' : '') + '" data-id="' + esc(r.id) + '">' + (r.mine ? 'You’re in ✓' : 'I’m in') + '</button>' +
                 (r.mine ? '<a class="sched-cal" target="_blank" rel="noopener" href="' + gcalLink(r) + '">+ calendar</a>' : '')
             ) +
@@ -100,17 +95,12 @@
       '<div class="sched-head">' +
         '<div>' +
           '<div class="sched-title">Scheduled rounds</div>' +
-          '<div class="sched-sub">Propose a time. Show up. Argue. When a round starts, everyone queues at /spar in that format and gets paired.</div>' +
+          '<div class="sched-sub">Propose a time. Show up. Argue. When it starts, everyone queues at /spar for a casual 1v1.</div>' +
         '</div>' +
         '<button class="btn" id="schedProposeBtn">+ Propose a round</button>' +
       '</div>' +
       (cards || '<div class="sched-empty">Nothing scheduled yet. Propose the first round. It takes ten seconds and anyone can join you.</div>') +
       '<form class="sched-form" id="schedForm" style="display:none">' +
-        '<select id="schedFormat" class="sched-input" aria-label="Format">' +
-          Object.keys(FORMAT_LABELS).map(function(k){
-            return '<option value="' + k + '">' + esc(FORMAT_LABELS[k]) + '</option>';
-          }).join('') +
-        '</select>' +
         '<input id="schedMotion" class="sched-input sched-input-wide" type="text" maxlength="200" placeholder="Motion (optional, decide at the table)">' +
         '<input id="schedWhen" class="sched-input" type="datetime-local" aria-label="Start time" required>' +
         '<button type="submit" class="btn primary">Post it</button>' +
@@ -151,7 +141,7 @@
             action: 'create',
             handle: myHandle(),
             deviceId: deviceId(),
-            format: document.getElementById('schedFormat').value,
+            format: 'quick',
             motion: document.getElementById('schedMotion').value,
             startAt: startAt,
           }),

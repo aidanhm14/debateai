@@ -32,13 +32,10 @@
 
   const CHANNELS = [
     { id: 'general',      label: 'general',      topic: 'The main hall. Introduce yourself.' },
-    { id: 'find-a-round', label: 'find-a-round', topic: 'Looking for an opponent? Post your format and time.' },
-    { id: 'motions',      label: 'motions',      topic: 'Motions worth running, prep, and case ideas.' },
-    { id: 'apda',         label: 'apda',         topic: 'APDA circuit talk.' },
-    { id: 'bp',           label: 'bp',           topic: 'British Parliamentary and Worlds.' },
-    { id: 'public-forum', label: 'public-forum', topic: 'Public Forum. Evidence fights welcome.' },
-    { id: 'ld',           label: 'ld',           topic: 'Lincoln-Douglas. Frameworks and the fallout.' },
-    { id: 'policy',       label: 'policy',       topic: 'Policy. Spread at your own risk.' },
+    { id: 'find-a-round', label: 'find-a-round', topic: 'Looking for an opponent? Post a time and jump into a casual 1v1.' },
+    { id: 'motions',      label: 'motions',      topic: 'Questions worth arguing and why they clash.' },
+    { id: 'round-reviews',label: 'round-reviews',topic: 'Talk through close calls, ballots, and turning points.' },
+    { id: 'clips',        label: 'clips',        topic: 'Share the moment that changed a round.' },
     { id: 'help',         label: 'help',         topic: 'Stuck on anything? Ask here.' },
   ];
 
@@ -208,7 +205,7 @@
       const id = window.DBIdentity.forUser(user);
       if (id && id.name) return id.name;
     }
-    return user ? 'Debater ' + String(user.uid || '').slice(-4).toUpperCase() : '';
+    return user ? 'Member ' + String(user.uid || '').slice(-4).toUpperCase() : '';
   }
 
   function renderIdent(){
@@ -239,7 +236,7 @@
     return '<div class="' + classes.join(' ') + '">' +
       av +
       '<div class="disc-msg-main">' +
-        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'debater') + '</b><time class="disc-time" datetime="' + iso + '" title="' + escHtml(stamp) + '">' + relTime(m.ts) + '</time></div>' +
+        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'member') + '</b><time class="disc-time" datetime="' + iso + '" title="' + escHtml(stamp) + '">' + relTime(m.ts) + '</time></div>' +
         '<div class="disc-body">' + escHtml(m.text) + '</div>' +
       '</div>' +
     '</div>';
@@ -300,7 +297,7 @@
           const v = d.data() || {};
           msgs.push({
             uid: v.uid || '',
-            name: v.name || 'debater',
+            name: v.name || 'member',
             photo: v.photo || '',
             text: v.text || '',
             ts: (v.createdAt && v.createdAt.toMillis) ? v.createdAt.toMillis() : Date.now(),
@@ -319,7 +316,7 @@
     if (!db || !user || user.isAnonymous) return Promise.reject(new Error('signin'));
     return db.collection('community_channels').doc(active.id).collection('messages').add({
       uid: user.uid,
-      name: postingName() || 'debater',
+      name: postingName() || 'member',
       photo: user.photoURL || '',
       text: text,
       channel: active.id,

@@ -6,17 +6,17 @@
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
 <title>Community · Debatable</title>
-<meta name="description" content="The Debatable community feed: takes, clips, published rounds, disclosed cases, and debaters posting for an opponent. Post a take, share a clip, or say you want a round and someone takes it. APDA, BP, Worlds, Asian Parli, LD, PF, Policy." />
+<meta name="description" content="The Debatable community: public chat, takes, live rounds, discussions, cases, and people looking for an opponent. Read an argument, post your own, or start a casual 1v1." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/community">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/community">
 <meta property="og:title" content="Community · Debatable">
-<meta property="og:description" content="A feed of takes, clips, and published rounds, plus debaters posting for an opponent. Post something, or take a round.">
+<meta property="og:description" content="Public chat, takes, clips, published rounds, and people looking for an opponent. Post something, or take a round.">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Community · Debatable">
-<meta name="twitter:description" content="Takes, clips, published rounds, and debaters looking for an opponent.">
+<meta name="twitter:description" content="Takes, clips, published rounds, and people looking for an opponent.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -31,18 +31,8 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
 
-<!-- Hand-curated seed pools for the Cases + Discussion tabs. These
-     render even when the visitor is signed-out so the page never
-     looks empty on first load. Real Firestore docs always merge in
-     on top via the snapshot listener. Both modules are NOT defer
-     because the inline init script reads them synchronously when
-     auth resolves. -->
-<script src="/js/community-disclosures.js"></script>
-<script src="/js/community-threads.js"></script>
-<!-- community-seed.js is consumed for the lurker chip grid in the
-     Members surface above the tabs. The leaderboard surfaces use it too;
-     having it loaded here keeps the membership UI self-contained. -->
-<script src="/js/community-seed.js"></script>
+<!-- Community posts and cases come from real member activity. Synthetic
+     thread, case, and persona banks are deliberately not loaded here. -->
 <!-- visitor-counter.js calls /api/visitor-tick (server-side Firestore
      atomic increment) on first device visit, GETs current count
      otherwise. Powers the live MAU number in the Members surface. -->
@@ -98,19 +88,7 @@
 </script>
 
 <style>
-/* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
-   same recipe as /pricing and /schools, per the founder: "it adds a nice
-   depth"). The shared canvas is position:fixed; painted late at
-   z-index 0 it would sit ON TOP of static content, so the page
-   background moves to <html>, <body> goes transparent, and the canvas
-   drops to z-index -1: behind every element, in front of the paper.
-   Dark themes keep ui.css's own opacity; only the light arm is lifted,
-   because red-on-cream at .45 is close to invisible. */
 html[data-lightweb="web"]{background:var(--bg)}
-html[data-lightweb="web"] body{background:transparent}
-html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
-html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
-html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root,[data-theme="grey"]{
@@ -123,7 +101,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
   --text:#fff;--text-dim:rgba(255,255,255,.68);--text-ghost:rgba(255,255,255,.68);
   --shadow-lg:0 18px 60px rgba(0,0,0,.45);
-  --bar-bg:rgba(10,10,12,.92);
+  --bar-bg:rgba(10,10,12,.92);--community-grey:#17171c;
 }
 [data-theme="crimson"]{
   --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
@@ -132,18 +110,18 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   --green:#22c55e;--amber:#f59e0b;--blue:#3b82f6;
   --text:#fff;--text-dim:rgba(255,255,255,.72);--text-ghost:rgba(255,255,255,.68);
   --shadow-lg:0 18px 60px rgba(0,0,0,.55);
-  --bar-bg:rgba(0,0,0,.95);
+  --bar-bg:rgba(0,0,0,.95);--community-grey:#16090c;
 }
 [data-theme="light"]{
   --surf-rgb-1:255,255,255;--surf-2:#fff;--ink-lit:#1a1a1f;
 
-  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
-  --border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.18);
-  --accent:#b91c1c;--accent-glow:rgba(185,28,28,.18);
+  --bg:#ededeb;--bg-elev:#f6f6f4;--bg-card:#fff;
+  --border:rgba(26,26,31,.12);--border-strong:rgba(26,26,31,.24);
+  --accent:#c61d24;--accent-glow:rgba(198,29,36,.18);
   --green:#166534;--amber:#92400e;--blue:#1d4ed8;
-  --text:#1a1a1f;--text-dim:rgba(0,0,0,.68);--text-ghost:rgba(0,0,0,.64);
-  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
-  --bar-bg:rgba(250,250,247,.85);
+  --text:#202124;--text-dim:rgba(32,33,36,.72);--text-ghost:rgba(32,33,36,.58);
+  --shadow-lg:0 18px 60px rgba(32,33,36,.12);
+  --bar-bg:rgba(237,237,235,.94);--community-grey:#dededb;
 }
 body{
   font-family:'Archivo','Fraunces',Georgia,"Times New Roman",serif;
@@ -169,12 +147,6 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .wrap{max-width:1100px;margin:0 auto;padding:28px 22px 56px}
 
 .wrap{position:relative;z-index:1}
-body::before{
-  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(900px 480px at 50% -8%, var(--accent-glow), transparent 72%);
-  opacity:.45;
-}
-[data-theme="light"] body::before{opacity:.4}
 /* Intro (left column). One calm block: eyebrow + headline + short,
    scannable paragraphs + a CTA row. The number inside the first paragraph is
    the live #memberCount (visitor-counter.js writes the real count and
@@ -1070,16 +1042,11 @@ body::before{
 }
 @media(prefers-reduced-motion:reduce){.disc-loading-dots i,.disc-activity.is-live i{animation:none}}
 
-/* ── Identity badge system (3-tier: verified human / unverified human /
-   AI persona, + roles). Honest-by-design: AI personas get an unmistakable
-   violet "AI Persona" tag, never a human-passing label. Verified humans
-   (proof of real debate) get green. Roles layer on top. ── */
+/* Member badges. Verification and room roles are earned states. */
 .ident-badge{display:inline-flex;align-items:center;gap:3px;font-size:.56rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:1px 6px;margin-left:5px;vertical-align:middle;line-height:1.5;white-space:nowrap}
 .ident-badge::before{font-size:.6rem;line-height:1}
 .ident-human{color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4)}
 .ident-human::before{content:"✓"}
-.ident-ai{color:#a78bfa;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.45)}
-.ident-ai::before{content:"◆"}
 .ident-judge{color:#60a5fa;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.4)}
 .ident-coach{color:#2dd4bf;background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.4)}
 .ident-mod{color:#f87171;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.45)}
@@ -1090,20 +1057,8 @@ body::before{
    until hover so cards don't read as a wall of links. */
 .author-link{color:inherit;text-decoration:none;border-bottom:1px solid transparent;transition:color .12s,border-color .12s}
 .author-link:hover{color:var(--accent);border-bottom-color:rgba(239,68,68,.5)}
-/* AI-persona authored cards get a faint violet left-edge so the 3-tier
-   distinction is visible at a glance, not only on the badge. */
-.card.is-ai,.thread.is-ai{box-shadow:inset 3px 0 0 rgba(167,139,250,.55)}
-
-/* People + AI Personas tabs — the public identity layer. */
+/* People tab. */
 .pane-intro{max-width:720px;font-size:.88rem;line-height:1.6;color:var(--text-dim);margin:4px 0 18px}
-.persona-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-.persona-card{display:block;text-decoration:none;color:inherit;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid rgba(167,139,250,.55);border-radius:14px;padding:16px;transition:transform .12s,border-color .15s}
-.persona-card:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.7)}
-.persona-top{display:flex;gap:12px;align-items:center}
-.persona-avatar{width:40px;height:40px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.85rem;color:#fff;background:linear-gradient(135deg,#7c3aed,#a78bfa)}
-.persona-name{font-weight:800;font-size:.98rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.persona-role{font-size:.72rem;color:var(--text-ghost);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-top:2px}
-.persona-blurb{margin-top:10px;font-size:.85rem;line-height:1.5;color:var(--text-dim)}
 .people-legend{display:flex;flex-direction:column;gap:12px;max-width:720px}
 .legend-row{display:flex;gap:10px;align-items:baseline;font-size:.86rem;line-height:1.5;color:var(--text-dim)}
 .legend-row .ident-badge{flex:0 0 auto;margin-left:0}
@@ -1151,7 +1106,6 @@ body::before{
 [data-theme="light"] .tag.con,
 [data-theme="light"] .tag.neg{color:#b91c1c}
 [data-theme="light"] .tag.format{color:#1d4ed8}
-[data-theme="light"] .ident-ai{color:#6d28d9}
 
 .empty{
   text-align:center;padding:60px 22px;color:var(--text-dim);font-size:.92rem;line-height:1.6;
@@ -1467,6 +1421,60 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   .composer{padding:12px 13px}
   .fcard-thumb{width:46px;height:46px}
 }
+
+/* Community color system. Flat paper, ink, grey, and Debatable red replace
+   the old violet bot-directory cues and neural-background treatment. */
+.community-layout{gap:18px}
+.rail-post{border-radius:12px;box-shadow:0 7px 18px var(--accent-glow)}
+.tab{border-radius:10px}
+.tab.on{background:var(--accent);color:#fff}
+.tab.on .tab-ico{color:#fff}
+.filter-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.main-head{
+  margin:0 0 14px;padding:16px 18px;border:0;border-radius:16px;
+  background:#292a2d;color:#fff;box-shadow:0 10px 26px rgba(32,33,36,.13);
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+}
+.main-head h1{color:#fff;font-size:1.2rem}
+.main-head-sub{color:rgba(255,255,255,.72)}
+.composer{border-top:4px solid var(--accent);box-shadow:0 8px 22px rgba(32,33,36,.06)}
+.composer-modes{background:var(--bg-elev)}
+.cmode.on,.fchip.on{background:var(--accent);color:#fff}
+[data-theme="light"] .cmode.on,[data-theme="light"] .fchip.on{background:var(--accent);color:#fff}
+.feed-filters{padding:7px;background:var(--community-grey);border:1px solid var(--border);border-radius:12px}
+[data-theme="light"] .thread-meta .cat-tag,
+[data-theme="light"] .tag.format{background:#e3e3e0;border-color:#c9c9c4;color:#3d3f42}
+.fkind-clip,.fkind-round,.fkind-thread{background:rgba(32,33,36,.08);border-color:rgba(32,33,36,.2);color:var(--text-dim)}
+[data-theme="light"] .fkind-clip,[data-theme="light"] .fkind-round{color:#3d3f42}
+.fcard-thumb{background:linear-gradient(135deg,rgba(198,29,36,.17),rgba(32,33,36,.12))}
+.cmns{border-top:4px solid var(--accent);box-shadow:0 10px 26px rgba(32,33,36,.07)}
+.cmns-head{background:#292a2d;color:#fff;border-bottom:0}
+[data-theme="light"] .cmns-head{background:#292a2d}
+.cmns-title{color:#fff}
+.cmns-open{color:rgba(255,255,255,.7)}
+.cmns-open:hover{color:#fff}
+.side-quiet{padding:12px;background:var(--community-grey);border:1px solid var(--border);border-radius:16px}
+.side-quiet .side-card{background:var(--bg-card)}
+.side-discord{border-color:var(--border)}
+.side-discord-go{color:var(--accent)}
+@media(min-width:1241px){
+  .col-nav{
+    padding:12px;background:var(--community-grey);border:1px solid var(--border);
+    border-top:4px solid var(--accent);border-radius:16px;
+  }
+  .rail-spar{padding:0 8px 4px}
+}
+@media(max-width:1240px){
+  .community-layout{gap:14px}
+  .col-nav{background:var(--community-grey);border-bottom:1px solid var(--border)}
+  .side-quiet{padding:10px}
+}
+@media(max-width:560px){
+  .main-head{padding:14px;border-radius:14px}
+  .feed-filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .feed-filters::-webkit-scrollbar{display:none}
+  .fchip{flex:0 0 auto}
+}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
@@ -1526,7 +1534,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     <button class="tab" data-tab="cases"><span class="tab-ico" aria-hidden="true">▤</span>Cases</button>
     <button class="tab" data-tab="discussion"><span class="tab-ico" aria-hidden="true">≡</span>Discussions</button>
     <button class="tab" data-tab="people"><span class="tab-ico" aria-hidden="true">◍</span>People</button>
-    <button class="tab" data-tab="personas"><span class="tab-ico" aria-hidden="true">✳</span>AI Personas</button>
    </nav>
    <a class="rail-spar" href="/spar">Find an opponent &rarr;</a>
   </aside>
@@ -1582,8 +1589,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
 
   <header class="main-head">
-    <h1>Debate community</h1>
-    <p class="main-head-sub">Read an argument. Argue back.</p>
+    <h1>Community</h1>
+    <p class="main-head-sub">Read a take. Add yours.</p>
     <!-- Live status. Hidden until the room's own poll says something was
          said recently; there is no timer that turns it on by itself, so
          it can never claim activity that is not there. -->
@@ -1598,10 +1605,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
        the overlap and a better place to ask: in the reading order,
        above the thing the answer changes. Same keys, same GA4 event. -->
   <div class="exp-inline" id="expInline" hidden>
-    <span class="exp-inline-q">Do you already debate?</span>
+    <span class="exp-inline-q">How familiar is this?</span>
     <span class="exp-inline-row">
-      <button type="button" class="exp-inline-b" data-exp="competitive">Yes, I compete</button>
-      <button type="button" class="exp-inline-b" data-exp="new">No, I am new</button>
+      <button type="button" class="exp-inline-b" data-exp="competitive">I have debated before</button>
+      <button type="button" class="exp-inline-b" data-exp="new">I am new to this</button>
     </span>
     <button type="button" class="exp-inline-x" id="expInlineX" aria-label="Not now">&times;</button>
   </div>
@@ -1624,24 +1631,11 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             <button class="cmode" data-cmode="clip">Share a clip</button>
           </div>
           <textarea id="composerText" maxlength="1200"
-                    placeholder="What is the argument? Post a take, a hot motion, a bad RFD you got."></textarea>
+                    placeholder="What is the argument? Post a take, a motion, or a ballot you disagree with."></textarea>
 
-          <!-- Looking-for-a-round fields. Format + when ride on the doc
-               so the card can render facts instead of making the reader
-               parse them out of prose, and so Accept can deep-link into
-               /spar already pointed at the right format. -->
+          <!-- Looking-for-a-round timing. Every public round is casual
+               1v1, so there is no format choice on this surface. -->
           <div class="composer-extra" id="composerLfr">
-            <select id="lfrFormat" aria-label="Format">
-              <option value="">Any format</option>
-              <option value="quick">Quick Clash</option>
-              <option value="apda">APDA</option>
-              <option value="bp">British Parliamentary</option>
-              <option value="worlds">Worlds / WSDC</option>
-              <option value="asian">Asian Parliamentary</option>
-              <option value="ld">Lincoln-Douglas</option>
-              <option value="pf">Public Forum</option>
-              <option value="policy">Policy</option>
-            </select>
             <input id="lfrWhen" type="text" maxlength="60" placeholder="When? e.g. tonight after 8 ET" />
           </div>
 
@@ -1695,20 +1689,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     <div class="filters">
       <input id="search" class="search" type="text" placeholder="Search motions or argument text…" autocomplete="off" />
       <div class="group" id="sideFilters">
-        <button class="filter-chip on" data-side="">All sides</button>
-        <button class="filter-chip" data-side="gov">Gov / Pro / Aff</button>
-        <button class="filter-chip" data-side="opp">Opp / Con / Neg</button>
-      </div>
-      <div class="group" id="formatFilters">
-        <button class="filter-chip on" data-format="">All formats</button>
-        <button class="filter-chip" data-format="quick">Quick Clash</button>
-        <button class="filter-chip" data-format="apda">APDA</button>
-        <button class="filter-chip" data-format="bp">BP</button>
-        <button class="filter-chip" data-format="worlds">Worlds</button>
-        <button class="filter-chip" data-format="asian">Asian</button>
-        <button class="filter-chip" data-format="ld">LD</button>
-        <button class="filter-chip" data-format="pf">PF</button>
-        <button class="filter-chip" data-format="policy">Policy</button>
+        <button class="filter-chip on" data-side="">Both sides</button>
+        <button class="filter-chip" data-side="gov">For</button>
+        <button class="filter-chip" data-side="opp">Against</button>
       </div>
       <div class="group" id="sortFilters" style="margin-left:auto">
         <button class="filter-chip on" data-sort="recent">Newest</button>
@@ -1736,14 +1719,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       <div class="group" id="threadCategoryFilters">
         <button class="filter-chip on" data-thread-cat="">All</button>
         <button class="filter-chip" data-thread-cat="general">General</button>
-        <button class="filter-chip" data-thread-cat="apda">APDA</button>
-        <button class="filter-chip" data-thread-cat="bp">BP</button>
-        <button class="filter-chip" data-thread-cat="worlds">Worlds / WSDC</button>
-        <button class="filter-chip" data-thread-cat="asian">Asian Parli</button>
-        <button class="filter-chip" data-thread-cat="ld">LD</button>
-        <button class="filter-chip" data-thread-cat="pf">PF</button>
-        <button class="filter-chip" data-thread-cat="policy">Policy</button>
-        <button class="filter-chip" data-thread-cat="meta">Meta</button>
+        <button class="filter-chip" data-thread-cat="motions">Motions</button>
+        <button class="filter-chip" data-thread-cat="rounds">Round reviews</button>
+        <button class="filter-chip" data-thread-cat="community">Community</button>
       </div>
       <div class="group" id="threadSortFilters">
         <button class="filter-chip on" data-thread-sort="recent">Newest</button>
@@ -1756,7 +1734,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     <div id="threads" class="threads"></div>
     <div id="threadsEmpty" class="empty" style="display:none">
       <h3>No threads yet.</h3>
-      <p style="margin-top:8px">Hit <strong>+ New thread</strong> above. Ask a question, post a take, fight about a motion. Anything debate-adjacent is fair game.</p>
+      <p style="margin-top:8px">Start one above. Ask a question, post a take, or argue about a motion.</p>
     </div>
   </div>
 
@@ -1810,8 +1788,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   <!-- ── PEOPLE TAB (public identity layer) ─────────────────────── -->
   <div id="peoplePane" style="display:none"></div>
 
-  <!-- ── AI PERSONAS TAB (transparent bot directory) ────────────── -->
-  <div id="personasPane" style="display:none"></div>
   </main><!-- /col-main -->
 
   <!-- ── LIVE RAIL ───────────────────────────────────────────────────
@@ -1921,18 +1897,14 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         <span class="side-discord-name">Discord</span>
         <span class="side-discord-go">Join &rarr;</span>
       </div>
-      <div class="side-discord-sub">Propose a time, recruit judges, get a same-day RFD.</div>
+      <div class="side-discord-sub">Propose a time, find an opponent, get a clear ballot.</div>
     </a>
 
-    <!-- About. What survives of the old hero: the live 30-day counter
-         (#memberCount keeps the visitor-counter.js wiring), the "+ you"
-         line (#memberYou), and the AI-labeling disclosure, which is not
-         optional — the boards really are partly seeded and dropping the
-         sentence would make them misleading. -->
+    <!-- About. The counter is live, and every post on this page comes
+         from real member activity. -->
     <div class="side-card side-about">
       <div class="side-head">About this room</div>
       <p>About <strong id="memberCount" data-baseline="101">101</strong> visits in the last 30 days. <span id="memberYou">+ you, here today</span></p>
-      <p>Some early posts are written by AI. They are always labeled.</p>
       <p>I am building and funding this myself. Try it, then tell me what is broken.</p>
       <div class="side-links">
         <a href="/report">Build report</a>
@@ -2032,6 +2004,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     if (s.indexOf('opp') === 0 || s === 'con' || s === 'neg' || s.indexOf('oo') === 0) return 'opp';
     return '';
   }
+  function publicSideLabel(side){
+    var normalized = normalizeSide(side);
+    return normalized === 'gov' ? 'For' : normalized === 'opp' ? 'Against' : '';
+  }
   function normalizeFormat(fmt){
     var f = String(fmt||'').toLowerCase();
     if (!f) return '';
@@ -2048,7 +2024,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
   var allCases = [];
   var filterSide = '';
-  var filterFormat = '';
   var searchTerm = '';
   var sortMode = 'recent'; // 'recent' | 'top'
   var myVotes = {}; // caseId → -1 | 0 | 1, populated as we vote
@@ -2070,20 +2045,12 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
   function verifiedBadge(v){ return v ? '<span class="verified-badge">✓ verified</span>' : ''; }
 
-  // ── Identity badges (3-tier honest model) ──────────────────────────
-  // AI personas get an unmistakable "AI Persona" tag, never a human-
-  // passing label. Verified humans (proof of real debate) get "Human
-  // Verified". Everyone else is an unverified human. Roles (judge /
-  // coach / founder / mod) layer on top. Reads generic fields so cases
-  // (sharedBy*), threads/replies (author*), and rounds all work.
-  function isAiAccount(it){
-    it = it || {};
-    return !!(it.seed || it.ai || it.isAI || it.persona === 'ai' || it.kind === 'ai' || it.aiPersona);
-  }
+  // ── Member identity badges ─────────────────────────────────────────
+  // Synthetic accounts are not loaded on this surface. Verified members
+  // and useful room roles still get a compact badge.
   function badgeChip(label, cls){ return '<span class="ident-badge ident-' + cls + '">' + label + '</span>'; }
   function identityBadges(it){
     it = it || {};
-    if (isAiAccount(it)) return badgeChip('AI Persona', 'ai');
     var out = [];
     var verified = !!(it.authorVerified || it.verified || it.sharedByVerified);
     var role = String(it.role || it.authorRole || '').toLowerCase();
@@ -2104,8 +2071,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     var n = String(name == null ? 'Anonymous' : name);
     if (n === 'Anonymous' || n === '?' || n === '—' || !n.trim()) return escHtml(n);
     var h = (it && it.handle) ? it.handle : handleFromName(n);
-    var aiQ = isAiAccount(it || {}) ? '?ai=1' : '';
-    return '<a class="author-link" href="/users/' + encodeURIComponent(h) + aiQ + '">' + escHtml(n) + '</a>';
+    return '<a class="author-link" href="/users/' + encodeURIComponent(h) + '">' + escHtml(n) + '</a>';
   }
 
   function applyFilters(){
@@ -2114,25 +2080,16 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     var q = searchTerm.toLowerCase().trim();
     var matched = allCases.filter(function(c){
       if (filterSide && normalizeSide(c.side) !== filterSide) return false;
-      if (filterFormat && normalizeFormat(c.format) !== filterFormat) return false;
       if (q){
         var hay = ((c.motion||'') + ' ' + (c.output||'')).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
     });
-    // Apply sort. 'recent' is the default snapshot order but real human
-    // cases always float above AI seed content so cold-start visitors see
-    // real activity first. 'top' sorts by voteScore desc (same real-first
-    // bias on ties so upvoted real cases beat unvoted seed cases).
-    var realFirst = function(a, b){
-      var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
-      return aAI - bAI;
-    };
+    // Apply sort. 'recent' is the default snapshot order; 'top' sorts by
+    // vote score and then recency.
     if (sortMode === 'top'){
       matched.sort(function(a, b){
-        var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
-        if (aAI !== bAI) return aAI - bAI; // real cases first regardless of vote score
         var va = a.voteScore || 0, vb = b.voteScore || 0;
         if (va !== vb) return vb - va;
         var as = (a.sharedAt && a.sharedAt.seconds) || 0;
@@ -2140,24 +2097,12 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         return bs - as;
       });
     } else {
-      // 'recent': sort by recency but keep real cases above seed.
       matched.sort(function(a, b){
-        var aAI = isAiAccount(a) ? 1 : 0, bAI = isAiAccount(b) ? 1 : 0;
-        if (aAI !== bAI) return aAI - bAI;
         var as = (a.sharedAt && a.sharedAt.seconds) || 0;
         var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
         return bs - as;
       });
     }
-    // Cold-start notice: when there are no real cases visible, prepend a
-    // small explainer so the visitor knows what they're looking at.
-    var realCount = matched.filter(function(c){ return !isAiAccount(c); }).length;
-    var coldStartNotice = realCount === 0
-      ? '<div style="padding:14px 16px;margin-bottom:12px;background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:.8rem;line-height:1.5;color:var(--text-dim)">' +
-        '<strong style="color:#a78bfa">◆ All seeded by AI personas</strong>; no human cases yet for this filter. ' +
-        '<a href="/practice" style="color:#a78bfa">Start a round</a> and click "Publish to Community" to be the first.' +
-        '</div>'
-      : '';
     if (matched.length === 0){
       host.innerHTML = '';
       host.style.display = 'none';
@@ -2166,10 +2111,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     }
     host.style.display = '';
     empty.style.display = 'none';
-    host.innerHTML = coldStartNotice + matched.map(function(c){
+    host.innerHTML = matched.map(function(c){
       var sideClass = normalizeSide(c.side);
-      var sideLabel = c.side ? escHtml(c.side) : '';
-      var fmtLabel = c.format ? escHtml(c.format) : '';
+      var sideLabel = publicSideLabel(c.side);
       var preview = (c.output || '').slice(0, 360);
       var date = c.sharedAt && c.sharedAt.seconds
         ? new Date(c.sharedAt.seconds * 1000).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'})
@@ -2178,7 +2122,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       var scoreClass = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
       var myVote = myVotes[c.id] || 0;
       return '' +
-        '<div class="card' + (isAiAccount(c) ? ' is-ai' : '') + '" data-id="' + escHtml(c.id) + '">' +
+        '<div class="card" data-id="' + escHtml(c.id) + '">' +
           '<div class="vote-rail">' +
             '<button class="vote-btn up' + (myVote === 1 ? ' on' : '') + '" data-vote="up" data-id="' + escHtml(c.id) + '" title="Helpful disclosure">▲</button>' +
             '<span class="vote-score ' + scoreClass + '">' + (score > 0 ? '+' : '') + score + '</span>' +
@@ -2187,7 +2131,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
           '<div class="row-body">' +
             '<div class="row-head">' +
               (sideLabel ? '<span class="tag ' + sideClass + '">' + sideLabel + '</span>' : '') +
-              (fmtLabel ? '<span class="tag format">' + fmtLabel + '</span>' : '') +
               '<span class="motion" data-open="' + escHtml(c.id) + '">' + escHtml(c.motion || 'Untitled motion') + '</span>' +
             '</div>' +
             '<div class="preview" data-open="' + escHtml(c.id) + '">' + escHtml(preview) + '</div>' +
@@ -2294,8 +2237,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             '<div>' +
               '<h2>' + escHtml(c.motion || 'Untitled motion') + '</h2>' +
               '<div class="meta">' +
-                (c.side ? escHtml(c.side) + ' · ' : '') +
-                (c.format ? escHtml(c.format) + ' · ' : '') +
+                (publicSideLabel(c.side) ? escHtml(publicSideLabel(c.side)) + ' · ' : '') +
                 'Shared by ' + escHtml(c.sharedBy || 'Anonymous') +
               '</div>' +
             '</div>' +
@@ -2313,7 +2255,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             '<button class="btn" id="modalShareBtn" title="Copy link">Share</button>' +
             '<button class="btn" id="modalShareXBtn" title="Share on X">Share on X</button>' +
             '<button class="btn" id="modalImportBtn">Import to my cases</button>' +
-            '<button class="btn" id="modalSparBtn" title="Queue for a live human round in this format">Spar a human on this →</button>' +
+            '<button class="btn" id="modalSparBtn" title="Find a person for this motion">Find an opponent →</button>' +
             '<button class="btn primary" data-href="/practice" id="modalDebateBtn">Debate this motion →</button>' +
           '</div>' +
         '</div>' +
@@ -2333,13 +2275,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       var url = '/practice?motion=' + encodeURIComponent(c.motion || '');
       location.href = url;
     });
-    // "Spar a human" — the live-discourse path. Routes to the /spar
-    // queue in this case's format (normalizeFormat returns exactly
-    // spar's format keys); no format → spar's own default (quick).
+    // Live-discourse path. Public matchmaking is one casual 1v1 format.
     $('modalSparBtn').addEventListener('click', function(){
       try { gtag('event','disclosure_spar_human', { format: normalizeFormat(c.format) }); } catch(e){}
-      var fmt = normalizeFormat(c.format);
-      location.href = '/spar' + (fmt ? '?format=' + encodeURIComponent(fmt) : '');
+      location.href = '/spar';
     });
     // Build the canonical shareable URL once + reuse for both share
     // buttons. Uses location.origin so it works on itsdebatable.com,
@@ -2546,13 +2485,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         var bs = (b.sharedAt && b.sharedAt.seconds) || 0;
         return bs - as;
       });
-      // Merge in the hand-written seed disclosures so the Cases tab
-      // always feels populated. Real docs sort to true position and
-      // outrank seeds at the same recency. Seeds carry a 'da-disc-*'
-      // id prefix; no collision risk with real Firestore-generated ids.
-      if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
-        docs = window.DEBATEAI_DISCLOSURES.merge(docs, { limit: 200 });
-      }
       allCases = docs;
       applyFilters();
       renderFeedSafe();
@@ -2584,31 +2516,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     );
   }
 
-  // Render the seed pools immediately on page load — no auth wait —
-  // so a brand-new visitor sees a populated community before being
-  // asked to sign in. The auth listener below only adds REAL docs on
-  // top once it resolves; if the visitor never signs in, they still
-  // get the full seeded experience.
-  //
-  // CRITICAL: each seed-init call is wrapped in try/catch independently
-  // so a throw inside the seed module (or inside applyFilters /
-  // renderThreads) cannot kill the IIFE before the .tab and
-  // .filter-chip click listeners attach below. The 2026-05-10 d01bd19
-  // hoisting bug burned us because an unwrapped throw here silently
-  // bricked the whole page — buttons rendered but did nothing. Don't
-  // remove these try/catches.
-  try {
-    if (window.DEBATEAI_DISCLOSURES && typeof window.DEBATEAI_DISCLOSURES.merge === 'function'){
-      allCases = window.DEBATEAI_DISCLOSURES.merge([], { limit: 200 });
-      applyFilters();
-    }
-  } catch(e){ console.warn('[community] seed disclosures init failed', e); }
-  try {
-    if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
-      allThreads = window.DEBATEAI_THREADS.merge([], { limit: 100 });
-      renderThreads();
-    }
-  } catch(e){ console.warn('[community] seed threads init failed', e); }
+  // Paint honest empty states immediately. Signed-in snapshots replace
+  // them with real member posts and cases when available.
+  applyFilters();
+  renderThreads();
 
   // Members surface — render the lurker chip grid + personalize the
   // "+ you" line based on a localStorage first-visit flag. Pure UI;
@@ -2679,9 +2590,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   } catch(e){ console.warn('[community] members surface init failed', e); }
 
 
-  // Wait for auth. If signed in, load real docs (the snapshot listeners
-  // re-merge seeds). If signed out, the seed pools above are already
-  // rendered; we just hang a small inline nudge below the boards.
+  // Wait for auth. Community posts and cases are account-readable in the
+  // Firestore rules, so signed-out visitors see the honest empty states.
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
       currentUser = user || null;
@@ -2700,10 +2610,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         loadThreads();
         loadMyThreadVotes();
       }
-      // No `else` branch — the seed render at the top of this block
-      // already populated the boards. The signed-out user can browse,
-      // open cases, import to localStorage. To vote or post they hit
-      // the existing "Sign in to vote" toast in castVote/castThreadVote.
     });
   }
 
@@ -2717,14 +2623,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       document.querySelectorAll('#sideFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
       b.classList.add('on');
       filterSide = b.getAttribute('data-side') || '';
-      applyFilters();
-    });
-  });
-  document.querySelectorAll('#formatFilters .filter-chip').forEach(function(b){
-    b.addEventListener('click', function(){
-      document.querySelectorAll('#formatFilters .filter-chip').forEach(function(x){ x.classList.remove('on'); });
-      b.classList.add('on');
-      filterFormat = b.getAttribute('data-format') || '';
       applyFilters();
     });
   });
@@ -2768,44 +2666,18 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   // up next to the cases vars (~L482) so renderThreads() doesn't crash
   // when the seed-init block calls it before flow reaches this point.
 
-  // AI Personas tab — a transparent directory of the seed bots. They are
-  // labeled bots that start conversations; this page says so plainly.
-  function renderPersonas(){
-    var host = $('personasPane');
-    if (!host || host.dataset.rendered) return;
-    var personas = (window.DEBATEAI_THREADS && window.DEBATEAI_THREADS.personas) || [];
-    host.innerHTML =
-      '<div class="pane-intro">These are the AI personas that seed the boards. They are bots, labeled as bots. They start arguments so the room is never empty: they drop motions, post counters, steelman, summarize, and demand warrants. They never pose as a person, claim a school, or invent a story. Real people always rank above them.</div>' +
-      '<div class="persona-grid">' +
-        personas.map(function(p){
-          var h = encodeURIComponent(p.handle || '');
-          return '<a class="persona-card" href="/users/' + h + '?ai=1">' +
-            '<div class="persona-top">' +
-              '<span class="persona-avatar">' + escHtml(String(p.name||'?').slice(0,2).toUpperCase()) + '</span>' +
-              '<div><div class="persona-name">' + escHtml(p.name) + ' <span class="ident-badge ident-ai">AI Persona</span></div>' +
-              '<div class="persona-role">' + escHtml(p.role) + '</div></div>' +
-            '</div>' +
-            '<div class="persona-blurb">' + escHtml(p.blurb) + '</div>' +
-          '</a>';
-        }).join('') +
-      '</div>';
-    host.dataset.rendered = '1';
-  }
-
-  // People tab — the honest identity layer. No fake roster: it explains
-  // the three account types and how to tell them apart, since real human
-  // profiles fill in as people post + verify.
+  // People tab. No fake roster: real profiles fill in through real member
+  // activity, and the two visible badge states are explained here.
   function renderPeople(){
     var host = $('peoplePane');
     if (!host || host.dataset.rendered) return;
     host.innerHTML =
-      '<div class="pane-intro">The honest identity layer. Three kinds of accounts post here, and you can always tell which is which.</div>' +
+      '<div class="pane-intro">People appear here through real posts, published rounds, and shared cases.</div>' +
       '<div class="people-legend">' +
-        '<div class="legend-row"><span class="ident-badge ident-human">Human Verified</span><span>a real person who has run a real round or published a case. The badge is earned, not clicked.</span></div>' +
-        '<div class="legend-row"><span class="ident-badge ident-debater">Member</span><span>a real person, not yet verified. Most new accounts start here.</span></div>' +
-        '<div class="legend-row"><span class="ident-badge ident-ai">AI Persona</span><span>a labeled bot that starts conversations and never pretends to be human. See the AI Personas tab.</span></div>' +
+        '<div class="legend-row"><span class="ident-badge ident-human">Verified</span><span>has completed a real round or published a case.</span></div>' +
+        '<div class="legend-row"><span class="ident-badge ident-debater">Member</span><span>has an account and is part of the room.</span></div>' +
       '</div>' +
-      '<div class="pane-intro" style="margin-top:18px">Real people show up here as they post and publish. Run a round or publish a case, then create your profile to earn the green badge next to your name.</div>';
+      '<div class="pane-intro" style="margin-top:18px">Post a take, publish a case, or finish a round to show up.</div>';
     host.dataset.rendered = '1';
   }
 
@@ -2813,7 +2685,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
      (2026-08-19) The default tab. One scrollable column merging every
      real signal in the room into a single timeline:
 
-       take    forum_posts kind:'take'   — commentary, hot motions, bad RFDs
+       take    forum_posts kind:'take'   — commentary, motions, ballots
        lfr     forum_posts kind:'lfr'    — "anyone want to debate?" + Accept
        clip    forum_posts kind:'clip'   — a take with a clip/round attached
        thread  forum_posts (no kind)     — the long-form Discussions posts
@@ -2824,9 +2696,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
        · Nothing is invented to fill the column. Every row is a real doc.
          An empty source contributes zero rows, and the empty state says
          the room is quiet rather than faking a crowd.
-       · AI-authored seeds stay labeled (identityBadges) and sort below
-         real humans, the same real-above-seed invariant the Cases and
-         Discussions tabs use.
        · Feed-kind posts are EXCLUDED from the Discussions tab. A take is
          not a thread; mixing them would wreck both surfaces.
 
@@ -2847,12 +2716,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
   var FEED_KINDS = { take:1, lfr:1, clip:1 };
   function isFeedKind(t){ return !!(t && t.kind && FEED_KINDS[t.kind]); }
-
-  var FORMAT_LABEL = {
-    quick:'Quick Clash', apda:'APDA', bp:'British Parliamentary',
-    worlds:'Worlds / WSDC', asian:'Asian Parliamentary',
-    ld:'Lincoln-Douglas', pf:'Public Forum', policy:'Policy'
-  };
 
   // ── Faces ────────────────────────────────────────────────────────
   // DBAvatar.randomConfig(seed) is deterministic, so the same author
@@ -2932,7 +2795,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         kind:'round', id:r.id, ts: r.publishedAt ? r.publishedAt.getTime() : 0,
         name: r.displayName || 'Anonymous', text:'',
         ref: { type:'round', id:r.id, title:r.motion || '',
-               meta:[r.formatName, r.sideLabel, r.voiceName ? 'vs ' + r.voiceName : '']
+               meta:[publicSideLabel(r.sideLabel), r.voiceName ? 'vs ' + r.voiceName : '']
                       .filter(Boolean).join(' · ') },
         winner: r.winner || null, raw:r
       });
@@ -2954,17 +2817,15 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         name: c.sharedBy || 'Anonymous',
         text:'',
         ref: { type:'case', id:c.id, title:c.motion || 'Untitled motion',
-               meta:[c.side, c.format].filter(Boolean).join(' · ') },
+               meta:[publicSideLabel(c.side)].filter(Boolean).join(' · ') },
         votes: c.voteScore || 0,
         raw:c
       });
     });
 
-    // Real humans above AI seeds, then newest first. Same invariant the
-    // other two boards use, so the room never opens on a wall of bots.
+    // Newest first. Every item comes from real activity on the page's
+    // public collections and endpoints.
     items.sort(function(a, b){
-      var ai = (isAiAccount(a.raw) ? 1 : 0) - (isAiAccount(b.raw) ? 1 : 0);
-      if (ai !== 0) return ai;
       return (b.ts || 0) - (a.ts || 0);
     });
     return items;
@@ -3006,15 +2867,13 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   }
 
   function lfrBlock(it){
-    var fmt = it.lfr && it.lfr.format ? (FORMAT_LABEL[it.lfr.format] || it.lfr.format) : 'Any format';
     var when = it.lfr && it.lfr.when ? it.lfr.when : '';
-    var href = '/spar' + (it.lfr && it.lfr.format ? '?format=' + encodeURIComponent(it.lfr.format) : '');
     return '<div class="flfr">' +
         '<span class="flfr-facts">' +
-          '<span class="flfr-fact">' + escHtml(fmt) + '</span>' +
+          '<span class="flfr-fact">Casual 1v1</span>' +
           (when ? '<span class="flfr-fact">' + escHtml(when) + '</span>' : '') +
         '</span>' +
-        '<a class="btn go" href="' + escHtml(href) + '">Take the round →</a>' +
+        '<a class="btn go" href="/spar">Take the round →</a>' +
       '</div>';
   }
 
@@ -3110,7 +2969,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 
   // ── Composer ─────────────────────────────────────────────────────
   var COMPOSER_COPY = {
-    take: { ph:'What is the argument? Post a take, a hot motion, a bad RFD you got.',
+    take: { ph:'What is the argument? Post a take, a motion, or a ballot you disagree with.',
             hint:'Takes show up in the feed. Long-form goes in Discussions.' },
     lfr:  { ph:'Anyone want to debate? Say what you are looking for.',
             hint:'People can take the round straight from your post.' },
@@ -3199,7 +3058,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     };
 
     if (composerMode === 'lfr'){
-      doc.lfrFormat = ($('lfrFormat') || {}).value || '';
+      doc.lfrFormat = '';
       doc.lfrWhen   = (($('lfrWhen') || {}).value || '').trim();
     }
     if (composerMode === 'clip'){
@@ -3212,7 +3071,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
           ? allClips.filter(function(c){ return c.id === doc.refId; })[0]
           : allRounds.filter(function(r){ return r.id === doc.refId; })[0];
         doc.refTitle = match ? (match.title || match.motion || '') : '';
-        doc.refMeta  = match ? (match.recordingTitle || match.formatName || '') : '';
+        doc.refMeta  = match ? (match.recordingTitle || publicSideLabel(match.sideLabel) || '') : '';
       }
     }
 
@@ -3427,7 +3286,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     var restore = (tab !== currentTab && typeof tabScroll[tab] === 'number') ? tabScroll[tab] : null;
     currentTab = tab;
     var casesPane = $('casesPane'), discPane = $('discussionPane'), livePane = $('livePane'), roundsPane = $('roundsPane');
-    var peoplePane = $('peoplePane'), personasPane = $('personasPane'), feedPane = $('feedPane');
+    var peoplePane = $('peoplePane'), feedPane = $('feedPane');
     document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
     var active = document.querySelector('.tab[data-tab="' + tab + '"]');
     if (active) active.classList.add('on');
@@ -3446,10 +3305,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     // sits on top of it.
     try { document.body.classList.toggle('chat-open', tab === 'live'); } catch(e){}
     if (peoplePane) peoplePane.style.display = (tab === 'people') ? '' : 'none';
-    if (personasPane) personasPane.style.display = (tab === 'personas') ? '' : 'none';
     if (tab === 'feed') renderFeedSafe();
     if (tab === 'people') renderPeople();
-    if (tab === 'personas') renderPersonas();
     // Lazy-load published rounds on first activation. We don't fetch
     // on page load because most users land on Cases — pre-fetching
     // public_rounds for them would burn reads we don't need.
@@ -3486,8 +3343,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   else if (hash === '#discussion') tabSwitch('discussion');
   else if (hash === '#rounds') tabSwitch('rounds');
   else if (hash === '#live')   tabSwitch('live');
-  else if (hash === '#people') tabSwitch('people');
-  else if (hash === '#personas') tabSwitch('personas');
+  else if (hash === '#people' || hash === '#personas') tabSwitch('people');
   // Deep-link to a specific case: /community#case=<id>. The case list
   // rendering races with this hash read (real cases are fetched async),
   // so wait up to 4s for the case to appear in allCases before giving
@@ -3594,11 +3450,11 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     var winnerBadge = '';
     if (r.winner === 'user') winnerBadge = '<span class="vote-pill" style="background:rgba(34,197,94,.14);color:#86efac;border-color:rgba(34,197,94,.32)">Human wins</span>';
     else if (r.winner === 'ai') winnerBadge = '<span class="vote-pill" style="background:rgba(239,68,68,.14);color:#fca5a5;border-color:rgba(239,68,68,.32)">AI wins</span>';
-    var meta = [r.formatName, r.sideLabel, r.voiceName ? 'vs ' + r.voiceName : ''].filter(Boolean).map(escHtml).join(' · ');
+    var meta = [r.sideLabel, r.voiceName ? 'vs ' + r.voiceName : ''].filter(Boolean).map(escHtml).join(' · ');
     var dateLabel = r.publishedAt
       ? r.publishedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '';
-    return '<a class="card' + (isAiAccount(r) ? ' is-ai' : '') + '" href="/r/' + escHtml(r.id) + '" style="text-decoration:none;color:inherit">' +
+    return '<a class="card" href="/r/' + escHtml(r.id) + '" style="text-decoration:none;color:inherit">' +
       '<div class="row between">' +
         '<span class="meta" style="font-weight:800;color:var(--accent)">' + escHtml(r.displayName) + identityBadges(r) + '</span>' +
         (dateLabel ? '<span class="meta">' + escHtml(dateLabel) + '</span>' : '') +
@@ -3614,6 +3470,17 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   // #livePane, and only runs a feed while the pane is visible.
 
   // ── Thread list rendering ─────────────────────────────────
+  function threadCategoryLabel(category){
+    var c = String(category || 'general').toLowerCase();
+    if (c === 'motions') return 'Motions';
+    if (c === 'rounds') return 'Round reviews';
+    if (c === 'community' || c === 'meta') return 'Community';
+    if (c === 'general') return 'General';
+    // Old competitive-format categories remain readable as ordinary
+    // discussion history, but are no longer exposed as product sections.
+    return 'Discussion';
+  }
+
   function renderThreads(){
     var host = $('threads');
     var empty = $('threadsEmpty');
@@ -3631,13 +3498,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       }
       return true;
     });
-    // Sort. Same real-above-seed invariant as the Cases tab: human
-    // threads outrank AI seeds in every mode, then the mode's own key.
-    var aiRank = function(t){ return isAiAccount(t) ? 1 : 0; };
+    // Sort by the selected activity signal, then recency.
     var createdSec = function(t){ return (t.createdAt && t.createdAt.seconds) || 0; };
     matched.sort(function(a, b){
-      var ai = aiRank(a) - aiRank(b);
-      if (ai !== 0) return ai;
       if (threadSort === 'top'){
         var v = (b.voteScore || 0) - (a.voteScore || 0);
         if (v !== 0) return v;
@@ -3673,7 +3536,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             '<div class="thread-title">' + escHtml(t.title || 'Untitled') + '</div>' +
             (preview ? '<div class="thread-preview">' + escHtml(preview) + '</div>' : '') +
             '<div class="thread-meta">' +
-              '<span class="cat-tag">' + escHtml(cat) + '</span>' +
+              '<span class="cat-tag">' + escHtml(threadCategoryLabel(cat)) + '</span>' +
               '<span>' + authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) + (date ? ' · ' + date : '') + '</span>' +
               (mine ? '<button class="thread-del" data-thread-del="' + escHtml(t.id) + '" title="Delete your thread">Delete</button>' : '') +
             '</div>' +
@@ -3685,15 +3548,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     }).join('');
   }
 
-  // Helper: merge real thread docs with the seed pool. Centralized so
-  // both the indexed-snap and the fallback-snap go through the same
-  // path. No-op if community-threads.js didn't load.
-  function mergeThreadSeeds(docs){
-    if (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.merge === 'function'){
-      return window.DEBATEAI_THREADS.merge(docs, { limit: 100 });
-    }
-    return docs;
-  }
   function loadThreads(){
     if (!firebaseDb) return;
     firebaseDb.collection('forum_posts')
@@ -3702,7 +3556,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       .limit(100)
       .onSnapshot(function(snap){
         var docs = snap.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); });
-        allThreads = mergeThreadSeeds(docs);
+        allThreads = docs;
         renderThreads();
         renderFeedSafe();
       }, function(err){
@@ -3718,7 +3572,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
                 var bs = (b.createdAt && b.createdAt.seconds) || 0;
                 return bs - as;
               });
-              allThreads = mergeThreadSeeds(docs);
+              allThreads = docs;
               renderThreads();
               renderFeedSafe();
             });
@@ -3831,17 +3685,12 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             '<button class="modal-close" id="modalClose" type="button" aria-label="Close">✕</button>' +
           '</div>' +
           '<div class="modal-body" style="padding:18px 22px">' +
-            '<input id="ntTitle" type="text" maxlength="160" placeholder="Thread title (e.g. \'Best India-circuit motions for Asian Parli prep?\')" style="width:100%;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.95rem;outline:none" />' +
+            '<input id="ntTitle" type="text" maxlength="160" placeholder="Thread title, e.g. Which motion should we argue tonight?" style="width:100%;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.95rem;outline:none" />' +
             '<select id="ntCat" style="width:100%;padding:10px 12px;margin-bottom:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.85rem;outline:none">' +
               '<option value="general">General</option>' +
-              '<option value="apda">APDA</option>' +
-              '<option value="bp">BP</option>' +
-              '<option value="worlds">Worlds / WSDC</option>' +
-              '<option value="asian">Asian Parli</option>' +
-              '<option value="ld">LD</option>' +
-              '<option value="pf">PF</option>' +
-              '<option value="policy">Policy</option>' +
-              '<option value="meta">Meta (about Debatable)</option>' +
+              '<option value="motions">Motions</option>' +
+              '<option value="rounds">Round reviews</option>' +
+              '<option value="community">Community</option>' +
             '</select>' +
             '<textarea id="ntBody" maxlength="51200" placeholder="What are you thinking? (Markdown not supported; plain text only.)" style="width:100%;min-height:160px;padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;line-height:1.55;outline:none;resize:vertical"></textarea>' +
           '</div>' +
@@ -3909,7 +3758,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
             '<div style="min-width:0;flex:1">' +
               '<h2>' + escHtml(t.title || (t.content || '').split('\n')[0].slice(0, 120) || 'Untitled') + '</h2>' +
               '<div class="meta">' +
-                '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.32);color:#93c5fd;text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(isFeedKind(t) ? (t.kind === 'lfr' ? 'looking for a round' : t.kind) : (t.category || 'general')) + '</span>' +
+                '<span class="cat-tag" style="margin-right:6px;padding:2px 8px;border-radius:999px;background:rgba(32,33,36,.08);border:1px solid var(--border);color:var(--text-dim);text-transform:uppercase;font-weight:700;letter-spacing:.06em;font-size:.62rem">' + escHtml(isFeedKind(t) ? (t.kind === 'lfr' ? 'looking for a round' : t.kind) : threadCategoryLabel(t.category)) + '</span>' +
                 authorLink(t.authorName || 'Anonymous', t) + identityBadges(t) +
               '</div>' +
             '</div>' +
@@ -3982,13 +3831,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       if (rid) deleteReply(rid, t.id);
     });
 
-    // Pull seed replies for this thread (empty array if not a seed).
-    // We always merge them with whatever the live snapshot returns,
-    // so a real reply posted on a seed thread appears alongside the
-    // seeded discussion rather than replacing it.
-    var seedReplies = (window.DEBATEAI_THREADS && typeof window.DEBATEAI_THREADS.getReplies === 'function')
-      ? window.DEBATEAI_THREADS.getReplies(threadId)
-      : [];
+    var seedReplies = [];
 
     function renderReplies(realDocs){
       var rh = $('threadReplies');
@@ -4151,19 +3994,17 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   <div style="font-size:13px;display:flex;flex-wrap:wrap;gap:0 16px;justify-content:center">
     <a href="/" style="color:var(--text-ghost);text-decoration:none">Debatable</a>
     <span aria-hidden="true">·</span>
-    <a href="/practice" style="color:var(--text-ghost);text-decoration:none">Debate a round</a>
+    <a href="/practice" style="color:var(--text-ghost);text-decoration:none">Start a round</a>
     <span aria-hidden="true">·</span>
-    <a href="/voice-debate" style="color:var(--text-ghost);text-decoration:none">Voice round</a>
+    <a href="/voice-debate" style="color:var(--text-ghost);text-decoration:none">Debate by voice</a>
     <span aria-hidden="true">·</span>
     <a href="/live" style="color:var(--text-ghost);text-decoration:none">Live rounds</a>
     <span aria-hidden="true">·</span>
-    <a href="/spar" style="color:var(--text-ghost);text-decoration:none">Live spar</a>
+    <a href="/spar" style="color:var(--text-ghost);text-decoration:none">Find an opponent</a>
     <span aria-hidden="true">·</span>
     <a href="/debate-online" style="color:var(--text-ghost);text-decoration:none">Debate online</a>
     <span aria-hidden="true">·</span>
     <a href="/leaderboard" style="color:var(--text-ghost);text-decoration:none">Leaderboard</a>
-    <span aria-hidden="true">·</span>
-    <a href="/topics/" style="color:var(--text-ghost);text-decoration:none">Format guides</a>
     <span aria-hidden="true">·</span>
     <a href="/learn" style="color:var(--text-ghost);text-decoration:none">Learn</a>
     <span aria-hidden="true">·</span>
@@ -4212,7 +4053,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     else { write(KEY,v); document.documentElement.setAttribute('data-debate-experience', v); }
     tag(v);
     box.innerHTML = '<span class="exp-inline-done">' +
-      (v === 'competitive' ? 'Good. We will keep the debate vocabulary.'
+      (v === 'competitive' ? 'Good. We will keep the familiar vocabulary.'
                            : 'Got it. We will keep it in plain English.') +
       ' Change it any time in settings.</span>';
     setTimeout(function(){ box.remove(); }, 2600);
@@ -4261,9 +4102,5 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
 </a>
 <script defer src="/js/notifications.js"></script>
   <script src="/js/home-magnet.js" defer></script>
-<!-- Shared neural-constellation background. Animates on this light
-     surface because <html> carries data-lightweb="web". -->
-<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
-<script defer src="/js/ui-neural.js"></script>
 </body>
 </html>
