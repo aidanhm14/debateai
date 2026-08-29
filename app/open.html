@@ -1242,18 +1242,16 @@
   //
   // The queue slot expires after six minutes and is deliberately not
   // refreshed by polling: `availableAt` is the same field the pairing
-  // engine measures accrued waiting time from, so a heartbeat would
-  // reset the wait and the rematch patience gate would never release.
-  // It is also the presence check. A tab nobody is sitting at cannot
-  // press "still here", so it stops being paired instead of opening a
-  // room onto an empty chair.
+  // availableAt keeps the original wait time. Polling refreshes a
+  // separate presence clock, so staying on this page keeps the person
+  // active without moving them to the back of the line.
   var dropIn = { state: null, polling: false, timer: 0, busy: false, err: '' };
 
   function queueEligible(){
     var t = state.data && state.data.tournament;
     if (!t || !t.publicPairingEnabled || t.dropIn === false || t.status !== 'running') return false;
     var mine = myEntry();
-    return !!(state.user && mine && mine.status !== 'withdrawn' && mine.status !== 'eliminated');
+    return !!(state.user && mine && mine.status === 'checked_in');
   }
 
   function queueCall(action){
@@ -1309,7 +1307,7 @@
       if (dropIn.state && dropIn.state.held){
         why += 'Holding briefly to avoid pairing you with someone you have already debated. ';
       }
-      why += 'Your slot lasts ' + fmtWait(self.expiresInMs) + ' longer.';
+      why += 'Keep this page open while we look.';
       action = { kind: 'btn', label: 'Leave the queue', act: 'leave' };
     } else if (self && self.slotExpired){
       say = 'Your queue slot ran out.';

@@ -10,6 +10,7 @@ const spar = read('app/netlify/functions/spar-pair.mjs');
 const notice = read('app/js/notifications.js');
 const rules = read('app/firestore.rules');
 const page = read('app/tournament.html');
+const open = read('app/open.html');
 
 let passed = 0;
 let failed = 0;
@@ -46,7 +47,8 @@ check('drop-in API requires the caller to be checked in',
   dropin.includes("status || 'registered') !== 'checked_in'")
     && dropin.includes('Check in before joining the tournament queue.'));
 check('drop-in page hides live pairing until the person checks in',
-  page.includes("mine.status === 'checked_in'"));
+  page.includes("mine.status === 'checked_in'")
+    && open.includes("mine.status === 'checked_in'"));
 check('drop-in engine excludes registered but unchecked entries',
   /availableForDropIn[\s\S]{0,500}status \|\| ''\) === 'checked_in'/.test(read('app/netlify/functions/lib/tournament.mjs')));
 check('automatic tournament results release the reservation',
