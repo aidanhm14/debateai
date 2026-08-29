@@ -161,6 +161,14 @@ export async function runPanel(season, system, user, opts = {}) {
   const callOne = opts.callJuror || callJuror;
   const callMany = opts.callPanel || callPanel;
   const isAvailable = opts.jurorAvailable || jurorAvailable;
+  // Async jobs have enough wall clock to buy one explicit Claude backup
+  // after the panel returns no usable Claude vote. A synchronous live
+  // request does not: its first juror window can consume 22 seconds, and
+  // a second 22-second call is killed by the platform before the caller
+  // receives a response or the Firestore lease is released. Live callers
+  // disable only that EXTRA call. A usable Claude vote already returned
+  // by the panel can still become the disclosed emergency ballot.
+  const allowRuntimeFallbackCall = opts.allowRuntimeFallbackCall !== false;
 
   const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
   const wanted = (panelCfg && panelCfg.jurors) || [];
@@ -227,7 +235,7 @@ export async function runPanel(season, system, user, opts = {}) {
   if (tally.votesCast < quorum && !REQUIRE_PANEL) {
     let fallback = results.find((r) => r && r.ok && r.ballot && r.provider === 'anthropic');
     let fallbackResults = results;
-    if (!fallback) {
+    if (!fallback && allowRuntimeFallbackCall) {
       fallback = await callOne(
         { id: 'single', provider: 'anthropic', model: singleModel },
         system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs,

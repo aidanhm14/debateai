@@ -66,7 +66,10 @@ const LIVE_JUROR_TIMEOUT_MS = Number(process.env.LIVE_JUDGE_JUROR_TIMEOUT_MS || 
 // A watcher may ask the server to recover only after this grace period, and
 // a Firestore lease ensures a crowd of watchers still buys one panel.
 export const RECOVERY_GRACE_MS = Number(process.env.LIVE_JUDGE_RECOVERY_GRACE_MS || 75_000);
-export const JUDGE_LEASE_MS = Number(process.env.LIVE_JUDGE_LEASE_MS || 120_000);
+// A synchronous invocation cannot live beyond roughly 30 seconds. Keep a
+// little cleanup headroom, then let recovery take over. The old two-minute
+// lease made a killed invocation look active long after no process existed.
+export const JUDGE_LEASE_MS = Number(process.env.LIVE_JUDGE_LEASE_MS || 45_000);
 export const FAILURE_COOLDOWN_MS = Number(process.env.LIVE_JUDGE_FAILURE_COOLDOWN_MS || 30_000);
 
 export function timestampMillis(value) {
@@ -534,6 +537,11 @@ export default async (request, context) => {
       bKey: 'con',
       singleModel: JUDGE_MODEL,
       jurorTimeoutMs: LIVE_JUROR_TIMEOUT_MS,
+      // The live function has one synchronous request window. If the first
+      // panel returns no usable Claude vote, a second full provider call can
+      // overrun that window and strand the room behind its lease. Return the
+      // incomplete panel promptly so the durable recovery loop can retry.
+      allowRuntimeFallbackCall: false,
       // Only new casual rooms use the 100-point parser. A saved legacy
       // room keeps the scale it was shown before anyone spoke.
       scoreScale: String(d.format || '').toLowerCase() === 'quick' ? 100 : 30,

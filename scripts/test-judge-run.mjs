@@ -152,6 +152,25 @@ const allAvailable = () => true;
   let fallbackCalls = 0;
   const judged = await runPanel(season, 'system', 'user', {
     aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
+    allowRuntimeFallbackCall: false,
+    jurorAvailable: allAvailable,
+    callPanel: async () => [
+      failed('j1', 'anthropic', 'claude-pinned'),
+      failed('j2', 'openai', 'gpt-pinned'),
+      failed('j3', 'google', 'gemini-pinned'),
+    ],
+    callJuror: async () => { fallbackCalls++; return result('single', 'anthropic', 'claude-backup', 'con'); },
+  });
+  ok(judged.ballot.winner === null && judged.panel.resolution === 'incomplete',
+    'a synchronous live outage returns incomplete instead of overrunning its request window');
+  ok(fallbackCalls === 0 && judged.jurorResults.length === 3,
+    'live judging never starts a second provider window after the panel');
+}
+
+{
+  let fallbackCalls = 0;
+  const judged = await runPanel(season, 'system', 'user', {
+    aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
     jurorAvailable: allAvailable,
     callPanel: async () => [
       result('j1', 'anthropic', 'claude-pinned', 'pro'),

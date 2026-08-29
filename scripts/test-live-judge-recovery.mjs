@@ -47,6 +47,7 @@ ok(
   judgeLeaseWaitMs({ serverJudgeState: 'running', serverJudgeStartedAt: now - JUDGE_LEASE_MS - 1 }, now) === 0,
   'an expired lease can be recovered',
 );
+ok(JUDGE_LEASE_MS < RECOVERY_GRACE_MS, 'a dead live invocation lease expires before watcher recovery begins');
 ok(judgeLeaseWaitMs({ serverJudgeState: 'failed' }, now) === 0, 'a failed lease is not permanently locked');
 
 const split = buildNoWinnerBallot({
@@ -141,6 +142,10 @@ ok(liveRoundSource.includes('short panel cannot:'), 'an incomplete panel never f
 ok(
   /publishBallotPending\(\);[\s\S]{0,1200}waitForPendingWrites[\s\S]{0,500}writesFlushed\.then\(generateBallot/.test(liveRoundSource),
   'the server judge waits for the final transcript write',
+);
+ok(
+  /allowRuntimeFallbackCall:\s*false/.test(readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8')),
+  'live judging cannot overrun its request window with a second provider call',
 );
 
 if (failures) {
