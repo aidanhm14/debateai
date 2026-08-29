@@ -672,7 +672,33 @@ export default async (request) => {
       return errorResponse('Round ' + roundNo + ' is already released. Pass force to redraw it.', 409, request);
     }
 
-    const draw = pairPrelimRound(entries, roundNo, {
+    // A pairing is opponent history the moment it is released, not only
+    // after its result lands. During a live day the next draw is often made
+    // while a council is still writing the previous ballot; relying only on
+    // entries[].opponents in that window can hand the same two people to each
+    // other again. Fold every already-drawn room into the input, including
+    // the current draw when force-redrawing it, so "new opponent" is true at
+    // the moment the room spawns.
+    const drawnRounds = await t.ref.collection('rounds').get();
+    const pairedBefore = new Map();
+    for (const drawnRound of drawnRounds.docs) {
+      for (const p of Array.isArray(drawnRound.data().pairings) ? drawnRound.data().pairings : []) {
+        if (!p?.govEntry || !p?.oppEntry) continue;
+        if (!pairedBefore.has(p.govEntry)) pairedBefore.set(p.govEntry, new Set());
+        if (!pairedBefore.has(p.oppEntry)) pairedBefore.set(p.oppEntry, new Set());
+        pairedBefore.get(p.govEntry).add(p.oppEntry);
+        pairedBefore.get(p.oppEntry).add(p.govEntry);
+      }
+    }
+    const drawEntries = entries.map((entry) => ({
+      ...entry,
+      opponents: Array.from(new Set([
+        ...(Array.isArray(entry.opponents) ? entry.opponents : []),
+        ...Array.from(pairedBefore.get(entry.entryId) || []),
+      ])),
+    }));
+
+    const draw = pairPrelimRound(drawEntries, roundNo, {
       tid,
       // A redraw must differ from the draw it replaces, or "regenerate"
       // silently does nothing and looks broken.

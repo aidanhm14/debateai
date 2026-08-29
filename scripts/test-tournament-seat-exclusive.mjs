@@ -27,6 +27,12 @@ check('redraws release only reservations owned by the discarded pairing',
   /old\.tid === tid[\s\S]{0,180}releasedUsers\.get\(uid\)[\s\S]{0,180}tx\.delete\(snap\.ref\)/.test(admin));
 check('the host can idempotently repair seats for a live round',
   admin.includes("action === 'sync-seating'") && page.includes("action: 'sync-seating'"));
+check('new draws treat released rooms as opponent history before results land',
+  admin.includes('const drawnRounds = await')
+    && admin.includes('pairedBefore.get(p.govEntry).add(p.oppEntry)')
+    && admin.includes('const drawEntries = entries.map'));
+check('the host can replace a result-free live draw after a bad repeat',
+  page.includes("act('Redraw round '") && page.includes("force: true, reseed: true"));
 
 check('drop-in draws create the same user-level reservation',
   dropin.includes("collection('active_tournament_seats').doc(uid)"));

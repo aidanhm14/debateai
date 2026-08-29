@@ -1516,6 +1516,22 @@
       });
     }
 
+    var releasedForRedraw = currentRound();
+    if (!pendingPrelim && t.status === 'running' && releasedForRedraw && releasedForRedraw.kind === 'prelim' &&
+        (releasedForRedraw.pairings || []).every(function(p){ return p.status !== 'complete'; })) {
+      act('Redraw round ' + releasedForRedraw.roundNo, function(){
+        confirmAction({
+          title: 'Redraw the live round?',
+          body: 'Everyone receives a new room and opponent. Use this only before results are in.',
+          confirmLabel: 'Redraw it',
+          danger: true,
+        }).then(function(yes){
+          if (!yes) return;
+          adminCall({ action: 'pair-round', tid: t.tid, roundNo: releasedForRedraw.roundNo, force: true, reseed: true });
+        });
+      });
+    }
+
     var pendingElim = (state.data.rounds || []).filter(function(r){
       return r.kind === 'elim' && !r.released;
     })[0];
