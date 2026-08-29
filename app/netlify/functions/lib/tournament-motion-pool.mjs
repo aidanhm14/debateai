@@ -26,11 +26,11 @@ export const THE_DEBATABLE_OPEN_MOTIONS = Object.freeze([
   'This House would prohibit employers from letting AI make the final decision to hire or fire a worker.',
   'This House would deny tax incentives to new AI data centers unless their owners pay for the grid and water upgrades they require.',
   'This House would ban AI-generated impersonations of candidates in political advertising.',
-  'This House would ban prediction markets from taking bets on elections and armed conflicts.',
-  'This House would prohibit the same company from operating both a frontier AI model and the cloud platform on which it runs.',
-  'This House would ban private equity firms from buying single-family homes.',
-  'This House believes NATO\'s European members should take primary responsibility for Europe\'s conventional defense by 2030.',
-  'This House believes the United States should formally commit to defend Taiwan if China uses force against it.',
+  'This House would regulate election prediction markets as financial exchanges rather than gambling platforms.',
+  'This House would prohibit candidates, campaign staff, elected officials, and senior government officials from trading on political prediction markets.',
+  'This House would require public disclosure of every political prediction-market position worth more than $10,000.',
+  'This House would require ranked-choice voting in every federal election.',
+  'This House would require independent commissions, rather than state legislators, to draw every congressional district.',
 ]);
 
 export function cleanMotionPool(raw) {

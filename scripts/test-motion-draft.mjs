@@ -61,6 +61,11 @@ ok(/\bIsrael\b/.test(openMotionCopy), 'the published pool includes an Israel res
 ok(/\bfilibuster\b/i.test(openMotionCopy), 'the published pool includes a filibuster resolution');
 ok(/\btax\b[^.]*\bAI\b|\bAI\b[^.]*\btax\b/i.test(openMotionCopy),
   'the published pool includes a resolution on taxing AI companies');
+ok(THE_DEBATABLE_OPEN_MOTIONS.filter((m) => /prediction[- ]markets?/i.test(m)).length >= 3,
+  'the published pool includes multiple prediction-market resolutions');
+ok(THE_DEBATABLE_OPEN_MOTIONS.filter((m) =>
+  /\b(elections?|candidates?|campaign|voting|congressional districts?)\b/i.test(m)).length >= 5,
+  'the published pool includes a substantial election block');
 const openEvent = { slug: 'the-debatable-open', status: 'registration', format: 'blitz' };
 const openConfig = publicTournamentMotionDraft(openEvent);
 eq(openConfig.slateSize, 3, 'the Open offers three motions per room');
