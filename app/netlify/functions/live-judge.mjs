@@ -95,6 +95,8 @@ export function judgeLeaseWaitMs(round, now = Date.now()) {
 // more confident-sounding answer or to break the tie.
 export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
   const panel = judged && judged.panel && typeof judged.panel === 'object' ? judged.panel : {};
+  const panelBallot = judged && judged.ballot && typeof judged.ballot === 'object' ? judged.ballot : {};
+  const derived = deriveSpeakerScores(panelBallot);
   const results = Array.isArray(judged && judged.jurorResults) ? judged.jurorResults : [];
   const judgeReasons = results
     .filter((result) => result && result.ok && result.ballot
@@ -141,6 +143,7 @@ export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
 
   return {
     outcome: 'no_winner',
+    verdictSource: 'server',
     resolution: String(panel.resolution || (votesCast ? 'unresolved' : 'no_votes')).slice(0, 40),
     at: now,
     reason,
@@ -150,9 +153,61 @@ export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
     panelSize,
     quorum,
     missing,
+    proPoints: derived.pro,
+    conPoints: derived.con,
+    scoreScale: 100,
+    pointsDerived: derived.derived === true,
+    dimensions: panelBallot.dimensions && typeof panelBallot.dimensions === 'object'
+      ? panelBallot.dimensions
+      : {},
     tally: { pro: proVotes, con: conVotes },
     judgeReasons,
   };
+}
+
+// Compact rating deltas ride the room document so both clients can show
+// their own change without reading the private rating_changes collection.
+// Existing rows are accepted too: applyRoundRating returns them on an
+// idempotent retry when the rating transaction committed but this mirror
+// write did not.
+export function ratingChangesFrom(rated) {
+  if (!rated || !Array.isArray(rated.changes) || !rated.changes.length) return null;
+  const out = {};
+  for (const change of rated.changes) {
+    if (!change || !change.uid) continue;
+    out[change.uid] = {
+      delta: Number(change.delta) || 0,
+      after: Math.round(Number(change.after && change.after.rating) || 0),
+      result: String(change.result || ''),
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+async function rateNoWinnerRound(db, ref, room, round, noWinner, now) {
+  try {
+    const rated = await applyRoundRating(db, {
+      source: 'live',
+      eventId: room,
+      roundData: {
+        ...round,
+        ballot: null,
+        ballotUnresolved: noWinner,
+        serverJudgeState: 'unresolved',
+        completedAt: now,
+      },
+      now,
+    });
+    const changes = ratingChangesFrom(rated);
+    if (changes) {
+      await ref.update({ ratingChanges: changes })
+        .catch((err) => console.error('[live-judge] no-winner ratingChanges write failed', room, err.message));
+    }
+    return rated;
+  } catch (err) {
+    console.error('[live-judge] no-winner rating apply failed', room, err.message);
+    return { applied: false, reason: 'rating_failed' };
+  }
 }
 
 // One request here fans out into a multi-juror Anthropic panel, so the
@@ -302,12 +357,15 @@ export default async (request, context) => {
   // recorded split, never buy a fresh panel in the hope that a later sample
   // happens to produce a winner.
   if (d.ballotUnresolved && d.serverJudgeState === 'unresolved') {
+    const rated = await rateNoWinnerRound(db, ref, room, d, d.ballotUnresolved, Date.now());
     return jsonResponse({
       ok: false,
       already: true,
       code: 'unresolved',
       resolution: d.ballotUnresolved.resolution || 'unresolved',
       noWinner: d.ballotUnresolved,
+      rated: !!(rated && (rated.applied || rated.reason === 'already_applied')),
+      ratedReason: rated && !rated.applied ? rated.reason : undefined,
     }, 200, request);
   }
 
@@ -341,7 +399,7 @@ export default async (request, context) => {
     const fresh = freshSnap.data();
     if (fresh.ballot && fresh.ballot.panel) return { kind: 'done', ballot: fresh.ballot };
     if (fresh.ballotUnresolved && fresh.serverJudgeState === 'unresolved') {
-      return { kind: 'unresolved', noWinner: fresh.ballotUnresolved };
+      return { kind: 'unresolved', noWinner: fresh.ballotUnresolved, round: fresh };
     }
 
     const freshParticipants = [fresh.proUid, fresh.proUid2, fresh.conUid, fresh.conUid2].filter(Boolean);
@@ -365,12 +423,15 @@ export default async (request, context) => {
   if (claim.kind === 'forbidden') return errorResponse('Not a participant', 403, request);
   if (claim.kind === 'done') return jsonResponse({ ok: true, already: true, ballot: claim.ballot }, 200, request);
   if (claim.kind === 'unresolved') {
+    const rated = await rateNoWinnerRound(db, ref, room, claim.round, claim.noWinner, Date.now());
     return jsonResponse({
       ok: false,
       already: true,
       code: 'unresolved',
       resolution: claim.noWinner.resolution || 'unresolved',
       noWinner: claim.noWinner,
+      rated: !!(rated && (rated.applied || rated.reason === 'already_applied')),
+      ratedReason: rated && !rated.applied ? rated.reason : undefined,
     }, 200, request);
   }
   if (claim.kind === 'not_ready') {
@@ -405,10 +466,10 @@ export default async (request, context) => {
     return jsonResponse({ ok: false, code: 'judge_failed', error: err.message }, 200, request);
   }
 
-  // An even split is NOT tie-broken. The round stays unjudged, the
-  // ladder does not move, and any market voids at face value later
-  // rather than paying out on a coin we flipped. Same rule the async
-  // sweep follows; see lib/judge-panel.mjs.
+  // An even split is NOT tie-broken. It records as a draw on the rating
+  // ladder, while any market voids at face value rather than paying out
+  // on a coin we flipped. Same no-winner rule the async sweep follows;
+  // see lib/judge-panel.mjs.
   if (!judged.ballot || (judged.ballot.winner !== 'pro' && judged.ballot.winner !== 'con')) {
     const judgedAt = Date.now();
     const noWinner = buildNoWinnerBallot(judged, d, judgedAt);
@@ -442,11 +503,15 @@ export default async (request, context) => {
       console.error('[live-judge] unresolved audit write failed', room, err.message);
     }
 
+    const rated = await rateNoWinnerRound(db, ref, room, d, noWinner, judgedAt);
+
     return jsonResponse({
       ok: false,
       code: 'unresolved',
       resolution: noWinner.resolution,
       noWinner,
+      rated: !!(rated && (rated.applied || rated.reason === 'already_applied')),
+      ratedReason: rated && !rated.applied ? rated.reason : undefined,
     }, 200, request);
   }
 
@@ -626,15 +691,8 @@ export default async (request, context) => {
     // clients (and a late refresh) render "your rating moved" off the
     // snapshot they already hold; the full record stays in
     // rating_changes. Admin-SDK write, so no rules change.
-    if (rated && rated.applied && Array.isArray(rated.changes)) {
-      const rc = {};
-      for (const c of rated.changes) {
-        rc[c.uid] = {
-          delta: c.delta,
-          after: Math.round((c.after && c.after.rating) || 0),
-          result: c.result,
-        };
-      }
+    const rc = ratingChangesFrom(rated);
+    if (rc) {
       await ref.update({ ratingChanges: rc })
         .catch((e) => console.error('[live-judge] ratingChanges write failed', room, e.message));
     }

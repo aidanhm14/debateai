@@ -9,7 +9,9 @@ import {
   PROVISIONAL_RD,
   defaultRatingDoc, DEFAULT_RATING, DEFAULT_RD,
 } from '../app/netlify/functions/lib/rating.mjs';
-import { eligibility } from '../app/netlify/functions/lib/rating-apply.mjs';
+import {
+  eligibility, resultForOutcome, recordCountsAfter,
+} from '../app/netlify/functions/lib/rating-apply.mjs';
 
 let pass = 0, fail = 0;
 const t = (name, cond, got) => {
@@ -60,6 +62,14 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
 {
   const { a, b } = applyRound({ rating: 1500, rd: 200 }, { rating: 1500, rd: 200 }, 'draw');
   t('draw between equals is ~neutral', near(a.rating, 1500, 0.5) && near(b.rating, 1500, 0.5));
+  t('draw labels both rating rows as draws',
+    resultForOutcome('draw', 'a') === 'draw' && resultForOutcome('draw', 'b') === 'draw');
+  const counted = recordCountsAfter({ games: 4, wins: 2, losses: 1, draws: 1 }, 'draw');
+  t('draw increments games and draws only',
+    counted.games === 5 && counted.wins === 2 && counted.losses === 1 && counted.draws === 2);
+  const reversed = recordCountsAfter(counted, 'draw', -1);
+  t('draw reversal restores the record',
+    reversed.games === 4 && reversed.wins === 2 && reversed.losses === 1 && reversed.draws === 1);
 }
 
 // ── 3. certainty behaviour ──────────────────────────────────────────
@@ -195,6 +205,22 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     eligibility('live', { ...liveBase, leaderboardConsent: { p1: 0, c1: true } }).ok);
   t('live con win maps to b',
     eligibility('live', { ...liveBase, ballot: { winner: 'con' } }).outcome === 'b');
+
+  const liveDraw = {
+    ...liveBase,
+    ballot: null,
+    serverJudgeState: 'unresolved',
+    ballotUnresolved: {
+      outcome: 'no_winner', proPoints: 78.5, conPoints: 74,
+    },
+  };
+  const drawEligibility = eligibility('live', liveDraw);
+  t('a server no-winner result rates as a draw',
+    drawEligibility.ok && drawEligibility.outcome === 'draw' && drawEligibility.verdictSource === 'server');
+  t('a client-shaped no-winner object cannot rate',
+    eligibility('live', { ...liveDraw, serverJudgeState: 'complete' }).reason === 'no_verdict');
+  t('an explicit opt-out still blocks a no-winner rating',
+    eligibility('live', { ...liveDraw, leaderboardConsent: { p1: false } }).reason === 'opted_out');
 
   t('unknown source rejected', eligibility('nope', liveBase).reason === 'unknown_source');
   t('missing doc rejected',    eligibility('async', null).reason === 'not_found');

@@ -14492,7 +14492,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if (rr.rating > rHi) rHi = rr.rating;
       }
     }
-    var html = '<span class="rb-scale">' + (hasRating ? 'Head-to-head rating &middot; wins move it' : 'Best argument score &middot; out of 100')
+    var html = '<span class="rb-scale">' + (hasRating ? 'Head-to-head rating &middot; results move it' : 'Best argument score &middot; out of 100')
       + (sample ? '<em class="rb-sample-pill">Sample board</em>' : '')
       + (!sample && total > n ? '<em class="rb-total">' + (total | 0) + ' ranked</em>' : '')
       + (sample ? '' : '<em class="rb-standin">Stand-in pictures where a debater has not set one.</em>')
@@ -14515,8 +14515,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         var pMeta = esc(pFmt) + (pWhen ? ' &middot; ' + pWhen : '');
         var pRec = '';
         if (typeof pr.rounds === 'number' && pr.rounds > 0){
-          var pLoss = Math.max(0, pr.rounds - (pr.wins || 0));
-          pRec = '<span class="w">' + (pr.wins || 0) + 'W</span> ' + pLoss + 'L';
+          var pDraw = pr.draws || 0;
+          var pLoss = Math.max(0, pr.rounds - (pr.wins || 0) - pDraw);
+          pRec = '<span class="w">' + (pr.wins || 0) + 'W</span> ' + pDraw + 'D ' + pLoss + 'L';
         } else if (pr.won){ pRec = '<span class="w">1W</span> 0L'; }
         var pChal = pr.uid ? '/spar?dm=' + encodeURIComponent(pr.uid) + '&challenge=1' : '/leaderboard?challenge=1';
         var pMsg = pr.uid ? '/spar?dm=' + encodeURIComponent(pr.uid) : '/leaderboard';
@@ -14570,7 +14571,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       } else if (isRated){
         var rbits = ['<b>' + Math.round(r.rating) + '</b> '
           + (r.provisional ? 'provisional rating' : esc(String(r.tier || 'rated').toLowerCase()) + ' tier')];
-        if (r.rounds > 0) rbits.push(r.wins + ' of ' + r.rounds + ' rated round' + (r.rounds === 1 ? '' : 's') + ' won');
+        if (r.rounds > 0) rbits.push((r.wins || 0) + 'W ' + (r.draws || 0) + 'D ' + (r.losses || 0) + 'L');
         line = rbits.join(' &middot; ');
       } else {
         var bits = ['<b>' + esc(fmtScore(r.score)) + '</b> ' + bandLabel(r.score)];

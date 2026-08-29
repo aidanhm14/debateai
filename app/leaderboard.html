@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
 <title>Leaderboard · Debatable</title>
-<meta name="description" content="The Debatable ladder. Head-to-head places come from a rating earned by winning live rounds against real people; solo practice ranks your best judged score. Typed rounds don't rank." />
+<meta name="description" content="The Debatable ladder. Head-to-head places come from rated live rounds against real people; solo practice ranks your best judged score. Typed rounds don't rank." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/leaderboard">
@@ -26,7 +26,7 @@
 <meta property="og:image" content="https://itsdebatable.com/og-leaderboard.png?v=deb1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Leaderboard · Debatable">
-<meta name="twitter:description" content="The Debatable ladder. Head-to-head places come from a rating earned by winning live rounds; solo practice ranks your best judged score.">
+<meta name="twitter:description" content="The Debatable ladder. Head-to-head places come from rated live rounds; solo practice ranks your best judged score.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-leaderboard.png?v=deb1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -1265,7 +1265,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
     </div>
     <div class="rank-guide-item">
       <span class="rank-guide-n" aria-hidden="true">2</span>
-      <div class="rank-guide-copy"><strong id="guideRecordTitle">W / L is the record</strong><span id="guideRecordCopy">Wins and losses from the head-to-head rounds shown.</span></div>
+      <div class="rank-guide-copy"><strong id="guideRecordTitle">W / D / L is the record</strong><span id="guideRecordCopy">Wins, draws and losses from the head-to-head rounds shown.</span></div>
     </div>
     <div class="rank-guide-item">
       <span class="rank-guide-n" aria-hidden="true">3</span>
@@ -1307,7 +1307,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
         <h4>What do the numbers mean?</h4>
         <details class="lb-details lb-details--side">
         <summary>Read the short version</summary>
-        <p class="body">On the head-to-head ladder the number is a rating. It moves when you win or lose against real people, and beating stronger opponents moves it more. A rating stays provisional until enough rated rounds narrow it down, which takes a run of them rather than a fixed number. On the AI board the number is the judge's score for how well you argued.</p>
+        <p class="body">On the head-to-head ladder the number is a rating. It moves on wins, draws and losses against real people, and beating stronger opponents moves it more. A rating stays provisional until enough rated rounds narrow it down, which takes a run of them rather than a fixed number. On the AI board the number is the judge's score for how well you argued.</p>
         <p class="body">Debated before? <a href="/claim">Import your Tabroom record</a> and start with a seeded rating instead of a blank 1500. Curious how the number works? <a href="/debate-rating">The Debate Rating, explained</a>.</p>
         </details>
         <a class="side-link" href="/voice-debate">Try a judged voice round →</a>
@@ -1320,7 +1320,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 <aside class="signin-strip" id="signinStrip" hidden>
   <div class="copy">
     <h4>Get on this board</h4>
-    <p>Two ways up. Win judged live rounds against real people and your rating puts you on the head-to-head ladder. Or debate the AI out loud on your own, and your best judged score takes a place on the solo board. Sign in once and every judged round counts.</p>
+    <p>Two ways up. Complete judged live rounds against real people and your rating puts you on the head-to-head ladder. Or debate the AI out loud on your own, and your best judged score takes a place on the solo board. Sign in once and every judged round counts.</p>
   </div>
   <a class="cta" href="/voice-debate" id="signinStripCta">Start a voice round →</a>
 </aside>
@@ -1457,7 +1457,7 @@ function profileTitle(r){
   if(r._ratingRow){
     if(r._tier && r._tier!=='Unranked') bits.push(r._tier);
     if(typeof r.score==='number') bits.push((r._provisional?'provisional rating ':'rating ')+Math.round(r.score));
-    bits.push((r._wins||0)+'W '+(r._losses||0)+'L over '+(r._rounds||0)+' rated round'+((r._rounds||0)===1?'':'s'));
+    bits.push((r._wins||0)+'W '+(r._draws||0)+'D '+(r._losses||0)+'L over '+(r._rounds||0)+' rated round'+((r._rounds||0)===1?'':'s'));
     if(r._peak && r._peak>Math.round(r.score||0)) bits.push('peak '+r._peak);
   } else if(typeof r.score==='number'){
     bits.push('best judged score '+r.score.toFixed(1));
@@ -1777,10 +1777,12 @@ function enrichRows(rows){
   const byUid={};
   rows.forEach(r=>{
     const uid=r.uid||r.displayName||Math.random();
-    const cur = byUid[uid] = byUid[uid] || {wins:0,losses:0,rounds:0,lastTs:0,best:-Infinity,xp:0};
+    const cur = byUid[uid] = byUid[uid] || {wins:0,draws:0,losses:0,rounds:0,lastTs:0,best:-Infinity,xp:0};
     cur.rounds++;
     cur.xp += (window.DBDomains ? DBDomains.xpForRound(r) : 0);
-    if(r.won) cur.wins++; else cur.losses++;
+    if(r.result==='draw') cur.draws++;
+    else if(r.won) cur.wins++;
+    else cur.losses++;
     const ts = r.completedAt && r.completedAt.toDate ? r.completedAt.toDate().getTime() : 0;
     if(ts>cur.lastTs) cur.lastTs=ts;
     if(typeof r.score==='number' && r.score>cur.best) cur.best=r.score;
@@ -1795,21 +1797,28 @@ function enrichRows(rows){
       return Object.assign({}, r, {
         _rounds: aug.rounds,
         _wins: aug.wins,
+        _draws: 0,
         _losses: aug.losses,
         _streak: aug.streak,
         _xp: seedXp,
         _level: window.DBDomains ? DBDomains.levelFor(seedXp) : null,
       });
     }
-    const agg=byUid[uid] || {wins:r.won?1:0,losses:r.won?0:1,rounds:1,xp:0};
+    const agg=byUid[uid] || {
+      wins:r.result==='draw'?0:(r.won?1:0),
+      draws:r.result==='draw'?1:0,
+      losses:r.result==='draw'?0:(r.won?0:1),
+      rounds:1,xp:0
+    };
     // Streak inferred from this row's W status only (we don't have history).
-    // Real W/L is whatever shows up in the loaded top-100 for the uid.
+    // Real W/D/L is whatever shows up in the loaded top-100 for the uid.
     // XP is the same deal: it counts the rounds visible in this snapshot,
     // so a heavy debater's board XP can trail the total on their profile,
     // which reads their whole history. Understating is the safe direction.
     return Object.assign({}, r, {
       _rounds: agg.rounds,
       _wins: agg.wins,
+      _draws: agg.draws,
       _losses: agg.losses,
       _streak: r.won ? Math.max(1, Math.min(agg.wins,3)) : 0,
       _xp: agg.xp,
@@ -1909,8 +1918,9 @@ function podiumWave(uid, score){
 // ── render: podium (top 3) ─────────────────────────────────────────
 function podHTML(row, place){
   const score=scoreText(row);
-  const wins=row._wins||(row.won?1:0);
-  const losses=row._losses||(row.won?0:1);
+  const wins=typeof row._wins==='number'?row._wins:(row.won?1:0);
+  const draws=typeof row._draws==='number'?row._draws:(row.result==='draw'?1:0);
+  const losses=typeof row._losses==='number'?row._losses:((row.result==='draw'||row.won)?0:1);
   const streak=row._streak||0;
   const wave=podiumWave(row.uid, row.score);
   const laurel = place===1
@@ -1944,6 +1954,7 @@ function podHTML(row, place){
       </div>
       <div class="pod-wl">
         <span class="w">${wins}W</span>
+        <span>${draws}D</span>
         <span class="l">${losses}L</span>
         ${streak>=2 ? `<span class="s">${streak} win streak</span>` : ''}
       </div>
@@ -2119,7 +2130,7 @@ function renderTable(rows){
     <div class="board-row head" role="row">
       <div>Rank</div>
       <div>Name</div>
-      <div title="Wins and losses">W / L</div>
+      <div title="Wins, draws and losses">W / D / L</div>
       <div>Streak</div>
       <div class="cell-rounds">Rounds</div>
       <div class="cell-when">Last</div>
@@ -2177,7 +2188,7 @@ function renderTable(rows){
             ${debaterActions(r,'table-mobile-actions')}
           </div>
         </div>
-        <div class="cell-wl"><span class="w">${r._wins||0}</span><span style="opacity:.4"> / </span><span class="l">${r._losses||0}</span></div>
+        <div class="cell-wl"><span class="w">${r._wins||0}</span><span style="opacity:.4"> / </span><span>${r._draws||0}</span><span style="opacity:.4"> / </span><span class="l">${r._losses||0}</span></div>
         <div class="streak-col">${streakCell(r._streak||0)}</div>
         <div class="cell-rounds">${r._rounds||0}</div>
         <div class="cell-when${fresh?' fresh':''}">${escapeHtml(fmtAgo(r.completedAt))}</div>
@@ -2355,9 +2366,9 @@ async function renderYourRank(){
           ? `You're #1 with a <strong>${rating}</strong> rating${behind?`. ${behind} below you`:''}.`
           : `You're #${i+1} with a <strong>${rating}</strong> rating, ${i} above, ${behind} below.`;
       } else {
-        line=`Your rating is <strong>${rating}</strong>, still provisional. Win rated rounds to settle it and claim a numbered place.`;
+        line=`Your rating is <strong>${rating}</strong>, still provisional. Keep playing rated rounds to settle it and claim a numbered place.`;
       }
-      sub=`${me._wins||0}W ${me._losses||0}L · ${me._rounds||0} rated round${(me._rounds||0)===1?'':'s'}`;
+      sub=`${me._wins||0}W ${me._draws||0}D ${me._losses||0}L · ${me._rounds||0} rated round${(me._rounds||0)===1?'':'s'}`;
     }
     yourRankHost.hidden=false;
     yourRankHost.innerHTML=`
@@ -2625,6 +2636,7 @@ async function loadRatingLadder(){
       _peak:typeof r.peak==='number'?r.peak:null,
       _rounds:r.games||0,
       _wins:r.wins||0,
+      _draws:r.draws||0,
       _losses:r.losses||0,
       _streak:0,
     }));
@@ -2745,9 +2757,9 @@ function updateSigninStripCta(view){
 function syncRankingGuide(view){
   if(view==='live'){
     guideRankTitle.textContent='Your rating sets the rank';
-    guideRankCopy.textContent='Win judged rounds against real people and it climbs. Beating stronger opponents moves it more.';
+    guideRankCopy.textContent='Complete judged rounds against real people and it moves. Beating stronger opponents moves it more.';
     guideRecordTitle.textContent='Ratings settle as rounds narrow them';
-    guideRecordCopy.textContent='Until then a rating is provisional and holds no numbered place. W / L is the full rated record.';
+    guideRecordCopy.textContent='Until then a rating is provisional and holds no numbered place. W / D / L is the full rated record.';
     guideActionTitle.textContent='Debate someone on the board';
     guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
   }else{

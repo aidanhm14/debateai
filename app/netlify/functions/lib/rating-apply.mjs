@@ -7,7 +7,8 @@
 //
 // WHAT IS ELIGIBLE
 //  - Human versus human only. Beating the AI is practice, not a result.
-//  - The round must be finished and carry a real verdict.
+//  - The round must be finished and carry a real panel result. A split
+//    panel is a draw: it changes both ratings without inventing a winner.
 //  - CONSENT, as an OPT-OUT since 2026-08-24 (the founder: every round
 //    record goes on the board unless it is uniquely bad because
 //    something happened). It used to require BOTH debaters to flip
@@ -71,7 +72,11 @@ export function eligibility(source, d) {
 
   if (source === 'live') {
     const ballot = d.ballot;
-    if (!ballot || (ballot.winner !== 'pro' && ballot.winner !== 'con')) {
+    const noWinner = d.ballotUnresolved;
+    const hasWinner = !!(ballot && (ballot.winner === 'pro' || ballot.winner === 'con'));
+    const hasServerDraw = !!(noWinner && noWinner.outcome === 'no_winner'
+      && d.serverJudgeState === 'unresolved');
+    if (!hasWinner && !hasServerDraw) {
       return { ok: false, reason: 'no_verdict' };
     }
     const a = d.proUid;
@@ -88,14 +93,14 @@ export function eligibility(source, d) {
       ok: true,
       a: { uid: a, name: d.proName || '', side: 'pro' },
       b: { uid: b, name: d.conName || '', side: 'con' },
-      outcome: ballot.winner === 'pro' ? 'a' : 'b',
+      outcome: hasServerDraw ? 'draw' : (ballot.winner === 'pro' ? 'a' : 'b'),
       // Same discriminator lib/judgment.mjs uses: a ballot carrying a
       // panel record came from live-judge.mjs running the season's panel
       // server-side; one without came from a debater's browser. Recorded
       // rather than acted on here, because the ladder deliberately moves
       // on both (a rating pays nobody). Money does not: see
       // MONEY_VERDICT_SOURCES in lib/settle.mjs.
-      verdictSource: (ballot && ballot.panel) ? 'server' : 'participant',
+      verdictSource: hasServerDraw || (ballot && ballot.panel) ? 'server' : 'participant',
       motion: d.motion || '',
     };
   }
@@ -111,6 +116,21 @@ export function eligibility(source, d) {
 function changeId(source, eventId, uid, rev) {
   const n = Number(rev) || 0;
   return n > 0 ? `${source}_${eventId}_${uid}_r${n}` : `${source}_${eventId}_${uid}`;
+}
+
+export function resultForOutcome(outcome, side) {
+  if (outcome === 'draw') return 'draw';
+  return outcome === side ? 'win' : 'loss';
+}
+
+export function recordCountsAfter(record, result, direction = 1) {
+  const step = direction < 0 ? -1 : 1;
+  return {
+    games: Math.max(0, (Number(record && record.games) || 0) + step),
+    wins: Math.max(0, (Number(record && record.wins) || 0) + (result === 'win' ? step : 0)),
+    losses: Math.max(0, (Number(record && record.losses) || 0) + (result === 'loss' ? step : 0)),
+    draws: Math.max(0, (Number(record && record.draws) || 0) + (result === 'draw' ? step : 0)),
+  };
 }
 
 // Transactional apply. Returns { applied:bool, reason?, changes? }.
@@ -131,14 +151,22 @@ export async function applyRoundRating(db, { source, eventId, roundData, now, re
     const [cA, cB, rA, rB] = await Promise.all([
       tx.get(changeA), tx.get(changeB), tx.get(rateA), tx.get(rateB),
     ]);
-    if (cA.exists || cB.exists) return { applied: false, reason: 'already_applied' };
+    if (cA.exists || cB.exists) {
+      return {
+        applied: false,
+        reason: 'already_applied',
+        // A prior run may have committed both rating rows and then died
+        // before mirroring their compact deltas onto the room. Return the
+        // existing pair so an idempotent retry can repair that display.
+        changes: cA.exists && cB.exists ? [cA.data(), cB.data()] : [],
+      };
+    }
 
     const preA = rA.exists ? rA.data() : defaultRatingDoc(at);
     const preB = rB.exists ? rB.data() : defaultRatingDoc(at);
     const next = applyRound(preA, preB, elig.outcome);
 
-    const wonA = elig.outcome === 'a';
-    const mk = (pre, post, me, them, won) => ({
+    const mk = (pre, post, me, them, result) => ({
       uid: me.uid,
       name: me.name,
       opponentUid: them.uid,
@@ -148,30 +176,27 @@ export async function applyRoundRating(db, { source, eventId, roundData, now, re
       rev: Number(rev) || 0,
       motion: elig.motion.slice(0, 300),
       verdictSource: elig.verdictSource,
-      result: won ? 'win' : 'loss',
+      result,
       before: { rating: pre.rating, rd: pre.rd, vol: pre.vol },
       after: { rating: post.rating, rd: post.rd, vol: post.vol },
       delta: Math.round((post.rating - pre.rating) * 10) / 10,
       at,
     });
 
-    const rowA = mk(preA, next.a, elig.a, elig.b, wonA);
-    const rowB = mk(preB, next.b, elig.b, elig.a, !wonA);
+    const rowA = mk(preA, next.a, elig.a, elig.b, resultForOutcome(elig.outcome, 'a'));
+    const rowB = mk(preB, next.b, elig.b, elig.a, resultForOutcome(elig.outcome, 'b'));
 
-    const merge = (pre, post, won) => ({
+    const merge = (pre, post, result) => ({
       ...post,
-      games: (pre.games || 0) + 1,
-      wins: (pre.wins || 0) + (won ? 1 : 0),
-      losses: (pre.losses || 0) + (won ? 0 : 1),
-      draws: pre.draws || 0,
+      ...recordCountsAfter(pre, result),
       peak: Math.max(pre.peak || post.rating, post.rating),
       lastEventAt: at,
       createdAt: pre.createdAt || at,
       updatedAt: at,
     });
 
-    tx.set(rateA, merge(preA, next.a, wonA), { merge: true });
-    tx.set(rateB, merge(preB, next.b, !wonA), { merge: true });
+    tx.set(rateA, merge(preA, next.a, rowA.result), { merge: true });
+    tx.set(rateB, merge(preB, next.b, rowB.result), { merge: true });
     tx.set(changeA, rowA);
     tx.set(changeB, rowB);
 
@@ -192,7 +217,7 @@ export async function applyRoundRating(db, { source, eventId, roundData, now, re
 // reversible. Glicko rating deviation and volatility are path
 // dependent: if the debater has played other rounds since, there is no
 // arithmetic that returns them to a counterfactual rd. So rating,
-// games, wins and losses are corrected, rd and vol are left where the
+// games, wins, losses and draws are corrected, rd and vol are left where the
 // later rounds put them, and the compensating row says so rather than
 // implying a clean rewind. Peak is not walked back either, for the same
 // reason: it is a historical high water mark, not a running total.
@@ -229,14 +254,11 @@ export async function reverseRoundRating(db, { source, eventId, uids, now, rev, 
       const c = row.change;
       const cur = row.rating || {};
       const delta = Number(c.delta) || 0;
-      const won = c.result === 'win';
       const rating = Math.round(((Number(cur.rating) || 0) - delta) * 10) / 10;
 
       tx.set(row.ref.rating, {
         rating,
-        games: Math.max(0, (cur.games || 0) - 1),
-        wins: Math.max(0, (cur.wins || 0) - (won ? 1 : 0)),
-        losses: Math.max(0, (cur.losses || 0) - (won ? 0 : 1)),
+        ...recordCountsAfter(cur, c.result, -1),
         updatedAt: at,
       }, { merge: true });
 
@@ -259,7 +281,7 @@ export async function reverseRoundRating(db, { source, eventId, uids, now, rev, 
         delta: Math.round(-delta * 10) / 10,
         // Named on the row so nobody reading it later assumes the
         // confidence terms were rewound too.
-        note: 'Rating, games, wins and losses corrected. Rating deviation and volatility are not reconstructed.',
+        note: 'Rating, games, wins, losses and draws corrected. Rating deviation and volatility are not reconstructed.',
         at,
       };
       tx.set(row.ref.rebate, rebate);

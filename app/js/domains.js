@@ -411,6 +411,7 @@
     var scored = [];
     var rounds = 0;
     var wins = 0;
+    var draws = 0;
     var losses = 0;
 
     for (var i = 0; i < list.length; i++) {
@@ -418,20 +419,23 @@
       if (typeof e.score !== 'number' || !isFinite(e.score)) continue;
       var c = classify(e.motion || '');
       var b = buckets[c.key];
-      if (!b) { b = buckets[c.key] = { key: c.key, rounds: 0, wins: 0, xp: 0, scores: [], best: null, lastAt: null }; }
+      if (!b) { b = buckets[c.key] = { key: c.key, rounds: 0, wins: 0, draws: 0, xp: 0, scores: [], best: null, lastAt: null }; }
       var xp = xpForRound(e);
       b.rounds += 1;
       b.xp += xp;
       b.scores.push(e.score);
       if (b.best === null || e.score > b.best) b.best = e.score;
       if (e.won === true) b.wins += 1;
+      if (e.result === 'draw') b.draws += 1;
       var at = millisOf(e.completedAt);
       if (at && (!b.lastAt || at > b.lastAt)) b.lastAt = at;
 
       totalXp += xp;
       scored.push(e.score);
       rounds += 1;
-      if (e.won === true) wins += 1; else if (e.won === false) losses += 1;
+      if (e.result === 'draw') draws += 1;
+      else if (e.won === true) wins += 1;
+      else if (e.won === false) losses += 1;
     }
 
     var overallMean = mean(scored);
@@ -448,7 +452,8 @@
         accent: desc.accent,
         rounds: b.rounds,
         wins: b.wins,
-        losses: b.rounds - b.wins,
+        draws: b.draws,
+        losses: b.rounds - b.wins - b.draws,
         xp: b.xp,
         mean: m,
         best: b.best,
@@ -481,6 +486,7 @@
       level: levelFor(totalXp),
       rounds: rounds,
       wins: wins,
+      draws: draws,
       losses: losses,
       mean: overallMean,
       domains: domains,

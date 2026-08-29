@@ -11684,6 +11684,22 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var missing = Math.max(0, Number(noWinner.missing) || (panelSize - votesCast));
     var reason = String(noWinner.reason || 'No side reached the required majority, so the panel did not record a winner.');
     var judgeReasons = Array.isArray(noWinner.judgeReasons) ? noWinner.judgeReasons : [];
+    var hasProPoints = typeof noWinner.proPoints === 'number' && isFinite(noWinner.proPoints);
+    var hasConPoints = typeof noWinner.conPoints === 'number' && isFinite(noWinner.conPoints);
+    var pointsHtml = hasProPoints || hasConPoints
+      ? '<div class="points-grid" style="margin-top:18px;text-align:left">'
+          + '<div class="points-card">'
+            + '<div class="name">' + escHtml(proName) + '</div>'
+            + '<div class="pts">' + (hasProPoints ? escHtml(String(noWinner.proPoints)) : ', ') + '</div>'
+            + '<div class="pts-label">Argument score · out of 100</div>'
+          + '</div>'
+          + '<div class="points-card">'
+            + '<div class="name">' + escHtml(conName) + '</div>'
+            + '<div class="pts">' + (hasConPoints ? escHtml(String(noWinner.conPoints)) : ', ') + '</div>'
+            + '<div class="pts-label">Argument score · out of 100</div>'
+          + '</div>'
+        + '</div>'
+      : '';
     var splitHtml = votesCast
       ? '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px">'
           + '<span style="padding:6px 10px;border-radius:999px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.08);color:#86efac;font-size:.72rem;font-weight:800">' + escHtml(proName) + ' ' + proVotes + '</span>'
@@ -11710,11 +11726,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       + '<div style="color:var(--text);font-weight:900;font-size:1.35rem;line-height:1.2;margin-top:7px">The panel did not reach a majority.</div>'
       + '<div style="font-size:.84rem;line-height:1.55;margin-top:10px;color:var(--text-dim)">' + escHtml(reason) + '</div>'
       + splitHtml
+      + pointsHtml
       + '<div style="text-align:left;font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-top:22px">Why the judges disagreed</div>'
       + reasonsHtml + legacyWhy
-      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">No ladder or market result moves.</div>'
+      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">The ladder records a draw<span id="afterRatingSlot"></span>. No market winner is recorded.</div>'
       + '<div style="margin-top:18px"><a class="btn" href="/live">Back to live debates</a></div>'
       + '</div>';
+    try { renderAfterRating(); } catch(e){}
   }
   function scheduleBallotRecovery(roundData, delayOverride){
     if (state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
@@ -12476,7 +12494,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
                        : null;
       if (!mySideForLb) return;
       var myPoints = mySideForLb === 'pro' ? b.proPoints : b.conPoints;
-      var myWon = b.winner === mySideForLb;
+      var isDraw = b.outcome === 'no_winner';
+      var myWon = !isDraw && b.winner === mySideForLb;
       if (typeof myPoints !== 'number' || isNaN(myPoints)) return;
       var shortName = publicNameOf(state.user);
       var lbEntry = {
@@ -12490,6 +12509,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         // aggregation must split on this before averaging.
         scoreScale: 100,
         won: myWon,
+        result: isDraw ? 'draw' : (myWon ? 'win' : 'loss'),
         kind: 'live',
         motion: state.motion || '',
         format: state.formatKey,
@@ -13359,7 +13379,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           '<div class="lb-body">' +
             '<strong>This round is on the public leaderboard</strong>' +
             'Your result' + (typeof myPointsForLb === 'number' ? ' and ' + myPointsForLb + '/100' : '') +
-            ' are counted on /leaderboard, win or lose. Untick to keep this one off; it only affects your own row, and your opponent decides theirs.' +
+            ' are counted on /leaderboard, whatever the outcome. Untick to keep this one off; it only affects your own row, and your opponent decides theirs.' +
             '<span class="lb-status" id="lbConsentStatus"></span>' +
           '</div>' +
         '</label>';
@@ -18471,7 +18491,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // anybody. If the opponent opted out, their name comes off my entry
     // and it posts as "Opponent": my result is mine to publish, their
     // identity is theirs.
-    var ballotForLb = d.ballot || state.lastBallot;
+    var ballotForLb = d.ballot || d.ballotUnresolved || state.lastBallot;
     var consents = d.leaderboardConsent || {};
     if (ballotForLb && state.user && state.proUid && state.conUid && !isSpectator()){
       var iOptedOut = consents[state.user.uid] === false;

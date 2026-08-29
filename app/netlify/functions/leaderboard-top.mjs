@@ -142,6 +142,7 @@ export default async (request) => {
       rounds: r.games,
       wins: r.wins,
       losses: r.losses,
+      draws: r.draws,
       uid: r.uid,
       // rating-board already reads both off user_profiles; they were
       // being dropped here, so a rated debater with a picture still
@@ -160,9 +161,10 @@ export default async (request) => {
       const d = doc.data() || {};
       if (typeof d.score !== 'number') return;
       const uid = d.uid || doc.id;
-      const a = agg.get(uid) || { rounds: 0, wins: 0 };
+      const a = agg.get(uid) || { rounds: 0, wins: 0, draws: 0 };
       a.rounds += 1;
       if (d.won === true) a.wins += 1;
+      if (d.result === 'draw') a.draws += 1;
       agg.set(uid, a);
     });
 
@@ -182,7 +184,7 @@ export default async (request) => {
       const completedAt = typeof d.completedAt === 'number'
         ? d.completedAt
         : (d.completedAt && typeof d.completedAt.toMillis === 'function' ? d.completedAt.toMillis() : null);
-      const a = agg.get(uid) || { rounds: 1, wins: d.won === true ? 1 : 0 };
+      const a = agg.get(uid) || { rounds: 1, wins: d.won === true ? 1 : 0, draws: d.result === 'draw' ? 1 : 0 };
       entryRows.push({
         name: String(d.displayName || 'A debater').slice(0, 40),
         format: String(d.formatName || d.format || '').slice(0, 24),
@@ -193,6 +195,7 @@ export default async (request) => {
         won: d.won === true,
         rounds: a.rounds,
         wins: a.wins,
+        draws: a.draws,
         // uid powers the landing's per-row Challenge deep link into the
         // /spar DM flow. Only for challengeable rows: real Firebase uids,
         // never seeds (a DM to a seed uid is a thread nobody answers).
