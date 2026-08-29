@@ -168,6 +168,7 @@
   .pill-soon{background:rgba(239,68,68,.14);color:#fca5a5}
   .pill-done{background:rgba(244,244,246,.08);color:var(--dim)}
   .pill-warn{background:rgba(245,158,11,.16);color:#fbbf24}
+  .pill-spotlight{background:var(--red);color:#fff}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.8s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
@@ -177,6 +178,8 @@
   .vs{color:var(--faint);font-size:.76rem;font-weight:800;letter-spacing:.08em}
   .pairing .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .mine{border-left:3px solid var(--red);padding-left:12px;margin-left:-15px}
+  .pairing.is-spotlight{border-radius:12px;padding-left:12px;padding-right:10px;
+    background:rgba(239,68,68,.08);box-shadow:inset 3px 0 0 var(--red)}
 
   .empty{color:var(--faint);font-size:.88rem;padding:20px 0;text-align:center}
   .note{font-size:.79rem;color:var(--faint);margin-top:10px;line-height:1.5}
@@ -1198,6 +1201,10 @@
     var body = $('drawBody');
     var t = state.data.tournament;
     if (active.length){
+      var spotlightRoom = String(t.spotlightRoom || '');
+      active.sort(function(a, b){
+        return Number(b.pairing.room === spotlightRoom) - Number(a.pairing.room === spotlightRoom);
+      });
       $('drawTitle').textContent = 'Live tournament rooms';
       $('drawMotion').textContent = active.length + (active.length === 1
         ? ' room is open now. Its result moves the tournament standings.'
@@ -1207,14 +1214,16 @@
       active.forEach(function(item){
         var p = item.pairing;
         var round = item.round;
+        var spotlighted = p.room === spotlightRoom;
         var isMine = mineLive && (p.govEntry === mineLive.entryId || p.oppEntry === mineLive.entryId);
         var row = document.createElement('div');
-        row.className = 'pairing' + (isMine ? ' mine' : '');
+        row.className = 'pairing' + (isMine ? ' mine' : '') + (spotlighted ? ' is-spotlight' : '');
         row.innerHTML =
           '<div><div class="side">' + esc(p.govName) + '</div></div>' +
           '<div class="vs">VS</div>' +
           '<div><div class="side">' + esc(p.oppName) + '</div></div>' +
-          '<div class="sp"><span class="pill pill-live"><span class="dot"></span>' + esc(round.label || 'Live') + '</span></div>';
+          '<div class="sp">' + (spotlighted ? '<span class="pill pill-spotlight">Spotlight</span>' : '') +
+          '<span class="pill pill-live"><span class="dot"></span>' + esc(round.label || 'Live') + '</span></div>';
         var door = document.createElement('a');
         door.className = 'btn ' + (isMine && mineLive.inPairing === p.pairingId ? 'btn-primary ' : '') + 'btn-sm';
         door.textContent = isMine && mineLive.inPairing === p.pairingId ? 'Join your room' : 'Watch';

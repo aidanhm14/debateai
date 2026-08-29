@@ -11,6 +11,8 @@ const tournament = read('app/tournament.html');
 const tournaments = read('app/tournaments.html');
 const watch = read('app/watch.html');
 const director = read('app/director.html');
+const directorApi = read('app/netlify/functions/director.mjs');
+const spotlightApi = read('app/netlify/functions/director-spotlight.mjs');
 const tournamentApi = read('app/netlify/functions/tournament.mjs');
 const dropin = read('app/netlify/functions/tournament-dropin.mjs');
 
@@ -66,6 +68,39 @@ assert.ok(
   director.includes("apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join('')") &&
   !director.includes('AIzaSyBmMOsQOTPYFBRVBHRHFVKPOxdNCVQvVXA'),
   'director wall must use the active Firebase key so the admin sign-in gate works',
+);
+
+assert.ok(
+  directorApi.includes("const liveMode = askedKey === 'live'") &&
+  directorApi.includes("String((doc.data() || {}).inPairing || '')") &&
+  directorApi.includes('_roundKey: roundDoc.id'),
+  'director live mode must index every pairing that still owns an active tournament seat',
+);
+assert.ok(
+  spotlightApi.indexOf('await requireAdmin(request)') < spotlightApi.indexOf('tournament.ref.update({') &&
+  spotlightApi.includes("activeIds.has(String(p.pairingId || ''))") &&
+  spotlightApi.includes('spotlightRoom: FieldValue.delete()'),
+  'spotlight writes must be admin-only, active-room-only, and reversible',
+);
+assert.ok(
+  !spotlightApi.includes('recordingPublishAllowed') &&
+  !spotlightApi.includes('site_stream') &&
+  !spotlightApi.includes('broadcastAllowed'),
+  'spotlight must not grant recording or main-broadcast permission',
+);
+assert.ok(
+  tournamentApi.includes("spotlightRoom: String(d.spotlightRoom || '')") &&
+  !tournamentApi.includes('spotlightBy'),
+  'public tournament payload must expose the room choice without exposing the admin identity',
+);
+assert.ok(
+  director.includes("post('/api/director/spotlight'") &&
+  director.includes('data-spotlight-room=') &&
+  open.includes("(r.spotlight ? ' is-spotlight' : '')") &&
+  open.includes('The director spotlight is first.') &&
+  tournament.includes('pairing.is-spotlight') &&
+  tournament.includes('pill-spotlight'),
+  'director, Open, and generic tournament surfaces must render the spotlight contract',
 );
 
 assert.ok(

@@ -84,6 +84,12 @@ function publicTournament(id, d) {
     // Absent means true, so existing tournament docs need no migration.
     dropIn: d.dropIn !== false,
     publicPairingEnabled: PUBLIC_PAIRING_ENABLED && d.dropIn !== false,
+    // Editorial promotion only. Public pages may put this already-public
+    // live room first; recording and main-broadcast permission remain
+    // separate server-derived decisions.
+    spotlightRoom: String(d.spotlightRoom || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120),
+    spotlightPairingId: String(d.spotlightPairingId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120),
+    spotlightRoundKey: String(d.spotlightRoundKey || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24),
     description: d.description || '',
     startsAt: d.startsAt || '',
     hostName: d.hostName || '',

@@ -173,6 +173,9 @@
   .tv{min-width:0;overflow:hidden;border:1px solid rgba(244,244,246,.16);border-radius:14px;background:#08090d;
     box-shadow:0 18px 44px rgba(0,0,0,.24);transition:transform .16s ease,border-color .16s ease}
   .tv:hover{transform:translateY(-2px);border-color:rgba(239,68,68,.5)}
+  .tv.is-spotlight{grid-column:span 2;order:-1;border-color:var(--red);
+    box-shadow:0 0 0 2px rgba(239,68,68,.3),0 24px 60px rgba(0,0,0,.38)}
+  .tv.is-spotlight .tv-screen{aspect-ratio:16/8}
   .tv-screen{position:relative;aspect-ratio:16/9;overflow:hidden;background:
     radial-gradient(circle at 25% 32%,rgba(239,68,68,.27),transparent 25%),
     radial-gradient(circle at 72% 60%,rgba(96,165,250,.18),transparent 30%),#090b12}
@@ -185,6 +188,8 @@
   .tv-state i{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px rgba(239,68,68,.18)}
   .tv-room{position:absolute;z-index:2;top:10px;right:10px;padding:5px 8px;border-radius:7px;
     background:rgba(7,8,12,.82);border:1px solid rgba(255,255,255,.16);font-size:.65rem;font-weight:850;color:#fff}
+  .tv-spotlight{position:absolute;z-index:2;top:44px;left:10px;padding:5px 8px;border-radius:999px;
+    background:var(--red);color:#fff;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
   .tv-signal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.32);
     font-size:.68rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
   .tv-body{padding:12px 13px 13px}
@@ -197,8 +202,8 @@
   .tv-watch{margin-left:auto;padding:7px 11px;border-radius:9px;background:var(--red);color:#fff;text-decoration:none;
     font-size:.72rem;font-weight:850}
   .tv-watch--demo{background:rgba(244,244,246,.08);color:var(--dim);border:1px solid var(--line)}
-  @media(max-width:900px){.tv-wall{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:700px){.tv-wall,.fact-grid{grid-template-columns:1fr}.event-tabs{top:54px}}
+  @media(max-width:900px){.tv-wall{grid-template-columns:repeat(2,minmax(0,1fr))}.tv.is-spotlight{grid-column:1/-1}}
+  @media(max-width:700px){.tv-wall,.fact-grid{grid-template-columns:1fr}.event-tabs{top:54px}.tv.is-spotlight{grid-column:auto}.tv.is-spotlight .tv-screen{aspect-ratio:16/9}}
 
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
     padding:10px 16px;border-radius:11px;background:rgba(244,244,246,.07);
@@ -1393,9 +1398,12 @@
     var anyCapped = rounds.some(function(room){ return !!room.watchCountCapped; });
     $('liveWallCount').textContent = rounds.length + (rounds.length === 1 ? ' room' : ' rooms')
       + ' · ' + viewerTotal + (anyCapped ? '+' : '') + ' watching';
+    var hasSpotlight = rounds.some(function(room){ return !!room.spotlight; });
     $('liveSub').textContent = demo
       ? 'Preview only. When public rooms open, every screen becomes a direct spectator door.'
-      : 'Pick any room. You enter invisibly, with no camera, mic, or participant tile.';
+      : hasSpotlight
+        ? 'The director spotlight is first. Pick any room. You enter invisibly, with no camera, mic, or participant tile.'
+        : 'Pick any room. You enter invisibly, with no camera, mic, or participant tile.';
     var host = $('liveBody');
     host.className = 'tv-wall';
     host.innerHTML = rounds.map(function(r, i){
@@ -1417,9 +1425,10 @@
           : !state.user
             ? '<a class="tv-watch" href="#overview">Check your room</a>'
           : '<a class="tv-watch" href="/live-round.html?room=' + encodeURIComponent(r.room) + '&spectate=1">Spectate</a>';
-      return '<article class="tv">' +
+      return '<article class="tv' + (r.spotlight ? ' is-spotlight' : '') + '">' +
         '<div class="tv-screen">' + shot +
           '<span class="tv-state"><i></i>' + esc(demo ? 'Demo' : label) + '</span>' +
+          (r.spotlight ? '<span class="tv-spotlight">Spotlight</span>' : '') +
           '<span class="tv-room">' + esc(demo ? r.room : ('Room ' + (i + 1))) + '</span>' +
         '</div>' +
         '<div class="tv-body">' +
@@ -1448,6 +1457,7 @@
         var feed = (j && j.rounds) || [];
         var byRoom = {};
         feed.forEach(function(room){ byRoom[room.room] = room; });
+        var spotlightRoom = String((state.data.tournament && state.data.tournament.spotlightRoom) || '');
         var rounds = activeTournamentPairings().map(function(item){
           var seen = byRoom[item.pairing.room] || {};
           return Object.assign({}, seen, {
@@ -1460,10 +1470,12 @@
             // pairing names are only the before-entry fallback.
             proName: seen.proName || item.pairing.govName || 'Proposition',
             conName: seen.conName || item.pairing.oppName || 'Opposition',
+            spotlight: item.pairing.room === spotlightRoom,
             tournamentPairing: item.pairing,
             tournamentRound: item.round,
           });
         });
+        rounds.sort(function(a, b){ return Number(b.spotlight) - Number(a.spotlight); });
         renderLiveWall(rounds, false);
       })
       .catch(function(){ /* a missing watch feed is not an error worth showing */ });

@@ -17,11 +17,10 @@
 // The 2026-07-28 load audit is the standing rule: a live surface must
 // not read per-spectator. This one is read by ONE person, so the shape
 // that would be reckless on /tournaments is fine here — but it is still
-// bounded on purpose. Per poll: one round doc (pairings ride inline),
-// then a single getAll over that round's rooms for live state and
-// another for the stills. Two batched reads regardless of room count,
-// not two per room. At a dozen rooms and a 5s poll that is roughly
-// 15k reads an hour for the whole broadcast desk.
+// bounded on purpose. A fixed draw reads one round doc. The drop-in
+// floor reads its rounds and entry seats once, because several matcher
+// passes can be live at the same time. Both paths then use one getAll
+// for room state and one for stills, never two reads per room.
 //
 // Nothing here writes. A director watching cannot change a round.
 
@@ -126,22 +125,58 @@ export default async (request) => {
   }
   const t = tDoc.data() || {};
 
-  // Which draw is on the floor. An explicit ?round= lets the director
-  // look back at a finished round while the next one runs.
-  const askedKey = String(url.searchParams.get('round') || '').replace(/[^a-z0-9]/g, '').slice(0, 8);
-  const liveKey = askedKey
-    || ((t.currentKind === 'elim' ? 'e' : 'r') + (Number(t.currentRound) || 1));
+  const tournamentRef = db.collection('tournaments').doc(tDoc.id);
 
-  const roundSnap = await db.collection('tournaments').doc(tDoc.id)
-    .collection('rounds').doc(liveKey).get();
-  if (!roundSnap.exists) {
-    return jsonResponse({
-      ok: true, tournament: { name: t.name || '', status: t.status || '', dropIn: t.dropIn !== false },
-      round: null, rooms: [], at: Date.now(),
-    }, 200, request);
+  // Which draw is on the floor. Drop-in events create one round doc per
+  // matcher pass, so their default view is a synthetic `live` draw that
+  // indexes every pairing which still owns an entry seat. An explicit
+  // fixed round lets the director look back without losing that view.
+  const askedKey = String(url.searchParams.get('round') || '').replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const liveMode = askedKey === 'live'
+    || (!askedKey && t.dropIn !== false && t.status === 'running');
+  let liveKey = liveMode ? 'live' : (askedKey
+    || ((t.currentKind === 'elim' ? 'e' : 'r') + (Number(t.currentRound) || 1)));
+  let round = liveMode ? { label: 'Live rooms', motion: '', status: 'released' } : null;
+  let pairings = [];
+
+  if (liveMode) {
+    const [roundsSnap, entriesSnap] = await Promise.all([
+      tournamentRef.collection('rounds').get(),
+      tournamentRef.collection('entries').get(),
+    ]);
+    const activeIds = new Set(entriesSnap.docs
+      .map((doc) => String((doc.data() || {}).inPairing || ''))
+      .filter(Boolean));
+    for (const roundDoc of roundsSnap.docs) {
+      const data = roundDoc.data() || {};
+      const released = data.status === 'released' || data.status === 'complete' || data.kind === 'dropin';
+      if (!released) continue;
+      for (const pairing of Array.isArray(data.pairings) ? data.pairings : []) {
+        if (!pairing || !pairing.room || pairing.status === 'complete') continue;
+        if (!activeIds.has(String(pairing.pairingId || ''))) continue;
+        pairings.push({
+          ...pairing,
+          _roundKey: roundDoc.id,
+          _roundLabel: data.label || '',
+          _motion: data.motion || '',
+        });
+      }
+    }
+  } else {
+    const roundSnap = await tournamentRef.collection('rounds').doc(liveKey).get();
+    if (!roundSnap.exists) {
+      return jsonResponse({
+        ok: true,
+        tournament: {
+          name: t.name || '', status: t.status || '', dropIn: t.dropIn !== false,
+          spotlightRoom: String(t.spotlightRoom || ''),
+        },
+        round: null, rooms: [], at: Date.now(),
+      }, 200, request);
+    }
+    round = roundSnap.data() || {};
+    pairings = Array.isArray(round.pairings) ? round.pairings : [];
   }
-  const round = roundSnap.data() || {};
-  const pairings = Array.isArray(round.pairings) ? round.pairings : [];
 
   // Two batched reads for the whole board. getAll refuses an empty
   // list, so a paired-but-roomless draw short-circuits.
@@ -175,10 +210,14 @@ export default async (request) => {
     const room = String(p.room || '');
     const live = room ? liveById.get(room) : null;
     const timer = (live && live.currentTimer) || {};
+    const pairingRoundKey = String(p._roundKey || liveKey);
     return {
       index: i + 1,
       pairingId: p.pairingId || '',
       room,
+      roundKey: pairingRoundKey,
+      roundLabel: p._roundLabel || round.label || '',
+      motion: (live && live.motion) || p._motion || round.motion || '',
       bracket: p.bracket || '',
       gov: { entry: p.govEntry || '', name: p.govName || '' },
       opp: { entry: p.oppEntry || '', name: p.oppName || '' },
@@ -208,7 +247,7 @@ export default async (request) => {
       // consent from entry, which is section 8 of the rules. A prelim is
       // clear only when the round doc separately permits publication. A
       // red recording status proves capture, not broadcast permission.
-      streamable: liveKey.startsWith('e')
+      streamable: pairingRoundKey.startsWith('e')
         || (!!live && live.recordingPublishAllowed === true),
       shot: shotById.get(room) || 0,
     };
@@ -221,6 +260,7 @@ export default async (request) => {
       name: t.name || '',
       status: t.status || '',
       dropIn: t.dropIn !== false,
+      spotlightRoom: String(t.spotlightRoom || ''),
       currentRound: Number(t.currentRound) || 0,
       prelimRounds: Number(t.prelimRounds) || 0,
     },

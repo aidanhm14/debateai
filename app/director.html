@@ -54,6 +54,9 @@
   .tile[data-state="stalled"],.tile[data-state="one-seat"],.tile[data-state="empty"]{
     border-color:rgba(245,158,11,.5);box-shadow:0 0 0 1px rgba(245,158,11,.18)}
   .tile[data-state="speaking"]{border-color:rgba(244,63,94,.45)}
+  .tile[data-spotlight="yes"]{grid-column:span 2;border-color:var(--accent);
+    box-shadow:0 0 0 2px rgba(239,68,68,.28),0 22px 60px rgba(0,0,0,.38);order:-1}
+  .tile[data-spotlight="yes"] .shot{aspect-ratio:16/8}
 
   .shot{position:relative;aspect-ratio:16/9;background:#05070e;overflow:hidden}
   .shot img{width:100%;height:100%;object-fit:cover;display:block}
@@ -71,6 +74,8 @@
     font-variant-numeric:tabular-nums;font-weight:800;font-size:.95rem;
     background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
   .clock.warn{color:var(--warn)} .clock.over{color:var(--accent)}
+  .spotlight-chip{position:absolute;z-index:2;top:42px;left:9px;padding:4px 9px;border-radius:999px;
+    background:var(--accent);color:#fff;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
   .meta-row{position:absolute;bottom:9px;left:9px;right:9px;display:flex;gap:6px;align-items:center}
   .pill{padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;
     background:rgba(7,9,18,.82);border:1px solid var(--line-strong);backdrop-filter:blur(6px)}
@@ -90,8 +95,14 @@
   .seat.win b{color:var(--good)}
   .vs{color:var(--dim);font-size:11px;font-weight:800}
   .sub{font-size:11.5px;color:var(--dim);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .acts{display:flex;gap:7px;margin-top:auto}
+  .room-motion{color:var(--muted);font-size:11.5px;line-height:1.4;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .acts{display:flex;gap:7px;margin-top:auto;flex-wrap:wrap}
   .acts .btn{flex:1;text-align:center;padding:8px 6px;font-size:.78rem;text-decoration:none}
+  .acts .btn-spotlight{flex-basis:100%;border-color:rgba(239,68,68,.55);color:#fecaca}
+  .tile[data-spotlight="yes"] .btn-spotlight{background:var(--accent);border-color:var(--accent);color:#fff}
+  .spotlight-now{padding:5px 9px;border-radius:999px;background:rgba(239,68,68,.16);
+    border:1px solid rgba(239,68,68,.45);color:#fecaca;font-size:11px;font-weight:800}
 
   .empty-all{padding:60px 20px;text-align:center;color:var(--dim);border:1px dashed var(--line-strong);
     border-radius:14px;margin-top:16px}
@@ -104,6 +115,7 @@
   .warnbar{margin-top:14px;padding:11px 14px;border-radius:11px;font-size:.86rem;
     background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fcd34d}
   .warnbar b{color:#fde68a}
+  @media(max-width:760px){.tile[data-spotlight="yes"]{grid-column:span 1}.tile[data-spotlight="yes"] .shot{aspect-ratio:16/9}}
 </style>
 </head>
 <body>
@@ -124,6 +136,7 @@
     <div class="stat"><b id="sLive">—</b><span>Speaking</span></div>
     <div class="stat"><b id="sFlag">—</b><span>Need you</span></div>
     <div class="grow"></div>
+    <span class="spotlight-now" id="spotlightNow" hidden></span>
     <select id="roundSel" title="Which draw to watch"></select>
     <button class="btn" id="refresh">Refresh</button>
     <span class="pulse"><i></i><span id="pulseTxt">live</span></span>
@@ -158,7 +171,7 @@
   var TKEY = params.get('t') || 'the-debatable-open';
   var POLL_MS = 5000;
 
-  var state = { rooms: [], serverSkew: 0, round: null, timer: null, pollTimer: null };
+  var state = { rooms: [], spotlightRoom: '', serverSkew: 0, round: null, timer: null, pollTimer: null };
 
   auth.onAuthStateChanged(function(u){
     if (!u){ $('gate').hidden = false; $('app').hidden = true; return; }
@@ -192,6 +205,21 @@
     });
   }
 
+  function post(path, body){
+    return auth.currentUser.getIdToken().then(function(tok){
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify(body),
+      }).then(function(r){
+        return r.json().then(function(j){
+          if (!r.ok) throw new Error((j && j.error) || 'That did not go through.');
+          return j;
+        });
+      });
+    });
+  }
+
   function load(){
     var q = '/api/director?t=' + encodeURIComponent(TKEY);
     var sel = $('roundSel').value;
@@ -213,7 +241,10 @@
   function render(d){
     var t = d.tournament || {};
     var r = d.round || {};
-    state.rooms = d.rooms || [];
+    state.spotlightRoom = String(t.spotlightRoom || '');
+    state.rooms = (d.rooms || []).slice().sort(function(a, b){
+      return Number(b.room === state.spotlightRoom) - Number(a.room === state.spotlightRoom);
+    });
     // Every tile's clock is rebased against the server's clock, not the
     // browser's. Two machines on this site have been measured 22
     // seconds apart, and a broadcast clock that disagrees with the room
@@ -230,39 +261,49 @@
     $('sLive').textContent = speaking;
     $('sFlag').textContent = flagged;
     $('sFlag').style.color = flagged ? 'var(--warn)' : '';
-    $('motion').innerHTML = r.motion
+    $('motion').innerHTML = r.key === 'live'
+      ? '<b>One tile per active tournament room.</b>'
+      : r.motion
       ? ('<b>Motion:</b> ' + esc(r.motion))
       : (r.released ? '<b>No motion set on this draw.</b>' : 'This draw has not been released yet, so nobody can see their room.');
+
+    var spotlightRoom = state.rooms.filter(function(room){ return room.room === state.spotlightRoom; })[0];
+    $('spotlightNow').hidden = !state.spotlightRoom;
+    $('spotlightNow').textContent = spotlightRoom
+      ? ('Spotlight: ' + (spotlightRoom.gov.name || 'Gov') + ' vs ' + (spotlightRoom.opp.name || 'Opp'))
+      : (state.spotlightRoom ? 'Spotlight set on another round' : '');
 
     // The one standing hazard on a synchronous day: the queue open at
     // the same time as a released draw. Both engines seat people, and
     // until 2026-08-26 neither could see the other.
-    $('warn').innerHTML = (t.dropIn && r.released)
+    $('warn').innerHTML = (t.dropIn && r.released && r.key !== 'live')
       ? '<div class="warnbar"><b>The drop-in queue is open while a draw is live.</b> '
         + 'Entrants can be seated a second time, in a second room, off the draw. '
         + 'Turn the queue off for a synchronous day.</div>'
       : '';
 
     var opts = [];
+    if (t.dropIn) opts.push({ k: 'live', label: 'Live rooms' });
     for (var i = 1; i <= (t.prelimRounds || 0); i++) opts.push({ k: 'r' + i, label: 'Round ' + i });
     for (var e = 1; e <= 4; e++) opts.push({ k: 'e' + e, label: 'Elim ' + e });
     var sel = $('roundSel');
-    if (sel.options.length !== opts.length){
-      sel.innerHTML = opts.map(function(o){ return '<option value="' + o.k + '">' + o.label + '</option>'; }).join('');
-    }
+    sel.innerHTML = opts.map(function(o){ return '<option value="' + o.k + '">' + o.label + '</option>'; }).join('');
     if (r.key) sel.value = r.key;
 
     var grid = $('grid');
     if (!state.rooms.length){
       grid.innerHTML = '';
       grid.insertAdjacentHTML('beforeend',
-        '<div class="empty-all">No rooms in this draw yet. Pair the round in the control room.</div>');
+        '<div class="empty-all">' + (r.key === 'live'
+          ? 'No tournament rooms are live right now.'
+          : 'No rooms in this draw yet. Pair the round in the control room.') + '</div>');
       $('foot').textContent = '';
       return;
     }
 
     grid.innerHTML = state.rooms.map(function(room){
       var st = room.state;
+      var spotlighted = room.room === state.spotlightRoom;
       var winner = room.result && room.result.winner;
       var shot = room.shot
         ? '<img alt="" src="/api/room-shot?room=' + encodeURIComponent(room.room) + '&v=' + room.shot + '">'
@@ -278,9 +319,10 @@
       var stage = '/live-round?room=' + encodeURIComponent(room.room) + '&stage=1';
       var spec  = '/live-round?room=' + encodeURIComponent(room.room) + '&spectate=1';
       return ''
-      + '<div class="tile" data-state="' + esc(st) + '" data-stream="' + (room.streamable ? 'yes' : 'no') + '" data-room="' + esc(room.room) + '">'
+      + '<div class="tile" data-state="' + esc(st) + '" data-stream="' + (room.streamable ? 'yes' : 'no') + '" data-spotlight="' + (spotlighted ? 'yes' : 'no') + '" data-room="' + esc(room.room) + '">'
       +   '<div class="shot">' + shot
       +     '<span class="chip" data-s="' + esc(st) + '">' + esc(STATE_LABEL[st] || st) + '</span>'
+      +     (spotlighted ? '<span class="spotlight-chip">Spotlight</span>' : '')
       +     '<span class="clock" data-clock="' + esc(room.room) + '"></span>'
       +     '<div class="meta-row">' + rec + stream + watch + '</div>'
       +   '</div>'
@@ -291,16 +333,19 @@
       +       '<div class="seat' + (winner === 'opp' ? ' win' : '') + '" style="text-align:right"><span>Opp</span><b>' + esc(room.opp.name || '—') + '</b></div>'
       +     '</div>'
       +     '<div class="sub">'
-      +       '<span>Room ' + room.index + '</span>'
+      +       '<span>' + esc(room.roundLabel || ('Room ' + room.index)) + '</span>'
       +       (room.bracket ? '<span>' + esc(room.bracket) + '</span>' : '')
       +       '<span>' + room.present + '/2 present</span>'
       +     '</div>'
+      +     (room.motion ? '<div class="room-motion">' + esc(room.motion) + '</div>' : '')
       +     '<div class="acts">'
       +       '<a class="btn btn-live" href="' + spec + '" target="_blank" rel="noopener">Watch</a>'
       +       '<a class="btn btn-stage" href="' + stage + '" target="_blank" rel="noopener"'
       +          (room.streamable ? '' : ' title="This preliminary recording is not cleared for the main broadcast."')
       +          '>Stage</a>'
       +       '<button class="btn" data-copy="' + esc(stage) + '">Copy</button>'
+      +       '<button class="btn btn-spotlight" data-spotlight-room="' + esc(room.room) + '">'
+      +         (spotlighted ? 'Remove spotlight' : 'Spotlight') + '</button>'
       +     '</div>'
       +   '</div>'
       + '</div>';
@@ -316,9 +361,28 @@
       });
     });
 
+    grid.querySelectorAll('[data-spotlight-room]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var room = b.getAttribute('data-spotlight-room');
+        var clearing = room === state.spotlightRoom;
+        b.disabled = true;
+        b.textContent = 'Working';
+        post('/api/director/spotlight', {
+          action: clearing ? 'clear' : 'spotlight',
+          t: TKEY,
+          room: room,
+        }).then(load).catch(function(e){
+          b.disabled = false;
+          b.textContent = clearing ? 'Remove spotlight' : 'Spotlight';
+          $('foot').textContent = String(e && e.message || e);
+        });
+      });
+    });
+
     $('foot').textContent = 'Watch opens the room invisibly: no tile, no name, no mic. '
       + 'Stage is the chromeless view for OBS. A room marked Do not stream may be watched to '
       + 'direct the day, but its preliminary recording is private and must not be broadcast. '
+      + 'Spotlight moves one public room to the front of the tournament floor. It does not add the room to the main broadcast. '
       + 'Updated ' + new Date(d.at).toLocaleTimeString() + '.';
     tickClocks();
   }
