@@ -82,10 +82,10 @@ check('visible brand page carries the same founder answer',
 check('brand page disambiguates similarly named products',
   about.includes('<h2>Which Debatable is this?</h2>')
   && /independent from other apps, websites, and organizations/.test(about));
-check('AI guide names the official product and domain first',
-  llms.startsWith('# Debatable\n\n> Debatable is the live online debate platform at https://itsdebatable.com/'));
+check('AI guide names the ranked show and official domain first',
+  llms.startsWith('# Debatable\n\n> Debatable is the ranked show for live argument at https://itsdebatable.com/'));
 check('AI guide is dated and disambiguates the brand',
-  llms.includes('Last reviewed: 2026-08-27')
+  llms.includes('Last reviewed: 2026-08-28')
   && llms.includes('independent from other apps, websites, or organizations'));
 check('AI guide links the canonical identity page',
   llms.includes('[Debatable official facts](https://itsdebatable.com/debatable)'));
