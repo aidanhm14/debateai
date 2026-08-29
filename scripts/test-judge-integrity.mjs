@@ -159,7 +159,10 @@ function t(label, cond) {
     jurors.every((j) => !!j.provider && !!j.model));
   t('the panel spans three model families',
     new Set(jurors.map((j) => j.provider)).size === 3);
-  t('the Open council requires all three seats to return', current.panel.minimumVotes === 3);
+  t('the live Open council lets two matching votes carry through one provider outage',
+    current.id === '2026-open-majority'
+      && current.panel.quorum === 2
+      && current.panel.minimumVotes === 2);
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
   // Effort changes how a ballot is reached, so an undisclosed effort is
   // the same quiet dial as an undisclosed model.

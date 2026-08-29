@@ -408,7 +408,11 @@ SEASONS.push({
 SEASONS.push({
   id: '2026-open-council',
   from: Date.UTC(2026, 7, 29, 10),
-  to: Date.UTC(2027, 3, 1),
+  // Closed while the Open was live. Requiring all three configured
+  // providers to answer turned one provider outage into a room with no
+  // result even when the other two judges agreed. This entry is kept
+  // intact as the record for ballots judged before the change.
+  to: Date.UTC(2026, 7, 29, 15),
   rubricVersion: 'adjudication-2026-08c',
   published: true,
   panel: {
@@ -417,6 +421,25 @@ SEASONS.push({
   },
   note:
     'The three pinned model families and the published casual one-on-one rubric are unchanged. All three council seats must return before a two-vote majority can carry. A short council retries instead of presenting two judges as three.',
+});
+
+// The Open's live correction keeps the same three pinned judges, rubric,
+// and two-vote majority. It removes only the all-three-return condition:
+// two matching votes now carry when one provider is unavailable. A 1-1
+// split remains unresolved, and a single returned vote still uses the
+// separately disclosed emergency path rather than posing as a council.
+SEASONS.push({
+  id: '2026-open-majority',
+  from: Date.UTC(2026, 7, 29, 15),
+  to: Date.UTC(2027, 3, 1),
+  rubricVersion: 'adjudication-2026-08c',
+  published: true,
+  panel: {
+    ...SEASONS[SEASONS.length - 1].panel,
+    minimumVotes: 2,
+  },
+  note:
+    'The three pinned model families and the published casual one-on-one rubric are unchanged. Two matching votes carry when one provider is unavailable. A split council remains unresolved, and a one-vote emergency ballot is labeled as a single judge.',
 });
 
 export const SEASON_IDS = SEASONS.map((s) => s.id);
