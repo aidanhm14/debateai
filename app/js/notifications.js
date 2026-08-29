@@ -1780,12 +1780,13 @@
     // stay off it rather than delete it).
     function inRound() { return ON_ROUND || daPresenceKind() === 'round'; }
     function inSpar() { return ON_SPAR || daPresenceKind() === 'spar'; }
-    function busyElsewhere() { return inRound() || inSpar(); }
+    function busyElsewhere() { return inRound() || inSpar() || !!tournamentSeat; }
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
     var myUid = null, myUser = null, db = null, myRef = null;
-    var ownUnsub = null, hbTimer = null, scanTimer = null;
+    var ownUnsub = null, seatUnsub = null, hbTimer = null, scanTimer = null;
+    var tournamentSeat = null;
     var pill = null, overlay = null, handledRoom = null, navigating = false;
     // Ready-check state. consentRoom marks the room we've already shown a
     // card for, so the snapshot that lands when our own accept writes
@@ -1875,7 +1876,14 @@
       b.setAttribute('aria-label', 'Background sparring');
       b.style.display = 'none';
       b.innerHTML = '<span class="da-spar-pill__dot" aria-hidden="true"></span><span class="da-spar-pill__lab">Spar live</span><span class="da-spar-pill__off" aria-hidden="true">×</span>';
-      b.addEventListener('click', function (e) { e.stopPropagation(); setAvailable(!available); });
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (tournamentSeat) {
+          location.href = tournamentSeat.deskUrl || '/tournaments';
+          return;
+        }
+        setAvailable(!available);
+      });
       return b;
     }
     function placePill(p) {
@@ -1924,8 +1932,45 @@
       var show = myUid && !ON_ROUND && !ON_SPAR && !MATCHING_PAUSED;
       pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
-      if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
+      if (tournamentSeat) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Tournament match'; pill.title = 'Your tournament room has your seat. General matching is paused until the result is in. Tap to open the tournament desk.'; pill.setAttribute('aria-label', 'Reserved for your tournament match. Open the tournament desk.'); }
+      else if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
+    }
+
+    // Server-owned tournament reservations make an assigned seat exclusive
+    // across tabs and devices. Keep the standing Spar preference untouched:
+    // it resumes after the tournament result removes this reservation.
+    function watchTournamentSeat(user) {
+      if (seatUnsub) { try { seatUnsub(); } catch (e) {} seatUnsub = null; }
+      var hadSeat = !!tournamentSeat;
+      tournamentSeat = null;
+      paintPill();
+      if (!user) return;
+      ensureFirestore(function () {
+        if (!myUid || myUid !== user.uid) return;
+        var seatRef;
+        try { seatRef = window.firebase.firestore().collection('active_tournament_seats').doc(user.uid); }
+        catch (e) { return; }
+        seatUnsub = seatRef.onSnapshot(function (doc) {
+          var before = !!tournamentSeat;
+          tournamentSeat = doc.exists ? (doc.data() || {}) : null;
+          paintPill();
+          if (tournamentSeat) {
+            goOffline();
+            if (!before && !MATCHING_PAUSED) {
+              sparNote('Your tournament room has your seat. General matching is paused until the result is in.');
+            }
+            return;
+          }
+          if ((before || hadSeat) && available && myUid && !busyElsewhere() && !MATCHING_PAUSED && !navigating && !overlay) {
+            goAvailable();
+          }
+        }, function () {
+          // The server matcher still enforces the reservation if this
+          // advisory listener is unavailable. Never clear a known seat on a
+          // transient read error.
+        });
+      });
     }
 
     // ── availability ──
@@ -2118,7 +2163,7 @@
         if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
         // Only a round drops the doc. On /spar that doc belongs to the
         // matchmaker tab and deleting it would cancel their search.
-        if (inRound() && myRef) myRef.delete().catch(function () {});
+        if ((inRound() || tournamentSeat) && myRef) myRef.delete().catch(function () {});
         return;
       }
       if (!pausedForRound) return;
@@ -2643,6 +2688,7 @@
         var queueUser = isQueueUser(u) ? u : null;
         myUid = queueUser ? queueUser.uid : null;
         myUser = queueUser;
+        watchTournamentSeat(queueUser);
         paintPill();
         // 2026-08-23 (Aidan: "make it so ppl are available when using
         // other parts of app"): availability defaults ON for signed-in

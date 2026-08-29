@@ -905,6 +905,16 @@ if [ -f "$TROUND_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+TOURNAMENT_SEAT_GUARD="$REPO_ROOT/scripts/test-tournament-seat-exclusive.mjs"
+if [ -f "$TOURNAMENT_SEAT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-tournament-seat-exclusive.mjs >/tmp/tournament-seat-guard.log 2>&1); then
+    echo "[tournament-seat-guard] commit blocked - tournament assignments are not exclusive from general matching:" >&2
+    tail -30 /tmp/tournament-seat-guard.log >&2
+    echo "[tournament-seat-guard] see scripts/test-tournament-seat-exclusive.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # The two rules that decide a cash placement at the Open: the points
 # ledger that ranks a drop-in day, and the crowd verdict that decides the
 # final. Both are published in the tournament rules before the event, so

@@ -481,6 +481,17 @@ service cloud.firestore {
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 
+    // Server-owned exclusive seat for a tournament pairing. A person may
+    // read only their own reservation so the sitewide availability pill can
+    // say "Tournament match" and stand down from the general Spar pool.
+    // Clients never write this collection: the tournament pairing and result
+    // functions create and release it with the Admin SDK.
+    match /active_tournament_seats/{seatUid} {
+      allow get: if isSignedIn()
+                 && seatUid == request.auth.uid;
+      allow list, create, update, delete: if false;
+    }
+
     // ── guest_rounds ─────────────────────────────────────────────────
     // The guest allowance for /spar (2026-08-19). One doc per anonymous uid:
     // { anonymous, rounds, firstSeenAt, lastRoundAt }. Written ONLY by

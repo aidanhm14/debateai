@@ -326,30 +326,95 @@ async function announceTournamentChat(db, t, messageId, text) {
 // it replaced. report-result already clears `inPairing` unconditionally
 // (and says why), so a finished round hands people back either way.
 //
-// Cheap by construction: one batch over at most a few dozen entries,
-// and the pairing ids are already the value the queue's loadPairing
-// parses ('r1-1' splits to the round key 'r1', same as 'd7-1').
-async function applySeating(db, tid, pairings, prevPairings) {
+// Bounded by the draw: one transaction over at most a few dozen entries,
+// user reservations, and stale general-queue docs. The pairing ids are
+// already the value the queue's loadPairing parses ('r1-1' splits to the
+// round key 'r1', same as 'd7-1').
+async function applySeating(db, tid, tournament, pairings, prevPairings, entries) {
   const entriesRef = db.collection('tournaments').doc(tid).collection('entries');
+  const byId = new Map((entries || []).map((entry) => [String(entry.entryId), entry]));
   const seated = new Map();
+  const seatedUsers = new Map();
   for (const p of pairings || []) {
     if (p.govEntry) seated.set(p.govEntry, p.pairingId || '');
     if (p.oppEntry) seated.set(p.oppEntry, p.pairingId || '');
+    for (const entryId of [p.govEntry, p.oppEntry]) {
+      const entry = byId.get(String(entryId || '')) || {};
+      for (const rawUid of Array.isArray(entry.members) ? entry.members : []) {
+        const uid = String(rawUid || '').trim();
+        if (!uid) continue;
+        seatedUsers.set(uid, {
+          uid,
+          tid,
+          entryId: String(entryId || ''),
+          pairingId: String(p.pairingId || ''),
+          room: String(p.room || ''),
+          roundKey: String(p.pairingId || '').split('-')[0],
+        });
+      }
+    }
   }
   // A redraw must release anyone the new draw does not seat, or the
   // discarded draw locks them out of the queue with a pairing id that
   // no longer resolves.
   const released = [];
+  const releasedUsers = new Map();
   for (const p of prevPairings || []) {
     for (const id of [p.govEntry, p.oppEntry]) {
-      if (id && !seated.has(id)) released.push(id);
+      if (id && !seated.has(id)) {
+        released.push(id);
+        const entry = byId.get(String(id)) || {};
+        for (const rawUid of Array.isArray(entry.members) ? entry.members : []) {
+          const uid = String(rawUid || '').trim();
+          if (!uid || seatedUsers.has(uid)) continue;
+          const ids = releasedUsers.get(uid) || new Set();
+          ids.add(String(p.pairingId || ''));
+          releasedUsers.set(uid, ids);
+        }
+      }
     }
   }
-  if (!seated.size && !released.length) return;
-  const batch = db.batch();
-  for (const [id, pairingId] of seated) batch.update(entriesRef.doc(id), { inPairing: pairingId });
-  for (const id of new Set(released)) batch.update(entriesRef.doc(id), { inPairing: '' });
-  await batch.commit();
+  if (!seated.size && !released.length && !seatedUsers.size) return;
+
+  // The entry-level inPairing flag keeps the two tournament draw engines
+  // from seating somebody twice. The user-level reservation below closes
+  // the other door: the sitewide Spar pool is a separate collection and
+  // used to keep advertising an assigned tournament entrant as available.
+  // Write the reservation and delete any general queue doc atomically so a
+  // second tab or device cannot win the gap between those two operations.
+  await db.runTransaction(async (tx) => {
+    const releaseUids = Array.from(releasedUsers.keys());
+    const releaseSnaps = await Promise.all(releaseUids.map((uid) =>
+      tx.get(db.collection('active_tournament_seats').doc(uid))));
+    const releaseReads = releaseUids.map((uid, i) => [uid, releaseSnaps[i]]);
+
+    for (const [id, pairingId] of seated) tx.update(entriesRef.doc(id), { inPairing: pairingId });
+    for (const id of new Set(released)) tx.update(entriesRef.doc(id), { inPairing: '' });
+
+    for (const [uid, seat] of seatedUsers) {
+      const deskKey = String(tournament?.slug || tid);
+      tx.set(db.collection('active_tournament_seats').doc(uid), {
+        ...seat,
+        tournamentName: String(tournament?.name || 'Tournament').slice(0, 100),
+        tournamentSlug: String(tournament?.slug || '').slice(0, 100),
+        deskUrl: tournament?.slug === 'the-debatable-open'
+          ? '/open'
+          : '/tournament?t=' + encodeURIComponent(deskKey),
+        assignedAt: FieldValue.serverTimestamp(),
+      });
+      tx.delete(db.collection('matchmaking_queue').doc(uid));
+    }
+
+    // A redraw may release an old seat. Delete only the reservation that
+    // belongs to that discarded draw, never a newer seat another tournament
+    // may have written for the same account in the meantime.
+    for (const [uid, snap] of releaseReads) {
+      const old = snap.exists ? (snap.data() || {}) : {};
+      if (old.tid === tid && releasedUsers.get(uid)?.has(String(old.pairingId || ''))) {
+        tx.delete(snap.ref);
+      }
+    }
+  });
 }
 
 // Every tournament room is publicly watchable but roster-controlled for
@@ -542,6 +607,37 @@ export default async (request) => {
     return jsonResponse({ ok: true, ...chat }, 200, request);
   }
 
+  // Idempotent recovery for a live day that was paired before user-level
+  // tournament reservations existed. It rebuilds reservations only for
+  // pairings the entry docs still say are active, and is also useful after
+  // an interrupted draw write. The control-room button gives the director a
+  // safe operational repair without redrawing or changing any room.
+  if (action === 'sync-seating') {
+    const entries = await loadEntries(db, tid);
+    const byId = new Map(entries.map((entry) => [String(entry.entryId), entry]));
+    const rounds = await t.ref.collection('rounds').get();
+    const pairings = [];
+    for (const roundDoc of rounds.docs) {
+      for (const p of Array.isArray(roundDoc.data().pairings) ? roundDoc.data().pairings : []) {
+        if (!p || p.status === 'complete') continue;
+        const gov = byId.get(String(p.govEntry || ''));
+        const opp = byId.get(String(p.oppEntry || ''));
+        if ((gov && gov.inPairing === p.pairingId) || (opp && opp.inPairing === p.pairingId)) {
+          pairings.push(p);
+        }
+      }
+    }
+    await applySeating(db, tid, t.data, pairings, [], entries);
+    const people = new Set();
+    pairings.forEach((p) => {
+      [p.govEntry, p.oppEntry].forEach((entryId) => {
+        const entry = byId.get(String(entryId || '')) || {};
+        (Array.isArray(entry.members) ? entry.members : []).forEach((uid) => people.add(String(uid)));
+      });
+    });
+    return jsonResponse({ ok: true, pairings: pairings.length, people: people.size }, 200, request);
+  }
+
   // ── pair-round ──────────────────────────────────────────────────
   // Generate the next prelim draw. Written as 'pending' so the
   // director can look at it before anyone else can: a draw is not
@@ -604,7 +700,7 @@ export default async (request) => {
       pairedAt: FieldValue.serverTimestamp(),
     });
     // Seat the new draw and release whatever a redraw just discarded.
-    await applySeating(db, tid, pairings, existing.exists ? (existing.data().pairings || []) : []);
+    await applySeating(db, tid, t.data, pairings, existing.exists ? (existing.data().pairings || []) : [], all);
     await stampTournamentRooms(db, tid, t.data, pairings, entries, key);
     return jsonResponse({
       ok: true,
@@ -686,11 +782,26 @@ export default async (request) => {
         if (!govSnap.exists || !oppSnap.exists) return { ok: false, reason: 'entry_missing' };
         const govEntry = { entryId: p.govEntry, ...govSnap.data() };
         const oppEntry = { entryId: p.oppEntry, ...oppSnap.data() };
+        const seatUids = Array.from(new Set([
+          ...(Array.isArray(govEntry.members) ? govEntry.members : []),
+          ...(Array.isArray(oppEntry.members) ? oppEntry.members : []),
+        ].map((uid) => String(uid || '').trim()).filter(Boolean)));
+        const seatSnaps = await Promise.all(seatUids.map((uid) =>
+          tx.get(db.collection('active_tournament_seats').doc(uid))));
+        const releaseSeats = () => {
+          seatSnaps.forEach((seatSnap) => {
+            const seat = seatSnap.exists ? (seatSnap.data() || {}) : {};
+            if (seat.tid === tid && (seat.pairingId === pairingId || seat.room === p.room)) {
+              tx.delete(seatSnap.ref);
+            }
+          });
+        };
 
         // Retried manual reports are idempotent and also repair a rating
         // write if the standings transaction committed just before a
         // provider or Firestore interruption.
         if (p.status === 'complete' && !body?.amend) {
+          releaseSeats();
           return {
             ok: true,
             already: true,
@@ -736,6 +847,7 @@ export default async (request) => {
 
         tx.update(govRef, govPatch);
         tx.update(oppRef, oppPatch);
+        releaseSeats();
 
         pairings[idx] = {
           ...p,
@@ -843,7 +955,7 @@ export default async (request) => {
       }
     });
     await batch.commit();
-    await applySeating(db, tid, pairings, []);
+    await applySeating(db, tid, t.data, pairings, [], entries);
     await stampTournamentRooms(db, tid, t.data, pairings, entries, key);
     await t.ref.update({ status: 'break', breakSize: br.size, updatedAt: FieldValue.serverTimestamp() });
 
@@ -886,8 +998,8 @@ export default async (request) => {
       pairings: next,
       pairedAt: FieldValue.serverTimestamp(),
     });
-    await applySeating(db, tid, next, []);
     const allEntries = await loadEntries(db, tid);
+    await applySeating(db, tid, t.data, next, [], allEntries);
     await stampTournamentRooms(db, tid, t.data, next, allEntries, key);
     return jsonResponse({ ok: true, label, pairings: next }, 200, request);
   }

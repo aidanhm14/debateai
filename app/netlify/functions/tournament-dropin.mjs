@@ -379,6 +379,32 @@ async function attemptPairing(db, t, now, tuning) {
             });
           }
         }
+        for (const entryId of [p.govEntry, p.oppEntry]) {
+          const entry = entriesById.get(String(entryId || '')) || {};
+          for (const rawUid of Array.isArray(entry.members) ? entry.members : []) {
+            const uid = String(rawUid || '').trim();
+            if (!uid) continue;
+            const deskKey = String(tData.slug || t.id);
+            tx.set(db.collection('active_tournament_seats').doc(uid), {
+              uid,
+              tid: t.id,
+              entryId: String(entryId || ''),
+              pairingId: String(p.pairingId || ''),
+              room: String(p.room || ''),
+              roundKey: key,
+              tournamentName: String(tData.name || 'Tournament').slice(0, 100),
+              tournamentSlug: String(tData.slug || '').slice(0, 100),
+              deskUrl: tData.slug === 'the-debatable-open'
+                ? '/open'
+                : '/tournament?t=' + encodeURIComponent(deskKey),
+              assignedAt: FieldValue.serverTimestamp(),
+            });
+            // General Spar availability is a different pool. Remove it in
+            // the same transaction as the tournament seat so no tab or
+            // device can turn one person into two simultaneous matches.
+            tx.delete(db.collection('matchmaking_queue').doc(uid));
+          }
+        }
         // Clearing availableAt as they are seated is what keeps a
         // player out of the next pass while they are mid-round; the
         // result handler is what puts them back in the pool.

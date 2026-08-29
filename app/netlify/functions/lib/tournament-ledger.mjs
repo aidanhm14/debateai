@@ -85,6 +85,13 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
     const [g, o] = await Promise.all([tx.get(govRef), tx.get(oppRef)]);
     if (!g.exists || !o.exists) return { applied: false, reason: 'entry_gone' };
 
+    const seatUids = Array.from(new Set([
+      ...(Array.isArray(g.data().members) ? g.data().members : []),
+      ...(Array.isArray(o.data().members) ? o.data().members : []),
+    ].map((uid) => String(uid || '').trim()).filter(Boolean)));
+    const seatSnaps = await Promise.all(seatUids.map((uid) =>
+      tx.get(db.collection('active_tournament_seats').doc(uid))));
+
     const govSpeaks = Number.isFinite(Number(gov.speaks)) ? Number(gov.speaks) : 0;
     const oppSpeaks = Number.isFinite(Number(opp.speaks)) ? Number(opp.speaks) : 0;
 
@@ -114,6 +121,12 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
 
     tx.update(govRef, govPatch);
     tx.update(oppRef, oppPatch);
+    seatSnaps.forEach((seatSnap) => {
+      const seat = seatSnap.exists ? (seatSnap.data() || {}) : {};
+      if (seat.tid === tid && (seat.room === roomId || seat.pairingId === p.pairingId)) {
+        tx.delete(seatSnap.ref);
+      }
+    });
 
     pairings[idx] = {
       ...p,

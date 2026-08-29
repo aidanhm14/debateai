@@ -662,6 +662,32 @@ export default async (request) => {
   const queue = db.collection('matchmaking_queue');
   const myRef = queue.doc(myUid);
   const peerRef = queue.doc(peerUid);
+  const seats = db.collection('active_tournament_seats');
+  const myTournamentSeatRef = seats.doc(myUid);
+  const peerTournamentSeatRef = seats.doc(peerUid);
+
+  // Tournament assignments are exclusive. The client also listens to its
+  // own reservation so the pill tells the truth, but this server check is
+  // the authority across stale tabs, old bundles, and other devices.
+  try {
+    const [mySeat, peerSeat] = await Promise.all([
+      myTournamentSeatRef.get(),
+      peerTournamentSeatRef.get(),
+    ]);
+    if (mySeat.exists) {
+      await myRef.delete().catch(() => {});
+      return jsonResponse({ ok: false, reason: 'tournament_seat_active' }, 200, request);
+    }
+    if (peerSeat.exists) {
+      await Promise.all([myRef.delete().catch(() => {}), peerRef.delete().catch(() => {})]);
+      return jsonResponse({ ok: false, reason: 'peer_ineligible', skipPeer: peerUid }, 200, request);
+    }
+  } catch (err) {
+    // Fail closed. Availability is not worth risking two rooms for one
+    // person when the server cannot verify the reservation collection.
+    console.warn('[spar-pair] tournament seat read failed:', err?.message || err);
+    return jsonResponse({ ok: false, reason: 'availability_check_failed' }, 200, request);
+  }
 
   // ── action: 'consent' — phase 2 of the handshake ───────────────
   if (action === 'consent') {
@@ -699,10 +725,21 @@ export default async (request) => {
     };
     try {
       const result = await db.runTransaction(async (tx) => {
-        const [mineSnap, theirsSnap] = await Promise.all([
+        const [mineSnap, theirsSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
           tx.get(myRef),
           tx.get(peerRef),
+          tx.get(myTournamentSeatRef),
+          tx.get(peerTournamentSeatRef),
         ]);
+        if (mySeatSnap.exists) {
+          if (mineSnap.exists) tx.delete(myRef);
+          return { ok: false, reason: 'tournament_seat_active' };
+        }
+        if (peerSeatSnap.exists) {
+          if (mineSnap.exists) tx.delete(myRef);
+          if (theirsSnap.exists) tx.delete(peerRef);
+          return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
+        }
         if (!mineSnap.exists) return { ok: false, reason: 'consent_state_gone' };
         const mine = mineSnap.data();
         const theirs = theirsSnap.exists ? theirsSnap.data() : null;
@@ -889,7 +926,21 @@ export default async (request) => {
   if (action === 'draft') {
     try {
       const result = await db.runTransaction(async (tx) => {
-        const [mineSnap, theirsSnap] = await Promise.all([tx.get(myRef), tx.get(peerRef)]);
+        const [mineSnap, theirsSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
+          tx.get(myRef),
+          tx.get(peerRef),
+          tx.get(myTournamentSeatRef),
+          tx.get(peerTournamentSeatRef),
+        ]);
+        if (mySeatSnap.exists) {
+          if (mineSnap.exists) tx.delete(myRef);
+          return { ok: false, reason: 'tournament_seat_active' };
+        }
+        if (peerSeatSnap.exists) {
+          if (mineSnap.exists) tx.delete(myRef);
+          if (theirsSnap.exists) tx.delete(peerRef);
+          return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
+        }
         if (!mineSnap.exists) return { ok: false, reason: 'consent_state_gone' };
         const mine = mineSnap.data();
         const theirs = theirsSnap.exists ? theirsSnap.data() : null;
@@ -1057,12 +1108,24 @@ export default async (request) => {
 
   try {
     const result = await db.runTransaction(async (tx) => {
-      const [mineSnap, theirsSnap, myBlockSnap, peerBlockSnap] = await Promise.all([
+      const [mineSnap, theirsSnap, myBlockSnap, peerBlockSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
         tx.get(myRef),
         tx.get(peerRef),
         tx.get(myBlockRef),
         tx.get(peerBlockRef),
+        tx.get(myTournamentSeatRef),
+        tx.get(peerTournamentSeatRef),
       ]);
+
+      if (mySeatSnap.exists) {
+        if (mineSnap.exists) tx.delete(myRef);
+        return { ok: false, reason: 'tournament_seat_active' };
+      }
+      if (peerSeatSnap.exists) {
+        if (mineSnap.exists) tx.delete(myRef);
+        if (theirsSnap.exists) tx.delete(peerRef);
+        return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
+      }
 
       if (!mineSnap.exists || !theirsSnap.exists) {
         return { ok: false, reason: 'queue_doc_missing' };
