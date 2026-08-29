@@ -75,6 +75,12 @@ const TWITCH_PARENTS = (process.env.STREAM_TWITCH_PARENTS
   || 'itsdebatable.com,www.itsdebatable.com,debateos1.netlify.app')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
+// Native is the public-site default. It gives Debatable its own player
+// while Daily remains an invisible receive-only transport. Set this to
+// `embed` only when the on-site audience needs the CDN restream too.
+// Twitch still receives the RTMP output in either mode.
+const SITE_PLAYER = process.env.STREAM_SITE_PLAYER === 'embed' ? 'embed' : 'native';
+
 // Escape hatch for any other HLS provider (Cloudflare Stream, Mux, a
 // self-hosted player page): a full player URL, embedded verbatim.
 const EMBED_URL = process.env.STREAM_EMBED_URL || '';
@@ -93,6 +99,11 @@ function watchEmbedUrl(){
          + encodeURIComponent(YT_CHANNEL) + '&autoplay=1&mute=1&playsinline=1';
   }
   return null;
+}
+
+function externalWatchUrl(){
+  if (!RTMP_URL || !TWITCH_CHANNEL) return null;
+  return 'https://www.twitch.tv/' + encodeURIComponent(TWITCH_CHANNEL);
 }
 
 function dailyHeaders(){
@@ -242,6 +253,8 @@ export default async (req) => {
       // fall back to joining the room".
       watchEmbedUrl: watchEmbedUrl(),
       restream: !!RTMP_URL,
+      sitePlayer: SITE_PLAYER,
+      externalWatchUrl: externalWatchUrl(),
       startedAt: FieldValue.serverTimestamp(),
       startedBy: uid,
       endedAt: null,
@@ -256,6 +269,8 @@ export default async (req) => {
       recording: created.recording,
       restream: !!RTMP_URL,
       watchEmbedUrl: watchEmbedUrl(),
+      sitePlayer: SITE_PLAYER,
+      externalWatchUrl: externalWatchUrl(),
       studioUrl,
       rawRoomUrl: token ? url + '?t=' + encodeURIComponent(token) : url,
     }, 200, req);

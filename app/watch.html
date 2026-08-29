@@ -597,6 +597,7 @@ footer a{color:var(--dim)}
 <div id="daTopbar"></div>
 <script defer src="/js/round-presence.js"></script>
 <script defer src="/js/topbar.js"></script>
+<script src="/js/broadcast-viewer.js"></script>
 
 <div class="wrap">
   <header class="page-head">
@@ -617,7 +618,7 @@ footer a{color:var(--dim)}
       <span class="live-pill"><span class="live-dot"></span>LIVE</span>
       <span class="live-title" id="liveTitle">Live from the arena</span>
     </div>
-    <iframe class="live-frame" id="liveFrame" title="Live tournament stream" allow="autoplay; clipboard-write; fullscreen" allowfullscreen></iframe>
+    <div class="live-frame" id="liveFrame" aria-label="Live tournament stream"></div>
   </section>
 
   <!-- Replay player -->
@@ -1034,7 +1035,11 @@ footer a{color:var(--dim)}
 
   // ── Live stream band ─────────────────────────────────────────────
   var liveWasOn = false;
+  var livePlayer = window.DebatableBroadcast
+    ? window.DebatableBroadcast.mount($('liveFrame'), { analyticsEvent:'watch_live_player' })
+    : null;
   function pollLive(){
+    if (!livePlayer) return;
     fetch('/api/stream-status').then(function(r){ return r.json(); }).then(function(s){
       var band = $('liveBand');
       // Toggling the band mid-visit adds/removes ~700px above whatever
@@ -1046,19 +1051,13 @@ footer a{color:var(--dim)}
       var preH = band.offsetHeight;
       if (willBeOn){
         $('liveTitle').textContent = s.title || 'Live from the arena';
-        var frame = $('liveFrame');
-        // A restream embed (Twitch/YouTube player) beats joining the
-        // Daily room: uncapped audience, zero participant minutes.
-        var want = s.watchEmbedUrl
-          ? s.watchEmbedUrl
-          : s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
-        if (frame.src !== want) frame.src = want;
+        livePlayer.set(s);
         band.classList.add('on');
         if (!liveWasOn){ try { gtag('event', 'watch_live_shown'); } catch(e){} }
         liveWasOn = true;
       } else {
         band.classList.remove('on');
-        if (liveWasOn) $('liveFrame').src = 'about:blank';
+        if (liveWasOn) livePlayer.set({ live:false });
         liveWasOn = false;
       }
       if (wasOn !== willBeOn){

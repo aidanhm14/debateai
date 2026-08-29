@@ -27,6 +27,12 @@ export default async (req) => {
           // minutes. Absent means no restream is configured and the
           // player falls back to joining the room directly.
           watchEmbedUrl: d.watchEmbedUrl || null,
+          // Native keeps the site player Debatable-owned while the same
+          // room can still restream outward to Twitch. `embed` is an ops
+          // escape hatch for audiences larger than the Daily room cap.
+          sitePlayer: d.sitePlayer === 'embed' ? 'embed' : 'native',
+          restream: d.restream === true,
+          externalWatchUrl: d.externalWatchUrl || null,
           startedAt: d.startedAt && d.startedAt.toMillis ? d.startedAt.toMillis() : null,
         };
       }

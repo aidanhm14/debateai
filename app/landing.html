@@ -22495,11 +22495,11 @@ window.addEventListener('load', function(){
   window.__fsLive = {
     set: function(s){
       var live = !!(s && s.live);
-      // A restream is preferred over joining the room whenever one is
-      // running. It is the difference between an audience capped at the
-      // room's max_participants and an uncapped one, and it costs no
-      // Daily participant minutes at all.
-      var embed = live && s.watchEmbedUrl ? s.watchEmbedUrl : null;
+      // The public-site default is our own player, even while the same
+      // room is being restreamed to Twitch. Ops can switch sitePlayer to
+      // `embed` for an audience larger than the Daily room cap.
+      var preferEmbed = s.sitePlayer === 'embed' || !s.url;
+      var embed = live && preferEmbed && s.watchEmbedUrl ? s.watchEmbedUrl : null;
       var url = live && !embed && s.url ? s.url : null;
 
       if (embed !== embedUrl){

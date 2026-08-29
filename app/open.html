@@ -319,7 +319,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       <h2 class="main-broadcast-title" id="mainBroadcastTitle">Main tournament broadcast</h2>
       <span class="main-broadcast-unmute">Tap the player to unmute</span>
     </div>
-    <iframe class="main-broadcast-frame" id="mainBroadcastFrame" title="Main tournament broadcast" allow="autoplay; clipboard-write; fullscreen; picture-in-picture" allowfullscreen></iframe>
+    <div class="main-broadcast-frame" id="mainBroadcastFrame" aria-label="Main tournament broadcast"></div>
     <p class="main-broadcast-note"><strong>Keep this page open between rounds.</strong> The host calls pairings, timing, room changes, and event instructions here.</p>
   </section>
 
@@ -416,6 +416,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 <script defer src="/js/ui-neural.js"></script>
 <script defer src="/js/round-presence.js"></script>
 <script defer src="/js/topbar.js"></script>
+<script src="/js/broadcast-viewer.js"></script>
 
 <script>
 (function(){
@@ -563,34 +564,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // room. The host can speak from /studio, share the director view, or put
   // a selected Stage tab on screen while every entrant stays on this page.
   var mainBroadcastWasLive = false;
+  var mainBroadcastPlayer = window.DebatableBroadcast
+    ? window.DebatableBroadcast.mount($('mainBroadcastFrame'), { analyticsEvent:'open_main_broadcast_watch' })
+    : null;
   function renderMainBroadcast(s, demo){
+    if (!mainBroadcastPlayer) return;
     var live = !!(s && s.live && (demo || s.watchEmbedUrl || s.url));
     var changed = mainBroadcastWasLive !== live;
     var section = $('main-broadcast');
     var tab = $('mainBroadcastTab');
-    var frame = $('mainBroadcastFrame');
     show('main-broadcast', live);
     if (tab) tab.classList.toggle('hidden', !live);
     if (!live){
       if (mainBroadcastWasLive){
-        frame.removeAttribute('srcdoc');
-        frame.src = 'about:blank';
+        mainBroadcastPlayer.set({ live:false });
       }
       mainBroadcastWasLive = false;
       if (changed && state.data) renderNow();
       return;
     }
     $('mainBroadcastTitle').textContent = s.title || 'Main tournament broadcast';
-    if (demo){
-      frame.removeAttribute('src');
-      frame.srcdoc = '<!doctype html><html><body style="margin:0;background:#08090d;color:#fff;font-family:system-ui;display:grid;place-items:center;height:100vh"><div style="text-align:center"><div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#f87171;font-weight:800">Main broadcast preview</div><div style="font-size:28px;font-weight:800;margin-top:10px">Host desk and event instructions</div><div style="opacity:.65;margin-top:8px">The live Twitch or Daily player fills this frame.</div></div></body></html>';
-    } else {
-      frame.removeAttribute('srcdoc');
-      var want = s.watchEmbedUrl
-        ? s.watchEmbedUrl
-        : s.url + (s.url.indexOf('?') >= 0 ? '&' : '?') + 'startVideoOff=true&startAudioOff=true';
-      if (frame.src !== want) frame.src = want;
-    }
+    mainBroadcastPlayer.set(s, { demo:demo });
     if (!mainBroadcastWasLive){
       try { gtag('event', 'open_main_broadcast_shown'); } catch(e){}
     }

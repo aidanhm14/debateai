@@ -667,7 +667,7 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
         <a class="public-stream-open" href="/watch" target="_blank" rel="noopener">Open in Watch</a>
       </div>
       <div class="public-stream-frame">
-        <iframe id="publicStreamFrame" title="Live tournament stream" src="about:blank" allow="autoplay; clipboard-write; fullscreen" allowfullscreen></iframe>
+        <div id="publicStreamFrame" aria-label="Live tournament stream"></div>
       </div>
       <p class="public-stream-note">Open to everyone. The lead and cohost broadcast from the studio; viewers can watch but cannot join the camera or microphone.</p>
     </div>
@@ -1228,6 +1228,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
 
 <script src="/js/spar-night.js" defer></script>
 <script src="/js/share-poster.js" defer></script>
+<script src="/js/broadcast-viewer.js"></script>
 <script>
   // Public tournament broadcast first, then the ordinary live-round bar.
   // /api/stream-status is the same cached public read used by /watch. A
@@ -1239,8 +1240,11 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     var bar=document.getElementById('liveBar');
     var panel=document.getElementById('publicStream');
     var frame=document.getElementById('publicStreamFrame');
+    var player=window.DebatableBroadcast&&frame
+      ? window.DebatableBroadcast.mount(frame,{analyticsEvent:'tournaments_broadcast_watch'})
+      : null;
     var titleEl=document.getElementById('publicStreamTitle');
-    if(!bar||!panel||!frame)return;
+    if(!bar||!panel||!frame||!player)return;
     var motionEl=document.getElementById('liveBarMotion');
     var linkEl=document.getElementById('liveBarLink');
     var streamOn=false;
@@ -1250,13 +1254,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
       var wasOn=!panel.hidden;
       var oldHeight=panel.offsetHeight;
       if(on){
-        var want=s.watchEmbedUrl
-          ? s.watchEmbedUrl
-          : s.url+(s.url.indexOf('?')>=0?'&':'?')+'startVideoOff=true&startAudioOff=true';
-        if(frame.getAttribute('data-stream-src')!==want){
-          frame.src=want;
-          frame.setAttribute('data-stream-src',want);
-        }
+        player.set(s);
         titleEl.textContent=s.title||'Live from the arena';
         panel.hidden=false;
         if(motionEl)motionEl.textContent=s.title||'The tournament is live';
@@ -1265,10 +1263,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
       }else{
         panel.hidden=true;
         bar.classList.remove('is-on');
-        if(streamOn){
-          frame.src='about:blank';
-          frame.removeAttribute('data-stream-src');
-        }
+        if(streamOn)player.set({live:false});
       }
       streamOn=on;
 
