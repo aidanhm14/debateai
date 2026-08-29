@@ -14,6 +14,7 @@ import {
   advanceElim, resultPatch, byePatch, rng, seedFrom,
   pairDropIn, availableForDropIn,
 } from '../app/netlify/functions/lib/tournament.mjs';
+import { tournamentRatings } from '../app/netlify/functions/lib/tournament-rating.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -35,6 +36,30 @@ function makeField(n) {
     status: 'checked_in',
   }));
 }
+
+// The all-day ladder is event-only and rebuilds from authoritative results.
+// New arrivals start even, incomplete rooms do not count, and correcting a
+// stored winner reverses the table on the next read.
+(() => {
+  const entries = makeField(3);
+  const round = (winner) => ({
+    key: 'd1', seq: 1,
+    pairings: [{
+      pairingId: 'd1-1', status: 'complete', winner,
+      govEntry: 'e1', oppEntry: 'e2',
+    }, {
+      pairingId: 'd1-2', status: 'pending', winner: 'gov',
+      govEntry: 'e2', oppEntry: 'e3',
+    }],
+  });
+  const first = tournamentRatings(entries, [round('gov')]);
+  check('rating ladder: a first win moves 1500 to 1516', Math.round(first.get('e1').rating) === 1516);
+  check('rating ladder: a first loss moves 1500 to 1484', Math.round(first.get('e2').rating) === 1484);
+  check('rating ladder: an incomplete room does not count', first.get('e3').games === 0);
+  const amended = tournamentRatings(entries, [round('opp')]);
+  check('rating ladder: an amended winner rebuilds the event table',
+    Math.round(amended.get('e1').rating) === 1484 && Math.round(amended.get('e2').rating) === 1516);
+})();
 
 // Run a full prelim series. Results are decided by a seeded coin so
 // the simulation is reproducible but not degenerate (a "higher seed

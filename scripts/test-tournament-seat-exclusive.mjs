@@ -43,6 +43,11 @@ check('the host can release unresolved fixed rooms into the live queue',
   admin.includes("action === 'release-fixed-seating'")
     && admin.includes("await applySeating(db, tid, t.data, [], pairings, entries)")
     && page.includes("act('Move waiting rooms to live queue'"));
+check('the host can reopen an all-day rating ladder without erasing completed results',
+  admin.includes("action === 'open-rating-ladder'")
+    && admin.includes('ratingCompetition: true')
+    && admin.includes('registrationClosed: false')
+    && page.includes("act('Reopen rating rounds'"));
 check('releasing fixed rooms never erases a completed result',
   /release-fixed-seating[\s\S]{0,900}p\.status === 'complete'\) continue/.test(admin));
 check('old fixed-room cards stop acting like the person is still assigned',

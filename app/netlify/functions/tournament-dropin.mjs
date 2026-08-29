@@ -35,11 +35,9 @@ import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 // instead of being seated against someone who actually showed up.
 
 const READY_TTL_MS = 6 * 60 * 1000;   // mirrors DROPIN_AVAILABLE_MS in the lib
-// This is an operator launch gate, separate from the tournament status. A
-// host can move the event to `running` to start the admin broadcast without
-// unleashing public pairings. It defaults closed and must be enabled
-// explicitly in the environment when the product is ready.
-const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1';
+// A running drop-in tournament is pairable by default. An explicit 0 remains
+// the emergency stop, and is checked before auth or Firestore work below.
+const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED !== '0';
 // A matcher pass is cheap but not free (it reads every entry), and N
 // waiting clients all poll. One attempt per this interval per
 // tournament is plenty: the pool only changes when someone arrives or

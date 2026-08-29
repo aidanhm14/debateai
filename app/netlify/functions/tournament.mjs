@@ -3,6 +3,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { standings } from './lib/tournament.mjs';
 import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/tournament-motion-pool.mjs';
+import { tournamentRatings } from './lib/tournament-rating.mjs';
 
 // ── Tournament, participant and spectator side ─────────────────────
 //
@@ -23,11 +24,10 @@ import { publicTournamentMotionDraft, tournamentRegistrationOpen } from './lib/t
 
 const CACHE_TTL_MS = 8000;
 const cache = new Map();
-// Public tournament matchmaking stays dark until the operator makes an
-// explicit launch decision. Admin-created rooms and spectator feeds do not
-// use this flag. The same env gate is enforced again by tournament-dropin,
-// so a stale client cannot turn a host status change into public pairings.
-const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1';
+// Public tournament matchmaking is part of a running drop-in event. Keep an
+// explicit emergency stop, but do not make a missing deploy setting silently
+// remove the Ready button from everybody at the event.
+const PUBLIC_PAIRING_ENABLED = process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED !== '0';
 
 function cacheGet(key) {
   const hit = cache.get(key);
@@ -84,6 +84,9 @@ function publicTournament(id, d) {
     // Absent means true, so existing tournament docs need no migration.
     dropIn: d.dropIn !== false,
     publicPairingEnabled: PUBLIC_PAIRING_ENABLED && d.dropIn !== false,
+    // A rating event has no fixed round ceiling or elimination cut. Every
+    // completed tournament ballot moves this event's own 1500-point ladder.
+    ratingCompetition: d.ratingCompetition === true,
     // Editorial promotion only. Public pages may put this already-public
     // live room first; recording and main-broadcast permission remain
     // separate server-derived decisions.
@@ -307,22 +310,40 @@ export default async (request) => {
       .map((d) => publicRound(d.id, d.data()))
       .sort((a, b) => (a.kind === b.kind ? a.roundNo - b.roundNo : (a.kind === 'prelim' ? -1 : 1)));
 
-    const payload = {
-      ok: true,
-      tournament: publicTournament(t.id, t.data),
-      entries: entries.map(publicEntry),
-      // The tab. Computed from the same function the pairing engine
-      // uses, so what a team sees is exactly what the next draw will
-      // be built from.
-      standings: standings(entries).map((e, i) => ({
-        rank: i + 1,
+    const tournament = publicTournament(t.id, t.data);
+    const eventRatings = tournamentRatings(entries, roundSnap.docs.map((doc) => ({
+      key: doc.id,
+      ...(doc.data() || {}),
+    })));
+    const table = standings(entries).map((e) => {
+      const eventRating = eventRatings.get(String(e.entryId)) || { rating: 1500, games: 0 };
+      return {
         entryId: e.entryId,
         name: e.name || 'Team',
         affiliation: affById.get(e.entryId) || '',
         wins: e.wins,
         losses: Number(e.losses || 0),
         speaks: e.speaks,
-      })),
+        rating: Math.round(eventRating.rating),
+        ratingGames: eventRating.games,
+      };
+    });
+    if (tournament.ratingCompetition) {
+      table.sort((a, b) => b.rating - a.rating
+        || b.wins - a.wins
+        || b.speaks - a.speaks
+        || a.name.localeCompare(b.name));
+    }
+    table.forEach((row, i) => { row.rank = i + 1; });
+
+    const payload = {
+      ok: true,
+      tournament,
+      entries: entries.map(publicEntry),
+      // The tab. Computed from the same function the pairing engine
+      // uses, so what a team sees is exactly what the next draw will
+      // be built from.
+      standings: table,
       rounds,
     };
     cacheSet('t:' + key, payload);

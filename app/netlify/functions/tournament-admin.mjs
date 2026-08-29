@@ -642,7 +642,8 @@ export default async (request) => {
   // Completed pairings and their results stay untouched. Only unresolved
   // fixed pairings that still own an entry's active seat are released, so
   // pressing Ready can give that present person a new opponent.
-  if (action === 'release-fixed-seating') {
+  if (action === 'release-fixed-seating' || action === 'open-rating-ladder') {
+    const openingRatingLadder = action === 'open-rating-ladder';
     const entries = await loadEntries(db, tid);
     const byId = new Map(entries.map((entry) => [String(entry.entryId), entry]));
     const rounds = await t.ref.collection('rounds').get();
@@ -658,9 +659,26 @@ export default async (request) => {
       }
     }
     await applySeating(db, tid, t.data, [], pairings, entries);
+    // A bracket cut may have marked checked-in people eliminated. Reopening
+    // as an all-day ladder restores those present entries, while registered
+    // arrivals still have to check themselves in and withdrawn people stay
+    // out. New registration is explicitly reopened as part of the same door.
+    if (openingRatingLadder) {
+      const batch = db.batch();
+      entries.filter((entry) => entry.status === 'eliminated').forEach((entry) => {
+        batch.update(t.ref.collection('entries').doc(entry.entryId), { status: 'checked_in' });
+      });
+      await batch.commit();
+    }
     await t.ref.update({
       status: 'running',
       dropIn: true,
+      ...(openingRatingLadder ? {
+        ratingCompetition: true,
+        registrationClosed: false,
+        breakSize: 0,
+        dropinPatienceMs: 45000,
+      } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
     const people = new Set();
@@ -670,7 +688,15 @@ export default async (request) => {
         (Array.isArray(entry.members) ? entry.members : []).forEach((uid) => people.add(String(uid)));
       });
     });
-    return jsonResponse({ ok: true, releasedPairings: pairings.length, releasedPeople: people.size }, 200, request);
+    return jsonResponse({
+      ok: true,
+      ratingCompetition: openingRatingLadder,
+      releasedPairings: pairings.length,
+      releasedPeople: people.size,
+      restoredEntries: openingRatingLadder
+        ? entries.filter((entry) => entry.status === 'eliminated').length
+        : 0,
+    }, 200, request);
   }
 
   // ── pair-round ──────────────────────────────────────────────────

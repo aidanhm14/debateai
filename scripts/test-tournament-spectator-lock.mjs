@@ -46,14 +46,14 @@ for (const guard of [
 }
 
 assert.ok(
-  tournamentApi.includes("process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1'") &&
+  tournamentApi.includes("process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED !== '0'") &&
   tournamentApi.includes('publicPairingEnabled: PUBLIC_PAIRING_ENABLED && d.dropIn !== false'),
-  'public tournament payload must expose the server launch gate',
+  'public tournament payload must default open while retaining the server emergency stop',
 );
 assert.ok(
-  dropin.includes("process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED === '1'") &&
+  dropin.includes("process.env.TOURNAMENT_PUBLIC_PAIRING_ENABLED !== '0'") &&
   dropin.indexOf('if (!PUBLIC_PAIRING_ENABLED)') < dropin.indexOf('const token = extractBearerToken(request)'),
-  'drop-in endpoint must fail closed before auth, Firestore, or pairing work',
+  'drop-in endpoint emergency stop must return before auth, Firestore, or pairing work',
 );
 assert.ok(open.includes('if (!t.publicPairingEnabled)'), 'Open page must render spectator mode');
 assert.ok(

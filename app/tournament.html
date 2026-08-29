@@ -515,7 +515,7 @@
          queue button shown to a spectator is a promise the server
          will refuse. -->
     <section class="card hidden" id="dropInCard">
-      <h2>Drop-in queue</h2>
+      <h2 id="dropInTitle">Drop-in queue</h2>
       <p class="sub" id="dropInSub">Say you are ready and you get paired with whoever else is free. Play as many rounds as you like.</p>
       <div id="dropInBody"></div>
     </section>
@@ -527,8 +527,8 @@
     </section>
 
     <section class="card" id="tabCard">
-      <h2>The tab</h2>
-    <p class="sub">Ordered by ballots won, then speaker points. Camera +2, Avatar −1, Off or dark −3 adjusts only that tiebreak.</p>
+      <h2 id="tabTitle">The tab</h2>
+      <p class="sub" id="tabSummary">Ordered by ballots won, then speaker points. Camera +2, Avatar −1, Off or dark −3 adjusts only that tiebreak.</p>
       <div class="tbl-scroll"><table id="tabTable"><tbody></tbody></table></div>
     </section>
 
@@ -798,14 +798,18 @@
     if (!host) return;
     var breakText = Number(t.breakSize) > 0
       ? ('Top ' + Number(t.breakSize) + ' advance to single elimination.')
-      : 'No elimination bracket. Final standings decide the event.';
+      : (t.ratingCompetition
+        ? 'No elimination bracket. The live rating ladder decides the event.'
+        : 'No elimination bracket. Final standings decide the event.');
     var roundText = t.dropIn
       ? 'Enter the ready queue during the prelim window. Completed rounds move the standings.'
       : (Number(t.prelimRounds || 0) + ' fixed prelim rounds, released by the host.');
     var items = [
       ['Round', 'Casual one-on-one. One person per side.'],
       ['Schedule', (t.startsAt ? (t.startsAt + '. ') : '') + roundText],
-      ['Standings', 'Ballots won first, then speaker points. Camera +2, Avatar −1, Off or dark −3 adjusts only that tiebreak.'],
+      ['Standings', t.ratingCompetition
+        ? 'Everyone starts at 1500 today. Each completed ballot moves the event rating.'
+        : 'Ballots won first, then speaker points. Camera +2, Avatar −1, Off or dark −3 adjusts only that tiebreak.'],
       ['Advancement', breakText],
       ['Decision', 'Every round gets a written AI ballot. Appeals go to a human.'],
       ['Watch and record', 'Public spectator seats are view-only. Every tournament round is recorded, including questions and interruptions. Preliminary footage and generated clips are private by default.'],
@@ -1354,6 +1358,11 @@
     if (!card || !host) return;
     if (!dropInEligible()){ card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
+    var tournament = state.data && state.data.tournament;
+    $('dropInTitle').textContent = tournament && tournament.ratingCompetition ? 'Rating queue' : 'Drop-in queue';
+    $('dropInSub').textContent = tournament && tournament.ratingCompetition
+      ? 'Press Ready for another rated round. Fresh opponents come first, and rematches wait for a later cycle.'
+      : 'Say you are ready and you get paired with whoever else is free. Play as many rounds as you like.';
 
     var self = dropIn.state && dropIn.state.self;
     var pool = dropIn.state ? Number(dropIn.state.poolSize || 0) : 0;
@@ -1386,8 +1395,10 @@
       msg = 'Your queue slot ran out. Still there?';
       action = { kind: 'btn', label: "I'm still here", act: 'ready' };
     } else {
-      msg = 'Not in the queue. Join it and you get paired with whoever else is free.';
-      action = { kind: 'btn', label: 'Ready to debate', act: 'ready' };
+      msg = tournament && tournament.ratingCompetition
+        ? 'Not in the queue. Press Ready to spawn a rated round with another available person.'
+        : 'Not in the queue. Join it and you get paired with whoever else is free.';
+      action = { kind: 'btn', label: tournament && tournament.ratingCompetition ? 'Ready for a rated round' : 'Ready to debate', act: 'ready' };
     }
 
     box.innerHTML = '<b>Drop in</b><span>' + esc(msg) + '</span>';
@@ -1458,24 +1469,37 @@
   // ── Tab ─────────────────────────────────────────────────────────
   function renderTab(){
     var rows = state.data.standings || [];
+    var ratingCompetition = !!(state.data.tournament && state.data.tournament.ratingCompetition);
     var tb = $('tabTable').querySelector('tbody');
+    $('tabTitle').textContent = ratingCompetition ? 'Live rating ladder' : 'The tab';
+    $('tabSummary').textContent = ratingCompetition
+      ? 'Everyone started today at 1500. Every completed tournament ballot moves the number.'
+      : 'Ordered by ballots won, then speaker points. Camera +2, Avatar -1, Off or dark -3 adjusts only that tiebreak.';
     if (!rows.length){
       tb.innerHTML = '<tr><td class="empty">No results yet.</td></tr>';
       return;
     }
     var mine = myEntry();
-    tb.innerHTML = '<tr><th>#</th><th>Entrant</th><th>W</th><th>L</th><th>Score</th></tr>' +
+    tb.innerHTML = ratingCompetition
+      ? '<tr><th>#</th><th>Entrant</th><th>Rating</th><th>W</th><th>L</th></tr>'
+      : '<tr><th>#</th><th>Entrant</th><th>W</th><th>L</th><th>Score</th></tr>';
+    tb.innerHTML +=
       rows.map(function(r){
         var me = mine && r.entryId === mine.entryId;
         var aff = r.affiliation
           ? '<span class="note" style="margin-top:0;display:block">' + esc(r.affiliation) + '</span>'
           : '';
+        var cells = ratingCompetition
+          ? '<td class="num"><strong>' + Number(r.rating || 1500) + '</strong></td>' +
+            '<td class="num">' + r.wins + '</td>' +
+            '<td class="num">' + r.losses + '</td>'
+          : '<td class="num">' + r.wins + '</td>' +
+            '<td class="num">' + r.losses + '</td>' +
+            '<td class="num">' + r.speaks + '</td>';
         return '<tr' + (me ? ' style="background:rgba(239,68,68,.08)"' : '') + '>' +
           '<td class="num">' + r.rank + '</td>' +
           '<td>' + esc(r.name) + aff + '</td>' +
-          '<td class="num">' + r.wins + '</td>' +
-          '<td class="num">' + r.losses + '</td>' +
-          '<td class="num">' + r.speaks + '</td></tr>';
+          cells + '</tr>';
       }).join('');
   }
 
@@ -1537,6 +1561,17 @@
     // open through prelims, so late entrants can check in for the next draw.
     if (t.status === 'registration') act('Start the day', function(){ setStatus('running'); }, true);
     if (t.status === 'running') act('End prelims', function(){ setStatus('break'); });
+    if (t.status === 'break') {
+      act('Reopen rating rounds', function(){
+        confirmAction({
+          title: 'Reopen as a live rating ladder?',
+          body: 'Completed results stay. Registration and check-in reopen, unfinished fixed seats release, and people can press Ready for fresh rated opponents.',
+          confirmLabel: 'Reopen the ladder',
+        }).then(function(yes){
+          if (yes) adminCall({ action: 'open-rating-ladder', tid: t.tid });
+        });
+      }, true);
+    }
     if (t.status === 'running' && t.dropIn === false) {
       act('Open live pairing', function(){
         adminCall({ action: 'update', tid: t.tid, dropIn: true });
