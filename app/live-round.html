@@ -11115,7 +11115,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
 
   // ── Prediction market (the room bets on this round; AI judges) ──────
-  // Talks to /.netlify/functions/predict (server-authoritative, points only).
+  // Talks to /.netlify/functions/predict (server-authoritative free play
+  // balance; the backend keeps the historical points ledger name).
   // Debaters open/lock/settle their round's market. Anyone watching bets on
   // either side before the middle speech, and as of 2026-08-25 the two
   // debaters can bet too, on THEMSELVES only: the server refuses a stake on
@@ -11163,11 +11164,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // that also holds the swing-vote panel. Both used to be fixed at the
     // same coordinates and would have sat on top of each other.
     el.style.cssText='background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
-    var pmHead = pmOwnSide() ? 'Live market · back yourself' : 'Live market · call the verdict';
+    var pmHead = pmOwnSide() ? 'Back yourself with play tokens' : 'Bet play tokens on who is winning';
     el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">'+pmHead+'</div>'+
       '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Place bet</button></div>'+
-      '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>';
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" aria-label="Play token stake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Bet tokens</button></div>'+
+      '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>'+
+      '<div style="font-size:.64rem;color:var(--text-dim);line-height:1.4;margin-top:7px">Free play tokens only. 18+. Eligible regions only. No cash value.</div>';
     svDock().appendChild(el); pmPanel=el;
     el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
   }
@@ -11185,10 +11187,31 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if(pmHasBet||!pmPick) return;
     var stake=Math.max(1,parseInt((pmPanel.querySelector('#pmStake')||{}).value,10)||0);
     var btn=pmPanel.querySelector('#pmBet'); if(btn){ btn.disabled=true; btn.textContent='Placing…'; }
+    pmSubmitBet(stake,btn,false);
+  }
+  function pmConfirmAge(){
+    if(!confirm('Token betting is for people age 18 or older.\n\nPlay tokens are free, cannot be purchased, and have no cash value.\n\nConfirm you are 18 or older?')) return Promise.resolve(false);
+    return pmCall({action:'attest',confirm:true}).then(function(d){
+      if(d&&d.ok&&d.eligible) return true;
+      var s=pmPanel&&pmPanel.querySelector('#pmStatus');
+      if(s) s.textContent=(d&&d.error)||'Could not confirm eligibility';
+      return false;
+    }).catch(function(){
+      var s=pmPanel&&pmPanel.querySelector('#pmStatus');
+      if(s) s.textContent='Could not confirm eligibility';
+      return false;
+    });
+  }
+  function pmSubmitBet(stake,btn,retried){
     pmCall({action:'bet',room:state.room,pick:pmPick,stake:stake}).then(function(d){
-      if(d&&d.ok){ pmHasBet=true; var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+'</b> on <b>'+pmPick.toUpperCase()+'</b>. balance '+d.balance+'.'; if(btn){ btn.textContent='Bet in'; } }
-      else { if(btn){ btn.disabled=false; btn.textContent='Place bet'; } var s2=pmPanel.querySelector('#pmStatus'); if(s2) s2.textContent=(d&&d.error)||'Could not place bet'; }
-    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Place bet'; } });
+      if(d&&d.ok){ pmHasBet=true; var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' tokens</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' tokens left.'; if(btn){ btn.textContent='Bet in'; } return; }
+      if(d&&d.code==='no_attestation'&&!retried){
+        pmConfirmAge().then(function(ok){ if(ok) pmSubmitBet(stake,btn,true); else if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
+        return;
+      }
+      if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; }
+      var s2=pmPanel.querySelector('#pmStatus'); if(s2) s2.textContent=(d&&d.error)||'Could not place bet';
+    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
   }
   function pmUpdate(d){
     if(!pmPanel||!d.market) return;
@@ -11209,17 +11232,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if(settled){
       if(pmPollTimer) clearTimeout(pmPollTimer);
       var won = d.myBet && d.myBet.pick===m.verdict;
-      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'you called it. balance '+d.balance+'.':'you missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
+      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'You called it. '+d.balance+' tokens left.':'You missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
       if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
     } else if(locked){
-      st.textContent='Betting locked at the middle speech. pool '+total+' pts.';
+      st.textContent='Betting locked at the middle speech. '+total+' tokens in the pool.';
       if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
     } else if(d.myBet){
-      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+'</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. pool '+total+'.';
+      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+' tokens</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. '+total+' tokens in the pool.';
       if(bet){ bet.disabled=true; bet.textContent='Bet in'; bet.style.opacity='.5'; }
       if(inp) inp.disabled=true;
     } else {
-      st.innerHTML='Pool '+total+' pts. balance <b>'+(d.balance!=null?d.balance:'—')+'</b>. bets lock at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
+      st.innerHTML='Pool '+total+' tokens. You have <b>'+(d.balance!=null?d.balance:'not available')+'</b>. Betting locks at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
     }
   }
 

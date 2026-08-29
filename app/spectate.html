@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script src="/js/native-bridge.js"></script>
-  <title>Live Debate Waiting Room | Debatable</title>
+  <title>Spectate Live Debates and Bet Play Tokens | Debatable</title>
   <meta name="robots" content="noindex,follow">
-  <meta name="description" content="Watch a live Debatable round the moment one opens, and build your debate database while you wait.">
+  <meta name="description" content="Watch live Debatable rounds from a muted spectator seat, bet free play tokens on who is winning, and see the AI judge settle the market.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
@@ -189,8 +189,24 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       box-shadow:0 20px 54px rgba(31,26,23,.07);padding:24px;position:relative;overflow:hidden;
     }
     .waiting-card>*{position:relative;z-index:1}
-    /* On desktop the builder is already on screen next to the CTA, so a
-       scroll does nothing visible. Ring it instead. */
+    .market-card{background:
+      radial-gradient(circle at 88% 8%,rgba(239,68,68,.13),transparent 34%),
+      rgba(255,255,255,.92)}
+    .market-card h2{margin:4px 0 7px;font-size:1.8rem;line-height:1.04}
+    .market-card .builder-head{margin-bottom:16px}
+    .market-motion{margin:0 0 17px;padding:14px 16px;border-left:3px solid var(--red);
+      background:rgba(255,244,242,.68);font-size:1rem;line-height:1.35;font-weight:800}
+    .market-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .market-side{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px 14px}
+    .market-side span{display:block;color:var(--faint);font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+    .market-side b{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:1.02rem}
+    .market-side b em{color:var(--red-dark);font-style:normal;font-variant-numeric:tabular-nums}
+    .market-stake{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0 0;
+      border:1px dashed rgba(211,41,41,.3);border-radius:12px;padding:11px 13px;color:var(--muted);font-size:.84rem}
+    .market-stake strong{color:var(--ink);font-size:.9rem;text-align:right}
+    .market-truth{margin:14px 0 0;color:var(--muted);font-size:.79rem;line-height:1.4}
+    /* The watch-preferences CTA jumps to the lower builder. Ring it too,
+       so the destination remains obvious if it was already in view. */
     .waiting-card.flash{animation:cardFlash 1.1s ease}
     @keyframes cardFlash{0%{box-shadow:0 20px 54px rgba(31,26,23,.07),0 0 0 0 rgba(239,68,68,.34)}
       35%{box-shadow:0 20px 54px rgba(31,26,23,.07),0 0 0 7px rgba(239,68,68,.16)}
@@ -454,25 +470,49 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     <section class="hero" aria-labelledby="spectateTitle">
       <div>
-        <div class="eyebrow">While you wait</div>
-        <h1 id="spectateTitle">Build your debate database.</h1>
-        <p class="lead">Save the formats you know, the topics you follow, and the rounds that shaped you. Add a little now, keep building later.</p>
+        <div class="eyebrow">Spectator mode</div>
+        <h1 id="spectateTitle">Watch live. Bet tokens on who is winning.</h1>
+        <p class="lead">Take a muted seat, back Pro or Con with free play tokens, and watch the crowd price move while both sides speak. The AI judge's ballot settles the market.</p>
         <div class="actions">
-          <button class="btn primary" type="button" id="focusProfile">Start my database</button>
-          <a class="btn ghost" href="/live">Browse upcoming rounds</a>
+          <a class="btn primary" href="/live">Find a live round</a>
+          <button class="btn ghost" type="button" id="focusProfile">Set watch preferences</button>
         </div>
         <ol class="flow">
-          <li><div><b>A round opens</b><span>It appears at the top of this page and the status above turns red.</span></div></li>
-          <li><div><b>You walk in muted</b><span>Camera off, mic off. Nobody in the room can see or hear you.</span></div></li>
-          <li><div><b>You watch and take a side</b><span>Flag the arguments that move you, then read the ballot the judge writes.</span></div></li>
+          <li><div><b>Enter muted</b><span>Camera off, mic off. Nobody in the room can see or hear you.</span></div></li>
+          <li><div><b>Back the side ahead</b><span>Bet free play tokens before the middle speech. The live split moves with the room.</span></div></li>
+          <li><div><b>Watch the ballot settle it</b><span>The judge names a winner and pays the winning side. No verdict means every token comes back.</span></div></li>
         </ol>
       </div>
-      <aside class="waiting-card" id="profileBuilder" aria-label="Debate database quick setup">
+      <aside class="waiting-card market-card" aria-label="Example spectator token market">
         <div class="builder-head">
           <div>
-            <div class="builder-kicker">Quick setup</div>
+            <div class="builder-kicker">Inside a live room</div>
+            <h2>The spectator market</h2>
+            <p>Pick who the judge will have ahead when the ballot lands.</p>
+          </div>
+          <span class="pill">Example</span>
+        </div>
+        <p class="market-motion">This house would ban personalized political advertising.</p>
+        <div class="market-sides" aria-label="Example market split">
+          <div class="market-side"><span>Pro</span><b>For <em>61%</em></b></div>
+          <div class="market-side"><span>Con</span><b>Against <em>39%</em></b></div>
+        </div>
+        <div class="market-stake"><span>Your example bet</span><strong>50 tokens on Pro</strong></div>
+        <div class="actions">
+          <a class="btn primary" href="/live">Find a market</a>
+          <a class="btn ghost" href="/watch">Watch replays</a>
+        </div>
+        <p class="market-truth">Free play tokens only. Available to people age 18 or older in eligible regions. Tokens cannot be bought, transferred, redeemed, or cashed out.</p>
+      </aside>
+    </section>
+
+    <section class="panel-grid">
+      <aside class="waiting-card" id="profileBuilder" aria-label="Spectator preference quick setup">
+        <div class="builder-head">
+          <div>
+            <div class="builder-kicker">Watch preferences</div>
             <h2>Three quick questions</h2>
-            <p>They set how much a round explains itself to you, and which motions get surfaced first. About thirty seconds.</p>
+            <p>Set how much a round explains itself to you and which motions appear first. About thirty seconds.</p>
           </div>
           <span class="pill" id="profilePct">0% built</span>
         </div>
@@ -607,7 +647,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       </div>
     </section>
 
-    <p class="wrap-foot">Nothing to watch yet. <a href="/practice">Run a round against the AI</a> or <a href="/spar">find a human to spar</a> instead.</p>
+    <p class="wrap-foot">No live token market yet. <a href="/watch">Watch a replay</a> or <a href="/spar">start a round</a> instead.</p>
   </main>
 
   <div class="od-bar" id="odBar" role="region" aria-label="Persuasion tracker">
@@ -706,8 +746,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       back.addEventListener('click', function(){ if (step > 0) step -= 1; render(); });
       document.getElementById('focusProfile').addEventListener('click', function(){
         profileBuilder.scrollIntoView({ behavior:'smooth', block:'center' });
-        // Side by side on desktop the scroll is a no-op, so say where the
-        // click landed instead of appearing to do nothing.
+        // Ring the destination too, so the click still reads when the
+        // builder was already close enough that scrolling barely moves.
         profileBuilder.classList.remove('flash');
         void profileBuilder.offsetWidth;
         profileBuilder.classList.add('flash');
