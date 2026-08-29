@@ -36,6 +36,8 @@ check('homepage CTA is loaded', landing.includes('/js/tournament-day-cta.js'));
 check('homepage CTA is signed-in only and points to the event page',
   cta.includes('!user || user.isAnonymous')
   && cta.includes("cta.href = '/open'"));
+check('homepage CTA clears the fixed topbar hit layer',
+  cta.includes('margin:52px 0 0'));
 check('homepage CTA self-retires after tournament day',
   cta.includes("Date.parse('2026-08-29T23:59:59-07:00')"));
 

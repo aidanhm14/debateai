@@ -32,7 +32,7 @@
     var style = document.createElement('style');
     style.id = 'tournamentDayCtaStyle';
     style.textContent =
-      '.tday-cta{position:relative;z-index:35;display:block;margin:0;padding:17px 22px;' +
+      '.tday-cta{position:relative;z-index:35;display:block;margin:52px 0 0;padding:17px 22px;' +
       'background:linear-gradient(100deg,#991b1b,#dc2626 55%,#ef4444);color:#fff;text-decoration:none;' +
       'box-shadow:0 12px 30px rgba(127,29,29,.3);font-family:var(--font-body,system-ui,sans-serif)}' +
       '.tday-cta-in{width:min(1180px,calc(100% - 32px));margin:0 auto;display:flex;align-items:center;' +
