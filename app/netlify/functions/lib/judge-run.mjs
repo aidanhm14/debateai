@@ -154,23 +154,27 @@ export async function runPanel(season, system, user, opts = {}) {
   const jurorTimeoutMs = Number.isFinite(Number(opts.jurorTimeoutMs))
     ? Math.max(1_000, Number(opts.jurorTimeoutMs))
     : undefined;
+  // Dependency injection is only a test seam. Production callers omit
+  // these and use the real provider dispatch above. Keeping the seam here
+  // lets the pre-commit guard prove the outage path without spending a
+  // provider call or pretending parser-only tests cover orchestration.
+  const callOne = opts.callJuror || callJuror;
+  const callMany = opts.callPanel || callPanel;
+  const isAvailable = opts.jurorAvailable || jurorAvailable;
 
   const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
   const wanted = (panelCfg && panelCfg.jurors) || [];
-  const available = wanted.filter(jurorAvailable);
+  const available = wanted.filter(isAvailable);
   const quorum = (panelCfg && panelCfg.quorum) || 2;
+  const minimumVotes = panelCfg
+    ? Math.max(quorum, Math.min(wanted.length, Math.trunc(Number(panelCfg.minimumVotes) || quorum)))
+    : 1;
 
-  // Not enough jurors to constitute the panel the season promised.
-  if (!panelCfg || available.length < quorum) {
-    if (REQUIRE_PANEL && panelCfg) {
-      throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
-    }
-    const solo = { id: 'single', provider: 'anthropic', model: singleModel };
-    const r = await callJuror(solo, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
-    if (!r.ok || !r.ballot) throw new Error(`single judge failed: ${r.error || 'no ballot'}`);
+  const singleDecision = (r, reason, jurorResults, originalVotesCast = 0) => {
+    if (!r || !r.ok || !r.ballot) return null;
     const ballot = r.ballot;
     return {
-      ballot: { ...ballot, model: singleModel },
+      ballot: { ...ballot, model: r.model || singleModel },
       panel: {
         resolution: 'single',
         degraded: !!panelCfg,
@@ -185,32 +189,73 @@ export async function runPanel(season, system, user, opts = {}) {
         decidingIssue: ballot.decidingIssue || '',
         issuesNamed: ballot.decidingIssue ? 1 : 0,
         issueAgreement: null,
-        models: [singleModel],
+        models: [r.model || singleModel],
         jurorsWanted: wanted.length,
         jurorsAvailable: available.length,
+        fallbackReason: reason,
+        originalVotesCast,
       },
-      jurorResults: [r],
+      jurorResults,
     };
+  };
+
+  // Not enough jurors to constitute the panel the season promised.
+  if (!panelCfg || available.length < quorum) {
+    if (REQUIRE_PANEL && panelCfg) {
+      throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
+    }
+    const solo = { id: 'single', provider: 'anthropic', model: singleModel };
+    const r = await callOne(solo, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
+    if (!r.ok || !r.ballot) throw new Error(`single judge failed: ${r.error || 'no ballot'}`);
+    return singleDecision(r, 'panel_not_constitutable', [r]);
   }
 
-  const results = await callPanel(available, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
+  const results = await callMany(available, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
   const votes = results
     .filter((r) => r.ok && r.ballot)
     .map((r) => normalizeVote(r, r.ballot, aKey, bKey))
     .filter(Boolean);
 
   const tally = tallyPanel(votes, { size: available.length, quorum });
+
+  // A configured key proves only that a call can be attempted. If provider
+  // failures leave fewer votes than the published quorum, use the already
+  // returned Claude vote, or make one explicit Claude fallback call. This
+  // is the same disclosed single-judge posture used when the panel cannot
+  // be constituted before calls begin. It is never a panel tie-break: a
+  // returned 1-1 or 2-2 split has reached quorum and remains unresolved.
+  if (tally.votesCast < quorum && !REQUIRE_PANEL) {
+    let fallback = results.find((r) => r && r.ok && r.ballot && r.provider === 'anthropic');
+    let fallbackResults = results;
+    if (!fallback) {
+      fallback = await callOne(
+        { id: 'single', provider: 'anthropic', model: singleModel },
+        system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs,
+      );
+      fallbackResults = [...results, fallback];
+    }
+    const single = singleDecision(fallback, 'runtime_quorum_failed', fallbackResults, tally.votesCast);
+    if (single) return single;
+  }
+
+  // The tournament council requires all three seats to answer before its
+  // two-vote majority can carry. This is different from raising quorum to
+  // three, which would wrongly require unanimity. A short council returns
+  // incomplete and the live recovery loop retries it; it never presents a
+  // two-seat response as the promised three-judge council.
+  const councilIncomplete = tally.votesCast < minimumVotes;
+  const decidedWinner = councilIncomplete ? null : tally.winner;
   const lead = votes.find((v) => v.jurorId === tally.leadJurorId) || votes[0] || null;
 
   // Every juror that came out the other way, with its reasoning intact.
   // Blending contradictory RFDs into one paragraph produces prose that
   // reasons like neither juror, so a dissent is shown as a dissent.
   const dissents = votes
-    .filter((v) => tally.winner && v.winner !== tally.winner)
+    .filter((v) => decidedWinner && v.winner !== decidedWinner)
     .map((v) => ({ jurorId: v.jurorId, model: v.model, winner: v.winner === 'a' ? aKey : bKey, rfd: v.rfd }));
 
   const ballot = {
-    winner: tally.winner === 'a' ? aKey : (tally.winner === 'b' ? bKey : null),
+    winner: decidedWinner === 'a' ? aKey : (decidedWinner === 'b' ? bKey : null),
     [`${aKey}Points`]: tally.points.a,
     [`${bKey}Points`]: tally.points.b,
     // The majority's deciding issue, not a blend: tallyPanel returns the
@@ -229,7 +274,7 @@ export async function runPanel(season, system, user, opts = {}) {
   return {
     ballot,
     panel: {
-      resolution: tally.resolution,
+      resolution: councilIncomplete ? 'incomplete' : tally.resolution,
       // Degraded means the panel did not run at full strength, and the
       // measure has to be VOTES rather than configured keys. The old
       // test was `available.length < wanted.length`, which only catches
@@ -262,6 +307,7 @@ export async function runPanel(season, system, user, opts = {}) {
       models: available.map((j) => j.model),
       jurorsWanted: wanted.length,
       jurorsAvailable: available.length,
+      minimumVotes,
     },
     jurorResults: results,
   };

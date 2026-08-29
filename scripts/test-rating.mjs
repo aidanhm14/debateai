@@ -10,7 +10,7 @@ import {
   defaultRatingDoc, DEFAULT_RATING, DEFAULT_RD,
 } from '../app/netlify/functions/lib/rating.mjs';
 import {
-  eligibility, resultForOutcome, recordCountsAfter,
+  eligibility, resultForOutcome, recordCountsAfter, resolvedVerdictSource,
 } from '../app/netlify/functions/lib/rating-apply.mjs';
 
 let pass = 0, fail = 0;
@@ -187,6 +187,12 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   t('live with mutual consent is eligible', eligibility('live', liveBase).ok);
   t('live verdict marked participant-written',
     eligibility('live', liveBase).verdictSource === 'participant');
+  t('director-entered tournament result carries its server provenance',
+    resolvedVerdictSource(eligibility('live', liveBase).verdictSource, 'tournament-director') === 'tournament-director');
+  t('unknown provenance cannot replace the inferred source',
+    resolvedVerdictSource('participant', 'client-claimed-server') === 'participant');
+  t('a recovered server result keeps server provenance',
+    resolvedVerdictSource('participant', 'server') === 'server');
   // Consent is an OPT-OUT (2026-08-24). These three asserted the old
   // dual-opt-in rule and were left behind when it flipped, so the guard
   // was failing on main while asserting a privacy model the code had

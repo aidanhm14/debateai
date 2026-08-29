@@ -76,7 +76,15 @@ export function auditRecord({
   judgmentId, source, eventId, season, jurorResults, panel, motion, format, clashMapUsed, now,
 }) {
   const pinned = new Map();
-  for (const j of (season && season.panel && season.panel.jurors) || []) pinned.set(j.id, j.model);
+  const seasonJurors = (season && season.panel && season.panel.jurors) || [];
+  for (const j of seasonJurors) pinned.set(j.id, j.model);
+  // The disclosed single-judge fallback is an Anthropic seat named
+  // `single`, not the season's `j1`. Map it back to the pinned primary so
+  // an outage model override is stamped on the permanent record. Without
+  // this, the public charter could announce an override while the ballot
+  // audit quietly claimed no pin existed for that call.
+  const primary = seasonJurors[0];
+  if (primary && primary.provider === 'anthropic') pinned.set('single', primary.model);
 
   const jurors = (jurorResults || []).map((r) => auditJuror(r, pinned.get(r.jurorId)));
   const promptHashes = [...new Set(jurors.map((j) => j.promptHash).filter(Boolean))];

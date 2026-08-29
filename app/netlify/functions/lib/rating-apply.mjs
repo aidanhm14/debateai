@@ -32,6 +32,13 @@ import { applyRound, defaultRatingDoc } from './rating.mjs';
 
 export const SOURCES = ['async', 'live'];
 
+// A server-owned result path may supply a more precise provenance than
+// eligibility can infer from the stored ballot shape. Keep the allow-list
+// closed so a caller cannot invent arbitrary audit labels.
+export function resolvedVerdictSource(inferred, override) {
+  return override === 'tournament-director' || override === 'server' ? override : inferred;
+}
+
 // Normalize a stored round into { a, b, outcome, verdictSource } or a
 // reason it does not qualify. Pure, so the tests can drive it directly.
 export function eligibility(source, d) {
@@ -134,10 +141,16 @@ export function recordCountsAfter(record, result, direction = 1) {
 }
 
 // Transactional apply. Returns { applied:bool, reason?, changes? }.
-export async function applyRoundRating(db, { source, eventId, roundData, now, rev }) {
+export async function applyRoundRating(db, {
+  source, eventId, roundData, now, rev, verdictSourceOverride,
+}) {
   const at = now || Date.now();
-  const elig = eligibility(source, roundData);
-  if (!elig.ok) return { applied: false, reason: elig.reason };
+  const baseEligibility = eligibility(source, roundData);
+  if (!baseEligibility.ok) return { applied: false, reason: baseEligibility.reason };
+  const elig = {
+    ...baseEligibility,
+    verdictSource: resolvedVerdictSource(baseEligibility.verdictSource, verdictSourceOverride),
+  };
 
   const idA = changeId(source, eventId, elig.a.uid, rev);
   const idB = changeId(source, eventId, elig.b.uid, rev);

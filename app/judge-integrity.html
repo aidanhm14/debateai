@@ -235,7 +235,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--muted-lit:#a3a3ad;--link-re
         </article>
         <article class="council-step">
           <h3>One brain, one vote.</h3>
-          <p>Two matching votes carry the verdict. A 3 to 0 and a 2 to 1 are shown differently. If only two brains return and split 1 to 1, no winner is recorded.</p>
+          <p>All three brains must return before the council decides. Then two matching votes carry the verdict, and a 3 to 0 and a 2 to 1 are shown differently. A missing seat makes the council retry. The emergency Claude backup is labeled as a single judge, never as the council.</p>
         </article>
         <article class="council-step">
           <h3>The result keeps the disagreement.</h3>
@@ -425,7 +425,9 @@ html[data-theme="crimson"],html[data-theme="grey"]{--muted-lit:#a3a3ad;--link-re
       ['Rubric version', esc(s.rubricVersion || ''), s.rubricPublished ? 'Published in advance' : 'Predates published criteria'],
       ['Rubric fingerprint', esc(s.rubricHash || 'n/a'), 'sha256 of the criteria below'],
       ['Panel', s.panel ? esc(s.panel.size) + ' jurors' : 'Single judge',
-        s.panel ? ('Majority of ' + esc(s.panel.quorum) + ' carries a verdict') : 'No panel this season']
+        s.panel ? (s.panel.minimumVotes
+          ? ('All ' + esc(s.panel.minimumVotes) + ' return. A majority of ' + esc(s.panel.quorum) + ' decides')
+          : ('Majority of ' + esc(s.panel.quorum) + ' carries a verdict')) : 'No panel this season']
     ];
     $('pinbar').innerHTML = pins.map(function(p){
       return '<div class="pin"><div class="pin-l">' + p[0] + '</div><div class="pin-v">' + p[1] + '</div><div class="pin-s">' + p[2] + '</div></div>';
@@ -455,6 +457,7 @@ html[data-theme="crimson"],html[data-theme="grey"]{--muted-lit:#a3a3ad;--link-re
     var notes = [];
     if (c.calendarExpired) notes.push('The published season calendar has run past its end date. The most recent pin is still in force and needs extending.');
     if (r.panelConstitutable === false) notes.push('The full panel cannot be reached at the moment, so ballots are being written by a single judge. Every one of them is stamped as a single-judge ballot in its permanent record.');
+    if (r.runtimeFallback) notes.push('Backup policy. If provider failures leave fewer than two usable panel votes, one disclosed Claude ballot may finish the round. A returned panel split is never sent to the backup.');
     if (r.override) notes.push('Model override in effect. The pin is ' + r.override.pinned + ' and the running model is ' + r.override.running + '. Every ballot it writes is stamped as an override.');
     $('pinNote').innerHTML = notes.length
       ? notes.map(function(n){ return '<p class="plain-note" style="max-width:none">' + esc(n) + '</p>'; }).join('')

@@ -43,6 +43,12 @@
       'background:#fff;color:#991b1b;font-size:.86rem;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.16)}' +
       '.tday-cta:hover .tday-cta-btn{transform:translateY(-1px)}' +
       '.tday-cta:focus-visible{outline:3px solid #fff;outline-offset:-5px}' +
+      /* The live-room strip also clears the fixed topbar. When it is
+         mounted immediately before this CTA, keeping the CTA's own 52px
+         clearance creates the empty white shelf shown in production. */
+      '#homeLiveBand + .tday-cta{margin-top:0}' +
+      '.tday-cta + .fscreen{min-height:calc(100svh - var(--tday-cta-height,76px))}' +
+      '#homeLiveBand + .tday-cta + .fscreen{min-height:calc(100svh - var(--home-live-band-height,0px) - var(--tday-cta-height,76px))}' +
       '@media(max-width:620px){.tday-cta{padding:14px 12px}.tday-cta-in{gap:8px}.tday-cta-k{width:100%}' +
       '.tday-cta-main{font-size:1rem}.tday-cta-btn{width:100%;max-width:280px}}' +
       '@media(prefers-reduced-motion:no-preference){.tday-cta-btn{transition:transform .16s ease}}';
@@ -67,6 +73,17 @@
       } catch (e) {}
     });
     first.parentNode.insertBefore(cta, first);
+
+    function syncHeight() {
+      if (cta.parentNode) {
+        cta.parentNode.style.setProperty('--tday-cta-height', cta.offsetHeight + 'px');
+      }
+    }
+    syncHeight();
+    if (typeof ResizeObserver === 'function') {
+      var sizeWatch = new ResizeObserver(syncHeight);
+      sizeWatch.observe(cta);
+    }
   }
 
   function attach() {

@@ -677,6 +677,9 @@ export default async (request, context) => {
   try {
     let consents = d.leaderboardConsent || {};
     let tourney = null;
+    let ratingBallot = ballot;
+    let ratingRevision = 0;
+    let ratingVerdictSource = '';
     const bothConsented = !!(d.proUid && d.conUid
       && consents[d.proUid] === true && consents[d.conUid] === true);
 
@@ -736,7 +739,7 @@ export default async (request, context) => {
         const conPts = num(ballot.conPoints) ?? num(pts.b);
         const govSpeaks = proIsGov ? proPts : conPts;
         const oppSpeaks = proIsGov ? conPts : proPts;
-        await applyTournamentResult(db, {
+        const ledger = await applyTournamentResult(db, {
           tid: tourney.tid,
           roundKey: tourney.roundKey,
           roomId: room,
@@ -744,6 +747,19 @@ export default async (request, context) => {
           opp: { entryId: tourney.oppEntry, won: !govWon, speaks: oppSpeaks },
           now: judgedAt,
         });
+        // The tournament ledger is the authority when a director entered
+        // or amended a result before a delayed judge call finished. Use
+        // its stored winner and revision for the ladder, so two racing
+        // paths cannot publish opposite outcomes under one room id.
+        if (ledger && (ledger.winner === 'gov' || ledger.winner === 'opp')) {
+          const govIsPro = proIsGov;
+          const winnerIsPro = ledger.winner === 'gov' ? govIsPro : !govIsPro;
+          ratingBallot = { ...ballot, winner: winnerIsPro ? 'pro' : 'con' };
+          ratingRevision = Math.max(0, Math.trunc(Number(ledger.resultRevision) || 0));
+          if (ledger.reportedBy && ledger.reportedBy !== 'ai-judge') {
+            ratingVerdictSource = 'tournament-director';
+          }
+        }
       } catch (err) {
         console.error('[live-judge] tournament ledger failed', room, err.message);
       }
@@ -752,10 +768,12 @@ export default async (request, context) => {
     rated = await applyRoundRating(db, {
       source: 'live',
       eventId: room,
+      rev: ratingRevision,
+      ...(ratingVerdictSource ? { verdictSourceOverride: ratingVerdictSource } : {}),
       // Mirrors what the document now holds. Passing the merged consent
       // matters: rating-apply reads consent off roundData, so handing it
       // the pre-stamp copy would refuse the very round we just consented.
-      roundData: { ...d, ballot, leaderboardConsent: consents, completedAt: judgedAt },
+      roundData: { ...d, ballot: ratingBallot, leaderboardConsent: consents, completedAt: judgedAt },
     });
 
     // A rating that moved and was never shown is a reward nobody

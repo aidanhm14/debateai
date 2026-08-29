@@ -52,7 +52,16 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
 
   return db.runTransaction(async (tx) => {
     const [done, rSnap] = await Promise.all([tx.get(doneRef), tx.get(roundRef)]);
-    if (done.exists) return { applied: false, reason: 'already_applied' };
+    if (done.exists) {
+      const receipt = done.data() || {};
+      return {
+        applied: false,
+        reason: 'already_applied',
+        winner: receipt.winner || '',
+        resultRevision: Math.max(0, Math.trunc(Number(receipt.resultRevision) || 0)),
+        reportedBy: receipt.reportedBy || 'ai-judge',
+      };
+    }
     if (!rSnap.exists) return { applied: false, reason: 'no_round' };
 
     const pairings = Array.isArray(rSnap.data().pairings) ? rSnap.data().pairings.slice() : [];
@@ -61,7 +70,15 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
     const p = pairings[idx];
     // The director got there first. Their entry stands; correcting it
     // is the amend flow's job, never a second automatic write.
-    if (p.status === 'complete') return { applied: false, reason: 'already_reported' };
+    if (p.status === 'complete') {
+      return {
+        applied: false,
+        reason: 'already_reported',
+        winner: p.winner || '',
+        resultRevision: Math.max(0, Math.trunc(Number(p.resultRevision) || 0)),
+        reportedBy: p.reportedBy || '',
+      };
+    }
 
     const govRef = tRef.collection('entries').doc(String(p.govEntry));
     const oppRef = tRef.collection('entries').doc(String(p.oppEntry));
@@ -105,9 +122,21 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
       govSpeaks,
       oppSpeaks,
       reportedBy: 'ai-judge',
+      resultRevision: Math.max(0, Math.trunc(Number(p.resultRevision) || 0)),
     };
     tx.update(roundRef, { pairings });
-    tx.set(doneRef, { roomId, roundKey, at, gov: String(p.govEntry), opp: String(p.oppEntry) });
-    return { applied: true };
+    tx.set(doneRef, {
+      roomId, roundKey, at,
+      gov: String(p.govEntry), opp: String(p.oppEntry),
+      winner: gov.won ? 'gov' : 'opp',
+      resultRevision: Math.max(0, Math.trunc(Number(p.resultRevision) || 0)),
+      reportedBy: 'ai-judge',
+    });
+    return {
+      applied: true,
+      winner: gov.won ? 'gov' : 'opp',
+      resultRevision: Math.max(0, Math.trunc(Number(p.resultRevision) || 0)),
+      reportedBy: 'ai-judge',
+    };
   });
 }

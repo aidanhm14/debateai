@@ -389,12 +389,34 @@ export const SEASONS = [
 SEASONS.push({
   id: '2026-casual-1v1',
   from: Date.UTC(2026, 7, 28),
-  to: Date.UTC(2027, 3, 1),
+  // Close at a future boundary published before the Open. Earlier
+  // ballots stay under the exact configuration that judged them.
+  to: Date.UTC(2026, 7, 29, 10),
   rubricVersion: 'adjudication-2026-08c',
   published: true,
   panel: SEASONS[SEASONS.length - 1].panel,
   note:
     'New rounds use one casual one-on-one method and one score out of 100. Competitive format rules and team structures are not used. The verified panel and its effort pins are unchanged.',
+});
+
+// The Debatable Open uses the same three pinned model families and the
+// same published rubric. The operational change is narrower: all three
+// seats must return before the council's two-vote majority can carry.
+// This preserves majority rule without presenting a two-seat response as
+// a three-judge council. A provider-wide failure may still enter the
+// disclosed single-Claude emergency path in judge-run.mjs.
+SEASONS.push({
+  id: '2026-open-council',
+  from: Date.UTC(2026, 7, 29, 10),
+  to: Date.UTC(2027, 3, 1),
+  rubricVersion: 'adjudication-2026-08c',
+  published: true,
+  panel: {
+    ...SEASONS[SEASONS.length - 1].panel,
+    minimumVotes: 3,
+  },
+  note:
+    'The three pinned model families and the published casual one-on-one rubric are unchanged. All three council seats must return before a two-vote majority can carry. A short council retries instead of presenting two judges as three.',
 });
 
 export const SEASON_IDS = SEASONS.map((s) => s.id);

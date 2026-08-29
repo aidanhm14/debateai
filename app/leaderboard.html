@@ -1365,6 +1365,7 @@ const countAi=document.getElementById('countAi');
 const statRoundsN=document.getElementById('statRoundsN');
 const statLiveN=document.getElementById('statLiveN');
 const statBestN=document.getElementById('statBestN');
+const statBestLabel=document.querySelector('#statBest .l');
 const guideRankTitle=document.getElementById('guideRankTitle');
 const guideRankCopy=document.getElementById('guideRankCopy');
 const guideRecordTitle=document.getElementById('guideRecordTitle');
@@ -1372,15 +1373,11 @@ const guideRecordCopy=document.getElementById('guideRecordCopy');
 const guideActionTitle=document.getElementById('guideActionTitle');
 const guideActionCopy=document.getElementById('guideActionCopy');
 
-// 2026-08-24, the founder ("still missing", off a screenshot of the empty
-// default view): land on the view that actually has a podium and real people.
-// The 'live' (head-to-head) rating ladder is thin, so its top three are never
-// all settled rated rows, which podiumEligible() correctly refuses to podium —
-// so the default opened on a hidden podium over EXAMPLE seed rows with an empty
-// Rating column. The judge-score view ('ai') has the real entrants (Pranav R.,
-// Steven A., …) and shows the podium. Default there until the head-to-head
-// ladder fills; flip back to 'live' when it has three settled rated rows.
-const state={view:'ai',format:null,user:null,cache:{},userBest:{},rankMovement:{},ratingRows:null,rankableCount:0};
+// 2026-08-29: the public leaderboard is the human-vs-human Debate Rating.
+// The ladder now has real rated rows, even though many are still provisional,
+// and today's tournament feeds the same record. Open on that table. The solo
+// judge-score board remains one tab away and #ai/#solo still deep-link to it.
+const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{},ratingRows:null,rankableCount:0};
 
 // ── direct profile actions ────────────────────────────────────────
 // /live's "Challenge a debater" used to jump to #postForm, a generic
@@ -2258,6 +2255,17 @@ function updateHeroStats(allRows, filtered){
     if(r.kind==='live' && isFresh(r.completedAt, 60)) live++;
     if(typeof r.score==='number' && r.score>best) best=r.score;
   });
+  // On the human tab the headline number is the ladder's Debate Rating,
+  // not a leftover per-round AI score. The two boards use different
+  // units, so sharing the old `best` silently labeled 75.0 as the top of
+  // a 1500-based rating table.
+  if(state.view==='live'){
+    best=(state.ratingRows||[]).reduce((top,r)=>
+      typeof r.score==='number' ? Math.max(top,r.score) : top, -Infinity);
+    if(statBestLabel) statBestLabel.textContent='Top rating';
+  }else if(statBestLabel){
+    statBestLabel.textContent='Top score';
+  }
   // 2026-08-22: a stat reading "—" is worse than no stat, and three of
   // them stacked next to "no rooms posted yet" made a working board read
   // as a dead one. Each tile now HIDES itself rather than rendering a
@@ -2273,7 +2281,7 @@ function updateHeroStats(allRows, filtered){
   };
   setStat(statRoundsN, 'statRounds', today>0 ? today : null);
   setStat(statLiveN,   'statLive',   live>0 ? live : 0);
-  setStat(statBestN,   'statBest',   isFinite(best) ? best.toFixed(1) : null);
+  setStat(statBestN,   'statBest',   isFinite(best) ? (state.view==='live' ? Math.round(best) : best.toFixed(1)) : null);
 }
 
 // ── format pills with counts (derived from the current view) ──────
@@ -2840,8 +2848,7 @@ if (challengeMode){
 })();
 
 // The tab strip's active state is hardcoded in the markup (the humans tab),
-// but state.view can be set by the default (2026-08-24: 'ai', see the const
-// state block) or by a #ai/#solo deep link, so reflect the resolved view on
+// but state.view can be changed by a #ai/#solo deep link, so reflect it on
 // the tabs before first render. Without this the board shows one view while
 // a different tab reads active.
 tabs.forEach(function(x){

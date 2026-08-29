@@ -14,7 +14,7 @@
 // Covering it wants a fake-juror injection seam in judge-jurors.mjs,
 // which is the next thing to build here, not something this file does.
 
-import { makeBallotParser, parseDims } from '../app/netlify/functions/lib/judge-run.mjs';
+import { makeBallotParser, parseDims, runPanel } from '../app/netlify/functions/lib/judge-run.mjs';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + n); } };
@@ -89,6 +89,101 @@ ok(four !== null && Object.keys(four).length === 4,
   'a ballot judged before the new axis existed still renders its four');
 ok(parseDims({ ...withNew, weighing: undefined }, 'pro', 'con') === null,
   'a REQUIRED axis missing still drops the whole card');
+
+// ── runtime provider failure and the Claude safety net ──────────────
+// Provider keys can all be configured while the calls themselves time
+// out or return an error. Fakes exercise that orchestration without
+// spending a real provider call in the pre-commit hook.
+const season = {
+  panel: {
+    size: 3, quorum: 2,
+    jurors: [
+      { id: 'j1', provider: 'anthropic', model: 'claude-pinned' },
+      { id: 'j2', provider: 'openai', model: 'gpt-pinned' },
+      { id: 'j3', provider: 'google', model: 'gemini-pinned' },
+    ],
+  },
+};
+const result = (id, provider, model, winner) => ({
+  jurorId: id, provider, model, ok: true, promptHash: 'same',
+  ballot: { winner, proPoints: winner === 'pro' ? 82 : 73, conPoints: winner === 'con' ? 82 : 73, rfd: 'r' },
+});
+const failed = (id, provider, model) => ({ jurorId: id, provider, model, ok: false, error: 'provider down' });
+const allAvailable = () => true;
+
+{
+  let fallbackCalls = 0;
+  const judged = await runPanel(season, 'system', 'user', {
+    aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
+    jurorAvailable: allAvailable,
+    callPanel: async () => [
+      result('j1', 'anthropic', 'claude-pinned', 'pro'),
+      failed('j2', 'openai', 'gpt-pinned'),
+      failed('j3', 'google', 'gemini-pinned'),
+    ],
+    callJuror: async () => { fallbackCalls++; return result('single', 'anthropic', 'claude-backup', 'con'); },
+  });
+  ok(judged.ballot.winner === 'pro' && judged.panel.resolution === 'single',
+    'one surviving Claude vote becomes the disclosed single-judge result');
+  ok(judged.panel.degraded === true && judged.panel.fallbackReason === 'runtime_quorum_failed',
+    'runtime fallback is stamped degraded with its cause');
+  ok(fallbackCalls === 0, 'a usable Claude panel vote is reused instead of billed twice');
+}
+
+{
+  let fallbackCalls = 0;
+  const judged = await runPanel(season, 'system', 'user', {
+    aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
+    jurorAvailable: allAvailable,
+    callPanel: async () => [
+      failed('j1', 'anthropic', 'claude-pinned'),
+      failed('j2', 'openai', 'gpt-pinned'),
+      failed('j3', 'google', 'gemini-pinned'),
+    ],
+    callJuror: async () => { fallbackCalls++; return result('single', 'anthropic', 'claude-backup', 'con'); },
+  });
+  ok(judged.ballot.winner === 'con' && judged.panel.originalVotesCast === 0,
+    'an all-provider outage gets one explicit Claude backup ballot');
+  ok(judged.jurorResults.length === 4 && fallbackCalls === 1,
+    'the audit input keeps three failures plus the backup call');
+}
+
+{
+  let fallbackCalls = 0;
+  const judged = await runPanel(season, 'system', 'user', {
+    aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
+    jurorAvailable: allAvailable,
+    callPanel: async () => [
+      result('j1', 'anthropic', 'claude-pinned', 'pro'),
+      result('j2', 'openai', 'gpt-pinned', 'con'),
+      failed('j3', 'google', 'gemini-pinned'),
+    ],
+    callJuror: async () => { fallbackCalls++; return result('single', 'anthropic', 'claude-backup', 'pro'); },
+  });
+  ok(judged.ballot.winner === null && judged.panel.resolution === 'unresolved',
+    'a returned 1-1 panel split stays unresolved');
+  ok(fallbackCalls === 0, 'Claude is never used to break a panel tie');
+}
+
+{
+  const strictSeason = {
+    panel: { ...season.panel, minimumVotes: 3 },
+  };
+  const judged = await runPanel(strictSeason, 'system', 'user', {
+    aKey: 'pro', bKey: 'con', scoreScale: 100, singleModel: 'claude-backup',
+    jurorAvailable: allAvailable,
+    callPanel: async () => [
+      result('j1', 'anthropic', 'claude-pinned', 'pro'),
+      result('j2', 'openai', 'gpt-pinned', 'pro'),
+      failed('j3', 'google', 'gemini-pinned'),
+    ],
+    callJuror: async () => result('single', 'anthropic', 'claude-backup', 'pro'),
+  });
+  ok(judged.ballot.winner === null && judged.panel.resolution === 'incomplete',
+    'two matching votes cannot present themselves as the three-judge council');
+  ok(judged.panel.minimumVotes === 3 && judged.panel.votesCast === 2,
+    'a short council reports the three-seat requirement and its actual vote count');
+}
 
 console.log(`\njudge-run: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -30,6 +30,7 @@ function runningState(nowMs) {
   }));
   const available = jurors.filter((j) => j.available).length;
   const quorum = (season.panel && season.panel.quorum) || 2;
+  const minimumVotes = (season.panel && season.panel.minimumVotes) || quorum;
 
   // The single-judge fallback model. If this is not the season's pinned
   // primary, that is an override and it is named here.
@@ -41,10 +42,13 @@ function runningState(nowMs) {
     requirePanel: REQUIRE_PANEL,
     jurors,
     jurorsAvailable: available,
+    minimumVotes,
     // The honest headline. When this is false, ballots are being written
     // by a single judge and every audit record for them says so.
     panelConstitutable: PANEL_ENABLED && !!season.panel && available >= quorum,
     fallbackModel: ASYNC_JUDGE_MODEL,
+    runtimeFallback: true,
+    fallbackPolicy: 'If provider failures leave fewer than two usable panel votes, one disclosed Claude ballot may finish the round. A returned panel split is never sent to the fallback.',
     fallbackIsPinned: !pinnedPrimary || ASYNC_JUDGE_MODEL === pinnedPrimary,
     ...(pinnedPrimary && ASYNC_JUDGE_MODEL !== pinnedPrimary
       ? { override: { pinned: pinnedPrimary, running: ASYNC_JUDGE_MODEL, note: 'Single-judge fallback is running a model other than the season pin. Every ballot it writes is stamped as an override.' } }

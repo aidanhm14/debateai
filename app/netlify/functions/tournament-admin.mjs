@@ -7,6 +7,7 @@ import {
 } from './lib/tournament.mjs';
 import { tournamentRoomSetup } from './lib/tournament-motion-pool.mjs';
 import { checkContent } from './lib/content-guard.mjs';
+import { applyRoundRating, reverseRoundRating } from './lib/rating-apply.mjs';
 
 // ── Tournament control room ────────────────────────────────────────
 //
@@ -93,6 +94,84 @@ function roundKey(kind, roundNo) {
 // page mid-round hands out the same link they handed out before.
 function roomFor(tid, key, index) {
   return 'Debatable-' + String(tid).slice(0, 12) + '-' + key + '-' + (index + 1);
+}
+
+function ratingSeat(entry, fallbackName) {
+  const members = Array.isArray(entry && entry.members) ? entry.members.filter(Boolean) : [];
+  if (members.length !== 1) return null;
+  return {
+    uid: String(members[0]),
+    name: cleanText((entry.memberNames || [])[0] || entry.name || fallbackName, NAME_MAX),
+  };
+}
+
+function directorRatingPayload(
+  pairing, round, govEntry, oppEntry, winner, amended, previousRevision, reportedBy,
+) {
+  const gov = ratingSeat(govEntry, 'Government');
+  const opp = ratingSeat(oppEntry, 'Opposition');
+  const room = String((pairing && pairing.room) || '');
+  if (!gov || !opp || gov.uid === opp.uid || !room || !['gov', 'opp'].includes(winner)) return null;
+  const prevRev = Math.max(0, Math.trunc(Number(previousRevision) || 0));
+  return {
+    room,
+    gov,
+    opp,
+    motion: cleanText(round && round.motion, MOTION_MAX),
+    winner,
+    amended: !!amended,
+    previousRevision: prevRev,
+    revision: amended ? prevRev + 1 : prevRev,
+    verdictSource: reportedBy === 'ai-judge' ? 'server' : 'tournament-director',
+  };
+}
+
+function compactRatingChanges(rated) {
+  if (!rated || !Array.isArray(rated.changes) || !rated.changes.length) return null;
+  const out = {};
+  for (const change of rated.changes) {
+    if (!change || !change.uid) continue;
+    out[change.uid] = {
+      delta: Number(change.delta) || 0,
+      after: Math.round(Number(change.after && change.after.rating) || 0),
+      result: String(change.result || ''),
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+async function applyDirectorRating(db, payload) {
+  if (!payload) return null;
+  if (payload.amended) {
+    await reverseRoundRating(db, {
+      source: 'live',
+      eventId: payload.room,
+      uids: [payload.gov.uid, payload.opp.uid],
+      rev: payload.previousRevision,
+      reason: 'Tournament director amended the result.',
+    });
+  }
+  const rated = await applyRoundRating(db, {
+    source: 'live',
+    eventId: payload.room,
+    rev: payload.revision,
+    verdictSourceOverride: payload.verdictSource,
+    roundData: {
+      proUid: payload.gov.uid,
+      conUid: payload.opp.uid,
+      proName: payload.gov.name,
+      conName: payload.opp.name,
+      motion: payload.motion,
+      ballot: { winner: payload.winner === 'gov' ? 'pro' : 'con' },
+      leaderboardConsent: { [payload.gov.uid]: true, [payload.opp.uid]: true },
+    },
+  });
+  const changes = compactRatingChanges(rated);
+  if (changes) {
+    await db.collection('live_rounds').doc(payload.room).update({ ratingChanges: changes })
+      .catch((err) => console.error('[tournament-admin] ratingChanges write failed', payload.room, err.message));
+  }
+  return rated;
 }
 
 async function loadTournament(db, tid) {
@@ -459,19 +538,36 @@ export default async (request) => {
         const idx = pairings.findIndex((p) => p.pairingId === pairingId);
         if (idx === -1) return { ok: false, reason: 'no_pairing' };
         const p = pairings[idx];
-        if (p.status === 'complete' && !body?.amend) return { ok: false, reason: 'already_reported' };
+        const amended = p.status === 'complete' && !!body?.amend;
+        const previousRevision = Math.max(0, Math.trunc(Number(p.resultRevision) || 0));
 
         const govRef = t.ref.collection('entries').doc(p.govEntry);
         const oppRef = t.ref.collection('entries').doc(p.oppEntry);
         const [govSnap, oppSnap] = await Promise.all([tx.get(govRef), tx.get(oppRef)]);
         if (!govSnap.exists || !oppSnap.exists) return { ok: false, reason: 'entry_missing' };
+        const govEntry = { entryId: p.govEntry, ...govSnap.data() };
+        const oppEntry = { entryId: p.oppEntry, ...oppSnap.data() };
+
+        // Retried manual reports are idempotent and also repair a rating
+        // write if the standings transaction committed just before a
+        // provider or Firestore interruption.
+        if (p.status === 'complete' && !body?.amend) {
+          return {
+            ok: true,
+            already: true,
+            eliminated: kind === 'elim' ? (p.winner === 'gov' ? p.oppEntry : p.govEntry) : null,
+            rating: directorRatingPayload(
+              p, round, govEntry, oppEntry, p.winner, false, previousRevision, p.reportedBy,
+            ),
+          };
+        }
 
         // An amendment reverses the previous result before applying
         // the new one, so correcting a mistyped ballot doesn't leave
         // both teams credited with a win.
-        let govBase = { entryId: p.govEntry, ...govSnap.data() };
-        let oppBase = { entryId: p.oppEntry, ...oppSnap.data() };
-        if (p.status === 'complete' && body?.amend) {
+        let govBase = govEntry;
+        let oppBase = oppEntry;
+        if (amended) {
           govBase = reverseResult(govBase, p, 'gov');
           oppBase = reverseResult(oppBase, p, 'opp');
         }
@@ -509,9 +605,16 @@ export default async (request) => {
           govSpeaks,
           oppSpeaks,
           reportedBy: myUid,
+          resultRevision: amended ? previousRevision + 1 : previousRevision,
         };
         tx.update(roundRef, { pairings });
-        return { ok: true, eliminated: kind === 'elim' ? (winner === 'gov' ? p.oppEntry : p.govEntry) : null };
+        return {
+          ok: true,
+          eliminated: kind === 'elim' ? (winner === 'gov' ? p.oppEntry : p.govEntry) : null,
+          rating: directorRatingPayload(
+            p, round, govEntry, oppEntry, winner, amended, previousRevision, myUid,
+          ),
+        };
       });
 
       if (!out.ok) {
@@ -528,7 +631,20 @@ export default async (request) => {
         await t.ref.collection('entries').doc(out.eliminated)
           .update({ status: 'eliminated' }).catch(() => {});
       }
-      return jsonResponse({ ok: true }, 200, request);
+      let rated = null;
+      try {
+        rated = await applyDirectorRating(db, out.rating);
+      } catch (err) {
+        // The tournament result is authoritative and already committed.
+        // A ladder outage must not make the director re-enter the tab.
+        console.error('[tournament-admin] rating apply failed', out.rating && out.rating.room, err?.message || err);
+      }
+      return jsonResponse({
+        ok: true,
+        ...(out.already ? { already: true } : {}),
+        rated: !!(rated && (rated.applied || rated.reason === 'already_applied')),
+        ...(rated && !rated.applied ? { ratedReason: rated.reason } : {}),
+      }, 200, request);
     } catch (err) {
       console.error('[tournament-admin] report-result:', err?.message || err);
       return errorResponse('Could not record that result.', 500, request);

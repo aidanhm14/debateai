@@ -159,6 +159,7 @@ function t(label, cond) {
     jurors.every((j) => !!j.provider && !!j.model));
   t('the panel spans three model families',
     new Set(jurors.map((j) => j.provider)).size === 3);
+  t('the Open council requires all three seats to return', current.panel.minimumVotes === 3);
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
   // Effort changes how a ballot is reached, so an undisclosed effort is
   // the same quiet dial as an undisclosed model.
@@ -556,6 +557,18 @@ function t(label, cond) {
     panel: {}, now: 1,
   });
   t('differing prompts are flagged', mismatched.identicalPrompts === false);
+
+  const fallbackAudit = auditRecord({
+    judgmentId: 'fallback', source: 'live', eventId: 'fallback', season,
+    jurorResults: [
+      { jurorId: 'single', provider: 'anthropic', model: 'claude-backup', ok: true,
+        promptHash: 'same', ballot: { winner: 'pro', propPoints: 80, oppPoints: 72, rfd: 'r' } },
+    ],
+    panel: { resolution: 'single', degraded: true }, now: 1,
+  });
+  t('a fallback model is compared with the pinned primary',
+    fallbackAudit.jurors[0].overridden === true
+      && fallbackAudit.jurors[0].pinnedModel === season.panel.jurors[0].model);
 
   t('audit starts with no appeal', rec.appealState === 'none');
   t('audit starts with no revisions', rec.revisionCount === 0);

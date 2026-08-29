@@ -3,6 +3,9 @@ import fs from 'node:fs';
 const reminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-day-reminder.mjs', 'utf8');
 const cta = fs.readFileSync('app/js/tournament-day-cta.js', 'utf8');
 const landing = fs.readFileSync('app/landing.html', 'utf8');
+const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
+const tournamentAdmin = fs.readFileSync('app/netlify/functions/tournament-admin.mjs', 'utf8');
+const liveJudge = fs.readFileSync('app/netlify/functions/live-judge.mjs', 'utf8');
 const failures = [];
 
 function check(label, condition) {
@@ -38,8 +41,22 @@ check('homepage CTA is signed-in only and points to the event page',
   && cta.includes("cta.href = '/open'"));
 check('homepage CTA clears the fixed topbar hit layer',
   cta.includes('margin:52px 0 0'));
+check('homepage CTA does not double-space below the live-room strip',
+  cta.includes('#homeLiveBand + .tday-cta{margin-top:0}'));
 check('homepage CTA self-retires after tournament day',
   cta.includes("Date.parse('2026-08-29T23:59:59-07:00')"));
+check('human Debate Rating is the leaderboard default',
+  leaderboard.includes("const state={view:'live'"));
+check('director-entered tournament results move the human rating',
+  tournamentAdmin.includes("verdictSourceOverride: payload.verdictSource")
+  && tournamentAdmin.includes("eventId: payload.room")
+  && tournamentAdmin.includes("source: 'live'"));
+check('tournament result amendments reverse the old rating first',
+  tournamentAdmin.includes('await reverseRoundRating(db')
+  && tournamentAdmin.includes('revision: amended ? prevRev + 1 : prevRev'));
+check('the live judge follows the authoritative tournament winner and revision',
+  liveJudge.includes('ratingBallot = { ...ballot, winner: winnerIsPro')
+  && liveJudge.includes('rev: ratingRevision'));
 
 if (failures.length) {
   console.error(failures.map((failure) => `FAIL ${failure}`).join('\n'));

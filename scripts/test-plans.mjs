@@ -118,7 +118,11 @@ ok(planBypassesVoiceCap({ plan: 'individual', status: 'past_due' }),
 // every tier is free or calls today's numbers "future pricing" can send a
 // person into a real checkout under the opposite promise.
 function sourceFiles(dir) {
-  return readdirSync(dir).flatMap((name) => {
+  // Build output and installed packages are not public source surfaces.
+  // Walking them made the price guard recurse forever on npm's
+  // node_modules links and blocked every otherwise valid commit.
+  const ignoredDirs = new Set(['node_modules', 'dist', '.netlify']);
+  return readdirSync(dir).filter((name) => !ignoredDirs.has(name)).flatMap((name) => {
     const path = join(dir, name);
     return statSync(path).isDirectory() ? sourceFiles(path) : [path];
   });
