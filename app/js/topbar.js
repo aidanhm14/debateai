@@ -2629,9 +2629,15 @@
   // there is no "above the fold" to protect any more: the whole
   // message reaches every width, including the phones that used to
   // lose everything past the hook.
-  var when = (now >= EVENT_DAY)
-    ? 'Live today &middot; one session, 10 AM ET'
-    : 'Sat Aug 29 &middot; 10 AM ET';
+  // Three phases, because "one session, 10 AM ET" kept advertising a
+  // start time six hours into the running event, and the 2026-08-29
+  // ladder decision made the day all-day rather than one session.
+  var DOORS_OPEN = Date.parse('2026-08-29T10:00:00-04:00');
+  var when = (now >= DOORS_OPEN)
+    ? 'Live right now &middot; all day'
+    : (now >= EVENT_DAY)
+      ? 'Live today &middot; doors 10 AM ET'
+      : 'Sat Aug 29 &middot; 10 AM ET';
   var M = function(t){ return '<b class="ui-strip-money">' + t + '</b>'; };
   var SEGMENTS = [
     M('$100') + ' for winning a debate',
@@ -2642,7 +2648,8 @@
     'Enter now &rarr;'
   ];
   var SPOKEN = 'The Debatable Open. $100 for winning a debate. '
-    + ((now >= EVENT_DAY) ? 'Live today, one session from 10 AM Eastern.' : 'Saturday August 29, 10 AM Eastern.')
+    + ((now >= DOORS_OPEN) ? 'Live right now, all day.'
+      : (now >= EVENT_DAY) ? 'Live today, doors at 10 AM Eastern.' : 'Saturday August 29, 10 AM Eastern.')
     + ' Free to enter.';
 
   function mount(){
@@ -2683,6 +2690,19 @@
         '</a>' +
         '<button type="button" class="ui-beta-strip-dismiss" aria-label="Dismiss">&times;</button>';
       document.body.appendChild(strip);
+    } else {
+      // The static landing strip ships with the PRE-day wording baked
+      // into its markup, and adopting only the behaviour left "Sat Aug
+      // 29, 10 AM ET" advertising a future start six hours into the
+      // live event. Rebuild the runs from the freshly computed
+      // segments so the adopted strip always says what the built one
+      // would.
+      var adoptedTrack = strip.querySelector('.ui-strip-track');
+      if (adoptedTrack) adoptedTrack.innerHTML =
+        '<span class="ui-strip-run">' + run + '</span>' +
+        '<span class="ui-strip-run">' + run + '</span>';
+      var adoptedLink = strip.querySelector('.ui-strip-link');
+      if (adoptedLink) adoptedLink.setAttribute('aria-label', SPOKEN);
     }
     document.body.classList.add('has-beta-strip');
 
