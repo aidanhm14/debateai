@@ -2621,7 +2621,7 @@
   // funded by the organizer, and /tournaments owns everything else.
   var now = Date.now();
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
-  var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
+  var EVENT_OVER = Date.parse('2026-09-05T23:59:59-04:00'); // week-long ladder (2026-08-29)
   if (now > EVENT_OVER) { dropStatic(); return; }
 
   // Segment list for the zipper. Authored money-first because the
@@ -2634,7 +2634,7 @@
   // ladder decision made the day all-day rather than one session.
   var DOORS_OPEN = Date.parse('2026-08-29T10:00:00-04:00');
   var when = (now >= DOORS_OPEN)
-    ? 'Live right now &middot; all day'
+    ? 'Live all week &middot; through Sat Sep 5'
     : (now >= EVENT_DAY)
       ? 'Live today &middot; doors 10 AM ET'
       : 'Sat Aug 29 &middot; 10 AM ET';
@@ -2648,7 +2648,7 @@
     'Enter now &rarr;'
   ];
   var SPOKEN = 'The Debatable Open. $100 for winning a debate. '
-    + ((now >= DOORS_OPEN) ? 'Live right now, all day.'
+    + ((now >= DOORS_OPEN) ? 'Live all week, through Saturday September 5.'
       : (now >= EVENT_DAY) ? 'Live today, doors at 10 AM Eastern.' : 'Saturday August 29, 10 AM Eastern.')
     + ' Free to enter.';
 
@@ -2808,7 +2808,7 @@
   var DWELL_MS = 30000;
   var SEEN_KEY = 'da-open-modal-seen';
   var ENTERED_KEY = 'da-open-entered';
-  var EVENT_OVER = Date.parse('2026-08-29T23:59:59-04:00');
+  var EVENT_OVER = Date.parse('2026-09-05T23:59:59-04:00'); // week-long ladder (2026-08-29)
   var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
 
   // Surfaces where an interruption lands on top of something the person
@@ -2926,9 +2926,9 @@
     wrap.innerHTML =
       '<div class="ui-open-card">' +
         '<button type="button" class="ui-open-x" aria-label="Close">&times;</button>' +
-        '<span class="ui-open-tag">' + (today ? 'Today, 10 AM ET' : 'Sat Aug 29 \u00b7 10 AM ET') + '</span>' +
+        '<span class="ui-open-tag">' + (today ? 'Live all week' : 'Sat Aug 29 \u00b7 10 AM ET') + '</span>' +
         '<h2 class="ui-open-h" id="uiOpenH">Win $100 for winning an argument.</h2>' +
-        '<p class="ui-open-p">The Debatable Open is a one session online tournament. Doors open at <strong>10:00 AM Eastern</strong>, you are paired with a real person, and every round ends with a written verdict. There is no second session and no make-up round. $100 for first, $50 for second, $25 for third.</p>' +
+        '<p class="ui-open-p">The Debatable Open is a week-long rating ladder, live through <strong>Saturday, September 5</strong>. Check in whenever you are free, you are paired with a real person, and every judged round moves your event rating. Top three ratings take $100, $50 and $25.</p>' +
         '<p class="ui-open-fine">Free to enter. We encourage 18+. Everyone competes in one field. Cash is 18+.</p>' +
         '<a class="ui-open-go" href="/tournaments#enter" data-cta="open-modal">Enter free</a>' +
         '<button type="button" class="ui-open-no">Not interested</button>' +

@@ -13,8 +13,10 @@
   var path = (location.pathname || '/').replace(/\/$/, '') || '/';
   if (path !== '/' && path !== '/landing.html') return;
 
+  // 2026-08-29, the founder: the one-day event became a week-long
+  // rating ladder, so the CTA runs for the whole window.
   var DAY_START = Date.parse('2026-08-29T00:00:00-07:00');
-  var DAY_END = Date.parse('2026-08-29T23:59:59-07:00');
+  var DAY_END = Date.parse('2026-09-05T23:59:59-07:00');
   var DOORS_OPEN = Date.parse('2026-08-29T07:00:00-07:00');
   var now = Date.now();
   if (now < DAY_START || now > DAY_END) return;
@@ -66,9 +68,9 @@
     cta.setAttribute('data-cta', 'tournament-day-home');
     cta.setAttribute('aria-label', 'Tournament day. Open your event page.');
     cta.innerHTML = '<span class="tday-cta-in">' +
-      '<span class="tday-cta-k">' + (eventLive ? 'Live now' : 'Tournament day') + '</span>' +
+      '<span class="tday-cta-k">' + (eventLive ? 'Live all week' : 'Tournament week') + '</span>' +
       '<span class="tday-cta-main">' + (eventLive
-        ? 'The Debatable Open is on right now. Check in and press Ready.'
+        ? 'The Debatable Open runs all week. Every judged round moves your rating.'
         : 'The Debatable Open starts at 7 AM Pacific') + '</span>' +
       '<span class="tday-cta-btn">Open your event page &rarr;</span>' +
       '</span>';

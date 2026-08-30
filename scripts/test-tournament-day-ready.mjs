@@ -124,8 +124,10 @@ check('homepage CTA clears the fixed topbar hit layer',
   cta.includes('margin:52px 0 0'));
 check('homepage CTA does not double-space below the live-room strip',
   cta.includes('#homeLiveBand + .tday-cta{margin-top:0}'));
-check('homepage CTA self-retires after tournament day',
-  cta.includes("Date.parse('2026-08-29T23:59:59-07:00')"));
+// 2026-08-29: the one-day event became a week-long rating ladder, so
+// the CTA retires at the Sep 5 freeze rather than event-day midnight.
+check('homepage CTA self-retires when the week-long ladder freezes',
+  cta.includes("Date.parse('2026-09-05T23:59:59-07:00')"));
 check('human Debate Rating is the leaderboard default',
   leaderboard.includes("const state={view:'live'"));
 check('director-entered tournament results move the human rating',

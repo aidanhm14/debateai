@@ -37,7 +37,7 @@
     // down, not deleting it. The default channel for a visitor with no
     // saved choice stays 'general' (set in start()), so adding a row
     // here does not churn anyone's landing room.
-    { id: 'tournament',   label: 'tournament',   topic: 'The Debatable Open, live today. Pairings, results, and the play by play.' },
+    { id: 'tournament',   label: 'tournament',   topic: 'The Debatable Open, live all week through Sep 5. Pairings, results, and the play by play.' },
     { id: 'general',      label: 'general',      topic: 'The main hall. Introduce yourself.' },
     { id: 'find-a-round', label: 'find-a-round', topic: 'Looking for an opponent? Post a time and jump into a casual 1v1.' },
     { id: 'motions',      label: 'motions',      topic: 'Questions worth arguing and why they clash.' },
