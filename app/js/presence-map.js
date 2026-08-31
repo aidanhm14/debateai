@@ -110,7 +110,11 @@
 
     function drawLand(rect) {
       if (!land) return;
-      var dotR = Math.max(0.6, (rect.w / 1400)) * canvas._dpr * 0.75;
+      /* 2026-08-31: 0.75 -> 0.95. At 0.75 the land dots were sub-pixel on
+         common widths and the map read as noise rather than continents
+         (the founder, off a /spar screenshot: "hard to tell its a world
+         map"). Alpha lives with the callers; size lives here. */
+      var dotR = Math.max(0.7, (rect.w / 1400)) * canvas._dpr * 0.95;
       ctx.fillStyle = 'rgba(' + pal.land + ',' + landAlpha + ')';
       for (var i = 0; i < land.length; i++) {
         var pt = land[i];

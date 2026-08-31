@@ -37,6 +37,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
+<!-- Stand-in photo tier (2026-08-31): the founder-supplied pfp batch now
+     dresses this board too, matching the landing rail and the landing's
+     full board. A row's own avatar or account photo still outranks it. -->
+<script defer src="/js/pfp-set.js"></script>
 <!-- The board renders up to 100 rows and every row's emblem carries an
      infinite CSS animation, which keeps painting in a backgrounded tab
      and for rows nobody has scrolled to. The governor pauses on both,
@@ -1772,6 +1776,24 @@ function seedPortrait(row){
   const y=Math.floor(tile/4)*(100/3);
   return '<span class="seed-portrait" style="background-position:'+x.toFixed(3)+'% '+y.toFixed(3)+'%"></span>';
 }
+// ── stand-in photo tier (2026-08-31, the founder: the board should wear
+// the supplied profile pictures like the landing does) ─────────────────
+// The pool is app/img/pfp/* via /js/pfp-set.js, the same 2026-08-25
+// "never reverse this" batch the first-screen rail and the landing's
+// full board already draw. Standing limits from that decision hold here:
+// stand-in tier ONLY (a built avatar or the account's own photo always
+// outranks it, and the photo ids are never pickable as an identity), and
+// the drawn emblem stays as the fallback for a blocked or slow script.
+// `pfpTaken` is reset once per board render so the podium and the top of
+// the table stay visually distinct; with 10 photos against up to 100
+// rows, repeats further down are expected and fine.
+let pfpTaken=null;
+function resetStandIns(){ pfpTaken = {}; }
+function standInPhoto(seed){
+  const lib=window.DBPfp;
+  if(lib && lib.pickPhotoSvg) return lib.pickPhotoSvg(seed, pfpTaken);
+  return '';
+}
 function avatarHTML(row){
   const seed=(row&&row.uid)||(row&&row.displayName)||'anon';
   const fallback=emblemAvatar(seed,row&&row.displayName,avaAnon(row&&row.displayName));
@@ -1780,7 +1802,7 @@ function avatarHTML(row){
     return DBAvatar.publicSvg(row.avatarIdentity,'100%',{uid:row.uid,name:row.displayName});
   }
   const photo=safeAvatarUrl(row&&row.photoURL);
-  if(!photo) return fallback;
+  if(!photo) return standInPhoto(seed)||fallback;
   return '<img src="'+photo+'" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
     +'<span class="avatar-fallback" hidden>'+fallback+'</span>';
 }
@@ -2290,6 +2312,9 @@ function renderTicker(rows){
 }
 
 function renderBoard(allRowsRaw){
+  // Fresh dedupe map per full render, so the same stand-in photo is not
+  // dealt twice inside the podium + visible top of the table.
+  resetStandIns();
   const roundRows = applyFormatFilter(allRowsRaw);
   // Head-to-head standings come from the rating ladder; the round rows
   // still feed the ticker and hero stats below. Solo keeps score rank.
@@ -2811,6 +2836,19 @@ async function loadView(view){
     signinStrip.hidden=!!state.user;
   }
 }
+
+// If /js/pfp-set.js lands after the board's first paint (both are
+// deferred, and a cached snapshot can paint before the module runs),
+// repaint once so the top rows pick up the stand-in photos instead of
+// keeping the emblem fallback for the whole visit.
+(function(){
+  if(window.DBPfp) return;
+  const tag=document.querySelector('script[src="/js/pfp-set.js"]');
+  if(!tag) return;
+  tag.addEventListener('load', function(){
+    try{ renderBoard(state.cache[state.view]||[]); }catch(_){}
+  }, {once:true});
+})();
 
 function updateSigninStripCta(view){
   const cta=document.getElementById('signinStripCta');
