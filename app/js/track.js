@@ -343,6 +343,33 @@
    * every heartbeat; source and campaign are what answer "which channel
    * produced entrants", which is the whole question.
    */
+  /* Entry referrer (2026-08-31). document.referrer only exists on the
+   * arrival page's page_view; every later event in the session reads as
+   * direct, so joining a signup or a round back to the channel that
+   * delivered the visitor takes a per-session join nobody runs. Stash the
+   * first EXTERNAL referrer host once per session, same lifecycle as the
+   * UTM stash, and ride it on baseMeta so any event can be attributed
+   * directly. Host only, never the full URL: a referrer path can carry a
+   * stranger's search terms and we do not need them. Internal hops and an
+   * empty referrer store '' so the lookup runs once.
+   */
+  const REF_KEY = '_da_refhost';
+  let refHost = '';
+  try {
+    const stashedRef = sessionStorage.getItem(REF_KEY);
+    if (stashedRef !== null) {
+      refHost = stashedRef;
+    } else {
+      let h = '';
+      try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+      if (/(^|\.)itsdebatable\.com$|(^|\.)debateai\.com$|^localhost$/.test(h)) h = '';
+      refHost = h.slice(0, 60);
+      sessionStorage.setItem(REF_KEY, refHost);
+    }
+  } catch (e) {
+    refHost = '';
+  }
+
   const UTM_KEY = '_da_utm';
   let campaign = null;
   try {
@@ -376,6 +403,7 @@
       m.utm_source = campaign.utm_source;
       if (campaign.utm_campaign) m.utm_campaign = campaign.utm_campaign;
     }
+    if (refHost) m.ref_host = refHost;
     if (anonId) m.anon_id = anonId;
     if (extra) {
       for (const k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) m[k] = extra[k];
