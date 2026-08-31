@@ -1654,7 +1654,7 @@ body.draft-live #daExpAsk{display:none !important}
 /* Both of these set a display, which beats the UA's [hidden] rule, so
    the form showed before it was asked for and the button it replaces
    stayed on screen under it. */
-.gate-email[hidden],.gate-guest[hidden],.gate-google[hidden]{display:none}
+.gate-email[hidden],.gate-guest[hidden],.gate-google[hidden],.gate-live[hidden]{display:none}
 .gate-email-label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);margin:0 0 5px}
 .gate-email-input{width:100%;padding:12px 14px;border-radius:11px;border:1px solid rgba(0,0,0,.16);background:var(--surface,#fff);color:var(--text);font:inherit;font-size:.92rem;margin:0 0 10px}
 .gate-email-input:focus{outline:none;border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.14)}
@@ -3643,27 +3643,32 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
 
-  // The founder-called 12 is the floor, not the whole count. Add the
-  // honest, fresh waiting queue so the number rises with people who can
-  // actually be met right now. /api/spar-queue is public, shared-cached
-  // for 15s, and applies the same 120s heartbeat window as this page.
-  var GATE_LIVE_BASE = 12;
+  // REAL NUMBERS ONLY (2026-08-31, founder: "get rid of the bot
+  // numbers... make them real numbers"). This RETIRES the 2026-08-27
+  // founder-called 12 floor entirely (do not restore a floor constant,
+  // a pad, or a hardcoded fallback here). The pill shows the
+  // honest fresh waiting queue from /api/spar-queue (public, shared-
+  // cached 15s, same 120s heartbeat window as this page) and HIDES
+  // itself at zero: an empty queue shows no pill rather than an
+  // invented crowd. `live_display` in GA4 now equals `queue_waiting`,
+  // kept as a field so dashboards spanning the flip stay readable.
   var gateLivePollTimer = null;
   var gateLiveViewTracked = false;
 
-  function gateLiveTotal(waiting){
-    return GATE_LIVE_BASE + Math.max(0, Math.floor(Number(waiting) || 0));
-  }
-
   function paintGateLive(waiting){
+    var pill = document.getElementById('gateLive');
     var text = document.getElementById('gateLiveText');
     if (!text) return;
     var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
-    var total = gateLiveTotal(queueWaiting);
-    text.textContent = total + ' live now';
+    if (queueWaiting > 0){
+      text.textContent = queueWaiting + ' live now';
+      if (pill) pill.hidden = false;
+    } else if (pill){
+      pill.hidden = true;
+    }
     if (!gateLiveViewTracked){
       gateLiveViewTracked = true;
-      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: total, queue_waiting: queueWaiting }); } catch(e){}
+      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: queueWaiting, queue_waiting: queueWaiting }); } catch(e){}
     }
   }
 
@@ -3721,7 +3726,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
         '<h2>Join a live debate.</h2>' +
         '<p>Continue with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>' +
-        '<div class="gate-live" id="gateLive"><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText">12 live now</span></div>' +
+        // Ships hidden and empty; paintGateLive reveals it only when the
+        // real queue count is above zero. No hardcoded fallback figure.
+        '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
           'Sign up with Google' +
@@ -4907,17 +4914,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
   }
 
-  // Ambient activity floor for the public /spar strip. The raw Firestore
-  // counters (metrics/spar_attempts) undercount real "find a round"
-  // intent — plenty of presses never reach the logger. These older /spar
-  // display-only floors are separate from the presence API, which has been
-  // measured and unpadded since 2026-08-27. The stored counters are never
-  // mutated, and the raw value is always recoverable as (shown - baseline).
-  // 2026-08-27: the weekly public figure was called up by roughly 2x.
-  // Doubling the floor instead of the stored counter keeps the raw event
-  // history intact and stops the adjustment leaking into admin analytics.
-  var SPAR_WEEK_BASELINE = 760;
-  var SPAR_MONTH_BASELINE = 500;
+  // REAL NUMBERS ONLY (2026-08-31, founder: "get rid of the bot numbers
+  // on how many tried this week / day etc - make them real numbers").
+  // This RETIRES the 760-a-week / 500-a-month display baselines that
+  // used to be added here (and the 2x uplift before them). Do not
+  // restore a floor, a pad, or a multiplier: the pills show the raw
+  // metrics/spar_attempts counters or they show nothing.
 
   // Pulls the public "missed each other this week / this month" counts
   // from /api/log-missed-match (GET). Each pill renders independently;
@@ -4933,12 +4935,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
         var attemptsM = (j.attempts && typeof j.attempts.month_count === 'number') ? j.attempts.month_count : 0;
         var missesM = (typeof j.month_count === 'number') ? j.month_count : 0;
-        // Apply the ambient floor (see SPAR_*_BASELINE above). Padding the
-        // attempts values keeps the positive "looked for a live round"
-        // framing on the weekly pill rather than the rarer "missed each
-        // other" fallback, and both pills always clear the >=3 gate.
-        attempts += SPAR_WEEK_BASELINE;
-        attemptsM += SPAR_MONTH_BASELINE;
+        // No baseline, no multiplier: the >=3 gates below do the
+        // small-number hiding honestly.
         // Weekly pill
         var n, label;
         if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }

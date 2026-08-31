@@ -1906,7 +1906,11 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
          from real member activity. -->
     <div class="side-card side-about">
       <div class="side-head">About this room</div>
-      <p>About <strong id="memberCount" data-baseline="101">101</strong> visits in the last 30 days. <span id="memberYou">+ you, here today</span></p>
+      <!-- Real numbers only (2026-08-31): the visit sentence ships hidden
+           with no figure and is revealed by the live counter once a real
+           count30d arrives. The old data-baseline="101" display floor is
+           retired; do not restore a floor or a static fallback number. -->
+      <p id="memberCountLine" hidden>About <strong id="memberCount"></strong> visits in the last 30 days. <span id="memberYou">+ you, here today</span></p>
       <p>I am building and funding this myself. Try it, then tell me what is broken.</p>
       <div class="side-links">
         <a href="/report">Build report</a>
@@ -2559,8 +2563,11 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     }
 
     // Live counter call. Updates the headline number with the real
-    // Firestore-backed count. Falls through silently on failure; the
-    // baseline stays in place.
+    // Firestore-backed count. REAL ONLY (2026-08-31): the old 101
+    // display floor is retired. The sentence stays hidden until a
+    // real count arrives and stays hidden at zero, so a cold start,
+    // a failed fetch, or a genuinely quiet month shows nothing rather
+    // than an invented figure.
     if (memCount && window.DEBATEAI_VISITOR_COUNTER && typeof window.DEBATEAI_VISITOR_COUNTER.sync === 'function'){
       window.DEBATEAI_VISITOR_COUNTER.sync({
         onCount: function(count, ticked, data){
@@ -2570,11 +2577,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
           // updated /api/visitor-tick. Falls back to count when count30d is
           // absent (old function deploy) so the page degrades gracefully.
           var display = (data && typeof data.count30d === 'number') ? data.count30d : count;
-          // Never write a value below the data-baseline. If the function
-          // returns 0 (cold start, no docs in window, dev/local) the
-          // baseline stays — "about 0 people" is the wrong copy.
-          var baseline = parseInt(memCount.getAttribute('data-baseline'), 10) || 0;
-          if (!(typeof display === 'number') || display < baseline) display = baseline;
+          if (!(typeof display === 'number') || display <= 0) return;
+          var line = document.getElementById('memberCountLine');
+          if (line) line.hidden = false;
           var next = fmt(display);
           if (next !== old){
             memCount.textContent = next;

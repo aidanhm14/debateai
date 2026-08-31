@@ -52,13 +52,18 @@ check(notifications.match(/authProvider: 'google\.com'/g)?.length >= 2, 'every b
 check(rules.includes("request.resource.data.authProvider == 'google.com'"), 'Firestore must bind the queue marker to Google auth');
 check(pair.includes("theirs.authProvider !== 'google.com'"), 'matcher must reject a non-Google passive seat');
 
-check(spar.includes('>12 live now</span>'), 'signed-out gate must carry the founder-called 12-live baseline');
-check(spar.includes("var GATE_LIVE_BASE = 12;"), 'signed-out gate must keep 12 as its live-count floor');
+// 2026-08-31, founder real-numbers sweep: the gate's live count is
+// MEASURED ONLY. The 2026-08-27 founder-called 12 floor is retired,
+// so these assertions pin the NEW rule: no floor constant, no
+// hardcoded fallback figure in the markup, the raw /api/spar-queue
+// count rendered when above zero and the pill hidden at zero.
+check(!spar.includes('GATE_LIVE_BASE'), 'signed-out gate must not carry a live-count floor constant');
+check(!/>\s*\d+ live now</.test(spar), 'signed-out gate markup must not hardcode a live figure');
+check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden until a real count arrives');
+check(spar.includes('.gate-live[hidden]{display:none}') || /\.gate-live\[hidden\][^}]*display:none/.test(spar), 'gate pill must respect [hidden] against its display:flex');
 check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must fetch the fresh public queue count');
-check(/function gateLiveTotal\(waiting\)[\s\S]*?return GATE_LIVE_BASE \+/.test(spar), 'signed-out gate must add the real queue count to the 12-live floor');
-const gateLiveBody = spar.match(/function gateLiveTotal\(waiting\)\{([\s\S]*?)\n  \}/)?.[1];
-const gateLiveTotal = gateLiveBody ? Function('waiting', 'var GATE_LIVE_BASE = 12;' + gateLiveBody) : null;
-check(gateLiveTotal && gateLiveTotal(3) === 15 && gateLiveTotal(-2) === 12, 'signed-out gate live-count arithmetic must add waiting people without lowering the floor');
+check(/queueWaiting > 0\)\{\s*\n?\s*text\.textContent = queueWaiting \+ ' live now'/.test(spar.replace(/\r/g, '')), 'signed-out gate must render the raw waiting count, nothing added');
+check(/else if \(pill\)\{\s*\n?\s*pill\.hidden = true/.test(spar.replace(/\r/g, '')), 'signed-out gate pill must hide at a zero queue rather than inventing a crowd');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');

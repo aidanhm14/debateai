@@ -20,7 +20,7 @@
 //   {
 //     since: 'YYYY-MM-DD',          // earliest tracked day, or null
 //     now:   'YYYY-MM-DD',
-//     totals: { visits, members, google, liveSearchesWeek },
+//     totals: { visits, members, google, email, liveSearchesWeek },
 //     milestones: [
 //       { kind: 'visitor' | 'member', n: 1|10|100|..., date: 'YYYY-MM-DD' }
 //     ]
@@ -35,7 +35,10 @@ import { listAllAuthUsers } from './lib/auth-admin.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
-const CACHE_KEY = 'public-join-history-v3';
+// v4: totals gained the `email` provider split (2026-08-31 transparency
+// pass). The shared cache survives deploys, so the key must move with
+// the payload shape or the landing renders "0 with email" for a TTL.
+const CACHE_KEY = 'public-join-history-v4';
 const CACHE_TTL = 60 * 60 * 1000;  // 1 hour
 
 // Last-known-good member counts from a SUCCESSFUL Firebase Auth read,
@@ -80,7 +83,7 @@ function emptyPayload(error){
   const out = {
     since: null,
     now: ymd(new Date()),
-    totals: { visits: 0, members: 0, google: 0, liveSearchesWeek: 0, viewsLast30d: 0, liveSearchesLast30d: 0 },
+    totals: { visits: 0, members: 0, google: 0, email: 0, liveSearchesWeek: 0, viewsLast30d: 0, liveSearchesLast30d: 0 },
     milestones: [],
   };
   if (error) out.error = String(error).slice(0, 400);
@@ -238,6 +241,7 @@ export default async (request) => {
     const membersByDay = Object.create(null);
     let totalMembers = 0;
     let totalGoogleMembers = 0;
+    let totalEmailMembers = 0;
     let firstMemberDay = null;
     let memberSource = 'auth';
 
@@ -260,6 +264,13 @@ export default async (request) => {
         membersByDay[k] = (membersByDay[k] || 0) + 1;
         totalMembers += 1;
         if (providers.includes('google.com')) totalGoogleMembers += 1;
+        // 'password' covers both email+password accounts and accounts
+        // created through the emailed sign-in link (Firebase records
+        // both under the password provider). An account holding both
+        // Google and password counts in both columns, so google+email
+        // can legitimately exceed members; the public renderer states
+        // the split, never a sum.
+        if (providers.includes('password')) totalEmailMembers += 1;
         if (!firstMemberDay || k < firstMemberDay) firstMemberDay = k;
       }
       // Stash this good read so a later Auth failure can reuse it
@@ -268,6 +279,7 @@ export default async (request) => {
         membersByDay: { ...membersByDay },
         totalMembers,
         totalGoogleMembers,
+        totalEmailMembers,
         firstMemberDay,
       };
     } else if (lastGoodAuth) {
@@ -276,6 +288,7 @@ export default async (request) => {
       Object.assign(membersByDay, lastGoodAuth.membersByDay);
       totalMembers = lastGoodAuth.totalMembers;
       totalGoogleMembers = lastGoodAuth.totalGoogleMembers;
+      totalEmailMembers = lastGoodAuth.totalEmailMembers || 0;
       firstMemberDay = lastGoodAuth.firstMemberDay;
       memberSource = 'auth_last_good';
     } else {
@@ -344,7 +357,7 @@ export default async (request) => {
     const payload = {
       since,
       now: ymd(new Date()),
-      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, liveSearchesWeek, viewsWeek, viewsLast30d, liveSearchesLast30d },
+      totals: { visits: totalVisits, members: totalMembers, google: totalGoogleMembers, email: totalEmailMembers, liveSearchesWeek, viewsWeek, viewsLast30d, liveSearchesLast30d },
       memberSource,
       milestones,
     };

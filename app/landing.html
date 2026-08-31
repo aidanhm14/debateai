@@ -7743,8 +7743,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      site's liveness colour (the Bet pill, the spar "N waiting" pulse),
      kept off the red CTAs so it reads as a status signal, not a button.
      Takes its own full-width row so it sits ABOVE the button + why-line
-     on both columns. The number has a small DECLARED display-only floor,
-     documented in fsLiveNow and separate from the measured presence API. */
+     on both columns. The number is MEASURED ONLY (2026-08-31; the old
+     display floor is retired, see fsLiveNow) and hides itself at zero. */
   .fs-live-now{flex:0 0 auto;align-self:flex-start;max-width:100%;display:inline-flex;align-items:center;gap:8px;
     padding:6px 12px;border-radius:999px;background:rgba(22,163,74,.10);
     border:1px solid rgba(22,163,74,.28);font-size:.82rem;font-weight:700;
@@ -8881,14 +8881,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          handler; the copy arms' own sign-in rows are hidden at every
          width now, so exactly one is ever visible. -->
     <div class="fs-signin fs-signin--side">
-      <!-- Live "right now" nudge above the guest Google button (the founder,
-           2026-08-24: "tell them '6 live right now' before they sign up so
-           they sign up, say it to guests here"). Starts hidden so a
-           JS-off visitor never sees a static number; fsLiveNow (near the
-           end of the document) computes the count and reveals it. -->
+      <!-- Live "right now" nudge above the guest Google button. REAL
+           NUMBERS ONLY (2026-08-31): fsLiveNow (near the end of the
+           document) fills the count from measured presence/watch-live
+           and reveals the line only when it is above zero. Ships hidden
+           and empty so neither a JS-off visitor nor a quiet site ever
+           sees an invented figure. -->
       <div class="fs-live-now" data-live-now-wrap hidden>
         <span class="fs-live-now-dot" aria-hidden="true"></span>
-        <span><b data-live-now>6</b> live right now</span>
+        <span><b data-live-now></b> live right now</span>
       </div>
       <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-google">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -8897,27 +8898,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-signin-why">Keep your rounds, climb the board, earn a shot at a creator matchup.</p>
     </div>
 
-    <!-- ── Tournament chat ── 2026-08-29, founder sketch, re-cut the
-         same day ("make it the tournament chat and then fill it with
-         bots talking back and fourth when a user shows up so it feels
-         active"). The panel is the tournament room now: real messages
-         still arrive from /api/live-chats (shared-cached server read;
-         the landing opens no Firestore connection of its own, the
-         2026-08-18 rule), and on top of them the fsChats script plays
-         an AMBIENT scripted conversation between the seven fictional
-         personas the founder supplied and confirmed fake on 2026-08-27
-         (Sydney, Sofia, Kevin, Anna, Malik, Chloe, Mike). That layer is
-         the founder's explicit call and it REVERSES the original
-         "never seed this panel" rule, with three limits that are not
-         his to waive: the ambient lines are CLIENT-SIDE ONLY and are
-         never written into community_chat or community_channels (a
-         fake message in a real room is a fabricated record other
-         people read and reply to); the personas are only ever the
-         confirmed-fictional seven, never a generated-alias shape that
-         could collide with a real account; and real messages always
-         render too, so the layer is atmosphere around the room, not a
-         replacement for it. Hidden under 1360px, where there is no
-         third column to hold it. -->
+    <!-- ── Tournament chat ── 2026-08-29, founder sketch. The panel is
+         the tournament room: real messages arrive from /api/live-chats
+         (shared-cached server read; the landing opens no Firestore
+         connection of its own, the 2026-08-18 rule). REAL MESSAGES
+         ONLY (2026-08-31, founder: "get rid of the bots on the open
+         group chat"). This RETIRES the 2026-08-29 ambient scripted
+         conversation between the seven fictional personas; that call
+         is reversed on the founder's newer, explicit instruction and
+         the never-seed rule is back in force. Do not re-add scripted
+         lines here, client-side or otherwise: a chat that manufactures
+         its own conversation misrepresents the room it links to. When
+         the room is quiet the panel shows the honest room-chip card
+         and the dot stays dark, which is the true state. Hidden under
+         1360px, where there is no third column to hold it. -->
     <aside class="fs-chats" id="fsChats" aria-label="Tournament chat">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
@@ -13311,42 +13305,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              One pill, data-cta tagged, so its pull is measurable. -->
       </div>
       <script>
-        // Live Google sign-in count for #heroBookmarkCount. Pulls
-        // /api/public-join-history (1h-cached server-side, no PII,
-        // returns totals.google = Auth-listed Google sign-ins). The
-        // hardcoded "78" in markup is the fallback if the fetch fails
-        // or hasn't returned by render — never shows nothing; keep it
-        // matching the live Auth count (verified 2026-06-12) so a
-        // failed fetch never claims more users than Auth has. Updates
-        // in-place with a small comma format for >999.
-        //
-        // Same response carries totals.liveSearchesWeek (spar queue
-        // joins + background-Available flips in the last 7 days, from
-        // the events log). That clause has NO static fallback — a
-        // hardcoded weekly number rots into a lie within a week, so
-        // #heroSparWeekNote stays hidden until live data arrives and
-        // stays hidden at zero.
-        (function(){
-          var el = document.getElementById('heroBookmarkCount');
-          if (!el) return;
-          fetch('/api/public-join-history', { credentials: 'omit' })
-            .then(function(r){ return r.ok ? r.json() : null; })
-            .then(function(j){
-              if (!j || !j.totals) return;
-              var n = Math.max(0, parseInt(j.totals.google, 10) || 0);
-              if (n) el.textContent = n.toLocaleString();
-              var wk = document.getElementById('heroSparWeekNote');
-              // Public seven-day proof is presentation-only at 2x. The API
-              // stays raw so admin and historical reads remain comparable.
-              var w = Math.max(0, parseInt(j.totals.liveSearchesWeek, 10) || 0) * 2;
-              if (wk && w > 0) {
-                wk.innerHTML = '<span class="hero-bookmark-count">' + w.toLocaleString() + '</span> ' +
-                  (w === 1 ? 'search' : 'searches') + ' for a live round this week.';
-                wk.hidden = false;
-              }
-            })
-            .catch(function(){ /* keep fallback */ });
-        })();
+        // 2026-08-31: the #heroBookmarkCount / #heroSparWeekNote IIFE
+        // that used to sit here was DELETED. Both target elements left
+        // the markup on 2026-07-01, so it had been a dead fetch, and it
+        // carried a 2x presentation multiplier on liveSearchesWeek,
+        // which the founder's real-numbers sweep retires. The live
+        // sign-up transparency line now renders under the globe from
+        // the same /api/public-join-history payload, unmultiplied.
 
       </script>
 
@@ -19329,33 +19294,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     setInterval(function(){ if (!document.hidden) poll(); }, 60000);
   })();
 
-  /* fsLiveNow: the guest sign-in "N live right now" nudge (2026-08-24).
-     The number is presence-liveness with a small DECLARED marketing floor,
-     the founder's separate call for this signed-out conversion surface. It
-     is not the presence API and must never be quoted as a measurement. The
-     REAL signal rides on top and wins when it is bigger: sessions seen in
-     the last 30 minutes (presence online30, unpadded) and twice the live
-     public rounds (two seats each, from watch-live). It is framed as
-     people who are "live right now", never as a count of live debates,
-     which watch-live could contradict. Guest-only, since the whole
-     .fs-signin--side unit is hidden once body.signed-in. */
+  /* fsLiveNow: the guest sign-in "N live right now" nudge (2026-08-24;
+     made REAL-ONLY 2026-08-31, founder: "get rid of the bot numbers...
+     make them real numbers"). The old drifting 5..8 synthetic floor is
+     RETIRED; do not restore a floor, a pad, or an instant pre-fetch
+     paint here. The number is now purely measured: sessions seen in
+     the last 30 minutes (presence online30, unpadded) or two seats per
+     live public round (from watch-live), whichever is larger. It is
+     framed as people who are "live right now", never as a count of
+     live debates, which watch-live could contradict. At zero the line
+     stays hidden, which is the honest quiet state. Guest-only, since
+     the whole .fs-signin--side unit is hidden once body.signed-in. */
   (function(){
     var wrap = document.querySelector('[data-live-now-wrap]');
     var nums = document.querySelectorAll('[data-live-now]');
     if (!wrap || !nums.length) return;
-    function floorNow(){
-      // Drifts across 5..8 on a ~2.5 min clock so it reads like real
-      // presence rather than a frozen number, centred on the founder's "6".
-      var h = (Math.floor(Date.now() / 150000) * 2654435761) >>> 0;
-      return 5 + (h % 4);
-    }
     var real = 0; // max(recent presence, 2 x live rounds); 0 until fetched
     function paint(){
-      var n = Math.max(real, floorNow());
-      for (var i = 0; i < nums.length; i++) nums[i].textContent = n;
-      wrap.hidden = false;
+      if (real > 0){
+        for (var i = 0; i < nums.length; i++) nums[i].textContent = real;
+        wrap.hidden = false;
+      } else {
+        wrap.hidden = true;
+      }
     }
-    paint(); // instant, no network, so the nudge is up before any fetch
     function refreshReal(){
       var live = 0, pres = 0, done = 0;
       function settle(){ if (++done === 2){ real = Math.max(pres, live * 2); paint(); } }
@@ -19372,29 +19334,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   })();
 
   /* fsChats: the "Tournament chat" column between the board and the
-     leaderboard rail (2026-08-29, founder sketch; re-cut the same day
-     to the tournament room with an ambient conversation). Two sources,
-     merged by timestamp and rendered in CONVERSATION ORDER, oldest at
-     the top and newest at the bottom. The first cut rendered newest
-     first, which made every thread read backwards (answers above
-     their questions), the bug the founder flagged.
+     leaderboard rail (2026-08-29, founder sketch). One source, REAL
+     messages from /api/live-chats (shared-cached 45s server-side,
+     handles never uids), rendered in CONVERSATION ORDER, oldest at
+     the top and newest at the bottom.
 
-     Source 1, real: /api/live-chats (shared-cached 45s server-side,
-     handles never uids). Real rows always render and always outrank
-     the ambient layer for the reader's trust: they keep their room
-     chip when they come from another room.
-
-     Source 2, ambient: a scripted tournament-day back-and-forth
-     between the seven fictional personas the founder supplied and
-     confirmed fake on 2026-08-27. His explicit call ("fill it with
-     bots talking back and fourth when a user shows up so it feels
-     active"), and it reverses the panel's original never-seed rule.
-     The limits are in the panel's authored comment: client-side only,
-     never written to any real room, only the confirmed-fictional
-     seven, capped per visit so it goes quiet instead of looping.
+     REAL ONLY (2026-08-31, founder: "get rid of the bots on the open
+     group chat"). The 2026-08-29 ambient scripted-persona layer is
+     RETIRED on his newer explicit instruction; do not restore it.
+     With no real messages the panel keeps its static room-chip card
+     and the green dot stays dark, which is the honest quiet state.
      All text lands via textContent, never innerHTML. The panel is
-     display:none under 1360px, so nothing fetches or plays until
-     that layout is actually on screen. */
+     display:none under 1360px, so nothing fetches until that layout
+     is actually on screen. */
   (function(){
     var panel = document.getElementById('fsChats');
     var list = document.getElementById('fsChatsList');
@@ -19402,7 +19354,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var mq = window.matchMedia ? window.matchMedia('(min-width:1360px)') : null;
     var started = false;
     var realRows = [];
-    var ambientRows = [];
     var MAX_ROWS = 7;
 
     function relTime(ms){
@@ -19414,7 +19365,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     }
 
     function renderAll(){
-      var msgs = realRows.concat(ambientRows).filter(function(m){ return m && m.text; });
+      var msgs = realRows.filter(function(m){ return m && m.text; });
       if (!msgs.length) return; // keep the honest room-chip card
       msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
       msgs = msgs.slice(-MAX_ROWS);
@@ -19473,78 +19424,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         .catch(function(){});
     }
 
-    // ── The ambient conversation ──────────────────────────────────
-    // Only the confirmed-fictional seven. Lines reference each other,
-    // so names are fixed per line rather than shuffled. One thread
-    // opens with its first lines already a few minutes old, the rest
-    // land one at a time on human cadence, then a second thread runs
-    // slower and the layer goes QUIET. A chat that never stops talking
-    // reads as a machine; one that trails off reads as a room.
-    var THREADS = [
-      [
-        { h: 'Kevin', t: 'just finished my round, the judge wrote me a full page' },
-        { h: 'Sofia', t: 'did you win' },
-        { h: 'Kevin', t: 'yeah, took it on the rebuttal' },
-        { h: 'Anna',  t: 'how do I get in, do I need anything?' },
-        { h: 'Malik', t: 'register on the tournament page, check in, then hit ready and it pairs you' },
-        { h: 'Anna',  t: 'ok checked in' },
-        { h: 'Chloe', t: 'gl, the motion pool is rough this year' },
-        { h: 'Sydney', t: 'I struck the water one instantly lol' }
-      ],
-      [
-        { h: 'Mike',  t: 'anyone else waiting on a pairing' },
-        { h: 'Chloe', t: 'just got mine, the room opened right away' },
-        { h: 'Sydney', t: 'who did you draw' },
-        { h: 'Chloe', t: 'no idea, they sound good on the check in list though' },
-        { h: 'Kevin', t: 'everyone starts the ladder at 1500 so one win moves you fast' },
-        { h: 'Mike',  t: 'ok pressing ready' },
-        { h: 'Sofia', t: 'same, see you on the board' }
-      ],
-      [
-        { h: 'Anna',  t: 'that last round was so close' },
-        { h: 'Malik', t: 'the ballot said it came down to one dropped argument' },
-        { h: 'Anna',  t: 'running it back, queueing again' },
-        { h: 'Sydney', t: 'watch out for Sofia, she has won two in a row' },
-        { h: 'Sofia', t: 'two and counting' },
-        { h: 'Kevin', t: 'rematch me then' },
-        { h: 'Sofia', t: 'get in the queue' }
-      ]
-    ];
-
-    function playAmbient(){
-      var first = Math.floor(Math.random() * THREADS.length);
-      var lines = THREADS[first].concat(THREADS[(first + 1) % THREADS.length]);
-      var seedCount = 3;
-      var now = Date.now();
-      for (var i = 0; i < seedCount; i++){
-        var l = lines[i];
-        ambientRows.push({ room: 'tournament', label: '#tournament', handle: l.h, text: l.t,
-          at: now - (seedCount - i) * 130000 });
-      }
-      renderAll();
-      var idx = seedCount;
-      function next(){
-        if (idx >= lines.length) return; // quiet, on purpose
-        var line = lines[idx];
-        var slow = idx >= THREADS[first].length;
-        idx++;
-        setTimeout(function(){
-          if (!document.hidden){
-            ambientRows.push({ room: 'tournament', label: '#tournament',
-              handle: line.h, text: line.t, at: Date.now() });
-            renderAll();
-          } else idx--; // a hidden tab pauses the room rather than aging it
-          next();
-        }, (slow ? 14000 : 6000) + Math.random() * (slow ? 14000 : 8000));
-      }
-      next();
-    }
-
     function start(){
       if (started) return;
       started = true;
       poll();
-      playAmbient();
       setInterval(function(){
         if (!document.hidden && (!mq || mq.matches)){ poll(); renderAll(); }
       }, 60000);
@@ -19571,27 +19454,55 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // populate instead of the handful live at this exact minute. Caption
     // says "active today" and the payload's online24 is the count.
     var LIVE = [];
-    // 2026-08-22: the caption under the globe was cut, in two steps the
-    // same evening: first both padded numbers (24h visits, Google
-    // sign-ups), then the remaining static line. 2026-08-23, per the founder:
-    // the 24h count is back, alone. The sign-up figure is NOT restored.
+    // 2026-08-31, founder: "make them real numbers... i want a
+    // transparent sharing of data/info from the site." The caption is
+    // now MEASURED ONLY. This retires the 2026-08-27 "+200" display
+    // uplift (LANDING_VISIT_UPLIFT is gone; do not restore a pad, a
+    // floor, or a multiplier here) and it RESTORES the sign-up figure
+    // the 2026-08-22 cut removed, this time as the real Auth-derived
+    // provider split from /api/public-join-history (named accounts
+    // only, anonymous uids never counted, Google vs email stated).
     // The word is "visits", not "people": the payload counts SESSIONS,
     // and a sid is per-tab and per-visit, so one person in two tabs is
     // two and a return after lunch is two. Do not put a person-noun back
     // on this number unless presence-live starts counting people.
     // Since 2026-08-27 online24 is measured only and excludes suspicious
-    // city-cell bursts. The landing display adds a fixed 200 by founder call;
-    // the API, pins and admin reads stay raw. It is still a sampled session
-    // floor, not a count of distinct people, so never relabel or quote it as
-    // one.
-    var LANDING_VISIT_UPLIFT = 200;
+    // city-cell bursts. A zero renders nothing rather than "0 visits":
+    // a quiet globe with no caption is the honest quiet state.
     var liveCaption = document.getElementById('globeLiveCaption');
-    function setLiveCaption(measuredCount){
-      if (!liveCaption || typeof measuredCount !== 'number') return;
-      var count = Math.max(0, Math.floor(measuredCount)) + LANDING_VISIT_UPLIFT;
-      liveCaption.innerHTML = '<span><b style="color:var(--accent,#ef4444)">' + count +
-        ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>';
+    var capVisits = '';
+    var capSignups = '';
+    function paintCaption(){
+      if (!liveCaption) return;
+      liveCaption.innerHTML = capVisits + capSignups;
     }
+    function setLiveCaption(measuredCount){
+      if (typeof measuredCount !== 'number') return;
+      var count = Math.max(0, Math.floor(measuredCount));
+      capVisits = count > 0
+        ? '<span style="display:block"><b style="color:var(--accent,#ef4444)">' + count +
+          ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>'
+        : '';
+      paintCaption();
+    }
+    // Real sign-up transparency line: total named accounts with the
+    // Google vs email split, straight from the 1h-cached Auth walk.
+    // No fallback figure on purpose: a failed fetch shows nothing
+    // rather than a stale claim.
+    fetch('/api/public-join-history', { credentials: 'omit' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.totals) return;
+        var m = Math.max(0, parseInt(j.totals.members, 10) || 0);
+        var g = Math.max(0, parseInt(j.totals.google, 10) || 0);
+        var e = Math.max(0, parseInt(j.totals.email, 10) || 0);
+        if (!m) return;
+        capSignups = '<span style="display:block"><b>' + m.toLocaleString() +
+          ' sign-ups</b> so far: ' + g.toLocaleString() + ' with Google, ' +
+          e.toLocaleString() + ' with email.</span>';
+        paintCaption();
+      })
+      .catch(function(){});
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
         if (!d) return;
