@@ -99,13 +99,13 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     is real. The clash hours below are how we all end up online at once.
   </p>` : ''}
 
-  <div style="margin:0 0 16px;line-height:1">
-    <img src="${SITE_URL}/img/round/faces/face46.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
-    <img src="${SITE_URL}/img/round/faces/face48.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
-    <img src="${SITE_URL}/img/round/faces/face52.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
-    <img src="${SITE_URL}/img/round/faces/face53.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
-    <img src="${SITE_URL}/img/round/faces/face47.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
-    <img src="${SITE_URL}/img/round/faces/face54.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 0 5px 0;vertical-align:middle">
+  <div style="margin:0 0 16px;line-height:1;font-size:0">
+    <img src="${SITE_URL}/img/round/faces/fictional-sydney.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/fictional-kevin.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/fictional-anna.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/fictional-sofia.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/fictional-malik.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/fictional-chloe.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
   </div>
 
   <p style="font-size:1.02rem;line-height:1.55;margin:0 0 14px">
