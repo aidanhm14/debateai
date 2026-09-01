@@ -70,7 +70,7 @@ async function readLeaderLine() {
 // prize ladder are the ones published on /tournament-rules; if those
 // change, change these.
 function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }) {
-  const cta   = `${SITE_URL}/tournaments`;
+  const cta   = `${SITE_URL}/`;
   const rules = `${SITE_URL}/tournament-rules`;
   return `
 <div style="max-width:680px;margin:0 auto;padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
@@ -133,8 +133,9 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Between rounds, keep Debatable open in a tab on your computer
-    and turn notifications on when the site asks.</strong> When someone
+    <strong>Between rounds, keep Debatable open in a tab on your computer,
+    scroll through what is live, and turn notifications on when the site
+    asks.</strong> Other debaters spawn in through the day. When someone
     goes live looking for an opponent, you get pinged, and answering that
     ping is how rounds happen outside the clash hours.
   </p>
