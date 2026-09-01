@@ -5294,6 +5294,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // speech index, so the mid-round renderRound calls (a resolution
     // change agreed before Speech 1) cannot drop a live capture.
     try { startBackstopLoop(); if (bk.idx !== state.speechIdx) bkReset(); } catch(e){}
+    try { startPoiLoop(); } catch(e){}
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
@@ -7408,6 +7409,167 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function startBackstopLoop(){
     if (bk.loop) return;
     bk.loop = setInterval(function(){ try { bkTick(); } catch(e){} }, BK_TICK_MS);
+  }
+
+  // ── Interjection capture: POIs and the back-and-forth
+  // ───────────────────────────────────────────────────────────────────
+  // The transcript pipeline only ever heard the CURRENT speaker, so a
+  // point of information, a question shouted across the room, and the
+  // answer it drew were all invisible to the judge — the exchange
+  // happened, both people heard it, and the ballot read a monologue
+  // (2026-08-31, the founder: "capture interruptions like POIs and a
+  // dialogue and listen in to the back and forth and judge it fairly").
+  //
+  // So while the OTHER side is speaking, the idle debater's client
+  // level-meters their OWN mic and, only when it actually hears
+  // sustained speech, records a short segment, transcribes it, and
+  // publishes it onto the round doc as an interjection row tagged with
+  // the speech it landed in and a round-relative offset. Both ballot
+  // builders weave the rows back into the transcript where they
+  // happened, so the judge reads the dialogue, not two monologues.
+  //
+  // Properties this is built around:
+  //   - Zero permission prompts. It only ever BORROWS the mic track the
+  //     camera pipeline already holds (srvBorrowTrack); with no live
+  //     mic there is nothing to capture and it stands down. It never
+  //     calls getUserMedia, because a permission popup landing on
+  //     someone mid-opponent-speech is worse than a missed POI.
+  //   - Silence costs nothing. The same RMS gate the server engine uses
+  //     decides per segment; a quiet listener ships no audio and spends
+  //     no transcription call.
+  //   - 1v1 seated debaters only. A 2v2 partner cannot write the round
+  //     doc (the bk module's seat rule), and four open mics would
+  //     transcribe the room's cross-talk four times.
+  //   - Bounded: at most POI_MAX_PER_SPEECH rows a speech, 300 chars a
+  //     row, and an echo check drops a capture that is really the
+  //     speaker's own words arriving through this side's speakers.
+  var POI_SEG_MS = 6000;
+  var POI_MAX_PER_SPEECH = 10;
+  var poi = { loop:0, on:false, idx:-1, rec:null, stream:null, mime:'', timer:0, sent:0,
+              ac:null, an:null, buf:null, meter:0, loud:0, heard:false, heardAtMs:0 };
+  function poiMeterStart(){
+    if (poi.ac || !poi.stream) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      poi.ac = new AC();
+      poi.an = poi.ac.createAnalyser();
+      poi.an.fftSize = 2048;
+      poi.buf = new Float32Array(poi.an.fftSize);
+      poi.ac.createMediaStreamSource(poi.stream).connect(poi.an);
+      poi.meter = setInterval(function(){
+        if (!poi.an) return;
+        try { poi.an.getFloatTimeDomainData(poi.buf); } catch(e){ return; }
+        var sum = 0;
+        for (var i = 0; i < poi.buf.length; i++) sum += poi.buf[i] * poi.buf[i];
+        if (Math.sqrt(sum / poi.buf.length) >= SPEECH_RMS && ++poi.loud >= SPEECH_SAMPLES){
+          if (!poi.heard) poi.heardAtMs = Date.now();
+          poi.heard = true;
+        }
+      }, Math.round(1000 / LEVEL_HZ));
+    } catch(e){ poi.ac = null; poi.an = null; }
+  }
+  function poiMeterStop(){
+    if (poi.meter){ clearInterval(poi.meter); poi.meter = 0; }
+    try { if (poi.ac && poi.ac.close) poi.ac.close(); } catch(e){}
+    poi.ac = null; poi.an = null; poi.buf = null; poi.loud = 0; poi.heard = false; poi.heardAtMs = 0;
+  }
+  function poiStopCapture(){
+    if (poi.timer){ clearTimeout(poi.timer); poi.timer = 0; }
+    try { if (poi.rec && poi.rec.state === 'recording') poi.rec.stop(); } catch(e){}
+    poi.rec = null;
+    poiMeterStop();
+    poi.stream = null;   // wraps the camera pipeline's track: drop, never stop()
+    poi.on = false;
+  }
+  function poiPublish(text, atMs){
+    text = String(text || '').replace(/\s{2,}/g, ' ').trim();
+    if (!text || text.split(/\s+/).length < 2) return;   // a cough is not a POI
+    // Echo guard: without headphones this mic hears the SPEAKER through
+    // the speakers, and echo cancellation is good, not perfect. A capture
+    // that already sits verbatim inside the speaker's live transcript is
+    // their voice, not an interjection.
+    var live = String(state.fcText || '');
+    if (text.length >= 20 && live.indexOf(text) >= 0) return;
+    var side = mySide();
+    if (!side) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    var row = {
+      uid: (state.user && state.user.uid) || '',
+      name: (side === 'pro' ? state.proName : state.conName) || publicNameOf(state.user) || 'Opponent',
+      side: side,
+      speech: state.speechIdx,
+      atMs: (state.roundStartedAt && atMs) ? Math.max(0, atMs - state.roundStartedAt) : null,
+      text: text.slice(0, 300),
+    };
+    poi.sent++;
+    state.interjections = (state.interjections || []).concat([row]);
+    ref.update({ interjections: firebase.firestore.FieldValue.arrayUnion(row) }).catch(function(){});
+    try { gtag('event', 'live_round_interjection', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
+  }
+  function poiUpload(blob, atMs, attempt){
+    if (!blob || blob.size < 2048) return;
+    var fd = new FormData();
+    fd.append('audio', blob, 'segment');
+    fd.append('language', myLang());
+    fetch('/api/transcribe', { method:'POST', body: fd })
+      .then(function(r){ if (!r.ok) throw new Error('transcribe ' + r.status); return r.json(); })
+      .then(function(d){ poiPublish(d && d.text, atMs); })
+      .catch(function(){
+        if ((attempt || 0) < 1) return poiUpload(blob, atMs, (attempt || 0) + 1);
+      });
+  }
+  function poiSegment(){
+    if (!poi.on || !poi.stream) return;
+    if (poi.sent >= POI_MAX_PER_SPEECH){ poiStopCapture(); return; }
+    var chunks = [];
+    try {
+      poi.rec = poi.mime ? new MediaRecorder(poi.stream, { mimeType: poi.mime }) : new MediaRecorder(poi.stream);
+    } catch(e){ poiStopCapture(); return; }
+    // Per-segment verdict, read and reset like the server engine's.
+    poi.loud = 0; poi.heard = false; poi.heardAtMs = 0;
+    poi.rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+    poi.rec.onstop = function(){
+      var heard = !poi.an || poi.heard;   // gate open when the meter never ran
+      var atMs = poi.heardAtMs || Date.now();
+      if (poi.on) poiSegment();
+      if (heard) poiUpload(new Blob(chunks, { type: poi.mime || 'audio/webm' }), atMs, 0);
+    };
+    try { poi.rec.start(); } catch(e){ poiStopCapture(); return; }
+    poi.timer = setTimeout(function(){
+      if (poi.rec && poi.rec.state === 'recording') poi.rec.stop();
+    }, POI_SEG_MS);
+  }
+  function poiStart(){
+    if (poi.on) return;
+    if (!window.MediaRecorder || !window.MediaRecorder.isTypeSupported) return;
+    var lent = srvBorrowTrack();
+    if (!lent) return;                 // no live mic: nothing to capture
+    poi.on = true;
+    poi.mime = srvMime();
+    poi.stream = new MediaStream([lent]);
+    poiMeterStart();
+    poiSegment();
+  }
+  function poiTick(){
+    if (state.phase !== 'round' || !state.user || isSpectator()){ poiStopCapture(); return; }
+    if (poi.idx !== state.speechIdx){ poiStopCapture(); poi.idx = state.speechIdx; poi.sent = 0; }
+    if (isMyTurn()){ poiStopCapture(); return; }        // the speaker's own mic owns the speech
+    if (!mySide()){ poiStopCapture(); return; }
+    if (state.proUid2 || state.conUid2){ poiStopCapture(); return; }   // 1v1 only
+    // The bk module's seat rule: only a seated debater may write the doc.
+    if (state.proUid && state.conUid
+        && state.user.uid !== state.proUid && state.user.uid !== state.conUid){
+      poiStopCapture(); return;
+    }
+    if (state.timerState !== 'running'){ poiStopCapture(); return; }
+    if (poi.sent >= POI_MAX_PER_SPEECH){ poiStopCapture(); return; }
+    if (!poi.on) poiStart();
+  }
+  function startPoiLoop(){
+    if (poi.loop) return;
+    poi.loop = setInterval(function(){ try { poiTick(); } catch(e){} }, BK_TICK_MS);
   }
   // The speaker's side of it. Adoption is deliberately narrow: it takes
   // over only when the local capture has produced essentially nothing,
@@ -11473,6 +11635,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       ...(JUDGE_RULES[state.formatKey] || []),
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
       "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct 1 speaker point up to 45 seconds over, 2 up to 90 seconds, 3 beyond that, and name the overrun in that team's feedback. A [TIME EXPIRED] marker inside a speech is a hard cutoff: everything below it is OFF THE FLOW — it cannot win an argument, extend one, or count as an answer to one. Overtime moves speaker points, never the ranking on its own.",
+      "- INTERJECTIONS: an [Interjection] line inside a speech is the other side speaking during it — a point of information, a question, the back and forth. Judge the exchange fairly, from both directions: a concise, relevant question that exposes a gap is real engagement and lifts the asker's responsiveness and strategy, and a clean answer under pressure lifts the speaker. Heckling, badgering, or talking over the speaker lowers the INTERRUPTER's scores; never penalize a speaker merely for being interrupted, and never treat holding the floor through noise as a weakness.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -11530,6 +11693,22 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // the bare legacy tag. Overtime inside the grace is deliberately not
   // tagged at all: the judge is told to ignore it, and showing it would
   // be noise begging for a deduction nobody earned.
+  // The other side's captured interjections (POIs, questions, the back
+  // and forth), appended under the speech they landed in with a
+  // round-relative offset, so the judge reads the exchange where it
+  // happened (2026-08-31, the founder: "capture interruptions like POIs
+  // and a dialogue and listen in to the back and forth and judge it
+  // fairly").
+  function interjectionLines(idx, l){
+    var rows = (state.interjections || []).filter(function(x){ return x && x.speech === idx && x.text; });
+    if (!rows.length) return '';
+    return '\n' + rows.map(function(x){
+      var off = (typeof x.atMs === 'number' && l && typeof l.atMs === 'number' && x.atMs >= l.atMs)
+        ? ' at +' + fmtTime(Math.round((x.atMs - l.atMs) / 1000)) : '';
+      return '[Interjection' + off + ' — ' + (x.name || 'Opponent') + ' (' + String(x.side || '').toUpperCase() + ')]: ' + x.text;
+    }).join('\n');
+  }
+
   function speechTimeTag(l){
     if (!l || !l.overran) return '';
     var over = typeof l.overSec === 'number' ? l.overSec : null;
@@ -11542,7 +11721,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
   function buildBallotPrompt(){
     var f = FORMATS[state.formatKey];
-    var transcript = state.log.map(function(l){
+    var transcript = state.log.map(function(l, li){
       // For 4-team formats the side label IS the team identifier
       // ("Closing Government" vs "Opening Government") so MG/GW don't
       // get mis-tagged as OG speeches in the judge's transcript.
@@ -11550,7 +11729,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         + speechTimeTag(l)
         + (l.skipped ? ' [SKIPPED]' : '')
         + (l.lang && l.lang !== 'en' && XL_NAMES[l.lang] ? ' [DELIVERED IN ' + XL_NAMES[l.lang].toUpperCase() + ']' : '')
-        + '\n' + l.text;
+        + '\n' + l.text
+        + interjectionLines(li, l);
     }).join('\n\n');
 
     // 4-team formats (BP / Worlds) take a totally different ballot
@@ -11588,6 +11768,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "  DEFAULT BAND IS 50-65. If a speech was fundamentally unfinished, 40 or below — an honest ballot goes low when someone is over their head. Do NOT cluster both speakers at 75+ to be encouraging. If one debater clearly outclassed the other, separate by 8-15 points, not 2. One decimal place allowed.",
       "  Speaker points score the SPEAKER; the ballot scores the FLOW. A low-point win is legitimate — when the winner has lower points, say so in the RFD and explain it.",
       "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct inside the Step 3 adjustment and name the overrun in that speaker's feedback: about 2 points up to 45 seconds over, 4 points up to 90 seconds, the full 5 beyond that. A [TIME EXPIRED] marker inside a speech is a hard cutoff: everything below it is OFF THE FLOW — it cannot win an argument, extend one, or count as an answer to one, and the RFD may mention it only to note it came after time. A mutually agreed extension already moved the allotted time, so an extended speech with no tag was on time. Overtime moves speaker points, never the winner; do not flip the ballot on time alone.",
+      "- INTERJECTIONS: an [Interjection] line inside a speech is the other side speaking during it — a point of information, a question, the back and forth. Judge the exchange fairly, from both directions: a concise, relevant question that exposes a gap is real engagement and lifts the asker's responsiveness and strategy, and a clean answer under pressure lifts the speaker. Heckling, badgering, or talking over the speaker lowers the INTERRUPTER's scores; never penalize a speaker merely for being interrupted, and never treat holding the floor through noise as a weakness.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -12657,10 +12838,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     renderDeepRfd();
     var f = FORMATS[state.formatKey];
     var fourTeam = isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4;
-    var transcript = state.log.map(function(l){
+    var transcript = state.log.map(function(l, li){
       return '[' + l.code + ' · ' + l.speakerName + ' (' + f.sideLabels[l.side] + ')]'
         + speechTimeTag(l) + (l.skipped ? ' [SKIPPED]' : '')
-        + '\n' + l.text;
+        + '\n' + l.text
+        + interjectionLines(li, l);
     }).join('\n\n');
     var verdictLines;
     if (fourTeam){

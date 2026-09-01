@@ -303,7 +303,26 @@ const fmtClock = (sec) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-export function transcriptFrom(speeches, { includePace = false } = {}) {
+export function transcriptFrom(speeches, { includePace = false, interjections = [] } = {}) {
+  // Captured POIs / questions from the OTHER side, published by the idle
+  // client onto the round doc and woven back under the speech they landed
+  // in, so the judge reads the exchange where it happened instead of two
+  // monologues. Offsets are round-relative ms on both sides of the
+  // subtraction (the speech's atMs and the row's atMs share
+  // roundStartedAt as origin).
+  const inter = (Array.isArray(interjections) ? interjections : [])
+    .filter((x) => x && x.text)
+    .slice(0, 80);
+  const interLinesFor = (idx, s) => {
+    const rows = inter.filter((x) => Number(x.speech) === idx);
+    if (!rows.length) return '';
+    return '\n' + rows.map((x) => {
+      const off = (Number.isFinite(Number(x.atMs)) && Number.isFinite(Number(s && s.atMs)) && Number(x.atMs) >= Number(s.atMs))
+        ? ` at +${fmtClock((Number(x.atMs) - Number(s.atMs)) / 1000)}`
+        : '';
+      return `[Interjection${off} — ${String(x.name || 'Opponent').slice(0, 60)} (${String(x.side || '').toUpperCase()})]: ${String(x.text).slice(0, 300)}`;
+    }).join('\n');
+  };
   return (Array.isArray(speeches) ? speeches : [])
     .slice(0, MAX_SPEECHES)
     .map((s, i) => {
@@ -325,7 +344,7 @@ export function transcriptFrom(speeches, { includePace = false } = {}) {
       } else if (!s.skipped && s.overran === true && !Number.isFinite(overSec)) {
         timeLine = '\n[Time: ran past the allotted time; length unknown, treat as minor]';
       }
-      return `[${i + 1}] ${who}:\n${body}${paceLine}${timeLine}`;
+      return `[${i + 1}] ${who}:\n${body}${paceLine}${timeLine}${interLinesFor(i, s)}`;
     })
     .join('\n\n');
 }
@@ -355,6 +374,12 @@ export function buildPrompt(d) {
     // clock crosses the 15s grace, so this is a disclosed rule rather
     // than a stealth penalty. It moves points only, never the winner:
     // the win stays on the flow per the adjudication core.
+    // The fair-exchange rule, general since 2026-08-31: interjection
+    // capture runs in every 1v1 room, not only tournaments, so the rule
+    // that reads the marker rides the base prompt. The tournament block
+    // above keeps its own published wording for tournament rounds.
+    'INTERJECTIONS: an [Interjection] line inside a speech is the other side speaking during it, a point of information, a question, the back and forth. Judge the exchange fairly, from both directions: a concise, relevant question that exposes a real gap is engagement and may lift the asker\'s responsiveness and strategy, and a clean answer under pressure lifts the speaker. Score an interjection only when its substance is identifiable. Heckling, badgering, repeated interruption, or talking over an answer lowers the INTERRUPTER\'s responsiveness, strategy, or persuasion; never penalize a speaker merely for being interrupted, and never treat holding the floor through noise as a weakness.',
+
     'TIME DISCIPLINE: a [Time: ...] line under a speech means that speaker ran meaningfully past their allotted time; a 15 second grace is already excluded, so a speech with no time line was on time and gets no deduction. After computing that side\'s points from the axes, subtract for the overrun and say so in the RFD or feedback: about 2 of 100 up to 45 seconds over, 4 up to 90 seconds, 5 beyond that. A line marked "length unknown" is at most a 1 point deduction. A [TIME EXPIRED] marker inside a speech is a hard cutoff: everything below it is OFF THE FLOW — it cannot win an argument, extend one, or count as an answer to one, and the RFD may mention it only to note it came after time. A mutually agreed extension already moved the allotted time, so an extended speech with no time line was on time. Overtime moves speaker points, never the winner.',
     'Return ONE JSON object and nothing else:',
     '{',
@@ -381,7 +406,7 @@ export function buildPrompt(d) {
     `OPPOSITION: ${d.conName || 'Con'}`,
     '',
     'TRANSCRIPT:',
-    transcriptFrom(d.speeches, { includePace: d.tournamentRound === true }),
+    transcriptFrom(d.speeches, { includePace: d.tournamentRound === true, interjections: d.interjections }),
   ].join('\n');
 
   return { system, user };
