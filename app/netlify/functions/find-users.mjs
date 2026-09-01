@@ -41,6 +41,10 @@ function safePhoto(u) {
 }
 function norm(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, ''); }
 
+// The Anonymous alias (and the generic fallbacks) name nobody: a row
+// wearing one cannot be found, friended or messaged as a person.
+function anonName(name) { return /^(anonymous|a debater|guest|someone)$/i.test(String(name || '').trim()); }
+
 function matches(row, q) {
   if (!q) return true;
   const hay = norm(row.name + ' ' + (row.handle || ''));
@@ -56,7 +60,7 @@ async function loadPeople(db) {
       const d = doc.data() || {};
       if (d.visibility === 'private') return;
       const name = clean(d.name, 60);
-      if (!name) return;
+      if (!name || anonName(name)) return;
       byUid.set(doc.id, {
         uid: doc.id,
         name,
@@ -77,7 +81,7 @@ async function loadPeople(db) {
       const uid = typeof d.uid === 'string' && d.uid.length >= 8 ? d.uid : null;
       if (!uid) return;
       const name = clean(d.displayName, 40);
-      if (!name) return;
+      if (!name || anonName(name)) return;
       const have = byUid.get(uid);
       if (have) { have.onBoard = true; if (!have.photo) have.photo = safePhoto(d.photoURL); return; }
       byUid.set(uid, { uid, name, handle: null, photo: safePhoto(d.photoURL), bio: '', source: 'board', onBoard: true });
