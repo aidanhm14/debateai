@@ -25,7 +25,10 @@
     appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd',
   };
   const SDK_VERSION = '10.13.2';
-  const PRICING_URL = '/app#team';
+  // 2026-08-31 audit: a pill announcing "you've hit the free cap" sent
+  // people to a workspace tab and never showed a price. It points at
+  // plans now; the workspace stays reachable from the app itself.
+  const PRICING_URL = '/pricing?source=upgrade-cta#plans';
   const REFRESH_MS = 120_000; // Re-check team plan every 2 min.
   const DISMISS_HOURS = 24;   // Respect a dismiss for a day.
 
@@ -130,15 +133,15 @@
     const sub = document.createElement('div');
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'
-      ? 'Open your team settings when you need more.'
+      ? 'Individual is $10 a year for 250 requests a month.'
       : 'Keep rounds, ballots, and team access tied to your account.';
     body.appendChild(title);
     body.appendChild(sub);
     card.appendChild(body);
 
     const cta = document.createElement('a');
-    cta.href = PRICING_URL;
-    cta.textContent = 'Open app';
+    cta.href = state === 'capped' ? PRICING_URL : '/app#team';
+    cta.textContent = state === 'capped' ? 'See plans' : 'Open app';
     cta.style.cssText = [
       'background:#fff',
       'color:#dc2626',

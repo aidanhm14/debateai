@@ -4407,6 +4407,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4431,8 +4432,7 @@ ANTHROPIC API HELPER
 // Same interface as before (update / finish / cancel) so no callsite changes.
 function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {var streamed = ''; // everything the API has produced so far
   var revealed = 0; // chars the user has seen
-  var rafId = null;
-  var finished = false;
+  var rafId = null;var finished = false;
   var BASE_STEP = 3; // chars per frame when in-sync (≈180 chars/sec. real typing feel)
   var CATCHUP_CAP = 400; // beyond this, we speed up so the user isn't stuck watching the animation
 
@@ -5288,14 +5288,14 @@ function notifyBrainSwap(brainKey, serverReason) {
 
   var actions = document.createElement('div');
   actions.style.cssText = 'display:flex;gap:6px;flex:0 0 auto;align-items:center';
-  // The link is offered only when it leads somewhere. Native never gets
-  // one (App Store 3.1.1), and neither does a beta visitor, because
-  // /pricing cannot sell them anything while BETA_NO_CHARGE is on and
-  // would bounce them back to this same page. A lapsed plan is the
-  // exception: billing is genuinely where that gets fixed.
-  if (!window.__DB_NATIVE && (CHECKOUT_BETA_NO_CHARGE === false || lapsed)) {
+  // Native never gets a pricing link (App Store 3.1.1). The old
+  // CHECKOUT_BETA_NO_CHARGE gate is gone (2026-08-31): billing has been
+  // live since 08-26, and the flag starts true until an async fetch
+  // relaxes it, so an early click shipped this notice with no CTA at
+  // all, on the exact person who just tried to use a paid brain.
+  if (!window.__DB_NATIVE) {
     var cta = document.createElement('a');
-    cta.href = '/pricing';
+    cta.href = '/pricing#plans';
     cta.textContent = 'See plans';
     cta.style.cssText = 'padding:7px 14px;background:#ef4444;color:#fff;border-radius:999px;' +
     'font-size:.74rem;font-weight:800;text-decoration:none;white-space:nowrap';
@@ -12633,8 +12633,8 @@ var CHECKOUT_BETA_NO_CHARGE = true;
 
 function CheckoutResumeModal({ plan, needsTeam, onClose, onCreateTeam }) {
   var el = React.createElement;
-  var planNames = { byok: 'BYOK', individual: 'Individual', team: 'Team' };
-  var planPrices = { byok: '$1/mo', individual: '$10/year', team: '$50/year' };
+  var planNames = { byok: 'BYOK', individual: 'Individual', team: 'Team', voice: 'Voice' };
+  var planPrices = { byok: '$1/mo', individual: '$10/year', team: '$50/year', voice: '$12/mo' };
   var name = planNames[plan] || plan;
   var price = planPrices[plan] || '';
   var showTeamCta = (needsTeam || plan === 'team') && typeof onCreateTeam === 'function';
@@ -17514,7 +17514,12 @@ function App() {
       if (window.__DB_NATIVE) return null;
       var p = new URLSearchParams(window.location.search);
       var plan = (p.get('upgrade') || sessionStorage.getItem('intended_plan') || '').toLowerCase();
-      if (!/^(byok|individual|lifetime|team)$/.test(plan)) return null;
+      // voice joined 2026-08-31: /pricing's Get Voice hands off here for
+      // signed-out and beta-bounce visitors, and the old regex silently
+      // dropped that intent on the floor. lifetime left the list with it:
+      // the plan is unpurchasable (PURCHASABLE_PLANS), so resuming it
+      // could only 400 at checkout.
+      if (!/^(byok|individual|team|voice)$/.test(plan)) return null;
       var needsTeam = p.get('needs_team') === '1' || sessionStorage.getItem('intended_needs_team') === '1';
       return { plan: plan, needsTeam: needsTeam };
     } catch (e) {return null;}

@@ -8685,7 +8685,11 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', { style: { marginTop: 10, color: '#858594', fontSize: '.68rem', lineHeight: 1.45 } }, 'Start runs this check automatically. During a live round, a transcript checkpoint stays only in this tab so an accidental refresh can be resumed.')
   ),
 
-  error && (errorKind === 'quota' ?
+  // 'upgrade' and 'sign-in' render as their own gate cards below; a
+  // generic notice whose loudest button is Try again sitting on top of
+  // a paywall card was the 2026-08-31 audit's finding, so those kinds
+  // suppress the notice instead of falling through to it.
+  error && errorKind !== 'upgrade' && errorKind !== 'sign-in' && (errorKind === 'quota' ?
   el('div', { className: 'notice error', style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' } },
   el('div', { style: { fontWeight: 700 } }, error),
   // /app#casual drops into the lightweight casual chat (one
@@ -8753,13 +8757,17 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),
-  el('div', { className: 'vg-h' }, 'Keep going with a plan'),
+  el('div', { className: 'vg-h' }, 'Keep going with Voice'),
+  // The copy used to promise 8 free rounds against a server cap of 2,
+  // and linked bare /pricing, whose hero sells Individual, the one plan
+  // that does NOT lift this cap. Real numbers, and the plan that fixes
+  // the thing that just stopped.
   el('p', { className: 'vg-body' },
-  'You\'ve used your 8 free voice rounds. Voice is new and runs on OpenAI\'s Realtime API (charged per audio minute), so the free tier is capped. Typed mode stays unmetered for your account.'
+  'Your ' + (voiceGate.limit || 2) + ' free voice rounds are used. Voice is $12 a month for live rounds with no lifetime cap; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
   ),
   el('a', {
-    href: '/pricing', className: 'cta vg-cta'
-  }, 'See plans →'),
+    href: '/pricing#plans', className: 'cta vg-cta'
+  }, 'Get Voice · $12/mo →'),
   el('a', { href: '/app#casual', className: 'vg-fallback' }, 'or keep going in casual typed chat →')
   ) :
   el(React.Fragment, null,
@@ -8791,7 +8799,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   voiceGate.limit - voiceGate.used + ' of ' + voiceGate.limit + ' free rounds left.' :
   voiceGate.used > 0 ?
   'Sample round available. Sign in after and the AI starts learning your voice.' :
-  '3 sample rounds before sign-in. After that, your voice rounds feed your style profile.'
+  'One sample round before sign-in. After that, your voice rounds feed your style profile.'
   )
   )
   )

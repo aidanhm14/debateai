@@ -1710,8 +1710,18 @@ async function start(){
         // Apple 3.1.1: no pricing link inside the native app.
         err.html = window.__DB_NATIVE ?
           'You\'ve used your free voice rounds for now. Typed sparring is always open at <a href="/practice">/practice</a>.' :
-          'You\'ve used your free voice rounds. <a href="/pricing">Plans are here</a>, and typed sparring is always open at <a href="/practice">/practice</a>.';
+          'You\'ve used your free voice rounds. <a href="/pricing#plans">Voice is $12/mo with no cap</a>, and typed sparring is always open at <a href="/practice">/practice</a>.';
         throw err;
+      }
+      // Anonymous cap: the server answers 401 SIGN_IN_REQUIRED, and this
+      // used to fall through to the generic "Could not start" line with
+      // no door in it. An account is the next step, so offer the one
+      // action that clears the wall.
+      if (mintRes.status === 401 && body.code === 'SIGN_IN_REQUIRED') {
+        try { if (typeof window.openAuthModal === 'function') window.openAuthModal('signup'); } catch (e) {}
+        const errS = new Error('signin');
+        errS.html = 'That was your free voice round. <a href="#" onclick="if(window.openAuthModal){window.openAuthModal(\'signup\');return false}">Sign in free</a> to keep going, or keep sparring typed at <a href="/practice">/practice</a>.';
+        throw errS;
       }
       const upstream = body.openai || raw;
       if (/exceeded your current quota|insufficient_quota|billing/i.test(upstream || '')) {
