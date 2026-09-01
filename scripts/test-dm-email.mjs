@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 process.env.EMAIL_UNSUB_SECRET = 'dm-email-test-secret';
 
-const { buildDmEmail, isRecentDmMessage, DM_MESSAGE_MAX_AGE_MS } = await import('../app/netlify/functions/lib/dm-email.mjs');
+const { buildDmEmail, isRecentDmMessage, DM_MESSAGE_MAX_AGE_MS, dmEmailCooldownOk, DM_EMAIL_COOLDOWN_MS } = await import('../app/netlify/functions/lib/dm-email.mjs');
 const { isOptedOut } = await import('../app/netlify/functions/lib/email.mjs');
 
 let passed = 0;
@@ -51,10 +51,34 @@ check('only freshly created messages can trigger email', () => {
   assert.equal(isRecentDmMessage({}, now), false);
 });
 
+check('one nudge per recipient per window, however many messages arrive', () => {
+  const now = Date.now();
+  assert.equal(dmEmailCooldownOk(0, now), true, 'never emailed → allowed');
+  assert.equal(dmEmailCooldownOk(undefined, now), true, 'missing stamp → allowed');
+  assert.equal(dmEmailCooldownOk(now - 60_000, now), false, 'a minute after a send → suppressed');
+  assert.equal(dmEmailCooldownOk(now - DM_EMAIL_COOLDOWN_MS + 1, now), false, 'just inside the window → suppressed');
+  assert.equal(dmEmailCooldownOk(now - DM_EMAIL_COOLDOWN_MS, now), true, 'window elapsed → allowed');
+  assert.equal(dmEmailCooldownOk(now + 10 * DM_EMAIL_COOLDOWN_MS, now), true, 'future/corrupt stamp must never mute forever');
+  assert.ok(DM_EMAIL_COOLDOWN_MS >= 60 * 60 * 1000, 'cooldown is hours, not a token throttle');
+});
+
 const endpoint = readFileSync(new URL('../app/netlify/functions/notify-dm.mjs', import.meta.url), 'utf8');
 const core = readFileSync(new URL('../app/js/dm-core.js', import.meta.url), 'utf8');
 const liveRound = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
 const spar = readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
+
+check('server claims the cooldown transactionally before sending, and reverts on failure', () => {
+  assert.match(endpoint, /dm_email_state/);
+  assert.match(endpoint, /runTransaction[\s\S]{0,400}dmEmailCooldownOk/, 'cooldown check must live inside the transaction');
+  assert.match(endpoint, /reason: 'cooldown'/, 'a suppressed message records why');
+  assert.match(endpoint, /revertCooldown/, 'a failed send must not spend the window');
+  // Match the CALL, not the function definition — `claimCooldown(db, ...`
+  // also appears in the declaration, which made the first version of this
+  // guard vacuous (an ordering mutation escaped it).
+  const claimIdx = endpoint.indexOf('await claimCooldown(db, recipientUid');
+  const sendIdx = endpoint.indexOf('sendEmail({');
+  assert.ok(claimIdx > 0 && sendIdx > claimIdx, 'cooldown is claimed before the send');
+});
 
 check('server verifies both the thread and exact message author', () => {
   assert.match(endpoint, /threadRef\.get\(\), messageRef\.get\(\)/);
