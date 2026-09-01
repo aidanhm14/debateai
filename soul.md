@@ -194,6 +194,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **The first-screen odds strip is hidden again** (2026-09-01, Aidan off a screenshot of the Owen/Grace percentage bar: "get rid of this thing on the landing page it makes the page ovefrwhelming / too much"). This re-retires the 2026-08-28 "spectator-heavy first screen built around betting tokens" reveal and returns the board to the 2026-08-22 posture: `.fs-board .fs-odds{display:none}`, one CSS rule, markup and JS untouched because the strip's tick drives the board's clock. The card now reads faces, motion, then the AI judge's decision. The 2026-08-31 header compression ("Spectators bet free tokens on who wins") is moot while hidden. Do not restore `display:block` without a fresh founder call recorded here; the strip has now flipped twice on founder sight of the live page.
+
 - **face64 is pulled from the board, and removing a face turns out to be four surfaces** (2026-09-01, Aidan off the first-screen ROUNDS board: "get rid of his image on the landing page its not attractice"). The tile was Pascal, the middle still of the face63-65 batch supplied the day before: dark, underexposed, shot against a bare wall, and the weakest of the three at tile size. **Consent was never the question**, so this is a quality call and not a consent one, and a brighter crop of the same person would be welcome. The file is deleted and the number stays out of every pool, the same posture as face05/09/14/39/55.
   - **The removal was bigger than the ask, and that is the part worth keeping.** He named the landing board; the same still also rode the `.rot-cam` rotator pool and the /spar signed-out gate, which is the site's one Google-conversion surface, so the image he called unattractive would have kept greeting every signed-out visitor. A face lives in FOUR places and only ONE of them spells it as a filename.
   - **Two of those pools hold it as a bare number**, `FACE_M_REAL` for the board and `REAL` for the rotator, so `grep face64` returns nothing and the deleted file simply 404s with no error anywhere. **face64 survived the first pass of its own removal inside the rotator list for exactly that reason**, and was caught only by grepping for the pool variables rather than for the name. `scripts/test-spar-google-gate.mjs` now parses both numeric pools and asserts 64 and 55 are absent from each, plus the gate's filename and its tile count; every guard was shown to fire by re-adding the number one pool at a time.
@@ -1137,4 +1139,4 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ---
 
-*Last updated: 2026-08-31 (latest pass: structural de-vibe + AI token-cost cuts on the named surfaces)*
+*Last updated: 2026-09-01 (latest pass: the first-screen odds strip is hidden again)*
