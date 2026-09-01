@@ -4367,89 +4367,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
         '</div>' +
       '</div>' +
-      // The AI choice appears only after the person has given the human
-      // queue a real try. It is a decision card, never a timer fallback.
-      '<div id="aiOpponentOffer" hidden style="margin:18px auto 2px;max-width:430px;padding:16px;border:1px solid rgba(239,68,68,.30);border-radius:14px;background:rgba(239,68,68,.06);text-align:left">' +
-        '<strong style="display:block;font-size:.94rem;color:var(--text)">Use the wait</strong>' +
-        '<span style="display:block;margin-top:4px;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Prep while the human search stays active, or start a Realtime Voice AI round by choice.</span>' +
-        '<div class="btn-row" style="margin-top:12px;justify-content:flex-start">' +
-          '<button class="btn primary" id="aiNowBtn" type="button">Start Voice AI &rarr;</button>' +
-          '<a class="btn" id="prepWhileWaitingLink" href="/app#case">Prep while waiting</a>' +
-          '<button class="btn" id="keepSearchingBtn" type="button">Keep searching</button>' +
-        '</div>' +
-      '</div>' +
-      // Quiet-queue answer (2026-07-22). An empty queue used to read only
-      // as "You're first in line" over a timer counting up with no limit,
-      // which tells the user to keep waiting without saying what they are
-      // waiting for. Spar Night was already on this page but only inside
-      // the waitlist rail, which is behind a drawer on mobile, so the
-      // person actually staring at the timer never saw it. This slot
-      // carries the same card into the searching screen and only appears
-      // when the queue is genuinely empty. Lives in renderSearching's
-      // stable markup, NOT in #queueStats, which repaints every ~2s and
-      // would remount the card (and restart its countdown) each tick.
-      '<div class="sn-quiet" id="sparNightQuiet" hidden>' +
-        // "one fixed hour a week" went stale when Spar Night became three
-        // sessions (2026-08-24); the card below now names the hours big.
-        '<p class="sn-quiet-line" style="font-size:.92rem;font-weight:600">Quiet right now. Everyone shows up at the three clash hours.</p>' +
-        '<div data-spar-night="rail"></div>' +
-        // 2026-07-22: the no-wait exit. An async round needs nobody else
-        // online: record the opening now, a debater answers on their own
-        // time, the AI takes the other side after 24h if nobody does.
-        '<p class="sn-quiet-line" style="margin-top:10px">Or <a href="/rounds" data-cta="spar-quiet-async" style="color:var(--accent,#ef4444);font-weight:700">record an async round now</a>; they answer later, the ballot still comes back.</p>' +
-      '</div>' +
+      // 2026-09-01, Aidan on a screenshot of this screen: 'get rid of all
+      // these it overwhelms the /spar page'. Gone from the searching state:
+      // the Use-the-wait AI offer card, the quiet-hours Spar Night card and
+      // async-round line, the Voice-AI link, the Matchmaker-profile recap,
+      // and the whole Round-setup card (judge type / language / bench).
+      // Every JS reference to their ids is null-guarded, so the wiring
+      // below no-ops; restore from git history at this commit if asked.
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
-        '<span class="ql-sep">·</span>' +
-        '<button type="button" class="link-btn" id="aiNowLink">Open Realtime Voice AI</button>' +
-      '</div>' +
-      // The local player-build remains visible as a compact loadout.
-      // Change opens the full-screen arcade flow without leaving the queue.
-      matchProfileCardHtml() +
-      // Round setup. Judge type is a primary round term, so its three
-      // choices stay visible. Format, language, and the read-only model
-      // council remain secondary disclosures.
-      '<div class="setup-card arc" id="setupCard">' +
-        '<div class="setup-head">Round setup<span class="setup-flag">Interruptions scored</span>' +
-          '<span>Choose how experienced the judge should be. Your opponent approves the same type before Speech 1.</span></div>' +
-        '<div class="setup-judge-top">' +
-          '<div class="paradigm-row">' +
-            '<label>Judge type <span class="opt">both sides agree before the round</span></label>' +
-            '<div id="lensStrip"></div>' +
-          '</div>' +
-        '</div>' +
-        // Step 1 — spoken language only. Judge type stays above this
-        // disclosure so it cannot be missed. (The old "Debate style" step
-        // offered exactly one style, Casual 1v1, so it was a step with no
-        // choice in it and came off 2026-09-01.)
-        '<details class="setup-step" id="setupStepJudge"' + (setupOpen ? ' open' : '') + '>' +
-          '<summary><span class="setup-step-n">1</span><span class="setup-step-t">Language</span>' +
-            '<span class="setup-step-v" id="setupJudgeValue">English</span>' +
-            '<span class="setup-step-chev" aria-hidden="true">▾</span></summary>' +
-          '<div class="setup-step-body">' +
-          '<div class="paradigm-row">' +
-            '<label for="sparLangSelect">Debating in <span class="opt">your opponent reads live-translated captions</span></label>' +
-            '<select id="sparLangSelect" class="spar-lang-select">' +
-            SPAR_LANGS.map(function(l){
-              return '<option value="' + l[0] + '"' + (l[0] === state.lang ? ' selected' : '') + '>' + l[1] + '</option>';
-            }).join('') +
-            '</select>' +
-          '</div>' +
-          '</div>' +
-        '</details>' +
-        // Step 3 — the bench is READ-ONLY here by design: a spar round
-        // is ranked, so its panel is pinned by the season charter and is
-        // not a thing either debater gets to pick. Showing it anyway is
-        // the point, because a panel you can picture is a panel you can
-        // argue to. Filled by judge-draft.js from /api/judge/charter.
-        '<details class="setup-step" id="setupStepBench">' +
-          '<summary><span class="setup-step-n">2</span><span class="setup-step-t">Meet your judges</span>' +
-            '<span class="setup-step-v">Pinned</span>' +
-            '<span class="setup-step-chev" aria-hidden="true">▾</span></summary>' +
-          '<div class="setup-step-body">' +
-          '<div data-draft-bench></div>' +
-          '</div>' +
-        '</details>' +
       '</div>' +
       // organized-pivot links cut in the 2026-08-05 cozy pass — /live and
       // Discord both live in the while-you-wait rail; the same sentence

@@ -55,7 +55,14 @@ assert(/id="setupJudgeTypes"/.test(liveRoundSource), 'direct round setup shows j
 assert(/judgePicks: state\.judgePicks/.test(liveRoundSource), 'direct round setup publishes its judge type');
 assert(/agreedJudgeLevelBlock\(d\.judgePicks\)/.test(liveJudgeSource), 'server ballot applies the agreed visible judge type');
 assert(!/assignedParadigmBlock/.test(liveJudgeSource), 'server ballot no longer uses a separate assigned persona');
-assert((sparSource.match(/id="lensStrip"/g) || []).length === 1, 'spar exposes one judge-type selector');
+// 2026-09-01, Aidan: the searching screen's whole Round-setup card came
+// off /spar ("it overwhelms the /spar page"), so the queue no longer
+// carries a judge-type selector at all. Agreement happens in the ROOM
+// (live-round's setupJudgeTypes, asserted above), which is where both
+// sides actually are before Speech 1. The rule this file guards is
+// unchanged: any surface that DOES show judge types shows the same
+// three, and the server applies the agreed one.
+assert((sparSource.match(/id="lensStrip"/g) || []).length === 0, 'spar carries no judge-type selector (the room owns the pick)');
 assert(!/var JUDGE_PRESETS\s*=/.test(sparSource), 'spar no longer exposes the retired preset list');
 assert(!/judge-(?:intro|roster)\.js|JudgeIntro\.show/.test(newVoiceSource), 'new voice flow has no separate judge persona layer');
 assert(!/judge-(?:intro|roster)\.js|JudgeIntro\.show/.test(voiceDebateSource), 'voice debate flow has no separate judge persona layer');
