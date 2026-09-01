@@ -1806,11 +1806,23 @@ function avatarHTML(row){
   const seed=(row&&row.uid)||(row&&row.displayName)||'anon';
   const fallback=emblemAvatar(seed,row&&row.displayName,avaAnon(row&&row.displayName));
   if(row&&row.seed===true) return seedPortrait(row);
-  if(row&&row.avatarIdentity&&window.DBAvatar&&DBAvatar.publicSvg){
-    return DBAvatar.publicSvg(row.avatarIdentity,'100%',{uid:row.uid,name:row.displayName});
-  }
+  // Identity priority on THIS board (2026-09-01, the founder: the rated
+  // rows all wore the auto-minted live-round mask, so the photo tier
+  // never fired and the board read as a column of near-identical masks).
+  // A CHOSEN identity still outranks everything: a designed portrait
+  // (portraitConfig) or a picked picture (kind) is something the person
+  // set on purpose. The liveDesign-only mask is minted automatically for
+  // camera-off live rounds, so it ranks BELOW the account photo and the
+  // stand-in photo tier here, and survives as the fallback when the pfp
+  // script is blocked. Do not flatten this back to "any avatarIdentity
+  // wins": that is exactly the state that hid the photos.
+  const id=row&&row.avatarIdentity;
+  const chosen=!!(id&&(id.portraitConfig||id.kind));
+  const maskSvg=(id&&window.DBAvatar&&DBAvatar.publicSvg)
+    ? DBAvatar.publicSvg(id,'100%',{uid:row.uid,name:row.displayName}) : '';
+  if(chosen&&maskSvg) return maskSvg;
   const photo=safeAvatarUrl(row&&row.photoURL);
-  if(!photo) return standInPhoto(seed)||fallback;
+  if(!photo) return standInPhoto(seed)||maskSvg||fallback;
   return '<img src="'+photo+'" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
     +'<span class="avatar-fallback" hidden>'+fallback+'</span>';
 }
