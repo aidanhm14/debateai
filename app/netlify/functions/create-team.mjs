@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getDb, getUserTeam, PLANS, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -36,6 +36,10 @@ export default async (request) => {
     } catch (err) {
       console.error('create-team auth error:', err.message);
       return errorResponse('Authentication failed. Please sign in again.', 401, request);
+    }
+
+    if (!isNamedAccount(decoded)) {
+      return errorResponse('A permanent account is required to create a workspace.', 403, request);
     }
 
     const uid = decoded.sub;

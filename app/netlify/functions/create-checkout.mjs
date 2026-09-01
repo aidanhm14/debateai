@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getUserTeam } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { PURCHASABLE_PLANS, envKeyForPlan, priceMatchesCanonical } from './lib/plans.mjs';
@@ -34,6 +34,10 @@ export default async (request) => {
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
   }
 
+  if (!isNamedAccount(decoded)) {
+    return errorResponse('A permanent account is required for checkout.', 403, request);
+  }
+
   // Team-first funnel: requiring a team before checkout is intentional.
   // Teams are Debatable's social/tracking layer — create one, invite peers,
   // track your cases and analytics together. Returning 404 here is the
@@ -54,7 +58,7 @@ export default async (request) => {
   const planId = body.plan; // "individual" or "team"
 
   if (!PURCHASABLE_PLANS.includes(planId)) {
-    return errorResponse('Invalid plan. Choose "byok", "individual", or "team".', 400, request);
+    return errorResponse('Invalid plan. Choose "byok", "individual", "voice", or "team".', 400, request);
   }
   const priceId = process.env[envKeyForPlan(planId)];
   if (!priceId) {
@@ -96,7 +100,7 @@ export default async (request) => {
     const sessionParams = {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${siteUrl}/pricing?billing=success&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?billing=canceled&plan=${planId}`,
       ...(team.stripeCustomerId
         ? { customer: team.stripeCustomerId }

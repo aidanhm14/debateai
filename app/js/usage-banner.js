@@ -22,7 +22,7 @@
   };
   const SDK_VERSION = '10.13.2';
   const POLL_MS = 45_000; // Re-fetch usage every 45s so the banner stays live.
-  const MANAGE_URL = 'https://itsdebatable.com/app#team';
+  const MANAGE_URL = 'https://itsdebatable.com/pricing';
   const PRICING_URL = '/pricing?source=usage-cap#plans';
   const CAP_DISMISS_KEY = '_da_usage_cap_dismissed';
 

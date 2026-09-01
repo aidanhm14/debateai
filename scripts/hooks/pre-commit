@@ -119,6 +119,20 @@ if [ -f "$AUTH_MODAL_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Cross-page UX journey guard. These paths fail quietly when they drift:
+# checkout can lose plan intent at sign-in, an anonymous Firebase shadow
+# account can look paid-ready, and retired hash/format routes can still render
+# a plausible screen before dropping the visitor somewhere unrelated.
+UX_JOURNEY_GUARD="$REPO_ROOT/scripts/test-ux-journeys.mjs"
+if [ -f "$UX_JOURNEY_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ux-journeys.mjs >/tmp/ux-journey-guard.log 2>&1); then
+    echo "[ux-journey-guard] commit blocked - a signed-in or signed-out journey regressed:" >&2
+    tail -40 /tmp/ux-journey-guard.log >&2
+    echo "[ux-journey-guard] see scripts/test-ux-journeys.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Netlify function-layout guard. A partial root copy is auto-discovered by the
 # local CLI even though production points at app/netlify/functions; without its
 # lib directory every imported helper fails during bundling.

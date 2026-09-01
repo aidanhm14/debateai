@@ -14,7 +14,7 @@
     {
       "@type": "Product",
       "name": "Debatable",
-      "description": "Live debate arena with timed voice rounds, format-accurate opponents, judge ballots, and plans for individuals, study groups, and school programs.",
+      "description": "Live debate arena with timed voice rounds, direct pushback, judge ballots, and plans for individuals, study groups, and school programs.",
       "brand": { "@type": "Brand", "name": "Debatable" },
       "image": "https://itsdebatable.com/icons/icon-512.png?v=2",
       "url": "https://itsdebatable.com/",
@@ -71,6 +71,7 @@
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/track.js"></script>
 <script defer src="/js/voice-input.js"></script>
+<script defer src="/js/auth-modal.js"></script>
 <!-- A/B test scaffold. Assigns visitors to hero-copy variants
      (control vs 'tournament-grade') and fires ab_variant exposure
      events. Conversion is the existing paid_conversion / purchase
@@ -229,6 +230,20 @@
   .status{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#17171b;padding:12px 20px;border-radius:12px;font-size:.85rem;z-index:1000;display:none;box-shadow:0 10px 40px rgba(20,20,30,.15)}
   .status.err{border-color:var(--accent);color:#b91c1c}
   .status.show{display:block}
+  .billing-setup{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(12,8,9,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .billing-setup.on{display:flex}
+  .billing-setup-card{position:relative;width:min(460px,100%);padding:30px;border-radius:20px;background:#fff;color:#17171b;border:1px solid rgba(220,38,38,.3);box-shadow:0 28px 80px rgba(0,0,0,.34)}
+  .billing-setup-card h2{margin:0 36px 8px 0;font-size:1.45rem;letter-spacing:-.025em}
+  .billing-setup-card p{margin:0 0 20px;color:#5f6068;font-size:.9rem;line-height:1.55}
+  .billing-setup-card label{display:block;margin-bottom:7px;font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .billing-setup-card input{width:100%;min-height:48px;padding:11px 13px;border:1px solid #d4d4d8;border-radius:11px;background:#fff;color:#17171b;font:650 .95rem/1.3 Archivo,Inter,sans-serif}
+  .billing-setup-card input:focus{outline:2px solid rgba(220,38,38,.24);border-color:#dc2626}
+  .billing-setup-actions{display:flex;align-items:center;gap:10px;margin-top:18px}
+  .billing-setup-actions button{min-height:46px;padding:10px 17px;border-radius:999px;font:800 .86rem/1 Archivo,Inter,sans-serif;cursor:pointer}
+  .billing-setup-go{flex:1;border:1px solid #dc2626;background:#dc2626;color:#fff}
+  .billing-setup-cancel{border:1px solid #d4d4d8;background:transparent;color:#52525b}
+  .billing-setup-close{position:absolute;top:13px;right:13px;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:#71717a;font-size:1.35rem;cursor:pointer}
+  .billing-setup-error{min-height:18px;margin-top:10px;color:#b91c1c;font-size:.8rem;font-weight:700}
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--fg);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .theme-dots{display:none!important}
@@ -294,16 +309,16 @@
 <section class="hero" aria-labelledby="heroH1">
   <div class="hero-copy">
     <span class="kicker" id="heroEyebrow">Simple pricing for serious rounds</span>
-    <h1 id="heroH1">One tournament fee. A full year of harder rounds.</h1>
+    <h1 id="heroH1">A full year of harder rounds for $10.</h1>
     <p class="lede" id="heroLede">Individual gives you 250 typed requests each month, six AI brains, deeper cases, and memory across rounds. It is $10 for the year.</p>
     <div class="hero-actions">
-      <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_hero">Get Individual · $10/year</a>
+      <a class="cta primary" href="/pricing#plans" data-checkout="individual" data-pricing-cta="individual_hero">Get Individual · $10/year</a>
       <a class="cta ghost" href="/tokens" data-pricing-cta="tokens_hero">Buy 10 voice rounds · $4.99</a>
     </div>
-    <p class="beta-state" data-beta-copy><span class="live-dot" aria-hidden="true"></span><span><strong>Plans are live.</strong> Voice is billed monthly because a live round costs real money to run. Everything else is annual.</span></p>
+    <p class="beta-state" data-beta-copy><span class="live-dot" aria-hidden="true"></span><span><strong>Plans are live.</strong> Voice, Tokens, and BYOK are monthly. Individual and Team are annual.</span></p>
     <div class="signal-row" aria-label="What paid plans unlock">
       <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg>Six AI brains</span>
-      <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg>Competition depth</span>
+      <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg>Deeper analysis</span>
       <span class="signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Memory across rounds</span>
     </div>
   </div>
@@ -342,15 +357,15 @@
       </div>
       <span class="billing-state" data-beta-copy>Billed yearly</span>
     </div>
-    <p class="sub">For one person who wants deeper prep and a tougher opponent.</p>
+    <p class="sub">For one person who wants deeper analysis and a tougher opponent.</p>
     <ul class="feats">
       <li>250 typed requests each month</li>
       <li>All six brains with pro model tiers</li>
-      <li>Competition depth and full case tools</li>
+      <li>Deeper argument analysis and full case tools</li>
       <li>Memory that adapts across rounds</li>
       <li class="off">Voice rounds sold separately</li>
     </ul>
-    <a class="cta primary" href="/app?upgrade=individual" data-checkout="individual" data-pricing-cta="individual_card">Get Individual</a>
+    <a class="cta primary" href="/pricing#plans" data-checkout="individual" data-pricing-cta="individual_card">Get Individual</a>
     <p class="note" data-beta-copy>$10 for the year. Cancel any time.</p>
   </article>
 
@@ -370,7 +385,7 @@
       <li>Unlimited voice rounds, no lifetime cap</li>
       <li>Everything in Individual</li>
     </ul>
-    <a class="cta primary" href="/app?upgrade=voice" data-checkout="voice" data-pricing-cta="voice_card">Get Voice</a>
+    <a class="cta primary" href="/pricing#plans" data-checkout="voice" data-pricing-cta="voice_card">Get Voice</a>
     <p class="note" data-beta-copy>$12 a month. Cancel any time.</p>
   </article>
 </div>
@@ -402,19 +417,19 @@
         <li>Everything in Individual</li>
         <li>You pay Anthropic for API usage</li>
       </ul>
-      <a class="cta ghost" href="mailto:hello@itsdebatable.com?subject=Debatable%20BYOK%20waitlist" data-pricing-cta="byok_card">Join the waitlist</a>
+      <a class="cta ghost" href="/pricing#plans" data-checkout="byok" data-pricing-cta="byok_card">Get BYOK</a>
     </article>
 
     <article class="compact-card" data-plan="team">
       <div class="tier">Team</div>
       <div class="price-row"><span class="price">$50</span><span class="cadence">/ year</span></div>
-      <p class="sub">A study group or prep pod, not a school program.</p>
+      <p class="sub">A study group or argument club, not a school program.</p>
       <ul class="feats">
         <li>1,500 pooled requests each month</li>
         <li>Up to 50 seats</li>
         <li>Admin dashboard and shared paradigm bank</li>
       </ul>
-      <a class="cta ghost" href="mailto:hello@itsdebatable.com?subject=Debatable%20team%20beta%20access" data-pricing-cta="team_card">Request team beta</a>
+      <a class="cta ghost" href="/pricing#plans" data-checkout="team" data-pricing-cta="team_card">Get Team</a>
     </article>
   </div>
 </section>
@@ -460,7 +475,7 @@
 
   <details>
     <summary>Why is it so cheap?</summary>
-    <p>The first paid buyers are students, coaches, and clubs. Typed practice is annual on purpose, so it feels closer to a tournament fee than a monthly software bill. Voice is the exception. It is monthly because a live voice round costs us real money to run, and pricing it like the typed tier would mean losing money on everyone who actually used it.</p>
+    <p>The first paid buyers are students, coaches, and clubs. Typed practice is annual on purpose, so there is no monthly bill to manage. Voice is the exception. It is monthly because a live voice round costs us real money to run, and pricing it like the typed tier would mean losing money on everyone who actually used it.</p>
   </details>
 
   <details>
@@ -475,7 +490,7 @@
 
   <details>
     <summary>Does it actually make me better?</summary>
-    <p>You give timed speeches, hear real pushback, and leave with a judge ballot that names what decided the round. Each supported format follows its own structure and evidence rules.</p>
+    <p>You give timed speeches, hear real pushback, and leave with a judge ballot that names what decided the round. Every round uses the same casual 1v1 structure and plain-language rubric.</p>
   </details>
 
   <details>
@@ -500,6 +515,20 @@
 </footer>
 
 <div id="status" class="status"></div>
+<div id="billingSetup" class="billing-setup" role="dialog" aria-modal="true" aria-labelledby="billingSetupTitle">
+  <div class="billing-setup-card">
+    <button id="billingSetupClose" class="billing-setup-close" type="button" aria-label="Close">×</button>
+    <h2 id="billingSetupTitle">Name your workspace</h2>
+    <p id="billingSetupCopy">Your plan, usage, and billing history live in a private workspace. Give it a name before checkout.</p>
+    <label for="billingSetupName">Workspace name</label>
+    <input id="billingSetupName" type="text" maxlength="100" autocomplete="organization" />
+    <div id="billingSetupError" class="billing-setup-error" role="alert"></div>
+    <div class="billing-setup-actions">
+      <button id="billingSetupCancel" class="billing-setup-cancel" type="button">Cancel</button>
+      <button id="billingSetupGo" class="billing-setup-go" type="button">Continue to checkout</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // Wire up the checkout buttons. Each CTA with data-checkout="<plan>"
@@ -536,7 +565,7 @@
   // Populated on load; checkout falls back to Stripe if the fetch fails
   // (worst case for an Indian user: they see USD prices and a Stripe
   // checkout still works — Razorpay is a strict upgrade, not a gate).
-  let regionInfo = { provider: 'stripe', currency: 'USD', prices: null, country: null };
+  let regionInfo = { provider: 'stripe', currency: 'USD', prices: null, country: null, betaNoCharge: null };
 
   // Map of plan → cadence text in INR (Razorpay path).
   // Stripe path keeps the existing in-DOM copy untouched.
@@ -565,14 +594,15 @@
   async function loadRegion() {
     try {
       const res = await fetch('/api/billing/region', { method: 'GET' });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const data = await res.json();
       regionInfo = Object.assign(regionInfo, data || {});
       if (regionInfo.provider === 'razorpay' && regionInfo.prices) {
         applyIndiaPricing(regionInfo.prices);
       }
       if (regionInfo.betaNoCharge === true) applyBetaCopy();
-    } catch (_) { /* keep Stripe defaults */ }
+      return typeof regionInfo.betaNoCharge === 'boolean';
+    } catch (_) { return false; }
   }
 
   // Billing went live on 2026-08-26, so the AUTHORED copy in the markup
@@ -607,6 +637,108 @@
     });
   }
 
+  function namedUser(user) {
+    return !!(user && !user.isAnonymous);
+  }
+
+  function originalButtonText(button) {
+    if (!button.dataset.checkoutLabel) button.dataset.checkoutLabel = button.textContent.trim();
+    return button.dataset.checkoutLabel;
+  }
+
+  function resetCheckoutButton(button) {
+    button.textContent = originalButtonText(button);
+    button.disabled = false;
+  }
+
+  function requestCheckoutSignIn(plan, button) {
+    resetCheckoutButton(button);
+    var tries = 0;
+    function open() {
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('signup', { onDone: function (signedInUser) {
+          if (!namedUser(signedInUser)) {
+            showStatus('Use Google, an emailed link, or email and password to continue to checkout.', true);
+            return;
+          }
+          startCheckout(plan, button);
+        }});
+        return;
+      }
+      tries++;
+      if (tries < 20) { setTimeout(open, 150); return; }
+      showStatus('Sign-in is still loading. Refresh and try again.', true);
+    }
+    open();
+  }
+
+  var pendingTeamSetup = null;
+  var billingSetup = document.getElementById('billingSetup');
+  var billingSetupName = document.getElementById('billingSetupName');
+  var billingSetupCopy = document.getElementById('billingSetupCopy');
+  var billingSetupError = document.getElementById('billingSetupError');
+  var billingSetupGo = document.getElementById('billingSetupGo');
+
+  function closeBillingSetup() {
+    billingSetup.classList.remove('on');
+    document.body.style.overflow = '';
+    if (pendingTeamSetup && pendingTeamSetup.button) resetCheckoutButton(pendingTeamSetup.button);
+    pendingTeamSetup = null;
+    billingSetupError.textContent = '';
+  }
+
+  function openBillingSetup(plan, button, user) {
+    resetCheckoutButton(button);
+    pendingTeamSetup = { plan: plan, button: button, user: user };
+    var first = String(user.displayName || '').trim().split(/\s+/)[0];
+    billingSetupName.value = first ? first + (plan === 'team' ? "'s group" : "'s workspace") : (plan === 'team' ? 'My group' : 'My workspace');
+    billingSetupCopy.textContent = plan === 'team'
+      ? 'Team billing needs a group workspace for seats, usage, and invoices. Name it, then checkout opens.'
+      : 'Your plan and usage live in a private workspace. Name it, then checkout opens.';
+    billingSetup.classList.add('on');
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { billingSetupName.focus(); billingSetupName.select(); }, 0);
+  }
+
+  async function createBillingWorkspace() {
+    if (!pendingTeamSetup) return;
+    var name = billingSetupName.value.trim();
+    if (!name) { billingSetupError.textContent = 'Enter a workspace name.'; billingSetupName.focus(); return; }
+    var pending = pendingTeamSetup;
+    billingSetupGo.disabled = true;
+    billingSetupGo.innerHTML = '<span class="spinner"></span>Creating workspace';
+    billingSetupError.textContent = '';
+    try {
+      var token = await pending.user.getIdToken();
+      var res = await fetch('/api/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ name: name }),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok && res.status !== 409) throw new Error(data.error || 'Could not create the workspace.');
+      billingSetup.classList.remove('on');
+      document.body.style.overflow = '';
+      pendingTeamSetup = null;
+      billingSetupGo.disabled = false;
+      billingSetupGo.textContent = 'Continue to checkout';
+      startCheckout(pending.plan, pending.button);
+    } catch (err) {
+      billingSetupError.textContent = err && err.message ? err.message : 'Could not create the workspace. Try again.';
+      billingSetupGo.disabled = false;
+      billingSetupGo.textContent = 'Continue to checkout';
+    }
+  }
+
+  document.getElementById('billingSetupClose').addEventListener('click', closeBillingSetup);
+  document.getElementById('billingSetupCancel').addEventListener('click', closeBillingSetup);
+  billingSetupGo.addEventListener('click', createBillingWorkspace);
+  billingSetupName.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { event.preventDefault(); createBillingWorkspace(); }
+  });
+  billingSetup.addEventListener('click', function (event) { if (event.target === billingSetup) closeBillingSetup(); });
+  document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && billingSetup.classList.contains('on')) closeBillingSetup(); });
+
   // Razorpay Checkout opens a hosted modal. On success it calls our
   // handler with { razorpay_payment_id, razorpay_order_id,
   // razorpay_signature } which we POST to /api/billing/razorpay-verify
@@ -627,8 +759,7 @@
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 404 && data.error === 'NEEDS_TEAM') {
-      sessionStorage.setItem('intended_plan', plan);
-      location.href = '/app?upgrade=' + encodeURIComponent(plan) + '&needs_team=1';
+      openBillingSetup(plan, button, user);
       return;
     }
     if (!res.ok) throw new Error(data.error || 'Checkout failed (' + res.status + ')');
@@ -653,10 +784,9 @@
           if (!verifyRes.ok || !verifyData.ok) {
             throw new Error(verifyData.error || 'Could not confirm payment.');
           }
-          // Match the Stripe success-url shape so /app's post-billing
-          // UI fires identically. The webhook is a backup in case the
-          // user closes the tab before we redirect.
-          location.href = '/?billing=success&plan=' + encodeURIComponent(plan) + '&provider=razorpay';
+          // The webhook is a backup in case the user closes the tab before
+          // this return reaches the pricing page.
+          location.href = '/pricing?billing=success&plan=' + encodeURIComponent(plan) + '&provider=razorpay';
         } catch (err) {
           showStatus(err.message || 'Payment captured but activation failed. Refresh and check your plan.', true);
           button.textContent = originalText;
@@ -681,36 +811,39 @@
   async function startCheckout(plan, button) {
     // Beta: no card is collected and nobody can be charged. Every billing
     // path funnels through startCheckout, so gating at the top blocks the
-    // click handler, ?upgrade= deep links, and the post-sign-in auto-resume
-    // alike.
+    // click handler and post-sign-in retry alike.
     //
     // This is now READ FROM THE SERVER (/api/billing/region → betaNoCharge),
     // not hardcoded, so it can never disagree with create-checkout.mjs.
     // Set BETA_NO_CHARGE=false in the Netlify env to go live; no deploy.
     //
-    // Defaults to TRUE when the region fetch hasn't landed or failed. That
-    // direction is deliberate: an unknown billing state must never charge
-    // someone. Worst case on a failed fetch is a safe bounce into the app.
-    var BETA_NO_CHARGE = (regionInfo && typeof regionInfo.betaNoCharge === 'boolean')
-      ? regionInfo.betaNoCharge
-      : true;
-    if (BETA_NO_CHARGE) {
-      showStatus("Checkout is paused right now. Nothing was charged. Opening the app so your plan intent stays tied to your account.", false);
-      try { sessionStorage.setItem('intended_plan', plan); } catch (e) {}
-      location.href = '/app?upgrade=' + encodeURIComponent(plan);
+    // Unknown billing state never charges and never discards the user's
+    // action. Re-read once, then leave them on this page with a retryable
+    // message if the region endpoint is unavailable.
+    if (typeof regionInfo.betaNoCharge !== 'boolean') {
+      showStatus('Checking billing status…', false);
+      var regionReady = await loadRegion();
+      if (!regionReady) {
+        showStatus('Could not confirm billing status. Nothing was charged. Try again in a moment.', true);
+        resetCheckoutButton(button);
+        return;
+      }
+    }
+    if (regionInfo.betaNoCharge) {
+      showStatus('Checkout is paused right now. Nothing was charged.', false);
+      resetCheckoutButton(button);
       return;
     }
     initAuth();
     if (!auth) { showStatus('Could not load billing. Refresh and try again.', true); return; }
 
     const user = auth.currentUser;
-    if (!user) {
-      sessionStorage.setItem('intended_plan', plan);
-      location.href = '/app?upgrade=' + encodeURIComponent(plan);
+    if (!namedUser(user)) {
+      requestCheckoutSignIn(plan, button);
       return;
     }
 
-    const originalText = button.textContent;
+    const originalText = originalButtonText(button);
     const isIndia = regionInfo.provider === 'razorpay';
     button.innerHTML = '<span class="spinner"></span>' + (isIndia ? 'Opening Razorpay…' : 'Opening Stripe…');
     button.disabled = true;
@@ -729,8 +862,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 404 && data.error === 'NEEDS_TEAM') {
-        sessionStorage.setItem('intended_plan', plan);
-        location.href = '/app?upgrade=' + encodeURIComponent(plan) + '&needs_team=1';
+        openBillingSetup(plan, button, user);
         return;
       }
       if (!res.ok) throw new Error(data.error || 'Checkout failed (' + res.status + ')');
@@ -767,6 +899,16 @@
   window.addEventListener('load', () => {
     setTimeout(initAuth, 50);
     loadRegion();
+    var params = new URLSearchParams(location.search);
+    if (params.get('billing') === 'success') {
+      showStatus('Plan active. Your account will refresh within a minute.', false);
+      params.delete('billing'); params.delete('plan'); params.delete('provider'); params.delete('session_id');
+      history.replaceState({}, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash);
+    } else if (params.get('billing') === 'canceled') {
+      showStatus('Checkout closed. Nothing was charged.', false);
+      params.delete('billing'); params.delete('plan');
+      history.replaceState({}, '', location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash);
+    }
   });
 </script>
 

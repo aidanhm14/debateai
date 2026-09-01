@@ -33,7 +33,7 @@
   var DELAY_MS = 10000;            // 2026-07-22: 3 minutes -> 10s per the founder
   var QUIET_DAYS = 4;              // cooloff after a dismissal
   var HOLDBACK_PCT = 15;           // % of visitors who never see it (control). 0 = show everyone.
-  var DEST = '/app#chat';
+  var DEST = '/practice';
 
   var SESSION_KEY = 'debatable-authprompt-session';
   var QUIET_KEY = 'debatable-authprompt-quiet-until';

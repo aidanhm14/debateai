@@ -6,7 +6,7 @@
 // is for the legacy plan tiers). Gated by TOKENS_LIVE (default off):
 // the whole pipe is wired and dark until pricing is decided.
 import Stripe from 'stripe';
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { TOKENS, TOKENS_LIVE } from './lib/tokens.mjs';
@@ -28,6 +28,12 @@ export default async (request) => {
   let decoded;
   try { decoded = await verifyIdToken(token); }
   catch { return errorResponse('Authentication failed. Please sign in again.', 401, request); }
+  if (!isNamedAccount(decoded)) {
+    return jsonResponse({
+      error: 'NAMED_ACCOUNT_REQUIRED',
+      message: 'Sign in with Google, an emailed link, or email and password before subscribing.',
+    }, 403, request);
+  }
   const uid = decoded.sub;
 
   const priceId = process.env.STRIPE_PRICE_TOKENS;

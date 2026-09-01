@@ -106,7 +106,7 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
 <div class="wrap">
   <div class="top">
     <div class="brand">Debatable <em>·</em> Tokens<span class="tag">Beta · live</span></div>
-    <button class="btn signin" id="authBtn">Sign in</button>
+    <a class="acct" href="/pricing">All plans</a>
   </div>
 
   <div class="head">
@@ -125,7 +125,7 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
       <div class="balmeta">Sign in to see your balance.</div>
     </div>
     <div class="cta-row">
-      <button class="btn subscribe" id="subscribeBtn" data-native-hide>Subscribe</button>
+      <button class="btn subscribe" id="subscribeBtn" data-native-hide>Sign in to subscribe</button>
       <button class="btn acct" id="portalBtn" style="display:none">Manage billing</button>
       <span class="cta-note" id="ctaNote">$4.99 a month, 500 tokens per cycle. Billing by Stripe; cancel anytime from this page. Granted tokens stay yours.</span>
     </div>
@@ -147,6 +147,7 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
 (function(){
   var user=null;
   function $(id){ return document.getElementById(id); }
+  function isNamed(u){ return !!(u && !u.isAnonymous); }
 
   var qs=new URLSearchParams(location.search);
   if(qs.get('billing')==='success'){ $('successBanner').classList.add('on'); }
@@ -183,12 +184,19 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
 
   async function subscribe(){
     var btn=$('subscribeBtn');
-    if(!user){ doSignIn(); return; }
+    if(!isNamed(user)){ doSignIn(function(){ subscribe(); }); return; }
     btn.disabled=true; btn.textContent='Opening checkout';
     try{
       var r=await fetch('/api/tokens/checkout',{method:'POST',headers:await authedHeaders(),body:'{}'});
       var d=await r.json().catch(function(){return {};});
       if(r.status===403 && d.error==='TOKENS_NOT_LIVE'){ $('notLiveBanner').classList.add('on'); }
+      else if(r.status===403 && d.error==='NAMED_ACCOUNT_REQUIRED'){
+        user=null;
+        btn.disabled=false;
+        btn.textContent='Sign in to subscribe';
+        doSignIn(function(){ subscribe(); });
+        return;
+      }
       else if(r.ok && d.url){ location.href=d.url; return; }
       else { $('ctaNote').textContent='Checkout hit an error. Try again in a minute.'; }
     }catch(e){
@@ -197,11 +205,23 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
     btn.disabled=false; btn.textContent='Subscribe';
   }
 
-  function doSignIn(){
-    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
-    var p=new firebase.auth.GoogleAuthProvider();
-    p.setCustomParameters({prompt:'select_account'});
-    firebase.auth().signInWithPopup(p).catch(function(e){ try{ firebase.auth().signInWithRedirect(p); }catch(_){} });
+  function doSignIn(onDone){
+    var tries=0;
+    function open(){
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('signup',{onDone:function(u){
+          user=isNamed(u)?u:null;
+          loadBalance();
+          $('subscribeBtn').textContent=user?'Subscribe':'Sign in to subscribe';
+          if(user && typeof onDone==='function') onDone(user);
+        }});
+        return;
+      }
+      tries++;
+      if(tries<20){ setTimeout(open,150); return; }
+      $('ctaNote').textContent='Sign-in is still loading. Refresh and try again.';
+    }
+    open();
   }
 
   async function openPortal(){
@@ -215,25 +235,20 @@ catch (e) { console.warn('[tokens] firebase init skipped:', e.message); }
     btn.disabled=false;
   }
 
-  $('authBtn').addEventListener('click',function(){
-    if(user){ firebase.auth().signOut(); } else { doSignIn(); }
-  });
   $('subscribeBtn').addEventListener('click',subscribe);
   $('portalBtn').addEventListener('click',openPortal);
 
   try{
     firebase.auth().onAuthStateChanged(function(u){
-      user=u||null;
-      $('authBtn').textContent=user?'Sign out':'Sign in';
-      $('authBtn').className=user?'btn acct':'btn signin';
+      user=isNamed(u)?u:null;
+      $('subscribeBtn').textContent=user?'Subscribe':'Sign in to subscribe';
       loadBalance();
     });
   }catch(e){}
 })();
 </script>
 <!-- Shared sign-in chooser (Google, emailed link, email/password).
-     These pages have no topbar, which is what loads it everywhere
-     else, so they carry it themselves. -->
+     topbar.js usually loads it first; the script is idempotent. -->
 <script defer src="/js/auth-modal.js"></script>
 </body>
 </html>

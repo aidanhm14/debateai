@@ -3,7 +3,7 @@
 // billing-portal.mjs is team-scoped; token subs are per-user, keyed by
 // the stripeCustomerId the webhook wrote onto token_accounts/{uid}.
 import Stripe from 'stripe';
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -17,6 +17,7 @@ export default async (request) => {
   let decoded;
   try { decoded = await verifyIdToken(token); }
   catch { return errorResponse('Authentication failed.', 401, request); }
+  if (!isNamedAccount(decoded)) return errorResponse('Sign in to manage billing.', 403, request);
   const uid = decoded.sub;
 
   let customerId = null;

@@ -140,7 +140,7 @@
     card.appendChild(body);
 
     const cta = document.createElement('a');
-    cta.href = state === 'capped' ? PRICING_URL : '/app#team';
+    cta.href = state === 'capped' ? PRICING_URL : '/profile';
     cta.textContent = state === 'capped' ? 'See plans' : 'Open app';
     cta.style.cssText = [
       'background:#fff',

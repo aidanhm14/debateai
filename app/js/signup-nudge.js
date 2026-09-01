@@ -163,6 +163,10 @@
   // built, not a generic "keep your rounds" pitch. Founder-voice
   // first-person where it fits.
   var pageConfig = [
+    // Read-only community and account pages already expose deliberate
+    // sign-in controls. A timed full-screen modal there interrupts
+    // browsing without unlocking the action the visitor was taking.
+    { match: /^\/(watch|leaderboard|messages|profile|tokens)(?:\.html)?(?:[/?#]|$)/, skip: true },
     // /spar and /live own their sign-in prompt (the gate + the "board
     // becomes yours" guest tooltip). Skip the global nudge there so the
     // two don't stack into a doubled sign-in nag. 2026-06-14.

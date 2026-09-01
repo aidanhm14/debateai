@@ -6,7 +6,7 @@
 <script src="/js/native-bridge.js"></script>
 <script src="/js/auth-modal.js"></script>
 <title>Your dashboard · Debatable</title>
-<meta name="description" content="Your Debatable dashboard. Level, streak, format mastery, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
+<meta name="description" content="Your Debatable dashboard. Level, streak, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
 <meta name="robots" content="noindex,follow">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1471,7 +1471,7 @@ function compute(rows){
 // A zero-value stats object shaped like computeStats' output, so the
 // first-run state can render real badge definitions without inventing
 // numbers. Only the fields computeAchievements reads are present.
-const EMPTY_STATS = { total:0, formats:{}, scores:0, best:0, lowest:0, streak:0, wins:0, live:0 };
+const EMPTY_STATS = { total:0, formats:{}, scores:0, best:0, lowest:0, streak:0, wins:0, live:0, days:0 };
 
 function computeAchievements(s){
   // current/target are surfaced so the milestone picker can rank
@@ -1484,15 +1484,14 @@ function computeAchievements(s){
     unlocked: current >= target,
     tier: tier||'common',
   });
-  const fmtCount = Object.keys(s.formats).length;
   const climb = s.scores >= 5 ? Math.max(0, s.best - s.lowest) : 0;
   return [
     A('first_round',    'First Round',    'Finish one debate.',                          s.total,    1,    'common'),
     A('five_alive',     'Five & Alive',   'Five rounds in the books.',                   s.total,    5,    'common'),
     A('marathon',       'Marathon',       'Twenty-five rounds completed.',               s.total,    25,   'rare'),
-    A('centurion',      'Centurion',      'One hundred rounds. Real circuit volume.',    s.total,    100,  'legendary'),
-    A('cross_format',   'Cross-format',   'Rounds in three different formats.',          fmtCount,   3,    'rare'),
-    A('polyglot',       'Polyglot',       'Rounds in five different formats.',           fmtCount,   5,    'legendary'),
+    A('centurion',      'Centurion',      'One hundred rounds. Serious volume.',         s.total,    100,  'legendary'),
+    A('three_days',     'Regular',         'Complete rounds on three different days.',    s.days,     3,    'rare'),
+    A('ten_days',       'Mainstay',        'Complete rounds on ten different days.',      s.days,     10,   'legendary'),
     A('on_fire',        'On Fire',        'Three-day practice streak.',                  s.streak,   3,    'common'),
     A('inferno',        'Inferno',        'Seven-day practice streak.',                  s.streak,   7,    'rare'),
     A('high_scorer',    'High Scorer',    'Score 28.5 or higher in any round.',          s.best,     28.5, 'rare'),
@@ -1562,7 +1561,7 @@ function renderDailyQuest(rows){
     {
       id:'hot_start',
       title:'Hot start',
-      sub:'Run one round in any format today.',
+      sub:'Complete one round today.',
       reward:25,
       done:(today) => today.length >= 1,
       cta:{ label:'Start a round', href:'/practice' },
@@ -1576,12 +1575,12 @@ function renderDailyQuest(rows){
       cta:{ label:'Go for the ballot', href:'/practice' },
     },
     {
-      id:'format_hopper',
-      title:'Format hopper',
-      sub:'Run rounds in two different formats today.',
+      id:'run_it_back',
+      title:'Run it back',
+      sub:'Complete two rounds today.',
       reward:40,
-      done:(today) => new Set(today.map(r => r.formatName || r.format || '')).size >= 2,
-      cta:{ label:'Pick a new format', href:'/practice' },
+      done:(today) => today.length >= 2,
+      cta:{ label:'Start another round', href:'/practice' },
     },
     {
       id:'voice_up',
@@ -2268,7 +2267,7 @@ function renderSignedOut(){
   mount.innerHTML = `
     <div class="state">
       <h3>Sign in to see your dashboard</h3>
-      <p>Level, streak, format mastery, achievements. Your account keeps it together across devices.</p>
+      <p>Level, streak, achievements, and saved rounds. Your account keeps it together across devices.</p>
       <button class="cta" id="signinBtn" type="button">Sign in</button>
     </div>
     ${localPending.length ? `
@@ -2312,7 +2311,7 @@ function renderError(msg){
 // invented completion score.
 function renderBrainBuilder(s){
   const rounds = Number(s && s.total) || 0;
-  const formats = Object.keys((s && s.formats) || {}).length;
+  const wins = Number(s && s.wins) || 0;
   const days = Number(s && s.days) || 0;
   return `
     <a class="brain-builder" href="/brain" aria-label="Build your debate brain">
@@ -2322,7 +2321,7 @@ function renderBrainBuilder(s){
         <p>Your identity, case files, and training history become a map of how you argue and what to sharpen next.</p>
         <div class="brain-signals" aria-label="Your current training signals">
           <span class="brain-signal"><b>${rounds}</b> round${rounds===1?'':'s'}</span>
-          <span class="brain-signal"><b>${formats}</b> format${formats===1?'':'s'}</span>
+          <span class="brain-signal"><b>${wins}</b> win${wins===1?'':'s'}</span>
           <span class="brain-signal"><b>${days}</b> training day${days===1?'':'s'}</span>
         </div>
         <span class="brain-cta">Build your brain <span aria-hidden="true">→</span></span>
@@ -2372,7 +2371,7 @@ function renderNativeEmpty(user, profileData){
         <summary><span>What one round unlocks<small>Your result and progress</small></span></summary>
         <ul>
           <li>A written ballot with the winner, speaker points, and feedback.</li>
-          <li>XP, level progress, and format history.</li>
+          <li>XP, level progress, and round history.</li>
           <li>Personal stats and badges as your record grows.</li>
         </ul>
       </details>
@@ -2447,14 +2446,14 @@ function renderEmpty(user, profileData){
     </div>
     <div class="state">
       <h3>Nothing here is filled in yet</h3>
-      <p>Every AI-judged round adds XP, level, format mastery, and achievements. One round is enough to start it moving.</p>
+      <p>Every AI-judged round adds XP, level progress, and achievements. One round is enough to start it moving.</p>
       <a class="cta" href="/voice-debate">Start a round</a>
     </div>
 
     <div class="section"><h2>What fills in</h2><div class="right">After round one</div></div>
     <section class="stat-grid">
       <div class="stat is-locked"><div class="label">Total rounds</div><div class="val">&mdash;</div><div class="sub">counts every judged round</div></div>
-      <div class="stat is-locked"><div class="label">Avg speaker</div><div class="val">&mdash;</div><div class="sub">across all formats</div></div>
+      <div class="stat is-locked"><div class="label">Avg speaker</div><div class="val">&mdash;</div><div class="sub">across judged rounds</div></div>
       <div class="stat is-locked"><div class="label">Best ballot</div><div class="val">&mdash;</div><div class="sub">your high so far</div></div>
       <div class="stat is-locked"><div class="label">Wins vs AI</div><div class="val">&mdash;</div><div class="sub">plus your live rounds</div></div>
     </section>
@@ -2512,34 +2511,6 @@ function renderDashboard(user, rows, profileData){
     ? `<span class="streak-chip"><span class="dot"></span> ${s.streak}-day streak</span>`
     : `<span class="streak-chip cold"><span class="dot"></span> No streak yet</span>`;
 
-  // Format mastery. Sort by round count desc so the user's strongest
-  // surface leads, but cap at 8 cards to keep the panel scannable.
-  const fmtRows = Object.entries(s.formats)
-    .map(([name, f]) => ({
-      name,
-      count: f.count,
-      avg: f.count ? f.sum/f.count : 0,
-      best: f.best,
-      color: FMT_COLOR[name] || 'var(--accent)',
-    }))
-    .sort((a,b) => b.count - a.count)
-    .slice(0, 8);
-
-  // Format mastery bar = avg score normalized against 30 (perfect ballot).
-  // Caps the floor at 10% so the bar reads as "present" even after a
-  // single low-scoring round.
-  const fmtBars = fmtRows.map(f => {
-    const pct = Math.max(10, Math.min(100, (f.avg / 30) * 100));
-    return `
-      <div class="fmt-card" style="--fmt-color:${f.color}">
-        <div class="fname">${escapeHtml(f.name)}</div>
-        <div class="fmeta"><span>${f.count} round${f.count===1?'':'s'}</span><b>${fmtScore(f.avg)} avg</b></div>
-        <div class="fmt-bar"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div>
-        <div class="fmeta" style="margin-top:8px"><span>Best</span><b>${fmtScore(f.best)}</b></div>
-      </div>
-    `;
-  }).join('');
-
   // Achievement cards. Sort unlocked first (so the user immediately
   // sees what they've earned), within each group preserve definition
   // order so legendaries don't all clump together.
@@ -2557,12 +2528,12 @@ function renderDashboard(user, rows, profileData){
   // round inside /practice history.
   const recent = rows.slice(0, 8).map(r => {
     const motion = (r.motion || '(no motion saved)').slice(0, 90);
-    const fmt = r.formatName || r.format || '—';
+    const roundType = r.kind === 'live' ? 'Live' : 'AI';
     const side = r.sideLabel || r.side || '';
     const wonBadge = (r.won === true && r.kind === 'ai') ? '<span class="badge-w">W</span>' : '';
     return `
       <div class="r-row">
-        <div class="r-motion">${escapeHtml(motion)}${wonBadge}<span class="fmt">${escapeHtml(fmt)}</span></div>
+        <div class="r-motion">${escapeHtml(motion)}${wonBadge}<span class="fmt">${roundType}</span></div>
         <div class="r-score">${fmtScore(r.score)}</div>
         <div class="r-side">${escapeHtml(side)}</div>
         <div class="r-when">${fmtAgo(r.completedAt)}</div>
@@ -2608,7 +2579,7 @@ function renderDashboard(user, rows, profileData){
 
     <section class="stat-grid">
       <div class="stat"><div class="label">Total rounds</div><div class="val">${s.total}</div><div class="sub">${s.days} active day${s.days===1?'':'s'}</div></div>
-      <div class="stat"><div class="label">Avg speaker</div><div class="val accent">${fmtScore(s.avg)}</div><div class="sub">across all formats</div></div>
+      <div class="stat"><div class="label">Avg speaker</div><div class="val accent">${fmtScore(s.avg)}</div><div class="sub">across judged rounds</div></div>
       <div class="stat"><div class="label">Best ballot</div><div class="val">${fmtScore(s.best)}</div><div class="sub">your high so far</div></div>
       <div class="stat"><div class="label">Wins vs AI</div><div class="val">${s.wins}</div><div class="sub">${s.live} live round${s.live===1?'':'s'}</div></div>
       <!-- AI practice rating (/api/ai-rating). Hidden until the fetch
@@ -2653,9 +2624,6 @@ function renderDashboard(user, rows, profileData){
 
     ${tournamentCardHtml()}
     ${tabroomCardHtml(user, profileData)}
-
-    <div class="section"><h2>Format mastery</h2><div class="right">${fmtRows.length} format${fmtRows.length===1?'':'s'} touched</div></div>
-    <div class="format-grid">${fmtBars || `<div class="state" style="grid-column:1/-1"><h3>No format data yet</h3><p>Run a round and your strongest formats will surface here, ranked by reps.</p></div>`}</div>
 
     <div class="section"><h2>Achievements</h2><div class="right">${ach.filter(a=>a.unlocked).length} of ${ach.length} unlocked</div></div>
     <div class="ach-grid">${achCards}</div>
@@ -2747,7 +2715,7 @@ async function hydrateVoiceRounds(user){
     slot.innerHTML = docs.map(d => {
       const motion = escapeHtml((d.motion||'Untitled round').slice(0,140));
       const score = typeof d.score === 'number' ? fmtScore(d.score) : '—';
-      const fmt = escapeHtml(d.modeLabel || d.format || d.mode || '');
+      const roundType = 'Voice';
       const when = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate().toLocaleDateString()
                  : (d.ts ? new Date(d.ts).toLocaleDateString() : '');
       const result = d.won === true ? '<span class="vr-pill vr-win">Won</span>'
@@ -2755,7 +2723,7 @@ async function hydrateVoiceRounds(user){
       return `<a class="r-row vr-row" href="/voice-rfd?id=${encodeURIComponent(d.id)}">`
         + `<div class="r-motion">${motion}</div>`
         + `<div>${score}</div>`
-        + `<div>${fmt} ${result}</div>`
+        + `<div>${roundType} ${result}</div>`
         + `<div style="text-align:right;color:var(--text-dim)">${escapeHtml(when)}</div>`
       + `</a>`;
     }).join('');
@@ -2903,7 +2871,7 @@ function savedRoundRfd(d){
 
 function savedRoundRow(d, i){
   const motion = escapeHtml((d.motion || 'Untitled round').slice(0, 160));
-  const fmt = escapeHtml(d.formatName || d.format || '');
+  const roundType = d.source === 'newvoice' ? 'AI voice' : 'Live';
   const side = escapeHtml(savedRoundSide(d));
   const when = escapeHtml(savedRoundWhen(d));
   const outcome = savedRoundOutcome(d);
@@ -2944,7 +2912,7 @@ function savedRoundRow(d, i){
     + `<summary class="r-row">`
       + `<div class="sr-motion"><span class="sr-caret">&#9654;</span><span class="sr-text">${motion}</span>${pending}</div>`
       + `<div class="r-side">${side}</div>`
-      + `<div class="sr-meta">${fmt ? `<span class="sr-fmt">${fmt}</span>` : ''}${pill}</div>`
+      + `<div class="sr-meta"><span class="sr-fmt">${roundType}</span>${pill}</div>`
       + `<div class="r-when">${when}</div>`
     + `</summary>`
     + `<div class="sr-body">${body}</div>`

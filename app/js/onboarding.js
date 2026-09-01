@@ -5,8 +5,7 @@
    where signed-in users land. First time a real (non-anonymous)
    user shows up without onboarding answers on user_profiles/{uid},
    a short card asks: competitive experience, age range, background,
-   formats, and how they
-   found us. Every step is tappable-once; the whole thing is
+   goals, and how they found us. Every step is tappable-once; the whole thing is
    skippable. Answers merge-set into user_profiles/{uid}.onboarding
    so admin analytics can read them via the admin SDK.
 
@@ -26,14 +25,14 @@
   window.__ditOnboarding = true;
 
   var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
-  var VERSION = 3;
+  var VERSION = 4;
 
   var STEPS = [
-    { key: 'debateExperience', title: 'Your debate background',
+    { key: 'debateExperience', title: 'How often do you argue things out?',
       sub: 'Pick the closest fit.',
       options: [
-        { v: 'competitive', label: 'I compete' },
-        { v: 'new', label: 'I am new' },
+        { v: 'competitive', label: 'Often' },
+        { v: 'new', label: 'I am new to it' },
         { v: 'unsure', label: 'Not sure yet' },
       ] },
     // Asked only of someone who does not compete. "New to debate" says how
@@ -43,7 +42,7 @@
     { key: 'debateIntent', title: 'What do you want to do?',
       when: function (a) { return a.debateExperience && a.debateExperience !== 'competitive' && !a.debateIntent; },
       options: [
-        { v: 'learn', label: 'Teach me competitive debate' },
+        { v: 'learn', label: 'Build my confidence' },
         { v: 'argue', label: 'Just let me argue' },
       ] },
     { key: 'ageRange', title: 'Your age range', sub: 'Used for age-appropriate matching.',
@@ -60,23 +59,7 @@
         { v: 'college_debater', label: 'College' },
         { v: 'coach', label: 'Coach or teacher' },
         { v: 'professional', label: 'Professional' },
-        { v: 'new', label: 'New to debate' },
-      ] },
-    // Format detail only helps someone already in a circuit. Asking a new
-    // visitor to decode ten acronyms is the opposite of onboarding.
-    { key: 'formats', title: 'Your formats', sub: 'Pick any.', multi: true,
-      when: function (a) { return a.debateExperience === 'competitive' || a.role === 'coach'; },
-      options: [
-        { v: 'bp', label: 'BP' },
-        { v: 'asian_parli', label: 'Asian Parli' },
-        { v: 'wsdc', label: 'WSDC' },
-        { v: 'apda', label: 'APDA' },
-        { v: 'pf', label: 'Public Forum' },
-        { v: 'ld', label: 'LD' },
-        { v: 'policy', label: 'Policy' },
-        { v: 'congress', label: 'Congress' },
-        { v: 'mun', label: 'MUN' },
-        { v: 'unsure', label: 'Not sure yet' },
+        { v: 'new', label: 'New to arguing out loud' },
       ] },
     { key: 'source', title: 'How did you find us?',
       options: [

@@ -12,7 +12,7 @@
 // the official Node SDK is a thin wrapper over fetch, adds a cold-start
 // import, and Netlify Functions v2 ships fine with built-in fetch.
 
-import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getUserTeam } from './lib/firestore.mjs';
 import { razorpayPlanAmount } from './lib/geo.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -50,6 +50,10 @@ export default async (request) => {
   } catch (err) {
     console.error('razorpay-order auth error:', err.message);
     return errorResponse('Authentication failed. Please sign in again.', 401, request);
+  }
+
+  if (!isNamedAccount(decoded)) {
+    return errorResponse('A permanent account is required for checkout.', 403, request);
   }
 
   // Team-first funnel matches the Stripe path. NEEDS_TEAM is the signal
