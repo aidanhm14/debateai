@@ -1,14 +1,14 @@
 // ──────────────────────────────────────────────────────────────────
 // auth-modal.js — shared sign-in helper for Debatable.
 //
-// Web offers Google, an emailed sign-in link, and email/password. The
+// Web offers Google, phone, an emailed sign-in link, and email/password. The
 // native app adds Apple, then exchanges every provider credential into
 // the same Firebase web session used by the live site.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // Firebase (shared script ids with notifications.js so nothing double-loads).
 //
-// Firebase providers: Google, email link (passwordless), and
+// Firebase providers: Google, phone, email link (passwordless), and
 // email/password on web; Apple is also shown in the iOS shell to satisfy
 // App Store login-choice rules.
 //
@@ -149,11 +149,13 @@
          has to act on, and red is the action colour on this card. */
       '#ditAuth .da-spam{font-size:13.5px;line-height:1.5;margin:0 0 4px;padding:11px 13px;border-radius:12px;border:1px solid rgba(245,158,11,.42);background:rgba(245,158,11,.10);color:' + ink + '}' +
       '#ditAuth .da-spam strong{display:block;margin-bottom:3px}' +
+      '#ditAuth .da-phone-disclosure{font-size:12px;line-height:1.45;color:' + sub + ';margin:11px 2px 0}' +
+      '#ditAuth #daPhoneRecaptcha{min-height:0;margin-top:10px}' +
       '@media (max-width:380px){#ditAuth{padding:10px}#ditAuth .da-card{padding:26px 20px 20px;border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-btn--hero{font-size:16px}}';
     document.head.appendChild(s);
   }
 
-  var modal = null, auth = null, lastFocus = null;
+  var modal = null, auth = null, lastFocus = null, phoneRecaptcha = null;
   // Set by openAuthModal(mode, {onDone}); consumed once by handOff().
   var onDone = null;
   // LOCKED mode (2026-08-26). openAuthModal(mode, {locked:true}) opens the
@@ -198,6 +200,7 @@
     locked = false;
     lockCopy = null;
     googleOnly = false;
+    clearPhoneRecaptcha();
     try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
@@ -223,7 +226,7 @@
   // this browser however many times it is tried.
   function providerFailMsg() {
     return isInAppBrowser()
-      ? 'This app\'s browser blocks Google sign-in. Use your email below, or open the site in Safari or Chrome.'
+      ? 'This app\'s browser blocks Google sign-in. Use your phone or email below, or open the site in Safari or Chrome.'
       : 'Google sign-in failed. Try again.';
   }
 
@@ -267,6 +270,8 @@
   var GOOGLE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
 
   var APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>';
+
+  var PHONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>';
 
   function home() { return document.getElementById('ditAuthCard'); }
   function setErr(m) {
@@ -340,7 +345,7 @@
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
-         last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
+         last === 'phone' ? 'your phone' : last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
       : '';
     // APPLE IS THE APP'S BUTTON ONLY (2026-08-26, Aidan: "dont allow
     // apple sign in, bc i cant email ppl for apple, only allow apple for
@@ -372,7 +377,7 @@
     var inApp = isInAppBrowser();
     var inAppNote = inApp
       ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
-        (googleOnly ? 'Open the site in Safari or Chrome.' : 'Use your email below, or open the site in Safari or Chrome.') +
+        (googleOnly ? 'Open the site in Safari or Chrome.' : 'Use your phone or email below, or open the site in Safari or Chrome.') +
         ' <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
     var acceptedTerms = termsAccepted();
@@ -407,6 +412,7 @@
       '<label class="da-terms"><input id="daTerms" type="checkbox" ' + (acceptedTerms ? 'checked ' : '') + '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. Debatable has zero tolerance for objectionable content or abusive users.</span></label>' +
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
+      (googleOnly ? '' : '<button type="button" class="da-btn da-btn--hero" id="daPhone">' + PHONE_SVG + 'Continue with phone</button>') +
       (googleOnly ? '' : '<div class="da-or">or use email</div>' +
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
@@ -458,7 +464,7 @@
     function syncTerms() {
       var accepted = !!(terms && terms.checked);
       rememberTerms(accepted);
-      ['#daApple', '#daG', '#daEmailBtn'].forEach(function (selector) {
+      ['#daApple', '#daG', '#daPhone', '#daEmailBtn'].forEach(function (selector) {
         var button = c.querySelector(selector);
         if (button) button.disabled = !accepted;
       });
@@ -468,6 +474,7 @@
     syncTerms();
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
+    if (c.querySelector('#daPhone')) c.querySelector('#daPhone').addEventListener('click', function () { renderPhoneStart(mode); });
     var emailForm = c.querySelector('#daEmailForm');
     if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
     // Carry what has been typed across either switch. Retyping an address
@@ -514,6 +521,7 @@
     // account" with three equal choices.
     try {
       var fam = /google/.test(method) ? 'google' : /apple/.test(method) ? 'apple'
+        : /phone/.test(method) ? 'phone'
         : /link/.test(method) ? 'emaillink' : 'email';
       localStorage.setItem('debateos-last-signin-method', fam);
     } catch (e) {}
@@ -562,6 +570,158 @@
       cb((firebase.auth && firebase.auth().currentUser) || null, method);
     } catch (e) {}
     return true;
+  }
+
+  function clearPhoneRecaptcha() {
+    if (!phoneRecaptcha) return;
+    try { phoneRecaptcha.clear(); } catch (e) {}
+    phoneRecaptcha = null;
+  }
+
+  function normalizePhone(raw) {
+    var value = String(raw || '').trim();
+    if (!value) return '';
+    var digits = value.replace(/\D/g, '');
+    if (!value.startsWith('+') || digits.length < 8 || digits.length > 15) return '';
+    return '+' + digits;
+  }
+
+  function phoneAuthMessage(err, stage) {
+    var code = (err && err.code) || '';
+    if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') return 'Enter a valid phone number with its country code, like +1 555 123 4567.';
+    if (code === 'auth/invalid-verification-code') return 'That code is not right. Check the text and try again.';
+    if (code === 'auth/code-expired' || code === 'auth/session-expired') return 'That code expired. Ask for a new one.';
+    if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded') return 'Too many codes were requested. Wait a while, then try again.';
+    if (code === 'auth/captcha-check-failed' || code === 'auth/missing-app-credential') return 'The security check expired. Try sending the code again.';
+    if (code === 'auth/operation-not-allowed') return 'Phone sign-in is not available yet. Use email or Google.';
+    if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
+    return stage === 'code' ? 'Could not verify that code. Try again.' : 'Could not send the code. Try email or Google.';
+  }
+
+  function renderPhoneStart(mode, value) {
+    clearPhoneRecaptcha();
+    var c = home(); if (!c) return;
+    c.innerHTML =
+      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
+      '<h2>Continue with phone</h2>' +
+      '<p class="da-sub">One text signs you in or creates your account. Use the same number next time.</p>' +
+      '<form class="da-form" id="daPhoneForm" novalidate>' +
+        '<label class="da-label" for="daPhoneNumber">Mobile number</label>' +
+        '<input class="da-input" id="daPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567" value="' + esc(value || '') + '" />' +
+        '<p class="da-phone-disclosure">Include the country code. Debatable will send one verification text. Message and data rates may apply. Google processes the number for spam and abuse prevention.</p>' +
+        '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daPhoneSend">Text me a code</button>' +
+        '<div id="daPhoneRecaptcha" aria-live="polite"></div>' +
+      '</form>' +
+      '<div class="da-status" role="status"></div>' +
+      '<div class="da-err" role="alert"></div>' +
+      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneBack">Use email or Google instead</button></p>';
+    var xBtn = c.querySelector('.da-x');
+    if (xBtn) xBtn.addEventListener('click', close);
+    c.querySelector('#daPhoneBack').addEventListener('click', function () { renderChooser(mode); });
+    c.querySelector('#daPhoneForm').addEventListener('submit', function (event) { doPhoneStart(event, mode); });
+    var input = c.querySelector('#daPhoneNumber');
+    if (input) input.focus();
+  }
+
+  function doPhoneStart(event, mode) {
+    if (event) event.preventDefault();
+    if (!requireTerms()) return;
+    setErr(''); setStatus('');
+    var c = home();
+    var input = c && c.querySelector('#daPhoneNumber');
+    var phone = normalizePhone(input && input.value);
+    if (!phone) { setErr('Include the country code, like +1 555 123 4567.'); return; }
+    var btn = c.querySelector('#daPhoneSend');
+    btn.disabled = true;
+    btn.textContent = 'Sending code…';
+    bootstrap(function () {
+      try {
+        auth = firebase.auth();
+        if (auth.useDeviceLanguage) auth.useDeviceLanguage();
+        clearPhoneRecaptcha();
+        phoneRecaptcha = new firebase.auth.RecaptchaVerifier('daPhoneSend', { size: 'invisible' });
+        var provider = new firebase.auth.PhoneAuthProvider();
+        track('sign_in_start', { method: 'phone' });
+        provider.verifyPhoneNumber(phone, phoneRecaptcha).then(function (verificationId) {
+          clearPhoneRecaptcha();
+          track('phone_code_sent');
+          renderPhoneCode(mode, phone, verificationId);
+        }).catch(function (err) {
+          clearPhoneRecaptcha();
+          btn.disabled = false;
+          btn.textContent = 'Text me a code';
+          setErr(phoneAuthMessage(err, 'send'));
+          track('phone_code_error', { code: String((err && err.code) || 'unknown').slice(0, 60) });
+        });
+      } catch (err) {
+        clearPhoneRecaptcha();
+        btn.disabled = false;
+        btn.textContent = 'Text me a code';
+        setErr(phoneAuthMessage(err, 'send'));
+      }
+    });
+  }
+
+  function renderPhoneCode(mode, phone, verificationId) {
+    var c = home(); if (!c) return;
+    c.innerHTML =
+      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
+      '<h2>Enter the code</h2>' +
+      '<p class="da-sub">We texted a six-digit code to <span class="da-sent-to">' + esc(phone) + '</span>.</p>' +
+      '<form class="da-form" id="daPhoneCodeForm" novalidate>' +
+        '<label class="da-label" for="daPhoneCode">Verification code</label>' +
+        '<input class="da-input" id="daPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="123456" />' +
+        '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daPhoneConfirm">Finish signing in</button>' +
+      '</form>' +
+      '<div class="da-status" role="status"></div>' +
+      '<div class="da-err" role="alert"></div>' +
+      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneAgain">Send a new code</button><span style="opacity:.5"> · </span><button type="button" class="da-link" id="daPhoneChoose">Use another way in</button></p>';
+    var xBtn = c.querySelector('.da-x');
+    if (xBtn) xBtn.addEventListener('click', close);
+    c.querySelector('#daPhoneAgain').addEventListener('click', function () { renderPhoneStart(mode, phone); });
+    c.querySelector('#daPhoneChoose').addEventListener('click', function () { renderChooser(mode); });
+    c.querySelector('#daPhoneCodeForm').addEventListener('submit', function (event) { doPhoneCode(event, verificationId); });
+    var input = c.querySelector('#daPhoneCode');
+    if (input) input.focus();
+  }
+
+  function doPhoneCode(event, verificationId) {
+    if (event) event.preventDefault();
+    if (!requireTerms()) return;
+    setErr(''); setStatus('');
+    var c = home();
+    var input = c && c.querySelector('#daPhoneCode');
+    var code = String((input && input.value) || '').replace(/\D/g, '');
+    if (code.length !== 6) { setErr('Enter the six-digit code from the text.'); return; }
+    var btn = c.querySelector('#daPhoneConfirm');
+    btn.disabled = true;
+    btn.textContent = 'Signing you in…';
+    try {
+      auth = firebase.auth();
+      var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
+      var current = auth.currentUser;
+      var attempt = current && current.isAnonymous && current.linkWithCredential
+        ? current.linkWithCredential(credential).catch(function (err) {
+            var errCode = (err && err.code) || '';
+            if (errCode === 'auth/credential-already-in-use' || errCode === 'auth/phone-number-already-exists') {
+              return auth.signInWithCredential(credential);
+            }
+            throw err;
+          })
+        : auth.signInWithCredential(credential);
+      attempt.then(function () {
+        finishSignIn('phone');
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Finish signing in';
+        setErr(phoneAuthMessage(err, 'code'));
+        track('phone_code_error', { code: String((err && err.code) || 'unknown').slice(0, 60) });
+      });
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Finish signing in';
+      setErr(phoneAuthMessage(err, 'code'));
+    }
   }
 
   function doGoogle() {
@@ -1305,7 +1465,7 @@
     // Retract Google One Tap if it's showing (signup-nudge.js listens);
     // two account choosers at once reads as broken.
     try { window.dispatchEvent(new CustomEvent('debatable:authmodal-open')); } catch (e) {}
-    var closeButton = modal.querySelector('.da-x') || modal.querySelector('#daG') || modal.querySelector('#daEmail');
+    var closeButton = modal.querySelector('.da-x') || modal.querySelector('#daG') || modal.querySelector('#daPhone') || modal.querySelector('#daEmail');
     if (closeButton) closeButton.focus();
   }
   window.openAuthModal = openAuthModal;

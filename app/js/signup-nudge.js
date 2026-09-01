@@ -182,7 +182,7 @@
       delay: 3,
       variant: 'prominent',
       inviteOptIn: true,
-      msg: '<strong>Sign in with Google and your rounds count.</strong> XP, round recordings, a place on the leaderboard, and every ballot saved.' },
+      msg: '<strong>Sign in and your rounds count.</strong> XP, round recordings, a place on the leaderboard, and every ballot saved.' },
     // /practice owns the account moment. Let a guest finish the sample
     // round, then offer to claim the ballot that now exists. A timer-based
     // prompt during prep competes with the round before the value is real.
@@ -404,24 +404,14 @@
 
   function doSignIn(cfg, source){
     rememberInviteChoice(cfg);
-    // Landing owns the most resilient Google flow: popup first, then a
-    // redirect fallback for Safari and in-app browsers. Use its hidden
-    // delegate when present so every landing CTA shares that path.
-    // ...except in an in-app browser, where that delegate's popup AND its
-    // redirect fallback both fail (Google refuses OAuth in embedded
-    // webviews; the redirect dies because our authDomain is a different
-    // domain and third-party storage is partitioned). Every paid TikTok
-    // visitor lands on the landing, so this delegate was the dead end
-    // they hit. Fall through to the shared modal, which carries email.
-    try {
-      var landingDelegate = inAppBrowser() ? null : document.getElementById('googleSignupBtn');
-      if (landingDelegate) { landingDelegate.click(); return; }
-    } catch(e){}
-    // Other pages open Google's account chooser directly from this click.
+    // Every generic account ask opens the shared chooser first. Sending the
+    // landing nudge straight into Google hid the email and phone doors from
+    // the highest-traffic page. The direct Google popup below is only the
+    // resilience fallback for pages where the shared chooser failed to load.
     try {
       if (typeof firebase === 'undefined' || !firebase.auth) return;
       // Every sign-in surface offers the same choices. The shared modal
-      // carries Google, an emailed link, and email/password; this Google
+      // carries Google, phone, an emailed link, and email/password; this Google
       // popup stays as the fallback for a page that loads without it.
       if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
       var provider = new firebase.auth.GoogleAuthProvider();
@@ -671,15 +661,12 @@
     var optin = cfg.inviteOptIn
       ? '<label class="su-optin"><input type="checkbox"> <span>Email me occasional round invites and product updates.</span></label>'
       : '';
-    // A button promising Google in a browser that cannot run Google is a
-    // promise the next tap breaks. Email sign-in works perfectly in these
-    // webviews, so that is what gets offered and what the label says.
-    var inApp = inAppBrowser();
-    var ctaLabel = inApp ? 'Continue with email' : 'Continue with Google';
-    var g = '<svg class="su-g" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.2h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.8 2.7-6.4Z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.3 0-4.3-1.6-5-3.7H1v2.3A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M4 10.8a5.4 5.4 0 0 1 0-3.6V4.9H1a9 9 0 0 0 0 8.2l3-2.3Z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3L15 2.3A8.6 8.6 0 0 0 9 0a9 9 0 0 0-8 4.9l3 2.3c.7-2.1 2.7-3.6 5-3.6Z"/></svg>';
+    // The CTA names the account outcome, not one provider. Phone and email
+    // work inside social-app webviews even when Google refuses OAuth there.
+    var ctaLabel = 'Sign in or create account';
     bar = document.createElement('div');
     bar.setAttribute('role', 'dialog');
-    bar.setAttribute('aria-label', inApp ? 'Sign in with email to save your work' : 'Sign in with Google to save your work');
+    bar.setAttribute('aria-label', 'Sign in to save your work');
     if (isModal()) {
       bar.className = 'signup-nudge' + (cfg.variant ? ' signup-nudge--' + cfg.variant : '');
       bar.setAttribute('aria-modal', 'true');
@@ -691,7 +678,7 @@
           (parts.body ? '<p class="su-line">' + parts.body + '</p>' : '') +
           optin +
           '<div class="su-actions">' +
-            '<button type="button" class="su-cta">' + (inApp ? '' : g) + ctaLabel + '</button>' +
+            '<button type="button" class="su-cta">' + ctaLabel + '</button>' +
             '<button type="button" class="su-later">Not now</button>' +
           '</div>' +
         '</div>';
@@ -703,7 +690,7 @@
       bar.innerHTML =
         '<span class="su-line">' + msg.replace(/^(Sign in[^.]*\.)/, '<strong>$1</strong>') + '</span>' +
         optin +
-        '<button type="button" class="su-cta">' + (inApp ? '' : g) + ctaLabel + '</button>' +
+        '<button type="button" class="su-cta">' + ctaLabel + '</button>' +
         '<button type="button" class="su-close" aria-label="Dismiss">\u00d7</button>';
     }
     document.body.appendChild(bar);
@@ -718,7 +705,7 @@
     });
 
     var cta = bar.querySelector('.su-cta');
-    cta.addEventListener('click', function(){ abConversion('google'); doSignIn(cfg); });
+    cta.addEventListener('click', function(){ abConversion('account'); doSignIn(cfg); });
     var dismiss = function(how){
       markDismissed();
       unmount();

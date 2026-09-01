@@ -71,6 +71,7 @@ check(spar.includes('var AUTH_POP_DELAY_MS = 5000;'), 'automatic prompt must wai
 check(spar.includes('setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);'), 'automatic prompt must use the calm-entry delay');
 check(spar.includes('googleOnly: true'), 'signed-out gate prompt must offer Google only');
 check(authModal.includes('googleOnly = !!(opts && opts.googleOnly);'), 'shared auth prompt must accept Google-only mode');
+check(authModal.includes("googleOnly ? '' : '<button type=\"button\" class=\"da-btn da-btn--hero\" id=\"daPhone\">'"), 'Google-only auth prompt must omit the phone door');
 check(authModal.includes("googleOnly ? '' : '<div class=\"da-or\">or use email</div>'"), 'Google-only auth prompt must omit the email door');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');

@@ -44,7 +44,7 @@ ok('terms agreement is visible and affirmative before auth', () => {
 });
 
 ok('every shared sign-in method enforces the agreement', () => {
-  for (const signature of ['doGoogle()', 'doAppleSignIn()', 'doEmailPassword(event)', 'doEmailLink(event)']) {
+  for (const signature of ['doGoogle()', 'doAppleSignIn()', 'doEmailPassword(event)', 'doEmailLink(event)', 'doPhoneStart(event, mode)', 'doPhoneCode(event, verificationId)']) {
     const escaped = signature.replace(/[()]/g, '\\$&');
     assert.match(auth, new RegExp(`function ${escaped} \\{[\\s\\S]{0,120}if \\(!requireTerms\\(\\)\\) return;`), signature);
   }

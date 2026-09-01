@@ -35,4 +35,18 @@ check(
   'successful Google popup sign-in uses the guarded completion path',
 );
 
+const phoneStart = functionBody('doPhoneStart', 'renderPhoneCode');
+const phoneCode = functionBody('doPhoneCode', 'doGoogle');
+check(
+  /new firebase\.auth\.RecaptchaVerifier/.test(phoneStart) &&
+    /provider\.verifyPhoneNumber/.test(phoneStart),
+  'phone sign-in sends its code through Firebase with reCAPTCHA',
+);
+check(
+  /PhoneAuthProvider\.credential/.test(phoneCode) &&
+    /current\.linkWithCredential\(credential\)/.test(phoneCode) &&
+    /auth\.signInWithCredential\(credential\)/.test(phoneCode),
+  'phone sign-in upgrades anonymous users and recovers existing accounts',
+);
+
 if (failures) process.exit(1);
