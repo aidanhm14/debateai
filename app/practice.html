@@ -7473,6 +7473,35 @@ function App() {
   };
 
   // Skip prep → first speech
+  // POST this round to /api/ai-rating. Named accounts only (an
+  // anonymous uid cannot own a rating), transcript mapped to the
+  // endpoint's {who:'user'|'ai'} shape. Failure is silent: the ballot
+  // is complete without it and a rating strip is not worth an error.
+  var submitAiRating = async (allLog, parsed) => {
+    try {
+      if (!parsed || !parsed.winner) return;
+      var u = window.firebase && firebase.auth && firebase.auth().currentUser || null;
+      if (!u || u.isAnonymous) return;
+      var roundId = window.__prRoundId;
+      if (!roundId) return;
+      var transcript = (allLog || []).
+      filter((l) => l && l.text && l.text !== '(no transcript)').
+      map((l) => ({ who: l.who === 'You' ? 'user' : 'ai', text: String(l.text).slice(0, 8000) }));
+      var token = await u.getIdToken();
+      var r = await fetch('/api/ai-rating', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authorization: 'Bearer ' + token },
+        body: JSON.stringify({ roundId: roundId, kind: 'practice', winner: parsed.winner, transcript: transcript })
+      });
+      if (!r.ok) return;
+      var d = await r.json();
+      if (d && d.rated) {
+        setAiRatingMove(d);
+        try {if (typeof gtag === 'function') gtag('event', 'ai_rating_applied', { delta: d.delta });} catch (e) {}
+      }
+    } catch (e) {}
+  };
+
   var goToSpeeches = () => {
     try {if (SFX && typeof SFX.click === 'function') SFX.click();} catch (e) {}
     // The round takes its credit here, once, and every AI call between now
@@ -7482,11 +7511,19 @@ function App() {
       setQuotaCTA(isSignedIn() ? 'pro' : 'signin');
       return;
     }
+    // A new round means the last round's rating strip is stale.
+    setAiRatingMove(null);
     // Round-abandonment mirror. The pagehide beacon (see the round-exit
     // effects near the stuck-speech watchdog) cannot read React state, so
     // round liveness rides window.__rxState. The ballot path in endSpeech
     // flips active off so a completed round never beacons.
     window.__rxState = { active: true, startedAt: Date.now(), stage: 'speech', speechIdx: 0, aiLoading: false, stuckShown: false };
+    // One id per round, minted at the start so a re-judged or retried
+    // ballot maps onto the SAME rated-round record server-side (the
+    // endpoint is idempotent per roundId).
+    try {
+      window.__prRoundId = 'pr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+    } catch (e) {}
     // Lazy background autogen: only fire if the user is actually entering
     // speeches (not at startDebate, which they might cancel during prep).
     // Saves a Claude call per round when users abort during prep.
@@ -8129,6 +8166,11 @@ function App() {
 
   // Judge feedback. structured ballot
   var [ballot, setBallot] = useState(null); // parsed structured ballot
+  // AI practice rating movement for THIS round (/api/ai-rating). Set
+  // after the ballot lands for signed-in named users; null otherwise.
+  // Separate number from the human ladder by design — see
+  // lib/ai-rating.mjs before wiring it anywhere else.
+  var [aiRatingMove, setAiRatingMove] = useState(null);
   // Long-form written ballot (fullWrittenBallot prompt). Fired after
   // the JSON ballot lands; streams in under the verdict.
   var [deepBallot, setDeepBallot] = useState('');
@@ -8803,6 +8845,10 @@ Rules:
         // and no full write-up, so the second beat does not run at all. A
         // 150-word ballot followed by a 1,000-word one is not a short one.
         try {if (judgeDetail !== 'short') genDeepBallot(allLog, parsed);} catch (e) {}
+        // Rated AI round: signed-in named accounts get a Glicko update
+        // against the AI anchor. Fire-and-forget; the strip renders when
+        // the movement lands. Anonymous and guest rounds rate nothing.
+        try {submitAiRating(allLog, parsed);} catch (e) {}
       } catch {
         // Fallback: save as unstructured. The round still happened and is
         // still rateable, so it is still worth capturing.
@@ -13313,6 +13359,22 @@ Rules:
     }, 'No thanks')
     )
     )
+    ),
+
+    // AI rating movement — the number this round moved. Only for rated
+    // rounds (signed-in, real verdict, enough said); silent otherwise.
+    aiRatingMove && aiRatingMove.rating && el('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 20px', background: 'var(--c-surface)', border: '1px solid ' + (aiRatingMove.delta >= 0 ? 'rgba(34,197,94,.28)' : 'rgba(239,68,68,.28)'), borderRadius: 14, marginBottom: 20 } },
+    el('div', { style: { fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--c-muted)' } }, 'AI rating'),
+    el('div', { style: { fontFamily: 'ui-monospace,monospace', fontSize: '1.05rem', fontWeight: 800, color: 'var(--c-bright)' } },
+    aiRatingMove.before + ' → ' + aiRatingMove.rating.rating),
+    el('div', { style: { fontSize: '.85rem', fontWeight: 800, color: aiRatingMove.delta >= 0 ? '#4ade80' : '#f87171' } },
+    (aiRatingMove.delta >= 0 ? '+' : '') + aiRatingMove.delta),
+    el('div', { style: { fontSize: '.66rem', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 999, border: '1px solid var(--c-border)', color: aiRatingMove.rating.provisional ? 'var(--c-muted)' : '#d4af37' } },
+    aiRatingMove.rating.provisional ? 'Calibrating' : 'Rank · ' + aiRatingMove.rating.tier),
+    aiRatingMove.record && el('div', { style: { fontSize: '.72rem', fontWeight: 700, color: 'var(--c-muted)' } },
+    aiRatingMove.record.wins + 'W · ' + aiRatingMove.record.losses + 'L' + (aiRatingMove.record.draws ? ' · ' + aiRatingMove.record.draws + 'D' : '')),
+    el('div', { style: { fontSize: '.68rem', color: 'var(--c-muted)', marginLeft: 'auto' } },
+    aiRatingMove.rating.provisional ? 'Settles after a few more rated rounds' : 'Rounds vs the AI. Separate from the head-to-head ladder.')
     ),
 
     // Key clash

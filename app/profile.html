@@ -2611,6 +2611,10 @@ function renderDashboard(user, rows, profileData){
       <div class="stat"><div class="label">Avg speaker</div><div class="val accent">${fmtScore(s.avg)}</div><div class="sub">across all formats</div></div>
       <div class="stat"><div class="label">Best ballot</div><div class="val">${fmtScore(s.best)}</div><div class="sub">your high so far</div></div>
       <div class="stat"><div class="label">Wins vs AI</div><div class="val">${s.wins}</div><div class="sub">${s.live} live round${s.live===1?'':'s'}</div></div>
+      <!-- AI practice rating (/api/ai-rating). Hidden until the fetch
+           answers with a real rating; inline display:none rather than
+           [hidden] because .stat's display would outrank the UA rule. -->
+      <div class="stat" id="aiRatingStat" style="display:none"><div class="label">AI rating</div><div class="val accent" id="aiRatingVal">&mdash;</div><div class="sub" id="aiRatingSub">rounds vs the AI</div></div>
     </section>
 
     ${renderHeatmap(s)}
@@ -3574,9 +3578,44 @@ if(localNativePreview){
   auth.onAuthStateChanged(u => {
     if(!u){ renderSignedOut(); return; }
     loadProfile(u);
+    hydrateAiRating(u);
   });
 } else {
   renderSignedOut();
+}
+
+// AI practice rating tile (/api/ai-rating GET). The tile ships
+// display:none in both stat grids; it only appears once the server
+// answers with a real rating, so a signed-out, anonymous, or
+// never-rated profile shows nothing rather than a dash. Retries once
+// after loadProfile's re-render since that rebuilds the grid DOM.
+async function hydrateAiRating(u){
+  if(!u || u.isAnonymous) return;
+  let d = null;
+  try {
+    const t = await u.getIdToken();
+    const r = await fetch('/api/ai-rating', { headers: { Authorization: 'Bearer ' + t } });
+    if(!r.ok) return;
+    d = await r.json();
+  } catch(_){ return; }
+  if(!d || !d.rating) return;
+  const paint = () => {
+    const tile = document.getElementById('aiRatingStat');
+    if(!tile) return false;
+    const val = document.getElementById('aiRatingVal');
+    const sub = document.getElementById('aiRatingSub');
+    if(val) val.textContent = d.rating.rating;
+    if(sub) sub.textContent = d.rating.provisional
+      ? 'calibrating · ' + d.rating.games + ' rated round' + (d.rating.games===1?'':'s')
+      : d.rating.tier + ' · ' + (d.record ? d.record.wins + 'W-' + d.record.losses + 'L' : d.rating.games + ' rounds');
+    tile.style.display = '';
+    return true;
+  };
+  // loadProfile rewrites the grid async; paint now and again shortly
+  // after so whichever render wins still carries the tile.
+  paint();
+  setTimeout(paint, 1500);
+  setTimeout(paint, 4000);
 }
 </script>
 

@@ -520,11 +520,12 @@
       // 'Competitive' tells that reader the surface is not for them, which
       // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
       // the action instead of the audience.
-      // 2026-09-01: demoted from the flagship tile per the founder; the
-      // desktop panel no longer draws this row at all (see columnGroups),
-      // and it stays here so the MOBILE sheet keeps a voice door. Voice
-      // is still the most-used AI surface and the $12/mo tier.
-      { href: '/voice-debate', label: 'Debate the AI', strong: true },
+      // 2026-09-01: removed in two founder passes the same day — first
+      // demoted from the flagship tile, then cut entirely ("there should
+      // be only 1 AI to debate against"). The one AI door is the AI
+      // round flagship (/practice). /voice-debate stays live for direct
+      // links; restore = uncomment the line below.
+      // { href: '/voice-debate', label: 'Debate the AI', strong: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
@@ -1002,12 +1003,11 @@
         '</span>';
       spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });
       spotWrap.appendChild(spot);
-      var spotAlt = el('a', { href: '/voice-debate', role: 'menuitem', class: 'ui-topbar-more-spot-alt' }, [
-        el('span', { class: 'ui-topbar-more-ico', 'aria-hidden': 'true', html: menuIcon('/voice-debate') }),
-        el('span', null, 'Debate the AI'),
-      ]);
-      spotAlt.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/voice-debate', via: 'spotlight' }); });
-      spotWrap.appendChild(spotAlt);
+      // 2026-09-01 second pass, the founder off a screenshot of this row:
+      // "get rid of this there should be only 1 AI to debate against."
+      // The spotlight's 'Debate the AI' alt row is gone; the ONE AI door
+      // is the AI round flagship in the Practice column. /voice-debate
+      // stays live for direct links, with no nav entry.
       panel.appendChild(spotWrap);
 
       // 2026-08-26, per Aidan: "make it 4 sections not 5 and fit
@@ -1059,10 +1059,10 @@
         });
         return { head: head, links: links };
       }
-      // /spar and /voice-debate lead the spotlight card, so neither is
-      // repeated here (2026-09-01: the voice tile came out of Practice
-      // per the founder; the spotlight alt row is now voice's only
-      // desktop entry, and the mobile sheet keeps its MORE_GROUPS row).
+      // /spar leads the spotlight card, so it is not repeated here.
+      // 2026-09-01, two founder passes: the /voice-debate tile, then its
+      // spotlight alt row and sheet row, all came out — one AI door,
+      // the AI round flagship below. /voice-debate has NO nav entry.
       var columnGroups = [
         column('Debate', [
           ['/challenges',     'big'],
