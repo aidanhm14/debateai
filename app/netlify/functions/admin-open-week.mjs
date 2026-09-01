@@ -86,6 +86,11 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     ratings.
   </p>
 
+  <img src="${SITE_URL}/landing-shot-live-v2.jpg" alt="Inside a live Debatable round: two people on camera with the motion and clock" width="472" style="width:100%;max-width:472px;border-radius:12px;display:block;margin:0 0 6px">
+  <p style="font-size:.8rem;line-height:1.5;color:#6b6b76;margin:0 0 16px">
+    Inside a live round. Two people, one motion, an AI judge writing the decision.
+  </p>
+
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
   ${signupCount ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -93,6 +98,21 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     have signed up to Debatable, most of them in the last month. The field
     is real. The clash hours below are how we all end up online at once.
   </p>` : ''}
+
+  <div style="margin:0 0 16px;line-height:1">
+    <img src="${SITE_URL}/img/round/faces/face46.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
+    <img src="${SITE_URL}/img/round/faces/face48.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
+    <img src="${SITE_URL}/img/round/faces/face52.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
+    <img src="${SITE_URL}/img/round/faces/face53.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
+    <img src="${SITE_URL}/img/round/faces/face47.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 5px 5px 0;vertical-align:middle">
+    <img src="${SITE_URL}/img/round/faces/face54.jpg" alt="" width="54" height="54" style="border-radius:10px;margin:0 0 5px 0;vertical-align:middle">
+  </div>
+
+  <p style="font-size:1.02rem;line-height:1.55;margin:0 0 14px">
+    <strong>THE HONEST PART: WE ARE LACKING USER LIQUIDITY. NOT ENOUGH OF
+    US ARE ONLINE AT THE SAME MOMENT, SO MATCHES GET MISSED.</strong>
+    That is the whole reason the clash hours exist.
+  </p>
 
   <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
     <strong>Show up at the three clash hours: 7 AM, 3 PM, and 8 PM
