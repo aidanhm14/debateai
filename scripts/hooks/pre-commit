@@ -133,6 +133,19 @@ if [ -f "$UX_JOURNEY_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# The canonical AI round must work in browsers that do not ship the Web
+# Speech API. Exercise its real hook with a fake MediaRecorder, including
+# the asynchronous final segment that used to be dropped on End speech.
+PRACTICE_TRANSCRIPTION_GUARD="$REPO_ROOT/scripts/test-practice-transcription.mjs"
+if [ -f "$PRACTICE_TRANSCRIPTION_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-practice-transcription.mjs >/tmp/practice-transcription-guard.log 2>&1); then
+    echo "[practice-transcription-guard] commit blocked - universal AI-round transcription regressed:" >&2
+    tail -30 /tmp/practice-transcription-guard.log >&2
+    echo "[practice-transcription-guard] see scripts/test-practice-transcription.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Netlify function-layout guard. A partial root copy is auto-discovered by the
 # local CLI even though production points at app/netlify/functions; without its
 # lib directory every imported helper fails during bundling.

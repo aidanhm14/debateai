@@ -4364,7 +4364,7 @@ function useOrb() {
     modeRef.current = 'idle';
   };
 
-  return { ref, init, kill, setMode, startMic, stopMic };
+  return { ref, init, kill, setMode, startMic, stopMic, getStream: () => streamRef.current };
 }
 
 /* ── Preload browser voices (Chrome loads async) ── */
@@ -4969,14 +4969,256 @@ function useTTS() {
 function useRecognition() {
   var recRef = useRef(null);
   var txtRef = useRef('');
+  var baseRef = useRef('');
+  var cycleFinalRef = useRef('');
+  var borrowedStreamRef = useRef(null);
+  var serverStreamRef = useRef(null);
+  var serverOwnedRef = useRef(false);
+  var serverRecorderRef = useRef(null);
+  var serverTimerRef = useRef(null);
+  var serverMimeRef = useRef('');
+  var serverSeqRef = useRef(0);
+  var serverPartsRef = useRef([]);
+  var serverOnRef = useRef(false);
+  var serverFailsRef = useRef(0);
+  var serverStartRef = useRef(null);
+  var serverStopResolveRef = useRef(null);
+  var pendingRef = useRef([]);
+  var meterRef = useRef(null);
+  var watchdogRef = useRef(null);
+  var sessionRef = useRef(0);
+  var engineRef = useRef('');
   var [transcript, setTranscript] = useState('');
   var aliveRef = useRef(false);
-  var [micAvailable, setMicAvailable] = useState(true);
+  var canServer = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  var [micAvailable, setMicAvailable] = useState(() => !!(window.SpeechRecognition || window.webkitSpeechRecognition || canServer()));
   var [micError, setMicError] = useState('');
+  var [micStatus, setMicStatus] = useState('');
+  var [engine, setEngine] = useState('');
+  var setEngineMode = (next) => {engineRef.current = next;setEngine(next);};
 
-  var start = () => {
+  var cleanJoin = function (parts) {
+    return parts.map((s) => String(s || '').trim()).filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
+  };
+  var renderServer = function () {
+    var next = cleanJoin([baseRef.current].concat(serverPartsRef.current));
+    txtRef.current = next;
+    setTranscript(next);
+  };
+  var language = function () {
+    try {
+      var v = String(localStorage.getItem('debateos-ai-lang') || localStorage.getItem('debateos-locale') || 'en').toLowerCase().split('-')[0];
+      return /^[a-z]{2}$/.test(v) ? v : 'en';
+    } catch (e) {return 'en';}
+  };
+  var chooseMime = function () {
+    var choices = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    for (var i = 0; i < choices.length; i++) {
+      try {if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(choices[i])) return choices[i];} catch (e) {}
+    }
+    return '';
+  };
+  var stopMeter = function () {
+    var m = meterRef.current;
+    if (!m) return;
+    if (m.timer) clearInterval(m.timer);
+    try {if (m.ctx && m.ctx.close) m.ctx.close();} catch (e) {}
+    meterRef.current = null;
+  };
+  var startMeter = function (stream) {
+    stopMeter();
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ctx = new AC();
+      var analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      var data = new Float32Array(analyser.fftSize);
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      var m = { ctx: ctx, analyser: analyser, data: data, loud: 0, heard: false, timer: 0 };
+      m.timer = setInterval(function () {
+        try {analyser.getFloatTimeDomainData(data);} catch (e) {return;}
+        var sum = 0;
+        for (var i = 0; i < data.length; i++) sum += data[i] * data[i];
+        if (Math.sqrt(sum / data.length) >= 0.012 && ++m.loud >= 8) m.heard = true;
+      }, 50);
+      meterRef.current = m;
+    } catch (e) {meterRef.current = null;}
+  };
+  var resetMeterSegment = function () {
+    var m = meterRef.current;
+    if (m) {m.loud = 0;m.heard = false;}
+  };
+  var heardThisSegment = function () {
+    var m = meterRef.current;
+    return !m || !m.ctx || m.ctx.state !== 'running' || m.heard;
+  };
+  var stopServerTracks = function () {
+    if (serverStreamRef.current && serverOwnedRef.current) {
+      try {serverStreamRef.current.getTracks().forEach((t) => t.stop());} catch (e) {}
+    }
+    serverStreamRef.current = null;
+    serverOwnedRef.current = false;
+  };
+  var failToTyping = function (message) {
+    aliveRef.current = false;
+    serverOnRef.current = false;
+    if (watchdogRef.current) {clearTimeout(watchdogRef.current);watchdogRef.current = null;}
+    if (serverTimerRef.current) {clearTimeout(serverTimerRef.current);serverTimerRef.current = null;}
+    try {if (recRef.current) recRef.current.abort();} catch (e) {}
+    try {if (serverRecorderRef.current && serverRecorderRef.current.state === 'recording') serverRecorderRef.current.stop();} catch (e) {}
+    stopMeter();
+    stopServerTracks();
+    setEngineMode('manual');
+    setMicAvailable(false);
+    setMicStatus('');
+    setMicError(message);
+  };
+  var fetchSegment = function (blob, seq, heard, attempt, session) {
+    if (!blob || blob.size < 2048 || heard === false) {
+      serverPartsRef.current[seq] = '';
+      return Promise.resolve();
+    }
+    var fd = new FormData();
+    fd.append('audio', blob, 'segment');
+    fd.append('carry', String(txtRef.current || '').slice(-380));
+    fd.append('language', language());
+    var controller = window.AbortController ? new AbortController() : null;
+    var timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
+    return fetch('/api/transcribe', { method: 'POST', body: fd, signal: controller ? controller.signal : undefined }).then((r) => {
+      if (!r.ok) throw new Error('transcribe ' + r.status);
+      return r.json();
+    }).then((d) => {
+      if (session !== sessionRef.current) return;
+      var text = d && d.text ? String(d.text).trim() : '';
+      serverPartsRef.current[seq] = text;
+      serverFailsRef.current = 0;
+      if (engineRef.current !== 'manual') renderServer();
+      setMicStatus('Listening. Audio goes to OpenAI for transcription and is not saved by Debatable.');
+    }).catch((err) => {
+      if (session !== sessionRef.current) return;
+      if ((attempt || 0) < 1 && aliveRef.current) return fetchSegment(blob, seq, heard, (attempt || 0) + 1, session);
+      serverPartsRef.current[seq] = '';
+      if (++serverFailsRef.current >= 2 && !txtRef.current) {
+        failToTyping('Transcription is not responding. Type your argument below.');
+      }
+    }).finally(() => {if (timeout) clearTimeout(timeout);});
+  };
+  var startServerSegment = function () {
+    if (!serverOnRef.current || !serverStreamRef.current) return;
+    var chunks = [];
+    var recorder;
+    try {
+      recorder = serverMimeRef.current ? new MediaRecorder(serverStreamRef.current, { mimeType: serverMimeRef.current }) : new MediaRecorder(serverStreamRef.current);
+    } catch (e) {
+      failToTyping('This browser could not start audio recording. Type your argument below.');
+      return;
+    }
+    serverRecorderRef.current = recorder;
+    var seq = serverSeqRef.current++;
+    var session = sessionRef.current;
+    resetMeterSegment();
+    recorder.ondataavailable = (e) => {if (e.data && e.data.size) chunks.push(e.data);};
+    recorder.onstop = () => {
+      if (serverTimerRef.current) {clearTimeout(serverTimerRef.current);serverTimerRef.current = null;}
+      var heard = heardThisSegment();
+      if (serverOnRef.current) startServerSegment();
+      var upload = fetchSegment(new Blob(chunks, { type: serverMimeRef.current || recorder.mimeType || 'audio/webm' }), seq, heard, 0, session);
+      pendingRef.current.push(upload);
+      if (serverStopResolveRef.current) {
+        var resolve = serverStopResolveRef.current;
+        serverStopResolveRef.current = null;
+        upload.finally(resolve);
+      }
+    };
+    recorder.start();
+    serverTimerRef.current = setTimeout(() => {
+      try {if (recorder.state === 'recording') recorder.stop();} catch (e) {}
+    }, 8000);
+  };
+  var startServer = function (borrowed, reason) {
+    if (!canServer()) {
+      failToTyping('Live transcription is not available here. Type your argument below.');
+      return Promise.resolve();
+    }
+    if (serverOnRef.current) return serverStartRef.current || Promise.resolve();
+    setEngineMode('server');
+    setMicAvailable(true);
+    setMicError('');
+    setMicStatus(reason ? 'Switching to backup transcription...' : 'Starting microphone...');
+    serverOnRef.current = true;
+    serverSeqRef.current = 0;
+    serverPartsRef.current = [];
+    serverFailsRef.current = 0;
+    serverMimeRef.current = chooseMime();
+    var track = borrowed && borrowed.getAudioTracks && borrowed.getAudioTracks()[0];
+    var getStream = track && track.readyState === 'live' ?
+    Promise.resolve({ stream: borrowed, owned: false }) :
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }).then((stream) => ({ stream: stream, owned: true }));
+    serverStartRef.current = getStream.then((got) => {
+      if (!aliveRef.current || !serverOnRef.current) {
+        if (got.owned) try {got.stream.getTracks().forEach((t) => t.stop());} catch (e) {}
+        return;
+      }
+      serverStreamRef.current = got.stream;
+      serverOwnedRef.current = got.owned;
+      startMeter(got.stream);
+      setMicStatus('Listening. Audio goes to OpenAI for transcription and is not saved by Debatable.');
+      startServerSegment();
+    }).catch(() => {
+      if (aliveRef.current) failToTyping('Mic permission was blocked. Allow it, or type your argument below.');
+    });
+    return serverStartRef.current;
+  };
+  var stopServer = async function () {
+    serverOnRef.current = false;
+    if (serverTimerRef.current) {clearTimeout(serverTimerRef.current);serverTimerRef.current = null;}
+    try {if (serverStartRef.current) await serverStartRef.current;} catch (e) {}
+    var recorder = serverRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      await new Promise((resolve) => {
+        serverStopResolveRef.current = resolve;
+        try {recorder.stop();} catch (e) {serverStopResolveRef.current = null;resolve();}
+      });
+    }
+    var pending = pendingRef.current.slice();
+    if (pending.length) await Promise.allSettled(pending);
+    stopMeter();
+    stopServerTracks();
+    serverRecorderRef.current = null;
+    serverStartRef.current = null;
+    if (engineRef.current !== 'manual') renderServer();
+  };
+  var demoteToServer = function (reason) {
+    if (!aliveRef.current || engineRef.current === 'server') return;
+    baseRef.current = txtRef.current;
+    cycleFinalRef.current = '';
+    try {if (recRef.current) recRef.current.abort();} catch (e) {}
+    recRef.current = null;
+    if (watchdogRef.current) {clearTimeout(watchdogRef.current);watchdogRef.current = null;}
+    try {if (typeof gtag === 'function') gtag('event', 'practice_mic_fallback', { reason: String(reason || '') });} catch (e) {}
+    startServer(borrowedStreamRef.current, reason);
+  };
+
+  var start = async (borrowedStream) => {
+    sessionRef.current++;
+    aliveRef.current = true;
+    borrowedStreamRef.current = borrowedStream || null;
+    txtRef.current = '';
+    baseRef.current = '';
+    cycleFinalRef.current = '';
+    pendingRef.current = [];
+    setTranscript('');
+    setMicError('');
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {setMicAvailable(false);setMicError('Speech recognition not supported in this browser. Type your argument below.');return;}
+    if (!SR) {
+      if (canServer()) return startServer(borrowedStreamRef.current, 'browser-api-missing');
+      failToTyping('Live transcription is not available here. Type your argument below.');
+      return;
+    }
+    setEngineMode('browser');
+    setMicAvailable(true);
+    setMicStatus('Listening. Your voice is being transcribed.');
     var r = new SR();r.continuous = true;r.interimResults = true;r.lang = 'en-US';
     r.onresult = (e) => {
       var f = '',int = '';
@@ -4984,21 +5226,45 @@ function useRecognition() {
         if (e.results[i].isFinal) f += e.results[i][0].transcript + ' ';else
         int += e.results[i][0].transcript;
       }
-      txtRef.current = f;setTranscript(f + int);
+      cycleFinalRef.current = f;
+      var next = cleanJoin([baseRef.current, f, int]);
+      txtRef.current = next;setTranscript(next);
     };
-    r.onend = () => {if (aliveRef.current) try {r.start();} catch {}};
+    r.onend = () => {
+      if (!aliveRef.current || recRef.current !== r) return;
+      baseRef.current = cleanJoin([baseRef.current, cycleFinalRef.current]);
+      cycleFinalRef.current = '';
+      txtRef.current = baseRef.current;setTranscript(baseRef.current);
+      setTimeout(() => {
+        if (!aliveRef.current || recRef.current !== r) return;
+        try {r.start();} catch (e) {demoteToServer('restart-failed');}
+      }, 120);
+    };
     r.onerror = (e) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        setMicAvailable(false);setMicError('Mic permission denied. Type your argument below.');
-      }
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      if (canServer()) {demoteToServer(e.error || 'browser-error');return;}
+      failToTyping(e.error === 'not-allowed' ? 'Mic permission was blocked. Allow it, or type your argument below.' : 'Live transcription stopped. Type your argument below.');
     };
-    recRef.current = r;aliveRef.current = true;
-    txtRef.current = '';setTranscript('');setMicError('');
-    try {r.start();} catch (e) {setMicAvailable(false);setMicError('Could not start mic. Type your argument below.');};
+    recRef.current = r;
+    try {r.start();} catch (e) {demoteToServer('start-failed');}
+    watchdogRef.current = setTimeout(() => {
+      if (aliveRef.current && recRef.current === r && !txtRef.current && canServer()) demoteToServer('no-transcript');
+    }, 18000);
   };
-  var stop = () => {aliveRef.current = false;if (recRef.current) try {recRef.current.stop();} catch {};return txtRef.current;};
-  var setManualText = (text) => {txtRef.current = text;setTranscript(text);};
-  return { transcript, start, stop, getText: () => txtRef.current, micAvailable, micError, setManualText };
+  var stop = async () => {
+    aliveRef.current = false;
+    if (watchdogRef.current) {clearTimeout(watchdogRef.current);watchdogRef.current = null;}
+    if (recRef.current) try {recRef.current.stop();} catch (e) {}
+    recRef.current = null;
+    if (serverOnRef.current || serverRecorderRef.current || serverStartRef.current) {
+      setMicStatus('Finishing transcript...');
+      await stopServer();
+    }
+    setMicStatus('');
+    return txtRef.current;
+  };
+  var setManualText = (text) => {baseRef.current = text;serverPartsRef.current = [];txtRef.current = text;setTranscript(text);};
+  return { transcript, start, stop, getText: () => txtRef.current, micAvailable, micError, micStatus, engine, setManualText };
 }
 
 /* ═══════════════════════════════════════════════════
@@ -7678,8 +7944,8 @@ function App() {
   }, [prepTimer.left, prepTimer.on, phase]); // Run a speech
   var runSpeech = async (i, currentLog) => {endingRef.current = false; // allow endSpeech for this new speech
     var s = SPEECHES[i];var userTurn = s.side === side;setLiveRate(1.0); // reset live speed each speech
-    if (userTurn) {// User turn. start timer + mic immediately
-      timer.go(s.time);orb.setMode('mic');await orb.startMic();rec.start(); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
+    if (userTurn) {// User turn. open the mic before the clock starts
+      orb.setMode('mic');await orb.startMic();await rec.start(orb.getStream());timer.go(s.time); // POI: AI may offer POIs during user speech (only in POI-enabled formats)
       if (fmt.poi) {poiCountRef.current = 0;poiAcceptsRef.current = 0;setPoiOffer(false);setPoiActive(null);setPoiText(''); // Offer first POI after 60-90s, second after another 60-90s
         var offerPOI = () => {if (poiCountRef.current < 2) {setPoiOffer(true);poiCountRef.current++; // Schedule a possible second POI
             if (poiCountRef.current < 2) {poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);}}};poiTimeoutRef.current = setTimeout(offerPOI, 60000 + Math.random() * 30000);
@@ -8011,7 +8277,7 @@ function App() {
   // `interrupted` flag flips the entry's metadata + flashes the orb so
   // a user-cut-off speech reads differently from a clean skip when they
   // review the round later.
-  var endSpeech = (opts = {}) => {
+  var endSpeech = async (opts = {}) => {
     if (endingRef.current) return; // prevent double-fire from keyboard+button race
     endingRef.current = true;
     timer.reset();
@@ -8027,7 +8293,13 @@ function App() {
     var interrupted = !!opts.interrupted && !userTurn;
     if (typeof gtag === 'function') gtag('event', 'speech_end', { speech: cur.code, who: userTurn ? 'user' : 'ai', format: fmt.name, interrupted });
     var text = '';
-    if (userTurn) {text = rec.stop();orb.stopMic();orb.setMode('idle');} else
+    if (userTurn) {
+      // MediaRecorder fires its final data event after stop(). Wait for
+      // that segment to finish transcribing before the AI sees the speech,
+      // otherwise the user's closing sentence disappears from the rebuttal
+      // and the judge feedback on every server-fallback browser.
+      orb.setMode('idle');text = await rec.stop();orb.stopMic();
+    } else
     {
       tts.stop();
       // Log what was SPOKEN, not what was written. The model finishes
@@ -12617,7 +12889,7 @@ Rules:
     }()
     ),
     el('div', { className: 't-dim', style: { marginBottom: 12 } },
-    isUser ? rec.micAvailable ? 'Speak now. Your voice is being transcribed.' : rec.micError :
+    isUser ? rec.micAvailable ? rec.micStatus || 'Speak now. Your voice is being transcribed.' : rec.micError :
     aiLoading === 'voice' ? tts.streamStatus || 'Preparing HD voice...' :
     aiLoading ? 'Writing argument via ' + (BRAINS[brain] || BRAINS.claude).name + (isPro() ? ' Pro' : '') + ' ... ' + aiPct + '%' :
     aiError ? 'AI couldn\'t respond. Advancing in a moment...' :

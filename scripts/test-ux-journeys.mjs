@@ -117,6 +117,23 @@ check(
   'live-round audience deck only offers comments and judge notes',
 );
 
+const practice = read('app/practice.html');
+check(
+  practice.includes("if (!SR) {\n      if (canServer()) return startServer")
+    && practice.includes("fetch('/api/transcribe'")
+    && !practice.includes('Speech recognition not supported in this browser'),
+  'practice records and transcribes when the browser has no SpeechRecognition API',
+);
+check(
+  practice.includes('await rec.start(orb.getStream())')
+    && practice.includes('text = await rec.stop()'),
+  'practice reuses its open mic and waits for the final transcription segment',
+);
+check(
+  practice.includes('Audio goes to OpenAI for transcription and is not saved by Debatable.'),
+  'practice discloses server transcription while it is active',
+);
+
 const signupNudge = read('app/js/signup-nudge.js');
 check(
   signupNudge.includes('(watch|leaderboard|messages|profile|tokens)') && signupNudge.includes('skip: true'),
@@ -181,7 +198,7 @@ for (const path of [
   );
 }
 
-for (const path of ['app/pricing.html', 'app/tokens.html', 'app/profile.html', 'app/native.html']) {
+for (const path of ['app/practice.html', 'app/pricing.html', 'app/tokens.html', 'app/profile.html', 'app/native.html']) {
   check(inlineScriptsParse(path), `${path} inline scripts parse`);
 }
 
