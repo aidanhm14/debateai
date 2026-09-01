@@ -7460,8 +7460,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the right column takes a larger share and the wrap grows 80px. */
   .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(32px,4.2vw,64px);align-items:center}
   /* 2026-08-24, per the founder: the composition moves "a tad left" so the
-     leaderboard rail (#lbRail, the dock of faces clipped by the right
-     edge) has room to sit beside the example board instead of on top of
+     leaderboard rail (#lbRail, the dock of faces docked on the left
+     edge since 2026-09-01) has room to sit beside the example board instead of on top of
      it. Transform rather than a margin: the wrap is a centred flex item,
      so a margin-right would shrink it AND move it by half the value,
      while a translate moves it by exactly what it says. Desktop only;
@@ -7494,7 +7494,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        board because the .95 scale is untouched and the rail only
        needs ~76px at the right edge. If the rail ever overlaps the
        chat panel again, widen THIS clamp before touching the scale. */
-    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(-48px,-2.9vw,-28px)) scale(.95)}
+    /* 2026-09-01, founder: "bring the leaderboard over to the left side".
+       The rail is on the LEFT edge now, so the same shift runs the other
+       way: the composition slides right to clear the ~76px the collapsed
+       rail needs beside the copy column. Magnitude unchanged. */
+    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(28px,2.9vw,48px)) scale(.95)}
     /* The copy column also steps in from the left edge so the h1, the
        CTA pair and the globe sit toward the page centre rather than
        hugging the edge. Padding, not margin: the grid track keeps its
@@ -9057,13 +9061,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the hero exactly as it was rather than hanging invented names off the
      edge of the screen. -->
 <aside id="lbRail" class="lbr" aria-label="Leaderboard" hidden>
-  <a class="lbr-item lbr-head" href="/leaderboard" data-lbr="head">
-    <span class="lbr-card" aria-hidden="true"><span class="lbr-nm">Leaderboard</span><span class="lbr-sub">Who is winning right now</span></span>
-    <span class="lbr-pic"><span class="lbr-ava lbr-ava--head" aria-hidden="true">
-      <img src="/img/leaderboard-trophy.png" alt="" decoding="async">
-    </span></span>
-    <span class="lbr-sr">Leaderboard</span>
-  </a>
+  <!-- 2026-09-01, founder: "delete the image of the leaderboard image
+       thing - just say leaderboard". The head is a plain text link now,
+       always visible, no tile and no hover card. -->
+  <a class="lbr-head" href="/leaderboard" data-lbr="head">Leaderboard</a>
   <div class="lbr-list" id="lbRailList"></div>
   <a class="lbr-item lbr-more" href="/leaderboard" data-lbr="all" hidden>
     <span class="lbr-card" aria-hidden="true"><span class="lbr-nm">See the full board</span><span class="lbr-sub" data-lbr-total></span></span>
@@ -9100,20 +9101,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        Both radii are variables so the two shapes stay one decision. */
     --lbr-r:50%;
     --lbr-r-open:15px;
-    position:fixed;right:0;top:50%;z-index:45;
-    transform:translate(var(--lbr-peek),-50%);
-    display:flex;flex-direction:column;align-items:flex-end;gap:11px;
-    /* Left padding is hit area, not spacing: collapsed, ~42px of each
+    /* 2026-09-01: docked on the LEFT edge (founder: "bring the
+       leaderboard over to the left side"). Every horizontal rule below
+       is the mirror of the right-edge version it replaced; --lbr-peek
+       keeps its meaning (how far past the edge the rail sits), so the
+       translate negates it. */
+    position:fixed;left:0;top:50%;z-index:45;
+    transform:translate(calc(var(--lbr-peek) * -1),-50%);
+    display:flex;flex-direction:column;align-items:flex-start;gap:11px;
+    /* Right padding is hit area, not spacing: collapsed, ~42px of each
        face is on screen, and the approach makes the rail easy to reach
        without a precise mouse. */
-    padding:10px 0 10px 16px;
+    padding:10px 16px 10px 0;
     opacity:0;pointer-events:none;
     transition:transform .34s cubic-bezier(.22,.9,.3,1),opacity .28s ease,
-               gap .3s cubic-bezier(.22,.9,.3,1),padding-right .3s cubic-bezier(.22,.9,.3,1);
+               gap .3s cubic-bezier(.22,.9,.3,1),padding-left .3s cubic-bezier(.22,.9,.3,1);
   }
   /* Opening gives the column more air as well as more width, so the rows
      read as a board rather than a stack of touching tiles. */
-  .lbr:hover,.lbr:focus-within{gap:14px;padding-right:12px}
+  .lbr:hover,.lbr:focus-within{gap:14px;padding-left:12px}
   .lbr:hover .lbr-list,.lbr:focus-within .lbr-list{gap:14px}
   /* Set by the rail's own script once real rows have painted, and only
      while the first screen is in view. */
@@ -9126,20 +9132,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      reach the accessibility tree. */
   .lbr[hidden],.lbr-item[hidden]{display:none}
 
-  .lbr-list{display:flex;flex-direction:column;align-items:flex-end;gap:11px;transition:gap .3s cubic-bezier(.22,.9,.3,1)}
-  .lbr-item{position:relative;display:flex;justify-content:flex-end;text-decoration:none;color:inherit}
+  .lbr-list{display:flex;flex-direction:column;align-items:flex-start;gap:11px;transition:gap .3s cubic-bezier(.22,.9,.3,1)}
+  .lbr-item{position:relative;display:flex;justify-content:flex-start;text-decoration:none;color:inherit}
+  /* The head is a text link, not a tile: the leaderboard's own eyebrow
+     style, sitting above the column. */
+  .lbr-head{
+    display:block;padding:0 0 2px 8px;text-decoration:none;
+    font-family:var(--font-display,inherit);font-weight:800;font-size:.66rem;line-height:1.2;
+    letter-spacing:.14em;text-transform:uppercase;color:#c02626;white-space:nowrap;
+    text-shadow:0 1px 2px rgba(255,255,255,.9),0 0 12px rgba(255,255,255,.85);
+  }
+  .lbr-head:hover,.lbr-head:focus-visible{text-decoration:underline;text-underline-offset:3px;outline:none}
+  :root:not([data-theme="light"]) .lbr-head{color:#ff8f8f;
+    text-shadow:0 1px 2px rgba(10,8,9,.95),0 0 12px rgba(10,8,9,.9)}
 
   /* .lbr-pic is the thing that MAGNIFIES, and it is a separate element
      from the circle for two reasons: the circle clips its own content
      (that is what makes it round), so a rank pip inside it loses its
      outboard corner; and the avatar engine repaints the circle's
      innerHTML wholesale when a debater has a built avatar, which would
-     take the pip with it. transform-origin pins the RIGHT edge, so
-     magnifying grows the face leftwards into the page instead of pushing
+     take the pip with it. transform-origin pins the LEFT edge, so
+     magnifying grows the face rightwards into the page instead of pushing
      it further off the screen. */
   .lbr-pic{
     position:relative;width:var(--lbr-ava);height:var(--lbr-ava);flex:none;
-    transform-origin:100% 50%;
+    transform-origin:0 50%;
     transition:transform .2s cubic-bezier(.22,.9,.3,1);
   }
   .lbr-ava{
@@ -9175,7 +9192,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Rank pip. Outboard corner of the circle, and a sibling of it rather
      than a child (see .lbr-pic above). */
   .lbr-rk{
-    position:absolute;left:-5px;bottom:-2px;z-index:2;
+    position:absolute;right:-5px;bottom:-2px;z-index:2;
     /* Grew with the tile (2026-08-25). A 19px pip on a 68px face reads as
        a speck rather than as a rank. */
     min-width:23px;height:23px;padding:0 5px;border-radius:12px;
@@ -9189,21 +9206,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* The head and exit tiles are light glass, not black punctuation on an
      otherwise airy first screen. The trophy is a project-owned transparent
      cutout, so the surface can show through its negative space. */
-  .lbr-ava--head,.lbr-ava--more{
+  .lbr-ava--more{
     background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,250,244,.56));
     color:#1a1a1f;font-size:1.05rem;
     border-color:rgba(255,255,255,.82);
     box-shadow:0 12px 30px rgba(35,25,28,.15),inset 0 1px 0 rgba(255,255,255,.95);
     -webkit-backdrop-filter:blur(16px) saturate(1.08);backdrop-filter:blur(16px) saturate(1.08)
   }
-  [data-theme="light"] .lbr-ava--head,[data-theme="light"] .lbr-ava--more{
+  [data-theme="light"] .lbr-ava--more{
     background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,250,244,.56));
     color:#1a1a1f;border-color:rgba(255,255,255,.82)
-  }
-  .lbr-ava--head img{
-    position:static;inset:auto;width:100%;height:100%;box-sizing:border-box;
-    object-fit:contain;padding:3px;opacity:.94;
-    filter:drop-shadow(0 3px 5px rgba(125,48,44,.18))
   }
 
   /* The card is absolutely positioned, so opening the rail animates two
@@ -9220,13 +9232,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the label readable in the one place it is not flat, over the example
      round's video tiles. */
   .lbr-card{
-    position:absolute;top:50%;right:calc(var(--lbr-ava) * 1.28 + 12px);
+    position:absolute;top:50%;left:calc(var(--lbr-ava) * 1.28 + 12px);
     width:var(--lbr-card);
-    display:flex;flex-direction:column;gap:1px;align-items:flex-end;text-align:right;
+    display:flex;flex-direction:column;gap:1px;align-items:flex-start;text-align:left;
     color:#1a1a1f;
     text-shadow:0 1px 2px rgba(255,255,255,.9),0 0 12px rgba(255,255,255,.85),0 0 22px rgba(255,255,255,.6);
     opacity:0;pointer-events:none;
-    transform:translate(14px,-50%);transform-origin:100% 50%;
+    transform:translate(-14px,-50%);transform-origin:0 50%;
     transition:opacity .18s ease,transform .3s cubic-bezier(.22,.9,.3,1),color .18s ease;
   }
   :root:not([data-theme="light"]) .lbr-card{
@@ -9251,22 +9263,20 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      live figure on this page uses so it lines up digit for digit. The
      score bar went with the card: a floating 3px rule with nothing under
      it reads as a stray line rather than a measure. */
-  .lbr-meta{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;min-width:0}
+  .lbr-meta{display:flex;align-items:baseline;justify-content:flex-start;gap:6px;min-width:0}
   .lbr-sc{font-family:var(--font-mono,ui-monospace,monospace);font-variant-numeric:tabular-nums;
     font-weight:700;font-size:.72rem;flex:none}
   .lbr-fmt{font-size:.54rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
     opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   .lbr-sub{font-size:.62rem;line-height:1.3;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .lbr-head .lbr-nm{font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:#c02626}
-  :root:not([data-theme="light"]) .lbr-head .lbr-nm{color:#ff8f8f}
   .lbr-more .lbr-nm{font-size:.74rem}
 
   /* The disclosure the face bank requires (see the note at BANK in the
      renderer). Visible only while the rail is open, which is also the
      only state where the portraits are attached to a readable name. */
   .lbr-foot{
-    position:absolute;top:100%;right:12px;margin:12px 0 0;
-    width:var(--lbr-card);text-align:right;
+    position:absolute;top:100%;left:12px;margin:12px 0 0;
+    width:var(--lbr-card);text-align:left;
     font-size:.66rem;line-height:1.3;color:var(--text-dim,rgba(255,255,255,.5));
     opacity:0;transition:opacity .2s ease;pointer-events:none;
   }
