@@ -106,7 +106,7 @@
       // Bottom-LEFT, above the read-aloud pill (left:16/bottom:16). The
       // bottom-right corner belongs to the signup nudge + feedback pill;
       // parking here means the nudge can pop later without stacking on us.
-      '.lpull{position:fixed;left:18px;bottom:88px;z-index:12000;width:min(340px,calc(100vw - 28px));' +
+      '.lpull{position:fixed;left:18px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:12000;width:min(340px,calc(100vw - 28px));' +
         'background:#fffdf8;border:1px solid #e8e2dc;border-radius:18px;padding:18px 18px 16px;' +
         'box-shadow:0 24px 60px rgba(31,26,23,.22);font-family:"Archivo",Georgia,serif;color:#1d1d22;' +
         'transform:translateY(14px);opacity:0;transition:transform .28s ease,opacity .28s ease}' +

@@ -57,7 +57,7 @@
   }
 
   var CSS =
-    '#rx-card{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;' +
+    '#rx-card{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:2147483000;' +
     'width:min(420px,calc(100vw - 24px));background:#15181d;color:#f3f4f6;border:1px solid #2a2f37;' +
     'border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:14px 14px 12px;' +
     'font:14px/1.45 Archivo,system-ui,sans-serif;text-align:left}' +

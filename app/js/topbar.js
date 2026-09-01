@@ -264,7 +264,9 @@
     // 2026-08-27: restored per the founder. The page records a round in
     // the room or accepts a transcript upload, so it is a distinct path
     // from debating the AI and belongs in Practice discovery.
-    { href: '/judge',         label: 'Judge a round', strong: true },
+    // 2026-09-01: removed per the founder (annotated screenshot strike).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/judge',         label: 'Judge a round', strong: true },
     // 2026-07-02: Certificate + Schedule restored per the founder ("add more
     // back ... not too much") — high-intent product pillars: proof you
     // can earn, and the organized-round board when random live matching
@@ -518,7 +520,11 @@
       // 'Competitive' tells that reader the surface is not for them, which
       // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
       // the action instead of the audience.
-      { href: '/voice-debate', label: 'Debate the AI', big: true },
+      // 2026-09-01: demoted from the flagship tile per the founder; the
+      // desktop panel no longer draws this row at all (see columnGroups),
+      // and it stays here so the MOBILE sheet keeps a voice door. Voice
+      // is still the most-used AI surface and the $12/mo tier.
+      { href: '/voice-debate', label: 'Debate the AI', strong: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
@@ -563,7 +569,9 @@
     // reason its own note below gives: a market settled from a live
     // round's ballot belongs with the round you watch.
     { head: 'Watch & community', links: [
-      { href: '/spectate',    label: 'Spectate live rounds', plain: 'Watch live debates' },
+    // 2026-09-01: removed per the founder (annotated screenshot strike).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/spectate',    label: 'Spectate live rounds', plain: 'Watch live debates' },
       // 2026-08-10: the debate shows people already watch (Surrounded,
       // Middle Ground, full Oxford Union debates) plus the standing
       // opinion panel measuring whether any of it moves anyone. Sits in
@@ -639,7 +647,9 @@
       // entering a debate. `strong` is the menu's bold tier.
       // 2026-08-29: relabelled 'Bet' -> 'Betting market' per the founder.
       { href: '/predict',     label: 'Betting market', strong: true },
-      { href: '/bounties',    label: 'Bounties', strong: true },
+    // 2026-09-01: removed per the founder (annotated screenshot strike).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/bounties',    label: 'Bounties', strong: true },
       // Sits with Community and the Atlas: all three answer "who else is
       // out there and what do they want". This one is the only surface
       // where a visitor tells us what to run rather than reading what we
@@ -649,7 +659,9 @@
       // { href: '/what-to-debate', label: 'Request a topic' },
       // 2026-07-22: chat moved out of the /community Live tab onto its
       // own surface, so the public room and DMs share one frame.
-      { href: '/chat',        label: 'Chat and DMs' },
+    // 2026-09-01: removed per the founder (annotated screenshot strike).
+    // Page stays live; restore = uncomment the line below.
+    // { href: '/chat',        label: 'Chat and DMs' },
     ]},
     { head: 'Site', links: [
       { href: '/pricing', label: 'Free vs Paid' },
@@ -1047,10 +1059,10 @@
         });
         return { head: head, links: links };
       }
-      // /spar and /voice-debate lead the spotlight card, so /spar is not
-      // repeated here. Voice AI is, because it is the whole reason the
-      // Practice column exists and the spotlight's alt row is one quiet
-      // line rather than a destination anyone reads as a section.
+      // /spar and /voice-debate lead the spotlight card, so neither is
+      // repeated here (2026-09-01: the voice tile came out of Practice
+      // per the founder; the spotlight alt row is now voice's only
+      // desktop entry, and the mobile sheet keeps its MORE_GROUPS row).
       var columnGroups = [
         column('Debate', [
           ['/challenges',     'big'],
@@ -1061,9 +1073,13 @@
           ['/claim',          ''],
         ]),
         column('Practice', [
-          ['/voice-debate',   'big'],
-          ['/practice',       'strong'],
-          ['/judge',          ''],
+          // 2026-09-01, per the founder's annotated screenshot: the AI
+          // round (/practice, full judged rounds against the clock) is
+          // the column's flagship now, and the /voice-debate tile plus
+          // 'Judge a round' come out of the desktop panel. Voice keeps
+          // its spotlight alt row here and its sheet row on mobile, so
+          // the paid voice surface never loses its door.
+          ['/practice',       'big'],
           ['/flow',           ''],
           ['/topics',         ''],
         ]),
@@ -1076,12 +1092,12 @@
           ['/judge-integrity', ''],
         ]),
         column('Watch & community', [
+          // 2026-09-01, same annotated screenshot: Bounties, 'Watch live
+          // debates' (/spectate) and 'Chat and DMs' are struck. /watch
+          // already covers watching, /community already covers chat.
           ['/community',      'big'],
           ['/watch',          'strong'],
           ['/predict',        'strong'],
-          ['/bounties',       'strong'],
-          ['/spectate',       ''],
-          ['/chat',           ''],
         ]),
       ];
       // 2026-08-12: each column carries its own accent through a `--col`

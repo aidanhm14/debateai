@@ -139,7 +139,7 @@
       // explicit and theme-split, so background and text can never
       // disagree on any surface: light base, dark override for the themed
       // pages. The red hover accent is theme-agnostic.
-      '#daExpAsk{position:fixed;left:16px;bottom:76px;z-index:99990;width:min(340px,calc(100vw - 32px));',
+      '#daExpAsk{position:fixed;left:16px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:99990;width:min(340px,calc(100vw - 32px));',
         'padding:16px 18px 14px;border-radius:14px;',
         'background:#ffffff;color:#1a1a1f;',
         'border:1px solid rgba(0,0,0,.13);',

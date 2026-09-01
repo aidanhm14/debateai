@@ -130,7 +130,7 @@
       // so it stays reachable, below every real modal (the landing intro
       // gate and signup-nudge both sit at 9999) so a full-screen overlay
       // covers it rather than having a narration pill float over a gate.
-      '.ra-host{position:fixed;left:var(--ra-left,16px);bottom:var(--ra-bottom,16px);z-index:9500;',
+      '.ra-host{position:fixed;left:var(--ra-left,16px);bottom:calc(var(--ra-bottom,16px) + env(safe-area-inset-bottom,0px));z-index:9500;',
       '  font-family:inherit;max-width:calc(100vw - 32px);}',
       '.ra-host *{box-sizing:border-box;}',
       '.ra-card{display:flex;align-items:center;gap:10px;',

@@ -217,7 +217,7 @@
     var st = document.createElement('style');
     st.id = STYLE_ID;
     st.textContent = [
-      '.da-livepop{position:fixed;right:18px;bottom:18px;z-index:12050;width:min(330px,calc(100vw - 28px));',
+      '.da-livepop{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:12050;width:min(330px,calc(100vw - 28px));',
       'display:block;text-decoration:none;color:inherit;border-radius:16px;overflow:hidden;',
       'background:linear-gradient(var(--bg-card,#15151a),var(--bg-card,#15151a)),var(--bg,#0a0a0c);',
       'border:1px solid var(--border-strong,rgba(239,68,68,.34));',

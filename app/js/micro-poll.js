@@ -268,7 +268,7 @@
     styled = true;
     var s = document.createElement('style');
     s.textContent =
-      '.micro-poll{position:fixed;left:18px;bottom:18px;z-index:2147483000;max-width:340px;width:calc(100vw - 36px);' +
+      '.micro-poll{position:fixed;left:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:2147483000;max-width:340px;width:calc(100vw - 36px);' +
         'box-sizing:border-box;background:#17171c;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:14px;' +
         'padding:14px 14px 13px;box-shadow:0 18px 44px rgba(0,0,0,.34);font-family:inherit;font-size:.82rem;line-height:1.4;' +
         'transform:translateY(14px);opacity:0;transition:transform .28s cubic-bezier(.2,.7,.3,1),opacity .28s ease;pointer-events:auto}' +

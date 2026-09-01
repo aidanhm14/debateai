@@ -345,7 +345,7 @@
     var css = document.createElement('style');
     css.id = 'daWallGoCss';
     css.textContent =
-      '#daWallGo{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:2147483000;display:flex;align-items:center;gap:14px;' +
+      '#daWallGo{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:2147483000;display:flex;align-items:center;gap:14px;' +
       'padding:11px 12px 11px 18px;border-radius:999px;' +
       /* No viewport units anywhere in here. The narrow case is handled by
          pinning left and right in the media query below, which needs no
