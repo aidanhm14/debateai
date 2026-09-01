@@ -98,6 +98,15 @@ for (const path of activeNavigationFiles) {
   check(!/href=["']\/#(?:pricing|story|waitlist)/.test(source), `${path} has no dead landing fragment link`);
 }
 
+const landing = read('app/landing.html');
+check(
+  landing.includes('href="https://discord.gg/WMHZW9BKvJ"')
+    && landing.includes('data-cta="landing-quick-discord"')
+    && landing.includes('/img/email/open-community.jpg'),
+  'landing quick row uses the large Discord community card',
+);
+check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
+
 const signupNudge = read('app/js/signup-nudge.js');
 check(
   signupNudge.includes('(watch|leaderboard|messages|profile|tokens)') && signupNudge.includes('skip: true'),
