@@ -44,7 +44,7 @@ const REPLY_TO  = process.env.OPEN_WEEK_REPLY_TO || process.env.OPEN_RALLY_REPLY
                 || 'hello@itsdebatable.com';
 const BATCH_MAX = Math.min(60, parseInt(process.env.OPEN_WEEK_BATCH || '20', 10) || 20);
 const STREAM    = 'open';
-const SUBJECT   = 'The Open is now a week-long ladder. Live through Saturday.';
+const SUBJECT   = 'A week-long competition to raise your Elo, and a note from the founder';
 
 // The current leader, read from the SAME public endpoint the event page
 // renders, so the email can never disagree with the site. Best effort:
