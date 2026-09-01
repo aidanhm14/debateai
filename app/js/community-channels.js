@@ -196,6 +196,7 @@
       count.textContent = input.value.length + '/' + MSG_MAX;
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 130) + 'px';
+      typingStamp();
     });
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); doSend(); }
@@ -237,14 +238,27 @@
     const av = m.photo
       ? '<img class="disc-av" src="' + escHtml(m.photo) + '" alt="" referrerpolicy="no-referrer">'
       : '<span class="disc-av disc-av--txt" style="--avatar-hue:' + avatarHue(m.name) + '">' + escHtml((m.name || '?')[0].toUpperCase()) + '</span>';
+    // Reply quoting (2026-08-31): denormalized author + snippet, since a
+    // 40-message window may not hold the quoted message any more.
+    const quote = m.replyToText
+      ? '<div class="disc-quote" style="border-left:3px solid var(--accent,#dc2626);padding:2px 8px;margin:0 0 3px;'
+        + 'opacity:.72;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+        + '<b>' + escHtml(m.replyToName || 'Reply') + '</b> ' + escHtml(m.replyToText) + '</div>'
+      : '';
+    const replyBtn = (user && !user.isAnonymous && m.id)
+      ? '<button type="button" class="disc-replybtn" data-ch-reply="' + escHtml(m.id) + '"'
+        + ' data-ch-reply-name="' + escHtml(m.name || 'member') + '"'
+        + ' data-ch-reply-text="' + escHtml(String(m.text || '').slice(0, 120)) + '"'
+        + ' style="border:0;background:none;color:inherit;opacity:.45;cursor:pointer;font:inherit;font-size:.7rem;padding:0 2px">&#8617; Reply</button>'
+      : '';
     if (grouped){
-      return '<div class="' + classes.join(' ') + '" title="' + escHtml(stamp) + '"><div class="disc-body">' + escHtml(m.text) + '</div></div>';
+      return '<div class="' + classes.join(' ') + '" title="' + escHtml(stamp) + '"><div class="disc-body">' + quote + escHtml(m.text) + ' ' + replyBtn + '</div></div>';
     }
     return '<div class="' + classes.join(' ') + '">' +
       av +
       '<div class="disc-msg-main">' +
-        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'member') + '</b><time class="disc-time" datetime="' + iso + '" title="' + escHtml(stamp) + '">' + relTime(m.ts) + '</time></div>' +
-        '<div class="disc-body">' + escHtml(m.text) + '</div>' +
+        '<div class="disc-msg-head"><b>' + escHtml(m.name || 'member') + '</b><time class="disc-time" datetime="' + iso + '" title="' + escHtml(stamp) + '">' + relTime(m.ts) + '</time>' + replyBtn + '</div>' +
+        '<div class="disc-body">' + quote + escHtml(m.text) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -303,10 +317,13 @@
         snap.forEach(d => {
           const v = d.data() || {};
           msgs.push({
+            id: d.id,
             uid: v.uid || '',
             name: v.name || 'member',
             photo: v.photo || '',
             text: v.text || '',
+            replyToName: v.replyToName || '',
+            replyToText: v.replyToText || '',
             ts: (v.createdAt && v.createdAt.toMillis) ? v.createdAt.toMillis() : Date.now(),
           });
         });
@@ -321,15 +338,96 @@
 
   function sendFs(text){
     if (!db || !user || user.isAnonymous) return Promise.reject(new Error('signin'));
-    return db.collection('community_channels').doc(active.id).collection('messages').add({
+    const doc = {
       uid: user.uid,
       name: postingName() || 'member',
       photo: user.photoURL || '',
       text: text,
       channel: active.id,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    if (replyTo){
+      doc.replyToId = replyTo.id;
+      doc.replyToName = String(replyTo.name || '').slice(0, 60);
+      doc.replyToText = String(replyTo.text || '').slice(0, 120);
+    }
+    return db.collection('community_channels').doc(active.id).collection('messages').add(doc);
   }
+
+  // ── typing: { uid: serverTimestamp } on the channel PARENT doc ────
+  // The rules let a named account write NOTHING but its own typing key
+  // there, so this can never grow into a config surface. Throttled to
+  // one write per 2.5s of continuous composing; the read side is one
+  // extra doc listener per open room.
+  let typingUnsub = null, typingLastWrite = 0, typingExpireT = null;
+  function typingStamp(){
+    if (!db || !user || user.isAnonymous || !active) return;
+    const now = Date.now();
+    if (now - typingLastWrite < 2500) return;
+    typingLastWrite = now;
+    const patch = { typing: {} };
+    patch.typing[user.uid] = firebase.firestore.FieldValue.serverTimestamp();
+    db.collection('community_channels').doc(active.id).set(patch, { merge: true }).catch(() => {});
+  }
+  function watchTyping(ch){
+    if (typingUnsub){ try { typingUnsub(); } catch(e){} typingUnsub = null; }
+    if (!db) return;
+    typingUnsub = db.collection('community_channels').doc(ch.id)
+      .onSnapshot(d => { paintTyping((d.data() || {}).typing || {}); }, () => {});
+  }
+  function paintTyping(map){
+    let host = document.getElementById('discTyping');
+    if (!host){
+      if (!els.inputRow || !els.inputRow.parentElement) return;
+      host = document.createElement('div');
+      host.id = 'discTyping';
+      host.style.cssText = 'padding:2px 14px 4px;font-size:.76rem;opacity:.7;min-height:1.1em';
+      els.inputRow.parentElement.insertBefore(host, els.inputRow);
+    }
+    const now = Date.now();
+    const names = [];
+    for (const k in map){
+      if (user && k === user.uid) continue;
+      const t = map[k] && map[k].toMillis ? map[k].toMillis() : 0;
+      if (t && (now - t) < 6000) names.push('Someone');
+    }
+    host.textContent = names.length ? (names.length === 1 ? 'Someone is typing…' : names.length + ' people are typing…') : '';
+    if (typingExpireT) clearTimeout(typingExpireT);
+    if (names.length) typingExpireT = setTimeout(() => paintTyping(map), 6200);
+  }
+
+  // ── reply state ────────────────────────────────────────────
+  let replyTo = null;
+  function setChReply(r){
+    replyTo = r;
+    let chip = document.getElementById('discReplyChip');
+    if (r && !chip && els.inputRow){
+      chip = document.createElement('div');
+      chip.id = 'discReplyChip';
+      chip.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 10px;margin:0 14px 4px;'
+        + 'border-left:3px solid var(--accent,#dc2626);background:rgba(127,127,127,.12);border-radius:8px;font-size:.78rem';
+      chip.innerHTML = '<span id="discReplyChipText" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>'
+        + '<button id="discReplyChipX" type="button" style="border:0;background:none;color:inherit;cursor:pointer;font-size:1rem;line-height:1">&times;</button>';
+      els.inputRow.parentElement.insertBefore(chip, els.inputRow);
+    }
+    if (chip){
+      chip.style.display = r ? 'flex' : 'none';
+      if (r){
+        const tx = document.getElementById('discReplyChipText');
+        if (tx) tx.textContent = 'Replying to ' + r.name + ': ' + r.text;
+      }
+    }
+  }
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('[data-ch-reply]') : null;
+    if (b){
+      setChReply({ id: b.getAttribute('data-ch-reply'), name: b.getAttribute('data-ch-reply-name') || 'member', text: b.getAttribute('data-ch-reply-text') || '' });
+      const inp = els.inputRow && els.inputRow.querySelector('#discInput');
+      if (inp) inp.focus();
+      return;
+    }
+    if (e.target && e.target.id === 'discReplyChipX') setChReply(null);
+  });
 
   // ── shared send ────────────────────────────────────────────
   function doSend(){
@@ -343,6 +441,7 @@
       ? window.screenCommunityContent('channel', { text: text })
       : Promise.reject(new Error('Content screening is unavailable. Try again.'));
     screening.then(() => sendFs(text)).then(() => {
+      setChReply(null);
       input.value = '';
       input.style.height = 'auto';
       const count = els.inputRow.querySelector('#discCount');
@@ -362,6 +461,9 @@
 
   // ── channel switching ──────────────────────────────────────
   function teardownFeed(){
+    if (typingUnsub){ try { typingUnsub(); } catch(e){} typingUnsub = null; }
+    if (typingExpireT){ clearTimeout(typingExpireT); typingExpireT = null; }
+    setChReply(null);
     if (unsub){ try { unsub(); } catch(e){} unsub = null; }
   }
   function switchChannel(id){
@@ -380,7 +482,7 @@
     teardownFeed();
     renderIdent();
     renderInputRow();
-    if (paneVisible) subscribeFs(ch);
+    if (paneVisible){ subscribeFs(ch); watchTyping(ch); }
     track('community_channel_open', { channel: ch.id });
   }
 
@@ -413,6 +515,7 @@
       paneVisible = vis;
       if (vis){
         subscribeFs(active);
+        watchTyping(active);
         probeUnread();
       } else {
         teardownFeed();

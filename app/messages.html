@@ -241,6 +241,11 @@ img.msg-av{display:block}
         <div class="msg-note">Pick a conversation on the left, or start one from the <a href="/spar" style="color:var(--accent);font-weight:700">Spar waitlist</a>.</div>
       </div>
       <div class="msg-senderr" id="msgSendErr"></div>
+      <div id="msgReplyChip" hidden style="display:none;align-items:center;gap:8px;padding:6px 10px;margin:0 0 6px;
+        border-left:3px solid var(--accent,#dc2626);background:rgba(127,127,127,.1);border-radius:8px;font-size:.8rem">
+        <span id="msgReplyChipText" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+        <button id="msgReplyChipX" type="button" style="border:0;background:none;color:inherit;cursor:pointer;font-size:1rem;line-height:1">&times;</button>
+      </div>
       <div class="msg-compose">
         <input id="msgInput" placeholder="Message&hellip;" maxlength="1000" autocomplete="off">
         <button id="msgSend" type="button">Send</button>
@@ -445,6 +450,7 @@ img.msg-av{display:block}
 
   // ── one thread ───────────────────────────────────────────────────
   function openThread(threadId, data){
+    try { setReply(null); } catch(e){}
     activeId = threadId;
     activeThread = {
       id: threadId,
@@ -521,18 +527,58 @@ img.msg-av{display:block}
       } else {
         foot = (activeThread.isGroup && !m.mine ? (m.fromName || '') + ' · ' : '') + fmtMs(m.at);
       }
-      div.innerHTML = linkifyMsg(m.text || '') + '<span class="t">' + esc(foot) + '</span>';
+      var quote = m.replyToText
+        ? '<span style="display:block;border-left:3px solid var(--accent,#dc2626);padding:2px 8px;margin:0 0 4px;'
+          + 'opacity:.75;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+          + '<b>' + esc(m.replyToName || 'Reply') + '</b> ' + esc(m.replyToText) + '</span>'
+        : '';
+      var replyBtn = (!m.pending && !m.failed)
+        ? ' <button type="button" class="msg-replybtn" data-reply="' + esc(m.id) + '"'
+          + ' data-reply-name="' + esc(m.mine ? 'You' : (m.fromName || 'Debater')) + '"'
+          + ' data-reply-text="' + esc(String(m.text || '').slice(0, 120)) + '"'
+          + ' style="border:0;background:none;color:inherit;opacity:.55;cursor:pointer;font:inherit;font-size:.72rem;padding:0 2px">&#8617; Reply</button>'
+        : '';
+      div.innerHTML = quote + linkifyMsg(m.text || '') + '<span class="t">' + esc(foot) + replyBtn + '</span>';
       feed.appendChild(div);
     });
+    // Typing indicator (engine-computed from the thread doc's typing map).
+    if (v && v.typing && v.typing.length){
+      var tdiv = document.createElement('div');
+      tdiv.className = 'msg-note';
+      tdiv.style.cssText = 'font-size:.8rem;opacity:.75';
+      tdiv.textContent = v.typing.join(', ') + (v.typing.length > 1 ? ' are' : ' is') + ' typing…';
+      feed.appendChild(tdiv);
+      stick = stick || DBDM.nearBottom(feed, 160);
+    }
     if (stick) feed.scrollTop = feed.scrollHeight;
   }
+
+  // ── reply state: set by the bubble's Reply button, cleared on send
+  //    or the chip's ×. Carried into dm.send as sendOpts.replyTo. ──
+  var replyTo = null;
+  function setReply(r){
+    replyTo = r;
+    var chip = $('msgReplyChip');
+    if (!chip) return;
+    chip.style.display = r ? 'flex' : 'none';
+    if (r) $('msgReplyChipText').textContent = 'Replying to ' + r.name + ': ' + r.text;
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('#msgFeed [data-reply]') : null;
+    if (b){
+      setReply({ id: b.getAttribute('data-reply'), name: b.getAttribute('data-reply-name') || 'Debater', text: b.getAttribute('data-reply-text') || '' });
+      var inp = $('msgInput'); if (inp) inp.focus();
+      return;
+    }
+    if (e.target && e.target.id === 'msgReplyChipX') setReply(null);
+  });
 
   // A failed bubble is the retry button. Delegated: the feed is rebuilt
   // on every paint.
   document.addEventListener('click', function(e){
     var el = e.target && e.target.closest ? e.target.closest('#msgFeed [data-retry]') : null;
     if (!el || !dm) return;
-    if (e.target.closest('.msg-link')) return;
+    if (e.target.closest('.msg-link') || e.target.closest('[data-reply]')) return;
     dm.retry(el.getAttribute('data-retry')).catch(function(){});
   });
 
@@ -586,7 +632,8 @@ img.msg-av{display:block}
     input.value = '';
     btn.disabled = true;
     errBox.classList.remove('on');
-    dm.send(text).then(function(res){
+    var r = replyTo; setReply(null);
+    dm.send(text, r ? { replyTo: r } : undefined).then(function(res){
       btn.disabled = false;
       if (res) activeThread.lastMessage = res.preview;
       input.focus();
@@ -732,6 +779,8 @@ img.msg-av{display:block}
   // ── boot ─────────────────────────────────────────────────────────
   $('msgSend').addEventListener('click', send);
   $('msgInput').addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); send(); } });
+  // Composing stamps the thread's typing map (throttled in the engine).
+  $('msgInput').addEventListener('input', function(){ if (dm && dm.typing) dm.typing(); });
   $('msgBack').addEventListener('click', function(){
     $('msgShell').classList.remove('threadopen');
     try { history.replaceState(null, '', '/messages'); } catch(e){}

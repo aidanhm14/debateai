@@ -8037,6 +8037,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // wl.activeThread. Group threads get a member-count subtitle and
   // per-message sender labels (handled in paintDMThread).
   function renderThreadModal(){
+    try { wlReplyTo = null; } catch(e){}
     var at = wl.activeThread;
     if (!at) return;
     var titleHtml;
@@ -8159,6 +8160,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         input.addEventListener('keydown', function(e){
           if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendThreadMessage(); }
         });
+        // Composing stamps the thread's typing map (throttled in the engine).
+        input.addEventListener('input', function(){ if (wl.dm && wl.dm.typing) wl.dm.typing(); });
       }
     }, 50);
   }
@@ -8211,19 +8214,71 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         var whenAbs = new Date(m.at).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
         foot = '<div class="wl-msg__time" title="' + escHtml(whenAbs) + '">' + escHtml(relTime(m.at)) + '</div>';
       }
-      div.innerHTML = senderLabel + linkifyMsg(m.text || '') + foot;
+      var quote = m.replyToText
+        ? '<div style="border-left:3px solid var(--accent,#dc2626);padding:2px 8px;margin:0 0 4px;'
+          + 'opacity:.75;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+          + '<b>' + escHtml(m.replyToName || 'Reply') + '</b> ' + escHtml(m.replyToText) + '</div>'
+        : '';
+      var replyBtn = (!m.pending && !m.failed)
+        ? '<button type="button" data-reply="' + escHtml(m.id) + '"'
+          + ' data-reply-name="' + escHtml(m.mine ? 'You' : (m.fromName || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater')) + '"'
+          + ' data-reply-text="' + escHtml(String(m.text || '').slice(0, 120)) + '"'
+          + ' style="border:0;background:none;color:inherit;opacity:.5;cursor:pointer;font:inherit;font-size:.72rem;padding:0 2px">&#8617; Reply</button>'
+        : '';
+      div.innerHTML = quote + senderLabel + linkifyMsg(m.text || '') + foot + replyBtn;
       t.appendChild(div);
     });
+    // Typing indicator (engine-computed from the thread doc typing map).
+    if (v && v.typing && v.typing.length){
+      var tdiv = document.createElement('div');
+      tdiv.className = 'wl-msg__empty';
+      tdiv.style.cssText = 'font-size:.8rem;opacity:.75;padding:4px 0';
+      tdiv.textContent = v.typing.join(', ') + (v.typing.length > 1 ? ' are' : ' is') + ' typing…';
+      t.appendChild(tdiv);
+    }
     updateReadReceipt();
     if (stick) t.scrollTop = t.scrollHeight;
   }
+
+  // ── reply state for the thread modal ─────────────────────────────
+  var wlReplyTo = null;
+  function wlSetReply(r){
+    wlReplyTo = r;
+    var input = document.getElementById('wlSendInput');
+    var chip = document.getElementById('wlReplyChip');
+    if (r && !chip && input && input.parentElement){
+      chip = document.createElement('div');
+      chip.id = 'wlReplyChip';
+      chip.style.cssText = 'flex-basis:100%;display:flex;align-items:center;gap:8px;padding:5px 8px;margin:0 0 4px;'
+        + 'border-left:3px solid var(--accent,#dc2626);background:rgba(127,127,127,.14);border-radius:8px;font-size:.78rem';
+      chip.innerHTML = '<span id="wlReplyChipText" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>'
+        + '<button id="wlReplyChipX" type="button" style="border:0;background:none;color:inherit;cursor:pointer;font-size:1rem;line-height:1">&times;</button>';
+      input.parentElement.insertBefore(chip, input);
+    }
+    if (chip){
+      chip.style.display = r ? 'flex' : 'none';
+      if (r){
+        var tx = document.getElementById('wlReplyChipText');
+        if (tx) tx.textContent = 'Replying to ' + r.name + ': ' + r.text;
+      }
+    }
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('#wlThread [data-reply]') : null;
+    if (b){
+      wlSetReply({ id: b.getAttribute('data-reply'), name: b.getAttribute('data-reply-name') || 'Debater', text: b.getAttribute('data-reply-text') || '' });
+      var inp = document.getElementById('wlSendInput'); if (inp) inp.focus();
+      return;
+    }
+    if (e.target && e.target.id === 'wlReplyChipX') wlSetReply(null);
+  });
 
   // A failed bubble is the retry button. Delegated because the feed is
   // rebuilt on every paint.
   document.addEventListener('click', function(e){
     var el = e.target && e.target.closest ? e.target.closest('#wlThread [data-retry]') : null;
     if (!el || !wl.dm) return;
-    if (e.target.closest('.wl-msg__link')) return;
+    if (e.target.closest('.wl-msg__link') || e.target.closest('[data-reply]')) return;
     wl.dm.retry(el.getAttribute('data-retry')).catch(function(){});
   });
 
@@ -8369,7 +8424,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var prevErr = document.getElementById('wlSendErr');
     if (prevErr) prevErr.textContent = '';
     if (sendBtn) sendBtn.disabled = true;
-    wl.dm.send(text).then(function(res){
+    var r = wlReplyTo; wlSetReply(null);
+    wl.dm.send(text, r ? { replyTo: r } : undefined).then(function(res){
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}

@@ -462,6 +462,11 @@ em,i{font-style:normal}
     </div>
 
     <div class="cx-composer" id="cxDmComposer" hidden>
+      <div id="cxReplyChip" hidden style="display:none;align-items:center;gap:8px;padding:6px 10px;margin:0 0 6px;
+        border-left:3px solid var(--accent,#dc2626);background:rgba(127,127,127,.12);border-radius:8px;font-size:.8rem">
+        <span id="cxReplyChipText" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+        <button id="cxReplyChipX" type="button" style="border:0;background:none;color:inherit;cursor:pointer;font-size:1rem;line-height:1">&times;</button>
+      </div>
       <div class="cx-composer-row">
         <textarea class="cx-input" id="cxDmInput" rows="1" placeholder="Message…"></textarea>
         <button class="cx-send" id="cxDmSend" type="button">Send</button>
@@ -730,6 +735,7 @@ em,i{font-style:normal}
   }
 
   function openThread(threadId, data){
+    try { cxSetReply(null); } catch(e){}
     if (!state.user || !fbDb) return;
     detachDmListeners();
     data = data || {};
@@ -868,19 +874,57 @@ em,i{font-style:normal}
         var abs = ms ? new Date(ms).toLocaleString(undefined, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
         foot = ms ? '<div class="cx-msg-time" title="' + escHtml(abs) + '">' + escHtml(relTime(ms)) + '</div>' : '';
       }
-      div.innerHTML = sender + linkify(m.text || '') + foot;
+      var quote = m.replyToText
+        ? '<div style="border-left:3px solid var(--accent,#dc2626);padding:2px 8px;margin:0 0 4px;'
+          + 'opacity:.75;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+          + '<b>' + escHtml(m.replyToName || 'Reply') + '</b> ' + escHtml(m.replyToText) + '</div>'
+        : '';
+      var replyBtn = (!m.pending && !m.failed)
+        ? '<button type="button" data-reply="' + escHtml(m.id) + '"'
+          + ' data-reply-name="' + escHtml(mine ? 'You' : (m.fromName || (pInfo[m.fromUid] && pInfo[m.fromUid].name) || 'Debater')) + '"'
+          + ' data-reply-text="' + escHtml(String(m.text || '').slice(0, 120)) + '"'
+          + ' style="border:0;background:none;color:inherit;opacity:.5;cursor:pointer;font:inherit;font-size:.72rem;padding:0 2px">&#8617; Reply</button>'
+        : '';
+      div.innerHTML = quote + sender + linkify(m.text || '') + foot + replyBtn;
       host.appendChild(div);
     });
+    // Typing indicator (engine-computed from the thread doc typing map).
+    if (v && v.typing && v.typing.length){
+      var tdiv = document.createElement('div');
+      tdiv.className = 'cx-msg';
+      tdiv.style.cssText = 'font-size:.8rem;opacity:.7;background:none;border:0';
+      tdiv.textContent = v.typing.join(', ') + (v.typing.length > 1 ? ' are' : ' is') + ' typing…';
+      host.appendChild(tdiv);
+    }
     paintReadReceipt();
     if (stick) host.scrollTop = host.scrollHeight;
   }
+
+  // ── reply state ───────────────────────────────────────────────────
+  var cxReplyTo = null;
+  function cxSetReply(r){
+    cxReplyTo = r;
+    var chip = $('cxReplyChip');
+    if (!chip) return;
+    chip.style.display = r ? 'flex' : 'none';
+    if (r) $('cxReplyChipText').textContent = 'Replying to ' + r.name + ': ' + r.text;
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest ? e.target.closest('#cxThreadScroll [data-reply]') : null;
+    if (b){
+      cxSetReply({ id: b.getAttribute('data-reply'), name: b.getAttribute('data-reply-name') || 'Debater', text: b.getAttribute('data-reply-text') || '' });
+      var inp = $('cxDmInput'); if (inp) inp.focus();
+      return;
+    }
+    if (e.target && e.target.id === 'cxReplyChipX') cxSetReply(null);
+  });
 
   // A failed bubble is the retry button. Delegated: the feed is rebuilt
   // on every paint.
   document.addEventListener('click', function(e){
     var el = e.target && e.target.closest ? e.target.closest('#cxThreadScroll [data-retry]') : null;
     if (!el || !state.dm) return;
-    if (e.target.closest('a')) return;
+    if (e.target.closest('a') || e.target.closest('[data-reply]')) return;
     state.dm.retry(el.getAttribute('data-retry')).catch(function(){});
   });
 
@@ -910,7 +954,8 @@ em,i{font-style:normal}
     autoGrow();
     btn.disabled = true;
     $('cxSendErr').textContent = '';
-    state.dm.send(text).then(function(res){
+    var r = cxReplyTo; cxSetReply(null);
+    state.dm.send(text, r ? { replyTo: r } : undefined).then(function(res){
       if (res) a.lastMessage = res.preview;
       btn.disabled = false;
       input.focus();
@@ -922,6 +967,8 @@ em,i{font-style:normal}
   }
 
   $('cxDmSend').addEventListener('click', sendDm);
+  // Composing stamps the thread's typing map (throttled in the engine).
+  $('cxDmInput').addEventListener('input', function(){ if (state.dm && state.dm.typing) state.dm.typing(); });
   $('cxDmInput').addEventListener('keydown', function(e){
     if (e.key === 'Enter' && !e.shiftKey){
       e.preventDefault();

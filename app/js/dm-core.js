@@ -112,6 +112,16 @@
     // brand-new conversation, not a locked door.
     var threadKnown = !!meta.lastMessage;
 
+    // typing: { uid: serverTimestamp } on the thread doc (2026-08-31).
+    // A stamp fresher than TYPING_FRESH_MS reads as "composing"; the
+    // own-key rule in firestore.rules is what stops either side faking
+    // the other's state.
+    var TYPING_FRESH_MS = 6000;
+    var typingMap = {};
+    var typingKey = '';
+    var typingExpire = null;
+    var lastTypingWrite = 0;
+
     var msgUnsub = null, docUnsub = null;
     var msgTimer = null, docTimer = null;
     var msgTries = 0, docTries = 0;
@@ -155,7 +165,35 @@
       for (var i = 0; i < local.length; i++) {
         if (!serverIds[local[i].id]) out.push(local[i]);
       }
-      return { messages: out, status: status, error: lastError, threadExists: threadKnown };
+      return { messages: out, status: status, error: lastError, threadExists: threadKnown, typing: typingNames() };
+    }
+
+    // Names of OTHER participants whose typing stamp is fresh. Names
+    // come off participantInfo, the same source every roster render
+    // uses, so the indicator can never leak a real identity the thread
+    // does not already carry.
+    function typingNames() {
+      var now = Date.now();
+      var names = [];
+      for (var k in typingMap) {
+        if (k === uid) continue;
+        var t = toMillis(typingMap[k]);
+        if (t && (now - t) < TYPING_FRESH_MS) {
+          var info = (meta.participantInfo || {})[k] || {};
+          names.push(info.name || 'Someone');
+        }
+      }
+      return names;
+    }
+
+    // Re-emit when the fresh set changes, and again when the freshest
+    // stamp expires so the dots come down without another doc write.
+    function refreshTyping() {
+      var names = typingNames();
+      var key = names.join('|');
+      if (key !== typingKey) { typingKey = key; emit(); }
+      if (typingExpire) { clearTimeout(typingExpire); typingExpire = null; }
+      if (names.length) typingExpire = setTimeout(refreshTyping, TYPING_FRESH_MS + 200);
     }
 
     function emit() {
@@ -194,6 +232,9 @@
               mine: m.fromUid === uid,
               pending: false,
               failed: false,
+              replyToId: m.replyToId || '',
+              replyToName: m.replyToName || '',
+              replyToText: m.replyToText || '',
             });
             serverIds[doc.id] = 1;
           });
@@ -237,6 +278,8 @@
         }
         meta.lastMessage = d.lastMessage || meta.lastMessage || '';
         if (d.participantInfo) meta.participantInfo = d.participantInfo;
+        typingMap = d.typing || {};
+        refreshTyping();
         try { onThread(d); } catch (e) {}
       }, function (err) {
         docUnsub = null;
@@ -266,6 +309,10 @@
         unread: unread,
       };
       if (meta.isGroup) { doc.isGroup = true; doc.groupName = meta.groupName || 'Group'; }
+      // The send is the end of composing: clear our typing stamp in the
+      // same write instead of leaving dots up for the freshness window.
+      doc.typing = {};
+      doc.typing[uid] = firebase.firestore.FieldValue.delete();
 
       return threadRef.set(doc, { merge: true }).then(function () {
         // Reads are permitted from this point. If the listener died on
@@ -276,12 +323,22 @@
         meta.lastMessage = doc.lastMessage;
         if (wasNew || !msgUnsub) listenMessages();
         if (!docUnsub) listenThread();
-        return msgsRef.doc(entry.id).set({
+        var msgDoc = {
           fromUid: uid,
           fromName: nameOf(),
           text: text,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        }).then(function () {
+        };
+        // Reply quoting (2026-08-31): the quoted context is DENORMALIZED
+        // onto the reply at send time (id + author + bounded snippet),
+        // because messages are append-only and a reader may not hold the
+        // quoted message in the 200-message window.
+        if (entry.replyToId) {
+          msgDoc.replyToId = entry.replyToId;
+          msgDoc.replyToName = entry.replyToName || '';
+          msgDoc.replyToText = entry.replyToText || '';
+        }
+        return msgsRef.doc(entry.id).set(msgDoc).then(function () {
           notifyByEmail(entry.id, 0);
         });
       });
@@ -329,6 +386,9 @@
         // structured message (a scheduling proposal) passes its own so
         // the thread list reads as a line rather than a paragraph.
         preview: sendOpts.preview || '',
+        replyToId: (sendOpts.replyTo && sendOpts.replyTo.id) || '',
+        replyToName: (sendOpts.replyTo && String(sendOpts.replyTo.name || '').slice(0, 60)) || '',
+        replyToText: (sendOpts.replyTo && String(sendOpts.replyTo.text || '').slice(0, 120)) || '',
       };
       local.push(entry);
       emit();                                  // on screen before the network
@@ -393,8 +453,23 @@
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', wake);
 
+    // Called by the composer on input. Throttled so a paragraph costs a
+    // couple of writes, not one per keystroke; silently skipped until
+    // the thread doc exists, since there is nothing to stamp yet and an
+    // update() on a missing doc throws.
+    function typing() {
+      if (closed || !threadKnown) return;
+      var now = Date.now();
+      if (now - lastTypingWrite < 2500) return;
+      lastTypingWrite = now;
+      var u = {};
+      u['typing.' + uid] = firebase.firestore.FieldValue.serverTimestamp();
+      threadRef.update(u).catch(function () {});
+    }
+
     function close() {
       closed = true;
+      if (typingExpire) { clearTimeout(typingExpire); typingExpire = null; }
       clearTimer('msg'); clearTimer('doc');
       if (msgUnsub) { try { msgUnsub(); } catch (e) {} msgUnsub = null; }
       if (docUnsub) { try { docUnsub(); } catch (e) {} docUnsub = null; }
@@ -409,6 +484,7 @@
     return {
       id: threadId,
       send: send,
+      typing: typing,
       retry: retry,
       discard: discard,
       markRead: markRead,
