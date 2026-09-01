@@ -2086,7 +2086,22 @@ body.speech-live .transcript-area{margin-top:4px}
   font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;
 }
 .lr-start-dock button:hover{background:#dc2626}
-body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue{display:none!important}
+body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue,body.spectator-mode .lr-open-beat{display:none!important}
+/* ROUND OPENING beat: the waiting side's card. Tokens with literal
+   fallbacks per this page's limited token set (the white-card trap). */
+.lr-open-beat{
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px;
+  padding:10px 12px;border-radius:11px;font-size:.8rem;line-height:1.5;
+  border:1px solid var(--border,rgba(128,128,128,.35));
+  border-left:3px solid var(--accent,#ef4444);
+  background:var(--bg-card,rgba(128,128,128,.08));
+  color:var(--text-dim,inherit);
+}
+.lr-open-beat .lr-open-nudge{
+  flex-shrink:0;font-weight:800;
+  border-color:rgba(220,38,38,.5);color:var(--accent,#dc2626);
+}
+.lr-open-beat .lr-open-nudge:disabled{opacity:.65}
 /* Same posture as #audPops: a fixed overlay has no business floating
    over the site while the round is a mini player or a PiP window. */
 body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
@@ -6185,6 +6200,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // After the core, never before: the core rewrites btn.className
     // wholesale, which would drop the awaiting classes.
     try { updateStartCue(); } catch(e){}
+    // After the cue for the same reason: the opening beat rewrites the
+    // ready hint the core just painted.
+    try { updateOpeningBeat(); } catch(e){}
   }
   function updatePlayPauseBtnCore(){
     // Runs on every timer transition, local and remote-mirrored, which is
@@ -18599,6 +18617,170 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     startCue.sig = '';
     startCueLevels(false);
   }
+
+  // ── ROUND OPENING beat (2026-09-01) ────────────────────────────────
+  // The 7-day autopsy: 55 of the last 60 rounds seated both people, only
+  // 23 ever started a speech, and the people who gave up did so after a
+  // MEDIAN of 3 minutes with the opponent visibly present. Every
+  // pre-round beat completes (draft done, judge agreed, consent
+  // answered) and then the guided sequence just stops and waits for one
+  // human to volunteer. This beat is the sequence's final step: it names
+  // whose move it is on both screens and gives the waiting side the one
+  // thing they never had, an action. NOTHING HERE STARTS A SPEECH — the
+  // founder's no-auto-start rule stands (three retired attempts are
+  // documented above checkKickoffPrompt), and the opener's control stays
+  // the single #playPauseBtn the 2026-08-26 redesign settled on: this
+  // rewrites the hint text around it rather than growing a second
+  // Start button.
+  var OPEN_BEAT_ESCALATE_MS = 90000;   // both present this long => louder
+  var OPEN_BEAT_NUDGE_FRESH_MS = 60000;
+  var OPEN_BEAT_NUDGE_COOLDOWN_MS = 30000;
+  var openingBeat = { liveSince:0, mode:'', sig:'', chimedAt:0, nudgeSentAt:0, shown:{} };
+
+  function openingBeatMode(){
+    if (state.phase !== 'round' || state.speechIdx !== 0) return '';
+    if (state.timerState !== 'ready') return '';
+    if (isSpectator() || !mySide()) return '';
+    // A running prep clock is a deliberate not-yet (the start-cue rule).
+    if (prepClockRunning()) return '';
+    // The motion draft owns the screen until it resolves.
+    if (state.draft && state.draft.phase && state.draft.phase !== 'done') return '';
+    // Judge picks that differ block the start; the draft card handles it.
+    try { if (!judgeLockKey()) return ''; } catch(e){}
+    // Same presence trust rule as the kickoff strip and no-show flow: a
+    // known opposing uid must be beating, my own beat must have
+    // round-tripped, and a walked-out opponent fails the same test. A
+    // uid-less round (direct link, hotseat) has one person driving every
+    // control and needs no whose-move beat.
+    var me = state.user && state.user.uid;
+    var opp = (typeof noShowOpponentUid === 'function') ? noShowOpponentUid() : '';
+    if (!opp || !me) return '';
+    if (!(state.seatSeen && state.seatSeen[me] && state.seatSeen[opp])) return '';
+    try { if (opponentHasLeft()) return ''; } catch(e){}
+    return isMyTurn() ? 'opener' : 'waiter';
+  }
+
+  function openBeatChime(){
+    // One soft two-note blip on a received nudge. Best-effort: a
+    // suspended AudioContext (no gesture yet) just stays silent.
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ac = new AC();
+      [660, 880].forEach(function(freq, i){
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.value = freq; o.type = 'sine';
+        g.gain.setValueAtTime(0.0001, ac.currentTime + i * 0.14);
+        g.gain.exponentialRampToValueAtTime(0.12, ac.currentTime + i * 0.14 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + i * 0.14 + 0.24);
+        o.connect(g); g.connect(ac.destination);
+        o.start(ac.currentTime + i * 0.14); o.stop(ac.currentTime + i * 0.14 + 0.3);
+      });
+      setTimeout(function(){ try { ac.close(); } catch(e){} }, 900);
+    } catch(e){}
+  }
+
+  function sendOpenerNudge(btn){
+    var now = Date.now();
+    if (now - openingBeat.nudgeSentAt < OPEN_BEAT_NUDGE_COOLDOWN_MS) return;
+    var ref = getRoundDocRef(); if (!ref) return;
+    var me = state.user && state.user.uid; if (!me) return;
+    openingBeat.nudgeSentAt = now;
+    var myName = (mySide() === 'pro' ? state.proName : state.conName) || 'Your opponent';
+    ref.update({ openerNudge: { uid: me, name: String(myName).slice(0, 48), atMs: now } }).catch(function(){
+      openingBeat.nudgeSentAt = 0;
+    });
+    try { gtag('event', 'live_open_beat_nudge', { role: 'sent' }); } catch(e){}
+    if (btn){ btn.disabled = true; btn.textContent = 'Sent. They got a nudge.'; }
+  }
+
+  function updateOpeningBeat(){
+    var mode = openingBeatMode();
+    var waitEl = document.getElementById('openBeatWait');
+    if (!mode){
+      openingBeat.liveSince = 0; openingBeat.mode = ''; openingBeat.sig = '';
+      if (waitEl) waitEl.remove();
+      return;
+    }
+    var now = Date.now();
+    if (openingBeat.mode !== mode){ openingBeat.mode = mode; openingBeat.liveSince = now; }
+    var waited = openingBeat.liveSince ? now - openingBeat.liveSince : 0;
+    var late = waited >= OPEN_BEAT_ESCALATE_MS;
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches && f.speeches[0];
+    var mins = sp ? Math.round((sp.time || 0) / 60) : 0;
+    var spName = (sp && (sp.name || sp.label)) || 'the opening speech';
+    var nudge = state.openerNudge || null;
+    var nudgeFresh = !!(nudge && typeof nudge.atMs === 'number' && (now - nudge.atMs) < OPEN_BEAT_NUDGE_FRESH_MS);
+    if (!openingBeat.shown[mode]){
+      openingBeat.shown[mode] = 1;
+      try { gtag('event', 'live_open_beat_shown', { role: mode }); } catch(e){}
+    }
+
+    if (mode === 'opener'){
+      if (waitEl) waitEl.remove();
+      var hint = $('readyHint');
+      var oppName = (mySide() === 'pro' ? state.conName : state.proName) || 'Your opponent';
+      if (hint){
+        hint.hidden = false;
+        var line = 'You open: ' + spName + (mins ? ', ' + mins + ' minute' + (mins === 1 ? '' : 's') : '') +
+          '. ' + oppName + ' is in the room, waiting on you.';
+        if (nudgeFresh && nudge.uid !== (state.user && state.user.uid)){
+          line = ((nudge.name || oppName) + ' pressed Ready. They are waiting for your speech.') +
+            ' You open: ' + spName + '.';
+        } else if (late){
+          line += ' The room has been waiting a while.';
+        }
+        if (hint.textContent !== line) hint.textContent = line;
+      }
+      // A fresh nudge escalates the existing pulse and chimes once per
+      // nudge; the classes belong to the start-cue system, which reads
+      // them idempotently, so re-adding is safe.
+      var btn = $('playPauseBtn');
+      if (btn && state.timerState === 'ready'){
+        btn.classList.add('lr-await');
+        if (nudgeFresh || late) btn.classList.add('lr-await-hot');
+      }
+      if (nudgeFresh && nudge.atMs !== openingBeat.chimedAt && nudge.uid !== (state.user && state.user.uid)){
+        openingBeat.chimedAt = nudge.atMs;
+        openBeatChime();
+        try { gtag('event', 'live_open_beat_nudge', { role: 'received' }); } catch(e){}
+      }
+      return;
+    }
+
+    // 'waiter': the side with no control finally gets a move. Rendered
+    // in the ready hint's slot (the hint's "Starts the timer and mic"
+    // text describes a button this side cannot press, so it hides while
+    // the card is up); idempotent by signature.
+    var waiterHint = $('readyHint');
+    if (waiterHint) waiterHint.hidden = true;
+    var openerName = (typeof speakerNameFor === 'function' && f ? speakerNameFor(f, 0) : '') || 'Your opponent';
+    var sentRecently = now - openingBeat.nudgeSentAt < OPEN_BEAT_NUDGE_COOLDOWN_MS;
+    var sig = ['w', openerName, spName, late ? 1 : 0, sentRecently ? 1 : 0].join('|');
+    if (sig === openingBeat.sig && waitEl) return;
+    openingBeat.sig = sig;
+    if (!waitEl){
+      waitEl = document.createElement('div');
+      waitEl.id = 'openBeatWait';
+      waitEl.className = 'lr-open-beat';
+      var anchor = $('readyHint');
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(waitEl, anchor.nextSibling);
+      else return;
+    }
+    waitEl.innerHTML = '';
+    var p = document.createElement('span');
+    p.textContent = openerName + ' opens: ' + spName + (mins ? ' (' + mins + ' min)' : '') +
+      '. You are on right after.' + (late ? ' Still waiting? Give them a nudge.' : '');
+    var nb = document.createElement('button');
+    nb.type = 'button';
+    nb.className = 'btn lr-open-nudge';
+    if (sentRecently){ nb.disabled = true; nb.textContent = 'Sent. They got a nudge.'; }
+    else nb.textContent = '👋 Ready when you are';
+    nb.addEventListener('click', function(){ sendOpenerNudge(nb); });
+    waitEl.appendChild(p); waitEl.appendChild(nb);
+  }
+  setInterval(function(){ try { updateOpeningBeat(); } catch(e){} }, 5000);
   function updateStartCue(){
     var on = startCueAwaiting();
     if (!on){ clearStartCue(); return; }
@@ -18724,6 +18906,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // come down when that happens.
     state.seatLeft = d.seatLeft || null;
     if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
+    // The opening-beat nudge rides the round doc like contextPicks does:
+    // an additive field either participant may write, no rules change.
+    state.openerNudge = d.openerNudge || null;
+    try { updateOpeningBeat(); } catch(e){}
     // Room liveness, for the strip below. `lastSeenAt` is the same seat
     // heartbeat every listing already trusts; reading it here is what
     // lets the page inside the room agree with the list that offered it.
