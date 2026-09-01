@@ -21,7 +21,12 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+// Haiku by default since the 2026-08-31 token-cost pass: this is a
+// bounded classification (does the motion need a US/world setting, and
+// which 2-4 options fit), one call per matched round, and it FAILS OPEN
+// downstream — a wrong read costs a redundant question, never a round.
+// MOTION_CONTEXT_MODEL re-points it with no deploy.
+const CLAUDE_MODEL = process.env.MOTION_CONTEXT_MODEL || 'claude-haiku-4-5-20251001';
 
 // One call per round, so these sit well above a well-behaved room and only
 // bite a client stuck in a retry loop.
