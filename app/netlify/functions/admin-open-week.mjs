@@ -89,6 +89,14 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine }) {
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>Come at the rush hours: 11 AM and 7 PM Eastern, every day
+    this week.</strong> Those are the two hours the site is busiest, so
+    that is when you will find an opponent fastest. 11 AM Eastern is
+    4 PM in London and 8:30 PM in Delhi; 7 PM Eastern is 4 PM on the
+    West Coast.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>The money settles when the ladder freezes.</strong> The top
     three ratings on Saturday night take $100, $50 and $25. Rounds are
     short, a written verdict lands after every one, and playing more
