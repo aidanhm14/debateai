@@ -41,10 +41,16 @@
 // rows drop link-bearing messages outright: this surface must never
 // relay a stranger's URL onto the landing page.
 //
-// Cost: ~19 doc reads per cache miss (12 Commons tail + 7 channel
-// limit(1) probes), shared-cached 45s, so the landing's traffic costs
-// ~24 reads a minute worst case. Same posture as spar-queue.mjs /
-// watch-live.mjs. Do NOT wire the landing to Firestore or to
+// Cost: ~47 doc reads per cache miss (12 Commons tail + 7 channel
+// limit(5) tails), shared-cached 45s, so the landing's traffic costs
+// ~63 reads a minute worst case. Same posture as spar-queue.mjs /
+// watch-live.mjs. The per-channel tail is 5, not 1, on purpose
+// (2026-08-31, founder: the panel should be "a mix of all the public
+// chats going on right now ... so it feels more dense of past times"):
+// with one row per room, a busy Commons out-recents every other room
+// and the panel reads as one chat. The payload is a recency-sorted
+// SUPERSET; the room-diversity pick happens in the landing renderer,
+// next to the display count it has to agree with. Do NOT wire the landing to Firestore or to
 // /api/chat-feed directly: chat-feed has no shared cache and reads 80
 // docs per call (the 2026-08-18 rule — the landing opens no Firestore
 // connection of its own).
@@ -68,7 +74,8 @@ const DISCORD_PER_CHANNEL = 12;
 // so keep this list matched to that file.
 const CHANNELS = ['tournament', 'general', 'find-a-round', 'motions', 'round-reviews', 'clips', 'help'];
 
-const MAX_MESSAGES = 10;
+const CHANNEL_TAIL = 5;
+const MAX_MESSAGES = 24;
 const TEXT_MAX = 110;
 const HANDLE_MAX = 32;
 
@@ -148,7 +155,7 @@ export default async (request) => {
       .orderBy('createdAt', 'desc').limit(12).get();
     const channelQs = CHANNELS.map((ch) =>
       db.collection('community_channels').doc(ch).collection('messages')
-        .orderBy('createdAt', 'desc').limit(1).get());
+        .orderBy('createdAt', 'desc').limit(CHANNEL_TAIL).get());
 
     const discordQ = discordRows();
     const [commonsSnap, ...channelSnaps] = await withDeadline(

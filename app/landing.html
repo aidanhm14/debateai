@@ -8450,10 +8450,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-chats-open:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
   /* The feed. CONVERSATION order, oldest at the top and newest at the
      bottom (newest-first made every thread read backwards, the bug
-     the founder flagged 2026-08-29). Each row one message: handle,
-     text, age, plus a room tag only when a real row comes from a room
-     other than the tournament. Rows are anchors into /community so
-     any line someone finds interesting is a door, not a screenshot. */
+     the founder flagged 2026-08-29). Each row one message: room tag,
+     handle, text, age — every row is chipped with its room since
+     2026-08-31, when the panel became a deliberate mix of every
+     public chat. Rows are anchors into /community so any line someone
+     finds interesting is a door, not a screenshot. */
   .fs-chats-list{display:flex;flex-direction:column;gap:4px;min-height:0}
   .fs-chats-msg{display:block;text-decoration:none;color:inherit;border-radius:10px;
     padding:7px 9px;border:1px solid transparent;
@@ -8929,25 +8930,28 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="fs-signin-why">Keep your rounds and climb the leaderboard.</p>
     </div>
 
-    <!-- ── Tournament chat ── 2026-08-29, founder sketch. The panel is
-         the tournament room: real messages arrive from /api/live-chats
-         (shared-cached server read; the landing opens no Firestore
-         connection of its own, the 2026-08-18 rule). REAL MESSAGES
-         ONLY (2026-08-31, founder: "get rid of the bots on the open
-         group chat"). This RETIRES the 2026-08-29 ambient scripted
-         conversation between the seven fictional personas; that call
-         is reversed on the founder's newer, explicit instruction and
-         the never-seed rule is back in force. Do not re-add scripted
-         lines here, client-side or otherwise: a chat that manufactures
-         its own conversation misrepresents the room it links to. When
-         the room is quiet the panel shows the honest room-chip card
-         and the dot stays dark, which is the true state. Hidden under
-         1360px, where there is no third column to hold it. -->
-    <aside class="fs-chats" id="fsChats" aria-label="Tournament chat">
+    <!-- ── Live chats ── 2026-08-29 founder sketch, remixed 2026-08-31
+         (founder: make it "a mix of all the public chats going on
+         rtight now and have a smal title to it about which chat its
+         from - so it feels more dense of past times"). Real messages
+         arrive from /api/live-chats (shared-cached server read; the
+         landing opens no Firestore connection of its own, the
+         2026-08-18 rule), drawn from EVERY public room at once: The
+         Commons, the named /community channels, and Discord when its
+         env is set. Every row carries its room chip, and the renderer
+         guarantees each active room a seat rather than letting the
+         loudest room fill the feed. REAL MESSAGES ONLY (2026-08-31,
+         founder: "get rid of the bots on the open group chat"): the
+         2026-08-29 scripted-persona layer stays retired, and a quiet
+         site shows the honest room-chip card with the dot dark. Old
+         rows from quiet rooms render with their real ages, which is
+         the "past times" density he asked for, not padding. Hidden
+         under 1360px, where there is no third column to hold it. -->
+    <aside class="fs-chats" id="fsChats" aria-label="Live chats">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
-        <span class="fs-chats-title">Tournament chat</span>
-        <a class="fs-chats-open" href="/community#tournament" data-cta="first-screen-chats-open">Open</a>
+        <span class="fs-chats-title">Live chats</span>
+        <a class="fs-chats-open" href="/community" data-cta="first-screen-chats-open">Open</a>
       </div>
       <div class="fs-chats-list" id="fsChatsList">
         <div class="fs-chats-rooms">
@@ -8958,7 +8962,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a href="/community" data-cta="first-screen-chats-room">#help</a>
         </div>
       </div>
-      <a class="fs-chats-cta" href="/community#tournament" data-cta="first-screen-chats-join">Join the conversation</a>
+      <a class="fs-chats-cta" href="/community" data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
   </div>
   <!-- The audience chooser ("Do you compete in debate?") used to overlay
@@ -19439,11 +19443,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
   })();
 
-  /* fsChats: the "Tournament chat" column between the board and the
-     leaderboard rail (2026-08-29, founder sketch). One source, REAL
-     messages from /api/live-chats (shared-cached 45s server-side,
-     handles never uids), rendered in CONVERSATION ORDER, oldest at
-     the top and newest at the bottom.
+  /* fsChats: the "Live chats" column between the board and the
+     leaderboard rail (2026-08-29 founder sketch; remixed 2026-08-31
+     into a deliberate MIX of every public room, each row chipped with
+     the chat it came from). One source, REAL messages from
+     /api/live-chats (shared-cached 45s server-side, handles never
+     uids), rendered in CONVERSATION ORDER, oldest at the top and
+     newest at the bottom.
 
      REAL ONLY (2026-08-31, founder: "get rid of the bots on the open
      group chat"). The 2026-08-29 ambient scripted-persona layer is
@@ -19470,11 +19476,46 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       return Math.floor(d / 86400000) + 'd';
     }
 
+    // The payload is a recency-sorted superset across every public
+    // room. A plain newest-N cut lets one busy room fill the panel
+    // (measured 2026-08-31: all 10 rows were The Commons), so the
+    // display pick guarantees room VARIETY first (2026-08-31, founder:
+    // "a mix of all the public chats going on rtight now ... so it
+    // feels more dense of past times"): the newest row of every active
+    // room gets a seat, then recency fills the rest under a per-room
+    // cap, then the cap is waived so a lone active room still fills
+    // all MAX_ROWS instead of shrinking the feed. Old rows from quiet
+    // rooms surface with their real ages; nothing is invented.
+    var ROOM_CAP = 3;
+    function pickMix(rows){
+      var byNew = rows.slice().sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
+      var picked = [], count = {}, seen = {};
+      var i, m;
+      for (i = 0; i < byNew.length && picked.length < MAX_ROWS; i++){
+        m = byNew[i];
+        if (seen[m.room]) continue;
+        seen[m.room] = true; m._p = true;
+        picked.push(m); count[m.room] = 1;
+      }
+      for (i = 0; i < byNew.length && picked.length < MAX_ROWS; i++){
+        m = byNew[i];
+        if (m._p || (count[m.room] || 0) >= ROOM_CAP) continue;
+        m._p = true; picked.push(m); count[m.room] = (count[m.room] || 0) + 1;
+      }
+      for (i = 0; i < byNew.length && picked.length < MAX_ROWS; i++){
+        m = byNew[i];
+        if (m._p) continue;
+        m._p = true; picked.push(m);
+      }
+      for (i = 0; i < byNew.length; i++) delete byNew[i]._p;
+      return picked;
+    }
+
     function renderAll(){
       var msgs = realRows.filter(function(m){ return m && m.text; });
       if (!msgs.length) return; // keep the honest room-chip card
+      msgs = pickMix(msgs);
       msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
-      msgs = msgs.slice(-MAX_ROWS);
       var frag = document.createDocumentFragment();
       for (var i = 0; i < msgs.length; i++){
         var m = msgs[i];
@@ -19494,15 +19535,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         a.setAttribute('data-cta', 'first-screen-chats-msg');
         var meta = document.createElement('span');
         meta.className = 'fs-chats-meta';
-        // One room, one header: tournament rows drop the per-row chip.
-        // A real row from another room keeps its chip so it is never
-        // misread as tournament traffic.
-        if (m.room !== 'tournament'){
-          var room = document.createElement('span');
-          room.className = 'fs-chats-room';
-          room.textContent = String(m.label || '');
-          meta.appendChild(room);
-        }
+        // Every row names its room (2026-08-31, founder: "a smal title
+        // to it about which chat its from"). The feed mixes rooms, so
+        // an unchipped row would be unattributable.
+        var room = document.createElement('span');
+        room.className = 'fs-chats-room';
+        room.textContent = String(m.label || '');
+        meta.appendChild(room);
         var handle = document.createElement('span');
         handle.className = 'fs-chats-handle';
         handle.textContent = String(m.handle || '');
