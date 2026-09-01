@@ -2620,37 +2620,26 @@
   // wrong. The prize figure is the one number here, it is fixed and
   // funded by the organizer, and /tournaments owns everything else.
   var now = Date.now();
-  var EVENT_DAY  = Date.parse('2026-08-29T00:00:00-04:00');
   var EVENT_OVER = Date.parse('2026-09-05T23:59:59-04:00'); // week-long ladder (2026-08-29)
   if (now > EVENT_OVER) { dropStatic(); return; }
 
-  // Segment list for the zipper. Authored money-first because the
-  // money is the reason to look, and the segments repeat forever, so
-  // there is no "above the fold" to protect any more: the whole
-  // message reaches every width, including the phones that used to
-  // lose everything past the hook.
-  // Three phases, because "one session, 10 AM ET" kept advertising a
-  // start time six hours into the running event, and the 2026-08-29
-  // ladder decision made the day all-day rather than one session.
-  var DOORS_OPEN = Date.parse('2026-08-29T10:00:00-04:00');
-  var when = (now >= DOORS_OPEN)
-    ? 'Live all week &middot; through Sat Sep 5'
-    : (now >= EVENT_DAY)
-      ? 'Live today &middot; doors 10 AM ET'
-      : 'Sat Aug 29 &middot; 10 AM ET';
+  // Segment list for the zipper. Simplified 2026-08-31 (Aidan: retitle
+  // to something simple, week-long tournament, winners get cash). The
+  // prize figures stay because the money is the reason to look; the
+  // event name, date phases, and start-time logic came out because six
+  // segments of scheduling detail on a moving strip read as noise. The
+  // event is live for its whole remaining window, so the pre-day and
+  // doors-open phases retired with the copy.
   var M = function(t){ return '<b class="ui-strip-money">' + t + '</b>'; };
   var SEGMENTS = [
-    M('$100') + ' for winning a debate',
-    'The Debatable Open',
-    when,
+    'Week-long tournament',
+    'Winners get cash rewards',
+    M('$100') + ' first &middot; ' + M('$50') + ' second &middot; ' + M('$25') + ' third',
     'Free to enter',
-    M('$50') + ' second &middot; ' + M('$25') + ' third',
     'Enter now &rarr;'
   ];
-  var SPOKEN = 'The Debatable Open. $100 for winning a debate. '
-    + ((now >= DOORS_OPEN) ? 'Live all week, through Saturday September 5.'
-      : (now >= EVENT_DAY) ? 'Live today, doors at 10 AM Eastern.' : 'Saturday August 29, 10 AM Eastern.')
-    + ' Free to enter.';
+  var SPOKEN = 'Week-long tournament. Winners get cash rewards. '
+    + '$100 first, $50 second, $25 third. Free to enter.';
 
   function mount(){
     // Adopt a statically rendered strip instead of building a second
@@ -2709,8 +2698,9 @@
     // Constant speed rather than a constant duration: one run of copy
     // is a different width on a phone than on a desktop and different
     // again on event day, and a fixed duration would make the same
-    // ticker crawl on one and sprint on the other. 58px/s is close to
-    // a real zipper and slow enough to read a segment in passing.
+    // ticker crawl on one and sprint on the other. 34px/s, slowed from
+    // 58 on 2026-08-31 (Aidan: "slow down how fast it circulates") so a
+    // segment can be read without chasing it.
     var track = strip.querySelector('.ui-strip-track');
     var runEl = strip.querySelector('.ui-strip-run');
     var lastDur = 0;
@@ -2718,7 +2708,7 @@
       if (!track || !runEl) return;
       var w = runEl.getBoundingClientRect().width;
       if (w <= 40) return;
-      var d = Math.max(8, Math.round(w / 58));
+      var d = Math.max(8, Math.round(w / 34));
       // Only write when it actually changes: reassigning the duration
       // mid-cycle makes the track jump, so a no-op write is a visible
       // stutter for nothing.

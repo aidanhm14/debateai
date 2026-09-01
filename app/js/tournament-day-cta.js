@@ -1,5 +1,10 @@
 /* Tournament-day home CTA.
  *
+ * RETIRED 2026-08-31 (Aidan: the band was overwhelming stacked on the
+ * ticker). Nothing loads this file any more; landing.html dropped its
+ * script tag and scripts/test-tournament-day-ready.mjs asserts it stays
+ * unloaded. Kept as dormant history; restoring it is one script tag.
+ *
  * The regular announcement strip is easy to dismiss and is intentionally
  * compact. On the event day, a real signed-in account instead gets one large
  * action above the homepage first screen. It opens /open, the page that owns

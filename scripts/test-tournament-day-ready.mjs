@@ -4,7 +4,6 @@ const reminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-day
 const kickoffReminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-kickoff-reminder.mjs', 'utf8');
 const eloUpdate = fs.readFileSync('app/netlify/functions/admin-open-elo-update.mjs', 'utf8');
 const admin = fs.readFileSync('app/admin.html', 'utf8');
-const cta = fs.readFileSync('app/js/tournament-day-cta.js', 'utf8');
 const landing = fs.readFileSync('app/landing.html', 'utf8');
 const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
 const tournamentAdmin = fs.readFileSync('app/netlify/functions/tournament-admin.mjs', 'utf8');
@@ -116,18 +115,12 @@ check('Open prize tiles are compact direct children, not nested boxes',
   open.includes('grid-template-columns:repeat(3,minmax(0,1fr))')
   && open.includes('.prize>div')
   && !open.includes('.prize div'));
-check('homepage CTA is loaded', landing.includes('/js/tournament-day-cta.js'));
-check('homepage CTA is signed-in only and points to the event page',
-  cta.includes('!user || user.isAnonymous')
-  && cta.includes("cta.href = '/open'"));
-check('homepage CTA clears the fixed topbar hit layer',
-  cta.includes('margin:52px 0 0'));
-check('homepage CTA does not double-space below the live-room strip',
-  cta.includes('#homeLiveBand + .tday-cta{margin-top:0}'));
-// 2026-08-29: the one-day event became a week-long rating ladder, so
-// the CTA retires at the Sep 5 freeze rather than event-day midnight.
-check('homepage CTA self-retires when the week-long ladder freezes',
-  cta.includes("Date.parse('2026-09-05T23:59:59-07:00')"));
+// 2026-08-31: the tournament-day home CTA band is RETIRED (Aidan:
+// overwhelming next to the ticker). The module stays dormant in the
+// repo; the guard now asserts the landing does NOT load it, so a
+// stale doc cannot quietly restore the double promotion.
+check('retired homepage CTA band is not loaded',
+  !landing.includes('/js/tournament-day-cta.js'));
 check('human Debate Rating is the leaderboard default',
   leaderboard.includes("const state={view:'live'"));
 check('director-entered tournament results move the human rating',
