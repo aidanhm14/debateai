@@ -37,6 +37,16 @@ export const DRAFT_MOTIONS = {
     'We should colonize Mars before fixing Earth.',
     'Betting on elections should be legal.',
     'Politicians should be picked by lottery, like jury duty.',
+    'Socialism would work better than capitalism.',
+    'Billionaires should not exist.',
+    'Success is mostly luck, not hard work.',
+    'Being a landlord is not a real job.',
+    'Immigration should be far easier.',
+    'Social platforms should stop moderating political speech.',
+    'Inheritances over one million dollars should be taxed away.',
+    'Everyone should get a universal basic income.',
+    'Rent increases should be capped by law.',
+    'The 40-hour work week should be cut to 32.',
   ],
 
   apda: [
