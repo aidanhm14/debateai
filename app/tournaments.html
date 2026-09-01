@@ -1821,6 +1821,58 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     });
     box.appendChild(p);box.appendChild(btn);box.appendChild(done);
     statusEl.insertAdjacentElement('afterend',box);
+    showFeatureAsk();
+  }
+  // Standing feature consent (2026-08-31). An OPT-IN ask rendered only
+  // after someone is confirmed in the bracket, deliberately separate
+  // from the mandatory recording terms: bundling optional publicity
+  // consent into a required confirm would make the consent worthless.
+  // Saying yes re-calls the idempotent register action with
+  // featureOk:true, which the server stores on the entry; the server
+  // never reads this from anything but an explicit true, so skipping
+  // the card costs nothing and revokes nothing.
+  function showFeatureAsk(){
+    if(!statusEl||document.getElementById('enterFeature'))return;
+    var alreadyOk=false;
+    try{alreadyOk=localStorage.getItem('da-open-featureok')==='1'}catch(e){}
+    if(alreadyOk)return;
+    var box=document.createElement('div');
+    box.className='enter-share';
+    box.id='enterFeature';
+    var p=document.createElement('p');
+    p.textContent='Want your rounds featured? Debatable clips the best moments from feature-approved rounds for Watch and our social accounts. Optional, and it never affects pairing or standing.';
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.textContent='Feature my rounds';
+    var done=document.createElement('p');
+    done.className='enter-share-done';
+    done.hidden=true;
+    btn.addEventListener('click',function(){
+      try{if(typeof gtag==='function')gtag('event','tournament_feature_optin',{})}catch(e){}
+      var u=auth&&auth.currentUser;
+      if(!u||u.isAnonymous){done.textContent='Sign in first, then press this again.';done.hidden=false;return}
+      btn.disabled=true;
+      u.getIdToken().then(function(token){
+        return fetch('/api/tournament',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+          body:JSON.stringify({action:'register',tid:current.tid,name:daPublicName(u),recordingAccepted:true,adultOrGuardianApproved:true,featureOk:true})
+        });
+      }).then(function(r){
+        if(!r.ok)throw new Error('register '+r.status);
+        try{localStorage.setItem('da-open-featureok','1')}catch(e){}
+        btn.hidden=true;
+        done.textContent='You are in the feature pool. Change your mind any time by contacting us.';
+        done.hidden=false;
+      }).catch(function(){
+        btn.disabled=false;
+        done.textContent='That did not save. Try again.';
+        done.hidden=false;
+      });
+    });
+    box.appendChild(p);box.appendChild(btn);box.appendChild(done);
+    var anchor=document.getElementById('enterShare')||statusEl;
+    anchor.insertAdjacentElement('afterend',box);
   }
   function enter(mode){
     // Logged ABOVE the readiness guard on purpose: a click that lands

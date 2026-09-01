@@ -613,6 +613,34 @@ export default async (request) => {
     return jsonResponse({ ok: true, ...chat }, 200, request);
   }
 
+  // ── feature-pool (2026-08-31) ───────────────────────────────────
+  // The content pool: entrants who gave standing consent at
+  // registration to be clipped and featured on Watch and Debatable's
+  // own social accounts. Host/site-admin read only — featureConsents
+  // never rides the public list route's publicEntry projection, so a
+  // person's publicity preference is not published to strangers.
+  // Purely a read: it never changes standing, pairing, or the consents
+  // themselves.
+  if (action === 'feature-pool') {
+    const entries = await loadEntries(db, tid);
+    const pool = [];
+    for (const e of entries) {
+      const consents = e.featureConsents || {};
+      const uids = Object.keys(consents).filter((uid) => consents[uid]?.ok === true);
+      if (!uids.length) continue;
+      pool.push({
+        entryId: e.entryId,
+        name: e.name || 'Entry',
+        uids,
+        consentedAtMs: Math.max(...uids.map((uid) => Number(consents[uid]?.atMs || 0))),
+        wins: Number(e.wins || 0),
+        losses: Number(e.losses || 0),
+      });
+    }
+    pool.sort((a, b) => b.consentedAtMs - a.consentedAtMs);
+    return jsonResponse({ ok: true, total: entries.length, consented: pool.length, pool }, 200, request);
+  }
+
   // Idempotent recovery for a live day that was paired before user-level
   // tournament reservations existed. It rebuilds reservations only for
   // pairings the entry docs still say are active, and is also useful after

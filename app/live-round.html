@@ -731,6 +731,18 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 .ballot-council a{color:var(--accent,#ef4444);font-weight:700}
 .replay-note{flex-basis:100%;margin:8px 0 0;font-size:.76rem;line-height:1.5;color:var(--text-dim)}
 .replay-note a{color:var(--accent,#ef4444);font-weight:700}
+/* Tournament content ask. Tokens with literal fallbacks on purpose:
+   this page defines a limited token set and an unguarded var() here is
+   the white-card-white-text trap the motion draft already paid for. */
+.tourn-content-ask{
+  margin:0 0 14px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--border,rgba(128,128,128,.3));
+  border-left:3px solid var(--accent,#ef4444);
+  background:var(--bg-card,rgba(128,128,128,.08));
+  color:var(--text-dim,inherit);font-size:.86rem;line-height:1.6;
+}
+.tourn-content-ask strong{color:var(--text,inherit)}
+.tourn-content-ask .btn{display:inline-block;margin-left:8px;vertical-align:middle}
 .rfd strong{font-weight:800}
 /* Round details: the standing chrome (who is in the round, the full
    speech order) folded behind one line, so the live panel reads motion,
@@ -13080,6 +13092,23 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // Deliberately honest about the delay rather than linking a URL that
   // 404s: Daily has to finish the file and a sync pass has to pick it up,
   // which is up to about half an hour. A link now would be a broken link.
+  // Tournament content ask (2026-08-31). Every tournament round is
+  // recorded by rule, so the raw material for a clip always exists; the
+  // missing step was anyone asking. Debaters only (a spectator has no
+  // round to brag about), tournament rounds only. The clip button calls
+  // the SAME share-card generator as the actions-row button below it,
+  // and the Watch-replay approval keeps its single home in
+  // replayNoteHtml so there is exactly one approve control per screen.
+  function tournamentContentAskHtml(){
+    if (isSpectator()) return '';
+    if ((prefill.source || '') !== 'tournament') return '';
+    return '<div class="tourn-content-ask">' +
+      '<strong>This round was recorded.</strong> Clip your sharpest moment and post it. ' +
+      'Rounds that get shared get watched, and watched rounds move the ladder. ' +
+      '<button class="btn btn-primary" id="tournClipBtn" type="button">📲 Make a share clip</button>' +
+      '</div>';
+  }
+
   function replayNoteHtml(){
     if (isSpectator()) return '';
     var d = cloudRec.doc || {};
@@ -13874,6 +13903,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // roomShiftSlot / deepRfdSlot pattern. Guards live in the filler.
       '<div id="friendSlot" data-stage="3"></div>' +
       '<div class="ballot-section" data-stage="3">' +
+      tournamentContentAskHtml() +
       lbBlock +
       '<div class="rfd-actions">' +
         '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
@@ -14054,6 +14084,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var shareBtn = $('shareClipBtn');
     if (shareBtn) shareBtn.addEventListener('click', function(){
       try { gtag('event', 'share_clip_open', { format: state.formatKey, won: b.winner === mySide() }); } catch(e){}
+      openShareClipModal(b);
+    });
+    // The tournament content ask's clip button: same generator, its own
+    // GA4 tag so the ask's pull can be read against the quiet button's.
+    var tournClipBtn = $('tournClipBtn');
+    if (tournClipBtn) tournClipBtn.addEventListener('click', function(){
+      try { gtag('event', 'share_clip_open', { format: state.formatKey, won: b.winner === mySide(), via: 'tournament_ask' }); } catch(e){}
       openShareClipModal(b);
     });
 

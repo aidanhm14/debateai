@@ -452,6 +452,24 @@ export default async (request) => {
         };
       }
 
+      // Standing feature consent (2026-08-31): an OPT-IN, separate from
+      // the mandatory recording acknowledgement, that says Debatable may
+      // clip and feature this entrant's tournament rounds on Watch and
+      // Debatable's own social accounts. Only ever written when the body
+      // says true explicitly, so a stale client that omits the field can
+      // never revoke a grant, and absence stays "not consented". It never
+      // affects pairing, standing, or eligibility.
+      if (body?.featureOk === true) {
+        patch.featureConsents = {
+          ...(already.featureConsents || {}),
+          [myUid]: {
+            ok: true,
+            version: 'tournament-feature-v1-2026-08-31',
+            atMs: Date.now(),
+          },
+        };
+      }
+
       if (Object.keys(patch).length) await snap.ref.update(patch);
       return {};
     }
@@ -543,6 +561,17 @@ export default async (request) => {
           acceptedAtMs: Date.now(),
         },
       },
+      // See the featureConsents note in applyEntryUpdate above: optional
+      // standing consent to be clipped and featured, never defaulted.
+      ...(body?.featureOk === true ? {
+        featureConsents: {
+          [myUid]: {
+            ok: true,
+            version: 'tournament-feature-v1-2026-08-31',
+            atMs: Date.now(),
+          },
+        },
+      } : {}),
       registeredAt: FieldValue.serverTimestamp(),
     });
     await ref.update({ entryCount: FieldValue.increment(1) }).catch(() => {});
