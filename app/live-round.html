@@ -17825,6 +17825,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     nominateJudge(key);
   }
 
+  // Presentation state for the judge cards: bullets hidden until asked.
+  var jdShowCompare = false;
   function renderJudgeDraft(){
     if (state.phase !== 'round') return;
     var el = judgeDraftHost();
@@ -17904,6 +17906,14 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           : 'The debaters are agreeing on one of three judge types.')
       : 'Locked in for this round. The ballot uses this judge type.';
 
+    // 2026-08-31, the founder: "simplify the UI of the right side ...
+    // a lot of ppl complain abt how complex it is". The three cards used
+    // to each carry a bullet list, so the unagreed state (every fresh
+    // round) opened on ~12 bullets of judge philosophy before anyone
+    // could start. The cards are compact now (name + one-line tag) and
+    // the bullets live behind one "Compare the three" toggle for the
+    // person who actually wants the detail. Nothing about the consent
+    // machinery moved; this is presentation only.
     var cards = JUDGE_ARCHETYPES.map(function(a){
       var mine = side && picks[side] === a.key;
       var theirs = theirSide && picks[theirSide] === a.key;
@@ -17918,15 +17928,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }
       if (bothHere) marks = '<span class="jd-mark jd-mark--me">Agreed</span>';
       var cls = 'jd-card' + (bothHere ? ' is-agreed' : (mine || theirs) ? ' is-split' : '');
+      var bullets = jdShowCompare
+        ? '<ul>' + a.bullets.map(function(b){ return '<li>' + escHtml(b) + '</li>'; }).join('') + '</ul>'
+        : '';
       return '<button type="button" class="' + cls + '" data-jk="' + a.key + '"' +
         ' style="--jx:' + a.accent + '"' +
         (live && iAmDebater ? '' : ' disabled') + '>' +
         '<div class="jd-card-name"><span class="jd-dot"></span>' + escHtml(a.name) + '</div>' +
         '<div class="jd-card-tag">' + escHtml(a.tag) + '</div>' +
-        '<ul>' + a.bullets.map(function(b){ return '<li>' + escHtml(b) + '</li>'; }).join('') + '</ul>' +
+        bullets +
         '<div class="jd-marks">' + marks + '</div>' +
       '</button>';
     }).join('');
+    var compareLink = '<button type="button" class="jd-mini" id="jdCompare" style="margin:6px 0 0">' +
+      (jdShowCompare ? 'Hide the details' : 'Compare the three') + '</button>';
 
     var actions = '';
     if (live && iAmDebater){
@@ -17946,9 +17961,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '<div class="jd-body">' +
         '<p class="jd-note">' + escHtml(note) + '</p>' +
         '<div class="jd-grid">' + cards + '</div>' +
+        compareLink +
         actions +
         (live ? '' : ballotLengthHtml()) +
       '</div>';
+    var cmpBtn = el.querySelector('#jdCompare');
+    if (cmpBtn) cmpBtn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      jdShowCompare = !jdShowCompare;
+      renderJudgeDraft();
+    });
   }
 
   // The one agreed judge type as ballot-prompt lines. The server ballot
@@ -18592,7 +18614,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // control remains the only path that starts the clock and transcript.
   var startCue = { el:null, dock:null, hot:false, io:null, btnSeen:true,
                    lvlCall:null, loudMs:0, sig:'', shown:{}, hotShown:{},
-                   reminder:null, reminderTimer:0, reminded:{} };
+                   reminder:null, reminderTimer:0, reminded:{},
+                   turnCued:{}, turnTimer:0 };
   var CUE_LOUD = 0.055;      // Daily audioLevel: quiet room floor sits well under this
   var CUE_LOUD_MS = 2000;    // ~2s of talking before we call it a speech, not a hello
   var CUE_LVL_MS = 200;      // observer interval
@@ -18654,7 +18677,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (startCue.reminderTimer){ clearTimeout(startCue.reminderTimer); startCue.reminderTimer = 0; }
     if (startCue.reminder){ startCue.reminder.remove(); startCue.reminder = null; }
   }
-  function showStartCueReminder(){
+  function showStartCueReminder(kind){
     var idx = state.speechIdx;
     if (!startCueAwaiting() || startCue.reminded[idx]) return;
     startCue.reminded[idx] = true;
@@ -18664,15 +18687,46 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     el.id = 'lrStartReminder';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'assertive');
-    el.innerHTML =
-      '<span style="flex:1;min-width:0">' +
-        '<b>Your speech has not started.</b> ' +
-        '<span class="lr-note-sub">We can hear you, but the clock and transcript are still off. Tap Start my speech to begin.</span>' +
-      '</span>';
+    el.innerHTML = kind === 'turn'
+      ? '<span style="flex:1;min-width:0">' +
+          '<b>It is your turn.</b> ' +
+          '<span class="lr-note-sub">The room is waiting on you. Tap Start my speech when you are ready.</span>' +
+        '</span>'
+      : '<span style="flex:1;min-width:0">' +
+          '<b>Your speech has not started.</b> ' +
+          '<span class="lr-note-sub">We can hear you, but the clock and transcript are still off. Tap Start my speech to begin.</span>' +
+        '</span>';
     document.body.appendChild(el);
     startCue.reminder = el;
     startCue.reminderTimer = setTimeout(hideStartCueReminder, 9000);
-    try { gtag('event', 'live_start_cue_reminder', { format: state.formatKey, speech: idx }); } catch(e){}
+    try { gtag('event', 'live_start_cue_reminder', { format: state.formatKey, speech: idx, kind: kind || 'hot' }); } catch(e){}
+  }
+  // ── Mid-round turn cue (2026-08-31, the founder: "remind users to
+  //    press 'start speech' when its there turn - a lot of ppl forget").
+  //    The opening beat (speech 1) and the we-can-hear-you reminder
+  //    (talking into a stopped clock) both existed; the gap was the
+  //    SILENT debater on speeches 2+, who just watched their opponent
+  //    finish and is often reading notes or another tab when the turn
+  //    lands. Once per speech: a soft chime and a title flash the moment
+  //    the turn arrives, then one on-screen reminder if the clock is
+  //    still off 10 seconds later. Nothing here starts a speech; the
+  //    no-auto-start rule stands. ──
+  function cueTurnArrival(){
+    var idx = state.speechIdx;
+    if (idx === 0) return;                       // speech 1 is the opening beat's job
+    if (!startCueAwaiting()) return;
+    if (startCue.turnCued[idx]) return;
+    startCue.turnCued[idx] = true;
+    try { openBeatChime(); } catch(e){}
+    try { if (typeof daFlashTitle === 'function') daFlashTitle('Your turn to speak'); } catch(e){}
+    try { gtag('event', 'live_turn_cue', { format: state.formatKey, speech: idx }); } catch(e){}
+    if (startCue.turnTimer) clearTimeout(startCue.turnTimer);
+    startCue.turnTimer = setTimeout(function(){
+      // Still unstarted and not mid-hello: the hot reminder covers the
+      // talking case with its own sharper wording.
+      if (startCueAwaiting() && !startCue.hot) showStartCueReminder('turn');
+      try { if (typeof daStopFlashTitle === 'function') daStopFlashTitle(); } catch(e){}
+    }, 10000);
   }
   function startCueGo(via){
     try { gtag('event', 'live_start_cue_click', { format: state.formatKey, via: via, hot: !!startCue.hot, speech: state.speechIdx }); } catch(e){}
@@ -18680,6 +18734,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
   function clearStartCue(){
     hideStartCueReminder();
+    if (startCue.turnTimer){ clearTimeout(startCue.turnTimer); startCue.turnTimer = 0; }
+    try { if (typeof daStopFlashTitle === 'function') daStopFlashTitle(); } catch(e){}
     if (startCue.el){ startCue.el.remove(); startCue.el = null; }
     if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
     var b = $('playPauseBtn');
@@ -18864,6 +18920,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var sig = (startCue.hot ? 'hot' : (quiet ? 'quiet' : 'idle')) + '|' + state.speechIdx + '|' + (startCue.btnSeen ? 'v' : 'h') + '|' + (kickoffEl ? 'k' : '');
     if (sig === startCue.sig) return;
     startCue.sig = sig;
+    cueTurnArrival();
 
     var btn = $('playPauseBtn');
     if (btn){
