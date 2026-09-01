@@ -19,9 +19,9 @@
  * opt-out it inherits) is exactly the switch someone would have flipped
  * to say "do not tell me about the live hours".
  *
- * EXCLUDED BY NAME: copied verbatim from admin-signup-welcome.mjs (the
- * founder's own and family accounts, disposable inboxes, and the people
- * reserved for PERSONAL outreach). Keep the two lists identical.
+ * EXCLUDED BY NAME: copied from admin-signup-welcome.mjs (the founder's
+ * own accounts, disposable inboxes, and the people reserved for PERSONAL
+ * outreach), MINUS family, who the founder asked to keep in.
  *
  * Env:
  *   RESEND_API_KEY        required to send; absent forces dry run
@@ -53,11 +53,7 @@ const EXCLUDE_EMAILS = new Set([
   // own + brand accounts
   'aidandavidhollinger@gmail.com', 'ahollinger@uchicago.edu',
   'trydebatable@gmail.com', 'contact@devilsadvocateteam.com',
-  // family
-  'davidhollinger13@gmail.com', 'juliaannehollinger@gmail.com',
-  'jhollinger@bishopodowd.org', 'jhollinger-miles27@bishopodowd.org',
-  'jonahhm09@gmail.com', 'mhollinger-miles27@bishopodowd.org',
-  'jenerfour@gmail.com',
+  // family: NOT excluded on this campaign (founder: "keep family in there").
   // Tier 1 notable signups: personal email from the founder instead
   'futarchy@gmail.com', 'john@superdebate.org', 'hines.debate@gmail.com',
   'adamboazbecker@gmail.com', 'antonia@theresanaiforthat.com',
@@ -112,10 +108,12 @@ function renderEmail({ firstName, uid }) {
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Debatable now runs Clash Hour three times a day, every day.</strong>
+    <strong>Debatable now runs Clash Hour three times a day, every day:
+    three hour-long slots when everyone shows up at once.</strong>
     A live round needs two people online at the same minute, and the queue
-    has been quiet at random hours. So there are three fixed hours now.
-    Pick the one that is evening where you are.
+    has been quiet at random hours. About 450 people have signed up, so if
+    even a few of us turn up in the same slot, you match in seconds. We
+    encourage you to show up for the one that is evening where you are.
   </p>
 
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
@@ -139,7 +137,7 @@ function renderEmail({ firstName, uid }) {
   </p>
 
   <p style="margin:0 0 22px">
-    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Show up at the next hour &rarr;</a>
+    <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Show up at the next slot &rarr;</a>
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
