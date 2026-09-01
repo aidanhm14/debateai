@@ -73,7 +73,7 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   const cta   = `${SITE_URL}/tournaments`;
   const rules = `${SITE_URL}/tournament-rules`;
   return `
-<div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
+<div style="max-width:680px;margin:0 auto;padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
@@ -86,10 +86,6 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     ratings.
   </p>
 
-  <img src="${SITE_URL}/landing-shot-live-v2.jpg" alt="Inside a live Debatable round: two people on camera with the motion and clock" width="472" style="width:100%;max-width:472px;border-radius:12px;display:block;margin:0 0 6px">
-  <p style="font-size:.8rem;line-height:1.5;color:#6b6b76;margin:0 0 16px">
-    Inside a live round. Two people, one motion, an AI judge writing the decision.
-  </p>
 
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
@@ -99,14 +95,6 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     is real. The clash hours below are how we all end up online at once.
   </p>` : ''}
 
-  <div style="margin:0 0 16px;line-height:1;font-size:0">
-    <img src="${SITE_URL}/img/round/faces/fictional-sydney.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-    <img src="${SITE_URL}/img/round/faces/fictional-kevin.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-    <img src="${SITE_URL}/img/round/faces/fictional-anna.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-    <img src="${SITE_URL}/img/round/faces/fictional-sofia.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-    <img src="${SITE_URL}/img/round/faces/fictional-malik.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-    <img src="${SITE_URL}/img/round/faces/fictional-chloe.jpg" alt="" width="152" style="width:152px;border-radius:10px;margin:0 4px 6px 0;vertical-align:top">
-  </div>
 
   <p style="font-size:1.02rem;line-height:1.55;margin:0 0 14px">
     <strong>THE HONEST PART: WE ARE LACKING USER LIQUIDITY. NOT ENOUGH OF
@@ -120,6 +108,19 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     pointing everyone to, so that is when the queue fills. 7 AM Eastern
     is 4:30 PM in Delhi and 9 PM in Sydney. 3 PM Eastern is 8 PM in
     London. 8 PM Eastern is 5 PM on the West Coast.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>Between rounds, keep Debatable open in a tab on your computer
+    and turn notifications on when the site asks.</strong> When someone
+    goes live looking for an opponent, you get pinged, and answering that
+    ping is how rounds happen outside the clash hours.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    Not ready to argue yet? You can
+    <a href="${SITE_URL}/watch" style="color:#dc2626;font-weight:700;text-decoration:underline">watch the rounds happening live</a>,
+    and when you have a take of your own, host your own round from there.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
