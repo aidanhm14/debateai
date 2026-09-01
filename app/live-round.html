@@ -1797,6 +1797,13 @@ body.speech-live .transcript-area{margin-top:4px}
 .jd-body{display:none;padding:2px 14px 14px}
 .jd.is-open .jd-body{display:block}
 .jd-note{font-size:.75rem;line-height:1.5;color:var(--text-dim);margin:0 0 11px}
+.jd-how{padding:7px 11px;border-radius:9px;border:1px solid var(--border);background:transparent;
+  color:var(--text);font:inherit;font-size:.7rem;font-weight:700;cursor:pointer}
+.jd-how:hover{border-color:var(--text-dim)}
+.jd-how-copy{margin-top:8px;padding:9px 11px;border-radius:9px;background:rgba(255,255,255,.035);
+  color:var(--text-dim);font-size:.7rem;line-height:1.5}
+[data-theme="light"] .jd-how-copy{background:rgba(0,0,0,.025)}
+.jd-how-copy span{display:block}
 .jd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .jd-card{position:relative;text-align:left;padding:11px 12px 12px;border-radius:11px;
   border:1px solid var(--border);background:rgba(255,255,255,.02);cursor:pointer;
@@ -4803,6 +4810,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       host.innerHTML = '<div class="jd-card is-agreed" aria-label="AI judge, fixed">' +
         '<div class="jd-card-name"><span class="jd-dot"></span>The AI judge</div>' +
         '<div class="jd-card-tag">Decides on what was said and how it was weighed. Nothing to pick.</div>' +
+        judgeHowHtml('Setup') +
       '</div>';
       return;
     }
@@ -14856,6 +14864,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     renderSetup();
   });
   $('setupJudgeTypes').addEventListener('click', function(e){
+    var how = e.target && e.target.closest ? e.target.closest('.jd-how') : null;
+    if (how){
+      jdShowHow = !jdShowHow;
+      renderSetupJudgeTypes();
+      return;
+    }
     if (SINGLE_JUDGE || tournamentControlsLocked()) return;
     var card = e.target && e.target.closest ? e.target.closest('[data-setup-jk]') : null;
     if (!card) return;
@@ -18114,6 +18128,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (card && !card.disabled){ nominateJudge(card.getAttribute('data-jk')); return; }
     var len = e.target.closest ? e.target.closest('.jd-len-btn') : null;
     if (len && !len.disabled){ setBallotLength(len.getAttribute('data-bl')); return; }
+    var how = e.target.closest ? e.target.closest('.jd-how') : null;
+    if (how){
+      jdShowHow = !jdShowHow;
+      renderJudgeDraft();
+      return;
+    }
     var re = e.target.closest ? e.target.closest('#jdRedraft') : null;
     if (re){ redraftJudge(); }
   }
@@ -18139,7 +18159,19 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
 
   // Presentation state for the judge cards: bullets hidden until asked.
+  var jdShowHow = false;
   var jdShowCompare = false;
+  function judgeHowHtml(place){
+    var suffix = place === 'Setup' ? 'Setup' : 'Round';
+    return '<button type="button" class="jd-how" id="jdHow' + suffix + '" aria-expanded="' + jdShowHow + '" aria-controls="jdHowText' + suffix + '">' +
+        (jdShowHow ? 'Hide how it judges' : 'How it judges') +
+      '</button>' +
+      '<div class="jd-how-copy" id="jdHowText' + suffix + '"' + (jdShowHow ? '' : ' hidden') + '>' +
+        '<span>Compares what each side actually said.</span>' +
+        '<span>Checks reasoning and responses.</span>' +
+        '<span>Weighs the clash that matters most.</span>' +
+      '</div>';
+  }
   function renderJudgeDraft(){
     if (state.phase !== 'round') return;
     var el = judgeDraftHost();
@@ -18191,6 +18223,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         '</div>' +
         '<div class="jd-body">' +
           '<p class="jd-note">One judge, no options to agree on. It writes the ballot when the round ends and names the reasons.</p>' +
+          judgeHowHtml('Round') +
           (judgeDraftIsLive() ? '' : ballotLengthHtml()) +
         '</div>';
       return;
