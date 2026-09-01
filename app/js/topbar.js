@@ -980,7 +980,7 @@
       var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore Debatable', hidden: 'hidden' });
       var intro = el('div', { class: 'ui-topbar-more-intro' }, [
         el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
-        el('div', { class: 'ui-topbar-more-intro-sub' }, 'Debate, train, watch, and build a record.'),
+        el('div', { class: 'ui-topbar-more-intro-sub' }, 'Practice, learn, watch, and debate.'),
       ]);
       panel.appendChild(intro);
 
@@ -990,7 +990,7 @@
       var spot = el('a', { href: '/spar', role: 'menuitem', class: 'ui-topbar-more-spot' });
       spot.innerHTML =
         '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
-        '<span class="ui-topbar-more-spot-title">Debate a stranger</span>' +
+        '<span class="ui-topbar-more-spot-title">Debate someone now</span>' +
         '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and get a verdict.</span>' +
         '<span class="ui-topbar-more-spot-proof">' +
           '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
@@ -1023,10 +1023,10 @@
       //
       // Four columns now, partitioned by INTENT rather than by which
       // array owns a row:
-      //   Debate    go be in a round with people, and where you stand
       //   Practice  drill on your own against the machine
       //   Learn     understand the thing, or get a person to teach it
       //   Watch     other people's rounds, and the people themselves
+      //   Debate    go be in a round with people, and where you stand
       //
       // Every column gets exactly ONE flagship tile and ONE second-tier
       // row, which is what makes a section read as a section: before
@@ -1065,14 +1065,6 @@
       // spotlight alt row and sheet row, all came out — one AI door,
       // the AI round flagship below. /voice-debate has NO nav entry.
       var columnGroups = [
-        column('Debate', [
-          ['/challenges',     'big'],
-          ['/debate-online',  'strong'],
-          ['/tournaments',    'strong'],
-          ['/private',        ''],
-          ['/leaderboard',    'strong'],
-          ['/claim',          ''],
-        ]),
         column('Practice', [
           // 2026-09-01, per the founder's annotated screenshot: the AI
           // round (/practice, full judged rounds against the clock) is
@@ -1092,13 +1084,21 @@
           ['/squad',          ''],
           ['/judge-integrity', ''],
         ]),
-        column('Watch & community', [
+        column('Watch', [
           // 2026-09-01, same annotated screenshot: Bounties, 'Watch live
           // debates' (/spectate) and 'Chat and DMs' are struck. /watch
           // already covers watching, /community already covers chat.
           ['/community',      'big'],
           ['/watch',          'strong'],
           ['/predict',        'strong'],
+        ]),
+        column('Debate', [
+          ['/challenges',     'big'],
+          ['/debate-online',  'strong'],
+          ['/tournaments',    'strong'],
+          ['/private',        ''],
+          ['/leaderboard',    'strong'],
+          ['/claim',          ''],
         ]),
       ];
       // 2026-08-12: each column carries its own accent through a `--col`
