@@ -34,3 +34,4 @@ the newer layout adjusted around it.
 - [2026-08-24 — landing format chooser](2026-08-24-landing-format-chooser.md) —
   the "Choose a format of debate" label, explainer and 10 format chips above
   the walkthrough video on `/landing`.
+- [Landing point-of-view strip](landing-pov-strip.md) — the "good argument is a beautiful thing" quote + /story link above the one-pager gate; cut 2026-08-31 same day it shipped.

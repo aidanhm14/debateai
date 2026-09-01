@@ -93,13 +93,14 @@ check('every structured FAQ question is visible on the page',
 check('visible brand page carries the same round answer',
   about.includes('<h2>What kind of round does Debatable use?</h2>')
   && about.includes('Every public round is a casual 1v1.'));
-// Founder identity remains sanctioned on other public surfaces, but the
-// landing note is deliberately text-only and unattributed: no portrait,
-// name, title, or attribution label here.
-check('the landing point-of-view note is short, text-only, and unattributed',
-  /A good argument is a beautiful thing\. Debatable gives anyone a place to test an idea, take a side, and enjoy the game\./.test(landing)
+// The point-of-view strip was REMOVED 2026-08-31 per the founder, hours
+// after it shipped (markup in graveyard/landing-pov-strip.md). What the
+// guard now pins is the removal itself plus the standing anonymity bar:
+// no founder quote block, portrait, or name on the landing.
+check('the landing carries no point-of-view strip and no founder attribution',
+  !/A good argument is a beautiful thing\./.test(landing)
+  && !/class="fndr/.test(landing)
   && !/Quote from the founder/.test(landing)
-  && !/class="fndr-photo"/.test(landing)
   && !/<b>Aidan<\/b>/.test(landing));
 check('the public signup caption uses only the named-account total',
   /' sign-ups<\/b> so far\.<\/span>'/.test(landing)
