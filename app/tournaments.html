@@ -692,7 +692,7 @@ section[id],[id^="faq"]{scroll-margin-top:82px}
              it off screen. -->
         <div class="kicker"><span id="heroKicker">Registration open</span><b class="free-chip">FREE TO ENTER</b></div>
         <h1>Get paid to <em>win an argument.</em></h1>
-        <p class="hero-lede" id="heroLede"><b class="lede-free">FREE TO ENTER.</b> One day. Real opponents. Cash prizes, and a written verdict on every round.</p>
+        <p class="hero-lede" id="heroLede"><b class="lede-free">FREE TO ENTER.</b> Live all week. Real opponents. Cash prizes, and a written verdict on every round.</p>
 
         <!-- Social proof, restored to panel scale and moved directly
              above the button, so the sequence a visitor reads is offer,
@@ -1570,7 +1570,10 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
          out of money(), which formats a number, and the rest is a
          literal. No field off the tournament doc reaches this string. */
       lede.innerHTML=registrationOpen
-        ? '<b class="lede-free">FREE TO ENTER.<\/b> One day. Real opponents. '+pool+', and a written verdict on every round.'
+        // "One day." went stale when the Open became a week-long ladder
+        // (2026-08-29); it sat in the first line of the hero, directly
+        // above copy saying "live all week", through the first two days.
+        ? '<b class="lede-free">FREE TO ENTER.<\/b> Live all week. Real opponents. '+pool+', and a written verdict on every round.'
         : '<b class="lede-free">THE FIELD IS SET.<\/b> The tournament is public to watch. Only people already on the roster can enter a round.';
     }
 
@@ -1665,7 +1668,10 @@ html[data-theme="crimson"],html[data-theme="grey"]{--link-red:#f87171;--surf-rgb
     // reads as a page that does not know its own field size.
     var bits=[];
     if(t.prizePoolCents>0)bits.push(money(t.prizePoolCents,t.currency)+' in prizes');
-    if(t.startsAt)bits.push('Starts '+t.startsAt);
+    // No "Starts " prefix: the doc's startsAt is a whole phrase now
+    // ("Live all week · Aug 29 to Sat Sep 5"), and the concatenation
+    // rendered "Starts Live all week", which reads as a typo.
+    if(t.startsAt)bits.push(t.startsAt);
     document.getElementById('enterMeta').textContent=bits.join(' · ')||(t.status==='running'?'Running now · roster closed':'Registration open');
     try{hydrateHero(t)}catch(e){console.warn('[tournaments] hero hydrate failed:',e)}
     reflectExistingEntry();
