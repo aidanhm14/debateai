@@ -173,7 +173,11 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>And we need your help pulling attention here.</strong> Right
     now the attention lives on other platforms. Tell one person who loves
-    to argue, clip the sharpest moment of your round and post it where
+    to argue: grab your invite link on
+    <a href="${SITE_URL}/friends" style="color:#dc2626;font-weight:700;text-decoration:underline">your friends page</a>
+    and send it to them. When they sign in you land in each other's
+    lists, and Challenge puts you both in a room with one tap. Clip the
+    sharpest moment of your round and post it where
     your people are, bring a friend to a clash hour, and get involved in
     <a href="https://discord.gg/WMHZW9BKvJ" style="color:#dc2626;font-weight:700;text-decoration:underline">the Discord</a>,
     where rounds get organized between clash hours. That is how
