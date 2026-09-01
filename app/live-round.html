@@ -2349,6 +2349,12 @@ body.speech-live .rmb-change{display:none}
 .rmb-timer{
   min-width:126px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
   padding:9px 13px;border:1px solid var(--border);border-radius:12px;background:var(--ui-surface);
+  /* 2026-09-01: hidden. The speech header above carries the primary
+     clock (promoted there so the clock is the first thing seen), which
+     left this one a lockstep mirror: two live clocks on one screen.
+     The ids and their writers in drawTimer/updateClockState stay wired,
+     so restoring is deleting this one line. */
+  display:none;
 }
 .rmb-timer-label{font-size:.58rem;font-weight:850;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim)}
 .rmb-timer-num{font-variant-numeric:tabular-nums;font-size:clamp(1.65rem,2.8vw,2.35rem);font-weight:900;line-height:1;color:var(--text)}
@@ -2828,6 +2834,12 @@ body.spectator-mode .rec-tail{display:none}
 .verdict-headline{font-size:1.5rem;font-weight:900;letter-spacing:-.01em;margin-bottom:6px}
 .verdict.pro .verdict-headline{color:#4ade80}
 .verdict.con .verdict-headline{color:#fca5a5}
+/* The winner's name is the biggest line on the screen, and the pale
+   green/red above measure ~1.2:1 on the light theme's near-white bg.
+   Same class of fix as every other [data-theme="light"] cut on this
+   page; deep cuts of the same hues. */
+[data-theme="light"] .verdict.pro .verdict-headline{color:#15803d}
+[data-theme="light"] .verdict.con .verdict-headline{color:#b91c1c}
 .verdict-sub{font-size:.86rem;color:var(--text-dim);line-height:1.5}
 .ballot-avatar{display:block;width:54px;height:54px;margin:0 auto 9px;border-radius:50%;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .ballot-avatar svg{display:block;width:100%;height:100%}
@@ -2891,9 +2903,15 @@ body.spectator-mode .rec-tail{display:none}
    block slides up and fades in on a stagger so the room reads the
    verdict beat-by-beat. Instant mode skips the .ballot-staged class
    and the sections inherit no animation (default opacity:1). */
+/* Visibility never rides the element's base style: this page ships
+   animations paused on a hidden tab (anim-governor), and a base
+   opacity:0 waiting on a paused animation freezes the ballot invisible
+   forever, the exact trap the .df-motion comment below documents. The
+   keyframe carries the hidden start instead (backwards fill covers the
+   stagger delay while the animation is able to run), so a paused or
+   reduced-motion ballot is simply visible. */
 .ballot-staged .ballot-section{
-  opacity:0;transform:translateY(10px);
-  animation:ballot-reveal-in .8s cubic-bezier(.2,.7,.2,1) forwards;
+  animation:ballot-reveal-in .8s cubic-bezier(.2,.7,.2,1) backwards;
 }
 .ballot-staged .ballot-section[data-stage="0"]{animation-delay:.1s}
 .ballot-staged .ballot-section[data-stage="1"]{animation-delay:1.6s}
@@ -2902,6 +2920,9 @@ body.spectator-mode .rec-tail{display:none}
 @keyframes ballot-reveal-in{
   from{opacity:0;transform:translateY(10px)}
   to{opacity:1;transform:translateY(0)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ballot-staged .ballot-section{animation:none}
 }
 
 .rfd{padding:0 22px 24px;font-size:.92rem;line-height:1.7;color:var(--text)}
@@ -3211,7 +3232,9 @@ html.stage-mode .stage-ov{display:block}
   .df-sides{grid-template-columns:1fr}
 }
 /* The board is a modal beat; nothing behind it should be reachable. */
-body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
+/* The kickoff element is #kickoffPrompt (it carries no class), so the
+   old .kickoff-strip selector here suppressed nothing. */
+body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
 
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
@@ -10784,12 +10807,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (remark.idx === _floorRemarkShownIdx) return;
     _floorRemarkShownIdx = remark.idx;
     // The bubble hangs off the judge chip. Where the rail is hidden
-    // (under 1000px, and in the mini / pop-out video modes) a card
-    // appended there would render into a hidden parent and be invisible,
-    // so it re-homes into the panel column above the round notes.
+    // (under 1000px, and in the mini / pop-out video modes) it re-homes
+    // into the panel column, directly under the motion bar. It used to
+    // land beside #roundNotes, which since the aides folded into the
+    // collapsed "Notes and fact checks" disclosure meant the between
+    // speech judge beat rendered into a closed <details> on every phone:
+    // generated, synced, and never seen. The motion bar is always
+    // visible in the round view, so the card is too.
     var rail = $('roomStage');
     var railVisible = rail && rail.offsetParent !== null;
-    var host = railVisible ? rail : ($('roundNotes') && $('roundNotes').parentNode);
+    var motionBar = $('roundMotionBar');
+    var host = railVisible ? rail : motionBar;
     if (!host) return;
     clearFloorRemark();
     var card = document.createElement('div');
@@ -10800,7 +10828,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       + '<button type="button" class="fr-close" aria-label="Dismiss">×</button>';
     card.querySelector('.fr-close').addEventListener('click', function(){ card.remove(); });
     if (railVisible) host.appendChild(card);
-    else host.insertBefore(card, $('roundNotes'));
+    else host.insertAdjacentElement('afterend', card);
   }
   function floorJudgeComment(entry){
     if (!floorJudgeOn()) return;
@@ -10941,6 +10969,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function rnStatusRow(txt, cls){
     return '<div class="rn-status' + (cls ? ' ' + cls : '') + '">' + escHtml(txt) + '</div>';
   }
+  // The aides live inside the collapsed "Notes and fact checks"
+  // disclosure. The first time either aide actually has something to
+  // show, open it once, or the note lands in a closed <details> and the
+  // "Notes ready" notice anchors at content nobody can see. Once per
+  // page load, so closing it again is respected for the rest of the
+  // round.
+  var _aidesAutoOpened = false;
+  function revealAides(){
+    if (_aidesAutoOpened) return;
+    var det = $('moreOptions');
+    if (!det) return;
+    _aidesAutoOpened = true;
+    det.open = true;
+  }
   function renderRoundNotes(){
     var sec = $('roundNotes');
     var list = $('rnList');
@@ -10956,6 +10998,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Nothing to say and nothing on the way: stay out of the round.
     if (!notes.length && !pendingIdx.length && on){ sec.hidden = true; return; }
     sec.hidden = false;
+    if (notes.length) revealAides();
     if (!on){
       if (!notes.length){ sec.hidden = true; return; }
       if (sub) sub.textContent = 'Notes are off for you. They keep being written for the round.';
@@ -11328,6 +11371,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       + ' on your speech. You will see ' + (held === 1 ? 'it' : 'them') + ' when you finish speaking.</div>';
     document.getElementById('fcList').innerHTML = html;
     band.hidden = false;
+    if (show.length) revealAides();
   }
 
   (function wireFactCheckToggle(){
@@ -12432,12 +12476,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       ? '<div class="points-grid" style="margin-top:18px;text-align:left">'
           + '<div class="points-card">'
             + '<div class="name">' + escHtml(proName) + '</div>'
-            + '<div class="pts">' + (hasProPoints ? escHtml(String(noWinner.proPoints)) : ', ') + '</div>'
+            + '<div class="pts">' + (hasProPoints ? escHtml(String(noWinner.proPoints)) : 'n/a') + '</div>'
             + '<div class="pts-label">Argument score · out of 100</div>'
           + '</div>'
           + '<div class="points-card">'
             + '<div class="name">' + escHtml(conName) + '</div>'
-            + '<div class="pts">' + (hasConPoints ? escHtml(String(noWinner.conPoints)) : ', ') + '</div>'
+            + '<div class="pts">' + (hasConPoints ? escHtml(String(noWinner.conPoints)) : 'n/a') + '</div>'
             + '<div class="pts-label">Argument score · out of 100</div>'
           + '</div>'
         + '</div>'
@@ -12808,6 +12852,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (slot) slot.innerHTML = deepRfdSlotHtml();
   }
 
+  // The notice below links to #ballotView, but the deep RFD lives at the
+  // "full" reading depth and the reader defaults to summary, so a bare
+  // anchor announced the long-form ballot and then delivered two
+  // sentences. Following the notice is choosing the full read, so the
+  // hash escalates the depth. This is the anchor's only producer.
+  window.addEventListener('hashchange', function(){
+    if (location.hash !== '#ballotView') return;
+    if (!state.rfdDeep || !window.BallotRead) return;
+    try { BallotRead.set('full'); } catch(e){}
+  });
   function notifyDeepRfdReady(){
     if (!state.rfdDeep || state.deepRfdNotified) return;
     state.deepRfdNotified = true;
@@ -13777,7 +13831,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // doesn't yank the user back to the interstitial.
   function renderBallot(b){
     state.lastBallot = b || null;
-    state.lastBallot = b;
     // Both clients pass through here (the generating debater directly,
     // the other via the Firestore sync), so this is the one choke point
     // where each side can flush its own consented speeches.
@@ -13830,16 +13883,23 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     // Spectators get a slimmer interstitial since the dramatic-reveal
     // controls are most useful to the speakers themselves. Spectators
     // still get the choice so they can sync their watch to whoever
-    // shouts "reveal" first.
+    // shouts "reveal" first, minus read-aloud: the judge speaking is the
+    // debaters' moment, and a watcher's autoplay is blocked anyway.
+    var slim = isSpectator();
     result.innerHTML =
       '<div class="ballot-interstitial">' +
         '<div class="bi-eyebrow">Ballot ready</div>' +
         '<div class="bi-headline">The judge has decided.</div>' +
-        '<div class="bi-sub">Pick how you want to see it. Dramatic reveals the verdict beat-by-beat; read-aloud has the AI judge say it out loud.</div>' +
-        '<div class="bi-actions">' +
-          '<button class="btn btn-primary" id="biRevealBtn" type="button">Read aloud</button>' +
-          '<button class="btn" id="biDramaticBtn" type="button">Dramatic reveal</button>' +
-        '</div>' +
+        (slim
+          ? '<div class="bi-sub">Reveal shows the verdict beat-by-beat.</div>'
+            + '<div class="bi-actions">'
+            + '<button class="btn btn-primary" id="biDramaticBtn" type="button">Reveal the verdict</button>'
+            + '</div>'
+          : '<div class="bi-sub">Pick how you want to see it. Dramatic reveals the verdict beat-by-beat; read-aloud has the AI judge say it out loud.</div>'
+            + '<div class="bi-actions">'
+            + '<button class="btn btn-primary" id="biRevealBtn" type="button">Read aloud</button>'
+            + '<button class="btn" id="biDramaticBtn" type="button">Dramatic reveal</button>'
+            + '</div>') +
         '<div class="bi-ghost"><button id="biInstantBtn" type="button">or skip the suspense, show me now</button></div>' +
       '</div>';
     var dramaticBtn = $('biDramaticBtn');
@@ -13922,6 +13982,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         + '.bp-rank-row{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border:1px solid var(--border);border-left:4px solid;border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:10px}'
         + '.bp-rank-num{font-size:2.4rem;font-weight:900;line-height:1;width:50px;text-align:center;color:var(--text);flex-shrink:0}'
         + '.bp-rank-1 .bp-rank-num{color:#fde68a;text-shadow:0 0 18px rgba(253,224,71,.45)}'
+        + '[data-theme="light"] .bp-rank-1 .bp-rank-num{color:#a16207;text-shadow:none}'
         + '.bp-rank-body{flex:1;min-width:0}'
         + '.bp-rank-team{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:4px}'
         + '.bp-rank-team-name{font-weight:600;color:var(--text-dim);font-size:.84rem}'
@@ -14032,9 +14093,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         if (AXES[i][0] === 'persuasion') persuasionShown = true;
         pv = Math.max(1, Math.min(10, pv)); cv = Math.max(1, Math.min(10, cv));
         rows.push(
-          '<div style="display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;margin:7px 0">' +
+          '<div style="display:grid;grid-template-columns:minmax(0,96px) minmax(0,1fr);gap:10px;align-items:center;margin:7px 0">' +
             '<span style="font-size:.8rem;font-weight:600;opacity:.85">' + AXES[i][1] + '</span>' +
-            '<span style="display:grid;grid-template-columns:minmax(54px,auto) 1fr 38px;gap:5px 8px;align-items:center">' +
+            // minmax(0,72px) on the name track: an auto max sizes to the
+            // longest name and pushes the bars out of the card on a
+            // phone; the ellipsis on the span only works once the track
+            // itself can shrink.
+            '<span style="display:grid;grid-template-columns:minmax(0,72px) minmax(0,1fr) 38px;gap:5px 8px;align-items:center">' +
               '<span style="font-size:.68rem;font-weight:700;color:#22c55e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(state.proName) + '</span>' +
               '<span style="height:7px;border-radius:99px;overflow:hidden;background:rgba(127,127,127,.2)"><i style="display:block;height:100%;width:' + (pv * 10) + '%;background:#22c55e;border-radius:inherit"></i></span>' +
               '<b style="font-size:.72rem;color:#22c55e;font-variant-numeric:tabular-nums;text-align:right">' + escHtml(String(pv)) + '/10</b>' +
@@ -14332,12 +14397,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.proName) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
-          '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : ', ') + '</div>' +
+          '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : 'n/a') + '</div>' +
           '<div class="pts-label">Argument score · out of 100</div>' +
         '</div>' +
         '<div class="points-card">' +
           '<div class="name">' + escHtml(state.conName) + ' · ' + escHtml(f.sideLabels[f.sides[1]]) + '</div>' +
-          '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : ', ') + '</div>' +
+          '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : 'n/a') + '</div>' +
           '<div class="pts-label">Argument score · out of 100</div>' +
         '</div>' +
       '</div>' +
@@ -14357,10 +14422,16 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         '<div data-read-tier="ballot">' +
           '<h3>Reason for decision</h3>' +
           '<p style="white-space:pre-wrap">' + judgeHtml(b.rfd || '(no RFD generated)') + '</p>' +
+        '</div>' +
+        '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>' +
+        // Per-speaker feedback rides read-min, not the ballot tier: a
+        // reader who escalates to the full ballot must not LOSE their
+        // own personalised notes, which is what nesting them inside the
+        // exclusive ballot tier did.
+        '<div data-read-min="ballot">' +
           (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(state.proName) + '</h3><p>' + judgeHtml(b.proFeedback) + '</p>' : '') +
           (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(state.conName) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
         '</div>' +
-        '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>' +
         flowOfferHtml() +
         roomShiftSlotHtml() +
       '</div>' +
@@ -19066,7 +19137,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       var h = $('readyHint');
       if (!h) return;
       h.textContent = left > 0
-        ? 'Your turn. Take a breath — start whenever you are ready. (' + left + 's)'
+        ? 'Your turn. Take a breath, start whenever you are ready. (' + left + 's)'
         : 'The room is waiting. Press Start my speech.';
     };
     paintHint();
