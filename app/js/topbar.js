@@ -288,7 +288,7 @@
     // Watch (the audience surface), Predict (the market) and Tournaments
     // (the event engine) are the scale bets; utility rows stay small so
     // the hierarchy means something.
-    { href: '/watch',         label: 'Watch', big: true },
+    { href: '/watch',         label: 'Watch & clips', big: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
     // { href: '/credentials',   label: 'Certificate' },
@@ -1282,7 +1282,7 @@
     friendsBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
       + '<circle cx="5.5" cy="5.6" r="2.3"/><path d="M1.6 13.2c.4-2.3 2-3.6 3.9-3.6s3.5 1.3 3.9 3.6"/>'
       + '<circle cx="11.4" cy="6.4" r="1.9"/><path d="M10.6 9.9c1.9.1 3.3 1.2 3.7 3.3"/></svg>'
-      + '<span>Friends</span><span class="ui-topbar-friendsbadge" id="daTopbarFriendsBadge" hidden></span>';
+      + '<span>Friends</span>';
     friendsBtn.addEventListener('click', function(){ navTrack('nav_friends_click', { from: location.pathname }); });
     right.appendChild(buildExplore());
     right.appendChild(howBtn);
@@ -2067,50 +2067,16 @@
   function fbAuthReady(){ return !!(window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length); }
   function fbCurrentUser(){ try { return window.firebase && firebase.auth && firebase.auth().currentUser; } catch(e){ return null; } }
 
-  // Reveal the Friends tab for a named account and hang the pending
-  // incoming-request count on it. The count is ONE bounded query per
-  // browser per 5 minutes (sessionStorage cache), never a listener —
-  // this runs on ~111 pages and a snapshot listener here would be a
-  // sitewide read fan-out for a badge. Firestore rides in lazily with
-  // notifications.js, so the query waits for it and gives up quietly:
-  // the tab itself never depends on the badge.
-  var FRIENDS_BADGE_TTL = 5 * 60 * 1000;
+  // Reveal the Friends tab for a named account. Reveal and hide only:
+  // the pending-request badge shipped with it lasted one look (founder,
+  // 2026-09-01: "no need for the red thing") and came off same day,
+  // along with its Firestore query. Do not re-add a count here without
+  // a fresh call.
   function daTopbarFriendsTab(user){
     var btn = document.getElementById('daTopbarFriendsBtn');
     if (!btn) return;
-    if (!user){ btn.setAttribute('hidden', 'hidden'); return; }
-    btn.removeAttribute('hidden');
-    var badge = document.getElementById('daTopbarFriendsBadge');
-    if (!badge) return;
-    var paint = function(n){
-      if (n > 0){ badge.textContent = n > 9 ? '9+' : String(n); badge.removeAttribute('hidden'); }
-      else badge.setAttribute('hidden', 'hidden');
-    };
-    try {
-      var c = JSON.parse(sessionStorage.getItem('da-friends-badge') || 'null');
-      if (c && c.uid === user.uid && (Date.now() - c.t) < FRIENDS_BADGE_TTL){ paint(c.n | 0); return; }
-    } catch(e){}
-    var tries = 0;
-    (function wait(){
-      var db = null;
-      try { db = window.firebase && firebase.firestore && firebase.firestore(); } catch(e){}
-      if (!db){ if (++tries < 16) setTimeout(wait, 500); return; }
-      db.collection('friendships')
-        .where('uids', 'array-contains', user.uid)
-        .limit(40)
-        .get()
-        .then(function(snap){
-          var n = 0;
-          snap.forEach(function(doc){
-            var d = doc.data() || {};
-            var mine = d.state && d.state[user.uid];
-            if (!mine && d.requestedBy && d.requestedBy !== user.uid) n++;
-          });
-          try { sessionStorage.setItem('da-friends-badge', JSON.stringify({ uid: user.uid, n: n, t: Date.now() })); } catch(e){}
-          paint(n);
-        })
-        .catch(function(){});
-    })();
+    if (user) btn.removeAttribute('hidden');
+    else btn.setAttribute('hidden', 'hidden');
   }
   function fbRealUser(){ var u = fbCurrentUser(); return u && !u.isAnonymous ? u : null; }
   function fbBootstrap(cb){
