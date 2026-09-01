@@ -77,6 +77,12 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
 
+  ${signupCount ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    You are one of <strong>${esc(String(signupCount))} people</strong> who
+    have signed up to Debatable, most of them in the last month. The field
+    is real. The clash hours below are how we all end up online at once.
+  </p>` : ''}
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>${esc(tournamentName)} changed shape: it is now a week-long
     rating ladder, live right now through 11:59 PM Eastern on Saturday,
@@ -102,11 +108,6 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
 
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
-  ${signupCount ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    You are one of <strong>${esc(String(signupCount))} people</strong> who
-    have signed up to Debatable, most of them in the last month. The field
-    is real. The clash hours below are how we all end up online at once.
-  </p>` : ''}
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>Camera shy? You can still play behind the avatar.</strong>
@@ -171,7 +172,8 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
     <strong>And we need your help pulling attention here.</strong> Right
     now the attention lives on other platforms. Tell one person who loves
-    to argue, share a round, bring a friend to a clash hour. That is how
+    to argue, clip the sharpest moment of your round and post it where
+    your people are, bring a friend to a clash hour. That is how
     this place gets loud.
   </p>
 
