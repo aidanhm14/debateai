@@ -194,6 +194,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **The landing's "live right now" line shows 2 plus the measured count, always** (2026-09-01, Aidan, off a screenshot of the first screen: "say the number of live right now (always have 2 minimum) and add the actual live amount on top"). fsLiveNow, the guest nudge above the first-screen Google button, becomes the SECOND founder-called display exception to the 2026-08-31 real-numbers rule, the same shape as the /spar gate's "4 + real waiting": displayed = 2 + max(presence online30, 2 x live public rounds), and the line no longer hides at zero (the markup ships "2" so a JS-off visitor sees the floor rather than an empty tag). The measured inputs stay raw and nothing drifts; the displayed figure is a conversion label, never traffic data. The floor is `LIVE_FLOOR` in fsLiveNow; do not widen it to any other surface without its own entry here.
+
 - **The first-screen odds strip is hidden again** (2026-09-01, Aidan off a screenshot of the Owen/Grace percentage bar: "get rid of this thing on the landing page it makes the page ovefrwhelming / too much"). This re-retires the 2026-08-28 "spectator-heavy first screen built around betting tokens" reveal and returns the board to the 2026-08-22 posture: `.fs-board .fs-odds{display:none}`, one CSS rule, markup and JS untouched because the strip's tick drives the board's clock. The card now reads faces, motion, then the AI judge's decision. The 2026-08-31 header compression ("Spectators bet free tokens on who wins") is moot while hidden. Do not restore `display:block` without a fresh founder call recorded here; the strip has now flipped twice on founder sight of the live page.
 
 - **face64 is pulled from the board, and removing a face turns out to be four surfaces** (2026-09-01, Aidan off the first-screen ROUNDS board: "get rid of his image on the landing page its not attractice"). The tile was Pascal, the middle still of the face63-65 batch supplied the day before: dark, underexposed, shot against a bare wall, and the weakest of the three at tile size. **Consent was never the question**, so this is a quality call and not a consent one, and a brighter crop of the same person would be welcome. The file is deleted and the number stays out of every pool, the same posture as face05/09/14/39/55.
@@ -1139,4 +1141,4 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ---
 
-*Last updated: 2026-09-01 (latest pass: the first-screen odds strip is hidden again)*
+*Last updated: 2026-09-01 (latest pass: the landing "live right now" line shows 2 plus the measured count)*

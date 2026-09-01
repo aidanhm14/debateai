@@ -7758,8 +7758,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      site's liveness colour (the Bet pill, the spar "N waiting" pulse),
      kept off the red CTAs so it reads as a status signal, not a button.
      Takes its own full-width row so it sits ABOVE the button + why-line
-     on both columns. The number is MEASURED ONLY (2026-08-31; the old
-     display floor is retired, see fsLiveNow) and hides itself at zero. */
+     on both columns. The number is a founder-called 2 minimum plus the
+     measured live count (2026-09-01, see fsLiveNow) and is always on. */
   .fs-live-now{flex:0 0 auto;align-self:flex-start;max-width:100%;display:inline-flex;align-items:center;gap:8px;
     padding:6px 12px;border-radius:999px;background:rgba(22,163,74,.10);
     border:1px solid rgba(22,163,74,.28);font-size:.82rem;font-weight:700;
@@ -8932,15 +8932,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          handler; the copy arms' own sign-in rows are hidden at every
          width now, so exactly one is ever visible. -->
     <div class="fs-signin fs-signin--side">
-      <!-- Live "right now" nudge above the guest Google button. REAL
-           NUMBERS ONLY (2026-08-31): fsLiveNow (near the end of the
-           document) fills the count from measured presence/watch-live
-           and reveals the line only when it is above zero. Ships hidden
-           and empty so neither a JS-off visitor nor a quiet site ever
-           sees an invented figure. -->
-      <div class="fs-live-now" data-live-now-wrap hidden>
+      <!-- Live "right now" nudge above the guest Google button.
+           FOUNDER-CALLED DISPLAY FLOOR (2026-09-01, Aidan: "say the
+           number of live right now (always have 2 minimum) and add the
+           actual live amount on top"): the line shows 2 + the measured
+           count and is always visible, the same explicit conversion
+           exception as the /spar gate's "4 + real waiting" (2026-08-31).
+           This narrows the 2026-08-31 real-numbers-only pass for THIS
+           line only, on his direct instruction; the measured inputs
+           (presence online30, watch-live) stay raw, and fsLiveNow (near
+           the end of the document) is where the arithmetic lives. The
+           markup ships "2" so a JS-off visitor sees the floor, never an
+           empty "<b></b> live right now". -->
+      <div class="fs-live-now" data-live-now-wrap>
         <span class="fs-live-now-dot" aria-hidden="true"></span>
-        <span><b data-live-now></b> live right now</span>
+        <span><b data-live-now>2</b> live right now</span>
       </div>
       <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-google">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -19374,28 +19380,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   })();
 
   /* fsLiveNow: the guest sign-in "N live right now" nudge (2026-08-24;
-     made REAL-ONLY 2026-08-31, founder: "get rid of the bot numbers...
-     make them real numbers"). The old drifting 5..8 synthetic floor is
-     RETIRED; do not restore a floor, a pad, or an instant pre-fetch
-     paint here. The number is now purely measured: sessions seen in
-     the last 30 minutes (presence online30, unpadded) or two seats per
-     live public round (from watch-live), whichever is larger. It is
-     framed as people who are "live right now", never as a count of
-     live debates, which watch-live could contradict. At zero the line
-     stays hidden, which is the honest quiet state. Guest-only, since
-     the whole .fs-signin--side unit is hidden once body.signed-in. */
+     made real-only 2026-08-31; FLOOR + REAL 2026-09-01, founder: "say
+     the number of live right now (always have 2 minimum) and add the
+     actual live amount on top"). Displays LIVE_FLOOR + measured, always
+     visible, the same explicit founder-called conversion exception as
+     the /spar gate's "4 + real waiting" — this line only. The measured
+     half stays honest: sessions seen in the last 30 minutes (presence
+     online30, unpadded) or two seats per live public round (from
+     watch-live), whichever is larger, with nothing drifting or random.
+     It is framed as people who are "live right now", never as a count
+     of live debates, which watch-live could contradict. Do not quote
+     the displayed figure as traffic data, and do not widen the floor
+     to any other surface without its own decision-log entry.
+     Guest-only, since the whole .fs-signin--side unit is hidden once
+     body.signed-in. */
   (function(){
     var wrap = document.querySelector('[data-live-now-wrap]');
     var nums = document.querySelectorAll('[data-live-now]');
     if (!wrap || !nums.length) return;
+    var LIVE_FLOOR = 2; // founder-called minimum; the markup ships it for JS-off
     var real = 0; // max(recent presence, 2 x live rounds); 0 until fetched
     function paint(){
-      if (real > 0){
-        for (var i = 0; i < nums.length; i++) nums[i].textContent = real;
-        wrap.hidden = false;
-      } else {
-        wrap.hidden = true;
-      }
+      var shown = LIVE_FLOOR + real;
+      for (var i = 0; i < nums.length; i++) nums[i].textContent = shown;
+      wrap.hidden = false;
     }
     function refreshReal(){
       var live = 0, pres = 0, done = 0;

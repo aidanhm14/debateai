@@ -407,8 +407,10 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The
-  signed-out `/spar` gate is the one explicit conversion exception to the
-  raw-count rule: it shows **4 + the real waiting count** from
+  signed-out `/spar` gate is one of two explicit conversion exceptions to
+  the raw-count rule (the other is the landing's fsLiveNow "N live right
+  now" line at 2 + measured, 2026-09-01): it shows **4 + the real waiting
+  count** from
   `/api/spar-queue`, and its once-per-session prompt offers Google only
   (2026-08-31, founder: "have it say 4 live and add the number of actually
   live" and "have a sign in with google pop up"). Operational queue surfaces
