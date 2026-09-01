@@ -19620,21 +19620,40 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // Since 2026-08-27 online24 is measured only and excludes suspicious
     // city-cell bursts. A zero renders nothing rather than "0 visits":
     // a quiet globe with no caption is the honest quiet state.
-    // 2026-08-31, later the same day, founder off a screenshot of the
-    // caption ("get rid of this part- not needed"): the sign-up split
-    // line ("N sign-ups so far: G with Google, E with email") is CUT.
-    // The caption carries the visits line only. The provider split
-    // stays available on /api/public-join-history (totals.email etc.)
-    // for any future surface; only this consumer went.
     var liveCaption = document.getElementById('globeLiveCaption');
+    var capVisits = '';
+    var capSignups = '';
+    function paintCaption(){
+      if (!liveCaption) return;
+      liveCaption.innerHTML = capVisits + capSignups;
+    }
     function setLiveCaption(measuredCount){
-      if (!liveCaption || typeof measuredCount !== 'number') return;
+      if (typeof measuredCount !== 'number') return;
       var count = Math.max(0, Math.floor(measuredCount));
-      liveCaption.innerHTML = count > 0
+      capVisits = count > 0
         ? '<span style="display:block"><b style="color:var(--accent,#ef4444)">' + count +
           ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>'
         : '';
+      paintCaption();
     }
+    // Real sign-up transparency line: total named accounts with the
+    // Google vs email split, straight from the 1h-cached Auth walk.
+    // No fallback figure on purpose: a failed fetch shows nothing
+    // rather than a stale claim.
+    fetch('/api/public-join-history', { credentials: 'omit' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.totals) return;
+        var m = Math.max(0, parseInt(j.totals.members, 10) || 0);
+        var g = Math.max(0, parseInt(j.totals.google, 10) || 0);
+        var e = Math.max(0, parseInt(j.totals.email, 10) || 0);
+        if (!m) return;
+        capSignups = '<span style="display:block"><b>' + m.toLocaleString() +
+          ' sign-ups</b> so far: ' + g.toLocaleString() + ' with Google, ' +
+          e.toLocaleString() + ' with email.</span>';
+        paintCaption();
+      })
+      .catch(function(){});
     function fetchLive(){
       fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
         if (!d) return;
