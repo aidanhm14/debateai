@@ -136,23 +136,9 @@ body.has-beta-strip{padding-top:84px}
       <div id="frIncoming"></div>
     </div>
 
-    <!-- Profile-pic nudge. A fresh account renders as one letter on every
-         row below, so the ask lives where the letter is on screen. Shows
-         only when the account has no chosen identity AND no account photo;
-         "Not now" is a sticky per-browser answer, never re-asked. -->
-    <div class="fr-card" id="frPicCard" hidden>
-      <div class="fr-row" style="border-top:0">
-        <span class="fr-av" id="frPicAv" aria-hidden="true">?</span>
-        <div class="fr-id" style="flex:1 1 220px">
-          <div class="fr-name">Put a face on your name</div>
-          <div class="fr-meta" style="white-space:normal;display:block">Friends see this letter everywhere you debate. Pick a picture or design an avatar once and it rides your rounds, messages, and the leaderboard.</div>
-        </div>
-        <div class="fr-acts">
-          <button class="fr-btn pri" id="frPicGo" type="button">Choose my picture</button>
-          <button class="fr-btn quietb" id="frPicNo" type="button">Not now</button>
-        </div>
-      </div>
-    </div>
+    <!-- Profile-pic nudge: js/pfp-nudge.js renders here for a named
+         account with no chosen picture. -->
+    <div data-pfp-nudge></div>
 
     <div class="fr-card">
       <h2>Your friends</h2>
@@ -194,6 +180,7 @@ body.has-beta-strip{padding-top:84px}
      profile-pic nudge decides whether to ask. Without it, someone who built
      a face on their phone gets nagged on their laptop. -->
 <script defer src="/js/avatar-account.js"></script>
+<script defer src="/js/pfp-nudge.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/home-magnet.js"></script>
 <script>
@@ -409,68 +396,6 @@ body.has-beta-strip{padding-top:84px}
     };
   }
 
-  // ── profile-pic nudge ─────────────────────────────────────────────
-  // Friend rows render initials, so an account with no picture reads as
-  // a letter to everyone who knows them. Detection reads the identity
-  // stores directly (avatar.js is 80KB and only loads on the click);
-  // avatar-account.js hydrates a design saved on another device into the
-  // same keys, so the decision waits for its ready event.
-  var PIC_NUDGE_KEY = 'da-pfp-nudge';
-  function hasProfilePic(){
-    try {
-      if (me && me.photoURL) return true;
-      var ls = window.localStorage;
-      return !!(ls.getItem('debatable-avatar') || ls.getItem('debateit-avatar')
-        || ls.getItem('debatable-live-avatar-v1') || ls.getItem('debatable-pfp-v1'));
-    } catch (e) { return true; }  // storage unreadable, never nag
-  }
-  function loadAvatarEngine(cb){
-    if (window.DBAvatar && window.DBAvatar.openBuilder) { cb(true); return; }
-    var tag = document.querySelector('script[data-da-avatar]');
-    if (!tag) {
-      tag = document.createElement('script');
-      tag.src = '/js/avatar.js';
-      tag.setAttribute('data-da-avatar', '1');
-      document.head.appendChild(tag);
-    }
-    tag.addEventListener('load', function(){ cb(!!(window.DBAvatar && window.DBAvatar.openBuilder)); });
-    tag.addEventListener('error', function(){ cb(false); });
-  }
-  function maybeOfferPic(){
-    var card = $('frPicCard');
-    if (!card) return;
-    try { if (localStorage.getItem(PIC_NUDGE_KEY)) return; } catch (e) { return; }
-    var done = false;
-    var decide = function(){
-      if (done) return;
-      done = true;
-      if (hasProfilePic()) return;
-      $('frPicAv').textContent = initial(myName());
-      card.hidden = false;
-      try { gtag('event', 'pfp_nudge_shown', { event_category: 'friends' }); } catch (e) {}
-    };
-    window.addEventListener('debatable-avatar-account-ready', decide, { once: true });
-    setTimeout(decide, 3000);
-    $('frPicGo').onclick = function(){
-      try { gtag('event', 'pfp_nudge_open', { event_category: 'friends' }); } catch (e) {}
-      $('frPicGo').disabled = true;
-      loadAvatarEngine(function(ok){
-        $('frPicGo').disabled = false;
-        if (!ok) { flash('The picture picker could not load. Try again in a moment.', true); return; }
-        window.DBAvatar.openBuilder({ onSave: function(){
-          card.hidden = true;
-          try { gtag('event', 'pfp_nudge_saved', { event_category: 'friends' }); } catch (e) {}
-          flash('Saved. That face now rides everywhere you debate.');
-        }});
-      });
-    };
-    $('frPicNo').onclick = function(){
-      card.hidden = true;
-      try { localStorage.setItem(PIC_NUDGE_KEY, 'dismissed'); } catch (e) {}
-      try { gtag('event', 'pfp_nudge_dismissed', { event_category: 'friends' }); } catch (e) {}
-    };
-  }
-
   function showGate(){
     $('frGate').hidden = false;
     $('frMain').hidden = true;
@@ -493,7 +418,6 @@ body.has-beta-strip{padding-top:84px}
     });
     setupInvite();
     handleAddParam();
-    maybeOfferPic();
     document.addEventListener('visibilitychange', function(){
       if (!document.hidden && lastView) refreshDots(lastView.friends);
     });
