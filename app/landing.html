@@ -17801,8 +17801,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   </style>
   <div class="cb-wrap">
     <div class="cb-eyebrow">The community</div>
-    <h2 class="cb-title">Debate on your own time. <em>Meet live on Wednesday.</em></h2>
-    <p class="cb-sub">Answer an open claim whenever you are ready, or join the community at the same time for weekly Spar Night.</p>
+    <h2 class="cb-title">Debate on your own time. <em>Meet live three times a day.</em></h2>
+    <p class="cb-sub">Answer an open claim whenever you are ready, or join the community at the same hour for Spar Night, three clash hours every day.</p>
     <div class="cb-live" id="cbLive" aria-label="Live community activity">
       <span class="cb-pill" id="cbOnline"></span>
       <span class="cb-pill" id="cbNext"></span>
@@ -17876,9 +17876,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </article>
       <article class="cb-path cb-path--spar">
         <div class="cb-spar-copy">
-          <span class="cb-path-k"><i></i>Live together · every Wednesday</span>
+          <span class="cb-path-k"><i></i>Live together · three times a day</span>
           <h3>Meet live at Spar Night</h3>
-          <p class="cb-path-copy">Everyone joins at the same time. Three sessions a Wednesday, one per side of the world: 7 AM, 3 PM and 8 PM ET. Enter the queue, get matched, debate live, and receive an AI result when the round ends.</p>
+          <p class="cb-path-copy">Everyone joins at the same time. Three sessions every day, one per side of the world: 7 AM, 3 PM and 8 PM ET. Enter the queue, get matched, debate live, and receive an AI result when the round ends.</p>
         </div>
         <div class="cb-spar-visual" role="img" aria-label="Two Debatable speakers facing each other in a live online round">
           <img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async" width="440" height="245">
@@ -17929,9 +17929,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     });
   }
   // ── the week strip ─────────────────────────────────────────────
-  // DST-safe next Wednesday session, same technique as js/spar-night.js.
-  // Three sessions since 2026-08-24; SESSION_HOURS must match SESSIONS
-  // there and SESSION_HOURS in scheduled-spar-night.mjs.
+  // DST-safe next session, same technique as js/spar-night.js. Three
+  // sessions since 2026-08-24, EVERY DAY since 2026-09-01; SESSION_HOURS
+  // must match SESSIONS there and SESSION_HOURS in scheduled-spar-night.mjs.
+  // (nextWed keeps its name so the call sites below did not have to move.)
   var TZ = 'America/New_York', SESSION_HOURS = [7, 15, 20], LIVE_MS = 90 * 60 * 1000;
   var SESSION_NAME = { 7: 'Asia-Pacific night', 15: 'Europe night', 20: 'US night' };
   var partsFmt = null;
@@ -17950,9 +17951,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     return guess;
   }
   function nextWed(now){
-    for (var i = 0; i < 10; i++){
+    for (var i = 0; i < 3; i++){
       var p = nyParts(now + i * 86400000);
-      if (p.weekday !== 'Wed') continue;
       for (var j = 0; j < SESSION_HOURS.length; j++){
         var start = nyToUtc(+p.year, +p.month, +p.day, SESSION_HOURS[j], 0);
         if (start + LIVE_MS > now) return { start: start, hour: SESSION_HOURS[j] };
@@ -17985,15 +17985,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (calEl){
       var two = function(n){ return n < 10 ? '0' + n : '' + n; };
       var endMin = next.hour * 60 + 90;
-      var dates = '20260722T' + two(next.hour) + '0000/20260722T'
+      var np = nyParts(start), day = np.year + np.month + np.day;
+      var dates = day + 'T' + two(next.hour) + '0000/' + day + 'T'
         + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
       calEl.href = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
         + '&text=' + encodeURIComponent('Open Spar Night (' + (SESSION_NAME[next.hour] || '') + ') · Debatable')
-        + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge result at the end. Join the queue at itsdebatable.com/spar')
+        + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge result at the end. Join the queue at itsdebatable.com/spar')
         + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
         + '&dates=' + dates
         + '&ctz=' + encodeURIComponent(TZ)
-        + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+        + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
     }
     if (localEl){
       var local = new Date(start).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });

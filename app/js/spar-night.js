@@ -1,10 +1,16 @@
 /* spar-night.js — Open Spar Night countdown (2026-07-15).
  *
- * The liquidity fix for /spar: fixed weekly hours when everyone queues
- * at once, instead of visitors trickling in across the week and never
- * overlapping in the 60s matchmaking window. Wednesdays, 90-minute live
- * windows. First event 2026-07-22; before that the countdown targets
- * the first event, after that it always targets the next session.
+ * The liquidity fix for /spar: fixed hours when everyone queues at
+ * once, instead of visitors trickling in and never overlapping in the
+ * 60s matchmaking window. 90-minute live windows. First event
+ * 2026-07-22; before that the countdown targets the first event, after
+ * that it always targets the next session.
+ *
+ * EVERY DAY since 2026-09-01 (the founder: "3 times to debate EVERY
+ * DAY, 3 slots for the daytime to meet"). The three Eastern hours are
+ * unchanged; the Wednesday gate is gone, so the countdown always points
+ * at the next of today's or tomorrow's three sessions. The reminder
+ * email (scheduled-spar-night.mjs) still goes out once a week.
  *
  * THREE sessions since 2026-08-24, one per side of the world (the
  * founder: run it three times, US night, Europe night, East
@@ -94,14 +100,13 @@
     return guess;
   }
 
-  // The next session whose live window hasn't ended yet. Walks the day
-  // AND the three sessions inside it, so at 7:40 AM ET on a Wednesday
-  // the answer is "live now, Asia-Pacific", at 9 AM it is "3 PM,
-  // Europe", and on Thursday it is next week's first one.
+  // The next session whose live window hasn't ended yet. Walks today
+  // AND the three sessions inside it, so at 7:40 AM ET the answer is
+  // "live now, Asia-Pacific", at 9 AM it is "3 PM, Europe", and after
+  // 9:30 PM it is tomorrow's 7 AM. Every day since 2026-09-01.
   function nextSession(nowMs) {
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 3; i++) {
       var p = nyParts(nowMs + i * 86400000);
-      if (p.weekday !== 'Wed') continue;
       for (var j = 0; j < SESSIONS.length; j++) {
         var start = nyToUtc(+p.year, +p.month, +p.day, SESSIONS[j].hour, 0);
         if (start + LIVE_MS <= nowMs) continue;   // already finished
@@ -159,11 +164,11 @@
       + day + 'T' + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       + '&text=' + encodeURIComponent('Open Spar Night (' + st.session.name + ') · Debatable')
-      + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every Wednesday, 7 AM, 3 PM and 8 PM ET. Join the queue at itsdebatable.com/spar')
+      + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every day, 7 AM, 3 PM and 8 PM ET. Join the queue at itsdebatable.com/spar')
       + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
       + '&dates=' + dates
       + '&ctz=' + encodeURIComponent(TZ)
-      + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+      + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
   }
 
   function ga(name, meta) {
@@ -297,8 +302,19 @@
     // The headline and the three clash hours are the card; keep them large.
     '.sn-card--rail .sn-title{font-size:.98rem;margin:6px 0 3px}' +
     '.sn-card--rail .sn-sub{font-size:.68rem;margin:0 0 9px}' +
-    '.sn-hours{display:block;font-size:1.12rem;font-weight:900;letter-spacing:.01em;' +
+    // 2026-09-01: the one-line "7:00 AM · 3:00 PM · 8:00 PM ET" overflowed
+    // the ~280px rail (the founder sent a screenshot of "ET" running out
+    // of the card). Three slot chips instead, one per session, each with
+    // the Eastern hour big and the visitor's own local hour under it.
+    '.sn-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:2px 0 0}' +
+    '.sn-slot{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:8px 4px 7px;' +
+      'border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));' +
+      'background:var(--bg-card,rgba(255,255,255,.04));text-align:center}' +
+    '.sn-slot b{font-size:.96rem;font-weight:900;letter-spacing:-.01em;line-height:1.1;' +
       'color:var(--text,#f4f4f2);font-variant-numeric:tabular-nums;white-space:nowrap}' +
+    '.sn-slot small{font-size:.58rem;font-weight:700;line-height:1.2;color:var(--text-dim,rgba(255,255,255,.55));' +
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}' +
+    '[data-theme="light"] .sn-slot,[data-theme="stone"] .sn-slot{background:#fff;border-color:rgba(29,25,21,.13)}' +
     /* nowrap + row wrap: in a ~280px rail the countdown digits must never
        break mid-value; if the row runs out of room the CTA drops below
        instead. */
@@ -354,22 +370,35 @@
     var endMin = st.session.hour * 60 + 90;
     var title = live
       ? 'Spar Night is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
-      : st.session.name + ' \u00b7 Wednesday ' + hourLabel(st.session.hour) + ' ET';
+      : st.session.name + ' \u00b7 ' + hourLabel(st.session.hour) + ' ET, every day';
     // Rail headline is the simple version of the same fact; the session
     // name and exact next hour still ride the countdown's local line.
-    var railTitle = live ? title : 'Three clash hours every Wednesday.';
+    var railTitle = live ? title : 'Three clash hours, every day.';
     var cities = zoneLine(st.start, st.session.zones);
     // 2026-08-31, the founder off the rail card: "simplify how this is
     // messaged - bigfer text. 3 main clash hours to show up and they are
     // specified as those hours." The rail leads with the three hours
     // themselves, big, derived from SESSIONS so the schedule can never
     // drift from the timer that counts down to it.
-    var hoursLine = SESSIONS.map(function (s) { return hourLabel(s.hour); }).join(' · ') + ' ET';
+    // Each chip: the Eastern hour, then the same instant in the visitor's
+    // own clock (or the session's region when the two clocks agree).
+    // Built off the next session's Eastern DATE so DST is right today.
+    var slotsHtml = SESSIONS.map(function (s) {
+      var startMs = nyToUtc(+cp.year, +cp.month, +cp.day, s.hour, 0);
+      var et = hourLabel(s.hour).replace(':00', '');
+      var under = s.name.replace(/ night$/, '');
+      try {
+        var loc = new Date(startMs).toLocaleTimeString(undefined, { hour: 'numeric' });
+        var ny = new Date(startMs).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: TZ });
+        if (loc !== ny) under = loc + ' local';
+      } catch (e) {}
+      return '<span class="sn-slot"><b>' + et + ' ET</b><small>' + under + '</small></span>';
+    }).join('');
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
       : (variant === 'rail'
-        ? '<span class="sn-hours">' + hoursLine + '</span>'
-        : 'Ninety minutes when everyone queues at once. Three sessions every Wednesday, one per side of the world: 7 AM, 3 PM and 8 PM ET.'
+        ? '<span class="sn-slots">' + slotsHtml + '</span>'
+        : 'Ninety minutes when everyone queues at once. Three sessions every day, one per side of the world: 7 AM, 3 PM and 8 PM ET.'
           + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'
@@ -406,7 +435,7 @@
           '<input type="text" class="sn-hp" data-sn-rsvp-hp tabindex="-1" autocomplete="off" aria-hidden="true">' +
           '<button type="submit" class="sn-cta sn-cta--solid" data-sn-rsvp-submit>Send it</button>' +
         '</form>' +
-        '<p class="sn-rsvp-note" data-sn-rsvp-note>One email the day of. Nothing else.</p>' +
+        '<p class="sn-rsvp-note" data-sn-rsvp-note>One reminder a week. Nothing else.</p>' +
       '</div>';
 
     if (variant === 'rail') {
@@ -508,11 +537,16 @@
         markRsvpDone(email);
         ga('spar_night_rsvp', { page: page });
         // Success state doubles as the right moment to offer the calendar.
+        // gcalUrl(), not a constant: an undefined GCAL_URL here used to
+        // throw inside this .then, and the .catch below then told the
+        // person "That did not save" about an RSVP that had saved.
+        var calHref = '';
+        try { calHref = gcalUrl(eventState(Date.now())); } catch (e) {}
         panel.innerHTML =
           '<p class="sn-rsvp-ok">On the list. Reminder lands Wednesday morning.</p>' +
-          '<p class="sn-rsvp-note">Want it in your calendar too? ' +
-          '<a href="' + GCAL_URL + '" target="_blank" rel="noopener" ' +
-          'style="color:var(--accent,#ef4444)">Add the weekly event</a>.</p>';
+          (calHref ? '<p class="sn-rsvp-note">Want it in your calendar too? ' +
+          '<a href="' + calHref + '" target="_blank" rel="noopener" ' +
+          'style="color:var(--accent,#ef4444)">Add the daily event</a>.</p>' : '');
         if (trigger) {
           trigger.textContent = 'You\'re on the list';
           trigger.disabled = true;

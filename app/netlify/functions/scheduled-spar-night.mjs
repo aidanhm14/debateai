@@ -1,7 +1,8 @@
 /* scheduled-spar-night.mjs
  *
- * Open Spar Night day-of reminder (2026-07-15). The /spar liquidity fix
- * is a set of fixed weekly hours (Wednesdays, 90 min each) when everyone
+ * Open Spar Night reminder (2026-07-15). The /spar liquidity fix
+ * is a set of fixed hours (7 AM, 3 PM, 8 PM ET, 90 min each, EVERY DAY
+ * since 2026-09-01; Wednesdays only before that) when everyone
  * queues at once; this cron tells every reachable signed-in user about
  * today's sessions so the queue actually fills.
  *
@@ -39,8 +40,11 @@
  *   SPAR_NIGHT_MAX      per-run cap (default 500)
  *   SITE_URL            default https://itsdebatable.com
  *
- * Schedule: Wednesday 13:00 UTC (9:00 AM ET) — morning of the event,
- * 3h ahead of the winback cron it dedupes against.
+ * Schedule: Wednesday 09:00 UTC — still ONCE A WEEK on purpose. The
+ * sessions run daily now, but a daily reminder to every account is a
+ * daily email, and the email would stop being read. The copy says the
+ * hours run every day; the cadence is the founder's to raise.
+ * Runs ahead of the winback cron it dedupes against.
  */
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
@@ -107,12 +111,11 @@ function nyToUtc(y, mo, d, hh, mm) {
   return guess;
 }
 // Eastern hours of the three sessions. Must match SESSIONS in
-// app/js/spar-night.js.
+// app/js/spar-night.js. Every day since 2026-09-01.
 const SESSION_HOURS = [7, 15, 20];
 function nextEventStart(nowMs) {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 3; i++) {
     const p = nyParts(nowMs + i * 86400000);
-    if (p.weekday !== 'Wed') continue;
     for (const hour of SESSION_HOURS) {
       const start = nyToUtc(+p.year, +p.month, +p.day, hour, 0);
       if (start + LIVE_MS <= nowMs) continue;
@@ -128,13 +131,15 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   // One recurring calendar link per session, because the reader is being
   // asked to pick the one that is evening where they live, and a single
   // link can only carry one hour.
+  const np = nyParts(nextEventStart(Date.now()));
+  const day = np.year + np.month + np.day;
   const gcalFor = (label, hh, mm) => 'https://calendar.google.com/calendar/render?action=TEMPLATE'
     + '&text=' + encodeURIComponent('Open Spar Night (' + label + ') · Debatable')
-    + '&details=' + encodeURIComponent('Weekly live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
+    + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
     + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
-    + '&dates=20260722T' + hh + '0000/20260722T' + mm + '00'
+    + '&dates=' + day + 'T' + hh + '0000/' + day + 'T' + mm + '00'
     + '&ctz=' + encodeURIComponent(TZ)
-    + '&recur=' + encodeURIComponent('RRULE:FREQ=WEEKLY;BYDAY=WE');
+    + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
   const gcalAsia = gcalFor('Asia-Pacific night', '07', '0830');
   const gcalEuro = gcalFor('Europe night', '15', '1630');
   const gcalUs   = gcalFor('US night', '20', '2130');
@@ -144,7 +149,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Open Spar Night is today, and it runs three times.</strong>
+    <strong>Open Spar Night runs three times a day, every day.</strong>
     More people queue at the same time, so the live pool has a better chance
     of finding an opponent. Take the session that is evening where you are.
   </p>
@@ -167,7 +172,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
     <a href="${cta}" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Join the queue &rarr;</a>
   </p>
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
-    Can't make it today? It runs every Wednesday. Add your session once and
+    Can't make it today? It runs every day. Add your session once and
     you're set:
     <a href="${gcalAsia}" style="color:#dc2626;text-decoration:underline">Asia-Pacific</a> &middot;
     <a href="${gcalEuro}" style="color:#dc2626;text-decoration:underline">Europe</a> &middot;
@@ -278,7 +283,7 @@ export default async () => {
 
     const res = await sendEmail({
       to: user.email,
-      subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
+      subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
       html: renderEmail({ firstName, uid: user.uid }),
       uid: user.uid,
       stream: 'sparnight',
@@ -300,7 +305,7 @@ export default async () => {
         await sleep(res.retryAfterMs || 1200);
         const retry = await sendEmail({
           to: user.email,
-          subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
+          subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
           html: renderEmail({ firstName, uid: user.uid }),
           uid: user.uid,
           stream: 'sparnight',
@@ -344,7 +349,7 @@ export default async () => {
 
       const res = await sendEmail({
         to: addr,
-        subject: 'Open Spar Night is today: 7am, 3pm and 8pm ET',
+        subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
         // No uid for an anonymous RSVP, so the shared footer cannot build
         // an unsubscribe link from user_profiles. Pass the doc id as the
         // token subject instead; email-unsub handles the 'sparrsvp' stream
