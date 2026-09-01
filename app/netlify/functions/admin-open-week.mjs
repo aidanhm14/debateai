@@ -173,7 +173,9 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     <strong>And we need your help pulling attention here.</strong> Right
     now the attention lives on other platforms. Tell one person who loves
     to argue, clip the sharpest moment of your round and post it where
-    your people are, bring a friend to a clash hour. That is how
+    your people are, bring a friend to a clash hour, and get involved in
+    <a href="https://discord.gg/WMHZW9BKvJ" style="color:#dc2626;font-weight:700;text-decoration:underline">the Discord</a>,
+    where rounds get organized between clash hours. That is how
     this place gets loud.
   </p>
 
