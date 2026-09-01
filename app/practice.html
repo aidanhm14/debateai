@@ -122,6 +122,22 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/ballot-read.js"></script>
+<!-- Arcade setup flow: the shared one-question-per-screen engine (/spar's
+     matchmaker questionnaire, /brain's build). "Build my round" runs the
+     setup choices through it; the stacked panel survives as the fallback
+     when this script fails to load. -->
+<link rel="stylesheet" href="/css/arcade-flow.css">
+<script defer src="/js/arcade-flow.js"></script>
+<style>
+/* The topic step carries eight options. Stacked one per row they run to
+   ~900px, which is taller than a 720px laptop viewport, so the last two
+   ("Surprise me", "My own topic") sat below the fold of a scroll-snap
+   panel. Two columns brings the panel back inside one screen. The three
+   short steps stay single-column, which reads better as a choice of three. */
+.afl-panel--grid .afl-opts{grid-template-columns:repeat(2,minmax(0,1fr));max-width:720px}
+.afl-panel--grid .afl-opt-s{font-size:.78rem}
+@media (max-width:560px){.afl-panel--grid .afl-opts{grid-template-columns:minmax(0,1fr)}.afl-panel--grid .afl-opt-s{display:none}}
+</style>
 <script defer src="/js/track.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
@@ -10536,6 +10552,97 @@ Rules:
     setMotion(m);
     setSimpleStartPending(true);
   };
+  // ── Arcade setup flow (2026-09-01) ──
+  // "Build my round" runs the setup choices through the shared ArcadeFlow
+  // engine, the same one-question-per-screen run /spar's matchmaker
+  // questionnaire and /brain use: one question fills the screen, a blip
+  // per press, the panel travels to the next, a launch panel at the end.
+  // The founder's ask, on seeing the stacked five-step panel below: make it
+  // a selection process like the matchmaker questionnaire, not a wall of
+  // options. That stacked panel now renders ONLY when arcade-flow.js failed
+  // to load (progressive enhancement, same posture as /brain). Do not grow
+  // it new features; add a step here instead.
+  //
+  // Every answer lands on the exact state the stacked panel wrote
+  // (setMotion, saveJudgeParadigm, setJudgeManner, setJudgeDetail), then
+  // starts the round through simpleStartPending, so the round that opens
+  // is byte-identical to one set up the old way.
+  var startSetupFlow = () => {
+    if (!window.ArcadeFlow) {setShowCustomize(true);return;}
+    // Typed motion for the "My own topic" lane. Held in the closure rather
+    // than the DOM because the launch panel re-renders its extra on every
+    // visit, and a back-then-forward must not eat what someone typed.
+    var customText = '';
+    var applySetupAnswers = (answers, via) => {
+      chooseFormat('quick');
+      if (simpleJudgeCards.some((j) => j.key === answers.judge)) {saveJudgeParadigm(answers.judge);saveCustomParadigm('');}
+      if (JUDGE_MANNERS.some((x) => x.key === answers.manner)) setJudgeManner(answers.manner);
+      if (JUDGE_DETAILS.some((x) => x.key === answers.detail)) setJudgeDetail(answers.detail);
+      var m = '';
+      if (answers.topic === 'motd' && debateOfWeek && debateOfWeek.motion) m = debateOfWeek.motion;else
+      if (answers.topic === 'custom') m = customText.trim();else
+      if (typeof answers.topic === 'string' && answers.topic.indexOf('cat:') === 0) {
+        var cat = SIMPLE_TOPIC_CATS.find((c) => 'cat:' + c.label === answers.topic);
+        var list = cat && cat.motions || [];
+        if (list.length) m = list[Math.floor(Math.random() * list.length)];
+      }
+      if (!m) m = debateOfWeek && debateOfWeek.motion || randomMotionFor('quick');
+      setMotion(m);
+      setSimpleStartPending(true);
+      try {localStorage.setItem('debateos-da-onboarded', '1');} catch (e) {}
+      try {window.gtag && gtag('event', 'practice_setup_flow_done', { via: via, topic: answers.topic === 'custom' ? 'custom' : String(answers.topic).replace(/^cat:/, 'theme:'), judge: answers.judge, manner: answers.manner, detail: answers.detail });} catch (e) {}
+    };
+    var hasMotd = !!(debateOfWeek && debateOfWeek.motion);
+    var topicOptions = [];
+    if (hasMotd) topicOptions.push({ value: 'motd', label: 'Resolution of the day', sub: debateOfWeek.motion, summaryLabel: 'Resolution of the day' });
+    SIMPLE_TOPIC_CATS.forEach((cat) => {
+      topicOptions.push({ value: 'cat:' + cat.label, label: cat.icon + ' ' + cat.label, sub: 'For example: ' + cat.motions[0], summaryLabel: cat.label });
+    });
+    topicOptions.push({ value: 'random', label: '🎲 Surprise me', sub: 'A random motion, revealed when the round opens.', summaryLabel: 'Random motion' });
+    topicOptions.push({ value: 'custom', label: '✏️ My own topic', sub: 'Anything you want to argue. You type it on the last screen.', summaryLabel: 'My own topic' });
+    var judgeDefault = simpleJudgeCards.some((j) => j.key === judgeParadigm) ? judgeParadigm : 'hs_coach';
+    try {window.gtag && gtag('event', 'practice_setup_flow_open');} catch (e) {}
+    window.ArcadeFlow.start({
+      label: 'Set up your round',
+      skipLabel: 'Skip and start',
+      steps: [
+      { key: 'topic', className: 'afl-panel--grid', q: 'What are we arguing about?', hint: 'Pick a lane or bring your own. One motion, two sides, you take one and the AI takes the other.', options: topicOptions, 'default': hasMotd ? 'motd' : 'random', summaryLabel: 'Topic' },
+      { key: 'judge', q: 'Who judges the round?', hint: 'Every judge scores out of 100 and writes a verdict. This sets what they weigh hardest.', options: simpleJudgeCards.map((j) => ({ value: j.key, label: j.icon + ' ' + j.title, sub: j.desc, summaryLabel: j.title })), 'default': judgeDefault, summaryLabel: 'Judge' },
+      { key: 'manner', q: 'How should the verdict talk to you?', hint: 'Same call, same score, same flaws named. Only the wording changes.', options: JUDGE_MANNERS.map((x) => ({ value: x.key, label: x.label, sub: x.desc })), 'default': JUDGE_MANNERS.some((x) => x.key === judgeManner) ? judgeManner : 'plain', summaryLabel: 'Tone' },
+      { key: 'detail', q: 'How much feedback do you want?', options: JUDGE_DETAILS.map((x) => ({ value: x.key, label: x.label, sub: x.desc })), 'default': JUDGE_DETAILS.some((x) => x.key === judgeDetail) ? judgeDetail : 'medium', summaryLabel: 'Feedback' }],
+      launch: {
+        title: 'Your round is set.',
+        hint: 'The AI takes the other side the moment you start. Casual 1v1, on the clock, scored out of 100.',
+        cta: 'Start the round',
+        extra: function (answers) {
+          if (answers.topic !== 'custom') return null;
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'margin:0 0 6px;text-align:left;';
+          var lab = document.createElement('label');
+          lab.textContent = 'Your motion';
+          lab.setAttribute('for', 'aflCustomMotion');
+          lab.style.cssText = 'display:block;font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.65;margin-bottom:6px;';
+          var ta = document.createElement('textarea');
+          ta.id = 'aflCustomMotion';
+          ta.rows = 2;
+          ta.placeholder = 'For example: Social media does more harm than good.';
+          ta.value = customText;
+          ta.style.cssText = 'display:block;width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(128,128,128,.34);background:rgba(128,128,128,.06);color:inherit;font-family:inherit;font-size:1rem;line-height:1.4;resize:vertical;';
+          ta.addEventListener('input', function () {customText = ta.value;});
+          var note = document.createElement('div');
+          note.textContent = 'Leave it empty and we pick one for you.';
+          note.style.cssText = 'font-size:.74rem;opacity:.65;margin-top:6px;';
+          wrap.appendChild(lab);
+          wrap.appendChild(ta);
+          wrap.appendChild(note);
+          setTimeout(function () {try {ta.focus({ preventScroll: true });} catch (e) {}}, 60);
+          return wrap;
+        }
+      },
+      onDone: function (answers) {applySetupAnswers(answers, 'done');},
+      onSkip: function (answers) {applySetupAnswers(answers, 'skip');}
+    });
+  };
   var simpleSetupTree = el('div', { style: { maxWidth: 720, width: '100%', margin: '0 auto' } },
   el('div', { style: { textAlign: 'center', marginTop: 6, marginBottom: 22 } },
   el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a casual 1v1 against the AI.'),
@@ -10545,8 +10652,8 @@ Rules:
   el('button', { className: 'cta', style: { marginTop: 0, padding: '13px 30px', fontSize: '.92rem', display: 'inline-flex', alignItems: 'center', gap: 8 }, onClick: quickStart },
   el('span', { 'aria-hidden': true }, '⚡'), 'Start casual 1v1'
   ),
-  el('button', { className: 'cta-ghost', style: { marginTop: 0, padding: '13px 24px', fontSize: '.86rem' }, onClick: () => setShowCustomize(!showCustomize) },
-  showCustomize ? 'Hide setup' : 'Customize round'
+  el('button', { className: 'cta-ghost', style: { marginTop: 0, padding: '13px 24px', fontSize: '.86rem' }, onClick: () => {if (showCustomize) {setShowCustomize(false);return;}startSetupFlow();} },
+  showCustomize ? 'Hide setup' : 'Build my round'
   )
   ),
   el('div', { style: { textAlign: 'center', marginTop: 10, fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.45, maxWidth: 460, margin: '10px auto 0' } }, 'One person on each side. No teams, format jargon, or tournament rulebook.'),
