@@ -338,6 +338,13 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   attribution in `app/img/creator-watchlist/README.md`, and that is the
   bar. New board faces require the same explicit consent + 18+
   confirmation from Aidan before they ship.
+  **2026-08-31:** a second consented batch, face63-65 (Ray, Pascal,
+  Yael), cropped from screenshots of real live rounds Aidan supplied
+  in-session with "all consented to" on the record. They ride
+  `FACE_M_REAL`, the rotator `REAL` list, and the /spar gate frames.
+  `mask-ano.jpg` (an Avatar-mode mask tile from a real round) rides the
+  /spar gate only; a mask is not a face and must never enter the face
+  pools, where the deal would caption it with a character's name.
   **2026-08-19:** Aidan asked for the real stills to circulate more, so
   they now also ride the shared `.rot-cam` pool (`window.__faceRotPool`)
   that drives the live-debates wall and the `#face-wall` mosaic, at five

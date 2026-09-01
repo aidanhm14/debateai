@@ -87,14 +87,19 @@ for (const path of [
   check(/live video requires Google sign-in/i.test(source), `${path} must describe the Google-only live door`);
 }
 
-const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54'];
+// face63-65 added 2026-08-31: second consented batch (Ray, Pascal, Yael)
+// cropped from real live rounds, consent + 18+ confirmed on record.
+const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54', '63', '64', '65'];
 for (const face of expectedFaces) {
   check(spar.includes(`/img/round/faces/face${face}.jpg`), `gate must include consented face${face}`);
 }
 for (const face of ['fictional-sydney', 'fictional-sofia', 'fictional-kevin', 'fictional-anna', 'fictional-malik', 'fictional-chloe', 'fictional-mike']) {
   check(spar.includes(`/img/round/faces/${face}.jpg`), `gate must include founder-supplied ${face}`);
 }
-check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 15, 'wide signed-out gate must carry fifteen surrounding tiles');
+// The Avatar-mode mask tile is gate atmosphere only; the mask must never
+// enter the landing face pools where the deal would name-caption it.
+check(spar.includes('/img/round/faces/mask-ano.jpg'), 'gate must include the Avatar-mode mask tile');
+check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 19, 'wide signed-out gate must carry nineteen surrounding tiles (15 + the 2026-08-31 batch)');
 check(!spar.includes('/img/round/faces/face55.jpg'), 'deleted face55 must never return');
 
 if (failures) process.exit(1);
