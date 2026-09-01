@@ -12,11 +12,23 @@
   var PORTRAIT_KEY = 'debatable-avatar';
   var LIVE_KEY = 'debatable-live-avatar-v1';
   var LOOKS_KEY = 'debatable-avatar-looks-v1';
+  /* 2026-09-01: the picked picture tile (js/pfp-set.js) joins the record.
+     avatar.js's setPfp() wrote these two keys and dispatched the same
+     change event this file already listens to, so the push fired and the
+     record it pushed carried no pfp: a tile picked on a laptop rendered
+     as a generated face on the phone. Both are RAW strings, not JSON, so
+     they go through readRaw/writeRaw rather than read/write. */
+  var PFP_KEY = 'debatable-pfp-v1';
+  var PREF_KEY = 'debatable-avatar-pref';
   var META_KEY = 'debatable-avatar-sync-v1';
   var PORTRAIT_EVT = 'debatable-avatar-change';
   var LIVE_EVT = 'debatable-avatar-design';
   var READY_EVT = 'debatable-avatar-account-ready';
-  var VERSION = 1;
+  /* v2 added pfpId + pref. A v1 record predates them and therefore makes
+     NO statement about the picked picture, so applyRecord leaves the two
+     local keys alone rather than clearing a pick every time an old cached
+     client's record hydrates. Only a v2+ record may write or clear them. */
+  var VERSION = 2;
   var applyingRemote = false;
   var currentUser = null;
   var db = null;
@@ -108,6 +120,40 @@
     if (!looks.some(function (look) { return look.id === activeId; })) activeId = looks[0] ? looks[0].id : '';
     return { activeId: activeId, looks: looks, updatedAtMs: Math.max(0, Number(value.updatedAtMs) || 0) };
   }
+  function readRaw(key) {
+    try { return global.localStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+  function writeRaw(key, value) {
+    try {
+      if (value) global.localStorage.setItem(key, String(value));
+      else global.localStorage.removeItem(key);
+    } catch (e) {}
+  }
+  /* The pfp branch has NO fallback on purpose (the avatar.js rule): there
+     is no sensible default picture, so an unknown or unwearable id DROPS
+     rather than putting a tile on somebody who never picked it. canWear,
+     not has: the library also carries the photo tier the first-screen
+     rail draws from, and those must never become an account's identity.
+     The library is only consulted when this page happens to have it
+     loaded; otherwise the shape-checked id is carried through, and
+     render-time normPublicIdentity still gates wearing it, so a page
+     without js/pfp-set.js cannot strip a pick it cannot verify. */
+  function cleanPfpId(id) {
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,32}$/.test(id)) return null;
+    try {
+      var lib = global.DBPfp;
+      if (lib) {
+        var ok = lib.canWear ? lib.canWear(id) : lib.has(id);
+        return ok ? id : null;
+      }
+    } catch (e) {}
+    return id;
+  }
+  // Only the two values avatar.js ever writes. Anything else reads as
+  // "never chose", which falls back to the pre-picker identity order.
+  function cleanPref(value) {
+    return value === 'pfp' || value === 'portrait' ? value : '';
+  }
   function meta() { return read(META_KEY, {}) || {}; }
   function localRecord() {
     var portrait = cleanPortrait(read(PORTRAIT_KEY, null));
@@ -119,10 +165,12 @@
       updatedAtMs: Math.max(0, Number(meta().updatedAtMs) || 0),
       portraitConfig: portrait,
       liveDesign: live,
-      liveLooks: looks
+      liveLooks: looks,
+      pfpId: cleanPfpId(readRaw(PFP_KEY)),
+      pref: cleanPref(readRaw(PREF_KEY))
     };
   }
-  function hasIdentity(record) { return !!(record && (record.portraitConfig || record.liveDesign)); }
+  function hasIdentity(record) { return !!(record && (record.portraitConfig || record.liveDesign || record.pfpId)); }
   function touch() {
     var m = meta(); m.updatedAtMs = Date.now(); write(META_KEY, m);
   }
@@ -137,11 +185,24 @@
       if (!id) return null;
       if (id.kind === 'live') return { kind:'live', design:cleanDesign(id.design) };
       if (id.kind === 'portrait') return { kind:'portrait', config:cleanPortrait(id.config) };
+      if (id.kind === 'pfp') {
+        // Drop, never default: an id the set does not wear returns null
+        // and the caller falls back, rather than this layer inventing a
+        // picture (or, as before this branch existed, falling through and
+        // publishing the live or portrait identity the person deliberately
+        // switched away from).
+        var picked = cleanPfpId(id.id);
+        return picked ? { kind:'pfp', id:picked } : null;
+      }
     }
     var record = localRecord();
+    // Same order as avatar.js getPublicIdentity: the kind chosen LAST wins,
+    // then the pre-picker fallback order.
+    if (record.pref === 'pfp' && record.pfpId) return { kind:'pfp', id:record.pfpId };
+    if (record.pref === 'portrait' && record.portraitConfig) return { kind:'portrait', config:record.portraitConfig };
     if (record.liveDesign) return { kind:'live', design:record.liveDesign };
     if (record.portraitConfig) return { kind:'portrait', config:record.portraitConfig };
-    return null;
+    return record.pfpId ? { kind:'pfp', id:record.pfpId } : null;
   }
   function dispatch(record) {
     try { global.dispatchEvent(new CustomEvent(PORTRAIT_EVT, { detail:record.portraitConfig || null })); } catch (e) {}
@@ -155,12 +216,24 @@
       updatedAtMs: Math.max(0, Number(remote.updatedAtMs) || Date.now()),
       portraitConfig: cleanPortrait(remote.portraitConfig),
       liveDesign: remote.liveDesign ? cleanDesign(remote.liveDesign) : null,
-      liveLooks: cleanLooks(remote.liveLooks)
+      liveLooks: cleanLooks(remote.liveLooks),
+      pfpId: cleanPfpId(remote.pfpId),
+      pref: cleanPref(remote.pref)
     };
     applyingRemote = true;
     write(PORTRAIT_KEY, record.portraitConfig);
     write(LIVE_KEY, record.liveDesign);
     write(LOOKS_KEY, record.liveLooks);
+    if (Number(remote.version) >= 2) {
+      writeRaw(PFP_KEY, record.pfpId);
+      writeRaw(PREF_KEY, record.pref);
+    } else {
+      // A v1 record makes no statement about the picked picture (see the
+      // VERSION note above), so the local pick stands and the record we
+      // report reflects it.
+      record.pfpId = cleanPfpId(readRaw(PFP_KEY));
+      record.pref = cleanPref(readRaw(PREF_KEY));
+    }
     write(META_KEY, { updatedAtMs:record.updatedAtMs, uid:currentUser ? currentUser.uid : '' });
     dispatch(record);
     applyingRemote = false;
@@ -200,7 +273,13 @@
       // become the first signed-in account's design, but never copy one
       // account's saved looks into a different account.
       if (localOwner && localOwner !== currentUser.uid) {
-        applyRecord(remote && hasIdentity(remote) ? remote : { updatedAtMs:remoteAt || Date.now() });
+        // Force the current version so applyRecord affirmatively clears or
+        // replaces the picked-picture keys too: this branch exists so one
+        // account's identity cannot leak onto another on a shared browser,
+        // and the pfp pick is part of that identity. Without the stamp a
+        // v1 remote would leave the previous account's tile standing.
+        var incoming = remote && hasIdentity(remote) ? remote : { updatedAtMs:remoteAt || Date.now() };
+        applyRecord(Object.assign({}, incoming, { version: VERSION }));
         return;
       }
       if (remote && hasIdentity(remote) && (!hasIdentity(local) || remoteAt > localAt)) applyRecord(remote);
@@ -230,6 +309,7 @@
   global.DBAvatarAccount = {
     localRecord: localRecord,
     publicIdentity: publicIdentity,
+    applyRecord: applyRecord,
     sync: pushNow,
     hydrate: hydrate,
     READY_EVENT: READY_EVT

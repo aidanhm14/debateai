@@ -135,6 +135,73 @@ for (const file of ['app/netlify/functions/async-turn.mjs', 'app/netlify/functio
   ok(src.includes("from './lib/avatar-design.mjs'"), `${file} no longer imports the shared allow-list`);
 }
 
+// ── 7. The picked picture tile syncs with the account record (2026-09-01).
+// avatar.js's setPfp() writes debatable-pfp-v1 + debatable-avatar-pref and
+// fires the change event the account sync listens to, but the record it
+// pushed carried neither, so a tile picked on a laptop rendered as a
+// generated face on the phone. Behavioural, not a grep: the module runs
+// against a stubbed window so a regression fails on what it DOES.
+function freshWin() {
+  const store = new Map();
+  return {
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => { store.set(k, String(v)); },
+      removeItem: (k) => { store.delete(k); },
+    },
+    addEventListener: () => {},
+    dispatchEvent: () => true,
+    // The wearable set: 'frog' wears, 'pic-cash' is the photo tier (has()
+    // but never canWear()), anything else is unknown.
+    DBPfp: {
+      has: (id) => id === 'frog' || id === 'pic-cash',
+      canWear: (id) => id === 'frog',
+    },
+  };
+}
+function loadAccountSync(win) {
+  const noop = () => 0;
+  new Function('window', 'setTimeout', 'clearTimeout', read('app/js/avatar-account.js'))(win, noop, noop);
+  return win.DBAvatarAccount;
+}
+{
+  const win = freshWin();
+  const sync = loadAccountSync(win);
+  ok(!!(sync && sync.localRecord && sync.applyRecord), 'account sync failed to load in the stub window');
+  // A local pick lands in the record, versioned.
+  win.localStorage.setItem('debatable-pfp-v1', 'frog');
+  win.localStorage.setItem('debatable-avatar-pref', 'pfp');
+  let rec = sync.localRecord();
+  ok(rec.version >= 2, `localRecord version is ${rec.version}, pfp fields need v2+`);
+  ok(rec.pfpId === 'frog' && rec.pref === 'pfp', 'localRecord dropped the picked tile');
+  ok(sync.publicIdentity() && sync.publicIdentity().kind === 'pfp', 'publicIdentity ignored the pfp pick');
+  // Drop, never default: a photo-tier id and an unknown id both clean to null.
+  win.localStorage.setItem('debatable-pfp-v1', 'pic-cash');
+  ok(sync.localRecord().pfpId === null, 'localRecord let a photo-tier (unwearable) id through');
+  win.localStorage.setItem('debatable-pfp-v1', 'no-such-tile');
+  ok(sync.localRecord().pfpId === null, 'localRecord let an unknown id through');
+  // A v2 record writes and clears the two raw keys.
+  sync.applyRecord({ version: 2, updatedAtMs: 5, pfpId: 'frog', pref: 'pfp' });
+  ok(win.localStorage.getItem('debatable-pfp-v1') === 'frog'
+    && win.localStorage.getItem('debatable-avatar-pref') === 'pfp',
+    'applyRecord did not write the pfp keys from a v2 record');
+  sync.applyRecord({ version: 2, updatedAtMs: 6, pfpId: null, pref: '' });
+  ok(win.localStorage.getItem('debatable-pfp-v1') === null
+    && win.localStorage.getItem('debatable-avatar-pref') === null,
+    'applyRecord did not clear the pfp keys from a v2 record');
+  // A v1 record makes no statement about the pick, so it must stand.
+  win.localStorage.setItem('debatable-pfp-v1', 'frog');
+  win.localStorage.setItem('debatable-avatar-pref', 'pfp');
+  sync.applyRecord({ version: 1, updatedAtMs: 7, portraitConfig: { skin: 1 } });
+  ok(win.localStorage.getItem('debatable-pfp-v1') === 'frog',
+    'applyRecord cleared a local pick on a v1 record that never mentioned it');
+  // A pfp-only record counts as an identity, or hydrate discards it.
+  ok(sync.localRecord().pfpId === 'frog' && (() => {
+    const src = read('app/js/avatar-account.js');
+    return /hasIdentity[\s\S]{0,200}?pfpId/.test(src);
+  })(), 'hasIdentity does not count a pfp-only record');
+}
+
 if (failures.length) {
   console.error(`${failures.length} failed, ${passed} passed`);
   for (const f of failures) console.error('  x ' + f);
