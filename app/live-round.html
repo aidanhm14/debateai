@@ -19513,7 +19513,33 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       if (state.proName2) payload.proName2 = state.proName2;
       if (state.conName2) payload.conName2 = state.conName2;
     }
-    ref.set(payload, { merge: true }).catch(function(e){ console.warn('[Round sync] init failed', e); });
+    // A live round is never regressed by an init write (2026-08-31, the
+    // motion-stomp bug): a stale or reloading client reaching here with
+    // its own idea of the motion used to merge motion + speechIdx:0 +
+    // judgePicks over a round already at speech 4. The transaction reads
+    // first; if speeches have run, only the additive identity fields
+    // (avatars, seat uids) land and the round state is left alone.
+    try {
+      firebase.firestore().runTransaction(function(tx){
+        return tx.get(ref).then(function(snap){
+          var d = snap && snap.exists ? (snap.data() || {}) : null;
+          var live = d && (((d.speechIdx | 0) > 0) || (d.speeches && d.speeches.length));
+          if (live){
+            var safe = {};
+            if (payload.participantAvatars) safe.participantAvatars = payload.participantAvatars;
+            if (payload.proUid && payload.conUid && !(d.proUid && d.conUid)){
+              safe.proUid = payload.proUid; safe.conUid = payload.conUid;
+            }
+            if (Object.keys(safe).length) tx.set(ref, safe, { merge: true });
+            try { gtag('event', 'live_init_regress_blocked', { speech: d.speechIdx | 0 }); } catch(e){}
+            return;
+          }
+          tx.set(ref, payload, { merge: true });
+        });
+      }).catch(function(e){ console.warn('[Round sync] init failed', e); });
+    } catch(e){
+      ref.set(payload, { merge: true }).catch(function(e2){ console.warn('[Round sync] init failed', e2); });
+    }
   }
 
   function publishSpeech(entry){
@@ -19897,9 +19923,35 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             // identical and the round-doc reconciliation converges
             // instead of diverging — a double-start is safe.
             if (state.motion || state.phase !== 'setup') return;
-            state.motion = pickSparMotion(state.room);
-            var md = $('motionDisplay'); if (md) md.textContent = state.motion;
-            startRound();
+            // 2026-08-31, from a live round: a MID-ROUND reload arrives
+            // exactly like a fresh spar client (motion= empty in the
+            // URL, phase 'setup'), and when the snapshot lost the race
+            // against this timer the seed fired into a round at speech
+            // 4, republished init, and swapped the resolution both
+            // people had been arguing ("it changed it from student debt
+            // to this random shit" — the deterministic pick for that
+            // room). So the local guard is not enough: read the DOC
+            // before seeding, and never seed over a round that exists.
+            // A failed read seeds nothing; the snapshot decides.
+            var ref = getRoundDocRef();
+            var seed = function(){
+              if (state.motion || state.phase !== 'setup') return;
+              state.motion = pickSparMotion(state.room);
+              var md = $('motionDisplay'); if (md) md.textContent = state.motion;
+              startRound();
+            };
+            if (!ref){ seed(); return; }
+            ref.get().then(function(snap){
+              var d = snap && snap.exists ? (snap.data() || {}) : null;
+              if (d && ((d.motion && String(d.motion).trim())
+                        || (d.speechIdx | 0) > 0
+                        || (d.speeches && d.speeches.length)
+                        || d.status === 'round' || d.status === 'done')){
+                try { gtag('event', 'live_kickoff_seed_blocked', { speech: d.speechIdx | 0 }); } catch(e){}
+                return; // the snapshot listener carries us into the live round
+              }
+              seed();
+            }).catch(function(){ /* unreadable: do not seed blind */ });
           };
           // Lex-first kicks off promptly. The peer is a safety net: if
           // the first client dropped between matching and loading (closed
