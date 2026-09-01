@@ -7796,6 +7796,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-cta-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;
     animation:fsLivePulse 1.6s ease-in-out infinite}
   .fs-cta.is-live .fs-cta-live{display:inline-flex}
+  /* "Watch live round" door under Jump in (2026-09-01). Hidden until the
+     watch-live poll finds a real public round; the explicit [hidden] rule
+     is load-bearing because .fs-cta sets display and would otherwise
+     beat the UA sheet (the /predict and /bounties [hidden] trap). Red
+     ink on a bordered pill, so it reads as live without competing with
+     the one solid-red door above it. */
+  .fs-cta--watch[hidden]{display:none}
+  .fs-cta--watch{color:#dc2626;border-color:rgba(220,38,38,.45);font-weight:800}
+  .fs-cta--watch:hover{color:#b91c1c;border-color:#dc2626}
+  .fs-watch-dot{width:9px;height:9px;border-radius:50%;background:#dc2626;flex:0 0 auto;
+    box-shadow:0 0 0 0 rgba(220,38,38,.45);animation:fsWatchPulse 1.6s ease-out infinite}
+  @keyframes fsWatchPulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+  @media(prefers-reduced-motion:reduce){.fs-watch-dot{animation:none}}
+  :root:not([data-theme="light"]) .fs-cta--watch{color:#f87171;border-color:rgba(248,113,113,.5)}
+  :root:not([data-theme="light"]) .fs-cta--watch:hover{color:#fca5a5;border-color:#f87171}
   @keyframes fsLivePulse{0%,100%{opacity:1}50%{opacity:.35}}
   @media(prefers-reduced-motion:reduce){.fs-cta-live::before{animation:none}}
   /* Dark themes (2026-08-10 revival): the first screen shipped during
@@ -8629,6 +8644,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              down and from the More menu. -->
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Jump in <span aria-hidden="true">&rarr;</span></a>
+          <!-- 2026-09-01 per the founder: "when there is a live round have
+               'watch live round' button appear here". Ships hidden and is
+               revealed ONLY by the /api/watch-live poll near the end of the
+               document (real liveness: both seats present, draft settled,
+               public, no floor, no padding). One round links straight into
+               that room's spectate view; several link to /spectate. The
+               .fs-cta--watch[hidden] rule is what keeps it hidden, since the
+               .fs-cta display beats the UA [hidden] sheet. -->
+          <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/spectate" hidden data-fs-watch-live data-cta="first-screen-watch-live"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch live round</span></a>
           <!-- 2026-09-01: the "Spectate and bet tokens" ghost CTA is cut
                (founder struck it through on the screenshot). One door on
                the first screen: Jump in. Spectating stays reachable from
@@ -8650,6 +8674,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="fs-sub">Pick a topic, get matched, and settle it out loud.</p>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
+          <!-- 2026-09-01 per the founder: "when there is a live round have
+               'watch live round' button appear here". Ships hidden and is
+               revealed ONLY by the /api/watch-live poll near the end of the
+               document (real liveness: both seats present, draft settled,
+               public, no floor, no padding). One round links straight into
+               that room's spectate view; several link to /spectate. The
+               .fs-cta--watch[hidden] rule is what keeps it hidden, since the
+               .fs-cta display beats the UA [hidden] sheet. -->
+          <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/spectate" hidden data-fs-watch-live data-cta="first-screen-watch-live"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch live round</span></a>
           <!-- 2026-09-01: the "Spectate and bet tokens" ghost CTA is cut
                (founder struck it through on the screenshot). One door on
                the first screen: Jump in. Spectating stays reachable from
@@ -19358,7 +19391,27 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   (function(){
     var badges = document.querySelectorAll('[data-live-count]');
     var inlines = document.querySelectorAll('[data-live-count-inline]');
-    if (!badges.length && !inlines.length) return;
+    var watchBtns = document.querySelectorAll('[data-fs-watch-live]');
+    if (!badges.length && !inlines.length && !watchBtns.length) return;
+    // The first-screen "Watch live round" door (2026-09-01). One live round
+    // links into that room; more than one links to the /spectate list. The
+    // room id comes from the same payload as the count, so the door can
+    // never point at a room the count did not vouch for.
+    function paintWatch(d){
+      var n = d && typeof d.count === 'number' ? d.count : 0;
+      var rounds = (d && d.rounds) || [];
+      var one = n === 1 && rounds[0] && rounds[0].room ? rounds[0].room : null;
+      for (var i = 0; i < watchBtns.length; i++){
+        var b = watchBtns[i], lab = b.querySelector('[data-fs-watch-label]');
+        if (n > 0){
+          b.href = one ? ('/live-round?room=' + encodeURIComponent(one) + '&spectate=1') : '/spectate';
+          if (lab) lab.textContent = n > 1 ? ('Watch a live round (' + n + ' live)') : 'Watch live round';
+          b.hidden = false;
+        } else {
+          b.hidden = true;
+        }
+      }
+    }
     function paint(n){
       var i;
       for (i = 0; i < badges.length; i++){
@@ -19373,6 +19426,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     function poll(){
       window.watchLive().then(function(d){
         paint(d && typeof d.count === 'number' ? d.count : 0);
+        paintWatch(d);
       }).catch(function(){});
     }
     poll();
