@@ -3511,6 +3511,13 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
              deduction the judge prompts apply; the class deliberately
              sets no `display`, so [hidden] keeps working. -->
         <div class="overtime-note" id="overtimeNote" hidden></div>
+        <!-- Mutual time extension (2026-08-31, the founder: "allow users
+             to extend debate with a mutually agreed to button"). One side
+             proposes +1:00, the other allows; the allotted time itself
+             moves, so the extended window carries no overtime penalty and
+             no judge cutoff. Rendered by renderExtUI(); no display on the
+             class so [hidden] keeps working. -->
+        <div class="ext-row" id="extRow" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem;margin-top:6px"></div>
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
         <div class="row speech-actions">
@@ -4620,6 +4627,9 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     room: prefill.room,
     speechIdx: 0,
     log: [],                 // per-speech: { code, name, side, speakerName, text, durationSec, targetSec, overSec, overran }
+    overCut: {},             // speechIdx -> transcript char offset when the grace ran out (judge cutoff)
+    timeExt: {},             // speechIdx -> { secs, by, byName, accepts: {uid:true} } — mutual time extension
+    interjections: [],       // adopted from the round doc: the other side's captured POIs / back-and-forth
     timerInterval: null,
     timerState: 'ready',
     timerStart: 0,
@@ -5989,6 +5999,99 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   // Shared by the clock cue, the GA event, and the judge tags so the
   // rule the speaker is shown mid-speech is the rule the ballot applies.
   var OVERTIME_GRACE_SEC = 15;
+  // ── Mutual time extension (2026-08-31) ────────────────────────────
+  // Either debater proposes +60s for the CURRENT speech; it counts only
+  // when both seat uids appear in accepts, the same both-sides shape as
+  // the motion consent. The write is a participant round-doc update with
+  // no new rule, deliberately: targetSec itself is already client-written
+  // on every entry, so a forged extension buys nothing a forged targetSec
+  // could not, and the honest clients both validate the accepts map.
+  var EXT_SECS = 60;
+  function extFor(idx){ return (state.timeExt && state.timeExt[idx]) || null; }
+  function acceptedExtSecs(idx){
+    var e = extFor(idx);
+    if (!e || !e.accepts) return 0;
+    // Uid-less rooms (direct link, hotseat) have one person driving every
+    // control; a proposal there is its own agreement.
+    if (!state.proUid || !state.conUid) return e.secs || 0;
+    return (e.accepts[state.proUid] && e.accepts[state.conUid]) ? (e.secs || 0) : 0;
+  }
+  function proposeExt(){
+    var ref = getRoundDocRef(); if (!ref || !state.user) return;
+    var idx = state.speechIdx;
+    var acc = {}; acc[state.user.uid] = true;
+    var u = {};
+    u['timeExt.' + idx] = { secs: EXT_SECS, by: state.user.uid,
+      byName: String((mySide() === 'pro' ? state.proName : state.conName) || 'Your opponent').slice(0, 48),
+      accepts: acc };
+    ref.update(u).catch(function(){});
+    try { gtag('event', 'live_ext_proposed', { speech: idx }); } catch(e){}
+  }
+  function answerExt(yes){
+    var ref = getRoundDocRef(); if (!ref || !state.user) return;
+    var idx = state.speechIdx;
+    var u = {};
+    if (yes) u['timeExt.' + idx + '.accepts.' + state.user.uid] = true;
+    else u['timeExt.' + idx] = firebase.firestore.FieldValue.delete();
+    ref.update(u).catch(function(){});
+    try { gtag('event', 'live_ext_answered', { speech: idx, yes: !!yes }); } catch(e){}
+  }
+  // Adopt the doc's extension state: retarget the running clock and, if
+  // the extension pulls the speaker back inside time, clear the judge
+  // cutoff so material spoken inside the agreed window counts.
+  function applyTimeExt(){
+    var idx = state.speechIdx;
+    var f = FORMATS[state.formatKey];
+    var sp = f && f.speeches && f.speeches[idx];
+    if (!sp) { renderExtUI(); return; }
+    var eff = sp.time + acceptedExtSecs(idx);
+    // Retarget only a clock we own the value of: prepareTimer sets it to
+    // sp.time and this function is the only other writer, so anything
+    // else (a legacy format mid-migration) is left alone.
+    var known = state.timerTotalSec === sp.time || state.timerTotalSec === sp.time + (state._extApplied || 0);
+    if ((state.timerState === 'running' || state.timerState === 'ready' || state.timerState === 'paused')
+        && state.timerTotalSec !== eff && known){
+      state.timerTotalSec = eff;
+      state._extApplied = eff - sp.time;
+      var tt = $('timerTarget'); if (tt) tt.textContent = '/ ' + fmtTime(eff);
+      if (typeof state.overCut[idx] === 'number' && getElapsed() < eff + OVERTIME_GRACE_SEC){
+        delete state.overCut[idx];
+      }
+      drawTimer();
+    }
+    renderExtUI();
+  }
+  var extUiSig = '';
+  function renderExtUI(){
+    var row = $('extRow'); if (!row) return;
+    var idx = state.speechIdx;
+    var e = extFor(idx);
+    var iAmDebater = !isSpectator() && !!mySide();
+    var remaining = state.timerTotalSec - getElapsed();
+    var show = false, html = '', sig = '';
+    var granted = acceptedExtSecs(idx) > 0;
+    if (!iAmDebater || state.timerState !== 'running'){ show = false; sig = 'off'; }
+    else if (granted){ show = true; sig = 'granted'; html = '<span style="color:var(--text-dim,#888)">Extended +' + fmtTime((e && e.secs) || EXT_SECS) + ' by agreement.</span>'; }
+    else if (e && state.user && e.accepts && !e.accepts[state.user.uid]){
+      show = true; sig = 'asked';
+      html = '<span><b>' + escHtml(e.byName || 'Your opponent') + '</b> asks for +1:00.</span>'
+        + '<button type="button" class="btn" id="extYes" style="padding:5px 12px;font-size:.74rem">Allow +1:00</button>'
+        + '<button type="button" class="btn" id="extNo" style="padding:5px 12px;font-size:.74rem">No</button>';
+    }
+    else if (e){ show = true; sig = 'waiting'; html = '<span style="color:var(--text-dim,#888)">Asked for +1:00. Waiting on the other side.</span>'; }
+    else if (remaining < 45){
+      show = true; sig = 'offer';
+      html = '<button type="button" class="btn" id="extAsk" style="padding:5px 12px;font-size:.74rem">Request +1:00 &middot; needs the other side\u2019s OK</button>';
+    } else { sig = 'idle'; }
+    sig += '|' + idx;
+    if (sig === extUiSig) return;
+    extUiSig = sig;
+    row.hidden = !show;
+    row.innerHTML = show ? html : '';
+    var a = $('extAsk'); if (a) a.onclick = proposeExt;
+    var y = $('extYes'); if (y) y.onclick = function(){ answerExt(true); };
+    var n = $('extNo'); if (n) n.onclick = function(){ answerExt(false); };
+  }
   function drawTimer(){
     var elapsed = getElapsed();
     var remaining = state.timerTotalSec - elapsed;
@@ -6016,18 +6119,31 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     if (otNote){
       var showOt = state.timerState === 'running' && remaining < -OVERTIME_GRACE_SEC;
       if (showOt && otNote.hidden){
-        otNote.textContent = 'Over time. Past the 15 second grace the judge deducts speaker points, more the longer this runs.';
+        otNote.textContent = 'Over time. From here the judge stops counting new arguments, and speaker points drop the longer this runs.';
         otNote.hidden = false;
       } else if (!showOt && !otNote.hidden){
         otNote.hidden = true;
       }
+      // The judge cutoff (2026-08-31, the founder: "judge stops
+      // considering"): the moment the grace runs out, the SPEAKER's
+      // client records where the transcript stood. endSpeech splits the
+      // text there with a [TIME EXPIRED] marker and every ballot builder
+      // is told the material below it is off the flow. A granted
+      // extension clears the mark (applyTimeExt), so words inside the
+      // agreed window count.
+      if (showOt && isMyTurn() && !isSpectator() && state.overCut[state.speechIdx] === undefined){
+        var box = $('speechText');
+        state.overCut[state.speechIdx] = box ? String(box.value || '').length : 0;
+      }
     }
+    try { renderExtUI(); } catch(e){}
   }
   function prepareTimer(targetSec){
     stopTimer();
     // Loading a new speech clears any stale talking-before-start reminder.
     try { hideStartCueReminder(); } catch(e){}
     state.timerTotalSec = targetSec;
+    state._extApplied = 0;
     state.timerElapsed = 0;
     state.timerStart = 0;
     state.timerState = 'ready';
@@ -11097,6 +11213,27 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     paint();
   })();
 
+  // The speech text with the judge cutoff applied: everything the
+  // speaker said after the grace ran out sits below a [TIME EXPIRED]
+  // marker, split at the next word boundary past the recorded offset.
+  // The ballot builders treat the material below the marker as off the
+  // flow; the transcript still shows it, because hiding words someone
+  // actually said would be a worse lie than marking them late.
+  function overCutText(){
+    var box = $('speechText');
+    var v = box ? String(box.value || '') : '';
+    var cut = state.overCut[state.speechIdx];
+    var trimmed = v.trim();
+    if (typeof cut !== 'number' || !trimmed || cut >= v.length - 5) return trimmed;
+    var pos = cut;
+    while (pos < v.length && !/\s/.test(v[pos])) pos++;
+    var before = v.slice(0, pos).trim();
+    var after = v.slice(pos).trim();
+    if (!after) return trimmed;
+    if (!before) return trimmed;
+    return before + '\n\n[TIME EXPIRED — everything below was delivered after the allotted time and the 15 second grace]\n\n' + after;
+  }
+
   function endSpeech(opts){
     opts = opts || {};
     if (isSpectator()) return; // spectators can't advance the round
@@ -11119,7 +11256,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       name: sp.name,
       side: sp.side,
       speakerName: speakerName,
-      text: opts.skipped ? '(skipped)' : ($('speechText').value.trim() || '(no transcript)'),
+      text: opts.skipped ? '(skipped)' : (overCutText() || '(no transcript)'),
       // The language the speech was DELIVERED in (the speaker's pick, not
       // the reader's). Rides the synced entry so both benches' ballot
       // builders can tag the transcript for cross-language judging.
@@ -11132,8 +11269,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // management" with nothing to measure either against). overran
       // keeps its historical 5s epsilon for old readers; the judged
       // grace is OVERTIME_GRACE_SEC and lives with the timer cue.
-      targetSec: sp.time,
-      overSec: Math.max(0, Math.round(elapsed - sp.time)),
+      // Effective allotted time: a mutually agreed extension moves the
+      // target itself, so the extended window carries no overtime tag.
+      targetSec: sp.time + acceptedExtSecs(state.speechIdx),
+      overSec: Math.max(0, Math.round(elapsed - (sp.time + acceptedExtSecs(state.speechIdx)))),
       // Round-relative start, in ms. Derived from the round clock rather
       // than summed durations so prep, pauses, and setup gaps don't drift
       // the timeline. End is atMs + durationSec*1000. Purely additive;
@@ -11333,7 +11472,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "FORMAT RULES — judge through this lens:",
       ...(JUDGE_RULES[state.formatKey] || []),
       "- Speaker points scale (USE THE FULL RANGE, INCLUDING THE LOW END): WUDC Imperial 50-100 — 60-65 incoherent, 67 struggling, 70 below average, 73 average (no weighing), 75 good (real warrants), 77-78 excellent (would break at most tournaments), 80 top-of-field, 85+ essentially never given. DEFAULT TO 73-76. If a speaker dropped a contention, gave 0 POIs, used generic LLM phrasing, or never warranted a key claim, score them 71 or below. Do NOT cluster speakers at 78+ to be encouraging.",
-      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct 1 speaker point up to 45 seconds over, 2 up to 90 seconds, 3 beyond that, and name the overrun in that team's feedback. Give no credit for material a speech could only reach by running long. Overtime moves speaker points, never the ranking on its own.",
+      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct 1 speaker point up to 45 seconds over, 2 up to 90 seconds, 3 beyond that, and name the overrun in that team's feedback. A [TIME EXPIRED] marker inside a speech is a hard cutoff: everything below it is OFF THE FLOW — it cannot win an argument, extend one, or count as an answer to one. Overtime moves speaker points, never the ranking on its own.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -11448,7 +11587,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       "  Calibration bands (USE THE LOW END — the old ballots inflated because every AI defaulted to the top quartile): 90+ once a season, cite the exact moments that earned it · 80-89 top speaker at a strong tournament · 70-79 excellent, breaks at most tournaments · 60-69 good, real warrants and some weighing · 50-59 average, arguments present but underdeveloped or unweighed · 40-49 below average, key drops, unwarranted claims, filler · 25-39 struggling, little clash, no link chains · 1-24 collapse or near-forfeit.",
       "  DEFAULT BAND IS 50-65. If a speech was fundamentally unfinished, 40 or below — an honest ballot goes low when someone is over their head. Do NOT cluster both speakers at 75+ to be encouraging. If one debater clearly outclassed the other, separate by 8-15 points, not 2. One decimal place allowed.",
       "  Speaker points score the SPEAKER; the ballot scores the FLOW. A low-point win is legitimate — when the winner has lower points, say so in the RFD and explain it.",
-      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct inside the Step 3 adjustment and name the overrun in that speaker's feedback: about 2 points up to 45 seconds over, 4 points up to 90 seconds, the full 5 beyond that. Give no credit for material a speech could only reach by running long. Overtime moves speaker points, never the winner; do not flip the ballot on time alone.",
+      "- TIME DISCIPLINE: an [OVERRAN] tag shows the allotted time and how far past it the speech ran. Up to 15 seconds over is untagged and free; ignore it. Where a tag is present, deduct inside the Step 3 adjustment and name the overrun in that speaker's feedback: about 2 points up to 45 seconds over, 4 points up to 90 seconds, the full 5 beyond that. A [TIME EXPIRED] marker inside a speech is a hard cutoff: everything below it is OFF THE FLOW — it cannot win an argument, extend one, or count as an answer to one, and the RFD may mention it only to note it came after time. A mutually agreed extension already moved the allotted time, so an extended speech with no tag was on time. Overtime moves speaker points, never the winner; do not flip the ballot on time alone.",
       "- '(no transcript)' or '(skipped)' speeches = forfeit that speech's offense. Don't invent arguments not on the flow.",
       ...crossLangBallotLines(),
       ...judgeLensBallotLines(),
@@ -19124,6 +19263,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       try { renderJudgeDraft(); } catch(e){}
     }
     var fixedTournamentMotion = tournamentDraftMotion(d);
+    // Mutual time extension + captured interjections ride the doc.
+    if (d.timeExt && JSON.stringify(d.timeExt) !== JSON.stringify(state.timeExt || {})){
+      state.timeExt = d.timeExt;
+      try { applyTimeExt(); } catch(e){}
+    }
+    if (Array.isArray(d.interjections)) state.interjections = d.interjections;
     var incomingMotion = fixedTournamentMotion || d.motion;
     if (incomingMotion && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // The pre-round motion draft. Read before the proposal surfaces
