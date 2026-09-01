@@ -127,6 +127,28 @@ const sharedUi = read('app/css/ui.css');
 check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a 44px hit area');
 check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50%'), 'landing carousel controls expose a 44px hit area');
 
+const topbar = read('app/js/topbar.js');
+check(
+  topbar.includes("{ href: '/challenges',  label: 'Schedule & challenges', big: true }")
+    && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
+  'navigation combines schedule and challenges into the challenges-first destination',
+);
+check(
+  topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
+    && topbar.includes("Math.random() < .5 ? 'prompt' : 'control'")
+    && topbar.includes('dark_nudge_experiment_view')
+    && topbar.includes('Change to dark mode?'),
+  'dark-mode prompt has a sticky prompt/control experiment with telemetry',
+);
+const challenges = read('app/challenges.html');
+check(
+  !challenges.includes('data-force-theme="light"')
+    && challenges.includes("localStorage.getItem('da-theme')")
+    && challenges.includes('--paper:var(--bg'),
+  'challenges supports the shared dark-mode preference',
+);
+check(inlineScriptsParse('app/challenges.html'), 'app/challenges.html inline scripts parse');
+
 for (const path of ['netlify.toml', 'app/netlify.toml']) {
   const source = read(path);
   check(

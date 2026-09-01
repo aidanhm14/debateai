@@ -431,17 +431,11 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/rounds',      label: 'Async rounds', strong: true, wip: true },
-      // 2026-08-11: the challenge board. A challenge is the one object a
-      // stranger understands without knowing a format: someone claimed
-      // something, take the other side. It is `big` because it is the
-      // shortest path from landing on the site to being in a round.
-      { href: '/challenges',  label: 'Claims & challenges', big: true },
-      // 2026-09-01, the founder off a screenshot of this column: "replace
-      // with Schedule". /debate-online (the organic doorway) comes off
-      // the menu; the page stays live and indexed. /live is the round
-      // calendar, and it and /challenges are now a pair ("schedule and
-      // challenges"): each page links to the other in its own nav.
-      { href: '/live',          label: 'Schedule', strong: true },
+      // 2026-09-01: one door for the paired schedule/challenge surface.
+      // It opens on Challenges first, where someone can take a side now,
+      // then the in-page switch reaches the calendar. Keeping two rows
+      // for the same pair made the choice look larger than it is.
+      { href: '/challenges',  label: 'Schedule & challenges', big: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
@@ -813,7 +807,7 @@
     // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
     // but never got a MENU_META row, so the largest tile in the column
     // was the only one rendering with no sentence under it.
-    '/challenges':     { desc: 'Post a claim, or challenge someone by name', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
+    '/challenges':     { desc: 'Post a challenge or put a round on the calendar', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
     '/claim':          { desc: 'Seed your rating from Tabroom', plain: 'Bring results you already have', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
     '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
     '/judge-paradigms': { desc: 'What judges actually reward', plain: 'What wins a round, in plain terms', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
@@ -1094,7 +1088,6 @@
         ]),
         column('Debate', [
           ['/challenges',     'big'],
-          ['/debate-online',  'strong'],
           ['/tournaments',    'strong'],
           ['/private',        ''],
           ['/leaderboard',    'strong'],
@@ -2019,6 +2012,14 @@
       try {
         localStorage.setItem('da-theme', next);
         localStorage.setItem('debateos-lighting', lighting);
+      } catch(e){}
+      try {
+        if (window.gtag) window.gtag('event', 'theme_change', {
+          from: prev,
+          to: next,
+          source: window.__daThemeSource || 'toggle',
+          dark_nudge_arm: localStorage.getItem('da-dark-nudge-ab-v2') || 'unassigned'
+        });
       } catch(e){}
       document.documentElement.setAttribute('data-theme', next);
       document.documentElement.setAttribute('data-lighting', lighting);
@@ -3047,7 +3048,7 @@
   timer = setInterval(tick, 1000);
 })();
 
-/* ── Dark-mode reminder (phones, once ever) ─────────────────────────
+/* ── Dark-mode reminder A/B (once ever) ─────────────────────────────
    2026-08-26, the founder: "remind users they can use dark mode bc i
    want ppl to feel comfortable."
 
@@ -3064,8 +3065,9 @@
    - Once ever per browser. A localStorage flag, not sessionStorage, so
      it cannot come back next visit the way the Open ticker does. A
      reminder that repeats is an ad.
-   - Only on phones. Desktop shows the control in the bar with room
-     around it and does not need telling.
+   - A sticky 50/50 prompt/control split. The control arm sees nothing;
+     both arms emit the same eligibility event so dark-mode adoption can
+     be compared rather than measuring prompt acceptance in a vacuum.
    - Only when the page is actually LIGHT. Anyone already on a dark
      theme has solved this for themselves, and telling them about a
      feature they are using reads as a broken product.
@@ -3090,15 +3092,50 @@
   window.__daDarkNudge = 1;
 
   var KEY = 'da-dark-nudge-seen';
+  var AB_KEY = 'da-dark-nudge-ab-v2';
+  var AB_SENT_KEY = 'da-dark-nudge-ab-v2-sent';
   var QUIET = /^\/(live-round|voice-debate|newvoice|room-judge|casual-room|spectate|practice|exhibition|coach|watch)(\.html)?$/;
+
+  function assignArm(){
+    var forced = '';
+    try { forced = new URLSearchParams(location.search).get('darkNudge') || ''; } catch(e){}
+    if (forced === 'prompt' || forced === 'control') return { arm:forced, forced:true, assigned:false };
+    try {
+      var saved = localStorage.getItem(AB_KEY);
+      if (saved === 'prompt' || saved === 'control') return { arm:saved, forced:false, assigned:false };
+      var arm = Math.random() < .5 ? 'prompt' : 'control';
+      localStorage.setItem(AB_KEY, arm);
+      return { arm:arm, forced:false, assigned:true };
+    } catch(e) { return { arm:'control', forced:false, assigned:false }; }
+  }
+
+  function reportArm(bucket, path){
+    try {
+      if (window.gtag) {
+        window.gtag('set', 'user_properties', { dark_nudge_arm: bucket.arm });
+        if (bucket.forced || sessionStorage.getItem(AB_SENT_KEY) !== '1') {
+          window.gtag('event', 'dark_nudge_experiment_view', {
+            variant: bucket.arm,
+            assigned: bucket.assigned,
+            forced: bucket.forced,
+            path: path
+          });
+          if (!bucket.forced) sessionStorage.setItem(AB_SENT_KEY, '1');
+        }
+      }
+    } catch(e){}
+  }
 
   function go(){
     var path = (location.pathname || '/').replace(/\/$/, '') || '/';
     if (QUIET.test(path)) return;
-    if (window.innerWidth > 560) return;
-    try { if (localStorage.getItem(KEY) === '1') return; } catch (e) { return; }
+    var bucket = assignArm();
+    try { if (!bucket.forced && localStorage.getItem(KEY) === '1') return; } catch (e) { return; }
 
     var root = document.documentElement;
+    // A force-theme page has no alternate palette. Its control is hidden
+    // and unwired, so offering a switch there would be a broken promise.
+    if (root.hasAttribute('data-force-theme')) return;
     var theme = root.getAttribute('data-theme');
     var lighting = root.getAttribute('data-lighting');
     // Both are checked because pages set one or the other, and a page
@@ -3108,6 +3145,7 @@
     // Nothing to point at means nothing to offer.
     var ctl = document.querySelector('.theme-toggle');
     if (!ctl) return;
+    try { if (window.getComputedStyle(ctl).display === 'none') return; } catch(e){}
 
     // One card in that corner at a time. experience-ask.js mounts at
     // 2.2s and this fires at 3.5s, so on a page where the visitor has
@@ -3119,33 +3157,43 @@
     // appear on a later page once the corner is free.
     if (document.getElementById('daExpAsk')) return;
 
+    reportArm(bucket, path);
+    if (bucket.arm === 'control') return;
+
     var seen = function(){ try { localStorage.setItem(KEY, '1'); } catch (e) {} };
 
     var card = document.createElement('div');
     card.className = 'da-dark-nudge';
-    card.setAttribute('role', 'status');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-labelledby', 'daDarkNudgeTitle');
     card.innerHTML =
-      '<span class="da-dark-nudge-txt">Reading at night? Dark mode is one tap away.</span>'
-      + '<button type="button" class="da-dark-nudge-go">Turn it on</button>'
-      + '<button type="button" class="da-dark-nudge-x" aria-label="Dismiss">&times;</button>';
+      '<span class="da-dark-nudge-txt" id="daDarkNudgeTitle">Change to dark mode?</span>'
+      + '<button type="button" class="da-dark-nudge-go">Change</button>'
+      + '<button type="button" class="da-dark-nudge-x">Not now</button>';
     document.body.appendChild(card);
     requestAnimationFrame(function(){ card.classList.add('is-in'); });
+    try { if (window.gtag) window.gtag('event', 'dark_nudge_view', { variant:bucket.arm, path:path }); } catch(e){}
 
-    var timer = setTimeout(close, 12000);
-    function close(){
+    var timer = setTimeout(function(){ close('timeout'); }, 12000);
+    var closed = false;
+    function close(reason){
+      if (closed) return;
+      closed = true;
       clearTimeout(timer);
       card.classList.remove('is-in');
       setTimeout(function(){ if (card.parentNode) card.parentNode.removeChild(card); }, 220);
       seen();
+      try { if (window.gtag) window.gtag('event', 'dark_nudge_dismiss', { reason:reason, path:path }); } catch(e){}
     }
-    card.querySelector('.da-dark-nudge-x').addEventListener('click', close);
+    card.querySelector('.da-dark-nudge-x').addEventListener('click', function(){ close('not_now'); });
     card.querySelector('.da-dark-nudge-go').addEventListener('click', function(){
       // Drive the real control so persistence and icon sync ride along.
-      ctl.click();
-      close();
+      seen();
+      window.__daThemeSource = 'dark_nudge';
       try {
-        if (window.gtag) window.gtag('event', 'dark_nudge_accept', { surface: 'topbar' });
+        if (window.gtag) window.gtag('event', 'dark_nudge_accept', { variant:bucket.arm, path:path });
       } catch (e) {}
+      ctl.click();
     });
   }
 
