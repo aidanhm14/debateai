@@ -139,7 +139,8 @@ check('participant screen sharing is absent from the live-room controls',
 check('the resolution bar includes repeated timer and context controls',
   liveRound.includes('id="rmbTimerNum"')
   && liveRound.includes('id="rmbContextBtn"')
-  && liveRound.includes('id="rmbAiCue">AI tools'));
+  && liveRound.includes('id="rmbAiCue">Neutral context')
+  && liveRound.includes('.rmb-ai-cue[hidden]{display:none!important}'));
 check('the motion timer is driven by the canonical speech clock',
   liveRound.includes("var motionClock = $('rmbTimerNum')")
   && liveRound.includes("motionClock.textContent = num.textContent"));

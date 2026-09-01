@@ -353,14 +353,6 @@ button{font-family:inherit}
 .cv-exit-btn:hover{background:rgba(255,255,255,.09)}
 .cv-exit-btn--go{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444)}
 .cv-exit-btn--go:hover{background:#dc2626;border-color:#dc2626}
-/* A watcher opens the page with no activation on this document, so Chrome
-   refuses to autoplay the round's audio and the feed looks broken rather
-   than muted. One tap is the only thing that can lift it. */
-.cv-sound{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;
-  padding:11px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.28);
-  background:rgba(18,18,20,.92);color:#fff;cursor:pointer;
-  font:800 .78rem/1 DM Sans,Archivo,Georgia,serif;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-.cv-sound:hover{background:rgba(40,40,44,.96)}
 @media (max-width:900px){
   .cv-stage{grid-auto-flow:row;grid-auto-columns:auto}
   .cv-stage[data-n="2"]{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}
@@ -1578,11 +1570,47 @@ body.spectator-mode .sc-live-chip[hidden]{display:none!important}
    controls in it. */
 body.spectator-mode .round-motion-bar{border-left-color:var(--blue)}
 body.spectator-mode .speech-clock-label{color:var(--blue)}
+/* Audience mode is a broadcast surface, not a muted copy of the
+   debater console. The stage leads, the live picture fills it, and the
+   other seat becomes a small reaction window. JS orders a speaking
+   camera first and filters the stage back to the assigned seats. */
+body.spectator-mode .jitsi-pane{border-right-color:rgba(37,99,235,.45)}
+body.spectator-mode .jitsi-pane::after{
+  content:'AUDIENCE VIEW';position:absolute;top:16px;left:16px;z-index:12;
+  padding:6px 10px;border-radius:999px;background:rgba(8,15,28,.78);
+  border:1px solid rgba(147,197,253,.4);color:#bfdbfe;
+  font:850 .6rem/1 'DM Sans','Archivo',sans-serif;letter-spacing:.13em;
+  pointer-events:none;backdrop-filter:blur(8px);
+}
+body.spectator-mode .cv-stage:not(.has-screen){display:block;position:relative}
+body.spectator-mode .cv-stage:not(.has-screen) > .cv-tile{
+  position:absolute;inset:8px;height:auto;border-radius:16px;
+}
+body.spectator-mode .cv-stage:not(.has-screen) > .cv-tile:nth-child(2){
+  inset:auto 20px 20px auto;width:min(31%,260px);height:auto;aspect-ratio:16/10;
+  z-index:7;border-color:rgba(255,255,255,.32);box-shadow:0 16px 38px rgba(0,0,0,.54);
+}
+body.spectator-mode .cv-stage:not(.has-screen) > .cv-tile:nth-child(n+3){display:none}
+body.spectator-mode .cv-tile.is-speaking{
+  border-color:rgba(59,130,246,.9);box-shadow:0 0 0 2px rgba(59,130,246,.32);
+}
+body.spectator-mode .panel{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 94%,#dbeafe) 0%,var(--bg) 42%);
+}
+body.spectator-mode .round-motion-bar,
+body.spectator-mode .speech-header{background:color-mix(in srgb,var(--bg) 91%,#dbeafe)}
+@media(min-width:1001px){
+  body.spectator-mode .split{grid-template-columns:minmax(0,1.6fr) 7px minmax(440px,1fr)}
+}
 @media(max-width:720px){
   body.spectator-mode .round-motion-bar{grid-template-columns:1fr;gap:9px;padding:11px 14px}
   body.spectator-mode .rmb-tools{justify-content:flex-start}
   body.spectator-mode .speech-header{padding:12px 14px;gap:10px}
   body.spectator-mode .speech-clock{padding:10px 0 0}
+  body.spectator-mode .jitsi-pane::after{top:10px;left:10px}
+  body.spectator-mode .cv-stage:not(.has-screen) > .cv-tile:nth-child(2){
+    right:12px;bottom:12px;width:36%;
+  }
 }
 
 /* Persistent room guide. The live-round state was already turn-gated in
@@ -2299,6 +2327,7 @@ body.speech-live .rmb-change{display:none}
   align-self:center;display:inline-flex;align-items:center;gap:6px;color:var(--blue,#2563eb);
   font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;
 }
+.rmb-ai-cue[hidden]{display:none!important}
 .rmb-ai-cue b{font-size:1.15rem;line-height:1;animation:rmbCue 1.15s ease-in-out infinite}
 @keyframes rmbCue{50%{transform:translateX(5px)}}
 @media(prefers-reduced-motion:reduce){.rmb-ai-cue b{animation:none}}
@@ -3442,7 +3471,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
                 <span class="rmb-timer-label" id="rmbTimerState">Ready</span>
                 <strong class="rmb-timer-num" id="rmbTimerNum">0:00</strong>
               </div>
-              <span class="rmb-ai-cue" id="rmbAiCue">AI tools <b aria-hidden="true">→</b></span>
+              <span class="rmb-ai-cue" id="rmbAiCue">Neutral context <b aria-hidden="true">→</b></span>
               <button type="button" class="rmb-context-btn" id="rmbContextBtn" title="Generate a neutral background brief for this resolution">✦ Generate context</button>
             </div>
           </div>
@@ -3579,10 +3608,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         <div class="rd-body" id="audienceToolsBody"></div>
       </details>
 
-      <!-- AI tools. The aides run as before; they just no longer sit
-           between the speaker and the transcript. -->
+      <!-- Shared notes and fact checks. The aides run as before; they
+           just no longer sit between the speaker and the transcript. -->
       <details class="round-details" id="moreOptions">
-        <summary>AI tools<span class="rd-status" id="moreOptionsStatus"></span></summary>
+        <summary>Notes and fact checks<span class="rd-status" id="moreOptionsStatus"></span></summary>
         <div class="rd-body">
           <!-- Round notes. After every speech the AI writes shared notes
                onto the round doc: what was argued, and what a reply has to
@@ -3685,7 +3714,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       </details>
 
       <!-- 2026-08-29, per the founder: the panel reads resolution, clock,
-           AI tools (notes), then the transcript at the dead bottom. The
+           notes and fact checks, then the transcript at the dead bottom. The
            transcript block moved below Round details; every id inside is
            unchanged, so the mic, captions and language offer are untouched. -->
       <div class="transcript-area">
@@ -9240,7 +9269,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
     micOn:true, sharing:false, canFlip:false, facing:'user',
     remoteSeats:0, everHadRemote:false,
-    viewer:false, soundGate:null, qualityEl:null,
+    viewer:false, qualityEl:null,
     networkState:'unknown', networkReasons:[], cpuHigh:false,
     receiveCap:'inherit', lastHealthKey:'',
   };
@@ -9379,6 +9408,22 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     return !trackOf(p.tracks && p.tracks.video)
       && !trackOf(p.tracks && p.tracks.audio)
       && !trackOf(p.tracks && p.tracks.screenVideo);
+  }
+  function normRoomPerson(v){
+    return String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+  // A receive-only viewer can still see stale or mis-permissioned Daily
+  // participants. The round doc already names the seats, so use that
+  // roster instead of turning every visible Daily identity into a third
+  // debater tile. UID is authoritative; normalized display names cover
+  // older rooms whose tokens did not carry user_id.
+  function isAssignedRoundSeat(p){
+    if (!p) return false;
+    var uids = [state.proUid,state.conUid,state.proUid2,state.conUid2].filter(Boolean);
+    if (p.user_id && uids.indexOf(p.user_id) >= 0) return true;
+    var names = [state.proName,state.conName,state.proName2,state.conName2]
+      .map(normRoomPerson).filter(Boolean);
+    return names.indexOf(normRoomPerson(p.user_name)) >= 0;
   }
   function myRoomName(){
     try {
@@ -9619,8 +9664,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       }
       attachTrack(a, track);
       if (room.viewer){
+        // Start immediately. Some browsers may still enforce their own
+        // autoplay policy, but the spectator surface never interrupts the
+        // broadcast with a separate sound-gate button.
         var pr = a.play && a.play();
-        if (pr && pr.catch) pr.catch(function(){ showSoundGate(); });
+        if (pr && pr.catch) pr.catch(function(){});
       }
     });
     Object.keys(room.audios).forEach(function(sid){
@@ -9651,12 +9699,32 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       seats = seats.filter(notMe);
       screens = screens.filter(notMe);
       auds = auds.filter(notMe);
+      var assigned = seats.filter(isAssignedRoundSeat);
+      // Require a complete known pair before excluding unmatched records.
+      // With only one known name in a legacy room, keeping the fallback is
+      // better than hiding the other actual speaker. A normal 1v1 has both
+      // names or both UIDs and drops any third record here.
+      if (assigned.length >= Math.min(2, seats.length)) seats = assigned;
     }
-    // Local last so the opponent holds the first, largest cell.
+    // Local last in a debater room. In audience mode put a live camera at
+    // the front of the broadcast stage, preferring the active speaker
+    // when both seats have video. The second assigned seat becomes the
+    // reaction window through spectator-mode CSS.
     seats.sort(function(a, b){
+      if (room.viewer){
+        var av = trackOf(a.tracks && a.tracks.video) ? 4 : 0;
+        var bv = trackOf(b.tracks && b.tracks.video) ? 4 : 0;
+        if (room.active && a.session_id === room.active) av += 2;
+        if (room.active && b.session_id === room.active) bv += 2;
+        if (av !== bv) return bv - av;
+      }
       if (!!a.local !== !!b.local) return a.local ? 1 : -1;
       return String(a.session_id) < String(b.session_id) ? -1 : 1;
     });
+    if (room.viewer){
+      var seatLimit = state.isDuo ? 4 : 2;
+      seats = seats.slice(0, seatLimit);
+    }
     var keep = {};
     screens.forEach(function(p){
       var key = 'screen:' + p.session_id;
@@ -9666,7 +9734,12 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     seats.forEach(function(p){
       var key = 'seat:' + p.session_id;
       keep[key] = true;
-      paintTile(ensureTile(room.stage, key, p.local), p, {});
+      var t = ensureTile(room.stage, key, p.local);
+      paintTile(t, p, {});
+      // appendChild is a no-op for media playback but updates DOM order
+      // when the active camera changes, so CSS can keep the broadcast's
+      // main picture and reaction window in the right places.
+      if (room.viewer) room.stage.appendChild(t.el);
     });
     auds.forEach(function(p){
       var key = 'aud:' + p.session_id;
@@ -10010,35 +10083,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       room.note = null; room.tray = null; room.audioHost = null; room.qualityEl = null;
       room.viewer = false;
       room.active = '';
-      room.soundGate = null;
     }
     window.__lrDailyWrapper = false;
-  }
-
-  // Chrome will not autoplay audible media without an activation on THIS
-  // document, and a watcher who arrived by clicking a link on the last
-  // page has none. A debater never meets this because granting a mic
-  // carries the privilege with it. Without the gate the round plays in
-  // silence and looks like a broken feed.
-  function showSoundGate(){
-    if (!room.wrap || room.soundGate) return;
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'cv-sound';
-    btn.textContent = 'Tap to turn on sound';
-    btn.addEventListener('click', function(){
-      var blocked = false;
-      Object.keys(room.audios).forEach(function(sid){
-        var pr = room.audios[sid].play && room.audios[sid].play();
-        if (pr && pr.catch) pr.catch(function(){ blocked = true; });
-      });
-      if (!blocked){
-        try { btn.remove(); } catch(e){}
-        room.soundGate = null;
-      }
-    });
-    room.wrap.appendChild(btn);
-    room.soundGate = btn;
   }
 
   function mountDaily(){
@@ -19784,7 +19830,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   flex-wrap:wrap;gap:7px;
 }
 .round-motion-bar .rmb-motion{
-  font-size:clamp(2.25rem,4.6vw,4.25rem);
+  font-size:clamp(1.75rem,4cqi,2.65rem);
   font-weight:800;line-height:1.08;letter-spacing:-.025em;
 }
 .rmb-lock-note{
@@ -20045,7 +20091,7 @@ body.lr-modal-open .panel{overflow:hidden}
 @container round-panel (max-width:520px){
   .rmb-motion-row{grid-template-columns:minmax(0,1fr);gap:12px}
   .round-motion-bar .rmb-motion{
-    max-width:none;font-size:clamp(1.9rem,7.5cqi,2.25rem);
+    max-width:none;font-size:clamp(1.7rem,7cqi,2.05rem);
     overflow-wrap:anywhere;text-wrap:pretty;
   }
   .rmb-motion-actions{min-width:0;justify-content:flex-start}
@@ -20053,7 +20099,7 @@ body.lr-modal-open .panel{overflow:hidden}
   .rmb-timer-num{font-size:1.65rem}
 }
 @container round-panel (max-width:360px){
-  .round-motion-bar .rmb-motion{font-size:clamp(1.55rem,8cqi,1.85rem)}
+  .round-motion-bar .rmb-motion{font-size:clamp(1.5rem,7.5cqi,1.75rem)}
   .rmb-motion-actions{align-items:stretch;flex-direction:column}
   .rmb-timer{width:100%}
 }

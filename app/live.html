@@ -2113,6 +2113,7 @@ button{font-family:inherit}
   position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);
   background:var(--bg-elev);border-left:1px solid var(--border-strong);
   z-index:301;overflow-y:auto;padding:22px 22px 40px;
+  box-sizing:border-box;overscroll-behavior:contain;
   transform:translateX(100%);transition:transform .26s cubic-bezier(.32,.72,.33,1);
   box-shadow:-18px 0 60px rgba(0,0,0,.4);
 }
@@ -2132,6 +2133,28 @@ button{font-family:inherit}
 }
 .drawer-motion{font-size:1.05rem;font-weight:800;line-height:1.45;margin:12px 0 10px;color:var(--text)}
 .drawer-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+/* The seat grid also appears on full-width cards, where its desktop
+   breakpoint expands to four columns. A 420px drawer is still a narrow
+   container even on a wide monitor, so viewport media queries cannot
+   size it. Keep one complete seat per row and let the name take the
+   flexible track. This prevents the side label, occupant and Take button
+   from painting over one another. */
+#drawerHost .slots{grid-template-columns:minmax(0,1fr)}
+#drawerHost .slot{
+  display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;
+  align-items:center;
+}
+#drawerHost .slot-join{margin-left:0;white-space:nowrap}
+#drawerHost .pchip{min-width:0}
+#drawerHost .pchip .pc-name{max-width:none;min-width:0}
+#drawerHost .drawer-actions .btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+@media(max-width:460px){
+  .drawer-panel{padding:18px 16px calc(28px + env(safe-area-inset-bottom,0px))}
+  .drawer-motion{padding-right:34px}
+  #drawerHost .drawer-actions{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  #drawerHost .drawer-actions .btn-primary{grid-column:1/-1;width:100%}
+  #drawerHost .drawer-actions .btn{white-space:normal;text-align:center}
+}
 [data-theme="light"] .drawer-panel{box-shadow:-12px 0 44px rgba(0,0,0,.14)}
 
 /* ─── List | Calendar toggle + month grid ──────────── */
