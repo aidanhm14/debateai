@@ -102,7 +102,7 @@ const landing = read('app/landing.html');
 check(
   landing.includes('href="https://discord.gg/WMHZW9BKvJ"')
     && landing.includes('data-cta="landing-quick-discord"')
-    && landing.includes('/img/email/open-community.jpg'),
+    && landing.includes('/img/landing/discord-community.png'),
   'landing quick row uses the large Discord community card',
 );
 check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
