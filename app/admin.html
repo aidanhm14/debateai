@@ -708,6 +708,45 @@
     </div>
   </div>
 
+  <!-- Paid campaign, judged on rounds. Reads /api/admin/campaign for one
+       UTM campaign (default search-sep, the 2026-09 $150 / 7-day Google
+       Search test landing on /debate-online). Google Ads reports clicks;
+       this card reports the number the money is actually judged on: rounds
+       started by people who arrived on the ad, against the pass bar. -->
+  <style>
+    .pc-bar{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+    .pc-bar input{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--fg);width:150px}
+    .pc-bar button{font:inherit;font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--fg);cursor:pointer}
+    .pc-hero{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .pc-hero .big{font-size:38px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+    .pc-hero .pass{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+    .pc-hero .pass.ok{background:rgba(22,163,74,.14);color:#16a34a}
+    .pc-hero .pass.no{background:rgba(220,38,38,.12);color:#dc2626}
+    .pc-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+    .pc-step{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card-2)}
+    .pc-step .k{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+    .pc-step .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+    .pc-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-top:1px solid var(--line-soft)}
+    .pc-row .n{color:var(--muted);font-variant-numeric:tabular-nums}
+  </style>
+  <div class="section" data-pane="growth">
+    <div class="card">
+      <div class="title">
+        <span>Paid campaign <span class="badge">judged on rounds</span></span>
+        <span class="meta" id="pc-meta">Loading…</span>
+      </div>
+      <div class="pc-bar">
+        <label for="pc-campaign" style="font-size:12px;color:var(--muted)">utm_campaign</label>
+        <input id="pc-campaign" value="search-sep" spellcheck="false" />
+        <button type="button" id="pc-reload">Reload</button>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.55">
+        Rounds started by visitors whose session carried this campaign tag, then the funnel that produced them. Clicks and cost live in Google Ads; the pass bar lives here. A start counted "via device" came from a later tab of the same person.
+      </div>
+      <div id="pc-body" class="ts" style="padding:2px">Loading…</div>
+    </div>
+  </div>
+
   <!-- Why rounds die. The card above says WHERE a round died; this one
        says WHY, from two events shipped 2026-08-22: round_abandoned
        (pagehide beacon mid-round, with stage + whether the AI was
@@ -2722,7 +2761,7 @@ const PANE_LOADERS = {
   // Betting + Open cards render from the eagerly loaded northstar
   // payload; the cost-guard card is the pane's own fetch.
   money:     [ () => loadAbuse(), () => loadBounties() ],
-  growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadRoundExits(), () => loadSigninErrors(), () => loadOutcomeCohorts(), () => loadFounderVideo(), () => loadPollResults() ],
+  growth:    [ () => loadFunnel(), () => loadRoundFunnel(), () => loadCampaign(), () => loadRoundExits(), () => loadSigninErrors(), () => loadOutcomeCohorts(), () => loadFounderVideo(), () => loadPollResults() ],
   people:    [ () => loadSubscribers(), () => loadProspects() ],
   // Deferred, not eager, per the read-budget note above. The queue holds
   // a handful of docs and is only actionable when someone is actually
@@ -2876,6 +2915,69 @@ async function loadAbuse(){
     var b = $('abuse-body'); if (b) b.innerHTML = '<div class="err-box">' + esc(e.message || String(e)) + '</div>';
   }
 }
+
+// ── Paid campaign (rounds, never clicks) ──────────────────────────────
+function pcCampaignName(){
+  var el = $('pc-campaign');
+  var v = el && el.value ? el.value.trim().replace(/[^a-z0-9_-]/gi, '') : '';
+  return v || 'search-sep';
+}
+async function loadCampaign(fresh){
+  var body = $('pc-body'), meta = $('pc-meta');
+  try {
+    var name = pcCampaignName();
+    var d = await fetchJson('/api/admin/campaign?campaign=' + encodeURIComponent(name) + '&days=' + Math.max(globalDays, 14), fresh);
+    if (meta) meta.textContent = d.windowDays + 'd · ' + (d.funnel.sessions || 0) + ' sessions · ' + (d.rounds.started || 0) + '/' + d.passBar + ' rounds';
+    if (!body) return;
+    var r = d.rounds || {}, f = d.funnel || {};
+    var passCls = d.passed ? 'ok' : 'no';
+    var passTxt = d.passed ? 'Pass bar met' : 'Below pass bar';
+    if (!f.sessions) passTxt = 'No tagged traffic yet';
+    var html = '<div class="pc-hero"><span class="big">' + (r.started || 0) + '</span>' +
+      '<span style="font-size:13px;color:var(--muted)">rounds started of ' + d.passBar + ' needed</span>' +
+      '<span class="pass ' + passCls + '">' + passTxt + '</span></div>';
+    function step(k, v){ return '<div class="pc-step"><div class="k">' + k + '</div><div class="v">' + (v == null ? '–' : v) + '</div></div>'; }
+    html += '<div class="pc-steps">' +
+      step('Sessions (ad clicks seen)', f.sessions) +
+      step('Engaged', f.engagedSessions) +
+      step('Reached /spar', f.reachedSpar) +
+      step('Signed in', f.signedIn) +
+      step('Queue joins', f.queueJoins) +
+      step('Matched', f.matched) +
+      step('Rounds started', r.started) +
+      step('Rounds completed', r.completed) +
+      '</div>';
+    var kinds = Object.entries(r.byKind || {}).map(function(e){ return e[0] + ' ' + e[1]; }).join(' · ') || 'none';
+    html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">By kind: <b>' + esc(kinds) + '</b> · via session ' + (r.viaSession || 0) + ' · via device ' + (r.viaDevice || 0) + ' · distinct people ' + (r.distinctStarters || 0) +
+      (f.aiFallbacks ? ' · AI fallbacks ' + f.aiFallbacks : '') + (f.abandoned ? ' · abandon beacons ' + f.abandoned : '') + '</div>';
+    var paths = Object.entries(d.pageViewsByPath || {}).sort(function(a, b){ return b[1] - a[1]; }).slice(0, 8);
+    if (paths.length){
+      html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:8px 0 2px">Pages seen</div>';
+      html += paths.map(function(p){ return '<div class="pc-row"><span>' + esc(p[0]) + '</span><span class="n">' + p[1] + '</span></div>'; }).join('');
+    }
+    var ads = Object.entries(d.byContent || {}).sort(function(a, b){ return b[1] - a[1]; });
+    if (ads.length){
+      html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:10px 0 2px">By utm_content (events)</div>';
+      html += ads.map(function(p){ return '<div class="pc-row"><span>' + esc(p[0]) + '</span><span class="n">' + p[1] + '</span></div>'; }).join('');
+    }
+    if (r.recent && r.recent.length){
+      html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:10px 0 2px">Round starts</div>';
+      r.recent.forEach(function(s){
+        html += '<div class="pc-row"><span>' + esc(s.kind) + (s.format ? ' · ' + esc(s.format) : '') + ' · ' + esc(s.uid || '') + (s.anon ? ' (anon)' : '') + ' · via ' + esc(s.via) + '</span><span class="n">' + (s.ts ? new Date(s.ts).toLocaleString() : '') + '</span></div>';
+      });
+    }
+    html += '<div style="font-size:11px;color:var(--muted);margin-top:10px">' + (d.indexed ? 'Indexed query' : 'Fallback query (composite index still building)') + (d.truncated ? ' · TRUNCATED at cap, counts are floors' : '') + ' · first tagged event ' + (d.firstSeen ? new Date(d.firstSeen).toLocaleString() : 'none') + ' · generated ' + (d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : '') + '</div>';
+    body.innerHTML = html;
+  } catch (e) {
+    if (body) body.innerHTML = '<div class="err-box">' + esc(e.message || String(e)) + '</div>';
+  }
+}
+(function(){
+  var b = document.getElementById('pc-reload');
+  if (b) b.addEventListener('click', function(){ loadCampaign(true); });
+  var i = document.getElementById('pc-campaign');
+  if (i) i.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') loadCampaign(true); });
+})();
 
 // ── Why rounds die (exit capture) ───────────────────────────────────
 async function loadRoundExits(){
