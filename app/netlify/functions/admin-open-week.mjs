@@ -69,7 +69,7 @@ async function readLeaderLine() {
 // traction. The freeze time, the 1500 start, the Elo update, and the
 // prize ladder are the ones published on /tournament-rules; if those
 // change, change these.
-function renderEmail({ firstName, uid, tournamentName, leaderLine }) {
+function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }) {
   const cta   = `${SITE_URL}/tournaments`;
   const rules = `${SITE_URL}/tournament-rules`;
   return `
@@ -88,12 +88,18 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine }) {
 
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
-  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Come at the rush hours: 11 AM and 7 PM Eastern, every day
-    this week.</strong> Those are the two hours the site is busiest, so
-    that is when you will find an opponent fastest. 11 AM Eastern is
-    4 PM in London and 8:30 PM in Delhi; 7 PM Eastern is 4 PM on the
-    West Coast.
+  ${signupCount ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    You are one of <strong>${esc(String(signupCount))} people</strong> who
+    have signed up to Debatable, most of them in the last month. The field
+    is real. The clash hours below are how we all end up online at once.
+  </p>` : ''}
+
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
+    <strong>Show up at the three clash hours: 7 AM, 3 PM, and 8 PM
+    Eastern, every day this week.</strong> Those are the windows we are
+    pointing everyone to, so that is when the queue fills. 7 AM Eastern
+    is 4:30 PM in Delhi and 9 PM in Sydney. 3 PM Eastern is 8 PM in
+    London. 8 PM Eastern is 5 PM on the West Coast.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
@@ -151,10 +157,12 @@ export default async (request) => {
   if (body?.testTo) {
     const to = String(body.testTo);
     const from = body.from ? String(body.from) : FROM_EMAIL;
+    const testUsers = await listAllAuthUsers().catch(() => null);
+    const testCount = testUsers ? testUsers.filter(u => (u.providerData || []).length > 0).length : 0;
     const res = await sendEmail({
       to,
       subject: SUBJECT,
-      html: renderEmail({ firstName: 'debater', uid: 'test', tournamentName: 'The Debatable Open', leaderLine }),
+      html: renderEmail({ firstName: 'debater', uid: 'test', tournamentName: 'The Debatable Open', leaderLine, signupCount: testCount }),
       uid: 'test', stream: STREAM, from, replyTo: REPLY_TO,
     });
     return jsonResponse({ test: true, to, from, leaderLine: !!leaderLine, result: res }, 200, request);
@@ -196,6 +204,11 @@ export default async (request) => {
   });
   if (!authUsers) return errorResponse('Could not read the account list. Nothing was sent.', 502, request);
 
+  // Named signups (a provider row = a real account, never an anonymous
+  // uid), quoted in the email as social proof. Computed at send time so
+  // the figure can never go stale in the template.
+  const signupCount = authUsers.filter(u => (u.providerData || []).length > 0).length;
+
   const profilesSnap = await db.collection('user_profiles').limit(3000).get();
   const profByUid = new Map();
   profilesSnap.docs.forEach(d => profByUid.set(d.id, d.data() || {}));
@@ -230,6 +243,7 @@ export default async (request) => {
         uid: user.uid,
         tournamentName: tourn.name || 'The Debatable Open',
         leaderLine,
+        signupCount,
       }),
       uid: user.uid,
       stream: STREAM,
