@@ -293,8 +293,12 @@
     '@media(prefers-reduced-motion:reduce){.sn-dot{animation:none}.sn-cta{transition:none}}' +
     /* rail variant (/spar sidebar) */
     '.sn-card--rail{display:block;padding:11px 12px;margin:0}' +
-    '.sn-card--rail .sn-title{font-size:.78rem;margin:5px 0 2px}' +
-    '.sn-card--rail .sn-sub{font-size:.68rem;margin:0 0 8px}' +
+    // 2026-08-31: the founder asked for simpler, BIGGER messaging here.
+    // The headline and the three clash hours are the card; keep them large.
+    '.sn-card--rail .sn-title{font-size:.98rem;margin:6px 0 3px}' +
+    '.sn-card--rail .sn-sub{font-size:.68rem;margin:0 0 9px}' +
+    '.sn-hours{display:block;font-size:1.12rem;font-weight:900;letter-spacing:.01em;' +
+      'color:var(--text,#f4f4f2);font-variant-numeric:tabular-nums;white-space:nowrap}' +
     /* nowrap + row wrap: in a ~280px rail the countdown digits must never
        break mid-value; if the row runs out of room the CTA drops below
        instead. */
@@ -351,11 +355,20 @@
     var title = live
       ? 'Spar Night is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
       : st.session.name + ' \u00b7 Wednesday ' + hourLabel(st.session.hour) + ' ET';
+    // Rail headline is the simple version of the same fact; the session
+    // name and exact next hour still ride the countdown's local line.
+    var railTitle = live ? title : 'Three clash hours every Wednesday.';
     var cities = zoneLine(st.start, st.session.zones);
+    // 2026-08-31, the founder off the rail card: "simplify how this is
+    // messaged - bigfer text. 3 main clash hours to show up and they are
+    // specified as those hours." The rail leads with the three hours
+    // themselves, big, derived from SESSIONS so the schedule can never
+    // drift from the timer that counts down to it.
+    var hoursLine = SESSIONS.map(function (s) { return hourLabel(s.hour); }).join(' · ') + ' ET';
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
       : (variant === 'rail'
-        ? 'Three sessions every Wednesday: 7 AM, 3 PM and 8 PM ET.'
+        ? '<span class="sn-hours">' + hoursLine + '</span>'
         : 'Ninety minutes when everyone queues at once. Three sessions every Wednesday, one per side of the world: 7 AM, 3 PM and 8 PM ET.'
           + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
@@ -398,7 +411,7 @@
 
     if (variant === 'rail') {
       el.innerHTML = eyebrow +
-        '<div class="sn-title">' + title + '</div>' +
+        '<div class="sn-title">' + railTitle + '</div>' +
         '<div class="sn-sub">' + sub + '</div>' +
         '<div class="sn-row"><span class="sn-sub" style="margin:0">' + count +
         (local ? '<span class="sn-local">' + local + '</span>' : '') + '</span>' + solid + '</div>' +

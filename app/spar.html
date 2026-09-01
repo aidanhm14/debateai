@@ -2214,15 +2214,84 @@ body.draft-live #daExpAsk{display:none !important}
 .wait-rail__body .spar-room__sub{display:none}
 .wait-rail__body .spar-room__pill{bottom:74px}
 
+/* ── Leaderboard rail, searching screen (2026-08-31, the founder:
+   "have it be on the left the leaderboard too with the ELO showing -
+   globe in middle"). Left column of the wide searching grid; hidden
+   below 1281px, where the full board lives one tap away at
+   /leaderboard and a third column has no room. Ratings are the real
+   /api/leaderboard-top numbers, never padded (per the 2026-08-31
+   real-numbers rule). */
+.elo-rail{display:none}
+/* The author display below beats the UA [hidden] rule (the standing
+   trap); this guard is what actually hides an empty rail. */
+.elo-rail[hidden]{display:none !important}
 @media (min-width: 1281px){
   .wrap.spar-search-layout{
     display:grid;
     grid-template-columns:minmax(620px,760px) minmax(360px,420px);
     justify-content:center; align-items:start;
-    gap:clamp(34px,3vw,56px);
+    gap:clamp(26px,2.4vw,44px);
     padding-inline:clamp(24px,3vw,48px);
     padding-top:76px !important;
   }
+  /* Third column exists only while the board actually has rows
+     (paintEloRail toggles the class), so an empty or failed fetch
+     falls back to the old two-column composition instead of leaving
+     a dead track squeezing the globe. */
+  .wrap.spar-search-layout.spar-elo-on{
+    grid-template-columns:minmax(232px,290px) minmax(560px,720px) minmax(360px,420px);
+  }
+  .elo-rail{
+    display:flex; flex-direction:column; gap:0;
+    position:sticky; top:90px; align-self:start;
+    border:1px solid var(--border,rgba(0,0,0,.12));
+    border-radius:16px; overflow:hidden;
+    background:var(--card,rgba(255,255,255,.72));
+  }
+  .elo-rail__head{
+    display:flex; align-items:center; gap:8px;
+    padding:14px 16px 10px;
+    font-size:.72rem; font-weight:900; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--text-dim,rgba(0,0,0,.55));
+  }
+  .elo-rail ol{list-style:none; margin:0; padding:0 8px 6px}
+  .elo-row{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 8px; border-radius:11px;
+    text-decoration:none; color:inherit;
+  }
+  .elo-row:hover{background:rgba(239,68,68,.07)}
+  .elo-row__rank{
+    flex:none; width:18px; text-align:right;
+    font-family:ui-monospace,Menlo,monospace;
+    font-size:.74rem; font-weight:700; color:var(--text-dim,rgba(0,0,0,.5));
+  }
+  .elo-row__pic{
+    flex:none; width:38px; height:38px; border-radius:50%;
+    overflow:hidden; background:rgba(0,0,0,.08); position:relative;
+  }
+  .elo-row__pic img,.elo-row__pic svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .elo-row__pic .elo-ini{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:.8rem;font-weight:900;color:var(--text-dim,rgba(0,0,0,.55));
+  }
+  .elo-row__who{flex:1;min-width:0}
+  .elo-row__name{
+    display:block; font-size:.8rem; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .elo-row__rec{display:block;font-size:.66rem;color:var(--text-dim,rgba(0,0,0,.5))}
+  .elo-row__rating{
+    flex:none; font-family:ui-monospace,Menlo,monospace;
+    font-size:.92rem; font-weight:800; font-variant-numeric:tabular-nums;
+  }
+  .elo-rail__foot{
+    display:block; padding:10px 16px 13px;
+    font-size:.72rem; font-weight:800; color:var(--accent,#ef4444);
+    text-decoration:none;
+  }
+  .elo-rail__foot:hover{text-decoration:underline}
+}
   .wrap.spar-search-layout .shell{
     max-width:720px; justify-self:center;
     padding-inline:clamp(18px,2vw,30px);
@@ -2693,6 +2762,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
      is quiet land dots only; a pin exists only if a real visitor
      produced it. -->
 <script defer src="/js/presence-map.js?v=2"></script>
+<!-- Stand-in photo pool for the searching screen's leaderboard rail,
+     the same tier /leaderboard and the landing wear (2026-08-31). -->
+<script defer src="/js/pfp-set.js"></script>
 
 <!-- 2026-08-31, the founder: at .28 the continents were unreadable and the
      page did not obviously hold a world map. .5 here x the mount's
@@ -4180,28 +4252,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // same thing; the single lede line now carries the whole message
       // (you can leave, we chime). The globe is the centerpiece.
       '<h1>Finding someone to <em>argue with.</em></h1>' +
-      // 2026-08-22, per the founder (shorter writing): this column and the wait
-      // rail on the right were both explaining the SAME waiting mechanic on
-      // one screen. "This tab chimes the moment someone is ready" here, and
-      // "your search stays active and this tab chimes when your opponent is
-      // ready" three inches to the right. The rail is the panel actually
-      // about the wait and says it next to the thing you can do while
-      // waiting, so the rail keeps the chime and this column drops it.
-      //
-      // What survives here is what only this column says. The AI judge was
-      // otherwise named nowhere before the verdict, so someone could queue,
-      // debate a stranger, and first meet the machine that decided it in the
-      // ballot. And camera nerves are why people queue then leave before
-      // accepting, so the avatar promise is answered during the wait rather
-      // than at the moment the round opens and the choice is urgent.
-      //
-      // Both kept, both one line. The 42-word avatar paragraph explained eye
-      // and mouth tracking, which nobody needs before they have seen it. The
-      // two claims that matter are that a mask is an option and that the
-      // camera does not leave the device, and both are load-bearing: the
-      // second is the promise avatar mode was found violating in August.
-      '<p class="lede">When the round ends, an <a href="/judge-integrity" style="color:inherit;text-decoration:underline;text-underline-offset:2px">AI judge</a> writes the ballot.</p>' +
-      '<p class="lede" style="margin-top:-4px"><strong>You never have to show your face.</strong> Pick Avatar and the room sees an animated mask. Your camera never leaves your device.</p>' +
+      // 2026-08-31, the founder off a screenshot of exactly these two
+      // lines: "delete". The AI-judge and avatar reassurances are gone
+      // from the searching column; the headline plus the globe carry the
+      // screen, and the leaderboard rail on the left is the new texture.
+      // The avatar promise still gets answered where the choice is made,
+      // in the room's own camera bar.
       guestStripHtml() +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
@@ -4282,7 +4338,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // stable markup, NOT in #queueStats, which repaints every ~2s and
       // would remount the card (and restart its countdown) each tick.
       '<div class="sn-quiet" id="sparNightQuiet" hidden>' +
-        '<p class="sn-quiet-line">Quiet this minute. The queue fills at one fixed hour a week.</p>' +
+        // "one fixed hour a week" went stale when Spar Night became three
+        // sessions (2026-08-24); the card below now names the hours big.
+        '<p class="sn-quiet-line" style="font-size:.92rem;font-weight:600">Quiet right now. Everyone shows up at the three clash hours.</p>' +
         '<div data-spar-night="rail"></div>' +
         // 2026-07-22: the no-wait exit. An async round needs nobody else
         // online: record the opening now, a debater answers on their own
@@ -4708,6 +4766,86 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
   }
 
+  // ── Leaderboard rail (left side, searching only) ─────────
+  // 2026-08-31, the founder: "have it be on the left the leaderboard too
+  // with the ELO showing - globe in middle". Real /api/leaderboard-top
+  // rating rows only, never padded; fewer than three rated rows hides
+  // the rail entirely rather than dressing an empty board. Pictures are
+  // the person's own photo first, then the shared pfp stand-in pool
+  // (same tier as /leaderboard), then initials.
+  var eloRailCache = null, eloRailAt = 0;
+  function eloRowsHtml(rows){
+    var taken = {};
+    return rows.map(function(r, i){
+      var seed = r.uid || r.name || ('row' + i);
+      var pic;
+      if (r.photoURL){
+        pic = '<img src="' + escHtml(r.photoURL) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">';
+      } else if (window.DBPfp && DBPfp.pickPhotoSvg){
+        pic = DBPfp.pickPhotoSvg(seed, taken);
+      } else {
+        pic = '<span class="elo-ini">' + escHtml(String(r.name || '?').trim().charAt(0).toUpperCase() || '?') + '</span>';
+      }
+      var rec = (r.wins||0) + 'W ' + (r.losses||0) + 'L' + (r.draws ? ' ' + r.draws + 'D' : '');
+      return '<li><a class="elo-row" href="/leaderboard" data-cta="spar-elo-row">' +
+        '<span class="elo-row__rank">' + (i + 1) + '</span>' +
+        '<span class="elo-row__pic" aria-hidden="true">' + pic + '</span>' +
+        '<span class="elo-row__who"><span class="elo-row__name">' + escHtml(r.name || 'A debater') + '</span>' +
+        '<span class="elo-row__rec">' + rec + '</span></span>' +
+        '<span class="elo-row__rating">' + Math.round(r.rating) + '</span>' +
+        '</a></li>';
+    }).join('');
+  }
+  function paintEloRail(){
+    var rail = document.getElementById('eloRail');
+    var wrapEl = document.querySelector('.wrap');
+    if (!rail || !eloRailCache) return;
+    var rows = eloRailCache.filter(function(r){ return r && r.kind === 'rating' && typeof r.rating === 'number'; }).slice(0, 8);
+    if (rows.length < 3){
+      rail.hidden = true;
+      if (wrapEl) wrapEl.classList.remove('spar-elo-on');
+      return;
+    }
+    rail.hidden = false;
+    if (wrapEl) wrapEl.classList.add('spar-elo-on');
+    rail.innerHTML =
+      '<div class="elo-rail__head"><span class="live-dot"></span>Leaderboard</div>' +
+      '<ol>' + eloRowsHtml(rows) + '</ol>' +
+      '<a class="elo-rail__foot" href="/leaderboard" data-cta="spar-elo-full">Full standings &rarr;</a>';
+  }
+  function mountEloRail(){
+    removeEloRail();
+    var host = document.querySelector('.wrap');
+    var shellEl = document.querySelector('.wrap > .shell');
+    if (!host || !shellEl) return;
+    var rail = document.createElement('aside');
+    rail.id = 'eloRail';
+    rail.className = 'elo-rail';
+    rail.hidden = true; // stays hidden until real rated rows arrive
+    rail.setAttribute('aria-label', 'Top of the leaderboard');
+    host.insertBefore(rail, shellEl); // DOM order = grid order: board, globe, wait rail
+    // A pfp module that lands after the paint upgrades initials to the
+    // photo tier with one repaint, same posture as /leaderboard. Attached
+    // BEFORE the cached-path early return, which skipped it at first and
+    // left a fast first paint on initials for the whole visit.
+    if (!window.DBPfp){
+      var tag = document.querySelector('script[src="/js/pfp-set.js"]');
+      if (tag) tag.addEventListener('load', paintEloRail, { once: true });
+    }
+    if (eloRailCache && Date.now() - eloRailAt < 60000){ paintEloRail(); return; }
+    fetch('/api/leaderboard-top').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      if (!d || !Array.isArray(d.rows)) return;
+      eloRailCache = d.rows; eloRailAt = Date.now();
+      paintEloRail();
+    }).catch(function(){});
+  }
+  function removeEloRail(){
+    var existing = document.getElementById('eloRail');
+    if (existing) existing.remove();
+    var wrapEl = document.querySelector('.wrap');
+    if (wrapEl) wrapEl.classList.remove('spar-elo-on');
+  }
+
   // ── While-you-wait rail (right side, searching only) ─────
   // The rail keeps the live social choices in reach: invite someone you
   // know, talk in Commons, or choose another way to start a round. It does
@@ -4723,20 +4861,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     rail.className = 'wait-rail';
     rail.setAttribute('aria-label', 'Things to do while you wait');
     rail.innerHTML =
-      '<div class="wait-rail__head">' +
-        '<div class="wait-rail__status"><span class="live-dot"></span>Match search active</div>' +
-        '<h2>Use the wait.</h2>' +
-        // 2026-08-23, the founder off a screenshot: "too much text here not
-        // simple". The head stacked four text blocks (chime line, the
-        // measured wait stat, the pinged line, the Open strip) before
-        // anything to do. One short line now carries the three facts
-        // that matter: search stays on, this tab chimes, matches take
-        // a minute or two. The full stat backing that last clause
-        // (median 43s, 87% inside 2 min, measured 2026-08-22 over the
-        // 124 matched queue sits) lives in this comment, not on screen.
-        '<p>Your search stays on. This tab chimes when your match is ready. Most matches land inside two minutes.</p>' +
-        openNudgeHtml('wait-rail__open-line') +
-      '</div>' +
+      // 2026-08-31, the founder off a screenshot of the head block
+      // ("MATCH SEARCH ACTIVE / Use the wait." + the chime line): "delete".
+      // The rail opens straight on the things to do; the searching column's
+      // own status line already says the search is running. The wait stat
+      // that used to back the deleted line (median 43s, 87% inside 2 min,
+      // measured 2026-08-22) stays in this comment for whoever needs it.
       '<div class="wait-rail__body">' +
         // The direct friend door leads. Commons gets the remaining height
         // instead of sharing it with a random practice-motion worksheet.
@@ -4749,6 +4879,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '</div>' +
       '</div>';
     host.appendChild(rail);
+    mountEloRail();
     positionFriendChallenge();
     if (!state.friendResizeBound){
       state.friendResizeBound = true;
@@ -4777,6 +4908,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function updatePingedLine(){ /* no line to paint */ }
 
   function removeWaitRail(){
+    removeEloRail();
     var existing = document.getElementById('waitRail');
     if (existing) existing.remove();
     var host = document.querySelector('.wrap');
@@ -8704,6 +8836,26 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // Deliberately before the auth branch: the demo must not join a queue,
     // write a doc, or care whether anyone is signed in.
     try { runDraftDemo(); } catch(e){ console.error('[spar] draft demo failed', e); }
+    return;
+  }
+
+  // ?searchdemo=1 paints the SEARCHING screen without joining the queue,
+  // same precedent as ?draftdemo=1 above: this screen normally needs a
+  // signed-in Google session sitting in a live queue of real humans, so
+  // it kept getting shipped unverified. joinQueue is never called and no
+  // queue doc is written; the read-only mounts (globe, meta counts,
+  // Commons, watch panel) run as they would live.
+  if ((new URLSearchParams(location.search)).get('searchdemo')){
+    state.user = { uid: 'demo-search', displayName: 'You', isAnonymous: false, photoURL: '' };
+    state.named = true;
+    // Synthetic board rows so the left rail renders where the API is
+    // unreachable (local static preview). Live loads always refetch the
+    // real endpoint because this cache never exists outside the demo.
+    eloRailCache = ['Petyr','Sora','Jeeves','Rin N.','Kai S.','Lena Q.','Marcus D.','Ava P.'].map(function(n,i){
+      return { name:n, uid:'demo'+i, kind:'rating', rating:1780-i*34, wins:6-(i%3), losses:i%4, draws:i%2, photoURL:null };
+    });
+    eloRailAt = Date.now();
+    try { renderSearching(); } catch(e){ console.error('[spar] search demo failed', e); }
     return;
   }
 
