@@ -2607,6 +2607,23 @@
   if (window.__daOpenStrip) return;
   window.__daOpenStrip = 1;
 
+  /* RETIRED 2026-08-31 (Aidan, with a screenshot of the clean bar he
+     wants: "get rid of the tournament advertisement banner from the top
+     its stressful"). The whole ticker stands down: the early return
+     below also clears the landing's static copy, and body never gains
+     has-beta-strip, so the topbar sits flush at the top on every page.
+     Everything beneath this return is kept as the dormant restore path
+     for the next campaign — reinstate by deleting this block, and put
+     the copy through a fresh read first; do not resurrect the cash
+     zipper as-is against an explicit "its stressful". /tournaments
+     still owns the event's whole pitch. */
+  (function(){
+    var e = document.getElementById('openStripStatic');
+    if (e && e.parentNode) e.parentNode.removeChild(e);
+    if (document.body) document.body.classList.remove('has-beta-strip');
+  })();
+  return;
+
   // A page may render the strip STATICALLY (landing.html does, because
   // it is 1.2 MB and a deferred script cannot run until all of it has
   // arrived). Wherever this file decides the strip should not exist,
