@@ -35,6 +35,8 @@
  *
  * Restraint, because this is unsolicited and sitewide:
  *   - first read only after 15s of VISIBLE dwell, never on load
+ *     (6s on the organic-intent pages in INTENT_PATHS, where the
+ *      visitor searched for a live stranger and the card answers them)
  *   - polls stop the moment a card shows, and after 6 rounds regardless
  *   - hidden tabs never poll
  *   - at most 2 cards per session, 6 minutes apart, never the same item
@@ -69,6 +71,23 @@
      2026-08-25 note in topbar.js first; the inventory-depth concern is
      what has to have changed. */
   var LIVE_ONLY = true;
+
+  /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
+     the pages that are to redirect ppl into a live omegle debate").
+     The four pages below take most of the site's organic clicks, and the
+     queries behind them ("debate omegle", "debate strangers") are people
+     who want a stranger and a motion NOW. On these pages, and ONLY these,
+     the WAITING source re-arms beside the live lane: someone is in the
+     /spar queue right now, which is the literal answer to the query the
+     visitor typed. The REPLAY source stays retired everywhere — the
+     2026-08-25 objection (a recorded participant's face paraded on
+     unrelated pages) was about replays and it stands. Real inventory
+     only: an empty queue and no live round means NO card, never an
+     invented one, per the 2026-08-31 real-numbers rule. */
+  var INTENT_PATHS = [
+    '/debate-online', '/debate-strangers', '/omegle-alternative',
+    '/online-debate-platforms'
+  ];
 
   var FIRST_DELAY_MS = 15000;   // visible dwell before the first read
   var POLL_MS = 120000;
@@ -134,6 +153,8 @@
     if (!here) here = '/';
   } catch (e) { return; }
   if (!force && !demo && SKIP.indexOf(here) >= 0) return;
+
+  var intentPage = INTENT_PATHS.indexOf(here) >= 0;
 
   function now() { return Date.now(); }
   function readNum(store, key) {
@@ -611,9 +632,12 @@
   var timer = null;
 
   function pickItem() {
+    /* Intent pages never reach the replay source: the 2026-08-25 face
+       objection stands, and a searcher who wants a live stranger is not
+       answered by a month-old recording. */
     return liveItem()
       .then(function (it) { return it || waitingItem(); })
-      .then(function (it) { return it || replayItem(); })
+      .then(function (it) { return it || (intentPage ? null : replayItem()); })
       .catch(function () { return null; });
   }
 
@@ -686,15 +710,20 @@
   /* Visible dwell, not wall clock: a tab opened in the background and
      never looked at should not spend a read, and should not have its
      card time out unseen before anyone sees it. In LIVE_ONLY mode the
-     slow waiting/replay chain never starts; the fast lane above is the
-     whole surface. */
-  if (LIVE_ONLY) return;
+     slow waiting chain starts ONLY on the organic-intent pages (see
+     INTENT_PATHS above); everywhere else the fast lane above is the
+     whole surface. Intent pages use a shorter dwell — the visitor
+     searched for exactly this — but it stays a VISIBLE dwell, so a
+     pogo-sticker who bounces back to the results in three seconds
+     never sees a card and the ranking that delivered them is safe. */
+  if (LIVE_ONLY && !intentPage) return;
+  var firstDelay = intentPage ? 6000 : FIRST_DELAY_MS;
   var dwell = 0;
   var since = document.hidden ? 0 : now();
   function tick() {
     if (!document.hidden && since) dwell += now() - since;
     since = document.hidden ? 0 : now();
-    if (dwell >= FIRST_DELAY_MS) { check(); return; }
+    if (dwell >= firstDelay) { check(); return; }
     setTimeout(tick, 2000);
   }
   document.addEventListener('visibilitychange', function () {
