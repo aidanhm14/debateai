@@ -93,8 +93,14 @@ check('every structured FAQ question is visible on the page',
 check('visible brand page carries the same round answer',
   about.includes('<h2>What kind of round does Debatable use?</h2>')
   && about.includes('Every public round is a casual 1v1.'));
-check('public identity surfaces do not expose the retired founder identity',
-  !/Aidan|Hollinger|results\.apda\.online|linkedin\.com\/in\/aidan/i.test(landing + about + press + llms));
+// 2026-08-31: the founder reversed the 2026-08-22 anonymity call, halfway
+// on purpose. The NAME (and photo) are sanctioned public identity again,
+// so the landing is expected to carry it; the CREDENTIAL stack and the
+// personal tracker/profile links stay banned on his explicit instruction.
+check('the landing names the founder (2026-08-31 reversal)',
+  /Aidan/.test(landing));
+check('public identity surfaces do not restore the retired credential stack',
+  !/(APDA|Pro-?Ams)\s+champion|champion\s+at\s+UChicago|results\.apda\.online|linkedin\.com\/in\/aidan/i.test(landing + about + press + llms));
 check('brand page disambiguates similarly named products',
   about.includes('<h2>Which Debatable is this?</h2>')
   && /independent from other apps, websites, and organizations/.test(about));

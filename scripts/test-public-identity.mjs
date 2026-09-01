@@ -10,11 +10,25 @@ function htmlFiles(dir, out = []) {
   return out;
 }
 
+// 2026-08-31: the founder REVERSED the 2026-08-22 anonymity call, halfway
+// on purpose. His NAME and PHOTO are sanctioned on public surfaces again;
+// the CREDENTIAL STACK (champion titles, school) stays retired on his
+// explicit instruction ("dont do apda champion - etc"). So the guard no
+// longer bans the name; it bans the credential coming back from stale
+// copy, and it still bans the personal gmail on public pages.
 const failures = [];
 for (const file of htmlFiles('app')) {
   const source = fs.readFileSync(file, 'utf8');
-  if (/aidandavidhollinger|\bAidan(?:\s+Hollinger)?\b/i.test(source)) {
-    failures.push(`${file} exposes the retired founder identity`);
+  if (/aidandavidhollinger/i.test(source)) {
+    failures.push(`${file} exposes the founder's personal email`);
+  }
+  // Founder-credential PHRASES only. Bare "UChicago"/"APDA" stay legal:
+  // the Atlas school list, the high-school circuit explainer, tournament
+  // labels and placeholder copy all name them legitimately.
+  if (/(APDA|Pro-?Ams)\s+champion/i.test(source)
+    || /champion\s+at\s+UChicago/i.test(source)
+    || /built by a[^<>]{0,80}(champion|parliamentary debater)/i.test(source)) {
+    failures.push(`${file} restores the retired founder credential stack`);
   }
 }
 

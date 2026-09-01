@@ -316,10 +316,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **The audience is ANYONE, so don't call the crowd "debaters"** (Aidan,
   2026-08-12; soul.md §2 rewritten to match). Say people. "Debater" is
   fine where it names a role inside a round ("either side can appeal")
-  and in the founder's credential, which is a bio fact. **The credential
-  carve-out was retired 2026-08-22 when the founder went anonymous: no
-  name, no school, no title, no year, no photo on any public surface.
-  See the soul.md decision log; do not restore it from a stale doc.** It is not fine
+  and in the founder's credential, which is a bio fact. **Founder
+  identity state as of 2026-08-31: name and photo are BACK on public
+  surfaces (Aidan reversed the 2026-08-22 anonymity call), and the
+  credential stack (champion titles, school, year) stays retired on his
+  explicit instruction. See the soul.md decision log; restore neither
+  anonymity nor the credential from a stale doc.** It is not fine
   in copy that tells a stranger who the site is for. The landing and
   `topbar.js` were swept; the rest of the site has NOT been. Don't
   "restore" the old framing from a stale doc.
