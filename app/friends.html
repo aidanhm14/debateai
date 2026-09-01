@@ -97,6 +97,10 @@ body.has-beta-strip{padding-top:84px}
 .fr-flash{margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(22,163,74,.4);
   background:rgba(22,163,74,.08);font-size:.9rem}
 .fr-flash.err{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)}
+.fr-find-list{margin-top:10px}
+.fr-find-list .fr-row .fr-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.fr-find-list .fr-meta a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.fr-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--border,rgba(0,0,0,.14));opacity:.75}
 .fr-gate{text-align:center;padding:34px 18px}
 .fr-gate h2{font-size:1.15rem}
 .fr-gate .fr-btn{margin-top:12px}
@@ -107,7 +111,7 @@ body.has-beta-strip{padding-top:84px}
 
 <main class="fr-wrap" aria-label="Friends">
   <h1 class="fr-head">Friends</h1>
-  <p class="fr-sub">The people you debate. Challenge a friend to a live round, message them, and see who is looking for a round right now.</p>
+  <p class="fr-sub">The people you debate. Find someone, add them, challenge them to a live round, and see who is looking for a round right now.</p>
 
   <div class="fr-flash" id="frFlash" hidden></div>
 
@@ -131,6 +135,21 @@ body.has-beta-strip{padding-top:84px}
   </div>
 
   <div id="frMain" hidden>
+    <!-- Find people (2026-09-01, the founder: "have a find users feature
+         and it goes to profiles on leaderboard or those signed up so ppl
+         can make connections"). Search runs server-side (/api/find-users)
+         over public profiles and real leaderboard names; a result links
+         to the person's profile and offers a friend request. -->
+    <div class="fr-card" id="frFindCard">
+      <h2>Find people</h2>
+      <p class="quiet">Search by name or handle. Anyone with a public profile or a place on the leaderboard shows up here.</p>
+      <div class="fr-invite">
+        <input id="frFindInput" type="search" autocomplete="off" placeholder="Search people" aria-label="Search people">
+      </div>
+      <div id="frFindList" class="fr-find-list" aria-live="polite"></div>
+      <div class="fr-empty" id="frFindEmpty" hidden>Nobody by that name yet. Send them your invite link below.</div>
+    </div>
+
     <div class="fr-card" id="frIncomingCard" hidden>
       <h2>Requests</h2>
       <div id="frIncoming"></div>
@@ -405,6 +424,65 @@ body.has-beta-strip{padding-top:84px}
     };
   }
 
+  // ── Find people ─────────────────────────────────────────────────
+  var findSeq = 0, findTimer = 0;
+  function findRow(p){
+    var st = window.DBFriends.statusWith ? window.DBFriends.statusWith(p.uid) : '';
+    var act;
+    if (st === 'friends') act = '<span class="fr-tag">Friends</span>';
+    else if (st === 'outgoing') act = '<span class="fr-tag">Request sent</span>';
+    else if (st === 'incoming') act = '<button class="fr-btn pri" data-act="accept" data-uid="' + esc(p.uid) + '" data-name="' + esc(p.name) + '">Accept</button>';
+    else act = '<button class="fr-btn pri" data-act="add" data-uid="' + esc(p.uid) + '" data-name="' + esc(p.name) + '">Add friend</button>';
+    var profile = p.handle ? '/users/' + encodeURIComponent(p.handle) : '/users?uid=' + encodeURIComponent(p.uid);
+    var av = p.photo
+      ? '<span class="fr-av" aria-hidden="true"><img src="' + esc(p.photo) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>'
+      : '<span class="fr-av" aria-hidden="true">' + esc(initial(p.name)) + '</span>';
+    var meta = (p.onBoard ? 'On the leaderboard' : 'Has a profile') + ' · <a href="' + profile + '">View profile</a>';
+    return '<div class="fr-row">' + av
+      + '<div class="fr-id"><div class="fr-name">' + esc(p.name) + (p.handle ? ' <span class="quiet">@' + esc(p.handle) + '</span>' : '') + '</div>'
+      + '<div class="fr-meta">' + meta + '</div></div>'
+      + '<div class="fr-acts">' + act
+      + '<button class="fr-btn" data-act="message" data-uid="' + esc(p.uid) + '" data-name="' + esc(p.name) + '">Message</button></div>'
+      + '</div>';
+  }
+  function runFind(q){
+    var seq = ++findSeq;
+    var list = $('frFindList'), empty = $('frFindEmpty');
+    me.getIdToken().then(function(tok){
+      return fetch('/api/find-users?q=' + encodeURIComponent(q || ''), { headers: { Authorization: 'Bearer ' + tok } });
+    }).then(function(r){ return r.ok ? r.json() : { people: [] }; }).then(function(j){
+      if (seq !== findSeq) return;
+      var people = (j && j.people) || [];
+      list.innerHTML = people.map(findRow).join('');
+      empty.hidden = !!people.length || !q;
+      try { gtag('event', 'find_people', { q_len: (q || '').length, results: people.length }); } catch(e){}
+    }).catch(function(){ if (seq === findSeq){ list.innerHTML = ''; empty.hidden = true; } });
+  }
+  function setupFind(){
+    var inp = $('frFindInput');
+    if (!inp) return;
+    inp.addEventListener('input', function(){
+      clearTimeout(findTimer);
+      var q = inp.value.trim();
+      findTimer = setTimeout(function(){ runFind(q); }, 220);
+    });
+    $('frFindList').addEventListener('click', function(e){
+      var b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+      if (!b) return;
+      var act = b.getAttribute('data-act'), uid = b.getAttribute('data-uid'), name = b.getAttribute('data-name') || 'A debater';
+      if (act === 'add'){
+        b.disabled = true; b.textContent = 'Sending';
+        sendRequest(uid, name).then(function(){ b.outerHTML = '<span class="fr-tag">Request sent</span>'; })
+          .catch(function(){ b.disabled = false; b.textContent = 'Add friend'; });
+      } else if (act === 'accept'){
+        window.DBFriends.accept(uid, myName()).then(function(){ b.outerHTML = '<span class="fr-tag">Friends</span>'; }).catch(function(){});
+      } else if (act === 'message'){
+        location.href = '/messages?dm=' + encodeURIComponent(uid) + '&name=' + encodeURIComponent(name);
+      }
+    });
+    runFind('');   // browse mode: recent people on the board
+  }
+
   function boot(u){
     if (!u || u.isAnonymous) { showGate(); return; }
     me = u;
@@ -417,6 +495,7 @@ body.has-beta-strip{padding-top:84px}
       else if (v.status === 'error') flash('Your friends list could not load right now. It retries on its own.', true);
     });
     setupInvite();
+    setupFind();
     handleAddParam();
     document.addEventListener('visibilitychange', function(){
       if (!document.hidden && lastView) refreshDots(lastView.friends);

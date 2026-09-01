@@ -436,11 +436,12 @@
       // something, take the other side. It is `big` because it is the
       // shortest path from landing on the site to being in a round.
       { href: '/challenges',  label: 'Claims & challenges', big: true },
-      // The broad organic doorway. Search Console showed only 25 internal
-      // links to it while /practice had 208, even though /debate-online is
-      // the canonical answer for the "debate online" query. Keep it in
-      // Explore and the mobile sheet, not the permanent rail.
-      { href: '/debate-online', label: 'Debate online', strong: true },
+      // 2026-09-01, the founder off a screenshot of this column: "replace
+      // with Schedule". /debate-online (the organic doorway) comes off
+      // the menu; the page stays live and indexed. /live is the round
+      // calendar, and it and /challenges are now a pair ("schedule and
+      // challenges"): each page links to the other in its own nav.
+      { href: '/live',          label: 'Schedule', strong: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
@@ -788,7 +789,7 @@
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
     '/learn':          { desc: 'Clear claims, rebuttals, and weighing', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
     '/judge':          { desc: 'Record together or upload a transcript', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
-    '/live':           { desc: 'Schedule a live round on the board', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
+    '/live':           { desc: 'Put a live round on the calendar', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
@@ -812,7 +813,7 @@
     // 2026-08-19: /challenges shipped 2026-08-11 as a `big` flagship tile
     // but never got a MENU_META row, so the largest tile in the column
     // was the only one rendering with no sentence under it.
-    '/challenges':     { desc: 'Post a claim or a live round, or challenge someone', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
+    '/challenges':     { desc: 'Post a claim, or challenge someone by name', icon: '<path d="M12 4.4l6.6 3v5c0 3.6-2.7 6.5-6.6 7.6-3.9-1.1-6.6-4-6.6-7.6v-5z"/><path d="M9.6 11.8l1.7 1.7 3.3-3.5"/>' },
     '/claim':          { desc: 'Seed your rating from Tabroom', plain: 'Bring results you already have', icon: '<path d="M12 4.2l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.7l5.2-.8z"/>' },
     '/debate-rating':  { desc: 'What the number actually means', icon: '<path d="M4.6 16.4l4.3-4.8 3.3 2.7 4.2-5.6"/><path d="M16.4 8.7h3v3"/><circle cx="12" cy="12" r="8.6"/>' },
     '/judge-paradigms': { desc: 'What judges actually reward', plain: 'What wins a round, in plain terms', icon: '<path d="M12 5.2v13.6M7.4 5.2h9.2M5 9.8h4.2M14.8 9.8H19M7.1 9.8L5 14.2h4.2zM16.9 9.8l-2.1 4.4H19z"/>' },
