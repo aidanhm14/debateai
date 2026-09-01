@@ -8874,7 +8874,11 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function startGuard(cam){
     if (modGuard || !window.DebateGuard || !cam) return;
     modGuard = window.DebateGuard.attach({
-      videoEl: function(){ return cam.videoEl; },
+      // Read the CURRENT pipeline, not the one captured at attach time:
+      // a camera retry (below) rebuilds camConv.cam, and a watchdog
+      // pointed at the dead pipeline's element would watch nothing while
+      // real camera pixels reached the room.
+      videoEl: function(){ return ((camConv.cam || cam) || {}).videoEl; },
       isActive: function(){ return camConv.mode === 'camera'; },
       room: state.room,
       roundId: state.room,
@@ -9128,6 +9132,70 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   }
   window.addEventListener('pagehide', stopRoomShots);
 
+  // ── Camera retry (2026-08-31, from users joining with sound and no
+  //    picture). A join whose camera half failed (blocked, busy, or a
+  //    permission denied on an earlier visit) used to poison
+  //    camConv.camP with an audio-only pipeline FOREVER: clicking
+  //    Camera got the cache back, threw, fell into cycleCamera (which
+  //    cannot fix a denial), and ended at a toast about an in-call
+  //    picker this custom UI does not have. The retry runs a fresh
+  //    video-only getUserMedia in the click's user-gesture context,
+  //    which is what lets the browser ask again, and rebuilds the
+  //    pipeline around the SAME audio track so the transcriber's
+  //    borrowed mic (srvBorrowTrack) never dies mid-speech.
+  function retryCameraAcquire(){
+    return navigator.mediaDevices.getUserMedia({ video: captureConstraints('camera', room.facing || 'user') })
+      .then(function(vs){
+        var old = camConv.cam;
+        var vTrack = vs.getVideoTracks()[0];
+        var audio = [];
+        try {
+          if (old && old.srcStream){
+            old.srcStream.getAudioTracks().forEach(function(t){
+              audio.push(t);
+              // cam.stop() stops every track on its stream; pulling the
+              // shared mic off first is what keeps it alive.
+              try { old.srcStream.removeTrack(t); } catch(e){}
+            });
+          }
+        } catch(e){}
+        var combined = new MediaStream([vTrack].concat(audio));
+        camConv.camP = Promise.resolve()
+          .then(function(){ if (old) try { old.stop(); } catch(e){} })
+          .then(function(){ return window.DebateCam.start(combined, { mode: 'camera', label: seatLabel() }); })
+          .then(function(c){ camConv.cam = c; startGuard(c); return c; })
+          .catch(function(e){ camConv.camP = null; throw e; });
+        return camConv.camP;
+      });
+  }
+  // Say what is actually wrong instead of pointing at chrome that does
+  // not exist. The permissions API separates "blocked for this site"
+  // (needs the address-bar toggle; no prompt will ever appear) from
+  // "camera busy or absent" (retryable).
+  function camDeniedToast(){
+    var generic = 'Could not start your camera. If nothing asked for permission, it is blocked for this site: click the camera or padlock icon in the address bar, allow it, then press Camera again.';
+    try {
+      if (navigator.permissions && navigator.permissions.query){
+        navigator.permissions.query({ name: 'camera' }).then(function(st){
+          toast(st.state === 'denied'
+            ? 'Your camera is blocked for this site. Click the camera or padlock icon in the address bar, allow it, then press Camera again.'
+            : 'Could not start your camera. It may be in use by another app. Close anything else using it, then press Camera again.');
+        }).catch(function(){ toast(generic); });
+        return;
+      }
+    } catch(e){}
+    toast(generic);
+  }
+  // One honest line at join time when the room got sound and no picture,
+  // so the person knows it happened and what fixes it.
+  var camJoinNoticeShown = false;
+  function camJoinNoVideoNotice(){
+    if (camJoinNoticeShown) return;
+    camJoinNoticeShown = true;
+    toast('You joined with your mic only. Your camera looks blocked or busy; press Camera above the video to turn it on.');
+    try { gtag('event', 'live_round_join_no_video'); } catch(e){}
+  }
+
   function setCamMode(m){
     var frame = state.dailyFrame;
     if (!frame || m === camConv.mode) return;
@@ -9174,10 +9242,20 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       // Preferred: passthrough through the parent-owned canvas so the
       // safety watchdog sees what the room sees. Fall back to Daily's
       // internal device restore if the pipeline is unavailable.
-      if (CUSTOM_TRACK_OK && window.DebateCam && (camConv.cam || camConv.unified !== false)){
+      // The old gate here (camConv.cam || camConv.unified !== false)
+      // routed a fully-degraded join into the raw cycleCamera branch,
+      // which publishes the DEVICE camera past the parent pipeline and
+      // its safety watchdog. While the custom stack exists, Camera
+      // always goes through the pipeline; the retry inside covers the
+      // degraded case properly.
+      if (CUSTOM_TRACK_OK && window.DebateCam){
         ensureAvatarCam('camera').then(function(c){
           var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
-          if (!hasVideo) throw new Error('no parent camera');
+          // Cached audio-only pipeline: the camera half failed at join.
+          // Re-ask for the camera now, in the click's gesture context.
+          if (!hasVideo) return retryCameraAcquire();
+          return c;
+        }).then(function(c){
           return applyCaptureProfile(c, 'camera').then(function(){
             c.setMode('camera');
             return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'camera') }).then(function(){
@@ -9189,18 +9267,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           });
         }).catch(function(e){
           console.warn('[camera passthrough]', e);
-          var restore = camConv.savedVideoId
-            ? frame.setInputDevicesAsync({ videoDeviceId: camConv.savedVideoId })
-            : frame.cycleCamera();
-          Promise.resolve(restore).then(function(){
-            frame.setLocalVideo(true);
-            markCamMode('camera');
-            tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-            hideSelfPip();
-          }).catch(function(e2){
-            console.warn('[camera restore]', e2);
-            toast('Use the in-call camera picker to re-enable your camera');
-          });
+          camDeniedToast();
         });
       } else {
         var restore = camConv.savedVideoId
@@ -9213,7 +9280,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
           hideSelfPip();
         }).catch(function(e){
           console.warn('[camera restore]', e);
-          toast('Use the in-call camera picker to re-enable your camera');
+          camDeniedToast();
         });
       }
     } else {
@@ -9903,13 +9970,17 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     ensureAvatarCam('camera')
       .then(function(c){
         var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
+        if (!hasVideo) camJoinNoVideoNotice();
         return joinWith(hasVideo ? publishTrackFor(c, 'camera') : false);
       })
       .catch(function(e){
         // No camera, or permission denied. Joining audio-only is the
-        // right outcome; the round does not need a picture to run.
+        // right outcome; the round does not need a picture to run. But
+        // say so: silence here is how someone spends a whole round as a
+        // dark tile without knowing they could fix it (2026-08-31).
         console.warn('[cam pipeline]', e);
         camConv.unified = false;
+        camJoinNoVideoNotice();
         return joinWith(false);
       });
   }
