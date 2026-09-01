@@ -52,6 +52,10 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      neutral local context frame so setup never ends in a dead error state. -->
 <script src="/js/motion-brief.js"></script>
 <script defer src="/js/track.js"></script>
+<!-- Friend graph + DM engine for the post-ballot "add friend" prompt
+     (2026-08-31). Both defer; the round never waits on them. -->
+<script defer src="/js/friends.js"></script>
+<script defer src="/js/dm-core.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
   // displayName or the email: this page loads public-identity.js above.
@@ -13658,6 +13662,106 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       Math.round(mine.after) + '</strong> (' + (up ? '+' : '') + (mine.delta != null ? mine.delta : 0) + ')';
   }
 
+  // ── Post-ballot friend prompt (2026-08-31) ─────────────────────────
+  // Friendships come from rounds, not browsing: the ballot is the one
+  // moment both people are present and just shared something, so the
+  // ask lives here. Fill-after-render like roomShiftSlot; every guard
+  // is in this filler so the ballot paint never waits on it. Colors are
+  // explicit because this page defines only --bg/--text/--accent
+  // (--panel/--surface fall back to white here; measured 2026-08-26).
+  function fillFriendSlot(){
+    try {
+      if (!document.getElementById('friendSlot')) return;
+      // Armed once per page: the ballot body re-renders on reveal-mode
+      // changes and recreates the slot node, so the guard lives on the
+      // function and the watcher re-queries the node on every paint.
+      if (fillFriendSlot._armed) return;
+      var ms = mySide();
+      if (!ms || isSpectator()) return;
+      if (state.proUid2 || state.conUid2) return;          // 1v1 only
+      var me = state.user || (firebase.auth && firebase.auth().currentUser);
+      if (!me || me.isAnonymous) return;                    // named accounts only
+      var oppUid = ms === 'pro' ? state.conUid : state.proUid;
+      var oppName = ms === 'pro' ? (state.conName || 'Your opponent') : (state.proName || 'Your opponent');
+      if (!oppUid || oppUid === me.uid || oppUid === 'ai') return;
+      if (!window.DBFriends) return;
+      fillFriendSlot._armed = true;
+      var db2 = firebase.firestore();
+      window.DBFriends.init({ db: db2, uid: me.uid });
+      var painted = '';
+      window.DBFriends.watch(function(v){
+        if (v.status !== 'ready') return;
+        var slot = document.getElementById('friendSlot');
+        if (!slot) return;
+        var st = window.DBFriends.statusWith(oppUid);
+        if (st === painted && slot.innerHTML !== '') return;
+        painted = st;
+        var inner = '';
+        if (st === 'friends') {
+          inner = '<span style="font-weight:700">You and ' + escHtml(oppName) + ' are friends.</span> '
+            + '<a href="/friends" style="color:var(--accent,#f87171);font-weight:700">Your friends →</a>';
+        } else if (st === 'outgoing') {
+          inner = 'Friend request sent to ' + escHtml(oppName) + '. They can accept at their friends page.';
+        } else if (st === 'incoming') {
+          inner = '<span style="font-weight:700">' + escHtml(oppName) + ' already asked to be friends.</span> '
+            + '<button class="btn btn-primary" id="friendAcceptBtn" type="button" style="margin-left:8px">Accept</button>';
+        } else {
+          inner = '<span style="font-weight:700">Good round?</span> Keep the opponent. '
+            + '<button class="btn btn-primary" id="friendAddBtn" type="button" style="margin-left:8px">🤝 Add ' + escHtml(oppName) + ' as a friend</button>';
+        }
+        slot.innerHTML = '<div style="margin:14px 0;padding:12px 14px;border:1px solid rgba(127,127,127,.3);'
+          + 'border-radius:12px;font-size:.92rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + inner + '</div>';
+        var addBtn = document.getElementById('friendAddBtn');
+        if (addBtn) addBtn.onclick = function(){
+          addBtn.disabled = true;
+          var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
+          window.DBFriends.request(oppUid, oppName, myPub).then(function(){
+            try { gtag('event', 'friend_request_sent', { event_category: 'friends', event_label: 'ballot' }); } catch (e) {}
+            friendPing(db2, me, oppUid, oppName,
+              '🤝 ' + myPub + ' added you as a friend after your round. Accept at https://itsdebatable.com/friends',
+              'Friend request');
+          }).catch(function(){ addBtn.disabled = false; });
+        };
+        var accBtn = document.getElementById('friendAcceptBtn');
+        if (accBtn) accBtn.onclick = function(){
+          accBtn.disabled = true;
+          var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
+          window.DBFriends.accept(oppUid, myPub).catch(function(){ accBtn.disabled = false; });
+        };
+      });
+    } catch (e) { console.warn('[friend slot]', e); }
+  }
+
+  // One thread open, one send, close: the request ping rides the whole
+  // existing DM stack (bell, toast, email, web push). Best effort.
+  function friendPing(db2, me, otherUid, otherName, text, preview){
+    try {
+      if (!window.DBDM) return;
+      var threadId = [me.uid, otherUid].sort().join('_');
+      var pInfo = {};
+      var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
+      pInfo[me.uid] = { name: myPub, photo: me.photoURL || '' };
+      pInfo[otherUid] = { name: otherName || 'Debater', photo: '' };
+      var h = window.DBDM.open({
+        db: db2, uid: me.uid, threadId: threadId,
+        thread: { participants: [me.uid, otherUid], participantInfo: pInfo },
+        senderName: function(){ return myPub; },
+        senderPhoto: function(){ return me.photoURL || ''; },
+      });
+      if (!h) return;
+      h.send(text, preview ? { preview: preview } : undefined).then(function(){
+        me.getIdToken().then(function(tok){
+          fetch('/.netlify/functions/push-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+            body: JSON.stringify({ recipientUid: otherUid, threadId: threadId }),
+          }).catch(function(){});
+        }).catch(function(){});
+        setTimeout(function(){ try { h.close(); } catch (e) {} }, 4000);
+      }).catch(function(){ try { h.close(); } catch (e) {} });
+    } catch (e) {}
+  }
+
   function renderBallotBody(b, mode){
     var staged = mode === 'staged' || mode === 'read-aloud';
     // Hand the verdict to the reel so the recording gets it too. No-op
@@ -13765,6 +13869,10 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         roomShiftSlotHtml() +
       '</div>' +
       afterRoundBandHtml(b) +
+      // Friend slot (2026-08-31): filled after render by fillFriendSlot().
+      // Empty div here so the ask never blocks the ballot paint; the
+      // roomShiftSlot / deepRfdSlot pattern. Guards live in the filler.
+      '<div id="friendSlot" data-stage="3"></div>' +
       '<div class="ballot-section" data-stage="3">' +
       lbBlock +
       '<div class="rfd-actions">' +
@@ -13798,6 +13906,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '</div>' + // .rfd-actions
       '</div>'; // .ballot-section[data-stage="3"]
     try { mountBallotRead(); } catch(e){ console.warn('[ballot read]', e); }
+    try { fillFriendSlot(); } catch(e){ console.warn('[friend slot]', e); }
 
     // Spectators don't get the save-to-record button — the round is
     // not theirs to log against their personal speaker history. Same

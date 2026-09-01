@@ -48,6 +48,12 @@ export default async (request) => {
     deleteQuery(db, db.collection('leaderboard_entries').where('uid', '==', uid)),
     deleteQuery(db, db.collection('team_members').where('userId', '==', uid)),
     deleteQuery(db, db.collection('dm_threads').where('participants', 'array-contains', uid)),
+    // Friendships (2026-08-31): one doc per pair, keyed on the sorted
+    // uid pair. Deleting the doc removes the relationship for both
+    // sides, which is correct for account deletion: a friendship with
+    // a deleted account is a dangling row the other person cannot act
+    // on anyway.
+    deleteQuery(db, db.collection('friendships').where('uids', 'array-contains', uid)),
   ];
 
   const results = await Promise.allSettled([...directJobs, ...queryJobs]);

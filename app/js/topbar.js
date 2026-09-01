@@ -629,6 +629,11 @@
       // destination was rendering at the same weight as everything
       // under it. Demoting is deleting `big` and restoring `strong`.
       { href: '/community',   label: 'Community', big: true },
+      // Friends (2026-08-31): the friend graph. Sits directly under
+      // Community because it answers the same question one person
+      // deeper: not "who is out there" but "my people". `strong` so a
+      // returning user can find their rematch path without hunting.
+      { href: '/friends',     label: 'Friends', strong: true },
       // 2026-08-27: moved off the permanent rail and back into Explore.
       // Keep both rows below Watch and Community, not among the paths for
       // entering a debate. `strong` is the menu's bold tier.

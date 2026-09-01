@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Friends · Debatable</title>
+<meta name="description" content="Your people on Debatable. Challenge a friend to a live round, message them, and see who is around right now." />
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://itsdebatable.com/friends">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://itsdebatable.com/friends">
+<meta property="og:title" content="Friends · Debatable">
+<meta property="og:description" content="Challenge a friend to a live round, message them, and see who is around right now.">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+<meta name="twitter:card" content="summary_large_image">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="/js/dm-core.js"></script>
+<script src="/js/friends.js"></script>
+
+<script defer src="/js/track.js"></script>
+<script>
+  // One resolver for any name other people read. Never the account
+  // displayName or the email.
+  window.daPublicName = function (u) {
+    try {
+      if (u && window.DBIdentity && window.DBIdentity.forUser) {
+        var id = window.DBIdentity.forUser(u);
+        if (id && id.name) return id.name;
+      }
+    } catch (e) {}
+    return u ? ("Debater " + String(u.uid || "").slice(-4).toUpperCase()) : "Anonymous";
+  };
+</script>
+
+<script>
+(function(){
+  try{
+    // Light is the sitewide default for unset visitors (2026-08-22);
+    // the crimson default some older pages carry predates that call.
+    var t=localStorage.getItem('da-theme');
+    if(!t || t==='day') t='light';
+    document.documentElement.setAttribute('data-theme',t);
+  }catch(e){ document.documentElement.setAttribute('data-theme','light'); }
+})();
+</script>
+
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&display=swap">
+
+<style>
+/* Scoped to this page; every color rides the theme tokens so all five
+   themes work without per-theme blocks. [hidden] guard per the standing
+   UA-hidden trap: any authored display on these rows would beat it. */
+body{margin:0;background:var(--bg,#fafaf7)}
+.fr-wrap[hidden], .fr-wrap [hidden]{display:none !important}
+.fr-wrap{max-width:840px;margin:0 auto;padding:clamp(18px,3vw,34px) 16px 60px;color:var(--text,#1a1a1f)}
+.fr-head{margin:0 0 4px;font-family:'Archivo',Inter,system-ui,sans-serif;font-weight:800;font-size:clamp(1.5rem,3.4vw,2.1rem)}
+.fr-sub{margin:0 0 22px;color:var(--text-dim,rgba(26,26,31,.62));font-size:.95rem;max-width:56ch}
+.fr-card{background:var(--panel,rgba(127,127,127,.06));border:1px solid var(--line,rgba(127,127,127,.18));border-radius:14px;padding:18px;margin:0 0 16px}
+.fr-card h2{margin:0 0 10px;font-size:1rem;font-weight:800;letter-spacing:.01em}
+.fr-card .quiet{color:var(--text-dim,rgba(26,26,31,.62));font-size:.88rem}
+.fr-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line,rgba(127,127,127,.14));flex-wrap:wrap}
+.fr-row:first-of-type{border-top:0}
+.fr-av{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:1rem;background:var(--accent,#dc2626);color:#fff}
+.fr-id{min-width:0;flex:1 1 140px}
+.fr-name{font-weight:800;font-size:.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fr-meta{font-size:.8rem;color:var(--text-dim,rgba(26,26,31,.62));display:flex;align-items:center;gap:6px}
+.fr-dot{width:8px;height:8px;border-radius:50%;background:var(--line,rgba(127,127,127,.4));display:inline-block}
+.fr-dot.on{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+.fr-acts{display:flex;gap:8px;flex-wrap:wrap}
+.fr-btn{appearance:none;border:1px solid var(--line,rgba(127,127,127,.25));background:transparent;color:var(--text,#1a1a1f);
+  border-radius:10px;padding:8px 12px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+.fr-btn:hover{border-color:var(--text-dim,rgba(127,127,127,.5))}
+.fr-btn.pri{background:var(--accent,#dc2626);border-color:var(--accent,#dc2626);color:#fff}
+.fr-btn.pri:hover{filter:brightness(1.08)}
+.fr-btn.quietb{border-color:transparent;color:var(--text-dim,rgba(26,26,31,.62))}
+.fr-btn:focus-visible{outline:2px solid var(--accent,#dc2626);outline-offset:2px}
+.fr-empty{padding:14px 0 4px;color:var(--text-dim,rgba(26,26,31,.62));font-size:.9rem}
+.fr-invite{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.fr-invite input{flex:1 1 240px;min-width:0;border:1px solid var(--line,rgba(127,127,127,.25));background:transparent;
+  color:var(--text,#1a1a1f);border-radius:10px;padding:9px 12px;font:inherit;font-size:.85rem}
+.fr-note{margin-top:10px;font-size:.82rem;color:var(--text-dim,rgba(26,26,31,.62))}
+.fr-flash{margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(22,163,74,.4);
+  background:rgba(22,163,74,.08);font-size:.9rem}
+.fr-flash.err{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)}
+.fr-gate{text-align:center;padding:34px 18px}
+.fr-gate h2{font-size:1.15rem}
+.fr-gate .fr-btn{margin-top:12px}
+</style>
+</head>
+<body>
+<div id="daTopbar"></div>
+
+<main class="fr-wrap" aria-label="Friends">
+  <h1 class="fr-head">Friends</h1>
+  <p class="fr-sub">The people you debate. Challenge a friend to a live round, message them, and see who is looking for a round right now.</p>
+
+  <div class="fr-flash" id="frFlash" hidden></div>
+
+  <!-- Signed-out / anonymous gate. Friendships are named-account only:
+       a friend list keyed to an anonymous uid is a list nobody can ever
+       sign back into. -->
+  <div class="fr-card fr-gate" id="frGate" hidden>
+    <h2>Sign in to build your list</h2>
+    <p class="quiet">Friends ride your account, so a free account is the whole ask. Your rounds and rating come with it.</p>
+    <button class="fr-btn pri" id="frGateBtn" type="button">Sign in</button>
+  </div>
+
+  <!-- ?add= confirm card -->
+  <div class="fr-card" id="frAddCard" hidden>
+    <h2>Add a friend</h2>
+    <p class="quiet" id="frAddText">Loading…</p>
+    <div class="fr-acts" style="margin-top:10px">
+      <button class="fr-btn pri" id="frAddYes" type="button">Send friend request</button>
+      <button class="fr-btn" id="frAddNo" type="button">Not now</button>
+    </div>
+  </div>
+
+  <div id="frMain" hidden>
+    <div class="fr-card" id="frIncomingCard" hidden>
+      <h2>Requests</h2>
+      <div id="frIncoming"></div>
+    </div>
+
+    <div class="fr-card">
+      <h2>Your friends</h2>
+      <div id="frList"></div>
+      <div class="fr-empty" id="frEmpty" hidden>
+        No friends yet. Finish a round and add your opponent from the ballot, or send your invite link below.
+      </div>
+      <div id="frOutgoing"></div>
+    </div>
+
+    <div class="fr-card">
+      <h2>Invite someone you know</h2>
+      <p class="quiet">Send this link to a friend. When they sign in, you land in each other's requests.</p>
+      <div class="fr-invite">
+        <input id="frInviteUrl" readonly value="">
+        <button class="fr-btn pri" id="frInviteCopy" type="button">Copy link</button>
+        <button class="fr-btn" id="frInviteShare" type="button" hidden>Share</button>
+      </div>
+      <p class="fr-note">A challenge sends your friend a ping and a room link. The green dot means they are in the live queue right now; a friend without the dot still gets the challenge by notification and message.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+  var FIREBASE_CONFIG = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+  };
+  try {
+    if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG);
+  } catch (e) { console.error('firebase init', e); }
+</script>
+<script defer src="/js/public-identity.js"></script>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/home-magnet.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  var db = null, me = null;
+  var avail = {};            // otherUid -> bool, painted async
+  var lastView = null;
+
+  function myName(){ return (window.daPublicName ? window.daPublicName(me) : null) || 'A debater'; }
+
+  function flash(msg, isErr){
+    var f = $('frFlash');
+    f.textContent = msg;
+    f.classList.toggle('err', !!isErr);
+    f.hidden = false;
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function(){ f.hidden = true; }, 6000);
+  }
+
+  function initial(name){
+    var c = String(name || '?').trim().charAt(0).toUpperCase();
+    return c || '?';
+  }
+
+  // ── DM ping helper: one thread open, one send, close. Delivery rides
+  //    the whole existing DM stack: bell badge, toast, email, push. ──
+  function dmPing(otherUid, otherName, text, preview){
+    return new Promise(function(resolve){
+      try {
+        var threadId = [me.uid, otherUid].sort().join('_');
+        var pInfo = {};
+        pInfo[me.uid] = { name: myName(), photo: me.photoURL || '' };
+        pInfo[otherUid] = { name: otherName || 'Debater', photo: '' };
+        var h = window.DBDM.open({
+          db: db, uid: me.uid, threadId: threadId,
+          thread: { participants: [me.uid, otherUid], participantInfo: pInfo },
+          senderName: myName,
+          senderPhoto: function(){ return me.photoURL || ''; },
+        });
+        if (!h) return resolve(false);
+        h.send(text, preview ? { preview: preview } : undefined).then(function(){
+          // Web Push to the recipient; server constructs the text.
+          me.getIdToken().then(function(tok){
+            fetch('/.netlify/functions/push-send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+              body: JSON.stringify({ recipientUid: otherUid, threadId: threadId }),
+            }).catch(function(){});
+          }).catch(function(){});
+          setTimeout(function(){ try { h.close(); } catch(e){} }, 4000);
+          resolve(true);
+        }).catch(function(){ try { h.close(); } catch(e){} resolve(false); });
+      } catch (e) { resolve(false); }
+    });
+  }
+
+  // ── Challenge: mint a room, ping the friend with THEIR link, then
+  //    walk into the room on MY link. The URL carries both uids so the
+  //    seats lock to the pair; no spar-pair stamp means the motion
+  //    draft correctly stays off and the motion is picked in the room. ──
+  function challenge(otherUid, otherName){
+    var room = 'Debatable-F' + Math.random().toString(36).slice(2, 10);
+    var base = 'https://itsdebatable.com/live-round?room=' + encodeURIComponent(room)
+      + '&format=quick'
+      + '&proUid=' + encodeURIComponent(me.uid)
+      + '&conUid=' + encodeURIComponent(otherUid)
+      + '&pro=' + encodeURIComponent(myName())
+      + '&con=' + encodeURIComponent(otherName || 'Debater');
+    var theirUrl = base + '&mySide=con';
+    var myUrl = base + '&mySide=pro';
+    if (!confirm('Challenge ' + (otherName || 'your friend') + ' to a live round now? They get a ping and a link, and you enter the room to wait for them.')) return;
+    try { gtag('event', 'friend_challenge_sent', { event_category: 'friends' }); } catch (e) {}
+    dmPing(otherUid, otherName,
+      '⚔️ Live round challenge from ' + myName() + '. Join me now: ' + theirUrl,
+      'Challenge: live round, join now'
+    ).then(function(sent){
+      if (!sent) flash('Could not send the ping, but the room is open. Share the link from the room instead.', true);
+      location.href = myUrl;
+    });
+  }
+
+  function sendRequest(otherUid, otherName){
+    return window.DBFriends.request(otherUid, otherName, myName()).then(function(){
+      try { gtag('event', 'friend_request_sent', { event_category: 'friends' }); } catch (e) {}
+      dmPing(otherUid, otherName,
+        '🤝 ' + myName() + ' added you as a friend on Debatable. Accept at https://itsdebatable.com/friends',
+        'Friend request'
+      );
+      flash('Request sent. They will see it on their friends page and in messages.');
+    }).catch(function(err){
+      flash(window.DBDM && window.DBDM.sendReason ? window.DBDM.sendReason(err) : 'Could not send the request.', true);
+    });
+  }
+
+  function row(r, kind){
+    var dot = kind === 'friend'
+      ? '<span class="fr-dot' + (avail[r.otherUid] ? ' on' : '') + '" data-dot="' + esc(r.otherUid) + '"></span>'
+        + '<span data-dotlabel="' + esc(r.otherUid) + '">' + (avail[r.otherUid] ? 'In the live queue now' : 'Not in the queue') + '</span>'
+      : (kind === 'incoming' ? 'Wants to be friends' : 'Request sent');
+    var acts = '';
+    if (kind === 'friend') {
+      acts = '<button class="fr-btn pri" data-act="challenge" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Challenge</button>'
+        + '<button class="fr-btn" data-act="message" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Message</button>'
+        + '<button class="fr-btn quietb" data-act="remove" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Remove</button>';
+    } else if (kind === 'incoming') {
+      acts = '<button class="fr-btn pri" data-act="accept" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Accept</button>'
+        + '<button class="fr-btn" data-act="ignore" data-uid="' + esc(r.otherUid) + '">Ignore</button>';
+    } else {
+      acts = '<button class="fr-btn quietb" data-act="cancel" data-uid="' + esc(r.otherUid) + '">Cancel</button>';
+    }
+    return '<div class="fr-row">'
+      + '<span class="fr-av" aria-hidden="true">' + esc(initial(r.otherName)) + '</span>'
+      + '<div class="fr-id"><div class="fr-name">' + esc(r.otherName) + '</div>'
+      + '<div class="fr-meta">' + dot + '</div></div>'
+      + '<div class="fr-acts">' + acts + '</div>'
+      + '</div>';
+  }
+
+  function paint(v){
+    lastView = v;
+    $('frIncomingCard').hidden = !v.incoming.length;
+    $('frIncoming').innerHTML = v.incoming.map(function(r){ return row(r, 'incoming'); }).join('');
+    $('frList').innerHTML = v.friends.map(function(r){ return row(r, 'friend'); }).join('');
+    $('frEmpty').hidden = !!(v.friends.length || v.outgoing.length);
+    $('frOutgoing').innerHTML = v.outgoing.map(function(r){ return row(r, 'outgoing'); }).join('');
+    refreshDots(v.friends);
+  }
+
+  var dotsBusy = false;
+  function refreshDots(friends){
+    if (dotsBusy || !friends || !friends.length) return;
+    dotsBusy = true;
+    var left = friends.slice(0, 30);
+    Promise.all(left.map(function(r){
+      return window.DBFriends.availableNow(r.otherUid).then(function(on){ avail[r.otherUid] = on; });
+    })).then(function(){
+      dotsBusy = false;
+      left.forEach(function(r){
+        var d = document.querySelector('[data-dot="' + r.otherUid + '"]');
+        var l = document.querySelector('[data-dotlabel="' + r.otherUid + '"]');
+        if (d) d.classList.toggle('on', !!avail[r.otherUid]);
+        if (l) l.textContent = avail[r.otherUid] ? 'In the live queue now' : 'Not in the queue';
+      });
+    }).catch(function(){ dotsBusy = false; });
+  }
+
+  document.addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act');
+    var uid = b.getAttribute('data-uid');
+    var name = b.getAttribute('data-name') || 'Debater';
+    if (act === 'challenge') challenge(uid, name);
+    else if (act === 'message') location.href = '/messages?dm=' + encodeURIComponent(uid) + '&name=' + encodeURIComponent(name);
+    else if (act === 'accept') {
+      window.DBFriends.accept(uid, myName()).then(function(){
+        try { gtag('event', 'friend_request_accepted', { event_category: 'friends' }); } catch (e) {}
+        flash('You are friends now.');
+      }).catch(function(){ flash('Could not accept right now. Try again in a moment.', true); });
+    }
+    else if (act === 'ignore') window.DBFriends.ignore(uid);
+    else if (act === 'remove') {
+      if (confirm('Remove ' + name + ' from your friends?')) {
+        window.DBFriends.remove(uid).catch(function(){ flash('Could not remove right now.', true); });
+      }
+    }
+    else if (act === 'cancel') window.DBFriends.remove(uid).catch(function(){});
+  });
+
+  // ── invite link + ?add= deep link ─────────────────────────────────
+  function setupInvite(){
+    var url = 'https://itsdebatable.com/friends?add=' + encodeURIComponent(me.uid);
+    $('frInviteUrl').value = url;
+    $('frInviteCopy').onclick = function(){
+      var done = function(){ flash('Link copied. Send it to someone worth arguing with.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function(){ $('frInviteUrl').select(); document.execCommand('copy'); done(); });
+      else { $('frInviteUrl').select(); document.execCommand('copy'); done(); }
+    };
+    if (navigator.share) {
+      $('frInviteShare').hidden = false;
+      $('frInviteShare').onclick = function(){
+        navigator.share({ title: 'Debate me on Debatable', text: 'Add me as a friend and let’s run a round.', url: url }).catch(function(){});
+      };
+    }
+  }
+
+  function handleAddParam(){
+    var qs = new URLSearchParams(location.search);
+    var target = qs.get('add');
+    if (!target || target === me.uid) return;
+    var card = $('frAddCard');
+    card.hidden = false;
+    var targetName = 'A debater';
+    $('frAddText').textContent = 'Someone sent you their friend link. Send them a request?';
+    db.collection('public_profiles').doc(target).get().then(function(doc){
+      if (doc.exists && doc.data() && doc.data().name) {
+        targetName = String(doc.data().name).slice(0, 60);
+        $('frAddText').textContent = 'Add ' + targetName + ' as a friend?';
+      }
+    }).catch(function(){});
+    $('frAddYes').onclick = function(){
+      $('frAddYes').disabled = true;
+      sendRequest(target, targetName).then(function(){
+        card.hidden = true;
+        history.replaceState(null, '', '/friends');
+      });
+    };
+    $('frAddNo').onclick = function(){
+      card.hidden = true;
+      history.replaceState(null, '', '/friends');
+    };
+  }
+
+  function showGate(){
+    $('frGate').hidden = false;
+    $('frMain').hidden = true;
+    $('frGateBtn').onclick = function(){
+      if (window.openAuthModal) window.openAuthModal('signin');
+      else { var n = 0; var t = setInterval(function(){ if (window.openAuthModal){ clearInterval(t); window.openAuthModal('signin'); } else if (++n > 40) clearInterval(t); }, 150); }
+    };
+  }
+
+  function boot(u){
+    if (!u || u.isAnonymous) { showGate(); return; }
+    me = u;
+    db = firebase.firestore();
+    $('frGate').hidden = true;
+    $('frMain').hidden = false;
+    window.DBFriends.init({ db: db, uid: me.uid });
+    window.DBFriends.watch(function(v){
+      if (v.status === 'ready') paint(v);
+      else if (v.status === 'error') flash('Your friends list could not load right now. It retries on its own.', true);
+    });
+    setupInvite();
+    handleAddParam();
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden && lastView) refreshDots(lastView.friends);
+    });
+  }
+
+  firebase.auth().onAuthStateChanged(boot);
+})();
+</script>
+</body>
+</html>

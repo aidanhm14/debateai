@@ -947,6 +947,28 @@ service cloud.firestore {
     // with its per-IP limits). Public read so signed-out lurkers see
     // a live room before committing; posting is named-accounts only,
     // self-authored, bounded. Append-only, delete your own.
+    // Channel PARENT doc exists only to carry typing: { uid: millis }
+    // for the "..." indicator (2026-08-31). Clients may create/update it
+    // with NOTHING but their own typing key; everything else on the doc
+    // is out of reach, so it can never grow into an unguarded config
+    // surface. Message posting below is unchanged.
+    match /community_channels/{channelId} {
+      function chTypingChangeIsOwnUid() {
+        let oldMap = resource.data.get('typing', {});
+        let newMap = request.resource.data.get('typing', {});
+        let changed = newMap.diff(oldMap).affectedKeys();
+        return changed.size() == 0 || changed.hasOnly([request.auth.uid]);
+      }
+      allow read: if true;
+      allow create: if isNamedAccount()
+                    && channelId.matches('^(general|find-a-round|motions|round-reviews|clips|tournament|apda|bp|public-forum|ld|policy|help)$')
+                    && request.resource.data.keys().hasOnly(['typing'])
+                    && request.resource.data.typing.keys().hasOnly([request.auth.uid]);
+      allow update: if isNamedAccount()
+                    && channelId.matches('^(general|find-a-round|motions|round-reviews|clips|tournament|apda|bp|public-forum|ld|policy|help)$')
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['typing'])
+                    && chTypingChangeIsOwnUid();
+    }
     match /community_channels/{channelId}/messages/{msgId} {
       allow read: if true;
       allow create: if isNamedAccount()
@@ -961,7 +983,10 @@ service cloud.firestore {
                     && request.resource.data.text is string
                     && request.resource.data.text.size() > 0
                     && request.resource.data.text.size() <= 500
-                    && stringUnder('name', 60);
+                    && stringUnder('name', 60)
+                    && (!('replyToText' in request.resource.data) || stringUnder('replyToText', 300))
+                    && (!('replyToName' in request.resource.data) || stringUnder('replyToName', 60))
+                    && (!('replyToId' in request.resource.data) || stringUnder('replyToId', 80));
       allow update: if false;
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
@@ -1102,8 +1127,22 @@ service cloud.firestore {
     // recipient's unread counter, and the recipient can zero their own
     // unread on read — both are participant-scoped writes.
     match /dm_threads/{threadId} {
-      allow read, update: if isSignedIn()
+      // typing: { uid: millis } on the thread doc drives the "..."
+      // indicator (2026-08-31). A participant may only stamp their OWN
+      // key — without this guard the unfielded update rule would let
+      // either side fake the other's typing state. Same shape as
+      // leaderboardConsentChangeIsOwnUid on live_rounds.
+      function typingChangeIsOwnUid() {
+        let oldMap = resource.data.get('typing', {});
+        let newMap = request.resource.data.get('typing', {});
+        let changed = newMap.diff(oldMap).affectedKeys();
+        return changed.size() == 0 || changed.hasOnly([request.auth.uid]);
+      }
+      allow read: if isSignedIn()
                     && request.auth.uid in resource.data.participants;
+      allow update: if isSignedIn()
+                    && request.auth.uid in resource.data.participants
+                    && typingChangeIsOwnUid();
       // Create is open to any signed-in user (named OR guest, since
       // 2026-06-16) as long as they put THEMSELVES in the participants
       // array — you can't fabricate a thread you're not in. The
@@ -1115,6 +1154,10 @@ service cloud.firestore {
       // and only as themselves with a length-capped body. Guests allowed
       // (2026-06-16) — the fromUid==auth.uid + participant checks mean a
       // guest can only post as themselves into a thread they belong to.
+      // replyTo* fields (2026-08-31) are optional quote context written
+      // at create time: the id, author name, and a bounded snippet of
+      // the quoted message. Bounded so a reply cannot smuggle a second
+      // full-length message past the text cap.
       match /messages/{msgId} {
         allow read: if isSignedIn()
                     && request.auth.uid in
@@ -1123,7 +1166,10 @@ service cloud.firestore {
                     && request.resource.data.fromUid == request.auth.uid
                     && request.auth.uid in
                        get(/databases/$(database)/documents/dm_threads/$(threadId)).data.participants
-                    && stringUnder('text', 1000);
+                    && stringUnder('text', 1000)
+                    && (!('replyToText' in request.resource.data) || stringUnder('replyToText', 300))
+                    && (!('replyToName' in request.resource.data) || stringUnder('replyToName', 60))
+                    && (!('replyToId' in request.resource.data) || stringUnder('replyToId', 80));
       }
     }
 
@@ -1234,6 +1280,49 @@ service cloud.firestore {
     match /{path=**}/votes/{voterUid} {
       allow read: if isSignedIn()
                   && resource.data.uid == request.auth.uid;
+    }
+
+    // ── friendships (2026-08-31) ─────────────────────────────────────
+    // One doc per pair, id = sorted uids joined by '_' (the dm_threads
+    // convention), created client-direct by the requester with ONLY
+    // their own half of the consent recorded. The friendship is live
+    // when both keys in `state` read 'accepted'; declining or
+    // unfriending is deleting the doc. The own-key guard below is the
+    // whole security model, same as motionProposalAccepts: neither side
+    // can ever write the OTHER side's acceptance, so a friendship
+    // cannot be forged from one keyboard. uids and requestedBy are
+    // frozen after create. Blocks are enforced where they bite (pairing
+    // and the client list, per the spar-pair "client hint, not
+    // authority" posture) — a request is no more exposure than the
+    // dm_threads create rule already allows.
+    match /friendships/{pairId} {
+      function stateChangeIsOwnUid() {
+        let oldMap = resource.data.get('state', {});
+        let newMap = request.resource.data.get('state', {});
+        let changed = newMap.diff(oldMap).affectedKeys();
+        return changed.size() == 0 || changed.hasOnly([request.auth.uid]);
+      }
+      allow read: if isSignedIn()
+                    && request.auth.uid in resource.data.uids;
+      allow create: if isNamedAccount()
+                    && request.resource.data.uids is list
+                    && request.resource.data.uids.size() == 2
+                    && request.auth.uid in request.resource.data.uids
+                    && request.resource.data.uids[0] < request.resource.data.uids[1]
+                    && pairId == request.resource.data.uids[0] + '_' + request.resource.data.uids[1]
+                    && request.resource.data.requestedBy == request.auth.uid
+                    && request.resource.data.state.keys().hasOnly([request.auth.uid])
+                    && request.resource.data.state[request.auth.uid] == 'accepted';
+      allow update: if isNamedAccount()
+                    && request.auth.uid in resource.data.uids
+                    && request.resource.data.uids == resource.data.uids
+                    && request.resource.data.requestedBy == resource.data.requestedBy
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'names', 'acceptedAt'])
+                    && stateChangeIsOwnUid()
+                    && (!(request.auth.uid in request.resource.data.state)
+                        || request.resource.data.state[request.auth.uid] == 'accepted');
+      allow delete: if isSignedIn()
+                    && request.auth.uid in resource.data.uids;
     }
 
     // ── opinion panel: deliberately absent ───────────────────────────
