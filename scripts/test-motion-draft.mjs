@@ -45,6 +45,15 @@ Object.keys(DRAFT_MOTIONS).forEach((k) => {
     ok(!/[—]/.test(m), 'em-dash in motion copy (' + k + '): ' + m);
   });
 });
+ok(DRAFT_MOTIONS.quick.length >= 100,
+  'the casual pool is too small to keep repeat slates rare: ' + DRAFT_MOTIONS.quick.length);
+ok(DRAFT_MOTIONS.quick.includes('AI will lead to socialism.'),
+  'the casual pool lost the founder-called high-stakes AI thesis');
+DRAFT_MOTIONS.quick.forEach((m) => {
+  ok(!/\?/.test(m), 'casual motion is a question instead of a claim: ' + m);
+  ok(/\.$/.test(m), 'casual motion is not a complete declarative sentence: ' + m);
+  ok(!/^(Resolved:|This House)/i.test(m), 'casual motion uses debate jargon: ' + m);
+});
 
 // ── tournament profile: three motions, one blind strike each ──────
 eq(THE_DEBATABLE_OPEN_MOTIONS.length, 20, 'the published Open pool has exactly twenty motions');
