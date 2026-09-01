@@ -1,4 +1,4 @@
-/* spar-night.js — Open Spar Night countdown (2026-07-15).
+/* spar-night.js — Clash Hour countdown (2026-07-15; named Open Spar Night until 2026-09-01, when the sessions went daily and two of the three stopped being at night).
  *
  * The liquidity fix for /spar: fixed hours when everyone queues at
  * once, instead of visitors trickling in and never overlapping in the
@@ -163,7 +163,7 @@
     var dates = day + 'T' + two(st.session.hour) + '0000/'
       + day + 'T' + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-      + '&text=' + encodeURIComponent('Open Spar Night (' + st.session.name + ') · Debatable')
+      + '&text=' + encodeURIComponent('Clash Hour (' + st.session.name + ') · Debatable')
       + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every day, 7 AM, 3 PM and 8 PM ET. Join the queue at itsdebatable.com/spar')
       + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
       + '&dates=' + dates
@@ -353,7 +353,7 @@
     el.className = 'sn-card sn-card--' + variant + (live ? ' sn-live' : '');
     var local = localLabel(st.start);
     var eyebrow = '<div class="sn-eyebrow"><span class="sn-dot"></span>' +
-      (live ? 'Open Spar Night · live now' : 'Open Spar Night') + '</div>';
+      (live ? 'Clash Hour · live now' : 'Clash Hour') + '</div>';
     // Calendar tile (2026-07-22). Built from nyParts so it shows the
     // event's OWN Eastern date, matching the "8:00 PM ET" headline.
     // Deliberately not the viewer's local date: east of ET the local
@@ -369,7 +369,7 @@
       '</div>';
     var endMin = st.session.hour * 60 + 90;
     var title = live
-      ? 'Spar Night is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
+      ? 'Clash Hour is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
       : st.session.name + ' \u00b7 ' + hourLabel(st.session.hour) + ' ET, every day';
     // Rail headline is the simple version of the same fact; the session
     // name and exact next hour still ride the countdown's local line.
@@ -431,7 +431,7 @@
       '<div class="sn-rsvp" data-sn-rsvp>' +
         '<form class="sn-rsvp-form" data-sn-rsvp-form novalidate>' +
           '<input type="email" class="sn-rsvp-input" data-sn-rsvp-email required ' +
-            'autocomplete="email" placeholder="you@school.edu" aria-label="Email for the Spar Night reminder">' +
+            'autocomplete="email" placeholder="you@school.edu" aria-label="Email for the Clash Hour reminder">' +
           '<input type="text" class="sn-hp" data-sn-rsvp-hp tabindex="-1" autocomplete="off" aria-hidden="true">' +
           '<button type="submit" class="sn-cta sn-cta--solid" data-sn-rsvp-submit>Send it</button>' +
         '</form>' +

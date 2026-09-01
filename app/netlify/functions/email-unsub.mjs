@@ -66,8 +66,8 @@ const FLAG_BY_STREAM = {
 const STOP_SENTENCE = {
   digest: 'The weekly digest and the occasional check-in emails stop here.',
   winback: 'The occasional check-in emails stop here. Nothing else changes.',
-  sparnight: 'The Spar Night reminders stop here. Nothing else changes.',
-  sparrsvp: 'The Spar Night reminders stop here. Nothing else changes.',
+  sparnight: 'The Clash Hour reminders stop here. Nothing else changes.',
+  sparrsvp: 'The Clash Hour reminders stop here. Nothing else changes.',
   partner: 'Partner match alerts stop here. Nothing else changes.',
   open: 'Tournament emails stop here. Nothing else changes.',
   stream: 'Live stream alerts stop here. Nothing else changes.',
@@ -79,8 +79,8 @@ const STOP_SENTENCE = {
 const CONFIRM_SENTENCE = {
   digest: 'This stops the weekly digest and the occasional check-in emails.',
   winback: 'This stops the occasional check-in emails. Nothing else changes.',
-  sparnight: 'This stops the weekly Spar Night reminders. Nothing else changes.',
-  sparrsvp: 'This stops the weekly Spar Night reminders. Nothing else changes.',
+  sparnight: 'This stops the weekly Clash Hour reminders. Nothing else changes.',
+  sparrsvp: 'This stops the weekly Clash Hour reminders. Nothing else changes.',
   partner: 'This stops the partner match alerts. Nothing else changes.',
   open: 'This stops emails about tournaments. Nothing else changes.',
   stream: 'This stops the emails telling you a round is on air. Nothing else changes.',
@@ -92,8 +92,8 @@ const CONFIRM_SENTENCE = {
 const RESUME_SENTENCE = {
   digest: 'The weekly digest will show up again.',
   winback: 'The occasional check-in emails are back on.',
-  sparnight: 'The Spar Night reminders are back on.',
-  sparrsvp: 'The Spar Night reminders are back on.',
+  sparnight: 'The Clash Hour reminders are back on.',
+  sparrsvp: 'The Clash Hour reminders are back on.',
   partner: 'Partner match alerts are back on.',
   open: 'Tournament emails are back on.',
   stream: 'Live stream alerts are back on.',

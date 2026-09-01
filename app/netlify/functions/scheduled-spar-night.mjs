@@ -134,7 +134,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   const np = nyParts(nextEventStart(Date.now()));
   const day = np.year + np.month + np.day;
   const gcalFor = (label, hh, mm) => 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Open Spar Night (' + label + ') · Debatable')
+    + '&text=' + encodeURIComponent('Clash Hour (' + label + ') · Debatable')
     + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
     + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
     + '&dates=' + day + 'T' + hh + '0000/' + day + 'T' + mm + '00'
@@ -149,7 +149,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   ${brandHeader()}
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">Hey ${esc(firstName)},</p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
-    <strong>Open Spar Night runs three times a day, every day.</strong>
+    <strong>Clash Hour runs three times a day, every day.</strong>
     More people queue at the same time, so the live pool has a better chance
     of finding an opponent. Take the session that is evening where you are.
   </p>
@@ -182,7 +182,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
     uid,
     stream,
     reason: stream === 'sparrsvp'
-      ? 'You\'re getting this because you asked to be reminded about Open Spar Night.'
+      ? 'You\'re getting this because you asked to be reminded about Clash Hour.'
       : 'You\'re getting this because you have a Debatable account.',
   })}
 </div>`;
@@ -283,7 +283,7 @@ export default async () => {
 
     const res = await sendEmail({
       to: user.email,
-      subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
+      subject: 'Clash Hour, every day: 7am, 3pm and 8pm ET',
       html: renderEmail({ firstName, uid: user.uid }),
       uid: user.uid,
       stream: 'sparnight',
@@ -305,7 +305,7 @@ export default async () => {
         await sleep(res.retryAfterMs || 1200);
         const retry = await sendEmail({
           to: user.email,
-          subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
+          subject: 'Clash Hour, every day: 7am, 3pm and 8pm ET',
           html: renderEmail({ firstName, uid: user.uid }),
           uid: user.uid,
           stream: 'sparnight',
@@ -349,7 +349,7 @@ export default async () => {
 
       const res = await sendEmail({
         to: addr,
-        subject: 'Open Spar Night, every day: 7am, 3pm and 8pm ET',
+        subject: 'Clash Hour, every day: 7am, 3pm and 8pm ET',
         // No uid for an anonymous RSVP, so the shared footer cannot build
         // an unsubscribe link from user_profiles. Pass the doc id as the
         // token subject instead; email-unsub handles the 'sparrsvp' stream
