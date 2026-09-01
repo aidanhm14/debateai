@@ -1333,7 +1333,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
         <h4>What do the numbers mean?</h4>
         <details class="lb-details lb-details--side">
         <summary>Read the short version</summary>
-        <p class="body">On the head-to-head ladder the number is a rating. It moves on wins, draws and losses against real people, and beating stronger opponents moves it more. A rating stays provisional until enough rated rounds narrow it down, which takes a run of them rather than a fixed number. On the AI board the number is the judge's score for how well you argued.</p>
+        <p class="body">On the head-to-head ladder the number is a rating. It moves on wins, draws and losses against real people, and beating stronger opponents moves it more. Your first three rated rounds are placement: the rating is live from round one, and the numbered rank arrives with the third. On the AI board the number is the judge's score for how well you argued.</p>
         <p class="body">Debated before? <a href="/claim">Import your Tabroom record</a> and start with a seeded rating instead of a blank 1500. Curious how the number works? <a href="/debate-rating">The Debate Rating, explained</a>.</p>
         </details>
         <a class="side-link" href="/voice-debate">Try a judged voice round →</a>
@@ -1403,7 +1403,7 @@ const guideActionCopy=document.getElementById('guideActionCopy');
 // The ladder now has real rated rows, even though many are still provisional,
 // and today's tournament feeds the same record. Open on that table. The solo
 // judge-score board remains one tab away and #ai/#solo still deep-link to it.
-const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{},ratingRows:null,rankableCount:0};
+const state={view:'live',format:null,user:null,cache:{},userBest:{},rankMovement:{},ratingRows:null,placedCount:0};
 
 // ── direct profile actions ────────────────────────────────────────
 // /live's "Challenge a debater" used to jump to #postForm, a generic
@@ -1620,8 +1620,16 @@ function scoreText(r){
   return fmtScore(r&&r.score);
 }
 function provChip(r){
-  if(!r||!r._ratingRow||!r._provisional) return '';
+  if(!r||!r._ratingRow) return '';
   const range=r._range&&r._range.length===2 ? `Likely between ${r._range[0]} and ${r._range[1]}. ` : '';
+  // Unplaced = fewer than 3 rated rounds: say what earns the rank rather
+  // than only that the number is unsettled. Placed rows keep the quieter
+  // Provisional mark until the rating itself settles.
+  if(!r._placed){
+    const g=Math.max(0,Number(r._rounds)||0);
+    return `<span class="prov-mark" title="${escapeHtml(range+'Play 3 rated rounds against real people to earn a numbered rank.')}">Placement · ${g} of 3</span>`;
+  }
+  if(!r._provisional) return '';
   return `<span class="prov-mark" title="${escapeHtml(range+'A rating settles as rated head-to-head rounds narrow its margin. A run of them, not a fixed number.')}">Provisional</span>`;
 }
 
@@ -1928,7 +1936,10 @@ function snapshotKey(){
   // v2: the head-to-head board switched from score-rank to rating-rank
   // (2026-08-18); old snapshots would render movement arrows comparing
   // two different orderings, so the key namespace moved.
-  return 'da-lb-snap2:'+state.view+':'+(state.format||'all');
+  // v3 (2026-09-01): the ladder moved from rankable/conservative-floor
+  // order to placed-first-by-rating; old snapshots would compare two
+  // different orderings, so the namespace moves again.
+  return 'da-lb-snap3:'+state.view+':'+(state.format||'all');
 }
 function loadSnapshot(){
   try{
@@ -2056,11 +2067,12 @@ function podiumEligible(rows){
   if(state.view!=='live') return true;
   return rows.slice(0,3).every(r=>r._ratingRow && typeof r.score==='number' && isFinite(r.score));
 }
-// The table hands no rank number to a rated-but-unsettled row, so the podium
-// must not hand that same row a settled place. Medal keeps 1/2/3 because that
-// is just the visible order; the label is what carries the claim.
+// The table numbers placed rows (3+ rated rounds), so the podium hands a
+// real place label to the same set and nothing below it. A placement row
+// that drifts into the top three reads "Top rated" rather than claiming a
+// place the table refuses to number.
 function podPlaceLabel(row, place){
-  const settled = state.view!=='live' || (row && row._rankable);
+  const settled = state.view!=='live' || (row && row._placed);
   if(!settled) return 'Top rated';
   return place===1?'Champion':place===2?'2nd place':'3rd place';
 }
@@ -2216,12 +2228,12 @@ function renderTable(rows){
       <div style="text-align:right">${liveLadder?'Rating':'Judge score'}</div>
       <div class="cell-connect" style="text-align:right">Connect</div>
     </div>`;
-  // On the ladder, only rankable rows carry a rank number. Provisional
-  // ratings and Example seeds sit below the ranked places with no number:
-  // an empty place is more honest than one held by a single-round record.
-  const prov = liveLadder ? rows.filter(r=>r._ratingRow && !r._rankable).length : 0;
-  const provNote = (liveLadder && prov>0)
-    ? `<div class="seed-note"><span class="seed-note-tag">Provisional</span><span class="seed-note-text">${prov===1?'One debater is':prov+' debaters are'} rated but unranked. A rating settles as rated rounds narrow its margin; keep playing rated rounds to claim a numbered place.</span></div>`
+  // On the ladder, placed rows (3+ rated rounds) carry the rank numbers.
+  // Placement rows and Example seeds sit below the numbered places with
+  // no number: a rank held by a single-round record is not a rank.
+  const inPlacement = liveLadder ? rows.filter(r=>r._ratingRow && !r._placed).length : 0;
+  const provNote = (liveLadder && inPlacement>0)
+    ? `<div class="seed-note"><span class="seed-note-tag">Placement</span><span class="seed-note-text">${inPlacement===1?'One debater is':inPlacement+' debaters are'} in placement rounds. Three rated rounds against real people earn a numbered rank; their ratings are already live below the ranked places.</span></div>`
     : '';
   const selfUid = state.user && state.user.uid;
   // Score bars: normalize against the visible spread, not a fixed
@@ -2238,7 +2250,7 @@ function renderTable(rows){
     const uid=r.uid||r.displayName||'';
     const isSelf = selfUid && uid===selfUid;
     const fresh = isFresh(r.completedAt, 30);
-    const ranked = !liveLadder || (idx < state.rankableCount);
+    const ranked = !liveLadder || (idx < state.placedCount);
     const pct = (barFloor!==null && typeof r.score==='number' && isFinite(r.score))
       ? Math.max(6, Math.min(100, Math.round(((r.score-barFloor)/(maxS-barFloor))*100)))
       : null;
@@ -2455,13 +2467,15 @@ async function renderYourRank(){
     } else {
       const me=ladder[i];
       const rating=Math.round(me.score);
-      if(me._rankable){
+      if(me._placed){
         const behind=ladder.length-i-1;
         line = i===0
           ? `You're #1 with a <strong>${rating}</strong> rating${behind?`. ${behind} below you`:''}.`
           : `You're #${i+1} with a <strong>${rating}</strong> rating, ${i} above, ${behind} below.`;
       } else {
-        line=`Your rating is <strong>${rating}</strong>, still provisional. Keep playing rated rounds to settle it and claim a numbered place.`;
+        const played=Math.max(0,Number(me._rounds)||0);
+        const left=Math.max(1,3-played);
+        line=`Your rating is <strong>${rating}</strong> and you are in placement. ${left} more rated round${left===1?'':'s'} earns your numbered rank.`;
       }
       sub=`${me._wins||0}W ${me._draws||0}D ${me._losses||0}L · ${me._rounds||0} rated round${(me._rounds||0)===1?'':'s'}`;
     }
@@ -2475,7 +2489,7 @@ async function renderYourRank(){
         </div>
         <a class="your-rank-cta" href="${i<0?'/spar':'/profile'}">${i<0?'Find an opponent →':'Open your dashboard →'}</a>
       </div>`;
-    if (i>=0 && i<=9 && (state.ratingRows||[])[i] && state.ratingRows[i]._rankable && !state._top10ChimeFired){
+    if (i>=0 && i<=9 && (state.ratingRows||[])[i] && state.ratingRows[i]._placed && !state._top10ChimeFired){
       state._top10ChimeFired = true;
       try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
     }
@@ -2706,15 +2720,16 @@ async function loadWithFallback(primary, fallback){
 // and a soft fine-grained ordering; the binary winner is what holds, and
 // the rating is built from nothing but winners. Round entries are still
 // loaded for the ticker, hero stats and the hot-subjects rail.
-// Rankable rows (settled rating, 3+ rated rounds) hold the numbered
-// places; provisional rows follow unranked; a few Example seeds keep
-// texture at the bottom with no rank and no number in the rating column.
+// Placed rows (3+ real rated rounds) hold the numbered places, ordered
+// by rating; placement rows follow, also by rating, so the visible order
+// matches the visible numbers; a few Example seeds keep texture at the
+// bottom with no rank and no number in the rating column.
 async function loadRatingLadder(){
   try{
     const res=await fetch('/api/leaderboard-ratings');
     if(!res.ok) return [];
     const data=await res.json();
-    return (data.rows||[]).map(r=>({
+    const rows=(data.rows||[]).map(r=>({
       uid:r.uid,
       displayName:r.name||'A debater',
       photoURL:r.photoURL||'',
@@ -2724,6 +2739,10 @@ async function loadRatingLadder(){
       kind:'live',
       _ratingRow:true,
       _rankable:r.rankable===true,
+      // Placed = 3+ real rated rounds; that is what earns a numbered
+      // rank. Derived from games as a fallback so a stale cached payload
+      // from before the field existed still bands correctly.
+      _placed:r.placed===true || (Number(r.games)||0)>=3,
       _provisional:r.provisional!==false,
       _rd:r.rd,
       _range:r.range||null,
@@ -2735,13 +2754,22 @@ async function loadRatingLadder(){
       _losses:r.losses||0,
       _streak:0,
     }));
+    // Re-sort locally rather than trusting the payload order: the shared
+    // API cache survives deploys, so a stale payload can arrive in the
+    // OLD order for a TTL, and numbering `idx < placedCount` against a
+    // differently ordered list would pin rank numbers on the wrong rows.
+    // Placed rows (numbered) first by rating, placement tail after, also
+    // by rating, so the visible order always matches the visible numbers.
+    rows.sort((a,b)=>(Number(b._placed)-Number(a._placed))
+      || ((typeof b.score==='number'?b.score:-Infinity)-(typeof a.score==='number'?a.score:-Infinity)));
+    return rows;
   }catch(e){
     console.warn('[leaderboard] rating ladder fetch failed:', e&&e.message);
     return [];
   }
 }
-// Standings for the head-to-head tab: rated people first (the server
-// already sorts rankable-then-provisional by rating), then up to 8
+// Standings for the head-to-head tab: rated people first (placed rows
+// numbered by rating, then the placement tail), then up to 8
 // Example seeds for texture. Seeds carry speaker points, which are not
 // ratings, so their number is blanked rather than rendered under a
 // Rating header.
@@ -2798,7 +2826,7 @@ async function loadView(view){
         }),
       ]);
       state.ratingRows=ladder;
-      state.rankableCount=ladder.filter(r=>r._rankable).length;
+      state.placedCount=ladder.filter(r=>r._placed).length;
       rows=entryRows.filter(r=>r.kind==='live').slice(0,100);
     }else if(view==='ai'){
       rows=await loadWithFallback(
@@ -2866,8 +2894,8 @@ function syncRankingGuide(view){
   if(view==='live'){
     guideRankTitle.textContent='Your rating sets the rank';
     guideRankCopy.textContent='Complete judged rounds against real people and it moves. Beating stronger opponents moves it more.';
-    guideRecordTitle.textContent='Ratings settle as rounds narrow them';
-    guideRecordCopy.textContent='Until then a rating is provisional and holds no numbered place. W / D / L is the full rated record.';
+    guideRecordTitle.textContent='Three rated rounds earn your rank';
+    guideRecordCopy.textContent='Until then you are in placement: your rating is live but holds no numbered place. W / D / L is the full rated record.';
     guideActionTitle.textContent='Debate someone on the board';
     guideActionCopy.innerHTML='Real profiles show Message and Challenge. Examples <a href="/spar">link to matchmaking</a>.';
   }else{

@@ -17,7 +17,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v5'; // v5: teaser rows sort by displayed rating. Shared cache survives deploys, so an unchanged key would retain the old order for a full TTL
+const CACHE_KEY = 'leaderboard-top-v6'; // v6: ladder rows re-tiered + placed-first. Shared cache survives deploys, so an unchanged key would retain the old order for a full TTL
 const CACHE_TTL_MS = 5 * 60 * 1000;   // rankings move round-by-round, not second-by-second
 const QUERY_LIMIT = 80;               // enough to survive per-uid dedupe AND to reach real
                                       // entries below the 48 seeds (realRows scans the same

@@ -18,17 +18,19 @@
 // to sit here still described the opt-in rule and was wrong from the
 // day the rule flipped.
 //
-// Rankable vs provisional uses the one definition in lib/rating.mjs:
-// rd <= PROVISIONAL_RD and games >= MIN_RATED_GAMES. Provisional
-// debaters are returned after every rankable one, flagged, and the
-// client shows them without a rank number. Within the provisional tail
-// the order is the conservative floor, not the raw rating.
+// Rows are ordered placed-first (games >= MIN_RATED_GAMES real rated
+// rounds, a bar a /claim seed cannot buy because seeding never writes
+// `games`) then by the printed rating in both bands, so the visible
+// order always matches the visible numbers. Placed rows hold numbered
+// ranks on the client; the unplaced tail renders as placement rounds.
+// `rankable` (rd <= PROVISIONAL_RD too) still travels for the settled
+// concept, and `provisional` still discloses an unsettled rating.
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-ratings';
+const CACHE_KEY = 'leaderboard-ratings-v2'; // v2: placed-first order + `placed`/tier fields. Shared cache survives deploys, so an unchanged key would serve the old order for a full TTL
 const CACHE_TTL_MS = 5 * 60 * 1000;  // ratings move round-by-round, not second-by-second
 const QUERY_LIMIT = 100;
 

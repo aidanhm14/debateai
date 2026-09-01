@@ -10,9 +10,10 @@
 // wins against people, not points from the judge.
 // scripts/test-judge-integrity.mjs asserts this stays true.
 import { withDeadline } from './firestore.mjs';
-import { displayRating, isRankable, conservativeRating } from './rating.mjs';
+import { displayRating, isRankable, tierFor, MIN_RATED_GAMES } from './rating.mjs';
 
-// The rating ladder, ordered rankable-first then rating. Names joined
+// The rating ladder, ordered placed-first (3+ real rated rounds) then
+// rating. Names joined
 // from user_profiles with a rating_changes fallback so a row never
 // renders blank. Returns [] on an empty ladder; throws on a failed
 // primary query so callers keep their own error posture.
@@ -72,6 +73,12 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
   const rows = raw.map(({ uid, d }) => {
     const disp = displayRating(d);
     const p = profiles.get(uid) || {};
+    const games = Number(d.games) || 0;
+    // PLACED = has actually played MIN_RATED_GAMES real rated rounds.
+    // The /claim seed path writes rating+rd only, never `games` (see
+    // record-seed.mjs), so this bar cannot be bought with a self-reported
+    // Tabroom record: it is always 3 rounds played HERE.
+    const placed = games >= MIN_RATED_GAMES;
     return {
       uid,
       name: String(p.displayName || p.name || changeNames.get(uid) || 'A debater').slice(0, 40),
@@ -81,10 +88,16 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
       rd: disp.rd,
       range: disp.range,
       floor: disp.floor,
-      tier: disp.tier,
+      // A placed debater wears the tier band for the rating on their row
+      // even while the rating is still settling; the provisional flag
+      // still travels beside it, so the uncertainty is disclosed rather
+      // than hidden. Unplaced rows stay Unranked: a tier over 1 round is
+      // a claim about nothing.
+      tier: placed ? tierFor(disp.rating, false) : disp.tier,
       provisional: disp.provisional,
       rankable: isRankable(d),
-      games: Number(d.games) || 0,
+      placed,
+      games,
       wins: Number(d.wins) || 0,
       losses: Number(d.losses) || 0,
       draws: Number(d.draws) || 0,
@@ -93,19 +106,18 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     };
   });
 
-  // Rankable debaters hold the ranked places, ordered by rating: they
-  // have all cleared the uncertainty bar, so the rating is the claim.
+  // Placed debaters (MIN_RATED_GAMES real rated rounds) hold the numbered
+  // places, ordered by the rating printed on the row. The unplaced tail
+  // follows, also by printed rating, so the visible order can never
+  // disagree with the visible numbers (the old conservative-floor tail
+  // sort put a 1691 above a 1776 on the live board, which reads as a bug
+  // to everyone who cannot see the RD behind it).
   //
-  // Provisionals follow, ordered by the CONSERVATIVE floor rather than by
-  // rating. Sorting the tail by raw rating was the same bug the rankable
-  // bar exists to prevent, one row further down: measured on the real
-  // backfill, four debaters at 1-0 and RD ~286 sat above the only two
-  // people with a record, and the landing rail numbers every row it
-  // renders, so those four were being presented as the top of the board.
-  // Ranking by the bottom of the interval makes an unproven round cost
-  // position instead of buying it.
-  rows.sort((a, b) => (Number(b.rankable) - Number(a.rankable))
-    || (a.rankable ? (b.rating - a.rating) : (conservativeRating(b) - conservativeRating(a))));
+  // The protective job the conservative sort used to do — never let a
+  // 1-0 wonder top the board — is done by the games bar instead: one win
+  // leaves you unplaced and unnumbered below every real record, and a
+  // /claim seed cannot fake the bar because seeding never writes `games`.
+  rows.sort((a, b) => (Number(b.placed) - Number(a.placed)) || (b.rating - a.rating));
   return rows;
 }
 
