@@ -919,8 +919,6 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
    composer stranded mid-rail instead of at the foot of the chat. */
 #audPanel .aud-body{display:flex;flex-direction:column;flex:1;min-height:0;padding:10px 12px 12px;overflow:hidden}
 #audPanel .aud-body[hidden]{display:none}
-#audPanel #audGroupHome,#audPanel #audGroupRoom{display:flex;flex-direction:column;min-height:0;flex:1}
-#audPanel #audGroupHome[hidden],#audPanel #audGroupRoom[hidden]{display:none}
 #audPanel .aud-list{flex:1;min-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:2px 2px 8px}
 #audPanel .aud-row{padding:6px 8px;border-radius:9px;transition:background .15s,transform .15s}
 #audPanel .aud-row:hover{background:rgba(255,255,255,.05);transform:translateX(2px)}
@@ -928,23 +926,6 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 #audPanel .aud-row .aud-t{margin-left:6px;font-size:.66rem;color:var(--text-faint,rgba(244,244,242,.4))}
 #audPanel .aud-row p{margin:2px 0 0;font-size:.92rem;line-height:1.5;color:var(--text-dim,rgba(244,244,242,.75));word-break:break-word}
 #audPanel .aud-empty{padding:20px 8px;text-align:center;font-size:.84rem;line-height:1.5;color:var(--text-faint,rgba(244,244,242,.45))}
-/* Audience topic suggestions. Vote count leads because the ranking is
-   the whole signal; the debater-only "put it to the round" action sits
-   beside it and only renders for a seated debater pre-Speech-1. */
-#audPanel .aud-topic{border:1px solid rgba(255,255,255,.09);margin-bottom:7px;padding:9px 10px}
-#audPanel .aud-topic p{margin:0 0 3px;font-weight:650;line-height:1.36}
-#audPanel .aud-topic-actions{display:flex;align-items:center;gap:7px;margin-top:7px;flex-wrap:wrap}
-#audPanel .aud-vote,#audPanel .aud-put{
-  font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;
-  min-height:32px;padding:6px 11px;border-radius:999px;
-  border:1px solid rgba(255,255,255,.2);background:transparent;
-  color:var(--text-dim,rgba(244,244,242,.72));
-  transition:background .15s,color .15s,border-color .15s;
-}
-#audPanel .aud-vote:hover,#audPanel .aud-put:hover{color:#fff;border-color:rgba(255,255,255,.42)}
-#audPanel .aud-vote.is-on{background:rgba(239,68,68,.17);border-color:rgba(239,68,68,.6);color:#ff9d9d}
-#audPanel .aud-put{margin-left:auto;border-color:rgba(239,68,68,.5);color:#ff8e8e}
-#audPanel .aud-put:hover{background:#b91c1c;border-color:#b91c1c;color:#fff}
 #audPanel .aud-compose{display:flex;gap:6px;margin-top:auto}
 #audPanel .aud-compose input,#audPanel textarea{
   flex:1;min-width:0;padding:10px 12px;border-radius:10px;font:inherit;font-size:.92rem;
@@ -956,15 +937,6 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
   transition:background .15s,transform .15s,box-shadow .15s}
 #audPanel .aud-compose button:hover,#audPanel .aud-eval-row button:hover{background:#dc2626;transform:translateY(-1px);box-shadow:0 6px 16px rgba(239,68,68,.3)}
 #audPanel .aud-compose button:active,#audPanel .aud-eval-row button:active{transform:none}
-#audPanel .aud-back{align-self:flex-start;margin:0 0 6px;padding:5px 10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.12));background:transparent;color:var(--text-dim,rgba(244,244,242,.7));font-size:.72rem;font-weight:700;cursor:pointer;transition:color .15s,border-color .15s,transform .15s}
-#audPanel .aud-back:hover{color:var(--text,#f4f4f2);border-color:rgba(239,68,68,.5);transform:translateX(-2px)}
-#audPanel .aud-room-name{font-size:.88rem;font-weight:900;margin:0 0 6px}
-#audPanel .aud-group{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 12px;border-radius:10px;cursor:pointer;
-  border:1px solid var(--border,rgba(255,255,255,.12));background:rgba(255,255,255,.03);color:var(--text,#f4f4f2);
-  transition:border-color .15s,transform .15s,box-shadow .15s,background .15s}
-#audPanel .aud-group:hover{border-color:rgba(239,68,68,.5);background:rgba(255,255,255,.05);transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.35)}
-#audPanel .aud-group b{font-size:.88rem;font-weight:800}
-#audPanel .aud-group span{font-size:.72rem;color:var(--text-faint,rgba(244,244,242,.45))}
 #audPanel .aud-note{margin:0 0 8px;font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(244,244,242,.66))}
 #audPanel textarea{resize:vertical;min-height:96px}
 #audPanel .aud-eval-row{display:flex;align-items:center;gap:8px;margin-top:8px}
@@ -17564,22 +17536,21 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     }, function(){});
   }
 
-  // ── Audience deck: live comments, viewer group chats, and
-  // "tell the judge" notes. One floating button opens a three-tab
-  // panel; visible to debaters and spectators alike. Firestore
-  // listeners start LAZILY on first open (a lurker costs nothing),
-  // queries are bounded (80 comments / 25 groups / 80 messages), and
-  // everything under live_rounds/{room}: comments, groupChats/{id}/
-  // messages, audienceEvals/{uid}. Evals feed audienceBallotLines()
+  // ── Audience deck: live comments and "tell the judge" notes.
+  // One floating button opens a two-tab panel, visible to debaters and
+  // spectators alike. Firestore listeners start LAZILY on first open
+  // (a lurker costs nothing), the comment query is bounded to 80, and
+  // everything under live_rounds/{room}: comments and
+  // audienceEvals/{uid}. Evals feed audienceBallotLines()
   // at ballot time as guarded advisory texture. Local-only rounds
   // (no Firestore) get a read-only explainer instead of composers.
-  var AUD = { started:false, tab:'comments', unsubs:{}, group:null, groupName:'' };
+  var AUD = { started:false, tab:'comments', unsubs:{} };
 
   function audCol(name){
     return (firebaseDb && state.roundDocRef) ? state.roundDocRef.collection(name) : null;
   }
-  // Audience identity. Routes through publicNameOf so a comment, a topic
-  // suggestion and a leaderboard row all carry the same name; this one
+  // Audience identity. Routes through publicNameOf so a comment and a
+  // leaderboard row carry the same name; this one
   // writes into audience documents, so getting it from displayName left a
   // chosen name out of exactly the surfaces other people read.
   function audMe(){
@@ -17601,8 +17572,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (document.getElementById('audFab')) return;
     var fab = document.createElement('button');
     fab.id = 'audFab'; fab.type = 'button';
-    fab.setAttribute('aria-label', 'Audience: comments, group chats, judge notes');
-    fab.title = 'Audience: comments, group chats, judge notes';
+    fab.setAttribute('aria-label', 'Audience: comments and judge notes');
+    fab.title = 'Audience: comments and judge notes';
     fab.innerHTML = '<span aria-hidden="true">&#128172;</span><b>Audience</b>';
     var panel = document.createElement('div');
     panel.id = 'audPanel'; panel.hidden = true;
@@ -17614,30 +17585,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       '</div>' +
       '<div class="aud-tabs" role="tablist">' +
         '<button type="button" class="aud-tab is-on" data-aud-tab="comments">Comments</button>' +
-        '<button type="button" class="aud-tab" data-aud-tab="topics">Topics</button>' +
-        '<button type="button" class="aud-tab" data-aud-tab="groups">Group chats</button>' +
         '<button type="button" class="aud-tab" data-aud-tab="judge">Tell the judge</button>' +
-      '</div>' +
-      '<div class="aud-body" data-aud-pane="topics" hidden>' +
-        '<p class="aud-note">Say what you want argued. The room votes, and the debaters can put the top one to the round. It only becomes the resolution if both of them agree.</p>' +
-        '<div class="aud-list" id="audTopicList"><div class="aud-empty">No suggestions yet. Name a motion you would watch.</div></div>' +
-        '<div class="aud-compose"><input type="text" id="audTopicInput" maxlength="200" placeholder="This House would&hellip;"><button type="button" id="audTopicSend">Suggest</button></div>' +
       '</div>' +
       '<div class="aud-body" data-aud-pane="comments">' +
         '<div class="aud-list" id="audCommentList"><div class="aud-empty">No comments yet. Say what you\'re seeing.</div></div>' +
         '<div class="aud-compose"><input type="text" id="audCommentInput" maxlength="500" placeholder="Comment on the round&hellip;"><button type="button" id="audCommentSend">Send</button></div>' +
-      '</div>' +
-      '<div class="aud-body" data-aud-pane="groups" hidden>' +
-        '<div id="audGroupHome">' +
-          '<div class="aud-list" id="audGroupList"><div class="aud-empty">No group chats yet. Start one and watch together.</div></div>' +
-          '<div class="aud-compose"><input type="text" id="audGroupName" maxlength="60" placeholder="Name a group chat&hellip;"><button type="button" id="audGroupCreate">Create</button></div>' +
-        '</div>' +
-        '<div id="audGroupRoom" hidden>' +
-          '<button type="button" class="aud-back" id="audGroupBack">&larr; All group chats</button>' +
-          '<div class="aud-room-name" id="audGroupTitle"></div>' +
-          '<div class="aud-list" id="audMsgList"></div>' +
-          '<div class="aud-compose"><input type="text" id="audMsgInput" maxlength="500" placeholder="Message the group&hellip;"><button type="button" id="audMsgSend">Send</button></div>' +
-        '</div>' +
       '</div>' +
       '<div class="aud-body" data-aud-pane="judge" hidden>' +
         '<p class="aud-note">Tell the AI judge what you\'re seeing. Your note reaches the ballot as an audience observation. It cannot pick the winner or set scores; the judge decides on the flow.</p>' +
@@ -17653,7 +17605,6 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     [].forEach.call(panel.querySelectorAll('[data-aud-tab]'), function(btn){
       btn.addEventListener('click', function(){ audShowTab(btn.getAttribute('data-aud-tab')); });
     });
-    panel.querySelector('#audGroupBack').addEventListener('click', function(){ audOpenGroup(null); });
 
     function wireSend(inputId, btnId, fn){
       var inp = panel.querySelector('#' + inputId), btn = panel.querySelector('#' + btnId);
@@ -17661,9 +17612,6 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       inp.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); fn(inp); } });
     }
     wireSend('audCommentInput', 'audCommentSend', audPostComment);
-    wireSend('audTopicInput', 'audTopicSend', audPostTopic);
-    wireSend('audGroupName', 'audGroupCreate', audCreateGroup);
-    wireSend('audMsgInput', 'audMsgSend', audPostGroupMsg);
     panel.querySelector('#audEvalSave').addEventListener('click', audSaveEval);
 
     // Keep the rail's top edge pinned to the bar as it reflows.
@@ -17706,10 +17654,6 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       p.hidden = p.getAttribute('data-aud-pane') !== tab;
     });
     if (tab === 'judge') audLoadEval();
-    // Whether "put it to the round" renders depends on the round's phase,
-    // which moves without the topic list changing, so repaint on open
-    // rather than trusting the last snapshot's answer.
-    if (tab === 'topics' && AUD.topicRows) audRenderTopics(AUD.topicRows);
   }
 
   function audStart(){
@@ -17735,159 +17679,6 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       }).join('') : '<div class="aud-empty">No comments yet. Say what you\'re seeing.</div>';
       list.scrollTop = list.scrollHeight;
     }, function(){});
-    AUD.unsubs.groups = audCol('groupChats').orderBy('createdAt', 'desc').limit(25).onSnapshot(function(snap){
-      var rows = [];
-      snap.forEach(function(d){ var v = d.data() || {}; v._id = d.id; rows.push(v); });
-      var list = document.getElementById('audGroupList');
-      if (!list) return;
-      list.innerHTML = rows.length ? rows.map(function(g){
-        return '<button type="button" class="aud-group" data-aud-group="' + escHtml(g._id) + '" data-aud-group-name="' + escHtml(String(g.name || 'Group chat').slice(0, 60)) + '">' +
-               '<b>' + escHtml(String(g.name || 'Group chat').slice(0, 60)) + '</b>' +
-               '<span>by ' + escHtml(String(g.createdByName || 'a viewer').slice(0, 40)) + '</span></button>';
-      }).join('') : '<div class="aud-empty">No group chats yet. Start one and watch together.</div>';
-      [].forEach.call(list.querySelectorAll('[data-aud-group]'), function(btn){
-        btn.addEventListener('click', function(){
-          audOpenGroup(btn.getAttribute('data-aud-group'), btn.getAttribute('data-aud-group-name'));
-        });
-      });
-    }, function(){});
-    // Ranked by votes, so the thing the room most wants argued sits at
-    // the top where a debater between speeches will actually see it.
-    AUD.unsubs.topics = audCol('topics').orderBy('votes', 'desc').limit(40).onSnapshot(function(snap){
-      var rows = [];
-      snap.forEach(function(d){ var v = d.data() || {}; v._id = d.id; rows.push(v); });
-      AUD.topicRows = rows;
-      audRenderTopics(rows);
-    }, function(){});
-  }
-
-  // ── Audience topic suggestions ─────────────────────────────────────
-  // The audience is watching because they care what gets argued, and
-  // until now they had no way to say so. A suggestion here is a request,
-  // never a command: it reaches the debaters as something they can put
-  // to the round, and it still needs both of them to agree before the
-  // resolution moves. The crowd sets the agenda; it does not seize the
-  // round.
-  function audTopicSeat(){
-    // Only a seated debater can put a suggestion to the round, and only
-    // before Speech 1, which is the same window the resolution editor
-    // itself is open for.
-    return !!(typeof isSpectator === 'function' && !isSpectator()
-      && state.phase === 'round' && state.speechIdx === 0
-      && typeof window.__lrSetMotion === 'function');
-  }
-  function audRenderTopics(rows){
-    var list = document.getElementById('audTopicList');
-    if (!list) return;
-    if (!rows.length){
-      list.innerHTML = '<div class="aud-empty">No suggestions yet. Name a motion you would watch.</div>';
-      return;
-    }
-    var me = audMe();
-    var canPut = audTopicSeat();
-    list.innerHTML = rows.map(function(t){
-      var voters = t.voters || [];
-      var mine = !!(me && voters.indexOf(me.uid) >= 0);
-      var n = voters.length;
-      return '<div class="aud-row aud-topic">' +
-        '<p>' + escHtml(String(t.text || '').slice(0, 200)) + '</p>' +
-        '<span class="aud-t">by ' + escHtml(String(t.name || 'a viewer').slice(0, 40)) + '</span>' +
-        '<div class="aud-topic-actions">' +
-          '<button type="button" class="aud-vote' + (mine ? ' is-on' : '') + '" data-aud-vote="' + escHtml(t._id) + '"' +
-            ' aria-pressed="' + (mine ? 'true' : 'false') + '">' +
-            '&#9650; ' + n + ' ' + (n === 1 ? 'vote' : 'votes') + '</button>' +
-          (canPut ? '<button type="button" class="aud-put" data-aud-put="' + escHtml(t._id) + '">Put it to the round</button>' : '') +
-        '</div></div>';
-    }).join('');
-    [].forEach.call(list.querySelectorAll('[data-aud-vote]'), function(b){
-      b.addEventListener('click', function(){ audVoteTopic(b.getAttribute('data-aud-vote')); });
-    });
-    [].forEach.call(list.querySelectorAll('[data-aud-put]'), function(b){
-      b.addEventListener('click', function(){
-        var id = b.getAttribute('data-aud-put');
-        var row = rows.filter(function(r){ return r._id === id; })[0];
-        if (!row || !row.text) return;
-        window.__lrSetMotion(row.text, 'audience');
-        audSetOpen(false);
-      });
-    });
-  }
-  function audPostTopic(inp){
-    var me = audMe();
-    if (!me || (typeof firebase !== 'undefined' && firebase.auth &&
-        firebase.auth().currentUser && firebase.auth().currentUser.isAnonymous)){
-      toast('Sign in to suggest a topic.');
-      return;
-    }
-    var col = audCol('topics');
-    if (!col) return;
-    var text = (inp.value || '').trim().slice(0, 200);
-    if (text.length < 8){ toast('Give the motion a few more words.'); return; }
-    inp.value = '';
-    // The suggester's own vote is implied by suggesting it, and the
-    // create rule requires exactly that one entry.
-    col.add({
-      text: text,
-      uid: me.uid,
-      name: me.name,
-      voters: [me.uid],
-      votes: 1,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(){ toast('Could not post that. Try again.'); });
-    try { gtag('event', 'live_round_topic_suggested'); } catch(e){}
-  }
-  function audVoteTopic(id){
-    var me = audMe();
-    if (!me || (typeof firebase !== 'undefined' && firebase.auth &&
-        firebase.auth().currentUser && firebase.auth().currentUser.isAnonymous)){
-      toast('Sign in to vote.');
-      return;
-    }
-    var col = audCol('topics');
-    if (!col || !id) return;
-    var ref = col.doc(id);
-    // A transaction, because two people voting in the same instant on a
-    // read-modify-write of one array is the normal case here, not the
-    // rare one, and the loser of that race would silently erase the
-    // winner's vote. `votes` is a denormalised count for the ordering
-    // query; `voters` is the truth.
-    firebaseDb.runTransaction(function(tx){
-      return tx.get(ref).then(function(snap){
-        if (!snap.exists) return;
-        var voters = (snap.data() || {}).voters || [];
-        var at = voters.indexOf(me.uid);
-        if (at >= 0) voters.splice(at, 1); else voters.push(me.uid);
-        tx.update(ref, { voters: voters, votes: voters.length });
-      });
-    }).catch(function(){});
-    try { gtag('event', 'live_round_topic_vote'); } catch(e){}
-  }
-
-  function audOpenGroup(id, name){
-    AUD.group = id; AUD.groupName = name || '';
-    if (AUD.unsubs.msgs){ AUD.unsubs.msgs(); AUD.unsubs.msgs = null; }
-    var home = document.getElementById('audGroupHome');
-    var room = document.getElementById('audGroupRoom');
-    if (home) home.hidden = !!id;
-    if (room) room.hidden = !id;
-    if (!id) return;
-    var title = document.getElementById('audGroupTitle');
-    if (title) title.textContent = AUD.groupName || 'Group chat';
-    var col = audCol('groupChats');
-    if (!col) return;
-    AUD.unsubs.msgs = col.doc(id).collection('messages').orderBy('createdAt', 'desc').limit(80).onSnapshot(function(snap){
-      var rows = [];
-      snap.forEach(function(d){ rows.push(d.data() || {}); });
-      rows.reverse();
-      var list = document.getElementById('audMsgList');
-      if (!list) return;
-      list.innerHTML = rows.length ? rows.map(function(c){
-        return '<div class="aud-row"><b>' + escHtml(String(c.name || 'Viewer').slice(0, 40)) + '</b>' +
-               '<span class="aud-t">' + audStamp(c.createdAt) + '</span>' +
-               '<p>' + escHtml(String(c.text || '').slice(0, 500)) + '</p></div>';
-      }).join('') : '<div class="aud-empty">Say hi. You\'re the first one here.</div>';
-      list.scrollTop = list.scrollHeight;
-    }, function(){});
   }
 
   function audRequireMe(){
@@ -17903,14 +17694,14 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // Judge notes need a NAMED account (rules enforce it): eval text is
   // folded into the ballot prompt, and anonymous sessions are free to
   // mint, so guests don't get a lane to the judge. Guests can still
-  // comment and join group chats.
+  // comment.
   function audNamedMe(){
     var me = audRequireMe();
     if (!me) return null;
     var u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
     if (u && u.isAnonymous){
       var st = document.getElementById('audEvalState');
-      if (st) st.textContent = 'Sign in with an account to talk to the judge. Guests can comment and chat.';
+      if (st) st.textContent = 'Sign in with an account to talk to the judge. Guests can comment.';
       return null;
     }
     return me;
@@ -17924,28 +17715,6 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     inp.value = '';
     col.add({ uid: me.uid, name: me.name, text: text.slice(0, 500), createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(function(){});
     try { gtag('event', 'aud_comment', { room: state.room }); } catch(e){}
-  }
-
-  function audCreateGroup(inp){
-    var me = audRequireMe();
-    var col = audCol('groupChats');
-    var name = (inp.value || '').trim();
-    if (!me || !col || !name) return;
-    inp.value = '';
-    col.add({ name: name.slice(0, 60), createdBy: me.uid, createdByName: me.name, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
-      .then(function(ref){ audOpenGroup(ref.id, name.slice(0, 60)); })
-      .catch(function(){});
-    try { gtag('event', 'aud_group_create', { room: state.room }); } catch(e){}
-  }
-
-  function audPostGroupMsg(inp){
-    var me = audRequireMe();
-    var col = audCol('groupChats');
-    var text = (inp.value || '').trim();
-    if (!me || !col || !AUD.group || !text) return;
-    inp.value = '';
-    col.doc(AUD.group).collection('messages').add({ uid: me.uid, name: me.name, text: text.slice(0, 500), createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(function(){});
-    try { gtag('event', 'aud_group_msg', { room: state.room }); } catch(e){}
   }
 
   function audLoadEval(){

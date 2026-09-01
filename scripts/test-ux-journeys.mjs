@@ -107,6 +107,16 @@ check(
 );
 check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
 
+const liveRound = read('app/live-round.html');
+check(
+  (liveRound.match(/data-aud-tab=/g) || []).length === 2
+    && liveRound.includes('data-aud-tab="comments"')
+    && liveRound.includes('data-aud-tab="judge"')
+    && !liveRound.includes('data-aud-tab="topics"')
+    && !liveRound.includes('data-aud-tab="groups"'),
+  'live-round audience deck only offers comments and judge notes',
+);
+
 const signupNudge = read('app/js/signup-nudge.js');
 check(
   signupNudge.includes('(watch|leaderboard|messages|profile|tokens)') && signupNudge.includes('skip: true'),
