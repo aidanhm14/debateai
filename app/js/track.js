@@ -385,6 +385,7 @@
           utm_medium: (q.get('utm_medium') || '').slice(0, 40),
           utm_campaign: (q.get('utm_campaign') || '').slice(0, 60),
           utm_content: (q.get('utm_content') || '').slice(0, 60),
+          utm_term: (q.get('utm_term') || '').slice(0, 60),
         };
         sessionStorage.setItem(UTM_KEY, JSON.stringify(campaign));
       }
@@ -402,6 +403,12 @@
     if (campaign && campaign.utm_source) {
       m.utm_source = campaign.utm_source;
       if (campaign.utm_campaign) m.utm_campaign = campaign.utm_campaign;
+      // 2026-09-01: content (the ad group) and term (the keyword) ride too,
+      // so /api/admin/campaign can say WHICH ad produced a round rather
+      // than only that the campaign did. Still zero bytes for an organic
+      // session, which has no campaign stash at all.
+      if (campaign.utm_content) m.utm_content = campaign.utm_content;
+      if (campaign.utm_term) m.utm_term = campaign.utm_term;
     }
     if (refHost) m.ref_host = refHost;
     if (anonId) m.anon_id = anonId;
