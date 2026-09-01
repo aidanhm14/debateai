@@ -67,6 +67,8 @@ check(spar.includes("text.textContent = liveDisplay + ' live now';"), 'signed-ou
 check(spar.includes('live_display: liveDisplay, queue_waiting: queueWaiting'), 'gate analytics must preserve displayed and measured counts separately');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(spar.includes('autoPopAuthModal();'), 'signed-out gate must open its sign-in prompt on arrival');
+check(spar.includes('var AUTH_POP_DELAY_MS = 5000;'), 'automatic prompt must wait five seconds before opening');
+check(spar.includes('setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);'), 'automatic prompt must use the calm-entry delay');
 check(spar.includes('googleOnly: true'), 'signed-out gate prompt must offer Google only');
 check(authModal.includes('googleOnly = !!(opts && opts.googleOnly);'), 'shared auth prompt must accept Google-only mode');
 check(authModal.includes("googleOnly ? '' : '<div class=\"da-or\">or use email</div>'"), 'Google-only auth prompt must omit the email door');

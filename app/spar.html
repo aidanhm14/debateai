@@ -3831,21 +3831,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Google-only gate auto-pop ─────────────────────────────────
-  // Restored by the founder 2026-08-31 to make the account ask immediate.
+  // Restored by the founder 2026-08-31, then softened the same evening:
+  // the gate gets five calm seconds to explain itself before the account
+  // ask appears. A click on the gate's Google button stays immediate.
   // It uses the shared, proven auth implementation in a Google-only mode,
   // because live video itself is Google-only. Once per browser session:
   // closing it is an answer, and the full gate remains underneath.
   var authPopArmed = false;
+  var AUTH_POP_DELAY_MS = 5000;
   function autoPopAuthModal(){
     if (authPopArmed) return;
     authPopArmed = true;
     try { if (sessionStorage.getItem('da-spar-auth-pop')) return; } catch(e){}
     var tries = 0;
-    var t = setInterval(function(){
+    function tryOpenAuthPop(){
       tries++;
-      if (!document.getElementById('sparGateCard')){ clearInterval(t); return; }
+      if (!document.getElementById('sparGateCard')) return;
+      try { if (sessionStorage.getItem('da-spar-auth-pop')) return; } catch(e){}
       if (typeof window.openAuthModal === 'function'){
-        clearInterval(t);
         try { sessionStorage.setItem('da-spar-auth-pop', '1'); } catch(e){}
         window.openAuthModal('signup', {
           googleOnly: true,
@@ -3853,12 +3856,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           sub: 'Join the live queue, keep your rounds, and climb the leaderboard.'
         });
         try { gtag('event', 'spar_auth_autopop', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
-      } else if (tries > 12){
+      } else if (tries <= 12){
+        setTimeout(tryOpenAuthPop, 500);
+      } else {
         // auth-modal.js never arrived (blocked script, odd cache). The
         // gate's own buttons still work; give up quietly.
-        clearInterval(t);
       }
-    }, 500);
+    }
+    setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);
   }
 
   // ── Guest sign-in popup on the searching screen (2026-08-25) ─

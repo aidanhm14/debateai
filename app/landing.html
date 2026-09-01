@@ -8432,7 +8432,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   @media(min-width:1360px){
     .fscreen-wrap{max-width:1600px;grid-template-columns:.78fr 1.2fr minmax(224px,.58fr)}
     .fs-chats{display:flex;flex-direction:column;grid-column:3;grid-row:1 / span 2;
-      align-self:center;min-width:0;
+      align-self:center;min-width:0;min-height:0;overflow:hidden;
+      height:min(720px,calc(100svh - 150px));
       background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
       border:1px solid rgba(245,239,231,.14);border-radius:18px;
       padding:15px 15px 13px;color:#f5efe7;
@@ -8441,7 +8442,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       border-color:rgba(26,26,31,.1);color:#1a1a1f;
       box-shadow:0 22px 48px rgba(24,22,28,.09),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff}
   }
-  .fs-chats-top{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .fs-chats-top{display:flex;align-items:center;gap:8px;margin-bottom:11px;flex:none}
   .fs-chats-dot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(245,239,231,.28)}
   [data-theme="light"] .fs-chats-dot{background:rgba(26,26,31,.22)}
   .fs-chats.is-live .fs-chats-dot{background:#16a34a;
@@ -8462,7 +8463,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      2026-08-31, when the panel became a deliberate mix of every
      public chat. Rows are anchors into /community so any line someone
      finds interesting is a door, not a screenshot. */
-  .fs-chats-list{display:flex;flex-direction:column;gap:4px;min-height:0}
+  /* The newest message sits at the bottom like a chat. The list owns
+     the scroll, so the header and join button never disappear when a
+     visitor moves upward through the recent conversation. */
+  .fs-chats-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;
+    touch-action:pan-y;padding-right:3px}
+  .fs-chats-list::-webkit-scrollbar{width:6px}
+  .fs-chats-list::-webkit-scrollbar-thumb{background:rgba(245,239,231,.2);border-radius:999px}
+  [data-theme="light"] .fs-chats-list::-webkit-scrollbar-thumb{background:rgba(26,26,31,.18)}
   .fs-chats-msg{display:block;text-decoration:none;color:inherit;border-radius:10px;
     padding:7px 9px;border:1px solid transparent;
     transition:background .15s ease,border-color .15s ease}
@@ -8491,7 +8500,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-chats-rooms a{color:rgba(26,26,31,.66);border-color:rgba(26,26,31,.16)}
   [data-theme="light"] .fs-chats-rooms a:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
   .fs-chats.is-live .fs-chats-rooms{display:none}
-  .fs-chats-cta{margin-top:11px;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
+  .fs-chats-cta{margin-top:11px;flex:none;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
     color:#fff;background:#dc2626;border-radius:10px;padding:9px 12px;
     transition:background .15s ease}
   .fs-chats-cta:hover,.fs-chats-cta:focus-visible{background:#b91c1c}
@@ -9462,13 +9471,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      Everything below remains in the document for search, deep links, and
      visitors who want the full tour, but it no longer competes for attention
      until they choose to open it. -->
-<!-- ── FOUNDER STRIP (2026-08-31) ─────────────────────────────────────
+<!-- ── POINT-OF-VIEW STRIP (2026-08-31) ───────────────────────────────
      This stays above the one-pager gate so the collapsed page carries a
      human point of view. The landing treatment is text-only by Aidan's
-     later call: no portrait or named signature here, just "Quote from the
-     founder." Other sanctioned founder identity surfaces are unchanged,
-     and the retired credential stack stays retired. -->
-<section class="fndr" aria-label="Quote from the founder">
+     later call: no portrait, name, title, or attribution label. The story
+     link remains as the quiet way to read the reason behind the product. -->
+<section class="fndr">
   <style>
     /* The note keeps real bottom air before the quick-door cards and a
        breath before the attribution line. */
@@ -9487,7 +9495,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       text-wrap:balance}
     .fndr .fndr-sig{margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;
       font-size:.88rem;color:var(--text-dim,rgba(26,26,31,.62))}
-    .fndr-sig b{font-weight:800;color:var(--text,#1a1a1f)}
     .fndr-sig a{color:var(--accent,#dc2626);font-weight:700;text-decoration:underline;
       text-underline-offset:2px;text-decoration-thickness:1px}
     .fndr-sig a:hover{text-decoration-thickness:2px}
@@ -9506,7 +9513,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <div class="fndr-card">
     <div class="fndr-body">
       <p class="fndr-quote">A good argument is a beautiful thing. Debatable gives anyone a place to test an idea, take a side, and enjoy the game.</p>
-      <p class="fndr-sig"><b>Quote from the founder</b> <a href="/story">Why this exists</a></p>
+      <p class="fndr-sig"><a href="/story">Why this exists</a></p>
     </div>
   </div>
 </section>
@@ -19460,7 +19467,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var mq = window.matchMedia ? window.matchMedia('(min-width:1360px)') : null;
     var started = false;
     var realRows = [];
-    var MAX_ROWS = 7;
+    // Keep the full server-capped recent window in the scroll area. The
+    // panel opens at the newest message; moving upward reveals the older
+    // rows without moving the header or join control off screen.
+    var MAX_ROWS = 24;
 
     function relTime(ms){
       var d = Math.max(0, Date.now() - ms);
@@ -19508,6 +19518,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     function renderAll(){
       var msgs = realRows.filter(function(m){ return m && m.text; });
       if (!msgs.length) return; // keep the honest room-chip card
+      var wasLive = panel.classList.contains('is-live');
+      var nearLatest = !wasLive || list.scrollTop + list.clientHeight >= list.scrollHeight - 28;
+      var previousTop = list.scrollTop;
       msgs = pickMix(msgs);
       msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
       var frag = document.createDocumentFragment();
@@ -19552,6 +19565,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       list.innerHTML = '';
       list.appendChild(frag);
       panel.classList.add('is-live');
+      if (nearLatest) list.scrollTop = list.scrollHeight;
+      else list.scrollTop = Math.min(previousTop, Math.max(0, list.scrollHeight - list.clientHeight));
     }
 
     function poll(){

@@ -93,11 +93,12 @@ check('every structured FAQ question is visible on the page',
 check('visible brand page carries the same round answer',
   about.includes('<h2>What kind of round does Debatable use?</h2>')
   && about.includes('Every public round is a casual 1v1.'));
-// Founder identity remains sanctioned on public surfaces, but the landing
-// note is deliberately text-only: no portrait or named signature here.
-check('the landing founder quote is short and text-only',
-  /Quote from the founder/.test(landing)
-  && /A good argument is a beautiful thing\. Debatable gives anyone a place to test an idea, take a side, and enjoy the game\./.test(landing)
+// Founder identity remains sanctioned on other public surfaces, but the
+// landing note is deliberately text-only and unattributed: no portrait,
+// name, title, or attribution label here.
+check('the landing point-of-view note is short, text-only, and unattributed',
+  /A good argument is a beautiful thing\. Debatable gives anyone a place to test an idea, take a side, and enjoy the game\./.test(landing)
+  && !/Quote from the founder/.test(landing)
   && !/class="fndr-photo"/.test(landing)
   && !/<b>Aidan<\/b>/.test(landing));
 check('the public signup caption uses only the named-account total',
