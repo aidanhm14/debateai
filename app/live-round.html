@@ -3469,6 +3469,70 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
 
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <!-- One panel answers who is speaking, how long is left, and what
+           to do next. 2026-08-31, the founder: "put that button higher
+           up" — this block moved ABOVE the resolution bar so the clock
+           and Start my speech are the first thing in the round view,
+           with the motion as reference material under them, instead of
+           the primary action living below a screen of motion text.
+           Everything that used to sit between the resolution and the
+           transcript stays behind the disclosure below. -->
+      <div class="speech-header">
+        <div class="sh-line">
+          <span class="speech-code" id="speechCode">PM</span>
+          <span class="speech-progress" id="speechProgress">Speech 1 of 4 · then ballot</span>
+          <span class="sh-sep" aria-hidden="true">·</span>
+          <span class="speech-name" id="speechName">Speech</span>
+        </div>
+        <div class="speech-primary">
+          <div class="speaker-line" style="margin-bottom:0">
+            <span class="now-speaking-label">Now speaking</span>
+            <span class="speaker-name" id="speakerName">, </span>
+            <span class="tag" id="speakerSide">, </span>
+          </div>
+          <div class="spectator-meta" id="spectatorMeta" aria-label="Round details">
+            <span class="spectator-meta-chip" id="spectatorMatchup"></span>
+            <span class="spectator-meta-chip" id="spectatorJudge"></span>
+            <span class="spectator-meta-chip" id="spectatorPrep" hidden></span>
+          </div>
+        </div>
+        <div class="speech-clock">
+          <!-- Reads Ready / Speaking / Paused / Waiting, written by
+               updateClockState() on every timer transition. -->
+          <span class="speech-clock-label" id="speechClockState" aria-live="polite">Ready</span>
+          <div class="timer-row">
+            <span class="timer-num" id="timerNum">0:00</span>
+            <span class="timer-target" id="timerTarget">/ 0:00</span>
+          </div>
+        </div>
+        <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
+        <!-- Overtime warning, shown by drawTimer() once the clock runs
+             past the 15s grace. This is the live disclosure of the
+             deduction the judge prompts apply; the class deliberately
+             sets no `display`, so [hidden] keeps working. -->
+        <div class="overtime-note" id="overtimeNote" hidden></div>
+        <!-- The primary action sits beside the clock it drives. Moved out
+             of the transcript block; ids and handlers are unchanged. -->
+        <div class="row speech-actions">
+          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
+          <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
+          <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
+          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
+               current round is abandoned (the opponent sees a forfeit
+               banner), and the user re-queues. Confirm dialog to
+               prevent accidental clicks. Hidden for non-spar rounds. -->
+          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
+        </div>
+        <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
+        <!-- 2026-08-23: the room's own liveness, for whoever is looking at
+             it. Every LISTING has told a live round from a dead one since
+             the ghost-room fix (the seat heartbeat, ~100s), but nothing
+             told the person already inside: a spectator on a direct link
+             sat in front of "Speech 1 of 4" and a clock at 5:00 with no
+             way to learn nobody was coming. Filled by paintRoundQuiet();
+             hidden whenever the room is beating. -->
+        <div class="round-quiet" id="roundQuiet" hidden></div>
+      </div>
       <div class="round-motion-bar" id="roundMotionBar">
         <div class="rmb-text">
           <span class="rmb-eyebrow">Resolution
@@ -3552,66 +3616,6 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
         </div>
         <div class="rmbc-options" id="rmbcOptions"></div>
         <div class="rmbc-status" id="rmbcStatus"></div>
-      </div>
-      <!-- One panel answers who is speaking, how long is left, and what to
-           do next. Everything that used to sit between the resolution and
-           the transcript (roster, speech order, market, AI aides) is now
-           behind a disclosure below it. -->
-      <div class="speech-header">
-        <div class="sh-line">
-          <span class="speech-code" id="speechCode">PM</span>
-          <span class="speech-progress" id="speechProgress">Speech 1 of 4 · then ballot</span>
-          <span class="sh-sep" aria-hidden="true">·</span>
-          <span class="speech-name" id="speechName">Speech</span>
-        </div>
-        <div class="speech-primary">
-          <div class="speaker-line" style="margin-bottom:0">
-            <span class="now-speaking-label">Now speaking</span>
-            <span class="speaker-name" id="speakerName">, </span>
-            <span class="tag" id="speakerSide">, </span>
-          </div>
-          <div class="spectator-meta" id="spectatorMeta" aria-label="Round details">
-            <span class="spectator-meta-chip" id="spectatorMatchup"></span>
-            <span class="spectator-meta-chip" id="spectatorJudge"></span>
-            <span class="spectator-meta-chip" id="spectatorPrep" hidden></span>
-          </div>
-        </div>
-        <div class="speech-clock">
-          <!-- Reads Ready / Speaking / Paused / Waiting, written by
-               updateClockState() on every timer transition. -->
-          <span class="speech-clock-label" id="speechClockState" aria-live="polite">Ready</span>
-          <div class="timer-row">
-            <span class="timer-num" id="timerNum">0:00</span>
-            <span class="timer-target" id="timerTarget">/ 0:00</span>
-          </div>
-        </div>
-        <div class="timer-progress"><div class="timer-bar" id="timerBar" style="width:0%"></div></div>
-        <!-- Overtime warning, shown by drawTimer() once the clock runs
-             past the 15s grace. This is the live disclosure of the
-             deduction the judge prompts apply; the class deliberately
-             sets no `display`, so [hidden] keeps working. -->
-        <div class="overtime-note" id="overtimeNote" hidden></div>
-        <!-- The primary action sits beside the clock it drives. Moved out
-             of the transcript block; ids and handlers are unchanged. -->
-        <div class="row speech-actions">
-          <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
-          <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
-          <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
-          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
-               current round is abandoned (the opponent sees a forfeit
-               banner), and the user re-queues. Confirm dialog to
-               prevent accidental clicks. Hidden for non-spar rounds. -->
-          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
-        </div>
-        <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
-        <!-- 2026-08-23: the room's own liveness, for whoever is looking at
-             it. Every LISTING has told a live round from a dead one since
-             the ghost-room fix (the seat heartbeat, ~100s), but nothing
-             told the person already inside: a spectator on a direct link
-             sat in front of "Speech 1 of 4" and a clock at 5:00 with no
-             way to learn nobody was coming. Filled by paintRoundQuiet();
-             hidden whenever the room is beating. -->
-        <div class="round-quiet" id="roundQuiet" hidden></div>
       </div>
 
 
@@ -18615,7 +18619,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   var startCue = { el:null, dock:null, hot:false, io:null, btnSeen:true,
                    lvlCall:null, loudMs:0, sig:'', shown:{}, hotShown:{},
                    reminder:null, reminderTimer:0, reminded:{},
-                   turnCued:{}, turnTimer:0 };
+                   turnCued:{}, turnTimer:0, turnTick:0, hintOrig:'' };
   var CUE_LOUD = 0.055;      // Daily audioLevel: quiet room floor sits well under this
   var CUE_LOUD_MS = 2000;    // ~2s of talking before we call it a speech, not a hello
   var CUE_LVL_MS = 200;      // observer interval
@@ -18711,22 +18715,52 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   //    the turn arrives, then one on-screen reminder if the clock is
   //    still off 10 seconds later. Nothing here starts a speech; the
   //    no-auto-start rule stands. ──
+  // 2026-08-31, second pass same day, the founder: "when ppl are done
+  // with their speech give 20 seconds buffer time or allow user to just
+  // start speech". The first cut chimed the MOMENT the turn arrived,
+  // which nags someone who just finished listening and is entitled to a
+  // breath. Now the turn opens a visible 20-second breather (counted
+  // down in the hint under Start, which stays pressable the whole
+  // time); the chime and title flash land only when the breather runs
+  // out, and the on-screen reminder ten seconds after that. Nothing
+  // auto-starts, ever.
+  var TURN_BUFFER_S = 20;
   function cueTurnArrival(){
     var idx = state.speechIdx;
     if (idx === 0) return;                       // speech 1 is the opening beat's job
     if (!startCueAwaiting()) return;
     if (startCue.turnCued[idx]) return;
     startCue.turnCued[idx] = true;
-    try { openBeatChime(); } catch(e){}
-    try { if (typeof daFlashTitle === 'function') daFlashTitle('Your turn to speak'); } catch(e){}
-    try { gtag('event', 'live_turn_cue', { format: state.formatKey, speech: idx }); } catch(e){}
-    if (startCue.turnTimer) clearTimeout(startCue.turnTimer);
-    startCue.turnTimer = setTimeout(function(){
-      // Still unstarted and not mid-hello: the hot reminder covers the
-      // talking case with its own sharper wording.
-      if (startCueAwaiting() && !startCue.hot) showStartCueReminder('turn');
-      try { if (typeof daStopFlashTitle === 'function') daStopFlashTitle(); } catch(e){}
-    }, 10000);
+    var hint = $('readyHint');
+    if (hint && !startCue.hintOrig) startCue.hintOrig = hint.textContent;
+    var left = TURN_BUFFER_S;
+    var paintHint = function(){
+      var h = $('readyHint');
+      if (!h) return;
+      h.textContent = left > 0
+        ? 'Your turn. Take a breath — start whenever you are ready. (' + left + 's)'
+        : 'The room is waiting. Press Start my speech.';
+    };
+    paintHint();
+    if (startCue.turnTick) clearInterval(startCue.turnTick);
+    startCue.turnTick = setInterval(function(){
+      if (!startCueAwaiting()){ clearStartCue(); return; }
+      left -= 1;
+      paintHint();
+      if (left <= 0){
+        clearInterval(startCue.turnTick); startCue.turnTick = 0;
+        try { openBeatChime(); } catch(e){}
+        try { if (typeof daFlashTitle === 'function') daFlashTitle('Your turn to speak'); } catch(e){}
+        try { gtag('event', 'live_turn_cue', { format: state.formatKey, speech: idx }); } catch(e){}
+        if (startCue.turnTimer) clearTimeout(startCue.turnTimer);
+        startCue.turnTimer = setTimeout(function(){
+          // Still unstarted and not mid-hello: the hot reminder covers
+          // the talking case with its own sharper wording.
+          if (startCueAwaiting() && !startCue.hot) showStartCueReminder('turn');
+          try { if (typeof daStopFlashTitle === 'function') daStopFlashTitle(); } catch(e){}
+        }, 10000);
+      }
+    }, 1000);
   }
   function startCueGo(via){
     try { gtag('event', 'live_start_cue_click', { format: state.formatKey, via: via, hot: !!startCue.hot, speech: state.speechIdx }); } catch(e){}
@@ -18735,6 +18769,8 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
   function clearStartCue(){
     hideStartCueReminder();
     if (startCue.turnTimer){ clearTimeout(startCue.turnTimer); startCue.turnTimer = 0; }
+    if (startCue.turnTick){ clearInterval(startCue.turnTick); startCue.turnTick = 0; }
+    if (startCue.hintOrig){ var rh = $('readyHint'); if (rh) rh.textContent = startCue.hintOrig; }
     try { if (typeof daStopFlashTitle === 'function') daStopFlashTitle(); } catch(e){}
     if (startCue.el){ startCue.el.remove(); startCue.el = null; }
     if (startCue.dock){ startCue.dock.remove(); startCue.dock = null; }
