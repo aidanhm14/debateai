@@ -10615,7 +10615,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // /api/create-daily-room is the enforcement.
     if (!isSpectator() && !tournamentControlsLocked() && !isGoogleSeat(state.user)){
       state.dailyMounted = false;
-      setCallStatus('Sign in with Google to join the video room.', 'closed');
+      setCallStatus('Sign in with Google or your phone to join the video room.', 'closed');
       showAuthGate();
       try { gtag('event', 'live_round_google_gate', { has_user: !!state.user, anonymous: !!(state.user && state.user.isAnonymous) }); } catch(e){}
       return;
@@ -10640,7 +10640,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         if (!res.ok){
           if (res.body && res.body.code === 'GOOGLE_SIGN_IN_REQUIRED'){
             state.dailyMounted = false;
-            setCallStatus('Sign in with Google to join the video room.', 'closed');
+            setCallStatus('Sign in with Google or your phone to join the video room.', 'closed');
             showAuthGate();
             return;
           }
@@ -20339,12 +20339,13 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var sg = document.getElementById('saveGuestBtn');
     if (sg) sg.addEventListener('click', doGoogleSignIn);
   }
-  // A seat in the video room is Google-only (2026-09-01). Anonymous,
+  // A seat in the video room takes Google or a verified phone number
+  // (2026-09-01; phone added the same day for in-app browsers). Anonymous,
   // email-link and password accounts can watch; they cannot sit.
   function isGoogleSeat(u){
     if (!u || u.isAnonymous) return false;
     var pd = u.providerData || [];
-    for (var i = 0; i < pd.length; i++){ if (pd[i] && pd[i].providerId === 'google.com') return true; }
+    for (var i = 0; i < pd.length; i++){ if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'phone')) return true; }
     return false;
   }
   function doGoogleSignIn(){
@@ -20352,14 +20353,16 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       var err = $('authError'); if (err){ err.style.display = 'block'; err.textContent = 'Sign-in is loading, try again in a moment.'; }
       return;
     }
-    // The shared modal, opened Google-only: the video room takes no
-    // other door. This page's own Google popup stays as the fallback
-    // for a load where the modal script never arrived.
+    // The shared modal in live-video mode (Google or phone, no email
+    // door): the video room takes no other key. This page's own Google
+    // popup stays as the fallback for a load where the modal script
+    // never arrived.
     if (typeof window.openAuthModal === 'function') {
       window.openAuthModal('signin', {
-        googleOnly: true,
-        headline: 'Sign in with Google to enter the video room',
-        sub: 'A seat in a live round is Google-only, so the person across from you is a real account. Watching needs no sign-in.',
+        liveVideo: true,
+        startWith: (typeof window.__ditIsInAppBrowser === 'function' && window.__ditIsInAppBrowser()) ? 'phone' : '',
+        headline: 'Sign in to enter the video room',
+        sub: 'Google or your phone. A seat in a live round takes a real account, so the person across from you is one too. Watching needs no sign-in.',
       });
       return;
     }

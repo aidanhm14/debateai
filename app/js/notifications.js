@@ -1809,12 +1809,25 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
-    function isGoogleUser(u) {
-      return !!(u && !u.isAnonymous && Array.isArray(u.providerData) &&
-        u.providerData.some(function(p){ return p && p.providerId === 'google.com'; }));
+    // The live-video door: Google or a verified phone number (2026-09-01,
+    // phone added so paid social traffic inside in-app browsers has a key
+    // that turns). Same set as spar.html, spar-pair.mjs and the
+    // isLiveVideoAccount() rule. The provider written to the queue doc is
+    // the one the account holds; rules bind it to the verified token.
+    var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone'];
+    function liveVideoProvider(u) {
+      if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
+      for (var i = 0; i < u.providerData.length; i++) {
+        var id = u.providerData[i] && u.providerData[i].providerId;
+        if (LIVE_VIDEO_PROVIDERS.indexOf(id) >= 0) return id;
+      }
+      return '';
     }
-    // 2026-08-27: the background pill follows /spar's Google-only video
-    // door. Otherwise an email or anonymous session could write a queue doc
+    function isGoogleUser(u) {
+      return !!liveVideoProvider(u);
+    }
+    // 2026-08-27: the background pill follows /spar's live-video door.
+    // Otherwise an email or anonymous session could write a queue doc
     // here even though the foreground page and server refuse the round.
     //
     // CORRECTION 2026-08-22: this comment used to say "this file signs
@@ -2065,7 +2078,7 @@
         try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
         myRef.set({
           uid: myUid,
-          authProvider: 'google.com',
+          authProvider: liveVideoProvider(myUser),
           displayName: shortNm(myUser),
           username: publicUsername(myUser),
           photoURL: (myUser && myUser.photoURL) || '',
@@ -2116,7 +2129,7 @@
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
-        uid: myUid, authProvider: 'google.com', displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
         ageBand: agBand(),
         format: fmt(), status: 'waiting', broaden: true, background: true,
         blockedUids: blockedUids.slice(-100), joinedAt: ts()

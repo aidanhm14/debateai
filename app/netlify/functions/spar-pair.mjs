@@ -322,11 +322,19 @@ function joinedAtMs(data) {
   return data ? tsMs(data.joinedAt) : Date.now();
 }
 
+// Providers that may hold a SEAT in a live video round. Keep in sync with
+// create-daily-room.mjs and isLiveVideoAccount() in firestore.rules.
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone']);
+
 // ── The guest lane ────────────────────────────────────────────────
 //
 // 2026-08-27 (the founder): no anonymous preview for human video pairing.
-// The /spar door is Google-only, enforced below from the verified token
-// before either queue document can be paired. The old metering machinery is
+// The /spar door is Google or phone (phone added 2026-09-01, because paid
+// social traffic lands in in-app browsers where Google OAuth cannot run),
+// enforced below from the verified token before either queue document can
+// be paired. firestore.rules, create-daily-room.mjs, spar.html,
+// notifications.js and live-popup.js carry the same two-provider set.
+// The old metering machinery is
 // retained only to read and preserve historical guest-round records; an env
 // override must not reopen the lane behind the current product decision.
 //
@@ -612,13 +620,14 @@ export default async (request) => {
     return jsonResponse({ ok: true, draft: next, aiUid: AI_UID }, 200, request);
   }
 
-  // Human video pairing is Google-only. This is checked from the verified
-  // token, not from the client-written queue doc, so an anonymous session,
-  // email account, old tab, or handcrafted request cannot bypass the door.
+  // Human video pairing takes Google or a verified phone number
+  // (LIVE_VIDEO_PROVIDERS). This is checked from the verified token, not
+  // from the client-written queue doc, so an anonymous session, email
+  // account, old tab, or handcrafted request cannot bypass the door.
   // The AI-only draft above remains available because it seats no stranger.
-  if (decoded.firebase?.sign_in_provider !== 'google.com') {
+  if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
     return jsonResponse({
-      error: 'Continue with Google to join a live video round.',
+      error: 'Sign in with Google or your phone to join a live video round.',
       code: 'GOOGLE_SIGN_IN_REQUIRED',
     }, 403, request);
   }
@@ -1137,13 +1146,14 @@ export default async (request) => {
       }
       // The caller's verified token proves MY provider above. The peer has
       // no token on this request, so require the queue marker that Firestore
-      // rules only let a Google-authenticated owner write. This keeps an old
-      // anonymous or email queue doc from becoming the passive seat when a
-      // current Google user initiates the transaction.
-      if (mine.authProvider !== 'google.com') {
+      // rules only let a Google or phone-authenticated owner write, and bind
+      // to their own verified provider. This keeps an old anonymous or email
+      // queue doc from becoming the passive seat when a current user
+      // initiates the transaction.
+      if (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider)) {
         return { ok: false, reason: 'queue_auth_stale' };
       }
-      if (theirs.authProvider !== 'google.com') {
+      if (!LIVE_VIDEO_PROVIDERS.has(theirs.authProvider)) {
         tx.update(peerRef, {
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),

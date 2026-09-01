@@ -76,9 +76,9 @@
      pop up 'wants to debate' and then do 'need to sign in'". The WAITING
      source (someone is in the /spar queue right now) is armed SITEWIDE
      again, not only on the intent pages. The card reads "<name> wants to
-     debate"; for a visitor without a Google account, tapping it opens the
-     shared sign-in modal Google-only and lands them on /spar afterwards,
-     because the video room is Google-only. The REPLAY source stays
+     debate"; for a visitor without a Google or phone account, tapping it
+     opens the shared sign-in modal in live-video mode (Google or phone)
+     and lands them on /spar afterwards. The REPLAY source stays
      retired everywhere (the 2026-08-25 face objection stands). */
   var WAITING_SITEWIDE = true;
 
@@ -442,9 +442,9 @@
     return '';
   }
 
-  /* Has this visitor a Google-provider account? Anything else (no
-     firebase on the page, no user, anonymous, email) needs the sign-in
-     step before the video room. */
+  /* Has this visitor a Google or phone-provider account? Anything else
+     (no firebase on the page, no user, anonymous, email) needs the sign-in
+     step before the video room. Same set as /spar's door. */
   function googleUser() {
     try {
       var fb = window.firebase;
@@ -452,7 +452,7 @@
       var cu = fb.auth().currentUser;
       if (!cu || cu.isAnonymous) return false;
       var pd = cu.providerData || [];
-      for (var i = 0; i < pd.length; i++) if (pd[i] && pd[i].providerId === 'google.com') return true;
+      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'phone')) return true;
     } catch (e) {}
     return false;
   }
@@ -486,7 +486,7 @@
         who: more > 0
           ? ('Live in the queue now, and ' + more + ' other' + (more > 1 ? 's' : ''))
           : 'Live in the queue right now, no opponent yet',
-        meta: needsAuth ? 'GOOGLE SIGN-IN' : 'OPEN SEAT',
+        meta: needsAuth ? 'SIGN IN TO DEBATE' : 'OPEN SEAT',
         cta: needsAuth ? 'Sign in to debate' : 'Debate them',
         href: '/spar',
         needsAuth: needsAuth,
@@ -630,8 +630,8 @@
     });
     card.addEventListener('click', function (ev) {
       emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast, needs_auth: !!item.needsAuth });
-      /* The "need to sign in" step: a visitor without a Google account
-         gets the shared modal, Google-only, and is sent to the queue
+      /* The "need to sign in" step: a visitor without a live-video account
+         gets the shared modal (Google or phone) and is sent to the queue
          once signed in. Without the modal script the link falls through
          to /spar, whose own gate asks the same thing. */
       if (item.needsAuth && typeof window.openAuthModal === 'function') {
@@ -639,9 +639,10 @@
         close('auth');
         emit('live_popup_auth_open', { page: here });
         window.openAuthModal('signup', {
-          googleOnly: true,
-          headline: (item.name || 'Someone') + ' wants to debate. Sign in with Google to take the seat.',
-          sub: 'The video room is Google-only, so the person across from you is a real account. Sign in and you land in the queue.',
+          liveVideo: true,
+          startWith: (typeof window.__ditIsInAppBrowser === 'function' && window.__ditIsInAppBrowser()) ? 'phone' : '',
+          headline: (item.name || 'Someone') + ' wants to debate. Sign in to take the seat.',
+          sub: 'Google or your phone. The video room takes a real account, so the person across from you is one too. Sign in and you land in the queue.',
           onDone: function () {
             emit('live_popup_auth_done', { page: here });
             window.location.href = '/spar';

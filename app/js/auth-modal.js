@@ -168,10 +168,15 @@
   // the founder has cut twice.
   var locked = false;
   var lockCopy = null;
-  // Some product doors are provider-specific. /spar live video is Google-
-  // only, so its automatic prompt reuses this card without advertising an
-  // email path that the destination would reject.
+  // Some product doors are provider-specific. The /admin gates are Google-
+  // only. Live video (/spar, the video room) takes Google OR a verified
+  // phone number and nothing else (2026-09-01), so its prompts open this
+  // card in liveVideo mode: no email door advertised that the queue would
+  // reject, and inside an in-app browser the phone step leads, because
+  // Google cannot complete there at all. startWith:'phone' opens straight
+  // on the phone form.
   var googleOnly = false;
+  var liveVideo = false;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
   function esc(v) {
     return String(v == null ? '' : v)
@@ -200,6 +205,7 @@
     locked = false;
     lockCopy = null;
     googleOnly = false;
+    liveVideo = false;
     clearPhoneRecaptcha();
     try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
@@ -375,11 +381,19 @@
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
+    var noEmail = googleOnly || liveVideo;
     var inAppNote = inApp
       ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
-        (googleOnly ? 'Open the site in Safari or Chrome.' : 'Use your phone or email below, or open the site in Safari or Chrome.') +
+        (googleOnly ? 'Open the site in Safari or Chrome.'
+          : liveVideo ? 'Use your phone number: one text, no password.'
+          : 'Use your phone or email below, or open the site in Safari or Chrome.') +
         ' <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
+    // Inside an in-app browser the phone button leads and Google follows:
+    // the key that turns goes first. On the open web Google leads.
+    var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
+    var phoneBtn = googleOnly ? '' : '<button type="button" class="da-btn da-btn--hero" id="daPhone">' + PHONE_SVG + 'Continue with phone</button>';
+    var providerButtons = inApp ? phoneBtn + googleBtn : googleBtn + phoneBtn;
     var acceptedTerms = termsAccepted();
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
@@ -411,9 +425,8 @@
       inAppNote +
       '<label class="da-terms"><input id="daTerms" type="checkbox" ' + (acceptedTerms ? 'checked ' : '') + '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. Debatable has zero tolerance for objectionable content or abusive users.</span></label>' +
       nativeButtons +
-      '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
-      (googleOnly ? '' : '<button type="button" class="da-btn da-btn--hero" id="daPhone">' + PHONE_SVG + 'Continue with phone</button>') +
-      (googleOnly ? '' : '<div class="da-or">or use email</div>' +
+      providerButtons +
+      (noEmail ? '' : '<div class="da-or">or use email</div>' +
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
         '<label class="da-label" for="daEmail">Email</label>' +
@@ -614,7 +627,7 @@
       '</form>' +
       '<div class="da-status" role="status"></div>' +
       '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneBack">Use email or Google instead</button></p>';
+      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneBack">' + (liveVideo ? 'Use Google instead' : 'Use email or Google instead') + '</button></p>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
     c.querySelector('#daPhoneBack').addEventListener('click', function () { renderChooser(mode); });
@@ -1442,6 +1455,7 @@
     onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
     locked = !!(opts && opts.locked);
     googleOnly = !!(opts && opts.googleOnly);
+    liveVideo = !!(opts && opts.liveVideo) && !googleOnly;
     lockCopy = (opts && (opts.headline || opts.sub))
       ? { headline: opts.headline || '', sub: opts.sub || '' }
       : null;
@@ -1459,6 +1473,12 @@
     // cases where the default would be actively wrong: a failed link
     // must not land on a password form.
     renderChooser(mode, opts && opts.emailMode);
+    // A caller that already knows which door the person will use (the
+    // /spar gate's phone button, or any live-video prompt inside an
+    // in-app browser) opens on that step; the chooser stays one tap back.
+    if (opts && opts.startWith === 'phone' && !googleOnly) {
+      renderPhoneStart(mode === 'signup' && lastMethod() ? 'signin' : mode);
+    }
     modal.classList.add('on');
     document.body.classList.add('signin-modal-open');
     try { document.documentElement.classList.toggle('da-auth-locked', locked); } catch (e) {}

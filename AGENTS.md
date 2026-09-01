@@ -403,7 +403,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   carries an authored motion, not "Round of your choice." This is a display
   and editorial rule, not permission to add an unlicensed portrait.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
-- **Live video is Google-only, with no anonymous preview** (2026-08-27).
+- **Live video takes Google or a verified phone number, with no anonymous preview** (2026-08-27; phone added 2026-09-01 because paid social traffic lands in in-app browsers where Google OAuth cannot run). The provider set lives in five places that must agree: `isLiveVideoAccount()` in `firestore.rules`, `LIVE_VIDEO_PROVIDERS` in `spar-pair.mjs` and `create-daily-room.mjs`, and the client copies in `spar.html` and `js/notifications.js`. Inside an in-app browser every live-video sign-in prompt leads with phone (`?inapp=1` on /spar forces that rendering for QA). Older text below that says "Google-only" describes the 2026-08-27 state.
   `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The

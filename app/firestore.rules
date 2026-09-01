@@ -25,6 +25,15 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
+    // The live-video door (2026-09-01): Google or a verified phone number.
+    // Both are accountable identities. Phone exists here because paid
+    // social traffic arrives in in-app browsers where Google OAuth cannot
+    // run at all, and a door with one key that does not turn is a wall.
+    function isLiveVideoAccount() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider in ['google.com', 'phone'];
+    }
+
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -461,23 +470,26 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: Google-authenticated owners only (2026-08-27). Live video
-      //    no longer has an anonymous preview or an email-only queue lane.
-      //    spar-pair repeats the provider check against the verified token,
-      //    so both the queue write and the room-opening chokepoint agree.
+      //  - create: Google or phone-authenticated owners only (2026-08-27,
+      //    phone added 2026-09-01). Live video has no anonymous preview and
+      //    no email-only queue lane. The authProvider marker must equal the
+      //    caller's OWN verified provider, so a client cannot stamp a
+      //    provider it does not hold. spar-pair repeats the provider check
+      //    against the verified token, so both the queue write and the
+      //    room-opening chokepoint agree.
       //
-      //  - update stays Google-only and preserves the provider marker.
+      //  - update keeps the same door and preserves the provider marker.
       //    Delete stays signed-in so a stale anonymous doc left by the
       //    trial era can still be released rather than stranded.
       allow read:   if isSignedIn();
-      allow create: if isGoogleAccount()
+      allow create: if isLiveVideoAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.authProvider == 'google.com'
+                    && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider
                     && request.resource.data.status == 'waiting';
-      allow update: if isGoogleAccount()
+      allow update: if isLiveVideoAccount()
                     && queueUid == request.auth.uid
-                    && request.resource.data.authProvider == 'google.com';
+                    && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider;
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 

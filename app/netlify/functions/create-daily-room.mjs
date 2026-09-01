@@ -38,6 +38,10 @@ import { verifyIdToken } from './lib/auth.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { parseTournamentRoom } from './lib/tournament-round.mjs';
 
+// Providers that may hold a SEAT in a live video room. Keep in sync with
+// spar-pair.mjs and isLiveVideoAccount() in firestore.rules.
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone']);
+
 const DAILY_API = 'https://api.daily.co/v1';
 
 function recordingEnabled(){
@@ -178,14 +182,17 @@ export default async (req) => {
   const admission = await tournamentAdmission(name);
   // 2026-09-01, the founder: "require all ppl to enter the video spawn
   // room to sign in with Google, no anonymous option". A debater token
-  // is minted only against a verified Google-provider Firebase token.
+  // is minted only against a verified Google or phone-provider Firebase
+  // token (phone added the same day: paid social traffic arrives in
+  // in-app browsers where Google OAuth cannot run, and a verified number
+  // is as accountable as a Google account). Same set as spar-pair.mjs.
   // Viewers (role:'viewer') stay open: spectating needs no account.
   // Tournament rooms are gated by their server-written admission record
   // below, which is the stricter check, so they are left to it.
-  if (role !== 'viewer' && !admission.tournament && who.provider !== 'google.com') {
+  if (role !== 'viewer' && !admission.tournament && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
     return jsonResponse(403, {
       code: 'GOOGLE_SIGN_IN_REQUIRED',
-      error: 'Sign in with Google to enter the video room.',
+      error: 'Sign in with Google or your phone to enter the video room.',
     });
   }
   if (admission.tournament) {
