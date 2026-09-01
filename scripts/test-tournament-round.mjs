@@ -19,6 +19,7 @@ import {
   sideCameraAdjustment,
   sidePace,
   TOURNAMENT_SPREAD_WPM,
+  TOURNAMENT_CAMERA_RATING,
 } from '../app/netlify/functions/lib/tournament-scoring.mjs';
 
 let pass = 0, fail = 0;
@@ -169,6 +170,12 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
   ok(/tournamentScoring\?\.pro\?\.standingPoints/.test(liveJudgeSrc)
       && /tournamentScoring\?\.con\?\.standingPoints/.test(liveJudgeSrc),
     'the tournament ledger uses adjusted standings points rather than changing the ballot');
+  ok(/tournamentScoring\?\.pro\?\.ratingAdjustment/.test(liveJudgeSrc)
+      && /camRating: proIsGov \? proCam : conCam/.test(liveJudgeSrc),
+    'the judge hands the camera rating adjustment to the ledger with the seats mapped');
+  ok(/Event rating[\s\S]{0,200}Avatar −10[\s\S]{0,60}−20/.test(clientSrc)
+      || /Avatar −10, Off or a dark tile −20/.test(clientSrc),
+    'the room discloses the event-rating cost of debating without a camera');
   ok(/More than \$\{TOURNAMENT_SPREAD_WPM\} WPM is flagged as spreading/.test(liveJudgeSrc)
       && /Questions and brief interruptions are allowed and captured/.test(liveJudgeSrc),
     'the verified tournament prompt carries the published interaction and pace rules');
@@ -234,6 +241,31 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
   ], 'pro');
   ok(unknown.mode === 'unknown' && unknown.adjustment === 0,
     'a legacy speech with no camera evidence receives no invented adjustment');
+
+  // The camera-presence EVENT-RATING adjustment (2026-08-31): the founder's
+  // point loss for not using a camera has to reach the number the ladder
+  // ranks on. Deduction-only by construction: camera on is the ceiling.
+  ok(TOURNAMENT_CAMERA_RATING.camera === 0
+      && TOURNAMENT_CAMERA_RATING.avatar === -10
+      && TOURNAMENT_CAMERA_RATING.off === -20,
+    'camera rating table stays at the disclosed 0 / -10 / -20');
+  ok(Object.values(TOURNAMENT_CAMERA_RATING).every((v) => v <= 0),
+    'no camera mode may ever BUY event rating');
+  ok(scorecard.pro.ratingAdjustment === 0,
+    'a full camera round costs no event rating');
+  ok(scorecard.con.ratingAdjustment === -10,
+    'a full avatar round costs 10 event rating points');
+  const offRating = buildTournamentScorecard({
+    speeches: [{ side: 'pro', text: 'word '.repeat(120), durationSec: 60, cameraMode: 'off' }],
+    proPoints: 70, conPoints: 70,
+  });
+  ok(offRating.pro.ratingAdjustment === -20,
+    'a dark-camera round costs 20 event rating points');
+  ok(offRating.con.ratingAdjustment === 0,
+    'a side with no camera evidence gets no invented rating deduction');
+  ok(scorecard.cameraRatingPoints
+      && scorecard.cameraRatingPoints.avatar === -10,
+    'the scorecard publishes the rating table it applied');
 
   const atThreshold = sidePace([
     { side: 'pro', text: 'word '.repeat(250), durationSec: 60 },

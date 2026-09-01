@@ -59,6 +59,31 @@ function makeField(n) {
   const amended = tournamentRatings(entries, [round('opp')]);
   check('rating ladder: an amended winner rebuilds the event table',
     Math.round(amended.get('e1').rating) === 1484 && Math.round(amended.get('e2').rating) === 1516);
+
+  // Camera-presence rating adjustment (2026-08-31): the pairing's stored
+  // per-side value moves the event rating after the Elo update, and a
+  // forged positive value clamps to 0 so nobody can buy rating.
+  const camRound = {
+    key: 'd2', seq: 2,
+    pairings: [{
+      pairingId: 'd2-1', status: 'complete', winner: 'gov',
+      govEntry: 'e1', oppEntry: 'e2',
+      govCamRating: -10, oppCamRating: -20,
+    }],
+  };
+  const cam = tournamentRatings(entries, [camRound]);
+  check('rating ladder: an avatar win nets 1516 minus 10',
+    Math.round(cam.get('e1').rating) === 1506);
+  check('rating ladder: a dark-camera loss nets 1484 minus 20',
+    Math.round(cam.get('e2').rating) === 1464);
+  const forged = tournamentRatings(entries, [{
+    ...camRound,
+    pairings: [{ ...camRound.pairings[0], govCamRating: 50, oppCamRating: 'nonsense' }],
+  }]);
+  check('rating ladder: a forged positive camera value clamps to zero',
+    Math.round(forged.get('e1').rating) === 1516);
+  check('rating ladder: a corrupt camera value reads as zero',
+    Math.round(forged.get('e2').rating) === 1484);
 })();
 
 // Run a full prelim series. Results are decided by a seeded coin so

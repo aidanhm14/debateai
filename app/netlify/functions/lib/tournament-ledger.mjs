@@ -41,8 +41,12 @@ import { resultPatch } from './tournament.mjs';
  * Post a judged round onto the tournament. All ids come from
  * verifyTournamentPairing, so the caller never re-derives them.
  *
- * gov/opp: { entryId, won, speaks }. `speaks` is the ballot's per-side
- * score; missing speaks record as 0 rather than blocking the win.
+ * gov/opp: { entryId, won, speaks, camRating }. `speaks` is the ballot's
+ * per-side score; missing speaks record as 0 rather than blocking the
+ * win. `camRating` is the disclosed camera-presence event-rating
+ * adjustment (<= 0) from the ballot's tournamentScoring; it is stored on
+ * the pairing so tournamentRatings can apply it on every rebuild, and a
+ * missing value records as 0 rather than blocking anything.
  */
 export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, opp, now }) {
   const at = Number(now) || Date.now();
@@ -94,6 +98,11 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
 
     const govSpeaks = Number.isFinite(Number(gov.speaks)) ? Number(gov.speaks) : 0;
     const oppSpeaks = Number.isFinite(Number(opp.speaks)) ? Number(opp.speaks) : 0;
+    // Clamped to the deduction band here as well as at read time, so the
+    // stored pairing can never carry a rating bonus for camera choice.
+    const camClamp = (v) => (Number.isFinite(Number(v)) ? Math.max(-20, Math.min(0, Number(v))) : 0);
+    const govCamRating = camClamp(gov.camRating);
+    const oppCamRating = camClamp(opp.camRating);
 
     const govPatch = resultPatch({ entryId: p.govEntry, ...g.data() }, {
       won: !!gov.won, speaks: govSpeaks, side: 'gov', opponentEntryId: p.oppEntry,
@@ -134,6 +143,8 @@ export async function applyTournamentResult(db, { tid, roundKey, roomId, gov, op
       winner: gov.won ? 'gov' : 'opp',
       govSpeaks,
       oppSpeaks,
+      govCamRating,
+      oppCamRating,
       reportedBy: 'ai-judge',
       resultRevision: Math.max(0, Math.trunc(Number(p.resultRevision) || 0)),
     };

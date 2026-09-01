@@ -86,6 +86,19 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     ratings.
   </p>
 
+  <div style="margin:0 0 6px;line-height:1;font-size:0">
+    <img src="${SITE_URL}/img/round/faces/face46.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face48.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face52.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face54.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 0 4px;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face47.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face49.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face51.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 4px 4px 0;vertical-align:top">
+    <img src="${SITE_URL}/img/round/faces/face53.jpg" alt="" width="150" style="width:150px;border-radius:10px;margin:0 0 4px;vertical-align:top">
+  </div>
+  <p style="font-size:.8rem;line-height:1.5;color:#6b6b76;margin:0 0 16px">
+    Rounds are live and face to face. Camera on scores best.
+  </p>
 
   ${leaderLine ? `<p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">${leaderLine}</p>` : ''}
 
@@ -95,6 +108,14 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     is real. The clash hours below are how we all end up online at once.
   </p>` : ''}
 
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>Camera shy? You can still play behind the avatar.</strong>
+    Switch to Avatar mode and the room sees an animated mask instead of
+    your face. It costs you on the ladder, though: an avatar round takes
+    10 points off your event rating, and a switched-off camera takes 20.
+    Camera on costs nothing. If you want the top three on Saturday
+    night, play on camera.
+  </p>
 
   <p style="font-size:1.02rem;line-height:1.55;margin:0 0 14px">
     <strong>THE HONEST PART: WE ARE LACKING USER LIQUIDITY. NOT ENOUGH OF

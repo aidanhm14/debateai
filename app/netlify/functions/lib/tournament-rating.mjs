@@ -7,6 +7,19 @@
 export const TOURNAMENT_ELO_START = 1500;
 export const TOURNAMENT_ELO_K = 32;
 
+// The disclosed camera-presence rating adjustment, stored per side on
+// the pairing by tournament-ledger (govCamRating/oppCamRating) from the
+// ballot's tournamentScoring.ratingAdjustment. Clamped to [-20, 0] on
+// read so a forged or corrupted positive value can never BUY rating:
+// camera on is the ceiling and it costs nothing. Director-entered
+// results carry no camera data and read as 0. It applies after the Elo
+// update and never touches the winner.
+function camRating(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-20, Math.min(0, n));
+}
+
 function atMs(value) {
   if (value && typeof value.toMillis === 'function') return value.toMillis();
   if (value && Number.isFinite(Number(value.seconds))) return Number(value.seconds) * 1000;
@@ -32,6 +45,8 @@ export function tournamentRatings(entries, rounds) {
         gov: String(pairing.govEntry),
         opp: String(pairing.oppEntry),
         winner: pairing.winner,
+        govCam: camRating(pairing.govCamRating),
+        oppCam: camRating(pairing.oppCamRating),
       });
     });
   });
@@ -45,6 +60,12 @@ export function tournamentRatings(entries, rounds) {
     const delta = TOURNAMENT_ELO_K * (govScore - govExpected);
     gov.rating += delta;
     opp.rating -= delta;
+    // Camera-presence adjustment, after the Elo update. Not zero-sum on
+    // purpose: an avatar round burns the avatar user's rating without
+    // paying their opponent, so nobody profits from someone else's
+    // camera choice.
+    gov.rating += game.govCam;
+    opp.rating += game.oppCam;
     gov.games += 1;
     opp.games += 1;
   });

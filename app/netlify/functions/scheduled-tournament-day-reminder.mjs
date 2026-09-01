@@ -85,8 +85,10 @@ export function renderEmail({ name, uid }) {
     question can improve responsiveness and persuasion. Heckling or disruption
     can hurt. Pace is calculated by the AI, and speech above 250 words per
     minute is flagged as spreading. Camera presence adds 2 standings points,
-    Avatar mode subtracts 1, and camera off or too dark subtracts 3. These
-    adjustments affect only the speaker-point tiebreak, never the round winner.
+    Avatar mode subtracts 1, and camera off or too dark subtracts 3. Camera
+    choice also moves your event rating each round: camera on costs nothing,
+    Avatar subtracts 10 rating points, and a switched-off or dark camera
+    subtracts 20. Neither adjustment ever changes the round winner.
   </p>
 
   <p style="font-size:.94rem;line-height:1.6;margin:0 0 12px">
@@ -139,7 +141,7 @@ HOW COMPETING WORKS
 Every round is a casual one-on-one. Each room draws three resolutions from the published pool. Both sides secretly strike one, the strikes reveal together, and the room settles the surviving resolution and sides. Each person gets a 90-second opening and a 60-second reply. Debate without outside help. Standings rank total wins first, then speaker points. Playing more rounds gives you more chances to add a win. The break size is posted in the tournament room.
 
 QUESTIONS, PACE, AND CAMERA
-Questions and interruptions are captured with the round and may generate private clips. A well-asked question can improve responsiveness and persuasion. Heckling or disruption can hurt. Pace is calculated by the AI, and speech above 250 words per minute is flagged as spreading. Camera presence adds 2 standings points, Avatar mode subtracts 1, and camera off or too dark subtracts 3. These adjustments affect only the speaker-point tiebreak, never the round winner.
+Questions and interruptions are captured with the round and may generate private clips. A well-asked question can improve responsiveness and persuasion. Heckling or disruption can hurt. Pace is calculated by the AI, and speech above 250 words per minute is flagged as spreading. Camera presence adds 2 standings points, Avatar mode subtracts 1, and camera off or too dark subtracts 3. Camera choice also moves your event rating each round: camera on costs nothing, Avatar subtracts 10 rating points, and a switched-off or dark camera subtracts 20. Neither adjustment ever changes the round winner.
 
 JUDGING AND FAIR WINNERS
 The published AI panel decides preliminary and early elimination rounds and gives a written reason for every decision. Either side may appeal a panel ballot for human review. The audience decides the final when the published vote floor and close-vote rules are met. Otherwise, the panel ballot decides it.

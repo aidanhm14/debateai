@@ -818,12 +818,17 @@ export default async (request, context) => {
           ?? num(ballot.conPoints) ?? num(pts.b);
         const govSpeaks = proIsGov ? proPts : conPts;
         const oppSpeaks = proIsGov ? conPts : proPts;
+        // The disclosed camera-presence EVENT-RATING adjustment (<= 0),
+        // speech-time weighted by the scorecard. Rides the pairing so
+        // tournamentRatings applies it on every ladder rebuild.
+        const proCam = num(ballot.tournamentScoring?.pro?.ratingAdjustment) ?? 0;
+        const conCam = num(ballot.tournamentScoring?.con?.ratingAdjustment) ?? 0;
         const ledger = await applyTournamentResult(db, {
           tid: tourney.tid,
           roundKey: tourney.roundKey,
           roomId: room,
-          gov: { entryId: tourney.govEntry, won: govWon, speaks: govSpeaks },
-          opp: { entryId: tourney.oppEntry, won: !govWon, speaks: oppSpeaks },
+          gov: { entryId: tourney.govEntry, won: govWon, speaks: govSpeaks, camRating: proIsGov ? proCam : conCam },
+          opp: { entryId: tourney.oppEntry, won: !govWon, speaks: oppSpeaks, camRating: proIsGov ? conCam : proCam },
           now: judgedAt,
         });
         // The tournament ledger is the authority when a director entered

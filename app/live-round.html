@@ -7570,7 +7570,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     var setupNote = document.getElementById('recordingSetupNote');
     var roundNote = document.getElementById('recordingRoundNote');
     if (tournamentRecordingRequired()){
-      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Tournament recording required.</strong> Every seat must accept, and the recording must be live, before Speech 1 can begin. Questions and interruptions are captured for scoring and clips. Standings points use Camera +2, Avatar −1, Off or a dark tile −3. Pace above 250 WPM is flagged as spreading.';
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Tournament recording required.</strong> Every seat must accept, and the recording must be live, before Speech 1 can begin. Questions and interruptions are captured for scoring and clips. Camera choice moves your EVENT RATING each round: camera on 0, Avatar −10, Off or a dark tile −20. Standings points also use Camera +2, Avatar −1, Off −3. Pace above 250 WPM is flagged as spreading.';
       if (roundNote) roundNote.textContent = 'Every tournament round is recorded. Questions and interruptions are captured. A sharp question can help; heckling can hurt. Camera +2, Avatar −1, Off or dark −3 on standings points. Speech 1 stays locked until recording is live.';
       return;
     }
@@ -7683,7 +7683,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>' +
               (required ? 'Before Speech 1, after every assigned person confirms this notice. The round stays closed until recording is live.' : 'Only after every seated person agrees for this round. If anyone says no, no recording starts.') + '</span></span></div>' +
             (required ? '<div class="rec-consent-fact"><span class="rec-consent-fact-num">4</span><span><strong>Questions and spreading</strong><span>A concise, relevant question can improve your score. Heckling or disruptive interruptions can lower it. The AI receives calculated pace, and more than 250 WPM is flagged as spreading. Speed matters only when the argument becomes hard to follow.</span></span></div>' : '') +
-            (required ? '<div class="rec-consent-fact"><span class="rec-consent-fact-num">5</span><span><strong>Camera standings points</strong><span>Camera +2. Avatar −1. Off or a dark tile −3. This adjusts the standings tiebreak, not who wins the argument ballot.</span></span></div>' : '') +
+            (required ? '<div class="rec-consent-fact"><span class="rec-consent-fact-num">5</span><span><strong>Camera scoring</strong><span>Your event rating: camera on 0, Avatar −10, Off or a dark tile −20 per round. Standings points: Camera +2, Avatar −1, Off −3. Neither can change who wins the argument ballot.</span></span></div>' : '') +
           '</div>' +
           '<label class="rec-consent-check"><input type="checkbox" id="cloudRecAge" />' +
             '<span>I am 18 or older, or my parent or guardian has approved ' +
@@ -8584,7 +8584,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     bar.innerHTML =
       '<button type="button" data-m="camera" class="on" title="Publish your real camera">Camera</button>' +
       (CUSTOM_TRACK_OK
-        ? '<button type="button" data-m="avatar" title="Debate anonymously: the room sees an animated mask that moves with you, never your camera">Avatar</button>' +
+        ? '<button type="button" data-m="avatar" title="Debate anonymously: the room sees an animated mask that moves with you, never your camera. In a tournament round, avatar play costs event rating points">Avatar</button>' +
           '<button type="button" data-m="design" title="Design your avatar">Design</button>'
         : '') +
       '<button type="button" data-m="off" title="Publish no video at all">Off</button>' +
@@ -13574,11 +13574,15 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
     }
     function sideLine(name, score){
       var pace = Number(score.paceWpm);
+      var camRating = Number(score.ratingAdjustment) || 0;
       return '<div style="padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.08)">' +
         '<strong style="display:block;font-size:.82rem;margin-bottom:3px">' + escHtml(name) + '</strong>' +
         '<span style="font-size:.78rem">' + escHtml(String(score.argumentPoints)) +
           ' argument ' + signed(score.presenceAdjustment) + ' ' + escHtml(modeLabel(score.cameraMode)) +
           ' = <strong>' + escHtml(String(score.standingPoints)) + ' standings points</strong></span>' +
+        (camRating < 0
+          ? '<span style="display:block;margin-top:4px;font-size:.7rem;color:var(--text-dim)">Event rating: ' + signed(camRating) + ' for debating without a camera this round.</span>'
+          : '') +
         (isFinite(pace) && pace > 0
           ? '<span style="display:block;margin-top:4px;font-size:.7rem;color:var(--text-dim)">Calculated pace: ' + pace + ' WPM' + (score.spreading ? ', spreading flagged' : '') + '.</span>'
           : '') +
@@ -13589,7 +13593,7 @@ body.drafting .round-motion-bar,body.drafting .kickoff-strip{visibility:hidden}
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px">' +
         sideLine(state.proName, ts.pro) + sideLine(state.conName, ts.con) +
       '</div>' +
-      '<p style="margin:9px 0 0;font-size:.7rem;line-height:1.5;color:var(--text-dim)">Camera +2. Avatar −1. Off or dark −3. Mixed use is weighted by speech time. This changes only the standings tiebreak, never the winner. Pace above ' + escHtml(String(ts.spreadingThresholdWpm || 250)) + ' WPM is flagged; the AI lowers an argument score only when density makes the reasoning hard to follow.</p>' +
+      '<p style="margin:9px 0 0;font-size:.7rem;line-height:1.5;color:var(--text-dim)">Camera choice moves your event rating each round: camera on 0, Avatar −10, Off or dark −20. Standings points use Camera +2, Avatar −1, Off −3. Mixed use is weighted by speech time, and neither adjustment ever changes the winner. Pace above ' + escHtml(String(ts.spreadingThresholdWpm || 250)) + ' WPM is flagged; the AI lowers an argument score only when density makes the reasoning hard to follow.</p>' +
     '</div>';
   }
 
