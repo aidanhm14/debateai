@@ -13,17 +13,17 @@
 export const DRAFT_MOTIONS = {
 
   quick: [
-    'ICE should be allowed to arrest people at schools, courts, and hospitals.',
-    'Members of Congress should be banned from trading stocks.',
+    'Cities should be allowed to refuse to help federal immigration enforcement.',
+    'Members of Congress should be paid twice as much.',
     'The National Guard should be sent into U.S. cities to fight crime.',
     'The U.S. should ban TikTok unless it sells to an American owner.',
     'Billionaires should pay a yearly tax on wealth they have not sold.',
     'The U.S. should put tariffs on all imported goods.',
     'The Electoral College should be abolished.',
     'The voting age should be lowered to 16.',
-    'The U.S. should recognize a Palestinian state.',
+    'The UN Security Council veto should be abolished.',
     'Public universities should be banned from running DEI programs.',
-    'Assault-style rifles should be banned for civilians.',
+    'Cities should ban cars from their downtowns.',
     'Undocumented immigrants brought here as children should get citizenship.',
     'Social media should be banned for kids under 16.',
     'Tuition should be free at public universities.',
@@ -258,8 +258,8 @@ export const DRAFT_MOTIONS = {
   ],
 
   ld: [
-    'Resolved: A just government ought to make public services available by default rather than by application.',
-    'Resolved: Civil disobedience in a democracy is morally justified.',
+    'Government benefits should be automatic instead of something you apply for.',
+    'Breaking the law in protest can be justified in a democracy.',
     'Resolved: Individual rights ought to be valued above the collective good.',
     'Resolved: A just government ought to provide a universal basic income to its citizens.',
     'Resolved: It is morally permissible to break an unjust law.',

@@ -3298,6 +3298,16 @@ var MOTIONS_BY_FORMAT = {
   // "This house" framing. The whole point of Quick is that someone with
   // zero debate background can jump in.
   //
+  // BOTH SIDES MUST BE WINNABLE (2026-09-01, Aidan: the product is
+  // "parli debate universalized", and what makes it feel fair is that
+  // every resolution is genuinely arguable from either side). Before
+  // adding a motion: name two honest ballot paths for each side. A
+  // motion that polls 80/20 is a lecture with a timer, and a motion
+  // that leans on the content boundary in soul.md section 4 is out
+  // regardless of balance (scripts/test-sensitive-motions.mjs enforces
+  // it). Six were swapped on that rule; the room draft pool regenerates
+  // from this list (node scripts/gen-draft-motions.mjs).
+  //
   // 2026-08-26 (the founder): these are CLAIMS, not questions. They used to be
   // "Should X?" and a question does not tell you what Pro is for. A round
   // labels one seat Pro and the other Con, so the resolution has to be a
@@ -3307,17 +3317,17 @@ var MOTIONS_BY_FORMAT = {
   // elections should be legal." does not. Keep new entries declarative,
   // one sentence, and plain. No question marks in this bank.
   quick: [
-  'ICE should be allowed to arrest people at schools, courts, and hospitals.',
-  'Members of Congress should be banned from trading stocks.',
+  'Cities should be allowed to refuse to help federal immigration enforcement.',
+  'Members of Congress should be paid twice as much.',
   'The National Guard should be sent into U.S. cities to fight crime.',
   'The U.S. should ban TikTok unless it sells to an American owner.',
   'Billionaires should pay a yearly tax on wealth they have not sold.',
   'The U.S. should put tariffs on all imported goods.',
   'The Electoral College should be abolished.',
   'The voting age should be lowered to 16.',
-  'The U.S. should recognize a Palestinian state.',
+  'The UN Security Council veto should be abolished.',
   'Public universities should be banned from running DEI programs.',
-  'Assault-style rifles should be banned for civilians.',
+  'Cities should ban cars from their downtowns.',
   'Undocumented immigrants brought here as children should get citizenship.',
   'Social media should be banned for kids under 16.',
   'Tuition should be free at public universities.',
@@ -3353,8 +3363,8 @@ var MOTIONS_BY_FORMAT = {
   // Lincoln-Douglas, values/principle resolutions. Normative, not policy.
   // The classic LD pattern is "A just / moral X ought (not) to Y."
   ld: [
-  'Resolved: A just government ought to make public services available by default rather than by application.',
-  'Resolved: Civil disobedience in a democracy is morally justified.',
+  'Government benefits should be automatic instead of something you apply for.',
+  'Breaking the law in protest can be justified in a democracy.',
   'Resolved: Individual rights ought to be valued above the collective good.',
   'Resolved: A just government ought to provide a universal basic income to its citizens.',
   'Resolved: It is morally permissible to break an unjust law.',
@@ -10569,21 +10579,10 @@ Rules:
   )
   ),
   showCustomize && el('div', { style: { marginTop: 26, textAlign: 'left', animation: 'fadeIn .25s ease' } },
+  el('p', { style: { fontSize: '.8rem', color: 'var(--c-dim)', lineHeight: 1.5, margin: '0 0 22px' } }, 'One person on each side. You argue, the AI argues back, and a judge scores the round out of 100 and says why.'),
   el('div', { style: { marginBottom: 26 } },
-  simpleStepHead(1, 'What do you want to practice?'),
-  el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 } },
-  simplePracticeCards.map((c, i) => el('button', { key: i, onClick: c.go, style: simpleCardStyle(c.on) },
-  el('div', { style: { fontSize: '1.3rem', lineHeight: 1 }, 'aria-hidden': true }, c.icon),
-  el('div', { style: { fontSize: '.92rem', fontWeight: 700, color: 'var(--c-bright)' } }, c.title),
-  el('div', { style: { fontSize: '.74rem', color: 'var(--c-dim)', lineHeight: 1.4 } }, c.desc)
-  ))
-  ),
-  el('div', { style: { marginTop: 10, fontSize: '.76rem', color: 'var(--c-text)' } },
-  'Round type: ', el('strong', { style: { color: 'var(--c-bright)' } }, 'Casual 1v1')
-  )
-  ),
-  el('div', { style: { marginBottom: 26 } },
-  simpleStepHead(2, 'Choose a topic'),
+  simpleStepHead(1, 'Choose a topic'),
+  el('p', { style: { fontSize: '.76rem', color: 'var(--c-dim)', lineHeight: 1.5, margin: '-4px 0 12px' } }, 'Every topic here has a real case on both sides. That is what makes it fair to argue, whichever side you get.'),
   debateOfWeek && el('button', {
     onClick: () => {setMotion(debateOfWeek.motion);try {chooseFormat('quick');} catch (e) {}},
     style: { textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', padding: '13px 15px', borderRadius: 14, background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.28)', marginBottom: 10, color: 'var(--c-text)' }
@@ -10614,7 +10613,7 @@ Rules:
   )
   ),
   el('div', { style: { marginBottom: 22 } },
-  simpleStepHead(3, 'Choose your judge'),
+  simpleStepHead(2, 'Choose your judge'),
   el('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 } },
   simpleJudgeCards.map((j) => {
     var on = judgeParadigm === j.key && !customParadigm.trim();
@@ -10631,14 +10630,6 @@ Rules:
   ),
   renderDeliveryControls(false)
   ),
-  el('div', { style: { marginBottom: 26 } },
-  simpleStepHead(4, 'Language'),
-  el('button', { onClick: () => {setSimpleLangQuery('');setSimpleModal('language');}, style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 220, padding: '11px 15px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: '.9rem', fontWeight: 600, background: 'var(--c-surface)', border: '1px solid var(--c-border2)', color: 'var(--c-bright)' } },
-  el('span', null, (LANGUAGES[aiLanguage] || LANGUAGES.en).label),
-  el('span', { style: { color: 'var(--c-dim)', fontSize: '.78rem' }, 'aria-hidden': true }, '▼')
-  ),
-  aiLanguage !== 'en' && el('div', { style: { marginTop: 8, fontSize: '.72rem', color: 'var(--c-text3)', lineHeight: 1.45, maxWidth: 420 } }, 'The AI writes and speaks in ', el('strong', { style: { color: 'var(--c-text)' } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName), '. Voice timbre stays the same.')
-  ),
   function () {
     var rfmt = FORMATS[format] || {};
     var estSec = (rfmt.speeches || []).reduce(function (s, x) {return s + (x.time || 0);}, 0) + (rfmt.prep || 0);
@@ -10648,12 +10639,13 @@ Rules:
     el('span', { style: { fontSize: '.86rem', fontWeight: 600, color: accent ? '#ef4444' : 'var(--c-bright)', textAlign: 'right', lineHeight: 1.35 } }, v)
     );
     return el('div', { style: { marginBottom: 18 } },
-    simpleStepHead(5, 'Review & start'),
+    simpleStepHead(3, 'Review & start'),
     el('div', { style: { padding: '4px 16px 12px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' } },
-    reviewRow('Format', simpleFmtLabel),
     reviewRow('Topic', motion.trim() ? motion.trim() : 'Random / Resolution of the Day'),
-    reviewRow('Language', (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName),
-    reviewRow('Opponent', 'AI'),
+    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 14, padding: '8px 0', borderTop: '1px solid var(--c-border3)' } },
+    el('span', { style: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--c-muted)', flexShrink: 0 } }, 'Language'),
+    el('button', { onClick: () => {setSimpleLangQuery('');setSimpleModal('language');}, style: { background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '.86rem', fontWeight: 600, color: 'var(--c-bright)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName + ' · change')
+    ),
     reviewRow('Judge', customParadigm.trim() ? audienceCopy('Custom paradigm', 'Custom judge preferences') : plainAudience ? (simpleJudgeCards.find((j) => j.key === judgeParadigm) || {}).title || 'Balanced' : (JUDGE_PARADIGMS[judgeParadigm] || {}).label || 'Balanced'),
     reviewRow('Feedback', ((JUDGE_MANNERS.find((m) => m.key === judgeManner) || {}).label || 'Straight') + ' · ' + ((JUDGE_DETAILS.find((d) => d.key === judgeDetail) || {}).label || 'Medium')),
     reviewRow('Est. time', '~' + estMin + ' min', true)
