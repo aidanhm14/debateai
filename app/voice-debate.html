@@ -4747,10 +4747,9 @@ function App() {
   // Connection state machine: idle → connecting → live → ended
   var [status, setStatus] = useState('idle');
   var [connectStep, setConnectStep] = useState('');
-  // The assigned judge for this round, drawn fresh per round from the
-  // roster (js/judge-roster.js). State drives the deliberation overlay;
-  // the ref is what the start/RFD callbacks read so no dependency list
-  // has to change. Viva keeps its own examiner frame and never draws.
+  // Legacy assigned-judge state remains for saved-round compatibility.
+  // New rounds use the standard ballot instead of drawing a hidden
+  // persona beside the three visible live-round judge types.
   var [roundJudge, setRoundJudge] = useState(null);
   var roundJudgeRef = useRef(null);
 
@@ -6044,10 +6043,10 @@ function App() {
     setStatus('connecting');
     statusRef.current = 'connecting';
     setConnectStep('Minting session…');
-    // The judge walks in while the connection is built. Resumed rounds
-    // keep the judge the intro card already promised; fresh rounds draw
-    // a new one, never repeating the previous round's. Viva is exempt:
-    // that surface is an examiner, not a ballot.
+    // Assign the ballot lens while the connection is built. Resumed
+    // rounds keep their lens; fresh rounds draw a new one. Do not reveal
+    // it in a separate modal: that duplicated the three judge types used
+    // by live rounds and interrupted the start flow. Viva is exempt.
     try {
       if (window.JudgeRoster && mode !== 'viva') {
         var rj = resumeSnapshotRef.current && roundJudgeRef.current ? roundJudgeRef.current : null;
@@ -6059,7 +6058,6 @@ function App() {
           try {localStorage.setItem('debateos-last-judge', rj.key);} catch (e) {}
           roundJudgeRef.current = rj;
           setRoundJudge(rj);
-          if (window.JudgeIntro) JudgeIntro.show(rj, { eyebrow: 'Your judge this round', foot: 'A different judge hears every round', autoMs: 12000 });
         }
       } else if (mode === 'viva') {
         roundJudgeRef.current = null;
@@ -9739,8 +9737,6 @@ root.render(el(App));</script>
 <script defer src="/js/onboarding.js"></script>
 <script defer src="/js/corpus-nudge.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
-<script defer src="/js/judge-roster.js"></script>
-<script defer src="/js/judge-intro.js"></script>
 
 <!-- Floating Feedback pill. Surface parity with landing.html and
      pricing.html. Links straight to the Google Form rather than

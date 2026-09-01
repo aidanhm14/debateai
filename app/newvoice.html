@@ -45,8 +45,6 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
 <script defer src="/js/voice-transcript.js"></script>
-<script defer src="/js/judge-roster.js"></script>
-<script defer src="/js/judge-intro.js"></script>
 
 <style>
 :root{
@@ -1485,11 +1483,9 @@ $('paceSeg').addEventListener('click', (e) => {
 let liveJudge = false;
 try { liveJudge = localStorage.getItem('debateos-newvoice-judge-live') === 'on'; } catch (e) {}
 
-/* The assigned judge for this round. Drawn fresh per round from the
-   roster (js/judge-roster.js), never repeating the previous round's
-   judge, so every round opens with a different bench. The paradigm
-   rides the ballot prompt as an emphasis lens only; it cannot name a
-   winner or change the ballot's shape (see PARADIGM_GUARD). */
+/* Legacy assigned-judge state remains for saved-round compatibility.
+   New rounds use the standard ballot instead of drawing a hidden
+   persona beside the three visible live-round judge types. */
 let roundJudge = null;
 function drawRoundJudge(){
   if (!window.JudgeRoster) return null;
@@ -1653,20 +1649,11 @@ async function start(){
     // round starts the gates just sit at their quiet-room constants.
     measureNoiseFloor();
 
-    // The judge walks in while the connection is being built. The
-    // handshake is 3-8s of dead time; the intro card fills it with the
-    // one thing worth reading before you speak: who is judging and what
-    // wins in front of them. Mounted AFTER the mic prompt so the card
-    // never covers a permission dialog.
+    // Assign the ballot lens while the connection is being built. Keep
+    // this invisible: the separate persona reveal interrupted the round
+    // and duplicated the three judge types used by live rounds.
     try {
       roundJudge = drawRoundJudge();
-      if (roundJudge && window.JudgeIntro) {
-        JudgeIntro.show(roundJudge, {
-          eyebrow: 'Your judge this round',
-          foot: 'A different judge hears every round',
-          autoMs: 12000,
-        });
-      }
     } catch (e) {}
 
     // 2. Mint the ephemeral session.

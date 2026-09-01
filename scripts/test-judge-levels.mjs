@@ -20,6 +20,8 @@ function assert(ok, message) {
 const source = readFileSync(join(root, 'app/js/judge-lenses.js'), 'utf8');
 const liveRoundSource = readFileSync(join(root, 'app/live-round.html'), 'utf8');
 const sparSource = readFileSync(join(root, 'app/spar.html'), 'utf8');
+const newVoiceSource = readFileSync(join(root, 'app/newvoice.html'), 'utf8');
+const voiceDebateSource = readFileSync(join(root, 'app/voice-debate.html'), 'utf8');
 const liveJudgeSource = readFileSync(join(root, 'app/netlify/functions/live-judge.mjs'), 'utf8');
 const browser = {};
 new Function('window', source)(browser);
@@ -55,6 +57,8 @@ assert(/agreedJudgeLevelBlock\(d\.judgePicks\)/.test(liveJudgeSource), 'server b
 assert(!/assignedParadigmBlock/.test(liveJudgeSource), 'server ballot no longer uses a separate assigned persona');
 assert((sparSource.match(/id="lensStrip"/g) || []).length === 1, 'spar exposes one judge-type selector');
 assert(!/var JUDGE_PRESETS\s*=/.test(sparSource), 'spar no longer exposes the retired preset list');
+assert(!/judge-(?:intro|roster)\.js|JudgeIntro\.show/.test(newVoiceSource), 'new voice flow has no separate judge persona layer');
+assert(!/judge-(?:intro|roster)\.js|JudgeIntro\.show/.test(voiceDebateSource), 'voice debate flow has no separate judge persona layer');
 
 for (const level of client) {
   const strings = [level.name, level.tag, level.lens]

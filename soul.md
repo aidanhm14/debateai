@@ -194,6 +194,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **The random judge reveal is retired; the three visible judge types are the whole choice** (2026-08-31, Aidan, off the Warrant judge popup: "its always warrant judge get rid of this just have the 3 selections"). `/newvoice` and `/voice-debate` no longer load the random roster or open its full-screen persona card during connection. It duplicated the live product's actual judge contract, Casual viewer, Standard, or Experienced, and made a random internal lens look like a fourth choice the person never made. New AI-voice rounds use the standard ballot. Legacy saved judge fields remain readable for compatibility, but they do not create a new selection or reveal. `/spar` and `/live-round` keep exactly the three shared judge types, and their server-applied ballot lens is unchanged.
+
 - **The landing conversion pass makes the account ask immediate, compresses the public signup figure, and sharpens the example board** (2026-08-31, Aidan, off three live screenshots). This is a direct founder call and supersedes three same-day details below.
   - **Live gate:** "have a sign in with google pop up" restores the once-per-session `/spar` auto-prompt, but as a Google-only mode of the shared auth card because live video rejects every other provider. The same-evening follow-up, "bring up this pop up after a few seconds like chill," puts five calm seconds between the gate appearing and the modal opening; an intentional click on the Google button remains immediate. The full gate remains behind the modal if the visitor closes it. "Have it say 4 live and add the number of actually live" makes this signed-out conversion label the one explicit exception to the same-day real-public-number rule: it displays `4 + queueWaiting`, while `/api/spar-queue`, matchmaking, and operational surfaces remain raw. GA4 keeps both `live_display` and `queue_waiting`, so the conversion number is never mistaken for the measured queue downstream.
   - **Signup caption:** the provider split comes off the globe. It now says only "N sign-ups so far." The endpoint may keep returning provider totals for internal analysis, but the public caption neither names nor sums them.
@@ -1091,4 +1093,4 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ---
 
-*Last updated: 2026-08-31 (latest pass: responsive live surfaces and the spectator broadcast layout)*
+*Last updated: 2026-08-31 (latest pass: the random judge reveal is retired)*
