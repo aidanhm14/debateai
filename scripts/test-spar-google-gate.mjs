@@ -94,9 +94,10 @@ for (const path of [
   check(/live video requires Google sign-in/i.test(source), `${path} must describe the Google-only live door`);
 }
 
-// face63-65 added 2026-08-31: second consented batch (Ray, Pascal, Yael)
-// cropped from real live rounds, consent + 18+ confirmed on record.
-const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54', '63', '64', '65'];
+// face63/65 added 2026-08-31: second consented batch (Ray, Yael) cropped
+// from real live rounds, consent + 18+ confirmed on record. face64 (Pascal)
+// was pulled 2026-09-01 on the founder's call and is guarded below.
+const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54', '63', '65'];
 for (const face of expectedFaces) {
   check(spar.includes(`/img/round/faces/face${face}.jpg`), `gate must include consented face${face}`);
 }
@@ -106,8 +107,26 @@ for (const face of ['fictional-sydney', 'fictional-sofia', 'fictional-kevin', 'f
 // The Avatar-mode mask tile is gate atmosphere only; the mask must never
 // enter the landing face pools where the deal would name-caption it.
 check(spar.includes('/img/round/faces/mask-ano.jpg'), 'gate must include the Avatar-mode mask tile');
-check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 19, 'wide signed-out gate must carry nineteen surrounding tiles (15 + the 2026-08-31 batch)');
+check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 18, 'wide signed-out gate must carry eighteen surrounding tiles (15 + the 2026-08-31 batch, less the pulled face64)');
 check(!spar.includes('/img/round/faces/face55.jpg'), 'deleted face55 must never return');
+// Pulled 2026-09-01 on the founder's call. Guarded on BOTH surfaces it rode,
+// because the landing pool holds it as a bare number rather than a filename.
+check(!spar.includes('/img/round/faces/face64.jpg'), 'pulled face64 must never return to the gate');
+// A pulled face rides these pools as a BARE NUMBER, so a filename grep finds
+// nothing and a deleted file 404s in silence. face64 survived the first sweep
+// of this change inside the rotator's REAL list for exactly that reason.
+// Both pools are checked; a third pool needs adding here the day it exists.
+const landing = read('app/landing.html');
+for (const [label, re] of [
+  ['FACE_M_REAL', /var FACE_M_REAL\s*=\s*\[([^\]]*)\]/],
+  ['the rotator REAL pool', /var REAL\s*=\s*\[([^\]]*)\]/],
+]) {
+  const nums = (landing.match(re) || [])[1];
+  check(typeof nums === 'string' && nums.length > 0, `landing must define ${label}`);
+  const list = String(nums).split(',').map((n) => n.trim());
+  check(!list.includes('64'), `pulled face64 must never return to ${label}`);
+  check(!list.includes('55'), `deleted face55 must never return to ${label}`);
+}
 
 if (failures) process.exit(1);
 console.log('spar Google gate: all checks passed');

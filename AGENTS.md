@@ -344,6 +344,17 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   Yael), cropped from screenshots of real live rounds Aidan supplied
   in-session with "all consented to" on the record. They ride
   `FACE_M_REAL`, the rotator `REAL` list, and the /spar gate frames.
+  **2026-09-01: face64 (Pascal) is PULLED and its file is deleted**
+  (Aidan, off the board: "get rid of his image on the landing page its
+  not attractice"). The still is dark and low-light. Consent was never
+  the issue, so this is a quality call, not a consent one, and a
+  replacement crop of the same person would be fine. Removing a face is
+  THREE pools plus one gate, and two of them hold it as a bare number
+  (`FACE_M_REAL` and the rotator `REAL` list), so a filename grep finds
+  nothing and the deleted file 404s in silence; that is exactly how 64
+  survived the first pass of its own removal.
+  `scripts/test-spar-google-gate.mjs` now guards both numeric pools and
+  the gate, for 55 and 64 alike.
   `mask-ano.jpg` (an Avatar-mode mask tile from a real round) rides the
   /spar gate only; a mask is not a face and must never enter the face
   pools, where the deal would caption it with a character's name.
