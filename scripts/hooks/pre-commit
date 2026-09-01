@@ -227,6 +227,25 @@ if [ -f "$BRAND_ENTITY_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Highlights guard. lib/highlights.mjs turns round transcripts into
+# titled clip windows on public replay cards. The two promises: no
+# moment survives whose quote the transcript cannot prove verbatim,
+# and a round whose speeches do not fit inside the video (reused-room
+# corruption, measured live 2026-08-31) yields NO clips rather than
+# wrong ones. A broken gate here publishes a caption about a moment
+# that never happened, on the front of the product.
+# ──────────────────────────────────────────────────────────────────
+HIGHLIGHTS_GUARD="$REPO_ROOT/scripts/test-highlights.mjs"
+if [ -f "$HIGHLIGHTS_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-highlights.mjs >/tmp/highlights-guard.log 2>&1); then
+    echo "[highlights-guard] commit blocked — replay highlight guarantees broken:" >&2
+    grep '^FAIL' /tmp/highlights-guard.log >&2 || tail -20 /tmp/highlights-guard.log >&2
+    echo "[highlights-guard] see scripts/test-highlights.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Judge-integrity guard. Blocks a commit that breaks a promise the
 # public /judge-integrity page makes: the season calendar staying
 # contiguous, the rubric hash staying content-addressed, an even panel

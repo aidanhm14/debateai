@@ -57,8 +57,39 @@
   /* 0 = show the frame as it is. 10 = frost it. */
   var BLUR_PX = 0;
 
+  /* LIVE-ONLY MODE (2026-08-31, the founder: when someone joins while a
+     round is live, notify them asap and let them join anonymously).
+     The sitewide loader was retired 2026-08-25 because the REPLAY source
+     kept putting the same recorded participant's face on unrelated
+     pages. That objection is about replays, not live rounds, so the
+     loader is back with only the live fast lane armed sitewide: a round
+     actually happening is the strongest thing this site can show and it
+     names nobody who is not already live in public on /watch and /.
+     Flip to false to re-arm the waiting/replay chain — but reread the
+     2026-08-25 note in topbar.js first; the inventory-depth concern is
+     what has to have changed. */
+  var LIVE_ONLY = true;
+
   var FIRST_DELAY_MS = 15000;   // visible dwell before the first read
   var POLL_MS = 120000;
+  /* THE LIVE FAST LANE (2026-08-31). A round that is LIVE right now is
+     time-boxed inventory: by the time the 15s dwell and 120s polls get
+     around to it, the round is half over. So the live source alone gets
+     its own lane: first read ~2.5s after arrival, then a 60s watcher for
+     the length of the visit, so a round that goes live mid-browse
+     reaches the visitor within a minute. Spectating needs no account,
+     so the card hands an anonymous visitor straight into the room.
+     Restraint the lane KEEPS: hidden tabs never poll, a dismissal's 4h
+     snooze holds, someone mid-round is never poked, and another corner
+     card gets right of way. What it BYPASSES, deliberately: the 15s
+     dwell, the 2-cards-per-session cap and the 6-minute gap — those
+     exist for unsolicited replay/waiting nudges, and a genuinely live
+     round is the one thing this site can least afford to sit on.
+     /api/watch-live is keyless and CDN-cached 12s, so the watcher costs
+     one cached GET per visible minute. */
+  var LIVE_FIRST_DELAY_MS = 2500;
+  var LIVE_POLL_MS = 60000;
+  var LIVE_CARD_LIFE_MS = 75000;   // a live card may outstay a replay's 30s
   var MAX_ROUNDS = 6;           // poll cycles, not debate rounds
   var CARD_LIFE_MS = 30000;     // an ignored card leaves rather than squats
   var GAP_MS = 6 * 60 * 1000;   // between two cards in one session
@@ -144,13 +175,21 @@
     } catch (e) { return false; }
   }
 
+  function snoozed() {
+    return now() - readNum(localStorage, SNOOZE_KEY) < SNOOZE_MS;
+  }
   function gated() {
     if (force || demo) return false;
     if (busyInRound()) return true;
-    if (now() - readNum(localStorage, SNOOZE_KEY) < SNOOZE_MS) return true;
+    if (snoozed()) return true;
     if (readNum(sessionStorage, COUNT_KEY) >= MAX_PER_SESSION) return true;
     if (now() - readNum(sessionStorage, LAST_KEY) < GAP_MS) return true;
     return false;
+  }
+  /* The fast lane's gate: everything about consent and courtesy, nothing
+     about pacing. */
+  function liveGated() {
+    return busyInRound() || snoozed() || cornerBusy();
   }
 
   function clock(sec) {
@@ -453,7 +492,8 @@
   }
 
   /* ── render ─────────────────────────────────────────────────── */
-  var shown = false;
+  var shown = false;        // the slow loop fires at most once, ever
+  var cardVisible = false;  // is a card on screen RIGHT NOW (never stack)
 
   function fallbackHtml(item) {
     return '<span class="da-livepop__fallback">' +
@@ -463,9 +503,15 @@
       '</span>';
   }
 
-  function render(item) {
-    if (shown) return;
+  function render(item, opts) {
+    opts = opts || {};
+    if (cardVisible) return;
+    /* The slow loop spends its one card and stops. The fast lane may
+       render again later in the visit (a NEW round going live is new
+       information), but never on top of a card already up. */
+    if (shown && !opts.fast) return;
     shown = true;
+    cardVisible = true;
     injectCss();
 
     var card = document.createElement('a');
@@ -519,6 +565,7 @@
     var life = null;
     function close(reason) {
       if (life) { clearTimeout(life); life = null; }
+      cardVisible = false;
       card.classList.remove('in');
       setTimeout(function () { if (card.parentNode) card.remove(); }, 340);
       if (reason === 'dismiss') write(localStorage, SNOOZE_KEY, now());
@@ -531,7 +578,7 @@
       close('dismiss');
     });
     card.addEventListener('click', function () {
-      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here });
+      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast });
     });
 
     document.body.appendChild(card);
@@ -546,9 +593,12 @@
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, page: here });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast });
 
-    life = setTimeout(function () { close('timeout'); }, CARD_LIFE_MS);
+    /* A live round is worth holding the corner for longer than a replay
+       nudge: it is happening now and the invitation expires with it. */
+    life = setTimeout(function () { close('timeout'); },
+      item.kind === 'live' ? LIVE_CARD_LIFE_MS : CARD_LIFE_MS);
   }
 
   /* ── polling ────────────────────────────────────────────────────
@@ -599,9 +649,46 @@
 
   if (force) { setTimeout(check, 300); return; }
 
+  /* ── The live fast lane ─────────────────────────────────────────
+     One cheap read shortly after arrival, then a once-a-minute watcher
+     for the whole visit. liveItem() already refuses rounds this session
+     was offered before (unseen), so the watcher can run forever without
+     nagging about the same room twice. */
+  var liveTimer = null;
+  function scheduleLive(ms) {
+    if (liveTimer) return;
+    liveTimer = setTimeout(function () { liveTimer = null; liveCheck(); }, ms);
+  }
+  function liveCheck() {
+    if (document.hidden) return scheduleLive(LIVE_POLL_MS);
+    /* Gated is usually another corner card (the experience chooser
+       mounts around the same 2s mark). Retry sooner than the poll: no
+       fetch is spent while gated, and the chooser being answered should
+       not cost a live round a whole minute of invisibility. */
+    if (cardVisible || liveGated()) return scheduleLive(15000);
+    liveItem().then(function (it) {
+      if (it && !cardVisible && !liveGated()) render(it, { fast: true });
+      scheduleLive(LIVE_POLL_MS);
+    }).catch(function () { scheduleLive(LIVE_POLL_MS); });
+  }
+  document.addEventListener('visibilitychange', function () {
+    /* Coming back to the tab is the moment to know what is live; waiting
+       out the remainder of a 60s timer there costs real seconds of a
+       real round. */
+    if (!document.hidden && liveTimer) {
+      clearTimeout(liveTimer);
+      liveTimer = null;
+      scheduleLive(1200);
+    }
+  });
+  scheduleLive(LIVE_FIRST_DELAY_MS);
+
   /* Visible dwell, not wall clock: a tab opened in the background and
      never looked at should not spend a read, and should not have its
-     card time out unseen before anyone sees it. */
+     card time out unseen before anyone sees it. In LIVE_ONLY mode the
+     slow waiting/replay chain never starts; the fast lane above is the
+     whole surface. */
+  if (LIVE_ONLY) return;
   var dwell = 0;
   var since = document.hidden ? 0 : now();
   function tick() {

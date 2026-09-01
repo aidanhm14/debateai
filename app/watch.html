@@ -272,6 +272,18 @@ video{width:100%;max-height:66vh;display:block;background:#000}
 .clip-note.on.ghost{visibility:hidden}
 .clip-note button{margin-left:auto}
 
+/* ── Key moments (AI-cut) */
+/* [hidden] loses to any authored display on this class, so the guard is
+   explicit — the /predict trap. */
+.hl-row[hidden]{display:none}
+.hl-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border)}
+.hl-label{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+.hl-chips{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+.hl-chip{display:inline-flex;gap:8px;align-items:center;max-width:100%;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:999px;padding:7px 12px;font-family:inherit;font-size:14px;line-height:1.25;cursor:pointer;text-align:left}
+.hl-chip:hover{border-color:rgba(239,68,68,.55)}
+.hl-chip .t{font-variant-numeric:tabular-nums;color:var(--red);font-weight:800;white-space:nowrap}
+.hl-chip .w{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* ── Clip maker */
 .clip-tools{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .clip-tools .hint{color:var(--faint);font-size:14px;width:100%}
@@ -659,6 +671,14 @@ footer a{color:var(--dim)}
       <strong id="clipNoteTitle"></strong>
       <span id="clipNoteRange" class="mark"></span>
       <button class="btn" id="watchFullBtn" type="button">Watch full round</button>
+    </div>
+    <!-- AI-cut key moments of the open replay. Filled by openRecording
+         from the recording's `highlights`; hidden when it has none. Each
+         chip seeks the player and clamps playback to that window through
+         the same activeClip machinery real clips use. -->
+    <div class="hl-row" id="hlRow" hidden>
+      <span class="hl-label">Key moments</span>
+      <span class="hl-chips" id="hlChips"></span>
     </div>
     <div class="clip-tools" id="clipTools">
       <span class="hint">Make a clip: play to a moment, mark start and end, name it, save. Anyone with the link can watch it.</span>
@@ -1389,6 +1409,7 @@ footer a{color:var(--dim)}
     } else {
       note.classList.remove('on');
     }
+    renderMoments(rec);
     var player = $('player');
     player.pause();
     player.removeAttribute('src');
@@ -1431,12 +1452,27 @@ footer a{color:var(--dim)}
       // source ever refuses, because playback outranks the frame grab.
       player.crossOrigin = 'anonymous';
       player.src = l.link;
-      if (clip){
+      // A clip opens at its own start. A full replay opens at the first
+      // speech when the setup ran long: measured across the live corpus
+      // the first word lands as late as SIX MINUTES in, and a replay
+      // that opens on people adjusting laptops is a replay nobody
+      // finishes. The scrubber still reaches 0:00, and the meta line
+      // says the seek happened rather than doing it silently.
+      var skipTo = 0;
+      if (!clip && Number(rec.firstWordSec) >= 25){
+        skipTo = Math.max(0, Number(rec.firstWordSec) - 4);
+      }
+      var seekTo = clip ? clip.start : skipTo;
+      if (seekTo > 0){
         player.addEventListener('loadedmetadata', function seekOnce(){
           player.removeEventListener('loadedmetadata', seekOnce);
-          player.currentTime = clip.start;
-          player.play().catch(function(){});
+          player.currentTime = seekTo;
+          if (clip) player.play().catch(function(){});
         });
+        if (!clip){
+          $('playerMeta').textContent += ' · opens at the first speech (drag back for the setup)';
+          try { gtag('event', 'watch_skip_setup', { id: rec.id, t: seekTo }); } catch(e2){}
+        }
       }
       player.load();
     }).catch(function(e){
@@ -1453,6 +1489,51 @@ footer a{color:var(--dim)}
     syncOwnerUI();
     $('playerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     try { gtag('event', clip ? 'watch_clip_play' : 'watch_replay_play', { id: rec.id }); } catch(e){}
+  }
+
+  // ── Key moments (AI-cut) ─────────────────────────────────────────
+  // A recording's `highlights` are server-authored windows whose quotes
+  // were verified against the transcript (lib/highlights.mjs). They ride
+  // the same activeClip clamp real clips use, so a chip is exactly a
+  // clip that nobody had to cut by hand.
+  function hlClipObj(rec, h){
+    return {
+      id: 'hl', hl: true, recordingId: rec.id,
+      start: h.start, end: h.end, title: h.title,
+      name: h.speaker || 'Key moment',
+      recordingTitle: rec.title || '',
+    };
+  }
+  function renderMoments(rec){
+    var row = $('hlRow'), chips = $('hlChips');
+    var list = (rec && rec.highlights) || [];
+    chips.innerHTML = '';
+    if (!list.length || rec.teaser){ row.hidden = true; return; }
+    list.forEach(function(h, i){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hl-chip';
+      b.innerHTML = '<span class="t">&#9654; ' + fmtTime(h.start) + '</span>' +
+        '<span class="w">' + esc(h.title) + '</span>';
+      if (h.quote) b.title = '"' + h.quote + '"' + (h.speaker ? ' · ' + h.speaker : '');
+      b.addEventListener('click', function(){
+        // Behind the sign-in gate there is no media to seek; the gate is
+        // already saying what to do about that.
+        if ($('playGate').classList.contains('on')) return;
+        var c = hlClipObj(rec, h);
+        activeClip = c;
+        $('clipNoteTitle').textContent = c.title;
+        $('clipNoteRange').textContent = fmtTime(c.start) + ' to ' + fmtTime(c.end);
+        $('clipNote').classList.remove('ghost');
+        $('clipNote').classList.add('on');
+        var p = $('player');
+        p.currentTime = c.start;
+        p.play().catch(function(){});
+        try { gtag('event', 'watch_moment_play', { id: rec.id, idx: i }); } catch(e){}
+      });
+      chips.appendChild(b);
+    });
+    row.hidden = false;
   }
 
   // A CORS-mode load that fails takes the whole replay with it, so this
@@ -1774,7 +1855,7 @@ footer a{color:var(--dim)}
   function clipThumbHTML(clip){
     return '<div class="thumb clip" aria-hidden="true">' +
         thFrameImg(clip.recordingId) +
-        '<span class="th-tag">Clip</span>' +
+        '<span class="th-tag">' + (clip.hl ? 'Key moment' : 'Clip') + '</span>' +
         '<span class="th-dur">' + fmtTime(clip.end - clip.start) + '</span>' +
         '<span class="th-play">' + TH_PLAY_SVG + '</span>' +
       '</div>';
@@ -1803,6 +1884,11 @@ footer a{color:var(--dim)}
   }
 
   function openClipById(clip){
+    // A key moment is a synthetic clip riding the recording doc: it has
+    // no clips-collection id, so its shareable URL is the round's.
+    var deepUrl = clip.hl
+      ? '/watch?r=' + encodeURIComponent(clip.recordingId)
+      : '/watch?clip=' + encodeURIComponent(clip.id);
     if (current && current.id === clip.recordingId){
       activeClip = clip;
       $('clipNoteTitle').textContent = clip.title;
@@ -1811,14 +1897,14 @@ footer a{color:var(--dim)}
       var p = $('player');
       p.currentTime = clip.start;
       p.play().catch(function(){});
-      try { history.replaceState(null, '', '/watch?clip=' + encodeURIComponent(clip.id)); } catch(e){}
+      try { history.replaceState(null, '', deepUrl); } catch(e){}
       return;
     }
     fetch('/api/recordings?id=' + encodeURIComponent(clip.recordingId))
       .then(function(r){ if (!r.ok) throw new Error('rec'); return r.json(); })
       .then(function(j){
         openRecording(j.recording, clip);
-        try { history.replaceState(null, '', '/watch?clip=' + encodeURIComponent(clip.id)); } catch(e){}
+        try { history.replaceState(null, '', deepUrl); } catch(e){}
       })
       .catch(function(){});
   }
@@ -1942,6 +2028,17 @@ footer a{color:var(--dim)}
         feedItems.push({
           kind: 'round', ts: rec.startTs || 0, data: rec,
         });
+        // The round's best AI-cut moment rides the grid as its own card,
+        // one tick behind the full round so the pair sit together: the
+        // short thing that earns the click next to the long thing it
+        // opens. One per round, or the grid becomes all moments.
+        var hs = rec.highlights || [];
+        if (hs.length && !rec.teaser){
+          feedItems.push({
+            kind: 'clip', ts: (rec.startTs || 0) - 1,
+            format: '', data: hlClipObj(rec, hs[0]),
+          });
+        }
       });
       clips.forEach(function(c){
         feedItems.push({ kind: 'clip', ts: Math.round((c.createdAt || 0) / 1000), data: c });

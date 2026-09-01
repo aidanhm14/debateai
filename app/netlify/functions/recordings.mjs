@@ -15,6 +15,7 @@
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
+import { publicHighlights } from './lib/highlights.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const RECORDING_ID = /^[a-z0-9][a-z0-9-]{7,79}$/i;
@@ -51,6 +52,12 @@ function publicShape(id, d){
     // round comes down without emptying the feed.
     teaser: d.teaser === true,
     viewCount: Math.max(0, Number(d.viewCount) || 0),
+    // AI-cut key moments (recording-highlights.mjs). Whitelisted through
+    // publicHighlights so a stray doc field never rides a public card.
+    highlights: publicHighlights(d.highlights),
+    // Video second the first speech starts. /watch opens full replays
+    // here when the setup runs long; 0 means unknown, play from the top.
+    firstWordSec: Math.max(0, Math.round(Number(d.firstWordSec) || 0)),
   };
 }
 

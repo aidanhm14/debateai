@@ -2545,11 +2545,23 @@
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
-/* The sitewide live/replay corner card is intentionally dormant as of
-   2026-08-25. Replay inventory is still too small, so the same recorded
-   participant becomes the default face of the product on unrelated pages.
-   Keep /watch and live-popup.js intact; restore this loader only after the
-   replay library is deep enough and sitewide participant exposure is wanted. */
+/* The sitewide corner card is back as of 2026-08-31, LIVE ROUNDS ONLY
+   (the founder: someone arriving while a round is live should hear about
+   it asap and be able to spectate anonymously in one tap). The 2026-08-25
+   retirement was about the REPLAY source parading the same recorded
+   participant on unrelated pages; live-popup.js now ships LIVE_ONLY=true,
+   so the waiting/replay cards stay dormant and only a round actually in
+   progress fires — checked ~2.5s after arrival, then once a visible
+   minute, with the card handing anonymous visitors straight into
+   /live-round as spectators. live-popup.js owns every restraint rule
+   (skip pages, snooze, mid-round guard, corner right-of-way). */
+(function(){
+  if (window.__ditLivePopup || document.querySelector('script[src*="/js/live-popup.js"]')) return;
+  var s = document.createElement('script');
+  s.src = '/js/live-popup.js';
+  s.defer = true;
+  (document.body || document.head || document.documentElement).appendChild(s);
+})();
 
 /* The chooser that feeds audience-mode.js. It reads
    debateos-experience and, until 2026-08-22, nothing on a page a
