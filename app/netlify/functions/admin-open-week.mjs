@@ -139,6 +139,21 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
     click once, and you are in the same field as everyone else.
   </p>
 
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>One more honest thing: Debatable is built by one person.</strong>
+    It has been hard to build solo. I lean on AI coding tools to ship
+    fast, and it shows in places. If you write code and are confident in
+    it, I am open to hearing your ideas on the UI, the setup, any of it.
+    Reply to this email.
+  </p>
+
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
+    <strong>And we need your help pulling attention here.</strong> Right
+    now the attention lives on other platforms. Tell one person who loves
+    to argue, share a round, bring a friend to a clash hour. That is how
+    this place gets loud.
+  </p>
+
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
     Reply to this email with anything that felt broken or confusing.
     It lands in the founder's inbox and every reply gets read.<br>Debatable
