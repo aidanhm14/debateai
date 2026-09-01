@@ -2135,6 +2135,14 @@ body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
 @keyframes lrNoteIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
 .lr-start-reminder b{font-weight:800}
 .lr-start-reminder .lr-note-sub{color:var(--text-dim,rgba(255,255,255,.62))}
+.lr-reminder-go{
+  flex:none;min-height:40px;padding:8px 14px;border-radius:999px;
+  background:var(--accent-solid,#dc2626);border:0;color:#fff;
+  font:800 .82rem/1 inherit;font-family:inherit;letter-spacing:.01em;cursor:pointer;
+  animation:lrAwaitPulse 1.1s ease-out infinite;
+}
+.lr-reminder-go:hover{background:#b91c1c}
+@media(prefers-reduced-motion:reduce){.lr-reminder-go{animation:none}}
 body.spectator-mode .lr-start-reminder,
 body.lr-mini .lr-start-reminder,body.lr-pip .lr-start-reminder{display:none!important}
 @media (prefers-reduced-motion:reduce){ .lr-start-reminder{animation:none} }
@@ -2329,15 +2337,24 @@ body.speech-live .sg-swap{display:none}
 body.speech-live .rmb-change{display:none}
 .round-motion-bar .rmb-motion{
   font-family:'DM Sans','Inter',Arial,sans-serif;
-  font-size:clamp(2.25rem,4.6vw,4.25rem);
+  /* 2026-09-01, founder off a screenshot: "make the resolutions widen -
+     dont have them skinny and tall". The motion used to share its row
+     with the context tools, so it wrapped at ~30ch in a column half the
+     band wide and ran five lines tall. It has the whole band now and a
+     slightly smaller ceiling, so a long motion reads as two or three
+     wide lines instead of a tower. */
+  font-size:clamp(1.9rem,3.6vw,3.4rem);
   font-weight:800;line-height:1.08;letter-spacing:-.025em;
-  max-width:30ch;text-wrap:balance;color:var(--text);
+  max-width:none;text-wrap:balance;color:var(--text);
 }
+/* One column: the motion on top, the context tools on their own row
+   beneath it, left-aligned so they read as a caption to the motion
+   rather than a sidebar competing with it for width. */
 .rmb-motion-row{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
-  gap:18px;margin-top:8px;
+  display:grid;grid-template-columns:minmax(0,1fr);align-items:start;
+  gap:12px;margin-top:8px;
 }
-.rmb-motion-actions{display:flex;align-items:stretch;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.rmb-motion-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-start}
 .rmb-ai-cue{
   align-self:center;display:inline-flex;align-items:center;gap:6px;color:var(--blue,#2563eb);
   font-size:.62rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;
@@ -3434,7 +3451,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         <!-- What "This House" is, before anyone has to ask. -->
         <div class="rmb-house" id="setupHouse" hidden></div>
         <div class="setup-judge-block">
-          <div class="label">Judge type <span id="setupJudgeHint" style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
+          <div class="label">Judge <span id="setupJudgeHint" style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
           <div class="setup-judge-grid" id="setupJudgeTypes" aria-label="Judge type"></div>
         </div>
         <div class="label">Round type</div>
@@ -4805,6 +4822,15 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       host.innerHTML = '<div class="jd-card is-agreed" aria-label="Three-judge tournament council fixed">' +
         '<div class="jd-card-name"><span class="jd-dot"></span>Three-judge council</div>' +
         '<div class="jd-card-tag">All 3 must return. 2 matching votes decide. Fixed for this tournament.</div>' +
+      '</div>';
+      return;
+    }
+    if (SINGLE_JUDGE){
+      var hint = $('setupJudgeHint');
+      if (hint) hint.textContent = '\u00b7 one AI judge, the same for both sides';
+      host.innerHTML = '<div class="jd-card is-agreed" aria-label="AI judge, fixed">' +
+        '<div class="jd-card-name"><span class="jd-dot"></span>The AI judge</div>' +
+        '<div class="jd-card-tag">Decides on what was said and how it was weighed. Nothing to pick.</div>' +
       '</div>';
       return;
     }
@@ -10107,6 +10133,41 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
       if (trackOf(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
     });
+    // 2026-09-01, the founder off a screenshot of himself twice in one
+    // room ("dont make this double camera option possible"): a person
+    // whose earlier tab or connection has not been reaped yet shows up
+    // as a SECOND tile with their name and a black picture, and the grid
+    // dutifully grows to three. One person is one tile. Records sharing
+    // a user_id collapse to the one that is local, else the one with a
+    // live camera, else the newest. The dropped record leaves the audio
+    // list too, so a ghost cannot double a voice either.
+    (function dedupeByIdentity(){
+      var byUid = {};
+      seats.forEach(function(p){
+        var uid = p.user_id || '';
+        if (!uid) return;
+        (byUid[uid] = byUid[uid] || []).push(p);
+      });
+      var drop = {};
+      Object.keys(byUid).forEach(function(uid){
+        var group = byUid[uid];
+        if (group.length < 2) return;
+        group.sort(function(a, b){
+          var al = a.local ? 1 : 0, bl = b.local ? 1 : 0;
+          if (al !== bl) return bl - al;
+          var av = trackOf(a.tracks && a.tracks.video) ? 1 : 0;
+          var bv = trackOf(b.tracks && b.tracks.video) ? 1 : 0;
+          if (av !== bv) return bv - av;
+          return (b.joined_at ? +new Date(b.joined_at) : 0) - (a.joined_at ? +new Date(a.joined_at) : 0);
+        });
+        group.slice(1).forEach(function(p){ drop[p.session_id] = true; });
+      });
+      if (!Object.keys(drop).length) return;
+      var keepP = function(p){ return !drop[p.session_id]; };
+      seats = seats.filter(keepP);
+      screens = screens.filter(keepP);
+      list = list.filter(keepP);
+    })();
     // A watcher is not on the stage. Their own participant record exists
     // (they are joined, just sending nothing), and rendering it is what
     // put an empty "Guest (You)" tile in front of every round.
@@ -14803,7 +14864,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     renderSetup();
   });
   $('setupJudgeTypes').addEventListener('click', function(e){
-    if (tournamentControlsLocked()) return;
+    if (SINGLE_JUDGE || tournamentControlsLocked()) return;
     var card = e.target && e.target.closest ? e.target.closest('[data-setup-jk]') : null;
     if (!card) return;
     var level = judgeArchetype(card.getAttribute('data-setup-jk'));
@@ -18067,7 +18128,19 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       && state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready';
   }
 
+  // 2026-09-01, the founder: "for now lets just have one judge - not 3
+  // options that confuses users". The three-archetype draft (Casual
+  // viewer / Standard / Experienced, each bench nominating, lock on
+  // agreement) is switched OFF behind this flag, not deleted: every
+  // path below still reads judgePicks, and the server ballot path still
+  // reads the same map through lib/judge-levels.mjs. With the flag on,
+  // the key is always 'chair' (Standard), nominations are no-ops, the
+  // setup card and the in-round panel render one fixed judge, and the
+  // Speech-1 "settle the judge first" gate can never trip. Flip to false
+  // to bring the three-way draft back.
+  var SINGLE_JUDGE = true;
   function judgeLockKey(){
+    if (SINGLE_JUDGE) return 'chair';
     var p = state.judgePicks || {};
     var pro = p.pro || 'chair';
     var con = p.con || 'chair';
@@ -18099,6 +18172,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
 
   function nominateJudge(key){
+    if (SINGLE_JUDGE) return;
     if (tournamentControlsLocked() || isSpectator() || !judgeDraftIsLive()) return;
     var side = mySide();
     if (side !== 'pro' && side !== 'con') return;
@@ -18183,6 +18257,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // grid. Either bench can call it, because a draft one side regrets is
   // not an agreement worth holding them to.
   function redraftJudge(){
+    if (SINGLE_JUDGE) return;
     if (tournamentControlsLocked() || isSpectator() || !judgeDraftIsLive()) return;
     var side = mySide();
     if (side !== 'pro' && side !== 'con') return;
@@ -18261,7 +18336,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   var judgeSeedDone = false;
   function maybeSeedJudgeFromUrl(){
     if (judgeSeedDone) return;
-    if (tournamentControlsLocked()) { judgeSeedDone = true; return; }
+    if (SINGLE_JUDGE || tournamentControlsLocked()) { judgeSeedDone = true; return; }
     var key = prefill.judgeSeed;
     if (!key || key === 'chair' || judgeArchetype(key).key !== key) { judgeSeedDone = true; return; }
     if (isSpectator()) { judgeSeedDone = true; return; }
@@ -18305,6 +18380,32 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       return;
     }
     maybeSeedJudgeFromUrl();
+
+    if (SINGLE_JUDGE){
+      var one = judgeArchetype('chair');
+      state.judgePicks = { pro:'chair', con:'chair' };
+      state.judgeLocked = 'chair';
+      el.style.setProperty('--jx', one.accent);
+      el.classList.remove('is-live');
+      el.classList.add('is-open', 'is-agreed');
+      var sj = $('spectatorJudge');
+      if (sj) sj.textContent = 'Judge: AI judge';
+      el.innerHTML =
+        '<div class="jd-head">' +
+          '<div class="jd-seal">&#9878;</div>' +
+          '<div class="jd-head-main">' +
+            '<div class="jd-eyebrow">Judge</div>' +
+            '<div class="jd-name">The AI judge</div>' +
+            '<div class="jd-tag">Decides on what was said and how it was weighed. Same judge for both sides.</div>' +
+          '</div>' +
+          '<span class="jd-state jd-state--agreed">Set</span>' +
+        '</div>' +
+        '<div class="jd-body">' +
+          '<p class="jd-note">One judge, no options to agree on. It writes the ballot when the round ends and names the reasons.</p>' +
+          (judgeDraftIsLive() ? '' : ballotLengthHtml()) +
+        '</div>';
+      return;
+    }
 
     var live = judgeDraftIsLive();
     var side = mySide();
@@ -19063,7 +19164,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // control remains the only path that starts the clock and transcript.
   var startCue = { el:null, dock:null, hot:false, io:null, btnSeen:true,
                    lvlCall:null, loudMs:0, sig:'', shown:{}, hotShown:{},
-                   reminder:null, reminderTimer:0, reminded:{},
+                   reminder:null, reminderTimer:0, reminded:{}, reminderKind:'', quietTimer:0,
                    turnCued:{}, turnTimer:0, turnTick:0, hintOrig:'' };
   var CUE_LOUD = 0.055;      // Daily audioLevel: quiet room floor sits well under this
   var CUE_LOUD_MS = 2000;    // ~2s of talking before we call it a speech, not a hello
@@ -19119,18 +19220,37 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (hot !== startCue.hot){
       startCue.hot = hot;
       updateStartCue();
-      if (hot) showStartCueReminder();
+      // 2026-09-01, the founder: "remind them to press start speech
+      // button esp if they are talking". The reminder used to show once
+      // per speech for nine seconds. Now it stays up for as long as the
+      // mic says they are talking into a stopped clock, comes back every
+      // time that happens, and carries the Start button itself. It still
+      // never starts the speech for them.
+      if (hot){
+        if (startCue.quietTimer){ clearTimeout(startCue.quietTimer); startCue.quietTimer = 0; }
+        showStartCueReminder('hot');
+      } else if (startCue.reminder && startCue.reminderKind === 'hot'){
+        if (startCue.quietTimer) clearTimeout(startCue.quietTimer);
+        startCue.quietTimer = setTimeout(function(){ startCue.quietTimer = 0; hideStartCueReminder(); }, 4000);
+      }
     }
   }
   function hideStartCueReminder(){
     if (startCue.reminderTimer){ clearTimeout(startCue.reminderTimer); startCue.reminderTimer = 0; }
+    if (startCue.quietTimer){ clearTimeout(startCue.quietTimer); startCue.quietTimer = 0; }
     if (startCue.reminder){ startCue.reminder.remove(); startCue.reminder = null; }
+    startCue.reminderKind = '';
   }
   function showStartCueReminder(kind){
     var idx = state.speechIdx;
-    if (!startCueAwaiting() || startCue.reminded[idx]) return;
-    startCue.reminded[idx] = true;
+    if (!startCueAwaiting()) return;
+    // The turn reminder is once per speech. The talking reminder is not:
+    // every stretch of talking into a stopped clock earns it again.
+    if (kind === 'turn' && startCue.reminded[idx]) return;
+    if (kind === 'turn') startCue.reminded[idx] = true;
+    if (startCue.reminder && startCue.reminderKind === kind) return;
     hideStartCueReminder();
+    startCue.reminderKind = kind || 'hot';
     var el = document.createElement('div');
     el.className = 'lr-start-reminder';
     el.id = 'lrStartReminder';
@@ -19143,11 +19263,19 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         '</span>'
       : '<span style="flex:1;min-width:0">' +
           '<b>Your speech has not started.</b> ' +
-          '<span class="lr-note-sub">We can hear you, but the clock and transcript are still off. Tap Start my speech to begin.</span>' +
-        '</span>';
+          '<span class="lr-note-sub">We can hear you, but the clock and transcript are still off.</span>' +
+        '</span>' +
+        '<button type="button" class="lr-reminder-go" data-reminder-go>Start my speech</button>';
+    var go = el.querySelector('[data-reminder-go]');
+    if (go) go.addEventListener('click', function(){
+      // The real control starts the clock; this is the same press,
+      // moved to where the person is already looking.
+      var b = $('playPauseBtn');
+      if (b && !b.disabled) b.click();
+    });
     document.body.appendChild(el);
     startCue.reminder = el;
-    startCue.reminderTimer = setTimeout(hideStartCueReminder, 9000);
+    startCue.reminderTimer = setTimeout(hideStartCueReminder, kind === 'turn' ? 9000 : 45000);
     try { gtag('event', 'live_start_cue_reminder', { format: state.formatKey, speech: idx, kind: kind || 'hot' }); } catch(e){}
   }
   // ── Mid-round turn cue (2026-08-31, the founder: "remind users to
