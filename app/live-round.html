@@ -4921,6 +4921,30 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       if (!cg || !cg.value.trim().length || !co || !co.value.trim().length) ok = false;
     }
     $('startBtn').disabled = !ok;
+    // A disabled primary button with no stated reason reads as broken
+    // (observed 2026-09-01: motion typed, one name blank, dead button,
+    // nothing saying why). Name the missing piece right under it.
+    var why = $('startBtnWhy');
+    if (!why){
+      why = document.createElement('div');
+      why.id = 'startBtnWhy';
+      why.style.cssText = 'font-size:.74rem;color:var(--amber,#f59e0b);margin-top:7px;text-align:center;font-weight:700';
+      var sb = $('startBtn');
+      if (sb && sb.parentNode) sb.parentNode.insertBefore(why, sb.nextSibling);
+    }
+    if (ok){ why.textContent = ''; why.hidden = true; }
+    else {
+      var missing = [];
+      if (state.motion.trim().length <= 5) missing.push('a motion');
+      if (!$('proName').value.trim().length) missing.push('the Pro debater\'s name');
+      if (!$('conName').value.trim().length) missing.push('the Con debater\'s name');
+      if (isFourTeam(f)){
+        var cg2 = $('cgName'), co2 = $('coName');
+        if (!cg2 || !cg2.value.trim().length || !co2 || !co2.value.trim().length) missing.push('all four team names');
+      }
+      why.hidden = false;
+      why.textContent = missing.length ? 'Still needed to start: ' + missing.join(', ') + '.' : '';
+    }
   }
 
   // ── Round view rendering
@@ -12575,6 +12599,21 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         );
         return;
       }
+      if (res && res.code === 'missing_participant'){
+        // Permanent, not a stall: this round never had both seats
+        // filled, so the server panel can NEVER judge it and every
+        // retry is wasted. Stand down and let generateBallot's client
+        // fallback own the outcome instead of looping on "resume
+        // judging" copy that promises a panel that will refuse forever
+        // (observed live 2026-09-01 on a one-seat room).
+        state.ballotRecoveryAttempts = BALLOT_RECOVERY_MAX_ATTEMPTS;
+        ballotStatus('The rated panel needs both debaters seated, and this round only ever had one. Writing an unrated read of the round instead.');
+        // Kick the client-path ballot so the promise above has an
+        // engine behind it; serverJudgeTried skips the server re-ask.
+        // The lastBallot guard above makes a duplicate kick a no-op.
+        try { state.serverJudgeTried = true; generateBallot(0); } catch(e){}
+        return;
+      }
       if (state.ballotRecoveryAttempts < BALLOT_RECOVERY_MAX_ATTEMPTS){
         scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 15000);
       } else {
@@ -13117,7 +13156,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         // for. The deeper RFD is the actual product here, the
         // marginal token cost is trivial.
         max_tokens: 8000,
-        stream: false,
+        // STREAMED for the same reason as the deep-RFD call below: a
+        // long ballot generates past the ~30s edge inactivity wall and
+        // a non-stream request 504s there (measured live 2026-09-01:
+        // three 504s in a row on a four-speech round). The SSE branch
+        // in the response handler already reassembles the chunks.
+        stream: true,
         system: p.system,
         messages: [{ role:'user', content: p.user }],
         _feature: 'live-round',
