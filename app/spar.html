@@ -790,8 +790,24 @@ h1 em{color:var(--accent);font-style:normal}
 .match-profile-flow .mp-opt--skip[aria-checked="true"] .afl-opt-mark{background:var(--mp-muted);border-color:var(--mp-muted)}
 .match-profile-flow .afl-back{grid-area:back;margin:17px 0 0;color:var(--mp-muted);font-size:.75rem;letter-spacing:.04em}
 .match-profile-flow .afl-back:hover{color:var(--mp-red)}
-.match-profile-flow .mp-panel--hot .afl-opt{min-height:96px;align-items:start}
-.match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* The fight card: each grid row is one clash, two chairs. The kicker names
+   the fight, the "vs" chip straddles the gap so the pair reads as a pair. */
+.match-profile-flow .mp-panel--hot .afl-opt{min-height:88px;align-items:start}
+.match-profile-flow .mp-panel--hot .afl-opt-t{font-size:1.12rem}
+.match-profile-flow .afl-opt-k{
+  font-family:Inter,sans-serif;font-size:.58rem;font-weight:800;letter-spacing:.16em;
+  color:var(--mp-blue);opacity:1;margin-bottom:5px;
+}
+.match-profile-flow .mp-opt--vsr{position:relative}
+.match-profile-flow .mp-opt--vsr::before{
+  content:'vs';position:absolute;left:-14px;top:50%;transform:translateY(-50%);
+  width:27px;height:27px;border-radius:50%;box-sizing:border-box;
+  background:var(--mp-paper);border:1px solid var(--mp-rule-mid);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Source Serif 4',Georgia,serif;font-size:.72rem;color:var(--mp-muted);
+  z-index:3;pointer-events:none;
+}
+.match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:repeat(2,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opts{grid-template-columns:repeat(3,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opt{min-height:108px;align-items:start}
 .match-profile-flow .mp-panel--mode .afl-opt-s{font-size:.76rem}
@@ -843,6 +859,9 @@ h1 em{color:var(--accent);font-style:normal}
   .match-profile-flow .afl-opt-t{font-size:1.02rem}
   .match-profile-flow .afl-opt-s{font-size:.7rem}
   .match-profile-flow .mp-panel--hot .afl-opt{min-height:58px}
+  .match-profile-flow .mp-panel--hot .afl-opt-t{font-size:.94rem}
+  .match-profile-flow .afl-opt-k{font-size:.52rem;margin-bottom:3px}
+  .match-profile-flow .mp-opt--vsr::before{left:-12px;width:23px;height:23px;font-size:.64rem}
   .match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:1fr}
   .match-profile-flow .mp-panel--mode .afl-opts{grid-template-columns:1fr}
   .match-profile-flow .mp-panel--mode .afl-opt{min-height:74px}
@@ -856,7 +875,7 @@ h1 em{color:var(--accent);font-style:normal}
   .match-profile-flow .afl-q{font-size:clamp(2.5rem,4vw,4rem)}
   .match-profile-flow .afl-hint{margin-bottom:16px}
   .match-profile-flow .afl-opt{min-height:62px;padding:11px 14px}
-  .match-profile-flow .mp-panel--hot .afl-opt{min-height:72px}
+  .match-profile-flow .mp-panel--hot .afl-opt{min-height:64px}
 }
 
 .setup-card{
@@ -2902,6 +2921,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // device. The queue sees only the neutral matching
   // rule: similar rating, another person who asked for a viewpoint clash,
   // or first available. Answers do not alter the judge or rank a belief.
+  // The claim bank is versus-PAIRS on purpose: every fight offers both
+  // chairs at equal weight (socialism AND capitalism, no billionaires AND
+  // billionaires are fine), so picking a claim is choosing a seat in a
+  // debate, never agreeing with the house. Keep the bank balanced; a
+  // one-sided bank reads as the site taking positions.
   var MATCH_PROFILE_VERSION = 3;
   var MATCH_PROFILE_KEY = 'da-spar-match-profile-v3';
   var LEGACY_MATCH_PROFILE_KEY = 'da-spar-match-profile-v2';
@@ -2910,11 +2934,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
     },
     hotTake: {
-      billionaires: 'No billionaires', immigration: 'Easier immigration', police: 'Larger police budgets',
-      moderation: 'No political moderation', ai_utility: 'Regulate AI as a utility', universities: 'Universities are too conformist', skip: 'Skipped'
+      socialism: 'Socialism over capitalism', capitalism: 'Capitalism, best we have',
+      billionaires: 'No billionaires', billionaires_fine: 'Billionaires are fine',
+      merit_myth: 'Meritocracy is a myth', merit_real: 'Hard work still wins',
+      borders_open: 'Much easier immigration', borders_closed: 'A country picks who enters',
+      mod_hands_off: 'No political moderation', mod_harder: 'Moderate much harder', skip: 'Skipped'
     },
     topicFocus: {
-      random: 'Surprise me', personal: 'Topics I care about', mix: 'Mix both'
+      random: 'Surprise me', systems: 'The big system fights', personal: 'Topics I care about', mix: 'Mix both'
     },
     mode: {
       viewpoint: 'Viewpoint clash', rating: 'Closest rating', fast: 'First available'
@@ -2929,13 +2956,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function allowedProfileValue(group, value, fallback){
     return Object.prototype.hasOwnProperty.call(MATCH_PROFILE_LABELS[group], value) ? value : fallback;
   }
+  // The claim bank moved to versus-pairs on 2026-09-01. Old stored picks
+  // map to their nearest new claim; a pick with no honest equivalent falls
+  // to 'skip' rather than being guessed at (assigning someone a side of a
+  // fight they never chose is worse than asking again).
+  var LEGACY_HOT_TAKES = {
+    immigration: 'borders_open', moderation: 'mod_hands_off',
+    police: 'skip', ai_utility: 'skip', universities: 'skip'
+  };
   function cleanMatchProfile(raw){
     var version = Number(raw && raw.version);
     if (!raw || (version !== 2 && version !== MATCH_PROFILE_VERSION)) return null;
+    var hot = String(raw.hotTake || '');
+    if (LEGACY_HOT_TAKES[hot]) hot = LEGACY_HOT_TAKES[hot];
     return {
       version: MATCH_PROFILE_VERSION,
       background: allowedProfileValue('background', String(raw.background || ''), 'first'),
-      hotTake: allowedProfileValue('hotTake', String(raw.hotTake || ''), 'skip'),
+      hotTake: allowedProfileValue('hotTake', hot, 'skip'),
       topicFocus: allowedProfileValue('topicFocus', String(raw.topicFocus || ''), 'mix'),
       mode: allowedProfileValue('mode', String(raw.mode || ''), 'viewpoint'),
       clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private'),
@@ -3011,27 +3048,32 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         ]
       },
       {
-        key: 'hotTake', q: 'Which headline would you actually defend tonight?',
-        hint: 'Pick the claim that makes you want the microphone. None of these has to be your take.',
-        summaryLabel: 'Hot take', 'default': profile.hotTake,
+        key: 'hotTake', q: 'Pick a side of a real fight.',
+        hint: 'Five fights, both chairs on offer. Pick the claim that makes you want the microphone. It does not have to be your true belief.',
+        summaryLabel: 'Your side', 'default': profile.hotTake,
         className: 'mp-panel--hot',
         options: [
-          { value: 'billionaires', label: 'Billionaires should not exist.' },
-          { value: 'immigration', label: 'Immigration should be much easier.' },
-          { value: 'police', label: 'Police budgets should increase.' },
-          { value: 'moderation', label: 'Social platforms should not moderate politics.' },
-          { value: 'ai_utility', label: 'AI companies should be regulated like utilities.' },
-          { value: 'universities', label: 'Universities have become too politically conformist.' },
+          { value: 'socialism', kicker: 'The system fight', label: 'Socialism would work better than capitalism.' },
+          { value: 'capitalism', kicker: 'The system fight', label: 'Capitalism is the best system we have.', className: 'mp-opt--vsr' },
+          { value: 'billionaires', kicker: 'The wealth fight', label: 'Billionaires should not exist.' },
+          { value: 'billionaires_fine', kicker: 'The wealth fight', label: 'Billionaires are fine. Envy is not an argument.', className: 'mp-opt--vsr' },
+          { value: 'merit_myth', kicker: 'The merit fight', label: 'Meritocracy is a myth. Birth decides more than talent.' },
+          { value: 'merit_real', kicker: 'The merit fight', label: 'Hard work still beats luck.', className: 'mp-opt--vsr' },
+          { value: 'borders_open', kicker: 'The border fight', label: 'Immigration should be far easier.' },
+          { value: 'borders_closed', kicker: 'The border fight', label: 'A country has the right to choose who comes in.', className: 'mp-opt--vsr' },
+          { value: 'mod_hands_off', kicker: 'The speech fight', label: 'Platforms should stop moderating politics.' },
+          { value: 'mod_harder', kicker: 'The speech fight', label: 'Platforms should moderate much harder.', className: 'mp-opt--vsr' },
           { value: 'skip', label: 'None of these. Skip this question.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
         ]
       },
       {
         key: 'topicFocus', q: 'What do you want to talk about?',
-        hint: 'Go anywhere, stay close to what matters to you, or mix the two.',
+        hint: 'Go anywhere, lean into the big system fights, or stay close to what matters to you.',
         summaryLabel: 'Topics', 'default': profile.topicFocus,
         className: 'mp-panel--topics',
         options: [
           { value: 'random', label: 'Surprise me', sub: 'Random debate topics.' },
+          { value: 'systems', label: 'The big fights', sub: 'Socialism, capitalism, class, borders.' },
           { value: 'personal', label: 'What I care about', sub: 'Topics with a real stake for me.' },
           { value: 'mix', label: 'Mix both', sub: 'One foot in each.' }
         ]
@@ -8921,6 +8963,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
     eloRailAt = Date.now();
     try { renderSearching(); } catch(e){ console.error('[spar] search demo failed', e); }
+    return;
+  }
+
+  // ?mpdemo=1 opens the Match Desk questionnaire immediately, joins no
+  // queue on finish, and skips the auth branch. Same reasoning as
+  // ?draftdemo=1 above: this surface is judged by watching it run, and it
+  // should not need a signed-in account to look at. It still writes the
+  // profile to THIS browser's localStorage on finish, which is what a real
+  // run does too.
+  if ((new URLSearchParams(location.search)).get('mpdemo')){
+    try { startMatchProfileFlow({ onDone: function(){}, onClose: function(){} }); }
+    catch(e){ console.error('[spar] match profile demo failed', e); }
     return;
   }
 
