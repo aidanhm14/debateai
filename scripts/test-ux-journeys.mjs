@@ -129,9 +129,9 @@ check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50
 
 const topbar = read('app/js/topbar.js');
 check(
-  topbar.includes("{ href: '/challenges',  label: 'Schedule & challenges', big: true }")
+  topbar.includes("{ href: '/live',        label: 'Schedule & challenges', big: true }")
     && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
-  'navigation combines schedule and challenges into the challenges-first destination',
+  'navigation combines schedule and challenges into the schedule-first destination',
 );
 check(
   topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
@@ -146,6 +146,12 @@ check(
     && challenges.includes("localStorage.getItem('da-theme')")
     && challenges.includes('--paper:var(--bg'),
   'challenges supports the shared dark-mode preference',
+);
+const live = read('app/live.html');
+check(
+  challenges.indexOf('href="/live">Schedule</a>') < challenges.indexOf('href="/challenges" aria-current="page">Challenges</a>')
+    && live.indexOf('href="/live" aria-current="page">Schedule</a>') < live.indexOf('href="/challenges">Challenges</a>'),
+  'both paired page switches put Schedule before Challenges',
 );
 check(inlineScriptsParse('app/challenges.html'), 'app/challenges.html inline scripts parse');
 
