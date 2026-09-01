@@ -71,6 +71,7 @@ const profile = read('app/profile.html');
 check(!profile.includes('Format hopper'), 'profile no longer offers the impossible format quest');
 check(!profile.includes('two different formats'), 'profile has no cross-format completion condition');
 check(profile.includes("title:'Run it back'") && profile.includes('today.length >= 2'), 'replacement daily quest is achievable in casual rounds');
+check(/onAuthStateChanged\(u\s*=>\s*\{[\s\S]{0,300}if\(!u\s*\|\|\s*u\.isAnonymous\)\{\s*renderSignedOut\(\)/.test(profile), 'anonymous Firebase identities see the signed-out profile state');
 
 const onboarding = read('app/js/onboarding.js');
 const native = read('app/native.html');

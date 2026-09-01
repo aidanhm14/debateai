@@ -3544,7 +3544,10 @@ if(localNativePreview){
   }, {});
 } else if(auth){
   auth.onAuthStateChanged(u => {
-    if(!u){ renderSignedOut(); return; }
+    // Firebase may restore a guest shadow identity minted elsewhere on the
+    // site. It has no durable account history and must not render the same
+    // dashboard shell as a named account.
+    if(!u || u.isAnonymous){ renderSignedOut(); return; }
     loadProfile(u);
     hydrateAiRating(u);
   });
