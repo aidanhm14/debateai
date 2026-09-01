@@ -198,7 +198,7 @@ export default async (request) => {
     const res = await sendEmail({
       to,
       subject: SUBJECT,
-      html: renderEmail({ firstName: 'debater', uid: 'test', tournamentName: 'The Debatable Open', leaderLine, signupCount: testCount }),
+      html: renderEmail({ firstName: 'there', uid: 'test', tournamentName: 'The Debatable Open', leaderLine, signupCount: testCount }),
       uid: 'test', stream: STREAM, from, replyTo: REPLY_TO,
     });
     return jsonResponse({ test: true, to, from, leaderLine: !!leaderLine, result: res }, 200, request);
@@ -270,7 +270,7 @@ export default async (request) => {
     }
     if (sent >= batch) continue;  // keep counting so `remaining` is honest
 
-    const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'debater';
+    const firstName = String((prof && prof.displayName) || user.displayName || '').trim().split(/\s+/)[0] || 'there';
     const res = await sendEmail({
       to: user.email,
       subject: SUBJECT,
