@@ -8751,12 +8751,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            of the globe and the stats and simplify the entire page"): the
            presence globe and BOTH caption figures (24h visits, sign-ups)
            are RETIRED from the first screen. The left column is headline +
-           Jump in + the Google row, nothing else. The globe IIFE near the
-           end of the document early-returns when #heroGlobeCanvas is
-           absent, so the presence-live and public-join-history fetches die
-           with the markup and no dead requests ship. The .fs-globe /
-           .story-globe CSS is left dormant so restoring is re-adding this
-           markup. /atlas still holds the live map for anyone who wants it. -->
+           Jump in + the Google row, nothing else. The .fs-globe /
+           .story-globe CSS is left dormant.
+           SAME DAY, second call: the globe came BACK, but next to the
+           leaderboard, not here — #heroGlobeCanvas now lives in
+           #ranked-band with a 48h "users" caption. Do not re-add a second
+           canvas in this slot; the IIFE mounts the first #heroGlobeCanvas
+           it finds. -->
     </div>
 
 
@@ -9948,6 +9949,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .rb-action--primary{border-color:var(--accent-solid,#b91c1c);background:var(--accent-solid,#b91c1c);color:#fff}
       .rb-action:hover{transform:translateY(-2px);border-color:var(--accent-solid,#b91c1c)}
       .rb-action--primary:hover{background:#991b1b}
+      /* Board + globe side by side. The globe column is deliberately
+         WIDE (up to 480px, bigger than the retired hero globe ever was)
+         per the founder 2026-09-01; the board keeps whatever is left.
+         align-items:center so the sphere floats beside the middle of
+         the board rather than hanging off its top edge. */
+      .rb-main{display:grid;grid-template-columns:minmax(0,1fr) clamp(340px,36vw,480px);gap:clamp(18px,2.6vw,34px);align-items:center}
+      .rb-globe{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+      /* aspect-ratio + min sizes reserve the square before the canvas
+         backing buffer is sized (same first-paint race the hero wrap
+         guarded against). */
+      .rb-globe-canvas-wrap{position:relative;display:flex;justify-content:center;align-items:center;width:100%;max-width:480px;aspect-ratio:1;min-width:240px;min-height:240px}
+      .rb-globe-canvas{width:100%;height:100%;display:block;-webkit-mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%);mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%)}
+      .rb-globe-caption{margin:0;max-width:420px;text-align:center;font-size:.92rem;line-height:1.5;color:var(--text-dim,#4b443d)}
+      .rb-globe-caption b{color:var(--accent-solid,#b91c1c);font-variant-numeric:tabular-nums}
+      @media(max-width:980px){
+        .rb-main{grid-template-columns:1fr;gap:22px}
+        .rb-globe-canvas-wrap{max-width:320px;min-width:0;min-height:200px}
+      }
       .rb-stage{position:relative;overflow:hidden;padding:12px;border:1px solid rgba(104,91,75,.16);border-radius:16px;background:#fff;box-shadow:0 18px 46px -34px rgba(35,24,12,.28);color:#1a1a1f}
       .rb-stage::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--accent-solid,#b91c1c)}
       #ranked-band .rb-board{display:flex;flex-direction:column;gap:6px}
@@ -9995,6 +10014,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       :is([data-theme="dark"],[data-theme="crimson"],[data-theme="grey"],[data-theme="stone"]) #ranked-band .rb-load-row i{background:linear-gradient(90deg,rgba(255,255,255,.055),rgba(255,255,255,.13),rgba(255,255,255,.055));background-size:220% 100%}
       :is([data-theme="dark"],[data-theme="crimson"],[data-theme="grey"],[data-theme="stone"]) #ranked-band .rb-empty{border-color:rgba(255,255,255,.18);color:#a99c96}
       :is([data-theme="dark"],[data-theme="crimson"],[data-theme="grey"],[data-theme="stone"]) #ranked-band .rb-empty b{color:#fff}
+      :is([data-theme="dark"],[data-theme="crimson"],[data-theme="grey"],[data-theme="stone"]) #ranked-band .rb-globe-caption{color:rgba(245,239,231,.78)}
+      :is([data-theme="dark"],[data-theme="crimson"],[data-theme="grey"],[data-theme="stone"]) #ranked-band .rb-globe-caption b{color:#ef4444}
       @keyframes rbShimmer{to{background-position:-220% 0}}
       @keyframes rbAvaSpin{to{transform:rotate(360deg)}}
       @keyframes rbAvaBreathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
@@ -10036,8 +10057,25 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a class="rb-action" href="/leaderboard" data-rb="all-standings">View all standings</a>
         </div>
       </header>
-      <div class="rb-stage">
-        <div id="rbBoard" aria-live="polite" aria-busy="true"></div>
+      <div class="rb-main">
+        <div class="rb-stage">
+          <div id="rbBoard" aria-live="polite" aria-busy="true"></div>
+        </div>
+        <!-- 2026-09-01, per the founder ("bring the globe back and put it
+             next to the leaderboard - make the globe bigger"): the live
+             presence globe returns, beside the board instead of in the
+             hero it was retired from earlier the same day. Same
+             #heroGlobeCanvas / #globeLiveCaption ids — the dormant globe
+             IIFE near the end of the document finds them wherever they
+             live in the DOM, so re-adding this markup is what revives it.
+             Pins + the caption count are the 48h presence window
+             (/api/presence-live online48). -->
+        <aside class="rb-globe" aria-label="Where people have been on Debatable in the last 48 hours">
+          <div class="rb-globe-canvas-wrap">
+            <canvas id="heroGlobeCanvas" class="rb-globe-canvas" aria-hidden="true"></canvas>
+          </div>
+          <p class="rb-globe-caption" id="globeLiveCaption"></p>
+        </aside>
       </div>
     </div>
   </section>
@@ -19638,41 +19676,39 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // populate instead of the handful live at this exact minute. Caption
     // says "active today" and the payload's online24 is the count.
     var LIVE = [];
-    // 2026-08-31, founder: "make them real numbers... i want a
-    // transparent sharing of data/info from the site." The caption is
-    // now MEASURED ONLY. This retires the 2026-08-27 "+200" display
-    // uplift (LANDING_VISIT_UPLIFT is gone; do not restore a pad, a
-    // floor, or a multiplier here) and it RESTORES the sign-up figure
-    // the 2026-08-22 cut removed, this time as the real Auth-derived
-    // named-account total from /api/public-join-history. Anonymous uids
-    // are never counted; the provider split stays off the public caption.
-    // The word is "visits", not "people": the payload counts SESSIONS,
-    // and a sid is per-tab and per-visit, so one person in two tabs is
-    // two and a return after lunch is two. Do not put a person-noun back
-    // on this number unless presence-live starts counting people.
-    // Since 2026-08-27 online24 is measured only and excludes suspicious
-    // city-cell bursts. A zero renders nothing rather than "0 visits":
-    // a quiet globe with no caption is the honest quiet state.
+    // 2026-09-01: the globe lives beside the leaderboard now (see
+    // #ranked-band), captioned over the 48-HOUR window per the founder
+    // ("have it say users in last 48 hours and map it on the map").
+    // /api/presence-live gained online48 for it; the pins span the same
+    // 48h. The number is still MEASURED ONLY — the 2026-08-31 real-only
+    // rule stands, no pad, floor or multiplier here. The noun "users"
+    // is the founder's explicit wording; the payload still counts
+    // quality-filtered SESSIONS (a sid is per-tab and per-visit), so
+    // one person on two devices is two. The 2026-08-31 sign-up
+    // transparency line (real Auth-derived named-account total, no
+    // provider split, pinned by scripts/test-seo-brand-entity.mjs)
+    // rides beneath it as a second line. A zero renders nothing rather
+    // than "0 users": a quiet globe with no caption is the honest
+    // quiet state.
     var liveCaption = document.getElementById('globeLiveCaption');
-    var capVisits = '';
+    var capUsers = '';
     var capSignups = '';
     function paintCaption(){
       if (!liveCaption) return;
-      liveCaption.innerHTML = capVisits + capSignups;
+      liveCaption.innerHTML = capUsers + capSignups;
     }
     function setLiveCaption(measuredCount){
       if (typeof measuredCount !== 'number') return;
       var count = Math.max(0, Math.floor(measuredCount));
-      capVisits = count > 0
-        ? '<span style="display:block"><b style="color:var(--accent,#ef4444)">' + count +
-          ' ' + (count===1?'visit':'visits') + '</b> in the last 24 hours.</span>'
+      capUsers = count > 0
+        ? '<span style="display:block"><b>' + count + ' ' + (count===1?'user':'users') +
+          '</b> in the last 48 hours, mapped live.</span>'
         : '';
       paintCaption();
     }
-    // Real sign-up transparency line: total named accounts with the
-    // Google vs email split, straight from the 1h-cached Auth walk.
-    // No fallback figure on purpose: a failed fetch shows nothing
-    // rather than a stale claim.
+    // Real sign-up transparency line: total named accounts, straight
+    // from the 1h-cached Auth walk. No fallback figure on purpose: a
+    // failed fetch shows nothing rather than a stale claim.
     fetch('/api/public-join-history', { credentials: 'omit' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
@@ -19690,8 +19726,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         LIVE = Array.isArray(d.pins) ? d.pins.filter(function(p){
           return typeof p.lat === 'number' && typeof p.lng === 'number';
         }) : [];
-        setLiveCaption(typeof d.online24 === 'number' ? d.online24 :
-          (typeof d.online30 === 'number' ? d.online30 : LIVE.length));
+        setLiveCaption(typeof d.online48 === 'number' ? d.online48 :
+          (typeof d.online24 === 'number' ? d.online24 : LIVE.length));
         // Repaint paused/static globes (reduced motion, offscreen) so
         // fresh pins land without waiting on the rAF loop.
         if (!rafId) draw();

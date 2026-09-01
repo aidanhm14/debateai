@@ -43,19 +43,23 @@ import {
   publicPresencePin,
 } from './lib/presence-quality.mjs';
 
-// 2026-08-01: the pin window widened from 30 minutes to 24 hours. On this
-// traffic base a 30-min window painted an almost-empty globe most of the
-// day, which reads as a dead product rather than an honest one. A day is
-// still a real, defensible "recently" (every pin is a real visit), and it
-// is inside the 48h sweep horizon so no extra retention is needed. The
-// 5-min and 30-min counts are still computed and returned for anything
-// that wants the narrower read.
-const WINDOW_MS = 24 * 60 * 60 * 1000; // pins = seen in the last 24 hours
+// 2026-08-01: the pin window widened from 30 minutes to 24 hours.
+// 2026-09-01, per the founder (the globe returns beside the landing
+// leaderboard captioned over 48 hours): the query window widens to 48h,
+// which is exactly the sweep horizon, so retention needs nothing extra —
+// the sweep only deletes docs that have already left this window. The
+// payload gains `online48`; `online24` / `online30` / `online5` keep
+// their old meanings, computed per doc inside the wider scan, so /spar,
+// /atlas and admin keep reading the same numbers they always did. The
+// per-day cell-quality thresholds also keep their daily semantics: see
+// the split below before "simplifying" the counts into one field.
+const WINDOW_MS = 48 * 60 * 60 * 1000; // pins = seen in the last 48 hours
+const DAY_MS = 24 * 60 * 60 * 1000;
 const THIRTY_MIN = 30 * 60 * 1000;
 const FIVE_MIN = 5 * 60 * 1000;
 // Versioned so a deploy cannot serve a five-minute cached payload built by
-// the retired padded/burst-permissive code.
-const CACHE_KEY = 'presence-live:pins:trusted-v1';
+// the retired padded/burst-permissive code (v2: 48h window + online48).
+const CACHE_KEY = 'presence-live:pins:trusted-v2';
 // 2026-08-14: 60s -> 5min. A cache MISS scans up to MAX_DOCS documents, so
 // the read bill is (misses per day) x (docs in the 24h window). At a 60s TTL
 // with a bot inflating the window to ~750 docs that was on the order of
@@ -266,11 +270,18 @@ export default async (request, context) => {
         const p = d.data();
         if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
         const key = p.lat + ',' + p.lng;
+        // `n` stays the LAST-24H count on purpose: the cell-quality
+        // thresholds in presence-quality.mjs are written per day
+        // ("twelve distinct tabs in one day"), and publicPresencePin
+        // re-runs the same check. Feeding it the 48h total would
+        // silently halve the daily ceiling. The wider figure rides
+        // `n48`, which the quality lib ignores.
         const cell = byCell.get(key) || {
           lat: p.lat, lng: p.lng, city: p.city || '', country: p.country || '',
-          n: 0, n30: 0, n5: 0, lastSeen: 0,
+          n: 0, n48: 0, n30: 0, n5: 0, lastSeen: 0,
         };
-        cell.n += 1;
+        cell.n48 += 1;
+        if (now - p.lastSeen <= DAY_MS) cell.n += 1;
         if (now - p.lastSeen <= THIRTY_MIN) cell.n30 += 1;
         if (now - p.lastSeen <= FIVE_MIN) cell.n5 += 1;
         cell.lastSeen = Math.max(cell.lastSeen || 0, Number(p.lastSeen) || 0);
@@ -278,12 +289,16 @@ export default async (request, context) => {
         byCell.set(key, cell);
       });
 
+      let online48 = 0;
       let online24 = 0;
       let online30 = 0;
       let online5 = 0;
       const pins = [];
       Array.from(byCell.values()).forEach((cell) => {
-        if (isSuspiciousPresenceCell(cell)) {
+        // The day-2 half of the window gets the same daily ceiling the
+        // quality lib applies to day 1, so a burst 30 hours ago cannot
+        // ride into the 48h count just because it aged past the filter.
+        if (isSuspiciousPresenceCell(cell) || (cell.n48 - cell.n) >= 12) {
           // Loud on purpose. The raw rows stay available for forensics, but
           // a synchronized cell cannot become a public bubble or count.
           console.warn(
@@ -293,6 +308,7 @@ export default async (request, context) => {
           );
           return;
         }
+        online48 += cell.n48;
         online24 += cell.n;
         online30 += cell.n30;
         online5 += cell.n5;
@@ -302,6 +318,7 @@ export default async (request, context) => {
 
       const payload = {
         pins,
+        online48,
         online24,
         online30,
         online5,

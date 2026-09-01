@@ -150,7 +150,7 @@ test('server write has automation and shared-rate gates', () => {
 });
 
 test('server read uses a fresh cache namespace and cell quarantine', () => {
-  assert.match(endpoint, /presence-live:pins:trusted-v1/);
+  assert.match(endpoint, /presence-live:pins:trusted-v2/);
   assert.match(endpoint, /isSuspiciousPresenceCell\(cell\)/);
   assert.match(endpoint, /const pin = publicPresencePin\(cell\)/);
 });
