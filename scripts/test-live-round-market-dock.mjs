@@ -38,6 +38,15 @@ check('live header carries spectator context',
   /id="spectatorMatchup"/.test(page)
   && /id="spectatorJudge"/.test(page)
   && /id="spectatorPrep"/.test(page));
+check('collapsed token market leads with the action and balance',
+  /id="audienceToolsLabel">Bet on yourself - Tokens</.test(page)
+  && /class="atb-have">You have</.test(page)
+  && /id="audienceTokensBalance">1K</.test(page)
+  && /class="atb-cash"[^>]*>\$\$</.test(page));
+check('collapsed token balance follows server state',
+  /function pmUpdateSummary\(balance\)/.test(page)
+  && /pmUpdateSummary\(d&&d\.balance\)/.test(page)
+  && /pmUpdateSummary\(d\.balance\)/.test(page));
 check('audience mode sets the spectator layout class',
   /document\.body\.classList\.add\('spectator-mode'\)/.test(page)
   && /document\.body\.classList\.toggle\('spectator-mode', spectator\)/.test(page));

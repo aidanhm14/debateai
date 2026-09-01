@@ -3651,7 +3651,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
            call. Spectator-only, so the section stays hidden until
            svDock() mounts something into it. -->
       <details class="round-details" id="audienceTools" hidden>
-        <summary>Audience<span class="rd-status" id="audienceToolsStatus"></span></summary>
+        <summary><span id="audienceToolsLabel">Bet on yourself - Tokens</span><span class="rd-status audience-token-balance" id="audienceToolsStatus" aria-label="You have 1,000 play tokens. No cash value."><span class="atb-have">You have</span><b id="audienceTokensBalance">1K</b><span class="atb-cash" aria-hidden="true">$$</span></span></summary>
         <div class="rd-body" id="audienceToolsBody"></div>
       </details>
 
@@ -11985,6 +11985,22 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // one thing that decides whether the opponent's button is live, and it is
   // re-read rather than cached because seats can swap up until speech one.
   function pmOwnSide(){ return pmIsDebater() ? mySide() : null; }
+  function pmCompactBalance(value){
+    var n=Math.max(0,Math.floor(Number(value)||0));
+    if(n>=1000000){ var m=Math.round(n/100000)/10; return String(m).replace(/\.0$/,'')+'M'; }
+    if(n>=1000){ var k=Math.round(n/100)/10; return String(k).replace(/\.0$/,'')+'K'; }
+    return n.toLocaleString();
+  }
+  function pmUpdateSummary(balance){
+    var label=document.getElementById('audienceToolsLabel');
+    if(label) label.textContent=pmOwnSide()?'Bet on yourself - Tokens':'Bet on this round - Tokens';
+    if(balance==null||!isFinite(Number(balance))) return;
+    var n=Math.max(0,Math.floor(Number(balance)||0));
+    var out=document.getElementById('audienceTokensBalance');
+    var stat=document.getElementById('audienceToolsStatus');
+    if(out) out.textContent=pmCompactBalance(n);
+    if(stat){ stat.hidden=false; stat.setAttribute('aria-label','You have '+n.toLocaleString()+' play tokens. No cash value.'); stat.title=n.toLocaleString()+' play tokens. No cash value.'; }
+  }
   function pmRenderPanel(){
     if (pmPanel) return;
     var el=document.createElement('div'); el.id='pmPanel';
@@ -11998,7 +12014,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" aria-label="Play token stake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Bet tokens</button></div>'+
       '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>'+
       '<div style="font-size:.64rem;color:var(--text-dim);line-height:1.4;margin-top:7px">Free play tokens only. 18+. Eligible regions only. No cash value.</div>';
-    svDock().appendChild(el); pmPanel=el;
+    svDock().appendChild(el); pmPanel=el; pmUpdateSummary(null);
     el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
   }
   function pmPoll(){
@@ -12032,7 +12048,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
   function pmSubmitBet(stake,btn,retried){
     pmCall({action:'bet',room:state.room,pick:pmPick,stake:stake}).then(function(d){
-      if(d&&d.ok){ pmHasBet=true; var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' tokens</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' tokens left.'; if(btn){ btn.textContent='Bet in'; } return; }
+      if(d&&d.ok){ pmHasBet=true; pmUpdateSummary(d.balance); var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' tokens</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' tokens left.'; if(btn){ btn.textContent='Bet in'; } return; }
       if(d&&d.code==='no_attestation'&&!retried){
         pmConfirmAge().then(function(ok){ if(ok) pmSubmitBet(stake,btn,true); else if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
         return;
@@ -12042,6 +12058,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
   }
   function pmUpdate(d){
+    pmUpdateSummary(d&&d.balance);
     if(!pmPanel||!d.market) return;
     var m=d.market, total=(m.poolPro||0)+(m.poolCon||0);
     var oPro=m.poolPro>0?(total/m.poolPro).toFixed(2)+'x':'—', oCon=m.poolCon>0?(total/m.poolCon).toFixed(2)+'x':'—';
@@ -12212,8 +12229,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       var det = document.getElementById('audienceTools');
       if (det){
         det.hidden = false;
-        var stat = document.getElementById('audienceToolsStatus');
-        if (stat) stat.textContent = 'live market · your call';
+        if(!state.user){
+          var label=document.getElementById('audienceToolsLabel');
+          var stat=document.getElementById('audienceToolsStatus');
+          if(label) label.textContent='Audience';
+          if(stat) stat.hidden=true;
+        }
       }
       return d;
     }
@@ -20811,6 +20832,16 @@ body.lr-mini .rmb-vidtoggle,body.lr-pip .rmb-vidtoggle{display:none}
   margin-left:auto;font-size:.68rem;font-weight:650;letter-spacing:0;
   color:var(--text-dim);text-align:right;
 }
+#audienceTools .audience-token-balance{
+  display:inline-flex;align-items:center;gap:5px;flex:none;
+  padding:5px 9px;border-radius:999px;background:#15803d;color:#fff;
+  box-shadow:0 3px 10px rgba(21,128,61,.24);
+  font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+#audienceTools .audience-token-balance .atb-have{font-size:.57rem;font-weight:700;opacity:.82}
+#audienceTools .audience-token-balance b{font-size:.76rem;font-weight:900}
+#audienceTools .audience-token-balance .atb-cash{font-size:.62rem;font-weight:900;letter-spacing:-.08em}
 .round-details .round-edit-bar{margin:0}
 .round-details .rd-note{margin:0;font-size:.74rem;line-height:1.5;color:var(--text-dim);opacity:.85}
 /* Inside a disclosure the aides are already framed, so drop their own
