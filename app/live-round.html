@@ -152,6 +152,7 @@ html{font-size:17px}
   --shadow-lg:0 18px 60px rgba(0,0,0,.45);
   --bar-bg:rgba(10,10,12,.92);
   --ui-surface:#15151a;--ui-soft:rgba(255,255,255,.045);--ui-accent-soft:rgba(239,68,68,.08);
+  --resolution-font:'Oswald','Arial Narrow',Arial,sans-serif;
 }
 [data-theme="crimson"]{
   /* Contrast bumps to match landing's crimson pass: secondary text
@@ -3233,7 +3234,7 @@ html.stage-mode .stage-ov{display:block}
 body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
 
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Oswald:wght@500..700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
   <!-- Tells every OTHER tab this person is mid-round, so nothing sitewide
        invites them into a second one. See js/round-presence.js. -->
   <script defer src="/js/round-presence.js"></script>
@@ -5332,6 +5333,53 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     setTimeout(function(){ ov.classList.add('to-out'); }, 1700);
     setTimeout(function(){ if (ov && ov.parentNode) ov.remove(); }, 2300);
   }
+
+  // The resolution gets one entrance beat of its own whenever the text in
+  // force changes. Web Animations is deliberate here: anim-governor pauses
+  // off-screen CSS animations on this camera-heavy page. A transition held
+  // at its first frame could leave the proposition shifted for as long as
+  // the panel is out of view. WAAPI has no persistent fill, and the base
+  // style is the final visible state even if the animation never runs.
+  var resolutionPopAnimation = null;
+  var resolutionPopText = '';
+  var resolutionPopFrame = 0;
+  function revealResolution(force){
+    var motion = document.getElementById('rmbMotion');
+    var bar = document.getElementById('roundMotionBar');
+    if (!motion || !bar || document.activeElement === motion) return;
+    var text = (motion.textContent || '').trim();
+    if (!text || text === '—' || text === '(motion not set)') return;
+    if (document.body.classList.contains('drafting')){
+      bar.setAttribute('data-resolution-pop-pending','1');
+      return;
+    }
+    if (!force && text === resolutionPopText) return;
+    resolutionPopText = text;
+    bar.removeAttribute('data-resolution-pop-pending');
+    if (!bar.animate || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    try { if (resolutionPopAnimation) resolutionPopAnimation.cancel(); } catch(e){}
+    resolutionPopAnimation = bar.animate([
+      { transform:'translateY(22px) scale(.985)' },
+      { transform:'translateY(-3px) scale(1.004)', offset:.72 },
+      { transform:'translateY(0) scale(1)' }
+    ],{
+      duration:620,
+      easing:'cubic-bezier(.16,1,.3,1)',
+      fill:'none'
+    });
+  }
+  window.__lrRevealResolution = revealResolution;
+  (function watchResolutionText(){
+    var motion = document.getElementById('rmbMotion');
+    if (!motion || !window.MutationObserver) return;
+    new MutationObserver(function(){
+      if (resolutionPopFrame) cancelAnimationFrame(resolutionPopFrame);
+      resolutionPopFrame = requestAnimationFrame(function(){
+        resolutionPopFrame = 0;
+        revealResolution(false);
+      });
+    }).observe(motion,{childList:true,characterData:true,subtree:true});
+  })();
 
   function renderRound(){
     var f = FORMATS[state.formatKey];
@@ -15274,9 +15322,16 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       var host = dfHost();
       var d = dfDraft();
       if (!d || !dfPending() || state.phase === 'ballot' || state.speechIdx > 0){
+        var wasDrafting = document.body.classList.contains('drafting');
         host.className = 'draft-board hidden';
         host.innerHTML = '';
         document.body.classList.remove('drafting');
+        // The settled resolution is the last beat of the draft. If its
+        // text arrived while the modal board covered the room, reveal it
+        // now rather than spending the pop underneath an invisible bar.
+        if (wasDrafting && window.__lrRevealResolution){
+          requestAnimationFrame(function(){ window.__lrRevealResolution(true); });
+        }
         if (dfTimer){ clearInterval(dfTimer); dfTimer = 0; }
         return;
       }
@@ -20658,20 +20713,51 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
 /* ── 1. Resolution header. The motion and a second synchronized clock are
       the two dominant facts. The full speech header keeps its own clock so
       the time remains visible even when one of the two areas scrolls away. */
+#roundView > .round-motion-bar{
+  /* The rest of the console keeps its comfortable 1100px reading measure.
+     The resolution is the exception: it is the proposition the whole room
+     is built around, so it uses the full panel instead of stopping halfway
+     across a wide screen. */
+  width:100%;max-width:none;margin-left:0;margin-right:0;
+}
 .round-motion-bar{
-  padding:15px 24px 14px;gap:10px;
-  background:var(--ui-surface);
-  border-left:0;border-bottom:1px solid var(--border);
+  position:relative;isolation:isolate;overflow:clip;
+  padding:clamp(20px,2.6cqi,38px) clamp(22px,3.4cqi,52px) clamp(22px,2.9cqi,42px);gap:12px;
+  background:
+    radial-gradient(circle at 8% 0%,var(--accent-glow),transparent 34%),
+    var(--ui-surface);
+  border-left:0;border-top:1px solid var(--border-strong);border-bottom:1px solid var(--border-strong);
+  box-shadow:0 14px 36px rgba(0,0,0,.16);
   align-items:flex-start;
 }
+.round-motion-bar::before{
+  content:'';position:absolute;z-index:-1;left:clamp(22px,3.4cqi,52px);top:0;
+  width:clamp(64px,8cqi,118px);height:4px;border-radius:0 0 999px 999px;
+  background:var(--accent,#ef4444);box-shadow:0 0 24px var(--accent-glow);
+}
 .round-motion-bar .rmb-eyebrow{
-  font-size:.6rem;letter-spacing:.13em;margin-bottom:5px;
+  font-size:.64rem;letter-spacing:.18em;margin-bottom:10px;
   flex-wrap:wrap;gap:7px;
 }
 .round-motion-bar .rmb-motion{
-  font-size:clamp(1.75rem,4cqi,2.65rem);
-  font-weight:800;line-height:1.08;letter-spacing:-.025em;
+  font-family:var(--resolution-font);
+  font-size:clamp(2.35rem,5.2cqi,4.35rem);
+  font-weight:650;line-height:1.01;letter-spacing:.005em;
+  max-width:none;text-wrap:balance;
 }
+/* The spectator layout declares a smaller headline in an earlier block.
+   Keep the compact grid, but not its old ordinary-UI type treatment. */
+body.spectator-mode .round-motion-bar .rmb-motion{
+  font-family:var(--resolution-font);
+  font-size:clamp(2.35rem,5.2cqi,4.35rem);
+  font-weight:650;line-height:1.01;letter-spacing:.005em;
+}
+.rmb-propose .rmbp-motion,.sov-motion,.lrd-res #lrdRes,.motion-display{
+  font-family:var(--resolution-font);
+}
+.rmb-propose .rmbp-motion{font-weight:600;letter-spacing:.005em}
+.sov-motion{font-weight:600;letter-spacing:.01em}
+.lrd-res #lrdRes{font-weight:600;letter-spacing:.01em}
 .rmb-lock-note{
   font-size:.62rem;font-weight:650;letter-spacing:.01em;text-transform:none;
   color:var(--text-dim);opacity:.8;
@@ -20895,7 +20981,8 @@ body.lr-modal-open .panel{overflow:hidden}
   .jitsi-pane{height:34vh;min-height:200px}
 }
 @media(max-width:760px){
-  .round-motion-bar{padding:13px 16px}
+  .round-motion-bar{padding:18px 16px 20px}
+  .round-motion-bar::before{left:16px;width:64px}
   .speech-header{padding:13px 16px 15px;gap:12px}
   .speech-clock{padding:12px 0 0}
   .round-details{margin:0 16px 12px}
@@ -20940,15 +21027,15 @@ body.lr-modal-open .panel{overflow:hidden}
 @container round-panel (max-width:520px){
   .rmb-motion-row{grid-template-columns:minmax(0,1fr);gap:12px}
   .round-motion-bar .rmb-motion{
-    max-width:none;font-size:clamp(1.7rem,7cqi,2.05rem);
-    overflow-wrap:anywhere;text-wrap:pretty;
+    max-width:none;font-size:clamp(1.95rem,8.2cqi,2.55rem);
+    line-height:1.04;overflow-wrap:anywhere;text-wrap:pretty;
   }
   .rmb-motion-actions{min-width:0;justify-content:flex-start}
   .rmb-timer{min-width:108px;align-items:flex-start}
   .rmb-timer-num{font-size:1.65rem}
 }
 @container round-panel (max-width:360px){
-  .round-motion-bar .rmb-motion{font-size:clamp(1.5rem,7.5cqi,1.75rem)}
+  .round-motion-bar .rmb-motion{font-size:clamp(1.75rem,8.5cqi,2.05rem)}
   .rmb-motion-actions{align-items:stretch;flex-direction:column}
   .rmb-timer{width:100%}
 }
