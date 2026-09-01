@@ -93,12 +93,23 @@ check('every structured FAQ question is visible on the page',
 check('visible brand page carries the same round answer',
   about.includes('<h2>What kind of round does Debatable use?</h2>')
   && about.includes('Every public round is a casual 1v1.'));
-// 2026-08-31: the founder reversed the 2026-08-22 anonymity call, halfway
-// on purpose. The NAME (and photo) are sanctioned public identity again,
-// so the landing is expected to carry it; the CREDENTIAL stack and the
-// personal tracker/profile links stay banned on his explicit instruction.
-check('the landing names the founder (2026-08-31 reversal)',
-  /Aidan/.test(landing));
+// Founder identity remains sanctioned on public surfaces, but the landing
+// note is deliberately text-only: no portrait or named signature here.
+check('the landing founder quote is short and text-only',
+  /Quote from the founder/.test(landing)
+  && /A good argument is a beautiful thing\. Debatable gives anyone a place to test an idea, take a side, and enjoy the game\./.test(landing)
+  && !/class="fndr-photo"/.test(landing)
+  && !/<b>Aidan<\/b>/.test(landing));
+check('the public signup caption uses only the named-account total',
+  /' sign-ups<\/b> so far\.<\/span>'/.test(landing)
+  && !/' with Google, '/.test(landing)
+  && !/' with email\.<\/span>'/.test(landing));
+check('example resolutions alternate red and black in italic type',
+  /\.fs-board \.fs-motion\{[^}]*font-style:italic/.test(landing)
+  && /classList\.toggle\('is-alt-red', i % 2 === 0\)/.test(landing));
+check('example portraits render without the retired grain and colour filter',
+  !/\.fs-tile::after\{/.test(landing)
+  && !/\.fs-tile img\{[^}]*filter:/.test(landing));
 check('public identity surfaces do not restore the retired credential stack',
   !/(APDA|Pro-?Ams)\s+champion|champion\s+at\s+UChicago|results\.apda\.online|linkedin\.com\/in\/aidan/i.test(landing + about + press + llms));
 check('brand page disambiguates similarly named products',

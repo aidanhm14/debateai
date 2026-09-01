@@ -166,6 +166,10 @@
   // the founder has cut twice.
   var locked = false;
   var lockCopy = null;
+  // Some product doors are provider-specific. /spar live video is Google-
+  // only, so its automatic prompt reuses this card without advertising an
+  // email path that the destination would reject.
+  var googleOnly = false;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
   function esc(v) {
     return String(v == null ? '' : v)
@@ -193,6 +197,7 @@
     }
     locked = false;
     lockCopy = null;
+    googleOnly = false;
     try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
@@ -358,7 +363,7 @@
     // the binary, not the website. Restoring it on web is one condition
     // (__DB_NATIVE) plus registering the sender with Apple so relay mail
     // is deliverable, in that order.
-    var nativeButtons = window.__DB_NATIVE
+    var nativeButtons = window.__DB_NATIVE && !googleOnly
       ? '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>'
       : '';
     // See isInAppBrowser(). Google and Apple are still rendered rather than
@@ -366,7 +371,9 @@
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. Use your email below, or open the site in Safari or Chrome. <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
+      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
+        (googleOnly ? 'Open the site in Safari or Chrome.' : 'Use your email below, or open the site in Safari or Chrome.') +
+        ' <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
     var acceptedTerms = termsAccepted();
     // A locked chooser has no close control at all. Rendering a dead × is
@@ -400,7 +407,7 @@
       '<label class="da-terms"><input id="daTerms" type="checkbox" ' + (acceptedTerms ? 'checked ' : '') + '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. Debatable has zero tolerance for objectionable content or abusive users.</span></label>' +
       nativeButtons +
       '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>' +
-      '<div class="da-or">or use email</div>' +
+      (googleOnly ? '' : '<div class="da-or">or use email</div>' +
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
         '<label class="da-label" for="daEmail">Email</label>' +
@@ -426,7 +433,7 @@
             '<button type="button" class="da-link" id="daModeSwitch">' +
               (creating ? 'I already have a password' : 'No password yet? Create one') + '</button>') +
         '</p>' +
-      '</form>' +
+      '</form>') +
       '<div class="da-status" role="status"></div>' +
       '<div class="da-err" role="alert"></div>';
     var xBtn = c.querySelector('.da-x');
@@ -461,7 +468,8 @@
     syncTerms();
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
-    c.querySelector('#daEmailForm').addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
+    var emailForm = c.querySelector('#daEmailForm');
+    if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
     // Carry what has been typed across either switch. Retyping an address
     // because you changed your mind about passwords is the kind of small
     // tax that loses people at the last step.
@@ -480,7 +488,8 @@
     if (modeSwitch) modeSwitch.addEventListener('click', function () {
       reRender(creating ? 'signin' : 'signup', 'password');
     });
-    c.querySelector('#daEmailModeSwitch').addEventListener('click', function () {
+    var emailModeSwitch = c.querySelector('#daEmailModeSwitch');
+    if (emailModeSwitch) emailModeSwitch.addEventListener('click', function () {
       reRender(mode, linkMode ? 'password' : 'link');
     });
     if (c.querySelector('#daForgot')) c.querySelector('#daForgot').addEventListener('click', doPasswordReset);
@@ -1272,6 +1281,7 @@
     if (mode === 'signup' && lastMethod()) mode = 'signin';
     onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
     locked = !!(opts && opts.locked);
+    googleOnly = !!(opts && opts.googleOnly);
     lockCopy = (opts && (opts.headline || opts.sub))
       ? { headline: opts.headline || '', sub: opts.sub || '' }
       : null;

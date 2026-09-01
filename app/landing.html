@@ -8019,17 +8019,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-board .fs-nav{border-color:rgba(26,26,31,.22);color:rgba(26,26,31,.64)}
   .fs-nav:hover{border-color:#f5efe7;color:#f5efe7}
   [data-theme="light"] .fs-nav:hover{border-color:#1a1a1f;color:#1a1a1f}
-  .fs-board .fs-motion{margin:0 0 13px;font-family:var(--font-display);font-weight:700;
+  .fs-board .fs-motion{margin:0 0 13px;font-family:var(--font-display);font-weight:700;font-style:italic;
     font-size:clamp(1.08rem,1.65vw,1.4rem);line-height:1.22;letter-spacing:-.015em;color:#f5efe7;
     /* min-height holds two lines so a shorter motion does not bounce the
        whole board on every swap. */
     min-height:2.44em}
   [data-theme="light"] .fs-board .fs-motion{color:#1a1a1f}
-  /* A few open challenges trade the authored resolution for a wildcard.
-     Red makes the choice feel like a rare playable card in the shuffled
-     deck, not another completed round. */
-  .fs-board .fs-motion.is-open-topic{color:#f87171;text-shadow:0 0 22px rgba(239,68,68,.2)}
-  [data-theme="light"] .fs-board .fs-motion.is-open-topic{color:#dc2626;text-shadow:0 0 18px rgba(220,38,38,.12)}
+  /* 2026-08-31, Aidan: the resolutions alternate red and black every
+     time the board generates a new card. Dark themes use the board's
+     warm white for the black beat so the alternating rhythm stays
+     readable; light themes use literal black. */
+  .fs-board .fs-motion.is-alt-red{color:#ef4444;text-shadow:0 0 22px rgba(239,68,68,.2)}
+  [data-theme="light"] .fs-board .fs-motion.is-alt-red{color:#dc2626;text-shadow:0 0 18px rgba(220,38,38,.12)}
 
 
   /* Round panel: two tiles, the speaking one ringed. */
@@ -8037,15 +8038,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-tile{position:relative;aspect-ratio:16/11;border-radius:11px;overflow:hidden;background:#000;
     border:1px solid rgba(245,239,231,.16)}
   [data-theme="light"] .fs-tile{border-color:rgba(26,26,31,.14)}
-  .fs-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.95) contrast(1.03)}
-  /* 2026-08-24 ("make it match the vibe, not give ai"): a fine grain plus a
-     slight tone over every board tile pulls the cleaner generated faces toward
-     the captured-webcam look the real stills already have, so a mixed cast of
-     real and generated tiles reads as one wall of live rounds rather than a
-     set of portraits. Sits above the image, below the name/clock (z-index 2). */
-  .fs-tile::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size:140px 140px;opacity:.08;mix-blend-mode:overlay}
+  /* Preserve the approved source pixels. The old saturation/contrast filter
+     and generated grain softened already-small webcam crops. */
+  .fs-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
   .fs-tile--speaking{box-shadow:inset 0 0 0 2px rgba(239,68,68,.85)}
   .fs-board .fs-tile-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
     padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
@@ -9468,33 +9463,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      visitors who want the full tour, but it no longer competes for attention
      until they choose to open it. -->
 <!-- ── FOUNDER STRIP (2026-08-31) ─────────────────────────────────────
-     The soulless-read pass. Aidan reversed the 2026-08-22 anonymity
-     decision in this session: his NAME and PHOTO return to public
-     surfaces, and the credential stack (champion titles, school) stays
-     retired on his explicit instruction.
-     Do not re-anonymize this from the older soul.md entries, and do not
-     "restore" the credential from pre-08-22 copy. It sits ABOVE the
-     one-pager gate on purpose: the collapsed page is what most visitors
-     ever see, and a signed human sentence is the point of the pass. -->
-<section class="fndr" aria-label="From the founder">
+     This stays above the one-pager gate so the collapsed page carries a
+     human point of view. The landing treatment is text-only by Aidan's
+     later call: no portrait or named signature here, just "Quote from the
+     founder." Other sanctioned founder identity surfaces are unchanged,
+     and the retired credential stack stays retired. -->
+<section class="fndr" aria-label="Quote from the founder">
   <style>
-    /* 2026-08-31, Aidan off a live screenshot: "space this smarter".
-       Measured at 1600w before the fix: 96px of air above the card and
-       ZERO below it before the quick-door cards (pb was 6px), a 64px
-       photo pinned to the top corner of a 135px-tall 30px-type quote,
-       and 8px quote-to-signature. So: near-symmetric section padding
-       with real bottom air, the photo scaled to the type it signs and
-       vertically centered on the card, and a breath before the sig. */
+    /* The note keeps real bottom air before the quick-door cards and a
+       breath before the attribution line. */
     .fndr{padding:clamp(8px,1.2vw,16px) 20px clamp(22px,3vw,36px);background:var(--bg,#faf9f5)}
     /* 2026-08-31, Aidan: "widen it across the page". Matches the
        page's widest content band rather than the old 680px note width;
        the quote's type scales up with the line so it reads as a
        statement, not a stretched caption. */
-    .fndr-card{width:min(1240px,calc(100vw - 48px));position:relative;left:50%;transform:translateX(-50%);margin:0;display:flex;
-      gap:clamp(20px,2.4vw,34px);align-items:center}
-    .fndr-photo{flex:0 0 auto;width:clamp(76px,7vw,104px);height:auto;aspect-ratio:1/1;
-      border-radius:50%;object-fit:cover;
-      box-shadow:0 6px 18px rgba(26,18,18,.18)}
+    .fndr-card{width:min(1240px,calc(100vw - 48px));position:relative;left:50%;transform:translateX(-50%);margin:0}
     .fndr-body{min-width:0}
     /* .fndr prefix on the text rules is load-bearing: the page carries
        `[data-theme="light"] section p` at (0,1,2), which beats a lone
@@ -9519,19 +9502,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     :root[data-theme="crimson"] .fndr .fndr-sig a,
     :root[data-theme="grey"] .fndr .fndr-sig a,
     :root[data-theme="stone"] .fndr .fndr-sig a{color:#fca5a5}
-    @media (max-width:560px){
-      .fndr-card{gap:14px}
-      .fndr-photo{width:56px}
-    }
   </style>
   <div class="fndr-card">
-    <img class="fndr-photo" src="/img/team/aidan.jpg" alt="Aidan, founder of Debatable" width="64" height="64" loading="lazy">
     <div class="fndr-body">
-      <p class="fndr-quote">I want to see more people engaging in the art of argument. Debatable is designed for anyone, former debater or aspiring arguer, to argue an opinion or a formal case for the fun of the game.</p>
-      <!-- 2026-08-31 per the founder ("delete these"): "The team" and
-           "Watch real rounds" links cut from the sig row; both pages stay
-           live and reachable from the footer. -->
-      <p class="fndr-sig"><b>Aidan</b> founder <a href="/story">Why this exists</a></p>
+      <p class="fndr-quote">A good argument is a beautiful thing. Debatable gives anyone a place to test an idea, take a side, and enjoy the game.</p>
+      <p class="fndr-sig"><b>Quote from the founder</b> <a href="/story">Why this exists</a></p>
     </div>
   </div>
 </section>
@@ -10932,11 +10907,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      generated bank behind them. The generated faces were re-reviewed and read
      as real webcam frames (real rooms, natural light, gestures), not AI, which
      is why they are back. Every motion, score and winner is byte-untouched;
-     only the two names per round and the verdict pronouns moved. A fine grain
-     plus a slight tone on .fs-tile (see the fs-tile CSS) pulls the cleaner
-     tiles toward the captured-webcam look so the wall reads as live rounds
-     rather than portraits. If the AI read ever returns, the fix is a new
-     consented batch, not deleting women from the board again.
+     only the two names per round and the verdict pronouns moved. The later
+     2026-08-31 quality pass removed the fine grain and colour filter so each
+     approved source renders cleanly. If the AI read ever returns, the fix is
+     a new consented batch, not deleting women from the board again.
      2026-08-27, per the founder: the first run of cards is explicitly adult
      political and culture-war material. `lead:true` is an editorial rail,
      not a duplicate or a weight. Each bucket still shuffles on every load,
@@ -11188,9 +11162,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'IShowSpeed', img:'ishowspeed' }, b:{ nm:'Open seat' } },
     { lead:true, kind:'challenge', fmt:'Open challenge', motion:'Streamers shape young men more than schools do.',
       a:{ nm:'Kai Cenat', img:'kaicenat' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
+    { lead:true, kind:'challenge', fmt:'Open challenge', motion:'Political streamers should disclose every financial conflict.',
       a:{ nm:'HasanAbi', img:'hasanabi' }, b:{ nm:'Open seat' } },
-    { lead:true, kind:'challenge', fmt:'Open challenge', motion:'Gambling sponsorships should be banned from streaming.',
+    { kind:'challenge', fmt:'Open challenge', motion:'Gambling sponsorships should be banned from streaming.',
       a:{ nm:'xQc', img:'xqc' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Parasocial attachment is bad for the people who feel it.',
       a:{ nm:'Pokimane', img:'pokimane' }, b:{ nm:'Open seat' } },
@@ -11723,7 +11697,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var r = ROUNDS[i];
     el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
     el.fsMotion.textContent = r.motion;
-    el.fsMotion.classList.toggle('is-open-topic', !!r.openTopic);
+    // The shuffled deck still alternates deterministically on screen:
+    // red, black, red, black, regardless of which card was dealt first.
+    el.fsMotion.classList.toggle('is-alt-red', i % 2 === 0);
 
     /* Challenge card. Everything a judged card asserts (a result, points,
        a clock, a viewer read) is absent here on purpose, so this branch
@@ -19623,8 +19599,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // uplift (LANDING_VISIT_UPLIFT is gone; do not restore a pad, a
     // floor, or a multiplier here) and it RESTORES the sign-up figure
     // the 2026-08-22 cut removed, this time as the real Auth-derived
-    // provider split from /api/public-join-history (named accounts
-    // only, anonymous uids never counted, Google vs email stated).
+    // named-account total from /api/public-join-history. Anonymous uids
+    // are never counted; the provider split stays off the public caption.
     // The word is "visits", not "people": the payload counts SESSIONS,
     // and a sid is per-tab and per-visit, so one person in two tabs is
     // two and a return after lunch is two. Do not put a person-noun back
@@ -19657,12 +19633,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .then(function(j){
         if (!j || !j.totals) return;
         var m = Math.max(0, parseInt(j.totals.members, 10) || 0);
-        var g = Math.max(0, parseInt(j.totals.google, 10) || 0);
-        var e = Math.max(0, parseInt(j.totals.email, 10) || 0);
         if (!m) return;
         capSignups = '<span style="display:block"><b>' + m.toLocaleString() +
-          ' sign-ups</b> so far: ' + g.toLocaleString() + ' with Google, ' +
-          e.toLocaleString() + ' with email.</span>';
+          ' sign-ups</b> so far.</span>';
         paintCaption();
       })
       .catch(function(){});

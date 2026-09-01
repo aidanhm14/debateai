@@ -3728,15 +3728,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
 
-  // REAL NUMBERS ONLY (2026-08-31, founder: "get rid of the bot
-  // numbers... make them real numbers"). This RETIRES the 2026-08-27
-  // founder-called 12 floor entirely (do not restore a floor constant,
-  // a pad, or a hardcoded fallback here). The pill shows the
-  // honest fresh waiting queue from /api/spar-queue (public, shared-
-  // cached 15s, same 120s heartbeat window as this page) and HIDES
-  // itself at zero: an empty queue shows no pill rather than an
-  // invented crowd. `live_display` in GA4 now equals `queue_waiting`,
-  // kept as a field so dashboards spanning the flip stay readable.
+  // CONVERSION DISPLAY (2026-08-31, founder: "have it say 4 live and add
+  // the number of actually live to that number"). The signed-out gate is
+  // the one explicit exception to the same-day raw-public-number rule.
+  // /api/spar-queue remains the real waiting count used operationally;
+  // only this conversion label renders 4 + waiting. GA4 keeps both values
+  // so the display and the measurement are never confused downstream.
+  var GATE_LIVE_BASE = 4;
   var gateLivePollTimer = null;
   var gateLiveViewTracked = false;
 
@@ -3745,15 +3743,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var text = document.getElementById('gateLiveText');
     if (!text) return;
     var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
-    if (queueWaiting > 0){
-      text.textContent = queueWaiting + ' live now';
-      if (pill) pill.hidden = false;
-    } else if (pill){
-      pill.hidden = true;
-    }
+    var liveDisplay = GATE_LIVE_BASE + queueWaiting;
+    text.textContent = liveDisplay + ' live now';
+    if (pill) pill.hidden = false;
     if (!gateLiveViewTracked){
       gateLiveViewTracked = true;
-      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: queueWaiting, queue_waiting: queueWaiting }); } catch(e){}
+      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: liveDisplay, queue_waiting: queueWaiting }); } catch(e){}
     }
   }
 
@@ -3815,8 +3810,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
         '<h2>Join a live debate.</h2>' +
         '<p>Continue with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>' +
-        // Ships hidden and empty; paintGateLive reveals it only when the
-        // real queue count is above zero. No hardcoded fallback figure.
+        // Ships hidden so a text-only client does not read an unhydrated
+        // label. paintGateLive reveals 4 + the fresh waiting count.
         '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
         '<button class="gate-google" id="signInBtn" type="button">' +
           '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
@@ -3833,27 +3828,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // goes directly to Google and no email or anonymous door is rendered.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     startGateLiveCount();
+    autoPopAuthModal();
   }
 
-  // ── Gate auto-pop: RETIRED the same day it shipped ───────────
-  // 2026-08-23 morning, the founder: "pop up sign ins earlier", so the
-  // shared chooser opened itself the moment the gate stood. 2026-08-23
-  // afternoon, the founder with both screens side by side: "get rid of
-  // this bc there is already this below."
-  //
-  // He is right, and the reason is worth keeping: the modal and the gate
-  // card are the SAME OFFER. Continue with Google, sign in with email,
-  // one on top of the other. So the pop bought no path that was not
-  // already on screen and charged a dismissal for it, and the thing it
-  // covered up is the half the modal does not have — who is waiting live
-  // right now, that your face is optional, the under-18 line. A modal
-  // that hides the reason to sign in is a worse door than the card
-  // underneath it.
-  //
-  // The buttons still open the chooser on CLICK, which is the 2026-08-12
-  // one-chooser rule and is untouched. Restoring the pop is calling
-  // autoPopAuthModal() from renderGate again; it is kept below rather
-  // than deleted because this gate has flipped five times.
+  // ── Google-only gate auto-pop ─────────────────────────────────
+  // Restored by the founder 2026-08-31 to make the account ask immediate.
+  // It uses the shared, proven auth implementation in a Google-only mode,
+  // because live video itself is Google-only. Once per browser session:
+  // closing it is an answer, and the full gate remains underneath.
   var authPopArmed = false;
   function autoPopAuthModal(){
     if (authPopArmed) return;
@@ -3866,7 +3848,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (typeof window.openAuthModal === 'function'){
         clearInterval(t);
         try { sessionStorage.setItem('da-spar-auth-pop', '1'); } catch(e){}
-        window.openAuthModal('signup');
+        window.openAuthModal('signup', {
+          googleOnly: true,
+          headline: 'Sign in with Google to debate live',
+          sub: 'Join the live queue, keep your rounds, and climb the leaderboard.'
+        });
         try { gtag('event', 'spar_auth_autopop', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
       } else if (tries > 12){
         // auth-modal.js never arrived (blocked script, odd cache). The

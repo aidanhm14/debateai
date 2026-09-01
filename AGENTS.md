@@ -317,11 +317,13 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   2026-08-12; soul.md §2 rewritten to match). Say people. "Debater" is
   fine where it names a role inside a round ("either side can appeal")
   and in the founder's credential, which is a bio fact. **Founder
-  identity state as of 2026-08-31: name and photo are BACK on public
+  identity state as of 2026-08-31: name and photo are sanctioned on public
   surfaces (Aidan reversed the 2026-08-22 anonymity call), and the
   credential stack (champion titles, school, year) stays retired on his
-  explicit instruction. See the soul.md decision log; restore neither
-  anonymity nor the credential from a stale doc.** It is not fine
+  explicit instruction. The landing founder quote is intentionally text-only,
+  with no portrait or named signature, by his later call that evening. See
+  the soul.md decision log; restore neither blanket anonymity nor the
+  credential from a stale doc.** It is not fine
   in copy that tells a stranger who the site is for. The landing and
   `topbar.js` were swept; the rest of the site has NOT been. Don't
   "restore" the old framing from a stale doc.
@@ -381,16 +383,29 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   ROUNDS board above is a DIFFERENT surface and is unchanged: it still
   runs consented stills only, because those seats carry names and results
   and these tiles do not.
+- **First-screen round-card treatment (2026-08-31).** Resolution headlines
+  are italic and alternate red, then black, as each generated card advances.
+  In dark themes the black beat uses the board's warm white so it remains
+  readable. Preserve the approved source photos cleanly: do not reapply the
+  old grain overlay or saturation/contrast filter. The sharpest licensed
+  creator portraits lead the creator-challenge rail, and a lead challenge
+  carries an authored motion, not "Round of your choice." This is a display
+  and editorial rule, not permission to add an unlicensed portrait.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
 - **Live video is Google-only, with no anonymous preview** (2026-08-27).
   `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The
-  signed-out `/spar` gate shows the REAL waiting count from
-  `/api/spar-queue` and hides its pill at zero (2026-08-31, founder:
-  "make them real numbers" — the earlier founder-called 12 floor is
-  retired; do not restore a floor or pad on any public count). Its
-  surrounding cast is the eight consented real stills plus the seven
+  signed-out `/spar` gate is the one explicit conversion exception to the
+  raw-count rule: it shows **4 + the real waiting count** from
+  `/api/spar-queue`, and its once-per-session prompt offers Google only
+  (2026-08-31, founder: "have it say 4 live and add the number of actually
+  live" and "have a sign in with google pop up"). Operational queue surfaces
+  stay raw, and `spar_gate_view` must keep both `live_display` and
+  `queue_waiting` so nobody mistakes the displayed number for the measured
+  queue. Its
+  surrounding cast is the eleven consented real stills (the original eight
+  plus face63-65) plus the seven
   `fictional-*.jpg` screenshots named Sydney, Sofia, Kevin, Anna, Malik,
   Chloe, and Mike, which Aidan supplied and confirmed are fake on 2026-08-27.
   Those seven are atmosphere for this gate, not records of real rounds and

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const spar = read('app/spar.html');
+const authModal = read('app/js/auth-modal.js');
 const pair = read('app/netlify/functions/spar-pair.mjs');
 const rules = read('app/firestore.rules');
 const notifications = read('app/js/notifications.js');
@@ -52,19 +53,23 @@ check(notifications.match(/authProvider: 'google\.com'/g)?.length >= 2, 'every b
 check(rules.includes("request.resource.data.authProvider == 'google.com'"), 'Firestore must bind the queue marker to Google auth');
 check(pair.includes("theirs.authProvider !== 'google.com'"), 'matcher must reject a non-Google passive seat');
 
-// 2026-08-31, founder real-numbers sweep: the gate's live count is
-// MEASURED ONLY. The 2026-08-27 founder-called 12 floor is retired,
-// so these assertions pin the NEW rule: no floor constant, no
-// hardcoded fallback figure in the markup, the raw /api/spar-queue
-// count rendered when above zero and the pill hidden at zero.
-check(!spar.includes('GATE_LIVE_BASE'), 'signed-out gate must not carry a live-count floor constant');
+// 2026-08-31, later founder conversion call: the signed-out gate is the
+// one declared exception to the raw-public-number rule. It displays four
+// plus the fresh /api/spar-queue waiting count, while analytics preserve
+// both the conversion display and the operational measurement.
+check(spar.includes('var GATE_LIVE_BASE = 4;'), 'signed-out gate must carry the founder-called base of four');
 check(!/>\s*\d+ live now</.test(spar), 'signed-out gate markup must not hardcode a live figure');
-check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden until a real count arrives');
+check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden until its count is hydrated');
 check(spar.includes('.gate-live[hidden]{display:none}') || /\.gate-live\[hidden\][^}]*display:none/.test(spar), 'gate pill must respect [hidden] against its display:flex');
 check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must fetch the fresh public queue count');
-check(/queueWaiting > 0\)\{\s*\n?\s*text\.textContent = queueWaiting \+ ' live now'/.test(spar.replace(/\r/g, '')), 'signed-out gate must render the raw waiting count, nothing added');
-check(/else if \(pill\)\{\s*\n?\s*pill\.hidden = true/.test(spar.replace(/\r/g, '')), 'signed-out gate pill must hide at a zero queue rather than inventing a crowd');
+check(spar.includes('var liveDisplay = GATE_LIVE_BASE + queueWaiting;'), 'signed-out gate must add the real waiting count to four');
+check(spar.includes("text.textContent = liveDisplay + ' live now';"), 'signed-out gate must render the combined live display');
+check(spar.includes('live_display: liveDisplay, queue_waiting: queueWaiting'), 'gate analytics must preserve displayed and measured counts separately');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
+check(spar.includes('autoPopAuthModal();'), 'signed-out gate must open its sign-in prompt on arrival');
+check(spar.includes('googleOnly: true'), 'signed-out gate prompt must offer Google only');
+check(authModal.includes('googleOnly = !!(opts && opts.googleOnly);'), 'shared auth prompt must accept Google-only mode');
+check(authModal.includes("googleOnly ? '' : '<div class=\"da-or\">or use email</div>'"), 'Google-only auth prompt must omit the email door');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');
 
