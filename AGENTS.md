@@ -797,6 +797,17 @@ Dead code, bugs and superseded infrastructure still get deleted properly.
   Every public page carries `<script defer src="/js/track.js"></script>` now;
   a NEW page needs it added by hand. Admin, og-image, offline and
   _more-preview are excluded on purpose. Grep per file, don't assume.
+- **A new topbar page must reserve the FIXED bar's height itself.**
+  `.ui-topbar` is position:fixed (52px, under the 32px strip) and
+  `body.has-beta-strip` reserves only the strip, so content on a page
+  with no offset slides under the bar. Worse, that class rule
+  out-specifies a plain `body{padding-top:...}` compensation, so pages
+  that "fixed" it with one body rule (chat, livedebates) were silently
+  re-broken whenever the strip was up. State both arms
+  (`body{padding-top:52px}` + `body.has-beta-strip{padding-top:84px}`)
+  or pad the page wrapper. Full-site overlap sweep measured 2026-08-31:
+  four offenders, all fixed; verify a NEW page by measuring first-text
+  top against the bar's bottom in a browser, not by eyeballing the diff.
 - **The Available pill needs a mount point, not just the script.**
   `js/notifications.js` (bell + Available pill + background matcher) IS
   pulled by `topbar.js` as of 2026-08-23, so topbar pages are covered.
