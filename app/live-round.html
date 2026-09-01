@@ -3313,18 +3313,18 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
 <div id="authGate" class="auth-gate" style="display:none">
   <div class="auth-card">
     <div class="auth-eyebrow"><span class="dot"></span> Live Round · AI-Judged</div>
-    <h1>Guest access is reconnecting</h1>
-    <p>Live rooms normally open with a generated name and @username. You can retry, or save an identity with Google.</p>
+    <h1>Sign in with Google to enter the video room</h1>
+    <p>The person on the other side is real, so a seat in the video room needs a Google account. Watching needs no account.</p>
     <div class="auth-bullets">
-      <div><span class="check">✓</span><span>Guests can debate, judge, and watch live</span></div>
+      <div><span class="check">✓</span><span>One tap with Google, then you are in the room</span></div>
       <div><span class="check">✓</span><span>Both sides see speeches as they're delivered</span></div>
       <div><span class="check">✓</span><span>AI ballot syncs to both screens at the end</span></div>
     </div>
     <button class="auth-google-btn" id="signInGoogleBtn" type="button">
       <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-      Save with Google
+      Continue with Google
     </button>
-    <div class="auth-disclaimer">Your generated identity stays on this browser. Google is optional and lets it follow you to another device.</div>
+    <div class="auth-disclaimer">Google only for the video room, so every seat is a real, reachable person. Spectators can keep watching without one.</div>
     <div class="auth-error" id="authError" style="display:none"></div>
   </div>
 </div>
@@ -10578,6 +10578,20 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // the same room, doubled audio, and two seats against max_participants.
     // Released again on failure so a retry is still possible.
     state.dailyMounted = true;
+    // 2026-09-01, the founder: no anonymous option for the video room.
+    // A seat needs a Google account; a watcher does not. Gate here, at
+    // the one door every debater path passes through (spar auto-start,
+    // a shared link, a challenge), rather than at arrival, where the
+    // page cannot yet tell a debater from a spectator. The server
+    // refuses the debater token for the same reason, so this is UX and
+    // /api/create-daily-room is the enforcement.
+    if (!isSpectator() && !tournamentControlsLocked() && !isGoogleSeat(state.user)){
+      state.dailyMounted = false;
+      setCallStatus('Sign in with Google to join the video room.', 'closed');
+      showAuthGate();
+      try { gtag('event', 'live_round_google_gate', { has_user: !!state.user, anonymous: !!(state.user && state.user.isAnonymous) }); } catch(e){}
+      return;
+    }
     updateRoomStage();
     setCallStatus('Creating video room…', 'closed');
     var roomToken = state.user && state.user.getIdToken
@@ -10596,6 +10610,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, body: j }; }); })
       .then(function(res){
         if (!res.ok){
+          if (res.body && res.body.code === 'GOOGLE_SIGN_IN_REQUIRED'){
+            state.dailyMounted = false;
+            setCallStatus('Sign in with Google to join the video room.', 'closed');
+            showAuthGate();
+            return;
+          }
           if (res.body && res.body.banned){
             var untilStr = res.body.until ? new Date(res.body.until).toLocaleString() : 'later';
             setCallStatus('Video access suspended after a safety violation. Try again after ' + untilStr + '.', 'closed');
@@ -20441,15 +20461,30 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var sg = document.getElementById('saveGuestBtn');
     if (sg) sg.addEventListener('click', doGoogleSignIn);
   }
+  // A seat in the video room is Google-only (2026-09-01). Anonymous,
+  // email-link and password accounts can watch; they cannot sit.
+  function isGoogleSeat(u){
+    if (!u || u.isAnonymous) return false;
+    var pd = u.providerData || [];
+    for (var i = 0; i < pd.length; i++){ if (pd[i] && pd[i].providerId === 'google.com') return true; }
+    return false;
+  }
   function doGoogleSignIn(){
     if (!firebaseAuth){
       var err = $('authError'); if (err){ err.style.display = 'block'; err.textContent = 'Sign-in is loading, try again in a moment.'; }
       return;
     }
-    // Every sign-in surface offers the same choices. The shared modal
-    // carries Google, an emailed link, and email/password; this Google
-    // popup stays as the fallback for a page that loads without it.
-    if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+    // The shared modal, opened Google-only: the video room takes no
+    // other door. This page's own Google popup stays as the fallback
+    // for a load where the modal script never arrived.
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('signin', {
+        googleOnly: true,
+        headline: 'Sign in with Google to enter the video room',
+        sub: 'A seat in a live round is Google-only, so the person across from you is a real account. Watching needs no sign-in.',
+      });
+      return;
+    }
     var provider = new firebase.auth.GoogleAuthProvider();
     var current = firebaseAuth.currentUser;
     var signInPromise = (current && current.isAnonymous && current.linkWithPopup)

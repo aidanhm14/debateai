@@ -70,10 +70,11 @@ async function identify(req){
   if (m){
     try {
       const payload = await verifyIdToken(m[1]);
-      return { key: 'uid:' + payload.sub, uid: payload.sub, ipKey };
-    } catch (e) { /* guests are fine */ }
+      const provider = String((payload.firebase && payload.firebase.sign_in_provider) || '');
+      return { key: 'uid:' + payload.sub, uid: payload.sub, ipKey, provider };
+    } catch (e) { /* guests are fine (as viewers; see the Google gate below) */ }
   }
-  return { key: ipKey, uid: null, ipKey };
+  return { key: ipKey, uid: null, ipKey, provider: '' };
 }
 
 async function banFor(keys){
@@ -175,6 +176,18 @@ export default async (req) => {
   // above, the admission check fails closed because guessing a room name
   // must never produce a participant token.
   const admission = await tournamentAdmission(name);
+  // 2026-09-01, the founder: "require all ppl to enter the video spawn
+  // room to sign in with Google, no anonymous option". A debater token
+  // is minted only against a verified Google-provider Firebase token.
+  // Viewers (role:'viewer') stay open: spectating needs no account.
+  // Tournament rooms are gated by their server-written admission record
+  // below, which is the stricter check, so they are left to it.
+  if (role !== 'viewer' && !admission.tournament && who.provider !== 'google.com') {
+    return jsonResponse(403, {
+      code: 'GOOGLE_SIGN_IN_REQUIRED',
+      error: 'Sign in with Google to enter the video room.',
+    });
+  }
   if (admission.tournament) {
     if (!admission.data) {
       const invalid = admission.error === 'missing' || admission.error === 'invalid';

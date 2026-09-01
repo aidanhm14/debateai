@@ -72,6 +72,16 @@
      what has to have changed. */
   var LIVE_ONLY = true;
 
+  /* 2026-09-01, the founder: "tell anonymous user someone is live in a
+     pop up 'wants to debate' and then do 'need to sign in'". The WAITING
+     source (someone is in the /spar queue right now) is armed SITEWIDE
+     again, not only on the intent pages. The card reads "<name> wants to
+     debate"; for a visitor without a Google account, tapping it opens the
+     shared sign-in modal Google-only and lands them on /spar afterwards,
+     because the video room is Google-only. The REPLAY source stays
+     retired everywhere (the 2026-08-25 face objection stands). */
+  var WAITING_SITEWIDE = true;
+
   /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
      the pages that are to redirect ppl into a live omegle debate").
      The four pages below take most of the site's organic clicks, and the
@@ -432,6 +442,21 @@
     return '';
   }
 
+  /* Has this visitor a Google-provider account? Anything else (no
+     firebase on the page, no user, anonymous, email) needs the sign-in
+     step before the video room. */
+  function googleUser() {
+    try {
+      var fb = window.firebase;
+      if (!(fb && fb.apps && fb.apps.length && typeof fb.auth === 'function')) return false;
+      var cu = fb.auth().currentUser;
+      if (!cu || cu.isAnonymous) return false;
+      var pd = cu.providerData || [];
+      for (var i = 0; i < pd.length; i++) if (pd[i] && pd[i].providerId === 'google.com') return true;
+    } catch (e) {}
+    return false;
+  }
+
   function waitingItem() {
     return getJSON('/api/live-now').then(function (j) {
       var all = (j && j.debaters) || [];
@@ -452,15 +477,20 @@
       if (!pick) return null;
       var name = pick.name || 'Someone';
       var more = list.length - 1;
+      var needsAuth = !googleUser();
       return {
         kind: 'wait',
         key: 'wait:' + pick.uid,
-        badge: 'WAITING NOW',
-        headline: name + ' is looking for a round',
-        who: more > 0 ? ('and ' + more + ' other' + (more > 1 ? 's' : '') + ' in the queue') : 'No opponent yet',
-        meta: 'OPEN SEAT',
-        cta: 'Debate them',
+        badge: 'WANTS TO DEBATE',
+        headline: name + ' wants to debate',
+        who: more > 0
+          ? ('Live in the queue now, and ' + more + ' other' + (more > 1 ? 's' : ''))
+          : 'Live in the queue right now, no opponent yet',
+        meta: needsAuth ? 'GOOGLE SIGN-IN' : 'OPEN SEAT',
+        cta: needsAuth ? 'Sign in to debate' : 'Debate them',
         href: '/spar',
+        needsAuth: needsAuth,
+        name: name,
         img: null,
         initials: [initial(name), '?']
       };
@@ -598,8 +628,26 @@
       emit('live_popup_dismiss', { kind: item.kind, had_pic: !!item.img });
       close('dismiss');
     });
-    card.addEventListener('click', function () {
-      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast });
+    card.addEventListener('click', function (ev) {
+      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast, needs_auth: !!item.needsAuth });
+      /* The "need to sign in" step: a visitor without a Google account
+         gets the shared modal, Google-only, and is sent to the queue
+         once signed in. Without the modal script the link falls through
+         to /spar, whose own gate asks the same thing. */
+      if (item.needsAuth && typeof window.openAuthModal === 'function') {
+        ev.preventDefault();
+        close('auth');
+        emit('live_popup_auth_open', { page: here });
+        window.openAuthModal('signup', {
+          googleOnly: true,
+          headline: (item.name || 'Someone') + ' wants to debate. Sign in with Google to take the seat.',
+          sub: 'The video room is Google-only, so the person across from you is a real account. Sign in and you land in the queue.',
+          onDone: function () {
+            emit('live_popup_auth_done', { page: here });
+            window.location.href = '/spar';
+          }
+        });
+      }
     });
 
     document.body.appendChild(card);
@@ -635,9 +683,11 @@
     /* Intent pages never reach the replay source: the 2026-08-25 face
        objection stands, and a searcher who wants a live stranger is not
        answered by a month-old recording. */
+    /* Replay stays retired everywhere while WAITING_SITEWIDE is on; the
+       chain is live, then waiting, then nothing. */
     return liveItem()
       .then(function (it) { return it || waitingItem(); })
-      .then(function (it) { return it || (intentPage ? null : replayItem()); })
+      .then(function (it) { return it || ((intentPage || WAITING_SITEWIDE) ? null : replayItem()); })
       .catch(function () { return null; });
   }
 
@@ -716,7 +766,7 @@
      searched for exactly this — but it stays a VISIBLE dwell, so a
      pogo-sticker who bounces back to the results in three seconds
      never sees a card and the ranking that delivered them is safe. */
-  if (LIVE_ONLY && !intentPage) return;
+  if (LIVE_ONLY && !intentPage && !WAITING_SITEWIDE) return;
   var firstDelay = intentPage ? 6000 : FIRST_DELAY_MS;
   var dwell = 0;
   var since = document.hidden ? 0 : now();

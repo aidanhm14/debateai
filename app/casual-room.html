@@ -20,6 +20,24 @@
      Falls back to raw <iframe> in mountDaily if every pinned source fails. -->
 <script src="/vendor/daily-iframe-0.92.2.js"></script>
 <script src="/js/daily-loader.js"></script>
+<!-- 2026-09-01: the video room is Google-only and /api/create-daily-room
+     refuses a debater token without a verified Google sign-in, so this
+     page needs the caller's ID token. /debate-chat already required the
+     account; this just carries it into the room request. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+  try {
+    if (window.firebase && !(firebase.apps && firebase.apps.length)) firebase.initializeApp({
+      apiKey: ["AIzaSyDDx", "TYlyWLOJnFP99", "e7XsLPb3FwIEijNNM"].join(""),
+      authDomain: "debateos-78ac5.firebaseapp.com",
+      projectId: "debateos-78ac5",
+      storageBucket: "debateos-78ac5.firebasestorage.app",
+      messagingSenderId: "860359449192",
+      appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+    });
+  } catch (e) {}
+</script>
 <!-- Camera converter (Camera / Avatar / Off) + on-device NSFW watchdog.
      The parent page owns the outgoing pixels via a canvas track, so the
      watchdog sees exactly what the room sees; Avatar mode never
@@ -699,13 +717,40 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       );
       return;
     }
-    fetch('/api/create-daily-room', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: roomName }),
+    // Wait (briefly) for the persisted sign-in before asking for the
+    // room: the token is what the Google-only gate reads.
+    var tokenP = new Promise(function(resolve){
+      var done = false;
+      var finish = function(t){ if (!done){ done = true; resolve(t || ''); } };
+      try {
+        if (!window.firebase || !firebase.auth) return finish('');
+        var un = firebase.auth().onAuthStateChanged(function(u){
+          try { un(); } catch(e){}
+          if (u && u.getIdToken) u.getIdToken().then(finish, function(){ finish(''); });
+          else finish('');
+        });
+        setTimeout(function(){ finish(''); }, 4000);
+      } catch (e) { finish(''); }
+    });
+    tokenP.then(function(tok){
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+      return fetch('/api/create-daily-room', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ name: roomName }),
+      });
     }).then(function(r){
       return r.json().then(function(j){ return { ok: r.ok, status: r.status, body: j }; });
     }).then(function(res){
+      if (res.status === 403 && res.body && res.body.code === 'GOOGLE_SIGN_IN_REQUIRED'){
+        setStatus(
+          '<h2>Sign in with Google to enter the video room.</h2>' +
+          '<p>A seat in a live round is Google-only, so the person across from you is a real account.</p>' +
+          '<div class="row"><a href="/spar">Sign in on the queue page</a></div>'
+        );
+        return;
+      }
       if (res.status === 403 && res.body && res.body.banned){
         var untilStr = res.body.until ? new Date(res.body.until).toLocaleString() : 'later';
         setStatus(
