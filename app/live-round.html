@@ -3768,7 +3768,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
            call. Spectator-only, so the section stays hidden until
            svDock() mounts something into it. -->
       <details class="round-details" id="audienceTools" hidden>
-        <summary><span id="audienceToolsLabel">Bet on yourself - Tokens</span><span class="rd-status audience-token-balance" id="audienceToolsStatus" aria-label="You have 1,000 play tokens. No cash value."><span class="atb-have">You have</span><b id="audienceTokensBalance">1K</b><span class="atb-cash" aria-hidden="true">$$</span></span></summary>
+        <summary><span id="audienceToolsLabel">Bet on yourself - Points</span><span class="rd-status audience-token-balance" id="audienceToolsStatus" aria-label="You have 1,000 play points. No cash value."><span class="atb-have">You have</span><b id="audienceTokensBalance">1K</b><span class="atb-cash" aria-hidden="true">pts</span></span></summary>
         <div class="rd-body" id="audienceToolsBody"></div>
       </details>
 
@@ -12195,6 +12195,13 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // debaters can bet too, on THEMSELVES only: the server refuses a stake on
   // your opponent, so nobody in a round can profit by losing it. Every call
   // is fail-safe and can never break the round.
+  //
+  // NAMING, and it is a claims rule rather than a style choice: the free
+  // play currency in this panel is POINTS. "Tokens" on this site means the
+  // $4.99/mo voice allowance, which takes a real card, and both now live on
+  // the same page (/predict). One word for a thing you buy and a thing you
+  // bet with reads as buying betting chips, which is the one thing this
+  // economy is not. Renamed 2026-09-02; do not rename it back.
   var PM_API='/.netlify/functions/predict';
   var pmOpened=false, pmLocked=false, pmSettled=false, pmPollTimer=null, pmPanel=null, pmPick=null, pmHasBet=false;
   function pmTok(){ return (state.user&&state.user.getIdToken)?state.user.getIdToken():Promise.reject(new Error('no-user')); }
@@ -12238,13 +12245,13 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
   function pmUpdateSummary(balance){
     var label=document.getElementById('audienceToolsLabel');
-    if(label) label.textContent=pmOwnSide()?'Bet on yourself - Tokens':'Bet on this round - Tokens';
+    if(label) label.textContent=pmOwnSide()?'Bet on yourself - Points':'Bet on this round - Points';
     if(balance==null||!isFinite(Number(balance))) return;
     var n=Math.max(0,Math.floor(Number(balance)||0));
     var out=document.getElementById('audienceTokensBalance');
     var stat=document.getElementById('audienceToolsStatus');
     if(out) out.textContent=pmCompactBalance(n);
-    if(stat){ stat.hidden=false; stat.setAttribute('aria-label','You have '+n.toLocaleString()+' play tokens. No cash value.'); stat.title=n.toLocaleString()+' play tokens. No cash value.'; }
+    if(stat){ stat.hidden=false; stat.setAttribute('aria-label','You have '+n.toLocaleString()+' play points. No cash value.'); stat.title=n.toLocaleString()+' play points. No cash value.'; }
   }
   function pmRenderPanel(){
     if (pmPanel) return;
@@ -12253,12 +12260,12 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // that also holds the swing-vote panel. Both used to be fixed at the
     // same coordinates and would have sat on top of each other.
     el.style.cssText='background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
-    var pmHead = pmOwnSide() ? 'Back yourself with play tokens' : 'Bet play tokens on who is winning';
+    var pmHead = pmOwnSide() ? 'Back yourself with play points' : 'Bet play points on who is winning';
     el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">'+pmHead+'</div>'+
       '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" aria-label="Play token stake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Bet tokens</button></div>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" aria-label="Play point stake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Bet points</button></div>'+
       '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>'+
-      '<div style="font-size:.64rem;color:var(--text-dim);line-height:1.4;margin-top:7px">Free play tokens only. 18+. Eligible regions only. No cash value.</div>';
+      '<div style="font-size:.64rem;color:var(--text-dim);line-height:1.4;margin-top:7px">Free play points only. 18+. Eligible regions only. No cash value.</div>';
     svDock().appendChild(el); pmPanel=el; pmUpdateSummary(null);
     el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
   }
@@ -12279,7 +12286,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     pmSubmitBet(stake,btn,false);
   }
   function pmConfirmAge(){
-    if(!confirm('Token betting is for people age 18 or older.\n\nPlay tokens are free, cannot be purchased, and have no cash value.\n\nConfirm you are 18 or older?')) return Promise.resolve(false);
+    if(!confirm('Point betting is for people age 18 or older.\n\nPlay points are free, cannot be purchased, and have no cash value.\n\nConfirm you are 18 or older?')) return Promise.resolve(false);
     return pmCall({action:'attest',confirm:true}).then(function(d){
       if(d&&d.ok&&d.eligible) return true;
       var s=pmPanel&&pmPanel.querySelector('#pmStatus');
@@ -12293,14 +12300,14 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
   function pmSubmitBet(stake,btn,retried){
     pmCall({action:'bet',room:state.room,pick:pmPick,stake:stake}).then(function(d){
-      if(d&&d.ok){ pmHasBet=true; pmUpdateSummary(d.balance); var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' tokens</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' tokens left.'; if(btn){ btn.textContent='Bet in'; } return; }
+      if(d&&d.ok){ pmHasBet=true; pmUpdateSummary(d.balance); var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' points</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' points left.'; if(btn){ btn.textContent='Bet in'; } return; }
       if(d&&d.code==='no_attestation'&&!retried){
-        pmConfirmAge().then(function(ok){ if(ok) pmSubmitBet(stake,btn,true); else if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
+        pmConfirmAge().then(function(ok){ if(ok) pmSubmitBet(stake,btn,true); else if(btn){ btn.disabled=false; btn.textContent='Bet points'; } });
         return;
       }
-      if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; }
+      if(btn){ btn.disabled=false; btn.textContent='Bet points'; }
       var s2=pmPanel.querySelector('#pmStatus'); if(s2) s2.textContent=(d&&d.error)||'Could not place bet';
-    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Bet tokens'; } });
+    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Bet points'; } });
   }
   function pmUpdate(d){
     pmUpdateSummary(d&&d.balance);
@@ -12322,17 +12329,17 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if(settled){
       if(pmPollTimer) clearTimeout(pmPollTimer);
       var won = d.myBet && d.myBet.pick===m.verdict;
-      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'You called it. '+d.balance+' tokens left.':'You missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
+      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'You called it. '+d.balance+' points left.':'You missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
       if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
     } else if(locked){
-      st.textContent='Betting locked at the middle speech. '+total+' tokens in the pool.';
+      st.textContent='Betting locked at the middle speech. '+total+' points in the pool.';
       if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
     } else if(d.myBet){
-      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+' tokens</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. '+total+' tokens in the pool.';
+      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+' points</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. '+total+' points in the pool.';
       if(bet){ bet.disabled=true; bet.textContent='Bet in'; bet.style.opacity='.5'; }
       if(inp) inp.disabled=true;
     } else {
-      st.innerHTML='Pool '+total+' tokens. You have <b>'+(d.balance!=null?d.balance:'not available')+'</b>. Betting locks at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
+      st.innerHTML='Pool '+total+' points. You have <b>'+(d.balance!=null?d.balance:'not available')+'</b>. Betting locks at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
     }
   }
 

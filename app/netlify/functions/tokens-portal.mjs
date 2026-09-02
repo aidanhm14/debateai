@@ -36,7 +36,7 @@ export default async (request) => {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${siteUrl}/tokens`,
+      return_url: `${siteUrl}/predict#tokens`,
     });
     return jsonResponse({ url: session.url }, 200, request);
   } catch (err) {

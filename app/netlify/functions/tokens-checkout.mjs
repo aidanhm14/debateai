@@ -58,8 +58,8 @@ export default async (request) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/tokens?billing=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/tokens?billing=canceled`,
+      success_url: `${siteUrl}/predict?billing=success&session_id={CHECKOUT_SESSION_ID}#tokens`,
+      cancel_url: `${siteUrl}/predict?billing=canceled#tokens`,
       client_reference_id: uid,
       ...(existingCustomer
         ? { customer: existingCustomer }
