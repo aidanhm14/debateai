@@ -194,6 +194,48 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **Founder state, verbatim: the Sam Lessin update Aidan drafted on the subway and almost sent** (drafted 2026-08-19, surfaced 2026-09-01, recorded at his request). Kept here as a record of how the founder was actually thinking mid-August, before the $2M media-company ask and deck v81. Do not quote it externally; the numbers in it are stale (477 named accounts as of 2026-09-01, the Open ran as a week-long ladder, the ask is $2M). Context: Sam's last reply was 2026-07-19 ("narrative crispness i do think is key ... what you are / what you aren't & some proof of what really works"); Aidan's 2026-07-30 raise-process email got no answer. One confidential sentence about a teammate's equity is deliberately left out of this doc.
+
+  > hi
+  >
+  > alive and well. Been going back and fourth between NYC-SF. Lots of insightful convos that has me on pause regarding the vision and how I want to move forward (if you and Joe are still interested??)
+  >
+  > While I've been dabbling in other VC/angel talks, In all transparency, I'm kinda banking on you/Joe(I'll write him independently this week) playing a serious role.
+  >
+  > I am waiting on hearing back from this program that would change fundraising and how I go about the year. Ive progressed in the application but nothing secured yet.
+  >
+  > Im bootstrapping. I need (am finding, I'll be successful) an engineer who understands the world well. Muku is still involved out of god will and focus on being a teacher for debate. I would join him.
+  >
+  > Now I ponder (btw I'm stuck on a subway that broke down I'm typing on the phone)
+  >
+  > What does an update mean for an early stage idea?
+  >
+  > Like did you ghost me or is it incumbent on me to reach out again
+  >
+  > Here's where we are;
+  >
+  > got traction. 220+ google sign ups, a tournament being hosted on the 29th, and constantly iterating the judge evaluation system (we're think judge avatars/diff paradigms) gathering more recordings of rounds too. The upcoming tournament is to create content.
+  >
+  > The truth is I love debate. The debate community has mixed feelings in response to my cold outreach. I've gotten 'we hate your project' to 'how can we scale this in Africa'
+  >
+  > That difference is interesting.
+  >
+  > The vision.
+  > - gamified media company
+  > - let Polymarket/kalshi price our debates like they do sports
+  > - pay in tournaments / XP potential
+  > - creator sponsorships / we bring a high ELO debater to a streamer. I saw Slow has the creator fund now, not sure how much that may overlap with us but thought I'd mention it
+  > - data data data. Frontend voice, reasoning, evals of human disputes + expert domains (hoping this makes sense and backend the polling of audience, how ppl respond to certain arguments, micro message testing
+  > - masterfully orchestrate the social media campaign. Happy to extrapolate on the how here.
+  >
+  > I want it to be multi generational. Not young annoying gamer bros only.
+  >
+  > The raise rn: 750k
+  >
+  > Raised? Nothing. I've been gathering
+
+  **Why it is worth keeping.** Three lines in it are the honest version of things the polished decks smooth over: the "we hate your project" to "scale this in Africa" spread is the real market read; "multi generational, not young annoying gamer bros only" is a product constraint that should bind the media-company pitch; and "what does an update mean for an early stage idea" is the question every investor update since has been trying to answer. The rest of it (six vision bullets, the ask, the pause) is what Sam's July note warned against, which is why it did not go out.
+
 - **The main AI round no longer depends on the browser shipping Web Speech** (2026-09-01, Aidan, off a `/practice` screenshot saying "Speech recognition not supported in this browser": "this is a huge problem - fix this universally - fix this tool bc its the main AI to debate against"). The canonical AI-opponent surface had one mic engine, `SpeechRecognition`, while `/live-round` already had the universal answer: record short segments with MediaRecorder and send them through `/api/transcribe`. Firefox, Brave, many in-app browsers, and unreliable iOS Web Speech therefore got a typing box in the product whose moat is spoken argument. `/practice` now prefers browser speech recognition when it works and falls back to server transcription when the API is missing, refuses to start, errors, or produces no words for 18 seconds. The fallback reuses the stream already opened for the orb instead of asking a phone for a second simultaneous mic capture, records eight-second segments, skips measured silence, retries one failed segment, preserves speech order when responses return out of order, and **awaits the final segment before the AI rebuts or the judge reads the speech**. That last wait is load-bearing: MediaRecorder emits its closing blob after `stop()`, so the synchronous path dropped the user's closing sentence on every fallback browser. While backup mode is active the round says exactly what changed: audio goes to OpenAI for transcription and is not saved by Debatable. Typing remains the last fallback only when the browser cannot record or two transcription segments fail before any words land. `scripts/test-practice-transcription.mjs` executes the real hook with Web Speech absent and out-of-order mocked segment responses; the pre-commit hook blocks if the recorder path, borrowed stream, final wait, or ordered transcript regresses.
 
 - **The resolution gets the room's widest, loudest type beat** (2026-09-01, Aidan, off the live-round screenshot: "this should widen", use "a new font that stands out always when showing resolution", and give it "its own pop up animation"). The active resolution band is the one child of `#roundView` exempt from the console's 1100px reading measure, because the proposition is the shared object of the whole round rather than supporting interface copy. Resolution text now has its own `--resolution-font`, Oswald with a local condensed fallback, and that face follows the proposition into the setup field, change proposal, collapsed-video console, and broadcast stage so it does not revert to ordinary UI type when the surface changes. The band is a raised full-width stage with a restrained accent flare and a larger fluid headline. Every newly applied resolution gets one 620ms rise-and-settle beat. That beat is transform-only Web Animations with no persistent fill and a visible final base style, not a CSS opacity entrance: `anim-governor.js` can pause off-screen CSS motion, and the draft board already proved that visibility tied to a paused first frame can hide the one sentence the round depends on. If the draft resolves while its modal covers the band, the animation waits and fires when the board leaves.
