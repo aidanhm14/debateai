@@ -2082,6 +2082,44 @@ body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue,body.specta
   border-color:rgba(220,38,38,.5);color:var(--accent,#dc2626);
 }
 .lr-open-beat .lr-open-nudge:disabled{opacity:.65}
+/* ROUND OPENING card (2026-09-02). The 09-01 beat rewrote the hint line
+   under Start; the next day's rooms showed 7 seated pairs and 2 speeches,
+   so the beat is a card now: first thing in the speech header, spanning
+   both grid columns, naming who speaks first, on what, and for how long.
+   It still grows NO second Start button. The opener's action is the one
+   #playPauseBtn directly under it; the waiter's action is the nudge.
+   Tokens carry literal fallbacks (this page's limited token set). */
+.lr-open-card{
+  grid-column:1/-1;position:relative;display:flex;flex-direction:column;gap:6px;
+  padding:14px 16px 14px 18px;border-radius:14px;margin-bottom:4px;
+  border:1px solid var(--border,rgba(128,128,128,.35));
+  border-left:4px solid var(--accent,#ef4444);
+  background:var(--bg-card,rgba(128,128,128,.08));
+  color:var(--text,inherit);
+}
+.lr-open-card.is-hot{border-color:rgba(220,38,38,.55);border-left-color:var(--accent,#ef4444);
+  box-shadow:0 0 0 1px rgba(220,38,38,.18),0 10px 28px rgba(220,38,38,.12)}
+.lr-open-card .lr-oc-eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.66rem;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim,rgba(128,128,128,.9))}
+.lr-open-card .lr-oc-eyebrow i{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.8)}
+.lr-open-card .lr-oc-title{margin:0;font-size:clamp(1.25rem,2.1vw,1.7rem);font-weight:850;letter-spacing:-.022em;line-height:1.12;color:var(--text,inherit)}
+.lr-open-card.is-hot .lr-oc-title{color:var(--accent,#ef4444)}
+.lr-open-card .lr-oc-sub{margin:0;font-size:.86rem;line-height:1.45;color:var(--text-dim,rgba(128,128,128,.9))}
+.lr-open-card .lr-oc-sub b{color:var(--text,inherit);font-weight:750}
+.lr-open-card .lr-oc-motion{margin:2px 0 0;font-size:.84rem;line-height:1.4;color:var(--text,inherit);font-weight:650}
+.lr-open-card .lr-oc-motion span{font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:.62rem;color:var(--text-dim,rgba(128,128,128,.9));margin-right:8px}
+.lr-open-card .lr-oc-act{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:.84rem;font-weight:700;color:var(--text,inherit)}
+.lr-open-card .lr-oc-act-text{flex:1 1 200px;min-width:0}
+.lr-open-card .lr-oc-act .lr-oc-arrow{display:inline-block;color:var(--accent,#ef4444);font-weight:900;animation:lrOcBob 1.4s ease-in-out infinite}
+@keyframes lrOcBob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.lr-open-card .lr-open-nudge{flex-shrink:0;font-weight:800;border-color:rgba(220,38,38,.5);color:var(--accent,#dc2626)}
+.lr-open-card .lr-open-nudge:disabled{opacity:.65}
+/* While the card is up nobody is speaking, so "Now speaking · Name" under
+   it would contradict it. The line returns the moment a clock runs. */
+body.lr-opening .speech-header .speaker-line{display:none}
+body.spectator-mode .lr-open-card{display:none!important}
+@media (prefers-reduced-motion:reduce){.lr-open-card .lr-oc-act .lr-oc-arrow{animation:none}}
+@media (max-width:560px){.lr-open-card{padding:12px 12px 12px 14px}.lr-open-card .lr-oc-title{font-size:1.18rem}}
 /* Same posture as #audPops: a fixed overlay has no business floating
    over the site while the round is a mini player or a PiP window. */
 body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
@@ -19267,6 +19305,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // rewrites the hint text around it rather than growing a second
   // Start button.
   var OPEN_BEAT_ESCALATE_MS = 90000;   // both present this long => louder
+  // 2026-09-02: the card's own beat. After this long with both people
+  // seated and nothing started, the card turns red and the Start pulses
+  // fast. Fifteen seconds is a beat, not a countdown: nothing fires at 0.
+  var OPEN_BEAT_HOT_MS = 15000;
   var OPEN_BEAT_NUDGE_FRESH_MS = 60000;
   var OPEN_BEAT_NUDGE_COOLDOWN_MS = 30000;
   var openingBeat = { liveSince:0, mode:'', sig:'', chimedAt:0, nudgeSentAt:0, shown:{} };
@@ -19328,92 +19370,170 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (btn){ btn.disabled = true; btn.textContent = 'Sent. They got a nudge.'; }
   }
 
+  // 2026-09-02: the beat becomes a CARD. The 09-01 version rewrote the
+  // grey hint line under the Start button and gave the waiter a nudge.
+  // The day after it shipped: 7 rooms seated both people, 2 started a
+  // speech. A hint line under a button is not a stage moment. The card is
+  // the first thing in the speech header on BOTH screens: who speaks
+  // first, on what motion, for how long, and (for the opener) an arrow
+  // to the one Start button directly under it. Still no second Start
+  // button and still nothing auto-starts; at 15s the card goes red and
+  // the button pulses fast, at 90s the copy says the room has waited.
+  function openCardMotion(){
+    var m = String(state.motion || '').trim();
+    if (m.length > 150) m = m.slice(0, 149).replace(/\s+\S*$/, '') + '…';
+    return m;
+  }
+  function removeOpenCard(){
+    var c = document.getElementById('openBeatCard');
+    if (c) c.remove();
+    var w = document.getElementById('openBeatWait');
+    if (w) w.remove();
+    document.body.classList.remove('lr-opening');
+  }
+  function paintOpenCard(ctx){
+    var header = document.querySelector('#roundView .speech-header');
+    if (!header) return;
+    var card = document.getElementById('openBeatCard');
+    if (!card){
+      card = document.createElement('div');
+      card.id = 'openBeatCard';
+      card.className = 'lr-open-card';
+      card.setAttribute('role', 'status');
+      header.insertBefore(card, header.firstChild);
+    }
+    document.body.classList.add('lr-opening');
+    card.classList.toggle('is-hot', !!(ctx.hot || ctx.late || ctx.nudgeFresh));
+    card.classList.toggle('is-waiter', ctx.mode === 'waiter');
+    card.innerHTML = '';
+    var mk = function(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    var eyebrow = mk('span', 'lr-oc-eyebrow');
+    eyebrow.appendChild(mk('i'));
+    eyebrow.appendChild(document.createTextNode(ctx.late ? 'Both of you are here. The room has been waiting.' : 'Both of you are here. Round opening'));
+    card.appendChild(eyebrow);
+    var minsTxt = ctx.mins ? ctx.mins + ' minute' + (ctx.mins === 1 ? '' : 's') : '';
+    var speechTxt = 'Speech 1 of ' + ctx.total + ' · ' + ctx.spName + (minsTxt ? ' · ' + minsTxt : '');
+    if (ctx.mode === 'opener'){
+      var t = 'You speak first.';
+      if (ctx.nudgeFresh) t = (ctx.nudgeName || ctx.oppName) + ' pressed Ready. You speak first.';
+      else if (ctx.hot) t = 'You speak first. The room is waiting on you.';
+      card.appendChild(mk('h3', 'lr-oc-title', t));
+      var sub = mk('p', 'lr-oc-sub');
+      sub.appendChild(document.createTextNode(speechTxt + '. '));
+      var bo = mk('b', null, ctx.oppName); sub.appendChild(bo);
+      sub.appendChild(document.createTextNode(' is in the room and speaks right after you.'));
+      card.appendChild(sub);
+    } else {
+      card.appendChild(mk('h3', 'lr-oc-title', ctx.openerName + ' speaks first.'));
+      var sub2 = mk('p', 'lr-oc-sub');
+      sub2.appendChild(document.createTextNode(speechTxt + '. You are on right after. Their clock is not running yet.'));
+      card.appendChild(sub2);
+    }
+    if (ctx.motion){
+      var mo = mk('p', 'lr-oc-motion');
+      mo.appendChild(mk('span', null, 'Motion'));
+      mo.appendChild(document.createTextNode(ctx.motion));
+      card.appendChild(mo);
+    }
+    var act = mk('div', 'lr-oc-act');
+    if (ctx.mode === 'opener'){
+      act.appendChild(mk('span', 'lr-oc-arrow', '↓'));
+      act.appendChild(mk('span', 'lr-oc-act-text', 'Press Start my speech below. The clock, mic and transcript start when you do.'));
+    } else {
+      act.appendChild(mk('span', 'lr-oc-act-text', ctx.late ? 'Still waiting? Give them a nudge.' : 'Let them know you are ready.'));
+      var nb = mk('button', 'btn lr-open-nudge');
+      nb.type = 'button';
+      if (ctx.sentRecently){ nb.disabled = true; nb.textContent = 'Sent. They got a nudge.'; }
+      else nb.textContent = '👋 Ready when you are';
+      nb.addEventListener('click', function(){ sendOpenerNudge(nb); });
+      act.appendChild(nb);
+    }
+    card.appendChild(act);
+  }
+
   function updateOpeningBeat(){
-    var mode = openingBeatMode();
-    var waitEl = document.getElementById('openBeatWait');
+    var demo = window.__lrOpenBeatDemo || '';
+    var mode = demo || openingBeatMode();
     if (!mode){
       openingBeat.liveSince = 0; openingBeat.mode = ''; openingBeat.sig = '';
-      if (waitEl) waitEl.remove();
+      removeOpenCard();
       return;
     }
     var now = Date.now();
     if (openingBeat.mode !== mode){ openingBeat.mode = mode; openingBeat.liveSince = now; }
     var waited = openingBeat.liveSince ? now - openingBeat.liveSince : 0;
     var late = waited >= OPEN_BEAT_ESCALATE_MS;
+    var hot = waited >= OPEN_BEAT_HOT_MS;
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches && f.speeches[0];
     var mins = sp ? Math.round((sp.time || 0) / 60) : 0;
     var spName = (sp && (sp.name || sp.label)) || 'the opening speech';
+    var total = (f && f.speeches && f.speeches.length) || 0;
     var nudge = state.openerNudge || null;
-    var nudgeFresh = !!(nudge && typeof nudge.atMs === 'number' && (now - nudge.atMs) < OPEN_BEAT_NUDGE_FRESH_MS);
+    var me = state.user && state.user.uid;
+    var nudgeFresh = !!(nudge && typeof nudge.atMs === 'number' && (now - nudge.atMs) < OPEN_BEAT_NUDGE_FRESH_MS && nudge.uid !== me);
     if (!openingBeat.shown[mode]){
       openingBeat.shown[mode] = 1;
-      try { gtag('event', 'live_open_beat_shown', { role: mode }); } catch(e){}
+      try { gtag('event', 'live_open_beat_shown', { role: mode, variant: 'card' }); } catch(e){}
+    }
+    var side = mySide();
+    var oppName = (side === 'pro' ? state.conName : state.proName) || 'Your opponent';
+    var openerName = (typeof speakerNameFor === 'function' && f ? speakerNameFor(f, 0) : '') || 'Your opponent';
+    if (demo){ oppName = 'Jordan'; openerName = mode === 'opener' ? 'You' : 'Jordan'; }
+    var sentRecently = now - openingBeat.nudgeSentAt < OPEN_BEAT_NUDGE_COOLDOWN_MS;
+    var ctx = { mode: mode, oppName: oppName, openerName: openerName, spName: spName, mins: mins, total: total,
+      motion: openCardMotion(), hot: hot, late: late, nudgeFresh: nudgeFresh, nudgeName: nudge && nudge.name, sentRecently: sentRecently };
+    var sig = [mode, oppName, openerName, spName, total, ctx.motion, hot ? 1 : 0, late ? 1 : 0, nudgeFresh ? 1 : 0, sentRecently ? 1 : 0].join('|');
+    if (sig !== openingBeat.sig || !document.getElementById('openBeatCard')){
+      openingBeat.sig = sig;
+      paintOpenCard(ctx);
     }
 
+    var hint = $('readyHint');
     if (mode === 'opener'){
-      if (waitEl) waitEl.remove();
-      var hint = $('readyHint');
-      var oppName = (mySide() === 'pro' ? state.conName : state.proName) || 'Your opponent';
+      // The card carries the whose-move copy; the hint under the button
+      // says only what the press does, so the two never say the same thing.
       if (hint){
         hint.hidden = false;
-        var line = 'You open: ' + spName + (mins ? ', ' + mins + ' minute' + (mins === 1 ? '' : 's') : '') +
-          '. ' + oppName + ' is in the room, waiting on you.';
-        if (nudgeFresh && nudge.uid !== (state.user && state.user.uid)){
-          line = ((nudge.name || oppName) + ' pressed Ready. They are waiting for your speech.') +
-            ' You open: ' + spName + '.';
-        } else if (late){
-          line += ' The room has been waiting a while.';
-        }
+        var line = 'Starts the clock, the mic and the transcript.';
         if (hint.textContent !== line) hint.textContent = line;
       }
-      // A fresh nudge escalates the existing pulse and chimes once per
-      // nudge; the classes belong to the start-cue system, which reads
-      // them idempotently, so re-adding is safe.
+      // The pulse classes belong to the start-cue system, which reads them
+      // idempotently, so re-adding is safe. Hot at 15s, on a nudge, or late.
       var btn = $('playPauseBtn');
       if (btn && state.timerState === 'ready'){
         btn.classList.add('lr-await');
-        if (nudgeFresh || late) btn.classList.add('lr-await-hot');
+        if (hot || nudgeFresh || late) btn.classList.add('lr-await-hot');
       }
-      if (nudgeFresh && nudge.atMs !== openingBeat.chimedAt && nudge.uid !== (state.user && state.user.uid)){
+      if (nudgeFresh && nudge.atMs !== openingBeat.chimedAt){
         openingBeat.chimedAt = nudge.atMs;
         openBeatChime();
         try { gtag('event', 'live_open_beat_nudge', { role: 'received' }); } catch(e){}
       }
       return;
     }
-
-    // 'waiter': the side with no control finally gets a move. Rendered
-    // in the ready hint's slot (the hint's "Starts the timer and mic"
-    // text describes a button this side cannot press, so it hides while
-    // the card is up); idempotent by signature.
-    var waiterHint = $('readyHint');
-    if (waiterHint) waiterHint.hidden = true;
-    var openerName = (typeof speakerNameFor === 'function' && f ? speakerNameFor(f, 0) : '') || 'Your opponent';
-    var sentRecently = now - openingBeat.nudgeSentAt < OPEN_BEAT_NUDGE_COOLDOWN_MS;
-    var sig = ['w', openerName, spName, late ? 1 : 0, sentRecently ? 1 : 0].join('|');
-    if (sig === openingBeat.sig && waitEl) return;
-    openingBeat.sig = sig;
-    if (!waitEl){
-      waitEl = document.createElement('div');
-      waitEl.id = 'openBeatWait';
-      waitEl.className = 'lr-open-beat';
-      var anchor = $('readyHint');
-      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(waitEl, anchor.nextSibling);
-      else return;
-    }
-    waitEl.innerHTML = '';
-    var p = document.createElement('span');
-    p.textContent = openerName + ' opens: ' + spName + (mins ? ' (' + mins + ' min)' : '') +
-      '. You are on right after.' + (late ? ' Still waiting? Give them a nudge.' : '');
-    var nb = document.createElement('button');
-    nb.type = 'button';
-    nb.className = 'btn lr-open-nudge';
-    if (sentRecently){ nb.disabled = true; nb.textContent = 'Sent. They got a nudge.'; }
-    else nb.textContent = '👋 Ready when you are';
-    nb.addEventListener('click', function(){ sendOpenerNudge(nb); });
-    waitEl.appendChild(p); waitEl.appendChild(nb);
+    // 'waiter': the hint describes a button this side cannot press.
+    if (hint) hint.hidden = true;
   }
+  // `?openbeatdemo=opener|waiter` renders the card against synthetic state
+  // with no queue, no opponent and no POST, the same precedent as /spar's
+  // ?draftdemo. The beat is a timed sequence (15s hot, 90s late), so the
+  // only honest way to judge it is to watch it run.
+  (function(){
+    var m = /[?&]openbeatdemo=(opener|waiter)/.exec(location.search);
+    if (!m) return;
+    window.__lrOpenBeatDemo = m[1];
+    document.addEventListener('DOMContentLoaded', function(){
+      try {
+        state.phase = 'round'; state.speechIdx = 0; state.timerState = 'ready';
+        state.motion = state.motion || 'Public figures should have a right to privacy.';
+        state.proName = state.proName || 'You'; state.conName = state.conName || 'Jordan';
+        var sv = $('setupView'); if (sv) sv.classList.add('hidden');
+        $('roundView').classList.remove('hidden');
+        updateOpeningBeat();
+      } catch(e){}
+    });
+  })();
   setInterval(function(){ try { updateOpeningBeat(); } catch(e){} }, 5000);
   function updateStartCue(){
     var on = startCueAwaiting();
