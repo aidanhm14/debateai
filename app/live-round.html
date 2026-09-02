@@ -1724,20 +1724,35 @@ body.spectator-mode .speech-header{background:color-mix(in srgb,var(--bg) 91%,#d
    someone is talking. While the clock runs they fold away so the clock
    and the transcript own the panel, and they come straight back between
    speeches. Nothing is removed, only hidden while it cannot be used. */
-body.speech-live .round-edit-bar,
-body.speech-live .round-roster,
-body.speech-live .prep-banner,
-body.speech-live #rmbBrief,
-body.speech-live #formatDisplay,
-body.speech-live .jd{display:none !important}
-body.speech-live .round-motion-bar{padding-top:10px;padding-bottom:10px}
-body.speech-live .rmb-eyebrow{display:none}
+/* 2026-09-02: these rules are about SETUP BEING OVER, which is true for
+   everyone in the room the moment a clock starts, so they key on
+   .round-running. They used to key on .speech-live, which only the
+   client actually delivering the speech ever gets (applyRemoteTimer
+   never set it), so the person listening kept the judge card, the
+   ballot-length picker, the resolution eyebrow and the sides guide on
+   screen for the whole round while the speaker did not. .speech-live
+   survives for the one thing that is genuinely speaker-only: folding
+   the aides panel out from between your clock and your transcript. */
+body.round-running .round-edit-bar,
+body.round-running .round-roster,
+body.round-running .prep-banner,
+body.round-running #rmbBrief,
+body.round-running #formatDisplay,
+body.round-running .jd{display:none !important}
+body.round-running .round-motion-bar{padding-top:10px;padding-bottom:10px}
+body.round-running .rmb-eyebrow{display:none}
 /* The This House gloss is reading material for before the round, the
    same as the background brief above it. Both fold away while somebody
    is actually speaking. */
-body.speech-live .rmb-house{display:none !important}
-body.speech-live .rmb-motion{font-size:clamp(1.8rem,3.4vw,3rem);line-height:1.08}
-body.speech-live .transcript-area{margin-top:4px}
+body.round-running .rmb-house{display:none !important}
+body.round-running .rmb-motion{font-size:clamp(1.8rem,3.4vw,3rem);line-height:1.08}
+body.round-running .transcript-area{margin-top:4px}
+/* 2026-09-02: two more things that are settled by the time a clock is
+   running. Which side argues what is printed on both video tiles and in
+   the speech name above the clock, and the word SPEAKING sits over a
+   counting clock next to a button that says Pause. */
+body.round-running #sidesGuide{display:none}
+body.round-running .speech-clock-label.is-speaking{display:none}
 .prep-banner{display:flex;align-items:center;gap:10px;justify-content:center;margin:0 0 14px;padding:10px 14px;
   border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);
   font-size:.82rem;color:var(--text,#fff)}
@@ -2244,7 +2259,7 @@ body.lr-mini .lr-start-reminder,body.lr-pip .lr-start-reminder{display:none!impo
   color:var(--text-dim);border-radius:999px;padding:2px 9px;font:inherit;font-size:.64rem;
   font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
 .sg-swap:hover{color:var(--text);border-color:var(--border-strong,rgba(127,127,127,.6))}
-body.speech-live .sg-swap{display:none}
+body.round-running .sg-swap{display:none}
 /* Touch gets a taller target without loosening the desktop density. */
 @media (pointer:coarse){.sg-swap{padding:7px 12px}}
 .sg-what{font-size:.88rem;line-height:1.5;color:var(--text-dim)}
@@ -2352,7 +2367,7 @@ body.speech-live .sg-swap{display:none}
   text-transform:none;
 }
 .rmb-change:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.4))}
-body.speech-live .rmb-change{display:none}
+body.round-running .rmb-change{display:none}
 .round-motion-bar .rmb-motion{
   font-family:'DM Sans','Inter',Arial,sans-serif;
   /* 2026-09-01, founder off a screenshot: "make the resolutions widen -
@@ -5703,6 +5718,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     }
     $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
     document.body.classList.remove('speech-live');
+    document.body.classList.remove('round-running');
+    restoreAidesAfterSpeech();
     $('speechText').value = '';
     micResetBuffer();
     updateWordCount();
@@ -6399,6 +6416,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // things anyone looks at: the clock and the transcript. Everything
     // else in there is SETUP, and setup is over.
     document.body.classList.add('speech-live');
+    document.body.classList.add('round-running');
+    foldAidesForSpeech();
     state.timerInterval = setInterval(drawTimer, 200);
     drawTimer();
     updatePlayPauseBtn();
@@ -6427,6 +6446,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     state.timerStart = 0;
     state.timerState = 'paused';
     document.body.classList.remove('speech-live');
+    document.body.classList.remove('round-running');
+    restoreAidesAfterSpeech();
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
     drawTimer();
     updatePlayPauseBtn();
@@ -6496,6 +6517,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       // Off-side mirror: the speech is live, drop any stale judge remark.
       try { clearFloorRemark(); } catch(e){}
     }
+    // Setup is over for the person listening as well, so the settled
+    // configuration collapses on their screen too. NOT speech-live: they
+    // are not delivering anything, so their aides stay where they are.
+    document.body.classList.toggle('round-running', state.timerState === 'running');
     drawTimer();
     updatePlayPauseBtn();
   }
@@ -11221,6 +11246,31 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // page load, so closing it again is respected for the rest of the
   // round.
   var _aidesAutoOpened = false;
+  // 2026-09-02: the aides panel is ~800px once a round has notes and a
+  // fact check in it, and revealAides opens it for the rest of the round.
+  // Between speeches that is exactly right, and it is where the founder
+  // asked for it (8d533e3d: motion, clock, AI tools, transcript). While
+  // the clock is actually RUNNING it sits between the speaker's own clock
+  // and the box capturing their words, and notes about earlier speeches
+  // are for preparing a reply, not for delivering one. So it folds for the
+  // length of a speech and comes back the way it was. The summary line and
+  // its "2 notes - 1 check" status stay on screen, so nothing is hidden;
+  // it is one tap away, and reopening it mid-speech is respected.
+  var _aidesFolded = false;
+  function foldAidesForSpeech(){
+    var det = document.getElementById('moreOptions');
+    if (!det || !det.open) return;
+    _aidesFolded = true;
+    det.open = false;
+  }
+  function restoreAidesAfterSpeech(){
+    if (!_aidesFolded) return;
+    _aidesFolded = false;
+    var det = document.getElementById('moreOptions');
+    // Only reopen what we closed, and only if the debater has not
+    // reopened it themselves in the meantime.
+    if (det && !det.open) det.open = true;
+  }
   function revealAides(){
     if (_aidesAutoOpened) return;
     var det = $('moreOptions');
@@ -19831,6 +19881,18 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       state.timerState = 'running';
       state.timerElapsed = elapsedSec;
       state.timerStart = Date.now();
+      // The real running state is `body.speech-live`, added inside
+      // startSpeechTimer, which these scenes deliberately bypass. Without
+      // it the speaking scene painted the judge card, the ballot-length
+      // picker, the resolution eyebrow and the sides guide, none of which
+      // are on screen while you are delivering a speech: an editor was
+      // tuning copy on a screen that cannot occur. Only the `speaking`
+      // scene gets it, because applyRemoteTimer does NOT set it, so the
+      // off-side and spectators genuinely do not have it in a real round.
+      if (scene === 'speaking') document.body.classList.add('speech-live');
+      // Everyone in the room gets this one while a clock runs, including
+      // the person listening and every spectator.
+      document.body.classList.add('round-running');
     }
     function fakeStage(){
       var shell = $('callShell'); if (!shell) return;
@@ -19880,6 +19942,9 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       quiet(function(){ renderWatchCount(opts.watching || 0, false); });
       quiet(updateRoundGuide);
       fakeStage();
+      // renderRoundNotes above calls revealAides, which opens the aides
+      // panel. A running clock folds it, same as a real speech does.
+      if (document.body.classList.contains('speech-live')) quiet(function(){ foldAidesForSpeech(); });
       // revealAides scrolls the notes into view; an editor wants the top.
       setTimeout(function(){ quiet(panelToTop); }, 50);
     }
