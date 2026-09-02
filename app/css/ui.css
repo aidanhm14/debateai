@@ -1979,3 +1979,62 @@ body{font-size:17px}
   /* was 14px: phones are where the small type hurt most */
   html{font-size:15.5px}
 }
+
+/* ── Phone tab bar ── 2026-09-02 ─────────────────────────────────────
+   Founder: mobile is overwhelming, make it an app. js/topbar.js mounts
+   a five-tab bar (Home / Debate / Watch / Board / Me) on phones, web
+   only: the iOS shell draws its own in native-bridge.js and sets
+   html.dbnative, which this whole block stands down for. Hidden above
+   720px so tablets and desktop keep the rail. body.has-tabbar reserves
+   the height and lifts every fixed-bottom floater the site already
+   ships (live popup, signup pill, sign-in wall CTA, experience ask)
+   so nothing lands under the bar. Round surfaces never get it; see the
+   SKIP regex in topbar.js. */
+.da-tabbar{display:none}
+@media(max-width:720px){
+  html:not(.dbnative) body.has-tabbar .da-tabbar{display:flex}
+  html:not(.dbnative) body.has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .da-tabbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:1200;
+    height:calc(62px + env(safe-area-inset-bottom,0px));
+    padding:0 4px env(safe-area-inset-bottom,0px);
+    justify-content:space-around;align-items:stretch;
+    background:var(--bg-elev-solid,#17171b);
+    border-top:1px solid var(--border,rgba(255,255,255,.08));
+    box-shadow:0 -8px 24px rgba(0,0,0,.08);
+  }
+  .da-tab{
+    flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:6px 2px 4px;color:var(--text-dim,rgba(255,255,255,.68));text-decoration:none;
+    font-family:var(--font-body,'Inter',system-ui,sans-serif);font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:1;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .da-tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .da-tab.is-active{color:var(--accent-solid,#b91c1c)}
+  [data-theme="light"] .da-tab{color:rgba(26,26,31,.6)}
+  [data-theme="light"] .da-tab.is-active{color:#b91c1c}
+  /* The Debate tab is the product, so it is the raised red disc in the
+     middle, the same weight the landing's Join a debate door carries. */
+  .da-tab--primary .da-tab-ic{
+    width:46px;height:46px;margin-top:-18px;border-radius:50%;display:grid;place-items:center;
+    background:var(--accent-solid,#b91c1c);color:#fff;
+    box-shadow:0 10px 22px rgba(185,28,28,.35),0 0 0 4px var(--bg-elev-solid,#17171b);
+  }
+  .da-tab--primary .da-tab-ic svg{width:24px;height:24px}
+  .da-tab--primary{color:var(--text,#fff)}
+  [data-theme="light"] .da-tab--primary{color:#1a1a1f}
+  .da-tab--primary.is-active .da-tab-ic{background:#dc2626}
+  .da-tab-badge{
+    position:absolute;top:2px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;
+    background:#dc2626;color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;
+  }
+  .da-tab{position:relative}
+  /* Floaters that already sit on the bottom edge ride up over the bar. */
+  body.has-tabbar .da-livepop,
+  body.has-tabbar .signup-pill,
+  body.has-tabbar .fb-floating,
+  body.has-tabbar .upgrade-cta,
+  body.has-tabbar #daWallGo{bottom:calc(78px + env(safe-area-inset-bottom,0px)) !important}
+  body.has-tabbar #daExpAsk{bottom:calc(136px + env(safe-area-inset-bottom,0px)) !important}
+  body.has-tabbar .ui-topbar-sheet{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));max-height:calc(100svh - 60px);overflow-y:auto}
+}

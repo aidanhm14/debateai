@@ -3214,3 +3214,83 @@
   if (document.readyState === 'complete') arm();
   else window.addEventListener('load', arm);
 })();
+
+/* ── Phone tab bar ── 2026-09-02 ─────────────────────────────────────
+   Founder: "we need to fix up mobile, its overwhelming. i want an
+   entirely different user interface for mobile, similar to the app."
+   The iOS shell already draws a bottom tab bar (native-bridge.js);
+   this is the same idea for the web on a phone, mounted by the one
+   script every page loads. Five tabs, the product in the middle:
+   Home / Debate / Watch / Board / Me. Styles live in ui.css under
+   ".da-tabbar" and only apply under 720px, so this is inert on
+   desktop even though the nodes are always built.
+
+   Never on a round surface (a tab bar under a live camera is the
+   /live-round floating-pill mistake), never in the native app (it has
+   its own), never on admin. Marks body.has-tabbar so ui.css can
+   reserve the height and lift the existing bottom floaters. */
+(function(){
+  if (window.__DB_NATIVE) return;
+  if (window.__daTabbar) return;
+  window.__daTabbar = 1;
+  var path = (location.pathname || '/').replace(/\.html$/, '').replace(/\/$/, '') || '/';
+  var SKIP = /^\/(live-round|voice-debate|newvoice|room-judge|casual-room|exhibition|coach|admin|admin-[a-z-]+|studio|director|og-image|offline|_more-preview|unblock|native)(\/|$)/;
+  if (SKIP.test(path)) return;
+
+  function svg(paths){
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>';
+  }
+  var TABS = [
+    { href: '/', label: 'Home', match: /^\/(landing)?$/,
+      ic: '<path d="M3 11 12 3l9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>' },
+    { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates|w|replays)(\/|$)/,
+      ic: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/>' },
+    { href: '/spar', label: 'Debate', primary: true, match: /^\/(spar|debate-chat|practice|partners)(\/|$)/,
+      ic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
+    { href: '/leaderboard', label: 'Board', match: /^\/(leaderboard|ladder|debate-rating|tournaments|tournament|open)(\/|$)/,
+      ic: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>' },
+    { href: '/profile', label: 'Me', match: /^\/(profile|messages|chat|settings|friends|brain)(\/|$)/,
+      ic: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
+  ];
+
+  function build(){
+    if (document.querySelector('.da-tabbar')) return;
+    var nav = document.createElement('nav');
+    nav.className = 'da-tabbar';
+    nav.setAttribute('aria-label', 'App navigation');
+    TABS.forEach(function(t){
+      var a = document.createElement('a');
+      var active = t.match.test(path);
+      a.href = t.href;
+      a.className = 'da-tab' + (t.primary ? ' da-tab--primary' : '') + (active ? ' is-active' : '');
+      if (active) a.setAttribute('aria-current', 'page');
+      a.innerHTML = '<span class="da-tab-ic">' + svg(t.ic) + '</span><span>' + t.label + '</span>';
+      a.addEventListener('click', function(){
+        try { if (window.gtag) window.gtag('event', 'nav_tabbar_click', { to: t.href, from: path }); } catch(e){}
+      });
+      nav.appendChild(a);
+    });
+    document.body.appendChild(nav);
+    document.body.classList.add('has-tabbar');
+    // Unread DMs badge on Me, read off the bell notifications.js keeps
+    // in the topbar; it is the one place unread state already lives.
+    var me = nav.lastChild;
+    function syncBadge(){
+      var bell = document.querySelector('.ui-bell');
+      var n = 0;
+      if (bell) {
+        var b = bell.querySelector('.ui-bell-count, [data-unread]');
+        n = b ? parseInt(b.textContent, 10) || 0 : (bell.classList.contains('has-unread') ? 1 : 0);
+      }
+      var badge = me.querySelector('.da-tab-badge');
+      if (n > 0) {
+        if (!badge) { badge = document.createElement('span'); badge.className = 'da-tab-badge'; me.appendChild(badge); }
+        badge.textContent = n > 9 ? '9+' : String(n);
+      } else if (badge) badge.remove();
+    }
+    setTimeout(syncBadge, 2500);
+    setInterval(function(){ if (!document.hidden) syncBadge(); }, 15000);
+  }
+  if (document.body) build();
+  else document.addEventListener('DOMContentLoaded', build);
+})();

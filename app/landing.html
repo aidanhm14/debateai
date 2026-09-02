@@ -8591,6 +8591,156 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 .lpb-winner-name{font-family:var(--font-display);font-weight:900;text-transform:uppercase;letter-spacing:.02em}
 .lpb-score-num,.hiw-verdict-pts{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:0}
 </style>
+<!-- ── MOBILE HOME · 2026-09-02 ─────────────────────────────────────
+     Founder: "we need to fix up mobile, its overwhelming. i want an
+     entirely different user interface for mobile, similar to the app.
+     a very simple 'join debate' and then organize the UI better."
+     Under 720px this block is the whole page above the footer: one
+     headline, one red Join a debate door, two quiet cards, sign-in,
+     and a row of text links. Everything the desktop page stacks
+     (the example board, the leaderboard rail, the gate, every tour
+     chapter) is display:none at that width. It all stays in the DOM
+     for search and deep links; the phone simply never paints it.
+     The composition mirrors app/native.html (the iOS shell) on
+     purpose, so the web on a phone and the app read as one product.
+     Sitewide, js/topbar.js adds the phone tab bar (Home / Debate /
+     Watch / Board / Me) that native-bridge.js already draws in the app.
+     Desktop (>720px) is byte-for-byte untouched.
+     Editing this on a phone width: /god (tools/copy-edit.html) at the
+     390 preset renders this block instead of the desktop screen. -->
+<style>
+  #mhome{display:none}
+  @media(max-width:720px){
+    #mhome{display:block}
+    /* The desktop page, hidden on phones. Listed explicitly, never
+       "everything but", so a new desktop section fails visible (it
+       shows up on the phone) rather than silently disappearing. */
+    :root[data-first-screen] #first-screen.fscreen,#first-screen,
+    #lbRail,.lm-wl-row,.landing-more-shell,#how-it-works,
+    section.hero,#live-proof,#creator-sweepstakes,
+    #stream-it,#why-this-exists,#floor-band,#credential-path,
+    #community-band,#reviews,#mode-select,#engine-select,
+    .founder-line-band,#faq,#verdict-ticker{display:none !important}
+  }
+  .mhome{--mh-red:#dc2626;--mh-red-deep:#b91c1c;--mh-ink:#1a1a1f;--mh-muted:rgba(26,26,31,.62);
+    --mh-line:rgba(0,0,0,.1);--mh-card:#fff;
+    padding:calc(52px + 18px) 18px 28px;color:var(--mh-ink)}
+  body.has-beta-strip .mhome{padding-top:calc(52px + 32px + 14px)}
+  :root:not([data-theme="light"]) .mhome{--mh-ink:#f5efe7;--mh-muted:rgba(245,239,231,.64);
+    --mh-line:rgba(255,255,255,.12);--mh-card:#1c1b20}
+  .mh-wrap{width:min(100%,540px);margin:0 auto}
+  .mh-title{margin:0 0 8px;max-width:12ch;font-family:'DM Sans','Inter','Archivo',system-ui,sans-serif;
+    font-weight:700;font-size:38px;line-height:1.02;letter-spacing:-.02em;text-wrap:balance;
+    /* !important: the landing dims every <p> to .65 alpha further down the cascade. */
+    color:var(--mh-ink) !important}
+  .mh-sub{margin:0 0 18px;max-width:34ch;font-size:15.5px;line-height:1.45;color:var(--mh-muted)}
+  /* The one door. Same shape as .primary in native.html. */
+  .mh-primary{position:relative;display:block;width:100%;min-height:128px;padding:19px 20px 17px;
+    border-radius:22px;background:linear-gradient(135deg,var(--mh-red),var(--mh-red-deep));
+    color:#fff;text-decoration:none;overflow:hidden;box-shadow:0 18px 34px rgba(185,31,35,.24)}
+  .mh-primary::after{content:"";position:absolute;inset:auto -40px -70px auto;width:180px;height:180px;
+    border-radius:50%;background:rgba(255,255,255,.13)}
+  .mh-primary:active{transform:scale(.99)}
+  .mh-primary-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mh-primary-label{font-family:'Inter','Archivo',system-ui,sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.01em}
+  .mh-arrow{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(255,255,255,.18);font-size:24px;line-height:1}
+  .mh-primary-meta{position:absolute;left:20px;right:20px;bottom:16px;display:flex;align-items:flex-end;
+    justify-content:space-between;gap:14px;font-size:12.5px;font-weight:750;color:rgba(255,255,255,.88)}
+  .mh-primary-meta b{font-weight:900}
+  .mh-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:7px;
+    vertical-align:1px;box-shadow:0 0 0 0 rgba(255,255,255,.6);animation:mhPulse 1.8s ease-out infinite}
+  @keyframes mhPulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}70%,100%{box-shadow:0 0 0 7px rgba(255,255,255,0)}}
+  .mh-wave{height:30px;display:flex;align-items:center;gap:4px}
+  .mh-wave i{display:block;width:3px;height:var(--h);border-radius:3px;background:#fff;opacity:.9;
+    animation:mhWave 1.1s ease-in-out infinite alternate;animation-delay:var(--d)}
+  @keyframes mhWave{to{height:8px;opacity:.45}}
+  /* Two quiet cards under the door: the AI round and the watch shelf. */
+  .mh-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .mh-card{display:flex;flex-direction:column;justify-content:space-between;gap:14px;min-height:112px;
+    padding:15px 15px 13px;border:1px solid var(--mh-line);border-radius:18px;background:var(--mh-card);
+    color:var(--mh-ink);text-decoration:none}
+  .mh-card:active{transform:scale(.99);border-color:rgba(220,38,38,.5)}
+  .mh-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .mh-card-label{font-family:'Inter','Archivo',system-ui,sans-serif;font-weight:800;font-size:19px;line-height:1.05;letter-spacing:-.01em}
+  .mh-card-arrow{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(220,38,38,.1);color:var(--mh-red);font-size:18px;line-height:1}
+  .mh-card-sub{font-size:12.5px;font-weight:700;line-height:1.35;color:var(--mh-muted)}
+  .mh-card-sub.is-live{color:var(--mh-red)}
+  .mh-card-sub.is-live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--mh-red);margin-right:6px;vertical-align:1px}
+  .mh-signin{margin-top:18px}
+  body.signed-in .mh-signin{display:none !important}
+  .mh-signin-btn{display:block;width:100%;min-height:52px;padding:14px 18px;border:1px solid var(--mh-line);
+    border-radius:999px;background:var(--mh-card);color:var(--mh-ink);font:800 16px/1.2 'Inter','Archivo',system-ui,sans-serif;
+    cursor:pointer;-webkit-appearance:none;appearance:none}
+  .mh-signin-btn:active{transform:scale(.99)}
+  .mh-signin-why{margin:9px 2px 0;font-size:13px;line-height:1.4;color:var(--mh-muted)}
+  /* The rest of the site, one quiet row. Real routes, no competition. */
+  .mh-more{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;margin:26px 2px 0}
+  .mh-more a{min-height:34px;display:inline-flex;align-items:center;color:var(--mh-muted);
+    font-size:13.5px;font-weight:700;text-decoration:none}
+  .mh-more a:active{color:var(--mh-red)}
+  @media(max-width:360px){.mhome{padding-left:14px;padding-right:14px}.mh-title{font-size:34px}
+    .mh-primary-label{font-size:27px}.mh-row{grid-template-columns:1fr}.mh-card{min-height:0}}
+  @media(prefers-reduced-motion:reduce){.mh-wave i,.mh-live-dot{animation:none}}
+</style>
+<section id="mhome" class="mhome" aria-label="Start a live debate" data-nosnippet>
+  <div class="mh-wrap">
+    <p class="mh-title">The chess.com of debating.</p>
+    <p class="mh-sub">Get matched with a stranger, argue it out on camera, and an AI judge decides who won.</p>
+
+    <a class="mh-primary" href="/spar" data-cta="mhome-join" aria-label="Join a live debate">
+      <span class="mh-primary-top"><span class="mh-primary-label">Join a debate</span><span class="mh-arrow" aria-hidden="true">&rarr;</span></span>
+      <span class="mh-primary-meta">
+        <span><span class="mh-live-dot" aria-hidden="true"></span><b data-live-now>2</b> live right now</span>
+        <span class="mh-wave" aria-hidden="true">
+          <i style="--h:12px;--d:-.1s"></i><i style="--h:24px;--d:-.35s"></i><i style="--h:17px;--d:-.6s"></i><i style="--h:29px;--d:-.25s"></i><i style="--h:20px;--d:-.5s"></i><i style="--h:11px;--d:-.75s"></i>
+        </span>
+      </span>
+    </a>
+
+    <div class="mh-row">
+      <a class="mh-card" href="/newvoice" data-cta="mhome-ai">
+        <span class="mh-card-top"><span class="mh-card-label">Debate the AI</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
+        <span class="mh-card-sub">Voice round. Starts now, no queue.</span>
+      </a>
+      <a class="mh-card" href="/watch" data-cta="mhome-watch">
+        <span class="mh-card-top"><span class="mh-card-label">Watch</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
+        <span class="mh-card-sub" id="mhWatchMeta">Live rounds and replays</span>
+      </a>
+    </div>
+
+    <div class="mh-signin">
+      <button type="button" class="mh-signin-btn" data-fs-signin data-cta="mhome-signin">Sign in or create account</button>
+      <p class="mh-signin-why">Keep your rounds and climb the leaderboard.</p>
+    </div>
+
+    <nav class="mh-more" aria-label="More">
+      <a href="/leaderboard">Leaderboard</a>
+      <a href="/community">Community</a>
+      <a href="/tournaments">Tournaments</a>
+      <a href="/how-it-works">How it works</a>
+    </nav>
+  </div>
+  <script>
+    /* The watch card states the real state and never invents one: LIVE
+       only when /api/stream-status says so, otherwise the replay count,
+       otherwise "Nothing live right now". Fails silent on a network
+       error and keeps the neutral default. Same rule as native.html. */
+    (function(){
+      var meta = document.getElementById('mhWatchMeta');
+      if (!meta || !window.matchMedia || !window.matchMedia('(max-width:720px)').matches) return;
+      fetch('/api/stream-status').then(function(r){ return r.ok ? r.json() : null; }).then(function(s){
+        if (s && s.live) { meta.textContent = 'Live now'; meta.classList.add('is-live'); return null; }
+        return fetch('/api/recordings').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+          var n = d && d.recordings ? d.recordings.length : 0;
+          meta.textContent = n ? (n === 1 ? '1 replay to watch' : n + ' replays to watch') : 'Nothing live right now';
+        });
+      }).catch(function(){});
+    })();
+  </script>
+</section>
 <section id="first-screen" class="fscreen" aria-label="Start a live debate">
   <div class="fscreen-wrap">
     <!-- Search snippets use the stable meta description while this copy
