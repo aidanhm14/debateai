@@ -1751,6 +1751,35 @@ body.round-running .transcript-area{margin-top:4px}
    running. Which side argues what is printed on both video tiles and in
    the speech name above the clock, and the word SPEAKING sits over a
    counting clock next to a button that says Pause. */
+/* The speech header is a two-column grid on phones, so the beat has to
+   claim the whole row or it lands in a 147px cell and the sentence wraps
+   one word per line under the button. */
+.ready-beat{grid-column:1/-1;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:10px;padding:9px 12px;border-radius:12px;
+  background:rgba(127,127,127,.07);border:1px solid rgba(127,127,127,.18);font-size:.82rem;line-height:1.4}
+/* A basis rather than min-width:0, so the sentence wraps to a new line
+   before it agrees to shrink behind the button. */
+.ready-beat .rb-text{flex:1 1 190px}
+.ready-beat .rb-text strong{font-weight:800}
+.ready-beat .rb-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:rgba(127,127,127,.5)}
+.ready-beat .rb-dot.is-them{background:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,.7)}
+.ready-beat .rb-dot.is-wait{background:#22c55e;opacity:.55}
+.ready-beat.is-set{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.34)}
+.ready-beat.is-set .rb-dot{background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,.8)}
+/* Opaque on purpose. This page ships three themes (grey, crimson,
+   light) and the round panel is painted from tokens, so a translucent
+   pill would sit on a different ground in each one and needed a
+   per-theme text colour to stay legible. A solid green with white on it
+   is 5.3:1 wherever it lands, and it needs no theme rule to stay that
+   way. The beat's own text deliberately inherits, so it always matches
+   the panel it is sitting in. */
+.ready-beat .rb-go{font:inherit;font-size:.78rem;font-weight:800;white-space:nowrap;cursor:pointer;
+  padding:7px 14px;border-radius:999px;border:1px solid transparent;
+  background:#15803d;color:#fff}
+.ready-beat .rb-go:hover{background:#166534}
+@media (max-width:620px){
+  .ready-beat{gap:8px}
+  .ready-beat .rb-go{flex:1 1 100%;min-height:44px}
+}
 body.round-running #sidesGuide{display:none}
 body.round-running .speech-clock-label.is-speaking{display:none}
 .prep-banner{display:flex;align-items:center;gap:10px;justify-content:center;margin:0 0 14px;padding:10px 14px;
@@ -3622,6 +3651,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
              no judge cutoff. Rendered by renderExtUI(); no display on the
              class so [hidden] keeps working. -->
         <div class="ext-row" id="extRow" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem;margin-top:6px"></div>
+        <!-- Both-ready beat. Sits directly above the action it arms, and
+             never disables it: this answers a question, it does not add a
+             gate. Filled by window.__lrRenderReady from the round
+             snapshot; hidden on every path that does not need it. -->
+        <div class="ready-beat" id="readyBeat" hidden></div>
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
         <div class="row speech-actions">
@@ -6611,6 +6645,9 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       btn.textContent = ms ? '▶ Start my speech' : '▶ Start speech';
       btn.className = 'btn btn-play';
     }
+    // Whose turn it is and whether the clock has started are local, so the
+    // beat repaints here rather than only on a doc write.
+    if (window.__lrRepaintReady) { try { window.__lrRepaintReady(); } catch(e){} }
   }
 
   // ── Cross-language rounds ─────────────────────────────────────────
@@ -15898,6 +15935,108 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       try { renderContext(d); } catch(e){}
     };
 
+    // ── Both-ready beat ──────────────────────────────────────────────
+    // 2026-09-02, measured. Since the 08-27 start-cue work, 48% of
+    // two-seat rounds get past speech 0, up from 28%. Of the 36 that
+    // still do not, 30 had FINISHED the motion draft: they struck
+    // motions, agreed one, took sides, and then nobody pressed anything.
+    // Fifteen of those had both people genuinely in the room for three
+    // minutes or more. (The other 21 had under three minutes of real
+    // overlap, which is an arrival problem this beat does not touch.)
+    // A pending recording-consent ask was tested as the cause and ruled
+    // out: it was slightly MORE common among the rounds that started.
+    //
+    // What those rooms are missing is a shared moment. The draft ends,
+    // the sides land, and the room goes quiet with one person holding a
+    // button the other cannot see. So both debaters say they are there,
+    // once, and the beat then names who opens. Same shape as the queue
+    // ready-check from 08-11, one screen later.
+    //
+    // It NEVER gates the start button. A beat that could stall is a
+    // worse version of the bug it is here to fix, so a debater whose
+    // opponent never taps can still open the round, and this is a
+    // sentence rather than a door.
+    //
+    // No Firestore rule was added, following the contextPicks precedent
+    // from 08-24: this is cooperative pre-round setup with nothing to
+    // gain by forging it. Marking your opponent ready hands you nothing
+    // you did not already have, since you still have to press start
+    // yourself. Each writer touches only its own key by dot path.
+    function markReady(){
+      var uid = myUid(); if (!uid || isSpectator()) return;
+      var ref = getRoundDocRef(); if (!ref) return;
+      var upd = {}; upd['readyChecks.' + uid] = Date.now();
+      ref.update(upd).catch(function(){});
+      try { gtag('event', 'live_ready_mark', { format: state.formatKey }); } catch(e){}
+    }
+    function renderReady(d){
+      var el = document.getElementById('readyBeat');
+      if (!el) return;
+      function off(){ el.hidden = true; el.innerHTML = ''; }
+      // Only before the first speech of a live round, and only for the
+      // two people who can actually speak in it.
+      if (state.phase !== 'round' || state.speechIdx > 0) return off();
+      if (state.timerState !== 'ready') return off();
+      if (isSpectator()) return off();
+      var uid = myUid(); if (!uid) return off();
+      var seats = seatUids();
+      if (seats.length < 2 || seats.indexOf(uid) < 0) return off();
+      // Solo / hotseat rounds put the same uid on both benches, and 2v2
+      // partners are not in seatUids at all, so both fall out here. There
+      // is no second person to be ready in the first case and four people
+      // to agree in the second, which is a different beat.
+      if (seats[0] === seats[1]) return off();
+      // While the draft is still running the room has a beat already and
+      // striking is its own proof of presence; this one waits its turn.
+      var draft = d && d.draft;
+      if (draft && draft.phase && draft.phase !== 'done') return off();
+
+      var marks = (d && d.readyChecks) || {};
+      var other = seats.filter(function(u){ return u !== uid; })[0];
+      var mine = !!marks[uid];
+      var theirs = !!(other && marks[other]);
+      var them = other ? nameForUid(other) : 'your opponent';
+      var opensName = isMyTurn() ? 'You' : them;
+
+      paintReadyBeat(mine && theirs ? 'set' : mine ? 'waiting' : theirs ? 'ask-theirs' : 'ask',
+        them, isMyTurn());
+    }
+    // The four states, in one place, so the design scenes below and the
+    // live round can never drift into showing different copy.
+    function paintReadyBeat(kind, them, opensIsMe){
+      var el = document.getElementById('readyBeat');
+      if (!el) return;
+      var name = escHtml(them || 'your opponent');
+      el.hidden = false;
+      if (kind === 'set'){
+        el.className = 'ready-beat is-set';
+        el.innerHTML = '<span class="rb-dot" aria-hidden="true"></span>' +
+          '<span class="rb-text"><strong>Both ready.</strong> ' +
+          (opensIsMe ? 'You open, whenever you want.' : name + ' opens.') + '</span>';
+        return;
+      }
+      el.className = 'ready-beat';
+      if (kind === 'waiting'){
+        el.innerHTML = '<span class="rb-dot is-wait" aria-hidden="true"></span>' +
+          '<span class="rb-text">You are ready. Waiting on ' + name + '.</span>';
+        return;
+      }
+      var lead = kind === 'ask-theirs' ? '<strong>' + name + ' is ready.</strong> ' : '';
+      el.innerHTML = '<span class="rb-dot' + (kind === 'ask-theirs' ? ' is-them' : '') + '" aria-hidden="true"></span>' +
+        '<span class="rb-text">' + lead + 'Say you are here so ' + name + ' knows.</span>' +
+        '<button type="button" class="rb-go" data-ready-go>I am ready</button>';
+    }
+    window.__lrPaintReadyBeat = paintReadyBeat;
+    document.addEventListener('click', function(e){
+      var b = e.target && e.target.closest && e.target.closest('[data-ready-go]');
+      if (b) markReady();
+    });
+    window.__lrRenderReady = function(d){ try { renderReady(d); } catch(e){} };
+    // The beat also depends on local state the snapshot does not carry
+    // (whose turn it is, whether the clock has started), so repaint it on
+    // every timer transition against the last snapshot we held.
+    window.__lrRepaintReady = function(){ try { renderReady(state.lastRoundDoc || {}); } catch(e){} };
+
     // ── Switching sides takes both debaters too ──────────────────────
     // 2026-08-24 (the founder): let people trade sides when they get in
     // the room. /spar hands out sides by lexicographic uid, which is
@@ -19757,7 +19896,9 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // Daily room, a second person, or a signed-in seat. Same precedent as
   // ?openbeatdemo above and /spar's ?draftdemo. Scenes:
   //   setup      the pre-round form, filled in
-  //   ready      in the room, Speech 1 not started
+  //   ready      in the room, Speech 1 not started, the opponent has
+  //              said they are here and you have not
+  //   readyset   the same screen once both have said it
   //   speaking   my speech running: clock live, notes + fact check up
   //   waiting    the opponent's speech running, my controls locked
   //   spectator  the watcher's view of that same speech
@@ -19772,7 +19913,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (!m) return;
     var scene = m[1] || 'speaking';
     if (scene === '1' || scene === 'on') scene = 'speaking';
-    if (['setup','ready','speaking','waiting','spectator','ballot'].indexOf(scene) < 0) scene = 'speaking';
+    if (['setup','ready','readyset','speaking','waiting','spectator','ballot'].indexOf(scene) < 0) scene = 'speaking';
     window.__lrDesign = scene;
     document.documentElement.setAttribute('data-lr-design', scene);
 
@@ -19975,8 +20116,16 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         quiet(renderSetup);
         return;
       }
-      if (scene === 'ready'){
+      if (scene === 'ready' || scene === 'readyset'){
         enterRound(0, { watching: 3 });
+        // The both-ready beat reads the round doc and the seat uids,
+        // neither of which these scenes have (seats are deliberately
+        // uid-less so the editor is not classified as a spectator of
+        // their own design), so it is painted through the same function
+        // the live round paints it with.
+        quiet(function(){
+          window.__lrPaintReadyBeat(scene === 'readyset' ? 'set' : 'ask-theirs', state.conName, true);
+        });
         quiet(updateOpeningBeat);
         // Paint the opening beat once, then hold it: the beat is timed
         // (15s hot, 90s late) and a repaint under an edit loses the edit.
@@ -20206,6 +20355,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // Motion context (US / world): classify once, then paint the setup
     // card + agreed chip. Additive; a no-op on motions that don't need it.
     if (window.__lrRenderContext) { try { window.__lrRenderContext(d); } catch(e){} }
+    // Both-ready beat. Kept on state so a timer transition (which carries
+    // no snapshot) can repaint it without waiting for the next doc write.
+    state.lastRoundDoc = d;
+    if (window.__lrRenderReady) { try { window.__lrRenderReady(d); } catch(e){} }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (!tournamentControlsLocked() && d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
