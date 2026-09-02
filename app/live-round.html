@@ -6359,8 +6359,24 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // The motion is not settled until the draft says it is. Starting on
     // it would run the round on a motion the strikes were about to
     // overrule, and rewrite both sides mid-speech when they landed.
+    // ...and it has to SAY so. A bare return here reads as a dead button:
+    // measured on real rounds, this is the beat where people press Start,
+    // nothing happens, and they conclude the site is broken ("is button
+    // not working?", "you have to start it bro, I don't know what to tell
+    // you", "we should reload"). The draft is the normal path for every
+    // spar-matched pair, so silence here is the common case, not the edge.
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
         && window.__lrDraftPending && window.__lrDraftPending()){
+      var dHint = $('readyHint');
+      if (dHint){
+        dHint.style.display = '';
+        dHint.innerHTML = '<strong>Finish the motion draft first.</strong> '
+          + 'You and your opponent are still striking motions. '
+          + 'The round starts once the draft settles.';
+      }
+      toast('The motion draft is still open. Speech 1 starts once it settles.');
+      var dBoard = document.getElementById('draftBoard');
+      if (dBoard && dBoard.scrollIntoView) dBoard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
@@ -6984,12 +7000,37 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       : [mic.base, state.micFinal, interim]
           .map(function(s){ return (s || '').trim(); })
           .filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
-    if (ta.value !== next) ta.value = next;
+    if (ta.value !== next){
+      // Follow the newest words. This box had NO scroll handling at all,
+      // so the mic wrote past the fold and the transcript sat frozen on an
+      // early line for the length of a speech: measured on a real round,
+      // visible text stuck while the word count climbed 95 -> 270.
+      //
+      // The spectator pane's bottom-proximity test is the wrong rule here
+      // and was measured failing: that pane is READ, this one GROWS under
+      // a speaker who starts at the top, so after the first overflow the
+      // gap is thousands of pixels, "near the bottom" is false forever and
+      // the box stays frozen. Position cannot separate "they scrolled up"
+      // from "the mic outran the viewport".
+      //
+      // So: keep following while the box is still where WE last put it,
+      // and hand control back the moment the speaker moves it themselves.
+      // Returning to the bottom resumes following. No scroll listener, so
+      // there is no race with the async scroll event our own write fires.
+      var ours = Math.abs(ta.scrollTop - (mic.lastScrollTop || 0)) < 2;
+      var atBottom = (ta.scrollHeight - ta.scrollTop - ta.clientHeight) < 60;
+      ta.value = next;
+      if (ours || atBottom){
+        ta.scrollTop = ta.scrollHeight;
+        mic.lastScrollTop = ta.scrollTop;
+      }
+    }
     mic.own = next;
     updateWordCount();
   }
   function micResetBuffer(){
     mic.base = ''; mic.own = ''; mic.everHeard = false;
+    mic.lastScrollTop = 0;   // a new speech starts following again
     mic.restarts = 0; mic.lastAt = 0; mic.startedAt = 0;
     mic.finals = []; mic.offset = 0;
     state.micFinal = '';
