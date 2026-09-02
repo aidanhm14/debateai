@@ -10592,6 +10592,17 @@ Rules:
   var simpleFmtLabel = format === 'quick' ? 'Casual 1v1' :
   format === 'viva' ? 'Oral Exam (Viva)' :
   (FORMATS[format] || {}).name || 'Custom';
+  // Handoff into the live voice round. voice-debate.html reads ?motion,
+  // ?side and ?handoff on load (the non-ext branch of its prefill
+  // effect) and forces quickclash mode itself, so a typed setup lands
+  // one tap from Connect with the same motion and the same side.
+  var voiceRoundUrl = () => {
+    var q = new URLSearchParams();
+    if (motion.trim()) q.set('motion', motion.trim().slice(0, 600));
+    q.set('side', side === 'con' ? 'opp' : 'gov');
+    q.set('handoff', 'practice-setup');
+    return '/voice-debate?' + q.toString();
+  };
   var simpleCardStyle = (on) => ({
     textAlign: 'left', padding: '15px 16px', borderRadius: 16, cursor: 'pointer',
     fontFamily: 'inherit', color: 'var(--c-text)',
@@ -11022,6 +11033,53 @@ Rules:
   )
   ),
   el('div', { style: { textAlign: 'center', marginTop: 10, fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.45, maxWidth: 460, margin: '10px auto 0' } }, 'One person on each side. No teams, format jargon, or tournament rulebook.'),
+  // ── SECOND OPPONENT: the live voice room ──────────────────────
+  // 2026-09-02, Aidan: bring the Realtime voice opponent back as a
+  // visible second door on this page. It already existed and was
+  // reachable only from inside the advanced brain picker, and only
+  // when someone had picked GPT, so the surface that sells the
+  // difference was hidden behind a setting almost nobody opens.
+  //
+  // The two engines are genuinely different products and the copy
+  // says which is which rather than upselling: this page is typed +
+  // TTS (six brains, format depth, a speech clock, turn by turn),
+  // /voice-debate is OpenAI Realtime over WebRTC (one brain, spoken
+  // both ways, server-side VAD so cutting in mid-sentence actually
+  // stops the AI). Neither is the better round; they are good at
+  // different things.
+  //
+  // The motion carries over because voice-debate reads ?motion (and
+  // ?side / ?background). /newvoice does NOT read any of them, so
+  // its link is deliberately bare: a deep link carrying a motion
+  // there would promise something the page ignores.
+  //
+  // No free-round count is quoted. FREE_VOICE_NAMED / FREE_VOICE_ANON
+  // are env-overridable in lib/voice-usage.mjs, so a number printed
+  // here goes stale the first time either is tuned.
+  el('div', { style: { margin: '18px auto 0', maxWidth: 560, textAlign: 'left', padding: '15px 17px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' } },
+  el('div', { style: { fontSize: '.56rem', fontWeight: 900, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, 'Second opponent'),
+  el('div', { style: { fontSize: '.95rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.3 } }, 'Want quicker replies? Want to interrupt the AI?'),
+  el('div', { style: { fontSize: '.78rem', color: 'var(--c-dim)', lineHeight: 1.5, marginTop: 6 } },
+  'This round is typed, and the AI answers turn by turn. The live voice round runs on OpenAI Realtime instead. You speak, it answers in about a second, and cutting in mid-sentence stops it, the way it would stop a person.'
+  ),
+  el('div', { style: { display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 } },
+  el('a', {
+    href: voiceRoundUrl(),
+    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'voice_cross_sell', { from: 'practice-setup', has_motion: !!motion.trim() });} catch (_) {}},
+    style: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '10px 17px', fontFamily: 'inherit', fontSize: '.84rem', fontWeight: 900, textDecoration: 'none' }
+  },
+  el('span', { 'aria-hidden': true }, '🎙'), 'Debate out loud'
+  ),
+  el('a', {
+    href: '/newvoice',
+    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: 'practice-setup' });} catch (_) {}},
+    style: { fontSize: '.76rem', color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }
+  }, 'Or the casual voice room')
+  ),
+  el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', lineHeight: 1.45, marginTop: 9 } },
+  'Voice rounds are spoken end to end, with one brain and no speech clock. Free voice rounds are limited, then voice is part of a plan.'
+  )
+  ),
   // 2026-06-16: trained-on-debate trust line. The product's moat (format
   // accuracy + the learning loop) stated plainly so a new user knows why
   // this opponent is not a generic chatbot. Quiet register; the CTAs above
