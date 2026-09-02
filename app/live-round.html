@@ -3223,6 +3223,35 @@ html.stage-mode .stage-ov{display:block}
   border-color:var(--accent,#ef4444);opacity:.5;text-decoration:line-through;
   text-decoration-color:var(--accent,#ef4444);text-decoration-thickness:2px;
 }
+.df-motion.custom{border-style:dashed}
+.df-tag{
+  display:inline-block;margin-left:8px;padding:2px 7px;border-radius:999px;
+  font-size:.68rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
+  background:rgba(127,127,127,.18);opacity:.85;vertical-align:middle;
+}
+.df-add-open{
+  width:100%;margin-top:9px;font:inherit;font-weight:700;font-size:.9rem;
+  padding:11px 14px;border-radius:11px;cursor:pointer;color:inherit;
+  background:transparent;border:1px dashed rgba(127,127,127,.4);opacity:.85;text-align:left;
+}
+.df-add-open:hover{opacity:1;border-color:var(--accent,#ef4444)}
+.df-add{margin-top:9px;padding:12px;border-radius:11px;border:1px dashed var(--accent,#ef4444);background:rgba(127,127,127,.06)}
+.df-add input{
+  width:100%;font:inherit;font-size:.95rem;padding:11px 12px;border-radius:9px;
+  border:1px solid rgba(127,127,127,.35);background:var(--bg,#111);color:var(--text,inherit);box-sizing:border-box;
+}
+.df-add input:focus{outline:2px solid var(--accent,#ef4444);outline-offset:1px}
+.df-add-row{display:flex;gap:8px;margin-top:8px}
+.df-add-go{
+  flex:1;font:inherit;font-weight:800;font-size:.9rem;padding:10px 14px;border:0;border-radius:9px;
+  cursor:pointer;background:var(--accent,#ef4444);color:#fff;
+}
+.df-add-cancel{
+  font:inherit;font-weight:700;font-size:.9rem;padding:10px 14px;border-radius:9px;cursor:pointer;
+  background:transparent;color:inherit;border:1px solid rgba(127,127,127,.35);
+}
+.df-add-hint,.df-add-err{margin:8px 0 0;font-size:.78rem;line-height:1.45;opacity:.72}
+.df-add-err{color:var(--accent,#ef4444);opacity:1;font-weight:700}
 @keyframes dfIn{from{transform:translateY(7px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){.df-motion{animation:none}.df-motion:hover{transform:none}}
 .df-foot{display:flex;align-items:center;gap:14px;margin-top:18px}
@@ -3523,7 +3552,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       <div class="panel-section">
         <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
         <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Click Start to launch the video room and begin Speech 1. Both speakers should join the same room.</p>
-        <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+        <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
       </div>
     </div>
 
@@ -3795,7 +3824,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
             <div class="label" style="margin-bottom:6px">Speech sequence</div>
             <div class="sequence-list" id="sequenceList"></div>
           </div>
-          <p class="rd-note" id="recordingRoundNote">Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.</p>
+          <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Press Request recording beside the resolution if you want a replay; it starts only if every seated person agrees.</p>
         </div>
       </details>
 
@@ -8061,8 +8090,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       return;
     }
     if (state.recordingRequired === false){
-      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Before Speech 1, everyone gets a recording choice. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
-      if (roundNote) roundNote.textContent = 'Everyone gets a recording choice before Speech 1. Recording starts only if every seated person agrees. Request recording stays beside the resolution if you want to revisit the choice.';
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
+      if (roundNote) roundNote.textContent = 'Nobody is asked to record by default. Press Request recording beside the resolution if you want a replay; it starts only if every seated person agrees.';
     }
   }
 
@@ -8298,9 +8327,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     try { renderRecTail(); } catch(e){}
   }
 
-  // Ask every seat once before Speech 1. Ordinary rooms offer a choice.
-  // Tournament rooms hold the participant here until every assigned seat
-  // accepts and the required recording is live.
+  // Ordinary rooms never open this on their own (2026-09-02, Aidan: the
+  // before-Speech-1 ask was a blocker). The dialog appears only when the
+  // OTHER seat pressed Request recording, or in a tournament room, which
+  // holds the participant here until every assigned seat accepts and the
+  // required recording is live.
   function maybePromptCloudRecording(d){
     setCloudRecordingUi(d);
     if (state.recordingRequired === null) return;
@@ -8319,12 +8350,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     }
     if (d.recordingClosed || ['processing','stopped','closed'].indexOf(d.recordingStatus) >= 0) return;
     var asked = participants.some(function(uid){ return uid !== state.user.uid && consents[uid] === true; });
-    var everyonePresent = participants.every(function(uid){
-      return !!(state.seatSeen && state.seatSeen[uid]);
-    });
-    if (everyonePresent && participants.length === 2 && opponentHasLeft()) everyonePresent = false;
-    var openingChoice = state.speechIdx === 0 && state.timerState === 'ready' && everyonePresent;
-    if (!asked && !openingChoice) return;
+    if (!asked) return;
     cloudRec.prompted = true;
     showCloudRecordingConsent();
   }
@@ -15257,6 +15283,37 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var DRAFT_PICK_SEC = 9;     // must match PICK_SEC
     var DRAFT_REVEAL_MS = 2300; // both strike sets on screen before the pick UI
     var dfPicks = [], dfBusy = false, dfTimer = 0, dfRevealUntil = 0, dfOpened = false, dfLastPhase = '';
+    // "Add your own motion" on the strike beat. Open state and typed text
+    // survive a re-render, because the board repaints on every round
+    // snapshot and losing a half-typed motion to the opponent committing
+    // would be the board eating the one thing it asked for.
+    var dfAddOpen = false, dfAddText = '', dfAddErr = '';
+    var DRAFT_CUSTOM_MIN = 12, DRAFT_CUSTOM_MAX = 200; // must match CUSTOM_MOTION_MIN/MAX
+    function dfCustomCount(uid){
+      var d = dfDraft();
+      return ((d && d.slate) || []).filter(function(m){ return m && m.addedBy === uid; }).length;
+    }
+    // The window closes when anyone commits: a motion added after the
+    // opponent struck is one they never got to veto.
+    function dfCanAdd(){
+      var d = dfDraft();
+      if (!d || d.phase !== 'strike' || !dfIAmDebater() || dfSubmitted()) return false;
+      if (((d.submitted) || []).length) return false;
+      if (d.poolLocked) return false;
+      return dfCustomCount(dfMyUid()) < 1;
+    }
+    function dfAddReason(code, message){
+      return ({
+        blocked: message || 'That motion is off limits here. Try a different one.',
+        strikes_in: 'Too late, a strike is already in.',
+        already_added: 'You already added one.',
+        too_short: 'Give it a few more words.',
+        too_long: 'Keep it under ' + DRAFT_CUSTOM_MAX + ' characters.',
+        duplicate: 'That one is already on the slate.',
+        pool_locked: 'This tournament runs its published motions only.',
+        wrong_phase: 'The strike window has closed.',
+      })[code] || 'Could not add that motion.';
+    }
 
     function dfDraft(){ return state.draft || null; }
     function dfStrikeCount(){ var d = dfDraft(); return Math.max(1, Number(d && d.strikesPerSide) || 2); }
@@ -15413,20 +15470,39 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         }
         var cards = (d.slate || []).map(function(m, i){
           var on = dfPicks.indexOf(m.id) !== -1;
-          return '<button type="button" class="df-motion' + (on ? ' struck' : '') + '" data-df-strike="'
-            + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+          var tag = m.addedBy ? '<span class="df-tag">' + (m.addedBy === dfMyUid() ? 'Yours' : 'Added by ' + escHtml(dfNameFor(m.addedBy))) + '</span>' : '';
+          return '<button type="button" class="df-motion' + (on ? ' struck' : '') + (m.addedBy ? ' custom' : '') + '" data-df-strike="'
+            + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + tag + '</button>';
         }).join('');
+        var addRow = '';
+        if (dfCanAdd()){
+          addRow = dfAddOpen
+            ? '<div class="df-add open">'
+              + '<input type="text" id="dfAddInput" maxlength="' + DRAFT_CUSTOM_MAX + '" placeholder="Your motion, e.g. This house would ban homework." value="' + escHtml(dfAddText) + '" autocomplete="off" />'
+              + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfAddGo">Add to the slate</button>'
+              + '<button type="button" class="df-add-cancel" id="dfAddCancel">Cancel</button></div>'
+              + (dfAddErr ? '<p class="df-add-err">' + escHtml(dfAddErr) + '</p>' : '<p class="df-add-hint">Both of you can strike it like any other motion. Adding one restarts the clock.</p>')
+              + '</div>'
+            : '<button type="button" class="df-add-open" id="dfAddOpen">+ Add your own motion</button>';
+        }
         host.innerHTML = '<div class="df-card">'
           + dfHead('Step 1 of 2', 'Strike <em>' + dfCountWord(strikeCount) + '</em> motion' + (strikeCount === 1 ? '.' : 's.'),
                    'Every motion here was picked because both sides can win it. Your opponent is striking ' + dfCountWord(strikeCount)
                    + ' as well, and cannot see yours. Whatever survives is the round.')
           + '<div class="df-motions">' + cards + '</div>'
+          + addRow
           + '<div class="df-foot">' + dfClockHtml()
           + '<button type="button" class="df-go" id="dfCommit"' + (dfPicks.length === strikeCount ? '' : ' disabled')
           + '>' + (dfPicks.length === strikeCount
             ? (strikeCount === 1 ? 'Lock in strike' : 'Lock in strikes')
             : 'Pick ' + (strikeCount - dfPicks.length) + ' more')
           + '</button></div></div>';
+        if (dfAddOpen){
+          var inp = document.getElementById('dfAddInput');
+          if (inp && document.activeElement !== inp){
+            try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){}
+          }
+        }
         return;
       }
 
@@ -15485,11 +15561,49 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       }
     }
 
+    function dfSubmitCustom(){
+      if (dfBusy || !dfCanAdd()) return;
+      var text = String(dfAddText || '').replace(/\s+/g, ' ').trim();
+      if (text.length < DRAFT_CUSTOM_MIN){ dfAddErr = dfAddReason('too_short'); renderDraft(); return; }
+      dfBusy = true;
+      dfPost('add', { text: text }).then(function(res){
+        if (res && res.ok){
+          dfAddOpen = false; dfAddText = ''; dfAddErr = '';
+          try { gtag('event', 'live_draft_custom_motion', { format: state.formatKey, len: text.length }); } catch(e){}
+        } else {
+          dfAddErr = dfAddReason(res && res.reason, res && res.message);
+        }
+      }).catch(function(){ dfAddErr = dfAddReason(); })
+        .then(function(){ dfBusy = false; renderDraft(); });
+    }
+    document.addEventListener('input', function(ev){
+      if (ev.target && ev.target.id === 'dfAddInput') dfAddText = ev.target.value;
+    }, true);
+    document.addEventListener('keydown', function(ev){
+      if (!ev.target || ev.target.id !== 'dfAddInput') return;
+      if (ev.key === 'Enter'){ ev.preventDefault(); dfSubmitCustom(); }
+      else if (ev.key === 'Escape'){ ev.preventDefault(); dfAddOpen = false; dfAddText = ''; dfAddErr = ''; renderDraft(); }
+    }, true);
+
     // One delegated listener for the whole board, so a re-render never
     // leaves a dead handler behind.
     document.addEventListener('click', function(ev){
       var host = document.getElementById('draftBoard');
       if (!host || host.classList.contains('hidden') || !host.contains(ev.target)) return;
+      if (ev.target.closest('#dfAddOpen')){
+        dfAddOpen = true; dfAddErr = '';
+        renderDraft();
+        return;
+      }
+      if (ev.target.closest('#dfAddCancel')){
+        dfAddOpen = false; dfAddText = ''; dfAddErr = '';
+        renderDraft();
+        return;
+      }
+      if (ev.target.closest('#dfAddGo')){
+        dfSubmitCustom();
+        return;
+      }
       var strike = ev.target.closest('[data-df-strike]');
       if (strike){
         var id = strike.getAttribute('data-df-strike');
@@ -15535,7 +15649,13 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       // together. Armed on the transition out of 'strike', never on a
       // re-render, so a snapshot mid-reveal cannot restart it.
       if (was === 'strike' && now && now !== 'strike') dfRevealUntil = Date.now() + DRAFT_REVEAL_MS;
-      if (now === 'strike' && was !== 'strike') dfPicks = [];
+      if (now === 'strike' && was !== 'strike'){ dfPicks = []; dfAddOpen = false; dfAddText = ''; dfAddErr = ''; }
+      // Strikes are keyed by id, so a card that arrived after a pick was
+      // made is harmless; a pick on an id that no longer exists is not.
+      if (next && next.slate){
+        var live = {}; next.slate.forEach(function(m){ live[m.id] = true; });
+        dfPicks = dfPicks.filter(function(id){ return live[id]; });
+      }
       dfLastPhase = now;
       renderDraft();
     };

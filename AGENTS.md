@@ -520,6 +520,15 @@ Things that are easy to break by accident:
   forged. Do NOT re-key this on a per-surface opt-in: that is the bug the
   move fixed.
 
+- **Either debater may add ONE motion of their own during the strike beat**
+  (`action:'add'`, 2026-09-02). It is a card like any other: both see it,
+  either can strike it, and it runs only if it survives the same strikes.
+  The window closes the moment ANY strike is in, or the adder would hold a
+  survivor the other side never got to veto; an add restarts the strike
+  clock so the other side can read it. Text passes `content-guard`'s
+  motion check before it is stored, and a stamped tournament pool
+  (`poolLocked`) refuses adds outright. Do not turn this into a consent
+  flow: the strike is the veto.
 - **Nothing may start a speech while a draft is pending.**
   `startSpeechTimer` refuses, ahead of the judge lock. Otherwise the round
   opens on a motion the strikes are about to overrule and both sides get

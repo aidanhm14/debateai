@@ -6,6 +6,7 @@
 //   { action: 'motion', room, motionId: 'm3' }
 //   { action: 'side',   room, side: 'pro' | 'con' }
 //   { action: 'expire', room }
+//   { action: 'add',    room, text: 'This house would ...' }   (strike beat only)
 //
 // WHY THIS MOVED. The draft shipped on the QUEUE docs (spar-pair), which
 // meant it only ran when both docs carried draftOptIn, and only /spar set
@@ -48,7 +49,9 @@ import {
   createDraft, sanitizeStrikes, advance, actorFor,
   applyMotionPick, applySidePick, autoResolve, autoStrikes,
   draftResult, survivorsOf, publicDraft, strikesPerSideFor,
+  addCustomMotion, CUSTOM_MOTION_MAX,
 } from './lib/motion-draft.mjs';
+import { checkContent } from './lib/content-guard.mjs';
 
 // Grace on the server's own clock check. The client runs the visible
 // countdown, so its zero and ours are never the same instant; without slack
@@ -205,6 +208,23 @@ export default async (request) => {
         const res = applySidePick(draft, uid, body && body.side);
         if (!res.ok) return { ok: false, reason: res.reason };
         draft = advance(res.draft, uids[0], uids[1]);
+      } else if (action === 'add') {
+        // Your own motion on the slate. A tournament room runs its
+        // published pool and nothing else, so a stamped pool refuses this.
+        if (draft.poolLocked) return { ok: false, reason: 'pool_locked' };
+        if (draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
+        const text = String((body && body.text) || '').replace(/\s+/g, ' ').trim().slice(0, CUSTOM_MOTION_MAX + 1);
+        // The site motion boundary applies before anything is stored. A
+        // custom field is the one place a heavy subject can enter a round
+        // that every seeded bank already refuses.
+        const guard = checkContent({ text, kind: 'motion' });
+        if (!guard.ok) return { ok: false, reason: 'blocked', message: guard.reason || 'Pick a different motion.' };
+        const res = addCustomMotion(draft, uid, text);
+        if (!res.ok) return { ok: false, reason: res.reason };
+        draft = res.draft;
+        // Restart the strike clock so the other side has time to read a
+        // card that just appeared. Treated as a phase move below.
+        phaseAt = 0;
       } else if (action === 'expire') {
         const elapsed = Date.now() - (phaseAt || 0);
         if (!stale && phaseAt && elapsed < (phaseMs(draft.phase) - EXPIRE_GRACE_MS)) {
@@ -239,7 +259,7 @@ export default async (request) => {
         return { ok: false, reason: 'bad_action' };
       }
 
-      const phaseMoved = draft.phase !== before;
+      const phaseMoved = draft.phase !== before || !phaseAt;
       if (phaseMoved) phaseAt = Date.now();
 
       const statePatch = { draft };

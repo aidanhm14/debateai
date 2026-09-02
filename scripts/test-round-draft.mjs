@@ -13,7 +13,7 @@ import {
   STRIKES_PER_SIDE, SLATE_SIZE,
   createDraft, publicDraft, sanitizeStrikes, autoStrikes, advance,
   survivorsOf, applyMotionPick, applySidePick, autoResolve, draftResult,
-  draftSeed, actorFor,
+  draftSeed, actorFor, addCustomMotion, CUSTOM_MOTION_MIN, CUSTOM_MOTION_MAX,
 } from '../app/netlify/functions/lib/motion-draft.mjs';
 
 let fail = 0;
@@ -23,6 +23,7 @@ const eq = (a, b, label) => ok(JSON.stringify(a) === JSON.stringify(b), label + 
 const A = 'uidAlpha', B = 'uidBravo';
 const seed = draftSeed(A, B, 'SparMatch-a-b-1');
 const fresh = () => createDraft(seed, 'quick', A, B);
+const strikesFor = (d) => sanitizeStrikes(d, d.slate.map((m) => m.id)).length;
 
 // ── the slate ──
 {
@@ -188,6 +189,64 @@ const fresh = () => createDraft(seed, 'quick', A, B);
   eq(sideA.side, sideB.side, 'a timed-out side call lands on one side');
   eq(draftResult(sideA, A, B), draftResult(sideB, A, B), 'both sides compute the same room');
   ok(sideA.autoMotion === true && sideA.autoSide === true, 'an auto-resolved draft says it was a clock, not a person');
+}
+
+// ── "add your own motion" (2026-09-02) ──
+// A custom card is a card like any other: both see it, either can strike
+// it. The window closes the moment a strike is in, or the adder could put
+// up a motion the other side never got to veto.
+{
+  let d = fresh();
+  const text = 'This house would ban homework in primary schools.';
+  const r = addCustomMotion(d, A, text);
+  ok(r.ok, 'a debater can add one motion during the strike beat');
+  eq(r.draft.slate.length, SLATE_SIZE + 1, 'the custom motion is appended to the slate');
+  const added = r.draft.slate[r.draft.slate.length - 1];
+  eq(added.text, text, 'the text lands verbatim');
+  eq(added.addedBy, A, 'the card records who added it');
+  ok(new Set(r.draft.slate.map((m) => m.id)).size === SLATE_SIZE + 1, 'the custom id collides with nothing dealt');
+  eq(d.slate.length, SLATE_SIZE, 'the input draft is not mutated');
+  eq(strikesFor(r.draft), STRIKES_PER_SIDE, 'the strike allowance does not grow with the slate');
+
+  ok(!addCustomMotion(r.draft, A, 'This house would ban homework entirely, forever.').ok, 'one custom motion per side');
+  const rB = addCustomMotion(r.draft, B, 'This house would abolish tipping in restaurants.');
+  ok(rB.ok && rB.draft.slate.length === SLATE_SIZE + 2, 'the other side may add its own');
+  eq(addCustomMotion(r.draft, B, text.toUpperCase()).reason, 'duplicate', 'a motion already on the slate is refused');
+  eq(addCustomMotion(d, A, 'x'.repeat(CUSTOM_MOTION_MIN - 1)).reason, 'too_short', 'a fragment is refused');
+  eq(addCustomMotion(d, A, 'x'.repeat(CUSTOM_MOTION_MAX + 1)).reason, 'too_long', 'an essay is refused');
+
+  // Published to both sides, with the author, so the board can label it.
+  const pub = publicDraft(r.draft, 1);
+  ok(pub.slate.some((m) => m.addedBy === A && m.text === text), 'the custom card is published with its author');
+  eq(pub.poolLocked, false, 'a casual slate reports custom motions as allowed');
+
+  // The window: any strike in, no more adds. Otherwise the adder gets a
+  // guaranteed survivor of their own choosing.
+  const ids = d.slate.map((m) => m.id);
+  const struck = advance({ ...r.draft, strikes: { [B]: [ids[0], ids[1]] } }, A, B);
+  eq(addCustomMotion(struck, A, 'This house would make voting compulsory.').reason, 'strikes_in', 'no adds once the other side has struck');
+  eq(addCustomMotion(struck, B, 'This house would make voting compulsory.').reason, 'strikes_in', 'no adds once you have struck either');
+
+  // It faces the same strikes and can run.
+  const cid = added.id;
+  let done = advance({ ...r.draft, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2], ids[3]] } }, A, B);
+  ok(survivorsOf(done).indexOf(cid) !== -1, 'a custom card survives like any other');
+  const pick = applyMotionPick(done, done.motionUid, cid);
+  ok(pick.ok, 'the motion holder may call the custom motion');
+  done = advance(pick.draft, A, B);
+  done = advance(applySidePick(done, done.sideUid, 'con').draft, A, B);
+  eq(draftResult(done, A, B).motion, text, 'the room opens on the custom text');
+
+  // And it can be struck out.
+  const gone = advance({ ...r.draft, strikes: { [A]: [ids[0], ids[1]], [B]: [cid, ids[2]] } }, A, B);
+  ok(survivorsOf(gone).indexOf(cid) === -1, 'the other side can strike a custom motion');
+  eq(applyMotionPick(gone, gone.motionUid, cid).reason, 'motion_struck', 'a struck custom motion cannot be called');
+
+  // Tournament pools are closed.
+  const t = createDraft(seed, 'quick', A, B, { pool: ['Motion one for the pool', 'Motion two for the pool', 'Motion three for the pool'], slateSize: 3, strikesPerSide: 1 });
+  eq(t.poolLocked, true, 'a stamped pool locks the slate');
+  eq(addCustomMotion(t, A, 'This house would ban homework in primary schools.').reason, 'pool_locked', 'no custom motions on a stamped pool');
+  eq(publicDraft(t, 1).poolLocked, true, 'the lock is published so the board hides the option');
 }
 
 if (fail) { console.error(`\n${fail} assertion(s) failed`); process.exit(1); }

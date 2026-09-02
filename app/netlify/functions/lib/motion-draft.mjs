@@ -124,6 +124,8 @@ export function createDraft(seed, format, uidA, uidB, options = {}) {
     seed: String(seed),
     slate,
     strikesPerSide,
+    // A stamped pool (tournament) is the whole slate; nobody adds to it.
+    poolLocked: Array.isArray(options.pool) && options.pool.length >= 3,
     motionUid: roles.motionUid,
     sideUid: roles.sideUid,
     strikes: {},
@@ -189,6 +191,53 @@ export function survivorsOf(draft) {
     (Array.isArray(strikes[uid]) ? strikes[uid] : []).forEach((id) => struck.add(id));
   });
   return slateIds(draft).filter((id) => !struck.has(id));
+}
+
+// ── custom motions ──────────────────────────────────────────────────
+//
+// Either debater may put ONE motion of their own on the slate during the
+// strike beat. It is a card like any other: both people see it, either can
+// strike it, and it can only run if it survives the same two strikes the
+// dealt motions face. That is what keeps it fair without a consent flow.
+//
+// The window closes the moment anyone commits strikes. A motion added after
+// the opponent has struck is a motion they never got to veto, which would
+// hand the adder a guaranteed survivor of their own choosing. The endpoint
+// resets the strike clock on an add so the other side has time to read it.
+//
+// Content is the ENDPOINT's job (content-guard, the site motion boundary);
+// this only owns the structure. Text bounds here are a floor, not the
+// guard.
+export const CUSTOM_MOTION_MIN = 12;
+export const CUSTOM_MOTION_MAX = 200;
+export const CUSTOM_PER_SIDE = 1;
+
+export function customMotionsBy(draft, uid) {
+  return (draft && Array.isArray(draft.slate) ? draft.slate : [])
+    .filter((m) => m && String(m.addedBy || '') === String(uid));
+}
+
+export function anyStrikesIn(draft) {
+  const s = (draft && draft.strikes) || {};
+  return Object.keys(s).some((u) => Array.isArray(s[u]) && s[u].length > 0);
+}
+
+export function addCustomMotion(draft, uid, rawText) {
+  if (!draft || draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
+  if (draft.poolLocked) return { ok: false, reason: 'pool_locked' };
+  if (anyStrikesIn(draft)) return { ok: false, reason: 'strikes_in' };
+  if (customMotionsBy(draft, uid).length >= CUSTOM_PER_SIDE) return { ok: false, reason: 'already_added' };
+  const text = String(rawText || '').replace(/\s+/g, ' ').trim();
+  if (text.length < CUSTOM_MOTION_MIN) return { ok: false, reason: 'too_short' };
+  if (text.length > CUSTOM_MOTION_MAX) return { ok: false, reason: 'too_long' };
+  const slate = Array.isArray(draft.slate) ? draft.slate : [];
+  const lower = text.toLowerCase();
+  if (slate.some((m) => String(m.text || '').toLowerCase() === lower)) return { ok: false, reason: 'duplicate' };
+  // Ids stay unique across dealt and added cards; slateIds() drives every
+  // strike and survivor computation, so a collision would merge two motions.
+  const id = 'c' + (slate.filter((m) => String(m.id || '').charAt(0) === 'c').length + 1);
+  const entry = { id, text, addedBy: String(uid) };
+  return { ok: true, draft: Object.assign({}, draft, { slate: slate.concat([entry]) }) };
 }
 
 export function bothStruck(draft, uidA, uidB) {
@@ -299,6 +348,7 @@ export function publicDraft(draft, phaseAt) {
     phase: draft.phase,
     slate: draft.slate,
     strikesPerSide: required,
+    poolLocked: !!draft.poolLocked,
     motionUid: draft.motionUid,
     sideUid: draft.sideUid,
     submitted,
