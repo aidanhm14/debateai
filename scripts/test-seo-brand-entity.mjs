@@ -106,9 +106,10 @@ check('the public signup caption uses only the named-account total',
   /' sign-ups<\/b> so far\.<\/span>'/.test(landing)
   && !/' with Google, '/.test(landing)
   && !/' with email\.<\/span>'/.test(landing));
-check('example resolutions alternate red and black in italic type',
-  /\.fs-board \.fs-motion\{[^}]*font-style:italic/.test(landing)
-  && /classList\.toggle\('is-alt-red', i % 2 === 0\)/.test(landing));
+check('example resolutions run Archivo bold, upright, always red (2026-09-01)',
+  /\.fs-board h2\.fs-motion\{[^}]*font-family:'Archivo'[^}]*font-weight:800[^}]*font-style:normal/.test(landing)
+  && !/\.fs-motion\{[^}]*font-style:italic/.test(landing)
+  && !/is-alt-red/.test(landing));
 check('example portraits render without the retired grain and colour filter',
   !/\.fs-tile::after\{/.test(landing)
   && !/\.fs-tile img\{[^}]*filter:/.test(landing));
