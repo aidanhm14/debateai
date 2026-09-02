@@ -45,12 +45,25 @@
   var FIRST_EVENT_UTC = Date.UTC(2026, 6, 23, 0, 0, 0);
   // Eastern hour, the region it is named for, and the zones whose local
   // time is worth printing beside it. Ordered through the day.
+  // 2026-09-02: RETIMED TO MEASURED DEMAND. The 08-24 hours (7, 15, 20)
+  // were picked off a map, one per side of the world. Fourteen days of
+  // real live_rounds (test rooms excluded) say the map was wrong twice:
+  // by paired rooms, where two people actually met, 15:00 ET produced 13,
+  // 07:00 ET produced 1, and 20:00 ET produced ZERO. The real peaks sit
+  // one hour off and half a world away: 19:00 ET with 15 and 00:00 ET
+  // with 13. So Europe keeps its hour, the US session moves an hour
+  // earlier onto the peak it was sitting next to, and the Asia session
+  // moves to midnight ET, which is the middle of the Asian working day
+  // (Delhi 9:30 AM, Tokyo 1 PM, Sydney 2 PM) rather than its late
+  // evening. Re-measure before moving these again; n is 116 paired
+  // rooms over 14 days, which is enough to rank the hours and not
+  // enough to split them finely.
   var SESSIONS = [
-    { hour: 7,  name: 'Asia-Pacific night',
-      zones: [['Sydney', 'Australia/Sydney'], ['Tokyo', 'Asia/Tokyo'], ['Delhi', 'Asia/Kolkata']] },
-    { hour: 15, name: 'Europe night',
+    { hour: 0,  name: 'Asia-Pacific day',
+      zones: [['Delhi', 'Asia/Kolkata'], ['Tokyo', 'Asia/Tokyo'], ['Sydney', 'Australia/Sydney']] },
+    { hour: 15, name: 'Europe evening',
       zones: [['London', 'Europe/London'], ['Berlin', 'Europe/Berlin'], ['Lagos', 'Africa/Lagos']] },
-    { hour: 20, name: 'US night',
+    { hour: 19, name: 'US evening',
       zones: [['New York', 'America/New_York'], ['Chicago', 'America/Chicago'], ['Los Angeles', 'America/Los_Angeles']] },
   ];
   function hourLabel(h) {
@@ -164,7 +177,7 @@
       + day + 'T' + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       + '&text=' + encodeURIComponent('Clash Hour (' + st.session.name + ') · Debatable')
-      + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every day, 7 AM, 3 PM and 8 PM ET. Join the queue at itsdebatable.com/spar')
+      + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every day, midnight, 3 PM and 7 PM ET. Join the queue at itsdebatable.com/spar')
       + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
       + '&dates=' + dates
       + '&ctz=' + encodeURIComponent(TZ)
@@ -398,7 +411,7 @@
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
       : (variant === 'rail'
         ? '<span class="sn-slots">' + slotsHtml + '</span>'
-        : 'Ninety minutes when everyone queues at once. Three sessions every day, one per side of the world: 7 AM, 3 PM and 8 PM ET.'
+        : 'Ninety minutes when everyone queues at once. Three sessions every day, one per side of the world: 12 AM, 3 PM and 7 PM ET.'
           + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'

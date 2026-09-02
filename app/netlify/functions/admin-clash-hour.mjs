@@ -46,7 +46,7 @@ const REPLY_TO  = process.env.CLASH_HOUR_REPLY_TO || 'aidandavidhollinger@gmail.
 const BATCH_MAX = Math.min(60, parseInt(process.env.CLASH_HOUR_BATCH || '20', 10) || 20);
 const STREAM    = 'sparnight';
 const STAMP     = 'clashHourSentAt';
-const SUBJECT   = 'Three times a day now: 7 AM, 3 PM and 8 PM ET';
+const SUBJECT   = 'Three times a day now: 12 AM, 3 PM and 7 PM ET';
 const TZ        = 'America/New_York';
 
 const EXCLUDE_EMAILS = new Set([
@@ -99,9 +99,9 @@ function gcalFor(label, hh, endHhmm) {
 // and the outreach register: early, honest, an ask rather than a flex.
 function renderEmail({ firstName, uid }) {
   const cta = `${SITE_URL}/spar?utm_source=email&utm_medium=email&utm_campaign=clash_hour`;
-  const gAsia = gcalFor('Asia-Pacific', '07', '0830');
+  const gAsia = gcalFor('Asia-Pacific', '00', '0130');
   const gEuro = gcalFor('Europe', '15', '1630');
-  const gUs   = gcalFor('US', '20', '2130');
+  const gUs   = gcalFor('US', '19', '2030');
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
@@ -118,14 +118,14 @@ function renderEmail({ firstName, uid }) {
 
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-radius:8px 8px 0 0;font-size:.9rem;line-height:1.5">
-      <strong>7:00 AM ET</strong> &middot; Asia-Pacific<br>
-      <span style="color:#6b6b76;font-size:.82rem">Sydney 9 PM, Tokyo 8 PM, Delhi 4:30 PM</span></td></tr>
+      <strong>12:00 AM ET</strong> &middot; Asia-Pacific<br>
+      <span style="color:#6b6b76;font-size:.82rem">Delhi 9:30 AM, Tokyo 1 PM, Sydney 2 PM</span></td></tr>
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;font-size:.9rem;line-height:1.5">
       <strong>3:00 PM ET</strong> &middot; Europe<br>
       <span style="color:#6b6b76;font-size:.82rem">London 8 PM, Berlin 9 PM, Lagos 8 PM</span></td></tr>
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;border-radius:0 0 8px 8px;font-size:.9rem;line-height:1.5">
-      <strong>8:00 PM ET</strong> &middot; US<br>
-      <span style="color:#6b6b76;font-size:.82rem">Chicago 7 PM, Los Angeles 5 PM</span></td></tr>
+      <strong>7:00 PM ET</strong> &middot; US<br>
+      <span style="color:#6b6b76;font-size:.82rem">Chicago 6 PM, Los Angeles 4 PM</span></td></tr>
   </table>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">

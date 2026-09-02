@@ -1,13 +1,14 @@
 /* scheduled-spar-night.mjs
  *
  * Open Spar Night reminder (2026-07-15). The /spar liquidity fix
- * is a set of fixed hours (7 AM, 3 PM, 8 PM ET, 90 min each, EVERY DAY
+ * is a set of fixed hours (12 AM, 3 PM, 7 PM ET, 90 min each, EVERY DAY
  * since 2026-09-01; Wednesdays only before that) when everyone
  * queues at once; this cron tells every reachable signed-in user about
  * today's sessions so the queue actually fills.
  *
- * THREE sessions since 2026-08-24: 7:00 AM ET Asia-Pacific night, 3:00
- * PM ET Europe night, 8:00 PM ET US night. The send moved from 13:00 to
+ * THREE sessions, RETIMED 2026-09-02 to measured demand (see the
+ * SESSIONS comment in app/js/spar-night.js): 12:00 AM ET Asia-Pacific day, 3:00
+ * PM ET Europe evening, 7:00 PM ET US evening. The send moved from 13:00 to
  * 09:00 UTC with them, because 13:00 UTC is two hours AFTER the first
  * session ends and an email announcing an event that has already
  * happened is worse than no email. Companion surfaces: the
@@ -112,7 +113,7 @@ function nyToUtc(y, mo, d, hh, mm) {
 }
 // Eastern hours of the three sessions. Must match SESSIONS in
 // app/js/spar-night.js. Every day since 2026-09-01.
-const SESSION_HOURS = [7, 15, 20];
+const SESSION_HOURS = [0, 15, 19];
 function nextEventStart(nowMs) {
   for (let i = 0; i < 3; i++) {
     const p = nyParts(nowMs + i * 86400000);
@@ -155,14 +156,14 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   </p>
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-radius:8px 8px 0 0;font-size:.9rem;line-height:1.5">
-      <strong>7:00 AM ET</strong> &middot; Asia-Pacific night<br>
-      <span style="color:#6b6b76;font-size:.82rem">Sydney 9 PM, Tokyo 8 PM, Delhi 4:30 PM</span></td></tr>
+      <strong>12:00 AM ET</strong> &middot; Asia-Pacific day<br>
+      <span style="color:#6b6b76;font-size:.82rem">Delhi 9:30 AM, Tokyo 1 PM, Sydney 2 PM</span></td></tr>
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;font-size:.9rem;line-height:1.5">
-      <strong>3:00 PM ET</strong> &middot; Europe night<br>
+      <strong>3:00 PM ET</strong> &middot; Europe evening<br>
       <span style="color:#6b6b76;font-size:.82rem">London 8 PM, Berlin 9 PM, Lagos 8 PM</span></td></tr>
     <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;border-radius:0 0 8px 8px;font-size:.9rem;line-height:1.5">
-      <strong>8:00 PM ET</strong> &middot; US night<br>
-      <span style="color:#6b6b76;font-size:.82rem">Chicago 7 PM, Los Angeles 5 PM</span></td></tr>
+      <strong>7:00 PM ET</strong> &middot; US evening<br>
+      <span style="color:#6b6b76;font-size:.82rem">Chicago 6 PM, Los Angeles 4 PM</span></td></tr>
   </table>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
     Ninety minutes each. Pick a side, run a timed round, and the judge
@@ -415,8 +416,10 @@ export default async () => {
 };
 
 export const config = {
-  // Wednesday 09:00 UTC (5am ET). Ahead of the FIRST session at 11:00
-  // UTC rather than after it, which is where 13:00 UTC left it once the
-  // day grew a 7am ET session, and still clear of winback's 16:00.
-  schedule: '0 9 * * 3',
+  // Wednesday 02:00 UTC. The first session is now 00:00 ET = 04:00 UTC,
+  // so 09:00 UTC would land five hours AFTER the session it announces —
+  // the same bug 13:00 UTC had before the 7am ET slot existed. 02:00 is
+  // ahead of all three (04:00, 19:00, 23:00 UTC) and still clear of
+  // winback's 16:00.
+  schedule: '0 2 * * 3',
 };
