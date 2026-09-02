@@ -2898,6 +2898,10 @@ body.spectator-mode .rec-tail{display:none}
 
 /* Ballot */
 .ballot-loading{padding:48px 22px;text-align:center;color:var(--text-dim)}
+.ballot-wait-cue{min-height:1.15em;margin-top:14px;font-size:.78rem;line-height:1.15;
+  color:var(--text-dim);opacity:0;transition:opacity .45s ease}
+.ballot-wait-cue.is-on{opacity:1}
+@media(prefers-reduced-motion:reduce){.ballot-wait-cue{transition:none}}
 .ballot-loading .spinner{
   width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);
   border-radius:50%;margin:0 auto 14px;animation:spin 1s linear infinite;
@@ -3931,6 +3935,15 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         <div class="spinner"></div>
         <div style="font-size:.92rem;font-weight:700;color:var(--text)">Generating AI ballot…</div>
         <div style="font-size:.74rem;margin-top:6px">Reading both transcripts, weighing the round, writing the RFD.</div>
+        <!-- Doherty threshold. The judge call runs 15-25s and this screen was a
+             STATIC spinner for all of it, on the one beat the whole round was
+             built toward. A wait with no acknowledgement reads as broken, which
+             is the same failure /practice already fixed with its rotating
+             patience cue (PATIENCE_MSGS there, 5s in, rotating every 7s); the
+             pattern was never ported to the live room. Filled by
+             startBallotWaitCue(). min-height reserves the line so a rotation
+             never shifts the layout under someone mid-read. -->
+        <div id="ballotWaitCue" class="ballot-wait-cue" aria-live="polite"></div>
       </div>
       <div id="ballotResult" class="hidden"></div>
     </div>
@@ -11893,6 +11906,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     $('ballotView').classList.remove('hidden');
     $('ballotLoading').classList.remove('hidden');
     $('ballotResult').classList.add('hidden');
+    startBallotWaitCue();
     // Tell the other side via Firestore that the ballot is being
     // generated, so their screen can show 'Ballot generating…'
     // immediately instead of waiting until the final ballot lands.
@@ -12786,6 +12800,64 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     el.textContent = msg;
   }
 
+  // ── Doherty threshold on the judging wait ───────────────────────────
+  // Attention breaks when a system goes quiet past a few hundred ms, and
+  // this screen went quiet for 15-25 SECONDS at the peak moment of the
+  // product. /practice already carries the fix (its PATIENCE_MSGS cue,
+  // written because "users read 'still loading' as 'broken' and close the
+  // tab"); the live room never got it.
+  //
+  // The copy deliberately never names a judge COUNT. This surface writes
+  // its ballot from one streamed /api/claude call, while the recovery
+  // path can hand back a server panel, so "three judges are voting" would
+  // be false on one of the two paths. Everything here is true on both.
+  var BALLOT_WAIT_MSGS = [
+    'Reading both transcripts in full, not skimming for a winner.',
+    'Weighing the clash, line by line.',
+    'Working out what actually settled the round.',
+    'Writing the reason for decision.',
+  ];
+  var ballotWaitTimers = [];
+  function stopBallotWaitCue(){
+    ballotWaitTimers.forEach(function(t){ clearTimeout(t); clearInterval(t); });
+    ballotWaitTimers = [];
+    var el = document.getElementById('ballotWaitCue');
+    if (el){ el.classList.remove('is-on'); el.textContent = ''; }
+  }
+  function startBallotWaitCue(){
+    stopBallotWaitCue();
+    if (!document.getElementById('ballotWaitCue')) return;
+    var i = 0;
+    function paint(){
+      var el = document.getElementById('ballotWaitCue');
+      // A retry note outranks reassurance. If the round is actually
+      // retrying, that is the more useful sentence on screen, so this
+      // stands down rather than talking over it.
+      if (!el || document.getElementById('ballotRetryNote')){ stopBallotWaitCue(); return; }
+      el.textContent = BALLOT_WAIT_MSGS[i % BALLOT_WAIT_MSGS.length];
+      el.classList.add('is-on');
+      i++;
+    }
+    ballotWaitTimers.push(setTimeout(function(){
+      paint();
+      ballotWaitTimers.push(setInterval(paint, 7000));
+      try { if (typeof gtag === 'function') gtag('event', 'live_ballot_wait_cue'); } catch(e){}
+    }, 5000));
+    // Past ~40s the honest move is to say it is still going rather than
+    // keep cycling lines that imply steady progress. Read
+    // live_ballot_wait_slow against live_ballot_wait_cue: that ratio is
+    // how often the judge runs long, which nothing currently reports.
+    ballotWaitTimers.push(setTimeout(function(){
+      if (document.getElementById('ballotRetryNote')) return;
+      stopBallotWaitCue();
+      var el = document.getElementById('ballotWaitCue');
+      if (!el) return;
+      el.textContent = 'Still going. A close round takes longer to write.';
+      el.classList.add('is-on');
+      try { if (typeof gtag === 'function') gtag('event', 'live_ballot_wait_slow'); } catch(e){}
+    }, 40000));
+  }
+
   // The participant who ends the last speech normally owns the first judge
   // request. If that tab closes or the request is cut off, every spectator
   // used to stare at `ballotPending` forever. After the server's grace
@@ -12818,6 +12890,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     $('roundView').classList.add('hidden');
     $('ballotView').classList.remove('hidden');
     $('ballotResult').classList.add('hidden');
+    stopBallotWaitCue();
     var host = $('ballotLoading');
     host.classList.remove('hidden');
     var proName = String(noWinner.proName || state.proName || 'Pro');
@@ -13557,6 +13630,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       }
       console.error('[ballot]', err);
       try { gtag('event', 'live_round_ballot_failed', { format: state.formatKey, status: err.status || 0, attempts: attempt }); } catch(e){}
+      stopBallotWaitCue();
       $('ballotLoading').innerHTML = '<div style="color:#fca5a5;font-weight:700">Ballot failed</div>'
         + '<div style="font-size:.78rem;margin-top:6px;color:var(--text-dim)">' + escHtml(err.message) + '</div>'
         + '<div style="font-size:.74rem;margin-top:6px;color:var(--text-dim)">The transcript is saved. Retrying does not lose the round.</div>'
@@ -14006,7 +14080,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     return '<div class="tourn-content-ask">' +
       '<strong>This round was recorded.</strong> Clip your sharpest moment and post it. ' +
       'Rounds that get shared get watched, and watched rounds move the ladder. ' +
-      '<button class="btn btn-primary" id="tournClipBtn" type="button">📲 Make a share clip</button>' +
+      // Secondary on purpose. This ask sits directly above 'Next round',
+      // and on a tournament day rejoining the queue is the action the
+      // event depends on, so the clip ask must not compete with it for
+      // the one primary. Making a clip stays one tap away.
+      '<button class="btn" id="tournClipBtn" type="button">📲 Make a share clip</button>' +
       '</div>';
   }
 
@@ -14256,6 +14334,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
 
   function showBallotInterstitial(b){
+    stopBallotWaitCue();
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
@@ -14562,6 +14641,16 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       ? '/challenges?to=' + encodeURIComponent(oppUid) + '&name=' + encodeURIComponent(oppName || 'Debater')
       : '/spar?format=' + encodeURIComponent(state.formatKey);
     var newHref = '/spar?format=' + encodeURIComponent(state.formatKey);
+    // A tournament round is NOT a spar round, and this band did not know
+    // that: it offered a primary 'Next opponent' pointing at the open
+    // /spar queue, which walks an entrant straight OUT of the event they
+    // are competing in, while the tray below simultaneously offered the
+    // correct 'Next round -> /tournament?ready=1'. Two primaries, two
+    // destinations, one of them wrong. The band keeps its close (outcome,
+    // deciding issue, rating) and hands the forward action to the tray,
+    // which already resolves the right queue. Rematch is meaningless here
+    // anyway: tournament pairings are assigned, not chosen.
+    var isTourney = (prefill.source || '') === 'tournament' && !!prefill.tkey;
     if (!state._afterViewFired){
       state._afterViewFired = true;
       try { gtag('event', 'after_round_view', { outcome: iWon ? 'win' : 'loss', surface: 'live', format: state.formatKey }); } catch(e){}
@@ -14580,13 +14669,14 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       '<div class="ballot-section after-round' + (iWon ? ' after-won' : ' after-lost') + '" data-stage="3" id="afterRoundBand">' +
         '<div class="after-eyebrow">' + (iWon ? 'You took the round' : 'You dropped the round') + '<span id="afterRatingSlot"></span></div>' +
         '<p class="after-line">' + line + '</p>' +
+        (isTourney ? '' :
         '<div class="rfd-actions" style="margin-top:12px">' +
           (iWon
             ? '<a class="btn btn-primary" href="' + newHref + '" data-after="new">Next opponent →</a>' +
               '<a class="btn" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>'
             : '<a class="btn btn-primary" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>' +
               '<a class="btn" href="' + newHref + '" data-after="new">New opponent</a>') +
-        '</div>' +
+        '</div>') +
       '</div>';
   }
   // Fills the rating slot in the after-round band. Called on render and
@@ -14704,10 +14794,21 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   }
 
   function renderBallotBody(b, mode){
+    // Peak-end. The after-round band IS this page's closing beat: it names
+    // the outcome, names the deciding issue, and carries ONE outcome-aware
+    // forward action (won -> next opponent, lost -> run it back). The tray
+    // further down was independently rendering its own 'Next opponent',
+    // also styled primary, about a screen below the band's. So the same
+    // action appeared twice and, with 'Save round' also primary, the
+    // post-ballot region carried THREE primary buttons and none of them
+    // read as the one thing to do next. Captured here so the tray can ask
+    // whether a forward action is already on screen rather than guess.
+    var afterBand = afterRoundBandHtml(b);
     var staged = mode === 'staged' || mode === 'read-aloud';
     // Hand the verdict to the reel so the recording gets it too. No-op
     // on every client that is not driving one.
     try { reelShowBallot(b); } catch(e){ console.warn('[reel]', e); }
+    stopBallotWaitCue();
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
@@ -14815,7 +14916,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         flowOfferHtml() +
         roomShiftSlotHtml() +
       '</div>' +
-      afterRoundBandHtml(b) +
+      afterBand +
       // Friend slot (2026-08-31): filled after render by fillFriendSlot().
       // Empty div here so the ask never blocks the ballot paint; the
       // roomShiftSlot / deepRfdSlot pattern. Guards live in the filler.
@@ -14824,7 +14925,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       tournamentContentAskHtml() +
       lbBlock +
       '<div class="rfd-actions">' +
-        '<button class="btn btn-primary" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
+        '<button class="btn" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
         '<button class="btn" id="copyBallotBtn" type="button">Copy ballot</button>' +
         // Share clip — generates a 9:16 PNG with motion + verdict +
         // best line + watermark. The viral hook: post-round, one tap
@@ -14847,8 +14948,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         ((prefill.source || '') === 'tournament' && prefill.tkey
           ? '<a class="btn btn-primary" href="/tournament?t=' + encodeURIComponent(prefill.tkey) + '&ready=1" id="nextRoundBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next round →</a>'
             + '<a class="btn" href="/tournament?t=' + encodeURIComponent(prefill.tkey) + '">Standings</a>'
-          : (prefill.source || '').indexOf('spar') === 0
+          : ((prefill.source || '').indexOf('spar') === 0 && !afterBand)
           ? '<a class="btn btn-primary" href="/spar?format=' + encodeURIComponent(state.formatKey) + '" id="nextOpponentBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next opponent →</a>'
+          : ((prefill.source || '').indexOf('spar') === 0)
+          ? ''
           : '<a class="btn" href="/live">Back to board</a>'
         ) +
       '</div>' + // .rfd-actions
@@ -20621,7 +20724,14 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       bl.innerHTML =
         '<div class="spinner"></div>' +
         '<div style="font-size:.92rem;font-weight:700;color:var(--text)">Ballot is generating…</div>' +
-        '<div style="font-size:.74rem;margin-top:6px">Reading both transcripts and writing the RFD. Both screens will flip when it lands.</div>';
+        '<div style="font-size:.74rem;margin-top:6px">Reading both transcripts and writing the RFD. Both screens will flip when it lands.</div>' +
+        // This branch REPLACES the loader's innerHTML, so the authored
+        // cue node is gone by the time startBallotWaitCue looks for it.
+        // Re-add it here or the off side, which is the opponent plus
+        // every spectator and therefore most of the room, waits out the
+        // whole judge call against a static spinner.
+        '<div id="ballotWaitCue" class="ballot-wait-cue" aria-live="polite"></div>';
+      startBallotWaitCue();
     }
     if (d.ballotPending && !d.ballot){
       scheduleBallotRecovery(d);
@@ -20641,6 +20751,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span> Ballot in';
       $('roundView').classList.add('hidden');
       $('ballotView').classList.remove('hidden');
+      stopBallotWaitCue();
       $('ballotLoading').classList.add('hidden');
       renderBallot(d.ballot);
       // Ballot is in, so the crowd split is no longer a herding risk and
