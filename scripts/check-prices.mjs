@@ -15,6 +15,7 @@
 // Canonical post-beta tiers (source of truth: AGENTS.md "Pricing is
 // locked" + soul.md §7):
 //     Free $0 · BYOK $1/mo · Individual $10/year · Team $50/year
+//     Program $200/season (was $550 until 2026-09-02)
 //     (The Lifetime tier was removed from all pricing displays
 //      2026-07-03; the backend `lifetime` entitlement stays for any
 //      existing grants, but no price string should advertise it.)
@@ -43,6 +44,7 @@ const FORBIDDEN = [
   { re: /\$\s?5\s*\/\s*(?:mo|month|year|yr)\b/i,          why: 'superseded Individual price — canonical is $10/year' },
   { re: /\$\s?20\s*\/\s*(?:year|yr)\b/i,                  why: 'superseded Team price — canonical is $50/year' },
   { re: /\$\s?30\s*\/\s*(?:mo|month)\b/i,                 why: 'superseded Team price — canonical is $50/year' },
+  { re: /\$\s?550\b/i,                                    why: 'superseded Program price — canonical is $200/season (2026-09-02)' },
 ];
 
 const EXCLUDE_BASENAMES = new Set(['report.html']);

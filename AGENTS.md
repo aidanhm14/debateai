@@ -168,7 +168,7 @@ The hook also runs `scripts/check-prices.mjs`, a **canonical-price
 guard** that HARD-BLOCKS a commit staging an off-canonical price string
 in a user-facing `.html` (superseded tiers like `$5/mo` / `$20/year` /
 `$14.99`, or any `$N once` — the Lifetime tier was removed 2026-07-03).
-Canonical is Free $0 / BYOK $1/mo / Individual $10/year / Team $50/year.
+Canonical is Free $0 / BYOK $1/mo / Individual $10/year / Team $50/year / Program $200/season.
 It exists because pricing drifts constantly here and outside agents have
 tried to "correct" prices *backwards* to stale values. If it blocks you,
 fix the price — don't `--no-verify`. Intentional *historical* price
@@ -454,7 +454,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **Bump `CACHE_NAME` in BOTH `sw.js` files** when HTML/bundle changes. The `scripts/hooks/pre-commit` hook (installed via `bash scripts/install-hooks.sh`) does this automatically on every commit that touches client-side files. Only relevant if you skipped the hook install — in which case bump manually.
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
-- **Pricing is locked** and **consumer billing is LIVE as of 2026-08-26** (`BETA_NO_CHARGE=false`, `BETA_PRO_UNLOCK=false`): Free $0, BYOK $1/mo, Individual $10/year, **Voice $12/mo**, Tokens $4.99/mo, Team $50/year, **Program $550/season**. Real cards are charged on every one of those except Free, so any copy claiming the product is free during beta is now a false claim, not stale wording. **A school roster is always the $550 season license, never a seat plan** — do not quote Team to a coach. Changing a price is three edits that land together: `lib/plans.mjs`, a NEW Stripe price object (never edit one in place), and the env var; `scripts/test-plans.mjs` and `scripts/check-prices.mjs` both run in the hook. **A new paid tier is not shipped until it is in `VOICE_PRO_PLANS` / `PAID_PLANS` / `requirePaidPlan` too** — Voice was advertised on /pricing for months while no gate had heard of it, so buying it granted nothing. (Lifetime was removed from pricing displays 2026-07-03; the backend entitlement stays. See soul.md §7 + decision log.)
+- **Pricing is locked** and **consumer billing is LIVE as of 2026-08-26** (`BETA_NO_CHARGE=false`, `BETA_PRO_UNLOCK=false`): Free $0, BYOK $1/mo, Individual $10/year, **Voice $12/mo**, Tokens $4.99/mo, Team $50/year, **Program $200/season** (cut from $550 on 2026-09-02; the price is the API cost of a roster's season, stated on the page). Real cards are charged on every one of those except Free, so any copy claiming the product is free during beta is now a false claim, not stale wording. **A school roster is always the $200 season license, never a seat plan** — do not quote Team to a coach. Changing a price is three edits that land together: `lib/plans.mjs`, a NEW Stripe price object (never edit one in place), and the env var; `scripts/test-plans.mjs` and `scripts/check-prices.mjs` both run in the hook. **A new paid tier is not shipped until it is in `VOICE_PRO_PLANS` / `PAID_PLANS` / `requirePaidPlan` too** — Voice was advertised on /pricing for months while no gate had heard of it, so buying it granted nothing. (Lifetime was removed from pricing displays 2026-07-03; the backend entitlement stays. See soul.md §7 + decision log.)
 
 ## Motion draft (in the ROOM, pre-round)
 
@@ -796,7 +796,7 @@ Dead code, bugs and superseded infrastructure still get deleted properly.
 
 ## Things to ask before doing
 
-- New pricing tier (locked: Free, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, Program $550/season — consumer tiers still $0 in beta; the Lifetime tier was removed from pricing displays 2026-07-03, backend entitlement kept).
+- New pricing tier (locked: Free, BYOK $1/mo, Individual $10/year, Voice $12/mo, Tokens $4.99/mo, Team $50/year, Program $200/season — consumer tiers still $0 in beta; the Lifetime tier was removed from pricing displays 2026-07-03, backend entitlement kept).
 - Stripe webhook / Firestore rules / App Check token changes.
 - New AI provider integration (currently 6 brains: Claude, GPT, Gemini, Grok, DeepSeek, Open Lab — last two added 2026-05-15: DeepSeek direct, Open Lab OpenRouter-backed pool).
 - Mobile / TWA wrapping (path is Capacitor; deferred — see soul.md §9).
