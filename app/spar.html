@@ -538,6 +538,15 @@ h1 em{color:var(--accent);font-style:normal}
 .sn-quiet{margin-top:16px}
 .sn-quiet-line{margin:0 0 10px;font-size:.8rem;line-height:1.5;color:var(--text-dim);text-align:center}
 .sn-quiet [data-spar-night]{margin:0}
+/* The wait offer. Deliberately a row and not a card: the card that used
+   to live here was removed for crowding the searching screen, and the
+   thing worth keeping was the offer, not the box around it. */
+.ai-wait-offer{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:12px 14px;border-radius:12px;border:1px solid var(--border,rgba(255,255,255,.16));background:rgba(255,255,255,.03)}
+.ai-wait-offer .awo-text{font-size:.82rem;line-height:1.5;color:var(--text-dim);text-align:center;max-width:34ch}
+.ai-wait-offer .awo-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.ai-wait-offer .awo-go{background:#dc2626;color:#fff;border:0;border-radius:10px;padding:9px 16px;font-weight:800;font-size:.82rem;cursor:pointer}
+.ai-wait-offer .awo-go:hover{background:#b91c1c}
+@media (max-width:520px){.ai-wait-offer{flex-direction:column;gap:10px}}
 .quiet-links{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
 /* Padding + negative margin: same visual rhythm, ~3x the tap height.
    These are the only controls on screen while someone is in the queue
@@ -3331,6 +3340,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     watchPollInterval: null,       // "watch a live round" panel refresh
     roundNavPending: false,        // fallback guard once spar-pair succeeds
     aiOfferDismissed: false,       // user explicitly chose to keep waiting
+    aiOfferShown: false,           // impression logged once per page, not per tick
     aiLeaving: false,              // one navigation even if the write is slow
     zombieParked: false,           // queue parked after hours unattended; first touch rejoins
     profileReady: !!matchProfile,  // first visit completes the player-build before queueing
@@ -3352,6 +3362,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // Re-stamp cadence for the searching queue doc. Mirrors
   // HEARTBEAT_MS in js/notifications.js sparLive().
   var QUEUE_HEARTBEAT_MS = 90 * 1000;
+  // How long a wait has to go badly before the AI round is offered. See
+  // the offer markup in renderSearching for why it is not 12 seconds.
+  var AI_OFFER_AFTER_SEC = 60;
   // Format chips are proposals, not filters. The matchmaker considers
   // every waiting debater, then asks both sides to accept/pass when
   // their proposed formats differ.
@@ -4530,6 +4543,33 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // and the whole Round-setup card (judge type / language / bench).
       // Every JS reference to their ids is null-guarded, so the wiring
       // below no-ops; restore from git history at this commit if asked.
+      // ── The wait offer ───────────────────────────────────────────
+      // 2026-09-02. Measured over the 7 days to today: 140 sessions
+      // joined the queue and 47 of them ended with nothing at all. The
+      // machinery for this offer was intact the whole time (startCountdown
+      // reveals #aiOpponentOffer, the click handlers below wire it to
+      // leaveQueueForAi) and the ELEMENT had been deleted the day before,
+      // so the reveal had nothing to reveal and spar_ai_choice fired 3
+      // times in a week. A feature can be fully built and reachable by
+      // nobody; check the element exists before trusting the mechanism.
+      //
+      // Restored as ONE LINE rather than the card that was removed. The
+      // removal was right: the card stacked with four other cards on a
+      // screen someone reads while waiting, and it appeared at 12
+      // seconds, which is before most matches even land. This appears at
+      // AI_OFFER_AFTER_SEC and is a sentence with a button in it.
+      //
+      // It is an OFFER and never a redirect. The standing product rule is
+      // that we never bulldoze a waiting human into an AI round, so the
+      // human queue keeps running underneath, Keep waiting silences it
+      // for the session, and nothing here navigates on its own.
+      '<div class="ai-wait-offer" id="aiOpponentOffer" hidden>' +
+        '<span class="awo-text">No one has turned up yet. You can take a round against the AI now, or keep waiting.</span>' +
+        '<span class="awo-act">' +
+          '<button type="button" class="btn awo-go" id="aiNowBtn">Debate the AI</button>' +
+          '<button type="button" class="link-btn" id="keepSearchingBtn">Keep waiting</button>' +
+        '</span>' +
+      '</div>' +
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
       '</div>' +
@@ -5936,9 +5976,21 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         state.pingAsked = true;
         requestPingPermission();
       }
-      if (elapsed >= 12 && !state.aiOfferDismissed){
+      // 12s was the old threshold and it is why this read as clutter:
+      // the median wait on a match that actually lands is 22 seconds, so
+      // at 12s the offer was interrupting people whose opponent was
+      // already on the way. At 60s it only reaches a wait that is not
+      // going well. Never while a consent handshake is open: that pair
+      // is mid-negotiation and an AI escape hatch there strands the peer.
+      if (elapsed >= AI_OFFER_AFTER_SEC && !state.aiOfferDismissed && !state.inConsent){
         var offer = document.getElementById('aiOpponentOffer');
-        if (offer) offer.hidden = false;
+        if (offer && offer.hidden){
+          offer.hidden = false;
+          if (!state.aiOfferShown){
+            state.aiOfferShown = true;
+            try { if (window.gtag) gtag('event', 'spar_ai_offer_shown', { format: formatParam, wait_sec: elapsed }); } catch(e){}
+          }
+        }
       }
       // Sign-in popup for guests. Asked once, on a flag like pingAsked
       // above, so it cannot re-fire on the 250ms tick; a requeue resets
