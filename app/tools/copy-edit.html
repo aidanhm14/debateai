@@ -212,7 +212,7 @@
       const styleStr = styleDiffText(c.styles);
       d.innerHTML =
         '<button class=remove data-i="' + i + '" title="Remove">&times;</button>' +
-        '<div class=page>' + htmlEscape(c.page) + (c.view ? ' · ' + htmlEscape(c.view) : '') + '</div>' +
+        '<div class=page>' + htmlEscape(c.page) + (c.view ? ' · ' + htmlEscape(c.view) : '') + (c.vw ? ' · ' + c.vw + 'px' : '') + '</div>' +
         (showOld ? '<div class=old>' + htmlEscape(c.old) + '</div>' : '') +
         (showNew ? '<div class=new>' + htmlEscape(c.new) + '</div>' : (c.old ? '<div class=new style="opacity:.6">' + htmlEscape(c.old) + ' <span style="font-size:10px">(text unchanged)</span></div>' : '')) +
         (styleStr ? '<div class=style-diff>' + htmlEscape(styleStr) + '</div>' : '') +
@@ -229,6 +229,9 @@
     return changes.map(c => {
       const out = { page: c.page, old: c.old, new: c.new, ctx: c.ctx };
       if (c.view) out.view = c.view;
+      // Preview width the edit was made at. A style edit at 390 belongs in
+      // a @media(max-width:720px) block; null means full width.
+      out.vw = c.vw == null ? null : c.vw;
       if (c.styles && Object.keys(c.styles).length) out.styles = c.styles;
       if (c.outerHTML) out.outerHTML = c.outerHTML;
       return out;
@@ -314,6 +317,7 @@
           '[data-copyedit-group] { outline: 2px solid #4f8df8 !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(79,141,248,0.12) !important; }\n' +
           '#__copyedit_toolbar { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: #0f1422; color: #e8eaf0; border: 1px solid #2a3050; border-radius: 10px; padding: 8px 10px; z-index: 2147483647; box-shadow: 0 12px 32px rgba(0,0,0,0.5); display: none; flex-direction: column; gap: 6px; font: 12px/1.2 ui-sans-serif, system-ui, sans-serif; user-select: none; max-width: calc(100vw - 24px); }\n' +
           '#__copyedit_toolbar.on { display: flex; }\n' +
+          'body.has-tabbar #__copyedit_toolbar { bottom: 80px; }\n' +
           '#__copyedit_toolbar .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n' +
           '#__copyedit_toolbar .label { color: #8a92ad; padding: 0 6px 0 4px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
           '#__copyedit_toolbar .sep { width: 1px; height: 18px; background: #2a3050; }\n' +
@@ -752,6 +756,7 @@
       changes.push({
         page: pageOf(wasActive.ownerDocument),
         view: viewOf(wasActive.ownerDocument),
+        vw: vwSel.value ? +vwSel.value : null,
         old: oldTrim,
         new: textChanged ? newTrim : oldTrim,
         ctx: ctxOf(wasActive),
