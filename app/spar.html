@@ -5168,6 +5168,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // both hide under a count of 3 so a tiny number doesn't read sadder
   // than showing nothing. Week prefers the broader "attempts" count;
   // falls back to "misses." Month mirrors that.
+  //
+  // 2026-09-02: the second pill used to print month_count flat, and on
+  // 2 September that read "133 this week - 103 this month". Both numbers
+  // were true (the ISO week had started 31 August, the month counter had
+  // reset on the 1st) and together they were nonsense, because a month
+  // that contains a week cannot be smaller than it. The endpoint now
+  // keeps day buckets, so the pill prefers a real trailing 30 days.
+  // Until 30 days of buckets exist the rolling figure would understate,
+  // so it falls back to month-to-date and shows it ONLY while that is at
+  // least the week figure. In the straddle window neither is publishable
+  // and the pill hides: one honest number beats two that argue.
   function fetchMissedMatchCount(){
     fetch('/api/log-missed-match', { method: 'GET' })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -5190,10 +5201,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           if (cell) cell.style.display = '';
           if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
         }
-        // Monthly pill — independent, also hides under 3.
+        // Second pill — trailing 30 days once the buckets cover it,
+        // month-to-date while they don't, nothing when month-to-date
+        // would print below the week number beside it.
+        var roll = (j.attempts && j.attempts.rolling) || null;
+        var weekShown = n || 0;
         var nM, labelM;
-        if (attemptsM >= 3) { nM = attemptsM; labelM = 'this month'; }
-        else if (missesM >= 3) { nM = missesM; labelM = 'this month'; }
+        if (roll && roll.complete && roll.count >= 3 && roll.count >= weekShown) {
+          nM = roll.count; labelM = 'in the last 30 days';
+        } else if (attemptsM >= 3 && attemptsM >= weekShown) {
+          nM = attemptsM; labelM = 'this month';
+        } else if (missesM >= 3 && missesM >= weekShown) {
+          nM = missesM; labelM = 'this month';
+        }
         if (nM){
           var sepM = document.getElementById('metaMonthSep');
           var cellM = document.getElementById('metaMonthCell');

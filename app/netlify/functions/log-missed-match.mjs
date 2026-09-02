@@ -31,6 +31,8 @@
  *   week_key: string (YYYY-WW)
  *   month_count: number (resets at the start of each UTC month)
  *   month_key: string (YYYY-MM)
+ *   by_day: { 'YYYY-MM-DD': N }  (rolling day buckets, pruned to DAY_KEEP)
+ *   by_day_since: string (first day bucketing started — coverage marker)
  *   by_format: { apda: N, bp: N, ... }
  *   updatedAt: server timestamp
  *
@@ -109,6 +111,47 @@ function monthKey(date){
   return `${y}-${m}`;
 }
 
+// Day key — 'YYYY-MM-DD', UTC. The month counter resets on the 1st, so
+// early in a month it is legitimately SMALLER than the ISO-week counter
+// (an ISO week straddles the boundary). That reads as broken to anyone
+// looking at the public /spar strip, where the two sit side by side.
+// These day buckets are what let the public figure be a true trailing
+// 30 days instead: monotonic against the week number, and never a
+// partial month wearing a full month's label. month_count stays exactly
+// as it was for every existing consumer.
+function dayKey(date){
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ROLLING_DAYS = 30;   // the public window
+const DAY_KEEP = 40;       // buckets retained before pruning (slack over the window)
+
+// Sum the last ROLLING_DAYS buckets, and report how many days of
+// bucketing actually exist. A caller must not publish the sum until
+// coverage is full: a 3-day-old bucket map summed and labelled "last 30
+// days" is a padded number pointing the wrong way.
+function rollingFrom(byDay, sinceKey, now){
+  const cutoff = now.getTime() - (ROLLING_DAYS - 1) * DAY_MS;
+  let count = 0;
+  for (const [k, v] of Object.entries(byDay || {})){
+    if (typeof v !== 'number') continue;
+    const t = Date.parse(k + 'T00:00:00Z');
+    if (Number.isNaN(t) || t < cutoff) continue;
+    count += v;
+  }
+  let days = 0;
+  if (typeof sinceKey === 'string'){
+    const t = Date.parse(sinceKey + 'T00:00:00Z');
+    if (!Number.isNaN(t)){
+      days = Math.min(ROLLING_DAYS, Math.floor((now.getTime() - t) / DAY_MS) + 1);
+    }
+  }
+  return { count, days, window: ROLLING_DAYS, complete: days >= ROLLING_DAYS };
+}
+
 // Allow-list of format slugs we expect to see — anything else collapses
 // to 'other' so a bad client param can't pollute the by_format map.
 const ALLOWED_FORMATS = new Set([
@@ -136,6 +179,7 @@ function defaultCounts(){
     month_count: 0,
     month_key: monthKey(new Date()),
     by_format: {},
+    rolling: { count: 0, days: 0, window: ROLLING_DAYS, complete: false },
   };
 }
 
@@ -150,6 +194,7 @@ async function readCounts(docRef){
     month_count: typeof d.month_count === 'number' ? d.month_count : 0,
     month_key: typeof d.month_key === 'string' ? d.month_key : monthKey(new Date()),
     by_format: d.by_format && typeof d.by_format === 'object' ? d.by_format : {},
+    rolling: rollingFrom(d.by_day, d.by_day_since, new Date()),
   };
 }
 
@@ -163,6 +208,8 @@ async function tickCounter(docRef, format, reason){
   const currentMonth = monthKey(now);
   const snap = await docRef.get();
 
+  const currentDay = dayKey(now);
+
   if (!snap.exists){
     await docRef.set({
       total: 1,
@@ -170,11 +217,13 @@ async function tickCounter(docRef, format, reason){
       week_key: currentWeek,
       month_count: 1,
       month_key: currentMonth,
+      by_day: { [currentDay]: 1 },
+      by_day_since: currentDay,
       by_format: { [format]: 1 },
       last_reason: reason,
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { total: 1, week_count: 1, week_key: currentWeek, month_count: 1, month_key: currentMonth, by_format: { [format]: 1 } };
+    return { total: 1, week_count: 1, week_key: currentWeek, month_count: 1, month_key: currentMonth, by_format: { [format]: 1 }, rolling: { count: 1, days: 1, window: ROLLING_DAYS, complete: false } };
   }
 
   const stored = snap.data() || {};
@@ -183,9 +232,20 @@ async function tickCounter(docRef, format, reason){
   const update = {
     total: FieldValue.increment(1),
     [`by_format.${format}`]: FieldValue.increment(1),
+    [`by_day.${currentDay}`]: FieldValue.increment(1),
     last_reason: reason,
     updatedAt: FieldValue.serverTimestamp(),
   };
+  // Coverage marker. Stamped once, on the first tick that ever writes a
+  // bucket, and never rewritten — it is what tells a reader whether the
+  // rolling window is actually full yet.
+  if (typeof stored.by_day_since !== 'string') update.by_day_since = currentDay;
+  // Prune anything past DAY_KEEP so the map cannot grow without bound.
+  const pruneCutoff = now.getTime() - DAY_KEEP * DAY_MS;
+  for (const k of Object.keys(stored.by_day || {})){
+    const t = Date.parse(k + 'T00:00:00Z');
+    if (Number.isNaN(t) || t < pruneCutoff) update[`by_day.${k}`] = FieldValue.delete();
+  }
   if (sameWeek){
     update.week_count = FieldValue.increment(1);
   } else {
