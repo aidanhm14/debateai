@@ -5374,6 +5374,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var sideLabel = f.sideLabels[sp.side];
     var ms = mySide();
     var myTurn = isMyTurn();
+    // `spectator` was read below without ever being declared, so the
+    // neutral branch (every watcher, on every new speech) threw a
+    // ReferenceError out of renderRound and skipped the rest of that
+    // repaint. Found by the ?design=spectator scene, 2026-09-02.
+    var spectator = isSpectator();
     var heading, sub, kind;
     if (ms && myTurn){
       heading = 'Your turn';
@@ -19655,6 +19660,246 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     });
   })();
   setInterval(function(){ try { updateOpeningBeat(); } catch(e){} }, 5000);
+  // ── Design mode: ?design=<scene> ───────────────────────────────────
+  // Paints the room against a SYNTHETIC round so the copy and layout can
+  // be edited by hand in /god (tools/copy-edit.html) without a match, a
+  // Daily room, a second person, or a signed-in seat. Same precedent as
+  // ?openbeatdemo above and /spar's ?draftdemo. Scenes:
+  //   setup      the pre-round form, filled in
+  //   ready      in the room, Speech 1 not started
+  //   speaking   my speech running: clock live, notes + fact check up
+  //   waiting    the opponent's speech running, my controls locked
+  //   spectator  the watcher's view of that same speech
+  //   ballot     the rendered verdict with the long-form ballot under it
+  // Nothing here reaches the network. Every loop, publish, mount and
+  // mint that would is replaced with a no-op BEFORE the first render, so
+  // a reload in the editor cannot write a round doc, mint a guest, join
+  // a video room, or spend a provider call. The clock is frozen on
+  // purpose: a ticking number rewrites the DOM under an edit.
+  (function(){
+    var m = /[?&]design=([a-z0-9]*)/.exec(location.search);
+    if (!m) return;
+    var scene = m[1] || 'speaking';
+    if (scene === '1' || scene === 'on') scene = 'speaking';
+    if (['setup','ready','speaking','waiting','spectator','ballot'].indexOf(scene) < 0) scene = 'speaking';
+    window.__lrDesign = scene;
+    document.documentElement.setAttribute('data-lr-design', scene);
+
+    var noop = function(){};
+    var quiet = function(fn){ try { fn(); } catch(e){} };
+    function silence(){
+      // Each on its own line so a renamed function fails alone.
+      quiet(function(){ startFactCheckLoop = noop; });
+      quiet(function(){ startBackstopLoop = noop; });
+      quiet(function(){ startPoiLoop = noop; });
+      quiet(function(){ startCueLevels = noop; });
+      quiet(function(){ pmInitSpectator = noop; });
+      quiet(function(){ pmOpen = noop; });
+      quiet(function(){ startRoomTips = noop; });
+      quiet(function(){ startPrepBanner = noop; });
+      quiet(function(){ checkOpponentPresence = noop; });
+      quiet(function(){ mountDaily = noop; });
+      quiet(function(){ mountViewerStage = function(){ return false; }; });
+      quiet(function(){ startRoomShots = noop; });
+      quiet(function(){ publishRoundInit = noop; });
+      quiet(function(){ publishSpeech = noop; });
+      quiet(function(){ publishBallotPending = noop; });
+      quiet(function(){ startJoinRequestHost = noop; });
+      quiet(function(){ subscribeRound = noop; });
+      quiet(function(){ startWatchPresence = noop; });
+      quiet(function(){ generateClashMap = noop; });
+      quiet(function(){ loadRoomShift = noop; });
+      quiet(function(){ logMyRoundSpeeches = noop; });
+      quiet(function(){ capFinish = noop; });
+      quiet(function(){ endRecordingAfterReactions = noop; });
+      quiet(function(){ holdRecordingThroughBallot = noop; });
+      quiet(function(){ armVerdictReel = noop; });
+      quiet(function(){ reelShowBallot = noop; });
+      quiet(function(){ startBallotReadAloud = noop; });
+      quiet(function(){ notifyDeepRfdReady = noop; });
+      quiet(function(){ ensureGuestAuth = function(){ return Promise.reject(new Error('design mode')); }; });
+      // Every write path guards on this returning null, so one override
+      // closes all of them: consent boxes, motion edits, heartbeats.
+      quiet(function(){ getRoundDocRef = function(){ return null; }; });
+    }
+
+    var MOTION = 'Cities should ban private cars from their downtown cores.';
+    var FACES = { pro: '/img/round/faces/face49.jpg', con: '/img/round/faces/face47.jpg' };
+    var P1 = 'Downtowns were built for people and then handed to cars. Look at any city centre from above and half of the land is parking, lanes, and turning space for machines that sit still 95 percent of the day. A ban gives that land back. Three things follow. Shops get foot traffic, because a person walking past a window is a customer and a person driving past at 30 miles an hour is not. Air gets cleaner where the most people breathe it. And the street becomes a place you can let a child cross. Paris, Oslo, and Pontevedra all did versions of this, and retail sales went up, not down. The cost is convenience for the people who drive in. The gain is the city itself.';
+    var C1 = 'Sam is describing a downtown that already has a metro, a tram, and money. Most cities do not. A ban does not make the buses come more often. It just moves the cars to the ring road and moves the people who cannot walk far to the suburbs. Three answers. First, the nurse on a night shift and the delivery driver do not get to choose their hours, and a ban lands hardest on them. Second, the shop owner in Pontevedra had a pedestrian street. The shop owner here has a parking lot and a highway exit. Third, the honest version of this motion is congestion pricing: charge the driver, fund the bus, keep the door open. A ban skips the funding and keeps the punishment.';
+    var P2 = 'Jordan says the buses will not come. That is the argument for the ban, not against it. Every city that closed its core to cars found the money for transit the year after, because the demand became visible. And the nurse on a night shift is exactly who a ban protects, because the bus she rides moves twice as fast on a street with no cars on it.';
+    var BALLOT = {
+      winner: 'con',
+      proPoints: 76,
+      conPoints: 79,
+      rfd: 'Con wins on the funding gap. Pro built a clear picture of what a downtown looks like without cars and gave real cities as evidence, and that picture was never seriously contested. What decided the round was the question Con asked in the first response and Pro never closed: where does the transit come from? Pro’s closing answered with a prediction, that demand becomes visible and money follows, which is a claim about the future rather than a mechanism. Con’s congestion pricing alternative captured most of Pro’s benefits while answering the shift worker impact directly, and that comparison stood at the end of the round.\n\nSpeaker points reflect a close round. Pro was the clearer speaker and structured both speeches well. Con was more responsive and did the comparative work in the final speech that Pro left undone.',
+      proFeedback: 'Your opening was the best structured speech of the round. The three-point frame landed and the examples were real. What cost you the ballot was the closing: you restated the case instead of answering the funding question, and one sentence on how a car-free core pays for its own buses would have won it.',
+      conFeedback: 'You found the weak seam in the first speech and stayed on it, which is what won. Your own case was thinner than your responses, and a judge who weighed constructive material more heavily would have had a harder call. Build the alternative out in the opening so it is more than a name.',
+    };
+    var DEEP = 'THE BALLOT\n\nThe motion asked whether cities should ban private cars from their downtown cores. Both sides agreed on the goal, a downtown with more people in it and fewer cars, and disagreed on whether a ban is the tool that gets there.\n\nPro’s case rested on three claims: land returned to people, cleaner air where density is highest, and safer streets. Each was warranted and each was illustrated with a real city. Con did not contest the first or second claim directly; the response was that those benefits depend on transit that most cities lack.\n\nThat is where the round turned. Con’s first speech put the question plainly: a ban does not make the buses come. Pro’s closing answered that demand becomes visible and money follows. That is a hope, and Con’s alternative, congestion pricing that charges the driver and funds the bus, delivered the same benefits with a funding mechanism attached. When two sides want the same outcome and one of them explains how it is paid for, the ballot goes to the side with the mechanism.\n\nSpeaker points: Pro 76, Con 79. Pro was clearer and better organised. Con was more responsive and won the comparison.';
+
+    function speech(i){ return FORMATS.quick.speeches[i]; }
+    function nameFor(side){ return side === 'pro' ? state.proName : state.conName; }
+    function logEntry(i, text, secs){
+      var sp = speech(i);
+      return { code: sp.code, name: sp.name, side: sp.side, speakerName: nameFor(sp.side),
+        text: text, durationSec: secs, targetSec: sp.time, overSec: 0, overran: false };
+    }
+    function note(i, points){
+      var sp = speech(i);
+      return { idx: i, code: sp.code, side: sp.side, speakerName: nameFor(sp.side), points: points, atMs: Date.now() };
+    }
+    var NOTES_P1 = note(0, [
+      { tag: 'Land use', note: 'Half of downtown land serves cars that sit still most of the day; a ban returns it to people.' },
+      { tag: 'Foot traffic', note: 'Walkers are customers and drivers are not; Paris, Oslo and Pontevedra saw retail rise after closing their cores.' },
+      { tag: 'Air and safety', note: 'Cleaner air where the most people breathe it, and streets a child can cross.' },
+    ]);
+    var NOTES_C1 = note(1, [
+      { tag: 'Transit gap', note: 'The cited cities already had metros and trams; a ban does not make buses come more often.' },
+      { tag: 'Shift workers', note: 'Night nurses and delivery drivers cannot choose their hours and are hit hardest.' },
+      { tag: 'Alternative', note: 'Congestion pricing charges the driver, funds the bus, and keeps the door open.' },
+    ]);
+    var FACT = {
+      speechIdx: 1, speaker: 'Jordan', code: 'C1', severity: 'distorted', grounded: true,
+      quote: 'the shop owner in Pontevedra had a pedestrian street',
+      correction: 'Pontevedra’s core was not pedestrian before the 1999 reform; the city removed through traffic and most parking from a centre that had been open to cars.',
+      sources: [{ title: 'Pontevedra city council, mobility model', url: 'https://www.pontevedra.gal/' }],
+    };
+
+    function seed(){
+      state.formatKey = 'quick';
+      state.motion = MOTION;
+      state.background = '';
+      state.proName = 'Sam'; state.conName = 'Jordan';
+      state.proUid = ''; state.conUid = ''; state.proUid2 = ''; state.conUid2 = '';
+      state.proName2 = ''; state.conName2 = ''; state.isDuo = false;
+      // No uids on the seats, so mySide() answers from the hint whoever is
+      // signed in on the editor: a real uid would classify the editor as a
+      // spectator of their own design.
+      state.mySideHint = scene === 'spectator' ? '' : 'pro';
+      state.forceSpectate = scene === 'spectator';
+      state.roundDocRef = null;
+      state.roundStartedAt = Date.now() - 7 * 60 * 1000;
+      state.judgePicks = { pro: 'chair', con: 'chair' }; state.judgeLocked = 'chair';
+      state.prepMin = 0;
+      state.speechIdx = 0; state.log = []; state.roundNotes = []; state.factChecks = [];
+      state.timerState = 'ready'; state.timerElapsed = 0; state.timerStart = 0; state.timerTotalSec = 300;
+    }
+    function freezeClock(i, elapsedSec){
+      state.timerTotalSec = speech(i).time;
+      state.timerState = 'running';
+      state.timerElapsed = elapsedSec;
+      state.timerStart = Date.now();
+    }
+    function fakeStage(){
+      var shell = $('callShell'); if (!shell) return;
+      var spectator = scene === 'spectator';
+      var sp = speech(state.speechIdx);
+      var speakingSide = state.timerState === 'running' ? sp.side : '';
+      function tile(side, label, extra){
+        return '<div class="cv-tile' + (speakingSide === side ? ' is-speaking' : '') + (extra || '') + '">' +
+          '<img src="' + FACES[side] + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block">' +
+          '<div class="cv-plate"><b>' + escHtml(label) + '</b><span>' + (side === 'pro' ? 'Pro' : 'Con') + '</span></div>' +
+        '</div>';
+      }
+      var stage = spectator
+        ? '<div class="cv-stage" data-n="2">' + tile('pro', state.proName) + tile('con', state.conName) + '</div>'
+        : '<div class="cv-stage self-mini" data-n="1">' + tile('con', state.conName) + tile('pro', state.proName + ' (you)', ' is-self is-mirror') + '</div>';
+      var tray = spectator ? '' :
+        '<div class="cv-tray" role="group" aria-label="Room controls">' +
+          '<button type="button" class="cv-btn">Mute</button>' +
+          '<button type="button" class="cv-btn">Hide me</button>' +
+          '<button type="button" class="cv-btn cv-btn--leave">Leave</button>' +
+        '</div>';
+      shell.innerHTML = '<div class="cv-room">' + stage +
+        '<div class="cv-aud" aria-label="Audience cameras"></div><div class="cv-note"></div>' +
+        '<div class="cv-quality" role="status" aria-live="polite"></div>' + tray + '</div>';
+      window.__lrDailyWrapper = true;
+    }
+    function enterRound(i, opts){
+      opts = opts || {};
+      state.phase = 'round';
+      state.speechIdx = i;
+      var sv = $('setupView'); if (sv) sv.classList.add('hidden');
+      $('roundView').classList.remove('hidden');
+      $('ballotView').classList.add('hidden');
+      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (i + 1) + '/' + FORMATS.quick.speeches.length;
+      renderRound();
+      // renderRound runs prepareTimer, which puts the clock back to ready,
+      // so the frozen running clock is applied after it.
+      if (opts.clock != null) freezeClock(i, opts.clock);
+      quiet(renderSequence);
+      var tt = $('timerTarget'); if (tt) tt.textContent = '/ ' + fmtTime(speech(i).time);
+      var ta = $('speechText'); if (ta) ta.value = opts.text || '';
+      quiet(updatePlayPauseBtn);
+      quiet(drawTimer);
+      quiet(paintSpecCaptions);
+      quiet(renderRoundNotes);
+      quiet(renderFactChecks);
+      quiet(function(){ renderWatchCount(opts.watching || 0, false); });
+      quiet(updateRoundGuide);
+      fakeStage();
+      // revealAides scrolls the notes into view; an editor wants the top.
+      setTimeout(function(){ quiet(panelToTop); }, 50);
+    }
+    function enterBallot(){
+      state.phase = 'ballot';
+      state.speechIdx = FORMATS.quick.speeches.length;
+      var sv = $('setupView'); if (sv) sv.classList.add('hidden');
+      $('roundView').classList.add('hidden');
+      $('ballotView').classList.remove('hidden');
+      $('phaseLabel').innerHTML = '<span class="dot"></span> Ballot';
+      state.ballotRevealMode = 'instant';
+      state.rfdDeep = DEEP;
+      state.hasBallot = true;
+      state.timerState = 'ready';
+      renderBallot(BALLOT);
+      quiet(renderDeepRfd);
+      quiet(renderRoundNotes);
+      fakeStage();
+    }
+
+    function run(){
+      silence();
+      seed();
+      if (scene === 'setup'){
+        var md = $('motionDisplay'); if (md) md.textContent = MOTION;
+        var pn = $('proName'); if (pn) pn.value = state.proName;
+        var cn = $('conName'); if (cn) cn.value = state.conName;
+        quiet(renderSetup);
+        return;
+      }
+      if (scene === 'ready'){
+        enterRound(0, { watching: 3 });
+        quiet(updateOpeningBeat);
+        // Paint the opening beat once, then hold it: the beat is timed
+        // (15s hot, 90s late) and a repaint under an edit loses the edit.
+        quiet(function(){ updateOpeningBeat = noop; });
+        return;
+      }
+      if (scene === 'speaking'){
+        state.log = [logEntry(0, P1, 287), logEntry(1, C1, 296)];
+        state.roundNotes = [NOTES_P1, NOTES_C1];
+        state.factChecks = [FACT];
+        enterRound(2, { text: P2, watching: 23, clock: 62 });
+        return;
+      }
+      // waiting + spectator: Jordan's first speech is running.
+      state.log = [logEntry(0, P1, 287)];
+      state.roundNotes = [NOTES_P1];
+      if (scene === 'ballot'){
+        state.log = [logEntry(0, P1, 287), logEntry(1, C1, 296), logEntry(2, P2, 171), logEntry(3, 'Sam says the money follows the demand. It has not followed it in the cities that tried a ban without a plan, and a nurse cannot wait a year for a bus. Charge the driver, fund the bus, keep the door open.', 164)];
+        state.roundNotes = [NOTES_P1, NOTES_C1];
+        state.factChecks = [FACT];
+        enterBallot();
+        return;
+      }
+      enterRound(1, { text: C1.slice(0, 420), watching: 23, clock: 143 });
+    }
+    // After every DOMContentLoaded handler (init() registers later in the
+    // file), so the dock and the audience rail exist before the paint.
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try { run(); } catch(e){ console.warn('[design]', e); } }, 0); });
+  })();
   function updateStartCue(){
     var on = startCueAwaiting();
     if (!on){ clearStartCue(); return; }

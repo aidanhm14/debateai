@@ -26,6 +26,8 @@
   .badge { background: rgba(0,0,0,0.24); color: white; padding: 1px 8px; border-radius: 999px; font-size: 11px; margin-left: 6px; font-weight: 600; min-width: 22px; display: inline-block; text-align: center; }
   main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
   iframe { flex: 1; border: 0; background: white; }
+  main.sized { justify-content: center; background: #0b0e18; }
+  main.sized iframe { flex: 0 0 auto; width: var(--vw); max-width: 100%; box-shadow: 0 0 0 1px #1f2435; }
   aside { width: 380px; background: #0f1422; border-left: 1px solid #1f2435; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
   aside .panel-head { padding: 10px 12px; border-bottom: 1px solid #1f2435; font-weight: 600; font-size: 12px; color: #c9cee1; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.04em; }
   aside .panel-head .clear { background: none; border: 0; color: #8a92ad; cursor: pointer; font-size: 11px; padding: 2px 6px; text-transform: none; letter-spacing: 0; }
@@ -53,48 +55,58 @@
 <div class=topbar>
   <h1>Copy editor <span class=dim>· Debatable</span></h1>
   <select id=page>
+    <optgroup label="Live room (synthetic round, nothing is written)">
+      <option value="/live-round.html?design=speaking" selected>Live room · my speech running</option>
+      <option value="/live-round.html?design=waiting">Live room · opponent speaking</option>
+      <option value="/live-round.html?design=ready">Live room · before speech 1</option>
+      <option value="/live-round.html?design=spectator">Live room · watching</option>
+      <option value="/live-round.html?design=ballot">Live room · ballot</option>
+      <option value="/live-round.html?design=setup">Live room · setup form</option>
+    </optgroup>
     <optgroup label="Main">
       <option value=/landing.html>landing.html · Home</option>
+      <option value=/spar.html>spar.html · Live queue + gate</option>
+      <option value=/watch.html>watch.html · Replays</option>
+      <option value=/tournaments.html>tournaments.html · The Open</option>
+      <option value=/open.html>open.html · Open lobby</option>
       <option value=/voice-debate.html>voice-debate.html · Voice</option>
-      <option value=/live.html>live.html · Live</option>
-      <option value=/index.html>index.html · App</option>
+      <option value=/practice.html>practice.html · Typed round</option>
+      <option value=/live.html>live.html · Rooms board</option>
+      <option value=/predict.html>predict.html · Bet</option>
     </optgroup>
-    <optgroup label="Audience / SEO">
-      <option value=/schools.html>schools.html</option>
-      <option value=/high-school.html>high-school.html</option>
-      <option value=/us.html>us.html</option>
-      <option value=/india.html>india.html</option>
-    </optgroup>
-    <optgroup label="Content / community">
+    <optgroup label="People">
       <option value=/community.html>community.html</option>
       <option value=/leaderboard.html>leaderboard.html</option>
+      <option value=/profile.html>profile.html</option>
+      <option value=/messages.html>messages.html</option>
+      <option value=/how-it-works.html>how-it-works.html</option>
+      <option value=/judge.html>judge.html</option>
+    </optgroup>
+    <optgroup label="Doorway / SEO">
+      <option value=/debate-online.html>debate-online.html</option>
+      <option value=/debate-strangers.html>debate-strangers.html</option>
+      <option value=/omegle-alternative.html>omegle-alternative.html</option>
+      <option value=/schools.html>schools.html</option>
       <option value=/learn.html>learn.html</option>
       <option value=/story.html>story.html · About</option>
-      <option value=/changelog.html>changelog.html</option>
-      <option value=/report.html>report.html</option>
-    </optgroup>
-    <optgroup label="Tools">
-      <option value=/spar.html>spar.html</option>
-      <option value=/counter.html>counter.html</option>
-      <option value=/practice.html>practice.html</option>
-      <option value=/practice-tools.html>practice-tools.html</option>
-      <option value=/debate-case-generator.html>debate-case-generator.html</option>
-      <option value=/debate-topic-generator.html>debate-topic-generator.html</option>
-      <option value=/ai-debate-practice.html>ai-debate-practice.html</option>
-      <option value=/prediction-market-debate.html>prediction-market-debate.html</option>
     </optgroup>
     <optgroup label="Legal / misc">
       <option value=/pricing.html>pricing.html</option>
       <option value=/privacy.html>privacy.html</option>
-      <option value=/privacy-extension.html>privacy-extension.html</option>
       <option value=/terms.html>terms.html</option>
-      <option value=/splash.html>splash.html</option>
+      <option value=/tournament-rules.html>tournament-rules.html</option>
       <option value=/404.html>404.html</option>
     </optgroup>
   </select>
   <input type=text id=urlinput placeholder="or paste any path under app/ (e.g. /pro.html)" autocomplete=off spellcheck=false>
   <button id=load>Load</button>
   <button id=reload title="Reload current iframe">↻</button>
+  <select id=vw title="Preview width">
+    <option value="">Full width</option>
+    <option value="1280">1280 · laptop</option>
+    <option value="820">820 · tablet</option>
+    <option value="390">390 · phone</option>
+  </select>
   <label class=toggle><input type=checkbox id=editmode checked> Edit mode</label>
   <button class=primary id=export style="margin-left:auto">Export to clipboard<span class=badge id=count>0</span></button>
 </div>
@@ -107,7 +119,7 @@
     </div>
     <div class=changes id=changes></div>
     <div class=footer>
-      <div class=hint>Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break). A floating style toolbar appears at the bottom of the iframe when an element is active: font size, bold, alignment, color.</div>
+      <div class=hint>Live room scenes are a fake round: nothing you do there is saved or sent anywhere. Click any text. Type. <kbd>Tab</kbd> or click away commits. <kbd>Esc</kbd> reverts. <kbd>Enter</kbd> also commits (use Shift+Enter for a line break). A floating style toolbar appears at the bottom of the iframe when an element is active: font size, bold, alignment, color.</div>
       <div style="margin-top:8px;color:#a8b0c8">When you're done: <strong style="color:#c9cee1">Export</strong> &rarr; paste the JSON into chat &rarr; I'll apply + push.</div>
     </div>
   </aside>
@@ -153,6 +165,16 @@
   loadBtn.addEventListener('click', () => loadUrl(urlInput.value || pageSelect.value));
   reloadBtn.addEventListener('click', () => loadUrl(urlInput.value || pageSelect.value));
   pageSelect.addEventListener('change', () => loadUrl(pageSelect.value));
+  const vwSel = document.getElementById('vw');
+  const mainEl = document.querySelector('main');
+  function applyWidth(w) {
+    mainEl.classList.toggle('sized', !!w);
+    mainEl.style.setProperty('--vw', w ? w + 'px' : '');
+    try { localStorage.setItem('copyedit-vw', w || ''); } catch {}
+  }
+  try { vwSel.value = localStorage.getItem('copyedit-vw') || ''; } catch {}
+  applyWidth(vwSel.value);
+  vwSel.addEventListener('change', () => applyWidth(vwSel.value));
   urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value); });
 
   editMode.addEventListener('change', () => {
@@ -190,7 +212,7 @@
       const styleStr = styleDiffText(c.styles);
       d.innerHTML =
         '<button class=remove data-i="' + i + '" title="Remove">&times;</button>' +
-        '<div class=page>' + htmlEscape(c.page) + '</div>' +
+        '<div class=page>' + htmlEscape(c.page) + (c.view ? ' · ' + htmlEscape(c.view) : '') + '</div>' +
         (showOld ? '<div class=old>' + htmlEscape(c.old) + '</div>' : '') +
         (showNew ? '<div class=new>' + htmlEscape(c.new) + '</div>' : (c.old ? '<div class=new style="opacity:.6">' + htmlEscape(c.old) + ' <span style="font-size:10px">(text unchanged)</span></div>' : '')) +
         (styleStr ? '<div class=style-diff>' + htmlEscape(styleStr) + '</div>' : '') +
@@ -206,6 +228,7 @@
   function buildPayload() {
     return changes.map(c => {
       const out = { page: c.page, old: c.old, new: c.new, ctx: c.ctx };
+      if (c.view) out.view = c.view;
       if (c.styles && Object.keys(c.styles).length) out.styles = c.styles;
       if (c.outerHTML) out.outerHTML = c.outerHTML;
       return out;
@@ -243,6 +266,11 @@
       const u = new URL(doc.location.href);
       return u.pathname.replace(/^\//, '') || 'index.html';
     } catch { return '?'; }
+  }
+  // Which synthetic scene the page was showing (live-round ?design=),
+  // so an edit made on the ballot is not applied to the setup form.
+  function viewOf(doc) {
+    try { return new URL(doc.location.href).searchParams.get('design') || undefined; } catch { return undefined; }
   }
   function ctxOf(el) {
     const path = [];
@@ -723,6 +751,7 @@
     if (textChanged || styleChanged) {
       changes.push({
         page: pageOf(wasActive.ownerDocument),
+        view: viewOf(wasActive.ownerDocument),
         old: oldTrim,
         new: textChanged ? newTrim : oldTrim,
         ctx: ctxOf(wasActive),
