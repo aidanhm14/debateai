@@ -473,6 +473,10 @@
       // good. `strong` because that ordering constraint makes discovery
       // time-critical in a way no other row here is.
       { href: '/claim',       label: 'Import your record', plain: 'Bring your past results', strong: true },
+      // Moved here 2026-09-02 from the one-row 'Practice' group (see the note
+      // there). Picking what to argue is a pre-round act, so it sits with the
+      // other ways into a round rather than under a header of its own.
+      { href: '/topics',      label: 'Browse motions', plain: 'Browse topics' },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/debate-rating', label: 'How rating works' },
@@ -529,11 +533,16 @@
       // 2026-08-29: removed from the menu per the founder ("get rid of flow
       // a speech"). Page stays live; restore = uncomment the line below.
       // { href: '/flow',        label: 'Flow a speech', plain: 'Take notes on a speech', wip: true },
-      // 2026-07-27: was "Topics and motions", which the landing's plain-
-      // audience jargon layer (motion -> topic, lowercase) rendered as
-      // the shipped "Topics and topics". The jargon word sits second so
-      // the layer yields "Browse topics" with casing intact.
-      { href: '/topics',       label: 'Browse motions', plain: 'Browse topics' },
+      // 2026-09-02: /topics MOVED to the Debate group. Nothing was removed.
+      // The mobile sheet prints a heading per group, and the declutter
+      // passes above had left this one with exactly ONE live row, so the
+      // sheet showed a "Practice" header promising a set and delivering a
+      // single link. A heading is a grouping promise (uniform
+      // connectedness), and a group of one is not a group. The group stays
+      // here as the restore notes above and below it, and renders nothing
+      // while its links array is empty. The DESKTOP panel is unaffected:
+      // column() resolves '/topics' out of menuPool, which spans every
+      // non-Site group, so the Practice column still shows it.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/argument-coach', label: 'Argument coach' },
