@@ -238,6 +238,13 @@
 
   function isInAppBrowser() {
     try {
+      // The Debatable iOS app IS a WKWebView, so the iOS heuristic below
+      // matches it, and on 2026-09-01 the sheet told an App Review build
+      // that "Google sign-in does not work inside this app's browser".
+      // It does: the native build carries the Firebase Authentication
+      // plugin and doGoogle() routes through it. The warning is for
+      // Instagram, TikTok and friends, never for our own shell.
+      if (window.__DB_NATIVE) return false;
       var ua = navigator.userAgent || '';
       // FBAN/FBAV = Facebook, Instagram ships "Instagram" in the UA,
       // Line/MicroMessenger/Snapchat/LinkedIn/Threads/TikTok all self-identify.

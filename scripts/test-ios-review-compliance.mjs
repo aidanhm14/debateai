@@ -41,6 +41,7 @@ ok('terms agreement is visible and affirmative before auth', () => {
   assert.match(auth, /id="daTerms" type="checkbox"/);
   assert.match(auth, /zero tolerance for objectionable content or abusive users/i);
   assert.match(auth, /debatable-terms-accepted-/);
+  assert.match(auth, /function isInAppBrowser\(\) \{[\s\S]{0,600}if \(window\.__DB_NATIVE\) return false;/, 'native shell must not be treated as a third-party in-app browser');
 });
 
 ok('every shared sign-in method enforces the agreement', () => {
