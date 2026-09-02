@@ -8052,6 +8052,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        whole board on every swap. */
     min-height:2.36em}
   [data-theme="light"] .fs-board h2.fs-motion{color:#0f0f12}
+  .fs-guide{position:relative;z-index:5;margin:-5px 0 13px;width:max-content;max-width:100%;cursor:default}
+  .fs-guide[hidden],.fs-guide-panel[hidden]{display:none}
+  .fs-guide-btn{
+    display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:8px;
+    border:1px solid rgba(245,239,231,.23);background:rgba(245,239,231,.06);color:rgba(245,239,231,.82);
+    font:700 .68rem/1.2 'Archivo',var(--font-body);cursor:pointer;letter-spacing:.01em
+  }
+  .fs-guide-btn:hover,.fs-guide-btn[aria-expanded="true"]{border-color:#f87171;color:#fff;background:rgba(248,113,113,.10)}
+  .fs-guide-btn i{font-style:normal;font-size:.8rem;transition:transform .15s ease}
+  .fs-guide-btn[aria-expanded="true"] i{transform:rotate(45deg)}
+  [data-theme="light"] .fs-guide-btn{border-color:rgba(26,26,31,.2);background:rgba(26,26,31,.035);color:rgba(26,26,31,.74)}
+  [data-theme="light"] .fs-guide-btn:hover,[data-theme="light"] .fs-guide-btn[aria-expanded="true"]{border-color:#dc2626;color:#991b1b;background:rgba(220,38,38,.06)}
+  .fs-guide-panel{
+    position:absolute;left:0;top:calc(100% + 8px);z-index:6;width:min(540px,calc(100vw - 56px));box-sizing:border-box;
+    padding:12px 13px;border:1px solid rgba(248,113,113,.42);border-radius:11px;
+    background:#201f24;color:#f5efe7;box-shadow:0 18px 42px rgba(0,0,0,.48);text-align:left
+  }
+  [data-theme="light"] .fs-guide-panel{background:#fffdf9;color:#1a1a1f;border-color:rgba(220,38,38,.3);box-shadow:0 18px 42px rgba(24,22,28,.18)}
+  .fs-guide-panel p{display:grid;grid-template-columns:70px 1fr;gap:9px;margin:0;font-size:.72rem;line-height:1.45}
+  .fs-guide-panel p + p{margin-top:8px;padding-top:8px;border-top:1px solid rgba(127,127,127,.24)}
+  .fs-guide-panel b{font-size:.59rem;line-height:1.7;letter-spacing:.08em;text-transform:uppercase;color:#f87171}
+  [data-theme="light"] .fs-guide-panel b{color:#dc2626}
+  @media(max-width:560px){
+    .fs-guide-panel{width:calc(100vw - 48px)}
+    .fs-guide-panel p{grid-template-columns:1fr;gap:2px}
+  }
 
 
   /* Round panel: two tiles, the speaking one ringed. */
@@ -8989,6 +9015,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
 
       <h2 class="fs-motion fs-fade" id="fsMotion"></h2>
+      <div class="fs-guide" id="fsGuide" hidden>
+        <button type="button" class="fs-guide-btn" id="fsGuideBtn" aria-expanded="false" aria-controls="fsGuidePanel">
+          What would this look like? <i aria-hidden="true">+</i>
+        </button>
+        <div class="fs-guide-panel" id="fsGuidePanel" role="note" hidden>
+          <p><b>In practice</b><span id="fsGuidePractice"></span></p>
+          <p><b>The clash</b><span id="fsGuideClash"></span></p>
+        </div>
+      </div>
 
       <!-- Hot/cold. The bar is the room's read on Pro right now; it drifts
            on a tick while the round runs, warm as Pro climbs and cool as
@@ -11159,18 +11194,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Mia', side:'For', face:'face51' }, b:{ nm:'Malik', side:'Against', face:'face47' },
       open:48, drift:27, won:'b', score:'75 - 95', crowd:96, vol:240,
       rfd:'Malik wins by holding Mia to the comparison she chose: tobacco regulation turns on a proven physical harm and a product with no other use, and neither is established here. Mia shows the engagement incentive is ugly without showing the remedy fits it.' },
-    { fmt:'Policy', motion:'Is it wrong to eat meat when you know what you know now?',
-      a:{ nm:'Marcus', side:'For', face:'face54' }, b:{ nm:'Vanessa', side:'Against', face:'face48' },
-      open:49, drift:66, won:'b', score:'82 - 88', crowd:143, vol:295,
-      rfd:'Vanessa wins because she separates the practice from the industry, and Marcus spends the round proving the industry is indefensible without proving the act is. The concession that a smaller, better-run version would be permissible is the round.' },
     { fmt:'Public Forum', motion:'In the US, colleges should end legacy admissions.',
       a:{ nm:'Megan', side:'For', face:'face49' }, b:{ nm:'Ian', side:'Against', face:'face52' },
       open:50, drift:61, won:'b', score:'75 - 82', crowd:151, vol:310,
       rfd:'Ian wins because Megan never answers the fairness problem or explains why her benefits matter more.' },
-    { fmt:'Asian Parli', motion:'Globally, drug patents should be suspended during a health emergency.',
-      a:{ nm:'Danny', side:'For', face:'face53' }, b:{ nm:'Elena', side:'Against', face:'face51' },
-      open:51, drift:78, won:'a', score:'88 - 75', crowd:67, vol:180,
-      rfd:'Danny wins on the gap between invention and supply, since the patent stops other factories running while people wait and the research is already paid for by the time an emergency starts. Elena proves the incentive matters in normal years and never explains why a suspension measured in months changes what a company expects across a whole patent life.' },
     { lead:true, fmt:'Congress', motion:'In the US, every member of Congress should pass a public cognitive test to stay in office.',
       a:{ nm:'Lily', side:'For', face:'face49' }, b:{ nm:'Henry', side:'Against', face:'face48' },
       open:50, drift:39, won:'b', score:'75 - 88', crowd:88, vol:205,
@@ -11183,10 +11210,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Cole', side:'For', face:'face46' }, b:{ nm:'Sofia', side:'Against', face:'face47' },
       open:51, drift:68, won:'b', score:'82 - 88', crowd:108, vol:230,
       rfd:'Sofia wins because she narrows the policy and proves that Cole\'s ban is broader than his harms require.' },
-    { lead:true, fmt:'World Schools', motion:'You should not have kids if you cannot comfortably afford them.',
-      a:{ nm:'Ashley', side:'For', face:'face54' }, b:{ nm:'Aaron', side:'Against', face:'face49' },
-      open:50, drift:57, won:'a', score:'95 - 75', crowd:132, vol:275,
-      rfd:'Ashley wins by tying responsibility to a workable remedy. Aaron contests the scale but never offers a better response.' },
     { fmt:'British Parli', motion:'Cities should make public transit free.',
       a:{ nm:'Tom', side:'For', face:'face48' }, b:{ nm:'Maddie', side:'Against', face:'face51' },
       open:50, drift:34, won:'a', score:'88 - 82', crowd:177, vol:325,
@@ -11195,10 +11218,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Owen', side:'Against', face:'face46' }, b:{ nm:'Faith', side:'For', face:'face49' },
       open:50, drift:38, won:'a', score:'88 - 75', crowd:201, vol:365,
       rfd:'Owen wins by separating the existence of extreme wealth from the conduct used to acquire it. Faith proves inequality is harmful but never proves a hard wealth ceiling fixes it.' },
-    { fmt:'British Parli', motion:'Parents should be allowed to post their children online.',
-      a:{ nm:'Zoe', side:'For', face:'face46' }, b:{ nm:'Luke', side:'Against', face:'face51' },
-      open:51, drift:64, won:'b', score:'75 - 95', crowd:238, vol:410,
-      rfd:'Luke wins because a child cannot meaningfully consent to a permanent digital record. Zoe defends ordinary family sharing but never limits the worst cases.' },
     { lead:true, fmt:'World Schools', motion:'In your country, owning more than five homes should be illegal.',
       a:{ nm:'Adam', side:'For', face:'face47' }, b:{ nm:'Alex', side:'Against', face:'face53' },
       open:49, drift:56, won:'a', score:'88 - 82', crowd:173, vol:330,
@@ -11223,15 +11242,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Ryan', side:'For', face:'face51' }, b:{ nm:'Jenna', side:'Against', face:'face52' },
       open:48, drift:54, won:'b', score:'82 - 88', crowd:137, vol:285,
       rfd:'Jenna wins by drawing a clear line between private life and information that affects public power. Ryan never answers officials who hide conflicts behind privacy.' },
-    { lead:true, fmt:'World Schools', motion:'Your country should keep funding Ukraine at current levels.',
+    { lead:true, fmt:'World Schools', motion:'In the US, the federal government should keep funding Ukraine at current levels.',
       a:{ nm:'Mike', side:'For', face:'face47' }, b:{ nm:'Natalie', side:'Against', face:'face52' },
       open:49, drift:35, won:'a', score:'88 - 82', crowd:128, vol:270,
       rfd:'Mike wins because he names the end condition and Natalie does not. Natalie\'s deterrence case is strong on price and silent on when it stops being paid, and an open commitment with no stated finish is what Mike asks her to defend.' },
-    { fmt:'Lincoln-Douglas', motion:'In the US, prison should be for people who are dangerous, not for people who are owed punishment.',
-      a:{ nm:'Kevin', side:'For', face:'face47' }, b:{ nm:'Anna', side:'Against', face:'face49' },
-      open:50, drift:61, won:'b', score:'75 - 88', crowd:181, vol:345,
-      rfd:'Anna wins because a system that only holds the dangerous has no answer for the harm already done, and the sentence is the one place that wrong gets stated out loud. Kevin proves most prison time protects nobody and never replaces the job punishment was doing.' },
-    { lead:true, fmt:'British Parli', motion:'In your country, billionaires should be barred from owning news outlets.',
+    { lead:true, fmt:'British Parli', motion:'In the US, billionaires should be barred from owning news outlets.',
       a:{ nm:'Sydney', side:'For', face:'face49' }, b:{ nm:'Sam', side:'Against', face:'face53' },
       open:51, drift:74, won:'b', score:'75 - 95', crowd:209, vol:375,
       rfd:'Sam wins on the alternative. Sydney proves a private owner can bend coverage toward their other interests, and Sam shows the newsrooms in question mostly exist because somebody funds a loss, so the rule delivers fewer outlets rather than freer ones.' },
@@ -11247,10 +11262,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Lucas', side:'For', face:'face49' }, b:{ nm:'Grace', side:'Against', face:'face51' },
       open:52, drift:71, won:'b', score:'75 - 95', crowd:268, vol:440,
       rfd:'Grace wins on build time, which is the whole claim: reactors take more than a decade and the grid needs the cut this decade. Lucas proves nuclear is clean and steady and never gets the plants finished inside the window the motion is asking about.' },
-    { fmt:'Quick Clash', motion:'Globally, water should never be owned by a company.',
-      a:{ nm:'Abby', side:'For', face:'face46' }, b:{ nm:'Diego', side:'Against', face:'face53' },
-      open:50, drift:44, won:'a', score:'88 - 69', crowd:214, vol:385,
-      rfd:'Abby wins because an owner of the supply is pricing the one thing nobody can decline to buy. Diego makes a real case that private operators fix leaks faster and never explains why the fixing has to come with the owning.' },
     { fmt:'Public Forum', motion:'In your country, social media should have a minimum age of sixteen.',
       a:{ nm:'Andrew', side:'For', face:'face54' }, b:{ nm:'Sofia', side:'Against', face:'face51' },
       open:51, drift:68, won:'a', score:'88 - 75', crowd:231, vol:400,
@@ -11271,10 +11282,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Hunter', side:'For', face:'face47' }, b:{ nm:'Zoe', side:'Against', face:'face46' },
       open:51, drift:46, won:'b', score:'75 - 88', crowd:169, vol:320,
       rfd:'Zoe wins on the road safety record, which moved when the age moved. Hunter argues consistency with other adult rights but never answers the one number that tracks the change.' },
-    { lead:true, fmt:'Quick Clash', motion:'Parents should be allowed to edit a genetic disease out of an embryo.',
-      a:{ nm:'Chloe', side:'For', face:'face49' }, b:{ nm:'Eric', side:'Against', face:'face54' },
-      open:50, drift:53, won:'a', score:'88 - 75', crowd:249, vol:420,
-      rfd:'Chloe wins by keeping the motion on disease rather than on preference, which is the line Eric needs to blur and never does. Eric shows the technology will not stop where the motion stops and never argues that a family facing a fatal condition should wait for a rule nobody has written.' },
     { fmt:'APDA', motion:'Rich countries should take in people displaced by climate change.',
       a:{ nm:'Andrew', side:'For', face:'face46' }, b:{ nm:'Jenna', side:'Against', face:'face52' },
       open:52, drift:41, won:'a', score:'95 - 75', crowd:238, vol:410,
@@ -11346,10 +11353,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Maddie', side:'For', face:'face01' }, b:{ nm:'Diego', side:'Against', face:'face46' },
       open:50, drift:58, won:'a', score:'88 - 82', crowd:252, vol:418,
       rfd:'Maddie wins on the trials she can point at, where output held and sick days fell. Diego is right that shift work does not compress the same way and never says why the sectors that can should wait for the ones that cannot.' },
-    { lead:true, fmt:'APDA', motion:'Globally, governments should pause AI models more powerful than today\'s.',
-      a:{ nm:'Paige', side:'For', face:'face11' }, b:{ nm:'Henry', side:'Against', face:'face55' },
-      open:49, drift:34, won:'b', score:'75 - 88', crowd:266, vol:436,
-      rfd:'Henry wins on who honours a pause. Paige makes the case that the risk lands before the rules do, and Henry shows a halt binding only the labs willing to be bound hands the frontier to the ones that are not.' },
     { fmt:'Public Forum', motion:'In the US, college athletes should be paid a salary by their university.',
       a:{ nm:'Hunter', side:'For', face:'face53' }, b:{ nm:'Zoe', side:'Against', face:'face07' },
       open:50, drift:74, won:'a', score:'88 - 69', crowd:234, vol:397,
@@ -11370,8 +11373,94 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Malik', side:'For', face:'face47' }, b:{ nm:'Sofia', side:'Against', face:'face30' },
       open:48, drift:39, won:'b', score:'75 - 88', crowd:257, vol:424,
       rfd:'Sofia wins on consistency, since the same argument moves every other adult threshold at once and Malik never says why voting is the one that moves first. Malik proves that sixteen year olds carry policy they had no vote on.' },
+    /* 2026-09-02, per the founder: the deck should keep adding serious,
+       polarizing questions, but every card must still name a concrete
+       choice with real ground on both sides. These twenty draw from the
+       live public divides around trade, courts, schools, work, housing,
+       privacy and platform power. The removed cards below were either
+       founder strikes or failed that clarity test. */
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, the federal government should impose a 10 percent tariff on all imported goods.',
+      a:{ nm:'Grace', side:'For', face:'face18' }, b:{ nm:'Owen', side:'Against', face:'face48' },
+      open:49, drift:38, won:'b', score:'75 - 88', crowd:286, vol:458,
+      rfd:'Owen wins by tracing the tariff to the price paid by American buyers and to retaliation against exporters. Grace shows that protected factories may hire more workers but never proves those gains outrun the costs across everything imported.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, Supreme Court justices should serve eighteen-year terms instead of life.',
+      a:{ nm:'Eric', side:'For', face:'face46' }, b:{ nm:'Jenna', side:'Against', face:'face52' },
+      open:50, drift:66, won:'a', score:'88 - 82', crowd:241, vol:406,
+      rfd:'Eric wins because regular, staggered appointments stop one death or retirement from giving a president decades of extra influence. Jenna defends judicial independence but never shows why independence requires an unpredictable lifetime seat.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, families should be allowed to use public education funding for private-school tuition.',
+      a:{ nm:'Hannah', side:'For', face:'face54' }, b:{ nm:'Tom', side:'Against', face:'face53' },
+      open:51, drift:36, won:'b', score:'75 - 89', crowd:268, vol:438,
+      rfd:'Tom wins because each voucher removes money from the public system that must still run every bus, class and support service. Hannah proves some families need an exit and never shows that a voucher creates a good private option where none exists.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, presidential and congressional campaigns should be publicly funded, with private donations banned.',
+      a:{ nm:'Mia', side:'For', face:'face51' }, b:{ nm:'Caleb', side:'Against', face:'face47' },
+      open:48, drift:61, won:'a', score:'88 - 77', crowd:224, vol:389,
+      rfd:'Mia wins by showing that candidates now spend their time answering to the people who finance access. Caleb makes the free-speech objection but never explains why taxpayers should accept private money deciding which candidates can afford to be heard.' },
+    { fmt:'Casual 1v1', motion:'In the US, members of Congress should be banned from trading individual stocks.',
+      a:{ nm:'Malik', side:'For', face:'face47' }, b:{ nm:'Zoe', side:'Against', face:'face07' },
+      open:52, drift:74, won:'a', score:'95 - 75', crowd:292, vol:467,
+      rfd:'Malik wins because lawmakers receive market-moving information and write rules that change the value of what they own. Zoe argues that disclosure is enough and never explains how disclosure removes the conflict before a trade happens.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, the federal minimum wage should be raised to fifteen dollars an hour.',
+      a:{ nm:'Sarah', side:'For', face:'face51' }, b:{ nm:'Victor', side:'Against', face:'face47' },
+      open:50, drift:41, won:'b', score:'78 - 88', crowd:279, vol:451,
+      rfd:'Victor wins on one national number covering radically different local economies. Sarah proves the current floor leaves full-time workers short, but never answers the small employer in a low-cost town who cannot raise revenue as fast as payroll.' },
+    { fmt:'Casual 1v1', motion:'In the US, employers should be required to provide paid family leave.',
+      a:{ nm:'Claire', side:'For', face:'face48' }, b:{ nm:'Ben', side:'Against', face:'face53' },
+      open:49, drift:67, won:'a', score:'89 - 77', crowd:212, vol:376,
+      rfd:'Claire wins by showing that an unpaid right is no right for the worker who cannot miss a paycheck. Ben identifies the burden on small employers and never offers another way to keep a new parent from choosing between income and care.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In the US, public universities should charge no tuition.',
+      a:{ nm:'Lucas', side:'For', face:'face52' }, b:{ nm:'Faith', side:'Against', face:'face35' },
+      open:51, drift:39, won:'b', score:'76 - 88', crowd:247, vol:414,
+      rfd:'Faith wins because a universal subsidy sends public money to wealthy students who would have paid anyway. Lucas proves tuition blocks capable students and never explains why targeted grants would not buy more access for the same budget.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In your country, every young adult should complete one year of national or community service.',
+      a:{ nm:'Natalie', side:'For', face:'face13' }, b:{ nm:'Nick', side:'Against', face:'face53' },
+      open:50, drift:35, won:'b', score:'75 - 88', crowd:263, vol:431,
+      rfd:'Nick wins because the policy takes a full year from every young adult regardless of their work, care duties or plans. Natalie proves shared service can build civic trust but never shows why a paid voluntary program could not produce the same benefit.' },
+    { lead:true, fmt:'Casual 1v1', motion:'In your country, annual rent increases should be capped at the rate of inflation.',
+      a:{ nm:'Adam', side:'For', face:'face47' }, b:{ nm:'Elena', side:'Against', face:'face55' },
+      open:52, drift:34, won:'b', score:'77 - 88', crowd:281, vol:455,
+      rfd:'Elena wins because a cap below repair and financing costs pushes landlords to withdraw homes or stop maintaining them. Adam proves sudden rent jumps displace tenants and never answers what happens when the legal increase no longer covers the building.' },
+    { fmt:'Casual 1v1', motion:'In your country, homes left vacant for most of the year should face a special tax.',
+      a:{ nm:'Abby', side:'For', face:'face20' }, b:{ nm:'Diego', side:'Against', face:'face46' },
+      open:49, drift:64, won:'a', score:'88 - 82', crowd:205, vol:362,
+      rfd:'Abby wins by tying the tax to scarce homes sitting unused while local buyers compete for too little supply. Diego raises seasonal homes and renovation gaps, but those cases can be exempted without protecting long-term vacancy.' },
+    { fmt:'Casual 1v1', motion:'Cities should ban short-term rentals in residential neighborhoods.',
+      a:{ nm:'Sofia', side:'For', face:'face30' }, b:{ nm:'Hunter', side:'Against', face:'face53' },
+      open:50, drift:38, won:'b', score:'76 - 88', crowd:238, vol:401,
+      rfd:'Hunter wins against the blanket ban by separating investor-run apartments from a resident renting a spare room. Sofia proves whole homes are being pulled from local housing and never explains why the narrower rule would fail.' },
+    { lead:true, fmt:'Casual 1v1', motion:'Cities should charge cars to enter crowded downtown areas.',
+      a:{ nm:'Matt', side:'For', face:'face52' }, b:{ nm:'Nora', side:'Against', face:'face49' },
+      open:48, drift:33, won:'b', score:'75 - 88', crowd:251, vol:419,
+      rfd:'Nora wins on the worker whose shift starts before transit runs and whose job is inside the fee zone. Matt proves pricing cuts traffic and pollution, but never makes the charge fair where a practical alternative does not exist.' },
+    { fmt:'Casual 1v1', motion:'Public schools should ban smartphones for the entire school day.',
+      a:{ nm:'Lily', side:'For', face:'face49' }, b:{ nm:'Aaron', side:'Against', face:'face54' },
+      open:51, drift:70, won:'a', score:'88 - 79', crowd:289, vol:462,
+      rfd:'Lily wins because a schoolwide ban removes the social cost from the student who would otherwise have to put the phone away alone. Aaron raises emergencies, and Lily answers them with the school office and narrow medical exceptions.' },
+    { lead:true, fmt:'Casual 1v1', motion:'Public schools should group students into classes by academic ability.',
+      a:{ nm:'Cole', side:'For', face:'face47' }, b:{ nm:'Megan', side:'Against', face:'face52' },
+      open:50, drift:37, won:'b', score:'75 - 89', crowd:233, vol:395,
+      rfd:'Megan wins because a placement made early becomes a label that changes teacher expectations and the quality of instruction a student receives. Cole proves one pace cannot fit every classroom and never builds a reliable path between groups.' },
+    { fmt:'Casual 1v1', motion:'Public schools should be allowed to replace some classroom lessons with AI tutors.',
+      a:{ nm:'Camila', side:'For', face:'face20' }, b:{ nm:'Ian', side:'Against', face:'face46' },
+      open:49, drift:65, won:'a', score:'88 - 80', crowd:271, vol:443,
+      rfd:'Camila wins by limiting the tool to supervised practice where each student can get immediate help at their own pace. Ian proves an AI can be confidently wrong, but never shows why teacher review and a narrow task cannot contain that risk.' },
+    { lead:true, fmt:'Casual 1v1', motion:'Social media platforms should be required to verify every user\'s age.',
+      a:{ nm:'Ryan', side:'For', face:'face51' }, b:{ nm:'Paige', side:'Against', face:'face11' },
+      open:52, drift:36, won:'b', score:'78 - 88', crowd:298, vol:472,
+      rfd:'Paige wins because proving age at global scale creates a valuable identity trail for every user, including adults. Ryan proves children can bypass the current checkbox and never gives a verification method that does not create the privacy risk.' },
+    { lead:true, fmt:'Casual 1v1', motion:'Social media platforms should ban paid political advertising.',
+      a:{ nm:'Taylor', side:'For', face:'face23' }, b:{ nm:'Sam', side:'Against', face:'face53' },
+      open:50, drift:40, won:'b', score:'75 - 88', crowd:276, vol:449,
+      rfd:'Sam wins because a paid-ad ban leaves incumbents and famous candidates with free attention while unknown challengers lose the only audience they can buy. Taylor proves targeting can hide contradictory messages, but never shows why disclosure would not answer that harm.' },
+    { fmt:'Casual 1v1', motion:'Governments should ban companies from selling precise location data.',
+      a:{ nm:'Andrew', side:'For', face:'face46' }, b:{ nm:'Ashley', side:'Against', face:'face54' },
+      open:51, drift:76, won:'a', score:'95 - 74', crowd:258, vol:426,
+      rfd:'Andrew wins because a trail of where someone sleeps, works and travels cannot be made harmless by removing a name that can be inferred again. Ashley defends free services funded by data and never proves that they need a precise location history rather than less sensitive advertising signals.' },
+    { lead:true, fmt:'Casual 1v1', motion:'Governments should be forbidden from requiring encrypted messaging services to create backdoors.',
+      a:{ nm:'Henry', side:'For', face:'face55' }, b:{ nm:'Amy', side:'Against', face:'face49' },
+      open:48, drift:69, won:'a', score:'89 - 76', crowd:244, vol:408,
+      rfd:'Henry wins because a special route into encrypted messages is still a vulnerability that hostile states and criminals can find. Amy proves investigators sometimes need the content and never shows how a backdoor remains available only to the government that requested it.' },
     /* 2026-08-24, per the founder ("i also want to see the influencers/celebs
-       here"). These ten are a DIFFERENT KIND OF CARD and the difference is
+       here"). These were introduced as a DIFFERENT KIND OF CARD and the difference is
        the whole reason they are allowed on this board. soul.md is explicit:
        never caption a real person with an invented name, score, or ballot,
        and never name a creator as a participant in a round that has not
@@ -11384,7 +11473,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        Portraits are the same CC or public-domain files as the watchlist,
        credited in /img/creator-watchlist/README.md. If a creator ever
        actually debates, that round belongs in the deck above with a real
-       ballot, not here. */
+       ballot, not here. Four of the original ten were founder-struck on
+       2026-09-02, leaving the six below. */
     { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'MrBeast', img:'mrbeast' }, b:{ nm:'Open seat' } },
     { kind:'challenge', fmt:'Open challenge', motion:'Streaming full time is a better bet than a degree.',
@@ -11393,16 +11483,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Kai Cenat', img:'kaicenat' }, b:{ nm:'Open seat' } },
     { lead:true, kind:'challenge', fmt:'Open challenge', motion:'Political streamers should disclose every financial conflict.',
       a:{ nm:'HasanAbi', img:'hasanabi' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', fmt:'Open challenge', motion:'Gambling sponsorships should be banned from streaming.',
-      a:{ nm:'xQc', img:'xqc' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', fmt:'Open challenge', motion:'Parasocial attachment is bad for the people who feel it.',
-      a:{ nm:'Pokimane', img:'pokimane' }, b:{ nm:'Open seat' } },
     { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'Destiny', img:'destiny' }, b:{ nm:'Open seat' } },
-    { lead:true, kind:'challenge', fmt:'Open challenge', motion:'Comedy should have no protected subjects.',
-      a:{ nm:'Konstantin Kisin', img:'konstantinkisin' }, b:{ nm:'Open seat' } },
-    { kind:'challenge', fmt:'Open challenge', motion:'An interview tests an argument better than a debate does.',
-      a:{ nm:'Mehdi Hasan', img:'mehdihasan' }, b:{ nm:'Open seat' } },
     { kind:'challenge', openTopic:true, fmt:'Open challenge', motion:'Round of your choice.',
       a:{ nm:'Lex Fridman', img:'lexfridman' }, b:{ nm:'Open seat' } }
   ];
@@ -11421,6 +11503,155 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
       a:{ nm:'Lucas' }, b:{ nm:'Sofia' } }
   );
+
+  /* Some policies need one concrete picture before their two sides become
+     obvious. The board exposes these as an optional explainer, never as a
+     change to the motion itself. */
+  var ROUND_GUIDES = {
+    'In the US, social media algorithms should be regulated like tobacco.': {
+      practice:'Platforms would face warning, disclosure, marketing and age rules built around the harms of addictive distribution. The motion does not require banning social media.',
+      clash:'Whether the addiction and public-health comparison is strong enough to justify tobacco-style controls, or too blunt for a speech platform with useful functions.'
+    },
+    'In the US, every member of Congress should pass a public cognitive test to stay in office.': {
+      practice:'Members would take the same independently administered test on a published schedule. Failing the agreed threshold would make them ineligible to continue serving.',
+      clash:'Voter information and fitness for power versus test bias, medical privacy and the risk that whoever controls the test controls eligibility.'
+    },
+    'Globally, nobody should be allowed to become a billionaire.': {
+      practice:'Wealth above one billion dollars would be taxed or transferred so no person could keep assets beyond the cap. It limits ownership, not the size of a company.',
+      clash:'Concentrated power and redistribution versus investment incentives, valuation problems and ways people could route ownership around the ceiling.'
+    },
+    'In your country, owning more than five homes should be illegal.': {
+      practice:'A person or company could own up to five residential properties and would have to sell any above the cap after a transition period.',
+      clash:'Putting scarce homes back on the market versus rental supply, enforcement and whether large owners are the real cause of high prices.'
+    },
+    'In the US, healthcare should never depend on who your employer is.': {
+      practice:'Changing or losing a job would not change whether someone has health coverage. Insurance could be public or private, but it would follow the person rather than the employer.',
+      clash:'Job freedom and continuous coverage versus the bargaining power, financing and disruption involved in replacing employer plans.'
+    },
+    'Governments should ban anonymous social media accounts.': {
+      practice:'Platforms would verify a real identity before an account could post. The motion can still allow a public screen name, but the platform would know who owns it.',
+      clash:'Accountability and enforcement versus privacy, whistleblowing, vulnerable speakers and the security risk of identity databases.'
+    },
+    'Globally, AI companies should pay the creators whose work trains their models.': {
+      practice:'Commercial AI training would require a licensing or collective-payment system for copyrighted writing, images, music and other creative work used in the dataset.',
+      clash:'Payment for value taken from creators versus the cost of tracing inputs, access to knowledge and whether learning from public work should require a license.'
+    },
+    'In the US, the federal government should keep funding Ukraine at current levels.': {
+      practice:'Congress would maintain the present scale of American military, financial and humanitarian support rather than materially raise or cut it.',
+      clash:'Deterrence, alliance credibility and Ukrainian defense versus cost, escalation risk, oversight and what endpoint continued support is meant to reach.'
+    },
+    'In the US, billionaires should be barred from owning news outlets.': {
+      practice:'A person with at least one billion dollars in wealth could not hold controlling ownership of a newspaper, television news network or major digital newsroom.',
+      clash:'Editorial independence and concentrated power versus property rights, newsroom financing and whether ownership rules would reduce the number of outlets.'
+    },
+    'Companies that replace workers with AI should pay to retrain them.': {
+      practice:'When automation eliminates a job, the company receiving the savings would fund approved training or transition support for the displaced worker.',
+      clash:'Putting transition costs where productivity gains land versus defining replacement, choosing useful training and discouraging adoption or hiring.'
+    },
+    'Your country should build nuclear power instead of more wind and solar.': {
+      practice:'New public support and grid investment would prioritize nuclear plants over adding more wind and solar capacity. Existing renewable projects would not automatically close.',
+      clash:'Reliable low-carbon power and land use versus build time, cost, waste, flexibility and the speed of renewable deployment.'
+    },
+    'Rich countries should take in people displaced by climate change.': {
+      practice:'Wealthy, high-emitting countries would create legal visas and resettlement places for people forced to leave homes by rising seas, drought or climate disasters.',
+      clash:'Responsibility and protection versus capacity, proof of climate displacement, cost and how places would be allocated among countries.'
+    },
+    'In the US, political leaders should face a maximum age limit.': {
+      practice:'Federal elected offices would carry a fixed age ceiling applied at the start of a term, regardless of an individual candidate\'s health or election result.',
+      clash:'Predictable fitness safeguards and generational turnover versus voter choice, arbitrary cutoffs and the difference between age and ability.'
+    },
+    'Rich countries should pay reparations to countries they colonized.': {
+      practice:'Former colonial governments would fund negotiated state-to-state payments, debt relief or infrastructure in countries they ruled. The program would need a defined amount and endpoint.',
+      clash:'Historical responsibility and compounding extraction versus present-day taxpayers, which governments receive funds and how a debt is fairly settled.'
+    },
+    'In the US, every law should expire after ten years unless Congress passes it again.': {
+      practice:'Federal laws would carry a ten-year sunset date. Congress would have to vote again before each law could stay in force.',
+      clash:'Clearing obsolete law and forcing review versus legislative overload, instability and essential rules expiring because the calendar ran out.'
+    },
+    'Globally, cash should be abolished.': {
+      practice:'Physical notes and coins would stop being legal payment after a transition, leaving cards, bank transfers and other digital methods.',
+      clash:'Tax enforcement, theft and payment efficiency versus privacy, access without a bank or signal, resilience and government control over transactions.'
+    },
+    'In the US, voting should require passing the citizenship test.': {
+      practice:'Eligible voters would have to pass the same civics test used in naturalization before registering or renewing their registration.',
+      clash:'A minimum of civic knowledge versus discriminatory administration, unequal access and whether political rights can depend on passing a test.'
+    },
+    'In the US, federal elections should use ranked-choice voting.': {
+      practice:'Voters would rank candidates. If nobody won a majority, the lowest candidate would be eliminated and those ballots would move to each voter\'s next choice until someone won.',
+      clash:'Broader support and fewer spoiler effects versus ballot complexity, counting trust and whether exhausted rankings distort the final result.'
+    },
+    'In the US, all drugs should be decriminalised.': {
+      practice:'Possessing a small amount for personal use would no longer bring criminal punishment. Production and sale could remain regulated or illegal, so this is not automatic legalization.',
+      clash:'Reducing incarceration and treating use as health policy versus deterrence, public disorder and where possession ends and distribution begins.'
+    },
+    'In the US, the Electoral College should be abolished.': {
+      practice:'The presidency would go to the candidate who receives the most votes nationwide, replacing state-by-state electoral votes.',
+      clash:'Equal weight for every vote versus federalism, regional coalition building, recount scale and the political power of smaller states.'
+    },
+    'In your country, the state should stop funding religious schools.': {
+      practice:'Public money, including direct grants and tuition vouchers, would no longer support schools run by religious organizations. Families could still attend them privately.',
+      clash:'State neutrality and public accountability versus parental choice, equal treatment and the cost of moving pupils into state schools.'
+    },
+    'In the US, the federal government should impose a 10 percent tariff on all imported goods.': {
+      practice:'A ten percent border tax would apply to nearly every imported product, regardless of its country of origin, with the revenue collected by the federal government.',
+      clash:'Domestic production and bargaining leverage versus higher consumer prices, retaliation, supply chains and whether protected firms become competitive.'
+    },
+    'In the US, Supreme Court justices should serve eighteen-year terms instead of life.': {
+      practice:'Each justice would leave active service after eighteen years, with appointments staggered so a vacancy normally opens every two years.',
+      clash:'Regular democratic turnover and less strategic retirement versus judicial independence, constitutional change and appointments becoming more political.'
+    },
+    'In the US, families should be allowed to use public education funding for private-school tuition.': {
+      practice:'A state would let a family redirect part of the public funding attached to their child toward tuition at an eligible private school.',
+      clash:'Choice and an exit from a failing school versus public-school budgets, unequal access, admissions rules and accountability for public money.'
+    },
+    'In the US, presidential and congressional campaigns should be publicly funded, with private donations banned.': {
+      practice:'Qualifying candidates would receive public campaign money under the same formula and could not accept donations from individuals, companies or political committees.',
+      clash:'Equal access and less donor influence versus political speech, taxpayer support for disliked candidates and independent spending outside campaigns.'
+    },
+    'In your country, every young adult should complete one year of national or community service.': {
+      practice:'After school, each young adult would spend one paid year in military, emergency, care, environmental or community work, with narrow medical exemptions.',
+      clash:'Shared civic duty, skills and social mixing versus forced labor, delayed education or work, unequal burdens and the quality of placements.'
+    },
+    'In your country, annual rent increases should be capped at the rate of inflation.': {
+      practice:'For an existing tenancy, a landlord could raise rent no faster than the official inflation rate each year, with rules for major renovations and new construction.',
+      clash:'Stability and protection from displacement versus housing supply, maintenance, financing costs and landlords leaving the rental market.'
+    },
+    'In your country, homes left vacant for most of the year should face a special tax.': {
+      practice:'Residential property that is unoccupied beyond a set number of months would pay an additional annual tax, with exemptions for renovation, sale and temporary absence.',
+      clash:'Returning scarce homes to use versus privacy, measurement, legitimate second homes and whether vacancy is a major cause of high prices.'
+    },
+    'Cities should charge cars to enter crowded downtown areas.': {
+      practice:'Drivers would pay a daily fee to enter a defined central zone at busy times. Revenue would normally support transit and street improvements.',
+      clash:'Less traffic, cleaner air and faster travel versus fairness to workers, business effects, surveillance and the quality of alternatives to driving.'
+    },
+    'Public schools should group students into classes by academic ability.': {
+      practice:'Students would take some core classes in different groups based on current attainment, with regular reviews and a path to move between groups.',
+      clash:'Teaching at an appropriate pace versus labeling, biased placement, weaker instruction in lower groups and lost benefits from mixed classrooms.'
+    },
+    'Public schools should be allowed to replace some classroom lessons with AI tutors.': {
+      practice:'Schools could assign supervised AI-led lessons or practice for part of the timetable while teachers monitor progress and remain responsible for the course.',
+      clash:'Personalized pace and immediate help versus unreliable answers, privacy, weaker human relationships and pressure to replace teachers for cost.'
+    },
+    'Social media platforms should be required to verify every user\'s age.': {
+      practice:'Before an account could post or view age-limited material, the platform would have to confirm age through an ID, trusted third party or another reliable check.',
+      clash:'Real child-safety enforcement versus identity collection, privacy, exclusion and whether verification tools can be both accurate and anonymous.'
+    },
+    'Social media platforms should ban paid political advertising.': {
+      practice:'Candidates, parties and outside groups could post ordinary content but could not pay a platform to distribute a political message to selected users.',
+      clash:'Hidden targeting and misinformation versus challenger access, political speech, enforcement and the advantage retained by famous candidates.'
+    },
+    'Governments should ban companies from selling precise location data.': {
+      practice:'Apps, data brokers and advertisers could not sell or transfer a person\'s detailed movement history for money. Narrow operational and emergency uses could remain.',
+      clash:'Safety and meaningful privacy versus ad-funded services, consent, useful research and where precise location ends and ordinary analytics begin.'
+    },
+    'Governments should be forbidden from requiring encrypted messaging services to create backdoors.': {
+      practice:'A government could use warrants and device searches, but it could not force a messaging provider to build a special technical route around end-to-end encryption.',
+      clash:'Security for every user versus access to evidence, whether exceptional access can stay controlled and who bears the harm when investigations fail.'
+    }
+  };
+  for (var guideI = 0; guideI < ROUNDS.length; guideI++) {
+    if (ROUND_GUIDES[ROUNDS[guideI].motion]) ROUNDS[guideI].guide = ROUND_GUIDES[ROUNDS[guideI].motion];
+  }
 
   /* 2026-08-18, per the founder: circulate the deck. Each page load shuffles the
      round order and flips seats on a coin toss so a returning visitor sees
@@ -11622,12 +11853,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsPrev','fsNext',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig',
-   'fsChalLine','fsChalAlt','fsChalNote']
+   'fsChalLine','fsChalAlt','fsChalNote','fsGuide','fsGuideBtn','fsGuidePanel',
+   'fsGuidePractice','fsGuideClash']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
   var tileA = board && board.querySelector('.fs-tile--speaking');
   var tileB = board && board.querySelectorAll('.fs-tile')[1];
   if (!tileA || !tileB) return;
+  if (el.fsGuideBtn){
+    el.fsGuideBtn.addEventListener('click', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      var open = el.fsGuideBtn.getAttribute('aria-expanded') !== 'true';
+      el.fsGuideBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (el.fsGuidePanel) el.fsGuidePanel.hidden = !open;
+    });
+  }
+  if (el.fsGuidePanel){
+    el.fsGuidePanel.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+  }
 
   var reduced = false;
   try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
@@ -11743,11 +11986,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     '<path d="M46 27.2c-.5-10.2 5.9-16.4 14-16.4s14.5 6.2 14 16.4c-1.1-5.2-2.8-8-5.8-9.2-2.7-1.1-5-1.4-8.2-1.4s-5.5.3-8.2 1.4c-3 1.2-4.7 4-5.8 9.2z"/>'
       + SEAT_HEAD + SEAT_SHOULDER[2]
   ];
-  /* Dealt, not hashed. Ten challenge cards against eight builds is close
-     enough that a name hash leaves it to luck, and the first one tried put
-     the same build on five of the ten. Walking a shuffled deck guarantees
-     all eight appear and at most two repeat, and reshuffling per load means
-     a returning visitor does not meet the same creator in the same chair. */
+  /* Dealt, not hashed. Walking a shuffled build deck prevents the remaining
+     creator challenges from all showing the same empty-seat silhouette, and
+     reshuffling per load means a returning visitor does not meet the same
+     creator in the same chair. */
   (function dealSeats(){
     var order = [], i, j, t;
     for (i = 0; i < SEAT_BUILD.length; i++) order.push(i);
@@ -11979,6 +12221,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var r = ROUNDS[i];
     el.fsCount.textContent = (i + 1) + ' of ' + ROUNDS.length;
     el.fsMotion.textContent = r.motion;
+    var guide = r.kind !== 'challenge' && r.guide;
+    if (el.fsGuide){
+      el.fsGuide.hidden = !guide;
+      el.fsGuideBtn.setAttribute('aria-expanded', 'false');
+      el.fsGuidePanel.hidden = true;
+      if (guide){
+        el.fsGuidePractice.textContent = guide.practice;
+        el.fsGuideClash.textContent = guide.clash;
+      }
+    }
 
     /* Challenge card. Everything a judged card asserts (a result, points,
        a clock, a viewer read) is absent here on purpose, so this branch
