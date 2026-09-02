@@ -1,8 +1,18 @@
 /* admin-launch.mjs  ·  POST /api/admin/launch
  *
- * The 2026-09-02 proper launch announcement, per the founder: one honest
- * email to every reachable account saying the site is live, what is
- * actually built, and what is not.
+ * The 2026-09-02 launch announcement, per the founder: one short, human
+ * email to every reachable account. Three asks, in order of how much they
+ * move the number: forward it to one person, turn up at an hour, reply with
+ * what is broken.
+ *
+ * THE 500 IS EXACT AND IT IS NAMED ACCOUNTS ONLY. Measured 2026-09-02
+ * against Firebase Auth: 2,059 records, of which 1,559 are anonymous
+ * guests and 500 are named (499 with an email, one phone-only). The copy
+ * says "just hit 500", not "passed 500", because 500 is where it is. Do
+ * not restate this as 2,000-odd users: soul.md 8 records that counting the
+ * anonymous guests is the exact arithmetic that produced the bogus "500+
+ * signups" figure in old drafts, and here the true named figure happens to
+ * land on the same number by coincidence.
  *
  * It exists because two earlier sends did not reach the people they were
  * written for, and both failures are on the record:
@@ -70,7 +80,7 @@ const REPLY_TO  = process.env.LAUNCH_REPLY_TO || 'aidandavidhollinger@gmail.com'
 const BATCH_MAX = Math.min(60, parseInt(process.env.LAUNCH_BATCH || '60', 10) || 60);
 const STREAM    = 'onboarding';
 const STAMP     = 'launchSentAt';
-const SUBJECT   = 'debatable is live, and we got the hours wrong';
+const SUBJECT   = 'we just hit 500. help me get to 1,000?';
 
 const EXCLUDE_EMAILS = new Set([
   // own + brand accounts
@@ -115,56 +125,36 @@ function optedOutOfAnything(prof) {
 // no beta-free claims (billing is live), no invented traction numbers, and
 // no founder name (anonymous on every public surface since 2026-08-22).
 function renderEmail({ firstName, uid }) {
-  const P = 'font-size:.95rem;line-height:1.6;margin:0 0 14px';
+  const P = 'font-size:.95rem;line-height:1.65;margin:0 0 15px';
   return `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
   ${brandHeader()}
-  <p style="${P}">Hey ${esc(firstName)},</p>
+  <p style="${P}">Hi ${esc(firstName)},</p>
 
   <p style="${P}">
-    Debatable is live at <a href="${SITE_URL}/" style="color:#dc2626;text-decoration:none">itsdebatable.com</a>.
-    Two people take opposite sides of one question, argue it out loud on a
-    clock, and an AI judge reads the round and writes out who won and why.
-    Ten minutes, start to finish.
-  </p>
-
-  <p style="${P}">Three honest things before you go anywhere near it.</p>
-
-  <p style="${P}">
-    <strong>The times we sent on Tuesday were wrong.</strong> We had picked
-    three daily sessions off a world map, then measured two weeks of real
-    rounds against them. The 7 AM ET slot produced one paired round. The
-    8 PM slot produced none at all. So they moved to the hours people were
-    already turning up for. Clash Hour now runs at
-    <strong>12 AM, 3 PM and 7 PM ET, every day.</strong>
+    We just hit 500 signups. I would love to get that to 1,000 quickly, and
+    the honest truth is that the thing which moves it is you sending this to
+    one person who likes arguing with you. A round needs two people, so one
+    forward is worth more here than anything we could buy.
   </p>
 
   <p style="${P}">
-    <strong>The queue is often empty.</strong> That is the real state of a
-    site this size and no amount of copy fixes it. If nobody is waiting when
-    you open it, take an AI opponent instead. Same clock, same written
-    ballot, and it does not go easy on you.
+    The other thing that helps is turning up at one of the hours. Clash Hour
+    runs at <strong>12 AM, 3 PM and 7 PM ET, every day</strong>. Those changed
+    this week, so ignore the times in Tuesday's email. Outside them the queue
+    is often empty, and you can take an AI opponent instead.
   </p>
 
   <p style="${P}">
-    <strong>It is early.</strong> Live video rounds against a stranger, a
-    motion draft where both sides strike topics before anyone argues,
-    speaker points, replays and a ladder are built and working. A reliably
-    full room is not. That is the part you would be fixing by turning up to
-    one of the hours.
+    And if something is broken or annoying, just reply to this. It lands in a
+    real inbox, and every one gets read.
   </p>
 
   <p style="margin:0 0 22px">
     <a href="${SITE_URL}/" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:.92rem;padding:11px 22px;border-radius:999px;text-decoration:none">Start a round &rarr;</a>
   </p>
 
-  <p style="${P}">
-    Then reply and tell us what broke. Replies land in the founder's inbox,
-    not a support queue, and every one gets read. What you send decides what
-    gets built next.
-  </p>
-
-  <p style="${P}">You are early here, and we keep a note of who was.</p>
+  <p style="${P}">Thanks for being here early.</p>
 
   ${renderFooter({ uid, stream: STREAM,
     reason: 'You are getting this because you made a Debatable account.' })}
