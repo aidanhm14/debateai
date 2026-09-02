@@ -452,7 +452,7 @@
       var cu = fb.auth().currentUser;
       if (!cu || cu.isAnonymous) return false;
       var pd = cu.providerData || [];
-      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'phone')) return true;
+      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'phone' || pd[i].providerId === 'apple.com')) return true;
     } catch (e) {}
     return false;
   }

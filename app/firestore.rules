@@ -31,7 +31,7 @@ service cloud.firestore {
     // run at all, and a door with one key that does not turn is a wall.
     function isLiveVideoAccount() {
       return isSignedIn()
-        && request.auth.token.firebase.sign_in_provider in ['google.com', 'phone'];
+        && request.auth.token.firebase.sign_in_provider in ['google.com', 'phone', 'apple.com'];
     }
 
     function isOwner(uid) {
@@ -470,8 +470,9 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: Google or phone-authenticated owners only (2026-08-27,
-      //    phone added 2026-09-01). Live video has no anonymous preview and
+      //  - create: Google, phone, or Apple-authenticated owners only (2026-08-27,
+      //    phone and Apple added 2026-09-01; Apple because the App Store
+      //    requires the button and the iOS app must be able to reach the queue). Live video has no anonymous preview and
       //    no email-only queue lane. The authProvider marker must equal the
       //    caller's OWN verified provider, so a client cannot stamp a
       //    provider it does not hold. spar-pair repeats the provider check

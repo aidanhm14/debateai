@@ -1814,7 +1814,7 @@
     // that turns). Same set as spar.html, spar-pair.mjs and the
     // isLiveVideoAccount() rule. The provider written to the queue doc is
     // the one the account holds; rules bind it to the verified token.
-    var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone'];
+    var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone', 'apple.com'];
     function liveVideoProvider(u) {
       if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
       for (var i = 0; i < u.providerData.length; i++) {

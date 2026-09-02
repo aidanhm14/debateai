@@ -134,6 +134,11 @@
       'html.dbnative a[href*="checkout"],' +
       'html.dbnative a[href*="stripe"],' +
       'html.dbnative a[href*="/upgrade"]{display:none !important}' +
+      // iOS zooms the whole page when a focused text control is under
+      // 16px (seen 2026-09-01 on the name prompt, .95rem). Pin every text
+      // control to 16px in the shell so focus never scales the layout.
+      'html.dbnative input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),' +
+      'html.dbnative textarea,html.dbnative select{font-size:16px !important}' +
       // Give tagged "web only" blocks a way to show a native-friendly note.
       'html.dbnative [data-native-only]{display:revert}' +
       'html:not(.dbnative) [data-native-only]{display:none}';
@@ -142,6 +147,19 @@
     s.textContent = css;
     (document.head || document.documentElement).appendChild(s);
   }
+  // WKWebView honours maximum-scale (Safari ignores it), which is the
+  // second half of the focus-zoom fix above: even a control we missed
+  // cannot scale the page.
+  function pinViewport() {
+    var m = document.querySelector('meta[name="viewport"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'viewport'; (document.head || document.documentElement).appendChild(m); }
+    var c = m.getAttribute('content') || 'width=device-width, initial-scale=1';
+    if (!/maximum-scale/.test(c)) c += ', maximum-scale=1';
+    if (!/user-scalable/.test(c)) c += ', user-scalable=no';
+    m.setAttribute('content', c);
+  }
+  if (document.head) pinViewport();
+  else document.addEventListener('DOMContentLoaded', pinViewport);
   if (document.head) injectHideCss();
   else document.addEventListener('DOMContentLoaded', injectHideCss);
 
