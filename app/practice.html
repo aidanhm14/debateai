@@ -10603,6 +10603,34 @@ Rules:
     q.set('handoff', 'practice-setup');
     return '/voice-debate?' + q.toString();
   };
+  // Rendered on BOTH setup screens. Shared rather than inlined twice
+  // because the honest half of this card is the comparison between the
+  // two engines, and two copies of a comparison drift.
+  var voiceDoorCard = (extraStyle, from) =>
+  el('div', { style: Object.assign({ margin: '18px auto 0', maxWidth: 560, textAlign: 'left', padding: '15px 17px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' }, extraStyle || {}) },
+  el('div', { style: { fontSize: '.56rem', fontWeight: 900, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, 'Second opponent'),
+  el('div', { style: { fontSize: '.95rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.3 } }, 'Want quicker replies? Want to interrupt the AI?'),
+  el('div', { style: { fontSize: '.78rem', color: 'var(--c-dim)', lineHeight: 1.5, marginTop: 6 } },
+  'This round is typed, and the AI answers turn by turn. The live voice round runs on OpenAI Realtime instead. You speak, it answers in about a second, and cutting in mid-sentence stops it, the way it would stop a person.'
+  ),
+  el('div', { style: { display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 } },
+  el('a', {
+    href: voiceRoundUrl(),
+    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'voice_cross_sell', { from: from || 'practice-setup', has_motion: !!motion.trim() });} catch (_) {}},
+    style: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '10px 17px', fontFamily: 'inherit', fontSize: '.84rem', fontWeight: 900, textDecoration: 'none' }
+  },
+  el('span', { 'aria-hidden': true }, '🎙'), 'Debate out loud'
+  ),
+  el('a', {
+    href: '/newvoice',
+    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: from || 'practice-setup' });} catch (_) {}},
+    style: { fontSize: '.76rem', color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }
+  }, 'Or the casual voice room')
+  ),
+  el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', lineHeight: 1.45, marginTop: 9 } },
+  'Voice rounds are spoken end to end, with one brain and no speech clock. Free voice rounds are limited, then voice is part of a plan.'
+  )
+  );
   var simpleCardStyle = (on) => ({
     textAlign: 'left', padding: '15px 16px', borderRadius: 16, cursor: 'pointer',
     fontFamily: 'inherit', color: 'var(--c-text)',
@@ -11056,30 +11084,7 @@ Rules:
   // No free-round count is quoted. FREE_VOICE_NAMED / FREE_VOICE_ANON
   // are env-overridable in lib/voice-usage.mjs, so a number printed
   // here goes stale the first time either is tuned.
-  el('div', { style: { margin: '18px auto 0', maxWidth: 560, textAlign: 'left', padding: '15px 17px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' } },
-  el('div', { style: { fontSize: '.56rem', fontWeight: 900, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 6 } }, 'Second opponent'),
-  el('div', { style: { fontSize: '.95rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.3 } }, 'Want quicker replies? Want to interrupt the AI?'),
-  el('div', { style: { fontSize: '.78rem', color: 'var(--c-dim)', lineHeight: 1.5, marginTop: 6 } },
-  'This round is typed, and the AI answers turn by turn. The live voice round runs on OpenAI Realtime instead. You speak, it answers in about a second, and cutting in mid-sentence stops it, the way it would stop a person.'
-  ),
-  el('div', { style: { display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 } },
-  el('a', {
-    href: voiceRoundUrl(),
-    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'voice_cross_sell', { from: 'practice-setup', has_motion: !!motion.trim() });} catch (_) {}},
-    style: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '10px 17px', fontFamily: 'inherit', fontSize: '.84rem', fontWeight: 900, textDecoration: 'none' }
-  },
-  el('span', { 'aria-hidden': true }, '🎙'), 'Debate out loud'
-  ),
-  el('a', {
-    href: '/newvoice',
-    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: 'practice-setup' });} catch (_) {}},
-    style: { fontSize: '.76rem', color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }
-  }, 'Or the casual voice room')
-  ),
-  el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', lineHeight: 1.45, marginTop: 9 } },
-  'Voice rounds are spoken end to end, with one brain and no speech clock. Free voice rounds are limited, then voice is part of a plan.'
-  )
-  ),
+  voiceDoorCard(null, 'practice-setup-simple'),
   // 2026-06-16: trained-on-debate trust line. The product's moat (format
   // accuracy + the learning loop) stated plainly so a new user knows why
   // this opponent is not a generic chatbot. Quiet register; the CTAs above
@@ -11364,6 +11369,11 @@ Rules:
     style: { fontSize: '.68rem', letterSpacing: '.06em', textTransform: 'uppercase' }
   }, '← Back to simple setup')
   ),
+  // The advanced screen needs it too: someone who switched to advanced
+  // stays there (goSimple/goAdvanced stick the choice), so without this
+  // the door is invisible to exactly the people most likely to want an
+  // opponent they can cut off.
+  !isCounterExt && voiceDoorCard({ margin: '8px auto 14px' }, 'practice-setup-advanced'),
   // Use-case picker — the non-debater onramp. Replaces the old
   // generic "30 seconds to your first speech" welcome card.
   //
