@@ -93,6 +93,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   --faint:rgba(244,244,242,.68);
   --red:#ef4444;
   --red-deep:#dc2626;
+  --red-link:#ef4444;   /* text-on-background red, see light override */
   --green:#22c55e;
   --radius:14px;
   --shadow:none;
@@ -111,6 +112,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   --dim:rgba(22,22,26,.74);
   --faint:rgba(22,22,26,.62);
   --shadow:0 1px 2px rgba(20,20,24,.06),0 6px 18px rgba(20,20,24,.05);
+  /* #ef4444 is 3.45:1 here; #b91c1c is 5.93:1. Measured, not eyeballed. */
+  --red-link:#b91c1c;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -540,6 +543,200 @@ footer a{color:var(--dim)}
   .source-grid{grid-template-columns:1fr}
 }
 @media (min-width:641px) and (max-width:900px){.source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ── MERGED SPECTATOR SURFACE (2026-09-02) ───────────────────────────
+   /spectate folded into this page. Everything below is written on THIS
+   page's tokens, never on spectate's (--ink/--line/--red-dark) and never
+   on a hardcoded #fff: this page is dark-first with a light override, so
+   a literal white panel here is the invisible-text trap the decision log
+   has already paid for twice. */
+
+/* Hero: one button, then plain text. The primary action is getting into
+   a round; watching is a text link under it, deliberately not a second
+   pill competing with it for the same glance. */
+.hero-textcta{margin-top:12px;font-size:15.5px;line-height:1.5;color:var(--faint)}
+.hero-textcta a{color:var(--red-link);font-weight:700;text-decoration:none;
+  border-bottom:1px solid rgba(239,68,68,.34);padding-bottom:1px}
+.hero-textcta a:hover{border-bottom-color:var(--red)}
+.hero-textcta a:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:2px}
+.hero-textcta .sep{margin:0 9px;color:var(--faint)}
+
+/* Waiting banner + open-rooms strip, ported from /spectate. */
+.wait-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:15px 18px;margin-top:26px;box-shadow:var(--shadow)}
+.wait-state{display:flex;align-items:center;gap:13px;min-width:0}
+.wait-dot{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 6px rgba(34,197,94,.12);animation:waitPulse 2.4s ease-in-out infinite}
+.wait-banner.live .wait-dot{background:var(--red);box-shadow:0 0 0 6px rgba(239,68,68,.14);animation:none}
+.wait-banner.live .timer-wrap{display:none}
+.wait-state strong{display:block;font-size:16px;line-height:1.15}
+.wait-state p{margin:3px 0 0;color:var(--dim);font-size:14.5px;line-height:1.3}
+.wait-meta{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.timer-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.timer-label{font-size:10.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;color:var(--dim)}
+.wait-link{color:var(--dim);font-weight:800;font-size:14.5px;text-underline-offset:3px}
+.wait-link:hover{color:var(--red)}
+@keyframes waitPulse{0%,100%{box-shadow:0 0 0 6px rgba(34,197,94,.12)}50%{box-shadow:0 0 0 10px rgba(34,197,94,.04)}}
+
+.live-strip{display:none;border:1px solid rgba(239,68,68,.34);background:var(--surface);
+  border-radius:var(--radius);margin-top:14px;overflow:hidden;box-shadow:var(--shadow)}
+.live-strip.has-rounds{display:block}
+.live-strip-head{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border)}
+.ls-badge{display:inline-flex;align-items:center;gap:6px;background:var(--red);color:#fff;border-radius:8px;
+  padding:4px 9px;font-size:11px;font-weight:900;letter-spacing:.1em}
+.ls-badge i{width:6px;height:6px;border-radius:50%;background:#fff;animation:lsBlink 1.2s infinite}
+@keyframes lsBlink{0%,100%{opacity:1}50%{opacity:.25}}
+.live-strip-head b{font-size:15px}
+.ls-row{display:flex;align-items:center;gap:16px;padding:15px 18px;border-top:1px solid var(--border);
+  text-decoration:none;color:inherit;transition:background .15s ease}
+.ls-row:first-child{border-top:none}
+.ls-row:hover{background:var(--surface-hover)}
+.ls-body{flex:1;min-width:0}
+.ls-motion{display:block;font-weight:800;font-size:17px;line-height:1.28;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ls-meta{display:block;font-size:13.5px;color:var(--faint);margin-top:4px}
+.ls-watch{flex:0 0 auto;background:var(--red);color:#fff;border-radius:999px;padding:11px 20px;
+  font-weight:800;font-size:14.5px;transition:background .15s ease,transform .15s ease}
+.ls-row:hover .ls-watch{background:var(--red-deep);transform:translateY(-1px)}
+.ls-chip{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:2px 9px;
+  font-size:11.5px;font-weight:800;margin-right:6px}
+
+/* ── Watch and learn: real debates hosted on YouTube ─────────────────
+   These are OTHER PEOPLE'S videos on someone else's platform, so every
+   card links out rather than embedding. Two reasons, both deliberate:
+   an embed whose owner has disabled embedding renders a dead black box
+   on our highest-intent page, and an in-page player implies a
+   relationship with these organisations that we do not have. The
+   YouTube wordmark and the per-card channel line are what keep the
+   provenance honest. */
+.yt-sec{margin-top:38px}
+.yt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+.yt-badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--dim)}
+.yt-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:24px;
+  background:#ff0000;border-radius:6px;flex:0 0 auto}
+.yt-mark svg{width:11px;height:13px;display:block}
+.yt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:24px 18px;margin-top:16px}
+@media(max-width:400px){.yt-grid{grid-template-columns:1fr}}
+.yt-card{display:block;text-decoration:none;color:inherit}
+.yt-thumb{display:block;position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
+  background:var(--surface2);border:1px solid var(--border)}
+.yt-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}
+.yt-card:hover .yt-thumb img{transform:scale(1.04)}
+.yt-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.yt-play span{width:56px;height:39px;background:rgba(0,0,0,.72);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;transition:background .2s ease}
+.yt-card:hover .yt-play span{background:#ff0000}
+.yt-play svg{width:19px;height:22px;display:block}
+.yt-dur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.82);color:#fff;
+  border-radius:5px;padding:2px 6px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.yt-body{padding-top:11px}
+.yt-event{display:block}
+.yt-motion{display:block}
+.yt-event{font-size:11.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red-link)}
+.yt-card h3{font-size:16.5px;font-weight:700;line-height:1.34;margin:5px 0 0}
+.yt-card:hover h3{text-decoration:underline;text-underline-offset:2px}
+.yt-motion{color:var(--dim);font-size:14.5px;line-height:1.5;margin-top:6px}
+.yt-foot{display:flex;align-items:center;gap:7px;margin-top:8px;color:var(--faint);font-size:13px}
+.yt-foot .yt-chan{font-weight:700}
+.yt-note{color:var(--faint);font-size:14px;line-height:1.6;margin-top:18px;max-width:820px}
+.yt-note a{color:var(--red-link);text-decoration:none;font-weight:600}
+.yt-note a:hover{text-decoration:underline}
+
+/* ── Two-column body: main reading column, recordings rail beside it */
+.watch-cols{display:grid;grid-template-columns:minmax(0,1fr) 356px;gap:34px;align-items:start;margin-top:38px}
+@media(max-width:1080px){.watch-cols{grid-template-columns:1fr;gap:38px}}
+.watch-rail{position:sticky;top:96px}
+@media(max-width:1080px){.watch-rail{position:static}}
+.rail-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.rail-head h2{font-size:20px;font-weight:800}
+.rail-all{color:var(--red-link);font-weight:700;font-size:13.5px;text-decoration:none}
+.rail-all:hover{text-decoration:underline}
+.rail-list{display:grid;gap:12px;margin-top:14px;max-height:min(72vh,940px);overflow-y:auto;
+  padding-right:4px;scrollbar-width:thin}
+@media(max-width:1080px){.rail-list{max-height:none;overflow:visible;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}}
+/* The rail is narrow, so a replay card goes horizontal here: a small
+   still on the left, the motion and the debaters on the right. The card
+   markup is unchanged, only its layout, so loadFeed keeps working. */
+.rail-list .card{display:grid;grid-template-columns:132px minmax(0,1fr);gap:11px;align-items:start}
+@media(max-width:1080px){.rail-list .card{grid-template-columns:1fr}}
+.rail-list .card .thumb{margin:0}
+.rail-list .card-body{padding-top:1px}
+.rail-list .card h3{font-size:14.5px;line-height:1.35}
+.rail-list .card .foot{font-size:12px;margin-top:5px;flex-direction:column;align-items:flex-start;gap:2px}
+.rail-list .hl-line{display:none}
+
+/* ── Stance card, ported from /spectate ──────────────────────────────
+   The "where do you stand" before/after pair. The preferences builder
+   and the full-screen setup takeover did NOT come across: this page is
+   the landing for people searching for a debate to watch, and a survey
+   in front of that visitor costs more than it earns. */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px;box-shadow:var(--shadow)}
+.eyebrow{font-size:11.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--red-link)}
+.mini{color:var(--faint);font-size:13.5px;line-height:1.55;margin-top:12px}
+.step-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.choices{display:grid;gap:10px;margin-top:16px}
+.choice{text-align:left;font-family:inherit;font-size:15.5px;font-weight:700;color:var(--text);
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;
+  cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.choice small{display:block;font-weight:500;font-size:13.5px;color:var(--faint);margin-top:4px;line-height:1.45}
+.choice:hover{border-color:rgba(239,68,68,.45);transform:translateY(-1px)}
+.choice.on{border-color:var(--red);background:var(--surface-hover)}
+.choice.on small{color:var(--dim)}
+.choice:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+.od{display:none;position:relative;overflow:hidden;margin-top:38px}
+.od.on{display:block}
+.od:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
+  background:linear-gradient(90deg,var(--red),#f87171)}
+.od-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:10px}
+.od-skip{appearance:none;border:none;background:transparent;color:var(--faint);
+  font:700 13.5px inherit;font-family:inherit;cursor:pointer;padding:4px 2px}
+.od-skip:hover{color:var(--dim);text-decoration:underline}
+.od h2{font-size:26px;font-weight:800;line-height:1.2}
+.od-motion-label{color:var(--faint);font-size:11px;font-weight:900;letter-spacing:.14em;
+  text-transform:uppercase;margin:14px 0 6px}
+.od-motion{margin:0 0 18px;font-size:20px;line-height:1.34;font-weight:700;
+  border-left:3px solid var(--red);padding-left:16px;max-width:64ch}
+.od-phase{display:none}
+.od-phase.on{display:block}
+.od-phase>p{max-width:68ch;color:var(--dim);font-size:15.5px;line-height:1.6}
+.od-sides{grid-template-columns:repeat(3,minmax(0,1fr));max-width:920px}
+@media(max-width:720px){.od-sides{grid-template-columns:1fr}}
+.od-conf{display:block;margin-top:18px;max-width:520px}
+.od-conf b{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  font-size:15px;color:var(--dim);font-weight:800}
+.od-conf b span{color:var(--red-link);font-weight:900;font-size:16.5px;font-variant-numeric:tabular-nums}
+.od-range{width:100%;margin:12px 0 0;accent-color:var(--red);height:22px;cursor:pointer}
+.od-count{font-weight:900;color:var(--red-link);font-variant-numeric:tabular-nums}
+.od-log{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.od-stamp{border:1px solid var(--border);border-radius:999px;padding:6px 11px;
+  background:var(--surface2);font-weight:800;color:var(--dim);font-size:13px;
+  font-variant-numeric:tabular-nums}
+.od-done{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.od-verdict{font-size:18px;font-weight:800;margin:0}
+
+/* Floating "that moved me" bar. Sits above the page while a round is
+   actually running, so it is fixed and dark in BOTH themes on purpose:
+   it overlays video, not the page surface. */
+.od-bar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(12px);
+  display:none;align-items:center;gap:14px;z-index:70;opacity:0;
+  background:rgba(12,12,14,.94);border:1px solid rgba(255,255,255,.16);border-radius:999px;
+  padding:9px 12px 9px 14px;box-shadow:0 12px 34px rgba(0,0,0,.42);
+  transition:opacity .2s ease,transform .2s ease}
+.od-bar.on{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+.od-bar-tap{appearance:none;border:none;font-family:inherit;font-size:14.5px;font-weight:800;
+  background:var(--red);color:#fff;border-radius:999px;padding:10px 18px;cursor:pointer;
+  transition:background .15s ease,transform .12s ease}
+.od-bar-tap:hover{background:var(--red-deep);transform:translateY(-1px)}
+.od-bar-tap:active{transform:translateY(1px)}
+.od-bar-meta{font-size:13.5px;color:rgba(244,244,242,.72);font-weight:800;white-space:nowrap}
+.od-bar-end{appearance:none;border:none;background:transparent;color:rgba(244,244,242,.6);
+  font:800 13.5px inherit;font-family:inherit;cursor:pointer;padding:4px 8px;white-space:nowrap}
+.od-bar-end:hover{color:#fff}
 </style>
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
        structured data at all, so Google had nothing to build a SERP
@@ -637,11 +834,47 @@ footer a{color:var(--dim)}
     <h1 class="page-title">Watch debates live. Back a side. Read the call.</h1>
     <p class="page-sub">Take a muted seat, back Pro or Con with free play tokens, or play a published replay. The written decision settles the live market and ranked results feed the public board.</p>
     <div class="hero-cta">
-      <a class="cta-primary" id="ctaWatch" href="/live">Find a live market</a>
-      <a class="cta-ghost" id="ctaDebate" href="/spar">Start a round</a>
+      <a class="cta-primary" id="ctaDebate" href="/spar">Jump in and debate</a>
     </div>
+    <!-- Watching is a text link under the button, not a second pill. Two
+         equal pills made the page ask a question; the round is the thing
+         worth pressing and everything else reads as the alternative. The
+         ids stay put because the GA handlers below key on them. -->
+    <p class="hero-textcta">
+      <a id="ctaWatch" href="/live">Watch a live round instead</a>
+      <span class="sep" aria-hidden="true">&middot;</span>
+      <a href="#watch-learn">Study a championship final</a>
+    </p>
     <p class="hero-cta-note">Play tokens are free and have no cash value. Token betting is for signed-in people age 18 or older in eligible regions.</p>
   </header>
+
+  <!-- Waiting state and open rooms, both ported from /spectate when that
+       page folded into this one. The banner flips from waiting to
+       watching the moment /api/watch-live reports an open public round. -->
+  <section class="wait-banner" aria-label="Live debate waiting status">
+    <div class="wait-state">
+      <span class="wait-dot" aria-hidden="true"></span>
+      <div>
+        <strong>No round is open yet</strong>
+        <p>Keep this tab open. The moment one starts, it appears right here.</p>
+      </div>
+    </div>
+    <div class="wait-meta">
+      <div class="timer-wrap">
+        <span class="timer-label">Checking</span>
+        <span class="timer" id="waitTimer">00:00</span>
+      </div>
+      <a class="wait-link" href="/live">See the room board</a>
+    </div>
+  </section>
+
+  <section class="live-strip" id="liveNowStrip" aria-label="Live rounds you can watch right now">
+    <div class="live-strip-head">
+      <span class="ls-badge"><i></i>LIVE</span>
+      <b>Open rooms</b>
+    </div>
+    <div id="liveNowRows"></div>
+  </section>
 
 
   <!-- Live stream, shown only while the owner is broadcasting -->
@@ -653,6 +886,11 @@ footer a{color:var(--dim)}
     <div class="live-frame" id="liveFrame" aria-label="Live tournament stream"></div>
   </section>
 
+  <!-- Two columns: the reading column, and the recordings beside it.
+       Folding /spectate in made this page long enough that a full-width
+       replay grid pushed every explainer below three screens of stills. -->
+  <div class="watch-cols">
+    <div class="watch-main">
   <!-- Replay player -->
   <section class="player-card" id="playerCard">
     <div class="player-head">
@@ -710,18 +948,129 @@ footer a{color:var(--dim)}
     <div class="grid" id="clipsGrid"></div>
   </section>
 
+  <!-- ── WATCH AND LEARN ─────────────────────────────────────────────
+       Championship rounds hosted on YouTube by the organisations that
+       ran them. Every card LINKS OUT rather than embedding, on purpose:
+       an embed whose owner disabled embedding paints a dead black box on
+       our highest-intent page, and an in-page player would imply a
+       relationship with these organisations that we do not have. The
+       wordmark and the per-card channel line carry the provenance.
+       Titles, channels, motions, results and durations were all read off
+       the videos themselves on 2026-09-02 -- do not add a card whose
+       motion or result you have not checked, and keep the topics inside
+       the site's content boundary. -->
+  <section class="yt-sec" id="watch-learn">
+    <div class="yt-head">
+      <div>
+        <h2 class="sec-title">Debates worth watching</h2>
+        <div class="sec-sub">One person against a room, a full Union chamber, and the national finals. Watch how it is done, then take a side yourself.</div>
+      </div>
+      <span class="yt-badge">
+        <span class="yt-mark" aria-hidden="true"><svg viewBox="0 0 24 28"><path fill="#fff" d="M8 5v18l14-9z"/></svg></span>
+        On YouTube
+      </span>
+    </div>
+    <div class="yt-grid">
+      <a class="yt-card" href="https://www.youtube.com/watch?v=cwSXDr7XkNc" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/cwSXDr7XkNc/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">1:43:36</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">Jubilee · Surrounded</span>
+          <h3>1 Capitalist vs 20 Anti-Capitalists</h3>
+          <p class="yt-motion">Patrick Bet-David takes the middle seat and defends capitalism against twenty people who want it gone. One against a room, on the clock.</p>
+          <div class="yt-foot"><span class="yt-chan">Jubilee</span><span aria-hidden="true">&middot;</span><span>4.5M views</span></div>
+        </div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=qrX9b9x0dx4" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/qrX9b9x0dx4/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">1:21:38</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">Jubilee · Surrounded</span>
+          <h3>Governor Wes Moore vs 20 Non-Voters</h3>
+          <p class="yt-motion">A sitting governor sits down with twenty people who have given up on voting and has to earn every one of them.</p>
+          <div class="yt-foot"><span class="yt-chan">Jubilee</span><span aria-hidden="true">&middot;</span><span>387K views</span></div>
+        </div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=ZJpD2TbCm8w" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/ZJpD2TbCm8w/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">1:20:21</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">Oxford Union</span>
+          <h3>This House Would Cancel &lsquo;Cancel Culture&rsquo;</h3>
+          <p class="yt-motion">A full chamber debate in the Oxford Union. Set-piece speeches, floor speeches, then the house divides and walks through the doors.</p>
+          <div class="yt-foot"><span class="yt-chan">OxfordUnion</span><span aria-hidden="true">&middot;</span><span>Full debate</span></div>
+        </div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=VqxlDsNUmvY" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/VqxlDsNUmvY/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">53:22</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">APDA Nationals · Final</span>
+          <h3>APDA National Championship Final, Harvard against Brown</h3>
+          <p class="yt-motion">&ldquo;The US federal government should not be able to subpoena journalists for their sources.&rdquo; Government took it 7 to 0.</p>
+          <div class="yt-foot"><span class="yt-chan">APDA Nationals</span><span aria-hidden="true">&middot;</span><span>American Parliamentary</span></div>
+        </div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=vb-WehPSiTo" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/vb-WehPSiTo/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">55:23</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">APDA Nationals · Quarterfinal</span>
+          <h3>APDA Nationals Quarterfinal, Princeton against Chicago</h3>
+          <p class="yt-motion">Princeton on government, Chicago on opposition, at the 2023 national championship. Case built live off an info slide, no prepared evidence.</p>
+          <div class="yt-foot"><span class="yt-chan">UChicago Debate Society</span><span aria-hidden="true">&middot;</span><span>American Parliamentary</span></div>
+        </div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=xv2mUmFu1n0" target="_blank" rel="noopener noreferrer">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/xv2mUmFu1n0/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
+          <span class="yt-dur">2:24:52</span>
+        </span>
+        <div class="yt-body">
+          <span class="yt-event">WSDC 2025 · Grand Final</span>
+          <h3>World Schools Championship Grand Final, India against Australia</h3>
+          <p class="yt-motion">The Panama final. Three speakers a side plus a reply, points of information taken throughout.</p>
+          <div class="yt-foot"><span class="yt-chan">ASPADE Panamá</span><span aria-hidden="true">&middot;</span><span>World Schools</span></div>
+        </div>
+      </a>
+    </div>
+    <p class="yt-note">These rounds are hosted on YouTube by the organisations that ran them and open in a new tab. Debatable is not affiliated with any of them and none of them endorse this site. <a href="/spar">Argue one of these motions yourself</a>.</p>
+  </section>
+
+    </div>
+
+    <aside class="watch-rail" aria-label="Published round replays">
   <!-- Replay library. The grid ships pre-filled with static stills from
        recent rounds, so the section is never a spinner: with no published
        recordings the stills ARE the section (and what a crawler reads),
        and when recordings exist loadFeed swaps in the real cards. -->
-  <section class="sec" id="replaysSec">
-    <h2 class="sec-title">Round replays</h2>
+  <section class="sec" id="replaysSec" style="margin-top:0">
+    <div class="rail-head">
+      <h2>Round replays</h2>
+      <a class="rail-all" href="/spar">Get in one</a>
+    </div>
     <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
       <button class="fchip on" type="button" data-filter="all">All</button>
       <button class="fchip" type="button" data-filter="round">Rounds</button>
       <button class="fchip" type="button" data-filter="clip">Clips</button>
     </div>
-    <div class="grid" id="replaysGrid">
+    <div class="rail-list" id="replaysGrid">
       <div class="card still">
         <div class="thumb" aria-hidden="true">
           <img class="th-img" src="/assets/replays/76cda947-3a6c-4a53-ab22-55225681f45c.jpg" alt="" loading="lazy" decoding="async">
@@ -823,8 +1172,11 @@ footer a{color:var(--dim)}
         </div>
       </div>
     </div>
-    <p class="sec-sub" id="replaysSub" style="margin:16px 0 0">Stills from recent rounds. Ordinary rooms publish after unanimous opt-in. Tournament rounds are recorded, but preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a> &nbsp;·&nbsp; <a href="/spar" style="color:var(--red);font-weight:700;text-decoration:none">Get in a round yourself</a></p>
+    <p class="sec-sub" id="replaysSub" style="margin:14px 0 0;font-size:13.5px">Ordinary rooms publish once every seat opts in. Tournament preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a></p>
   </section>
+
+    </aside>
+  </div>
 
   <section class="culture" aria-label="Watching argument">
     <p class="culture-line">People already watch strangers argue for hours, on a stage, on a stream, in a room holding up cards. <b>Here, spectators have a position before the ballot lands.</b> Bet free play tokens on who is winning, watch the live split move, then see whether the judge agrees.</p>
@@ -836,6 +1188,70 @@ footer a{color:var(--dim)}
       <figure><img src="/img/culture/stream-chat.jpg" alt="A debate playing on a livestream with viewer chat running down the side of the screen" width="738" height="414" loading="lazy" decoding="async"></figure>
     </div>
   </section>
+
+  <!-- Stance before and after, ported from /spectate when it folded in.
+       Hidden until a motion resolves; nothing here is published or
+       scored. The preferences builder and the full-screen setup
+       takeover on that page were deliberately NOT brought across. -->
+    <section class="panel od" id="opinionDelta" aria-labelledby="odTitle">
+      <div class="od-head">
+        <div class="eyebrow" id="odEyebrow">Before the round</div>
+        <button class="od-skip" type="button" id="odSkip">Skip this</button>
+      </div>
+      <h2 id="odTitle">Where do you stand right now?</h2>
+      <div class="od-motion-label">The motion</div>
+      <p class="od-motion" id="odMotion"></p>
+
+      <div class="od-phase on" data-od-phase="before">
+        <p>State a position before you hear a word of it. You restate after the ballot; the gap between the two measures who actually argued well.</p>
+        <div class="choices od-sides" data-od-key="before">
+          <button class="choice" data-value="pro" type="button">For<small>You would vote proposition today.</small></button>
+          <button class="choice" data-value="undecided" type="button">Undecided<small>You could be argued either way.</small></button>
+          <button class="choice" data-value="con" type="button">Against<small>You would vote opposition today.</small></button>
+        </div>
+        <label class="od-conf" for="odConfBefore">
+          <b>How sure are you? <span id="odConfBeforeOut">50</span></b>
+          <input class="od-range" type="range" id="odConfBefore" min="0" max="100" step="5" value="50">
+        </label>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odLockIn" data-ab-test="spectate_hud_v1" data-ab-target="stance_locked">Lock in my stance</button>
+        </div>
+        <p class="mini">Nothing here is published and nothing is scored. It is stored to study which arguments move a room.</p>
+      </div>
+
+      <div class="od-phase" data-od-phase="during">
+        <p>You are on the record. Tap the button whenever an argument genuinely moves you, and the timestamps show which moments did the work.</p>
+        <p class="mini" aria-live="polite">Moved so far: <span class="od-count" id="odCount">0</span></p>
+        <div class="od-log" id="odLog"></div>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odBallotIn">The ballot is in, restate my stance</button>
+        </div>
+      </div>
+
+      <div class="od-phase" data-od-phase="after">
+        <p>The round is over. Say where you actually landed, even if nothing shifted.</p>
+        <div class="choices od-sides" data-od-key="after">
+          <button class="choice" data-value="pro" type="button">For<small>Proposition earned the ballot.</small></button>
+          <button class="choice" data-value="undecided" type="button">Undecided<small>Genuinely split after both sides.</small></button>
+          <button class="choice" data-value="con" type="button">Against<small>Opposition earned the ballot.</small></button>
+        </div>
+        <label class="od-conf" for="odConfAfter">
+          <b>How sure are you now? <span id="odConfAfterOut">50</span></b>
+          <input class="od-range" type="range" id="odConfAfter" min="0" max="100" step="5" value="50">
+        </label>
+        <div class="step-actions">
+          <button class="btn primary" type="button" id="odSubmitAfter">Record where I landed</button>
+        </div>
+      </div>
+
+      <div class="od-phase" data-od-phase="done">
+        <div class="od-done">
+          <p class="od-verdict" id="odVerdict">Recorded.</p>
+        </div>
+        <p class="mini" id="odVerdictSub">Thanks. Your before and after are on the record.</p>
+      </div>
+    </section>
+
 
   <!-- ── STATIC EXPLAINER ────────────────────────────────────────────
        Everything below is plain HTML and renders with scripts off. It
@@ -2099,6 +2515,455 @@ footer a{color:var(--dim)}
      topbar.js loads this too, but it checks for an existing script tag
      and auth-modal self-guards, so carrying it here keeps sign-in
      working even if the topbar script fails to load. -->
+  <div class="od-bar" id="odBar" role="region" aria-label="Persuasion tracker">
+    <button class="od-bar-tap" type="button" id="odTap">That moved me</button>
+    <span class="od-bar-meta"><span id="odBarCount">0</span> so far</span>
+    <button class="od-bar-end" type="button" id="odBarEnd">Ballot in</button>
+  </div>
+
+<!-- Wait-banner clock. /spectate ran this inside its profile-builder
+     IIFE; only the clock came across, so it is written out plainly here
+     rather than dragging 120 lines of builder with it. -->
+<script>
+(function(){
+  var timer=document.getElementById('waitTimer');
+  if(!timer) return;
+  var started=Date.now();
+  function mmss(ms){
+    var s=Math.max(0,Math.floor(ms/1000));
+    return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  }
+  setInterval(function(){ timer.textContent=mmss(Date.now()-started); },500);
+})();
+</script>
+
+<!-- Open-rooms strip, ported verbatim from /spectate. The `.wrap-foot`
+     it dismisses does not exist on this page; the guard already covers
+     that. -->
+<script>
+(function(){
+  var FORMATS={quick:'Quick Clash',apda:'APDA',bp:'BP',worlds:'Worlds (WUDC)',asian:'Asian Parli',ld:'LD',pf:'Public Forum',policy:'Policy'};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  var strip=document.getElementById('liveNowStrip');
+  var rows=document.getElementById('liveNowRows');
+  if(!strip||!rows) return;
+  function hydrate(){
+    fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+      var rounds=(j&&j.rounds)||[];
+      var banner=document.querySelector('.wait-banner');
+      if(!rounds.length){
+        strip.classList.remove('has-rounds');
+        if(banner)banner.classList.remove('live');
+        return;
+      }
+      rows.innerHTML=rounds.map(function(r){
+        var label=FORMATS[r.format]||String(r.format||'').toUpperCase();
+        var who=[r.proName,r.conName].filter(Boolean).join(' vs ')||'In progress';
+        var state=r.status==='ballot'?'Judge writing the ballot':(r.started===false?'Getting started':'Round in progress');
+        return '<a class="ls-row" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">'+
+          '<span class="ls-body">'+
+            '<span class="ls-motion">'+esc(r.motion||'Live debate')+'</span>'+
+            '<span class="ls-meta"><span class="ls-chip">'+esc(label)+'</span> '+esc(who)+' \u00b7 '+state+'</span>'+
+          '</span>'+
+          '<span class="ls-watch">Watch</span>'+
+        '</a>';
+      }).join('');
+      strip.classList.add('has-rounds');
+      if(banner)banner.classList.add('live');
+      var st=document.querySelector('.wait-state strong');
+      var sp=document.querySelector('.wait-state p');
+      var n=rounds.length;
+      if(st)st.textContent=n>1?(n+' rounds are open right now'):'A round is open right now';
+      if(sp)sp.textContent='Pick one below. You walk in muted with your camera off.';
+    }).catch(function(){});
+  }
+  hydrate();
+  setInterval(function(){if(!document.hidden)hydrate()},30000);
+})();
+</script>
+
+  <script>
+    /* ── Opinion delta ────────────────────────────────────────────────
+       Stance before the round, one-tap "that moved me" during it, and a
+       restate after the ballot. The delta plus the tap offsets is the
+       dataset. Every network call is fire-and-forget: the UI advances
+       optimistically so a failed request never blocks the page, and the
+       whole panel stays hidden until a motion actually resolves. */
+    (function(){
+      var API = '/api/log-opinion-delta';
+      var ANON_KEY = 'debateos-anon-sid';    // shared with the micro-poll capture
+      var STATE_KEY = 'dit-opinion-delta';   // local round state, one round at a time
+
+      var panel = document.getElementById('opinionDelta');
+      if (!panel) return;
+
+      var bar = document.getElementById('odBar');
+      var motionEl = document.getElementById('odMotion');
+      var eyebrow = document.getElementById('odEyebrow');
+      var countEl = document.getElementById('odCount');
+      var barCount = document.getElementById('odBarCount');
+      var logEl = document.getElementById('odLog');
+      var tapBtn = document.getElementById('odTap');
+      var titleEl = document.getElementById('odTitle');
+      var verdictEl = document.getElementById('odVerdict');
+      var verdictSub = document.getElementById('odVerdictSub');
+      var phases = Array.prototype.slice.call(panel.querySelectorAll('.od-phase'));
+
+      var round = null;   // { roundId, motion, format }
+      var state = null;   // { id, roundId, startedAt, movedAt, phase, sideBefore }
+      var picked = { before: 'undecided', after: 'undecided' };
+      var flushTimer = null;
+      var createPayload = null;   // replayed if the opening write fails
+      var createPromise = null;   // resolves to the doc id, or null
+      var createRetried = false;
+
+      function readState(){
+        try { return JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch(e){ return null; }
+      }
+      function writeState(){
+        try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e){}
+      }
+      function anonId(){
+        try {
+          var s = localStorage.getItem(ANON_KEY);
+          if (!s) {
+            s = 's-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem(ANON_KEY, s);
+          }
+          return s;
+        } catch(e){ return 's-anon'; }
+      }
+
+      // topbar.js lazy-loads firebase auth, so a signed-in spectator can
+      // hand up a token and have the row attributed to their uid. Absent
+      // or slow auth just stays anonymous.
+      function authToken(){
+        try {
+          if (!(window.firebase && firebase.auth && firebase.apps && firebase.apps.length)) return Promise.resolve(null);
+          var u = firebase.auth().currentUser;
+          if (!u) return Promise.resolve(null);
+          return u.getIdToken().catch(function(){ return null; });
+        } catch(e){ return Promise.resolve(null); }
+      }
+
+      function post(payload){
+        return authToken().then(function(token){
+          var headers = { 'Content-Type': 'application/json' };
+          if (token) headers.Authorization = 'Bearer ' + token;
+          payload.anonId = anonId();
+          return fetch(API, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload),
+            keepalive: true
+          });
+        }).then(function(r){
+          return r && r.ok ? r.json() : null;
+        }).catch(function(){ return null; });
+      }
+
+      function hash(str){
+        var h = 5381;
+        for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+        return h.toString(36);
+      }
+
+      // Round context: an explicit handoff wins, otherwise the featured
+      // motion of the day gives the waiting room something real to take
+      // a position on.
+      function resolveRound(){
+        var q;
+        try { q = new URLSearchParams(location.search); } catch(e){ q = null; }
+        var urlMotion = q ? (q.get('motion') || '').trim() : '';
+        if (urlMotion) {
+          return Promise.resolve({
+            roundId: (q.get('round') || '').trim() || ('adhoc-' + hash(urlMotion)),
+            motion: urlMotion.slice(0, 2000),
+            format: (q.get('format') || '').trim().slice(0, 40)
+          });
+        }
+        return fetch('/api/debate-of-week')
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){
+            if (!d || !d.motion) return null;
+            return {
+              roundId: 'dotw-' + new Date().toISOString().slice(0, 10),
+              motion: String(d.motion).slice(0, 2000),
+              format: String(d.format || '').slice(0, 40)
+            };
+          })
+          .catch(function(){ return null; });
+      }
+
+      function showPhase(name){
+        phases.forEach(function(p){ p.classList.toggle('on', p.getAttribute('data-od-phase') === name); });
+        if (eyebrow) {
+          eyebrow.textContent = name === 'before' ? 'Before the round'
+            : name === 'during' ? 'During the round'
+            : name === 'after' ? 'After the ballot'
+            : 'On the record';
+        }
+        if (titleEl) {
+          titleEl.textContent = name === 'before' ? 'Where do you stand right now?'
+            : name === 'during' ? 'Flag the moments that land.'
+            : name === 'after' ? 'Where did you actually land?'
+            : 'Your opinion delta.';
+        }
+        if (bar) bar.classList.toggle('on', name === 'during');
+        // Nothing left to skip once the row is recorded.
+        var skipBtn = document.getElementById('odSkip');
+        if (skipBtn) skipBtn.style.display = name === 'done' ? 'none' : '';
+      }
+
+      function mmss(ms){
+        var s = Math.max(0, Math.floor(ms / 1000));
+        return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+      }
+
+      function renderMoves(){
+        var moves = (state && state.movedAt) || [];
+        if (countEl) countEl.textContent = String(moves.length);
+        if (barCount) barCount.textContent = String(moves.length);
+        if (logEl) {
+          logEl.innerHTML = moves.slice(-12).map(function(ms){
+            return '<span class="od-stamp">' + mmss(ms) + '</span>';
+          }).join('');
+        }
+      }
+
+      // Taps batch for a beat so a flurry of them is one write, not six.
+      // The client always sends the whole array, so a late or retried
+      // flush is idempotent rather than double-counting.
+      function flushMoves(){
+        if (flushTimer) clearTimeout(flushTimer);
+        flushTimer = setTimeout(function(){
+          if (!state || !state.movedAt.length) return;
+          var moves = state.movedAt.slice();
+          withRow(function(id){ post({ action: 'update', id: id, movedAt: moves }); });
+        }, 1200);
+      }
+
+      function wireChoices(key){
+        var group = panel.querySelector('.choices[data-od-key="' + key + '"]');
+        if (!group) return;
+        group.addEventListener('click', function(e){
+          var btn = e.target.closest('.choice');
+          if (!btn) return;
+          picked[key] = btn.getAttribute('data-value');
+          group.querySelectorAll('.choice').forEach(function(b){ b.classList.remove('on'); });
+          btn.classList.add('on');
+        });
+      }
+
+      function wireRange(inputId, outId){
+        var input = document.getElementById(inputId);
+        var out = document.getElementById(outId);
+        if (!input || !out) return;
+        input.addEventListener('input', function(){ out.textContent = input.value; });
+      }
+
+      function startDuring(){
+        showPhase('during');
+        renderMoves();
+      }
+
+      function toAfter(){
+        if (!state) return;
+        state.phase = 'after';
+        writeState();
+        showPhase('after');
+        try { panel.scrollIntoView({ behavior:'smooth', block:'center' }); } catch(e){}
+      }
+
+      // Every write after the opening stance needs the doc id the create
+      // returns. Taps and the restate can easily land before that request
+      // resolves (or after it failed outright), so they queue behind this
+      // rather than testing state.id and silently dropping themselves.
+      function sendCreate(){
+        createPromise = post(createPayload).then(function(res){
+          if (res && res.id && state) { state.id = res.id; writeState(); }
+          return (state && state.id) || null;
+        });
+        return createPromise;
+      }
+
+      function withRow(fn){
+        if (state && state.id) return fn(state.id);
+        if (!createPromise) return;
+        createPromise.then(function(id){
+          if (id) return fn(id);
+          // The create failed. Retry it once, otherwise this round's taps
+          // and closing stance are lost for good.
+          if (createRetried || !createPayload) return;
+          createRetried = true;
+          return sendCreate().then(function(retryId){ if (retryId) fn(retryId); });
+        });
+      }
+
+      function lockIn(){
+        if (!round) return;
+        var conf = parseInt((document.getElementById('odConfBefore') || {}).value, 10);
+        if (isNaN(conf)) conf = 50;
+        state = {
+          id: null,
+          roundId: round.roundId,
+          startedAt: Date.now(),
+          movedAt: [],
+          phase: 'during',
+          sideBefore: picked.before
+        };
+        createRetried = false;
+        createPayload = {
+          action: 'create',
+          roundId: round.roundId,
+          motion: round.motion,
+          format: round.format,
+          sideBefore: picked.before,
+          confBefore: conf
+        };
+        writeState();
+        startDuring();
+        sendCreate();
+      }
+
+      // VISIBLE watch time. Without this every closing stance from this
+      // page was recorded and then discarded: the server weights a vote
+      // by how long the person actually watched (integrityWeight returns
+      // 0 under 90 visible seconds), this page never sent the field, so
+      // readWatchMs read undefined as 0 and every /spectate vote landed
+      // in `lowWatch` instead of the tally. Measured in VISIBLE time only,
+      // mirroring live-round, so a tab left open in another window does
+      // not accrue credit for watching.
+      var odWatchAccum = 0, odWatchStart = 0, odWatching = false;
+      function odWatchTick(on){
+        if (on && !odWatching){ odWatchStart = Date.now(); odWatching = true; }
+        else if (!on && odWatching){ odWatchAccum += Date.now() - odWatchStart; odWatching = false; }
+      }
+      function odWatchMs(){
+        return odWatchAccum + (odWatching ? Date.now() - odWatchStart : 0);
+      }
+      document.addEventListener('visibilitychange', function(){
+        odWatchTick(document.visibilityState === 'visible');
+      });
+      odWatchTick(document.visibilityState !== 'hidden');
+
+      function submitAfter(){
+        var conf = parseInt((document.getElementById('odConfAfter') || {}).value, 10);
+        if (isNaN(conf)) conf = 50;
+        var side = picked.after;
+        // Read the opening side off the persisted row, not off `picked`:
+        // a spectator who reloaded mid-round has a fresh `picked.before`
+        // and would otherwise be told they held a position they never
+        // restated.
+        var before = (state && state.sideBefore) || picked.before;
+        showPhase('done');
+        if (verdictEl) {
+          verdictEl.textContent = side === before
+            ? 'You held your position.'
+            : 'You moved.';
+        }
+        if (verdictSub) {
+          var n = (state && state.movedAt ? state.movedAt.length : 0);
+          verdictSub.textContent = n
+            ? 'Recorded, along with the ' + n + ' moment' + (n === 1 ? '' : 's') + ' you flagged.'
+            : 'Recorded. Next round, tap the button when something lands.';
+        }
+        if (state) {
+          // Hold the row object (not null it) so a create still in flight
+          // can still attach this restate when it lands. `phase` moving off
+          // 'during' is what stops further taps.
+          state.phase = 'done';
+          // The closing write carries movedAt, so a pending tap flush
+          // would just be a duplicate.
+          if (flushTimer) clearTimeout(flushTimer);
+          var moves = state.movedAt.slice();
+          withRow(function(id){
+            post({ action: 'update', id: id, movedAt: moves, sideAfter: side, confAfter: conf, watchMs: odWatchMs() });
+          });
+        }
+        try { localStorage.removeItem(STATE_KEY); } catch(e){}
+      }
+
+      function tap(){
+        if (!state || state.phase !== 'during') return;
+        if (state.movedAt.length >= 200) return;
+        var at = Date.now() - state.startedAt;
+        // The server dedupes identical offsets, so drop them here too or
+        // the on-screen count disagrees with what actually got stored.
+        if (state.movedAt[state.movedAt.length - 1] === at) return;
+        state.movedAt.push(at);
+        writeState();
+        renderMoves();
+        flushMoves();
+        if (tapBtn) {
+          tapBtn.classList.remove('hit');
+          void tapBtn.offsetWidth;
+          tapBtn.classList.add('hit');
+        }
+      }
+
+      function skip(){
+        panel.classList.remove('on');
+        if (bar) bar.classList.remove('on');
+        try { localStorage.setItem(STATE_KEY + '-skipped', String(Date.now())); } catch(e){}
+      }
+
+      function skippedRecently(){
+        try {
+          var t = parseInt(localStorage.getItem(STATE_KEY + '-skipped'), 10) || 0;
+          return Date.now() - t < 24 * 60 * 60 * 1000;
+        } catch(e){ return false; }
+      }
+
+      wireChoices('before');
+      wireChoices('after');
+      wireRange('odConfBefore', 'odConfBeforeOut');
+      wireRange('odConfAfter', 'odConfAfterOut');
+
+      // Guarded: a missing id must not throw and take the whole panel
+      // (and every listener wired after it) down with it.
+      function on(id, fn){
+        var elm = document.getElementById(id);
+        if (elm) elm.addEventListener('click', fn);
+      }
+      on('odSkip', skip);
+      on('odLockIn', lockIn);
+      on('odBallotIn', toAfter);
+      on('odSubmitAfter', submitAfter);
+      on('odTap', tap);
+      on('odBarEnd', toAfter);
+
+      // Hook for whatever eventually renders the live ballot on this
+      // page: call window.DBOpinionDelta.ballotIn() when it lands and
+      // the restate prompt takes over.
+      window.DBOpinionDelta = {
+        ballotIn: toAfter,
+        tap: tap,
+        state: function(){ return state; }
+      };
+
+      if (skippedRecently()) return;
+
+      resolveRound().then(function(r){
+        if (!r) return;              // no motion, no panel. Never blocks the page.
+        round = r;
+        if (motionEl) motionEl.textContent = r.motion;
+
+        var saved = readState();
+        if (saved && saved.roundId === r.roundId) {
+          state = saved;
+          state.movedAt = state.movedAt || [];
+          panel.classList.add('on');
+          showPhase(state.phase === 'after' ? 'after' : 'during');
+          renderMoves();
+          return;
+        }
+        panel.classList.add('on');
+        showPhase('before');
+      });
+    })();
+  </script>
+
 <script defer src="/js/auth-modal.js"></script>
 <!-- Soft sign-up prompt for unsigned visitors: after real dwell it
      offers the Google/email chooser. This page is a common first
