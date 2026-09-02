@@ -389,13 +389,15 @@ input[type=text]:focus,select:focus,textarea:focus{
      behind .shell. */
   isolation:isolate;
 }
+/* The line. Wide, not square: it is a timeline of the last few seconds
+   of the room, so it needs horizontal room and almost no height. The
+   canvas paints its own glow, so no drop-shadow filter here — that would
+   blur the whole band a second time for no gain. */
 .stage canvas.orb{
-  width:280px;height:280px;
-  filter:drop-shadow(0 0 40px rgba(239,68,68,.35));
-  transition:filter .25s;
+  width:100%;max-width:560px;height:132px;display:block;
+  transition:opacity .25s;
 }
-@media (max-width:600px){.stage canvas.orb{width:230px;height:230px}}
-.stage.user canvas.orb{filter:drop-shadow(0 0 40px rgba(34,197,94,.35))}
+@media (max-width:600px){.stage canvas.orb{height:104px}}
 .stage .label{
   margin-top:18px;font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;
   /* 2026-05-19 PM: dim grey #9b9bab against warmer purple-black floor
@@ -405,6 +407,10 @@ input[type=text]:focus,select:focus,textarea:focus{
   text-shadow:0 0 12px rgba(239,68,68,.18);
 }
 .stage .label .who{color:#fca5a5;transition:color .2s}
+/* Who has the floor is the one sentence on the screen in a simple round.
+   The pale pink reads at about 1.9:1 on the cream ground. */
+[data-theme="light"] .stage .label .who, [data-theme="stone"] .stage .label .who{color:#b91c1c}
+[data-theme="light"] .stage.user .label .who, [data-theme="stone"] .stage.user .label .who{color:#15803d}
 .stage.user .label .who{color:#86efac}
 .stage .timer{
   margin-top:8px;font-family:'JetBrains Mono', monospace;
@@ -1018,9 +1024,9 @@ input[type=text]:focus,select:focus,textarea:focus{
    frame: a big orb, a big timer, and a clear judge presence above. */
 .arena-core{ position:relative; }
 .arena-core.stage{ padding:14px 14px 16px; }
-.arena-core canvas.orb{ width:360px; height:360px; }
-@media(max-width:1180px){ .arena-core canvas.orb{ width:300px; height:300px; } }
-@media(max-width:560px){ .arena-core canvas.orb{ width:208px; height:208px; } }
+.arena-core canvas.orb{ width:100%; max-width:none; height:168px; }
+@media(max-width:1180px){ .arena-core canvas.orb{ height:148px; } }
+@media(max-width:560px){ .arena-core canvas.orb{ height:112px; } }
 /* .arena-core.stage prefix (0,3,0) so these win over the later, equal-
    specificity .stage .timer / .stage .label rules further down the sheet. */
 .arena-core.stage .label{ margin-top:14px; font-size:.78rem; }
@@ -1035,6 +1041,56 @@ input[type=text]:focus,select:focus,textarea:focus{
 .judge-node .jl{ font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#d6d6e0; }
 .judge-node .js{ font-size:.6rem; letter-spacing:.04em; color:#8a8a98; font-weight:600; }
 @keyframes judgeBlink{ 0%,92%,100%{transform:scaleY(1)} 95%{transform:scaleY(.12)} }
+
+/* ── Simple round ─────────────────────────────────────
+   One line, two names, two buttons. The dense arena above is untouched
+   and comes back by flipping SIMPLE_ROUND in the script; these rules
+   only reshape what is left on screen. */
+.arena--simple .arena-stage{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"you ai" "core core"; gap:10px 12px; max-width:900px; }
+.arena--simple .player--you, .arena--simple .player--ai{ margin:0; max-width:none; }
+/* The card becomes a name chip. Portrait, energy rings and mic meter all
+   go: the line is the only thing that should be moving. */
+.arena--simple .player{ flex-direction:row; align-items:center; gap:10px; padding:11px 14px; border-radius:14px; transform:none; box-shadow:none; }
+.arena--simple .player.is-speaking{ transform:none; box-shadow:0 0 0 1px rgba(var(--pc),.3); }
+.arena--simple .player__viz, .arena--simple .miclevel{ display:none; }
+.arena--simple .player__top{ flex-direction:row; align-items:baseline; gap:8px; }
+.arena--simple .player__name{ font-size:.98rem; }
+.arena--simple .player__status, .arena--simple .thinking-nodes{ margin-left:auto; }
+/* AI chip mirrors, so the two names bracket the line instead of both
+   hugging the left edge. */
+.arena--simple .player--ai{ flex-direction:row-reverse; }
+.arena--simple .player--ai .player__status, .arena--simple .player--ai .thinking-nodes{ margin-left:0; margin-right:auto; }
+/* On a phone the chip is ~134px wide and the status pill will not
+   shrink, so name and state overlapped. The chip keeps the name; the
+   speaking border and the line under it already say who has the floor. */
+@media(max-width:620px){
+  .arena--simple .player{ padding:9px 11px; gap:7px; justify-content:center; }
+  .arena--simple .player__role, .arena--simple .player__status, .arena--simple .thinking-nodes{ display:none; }
+  .arena--simple .player__name{ font-size:.9rem; }
+  .arena--simple .arena-stage{ gap:8px; }
+}
+
+/* The line takes the whole width and sits on the page rather than in a
+   card: no wash behind it, nothing else in the frame. */
+.arena--simple .arena-core.stage{ background:none; padding:4px 0 2px; }
+.arena--simple .arena-core canvas.orb{ height:190px; }
+@media(max-width:900px){ .arena--simple .arena-core canvas.orb{ height:150px; } }
+@media(max-width:560px){ .arena--simple .arena-core canvas.orb{ height:118px; } }
+.arena--simple .judge-node{ padding:5px 12px; opacity:.72; }
+.arena--simple .arena-core.stage .label{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:4px; }
+.arena--simple .stage-debaters, .arena--simple .arena-core .stage-debater{ display:none; }
+.roundclock{ font-family:'JetBrains Mono',monospace; font-size:.82rem; letter-spacing:.04em; color:#8a8a98; font-variant-numeric:tabular-nums; }
+[data-theme="light"] .roundclock, [data-theme="stone"] .roundclock{ color:#6a6a72; }
+
+/* Transcript header as a fold. Closed by default in a simple round, so
+   the round stays the tallest thing on the page. */
+.tx-toggle{ display:inline-flex; align-items:center; gap:9px; background:none; border:0; padding:0; cursor:pointer; font:inherit; font-size:.7rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#a9a9b8; }
+.tx-toggle:hover{ color:#e6e6ee; }
+.tx-toggle__caret{ display:inline-block; transition:transform .2s; font-size:1rem; line-height:1; }
+.tx-toggle.is-open .tx-toggle__caret{ transform:rotate(90deg); }
+.tx-toggle__count{ font-family:'JetBrains Mono',monospace; font-size:.66rem; letter-spacing:0; color:#7a7a8a; padding:2px 7px; border-radius:999px; background:rgba(255,255,255,.06); }
+[data-theme="light"] .tx-toggle, [data-theme="stone"] .tx-toggle{ color:#52525b; }
+[data-theme="light"] .tx-toggle:hover, [data-theme="stone"] .tx-toggle:hover{ color:#1a1a1f; }
 
 /* Broadcast timing strip — the full-width bottom bar. Interrupts ·
    talk split · round clock (+ current speech in a full round). Spans
@@ -1811,11 +1867,13 @@ input[type=text]:focus,select:focus,textarea:focus{
   display:flex;flex-direction:column;align-items:center;text-align:center;
   padding:8px 0 4px;position:relative;
 }
+/* Same renderer as the round, so standby previews the thing you are
+   about to look at rather than a different shape. Wide, not square. */
 .setup-orb-hero canvas.setup-orb{
-  width:280px;height:280px;display:block;position:relative;z-index:1;
+  width:100%;max-width:520px;height:150px;display:block;position:relative;z-index:1;
 }
 @media (max-width:600px){
-  .setup-orb-hero canvas.setup-orb{width:220px;height:220px}
+  .setup-orb-hero canvas.setup-orb{height:112px}
 }
 .setup-orb-hero .setup-orb-label{
   margin-top:18px;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;
@@ -3131,6 +3189,12 @@ try {
   transition:background .15s,border-color .15s,color .15s;
 }
 .lpip-trigbtn:hover{background:rgba(127,127,127,.18);border-color:var(--accent,#ef4444);color:#fff}
+/* This page does not define --text, so the var() above fell through to a
+   near-white and the button was invisible on the two pale themes. It is
+   one of only three controls in a simple round, so it has to be legible
+   rather than merely present. */
+[data-theme="light"] .lpip-trigbtn, [data-theme="stone"] .lpip-trigbtn{ color:#3f3f46; background:rgba(0,0,0,.045); border-color:rgba(0,0,0,.14); }
+[data-theme="light"] .lpip-trigbtn:hover, [data-theme="stone"] .lpip-trigbtn:hover{ color:#111; background:rgba(0,0,0,.075); }
 
 /* Compact corner player */
 .live-mini{
@@ -3216,6 +3280,26 @@ try {
 <script data-precompile="es5">
 var { useState, useEffect, useRef, useCallback, useMemo } = React;
 var el = React.createElement;
+
+/* ── Simple round ────────────────────────────────────
+   2026-09-02, Aidan: "we need to simplify this page a lot - lets make it
+   a very simple user experience."
+
+   A live voice round was carrying, at once: a motion, a verdict progress
+   bar, a phase timeline, two portrait cards with energy rings and a mic
+   meter, a circular orb, a speaking label, an exchange rail, a
+   four-cell stats strip, six controls, a text composer and a fully
+   expanded transcript with its own search box. Every one of those was
+   built for a reason and together they left nothing to look at.
+
+   The round is now: the motion, who is on each side, one line that moves
+   with the audio, and the two things a person actually presses (mic and
+   end). Everything else is folded away or gated off behind this flag.
+
+   Nothing was deleted. Flipping this to false restores the dense arena
+   exactly as it was, which is why the gated blocks are still here rather
+   than in git history. */
+var SIMPLE_ROUND = true;
 
 /* ═══════════════════════════════════════════════════════════════════
    VOICE DEBATE — OpenAI Realtime (gpt-realtime-2)
@@ -3854,121 +3938,154 @@ var SFX = {
   error: () => {}
 };
 
-/* ── Orb canvas — the showpiece visual ───────────── */
+/* ── The line — the one visual in the round ───────── */
 
-// Renders a circular waveform-meets-aurora that responds to either the
-// AI audio amplitude or the user's mic amplitude (whichever is louder).
-// Pure 2D canvas, no WebGL — works everywhere, low CPU.
+// A horizontal waveform that shows the last few seconds of the room as
+// movement: loudness is sampled every frame into a scrolling history, so
+// the shape travels right-to-left and you can see a sentence land and
+// decay rather than watching a blob breathe in place.
+//
+// 2026-09-02: this replaces the circular orb. The orb was the busiest
+// object on a screen that already carried two portrait cards, a progress
+// bar, an exchange rail and a stats strip, and a round only ever needs
+// one thing to look at. Function name and signature are unchanged, so
+// both call sites (the standby screen and the live round) swap over
+// together and the visual language stays one thing in both places.
+//
+// Pure 2D canvas, no WebGL. Costs one shadowBlur pass per frame; the
+// history buffer is fixed-size and allocated once.
 function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
   var ctx = canvas.getContext('2d');
   var dpr = Math.min(window.devicePixelRatio || 1, 2);
   var fitCanvas = () => {
-    var cssW = canvas.clientWidth || 280;
-    var cssH = canvas.clientHeight || 280;
-    canvas.width = cssW * dpr;
-    canvas.height = cssH * dpr;
+    var cssW = canvas.clientWidth || 560;
+    var cssH = canvas.clientHeight || 160;
+    canvas.width = Math.max(1, Math.round(cssW * dpr));
+    canvas.height = Math.max(1, Math.round(cssH * dpr));
   };
   fitCanvas();
   window.addEventListener('resize', fitCanvas);
 
   var raf = null;
   var phase = 0;
-  // Slight smoothing so the orb breathes instead of stuttering on each
-  // amplitude sample. Larger smoothing = chiller motion.
   var smoothLevel = 0;
+  // Scrolling loudness history. Index 0 is the oldest sample (left
+  // edge), the last index is now (right edge), so the wave reads the way
+  // every audio meter does: new sound enters on the right.
+  var SAMPLES = 220;
+  var hist = new Float32Array(SAMPLES);
+  // Colour is smoothed too. Flipping green<->crimson on the raw flag
+  // strobes on every interruption; easing it reads as the floor changing
+  // hands rather than a light switch.
+  var userMix = 0;
 
   var draw = () => {
-    var W = canvas.width,H = canvas.height,cx = W / 2,cy = H / 2;
-    // The canvas is square but the orb is round. We carve out a
-    // transparent buffer at the perimeter so:
-    //   • the aurora gradient can fade fully to 0 inside the canvas
-    //     (otherwise it kisses the cardinal edges at non-zero alpha
-    //     and the eye reads that one-pixel alpha cliff as a square)
-    //   • the ring waveform's wide-amplitude peaks never reach the
-    //     edge and clip into flat horizontal/vertical segments
-    //   • any CSS drop-shadow filter on the canvas blurs an isolated
-    //     circle instead of a circle pressed against the canvas box
-    var inscribedR = Math.min(W, H) * 0.5;
-    var paintMaxR = inscribedR - 16 * dpr;
-    var ringMaxR = paintMaxR - 3 * dpr;
-    var R = Math.min(W, H) * 0.32;
-    var { ai, user } = getLevels();
-    var isUser = !!isUserSpeakingRef.current;
+    var W = canvas.width,H = canvas.height;
+    var cy = H / 2;
+    var levels = getLevels();
+    var ai = levels.ai || 0,user = levels.user || 0;
+    var isUser = !!(isUserSpeakingRef && isUserSpeakingRef.current);
     var live = Math.max(ai, user);
-    smoothLevel += (live - smoothLevel) * 0.18;
-    // 2026-05-26 (rev18): idle breath. When there's no audio (standby
-    // screen, between turns), smoothLevel sits at 0 and the orb
-    // renders thin — visible in the founder's screenshot as just an outer
-    // ring + center dot. Floor the effective level at a slow sine
-    // breath (0.08 ± 0.05) so the orb is always visibly alive even
-    // without audio amplitude. Real audio (which exceeds 0.13 the
-    // moment anyone speaks) immediately overrides the breath.
-    var idleBreath = 0.08 + 0.05 * Math.sin(performance.now() * 0.0011);
-    smoothLevel = Math.max(smoothLevel, idleBreath);
+    smoothLevel += (live - smoothLevel) * 0.22;
+    userMix += ((isUser ? 1 : 0) - userMix) * 0.09;
+
+    // Analyser levels are an average across every frequency bin, so
+    // ordinary speech sits around 0.15-0.35 and almost never approaches 1.
+    // Mapped straight to height that reads as a flat line with a twitch in
+    // it. The curve pulls normal speech into the top half of the band; the
+    // clamp keeps a genuinely loud passage from growing forever.
+    var shaped = Math.min(1, Math.pow(Math.max(0, smoothLevel), 0.62) * 1.2);
+
+    hist.copyWithin(0, 1);
+    hist[SAMPLES - 1] = shaped;
+
+    phase += 0.045 + shaped * 0.09;
 
     ctx.clearRect(0, 0, W, H);
 
-    ctx.save();
+    // Green while the user holds the floor, crimson otherwise.
+    var r = Math.round(239 + (34 - 239) * userMix);
+    var g = Math.round(68 + (197 - 68) * userMix);
+    var b = Math.round(68 + (94 - 68) * userMix);
+    var rgb = r + ',' + g + ',' + b;
+
+    var maxAmp = H * 0.42;
+    // Idle breath, in pixels rather than as a floor under the level. With
+    // no audio the history flattens to a hairline and the round looks dead
+    // between turns; keeping it separate means a quiet moment stays quiet
+    // once the curve above is applied.
+    var idleAmp = H * 0.028 * (0.78 + 0.22 * Math.sin(performance.now() * 0.0013));
+    var step = W / (SAMPLES - 1);
+
+    // Amplitude at column i: the historical loudness there, shaped by two
+    // travelling sines so the band has internal texture instead of reading
+    // as a solid lozenge, and faded at both ends so the line resolves into
+    // the page rather than being cut off by the canvas edge.
+    var ampAt = (i) => {
+      var u = i / (SAMPLES - 1);
+      var edge = Math.sin(Math.PI * u); // 0 at both ends, 1 mid
+      edge = edge * edge * (3 - 2 * edge); // smoothstep, softer shoulders
+      // Two travelling sines at speech-ish density. Without them the band
+      // is a smooth lozenge, which reads as a shape rather than as sound;
+      // with them it reads as a waveform. The edge factor multiplies the
+      // WHOLE amplitude, idle included, so the line tapers into the page
+      // at both ends instead of stopping in a squared-off bar.
+      var ripple =
+      0.58 +
+      0.28 * Math.sin(u * 138 + phase) +
+      0.14 * Math.sin(u * 227 - phase * 1.6);
+      return Math.max(0.75 * dpr, (idleAmp + hist[i] * (maxAmp - idleAmp) * ripple) * edge);
+    };
+
+    // Filled band, mirrored about the centre line.
     ctx.beginPath();
-    ctx.arc(cx, cy, paintMaxR, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Color palette — green for user-active, crimson otherwise.
-    var accent = isUser ? [34, 197, 94] : [239, 68, 68];
-
-    // Outer aurora glow.
-    var auroraR = Math.min(R * (1.4 + smoothLevel * 0.7), paintMaxR);
-    var grad = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, auroraR);
-    grad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.35 + smoothLevel * 0.3})`);
-    grad.addColorStop(0.4, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.12 + smoothLevel * 0.15})`);
-    grad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    // Inner ring waveform — `r` is clamped to `ringMaxR` so the wave
-    // never extends past the inscribed circle. Without this clamp,
-    // amplitude peaks at smoothLevel≈1 could reach ~R*1.71, past the
-    // canvas edges, and clip into horizontal/vertical flat segments.
-    phase += 0.012 + smoothLevel * 0.02;
-    var segments = 96;
-    ctx.beginPath();
-    for (var i = 0; i <= segments; i++) {
-      var t = i / segments;
-      var a = t * Math.PI * 2;
-      // Layered sine modulation gives an organic, breathing motion.
-      var r = R * (1 + smoothLevel * 0.55) +
-      Math.sin(a * 6 + phase * 2) * (3 + smoothLevel * 14) +
-      Math.sin(a * 11 - phase * 3) * (2 + smoothLevel * 9) +
-      Math.cos(a * 3 + phase) * (4 + smoothLevel * 6);
-      if (r > ringMaxR) r = ringMaxR;
-      var x = cx + Math.cos(a) * r;
-      var y = cy + Math.sin(a) * r;
+    for (var i = 0; i < SAMPLES; i++) {
+      var x = i * step;
+      var y = cy - ampAt(i);
       if (i === 0) ctx.moveTo(x, y);else ctx.lineTo(x, y);
     }
+    for (var j = SAMPLES - 1; j >= 0; j--) {
+      ctx.lineTo(j * step, cy + ampAt(j));
+    }
     ctx.closePath();
-    ctx.lineWidth = 1.6 * dpr;
-    ctx.strokeStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.55 + smoothLevel * 0.3})`;
+    var fill = ctx.createLinearGradient(0, cy - maxAmp, 0, cy + maxAmp);
+    fill.addColorStop(0, 'rgba(' + rgb + ',0)');
+    fill.addColorStop(0.5, 'rgba(' + rgb + ',' + (0.20 + shaped * 0.30) + ')');
+    fill.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // Outline, glowing. One stroke over the whole mirrored path so the
+    // top and bottom edges light up together.
+    ctx.save();
+    ctx.shadowColor = 'rgba(' + rgb + ',' + (0.5 + shaped * 0.4) + ')';
+    ctx.shadowBlur = (10 + shaped * 26) * dpr;
+    ctx.lineWidth = 1.7 * dpr;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.66 + shaped * 0.3) + ')';
     ctx.stroke();
-    ctx.fillStyle = `rgba(${accent[0]},${accent[1]},${accent[2]},${0.04 + smoothLevel * 0.06})`;
-    ctx.fill();
-
-    // Inner pulsing core
-    var coreR = R * (0.55 + smoothLevel * 0.25);
-    var coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-    coreGrad.addColorStop(0, `rgba(${accent[0]},${accent[1]},${accent[2]},${0.6 + smoothLevel * 0.3})`);
-    coreGrad.addColorStop(1, `rgba(${accent[0]},${accent[1]},${accent[2]},0)`);
-    ctx.fillStyle = coreGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Bright hot center
-    ctx.fillStyle = `rgba(255,255,255,${0.5 + smoothLevel * 0.4})`;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 4 * dpr + smoothLevel * 8, 0, Math.PI * 2);
-    ctx.fill();
-
     ctx.restore();
+
+    // Hairline through the middle: the silence the wave departs from.
+    var mid = ctx.createLinearGradient(0, 0, W, 0);
+    mid.addColorStop(0, 'rgba(' + rgb + ',0)');
+    mid.addColorStop(0.5, 'rgba(' + rgb + ',0.28)');
+    mid.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.strokeStyle = mid;
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(0, cy);
+    ctx.lineTo(W, cy);
+    ctx.stroke();
+
+    // Live head. Marks the right edge as "now", so the direction of
+    // travel is legible without a label.
+    var headY = cy;
+    var headR = (2.2 + shaped * 4.5) * dpr;
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.55 + shaped * 0.4) + ')';
+    ctx.beginPath();
+    ctx.arc(W - 1 * dpr, headY, headR, 0, Math.PI * 2);
+    ctx.fill();
 
     // Park while the tab is hidden; onVis restarts the chain.
     if (document.hidden) {raf = 0;return;}
@@ -4810,6 +4927,10 @@ function App() {
   // clean back-and-forth. Both are view-only; they never touch `turns`.
   var [txSearch, setTxSearch] = useState('');
   var [txHideSystem, setTxHideSystem] = useState(false);
+  // Simple round: the transcript is there when you want it and folded
+  // away when you don't. It was the tallest thing on the page while the
+  // round was happening somewhere above it.
+  var [txOpen, setTxOpen] = useState(!SIMPLE_ROUND);
   var [interruptCount, setInterruptCount] = useState(0);
   var [aiSpeakingMs, setAiSpeakingMs] = useState(0);
   var [userSpeakingMs, setUserSpeakingMs] = useState(0);
@@ -8775,7 +8896,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // notice; the full arena below stays mounted but display:none'd
   // (arena--stowed) so the orb canvas + analysers keep running.
   isLive && viewMode !== 'full' && renderMinimized(),
-  isLive && el('div', { className: 'arena' + (speaking === 'user' ? ' is-user' : '') + (interruptShock ? ' is-shock' : '') + (viewMode !== 'full' ? ' arena--stowed' : '') },
+  isLive && el('div', { className: 'arena' + (SIMPLE_ROUND ? ' arena--simple' : '') + (speaking === 'user' ? ' is-user' : '') + (interruptShock ? ' is-shock' : '') + (viewMode !== 'full' ? ' arena--stowed' : '') },
   el('div', { className: 'arena__bg', 'aria-hidden': 'true' }),
   el('div', { className: 'arena__shock', 'aria-hidden': 'true' }),
 
@@ -8789,7 +8910,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // Round-phase timeline (APDA full round only). Past speeches read
   // done, the current one glows (green if the user owns it, red if the
   // AI does), upcoming ones stay dim. Makes the round feel structured.
-  mode === 'apda' && el('div', { className: 'phase-timeline', 'aria-hidden': 'true' },
+  !SIMPLE_ROUND && mode === 'apda' && el('div', { className: 'phase-timeline', 'aria-hidden': 'true' },
   APDA_SEQUENCE.map((sp, i) => {
     var cls = i < speechIdx ? 'is-done' : i === speechIdx ? 'is-now' : 'is-future';
     return el('div', { key: sp.name + i, className: 'phase-step ' + cls + (i === speechIdx && isUserSpeech(sp) ? ' is-user' : '') },
@@ -8802,7 +8923,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   })
   ),
 
-  (() => {
+  !SIMPLE_ROUND && (() => {
     var realTurnCount = turns.filter((t) => (t.who === 'you' || t.who === 'ai') && String(t.text || '').trim()).length;
     var apdaSpeech = APDA_SEQUENCE[speechIdx] || null;
     var withinSpeech = 0;
@@ -8874,7 +8995,10 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   speaking === 'user' ? '◉ ' + (userFirstName ? userFirstName.toUpperCase() : 'YOU') + ' SPEAKING' :
   speaking === 'ai' ? '◉ ' + persona.name.split(' ')[0].toUpperCase() + ' SPEAKING' :
   '○ LISTENING'
-  )
+  ),
+  // The round clock lived in the stats strip, which the simple round
+  // folds away. It is the one number worth keeping on screen.
+  SIMPLE_ROUND && el('span', { className: 'roundclock' }, fmtTime(elapsed))
   ),
   // ── Speech-phase block ─────────────────────────────────
   // Per-speech timer (compressed clocks: PMC 4:00, LOC 4:30, etc.)
@@ -8942,7 +9066,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // Argument flow — the live exchange as a row of connected nodes,
   // you (green) vs AI (red), oldest left / newest right, growing through
   // the round. Real `turns` only; hidden until there's a back-and-forth.
-  (() => {
+  !SIMPLE_ROUND && (() => {
     var flow = turns.filter((t) => t.who === 'you' || t.who === 'ai').slice(-7);
     if (flow.length < 2) return null;
     return el('div', { className: 'exchange-wrap' },
@@ -8960,7 +9084,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   })(),
   // Broadcast timing strip — interrupts · talk split · round clock
   // (+ current speech in a full round). Full arena width.
-  el('div', { className: 'timing-strip' },
+  !SIMPLE_ROUND && el('div', { className: 'timing-strip' },
   mode === 'apda' && (() => {
     var sp = APDA_SEQUENCE[speechIdx] || null;
     return el('div', { className: 'timing-cell', key: 'speechcell' },
@@ -9036,7 +9160,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       'aria-pressed': muted
     }, label);
   })(),
-  el('div', { className: 'speed-ctl', title: 'Adjusts AI delivery pace on the next turn (sends a pacing nudge to the model). Browser playback rate also nudges live audio where the OS allows it.' },
+  !SIMPLE_ROUND && el('div', { className: 'speed-ctl', title: 'Adjusts AI delivery pace on the next turn (sends a pacing nudge to the model). Browser playback rate also nudges live audio where the OS allows it.' },
   el('span', { className: 'lbl' }, 'speed'),
   el('button', {
     className: 'spd',
@@ -9050,7 +9174,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     title: 'Faster (next turn pace + live audio)'
   }, '+')
   ),
-  negotiatedModel && el('span', { className: 'model-badge', title: negotiatedEndpoint || '' },
+  !SIMPLE_ROUND && negotiatedModel && el('span', { className: 'model-badge', title: negotiatedEndpoint || '' },
   negotiatedModel + (/^gpt-realtime/.test(negotiatedModel) && !/preview/.test(negotiatedModel) ? ' · GA' : '')
   ),
   recorderRef.current && el('span', { className: 'rec-pill' },
@@ -9062,7 +9186,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // visible while the user works in other tabs.
   el('div', { className: 'lpip-triggers' },
   el('button', { type: 'button', className: 'lpip-trigbtn', onClick: function () {setViewMode('shell');}, title: 'Dock the round to a corner and browse the rest of the site while it keeps running' }, '⤓ Minimize'),
-  pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn', onClick: popOut, title: 'Pop the round into a floating window that stays on top while you switch tabs' }, '⧉ Pop out')
+  !SIMPLE_ROUND && pipSupported && el('button', { type: 'button', className: 'lpip-trigbtn', onClick: popOut, title: 'Pop the round into a floating window that stays on top while you switch tabs' }, '⧉ Pop out')
   )
   ),
   // Type-to-interject row. Sends the user's text as a real user
@@ -9106,11 +9230,23 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', {
     style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8, flexWrap: 'wrap' }
   },
+  SIMPLE_ROUND ?
+  // Folded by default. Pressing the header is the only way it takes
+  // space, so the round stays the tallest thing on the page.
+  el('button', {
+    type: 'button', className: 'tx-toggle' + (txOpen ? ' is-open' : ''),
+    onClick: () => setTxOpen((v) => !v),
+    'aria-expanded': txOpen ? 'true' : 'false'
+  },
+  el('span', { className: 'tx-toggle__caret', 'aria-hidden': 'true' }, '›'),
+  'Transcript',
+  el('span', { className: 'tx-toggle__count' }, String(turns.filter((t) => t.who !== 'system').length))
+  ) :
   el('div', null,
   el('h3', { style: { margin: 0 } }, 'Live Transcript'),
   el('span', { className: 'autosave-note', title: 'Checkpointed in sessionStorage for refresh recovery. It is removed when the round ends or this tab closes.' }, el('i', { 'aria-hidden': 'true' }), 'Autosaved in this tab')
   ),
-  turns.filter((t) => t.who !== 'system').length > 0 && el('div', {
+  (!SIMPLE_ROUND || txOpen) && turns.filter((t) => t.who !== 'system').length > 0 && el('div', {
     style: { display: 'flex', gap: 8, alignItems: 'center' }
   },
   el('button', {
@@ -9147,7 +9283,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   }, '⬇ .txt')
   )
   ),
-  el('div', { className: 'tx-filterbar' },
+  !SIMPLE_ROUND && el('div', { className: 'tx-filterbar' },
   el('input', {
     type: 'text', className: 'tx-search', value: txSearch,
     onChange: (e) => setTxSearch(e.target.value),
@@ -9160,7 +9296,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     title: 'Fold the grey system / announcement lines out of the way'
   }, txHideSystem ? 'Show notes' : 'Hide notes')
   ),
-  el('div', { className: 'transcript', ref: transcriptRef },
+  (!SIMPLE_ROUND || txOpen) && el('div', { className: 'transcript', ref: transcriptRef },
   (() => {
     var q = txSearch.trim().toLowerCase();
     var visible = turns.filter((t) => {
