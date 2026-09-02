@@ -1,5 +1,9 @@
 # Upload Debatable to App Store Connect
 
+> **2026-09-01:** build 10 was REJECTED on 2026-08-25 (guidelines 1.2 and 2.2). The
+> reply, replacement reviewer notes, recording shot list, and resubmit path are in
+> `APP_REVIEW_RESPONSE_2026-09-01.md`. No new binary is needed; the fixes are web-side.
+
 Updated 2026-08-10. The artifact and signing details below were verified
 directly from the exported IPA on this Mac.
 
