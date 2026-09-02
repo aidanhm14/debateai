@@ -9058,7 +9058,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // refuses them, which is a worse moment than the honest one.
         loadGuestRounds(state.user.uid);
         var queuedOptimistically = canQueue(state.user);
-        if (queuedOptimistically) joinQueue(); else renderGate();
+        // An anonymous uid is not a signed-in visitor, it is the
+        // "anonymous profile" the Match Desk was reopened for. A previous
+        // visit (or any page that mints one) leaves this branch truthy on
+        // arrival, so sending it straight to renderGate() is what hid the
+        // desk from every returning stranger. Measured live 2026-09-02:
+        // isAnonymous:true, no providers, no stored profile, gate on
+        // screen. Route it through the same entry a sessionless visitor
+        // gets; renderSignedOutEntry falls through to the gate on its own
+        // once a profile exists.
+        if (queuedOptimistically) joinQueue(); else renderSignedOutEntry();
         fetchGuestRounds(state.user.uid).then(function(){
           if (!state.user || state.named || state.inConsent) return;
           if (state.profileFlowOpen) return;
@@ -9067,7 +9076,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
             // Mirror was stale in the visitor's favour (another tab spent the
             // last round). Pull the doc back out and put the gate up.
             leaveQueueQuietly();
-            renderGate();
+            renderSignedOutEntry();
           } else if (!queuedOptimistically && mayQueue){
             // Mirror was stale against them — a cleared storage reading as
             // spent, or a count that reset. They have rounds; queue them.
