@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v3233';
+const CACHE_NAME = 'debateos-v3234';
 
 
 
@@ -280,6 +280,34 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin &&
       url.pathname.startsWith('/audio/narration/') &&
       url.pathname.endsWith('.mp3')) {
+    if (request.headers.get('range')) {
+      event.respondWith(fetch(request));
+      return;
+    }
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response && response.status === 200 && shouldCache(response) && isCacheableRequest(request)) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(()=>{});
+            }
+            return response;
+          })
+      )
+    );
+    return;
+  }
+
+  // First-screen hover clips (/img/round/faces/*.mp4). Same shape as the
+  // narration branch above, for the same reason: a <video> asks for byte
+  // ranges, a 206 passes response.ok, and the default branch below would
+  // store the partial and replay it as the whole file. Ranges pass
+  // straight through; only a full 200 is ever cached.
+  if (url.origin === self.location.origin &&
+      url.pathname.startsWith('/img/round/faces/') &&
+      url.pathname.endsWith('.mp4')) {
     if (request.headers.get('range')) {
       event.respondWith(fetch(request));
       return;

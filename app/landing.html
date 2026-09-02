@@ -8062,6 +8062,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Preserve the approved source pixels. The old saturation/contrast filter
      and generated grain softened already-small webcam crops. */
   .fs-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  /* Hover clip. A silent three-second loop generated from the same still
+     sits over the poster and fades in only while it is actually playing,
+     so a clip that never loads leaves the still exactly as it was. */
+  .fs-tile .fs-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+    z-index:1;opacity:0;pointer-events:none;transition:opacity .22s ease}
+  .fs-tile .fs-vid.is-on{opacity:1}
+  @media(prefers-reduced-motion:reduce){.fs-tile .fs-vid{display:none}}
   .fs-tile--speaking{box-shadow:inset 0 0 0 2px rgba(239,68,68,.85)}
   .fs-board .fs-tile-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
     padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
@@ -8819,11 +8826,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <div class="fs-stage" aria-hidden="true">
         <div class="fs-tile fs-tile--speaking">
           <img class="fs-fade" id="fsFaceA" src="/img/round/faces/face46.jpg" alt="" decoding="async">
+          <video class="fs-vid" id="fsVidA" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
           <span class="fs-tile-nm"><i></i><b id="fsNameA"></b> &middot; <span id="fsSideA">Pro</span></span>
           <span class="fs-clock" id="fsClock">01:42</span>
         </div>
         <div class="fs-tile">
           <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face52.jpg" alt="" decoding="async">
+          <video class="fs-vid" id="fsVidB" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
           <span class="fs-open-fig" id="fsOpenFig" aria-hidden="true"></span>
           <span class="fs-tile-nm"><b id="fsNameB"></b> &middot; <span id="fsSideB">Con</span></span>
         </div>
@@ -11469,6 +11478,49 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
   var BLANK_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
+  /* ── Hover clips (2026-09-02) ──────────────────────────────────────
+     /img/round/faces/<face>.mp4 is a silent 3s loop of the matching
+     still (440x244, H.264, ~30KB each). It plays only while the pointer
+     is over the board or the board holds focus, pauses and rewinds the
+     moment it leaves, and never plays under prefers-reduced-motion. The
+     src is set only for the two faces on screen and only for faces that
+     have a clip, so a face with no loop (the fictional set, the creator
+     portraits) keeps its still and costs no request. */
+  var HOVER_CLIPS = {};
+  ["face01", "face02", "face03", "face04", "face06", "face07", "face08", "face10", "face11", "face12", "face13", "face15", "face16", "face17", "face18", "face19", "face20", "face21", "face22", "face23", "face24", "face25", "face26", "face27", "face28", "face29", "face30", "face31", "face32", "face33", "face34", "face35", "face36", "face37", "face38", "face40", "face41", "face42", "face43", "face44", "face45", "face46", "face47", "face48", "face49", "face50", "face51", "face52", "face53", "face54", "face56", "face57", "face58", "face59", "face60", "face61", "face62"].forEach(function(id){ HOVER_CLIPS[id] = true; });
+  var vidA = document.getElementById('fsVidA'), vidB = document.getElementById('fsVidB');
+  var clipsHot = false;
+  function clipStop(v){
+    if (!v) return;
+    v.classList.remove('is-on');
+    try { v.pause(); if (v.currentTime) v.currentTime = 0; } catch(e){}
+  }
+  function clipPlay(v){
+    if (!v || reduced || !v.getAttribute('src')) return;
+    v.muted = true;
+    var p; try { p = v.play(); } catch(e){ return; }
+    if (p && p.then) p.then(function(){ if (clipsHot) v.classList.add('is-on'); else clipStop(v); }).catch(function(){});
+    else v.classList.add('is-on');
+  }
+  function clipSet(v, face){
+    if (!v) return;
+    var src = face && HOVER_CLIPS[face] ? '/img/round/faces/' + face + '.mp4' : '';
+    if (v.getAttribute('src') === src) { if (clipsHot && src) clipPlay(v); return; }
+    clipStop(v);
+    if (src){ v.setAttribute('src', src); if (clipsHot) clipPlay(v); }
+    else { v.removeAttribute('src'); try { v.load(); } catch(e){} }
+  }
+  function setClips(faceA, faceB){ clipSet(vidA, faceA); clipSet(vidB, faceB); }
+  function clipsOn(){ if (clipsHot || reduced) return; clipsHot = true; clipPlay(vidA); clipPlay(vidB); }
+  function clipsOff(){ clipsHot = false; clipStop(vidA); clipStop(vidB); }
+  if (board && !reduced){
+    board.addEventListener('pointerenter', clipsOn);
+    board.addEventListener('pointerleave', clipsOff);
+    board.addEventListener('focusin', clipsOn);
+    board.addEventListener('focusout', function(ev){ if (!board.contains(ev.relatedTarget)) clipsOff(); });
+    document.addEventListener('visibilitychange', function(){ if (document.hidden) clipsOff(); });
+  }
+
   /* The untaken seat. A dashed empty box next to a creator portrait read as
      a tile that had failed to load; a silhouette in the chair reads as the
      person who has not arrived. It stays a flat anonymous shape on purpose.
@@ -11786,6 +11838,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (isMatched){
         el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
         el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
+        setClips(r.a.face, r.b.face);
         el.fsFaceA.alt = ''; el.fsFaceB.alt = '';
         if (el.fsOpenFig) el.fsOpenFig.innerHTML = '';
         el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Matched';
@@ -11800,6 +11853,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         el.fsFaceA.src = '/img/creator-watchlist/' + r.a.img + '.jpg';
         el.fsFaceA.alt = r.a.nm;
         el.fsFaceB.src = BLANK_PX; el.fsFaceB.alt = '';
+        setClips(null, null);
         if (el.fsOpenFig) el.fsOpenFig.innerHTML = seatFigure(r.seat);
         el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Invited';
         el.fsNameB.textContent = r.b.nm; el.fsSideB.textContent = 'Yours';
@@ -11818,6 +11872,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     el.fsFaceA.alt = '';
     el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
     el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
+    setClips(r.a.face, r.b.face);
     el.fsNameA.textContent = r.a.nm;   el.fsSideA.textContent = r.a.side;
     el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = r.b.side;
     el.fsNameAmini.textContent = r.a.nm;
