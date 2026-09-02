@@ -105,7 +105,7 @@
   var SKIP_PATHS = [
     // A round is running on these. A wall over a live speech is
     // sabotage, and the AI lane already meters rounds server-side.
-    /^\/(live-round|voice-debate|newvoice|room-judge|casual-room|exhibition|practice|coach|live)(?:\.html)?(?:[/?#]|$)/,
+    /^\/(live-round|voice-debate|newvoice|room-judge|casual-room|exhibition|practice|coach|live|stage|studio)(?:\.html)?(?:[/?#]|$)/,
     // These own their own sign-in gate. Two gates read as broken.
     /^\/(spar|partners|debate-chat)(?:\.html)?(?:[/?#]|$)/,
     // Legal text. Someone reading the privacy policy is deciding

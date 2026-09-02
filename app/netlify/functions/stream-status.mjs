@@ -8,17 +8,39 @@
 
 import { getDb } from './lib/firestore.mjs';
 import { errorResponse } from './lib/response.mjs';
+import { emptyBoard, publicBoard } from './lib/stage.mjs';
 
 export default async (req) => {
   if (req.method !== 'GET') return errorResponse('GET only', 405, req);
   let out = { live: false };
   try {
-    const snap = await getDb().collection('site_stream').doc('current').get();
+    const db = getDb();
+    const snap = await db.collection('site_stream').doc('current').get();
     if (snap.exists){
       const d = snap.data() || {};
       if (d.live){
+        // The stage rides the poll every player already makes rather
+        // than opening a second one. One extra read on a 15s shared
+        // cache buys the lower-third (question, mode, whose clock) and
+        // the "ask to join" affordance on every surface that carries
+        // the player, without a per-viewer subscription anywhere.
+        let stage = { active: false, status: 'idle' };
+        if (d.roomName){
+          try {
+            const st = await db.collection('stream_stage').doc(String(d.roomName)).get();
+            const board = st.exists ? { ...emptyBoard(d.roomName), ...(st.data() || {}) } : null;
+            if (board) stage = publicBoard(board, Date.now());
+          } catch (e) { /* the stream is the headline; a stage read that
+                           fails must not take the player down */ }
+        }
         out = {
           live: true,
+          roomName: d.roomName || '',
+          stage,
+          // Hand raises can be closed without ending the stream, so the
+          // player can hide the button rather than offering a door that
+          // answers 409.
+          stageOpen: d.stageOpen !== false,
           url: d.url || '',
           title: d.title || 'Live from the arena',
           // Present when the room is simulcasting externally. Viewers

@@ -68,6 +68,25 @@
     document.head.appendChild(css);
   }
 
+  // The stage module is loaded lazily and only on a page that actually
+  // mounts a player, so /watch and the homepage do not pay for it before
+  // a broadcast exists. It is optional by construction: a blocked or
+  // failed load leaves the player exactly as it was.
+  var stagePromise = null;
+  function loadStage(){
+    if (global.DebatableStageJoin) return Promise.resolve(global.DebatableStageJoin);
+    if (stagePromise) return stagePromise;
+    stagePromise = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = '/js/stage-join.js';
+      s.async = true;
+      s.onload = function(){ global.DebatableStageJoin ? resolve(global.DebatableStageJoin) : reject(new Error('stage join did not initialize')); };
+      s.onerror = function(){ stagePromise = null; reject(new Error('stage join blocked')); };
+      document.head.appendChild(s);
+    });
+    return stagePromise;
+  }
+
   function loadDaily(){
     if (global.DailyIframe) return Promise.resolve(global.DailyIframe);
     if (sdkPromise) return sdkPromise;
@@ -154,6 +173,8 @@
     root.appendChild(actions);
 
     var muted = true;
+    var stage = null;
+    var stageStatus = null;
     var tiles = {};
     var call = null;
     var joined = '';
@@ -409,6 +430,20 @@
         platformLinks.appendChild(anchor);
       });
       platformLinks.hidden = !platformLinks.childNodes.length;
+
+      // The stage rides the SAME poll the player already makes, so the
+      // lower-third and the "join the debate" door cost no extra request
+      // on any surface that carries the broadcast.
+      stageStatus = status;
+      if (stage) stage.update(status);
+      else if (!isDemo && (status.stageOpen || (status.stage && status.stage.active))){
+        loadStage().then(function(mod){
+          if (destroyed || stage) return;
+          stage = mod.mount(root, {});
+          if (stage && stageStatus) stage.update(stageStatus);
+        }).catch(function(){ /* optional: the broadcast stands without it */ });
+      }
+
       if (!isLive){
         wantedUrl = '';
         embedUrl = '';
@@ -431,6 +466,8 @@
       destroy: function(){
         destroyed = true;
         disconnect();
+        if (stage && stage.destroy) { try { stage.destroy(); } catch(e){} }
+        stage = null;
         root.innerHTML = '';
       }
     };

@@ -60,7 +60,7 @@ const URLS = [
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
-  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-28' },
+  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-09-02' },
   { path: '/learn',           changefreq: 'weekly',  priority: '0.85', lastmod: '2026-08-28' },
   // /today is a moving alias whose response canonicalizes to the dated
   // /today/YYYY-MM-DD page. The dated canonical for today already leads

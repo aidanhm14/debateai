@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
+<title>On the stage · Debatable</title>
+<!-- Reached only by someone the host has admitted to the live broadcast.
+     Not indexed and not linked: the door is the player's Join button. -->
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Inter:wght@400..900&family=Oswald:wght@400..700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<script src="/vendor/daily-iframe-0.92.2.js"></script>
+<script src="/js/daily-loader.js"></script>
+<style>
+:root{
+  --bg:#08080b;--panel:#111116;--line:rgba(255,255,255,.12);--line-hi:rgba(255,255,255,.26);
+  --text:#f4f4f2;--dim:rgba(244,244,242,.66);--faint:rgba(244,244,242,.44);
+  --red:#ef4444;--red-deep:#b91c1c;--green:#22c55e;--amber:#f59e0b;
+  --resolution-font:'Oswald','Archivo Narrow',Archivo,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* An author `display` always outranks the UA sheet's [hidden] rule, and
+   this page hides a <main> that is display:grid and a button that is
+   display:block. Caught live: the room painted underneath the sign-in
+   card and an empty red button sat in the clock. Same trap as the
+   /predict target fields and the /air program chip. */
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+em,i{font-style:normal}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+a{color:inherit}
+
+.bar{display:flex;align-items:center;gap:11px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:7px;background:var(--red-deep);color:#fff;
+  font-size:11px;font-weight:900;letter-spacing:.1em;padding:5px 11px;border-radius:999px}
+.live i{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.bar .who{font-size:13px;font-weight:800;color:var(--dim)}
+.bar .who b{color:var(--text)}
+.bar .sp{margin-left:auto}
+.chip{font-size:12px;font-weight:700;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:5px 11px;white-space:nowrap}
+.chip b{color:var(--text)}
+.leave{border:1px solid var(--line-hi);border-radius:9px;padding:7px 13px;font-size:12px;font-weight:800;color:var(--dim)}
+.leave:hover{border-color:var(--red);color:var(--red)}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:0}
+@media(max-width:980px){main{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}}
+
+/* ── stage ─────────────────────────────────────────────────────── */
+#stage{position:relative;background:#000;min-height:0;display:flex;flex-direction:column}
+.tiles{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;background:#000}
+@media(max-width:980px){.tiles{aspect-ratio:16/10;flex:none}}
+.tile{position:relative;min-width:0;overflow:hidden;background:#0a0b0f;display:grid;place-items:center}
+.tile video{width:100%;height:100%;object-fit:cover;display:block;background:#0a0b0f}
+.tile.speaking{outline:2px solid var(--red);outline-offset:-2px}
+.tile .plate{position:absolute;left:9px;bottom:9px;z-index:2;display:flex;align-items:center;gap:6px;
+  padding:4px 9px;border-radius:8px;background:rgba(0,0,0,.68);font-size:12px;font-weight:800;
+  max-width:calc(100% - 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .plate .s{color:var(--faint);font-weight:700}
+.tile .empty{color:var(--faint);font-size:13px;font-weight:700;text-align:center;padding:14px}
+.tile .initial{width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.07);
+  display:grid;place-items:center;font-size:28px;font-weight:900;color:var(--dim)}
+
+.tray{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap;background:#0b0b0f}
+.tray button{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line-hi);
+  font-size:13px;font-weight:800;color:var(--text)}
+.tray button:hover{border-color:var(--red)}
+.tray button.off{background:rgba(239,68,68,.15);border-color:var(--red);color:#fecaca}
+.tray .hint{font-size:12px;color:var(--faint);flex:1;min-width:150px}
+
+/* ── console ───────────────────────────────────────────────────── */
+#console{border-left:1px solid var(--line);background:var(--panel);min-height:0;overflow:auto;padding:16px}
+@media(max-width:980px){#console{border-left:0;border-top:1px solid var(--line)}}
+
+.rez{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.02);margin-bottom:14px}
+.rez .k{font-size:10px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+.rez .m{font-family:var(--resolution-font);font-size:clamp(19px,2.4vw,26px);font-weight:700;line-height:1.18;letter-spacing:-.005em}
+.rez .side{margin-top:9px;font-size:13px;font-weight:800;color:var(--dim)}
+.rez .side b{color:var(--text)}
+
+.clockcard{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px;background:rgba(255,255,255,.02)}
+.clockcard.mine{border-color:var(--red);background:rgba(239,68,68,.09)}
+.clockcard .lab{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.clockcard .t{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.05;margin:4px 0}
+.clockcard .t.over{color:var(--red)}
+.clockcard .sub{font-size:13px;color:var(--dim);line-height:1.45}
+.act{display:block;width:100%;min-height:52px;margin-top:12px;border-radius:12px;background:var(--red-deep);
+  color:#fff;font-size:15px;font-weight:900}
+.act:hover{background:var(--red)}
+.act:disabled{opacity:.5;cursor:default}
+.act.quiet{background:transparent;border:1px solid var(--line-hi);color:var(--dim);min-height:44px;font-size:13px}
+
+.seq{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:5px}
+.seq li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--faint);
+  border:1px solid transparent;border-radius:8px;padding:6px 9px}
+.seq li.now{color:var(--text);border-color:var(--line-hi);background:rgba(255,255,255,.04);font-weight:800}
+.seq li.done{color:rgba(244,244,242,.3);text-decoration:line-through}
+.seq li .mins{margin-left:auto;font-variant-numeric:tabular-nums}
+
+.tx{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.02)}
+.tx h3{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.tx .body{font-size:13.5px;line-height:1.55;color:var(--dim);max-height:190px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.tx .body:empty::after{content:'Your microphone writes here as you speak. The judge reads this, so it is worth a glance.';color:var(--faint)}
+.tx .st{margin-top:8px;font-size:11.5px;color:var(--faint)}
+
+.ballot{margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:16px;background:rgba(255,255,255,.03)}
+.ballot .w{font-size:20px;font-weight:900;margin-bottom:8px}
+.ballot .w b{color:var(--red)}
+.ballot .pts{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.ballot .pts span{font-size:12px;color:var(--faint)}
+.ballot .pts span b{display:block;font-size:22px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.ballot .rfd{font-family:'Source Serif 4',Georgia,serif;font-size:14.5px;line-height:1.62;color:var(--dim);white-space:pre-wrap}
+.ballot .note{margin-top:10px;font-size:11.5px;color:var(--faint);line-height:1.5}
+
+.msg{border:1px solid var(--line);border-radius:12px;padding:13px 15px;font-size:13.5px;line-height:1.5;color:var(--dim);margin-bottom:14px}
+.msg.bad{border-color:rgba(239,68,68,.5);color:#fca5a5}
+.msg.warn{border-color:rgba(245,158,11,.5);color:#fcd34d}
+
+.boot{flex:1;display:grid;place-items:center;padding:34px 20px;text-align:center}
+.boot .in{max-width:460px}
+.boot h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin-bottom:9px}
+.boot p{font-size:14.5px;line-height:1.6;color:var(--dim);margin-bottom:16px}
+.boot .act{max-width:300px;margin:0 auto}
+</style>
+<script defer src="/js/track.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<div class="bar">
+  <span class="live"><i></i>ON AIR</span>
+  <span class="who" id="whoAmI"></span>
+  <span class="sp"></span>
+  <span class="chip" id="modeChip" hidden></span>
+  <span class="chip" id="netChip" hidden></span>
+  <button class="leave" id="leaveBtn" type="button">Leave the stage</button>
+</div>
+
+<div class="boot" id="boot">
+  <div class="in">
+    <h1 id="bootH">Getting you on the stage</h1>
+    <p id="bootP">Checking your seat with the host.</p>
+    <button class="act" id="bootAct" type="button" hidden></button>
+  </div>
+</div>
+
+<main id="room" hidden>
+  <section id="stage">
+    <div class="tiles" id="tiles"></div>
+    <div class="tray">
+      <button id="micBtn" type="button">Mute</button>
+      <button id="camBtn" type="button">Camera off</button>
+      <span class="hint" id="trayHint"></span>
+    </div>
+  </section>
+
+  <aside id="console">
+    <div class="msg" id="notice" hidden></div>
+
+    <div class="rez">
+      <div class="k">The question</div>
+      <div class="m" id="motion">Waiting for the host to set the question</div>
+      <div class="side" id="sideLine"></div>
+    </div>
+
+    <div class="clockcard" id="clockCard">
+      <div class="lab" id="clockLab">Not started</div>
+      <div class="t" id="clockT">0:00</div>
+      <div class="sub" id="clockSub">The host opens the round.</div>
+      <button class="act" id="turnBtn" type="button" hidden></button>
+    </div>
+
+    <ul class="seq" id="seq" hidden></ul>
+
+    <div class="tx">
+      <h3>What your microphone heard</h3>
+      <div class="body" id="txBody"></div>
+      <div class="st" id="txState"></div>
+    </div>
+
+    <div id="ballotSlot"></div>
+  </aside>
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── config ─────────────────────────────────────────────────────
+  var API = '/api/stage';
+  var POLL_MS = 4000;
+  var TURN_FLUSH_MS = 2600;   // how long a pause ends a turn
+  var MAX_TURN_CHARS = 4000;
+
+  var FB = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var boot = $('boot'), bootH = $('bootH'), bootP = $('bootP'), bootAct = $('bootAct');
+  var room = $('room'), tiles = $('tiles');
+  var motionEl = $('motion'), sideLine = $('sideLine');
+  var clockCard = $('clockCard'), clockLab = $('clockLab'), clockT = $('clockT'), clockSub = $('clockSub');
+  var turnBtn = $('turnBtn'), seqEl = $('seq'), notice = $('notice');
+  var txBody = $('txBody'), txState = $('txState'), ballotSlot = $('ballotSlot');
+  var micBtn = $('micBtn'), camBtn = $('camBtn'), trayHint = $('trayHint');
+  var whoAmI = $('whoAmI'), modeChip = $('modeChip'), netChip = $('netChip');
+
+  var state = {
+    side: null, role: 'guest', name: 'Guest',
+    board: null, skew: 0, call: null, joined: false,
+    micOn: true, camOn: true, judging: false, ballot: null
+  };
+
+  function say(text, kind){
+    notice.textContent = text || '';
+    notice.hidden = !text;
+    notice.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+  function stopBoot(head, body, action, fn){
+    boot.hidden = false; room.hidden = true;
+    bootH.textContent = head; bootP.textContent = body;
+    if (action){ bootAct.hidden = false; bootAct.textContent = action; bootAct.onclick = fn; }
+    else bootAct.hidden = true;
+  }
+  function fmt(ms){
+    var neg = ms < 0; var t = Math.round(Math.abs(ms)/1000);
+    return (neg ? '+' : '') + Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
+  }
+  function serverNow(){ return Date.now() + state.skew; }
+
+  // ── auth + api ─────────────────────────────────────────────────
+  function api(body){
+    var u = firebase.auth().currentUser;
+    if (!u) return Promise.reject(new Error('signin'));
+    return u.getIdToken().then(function(tok){
+      return fetch(API, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:'Bearer ' + tok},
+        body: JSON.stringify(body)
+      }).then(function(r){
+        return r.json().catch(function(){ return {}; }).then(function(j){ j.__ok = r.ok; j.__status = r.status; return j; });
+      });
+    });
+  }
+
+  // ── the room ───────────────────────────────────────────────────
+  //
+  // Our own UI over a call object rather than Daily Prebuilt, for the
+  // reason live-round records: prebuilt is built for a meeting, and a
+  // guest on a broadcast wants the round, not a participants tray.
+  var tileMap = {};
+  function tileFor(id, name, side){
+    var t = tileMap[id];
+    if (t) return t;
+    var wrap = document.createElement('div');
+    wrap.className = 'tile';
+    var v = document.createElement('video');
+    v.autoplay = true; v.playsInline = true; v.muted = true;
+    v.setAttribute('playsinline','');
+    var a = document.createElement('audio'); a.autoplay = true;
+    var initial = document.createElement('div');
+    initial.className = 'initial';
+    initial.textContent = (name || '?').trim().charAt(0).toUpperCase();
+    var plate = document.createElement('div');
+    plate.className = 'plate';
+    plate.appendChild(document.createTextNode(name || 'Speaker'));
+    var s = document.createElement('span'); s.className = 's';
+    s.textContent = side ? (side === 'pro' ? 'For' : 'Against') : '';
+    plate.appendChild(s);
+    wrap.appendChild(initial); wrap.appendChild(v); wrap.appendChild(plate);
+    tiles.appendChild(wrap); document.body.appendChild(a);
+    t = tileMap[id] = { wrap:wrap, video:v, audio:a, plate:plate, initial:initial, side:s };
+    return t;
+  }
+  function dropTile(id){
+    var t = tileMap[id]; if (!t) return;
+    t.video.srcObject = null; t.audio.srcObject = null;
+    if (t.wrap.parentNode) t.wrap.parentNode.removeChild(t.wrap);
+    if (t.audio.parentNode) t.audio.parentNode.removeChild(t.audio);
+    delete tileMap[id];
+  }
+  function attach(media, track){
+    if (!track){ if (media.srcObject) media.srcObject = null; return; }
+    var cur = media.srcObject;
+    if (cur){ var have = cur.getTracks(); if (have.length === 1 && have[0].id === track.id) return; }
+    media.srcObject = new MediaStream([track]);
+    var p = media.play(); if (p && p.catch) p.catch(function(){});
+  }
+  function playable(person, key){
+    var t = person && person.tracks && person.tracks[key];
+    return t && t.state === 'playable' ? t.persistentTrack : null;
+  }
+  function paintTiles(){
+    if (!state.call) return;
+    var people;
+    try { people = state.call.participants() || {}; } catch(e){ return; }
+    var seen = {};
+    Object.keys(people).forEach(function(k){
+      var p = people[k];
+      if (!p || !p.session_id) return;
+      // A hidden viewer publishes nothing and must never take a seat.
+      if (k !== 'local' && !playable(p,'video') && !playable(p,'audio')) return;
+      var id = p.session_id;
+      seen[id] = true;
+      var nm = p.user_name || (k === 'local' ? state.name : 'Speaker');
+      var sd = /^For · /.test(nm) ? 'pro' : (/^Against · /.test(nm) ? 'con' : null);
+      var t = tileFor(id, nm.replace(/^(For|Against) · /, ''), sd);
+      attach(t.video, playable(p,'video'));
+      if (k !== 'local') attach(t.audio, playable(p,'audio'));
+      t.wrap.classList.toggle('speaking', !!(state.board && state.board.clock &&
+        state.board.clock.side && sd === state.board.clock.side));
+      t.initial.style.display = playable(p,'video') ? 'none' : 'grid';
+    });
+    Object.keys(tileMap).forEach(function(id){ if (!seen[id]) dropTile(id); });
+    if (!tiles.childNodes.length){
+      var e = document.createElement('div');
+      e.className = 'tile';
+      e.innerHTML = '<div class="empty">Waiting for the other seat</div>';
+      tiles.appendChild(e);
+    }
+  }
+
+  function join(claim){
+    var Daily = window.DailyIframe;
+    if (!Daily){ stopBoot('Video did not load','The video library is unavailable. Reload, and if it keeps failing check whether an extension is blocking video calls.'); return; }
+    var call;
+    try { call = Daily.createCallObject({ subscribeToTracksAutomatically: true }); }
+    catch(e){ stopBoot('Could not open the call', e && e.message ? e.message : 'Try reloading.'); return; }
+    state.call = call;
+    call.on('joined-meeting', function(){
+      state.joined = true;
+      boot.hidden = true; room.hidden = false;
+      paintTiles();
+      startTranscript();
+      // 720p is plenty on a broadcast where two faces share the frame,
+      // and it keeps a guest on a laptop from pinning a core.
+      call.updateSendSettings({ video:{ maxQuality:'high', encodings:{
+        low:{maxBitrate:180000,scaleResolutionDownBy:4,maxFramerate:15},
+        medium:{maxBitrate:700000,scaleResolutionDownBy:2,maxFramerate:30},
+        high:{maxBitrate:1800000,scaleResolutionDownBy:1,maxFramerate:30}
+      }}}).catch(function(){});
+    });
+    ['participant-joined','participant-updated','participant-left','track-started','track-stopped']
+      .forEach(function(ev){ call.on(ev, paintTiles); });
+    call.on('network-quality-change', function(e){
+      var s = e && e.networkState;
+      netChip.hidden = !(s === 'bad' || s === 'warning');
+      netChip.innerHTML = s === 'bad' ? 'connection <b>poor</b>' : 'connection <b>unstable</b>';
+    });
+    call.on('error', function(e){ say((e && e.errorMsg) || 'The call hit an error.', 'bad'); });
+    call.on('left-meeting', function(){ state.joined = false; });
+
+    var opts = { url: claim.url, userName: (claim.side === 'pro' ? 'For · ' : 'Against · ') + claim.name };
+    if (claim.token) opts.token = claim.token;
+    call.join(opts).catch(function(e){
+      stopBoot('Could not join the broadcast', (e && e.message) || 'The stream may have ended. Go back and try again.', 'Back to the stream', function(){ location.href = '/watch'; });
+    });
+  }
+
+  micBtn.addEventListener('click', function(){
+    if (!state.call) return;
+    state.micOn = !state.micOn;
+    state.call.setLocalAudio(state.micOn);
+    micBtn.textContent = state.micOn ? 'Mute' : 'Unmute';
+    micBtn.classList.toggle('off', !state.micOn);
+  });
+  camBtn.addEventListener('click', function(){
+    if (!state.call) return;
+    state.camOn = !state.camOn;
+    state.call.setLocalVideo(state.camOn);
+    camBtn.textContent = state.camOn ? 'Camera off' : 'Camera on';
+    camBtn.classList.toggle('off', !state.camOn);
+  });
+  $('leaveBtn').addEventListener('click', function(){
+    if (!confirm('Leave the stage? Your seat opens for someone else.')) return;
+    api({ action:'leave' }).catch(function(){}).then(function(){
+      try { if (state.call) state.call.leave(); } catch(e){}
+      location.href = '/watch';
+    });
+  });
+
+  // ── transcript ─────────────────────────────────────────────────
+  //
+  // Each seat transcribes its OWN microphone, which is what makes an
+  // open-floor round transcribable at all: two people talking over each
+  // other cannot be separated from one mixed feed. The SIDE and NAME on
+  // every turn are stamped by the server from the seat map, never here.
+  var rec = null, recActive = false, turnBuf = '', turnStart = null, flushTimer = null;
+  var said = '';   // everything committed so far, for the on-screen box
+
+  function pushTurn(text, startedAt, endedAt){
+    text = String(text || '').trim();
+    if (!text) return;
+    api({ action:'turn', text: text.slice(0, MAX_TURN_CHARS), startedAt: startedAt, endedAt: endedAt })
+      .catch(function(){ /* a lost line is better than a stuck mic */ });
+  }
+  function flushTurn(){
+    if (flushTimer){ clearTimeout(flushTimer); flushTimer = null; }
+    if (!turnBuf.trim()) { turnBuf = ''; turnStart = null; return; }
+    pushTurn(turnBuf, turnStart || serverNow(), serverNow());
+    said = (said + ' ' + turnBuf).trim();
+    turnBuf = ''; turnStart = null;
+  }
+  function armFlush(){
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = setTimeout(flushTurn, TURN_FLUSH_MS);
+  }
+
+  function startTranscript(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR){
+      txState.textContent = 'This browser cannot transcribe on its own. The host can still judge the round from the recording.';
+      return;
+    }
+    try { rec = new SR(); } catch(e){ rec = null; }
+    if (!rec){ txState.textContent = 'Transcription is unavailable in this browser.'; return; }
+    rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+    rec.onresult = function(ev){
+      var interim = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++){
+        var r = ev.results[i];
+        if (r.isFinal){
+          if (!turnStart) turnStart = serverNow();
+          turnBuf += (turnBuf ? ' ' : '') + r[0].transcript.trim();
+          armFlush();
+        } else interim += r[0].transcript;
+      }
+      // Follow the newest words only while the reader is already at the
+      // bottom, so glancing back up does not yank the box down again.
+      var atEnd = txBody.scrollHeight - txBody.scrollTop - txBody.clientHeight < 40;
+      txBody.textContent = (said + ' ' + turnBuf + (interim ? ' ' + interim : '')).trim();
+      if (atEnd) txBody.scrollTop = txBody.scrollHeight;
+    };
+    rec.onend = function(){ if (recActive) { try { rec.start(); } catch(e){} } };
+    rec.onerror = function(e){
+      if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')){
+        recActive = false;
+        txState.textContent = 'Microphone transcription was refused by the browser.';
+      }
+    };
+    recActive = true;
+    try { rec.start(); txState.textContent = 'Listening.'; } catch(e){}
+  }
+
+  // ── the board ──────────────────────────────────────────────────
+  var SEQ = [
+    { side:'pro', label:'For opens', mins:3 },
+    { side:'con', label:'Against opens', mins:3 },
+    { side:'pro', label:'For replies', mins:2 },
+    { side:'con', label:'Against replies', mins:2 }
+  ];
+
+  function paintBoard(){
+    var b = state.board;
+    if (!b || !b.active && b.status !== 'ended'){
+      motionEl.textContent = 'Waiting for the host to set the question';
+      clockLab.textContent = 'Not started';
+      clockT.textContent = '0:00';
+      clockSub.textContent = 'You are on the stage. The host opens the round.';
+      turnBtn.hidden = true;
+      seqEl.hidden = true;
+      modeChip.hidden = true;
+      return;
+    }
+    motionEl.textContent = b.motion || '';
+    modeChip.hidden = false;
+    modeChip.innerHTML = b.mode === 'casual' ? 'mode: <b>open floor</b>' : 'mode: <b>taking turns</b>';
+    sideLine.innerHTML = state.side
+      ? 'You are arguing <b>' + (state.side === 'pro' ? 'for' : 'against') + '</b>.'
+      : '';
+
+    if (b.mode === 'structured'){
+      seqEl.hidden = false;
+      seqEl.innerHTML = '';
+      var idx = (b.clock && typeof b.clock.index === 'number') ? b.clock.index : 0;
+      SEQ.forEach(function(s, i){
+        var li = document.createElement('li');
+        li.className = i === idx ? 'now' : (i < idx ? 'done' : '');
+        li.appendChild(document.createTextNode(s.label + (s.side === state.side ? ' (you)' : '')));
+        var m = document.createElement('span'); m.className = 'mins'; m.textContent = s.mins + ' min';
+        li.appendChild(m);
+        seqEl.appendChild(li);
+      });
+    } else seqEl.hidden = true;
+
+    var mine = b.mode === 'casual' || (b.clock && b.clock.side === state.side);
+    clockCard.classList.toggle('mine', !!mine && b.status === 'debating');
+
+    if (b.status === 'ended'){
+      clockLab.textContent = 'Round over';
+      clockT.textContent = '0:00';
+      clockSub.textContent = state.ballot ? 'The ballot is below.' : 'Ask for the ballot when you are both done talking.';
+      turnBtn.hidden = !!state.ballot;
+      turnBtn.textContent = state.judging ? 'Writing the ballot' : 'Get the ballot';
+      turnBtn.disabled = state.judging;
+      turnBtn.className = 'act';
+      turnBtn.onclick = askBallot;
+      trayHint.textContent = 'The round is over.';
+      return;
+    }
+
+    if (b.mode === 'casual'){
+      clockLab.textContent = 'Open floor';
+      clockSub.textContent = 'Both microphones are live. Cutting in is allowed, and it never wins or loses a point on its own.';
+      turnBtn.hidden = true;
+      trayHint.textContent = 'Open floor: you can jump in.';
+    } else {
+      var step = SEQ[(b.clock && b.clock.index) || 0] || SEQ[0];
+      clockLab.textContent = mine ? 'Your turn: ' + step.label : step.label;
+      clockSub.textContent = mine
+        ? 'You have the floor. End early if you are done.'
+        : 'Listen for what you have to answer. Your microphone is still on, so keep it quiet.';
+      turnBtn.hidden = !mine;
+      turnBtn.textContent = 'End my turn';
+      turnBtn.disabled = false;
+      turnBtn.className = 'act quiet';
+      turnBtn.onclick = endTurn;
+      trayHint.textContent = mine ? 'You are on the clock.' : 'Not your turn.';
+    }
+  }
+
+  function tickClock(){
+    var b = state.board;
+    if (!b || !b.clock || !b.clock.running || b.status !== 'debating') return;
+    var left = b.clock.endsAt - serverNow();
+    clockT.textContent = fmt(left);
+    clockT.classList.toggle('over', left < 0);
+  }
+  setInterval(tickClock, 500);
+
+  function endTurn(){
+    turnBtn.disabled = true;
+    flushTurn();
+    api({ action:'next' }).then(function(r){
+      turnBtn.disabled = false;
+      if (!r.__ok){ say(r.error || 'Could not end the turn.', 'bad'); return; }
+      say('');
+      poll();
+    }).catch(function(){ turnBtn.disabled = false; });
+  }
+
+  function askBallot(){
+    state.judging = true; paintBoard();
+    flushTurn();
+    var u = firebase.auth().currentUser;
+    u.getIdToken().then(function(tok){
+      return fetch('/api/stage-judge', {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:'Bearer ' + tok},
+        body: '{}'
+      }).then(function(r){ return r.json().catch(function(){ return {}; }); });
+    }).then(function(j){
+      state.judging = false;
+      if (j && j.ok && j.ballot){ state.ballot = j.ballot; renderBallot(j.ballot); paintBoard(); return; }
+      if (j && j.code === 'judge_in_progress'){ setTimeout(askBallot, Math.max(2000, j.retryAfterMs || 4000)); state.judging = true; paintBoard(); return; }
+      if (j && j.code === 'unresolved'){ say('The judges split and it stays unresolved. Nothing is recorded as a win.', 'warn'); paintBoard(); return; }
+      say((j && j.error) || 'The ballot could not be written. The transcript is saved.', 'bad');
+      paintBoard();
+    }).catch(function(){
+      state.judging = false;
+      say('The ballot could not be written. The transcript is saved.', 'bad');
+      paintBoard();
+    });
+  }
+
+  function renderBallot(b){
+    var box = document.createElement('div');
+    box.className = 'ballot';
+    var w = document.createElement('div'); w.className = 'w';
+    var winnerName = b.winner === 'pro' ? (b.proName || 'For') : (b.conName || 'Against');
+    w.appendChild(document.createTextNode('Decision: '));
+    var strong = document.createElement('b'); strong.textContent = winnerName;
+    w.appendChild(strong);
+    w.appendChild(document.createTextNode(' wins.'));
+    box.appendChild(w);
+    var pts = document.createElement('div'); pts.className = 'pts';
+    [['For', b.proName, b.proPoints], ['Against', b.conName, b.conPoints]].forEach(function(row){
+      var s = document.createElement('span');
+      var n = document.createElement('b'); n.textContent = String(row[2]);
+      s.appendChild(n);
+      s.appendChild(document.createTextNode((row[1] || row[0]) + ' · out of 100'));
+      pts.appendChild(s);
+    });
+    box.appendChild(pts);
+    var rfd = document.createElement('div'); rfd.className = 'rfd';
+    rfd.textContent = String(b.rfd || '').replace(/\*\*/g, '');
+    box.appendChild(rfd);
+    var note = document.createElement('div'); note.className = 'note';
+    note.textContent = 'This was a stage round on the live broadcast. It is judged by the same panel and recorded in the public audit, and it does not move your rating.';
+    box.appendChild(note);
+    ballotSlot.textContent = '';
+    ballotSlot.appendChild(box);
+  }
+
+  // ── poll ───────────────────────────────────────────────────────
+  function poll(){
+    return api({ action:'poll' }).then(function(r){
+      if (!r.__ok) return;
+      if (typeof r.serverNow === 'number') state.skew = r.serverNow - Date.now();
+      state.side = r.side || state.side;
+      state.board = r.board || null;
+      if (state.board && state.board.status !== 'debating') flushTurn();
+      paintBoard();
+      paintTiles();
+      if (r.state !== 'seated' && state.joined){
+        say('The host took you off the stage.', 'warn');
+        try { state.call.leave(); } catch(e){}
+        setTimeout(function(){ location.href = '/watch'; }, 2200);
+      }
+    }).catch(function(){});
+  }
+  setInterval(function(){ if (!document.hidden) poll(); }, POLL_MS);
+
+  // ── boot ───────────────────────────────────────────────────────
+  try { firebase.initializeApp(FB); } catch(e){}
+  firebase.auth().onAuthStateChanged(function(u){
+    if (!u || u.isAnonymous){
+      stopBoot('Sign in first', 'A seat on the live stage needs an account the other guest can be paired with.',
+        'Go to the stream', function(){ location.href = '/watch'; });
+      return;
+    }
+    whoAmI.innerHTML = 'You are <b>' + (u.displayName ? u.displayName.split(/\s+/)[0] : 'on') + '</b> on the stage';
+    api({ action:'claim' }).then(function(r){
+      if (r.__ok && r.token){
+        state.side = r.side; state.role = r.role || 'guest'; state.name = r.name || 'Guest';
+        if (typeof r.serverNow === 'number') state.skew = r.serverNow - Date.now();
+        state.board = r.board || null;
+        whoAmI.innerHTML = 'You are <b>' + state.name + '</b>, arguing ' + (r.side === 'pro' ? 'for' : 'against');
+        paintBoard();
+        join(r);
+        poll();
+        return;
+      }
+      if (r.code === 'not_seated'){
+        stopBoot('You are not on the stage yet', 'The host has not taken your hand yet. Keep watching and the button will change when they do.',
+          'Back to the stream', function(){ location.href = '/watch'; });
+        return;
+      }
+      if (r.code === 'no_stream'){
+        stopBoot('Nothing is streaming', 'The broadcast has ended.', 'Watch replays', function(){ location.href = '/watch'; });
+        return;
+      }
+      stopBoot('Could not open your seat', r.error || 'Try again in a moment.', 'Retry', function(){ location.reload(); });
+    }).catch(function(){
+      stopBoot('Could not reach the stage', 'Check your connection and try again.', 'Retry', function(){ location.reload(); });
+    });
+  });
+
+  window.addEventListener('pagehide', function(){
+    recActive = false;
+    flushTurn();
+    try { if (state.call) state.call.leave(); } catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

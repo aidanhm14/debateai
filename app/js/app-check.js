@@ -38,6 +38,9 @@
     // gated route missing from this list fails SILENTLY as a working
     // fallback, which is why it took driving the live form to catch.
     '/api/signin-link',
+    // The stage: a viewer asking to argue on the live broadcast, and the
+    // ballot for the round that follows. Both call checkAppCheck().
+    '/api/stage', '/api/stage-judge',
     '/api/openai-chat', '/api/openlab', '/api/realtime-session',
     '/api/room-judge-session', '/api/submit-audience-question',
     '/api/suggest-topic', '/api/topic-vote', '/api/transcribe',

@@ -105,6 +105,22 @@
     },
     {
       "@type": "Question",
+      "name": "Can I argue on the live stream?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, if a host takes your hand. While a debate is broadcasting on the watch hub, the player carries a Join button: you say whether you want to take turns or argue on an open floor, and the host picks from the raised hands. A stage round is 18+ and recorded, it gets a full ballot from the same judge panel, and it does not move your rating, because the host chose who came on."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between taking turns and an open floor?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Taking turns is the ordinary round: one person talks at a time, on a clock. An open floor leaves both microphones live for one stretch and cutting in is allowed. The judge scores an open floor by a method written for a conversation: interrupting never wins or loses a point, talking more is not arguing better, and a point that got cut off and was never finished counts for neither side. Dodging a direct question counts against you the same way an unanswered claim does."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "What if nobody else is online?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -674,6 +690,107 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
   .lex-item dt{font-size:.98rem}
   .lex-item dd{font-size:.95rem}
 }
+/* ── LIVELINESS PASS ───────────────────────────────────────────────
+   Motion here is CSS TRANSITIONS driven by an IntersectionObserver
+   class, never keyframes carrying opacity. anim-governor.js ships
+   animations PAUSED off-screen, so a keyframe with `fill-mode: both`
+   holding opacity:0 freezes its element at zero forever, which is how
+   five motion cards once sat in the DOM with nothing on screen. A
+   transition has no paused state to be trapped in, and everything here
+   is visible with JS off because `.rv` only ADDS the finished state.
+
+   Every rule below is inside a reduced-motion guard at the bottom. */
+
+/* Reading-progress hairline. The page is long; this is the cheapest
+   honest signal of how much is left. */
+.readbar{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--accent),#f87171);
+  box-shadow:0 0 10px var(--accent-glow);transition:width .1s linear}
+
+/* Scroll reveal. Base state is fully visible; `js-rv` on <html> is set
+   by the script BEFORE first paint only when motion is allowed, so a
+   visitor with JS off or reduced motion never meets a hidden element. */
+html.js-rv .rv{opacity:0;transform:translateY(14px);
+  transition:opacity .5s cubic-bezier(.2,.7,.3,1),transform .5s cubic-bezier(.2,.7,.3,1)}
+html.js-rv .rv.in{opacity:1;transform:none}
+html.js-rv .rv-d1{transition-delay:.06s}
+html.js-rv .rv-d2{transition-delay:.12s}
+html.js-rv .rv-d3{transition-delay:.18s}
+
+/* The five steps get a spine that fills as you pass them, so the list
+   reads as a sequence rather than five bullets. */
+.simple-steps{position:relative}
+.simple-steps::before{content:'';position:absolute;left:13px;top:14px;bottom:14px;width:2px;
+  background:rgba(var(--ink-rgb),.14);border-radius:2px}
+.simple-steps::after{content:'';position:absolute;left:13px;top:14px;width:2px;height:0;
+  background:linear-gradient(180deg,var(--accent),rgba(239,68,68,.35));border-radius:2px;
+  transition:height .45s cubic-bezier(.2,.7,.3,1)}
+.simple-steps.lit::after{height:calc(100% - 28px)}
+.simple-steps li{position:relative}
+.simple-steps li::marker{color:transparent}
+
+/* Depth. One recipe: a hairline rim, a close contact shadow, and one
+   soft far shadow. Cards lift on hover so the page answers the pointer. */
+.ballot-card,.video-card,.faq details,.proof,.lex-item,.shot{
+  transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s,border-color .22s}
+.ballot-card{box-shadow:0 1px 0 rgba(255,255,255,.04) inset,
+  0 2px 4px rgba(20,20,30,.06),0 26px 56px -30px rgba(20,20,30,.34)}
+.proof:hover,.lex-item:hover{transform:translateY(-2px);border-color:var(--border-strong);
+  box-shadow:0 10px 26px -14px rgba(20,20,30,.3)}
+.faq details:hover{border-color:var(--border-strong)}
+.ballot-card:hover,.video-card:hover{transform:translateY(-3px);
+  box-shadow:0 3px 8px rgba(20,20,30,.08),0 34px 70px -34px rgba(20,20,30,.42)}
+.shot:hover{transform:translateY(-3px);box-shadow:0 34px 70px -34px rgba(20,20,30,.42)}
+
+/* The ballot writes itself once, when it first comes into view: the
+   endpoint of every round is a written decision, so showing it being
+   written is the one place on this page where motion is the argument. */
+.bc-rfd .rfd-text{display:inline}
+html.js-rv .bc-rfd .caret{display:inline-block;width:2px;height:1em;margin-left:1px;
+  vertical-align:-.14em;background:var(--accent);animation:bcCaret 1s steps(2) infinite}
+html.js-rv .bc-rfd.done .caret{display:none}
+@keyframes bcCaret{0%,100%{opacity:1}50%{opacity:0}}
+.bc-pt b{transition:color .2s}
+
+/* The three doors. A card that names the seat you would take reads
+   better than a paragraph that lists them. */
+.ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0 30px}
+@media (max-width:900px){.ways{grid-template-columns:1fr}}
+.way{position:relative;overflow:hidden;padding:18px 18px 16px;border-radius:16px;
+  border:1px solid var(--border);background:var(--surf-1);
+  box-shadow:0 2px 4px rgba(20,20,30,.05),0 22px 48px -32px rgba(20,20,30,.3);
+  transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s,border-color .22s}
+.way:hover{transform:translateY(-3px);border-color:var(--border-strong);
+  box-shadow:0 4px 10px rgba(20,20,30,.07),0 32px 64px -34px rgba(20,20,30,.4)}
+.way::before{content:'';position:absolute;inset:0 0 auto;height:3px;
+  background:linear-gradient(90deg,var(--accent),transparent)}
+.way .wk{display:inline-flex;align-items:center;gap:7px;font-size:.66rem;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:9px}
+.way h3{font-size:1.16rem;margin-bottom:7px}
+.way p{font-size:1rem;line-height:1.55;margin-bottom:12px;max-width:none;color:var(--text-dim)}
+.way .wgo{display:inline-flex;align-items:center;gap:7px;font-size:.95rem;font-weight:800;
+  color:var(--accent);text-decoration:none}
+.way .wgo:hover{text-decoration:underline;text-underline-offset:3px}
+.way .wnote{margin:0;font-size:.85rem;line-height:1.45;color:var(--text-ghost)}
+
+/* Motion is a courtesy, not a requirement. */
+/* Printing and forced colors must never inherit a mid-reveal state. */
+@media print{
+  html.js-rv .rv{opacity:1!important;transform:none!important}
+  .readbar{display:none}
+}
+@media (forced-colors: active){
+  html.js-rv .rv{opacity:1;transform:none}
+}
+@media (prefers-reduced-motion: reduce){
+  html.js-rv .rv{opacity:1;transform:none;transition:none}
+  .simple-steps::after{transition:none}
+  .readbar{display:none}
+  .ballot-card,.video-card,.faq details,.proof,.lex-item,.shot,.way{transition:none}
+  .proof:hover,.lex-item:hover,.ballot-card:hover,.video-card:hover,.shot:hover,.way:hover{transform:none}
+  html.js-rv .bc-rfd .caret{display:none}
+}
+
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <script defer src="/js/track.js"></script>
@@ -822,7 +939,7 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
     <a href="#simple-h">What happens</a>
     <a href="#lexicon-h">The words</a>
     <a href="#start">Where to start</a>
-    <a href="#ways-in">Two ways in</a>
+    <a href="#ways-in">Three ways in</a>
     <a href="#the-round">The round</a>
     <a href="#the-judge">The judge</a>
     <a href="#after">Afterwards</a>
@@ -830,7 +947,36 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
     <a href="#faq">FAQ</a>
   </nav>
 
-  <h2 id="ways-in">Two ways into a round</h2>
+  <h2 id="ways-in">Three ways into a round</h2>
+
+  <!-- The three doors as cards rather than a paragraph that lists them:
+       a visitor deciding where to start is picking a seat, and a card
+       per seat is easier to pick from than three sentences. The prose
+       below still carries the detail and the internal links. -->
+  <div class="ways rv">
+    <div class="way">
+      <span class="wk">Against a person</span>
+      <h3>The live queue</h3>
+      <p>Press Find and wait a moment. Neither of you enters until you both confirm you are there, so nobody argues at an empty chair.</p>
+      <a class="wgo" href="/spar">Join the queue <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">Needs a free account, because the other seat is a real person.</p>
+    </div>
+    <div class="way">
+      <span class="wk">Against an AI</span>
+      <h3>The voice round</h3>
+      <p>Speak out loud and an AI opponent answers, follows the clash, and pushes back. Always labeled as AI, available at any hour.</p>
+      <a class="wgo" href="/voice-debate">Start a voice round <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">One round runs before you sign in.</p>
+    </div>
+    <div class="way">
+      <span class="wk">On the broadcast</span>
+      <h3>Ask for the stage</h3>
+      <p>While a debate is streaming, raise your hand from the player. If the host takes you, you argue live in front of whoever is watching.</p>
+      <a class="wgo" href="/watch">Watch and raise your hand <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">18+, and the round is recorded.</p>
+    </div>
+  </div>
+
   <p><a href="/spar">The live queue</a> matches you with a real person on video. Press Find, wait a moment, and you are in a room together. Neither of you enters until you both confirm you are actually there, so nobody ends up talking to an empty chair. Scheduled rounds and open invites use the same casual 1v1 structure.</p>
   <p>If nobody else is waiting, you can keep your place in the live queue or choose the clearly labeled AI opponent after a short wait. <a href="/spar">Clash Hour</a> runs every day at 12:00 AM, 3:00 PM and 7:00 PM Eastern to concentrate more people in the queue at once.</p>
   <p>Before you queue, six quick choices set who lands across the table. Pick viewpoint clash and the matcher looks for the other side of your take, so you <a href="/debate-someone-who-disagrees">debate someone who disagrees with you</a>. Skip them all and you take the next person waiting.</p>
@@ -844,10 +990,14 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
     <img src="/img/voice/voice-round.jpg" alt="The Debatable voice round screen: two lecterns either side of a listening indicator, with a start-a-round button" loading="lazy" decoding="async" width="1280" height="800">
     <figcaption><b>The voice round.</b> Name a question, pick a side, hit start. The AI opens on the mic.</figcaption>
   </figure>
+  <p><b>The third door only exists while somebody is broadcasting.</b> When a debate is streaming on <a href="/watch">the watch hub</a>, the player carries a Join button. You say how you would rather argue, the host sees the hands that are up and picks, and if they take you, you get a seat on the live stream against the other guest. Two ways to argue there: <b>taking turns</b>, which is the same clock as any other round, or an <b>open floor</b>, where both microphones stay live for one stretch and cutting in is allowed. The judge reads an open floor as a conversation rather than as a set of speeches, and it says so on the ballot.</p>
+  <p class="muted">A stage round is 18+ and it is recorded, because it goes out on a public broadcast that can be replayed and restreamed. It gets a real ballot from the same judge panel, and it does not move your rating: the host chose who came on, and a seat somebody was given should not hand out ranking.</p>
+
   <ul class="point-list">
     <li>Live humans: video rounds from the queue, with both sides confirmed present before the room opens.</li>
     <li>AI opponent: voice or typed, available at any hour, direct, and clearly labeled.</li>
-    <li>Either path ends in the same judge ballot.</li>
+    <li>The broadcast stage: a seat on somebody else's stream, if the host takes your hand.</li>
+    <li>Every path ends in the same judge ballot.</li>
   </ul>
 
   <h2 id="the-round">The round itself</h2>
@@ -888,6 +1038,8 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
     <details open><summary>I have never debated. Is this for me?</summary><p>Yes. Every round is a casual 1v1 with no format jargon, prepared case, or tournament rulebook. You make a point, say why it holds, and answer what the other person said. The judge writes its reasoning in plain English, so a round you lose still tells you what to fix.</p></details>
     <details><summary>How does Debatable work?</summary><p>Pick an opponent, a real person from the live queue or an AI that argues out loud, take a side on a question, and argue a timed round. When it ends, an AI judge writes a full ballot: who won, why, a score out of 100 for each side, and what to fix.</p></details>
     <details><summary>Do I debate a person or an AI?</summary><p>Your choice. The live queue pairs you with a real person on video, and neither side enters the room until both confirm they are there. The voice round puts you against an AI opponent that speaks and responds to your argument. AI opponents are always labeled as AI.</p></details>
+    <details><summary>Can I argue on the live stream?</summary><p>Yes, if a host takes your hand. While a debate is broadcasting on <a href="/watch">the watch hub</a>, the player carries a Join button: you say whether you want to take turns or argue on an open floor, and the host picks from the raised hands. A stage round is 18+ and recorded, it gets a full ballot from the same judge panel, and it does not move your rating, because the host chose who came on.</p></details>
+    <details><summary>What is the difference between taking turns and an open floor?</summary><p>Taking turns is the ordinary round: one person talks at a time, on a clock. An open floor leaves both microphones live for one stretch and cutting in is allowed. The judge scores an open floor by a method written for a conversation: interrupting never wins or loses a point, talking more is not arguing better, and a point that got cut off and was never finished counts for neither side. Dodging a direct question counts against you the same way an unanswered claim does.</p></details>
     <details><summary>What if nobody else is online?</summary><p>You can keep waiting in the live queue or choose the clearly labeled AI opponent after a short wait. <a href="/voice-debate">The voice round</a> is available on demand at any hour. Clash Hour runs every day in three sessions: 12:00 AM, 3:00 PM and 7:00 PM Eastern.</p></details>
     <details><summary>How does the AI judge decide who won?</summary><p>It tracks each claim, what answered it, and what went unanswered. The ballot states a decision with reasoning, gives each person a score out of 100, and lists what both sides should fix. It judges the argument in front of it, not the side it prefers.</p></details>
     <details><summary>Can I check the judge, or appeal a decision?</summary><p>Yes. The rubric is published and versioned before the round, ranked rounds go to a panel of three different model families rather than one call, an even split records as unresolved instead of being tie-broken, and either debater can appeal within 72 hours to a person who was not in the round. Every ballot records which models judged it. Details are on <a href="/judge-integrity">the judge integrity page</a>.</p></details>
@@ -988,6 +1140,198 @@ html[data-debate-experience="unsure"] #startCtas .btn-secondary{order:-1}
   <script src="/js/home-magnet.js" defer></script>
 <!-- Shared neural-constellation background. Animates on this light
      surface because <html> carries data-lightweb="web". -->
+
+<script>
+/* ── LIVELINESS ───────────────────────────────────────────────────
+ * Scroll reveals, the step spine, a reading hairline, and a ballot
+ * that writes itself once.
+ *
+ * TWO RULES THIS FILE IS BUILT AROUND.
+ *
+ * 1. No visibility rides a keyframe. anim-governor.js ships animations
+ *    PAUSED for off-screen sections, so a keyframe with `fill-mode:
+ *    both` holding opacity:0 freezes its element at zero permanently.
+ *    Everything here is a CSS TRANSITION toggled by a class, and a
+ *    transition has no paused state to be trapped in.
+ * 2. Hidden by default is opt-in, never the authored state. `js-rv`
+ *    goes on <html> from THIS script, so JS off, a script error, or
+ *    reduced motion all leave the page fully visible.
+ */
+(function(){
+  'use strict';
+  var reduce = false;
+  try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+  var canObserve = 'IntersectionObserver' in window;
+  if (reduce || !canObserve) return;
+
+  var root = document.documentElement;
+  root.classList.add('js-rv');
+
+  // ── reveals ─────────────────────────────────────────────────────
+  // Sections, cards and figures, tagged here rather than in the markup
+  // so the authored HTML stays about content.
+  var targets = [];
+  ['.ballot-card','.video-card','.shot','.proof','.lex-item','.faq details',
+   '.simple','.lexicon','.jumpnav','.cross-links','.ways'].forEach(function(sel){
+    Array.prototype.forEach.call(document.querySelectorAll(sel), function(n){
+      if (targets.indexOf(n) === -1) targets.push(n);
+    });
+  });
+  // Stagger inside a row so a grid arrives as a sequence, not a slab.
+  ['.proof-row','.lex-list','.ways'].forEach(function(sel){
+    Array.prototype.forEach.call(document.querySelectorAll(sel), function(row){
+      Array.prototype.forEach.call(row.children, function(kid, i){
+        if (i > 0 && i < 4) kid.classList.add('rv-d' + i);
+      });
+    });
+  });
+  targets.forEach(function(n){ n.classList.add('rv'); });
+
+  var pending = targets.slice();
+  var shown = 0;
+  function reveal(n){
+    if (n.classList.contains('in')) return;
+    n.classList.add('in');
+    shown++;
+    io.unobserve(n);
+    var i = pending.indexOf(n);
+    if (i > -1) pending.splice(i, 1);
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){ if (e.isIntersecting) reveal(e.target); });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  targets.forEach(function(n){ io.observe(n); });
+
+  // BELT AND BRACES, and this is the part that matters more than the
+  // effect. Hiding content until an observer says otherwise means any
+  // reason the observer does not fire leaves the page blank, which is
+  // the same shape as five motion cards frozen at opacity 0. So the
+  // scroll pass below also reveals by geometry (it is already running
+  // for the reading hairline, so it costs one rect per target), and a
+  // failsafe gives up on the whole effect rather than on the content.
+  function sweep(){
+    for (var i = pending.length - 1; i >= 0; i--){
+      // Anything at or above the fold line is revealed, including what
+      // the reader has already scrolled PAST. Requiring it to still be
+      // on screen left a section hidden whenever someone scrolled by
+      // faster than this sweep ticks, which is easy on a phone.
+      if (pending[i].getBoundingClientRect().top < innerHeight * 0.94) reveal(pending[i]);
+    }
+  }
+  sweep();
+  // A timer rather than rAF, deliberately. requestAnimationFrame does
+  // not fire at all in a document that is not being painted, so a page
+  // opened in a background tab would hold every reveal until it was
+  // looked at, and anything that suppressed the frame loop would hold
+  // them forever. setInterval keeps running (throttled) either way.
+  // It clears itself the moment the last target has appeared, so a
+  // fully revealed page pays nothing.
+  var sweeper = setInterval(function(){
+    sweep();
+    if (!pending.length) clearInterval(sweeper);
+  }, 400);
+  setTimeout(function(){
+    // Nothing has appeared a second in: whatever is wrong, a visible
+    // page beats a clever one. Give up the effect, never the content.
+    if (shown === 0) { root.classList.remove('js-rv'); pending.length = 0; clearInterval(sweeper); }
+  }, 1200);
+
+  // ── the step spine ──────────────────────────────────────────────
+  var steps = document.querySelector('.simple-steps');
+  if (steps){
+    new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if (e.isIntersecting) steps.classList.add('lit'); });
+    }, { threshold: 0.25 }).observe(steps);
+  }
+
+  // ── the reading hairline ────────────────────────────────────────
+  var bar = document.createElement('div');
+  bar.className = 'readbar';
+  bar.setAttribute('aria-hidden','true');
+  document.body.appendChild(bar);
+  var ticking = false;
+  function draw(){
+    ticking = false;
+    var h = document.documentElement.scrollHeight - innerHeight;
+    bar.style.width = (h > 0 ? Math.min(100, (scrollY / h) * 100) : 0) + '%';
+    if (pending.length) sweep();
+  }
+  addEventListener('scroll', function(){
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(draw);
+  }, { passive: true });
+  draw();
+
+  // ── the ballot writes itself ────────────────────────────────────
+  // The endpoint of every round is a written decision, so this is the
+  // one place where the motion IS the point rather than decoration.
+  // It runs once, and the full text is in the DOM from the start so a
+  // screen reader and a crawler both get the finished sentence.
+  var rfd = document.querySelector('.bc-rfd');
+  if (rfd){
+    var label = rfd.querySelector('b');
+    var full = rfd.textContent.replace(label ? label.textContent : '', '').trim();
+    var typed = false;
+    new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (!e.isIntersecting || typed) return;
+        typed = true;
+        rfd.textContent = '';
+        if (label) rfd.appendChild(label);
+        var span = document.createElement('span');
+        span.className = 'rfd-text';
+        var caret = document.createElement('span');
+        caret.className = 'caret';
+        rfd.appendChild(span); rfd.appendChild(caret);
+        var i = 0;
+        function finish(){
+          span.textContent = full;
+          rfd.classList.add('done');
+          clearInterval(t);
+          document.removeEventListener('visibilitychange', onHide);
+        }
+        function onHide(){ if (document.hidden) finish(); }
+        // setInterval, not requestAnimationFrame, and this one matters:
+        // the effect CLEARS the paragraph before writing it back, and
+        // rAF does not fire in a document that is not being painted. On
+        // rAF this reads as a ballot with no reasoning in it, which is
+        // the worst thing this page could show. A timer always finishes,
+        // and backgrounding the tab finishes it immediately.
+        var t = setInterval(function(){
+          i = Math.min(full.length, i + 3);
+          span.textContent = full.slice(0, i);
+          if (i >= full.length) finish();
+        }, 16);
+        document.addEventListener('visibilitychange', onHide);
+        setTimeout(finish, 8000);   // last resort: never leave it short
+      });
+    }, { threshold: 0.5 }).observe(rfd);
+  }
+
+  // ── the scores count up ─────────────────────────────────────────
+  Array.prototype.forEach.call(document.querySelectorAll('.bc-pt b'), function(n){
+    var target = parseInt(n.textContent, 10);
+    if (!isFinite(target)) return;
+    var done = false;
+    new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (!e.isIntersecting || done) return;
+        done = true;
+        // Same rAF hazard as the ballot above: a count-up that stops
+        // mid-flight would print a number that is not the score.
+        var t0 = Date.now(), dur = 700;
+        var t = setInterval(function(){
+          var p = Math.min(1, (Date.now() - t0) / dur);
+          n.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+          if (p >= 1){ n.textContent = String(target); clearInterval(t); }
+        }, 24);
+        setTimeout(function(){ n.textContent = String(target); clearInterval(t); }, 3000);
+      });
+    }, { threshold: 0.6 }).observe(n);
+  });
+})();
+</script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
 </body>

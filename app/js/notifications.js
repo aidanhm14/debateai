@@ -256,7 +256,7 @@
   // and an alert by definition fires when nobody is interacting.
   // In-round / matchmaking pages have their own louder surfaces; a
   // background "someone is live" ping on top of a live round is noise.
-  var DA_ON_ROUND_PAGE = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge|spar)/.test(location.pathname);
+  var DA_ON_ROUND_PAGE = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge|spar|stage)/.test(location.pathname);
   function daMatchCardUp(){ try { return !!document.querySelector('.da-match-overlay'); } catch (_) { return false; } }
   // ── busy in ANOTHER tab ─────────────────────────────────────────
   // A path test answers for this tab only, so a debater who opened a

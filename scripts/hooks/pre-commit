@@ -146,6 +146,24 @@ if [ -f "$PRACTICE_TRANSCRIPTION_GUARD" ] && command -v node >/dev/null 2>&1; th
   fi
 fi
 
+# The live stage: a viewer joining the broadcast to argue on it. Two
+# things fail in different directions here. The DOOR (a hand raise is
+# never a seat, the send token is minted server-side against a verified
+# uid, a turn's side and name come from the seat map) and the METHOD (an
+# open-floor round is judged by a core that says taking the floor is not
+# an argument). Lose the second sentence and the judge starts pricing
+# volume, which is the one failure a conversational ballot has that a
+# speech ballot does not.
+STAGE_GUARD="$REPO_ROOT/scripts/test-stage.mjs"
+if [ -f "$STAGE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-stage.mjs >/tmp/stage-guard.log 2>&1); then
+    echo "[stage-guard] commit blocked - the stage door or the conversation judging method regressed:" >&2
+    tail -30 /tmp/stage-guard.log >&2
+    echo "[stage-guard] see scripts/test-stage.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Netlify function-layout guard. A partial root copy is auto-discovered by the
 # local CLI even though production points at app/netlify/functions; without its
 # lib directory every imported helper fails during bundling.

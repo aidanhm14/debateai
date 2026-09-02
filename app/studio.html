@@ -15,6 +15,9 @@
 :root{--bg:#0b0b0d;--surface:#141417;--border:rgba(255,255,255,.09);--text:#f4f4f2;
   --dim:rgba(244,244,242,.66);--red:#ef4444;--green:#22c55e;--amber:#f59e0b}
 *{box-sizing:border-box;margin:0;padding:0}
+/* Same [hidden] trap as /stage: the console is display:flex and its
+   buttons carry an author display, so the UA [hidden] rule loses. */
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--text);font-family:'Archivo',Georgia,serif;
   min-height:100vh;display:flex;flex-direction:column}
 em,i{font-style:normal}
@@ -37,8 +40,55 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
 .note b{color:var(--text)}
 .fail{padding:26px 18px;font-size:16px;color:var(--dim)}
 .fail b{color:var(--text);display:block;font-size:19px;margin-bottom:6px}
+/* ── Stage console. The host runs the guest debate from here, because
+   this is the tab they are already broadcasting from; opening a second
+   surface would mean a second Daily seat and an echo. ───────────── */
+#studioWrap{flex:1;min-height:0;display:flex}
+#stage{flex:1;min-width:0}
+#sc{width:340px;flex:none;border-left:1px solid var(--border);background:#0e0e12;
+  display:flex;flex-direction:column;min-height:0;overflow:auto;padding:14px}
+#sc[hidden]{display:none}
+@media(max-width:1100px){#sc{width:300px}}
+.sc-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sc-h b{font-size:13px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.sc-h .n{margin-left:auto;font-size:11px;color:var(--dim)}
+.sc-sec{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:11px;background:rgba(255,255,255,.02)}
+.sc-sec h4{font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.sc-q{display:grid;gap:7px}
+.sc-row{border:1px solid var(--border);border-radius:10px;padding:9px 10px;font-size:12.5px}
+.sc-row .nm{font-weight:800;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sc-row .tag{font-size:9.5px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--dim)}
+.sc-row .note{color:var(--dim);margin-top:4px;line-height:1.4}
+.sc-row .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.sc-btn{min-height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--text);font:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
+.sc-btn:hover{border-color:var(--red)}
+.sc-btn.go{background:#b91c1c;border-color:#b91c1c;color:#fff}
+.sc-btn.go:hover{background:#ef4444;border-color:#ef4444}
+.sc-btn.wide{width:100%;min-height:40px;font-size:13px;margin-top:8px}
+.sc-btn:disabled{opacity:.5;cursor:default}
+.sc-empty{font-size:12px;color:var(--dim);line-height:1.5}
+.sc-seat{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:7px 0}
+.sc-seat b{font-weight:800}
+.sc-seat .side{font-size:9.5px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);width:56px}
+.sc-seat .x{margin-left:auto}
+.sc-in{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:9px;font:inherit;font-size:12.5px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text)}
+.sc-in:focus{outline:none;border-color:var(--red)}
+.sc-modes{display:flex;gap:6px;margin:8px 0}
+.sc-mode{flex:1;padding:8px;border-radius:9px;border:1px solid var(--border);background:transparent;
+  color:var(--text);font:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
+.sc-mode[aria-pressed="true"]{border-color:var(--red);background:rgba(239,68,68,.14)}
+.sc-msg{font-size:12px;line-height:1.45;color:var(--dim);margin-top:8px}
+.sc-msg.bad{color:#fca5a5}
+.sc-live{font-size:12.5px;line-height:1.5;color:var(--dim)}
+.sc-live b{color:var(--text)}
 </style>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/app-check.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -55,7 +105,52 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
   <a class="chip" href="/" target="_blank" rel="noopener">Open the homepage</a>
 </div>
 
-<div id="stage"></div>
+<div id="studioWrap">
+  <div id="stage"></div>
+
+  <!-- The stage console. Everything here is a HOST action against
+       /api/stage; the guests run /stage in their own browsers. -->
+  <aside id="sc" hidden>
+    <div class="sc-h"><b>Stage</b><span class="n" id="scCount"></span></div>
+
+    <div class="sc-sec">
+      <h4>Hands up</h4>
+      <div class="sc-q" id="scQueue"><div class="sc-empty">Nobody has asked to join yet. The Join button shows on the player while you are live.</div></div>
+    </div>
+
+    <div class="sc-sec">
+      <h4>On the stage</h4>
+      <div id="scSeats"></div>
+    </div>
+
+    <div class="sc-sec" id="scSetup">
+      <h4>Run the round</h4>
+      <input class="sc-in" id="scMotion" maxlength="240" placeholder="The question they argue">
+      <div class="sc-modes">
+        <button type="button" class="sc-mode" data-m="structured" aria-pressed="true">Take turns</button>
+        <button type="button" class="sc-mode" data-m="casual" aria-pressed="false">Open floor</button>
+      </div>
+      <div id="scLen" hidden>
+        <select class="sc-in" id="scCasualMs">
+          <option value="300000">5 minutes of open floor</option>
+          <option value="480000" selected>8 minutes of open floor</option>
+          <option value="720000">12 minutes of open floor</option>
+        </select>
+      </div>
+      <button type="button" class="sc-btn go wide" id="scOpen">Start the debate</button>
+      <div class="sc-msg" id="scMsg" hidden></div>
+    </div>
+
+    <div class="sc-sec" id="scLiveBox" hidden>
+      <h4>Live</h4>
+      <div class="sc-live" id="scLive"></div>
+      <button type="button" class="sc-btn wide" id="scNext" hidden>Next turn</button>
+      <button type="button" class="sc-btn wide" id="scEnd">End the debate</button>
+      <button type="button" class="sc-btn go wide" id="scJudge" hidden>Get the ballot</button>
+      <button type="button" class="sc-btn wide" id="scReset" hidden>Clear the stage</button>
+    </div>
+  </aside>
+</div>
 
 <p class="note">
   Everything you send here goes out on the homepage, <b>/tournaments</b>,
@@ -327,11 +422,272 @@ a.chip:hover{border-color:rgba(239,68,68,.5);color:var(--text)}
 
   var opts = { url: roomUrl, userName: userName };
   if (token) opts.token = token;
+  window.__studioCall = call;
   call.join(opts).catch(function(e){
     fail('Could not join the broadcast room.', (e && e.message) || 'The room may have expired. Start a new stream from /admin.');
   });
 
   setInterval(reportQuality, 5000);
+})();
+</script>
+
+<script>
+/* ── STAGE CONSOLE ────────────────────────────────────────────────
+ * The host's half of "a viewer asks to join the debate". Everything
+ * here is a host action against /api/stage; the guests run /stage in
+ * their own browsers with their own send tokens.
+ *
+ * It lives in the studio tab on purpose. The host is already
+ * broadcasting from here, and a second surface would mean a second
+ * Daily seat for the same person, which is an echo in the room.
+ *
+ * A cohost sees the queue and the board (useful on camera) and cannot
+ * act on them: /api/stage refuses every host action to a non-admin,
+ * so this UI hiding the buttons is a courtesy rather than the rule.
+ */
+(function(){
+  'use strict';
+  var FB = {
+    apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain: "debateos-78ac5.firebaseapp.com",
+    projectId: "debateos-78ac5",
+    storageBucket: "debateos-78ac5.firebasestorage.app",
+    messagingSenderId: "860359449192",
+    appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
+  };
+  try { firebase.initializeApp(FB); } catch(e){}
+
+  var panel = document.getElementById('sc');
+  var qEl = document.getElementById('scQueue');
+  var seatsEl = document.getElementById('scSeats');
+  var countEl = document.getElementById('scCount');
+  var motionIn = document.getElementById('scMotion');
+  var casualWrap = document.getElementById('scLen');
+  var casualMs = document.getElementById('scCasualMs');
+  var openBtn = document.getElementById('scOpen');
+  var msgEl = document.getElementById('scMsg');
+  var setupBox = document.getElementById('scSetup');
+  var liveBox = document.getElementById('scLiveBox');
+  var liveEl = document.getElementById('scLive');
+  var nextBtn = document.getElementById('scNext');
+  var endBtn = document.getElementById('scEnd');
+  var judgeBtn = document.getElementById('scJudge');
+  var resetBtn = document.getElementById('scReset');
+  var modeBtns = document.querySelectorAll('.sc-mode');
+
+  var mode = 'structured';
+  var board = null, seats = { pro:null, con:null }, skew = 0, busy = false;
+
+  function say(t, bad){
+    msgEl.textContent = t || '';
+    msgEl.hidden = !t;
+    msgEl.className = 'sc-msg' + (bad ? ' bad' : '');
+  }
+  function api(body){
+    var u = firebase.auth().currentUser;
+    if (!u) return Promise.reject(new Error('signin'));
+    return u.getIdToken().then(function(tok){
+      return fetch('/api/stage', {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:'Bearer ' + tok},
+        body: JSON.stringify(body)
+      }).then(function(r){
+        return r.json().catch(function(){ return {}; }).then(function(j){ j.__ok = r.ok; return j; });
+      });
+    });
+  }
+  function fmt(ms){
+    var t = Math.max(0, Math.round(ms/1000));
+    return Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
+  }
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  Array.prototype.forEach.call(modeBtns, function(b){
+    b.addEventListener('click', function(){
+      mode = b.getAttribute('data-m');
+      Array.prototype.forEach.call(modeBtns, function(x){
+        x.setAttribute('aria-pressed', String(x.getAttribute('data-m') === mode));
+      });
+      casualWrap.hidden = mode !== 'casual';
+    });
+  });
+
+  function renderQueue(rows){
+    qEl.textContent = '';
+    countEl.textContent = rows.length ? rows.length + ' waiting' : '';
+    if (!rows.length){
+      qEl.appendChild(el('div','sc-empty','Nobody has asked to join yet. The Join button shows on the player while you are live.'));
+      return;
+    }
+    rows.forEach(function(r){
+      var row = el('div','sc-row');
+      var nm = el('div','nm');
+      nm.appendChild(document.createTextNode(r.name || 'Guest'));
+      nm.appendChild(el('span','tag', r.mode === 'casual' ? 'open floor' : 'turns'));
+      if (r.side) nm.appendChild(el('span','tag', r.side === 'pro' ? 'wants for' : 'wants against'));
+      nm.appendChild(el('span','tag', Math.round(r.waitingMs/1000) + 's'));
+      row.appendChild(nm);
+      if (r.note) row.appendChild(el('div','note', r.note));
+      var acts = el('div','acts');
+      [['pro','Seat for'],['con','Seat against']].forEach(function(pair){
+        var b = el('button','sc-btn' + (r.side === pair[0] ? ' go' : ''), pair[1]);
+        b.type = 'button';
+        b.addEventListener('click', function(){
+          if (busy) return; busy = true; b.disabled = true;
+          api({ action:'admit', uid:r.uid, side:pair[0] }).then(function(j){
+            busy = false;
+            if (!j.__ok) say(j.error || 'Could not seat them.', true); else say('');
+            refresh();
+          }).catch(function(){ busy = false; b.disabled = false; });
+        });
+        acts.appendChild(b);
+      });
+      row.appendChild(acts);
+      qEl.appendChild(row);
+    });
+  }
+
+  function renderSeats(){
+    seatsEl.textContent = '';
+    ['pro','con'].forEach(function(side){
+      var seat = seats && seats[side];
+      var row = el('div','sc-seat');
+      row.appendChild(el('span','side', side === 'pro' ? 'For' : 'Against'));
+      row.appendChild(el('b', null, seat ? (seat.name || 'Guest') : 'empty'));
+      if (seat){
+        var x = el('button','sc-btn x','Remove');
+        x.type = 'button';
+        x.addEventListener('click', function(){
+          if (!confirm('Take ' + (seat.name || 'them') + ' off the stage?')) return;
+          api({ action:'remove', uid: seat.uid }).then(function(){
+            // Cut their media in the same gesture. The seat write stops
+            // them claiming a fresh token; this is what takes them off
+            // the air right now.
+            try {
+              var call = window.__studioCall;
+              if (call && call.participants){
+                var ps = call.participants();
+                Object.keys(ps).forEach(function(k){
+                  var p = ps[k];
+                  if (p && p.user_id && seat.uid && String(p.user_id).slice(0,36) === String(seat.uid).slice(0,36)){
+                    call.updateParticipant(p.session_id, { eject:true });
+                  }
+                });
+              }
+            } catch(e){}
+            refresh();
+          }).catch(function(){});
+        });
+        row.appendChild(x);
+      }
+      seatsEl.appendChild(row);
+    });
+    var both = seats && seats.pro && seats.con;
+    openBtn.disabled = !both;
+    openBtn.textContent = both ? 'Start the debate' : 'Seat both sides first';
+  }
+
+  openBtn.addEventListener('click', function(){
+    var motion = (motionIn.value || '').trim();
+    if (motion.length < 6){ say('Give them a question to argue.', true); motionIn.focus(); return; }
+    openBtn.disabled = true;
+    api({ action:'open', mode:mode, motion:motion, casualMs: Number(casualMs.value) })
+      .then(function(j){
+        openBtn.disabled = false;
+        if (!j.__ok){ say(j.error || 'Could not start it.', true); return; }
+        say('');
+        refresh();
+      }).catch(function(){ openBtn.disabled = false; });
+  });
+
+  nextBtn.addEventListener('click', function(){
+    api({ action:'next' }).then(refresh).catch(function(){});
+  });
+  endBtn.addEventListener('click', function(){
+    if (!confirm('End the debate? They stay on camera and the ballot becomes available.')) return;
+    api({ action:'end' }).then(refresh).catch(function(){});
+  });
+  resetBtn.addEventListener('click', function(){
+    if (!confirm('Clear the stage? Both seats open and the hands-up queue empties. The transcript is kept.')) return;
+    api({ action:'reset' }).then(refresh).catch(function(){});
+  });
+  judgeBtn.addEventListener('click', function(){
+    judgeBtn.disabled = true;
+    judgeBtn.textContent = 'Writing the ballot';
+    firebase.auth().currentUser.getIdToken().then(function(tok){
+      return fetch('/api/stage-judge', {
+        method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + tok}, body:'{}'
+      }).then(function(r){ return r.json().catch(function(){ return {}; }); });
+    }).then(function(j){
+      judgeBtn.disabled = false;
+      judgeBtn.textContent = 'Get the ballot';
+      if (j && j.ok && j.ballot){
+        var name = j.ballot.winner === 'pro' ? (j.ballot.proName || 'For') : (j.ballot.conName || 'Against');
+        say(name + ' wins, ' + j.ballot.proPoints + ' to ' + j.ballot.conPoints + '. It is on both their screens.');
+        return;
+      }
+      if (j && j.code === 'judge_in_progress'){ judgeBtn.disabled = true; setTimeout(function(){ judgeBtn.click(); }, 4000); return; }
+      say((j && j.error) || 'The ballot could not be written.', true);
+    }).catch(function(){
+      judgeBtn.disabled = false;
+      judgeBtn.textContent = 'Get the ballot';
+      say('The ballot could not be written.', true);
+    });
+  });
+
+  function renderLive(){
+    var running = board && (board.status === 'debating' || board.status === 'judging');
+    var ended = board && board.status === 'ended';
+    liveBox.hidden = !(running || ended);
+    setupBox.hidden = !!(running || ended);
+    nextBtn.hidden = !(running && board.mode === 'structured');
+    judgeBtn.hidden = !ended;
+    resetBtn.hidden = !ended;
+    endBtn.hidden = !running;
+    if (!board || !(running || ended)) return;
+    var bits = [];
+    bits.push('<b>' + (board.mode === 'casual' ? 'Open floor' : 'Taking turns') + '</b>');
+    if (board.motion) bits.push(board.motion);
+    var c = board.clock || {};
+    if (running && c.running){
+      var left = fmt(c.endsAt - (Date.now() + skew));
+      bits.push(c.side
+        ? 'On the clock: <b>' + (c.side === 'pro' ? 'For' : 'Against') + '</b>, ' + left + ' left'
+        : left + ' left on the floor');
+    }
+    if (ended) bits.push('Round over.');
+    liveEl.innerHTML = bits.join('<br>');
+  }
+
+  function refresh(){
+    return api({ action:'queue' }).then(function(j){
+      if (!j.__ok){
+        // A cohost is not an admin, and that is not an error worth
+        // shouting about: hide the console rather than nag.
+        if (j.__ok === false) panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      if (typeof j.serverNow === 'number') skew = j.serverNow - Date.now();
+      board = j.board || null;
+      seats = j.seats || { pro:null, con:null };
+      renderQueue(j.queue || []);
+      renderSeats();
+      renderLive();
+    }).catch(function(){});
+  }
+
+  firebase.auth().onAuthStateChanged(function(u){
+    if (!u || u.isAnonymous) { panel.hidden = true; return; }
+    refresh();
+    setInterval(function(){ if (!document.hidden) refresh(); }, 5000);
+    setInterval(renderLive, 1000);
+  });
 })();
 </script>
 
