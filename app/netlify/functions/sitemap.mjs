@@ -119,6 +119,10 @@ const URLS = [
   // the query volume did not). /bet-on-your-words left the sitemap
   // 2026-08-22 when the betting cluster was removed (it 301s to /watch).
   { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-28' },
+  // 2026-09-02: the disagreement cluster ("debate someone who disagrees",
+  // "argue with someone who disagrees with me") plus the Policon comparison.
+  { path: '/debate-someone-who-disagrees',            changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-02' },
+  { path: '/vs/policon',                              changefreq: 'monthly', priority: '0.86', lastmod: '2026-09-02' },
   // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
   // to '/argue-online' with force=true. Submitting the redirecting URL
   // landed as "Page with redirect" in Search Console: never indexed, and

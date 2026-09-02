@@ -522,6 +522,9 @@ h1 em{color:var(--accent);font-style:normal}
 }
 
 .btn-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.gate .btn.mp-gate-skip{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:10px;padding:16px 20px;font-size:1rem;background:#dc2626;color:#fff;border:0;border-radius:14px;box-shadow:0 14px 34px rgba(220,38,38,.3)}
+.gate .btn.mp-gate-skip b{font-size:1.25rem;letter-spacing:.14em;font-weight:900}
+.gate .btn.mp-gate-skip:hover{background:#b91c1c}
 /* Quiet escape links under the primary action — Cancel / Skip to AI.
    Demoted from equal-weight buttons so the searching screen reads as
    one clear next step. */
@@ -790,6 +793,21 @@ h1 em{color:var(--accent);font-style:normal}
 .match-profile-flow .mp-opt--skip[aria-checked="true"] .afl-opt-mark{background:var(--mp-muted);border-color:var(--mp-muted)}
 .match-profile-flow .afl-back{grid-area:back;margin:17px 0 0;color:var(--mp-muted);font-size:.75rem;letter-spacing:.04em}
 .match-profile-flow .afl-back:hover{color:var(--mp-red)}
+/* The obvious way out. Aidan, 2026-09-02: "make the SKIP button much
+   bigger and obvious tho if users just meet someone asap." The rail pill
+   goes red, and a fixed bar at the foot of every step carries a large
+   SKIP. Panels pad their bottom so the bar never covers an option. */
+.match-profile-flow .afl-rail .afl-btn.mp-skip{background:var(--mp-red);border-color:var(--mp-red);color:#fff;font-family:Inter,sans-serif;font-weight:800;font-size:.86rem;letter-spacing:.06em;text-transform:uppercase;padding:10px 18px}
+.match-profile-flow .afl-rail .afl-btn.mp-skip:hover{background:#b91c1c;border-color:#b91c1c}
+.match-profile-flow .afl-panel{padding-bottom:132px}
+.match-profile-flow .mp-skip-bar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--mp-paper) 62%,rgba(255,255,255,0));pointer-events:none}
+.match-profile-flow .mp-skip-big{pointer-events:auto;appearance:none;border:0;cursor:pointer;width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px 16px 24px;border-radius:16px;background:var(--mp-red);color:#fff;text-align:left;font-family:Inter,sans-serif;box-shadow:0 18px 40px rgba(220,38,38,.35),0 0 0 1px rgba(0,0,0,.06);transition:transform .14s,background .14s}
+.match-profile-flow .mp-skip-big:hover{background:#b91c1c;transform:translateY(-1px)}
+.match-profile-flow .mp-skip-big:active{transform:translateY(0)}
+.match-profile-flow .mp-skip-big b{display:block;font-size:1.55rem;font-weight:900;letter-spacing:.16em;line-height:1}
+.match-profile-flow .mp-skip-big small{display:block;margin-top:5px;font-size:.82rem;font-weight:600;opacity:.92;line-height:1.3}
+.match-profile-flow .mp-skip-arrow{font-size:1.9rem;font-weight:900;line-height:1}
+@media(max-width:640px){.match-profile-flow .mp-skip-big b{font-size:1.3rem}.match-profile-flow .mp-skip-big small{font-size:.76rem}}
 /* The fight card: each grid row is one clash, two chairs. The kicker names
    the fight, the "vs" chip straddles the gap so the pair reads as a pair. */
 .match-profile-flow .mp-panel--hot .afl-opt{min-height:88px;align-items:start}
@@ -3217,7 +3235,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var run = window.ArcadeFlow.start({
       label: 'Build your matchmaker profile',
       topSlot: matchProfileMasthead(),
-      skipLabel: 'Skip questionnaire',
+      skipLabel: 'Meet someone ASAP · SKIP',
       steps: matchProfileSteps(matchProfile),
       launch: {
         title: 'Your side of the table is set.',
@@ -3247,6 +3265,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       root.classList.add('match-profile-flow');
       document.body.classList.add('match-profile-open');
       paintMatchProfileLive();
+      // 2026-09-02, Aidan: the questionnaire must never read as a wall.
+      // The rail's own skip button becomes a red pill, and a large fixed
+      // bar at the bottom of every step says the same thing in words a
+      // hurried person actually reads. Both run ArcadeFlow's skip path,
+      // so the result is the neutral profile and the queue.
+      var railSkip = null;
+      Array.prototype.forEach.call(root.querySelectorAll('.afl-rail .afl-btn'), function(b){
+        if (b.textContent.trim() === 'Meet someone ASAP · SKIP') railSkip = b;
+      });
+      if (railSkip){
+        railSkip.classList.add('mp-skip');
+        var bar = document.createElement('div');
+        bar.className = 'mp-skip-bar';
+        bar.innerHTML = '<button type="button" class="mp-skip-big">' +
+          '<span><b>SKIP</b><small>Just meet someone right now. Answers stay optional.</small></span>' +
+          '<span class="mp-skip-arrow" aria-hidden="true">&rarr;</span></button>';
+        bar.querySelector('button').addEventListener('click', function(){
+          try { gtag('event', 'spar_match_profile_skip', { via: 'big' }); } catch(e){}
+          railSkip.click();
+        });
+        root.appendChild(bar);
+      }
     }
     return run;
   }
@@ -3345,11 +3385,21 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<h2>Who should be across the table?</h2>' +
         '<p>Six quick choices set what you like, what you want to talk about, how you want to match, and your clip preference.</p>' +
         '<button type="button" class="btn primary" id="startMatchProfileBtn">Build my profile</button>' +
+        '<button type="button" class="btn mp-gate-skip" id="skipMatchProfileBtn"><b>SKIP</b> Just meet someone now</button>' +
         '<div class="gate-disclaimer">Your answers stay on this device. Skip uses neutral defaults.</div>' +
       '</div>';
     var b = document.getElementById('startMatchProfileBtn');
     if (b) b.addEventListener('click', function(){
       startMatchProfileFlow({ onDone: joinQueue, onClose: renderProfileGate });
+    });
+    var sk = document.getElementById('skipMatchProfileBtn');
+    if (sk) sk.addEventListener('click', function(){
+      matchProfile = matchProfile || defaultMatchProfile();
+      saveMatchProfileLocal();
+      applyMatchProfileExperience();
+      state.profileReady = true;
+      try { gtag('event', 'spar_match_profile_skip', { via: 'gate' }); } catch(e){}
+      joinQueue();
     });
   }
   // Delegated DM action for the live queue list. Bound once on the stable
@@ -3858,6 +3908,22 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
     refresh();
     gateLivePollTimer = setInterval(refresh, 15000);
+  }
+
+  // 2026-09-02, Aidan: "make sure to use [the matchmaker] even for
+  // anonymous profiles." A signed-out visitor meets the Match Desk first
+  // and the sign-in gate second, so the profile is on the device before
+  // the account exists and joinQueue honours it the moment sign-in lands.
+  // Skip (large, on every step) writes the neutral profile and moves on.
+  // DM, thread, inbox and friend-invite arrivals go straight to the gate:
+  // they did not come to build a matchup.
+  function renderSignedOutEntry(){
+    if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')){
+      renderGate();
+      return;
+    }
+    try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0 }); } catch(e){}
+    startMatchProfileFlow({ onDone: renderGate, onClose: renderGate });
   }
 
   function renderGate(){
@@ -9054,7 +9120,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (fabBadge) fabBadge.hidden = true;
         // No session at all. The zero guest allowance makes
         // mintGuestSession() refuse immediately, so Google is the door.
-        if (!mintGuestSession()) renderGate();
+        if (!mintGuestSession()) renderSignedOutEntry();
       }
     });
   } else {
