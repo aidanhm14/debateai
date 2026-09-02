@@ -46,9 +46,40 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
+import { getAuthUserByUid } from './lib/auth-admin.mjs';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SEND_ENABLED   = process.env.WINBACK_ENABLED === '1';
+// ── Address resolution ───────────────────────────────────────────────────────
+// 2026-09-02: user_profiles is NOT where a Debatable account's email lives.
+// Measured against the live project: of 215 people who sat in a real paired
+// live round in 60 days, 193 had a profile doc and FIVE had an email on it,
+// while 87 had one in Firebase Auth (77 google.com, 10 password). Nothing
+// writes the address into the profile on a Google or phone sign-in, so every
+// sender that reads `prof.email` has been addressing 2% of its own cohort.
+// That is why config/winback_state has read `candidates: 31, eligible: 0,
+// sent: 0` and why exactly two win-backs have ever been sent.
+//
+// The manual campaigns never had this bug because they enumerate Firebase
+// Auth (admin-open-rally reaches 259 accounts that way). This is the same
+// source, per-uid, so the scheduled senders address the same population.
+//
+// Deliberately NOT changed: a uid with no profile doc is still skipped. That
+// is the 2026-08-11 rule — mailing an address whose preferences we cannot
+// read is the wrong side to err on — and it is untouched here. This only
+// fixes the case where the profile EXISTS, says nothing about opting out,
+// and simply has no address on it.
+async function resolveEmail(uid, prof) {
+  if (prof && prof.email) return prof.email;
+  try {
+    const authUser = await getAuthUserByUid(uid);
+    return (authUser && authUser.email) || '';
+  } catch (e) {
+    console.warn('[mail] auth lookup failed for uid', uid, e.message);
+    return '';
+  }
+}
+
 const FROM_EMAIL     = process.env.WINBACK_FROM || undefined;     // undefined -> lib default
 const REPLY_TO       = process.env.WINBACK_REPLY_TO || undefined; // undefined -> lib default
 const MAX_EMAILS     = parseInt(process.env.WINBACK_MAX || '80', 10);
@@ -204,7 +235,7 @@ export default async () => {
   const lapsedUids = [...cand.keys()].filter(uid => !activeUids.has(uid));
 
   // ── 3. Send (or dry-run count). ──────────────────────────────────────────────
-  let eligible = 0, sent = 0, skipped = 0, errors = 0;
+  let eligible = 0, sent = 0, skipped = 0, errors = 0, noEmail = 0;
   const sampleWould = [];
 
   for (const uid of lapsedUids) {
@@ -219,7 +250,9 @@ export default async () => {
 
       // Honor the global emailOptOut kill switch, the shared digest opt-out,
       // and the win-back-specific one; skip anyone with no email on file.
-      if (isOptedOut(prof, 'winback') || !prof.email) { skipped++; continue; }
+      if (isOptedOut(prof, 'winback')) { skipped++; continue; }
+      const toEmail = await resolveEmail(uid, prof);
+      if (!toEmail) { skipped++; noEmail++; continue; }
 
       // Per-user dedup: at most one win-back per 21 days.
       const lastSent = prof.winbackSentAt?.toMillis?.() || 0;
@@ -245,7 +278,7 @@ export default async () => {
         ? `${firstName}, your next ${label} round is ready when you are`
         : `Your next ${label} round is ready when you are`;
       const result = await sendEmail({
-        to: prof.email,
+        to: toEmail,
         subject,
         html,
         uid,
@@ -276,6 +309,12 @@ export default async () => {
     sent,
     skipped,
     errors,
+    // How many were dropped purely for having no address anywhere. Before
+    // the 2026-09-02 Auth fallback this was effectively the whole cohort
+    // and nothing recorded it, so the run looked like "nobody is lapsed"
+    // rather than "nobody is reachable". Keep it: the two failures need
+    // different fixes and they are indistinguishable without this number.
+    noEmail,
     sampleWould: dryRun ? sampleWould : FieldValue.delete(),
   }, { merge: true }).catch(() => {});
 

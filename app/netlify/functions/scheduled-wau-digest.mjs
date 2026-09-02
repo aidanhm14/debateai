@@ -31,6 +31,38 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './lib/email.mjs';
+import { getAuthUserByUid } from './lib/auth-admin.mjs';
+
+// ── Address resolution ───────────────────────────────────────────────────────
+// 2026-09-02: user_profiles is NOT where a Debatable account's email lives.
+// Measured against the live project: of 215 people who sat in a real paired
+// live round in 60 days, 193 had a profile doc and FIVE had an email on it,
+// while 87 had one in Firebase Auth (77 google.com, 10 password). Nothing
+// writes the address into the profile on a Google or phone sign-in, so every
+// sender that reads `prof.email` has been addressing 2% of its own cohort.
+// That is why config/winback_state has read `candidates: 31, eligible: 0,
+// sent: 0` and why exactly two win-backs have ever been sent.
+//
+// The manual campaigns never had this bug because they enumerate Firebase
+// Auth (admin-open-rally reaches 259 accounts that way). This is the same
+// source, per-uid, so the scheduled senders address the same population.
+//
+// Deliberately NOT changed: a uid with no profile doc is still skipped. That
+// is the 2026-08-11 rule — mailing an address whose preferences we cannot
+// read is the wrong side to err on — and it is untouched here. This only
+// fixes the case where the profile EXISTS, says nothing about opting out,
+// and simply has no address on it.
+async function resolveEmail(uid, prof) {
+  if (prof && prof.email) return prof.email;
+  try {
+    const authUser = await getAuthUserByUid(uid);
+    return (authUser && authUser.email) || '';
+  } catch (e) {
+    console.warn('[mail] auth lookup failed for uid', uid, e.message);
+    return '';
+  }
+}
+
 import { dailyMotionFor } from './lib/daily-motion-bank.mjs';
 
 const FROM_EMAIL     = process.env.WAU_DIGEST_FROM || undefined;     // undefined -> lib default
@@ -230,7 +262,9 @@ export default async () => {
       const prof = profileSnap.data();
 
       // Opt-out (global emailOptOut kill switch + wauDigestOptOut) / no email.
-      if (isOptedOut(prof, 'digest') || !prof.email) { skipped++; continue; }
+      if (isOptedOut(prof, 'digest')) { skipped++; continue; }
+      const toEmail = await resolveEmail(uid, prof);
+      if (!toEmail) { skipped++; continue; }
 
       // Dedup: don't send twice in a week.
       const lastSent = prof.wauDigestSentAt?.toMillis?.() || 0;
@@ -252,7 +286,7 @@ export default async () => {
 
       const subject = `${stats.count7d} round${stats.count7d === 1 ? '' : 's'} this week. Your next motion is inside.`;
       const result = await sendEmail({
-        to: prof.email,
+        to: toEmail,
         subject,
         html,
         uid,
