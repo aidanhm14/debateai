@@ -169,19 +169,15 @@
 
   function mountNativeTabs() {
     if (immersive || document.querySelector('.db-native-tabs')) return;
-    /* Three tabs, because the app is two verbs and you: watch a debate, or
-       have one. The five-tab bar (Home / Debate / Coach / Live / Me) split
-       those verbs across four entries — /newvoice and /spar were both
-       "have a debate", /spectate and /live were both "watch one" — so the
-       bar described the sitemap rather than the choice in front of you.
-
-       /native is matched by the Debate tab on purpose. It is the shell's
-       launch URL and its hero action is starting a round, so folding it in
-       keeps the home screen from rendering a tab bar with nothing active. */
+    /* Match the phone website's five stable destinations. Debate stays the
+       raised middle control, but it is the app's home button: /native is
+       the shell launch screen and already leads with Start a round. */
     var items = [
+      { href: '/friends', label: 'Friends', match: /^\/(friends|messages|chat)(?:\.html)?$/, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
       { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates)(?:\.html)?$/, icon: '<path d="m10 8 6 4-6 4Z"/><rect x="2" y="4" width="20" height="16" rx="3"/>' },
-      { href: '/native', label: 'Debate', match: /^\/(native|newvoice|voice-debate|practice|spar)(?:\.html)?$/, icon: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
-      { href: '/profile', label: 'Me', match: /^\/profile(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
+      { href: '/native', label: 'Debate', primary: true, match: /^\/(native|newvoice|voice-debate|practice|spar|debate-chat|partners)(?:\.html)?$/, icon: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
+      { href: '/leaderboard', label: 'Board', match: /^\/(leaderboard|ladder|debate-rating|tournaments|tournament|open)(?:\.html)?$/, icon: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>' },
+      { href: '/profile', label: 'Me', match: /^\/(profile|settings|brain)(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
     ];
     var nav = document.createElement('nav');
     nav.className = 'db-native-tabs';
@@ -190,7 +186,7 @@
       var a = document.createElement('a');
       var active = item.match.test(currentPath);
       a.href = item.href;
-      a.className = 'db-native-tab' + (active ? ' is-active' : '');
+      a.className = 'db-native-tab' + (item.primary ? ' db-native-tab--primary' : '') + (active ? ' is-active' : '');
       if (active) a.setAttribute('aria-current', 'page');
       a.innerHTML = icon(item.icon) + '<span>' + item.label + '</span>';
       nav.appendChild(a);

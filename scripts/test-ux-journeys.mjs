@@ -195,6 +195,21 @@ check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50
 
 const topbar = read('app/js/topbar.js');
 check(
+  topbar.includes("{ href: '/friends', label: 'Friends'")
+    && topbar.includes("{ href: '/', label: 'Debate', primary: true")
+    && topbar.includes('var friends = nav.firstChild;')
+    && !topbar.includes("{ href: '/', label: 'Home', match:"),
+  'phone tabs put Friends in the old Home slot and make Debate the home control',
+);
+const nativeBridge = read('app/js/native-bridge.js');
+check(
+  nativeBridge.includes("{ href: '/friends', label: 'Friends'")
+    && nativeBridge.includes("{ href: '/native', label: 'Debate', primary: true")
+    && read('app/friends.html').includes('<script src="/js/native-bridge.js"></script>')
+    && read('app/messages.html').includes('<script src="/js/native-bridge.js"></script>'),
+  'native tabs expose Friends and use the raised Debate control as app home',
+);
+check(
   topbar.includes("{ href: '/live',        label: 'Schedule & challenges', big: true }")
     && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
   'navigation combines schedule and challenges into the schedule-first destination',

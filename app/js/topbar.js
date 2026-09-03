@@ -3247,8 +3247,9 @@
    entirely different user interface for mobile, similar to the app."
    The iOS shell already draws a bottom tab bar (native-bridge.js);
    this is the same idea for the web on a phone, mounted by the one
-   script every page loads. Five tabs, the product in the middle:
-   Home / Debate / Watch / Board / Me. Styles live in ui.css under
+   script every page loads. Five tabs, the product in the middle. As of
+   2026-09-03 the old Home slot is Friends, while the raised Debate tab
+   is the home control: Friends / Watch / Debate / Board / Me. Styles live in ui.css under
    ".da-tabbar" and only apply under 720px, so this is inert on
    desktop even though the nodes are always built.
 
@@ -3268,15 +3269,15 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>';
   }
   var TABS = [
-    { href: '/', label: 'Home', match: /^\/(landing)?$/,
-      ic: '<path d="M3 11 12 3l9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>' },
+    { href: '/friends', label: 'Friends', match: /^\/(friends|messages|chat)(\/|$)/,
+      ic: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
     { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates|w|replays)(\/|$)/,
       ic: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/>' },
-    { href: '/spar', label: 'Debate', primary: true, match: /^\/(spar|debate-chat|practice|partners)(\/|$)/,
+    { href: '/', label: 'Debate', primary: true, match: /^\/(?:(?:landing|home|spar|debate-chat|practice|partners)(?:\/|$))?$/,
       ic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
     { href: '/leaderboard', label: 'Board', match: /^\/(leaderboard|ladder|debate-rating|tournaments|tournament|open)(\/|$)/,
       ic: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>' },
-    { href: '/profile', label: 'Me', match: /^\/(profile|messages|chat|settings|friends|brain)(\/|$)/,
+    { href: '/profile', label: 'Me', match: /^\/(profile|settings|brain)(\/|$)/,
       ic: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
   ];
 
@@ -3299,9 +3300,10 @@
     });
     document.body.appendChild(nav);
     document.body.classList.add('has-tabbar');
-    // Unread DMs badge on Me, read off the bell notifications.js keeps
-    // in the topbar; it is the one place unread state already lives.
-    var me = nav.lastChild;
+    // Unread DMs belong with Friends now. Read off the bell
+    // notifications.js keeps in the topbar; it is the one place unread
+    // state already lives.
+    var friends = nav.firstChild;
     function syncBadge(){
       var bell = document.querySelector('.ui-bell');
       var n = 0;
@@ -3309,9 +3311,9 @@
         var b = bell.querySelector('.ui-bell-count, [data-unread]');
         n = b ? parseInt(b.textContent, 10) || 0 : (bell.classList.contains('has-unread') ? 1 : 0);
       }
-      var badge = me.querySelector('.da-tab-badge');
+      var badge = friends.querySelector('.da-tab-badge');
       if (n > 0) {
-        if (!badge) { badge = document.createElement('span'); badge.className = 'da-tab-badge'; me.appendChild(badge); }
+        if (!badge) { badge = document.createElement('span'); badge.className = 'da-tab-badge'; friends.appendChild(badge); }
         badge.textContent = n > 9 ? '9+' : String(n);
       } else if (badge) badge.remove();
     }
