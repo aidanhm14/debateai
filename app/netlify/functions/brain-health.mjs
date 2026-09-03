@@ -43,7 +43,8 @@ import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs'
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, getStaleShared, setCachedShared, wantsFresh } from './lib/admin-cache.mjs';
 import { callerIp, checkLayers } from './lib/rate-limit.mjs';
-import { BRAINS, classify, usesCompletionTokens, publicView } from './lib/brain-health.mjs';
+import { BRAINS, classify, usesCompletionTokens, publicView, councilRoster } from './lib/brain-health.mjs';
+import { seasonFor } from './lib/judge-charter.mjs';
 
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 const CACHE_KEY = 'brain-health:v1';
@@ -76,18 +77,22 @@ async function probeOne(brain) {
     let headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
     let body;
 
-    if (brain.key === 'claude') {
+    // Branch on PROVIDER, not on the brain key, because the council's
+    // seats use the same six providers with different model ids and have
+    // no brain key at all.
+    const provider = brain.provider;
+    if (provider === 'anthropic') {
       url = 'https://api.anthropic.com/v1/messages';
       headers = { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
       body = { model, max_tokens: 4, messages: [{ role: 'user', content: 'ok' }] };
-    } else if (brain.key === 'gemini') {
+    } else if (provider === 'google') {
       url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       headers = { 'Content-Type': 'application/json' };
       body = { contents: [{ role: 'user', parts: [{ text: 'ok' }] }], generationConfig: { maxOutputTokens: 4 } };
     } else {
-      url = brain.key === 'gpt' ? 'https://api.openai.com/v1/chat/completions'
-        : brain.key === 'grok' ? 'https://api.x.ai/v1/chat/completions'
-          : brain.key === 'deepseek' ? 'https://api.deepseek.com/chat/completions'
+      url = provider === 'openai' ? 'https://api.openai.com/v1/chat/completions'
+        : provider === 'xai' ? 'https://api.x.ai/v1/chat/completions'
+          : provider === 'deepseek' ? 'https://api.deepseek.com/chat/completions'
             : 'https://openrouter.ai/api/v1/chat/completions';
       body = {
         model,
@@ -118,16 +123,31 @@ async function probeOne(brain) {
 }
 
 async function probeAll() {
-  const results = await Promise.all(BRAINS.map(async (b) => {
-    const r = await probeOne(b);
-    return { key: b.key, name: b.name, maker: b.maker, model: b.model, env: b.env, ...r };
-  }));
+  // The council is derived from the live season, so re-pinning the bench
+  // moves this board with it and the two can never disagree.
+  const council = councilRoster(seasonFor(Date.now()));
+  const [results, councilResults] = await Promise.all([
+    Promise.all(BRAINS.map(async (b) => {
+      const r = await probeOne(b);
+      return { key: b.key, name: b.name, maker: b.maker, provider: b.provider, model: b.model, env: b.env, ...r };
+    })),
+    Promise.all(council.map(async (c) => {
+      const r = await probeOne(c);
+      return { key: c.key, seat: c.seat, name: c.name, maker: c.maker, provider: c.provider, model: c.model, env: c.env, ...r };
+    })),
+  ]);
   return {
     generatedAt: Date.now(),
     ttlMs: TTL_MS,
     total: results.length,
     up: results.filter((r) => r.ok).length,
     brains: results,
+    // Reported separately from `up`, because a picker greying out one
+    // brain and a judging council missing a seat are different problems
+    // for different people.
+    councilTotal: councilResults.length,
+    councilUp: councilResults.filter((r) => r.ok).length,
+    council: councilResults,
   };
 }
 

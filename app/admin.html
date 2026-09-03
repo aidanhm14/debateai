@@ -3107,6 +3107,13 @@ function renderAttention(){
       h: health.brains.down + ' of ' + health.brains.total + ' AI brains are not answering',
       b: health.brains.names + '. The site offers six on /judge and /pricing, so every one that is down is a user picking a brain that errors.' });
   }
+  // A dead juror seat is worse than a dead brain: a user can pick another
+  // brain, and nobody can pick another judge.
+  if (health.council && health.council.down > 0){
+    items.push({ sev:'bad', pane:'product', go:'AI brains',
+      h: health.council.down + ' of ' + health.council.total + ' judging seats are not answering',
+      b: health.council.names + '. Every ballot is being stamped degraded while a seat is down, and the published charter promises a three-family council.' });
+  }
   if (health.distill && health.distill.stale > 0){
     items.push({ sev:'bad', pane:'product', go:'Learning loop',
       h: health.distill.stale + ' format' + (health.distill.stale === 1 ? '' : 's') + ' stale in the distill',
@@ -3601,6 +3608,37 @@ async function loadBrainHealth(){
           '<td style="padding:6px 8px;text-align:right">' + (r.ms ? r.ms + 'ms' : '—') + '</td>' +
           '<td style="padding:6px 8px">' + state + '</td></tr>';
       }).join('') + '</tbody></table>';
+
+    // ── The judging council ──────────────────────────────────────────
+    // Separate table on purpose. The brains above are what a USER PICKS;
+    // these are the seats that JUDGE, and they run different model ids on
+    // the same providers. A green brain board sat next to a dead juror
+    // seat for days, which is the whole reason this section exists.
+    const council = d.council || [];
+    if (council.length){
+      const cdown = council.filter(r => !r.ok);
+      health.council = {
+        down: cdown.length,
+        total: council.length,
+        names: cdown.map(r => (r.seat || r.name) + ' (' + r.maker + ')').join(', '),
+      };
+      body.innerHTML += '<div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)">' +
+        '<div style="font-weight:700;margin-bottom:2px">Judging council</div>' +
+        '<div class="meta" style="margin-bottom:8px">' + esc((d.councilUp || 0) + '/' + (d.councilTotal || 0) + ' seats answering') +
+        '. These are the models that write ballots, pinned by the live season. A seat that is down means every ballot is stamped degraded.</div>' +
+        '<table style="width:100%;font-size:13px"><tbody>' +
+        council.map(r => {
+          const state = r.ok
+            ? '<span style="color:#4ade80;font-weight:600">answering</span>'
+            : '<span style="color:#f87171;font-weight:700">' + esc(FIX[r.reason] || r.reason || 'down') + '</span>'
+              + (r.detail ? '<div class="meta" style="margin-top:2px">' + esc(String(r.detail).slice(0, 150)) + '</div>' : '');
+          return '<tr>' +
+            '<td style="padding:6px 8px;font-weight:600">' + esc(r.name || '') + '<div class="meta">' + esc(r.maker || '') + '</div></td>' +
+            '<td style="padding:6px 8px"><code style="font-size:12px">' + esc(r.model || '') + '</code></td>' +
+            '<td style="padding:6px 8px;text-align:right">' + (r.ms ? r.ms + 'ms' : '&mdash;') + '</td>' +
+            '<td style="padding:6px 8px">' + state + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
   } catch (e) {
     meta.textContent = 'failed';
     body.innerHTML = '<div class="meta">Could not probe the brains: ' + esc(e.message) + '</div>';
