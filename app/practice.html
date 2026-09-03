@@ -117,9 +117,11 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<!-- Storage: the signed-in case-file locker (2026-07-22). Deferred like
-     the rest; every call site guards on firebaseStorage being present. -->
-<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
+<!-- Storage: the signed-in case-file locker (2026-07-22). Loaded on
+     demand by ensureFirebaseStorage() the first time a file is uploaded,
+     opened or deleted. Nothing on the boot path touches it, and this is
+     the round surface people sit on for minutes, so an eager tag was
+     parse time and heap for every visitor who never opens the locker. -->
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/ballot-read.js"></script>
 <!-- Arcade setup flow: the shared one-question-per-screen engine (/spar's
@@ -1620,6 +1622,24 @@ var FIREBASE_CONFIG = {
   appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd"
 };
 var firebaseApp, firebaseAuth, firebaseDb, firebaseStorage;
+// Storage SDK on demand (see the <head> comment). Resolves to the storage
+// instance, or undefined if the SDK cannot be fetched; callers keep their
+// existing "still loading" error path for that case.
+var firebaseStoragePromise = null;
+function ensureFirebaseStorage() {
+  if (firebaseStorage) return Promise.resolve(firebaseStorage);
+  if (firebaseStoragePromise) return firebaseStoragePromise;
+  firebaseStoragePromise = new Promise(function (resolve) {
+    function take() {try {if (typeof firebase !== 'undefined' && firebase.storage) firebaseStorage = firebase.storage();} catch (_) {}resolve(firebaseStorage);}
+    if (typeof firebase !== 'undefined' && firebase.storage) return take();
+    var sc = document.createElement('script');
+    sc.src = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js';
+    sc.onload = take;
+    sc.onerror = function () {firebaseStoragePromise = null;resolve(undefined);};
+    document.head.appendChild(sc);
+  });
+  return firebaseStoragePromise;
+}
 // Firebase now loads `defer`, so the SDK is usually not present yet at parse
 // time. initFirebase() is idempotent and re-runnable: called once here (fast
 // path if the SDK already executed) and again from useAuth once the deferred
@@ -7119,6 +7139,7 @@ function App() {
     setFileErr('');
     if (!file) return;
     if (!user) {setFileErr('Sign in to keep files with your account.');return;}
+    await ensureFirebaseStorage();
     if (!firebaseStorage) {setFileErr('File storage is still loading. Try again in a moment.');return;}
     if (file.size > FILE_MAX_BYTES) {setFileErr('That file is over 10MB.');return;}
     setFileBusy(file.name);
@@ -7155,7 +7176,9 @@ function App() {
   };
 
   var openCaseFile = async (f) => {
-    if (!firebaseStorage || !f || !f.path) return;
+    if (!f || !f.path) return;
+    await ensureFirebaseStorage();
+    if (!firebaseStorage) return;
     setFileErr('');
     try {
       var url = await firebaseStorage.ref(f.path).getDownloadURL();
@@ -7172,7 +7195,7 @@ function App() {
       syncFilesToServer(next);
       return next;
     });
-    try {if (firebaseStorage && f.path) await firebaseStorage.ref(f.path).delete();} catch (_) {}
+    try {if (f.path) {await ensureFirebaseStorage();if (firebaseStorage) await firebaseStorage.ref(f.path).delete();}} catch (_) {}
   };
 
   var syncCasesToServer = (cases) => {
