@@ -25,7 +25,7 @@ function check(label, ok) {
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
-check('Explore menu routes the one public AI door to /newvoice, opened immediately', topbar.includes("href: '/newvoice?autostart=1&handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes("href: '/voice-debate?handoff=topbar-ai'"));
+check('Explore menu routes the one public AI door to the /newvoice setup screen', topbar.includes("href: '/newvoice?handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes('autostart=1'));
 check('default practice starts in casual 1v1', practice.includes("if (!COMPETITIVE_ENTRY) return 'quick';") && !practice.includes("localStorage.getItem('debateos-round-format')"));
 check('competitive practice is an explicit scoped entry',
   practice.includes("get('entry') === 'competitive'") &&
@@ -45,7 +45,7 @@ check('queue promises no automatic AI switch', spar.includes('We will not switch
 check('AI choice appears after the stated wait', spar.includes('var AI_OFFER_AFTER_SEC = 60') && /elapsed >= AI_OFFER_AFTER_SEC[^]*aiOpponentOffer/.test(spar));
 check('AI option is explicit', spar.includes('Debate the AI'));
 check('human wait remains explicit', spar.includes('Keep waiting'));
-check('AI click opens the live realtime room', spar.includes("var VOICE_DEST = '/newvoice?autostart=1&handoff=spar-ai-choice'"));
+check('AI click opens the /newvoice setup screen', spar.includes("var VOICE_DEST = '/newvoice?handoff=spar-ai-choice'"));
 check('spar offers prep while waiting', spar.includes('prep while you wait'));
 check('old unverifiable queue claims are gone', !spar.includes('Pinging recent sparrers') && !spar.includes('Searching active circuits'));
 check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar));
@@ -66,9 +66,13 @@ check('conversation path reaches the realtime prompt',
   realtimeSession.includes('CONVERSATION MODE:'));
 check('competitive voice path opens formats instead of realtime minting',
   newvoice.includes('/practice?entry=competitive&amp;format=apda&amp;handoff=newvoice'));
-check('newvoice handoffs auto-start after deferred page setup',
+check('newvoice auto-starts only when the door handed a motion',
   newvoice.includes("const autoStart = entryQuery.get('autostart') === '1'") &&
+  newvoice.includes('if (autoStart && handedMotion && !previewMode) {') &&
   newvoice.includes("window.addEventListener('DOMContentLoaded', () =>"));
+check('generic doors carry no autostart', !topbar.includes('autostart=1') && !spar.includes('autostart=1'));
+check('the typed handoff still opens the room immediately with its motion',
+  practice.includes("q.set('motion', motion.trim().slice(0, 220));") && practice.includes("q.set('autostart', '1');"));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

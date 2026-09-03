@@ -485,6 +485,33 @@ html[data-theme="light"] .side-pill{background:linear-gradient(180deg,rgba(220,3
   text-wrap:balance;
 }
 .stage-mid{flex:1;position:relative;z-index:1}
+/* In-round topic change (2026-09-03). The resolution was fixed the moment
+   the room opened; this is the way out. Sits under the motion, reads as a
+   quiet control, and the editor replaces it in place. [hidden] is asserted
+   explicitly because the flex/grid displays below would otherwise beat the
+   UA sheet (the /predict [hidden] trap). */
+.topic-change{
+  margin-top:10px;border-radius:999px;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:12.5px;
+  padding:7px 14px;border:1px solid var(--card-line);background:var(--panel);color:var(--ink-dim);
+  transition:background .2s,color .2s;
+}
+.topic-change:hover{background:var(--panel-hover);color:var(--ink)}
+.topic-change[hidden]{display:none}
+.topic-edit{
+  margin-top:12px;width:min(100%,560px);display:grid;gap:10px;
+  padding:12px;border-radius:16px;border:1px solid var(--card-line);background:var(--panel);backdrop-filter:blur(8px);
+}
+.topic-edit[hidden]{display:none}
+.topic-edit textarea{
+  width:100%;resize:none;border-radius:12px;border:1px solid var(--card-line);background:var(--bg);color:var(--ink);
+  font-family:var(--serif);font-weight:600;font-size:18px;line-height:1.3;padding:10px 12px;
+}
+.topic-edit-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.topic-edit-gap{flex:1}
+.ctl-mini{padding:9px 14px;font-size:13px}
+.ctl-go{background:var(--accent);border-color:var(--accent);color:#fff}
+.ctl-go:hover{filter:brightness(1.08);background:var(--accent)}
+.topic-edit small{color:var(--ink-dim);font-size:12px;line-height:1.4}
 .settling{
   position:absolute;inset:0;display:none;place-items:center;padding:24px;
 }
@@ -852,7 +879,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
             New topic
           </button>
         </div>
-        <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false"></textarea>
+        <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false" placeholder="Type any statement to argue about, or pick one below" aria-label="Your topic"></textarea>
         <p class="resolution-note">You will argue for or against this statement.</p>
       </div>
     </div>
@@ -871,21 +898,21 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
           <div><b>Choose a topic</b><p>Pick a category. We will add a new topic above.</p></div>
         </div>
         <div class="guide-grid" id="topicGuide">
-          <button class="guide-chip" type="button" data-claim="Schools should ban phones during class." aria-pressed="false">
+          <button class="guide-chip" type="button" data-claim="Phones should be locked away during class." aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.7-.9 5.3-.4 8 1.4v12c-2.7-1.8-5.3-2.3-8-1.4z"/><path d="M20 5.5c-2.7-.9-5.3-.4-8 1.4v12c2.7-1.8 5.3-2.3 8-1.4z"/></svg></span><span class="guide-code">TOPIC 01</span></span>
-            <span class="guide-copy"><b>School life</b><span>Phones, homework, and school rules.</span></span>
+            <span class="guide-copy"><b>School life</b><span>Phones, homework, grades, and school rules.</span></span>
           </button>
-          <button class="guide-chip" type="button" data-claim="AI art should be eligible for copyright." aria-pressed="false">
+          <button class="guide-chip" type="button" data-claim="AI art is real art." aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9.5 11h5M9.5 14h3M12 3v4M12 17v4M3 12h4M17 12h4"/></svg></span><span class="guide-code">TOPIC 02</span></span>
-            <span class="guide-copy"><b>AI and media</b><span>Art, technology, and who owns what.</span></span>
+            <span class="guide-copy"><b>Phones and AI</b><span>Screens, apps, and what AI should be allowed to do.</span></span>
           </button>
-          <button class="guide-chip" type="button" data-claim="Rich countries should pay climate reparations." aria-pressed="false">
+          <button class="guide-chip" type="button" data-claim="Billionaires should not exist." aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3c2.2 2.4 3.3 5.4 3.3 9S14.2 18.6 12 21M12 3C9.8 5.4 8.7 8.4 8.7 12S9.8 18.6 12 21"/></svg></span><span class="guide-code">TOPIC 03</span></span>
-            <span class="guide-copy"><b>World issues</b><span>Climate, money, and fairness.</span></span>
+            <span class="guide-copy"><b>Money and work</b><span>Pay, bosses, rent, and who deserves what.</span></span>
           </button>
-          <button class="guide-chip" type="button" data-claim="Cities should make public transit free." aria-pressed="false">
+          <button class="guide-chip" type="button" data-claim="Cars should be banned from downtown." aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20V9h12v11M4 9h16L12 4zM9 12v5M12 12v5M15 12v5"/></svg></span><span class="guide-code">TOPIC 04</span></span>
-            <span class="guide-copy"><b>Government and services</b><span>Transport, costs, and public services.</span></span>
+            <span class="guide-copy"><b>City life</b><span>Cars, rent, transit, and how we live together.</span></span>
           </button>
         </div>
       </div>
@@ -960,6 +987,17 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   <div class="stage-top">
     <div class="status-pill" id="statusPill"><span class="live-dot"></span><span id="statusText">CONNECTING</span></div>
     <div class="stage-motion" id="stageMotion"></div>
+    <button class="topic-change" id="topicEditBtn" type="button" hidden>Change topic</button>
+    <form class="topic-edit" id="topicEditor" hidden aria-label="Change the topic">
+      <textarea id="topicEditInput" rows="2" maxlength="220" spellcheck="false" aria-label="New topic"></textarea>
+      <div class="topic-edit-row">
+        <button type="button" class="ctl ctl-mini" id="topicEditShuffle">New topic</button>
+        <span class="topic-edit-gap"></span>
+        <button type="button" class="ctl ctl-mini" id="topicEditCancel">Cancel</button>
+        <button type="submit" class="ctl ctl-mini ctl-go" id="topicEditGo">Restart on this topic</button>
+      </div>
+      <small>Restarting ends this round without a result and opens a fresh one on the new topic.</small>
+    </form>
   </div>
   <div class="stage-mid">
     <div class="settling" id="settling" role="status" aria-live="polite">
@@ -1068,275 +1106,236 @@ try {
 (() => {
 'use strict';
 
-/* ── claims bank ─────────────────────────────────────────────────
-   Every motion here has to pass the double-sided test: a smart person
-   should be able to win either side without contorting. Accessible
-   topics, real stakes, no gotchas and no claims where one side is
-   just obviously right. */
+/* ── claims bank ─────────────────────────────────────────────
+   2026-09-03, the founder: the old bank was "too boring" and "did not make
+   sense to normal people". It read like a policy syllabus (proportional
+   representation, citizen assemblies, collective sanctions). These are the
+   arguments people actually have at dinner, in the words they have them in.
+   Two rules still hold. Every claim passes the double-sided test: a smart
+   person can win either side without contorting, so nothing here is
+   obviously right. And the site-wide content boundary (soul.md sec 4, the
+   2026-08-27 entry) applies in full; scripts/test-sensitive-motions.mjs
+   scans this bank on every commit. Contested is the goal; targeted is
+   not. */
 const CLAIMS = [
-  /* School and education */
-  'College is still worth the cost',
-  'Homework does more good than harm',
+  /* School */
+  'Homework should be banned',
+  'Phones should be locked away during class',
+  'School should start at 10am',
+  'Kids should get paid for good grades',
+  'College is a bad deal for most people',
+  'Everyone should take a year off before college',
+  'Gym class should be optional',
   'Grades do more harm than good',
-  'Public college should be free',
-  'Schools should ban phones during class',
-  'School uniforms improve education',
-  'The school day should start later',
-  'Standardized tests are a fair measure of ability',
-  'Everyone should take a gap year before college',
-  'Financial literacy should be a required school subject',
-  'Competitive sports should be required in school',
-  'Group projects should receive individual grades',
-  'Schools should abolish gifted programs',
-  'Teacher pay should be tied to student performance',
-  'Students should be allowed to use AI for homework',
-  'Universities should ban legacy admissions',
-  'School meals should be free for every student',
-  'Private schools should not receive public funding',
-  'Students should choose all their subjects after age 16',
-  'The four-day school week is better for students',
+  'Teachers should be paid like doctors',
+  'School uniforms are a good idea',
+  'Students should be allowed to use AI on homework',
+  'Group projects should be banned',
+  'Cursive is a waste of time to teach',
+  'A four-day school week is better for kids',
+  'Every school should serve free lunch',
+  'Kids should learn to code before they learn algebra',
 
-  /* Technology and AI */
-  'Social media does more harm than good',
-  'Kids under 16 should be banned from social media',
-  'AI-generated art counts as real art',
-  'AI-generated art should be eligible for copyright',
-  'Advanced AI models should be open source',
-  'AI companies should be liable for harm caused by their models',
-  'People should have a legal right to repair their devices',
-  'Companies should pay people for using their personal data',
-  'Anonymous social media accounts should remain legal',
-  'Personalized social media feeds should be opt-in',
-  'Facial recognition should be banned in public spaces',
-  'Self-driving cars should replace human drivers',
+  /* Phones, the internet, and AI */
+  'Social media should have an age limit, like alcohol',
+  'Nobody under 14 should have a smartphone',
+  'AI art is real art',
+  'Dating apps have ruined dating',
+  'You should have to use your real name online',
+  'Companies should pay you for your data',
+  'Self-driving cars should be allowed on every road',
+  'Your phone should lock you out after three hours a day',
+  'Everyone should be allowed to fix their own phone',
   'AI companions will do more harm than good',
-  'Robots should play a major role in elder care',
-  'Governments should never weaken end-to-end encryption',
-  'High-speed internet should be a public utility',
-  'Realistic AI-generated media should carry a visible label',
-  'Virtual experiences can be as meaningful as physical ones',
-  'Smartphones have made people less free',
-  'Governments should issue a universal digital identity',
+  'Anything made by AI should have a visible label',
+  'The internet has made people dumber',
+  'Group chats are better than in-person friendships',
+  'Screens should be banned from bedrooms',
+  'Robots should look after old people',
+  'Being famous online is a real job',
 
-  /* Work, wealth, and markets */
-  'Remote work is better for workers than the office',
-  'The four-day work week should replace the five-day week',
-  'Tipping should be replaced by higher wages',
+  /* Money and work */
+  'Working from home beats the office',
+  'Nobody should work more than four days a week',
+  'Tipping should be abolished',
   'Billionaires should not exist',
-  'Everyone should have to work a service job once',
-  'Universal basic income should replace most welfare programs',
-  'Governments should tax wealth, not just income',
-  'Companies should cap CEO pay as a multiple of worker pay',
-  'Gig workers should be treated as employees',
-  'Unions do more good than harm',
+  'Everyone should work a restaurant job at least once',
   'Unpaid internships should be illegal',
-  'Job listings should be required to show salary ranges',
-  'Governments should guarantee a job to anyone who wants one',
-  'Workers should elect representatives to company boards',
-  'Businesses should be required to accept cash',
-  'Large inheritances should be taxed heavily',
-  'The minimum wage should always equal a local living wage',
-  'Companies should pay a tax when automation replaces workers',
-  'A 30-hour week should count as full-time work',
-  'Large companies should be required to share profits with employees',
+  'Job ads should have to show the salary',
+  'Renting is smarter than buying a house',
+  'You should never lend money to a friend',
+  'Inheritances over a million should be taxed heavily',
+  'Bosses should never message you after 6pm',
+  'Everyone should get free money from the government every month',
+  'Following your passion is bad career advice',
+  'Cash should be accepted everywhere',
+  'CEOs are paid too much',
+  'It is fine to quit a job without notice',
 
-  /* Democracy, rights, and justice */
-  'Voting should be mandatory',
-  'The voting age should be lowered to 16',
-  'Elected officials should face strict term limits',
-  'Proportional representation is better than winner-take-all elections',
-  'Supreme court judges should have fixed terms',
-  'Private donations to political campaigns should be banned',
-  'People in prison should retain the right to vote',
-  'Jury service should be voluntary',
-  'Citizen assemblies should replace appointed upper houses',
-  'Every young adult should complete a year of national service',
-  'National elections should use ranked-choice voting',
-  'Possession of recreational drugs should be decriminalized',
-  'Prisons should prioritize rehabilitation over punishment',
-  'Police officers should wear body cameras at all times on duty',
-  'Predictive policing should be banned',
-  'Blocking roads can be a legitimate form of protest',
+  /* Politics and rules */
+  'Voting should be required by law',
+  '16-year-olds should be allowed to vote',
+  'Politicians should have term limits',
+  'People in prison should still get to vote',
+  'Jury duty should be optional',
+  'Every young adult should do a year of national service',
+  'Protesters should be allowed to block roads',
+  'Police should always wear body cameras',
+  'Trials should be shown on TV',
+  'Drug use should be treated as a health problem, not a crime',
   'Hate speech should be illegal',
-  'Criminal trials should be televised',
-  'Civil disobedience is necessary for a healthy democracy',
-  'Public defenders should receive the same funding as prosecutors',
+  'Rich people should pay for everyone else to go to college',
+  'The government should track everyone with a digital ID',
+  'Lying in a political ad should be a crime',
 
-  /* Culture, news, and entertainment */
-  'Streaming has been good for movies',
-  'Museums should return artifacts taken from other countries',
-  'Cancel culture does more good than harm',
-  'Governments should spend more public money on the arts',
-  'People should separate art from the artist',
-  'Reality television does more harm than good',
-  'A great adaptation does not need to be faithful to the book',
-  'Spoiler warnings should expire after one year',
-  'Advertising is a fair price for free media',
-  'Influencers can be as credible as traditional journalists',
-  'Cultural appropriation can be a positive force',
-  'Celebrity political endorsements do more harm than good',
-  'Sports gambling ads should be banned',
-  'True crime entertainment is inherently exploitative',
-  'Public figures deserve the same privacy as everyone else',
-  'Fan fiction should be treated as real literature',
-  'Libraries should be free to lend digital books without limits',
-  'Record labels still benefit musicians',
-  'Dubbing is better than subtitles',
-  'News paywalls do more harm than good',
+  /* Movies, music, and culture */
+  'Streaming has ruined movies',
+  'Museums should give back stolen artifacts',
+  'Cancel culture has gone too far',
+  'You can separate the art from the artist',
+  'Reality TV is bad for society',
+  'A movie does not have to follow the book',
+  'Spoilers stop counting after one year',
+  'Ads are a fair price for free apps',
+  'Influencers are the new journalists',
+  'Sports betting ads should be banned',
+  'True crime shows exploit real victims',
+  'Celebrities should stay out of politics',
+  'Dubbed is better than subtitled',
+  'Remakes are ruining Hollywood',
+  'Concert tickets should have a price cap',
+  'Music was better twenty years ago',
+  'Paywalls on news do more harm than good',
+  'Video games are a sport',
 
-  /* Environment, animals, and science */
-  'Nuclear power is the best path to clean energy',
-  'Space exploration is worth the money',
-  'Humans should colonize Mars this century',
-  'Zoos do more good than harm',
-  'Animal testing is justified for medical research',
-  'Governments should tax meat to reduce emissions',
-  'Frequent flyers should pay a rising tax on each flight',
-  'Rich countries should pay climate reparations',
-  'Governments should invest in solar geoengineering research',
-  'Genetically modified crops are essential for food security',
-  'Protecting endangered species should outweigh new development',
-  'Governments should ban new fossil fuel projects',
-  'Fast fashion should be taxed heavily',
-  'Water should cost more during severe droughts',
-  'Rewilding farmland is worth the loss in food production',
-  'Captive breeding is necessary to save endangered species',
-  'Carbon taxes are better than direct emissions rules',
-  'Single-use plastics should be banned',
-  'People should be allowed to keep exotic animals as pets',
-  'Scientific research should be freely available to the public',
+  /* The planet and animals */
+  'Nuclear power is the answer to climate change',
+  'Space travel is worth the money',
+  'Zoos should be shut down',
+  'Meat should cost more to protect the planet',
+  'Frequent flyers should pay a bigger tax',
+  'Rich countries owe the world for climate change',
+  'Banning plastic straws is pointless',
+  'People should be allowed to keep exotic pets',
+  'Fast fashion should be taxed',
+  'Lawns are a waste of water',
+  'Testing medicine on animals is justified',
+  'Humans should try to live on Mars this century',
+  'Single-use plastic should be banned',
+  'Cities should charge more for water during a drought',
 
-  /* Cities, housing, and public space */
-  'Cities should ban cars from their centers',
+  /* City life */
+  'Cars should be banned from downtown',
   'Public transit should be free',
-  'Rent control does more good than harm',
-  'Cities should charge drivers for entering crowded areas',
-  'Building more skyscrapers is good for cities',
-  'Suburbs are better places to live than dense cities',
-  'Housing should be provided before treatment for homelessness',
-  'Every city should provide free public restrooms',
-  'Public surveillance cameras make cities safer',
-  'Cities should replace street parking with parks and bike lanes',
-  'Nightlife venues should be allowed to stay open all night',
-  'Drinking alcohol in public should be legal',
-  'All national museums should be free',
-  'Street vendors should face fewer licensing rules',
-  'Public transit should run all night',
-  'Vacant homes should face a heavy tax',
-  'Cities should allow taller buildings in every neighborhood',
-  'Public housing should be mixed into wealthy neighborhoods',
-  'Historic preservation rules do more harm than good',
-  'Local residents should have less power to block new housing',
+  'Rent control works',
+  'Drivers should pay to enter busy parts of the city',
+  'Skyscrapers make cities better',
+  'The suburbs are a better place to live than the city',
+  'Homeless people should get a home first, no strings attached',
+  'Every city needs free public bathrooms',
+  'More cameras make cities safer',
+  'Bars should be allowed to stay open all night',
+  'Drinking in public should be legal',
+  'Museums should be free',
+  'Buses and trains should run all night',
+  'Empty homes should be taxed until someone lives in them',
+  'Neighbors should not be able to block new housing',
 
-  /* The world and its borders */
+  /* The world */
   'Foreign aid does more good than harm',
-  'Economic sanctions are an effective foreign policy tool',
-  'Countries should allow far more immigration',
-  'Refugees should be allowed to choose their destination country',
-  'The permanent members of the UN Security Council should lose their veto',
-  'Neutral countries should be required to join collective sanctions',
-  'Military intervention can be justified to prevent mass atrocities',
-  'Popular tourist destinations should cap visitor numbers',
-  'Governments should spend public money to preserve endangered languages',
-  'The world needs a minimum corporate tax rate',
-  'Medical patents should be waived during global emergencies',
-  'Hosting the Olympics does more harm than good',
-  'Countries should end citizenship-by-investment programs',
-  'International law matters even when it cannot be enforced',
-  'Every country has a duty to accept climate migrants',
-  'Borders drawn by former colonial powers should be renegotiated',
-  'Developing countries should prioritize growth over emissions cuts',
-  'Democracies should trade freely with authoritarian states',
-  'Countries should be allowed to pay other states to host asylum seekers',
-  'A single global currency would do more good than harm',
+  'Countries should let in far more immigrants',
+  'Tourist hotspots should cap how many visitors they take',
+  'Hosting the Olympics is a waste of money',
+  'Democracies should trade with dictatorships',
+  'The world should have one currency',
+  'English should be the official language of the world',
+  'Countries should pay other countries to take their refugees',
+  'A world government would be better than what we have',
+  'Poor countries should grow first and cut pollution later',
 
-  /* Health, bodies, and bioethics */
-  'The drinking age should be lowered to 18',
-  'Routine vaccinations should be mandatory',
-  'Organ donation should be opt-out by default',
-  'Governments should tax sugary drinks',
-  'Public transport should be free in major cities',
-  'Commercial surrogacy should be legal',
-  'Parents should be allowed to edit embryos to prevent serious disease',
-  'Healthcare should be free at the point of use',
-  'Employees should receive paid mental health days',
-  'Human challenge trials are justified during deadly outbreaks',
-  'Cosmetic surgery should be banned for minors',
-  'Health insurers should cover proven alternative treatments',
-  'People should be allowed to sell a kidney under strict regulation',
-  'Doctors should be allowed to refuse non-emergency treatment to abusive patients',
-  'Prescription drug advertising should be banned',
-  'Governments should require calorie counts on restaurant menus',
-  'Addiction should be treated as a health issue, not a crime',
-  'Parents should be allowed to refuse lifesaving treatment for a child',
-  'Professional sports should permit supervised performance-enhancing drugs',
-  'Medical resources should prioritize younger patients in a crisis',
+  /* Health and bodies */
+  'The drinking age should be 18',
+  'Vaccines should be required to attend school',
+  'Everyone should be an organ donor unless they opt out',
+  'Soda should be taxed like cigarettes',
+  'Healthcare should be free for everyone',
+  'Mental health days should be paid',
+  'Plastic surgery should be banned for anyone under 18',
+  'Calorie counts belong on every menu',
+  'Athletes should be allowed to use performance-enhancing drugs',
+  'Sleep matters more than exercise',
+  'Drug ads should be banned from TV',
+  'People should be allowed to sell a kidney',
+  'Fast food should come with a warning label',
+  'Junk food should be banned from schools',
 
-  /* Relationships, family, and identity */
-  'Dating apps have made finding love easier',
-  'Marriage is still a useful institution',
-  'Couples should keep their finances separate',
-  'Friendship is more important than romantic love',
-  'Romantic love is overvalued',
-  'Parents should be allowed to track their teenagers by phone',
-  'Children should be paid for household chores',
-  'Parents should not post photos of their children online',
-  'Adults should be legally responsible for supporting elderly parents',
-  'DNA ancestry tests do more good than harm',
-  'People should live together before getting married',
-  'Having children is a duty to future society',
-  'Chosen family can matter more than biological family',
-  'Divorce should be easier to obtain',
-  'Parents should give teenagers more privacy than safety monitoring',
-  'Single people are unfairly disadvantaged by public policy',
-  'Large age-gap relationships deserve greater social scrutiny',
-  'Weddings have become too expensive and performative',
-  'Public marriage proposals put unfair pressure on the recipient',
-  'People can be close friends with a former partner',
+  /* Love, family, and friends */
+  'Dating apps have made love harder to find',
+  'Marriage is outdated',
+  'Couples should share all their money',
+  'Friends matter more than romance',
+  'Parents should track their teenagers by phone',
+  'Kids should be paid for chores',
+  'Parents should not post their kids online',
+  'You should live together before getting married',
+  'Exes can be real friends',
+  'A big age gap in a relationship is a red flag',
+  'Weddings are a waste of money',
+  'Public proposals are unfair to the person being asked',
+  'Long-distance relationships can work',
+  'It is fine to ghost someone after one date',
+  'You should tell a friend when their partner is bad for them',
+  'Adult children owe their parents financial support',
+  'Having kids is a duty to society',
+  'Divorce should be easier to get',
 
-  /* Sports, games, and competition */
-  'Professional athletes deserve their salaries',
-  'College athletes should be paid as employees',
-  'Esports should count as real sports',
-  'Video assistant referees have improved football',
-  'Professional leagues should have salary caps',
-  'Promotion and relegation is better than closed leagues',
-  'Taxpayers should not fund professional sports stadiums',
-  'Combat sports are too dangerous to justify',
-  'Sports betting should be legal',
-  'The Olympics should permanently rotate among a small set of host cities',
-  'Athletes should be allowed to make political statements during competition',
-  'National teams do more to unite than divide',
-  'Children should not specialize in one sport before age 14',
-  'Schools should give arts and sports equal funding',
+  /* Sports */
+  'Pro athletes are paid too much',
+  'College athletes should be paid',
+  'Esports are real sports',
+  'Video replay has ruined football',
+  'Salary caps make sports better',
+  'Taxpayers should never pay for a stadium',
+  'Boxing and MMA should be banned',
+  'Sports betting should be legal everywhere',
+  'Athletes should keep politics out of sports',
+  'Kids should play many sports, not just one',
   'Chess is a sport',
-  'Participation trophies are good for children',
-  'Fans should have ownership stakes in professional teams',
-  'Elite athletes should be held to higher moral standards',
-  'Sports should remove separate men and women categories where possible',
-  'Losing is a better teacher than winning',
+  'Participation trophies are good for kids',
+  'Losing teaches you more than winning',
+  'Fans should own their teams',
 
-  /* Everyday life and lighter rounds */
-  'Experiences are better gifts than objects',
-  'Owning a home is better than renting',
-  'Living alone is worth the extra cost',
+  /* Everyday arguments */
+  'Experiences make better gifts than things',
+  'Living alone is worth the extra money',
   'Breakfast is the most important meal of the day',
-  'Books are better than films',
-  'Cats make better pets than dogs',
-  'People should stop making New Year resolutions',
-  'A long commute can be worth a better home',
-  'Restaurants should not allow young children after 8 p.m.',
-  'School reunions do more harm than good',
+  'Books are better than movies',
+  'Cats are better than dogs',
+  'New Year resolutions are pointless',
+  'A long commute is worth a bigger home',
+  'Kids should not be allowed in restaurants after 8pm',
   'Surprise parties are a bad idea',
-  'Everyone should delete their social media once a year',
-  'It is better to be early than exactly on time',
-  'Luxury goods can be worth their price',
-  'People should choose a career for meaning over money',
-  'Failure should be celebrated more openly',
-  'Competition makes hobbies less enjoyable',
-  'Nostalgia does more good than harm',
-  'People should read the news every day',
-  'Convenience has made life less satisfying',
+  'Everyone should quit social media for a month a year',
+  'Being early is better than being on time',
+  'Expensive things are usually worth it',
+  'Pick meaning over money when choosing a career',
+  'Failure should be celebrated more than success',
+  'Competition ruins hobbies',
+  'Nostalgia is bad for you',
+  'Everyone should read the news every day',
+  'Convenience has made life worse',
+  'Pineapple belongs on pizza',
+  'A hot dog is a sandwich',
+  'Working out in the morning beats working out at night',
+  'Coffee is better than tea',
+  'Winter is better than summer',
+  'Being on your phone at dinner is rude',
+  'Reclining your seat on a plane is fine',
+  'Splitting the bill evenly is unfair',
+  'Small talk is a waste of time',
+  'Kids should be allowed to swear at home',
+  'Everyone should learn to cook before they turn 18',
+  'It is better to be a big fish in a small pond',
 ];
 
 /* ── dom ─────────────────────────────────────────────────────── */
@@ -1964,6 +1963,7 @@ async function start(){
     }).catch(() => { vtResolved = true; vtPending = []; });
   } else { vtResolved = true; }
   $('stageMotion').textContent = motion;
+  paintTopicChange();
   capYouText.textContent = pttMode
     ? 'Tap to speak when you are ready. Tap again to hand the floor back.'
     : 'Mic is live. Make your case. Say "your turn" or pause to hand it back.';
@@ -2511,6 +2511,7 @@ $('paceBtn').addEventListener('click', () => {
 });
 
 function cleanup(){
+  try { const ed = $('topicEditor'); if (ed) ed.hidden = true; const tb = $('topicEditBtn'); if (tb) tb.hidden = true; } catch (e) {}
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
   timerIv = null;
   try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
@@ -2933,6 +2934,63 @@ try {
   }
 } catch (e) {}
 
+/* ── change the topic mid-round ─────────────────────────────── */
+// A round on a resolution you did not choose is not worth finishing.
+// Restarting abandons the running session without a ballot (nothing was
+// decided), keeps side, speed and mic preferences, and opens a fresh room
+// on the new topic through the same start() every other path uses, so the
+// sanitizer, the literal opener and the interrupt gate all ride along.
+function paintTopicChange(){
+  const btn = $('topicEditBtn'), ed = $('topicEditor');
+  if (!btn || !ed) return;
+  // Also live in the ?preview=stage harness, where restarting swaps the
+  // motion on the stage without minting, so the editor can be checked in a
+  // browser with no microphone.
+  const live = status === 'live';
+  btn.hidden = !live || !ed.hidden;
+  if (!live) ed.hidden = true;
+}
+function openTopicEditor(){
+  const ed = $('topicEditor'), inp = $('topicEditInput');
+  if (!ed || status !== 'live') return;
+  inp.value = currentMotion || '';
+  ed.hidden = false;
+  $('topicEditBtn').hidden = true;
+  try { inp.focus({ preventScroll: true }); inp.select(); } catch (e) {}
+}
+function closeTopicEditor(){
+  const ed = $('topicEditor'); if (ed) ed.hidden = true;
+  paintTopicChange();
+}
+function restartWithMotion(raw){
+  const next = sanitizeTopic(raw) || sanitizeTopic(randomClaim());
+  if (simMode) { currentMotion = next; $('stageMotion').textContent = next; closeTopicEditor(); return; }
+  if (status === 'live') {
+    status = 'ended';
+    if (vtSession) { try { vtSession.finish({ status: 'abandoned', reason: 'topic_change' }); } catch (e) {} }
+    vtSession = null; vtPending = [];
+    cleanup();
+    status = 'idle';
+    startBtn.disabled = false;
+  }
+  closeTopicEditor();
+  claimInput.value = next;
+  try { if (typeof gtag === 'function') gtag('event', 'newvoice_topic_change', { during: 'live' }); } catch (e) {}
+  show('setup'); start();
+}
+$('topicEditBtn').addEventListener('click', openTopicEditor);
+$('topicEditCancel').addEventListener('click', closeTopicEditor);
+$('topicEditShuffle').addEventListener('click', () => {
+  let next = sanitizeTopic(randomClaim());
+  while (next === $('topicEditInput').value) next = sanitizeTopic(randomClaim());
+  $('topicEditInput').value = next;
+});
+$('topicEditor').addEventListener('submit', (e) => { e.preventDefault(); restartWithMotion($('topicEditInput').value); });
+$('topicEditInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); restartWithMotion($('topicEditInput').value); }
+  if (e.key === 'Escape') { e.preventDefault(); closeTopicEditor(); }
+});
+
 /* ── recap actions ───────────────────────────────────────────── */
 $('rematchBtn').addEventListener('click', () => { show('setup'); start(); });
 $('switchBtn').addEventListener('click', () => {
@@ -3026,7 +3084,13 @@ startBtn.addEventListener('click', start);
 claimInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); start(); }
 });
-if (autoStart && !previewMode) {
+// An unattended start is only right when the door already carries the
+// motion (the typed-practice handoff sends ?motion=). A generic door used to
+// autostart on a random claim, which put people in a round on a resolution
+// they never chose with no way to change it (2026-09-03, the founder). Now a
+// bare door lands on this one-screen setup, resolution editable, one tap from
+// the round; a handed motion still opens the room immediately.
+if (autoStart && handedMotion && !previewMode) {
   window.addEventListener('DOMContentLoaded', () => {
     try { window.track && window.track('newvoice_autostart', { handoff: entryQuery.get('handoff') || 'direct' }); } catch (e) {}
     autoStartPending = true;

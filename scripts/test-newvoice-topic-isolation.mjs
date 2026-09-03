@@ -126,6 +126,20 @@ check('the interrupt gate is armed before the opener is requested',
 check('an unattended autostart failure lands quietly on setup',
   page.includes("return fail('', '', true);") && page.includes('autoStartPending = true;'));
 check('the b-roll branch is gone', !page.includes("previewMode === 'connecting'"));
+// The resolution is the user's to change: before the round on the setup
+// screen, and during it through the in-round editor.
+check('the setup topic field is editable', /<textarea id="claimInput"(?![^>]*readonly)/.test(page));
+check('a generic door lands on setup, never a random-motion autostart',
+  page.includes('if (autoStart && handedMotion && !previewMode) {'));
+check('the round has a change-topic control', page.includes('id="topicEditBtn"') && page.includes('id="topicEditor"'));
+check('changing the topic restarts through start() on a SANITIZED motion',
+  page.includes('function restartWithMotion(raw){') &&
+  page.includes('const next = sanitizeTopic(raw) || sanitizeTopic(randomClaim());') &&
+  /function restartWithMotion[\s\S]*?show\('setup'\); start\(\);/.test(page));
+check('an abandoned round is not recorded as complete',
+  /restartWithMotion[\s\S]*?vtSession\.finish\(\{ status: 'abandoned'/.test(page));
+check('the editor hides itself with an explicit rule (UA [hidden] trap)',
+  page.includes('.topic-edit[hidden]{display:none}') && page.includes('.topic-change[hidden]{display:none}'));
 
 for (const f of failures) console.log('  FAIL:', f);
 console.log(`\n${pass} passed, ${failures.length} failed`);

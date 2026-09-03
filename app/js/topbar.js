@@ -278,7 +278,7 @@
     // adjacent anywhere LINKS feeds the mobile sheet or Explore menu.
     { href: '/learn',         label: 'Learn'        },
     { href: '/prep',          label: 'Prep a round' },
-    { href: '/newvoice?autostart=1&handoff=topbar-ai', label: 'Debate the AI', strong: true },
+    { href: '/newvoice?handoff=topbar-ai', label: 'Debate the AI', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
@@ -533,7 +533,8 @@
       // 'Competitive' tells that reader the surface is not for them, which
       // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
       // the action instead of the audience.
-      // 2026-09-03: /newvoice is the one public AI door again. It was pulled
+      // 2026-09-03: /newvoice is the one public AI door again (setup screen
+      // first, resolution editable, one tap from the room). It was pulled
       // for a few hours the same day because its spoken opener read private
       // model instructions as the topic. The opener now carries the sanitized
       // topic as a literal and scripts/test-newvoice-topic-isolation.mjs pins
@@ -1087,7 +1088,7 @@
       // live, interruptible room and is the flagship below.
       var columnGroups = [
         column('Practice', [
-          ['/newvoice?autostart=1&handoff=topbar-ai', 'big'],
+          ['/newvoice?handoff=topbar-ai', 'big'],
           ['/flow',           ''],
           ['/topics',         ''],
         ]),
