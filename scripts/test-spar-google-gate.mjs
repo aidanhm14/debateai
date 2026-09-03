@@ -101,6 +101,38 @@ check(authModal.includes("googleOnly || liveVideo ? 'Open the site in Safari or 
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');
 
+// The operational count is a promise that every person it includes can
+// actually reach the ready-check. Keep the count and tryMatch on one helper,
+// especially for the adult/minor split enforced by spar-pair.
+check(spar.includes('function queuePeerCanMatch(doc){'), 'spar must define one shared queue eligibility check');
+check((spar.match(/if \(!queuePeerCanMatch\(d\)\) return;/g) || []).length === 2,
+  'the available count and match candidate list must use the same eligibility check');
+check(spar.includes("peerBand !== myBand"), 'queue eligibility must separate adult and minor age pools');
+check(spar.includes("LIVE_VIDEO_PROVIDERS.indexOf(String(data.authProvider || '')) < 0"),
+  'queue eligibility must reject stale provider markers before counting them');
+check(!spar.includes('debaters available now'), 'the audience-facing queue count must call them people');
+const eligibilityStart = spar.indexOf('function queuePeerCanMatch(doc){');
+const eligibilityEnd = spar.indexOf('// ONE definition of "can this browser finish', eligibilityStart);
+const eligibilitySource = spar.slice(eligibilityStart, eligibilityEnd).trim();
+const queuePeerCanMatch = new Function(
+  'state', 'LIVE_VIDEO_PROVIDERS', 'localSkipActive', 'docSkips', 'window',
+  `${eligibilitySource}\nreturn queuePeerCanMatch;`,
+)(
+  { user: { uid: 'me' } },
+  ['google.com', 'apple.com'],
+  () => false,
+  () => false,
+  { daAgeBand: () => 'adult' },
+);
+const peer = (id, ageBand, authProvider = 'google.com') => ({
+  id,
+  data: () => ({ status: 'waiting', ageBand, authProvider }),
+});
+check(queuePeerCanMatch(peer('adult-peer', 'adult')), 'an eligible adult peer must be countable and matchable');
+check(!queuePeerCanMatch(peer('minor-peer', 'minor')), 'an adult must not count a minor as an available opponent');
+check(!queuePeerCanMatch(peer('email-peer', 'adult', 'password')), 'an ineligible provider must not count as an available opponent');
+check(!queuePeerCanMatch(peer('me', 'adult')), 'the current user must not count as their own opponent');
+
 // 2026-08-31, later founder conversion call: the signed-out gate is the
 // one declared exception to the raw-public-number rule. It displays four
 // plus the fresh /api/spar-queue waiting count, while analytics preserve

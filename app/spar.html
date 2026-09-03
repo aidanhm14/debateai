@@ -3710,6 +3710,27 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return '';
   }
   function isLiveVideoUser(u){ return !!liveVideoProvider(u); }
+
+  // One client-side answer to "can this person become my opponent?" The
+  // server remains authoritative, but every count and candidate list must
+  // apply these same visible rules first. The meta strip used to count every
+  // fresh waiting doc while tryMatch correctly separated adults and minors.
+  // That produced the exact broken promise "1 available" while the only
+  // other person was in the other age pool and could never be seated here.
+  function queuePeerCanMatch(doc){
+    if (!doc || !state.user || doc.id === state.user.uid) return false;
+    var data = doc.data ? (doc.data() || {}) : {};
+    if (data.status && data.status !== 'waiting') return false;
+    if (LIVE_VIDEO_PROVIDERS.indexOf(String(data.authProvider || '')) < 0) return false;
+    if (localSkipActive(doc.id) || docSkips(data, state.user.uid)) return false;
+    var myBand = (window.daAgeBand && window.daAgeBand()) || '';
+    var peerBand = data.ageBand || '';
+    // Every current queue join records one of these two values, and the
+    // server requires an exact recorded match. Missing or different hints
+    // therefore cannot be advertised as an available opponent.
+    if ((myBand !== 'adult' && myBand !== 'minor') || peerBand !== myBand) return false;
+    return true;
+  }
   // ONE definition of "can this browser finish a Google sign-in", shared
   // with auth-modal.js. `?inapp=1` forces the in-app rendering for QA.
   function inAppBrowser(){
@@ -4617,7 +4638,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // which nothing writes to anymore since the join-the-waitlist
       // board was replaced by the /tournaments link — 2026-08-11.)
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> debaters available now</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">people available now</span></span>' +
         // "Missed this week" — appears only when the public counter
         // reads >=3 (avoids "1 missed this week" looking sadder than
         // not showing it). Pulled from /api/log-missed-match on mount
@@ -5478,6 +5499,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return;
     }
     qEl.textContent = String(metaLiveCounts.queue);
+    var qLabel = document.getElementById('metaQueueLabel');
+    if (qLabel) qLabel.textContent = (metaLiveCounts.queue === 1 ? 'person' : 'people') + ' available now';
     var dot = document.querySelector('#metaStrip .meta-dot');
     var anyLive = metaLiveCounts.queue > 0;
     if (dot){
@@ -5498,7 +5521,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
         .where('status', '==', 'waiting')
         .onSnapshot(function(snap){
-          var selfUid = state.user && state.user.uid;
           // Count only TRULY-LIVE peers. A searching session re-stamps
           // joinedAt every QUEUE_HEARTBEAT_MS (90s), so a live doc is
           // never older than ~92s; a backgrounded/closed tab stops
@@ -5516,14 +5538,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           var now = Date.now();
           var n = 0;
           snap.forEach(function(d){
-            if (selfUid && d.id === selfUid) return;
+            if (!queuePeerCanMatch(d)) return;
             var v = d.data() || {};
-            // Skip-filter BOTH directions, same as tryMatch: a peer this
-            // client will never attempt (passed proposal, unexpired) must
-            // not show as spawnable. Counting them produced "1 in queue"
-            // with a live dot while nothing could ever spawn.
-            if (selfUid && localSkipActive(d.id)) return;
-            if (selfUid && docSkips(v, selfUid)) return;
             var j = v.joinedAt;
             var t = (j && typeof j.toMillis === 'function') ? j.toMillis()
                   : (j && j.seconds != null) ? j.seconds * 1000
@@ -7248,20 +7264,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       var others = [];
       snaps.forEach(function(snap){
         snap.docs.forEach(function(d){
-          if (d.id === state.user.uid) return;
           if (seen[d.id]) return;
-          // Mutual-skip filter (declined consent proposals): the server
-          // would refuse the pair anyway; don't waste the POST or stall
-          // the poll loop on it. Skips EXPIRE (SKIP_TTL_MS) so one passed
-          // proposal can't permanently blind two live debaters.
-          if (localSkipActive(d.id)) return;
           var dd = d.data();
-          if (docSkips(dd, state.user.uid)) return;
-          // Age separation: don't propose a pair the server would refuse
-          // (spar-pair bandsCompatible). Filtering here also keeps the
-          // "N waiting" count honest for someone in the 13-17 pool.
-          if (window.daAgeBandsOk && !window.daAgeBandsOk(
-                (window.daAgeBand && window.daAgeBand()) || '', dd.ageBand)) return;
+          if (!queuePeerCanMatch(d)) return;
           seen[d.id] = true;
           others.push(d);
         });

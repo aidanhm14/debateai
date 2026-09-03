@@ -247,7 +247,7 @@ for (const path of [
   );
 }
 
-for (const path of ['app/practice.html', 'app/pricing.html', 'app/predict.html', 'app/profile.html', 'app/native.html']) {
+for (const path of ['app/practice.html', 'app/pricing.html', 'app/predict.html', 'app/profile.html', 'app/native.html', 'app/spar.html']) {
   check(inlineScriptsParse(path), `${path} inline scripts parse`);
 }
 
