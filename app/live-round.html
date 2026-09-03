@@ -580,6 +580,21 @@ body.lr-open #extRow,body.lr-open #speakerSide,body.lr-open #overtimeNote{displa
   cursor:pointer;font-size:.85rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
 }
 .floor-remark .fr-close:hover{color:#fff;background:rgba(0,0,0,.6)}
+/* Bullets, not prose (2026-09-03). The card is read in the seconds
+   between two speeches while the video keeps playing, so each line has
+   to land on one glance: own row, own marker, no wrapping onto a third
+   line at any width the card renders at. Size is bumped over the old
+   body copy because three short lines can afford to be bigger than a
+   paragraph could. */
+.floor-remark .fr-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.floor-remark .fr-list li{
+  position:relative;padding-left:16px;
+  font-size:.9rem;line-height:1.35;font-weight:600;color:rgba(255,255,255,.94);
+}
+.floor-remark .fr-list li::before{
+  content:"";position:absolute;left:0;top:.5em;
+  width:6px;height:6px;border-radius:50%;background:#d9c98a;
+}
 /* Live fact check. Cards the AI raises to the AUDIENCE mid-speech when a
    speaker states something flatly wrong. Deliberately quiet chrome: this
    sits under the transcript, never over the video, because it must not
@@ -1115,6 +1130,18 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
   transition:background .15s ease;touch-action:none;
 }
 .split-resizer:hover,.split-resizer.dragging{background:var(--accent,#ef4444)}
+.split-resizer:focus-visible{background:var(--accent,#ef4444);outline:2px solid #fff;outline-offset:-2px}
+/* The column is 7px, which is a thin thing to catch with a mouse. This
+   grows the GRAB area to 21px without moving the layout, by hanging it
+   off the handle rather than widening the track. */
+.split-resizer::after{
+  content:"";position:absolute;top:0;bottom:0;left:-7px;right:-7px;
+}
+/* While dragging, nothing under the cursor reacts. Pointer capture
+   already delivers the events to the handle; this stops the video
+   iframe painting hover states and grabbing focus on the way past. */
+body.lr-resizing{cursor:col-resize}
+body.lr-resizing #jitsiPane,body.lr-resizing #panel{pointer-events:none}
 .split-resizer::before{
   content:'';position:absolute;width:3px;height:36px;border-radius:3px;
   background:rgba(127,127,127,.55);transition:background .15s ease;
@@ -3549,7 +3576,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   <!-- Drag handle: pull right to widen the video, left to widen the text.
        Double-click resets. Hidden on the stacked mobile layout. -->
-  <div class="split-resizer" id="splitResizer" role="separator" aria-orientation="vertical" aria-label="Resize video and panel" title="Drag to resize · double-click to reset"></div>
+  <div class="split-resizer" id="splitResizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize video and panel" title="Drag to resize · double-click to reset"></div>
 
   <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
   <div class="panel" id="panel">
@@ -3866,9 +3893,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       <details class="round-details" id="roundDetails">
         <summary>Round details<span class="rd-status" id="roundDetailsStatus"></span></summary>
         <div class="rd-body">
-          <!-- The long-form version of the compact sides line under the
-               resolution. Written by renderSidesGuide(). -->
-          <div class="sides-detail" id="sidesDetail" hidden></div>
+          <!-- RETIRED 2026-09-03 (the founder, on a live round: "get rid
+               of this thing"). The two-panel long-form sides explainer
+               used to sit here. The compact sides line under the
+               resolution says which way each side argues, which is the
+               part a newcomer actually needs; a second, wordier copy of
+               it inside Round details was the same fact taking a whole
+               card. renderSidesGuide() still null-guards #sidesDetail,
+               so restoring is re-adding this div. -->
           <!-- Pre-Speech-1 setup. One calm summary line by default; the
                motion tools + style picker live behind Options so the round
                screen stays readable. -->
@@ -4133,45 +4165,83 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var saved = localStorage.getItem(KEY);
     if (saved && /^[0-9.]+%$/.test(saved) && !stacked()) split.style.setProperty('--vid-w', saved);
   } catch (e) {}
-  var dragging = false;
+
+  // 2026-09-03, the founder: "i cant move it". The handle was on
+  // mousemove/mouseup bound to window, and the pane it drags is a Daily
+  // IFRAME. An iframe eats every pointer event that lands on it, so the
+  // drag worked for the few pixels before the cursor crossed into the
+  // video and then went dead, with no mouseup either, which also left
+  // the handle stuck in its dragging state. Pointer capture is the fix:
+  // once the handle captures the pointer, every subsequent move and the
+  // release are delivered to the handle no matter what is underneath it,
+  // iframes included. The old mouse/touch pair is gone rather than kept
+  // as a fallback, because every browser that can run this page has
+  // Pointer Events and two code paths here is how they drift.
+  var pid = null;
+  var PANEL_MIN = 500, RESIZER_W = 7;
   function pctFromX(clientX){
     var r = split.getBoundingClientRect();
     var pct = (clientX - r.left) / r.width * 100;
-    // Keep the text panel >= ~380px and the video >= ~28%.
-    var maxVid = Math.min(80, (1 - 388 / r.width) * 100);
-    return Math.max(28, Math.min(maxVid, pct));
+    // The floor has to agree with the grid, or the drag stops moving
+    // while the handle keeps following the cursor and it reads as
+    // broken: the panel column is minmax(500px, ...) in CSS, so 388
+    // here let the JS ask for a width the grid then refused.
+    var maxVid = Math.min(82, (1 - (PANEL_MIN + RESIZER_W) / r.width) * 100);
+    return Math.max(24, Math.min(Math.max(24, maxVid), pct));
   }
   function move(e){
-    if (!dragging) return;
-    var x = e.touches ? e.touches[0].clientX : e.clientX;
-    split.style.setProperty('--vid-w', pctFromX(x).toFixed(1) + '%');
+    if (pid === null) return;
+    split.style.setProperty('--vid-w', pctFromX(e.clientX).toFixed(1) + '%');
     if (e.cancelable) e.preventDefault();
   }
   function up(){
-    if (!dragging) return;
-    dragging = false; rez.classList.remove('dragging');
+    if (pid === null) return;
+    try { rez.releasePointerCapture(pid); } catch (e) {}
+    pid = null;
+    rez.classList.remove('dragging');
+    document.body.classList.remove('lr-resizing');
     document.body.style.userSelect = '';
     try { localStorage.setItem(KEY, split.style.getPropertyValue('--vid-w')); } catch (e) {}
-    window.removeEventListener('mousemove', move);
-    window.removeEventListener('mouseup', up);
-    window.removeEventListener('touchmove', move);
-    window.removeEventListener('touchend', up);
   }
-  function down(e){
-    if (stacked()) return;
-    dragging = true; rez.classList.add('dragging');
+  rez.addEventListener('pointerdown', function(e){
+    if (stacked() || e.button > 0) return;
+    pid = e.pointerId;
+    try { rez.setPointerCapture(pid); } catch (err) { pid = null; return; }
+    rez.classList.add('dragging');
+    // Kills pointer events on the video for the length of the drag. The
+    // capture already routes them here, but the iframe still paints
+    // hover states and can steal focus without it.
+    document.body.classList.add('lr-resizing');
     document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    window.addEventListener('touchmove', move, { passive: false });
-    window.addEventListener('touchend', up);
     if (e.cancelable) e.preventDefault();
-  }
-  rez.addEventListener('mousedown', down);
-  rez.addEventListener('touchstart', down, { passive: false });
-  rez.addEventListener('dblclick', function(){
+  });
+  rez.addEventListener('pointermove', move);
+  rez.addEventListener('pointerup', up);
+  rez.addEventListener('pointercancel', up);
+  rez.addEventListener('lostpointercapture', up);
+
+  function reset(){
     split.style.removeProperty('--vid-w');
     try { localStorage.removeItem(KEY); } catch (e) {}
+  }
+  rez.addEventListener('dblclick', reset);
+  // A separator is a focusable control, so it moves from the keyboard
+  // too. Arrows nudge, Home/End go to the stops, Enter resets.
+  rez.addEventListener('keydown', function(e){
+    if (stacked()) return;
+    var r = split.getBoundingClientRect();
+    var cur = parseFloat(split.style.getPropertyValue('--vid-w'));
+    if (!isFinite(cur)) cur = (rez.getBoundingClientRect().left - r.left) / r.width * 100;
+    var step = e.shiftKey ? 8 : 2, next = null;
+    if (e.key === 'ArrowLeft') next = cur - step;
+    else if (e.key === 'ArrowRight') next = cur + step;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = 100;
+    else if (e.key === 'Enter' || e.key === ' ') { reset(); e.preventDefault(); return; }
+    else return;
+    split.style.setProperty('--vid-w', pctFromX(r.left + r.width * next / 100).toFixed(1) + '%');
+    try { localStorage.setItem(KEY, split.style.getPropertyValue('--vid-w')); } catch (err) {}
+    e.preventDefault();
   });
 })();
 </script>
@@ -6216,9 +6286,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       try { if (window.__lrProposeSideSwap) window.__lrProposeSideSwap(); } catch(e){}
     });
 
-    // The full wording, one step away in Round details. It is the reason
-    // this guide exists (people read "Pro" on "This House regrets" and
-    // argued the wrong side), so it is folded away rather than dropped.
+    // The long-form cells were retired 2026-09-03; #sidesDetail is no
+    // longer in the document. Kept behind the existence check so a
+    // future restore is markup only.
     var det = $('sidesDetail');
     if (det){
       var proWho = !fourTeam ? (state.proName || '') : '';
@@ -11577,22 +11647,50 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var old = document.getElementById('floorRemark');
     if (old) old.remove();
   }
-  // The word cap in the prompt is a request, not a guarantee, and a remark
-  // that overruns covers the video it is commenting on. Keep the first two
-  // sentences and never more than 320 characters. Em-dashes are swept here
-  // too: the model reaches for them even when the prompt says not to, and
-  // they are barred in user-facing copy everywhere else on the site.
-  var FLOOR_REMARK_MAX = 320;
-  function trimFloorRemark(raw){
-    var t = String(raw || '').trim().replace(/\s*[\u2014\u2013]\s*/g, ', ');
-    var parts = t.match(/[^.!?]+[.!?]+(\s|$)/g);
-    if (parts && parts.length > 2) t = parts.slice(0, 2).join('').trim();
-    if (t.length > FLOOR_REMARK_MAX){
-      var cut = t.slice(0, FLOOR_REMARK_MAX);
-      var stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
-      t = (stop > 80 ? cut.slice(0, stop + 1) : cut.replace(/[\s,;:]+\S*$/, '') + '\u2026').trim();
+  // The judge answers in bullets (2026-09-03, the founder: the
+  // between-speech read has to be "very very very simple", not
+  // complicated). The word cap in the prompt is a request rather than a
+  // guarantee, so the shape is enforced HERE as well: at most three
+  // lines, each one short enough to take in at a glance while the video
+  // it sits over keeps playing. Em-dashes are swept too, since the model
+  // reaches for them even when told not to and they are barred in
+  // user-facing copy everywhere else on the site.
+  //
+  // Prose still has to parse, for two reasons: a model can ignore the
+  // format, and remarks written before this change are sitting on live
+  // round documents right now and sync straight into renderFloorRemark.
+  // So a paragraph is split into sentences and each becomes a bullet.
+  var FLOOR_BULLETS_MAX = 3;
+  var FLOOR_BULLET_MAX = 72;
+  function trimFloorBullet(raw){
+    var t = String(raw || '')
+      .replace(/\s*[\u2014\u2013]\s*/g, ', ')
+      .replace(/^[\s>*\u2022\u2013-]+/, '')      // list markers of any flavour
+      .replace(/^\d+[.)]\s*/, '')                // "1." / "1)"
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[.,;:]+$/, '');                  // a bullet does not end in a full stop
+    if (t.length > FLOOR_BULLET_MAX){
+      t = t.slice(0, FLOOR_BULLET_MAX).replace(/[\s,;:]+\S*$/, '') + '\u2026';
     }
     return t;
+  }
+  function floorRemarkBullets(raw){
+    var t = String(raw || '').trim();
+    if (!t) return [];
+    var lines = t.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean);
+    // Bulleted answer: keep the marked lines and drop any stray prose
+    // the model wrapped around them.
+    var marked = lines.filter(function(l){ return /^([-*\u2022\u2013]|\d+[.)])\s+/.test(l); });
+    var out = marked.length ? marked : (lines.length > 1
+      ? lines
+      // One paragraph: cut it into sentences so it still reads as notes.
+      : (t.match(/[^.!?]+[.!?]*/g) || [t]));
+    return out.map(trimFloorBullet).filter(function(b){ return b.length > 1; }).slice(0, FLOOR_BULLETS_MAX);
+  }
+  // Kept for the round-doc write, which stores the text as given.
+  function trimFloorRemark(raw){
+    return floorRemarkBullets(raw).map(function(b){ return '- ' + b; }).join('\n');
   }
   function renderFloorRemark(remark){
     if (!remark || typeof remark.idx !== 'number' || !remark.text) return;
@@ -11615,8 +11713,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var card = document.createElement('div');
     card.className = 'floor-remark' + (railVisible ? '' : ' in-panel');
     card.id = 'floorRemark';
+    var bullets = floorRemarkBullets(remark.text);
+    if (!bullets.length) return;
     card.innerHTML = '<span class="fr-eyebrow">⚖ Judge · after ' + escHtml(remark.code || 'the speech') + '</span>'
-      + '<div class="fr-body">' + escHtml(trimFloorRemark(remark.text)) + '</div>'
+      + '<ul class="fr-list">'
+      + bullets.map(function(b){ return '<li>' + escHtml(b) + '</li>'; }).join('')
+      + '</ul>'
       + '<button type="button" class="fr-close" aria-label="Dismiss">×</button>';
     card.querySelector('.fr-close').addEventListener('click', function(){ card.remove(); });
     if (railVisible) host.appendChild(card);
@@ -11644,12 +11746,18 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return sp.code + ' — ' + sp.name + ' (' + (sp.speakerName || sp.side) + '):\n' + (sp.text || '');
     }).join('\n\n---\n\n');
     var system = [
-      "You are a tournament " + f.name + " judge sitting in on a LIVE round between two humans. The last speech in the transcript just ended; the next one has not started. Give brief between-speech color, out loud, like a judge thinking from the sideline.",
+      "You are a tournament " + f.name + " judge sitting in on a LIVE round between two humans. The last speech in the transcript just ended; the next one has not started. Give between-speech notes as a few very short bullet points, like scribbles on a flow.",
       "HARD RULES:",
-      "- 1 to 2 sentences. 40 WORDS MAXIMUM, hard cap. This is read in a few seconds between speeches, over the video. Long is worse than incomplete.",
+      "- Answer as 2 or 3 BULLET LINES. Each line starts with \"- \". Nothing else: no heading, no intro line, no sign-off, no paragraph.",
+      "- EACH BULLET IS 8 WORDS OR FEWER. Hard cap. Write like a note to yourself, not a sentence to a reader. Fragments are correct here. No commas stacking two ideas into one bullet.",
+      "- Use the simplest words that carry it. Someone who has never debated has to get it at a glance. No jargon: not warrant, not impact calculus, not turn, not framing, not link. Say what is actually missing in plain English.",
       "- Do NOT call a winner, do NOT give scores, do NOT predict the ballot. The ballot comes at the end of the round.",
-      "- Name ONE thing: the biggest thing left hanging (a drop, a missing warrant, an unweighed impact) and what " + (next ? next.code : 'the next speaker') + " has to do about it. Skip the praise, skip the recap of what was just said.",
-      "- Plain varsity-circuit register. No em-dashes. No prefaces. No quoting the speech back. Start with the substance.",
+      "- Cover only what is hanging: something unanswered, something unproven, something the next speaker has to hit. Skip praise, skip recap of what was just said.",
+      "- No em-dashes. No prefaces. No quoting the speech back.",
+      "GOOD (copy this shape):",
+      "- No answer on the cost point",
+      "- Big claim, no example yet",
+      "- " + (next ? next.code : 'Next speaker') + " must hit the jobs argument",
       "- ONLY what is in the transcript. Never invent an argument, a warrant, or an example the speaker did not give, and never praise or fault delivery you cannot see. Two real people are reading this about a round they were in.",
       "- If the transcript is too thin to comment on (a fragment, a stray line, a speech that plainly did not happen), reply with exactly: SKIP",
     ].concat(roundLangs().some(function(c){ return c !== 'en'; })
