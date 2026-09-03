@@ -1,30 +1,21 @@
 // ──────────────────────────────────────────────────────────────────
 // auth-modal.js — shared sign-in helper for Debatable.
 //
-// Web offers Google, an emailed sign-in link, and email/password. The
-// native app adds Apple, then exchanges every provider credential into
-// the same Firebase web session used by the live site.
+// Web offers Google only. The native app adds Apple because App Store
+// rules require it, then exchanges either provider credential into the
+// same Firebase web session used by the live site.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // Firebase (shared script ids with notifications.js so nothing double-loads).
 //
-// Firebase providers: Google, email link (passwordless), and
-// email/password on web; Apple is also shown in the iOS shell to satisfy
-// App Store login-choice rules.
+// Public providers: Google on web; Google and Apple in the iOS shell.
+// The old email handlers stay dormant so an outstanding sign-in link can
+// finish safely, but no public chooser offers email or password.
 //
-// ONE DOOR. The card does not ask whether you are signing in or signing
-// up, because its two leading paths do not care: Google signs in or
-// creates in one tap, and an emailed link mints the account when the
-// address has none. The question is asked in the one place the answer
-// changes what happens, inside the password form, where a password is
-// either created or checked.
-//
-// The emailed link is the lowest-friction path and the default: no
-// password to invent, and nothing to remember on the next visit. The
-// password form is the specialisation for the small group that provably
-// has one (see renderChooser for why that default inverted).
-// Completing a link is handled on load by completeEmailLink() below,
-// which runs on every page topbar.js touches.
+// ONE DOOR. Google signs in or creates the account in one tap, so the card
+// does not ask a visitor to choose between sign-in and sign-up first.
+// Completing an already-sent email link is still handled on load by
+// completeEmailLink() below; that recovery path is not advertised.
 // ──────────────────────────────────────────────────────────────────
 (function () {
   'use strict';
@@ -233,13 +224,13 @@
   //
   // So a visitor arriving from a social link used to tap the biggest button
   // on the modal, get "Google sign-in failed. Try again.", and try again
-  // forever. Email and password works perfectly in these webviews; it just
-  // sat below the fold under two buttons that could not work.
-  // "Try again" is the wrong instruction when the thing cannot succeed on
-  // this browser however many times it is tried.
+  // forever. "Try again" is the wrong instruction when the thing cannot
+  // succeed on this browser however many times it is tried. Because web
+  // sign-in is Google-only, the honest instruction is to open the same URL
+  // in Safari or Chrome.
   function providerFailMsg() {
     return isInAppBrowser()
-      ? 'This app\'s browser blocks Google sign-in. Use email below, or open the site in Safari or Chrome.'
+      ? 'This app\'s browser blocks Google sign-in. Open the site in Safari or Chrome.'
       : 'Google sign-in failed. Try again.';
   }
 
@@ -373,11 +364,14 @@
 
   function renderChooser(mode, forceEmailMode) {
     var c = home(); if (!c) return;
+    var last = lastMethod();
+    // Web no longer offers email, password, or phone. Do not point a
+    // returning device at a provider button that is no longer public.
+    if (last === 'email' || last === 'emaillink' || last === 'phone') last = '';
     // No explicit mode: someone who has signed in on this device before
     // lands on sign-in, not "Create your account".
-    if (mode !== 'signin' && mode !== 'signup') mode = lastMethod() ? 'signin' : 'signup';
+    if (mode !== 'signin' && mode !== 'signup') mode = last ? 'signin' : 'signup';
     var creating = mode === 'signup';
-    var last = lastMethod();
     // WHICH EMAIL PATH LEADS, and this rule was backwards until
     // 2026-08-26. It defaulted a returning visitor to the PASSWORD form
     // unless their last method was a link, which meant the biggest group
@@ -398,9 +392,6 @@
       : last === 'email' ? 'password' : 'link';
     var linkMode = emailMode === 'link';
     if (last === 'apple' && !window.__DB_NATIVE) last = '';
-    // Phone sign-in was retired 2026-09-03; a device that last used it
-    // must not be told to reach for a button that is no longer there.
-    if (last === 'phone') last = '';
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
@@ -434,40 +425,30 @@
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
-    var noEmail = googleOnly || liveVideo;
+    // 2026-09-03, Aidan: every public web account ask is Google-only.
+    // Keep the old form implementation below as a dormant recovery path
+    // for links already in flight, but never render it from the chooser.
+    var noEmail = true;
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
-        (googleOnly || liveVideo ? 'Open the site in Safari or Chrome to sign in with Google.'
-          : 'Use email below, or open the site in Safari or Chrome.') +
-        ' <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
+      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. Open the site in Safari or Chrome to sign in with Google. ' +
+        '<button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
     // Google is the one provider button on web. Phone sign-in was
     // retired 2026-09-03 (Aidan: Google plus what can be set up quickly,
     // not text and not phone); Apple stays in the iOS shell only.
     var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
     var providerButtons = googleBtn;
-    var acceptedTerms = termsAccepted();
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
-    // ONE DOOR (2026-08-26). The card used to run a sign-in/sign-up split
-    // across the whole chooser, and the split was a fiction on the two
-    // paths that carry nearly everyone: Continue with Google signs in or
-    // creates in the same tap, and an emailed link does too (Firebase
-    // mints the account when the address has none). So the card was
-    // asserting a choice the flows never made, and it contradicted
-    // itself doing it: the wall opened headed "Sign in to keep going"
-    // over a form asking for a Name with "Already have an account? Sign
-    // in" underneath it. Three answers to one question on one card.
-    //
-    // The split survives in exactly one place, because there it is real:
-    // a password either exists or has to be created, and Firebase needs
-    // to be told which. That toggle now lives INSIDE the password door
-    // (see daModeSwitch below) instead of governing the whole card.
+    // ONE DOOR. A Google tap signs in or creates the account, so the card
+    // never asks which one the visitor means. The dormant email markup
+    // below is retained for safe completion of links already in flight,
+    // not as a public provider choice.
     var headline = (lockCopy && lockCopy.headline) ||
       (creating ? 'Sign in or create an account' : 'Welcome back');
     var subline = (lockCopy && lockCopy.sub) ||
       (creating
-        ? 'One link does both. Your rounds, ballots, XP and place on the board live on the account.'
+        ? 'Google signs you in or creates your account. Your rounds, ballots, XP and place on the board live there.'
         : 'Pick up your rounds, rank, and style profile.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
@@ -1211,16 +1192,15 @@
       var code = (err && err.code) || '';
       try { localStorage.removeItem(LINK_EMAIL_KEY); } catch (e) {}
       var msg = code === 'auth/invalid-action-code'
-        ? 'That sign-in link has expired or was already used. Send a fresh one below, or use Continue with Google.'
+        ? 'That sign-in link has expired or was already used. Continue with Google.'
         : code === 'auth/invalid-email'
           ? 'That email does not match the link. Try again.'
-          : 'Could not finish signing you in. Send a fresh link below, or use Continue with Google.';
+          : 'Could not finish signing you in. Continue with Google.';
       if (typeof onFail === 'function') { onFail(msg, code); return; }
       stripLinkParams();
-      // Force the LINK form, never the password one. Someone whose
-      // link just failed needs a fresh link or Google, and a password
-      // field is a door that may not exist for their account.
-      openAuthModal('signin', { emailMode: 'link' });
+      // Email is no longer a public provider. An old link may finish, but
+      // a failed one returns to the supported Google door.
+      openAuthModal('signin');
       setErr(msg);
     });
   }
@@ -1256,7 +1236,7 @@
         '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daLinkBtn">Finish signing in</button>' +
       '</form>' +
       '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBail">Use another way in</button></p>';
+      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBail">Continue with Google</button></p>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
     c.querySelector('#daLinkBail').addEventListener('click', function () {
@@ -1283,7 +1263,7 @@
         setErr(code === 'auth/invalid-email' || code === 'auth/user-not-found'
           ? 'That address does not match this link. Check it and try again.'
           : code === 'auth/invalid-action-code'
-            ? 'This link has expired or was already used. Use another way in, below.'
+            ? 'This link has expired or was already used. Continue with Google below.'
             : 'Could not finish signing you in. Use another way in, below.');
       });
     });

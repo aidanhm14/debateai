@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const source = fs.readFileSync(new URL('../app/js/auth-modal.js', import.meta.url), 'utf8');
 const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
 const signupNudge = fs.readFileSync(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
+const experienceAsk = fs.readFileSync(new URL('../app/js/experience-ask.js', import.meta.url), 'utf8');
 let failures = 0;
 
 function check(condition, label) {
@@ -55,6 +56,24 @@ check(
 check(
   !/PhoneAuthProvider|RecaptchaVerifier|function doPhoneStart|function doPhoneCode/.test(source),
   'phone sign-in stays retired from the shared chooser',
+);
+check(
+  source.includes('var noEmail = true;')
+    && source.includes('var providerButtons = googleBtn;')
+    && !source.includes("Use email below, or open the site in Safari or Chrome."),
+  'the public web chooser offers Google only',
+);
+check(
+  source.includes('window.__DB_NATIVE && !googleOnly')
+    && source.includes('Continue with Apple'),
+  'the iOS shell keeps its required Apple option',
+);
+check(
+  experienceAsk.includes('Are you a competitive debater or new?')
+    && experienceAsk.includes('Either is fine. This only helps us explain ideas clearly.')
+    && experienceAsk.includes('Competitive debater')
+    && experienceAsk.includes('New to debate'),
+  'the experience ask states its plain-language purpose',
 );
 
 const communityJoinLinks = landing.match(/<a[^>]+data-community-join[^>]*>/g) || [];

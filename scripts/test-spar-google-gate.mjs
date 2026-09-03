@@ -95,9 +95,9 @@ check(livePopup.includes('liveVideo: true'), 'wants-to-debate popup must open li
 check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'live-round seat gate must accept Google and Apple accounts only');
 check(liveRound.includes('liveVideo: true'), 'live-round must open the shared card in live-video mode');
 check(authModal.includes('liveVideo = !!(opts && opts.liveVideo) && !googleOnly;'), 'shared auth prompt must accept live-video mode');
-check(authModal.includes("var noEmail = googleOnly || liveVideo;"), 'live-video prompt must omit the email door');
+check(authModal.includes('var noEmail = true;'), 'every public prompt, including live video, must omit the email door');
 check(authModal.includes('var providerButtons = googleBtn;'), 'chooser must render Google as the one provider button on web');
-check(authModal.includes("googleOnly || liveVideo ? 'Open the site in Safari or Chrome to sign in with Google.'"), 'in-app live-video note must point at a real browser');
+check(authModal.includes('Open the site in Safari or Chrome to sign in with Google.'), 'in-app live-video note must point at a real browser');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');
 

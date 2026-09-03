@@ -1,14 +1,17 @@
 /* ──────────────────────────────────────────────────────────────────
-   "Do you already debate?" — asked once, on arrival, site-wide.
+   "Are you a competitive debater or new?" — asked once, on arrival,
+   site-wide.
 
    Aidan, 2026-08-22: "when entering site ask ppl if they already
    debate or dont and are new (no worries if your not!)".
 
    The answer already had plumbing and no front door. `audience-mode.js`
    has read localStorage `debateos-experience` since 2026-08-18, stamps
-   it on <html> as data-debate-experience, swaps every [data-plain]
-   string on the page, and feeds /practice's own register fork. What
-   nothing did was ASK. The only prompt was a quiet line docked beside
+   it on <html> as data-debate-experience, and swaps authored interface
+   terms for their plain-English explanations. New public rounds already
+   use accessible language for everyone, so this answer never changes
+   the opponent, judge, difficulty, score, topic, or match. What nothing
+   did was ASK. The only prompt was a quiet line docked beside
    the Full tour button, below the fold on one page, which almost
    nobody reaches, and the post-signup onboarding card, which by
    definition arrives too late to change the copy a stranger read on
@@ -178,11 +181,11 @@
     box.style.position = 'fixed';
     box.innerHTML =
       '<button type="button" class="dea-x" aria-label="Not now">&times;</button>' +
-      '<p class="dea-q">Do you already debate?</p>' +
-      '<p class="dea-s">No worries if you do not. It just changes how much jargon we use.</p>' +
+      '<p class="dea-q">Are you a competitive debater or new?</p>' +
+      '<p class="dea-s">Either is fine. This only helps us explain ideas clearly.</p>' +
       '<div class="dea-row">' +
-        '<button type="button" class="dea-b" data-exp="competitive">Yes, I compete</button>' +
-        '<button type="button" class="dea-b" data-exp="new">No, I am new</button>' +
+        '<button type="button" class="dea-b" data-exp="competitive">Competitive debater</button>' +
+        '<button type="button" class="dea-b" data-exp="new">New to debate</button>' +
       '</div>' +
       '<p class="dea-note">You can change this any time in settings.</p>';
 
@@ -204,8 +207,8 @@
       choose(v);
       track('audience_choice', { value: v, surface: 'entry_card' });
       box.innerHTML = '<p class="dea-q">' +
-        (v === 'competitive' ? 'Good. We will keep the debate vocabulary.'
-                             : 'Got it. We will keep it in plain English.') +
+        (v === 'competitive' ? 'Got it. We will keep the debate vocabulary.'
+                             : 'Got it. We will explain ideas in plain English.') +
         '</p><p class="dea-s" style="margin:0">Change it any time in settings.</p>';
       setTimeout(function () { box.remove(); }, 2600);
     });
