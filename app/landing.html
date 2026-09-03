@@ -8686,12 +8686,30 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .mh-more a{min-height:34px;display:inline-flex;align-items:center;color:var(--mh-muted);
     font-size:13.5px;font-weight:700;text-decoration:none}
   .mh-more a:active{color:var(--mh-red)}
+  /* The relocated board. It arrives carrying its desktop styling, so
+     this is only what a phone needs: full width, a little tighter, and
+     room under it before the headline. */
+  #mhBoardSlot:empty{display:none}
+  #mhBoardSlot{margin:0 0 20px}
+  #mhome .fs-board{display:block;width:100%;max-width:none;margin:0;padding:14px 14px 15px}
+  #mhome .fs-board h2.fs-motion{font-size:23px;line-height:1.1;margin-bottom:11px}
+  #mhome .fs-board-debate{font-size:.72rem;line-height:1.25}
+  #mhome .fs-board .fs-ballot{margin-top:2px}
   @media(max-width:360px){.mhome{padding-left:14px;padding-right:14px}.mh-title{font-size:34px}
-    .mh-primary-label{font-size:27px}.mh-row{grid-template-columns:1fr}.mh-card{min-height:0}}
+    .mh-primary-label{font-size:27px}.mh-row{grid-template-columns:1fr}.mh-card{min-height:0}
+    #mhome .fs-board h2.fs-motion{font-size:21px}}
   @media(prefers-reduced-motion:reduce){.mh-wave i,.mh-live-dot{animation:none}}
 </style>
 <section id="mhome" class="mhome" aria-label="Start a live debate" data-nosnippet>
   <div class="mh-wrap">
+    <!-- The example round board is MOVED here on a phone (2026-09-02,
+         the founder: "for mobile at least have this at the top"). It is
+         relocated rather than retyped, the same appendChild move the
+         landing TOC uses, because the board is driven by a rotator that
+         looks its nodes up by id: a second copy would fight the first
+         over every id on the card. Desktop never runs the move, so the
+         board stays exactly where it is above 720px. -->
+    <div id="mhBoardSlot"></div>
     <p class="mh-title">The chess.com of debating.</p>
     <p class="mh-sub">Get matched with a stranger, argue it out on camera, and an AI judge decides who won.</p>
 
@@ -8746,6 +8764,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     })();
   </script>
 </section>
+
+<script>
+/* Move the example board to the top of the mobile home (2026-09-02).
+ *
+ * A MOVE, never a copy: the board's rotator resolves every node by id
+ * (fsMotion, fsClock, fsFaceA and about forty more), so a second copy
+ * in the DOM would leave getElementById pointing at whichever came
+ * first and the visible card would never update.
+ *
+ * It runs once, only under 720px, and it is one-way on purpose. A phone
+ * that is rotated or a window that is dragged wider mid-session keeps
+ * the board where it is rather than teleporting it out from under a
+ * finger; the next load puts it back in the desktop composition.
+ */
+(function(){
+  if (!window.matchMedia || !window.matchMedia('(max-width:720px)').matches) return;
+  function move(){
+    var slot = document.getElementById('mhBoardSlot');
+    var board = document.getElementById('fsBoard');
+    if (!slot || !board || slot.contains(board)) return;
+    slot.appendChild(board);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', move);
+  else move();
+})();
+</script>
 <section id="first-screen" class="fscreen" aria-label="Start a live debate">
   <div class="fscreen-wrap">
     <!-- Search snippets use the stable meta description while this copy
