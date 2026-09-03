@@ -710,26 +710,10 @@ img.msg-av{display:block}
     if (!activeThread || activeThread.isGroup) return;
     var p = peerOf(activeThread);
     if (!p.uid) return;
-    $('pcName').textContent = p.name;
-    $('pcMeta').textContent = '';
-    $('pcBio').textContent = '';
-    $('pcChips').innerHTML = '';
-    $('pcAv').outerHTML = avatarHtml(p.name, p.photo).replace('class="msg-av"', 'class="msg-av" id="pcAv"');
-    $('pcModal').classList.add('on');
-    db.collection('public_profiles').doc(p.uid).get().then(function(doc){
-      if (!doc.exists){
-        $('pcBio').textContent = 'No public profile yet.';
-        return;
-      }
-      var d = doc.data() || {};
-      $('pcName').textContent = d.name || p.name;
-      $('pcMeta').textContent = [d.school, d.circuit].filter(Boolean).join(' · ');
-      $('pcBio').textContent = d.bio || '';
-      $('pcChips').innerHTML = (d.formats || []).slice(0, 8).map(function(f){ return '<span>' + esc(f) + '</span>'; }).join('');
-    }).catch(function(err){
-      $('pcBio').textContent = 'Profile could not load right now.';
-      console.warn('[messages] profile load failed', err && err.code);
-    });
+    // /users owns the complete public record: XP, level, win/loss,
+    // subject strengths and recent judged rounds. Keep this tap out of
+    // the old bio-only preview so Messages never shows a partial profile.
+    location.href = '/users?uid=' + encodeURIComponent(p.uid);
   }
 
   // ── public profile: own editor ───────────────────────────────────
