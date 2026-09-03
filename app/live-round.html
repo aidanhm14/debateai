@@ -4690,6 +4690,14 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   function judgePlain(s){
     return String(s || '').replace(/\*\*/g, '').replace(/\s*—\s*/g, ', ');
   }
+  // A decidingIssue is often phrased as a question ("Can secret snooping
+  // build trust better than consent?"), and every caller that embeds it
+  // mid-sentence was appending its own '.', printing "...consent?." on
+  // the losing debater's card. Drop the author's terminal mark when the
+  // caller supplies punctuation of its own.
+  function stripTerminal(s){
+    return String(s == null ? '' : s).trim().replace(/[.!?]+$/, '');
+  }
   function fmtTime(sec){
     if (sec < 0) sec = 0;
     var m = Math.floor(sec/60), s = Math.floor(sec%60);
@@ -13273,11 +13281,29 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     return '';
   }
 
-  // The summary read. The judge writes its own two or three sentences
-  // now; a ballot stored before that field existed falls back to the
-  // opening of the RFD, which every ballot prompt on this site requires
-  // to be the deciding issue. Never invented, never padded.
+  // The summary read, and it is the DEFAULT depth, so it is the only
+  // part of the ballot most readers will ever take. It therefore has to
+  // deliver the call, not just the first thing the judge happened to
+  // type. It used to be a mechanical clip of the RFD's opening two
+  // sentences, justified by a claim that every ballot prompt makes the
+  // judge open with the deciding issue. live-judge.mjs, which judges
+  // every live round here, carried no opening requirement at all, and
+  // the prompts that do have one ask for the deciding ISSUE, which is
+  // the neutral question rather than the call. Measured on a real
+  // ballot 2026-09-02: an unanimous panel with a 25-point gap produced
+  // a summary that framed the clash and then described the LOSING
+  // side's mechanism with the bold landing on the loser's phrase,
+  // naming the winner nowhere in the prose. The losing debater read it
+  // as a win and reported the judge as broken. BallotRead.summaryFrom
+  // leads with the call composed from fields already on the ballot;
+  // nothing here invents.
   function ballotSummaryRead(b){
+    var winnerName = '';
+    if (b && b.winner === 'pro') winnerName = state.proName || '';
+    else if (b && b.winner === 'con') winnerName = state.conName || '';
+    if (window.BallotRead && BallotRead.summaryFrom){
+      return BallotRead.summaryFrom(b, { winnerName: winnerName });
+    }
     var s = (b && typeof b.summary === 'string') ? b.summary.trim() : '';
     if (s) return s;
     var fs = (window.BallotRead && BallotRead.firstSentences)
@@ -14658,11 +14684,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var line;
     if (iWon){
       line = issue
-        ? 'It turned on ' + escHtml(issue) + ', and you held that ground. Hold it against the next person.'
+        ? 'It turned on ' + escHtml(stripTerminal(issue)) + ', and you held that ground. Hold it against the next person.'
         : 'You held the deciding ground. Hold it against the next person.';
     } else {
       line = issue
-        ? 'It turned on ' + escHtml(issue) + '. That is the thread to pull. Run it back and take it away from them.'
+        ? 'It turned on ' + escHtml(stripTerminal(issue)) + '. That is the thread to pull. Run it back and take it away from them.'
         : 'One clash decided it, and the ballot names it. Run it back and take it away from them.';
     }
     return '' +

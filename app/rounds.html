@@ -979,11 +979,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         ? esc(winName)+' takes the round.'
         : 'The panel split. No winner recorded.';
       // The summary read: the judge's own when the ballot carries one,
-      // otherwise the opening of the RFD, which every ballot prompt on
-      // this site requires to be the deciding issue.
-      var summaryRead = (r.ballot.summary && String(r.ballot.summary).trim())
-        || (window.BallotRead ? BallotRead.firstSentences(r.ballot.rfd, 2) : '')
-        || r.ballot.rfd || '';
+      // otherwise the RFD clip LED BY THE CALL. A bare clip could open
+      // on the neutral framing of the clash and then describe the
+      // losing side's case, naming the winner nowhere in the prose;
+      // see ballot-read.js for the ballot that measured it. Rendered
+      // through esc() here, which is why summaryFrom composes plain
+      // text and never markdown.
+      var summaryRead = (window.BallotRead && BallotRead.summaryFrom)
+        ? (BallotRead.summaryFrom(r.ballot, { winnerName: winName }) || r.ballot.rfd || '')
+        : ((r.ballot.summary && String(r.ballot.summary).trim()) || r.ballot.rfd || '');
       var score100 = r.ballot.scoreScale === 100;
       ballotHtml = '<div class="ballot" id="ballotReadBlock"><p class="b-eyebrow">The ballot</p>' +
         '<p class="b-win">'+headline+'</p>' +

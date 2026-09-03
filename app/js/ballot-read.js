@@ -187,11 +187,25 @@
     };
   }
 
-  /* First `n` sentences of a body of text. The fallback summary for a
-     ballot written before the judge was asked for one of its own:
-     every RFD prompt on this site requires the judge to open with the
-     deciding issue, so the opening sentences ARE the short version.
-     Never invents, never pads; returns '' when there is nothing. */
+  /* First `n` sentences of a body of text. Never invents, never pads;
+     returns '' when there is nothing.
+
+     This is a CLIP, not a summary, and the difference is what the
+     comment here used to get wrong. It claimed every RFD prompt on this
+     site makes the judge open with the deciding issue, so the opening
+     sentences ARE the short version. Two things were false about that.
+     live-judge.mjs, which judges every live human round, had no opening
+     requirement at all. And the prompts that DO carry one ask for the
+     deciding ISSUE, which is the neutral question the round turned on,
+     not the call. So the shallowest read, which is the DEFAULT read for
+     every reader, could open by stating the clash and then describing
+     the losing side's own mechanism, with the bold landing on the
+     loser's phrase and the winner named nowhere in the prose. Measured
+     on a real ballot 2026-09-02: the losing debater read it as a win
+     and reported the judge as broken, on a round the panel had decided
+     unanimously with a 25-point argument-score gap. Use summaryFrom()
+     for anything a reader sees; this stays exported for callers that
+     genuinely want a clip. */
   function firstSentences(text, n) {
     var t = String(text || '').trim();
     if (!t) return '';
@@ -199,6 +213,52 @@
     var parts = t.match(/[^.!?]+[.!?]+(\s|$)/g);
     if (!parts || !parts.length) return t.length > 320 ? t.slice(0, 300).trim() + '…' : t;
     return parts.slice(0, n).join('').trim();
+  }
+
+  /* THE SHORT VERSION a reader actually sees. The summary tier is the
+     default depth on every ballot surface, so it is the one read most
+     people will ever take, and it therefore owes them the call before
+     anything else.
+
+     Order of preference, and nothing here invents:
+       1. a summary the judge wrote itself (b.summary), used verbatim;
+       2. otherwise the RFD clip, PREFIXED with the call composed from
+          fields already on the ballot: the winner's name and the
+          deciding issue. Both are recorded data, not a new inference.
+
+     The prefix is skipped when the clip already opens by naming the
+     winner, so a prompt that now leads with the call does not get it
+     said twice. Plain text on purpose: rounds.html renders this through
+     esc(), so a **bold** marker would print its own asterisks. */
+  function summaryFrom(ballot, opts) {
+    var b = ballot || {};
+    var o = opts || {};
+    var own = (typeof b.summary === 'string') ? b.summary.trim() : '';
+    if (own) return own;
+
+    var body = firstSentences(b.rfd, o.sentences || 2);
+    if (!body) return String(b.rfd || '').trim();
+
+    var winner = String(o.winnerName || '').trim();
+    if (!winner) return body;
+
+    // Already resolved in the opening sentence? Leave it alone.
+    // No lookbehind: this module ships to Safari versions that throw a
+    // SyntaxError on one at parse time, which would take the whole file
+    // down rather than just this branch.
+    var openMatch = body.match(/^[^.!?]*[.!?]/);
+    var opening = (openMatch && openMatch[0]) || body;
+    if (opening.toLowerCase().indexOf(winner.toLowerCase()) >= 0) return body;
+
+    var issue = String(o.decidingIssue || b.decidingIssue || '').trim();
+    var call = winner + ' takes it';
+    // A deciding issue is phrased as a question often enough that a
+    // blind '.' produces '...consent?.' on screen. Keep the author's
+    // terminal mark when there is one.
+    if (issue) call += ' on ' + (/[.!?]$/.test(issue) ? issue : issue + '.');
+    else call += '.';
+    if (!/[.!?]$/.test(call)) call += '.';
+    return call + ' ' + body;
   }
 
   var css =
@@ -251,6 +311,7 @@
     controlHtml: controlHtml,
     subscribe: subscribe,
     firstSentences: firstSentences,
+    summaryFrom: summaryFrom,
     copy: COPY
   };
 })();

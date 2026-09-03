@@ -13,6 +13,9 @@ const paradigms = read('app/judge-paradigms.html');
 const integrity = read('app/judge-integrity.html');
 const charter = read('app/netlify/functions/lib/judge-charter.mjs');
 const stability = read('scripts/eval/run-stability-eval.mjs');
+const ballotRead = read('app/js/ballot-read.js');
+const liveRound = read('app/live-round.html');
+const roundsPage = read('app/rounds.html');
 
 let pass = 0;
 const failures = [];
@@ -26,6 +29,34 @@ function check(label, condition) {
 // production ballot surfaces owe the same minimum even though their
 // output shapes and lengths differ.
 check('live ballot refuses to summarize speeches back', /Do not summarise the speeches back/.test(live));
+
+// THE SHORT VERSION IS THE DEFAULT READ, so it must resolve the round.
+// ballot-read.js shows the RFD's opening two sentences alone at the
+// summary depth. live-judge.mjs used to ask only for "the decision,
+// issue by issue", so a judge could open by framing the clash neutrally
+// and then describe the LOSING side's mechanism; the winner appeared
+// nowhere in the prose and the bold landed on the loser's phrase.
+// Measured 2026-09-02 on a unanimous panel with a 25-point gap: the
+// losing debater read the summary as a win and reported the judge as
+// broken. Both halves of the repair are pinned here because either one
+// alone leaves the failure reachable.
+check('live ballot opens by naming the winner, not just the clash',
+  /OPEN WITH THE CALL[\s\S]{0,200}sentence one names the winner/.test(live));
+check('live ballot prompt says the opening two sentences are shown alone',
+  /first two sentences are shown ALONE as the short version/.test(live));
+check('live ballot prompt names the neutral-opening failure',
+  /reads to the loser as though they won/.test(live));
+check('the shared summary composer leads with the call',
+  /function summaryFrom\s*\(ballot, opts\)/.test(ballotRead));
+check('the summary composer prefers a judge-written summary verbatim',
+  /var own = \(typeof b\.summary === 'string'\)/.test(ballotRead));
+check('the summary composer does not repeat a call the RFD already made',
+  /opening\.toLowerCase\(\)\.indexOf\(winner\.toLowerCase\(\)\)/.test(ballotRead));
+check('every ballot surface composes its summary rather than clipping the RFD',
+  [liveRound, oneOff, roundsPage].every((src) => /BallotRead\.summaryFrom/.test(src)));
+check('no ballot surface still falls back to a bare firstSentences clip',
+  ![liveRound, oneOff, roundsPage].some(
+    (src) => /summaryRead =[\s\S]{0,120}BallotRead\.firstSentences/.test(src)));
 check('live ballot names only consequential extended drops', /every consequential drop[\s\S]{0,180}extended it[\s\S]{0,180}ballot/.test(live));
 check('live ballot quotes the line that settled a clash', /Quote the line that settled a clash/.test(live));
 check('live ballot ends with the change the loser needed', /single thing the losing side needed to change/.test(live));

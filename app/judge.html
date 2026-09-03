@@ -2189,12 +2189,19 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     }
 
     renderBallotText($('rfdText'), b.rfd || '');
-    // The summary read. The judge writes its own; a ballot that skipped
-    // the field falls back to the opening of the RFD, which the prompt
-    // requires to be the deciding issue.
-    var summaryRead = (b.summary && String(b.summary).trim())
-      || (window.BallotRead ? BallotRead.firstSentences(b.rfd, 2) : '')
-      || b.rfd || '';
+    // The summary read, and it is the default depth. The judge writes
+    // its own when it can; otherwise BallotRead.summaryFrom leads with
+    // the call before the RFD clip. The old fallback was a bare clip,
+    // justified by a claim that the prompt makes the judge open with
+    // the deciding issue: the deciding ISSUE is the neutral question
+    // the round turned on, not the call, so a clip could open by
+    // framing the clash and never name the winner in the prose. See
+    // ballot-read.js for the ballot that measured it.
+    var summaryWinner = b.winner === 'pro' ? (b.proName || '')
+      : (b.winner === 'con' ? (b.conName || '') : '');
+    var summaryRead = (window.BallotRead && BallotRead.summaryFrom)
+      ? (BallotRead.summaryFrom(b, { winnerName: summaryWinner }) || b.rfd || '')
+      : ((b.summary && String(b.summary).trim()) || b.rfd || '');
     renderBallotText($('ballotSummaryText'), summaryRead);
     try {
       if (window.BallotRead) BallotRead.mount(
