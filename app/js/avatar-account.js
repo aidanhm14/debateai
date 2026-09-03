@@ -20,15 +20,18 @@
      they go through readRaw/writeRaw rather than read/write. */
   var PFP_KEY = 'debatable-pfp-v1';
   var PREF_KEY = 'debatable-avatar-pref';
+  var PFP_AUTO_KEY = 'debatable-pfp-auto-v1';
   var META_KEY = 'debatable-avatar-sync-v1';
   var PORTRAIT_EVT = 'debatable-avatar-change';
   var LIVE_EVT = 'debatable-avatar-design';
   var READY_EVT = 'debatable-avatar-account-ready';
-  /* v2 added pfpId + pref. A v1 record predates them and therefore makes
+  /* v2 added pfpId + pref. v3 adds pfpAuto so the UI can offer the stable
+     account default once without treating it as a deliberate choice.
+     A v1 record predates picture fields and therefore makes
      NO statement about the picked picture, so applyRecord leaves the two
      local keys alone rather than clearing a pick every time an old cached
      client's record hydrates. Only a v2+ record may write or clear them. */
-  var VERSION = 2;
+  var VERSION = 3;
   var applyingRemote = false;
   var currentUser = null;
   var db = null;
@@ -129,9 +132,9 @@
       else global.localStorage.removeItem(key);
     } catch (e) {}
   }
-  /* The pfp branch has NO fallback on purpose (the avatar.js rule): there
-     is no sensible default picture, so an unknown or unwearable id DROPS
-     rather than putting a tile on somebody who never picked it. canWear,
+  /* Unknown or unwearable ids DROP rather than falling through. Defaults
+     are chosen separately from DBPfp.list after this sanitizer is ready.
+     canWear,
      not has: the library also carries the photo tier the first-screen
      rail draws from, and those must never become an account's identity.
      The library is only consulted when this page happens to have it
@@ -167,7 +170,8 @@
       liveDesign: live,
       liveLooks: looks,
       pfpId: cleanPfpId(readRaw(PFP_KEY)),
-      pref: cleanPref(readRaw(PREF_KEY))
+      pref: cleanPref(readRaw(PREF_KEY)),
+      pfpAuto: readRaw(PFP_AUTO_KEY) === '1' && !!cleanPfpId(readRaw(PFP_KEY))
     };
   }
   function hasIdentity(record) { return !!(record && (record.portraitConfig || record.liveDesign || record.pfpId)); }
@@ -207,6 +211,8 @@
   function dispatch(record) {
     try { global.dispatchEvent(new CustomEvent(PORTRAIT_EVT, { detail:record.portraitConfig || null })); } catch (e) {}
     try { global.dispatchEvent(new CustomEvent(LIVE_EVT, { detail:record.liveDesign || null })); } catch (e) {}
+  }
+  function dispatchReady() {
     try { global.dispatchEvent(new CustomEvent(READY_EVT, { detail:publicIdentity() })); } catch (e) {}
   }
   function applyRecord(remote) {
@@ -218,7 +224,8 @@
       liveDesign: remote.liveDesign ? cleanDesign(remote.liveDesign) : null,
       liveLooks: cleanLooks(remote.liveLooks),
       pfpId: cleanPfpId(remote.pfpId),
-      pref: cleanPref(remote.pref)
+      pref: cleanPref(remote.pref),
+      pfpAuto: Number(remote.version) >= 3 && remote.pfpAuto === true
     };
     applyingRemote = true;
     write(PORTRAIT_KEY, record.portraitConfig);
@@ -227,17 +234,62 @@
     if (Number(remote.version) >= 2) {
       writeRaw(PFP_KEY, record.pfpId);
       writeRaw(PREF_KEY, record.pref);
+      writeRaw(PFP_AUTO_KEY, record.pfpAuto ? '1' : '');
     } else {
       // A v1 record makes no statement about the picked picture (see the
       // VERSION note above), so the local pick stands and the record we
       // report reflects it.
       record.pfpId = cleanPfpId(readRaw(PFP_KEY));
       record.pref = cleanPref(readRaw(PREF_KEY));
+      record.pfpAuto = readRaw(PFP_AUTO_KEY) === '1' && !!record.pfpId;
     }
     write(META_KEY, { updatedAtMs:record.updatedAtMs, uid:currentUser ? currentUser.uid : '' });
     dispatch(record);
     applyingRemote = false;
     return record;
+  }
+  function loadPfpLib(cb) {
+    if (global.DBPfp) { cb(global.DBPfp); return; }
+    var finished = false;
+    function finish(lib) { if (finished) return; finished = true; cb(lib); }
+    var tag = document.querySelector('script[data-db-pfp]') || document.querySelector('script[src="/js/pfp-set.js"]');
+    if (!tag) {
+      tag = document.createElement('script');
+      tag.src = '/js/pfp-set.js';
+      tag.setAttribute('data-db-pfp', '1');
+      document.head.appendChild(tag);
+    }
+    if (global.DBPfp) { finish(global.DBPfp); return; }
+    tag.addEventListener('load', function () { finish(global.DBPfp || null); }, { once:true });
+    tag.addEventListener('error', function () { finish(null); }, { once:true });
+    setTimeout(function () { finish(global.DBPfp || null); }, 3000);
+  }
+  /* Every Firebase uid gets one stable default. Hashing the uid makes the
+     assignment random-looking without changing on refresh or device. It
+     is stored and synced like a normal choice, while pfpAuto keeps the
+     one-time keep-or-change offer honest. */
+  function ensureDefaultPfp(user, cb) {
+    var before = localRecord();
+    if (!user || before.pfpId) { cb(before, false); return; }
+    loadPfpLib(function (lib) {
+      if (!currentUser || currentUser.uid !== user.uid) return;
+      if (!lib || !lib.list || !lib.list.length || !lib.pick) { cb(localRecord(), false); return; }
+      var id = lib.pick('account:' + user.uid);
+      var wearable = lib.canWear ? lib.canWear(id) : lib.has(id);
+      if (!wearable) { cb(localRecord(), false); return; }
+      writeRaw(PFP_KEY, id);
+      writeRaw(PREF_KEY, 'pfp');
+      writeRaw(PFP_AUTO_KEY, '1');
+      touch();
+      cb(localRecord(), true);
+    });
+  }
+  function settle(user, shouldPush, alreadyDispatched) {
+    ensureDefaultPfp(user, function (record, assigned) {
+      if (assigned || !alreadyDispatched) dispatch(record);
+      dispatchReady();
+      if (assigned || shouldPush) pushNow();
+    });
   }
   function pushNow() {
     if (!currentUser || currentUser.isAnonymous || !db) return Promise.resolve(false);
@@ -261,7 +313,14 @@
   }
   function hydrate(user) {
     currentUser = user || null;
-    if (!currentUser || currentUser.isAnonymous || !db) { dispatch(localRecord()); return; }
+    if (!currentUser) { settle(null, false, false); return; }
+    var browserOwner = String(meta().uid || '');
+    var clearedForSwitch = false;
+    if (browserOwner && browserOwner !== currentUser.uid) {
+      applyRecord({ version:VERSION, updatedAtMs:Date.now() });
+      clearedForSwitch = true;
+    }
+    if (currentUser.isAnonymous || !db) { settle(currentUser, false, clearedForSwitch); return; }
     db.collection('user_profiles').doc(currentUser.uid).get().then(function (snap) {
       var data = snap.exists ? (snap.data() || {}) : {};
       var remote = data.avatarIdentity || null;
@@ -280,14 +339,17 @@
         // v1 remote would leave the previous account's tile standing.
         var incoming = remote && hasIdentity(remote) ? remote : { updatedAtMs:remoteAt || Date.now() };
         applyRecord(Object.assign({}, incoming, { version: VERSION }));
+        settle(currentUser, false, true);
         return;
       }
-      if (remote && hasIdentity(remote) && (!hasIdentity(local) || remoteAt > localAt)) applyRecord(remote);
-      else if (hasIdentity(local)) pushNow();
-      else dispatch(local);
+      if (remote && hasIdentity(remote) && (!hasIdentity(local) || remoteAt > localAt)) {
+        applyRecord(remote);
+        settle(currentUser, false, true);
+      } else if (hasIdentity(local)) settle(currentUser, true, false);
+      else settle(currentUser, true, false);
     }).catch(function (e) {
       console.warn('[avatar-account] hydrate failed', e && e.message);
-      dispatch(localRecord());
+      settle(currentUser, false, false);
     });
   }
   function boot(attempt) {
@@ -310,6 +372,7 @@
     localRecord: localRecord,
     publicIdentity: publicIdentity,
     applyRecord: applyRecord,
+    ensureDefaultPfp: ensureDefaultPfp,
     sync: pushNow,
     hydrate: hydrate,
     READY_EVENT: READY_EVT

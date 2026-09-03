@@ -2051,6 +2051,45 @@
       if (window.DBIdentity) return window.DBIdentity.forUser(u).username;
       return 'debater_' + String(u && u.uid || '').slice(-4).toLowerCase();
     }
+    function publicAvatarIdentity() {
+      try {
+        if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
+        if (window.DBAvatar && DBAvatar.getPublicIdentity) {
+          var built = DBAvatar.getPublicIdentity();
+          if (built && built.kind === 'live') return { kind:'live', design:built.design };
+          if (built && built.kind === 'portrait') return { kind:'portrait', config:built.config };
+          if (built && built.kind === 'pfp') return { kind:'pfp', id:built.id };
+        }
+        var pfp = localStorage.getItem('debatable-pfp-v1') || '';
+        if (pfp && localStorage.getItem('debatable-avatar-pref') === 'pfp' && /^[a-zA-Z0-9_-]{1,32}$/.test(pfp)) return { kind:'pfp', id:pfp };
+      } catch (e) {}
+      return null;
+    }
+    /* The background matcher runs on pages that do not normally load the
+       account-picture bridge. Hydrate it before the first queue write so a
+       remote choice wins, or a stable default is assigned, before another
+       person receives this seat. This costs a profile read only after the
+       person has explicitly made themselves available. */
+    function preparePublicAvatar(cb) {
+      var finished = false;
+      function finish() {
+        if (finished) return;
+        finished = true;
+        window.removeEventListener('debatable-avatar-account-ready', finish);
+        cb(publicAvatarIdentity());
+      }
+      function hydrateAccount() {
+        window.addEventListener('debatable-avatar-account-ready', finish);
+        if (window.DBAvatarAccount && DBAvatarAccount.hydrate) DBAvatarAccount.hydrate(myUser);
+      }
+      function loadAccount() {
+        if (window.DBAvatarAccount) { hydrateAccount(); return; }
+        loadScriptOnce('da-bg-avatar-account', '/js/avatar-account.js', hydrateAccount);
+      }
+      setTimeout(finish, 3000);
+      if (window.DBPfp) { loadAccount(); return; }
+      loadScriptOnce('da-bg-pfp-set', '/js/pfp-set.js', loadAccount);
+    }
     function ts() { return window.firebase.firestore.FieldValue.serverTimestamp(); }
     function ensureQueueUser(cb) {
       whenFirebaseReady(function () {
@@ -2268,24 +2307,28 @@
         myRef = db.collection('matchmaking_queue').doc(myUid);
         var blockedUids = [];
         try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
-        myRef.set({
-          uid: myUid,
-          authProvider: liveVideoProvider(myUser),
-          displayName: shortNm(myUser),
-          username: publicUsername(myUser),
-          photoURL: (myUser && myUser.photoURL) || '',
-          ageBand: agBand(),
-          format: fmt(),
-          status: 'waiting',
-          broaden: true,
-          background: true,
-          blockedUids: blockedUids.slice(-100),
-          joinedAt: ts()
-        }).then(function () {
-          if (!available) { myRef.delete().catch(function () {}); return; } // toggled off mid-write
-          watchOwnDoc(); startTimers(); scan();
-        })
-          .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
+        preparePublicAvatar(function (avatarIdentity) {
+          if (!available || !myRef) return;
+          myRef.set({
+            uid: myUid,
+            authProvider: liveVideoProvider(myUser),
+            displayName: shortNm(myUser),
+            username: publicUsername(myUser),
+            photoURL: (myUser && myUser.photoURL) || '',
+            avatarIdentity: avatarIdentity,
+            ageBand: agBand(),
+            format: fmt(),
+            status: 'waiting',
+            broaden: true,
+            background: true,
+            blockedUids: blockedUids.slice(-100),
+            joinedAt: ts()
+          }).then(function () {
+            if (!available) { myRef.delete().catch(function () {}); return; } // toggled off mid-write
+            watchOwnDoc(); startTimers(); scan();
+          })
+            .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
+        });
       });
     }
     // Zombie-screen guard (2026-08-18, mirrors spar.html): the heartbeat
@@ -2321,7 +2364,7 @@
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
       myRef.set({
-        uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '',
+        uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '', avatarIdentity: publicAvatarIdentity(),
         ageBand: agBand(),
         format: fmt(), status: 'waiting', broaden: true, background: true,
         blockedUids: blockedUids.slice(-100), joinedAt: ts()

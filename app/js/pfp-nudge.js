@@ -6,8 +6,7 @@
    this script with defer. It renders nothing unless ALL of these hold:
      - a NAMED account is signed in (an anonymous Firebase uid is not a
        person we can ask, and its picture would die with the uid),
-     - the account has no chosen identity (picked tile, designed portrait,
-       live mask) and no account photo,
+     - the account is still on its automatic picture, or has no identity,
      - "Not now" has not been pressed in this browser.
    The decision waits for avatar-account.js to hydrate a design saved on
    another device (injected here if the page does not load it), so nobody
@@ -23,14 +22,15 @@
   if (global.__daPfpNudgeLoaded) return;
   global.__daPfpNudgeLoaded = true;
 
-  var KEY = 'da-pfp-nudge';
+  var KEY = 'da-pfp-picture-offer-v2-';
   var READY_EVT = 'debatable-avatar-account-ready';
   var CSS = '.da-pfpn{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:14px 16px;border-radius:14px;'
     + 'border:1px solid var(--line,var(--border,rgba(127,127,127,.22)));background:var(--panel,var(--bg-card,rgba(127,127,127,.06)));'
     + 'color:var(--text,inherit);font:inherit}'
     + '.da-pfpn[hidden]{display:none!important}'
     + '.da-pfpn-av{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
-    + 'font-weight:800;font-size:1rem;background:var(--accent,#dc2626);color:#fff}'
+    + 'font-weight:800;font-size:1rem;background:var(--accent,#dc2626);color:#fff;overflow:hidden}'
+    + '.da-pfpn-av svg,.da-pfpn-av img{width:100%;height:100%;display:block;object-fit:cover}'
     + '.da-pfpn-id{flex:1 1 220px;min-width:0}'
     + '.da-pfpn-t{font-weight:800;font-size:.98rem;margin:0 0 2px}'
     + '.da-pfpn-s{font-size:.82rem;line-height:1.4;opacity:.72;margin:0}'
@@ -49,11 +49,16 @@
       global.gtag && global.gtag('event', name, p);
     } catch (e) {}
   }
-  function dismissed() {
-    try { return !!global.localStorage.getItem(KEY); } catch (e) { return true; }
+  function keyFor(user) { return KEY + String(user && user.uid || 'unknown'); }
+  function dismissed(user) {
+    try { return !!global.localStorage.getItem(keyFor(user)); } catch (e) { return true; }
+  }
+  function isAutoPfp() {
+    try { return global.localStorage.getItem('debatable-pfp-auto-v1') === '1'; } catch (e) { return false; }
   }
   function hasPic(user) {
     try {
+      if (isAutoPfp()) return false;
       if (user && user.photoURL) return true;
       var ls = global.localStorage;
       return !!(ls.getItem('debatable-avatar') || ls.getItem('debateit-avatar')
@@ -96,17 +101,24 @@
   function render(mount, user) {
     ensureStyle();
     mount.innerHTML = '';
+    var auto = isAutoPfp();
     var card = document.createElement('div');
     card.className = 'da-pfpn';
     card.setAttribute('role', 'region');
-    card.setAttribute('aria-label', 'Add a profile picture');
+    card.setAttribute('aria-label', auto ? 'Review your profile picture' : 'Add a profile picture');
     card.innerHTML =
       '<span class="da-pfpn-av" aria-hidden="true"></span>' +
-      '<div class="da-pfpn-id"><p class="da-pfpn-t">Put a face on your name</p>' +
-      '<p class="da-pfpn-s">People see this letter everywhere you debate. Pick a picture or design an avatar once and it rides your rounds, messages, and the leaderboard.</p></div>' +
-      '<div class="da-pfpn-acts"><button class="da-pfpn-btn pri" type="button" data-go>Choose my picture</button>' +
-      '<button class="da-pfpn-btn quiet" type="button" data-no>Not now</button></div>';
-    card.querySelector('.da-pfpn-av').textContent = initial(user);
+      '<div class="da-pfpn-id"><p class="da-pfpn-t">' + (auto ? 'Your profile picture is ready' : 'Put a picture on your name') + '</p>' +
+      '<p class="da-pfpn-s">' + (auto
+        ? 'We picked one so people can recognize you in a match. Keep it or choose another.'
+        : 'Pick a picture once and it rides your rounds, messages, and the leaderboard.') + '</p></div>' +
+      '<div class="da-pfpn-acts"><button class="da-pfpn-btn pri" type="button" data-go>' + (auto ? 'Change picture' : 'Choose my picture') + '</button>' +
+      '<button class="da-pfpn-btn quiet" type="button" data-no>' + (auto ? 'Looks good' : 'Not now') + '</button></div>';
+    var avNode = card.querySelector('.da-pfpn-av');
+    var pfpId = '';
+    try { pfpId = global.localStorage.getItem('debatable-pfp-v1') || ''; } catch (e) {}
+    if (auto && pfpId && global.DBPfp && global.DBPfp.svg) avNode.innerHTML = global.DBPfp.svg(pfpId, '100%');
+    else avNode.textContent = initial(user);
     mount.appendChild(card);
     ga('pfp_nudge_shown');
 
@@ -122,8 +134,9 @@
         }
         global.DBAvatar.openBuilder({ onSave: function () {
           ga('pfp_nudge_saved');
+          try { global.localStorage.setItem(keyFor(user), 'saved'); } catch (e) {}
           card.querySelector('.da-pfpn-t').textContent = 'Saved.';
-          card.querySelector('.da-pfpn-s').textContent = 'That face now rides everywhere you debate.';
+          card.querySelector('.da-pfpn-s').textContent = 'That picture now rides everywhere you debate.';
           card.querySelector('.da-pfpn-acts').remove();
           var av = card.querySelector('.da-pfpn-av');
           try {
@@ -138,13 +151,24 @@
     });
     card.querySelector('[data-no]').addEventListener('click', function () {
       card.hidden = true;
-      try { global.localStorage.setItem(KEY, 'dismissed'); } catch (e) {}
-      ga('pfp_nudge_dismissed');
+      try {
+        if (auto) {
+          var keepId = global.localStorage.getItem('debatable-pfp-v1') || '';
+          if (keepId && global.DBAvatar && global.DBAvatar.setPfp) global.DBAvatar.setPfp(keepId);
+          else {
+            global.localStorage.removeItem('debatable-pfp-auto-v1');
+            if (global.DBAvatarAccount && global.DBAvatarAccount.sync) global.DBAvatarAccount.sync();
+          }
+        }
+        global.localStorage.setItem(keyFor(user), auto ? 'kept' : 'dismissed');
+      } catch (e) {}
+      ga(auto ? 'pfp_nudge_kept' : 'pfp_nudge_dismissed');
     });
   }
 
   function decideFor(mount, user) {
     if (mount.__daPfpDone) return;
+    if (dismissed(user)) return;
     var done = false;
     var decide = function () {
       if (done) return;
@@ -164,7 +188,6 @@
     attempt = attempt || 0;
     var mount = document.querySelector('[data-pfp-nudge]');
     if (!mount) return;
-    if (dismissed()) return;
     var fb = global.firebase;
     if (!(fb && fb.auth)) {
       if (attempt < 40) setTimeout(function () { boot(attempt + 1); }, 250);

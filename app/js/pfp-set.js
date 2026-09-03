@@ -25,19 +25,23 @@
  * and any truer tier (a built avatar, an account's own photo) still
  * outranks them everywhere.
  *
- * DRAWN tiles are the pickable set: original, ours outright, and nothing
- * in them depicts a real person or an existing character. That is why the
- * picker draws from SET and never from PHOTOS.
+ * SET is the pickable set. Most tiles are original inline drawings. It also
+ * carries a small supplied-photo tier that depicts objects, food, scenery,
+ * or non-human art only. A SET photo is marked `wearable:true`; an image URL
+ * alone is NEVER enough to make a photo wearable. That explicit bit is the
+ * boundary that keeps the identifiable PHOTOS tier below out of accounts.
  *
  * RULES THAT KEEP THEM READABLE AT 54px, which is the only size that
  * matters here: flat fills, no hairlines under 2px, no gradients, one
  * strong background hue each, and the subject filling most of the frame.
- * 64x64 viewBox, inline, so the whole set costs zero requests.
+ * Drawn tiles use a 64x64 inline viewBox. Photo tiles are cropped to 320px
+ * and load only when one is actually rendered.
  *
  * ADDING ONE: append to SET with a stable id (the id is what gets stored
  * on an account, so renaming one silently changes somebody's picture).
- * Keep `group` accurate; the picker renders by group. A PHOTOS id is never
- * stored on an account, so those may be re-cut freely.
+ * Keep `group` accurate; the picker renders by group. A photo in SET needs
+ * `wearable:true` after the no-person/no-existing-character review. A PHOTOS
+ * id is never stored on an account, so those may be re-cut freely.
  */
 (function (global) {
   'use strict';
@@ -357,7 +361,21 @@
       + '<circle cx="32" cy="13" r="6" fill="none" stroke="#e8e3d8" stroke-width="4"/>'
       + '<rect x="29.6" y="18" width="4.8" height="34" fill="#e8e3d8"/>'
       + '<rect x="20" y="24" width="24" height="4.4" rx="2" fill="#e8e3d8"/>'
-      + '<path d="M12 36c0 12 9 20 20 20s20-8 20-20" stroke="#e8e3d8" stroke-width="4.6" fill="none" stroke-linecap="round"/>' }
+      + '<path d="M12 36c0 12 9 20 20 20s20-8 20-20" stroke="#e8e3d8" stroke-width="4.6" fill="none" stroke-linecap="round"/>' },
+
+    /* ── supplied non-person pictures ─────────────────────────────
+       2026-09-03. These six came from the founder's second screenshot
+       batch and may be assigned to accounts. They depict no identifiable
+       person. The child, the five recognizable adults and the existing
+       comic character in that batch are deliberately absent. `wearable`
+       is explicit so adding an image URL can never make it pickable by
+       accident. */
+    { id:'daybreak',   name:'Daybreak',   group:'Pictures', src:'/img/pfp/user/daybreak.jpg',   wearable:true },
+    { id:'blue-orbit', name:'Blue orbit', group:'Pictures', src:'/img/pfp/user/blue-orbit.jpg', wearable:true },
+    { id:'night-cat',  name:'Night cat',  group:'Pictures', src:'/img/pfp/user/night-cat.jpg',  wearable:true },
+    { id:'raspberry',  name:'Raspberry',  group:'Pictures', src:'/img/pfp/user/raspberry.jpg',  wearable:true },
+    { id:'pug-statue', name:'Pug statue', group:'Pictures', src:'/img/pfp/user/pug-statue.jpg', wearable:true },
+    { id:'sea-cliff',  name:'Sea cliff',  group:'Pictures', src:'/img/pfp/user/sea-cliff.jpg',  wearable:true }
   ];
 
   /* ── The photo tier ──────────────────────────────────────────────
@@ -446,14 +464,16 @@
   function pickPhoto(seed, taken) { return pick(seed, taken, PHOTOS); }
   function pickPhotoSvg(seed, taken, size) { return svg(pickPhoto(seed, taken), size); }
 
-  /* `list` stays the DRAWN set on purpose: it is what the picker renders,
-     and a photo tile must never become something an account can wear. */
+  /* `list` stays the explicitly pickable SET. PHOTOS never enters it. */
   global.DBPfp = {
     list: SET, photos: PHOTOS, byId: BY_ID,
     has: function (id) { return !!BY_ID[id]; },
     /* Membership check for the three server allow-lists and the topbar
        probe, which may only ever accept a pickable id. */
-    canWear: function (id) { return !!BY_ID[id] && !BY_ID[id].src; },
+    canWear: function (id) {
+      var item = BY_ID[id];
+      return !!item && (!item.src || item.wearable === true);
+    },
     art: art, svg: svg, pick: pick, pickSvg: pickSvg,
     pickPhoto: pickPhoto, pickPhotoSvg: pickPhotoSvg, hash: hash
   };

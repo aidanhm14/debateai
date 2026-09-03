@@ -154,8 +154,10 @@ function freshWin() {
     // The wearable set: 'frog' wears, 'pic-cash' is the photo tier (has()
     // but never canWear()), anything else is unknown.
     DBPfp: {
+      list: [{ id: 'frog' }],
       has: (id) => id === 'frog' || id === 'pic-cash',
       canWear: (id) => id === 'frog',
+      pick: () => 'frog',
     },
   };
 }
@@ -172,7 +174,7 @@ function loadAccountSync(win) {
   win.localStorage.setItem('debatable-pfp-v1', 'frog');
   win.localStorage.setItem('debatable-avatar-pref', 'pfp');
   let rec = sync.localRecord();
-  ok(rec.version >= 2, `localRecord version is ${rec.version}, pfp fields need v2+`);
+  ok(rec.version >= 3, `localRecord version is ${rec.version}, automatic pfp fields need v3+`);
   ok(rec.pfpId === 'frog' && rec.pref === 'pfp', 'localRecord dropped the picked tile');
   ok(sync.publicIdentity() && sync.publicIdentity().kind === 'pfp', 'publicIdentity ignored the pfp pick');
   // Drop, never default: a photo-tier id and an unknown id both clean to null.
@@ -189,6 +191,10 @@ function loadAccountSync(win) {
   ok(win.localStorage.getItem('debatable-pfp-v1') === null
     && win.localStorage.getItem('debatable-avatar-pref') === null,
     'applyRecord did not clear the pfp keys from a v2 record');
+  // v3 is the first record that may say whether the pick was automatic.
+  sync.applyRecord({ version: 3, updatedAtMs: 6, pfpId: 'frog', pref: 'pfp', pfpAuto: true });
+  ok(win.localStorage.getItem('debatable-pfp-auto-v1') === '1' && sync.localRecord().pfpAuto === true,
+    'applyRecord did not carry the v3 automatic-picture marker');
   // A v1 record makes no statement about the pick, so it must stand.
   win.localStorage.setItem('debatable-pfp-v1', 'frog');
   win.localStorage.setItem('debatable-avatar-pref', 'pfp');
@@ -200,6 +206,42 @@ function loadAccountSync(win) {
     const src = read('app/js/avatar-account.js');
     return /hasIdentity[\s\S]{0,200}?pfpId/.test(src);
   })(), 'hasIdentity does not count a pfp-only record');
+}
+
+// A new uid gets one stable wearable picture immediately, marked as an
+// automatic choice so the keep-or-change prompt can tell the truth.
+{
+  const win = freshWin();
+  const sync = loadAccountSync(win);
+  sync.hydrate({ uid: 'fresh-user', isAnonymous: true });
+  const rec = sync.localRecord();
+  ok(rec.pfpId === 'frog' && rec.pref === 'pfp' && rec.pfpAuto === true,
+    'hydrate did not assign and prefer the stable default pfp');
+}
+
+// The real set keeps supplied non-person pictures wearable and the older
+// identifiable stand-in bank unwearable.
+{
+  const win = {};
+  new Function('window', read('app/js/pfp-set.js'))(win);
+  ok(win.DBPfp.canWear('daybreak') && win.DBPfp.canWear('sea-cliff'),
+    'safe supplied pictures are not wearable');
+  ok(!win.DBPfp.canWear('pic-cash'), 'stand-in photo became wearable');
+  ok(win.DBPfp.list.some((item) => item.id === 'raspberry' && item.wearable === true),
+    'safe picture is missing its explicit wearable bit');
+}
+
+// Both queue producers publish the public identity, including the pfp
+// fallback on /spar when the account bridge has not loaded yet.
+{
+  const notices = read('app/js/notifications.js');
+  ok(/avatarIdentity:\s*avatarIdentity/.test(notices)
+    && /avatarIdentity:\s*publicAvatarIdentity\(\)/.test(notices),
+    'background queue writes do not both carry avatarIdentity');
+  ok(/id\.kind === 'pfp' \? \{kind:'pfp',id:id\.id\}/.test(read('app/spar.html')),
+    '/spar fallback drops pfp identities');
+  ok(/DBAvatar\.setPfp\(faceChoice\.id\)/.test(read('app/js/onboarding.js')),
+    'onboarding picture choice is not saved as a pfp');
 }
 
 if (failures.length) {

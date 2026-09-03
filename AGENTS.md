@@ -426,6 +426,12 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   ROUNDS board above is a DIFFERENT surface and is unchanged: it still
   runs consented stills only, because those seats carry names and results
   and these tiles do not.
+  **2026-09-03:** `app/img/pfp/user/*` is a separate account-wearable
+  image tier. It contains only six non-identifying subjects from a later
+  founder-supplied batch and every entry needs `wearable:true` in `SET`.
+  The child, recognizable people, and existing comic character from that
+  batch were deliberately excluded. Do not use this new folder or flag to
+  make the older `app/img/pfp/*` stranger-photo bank wearable.
 - **First-screen round-card treatment (2026-08-31).** Resolution headlines
   are italic and alternate red, then black, as each generated card advances.
   In dark themes the black beat uses the board's warm white so it remains

@@ -47,6 +47,9 @@
      picker behaves exactly as it did. */
   var PFP_KEY = 'debatable-pfp-v1';
   var PREF_KEY = 'debatable-avatar-pref';
+  /* Set by avatar-account.js only while the stable account default has not
+     been confirmed or changed. Any deliberate save clears it. */
+  var AUTO_PFP_KEY = 'debatable-pfp-auto-v1';
   var LIVE_EVT = 'debatable-avatar-design';
   // These five lists MUST stay in step with DESIGN_OPTIONS in
   // js/cam-avatar.js. A key that exists there and not here is silently
@@ -925,6 +928,7 @@
     try {
       global.localStorage.setItem(PFP_KEY, String(id));
       global.localStorage.setItem(PREF_KEY, 'pfp');
+      global.localStorage.removeItem(AUTO_PFP_KEY);
     } catch (e) {}
     try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
     return id;
@@ -1456,7 +1460,10 @@
         saved = { kind:'pfp', id:setPfp(pfpId) };
       } else {
         saved = setUser(cfg);
-        try { global.localStorage.setItem(PREF_KEY, 'portrait'); } catch (e) {}
+        try {
+          global.localStorage.setItem(PREF_KEY, 'portrait');
+          global.localStorage.removeItem(AUTO_PFP_KEY);
+        } catch (e) {}
       }
       if (typeof opts.onSave === 'function') { try { opts.onSave(saved); } catch (e) {} }
       close();
@@ -1535,9 +1542,13 @@
     o = o || {};
     var published = normPublicIdentity(o.publicIdentity);
     if (published) return published;
-    if (!o.config) {
-      var live = getLiveIdentity();
-      if (live) return live;
+    /* `live` means this node belongs to the signed-in person and should
+       repaint when their choice changes. Use the complete local public
+       identity here, including a picked picture. Remote people arrive via
+       publicIdentity and must never inherit the viewer's local picture. */
+    if (o.live && !o.config) {
+      var local = getPublicIdentity();
+      if (local) return local;
     }
     var custom = o.config || getUser();
     if (custom) return { kind: 'custom', config: norm(custom), seed: o.uid || o.name || 'anon' };
@@ -1576,7 +1587,9 @@
       node.style.flexShrink = '0';
       node.style.display = 'block';
       node.style.position = 'relative';
-      node.innerHTML = id.kind === 'live' ? maskSvg(id.design, '100%') : svg(id.config, '100%');
+      node.innerHTML = (id.kind === 'live' || id.kind === 'portrait' || id.kind === 'pfp')
+        ? publicSvg(id, '100%', { uid:o.uid, name:o.name })
+        : svg(id.config, '100%');
 
       if (id.kind !== 'photo') return;
       var img = document.createElement('img');

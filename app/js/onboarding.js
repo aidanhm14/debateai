@@ -88,7 +88,10 @@
   // Separate from the onboarding flag on purpose: every account that
   // existed before the face step shipped is already marked onboarded, so
   // reusing that flag would mean none of them are ever asked for a face.
-  function avKey(uid) { return 'debateos-avatar-asked-' + uid; }
+  /* v2 is the profile-picture offer. The older flag covered the portrait
+     builder, so reusing it would hide this keep-or-change choice from every
+     account that completed onboarding before account pictures shipped. */
+  function avKey(uid) { return 'debateos-profile-picture-offered-v2-' + uid; }
   function avAsked(uid) { try { return localStorage.getItem(avKey(uid)) === '1'; } catch (e) { return false; } }
   function avMark(uid) { try { localStorage.setItem(avKey(uid), '1'); } catch (e) {} }
 
@@ -201,7 +204,14 @@
     // Only claim the face was asked if the step actually rendered. Someone
     // who skipped at question one never saw it and should still get the
     // focused ask on a later page.
-    if (sawFace) avMark(activeUid);
+    if (sawFace) {
+      avMark(activeUid);
+      try {
+        if (localStorage.getItem('debatable-pfp-auto-v1') === '1') {
+          localStorage.setItem('da-pfp-picture-offer-v2-' + activeUid, 'dismissed');
+        }
+      } catch (e) {}
+    }
     // Avatar-only mode is mounted at accounts that ALREADY answered the
     // questions. Writing an onboarding payload here would merge a
     // near-empty object over their real answers, so it writes nothing:
@@ -240,11 +250,22 @@
   var faceBatch = 0, faceConfigs = [], faceChoice = null;
 
   function loadScript(src, cb) {
-    var el = document.createElement('script');
-    el.src = src;
-    el.addEventListener('load', function () { cb(true); }, { once: true });
-    el.addEventListener('error', function () { cb(false); }, { once: true });
-    document.head.appendChild(el);
+    var el = document.querySelector('script[src="' + src + '"]');
+    if (el && ((src === '/js/pfp-set.js' && window.DBPfp) || (src === '/js/avatar.js' && window.DBAvatar) || (src === '/js/avatar-account.js' && window.DBAvatarAccount))) { cb(true); return; }
+    var fresh = !el;
+    if (!el) {
+      el = document.createElement('script');
+      el.src = src;
+    }
+    var finished = false;
+    function finish(ok) { if (finished) return; finished = true; cb(ok); }
+    el.addEventListener('load', function () { finish(true); }, { once: true });
+    el.addEventListener('error', function () { finish(false); }, { once: true });
+    if (fresh) document.head.appendChild(el);
+    setTimeout(function () {
+      var ready = (src === '/js/pfp-set.js' && window.DBPfp) || (src === '/js/avatar.js' && window.DBAvatar) || (src === '/js/avatar-account.js' && window.DBAvatarAccount);
+      finish(!!ready);
+    }, 4000);
   }
   function ensureAvatar(cb) {
     function withAccount() {
@@ -253,10 +274,17 @@
       if (window.DBAvatarAccount) { cb(true); return; }
       loadScript('/js/avatar-account.js', function () { cb(true); });
     }
-    if (window.DBAvatar) { withAccount(); return; }
-    loadScript('/js/avatar.js', function (ok) {
-      if (!ok || !window.DBAvatar) { cb(false); return; }
-      withAccount();
+    function withAvatar() {
+      if (window.DBAvatar) { withAccount(); return; }
+      loadScript('/js/avatar.js', function (ok) {
+        if (!ok || !window.DBAvatar) { cb(false); return; }
+        withAccount();
+      });
+    }
+    if (window.DBPfp) { withAvatar(); return; }
+    loadScript('/js/pfp-set.js', function (ok) {
+      if (!ok || !window.DBPfp) { cb(false); return; }
+      withAvatar();
     });
   }
   function escAttr(v) {
@@ -264,7 +292,10 @@
       .replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
   function hasLocalFace() {
-    try { return !!(window.DBAvatar && DBAvatar.getUser && DBAvatar.getUser()); } catch (e) { return false; }
+    try {
+      if (localStorage.getItem('debatable-pfp-auto-v1') === '1') return false;
+      return !!(window.DBAvatar && DBAvatar.getPfp && DBAvatar.getPfp());
+    } catch (e) { return false; }
   }
   function authUser() {
     try { return firebase.auth().currentUser || null; } catch (e) { return null; }
@@ -272,17 +303,23 @@
 
   function paintFaces() {
     var wrap = card && card.querySelector('.ob-faces');
-    if (!wrap || !window.DBAvatar) return;
+    if (!wrap || !window.DBAvatar || !window.DBPfp) return;
     faceConfigs = [];
+    var taken = {};
+    var current = DBAvatar.getPfp && DBAvatar.getPfp();
+    if (!current || !DBPfp.canWear(current)) current = DBPfp.pick('account:' + String(activeUid || 'anon'));
     var html = '';
     for (var i = 0; i < 4; i++) {
-      // Seeded off the uid so a face a user liked is still there if they
-      // reopen at the same batch, rather than reshuffling under them.
-      var cfg = DBAvatar.randomConfig(String(activeUid || 'anon') + ':' + faceBatch + ':' + i);
-      faceConfigs.push(cfg);
-      html += '<button type="button" class="ob-face" data-i="' + i + '" aria-label="Face option ' + (i + 1) + '">'
-        + DBAvatar.svg(cfg, '100%') + '</button>';
+      // The assigned picture stays first. Alternatives are stable for this
+      // account and batch, so reopening never reshuffles under somebody.
+      var id = i === 0 ? current : DBPfp.pick(String(activeUid || 'anon') + ':profile:' + faceBatch + ':' + i, taken);
+      taken[id] = 1;
+      var item = DBPfp.byId[id] || {};
+      faceConfigs.push({ kind:'pfp', id:id });
+      html += '<button type="button" class="ob-face' + (i === 0 ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + escAttr(item.name || ('Picture option ' + (i + 1))) + '">'
+        + DBPfp.svg(id, '100%') + '</button>';
     }
+    faceChoice = faceConfigs[0] || null;
     wrap.innerHTML = html;
     var btns = wrap.querySelectorAll('.ob-face');
     for (var k = 0; k < btns.length; k++) {
@@ -308,8 +345,8 @@
         + escAttr(u && u.displayName ? u.displayName : '') + '">' +
       '<div class="ob-faces"></div>' +
       '<div class="ob-face-acts">' +
-        '<button type="button" class="ob-mini" data-a="more">More faces</button>' +
-        '<button type="button" class="ob-mini" data-a="build">Customize</button>' +
+        '<button type="button" class="ob-mini" data-a="more">More pictures</button>' +
+        '<button type="button" class="ob-mini" data-a="build">Customize avatar</button>' +
       '</div>' +
       '<div class="ob-foot">' +
         '<button type="button" class="ob-skip">Not now</button>' +
@@ -317,14 +354,14 @@
       '</div>';
 
     faceChoice = null;
-    if (window.DBAvatar) {
+    if (window.DBAvatar && window.DBPfp) {
       paintFaces();
     } else {
       // Still loading, or blocked. Retry once, and if the engine never
       // arrives move past the step rather than showing an empty grid.
       ensureAvatar(function (ok) {
         if (!card) return;
-        if (ok && window.DBAvatar) paintFaces();
+        if (ok && window.DBAvatar && window.DBPfp) paintFaces();
         else advance();
       });
     }
@@ -351,7 +388,14 @@
       // setUser persists and fires debatable-avatar-change, which
       // avatar-account.js is listening for. That listener is what writes
       // avatarIdentity, so this one call is the whole sync.
-      try { DBAvatar.setUser(faceChoice); } catch (e) {}
+      try {
+        if (faceChoice.kind === 'pfp' && DBAvatar.setPfp) DBAvatar.setPfp(faceChoice.id);
+        else {
+          DBAvatar.setUser(faceChoice);
+          localStorage.setItem('debatable-avatar-pref', 'portrait');
+          localStorage.removeItem('debatable-pfp-auto-v1');
+        }
+      } catch (e) {}
     }
     var u = authUser();
     if (name && u && u.updateProfile && name !== u.displayName) {
@@ -497,7 +541,9 @@
             // with no avatarIdentity is exactly the row that renders as a
             // generated marble on the leaderboard.
             if (avAsked(user.uid)) return;
-            if (d.avatarIdentity || hasLocalFace()) { avMark(user.uid); return; }
+            var storedPic = d.avatarIdentity && d.avatarIdentity.pfpId;
+            var storedAuto = !!(d.avatarIdentity && d.avatarIdentity.pfpAuto);
+            if ((storedPic && !storedAuto) || hasLocalFace()) { avMark(user.uid); return; }
             setTimeout(function () {
               if (avAsked(user.uid)) return;
               mount(user.uid, { avatarOnly: true });
