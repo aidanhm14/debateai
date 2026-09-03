@@ -553,9 +553,29 @@
     } catch (e) { return false; }
   }
 
+  // Google One Tap is a proactive prompt, so keep it to desktop browsing.
+  // The iOS app already exits at the top of this module, but iOS Safari is
+  // still a web page and needs its own exclusion. iPadOS can identify as a
+  // Mac, so touch capability is part of the check.
+  function oneTapDevice(){
+    try {
+      var ua = navigator.userAgent || '';
+      var ios = /iPhone|iPad|iPod/i.test(ua)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (ios) return 'ios';
+      if (/Android|Mobile|Tablet|Kindle|Silk/i.test(ua)) return 'mobile';
+      return 'desktop';
+    } catch (e) { return 'unknown'; }
+  }
+
   function tryOneTap(){
     try {
       if (window.__DB_NATIVE) return;
+      var device = oneTapDevice();
+      if (device !== 'desktop') {
+        try { if (window.gtag) gtag('event', 'one_tap_skipped_device', { device: device, path: location.pathname }); } catch (e) {}
+        return;
+      }
       // MEASURED 2026-08-24: paid TikTok traffic landed 340 sessions and
       // One Tap was attempted on 314 of them. It cannot succeed in that
       // webview, so every one was a sign-in prompt thrown at a stranger

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 
 const source = fs.readFileSync(new URL('../app/js/auth-modal.js', import.meta.url), 'utf8');
+const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
+const signupNudge = fs.readFileSync(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
 let failures = 0;
 
 function check(condition, label) {
@@ -28,6 +30,17 @@ check(
   handoffAt >= 0 && closeAt > handoffAt && navigateAt > closeAt,
   'ordinary sign-in closes the modal before same-page navigation',
 );
+check(
+  finish.indexOf('var nextDestination', handoffAt) > handoffAt
+    && finish.indexOf('var nextDestination', handoffAt) < closeAt
+    && /window\.location\.href\s*=\s*nextDestination/.test(finish),
+  'gated sign-in captures its destination before modal cleanup',
+);
+check(
+  source.includes("destinationOverride = safeDestination(opts && opts.destination);")
+    && source.includes('if (parsed.origin !== window.location.origin) return'),
+  'gated sign-in accepts only a same-origin destination',
+);
 
 const google = functionBody('doGoogle', 'doAppleSignIn');
 check(
@@ -42,6 +55,24 @@ check(
 check(
   !/PhoneAuthProvider|RecaptchaVerifier|function doPhoneStart|function doPhoneCode/.test(source),
   'phone sign-in stays retired from the shared chooser',
+);
+
+const communityJoinLinks = landing.match(/<a[^>]+data-community-join[^>]*>/g) || [];
+check(
+  communityJoinLinks.length === 2
+    && communityJoinLinks.every((link) => /href="\/community"/.test(link)),
+  'landing community join CTAs are marked for the sign-in gate',
+);
+check(
+  landing.includes("closest('[data-community-join]')")
+    && landing.includes("window.openAuthModal('signin', destination ? { destination: destination } : undefined)"),
+  'landing community join gate opens auth and resumes at Community',
+);
+check(
+  signupNudge.includes("if (device !== 'desktop')")
+    && /iPhone\|iPad\|iPod/.test(signupNudge)
+    && signupNudge.includes("navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1"),
+  'proactive Google One Tap is desktop-only and excludes iOS and iPadOS',
 );
 
 if (failures) process.exit(1);

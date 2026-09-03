@@ -8974,8 +8974,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
       <!-- Both copy arms carry the sign-in row, so the account ask is
            independent of whichever hero-copy arm a visitor is bucketed
-           into. One delegated handler covers both; it routes to the
-           shared auth modal (Google and email) and falls back
+           into. The same handler gates the landing's explicit community
+           join links while leaving its read-only chat links open. It routes
+           to the shared auth modal (Google and email) and falls back
            to the hidden #googleSignupBtn,
            which is the Firebase popup-then-redirect path the rest of
            the hero has always used. -->
@@ -8983,10 +8984,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         (function(){
           document.addEventListener('click', function(e){
             var btn = e.target && e.target.closest ? e.target.closest('[data-fs-signin]') : null;
-            if (!btn) return;
+            var communityJoin = e.target && e.target.closest ? e.target.closest('[data-community-join]') : null;
+            if (!btn && !communityJoin) return;
+            if (communityJoin) {
+              var current = null;
+              try { current = window.firebase && firebase.auth ? firebase.auth().currentUser : null; } catch (_) {}
+              if (current && !current.isAnonymous) return;
+            }
             e.preventDefault();
-            try { if (window.gtag) window.gtag('event', 'first_screen_signin_click'); } catch(_){}
-            if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
+            var destination = communityJoin ? (communityJoin.getAttribute('href') || '/community') : '';
+            try {
+              if (window.gtag) window.gtag('event', communityJoin ? 'community_join_signin_gate' : 'first_screen_signin_click', {
+                source: communityJoin ? (communityJoin.getAttribute('data-cta') || 'landing') : 'first_screen'
+              });
+            } catch(_){}
+            if (typeof window.openAuthModal === 'function') {
+              window.openAuthModal('signin', destination ? { destination: destination } : undefined);
+              return;
+            }
             var real = document.getElementById('googleSignupBtn');
             if (real) { real.click(); return; }
             window.location.href = '/practice';
@@ -9300,7 +9315,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a href="/community" data-cta="first-screen-chats-room">#help</a>
         </div>
       </div>
-      <a class="fs-chats-cta" href="/community" data-cta="first-screen-chats-join">Join the conversation</a>
+      <a class="fs-chats-cta" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
   </div>
   <!-- The audience chooser ("Do you compete in debate?") used to overlay
@@ -18323,7 +18338,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </article>
     </div>
     <div class="cb-links">
-      <a href="/community" data-cb="cta">Join the community</a>
+      <a href="/community" data-community-join data-cb="cta">Join the community</a>
       <a href="/chat" data-cb="groupchat">Open the group chat</a>
     </div>
   </div>

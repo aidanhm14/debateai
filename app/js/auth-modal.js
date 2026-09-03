@@ -41,8 +41,17 @@
     messagingSenderId: "860359449192",
     appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
   };
+  var destinationOverride = '';
+  function safeDestination(value) {
+    if (!value) return '';
+    try {
+      var parsed = new URL(String(value), window.location.origin);
+      if (parsed.origin !== window.location.origin) return '';
+      return parsed.pathname + parsed.search + parsed.hash;
+    } catch (e) { return ''; }
+  }
   function destination() {
-    return window.location.pathname + window.location.search + window.location.hash;
+    return destinationOverride || window.location.pathname + window.location.search + window.location.hash;
   }
 
   function loadOnce(id, src, cb) {
@@ -204,6 +213,7 @@
     lockCopy = null;
     googleOnly = false;
     liveVideo = false;
+    destinationOverride = '';
     try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
@@ -612,8 +622,9 @@
     // treated as a no-op by the browser, while onboarding reacts to the auth
     // state immediately. Leaving this card mounted hides that onboarding
     // beneath its higher z-index even though sign-in already succeeded.
+    var nextDestination = window.__DB_NATIVE ? '/native' : destination();
     forceClose();
-    window.location.href = window.__DB_NATIVE ? '/native' : destination();
+    window.location.href = nextDestination;
   }
 
   // A caller mid-action (entering a tournament, paying in) cannot survive
@@ -1354,6 +1365,10 @@
     // must be able to reach 'signup'.
     if (mode === 'signup' && lastMethod()) mode = 'signin';
     onDone = (opts && typeof opts.onDone === 'function') ? opts.onDone : null;
+    // A gated link can finish the action that opened the chooser. Only a
+    // same-origin path is accepted, so a caller cannot turn sign-in into an
+    // open redirect. Email links inherit this path as their continue URL.
+    destinationOverride = safeDestination(opts && opts.destination);
     locked = !!(opts && opts.locked);
     googleOnly = !!(opts && opts.googleOnly);
     liveVideo = !!(opts && opts.liveVideo) && !googleOnly;
