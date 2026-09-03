@@ -3341,6 +3341,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     roundNavPending: false,        // fallback guard once spar-pair succeeds
     aiOfferDismissed: false,       // user explicitly chose to keep waiting
     aiOfferShown: false,           // impression logged once per page, not per tick
+    voiceProbed: false,            // /api/voice-allowance asked once per page
+    voiceAllowed: null,            // true/false once resolved; null = unknown, keep voice
+    voiceReason: '',               // server's word for why, logged with the click
     aiLeaving: false,              // one navigation even if the write is slow
     zombieParked: false,           // queue parked after hours unattended; first touch rejoins
     profileReady: !!matchProfile,  // first visit completes the player-build before queueing
@@ -3365,6 +3368,45 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // How long a wait has to go badly before the AI round is offered. See
   // the offer markup in renderSearching for why it is not 12 seconds.
   var AI_OFFER_AFTER_SEC = 60;
+
+  // ── WHERE THE AI OFFER LANDS ──────────────────────────────────────
+  // It used to hardcode /voice-debate. Voice is capped at a lifetime 2
+  // free rounds for a named account and 1 for a guest, so the path built
+  // to rescue a wait that is going nowhere was handing a new signup a
+  // paywall on their third one. /practice is the fallback: a full typed
+  // round with a ballot, its own 10-round allowance, and ?now=1 picks a
+  // motion and starts it rather than dropping anyone on a setup screen.
+  //
+  // The allowance is NEVER computed here. /api/voice-allowance answers
+  // from the same libraries realtime-session enforces with, because the
+  // limits are env-overridable and the token-funded path is not limit
+  // arithmetic at all. A local mirror of those numbers would be the
+  // 2026-08-26 bug (voice-debate.html advertised 8 rounds while the
+  // server enforced 2) with a second copy to keep in sync.
+  //
+  // Probed when the offer is REVEALED, not when it is clicked, so the
+  // answer is already in hand and the navigation never waits on it.
+  // Unknown resolves to voice, which is exactly the old behaviour, so a
+  // slow or failed probe can never be a regression.
+  var VOICE_DEST = '/voice-debate?mode=quickclash&handoff=spar-ai-choice';
+  var TYPED_DEST = '/practice?now=1&handoff=spar-ai-choice';
+  function aiOfferDest(){
+    return state.voiceAllowed === false ? TYPED_DEST : VOICE_DEST;
+  }
+  function probeVoiceAllowance(){
+    if (state.voiceProbed) return;
+    state.voiceProbed = true;
+    var u = null;
+    try { u = firebase.auth().currentUser; } catch(e){}
+    if (!u) return; // no identity to meter; the offer keeps its old destination
+    u.getIdToken().then(function(tok){
+      return fetch('/api/voice-allowance', { headers: { Authorization: 'Bearer ' + tok } });
+    }).then(function(r){ return r && r.ok ? r.json() : null; }).then(function(d){
+      if (!d || !d.resolved) return;
+      state.voiceAllowed = !!d.ok;
+      state.voiceReason = d.reason || '';
+    }).catch(function(){ /* stays unknown, stays on voice */ });
+  }
   // Format chips are proposals, not filters. The matchmaker considers
   // every waiting debater, then asks both sides to accept/pass when
   // their proposed formats differ.
@@ -5988,6 +6030,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           offer.hidden = false;
           if (!state.aiOfferShown){
             state.aiOfferShown = true;
+            probeVoiceAllowance();
             try { if (window.gtag) gtag('event', 'spar_ai_offer_shown', { format: formatParam, wait_sec: elapsed }); } catch(e){}
           }
         }
@@ -7935,10 +7978,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { localStorage.setItem('debateos-spar-format', formatParam); } catch(e){}
     var elapsed = state.joinedAtMs ? Math.floor((Date.now() - state.joinedAtMs) / 1000) : 0;
     if (elapsed >= 15) logMissedMatch('ai-choice');
-    try { gtag('event', 'spar_ai_choice', { format: formatParam, elapsed_sec: elapsed }); } catch(e){}
+    var target = aiOfferDest();
+    // dest + voice_reason ride the event so the split is readable in
+    // GA4 without a second query: how many of these were sent to typed
+    // because voice was spent is the whole reason this branch exists.
+    try { gtag('event', 'spar_ai_choice', {
+      format: formatParam,
+      elapsed_sec: elapsed,
+      dest: target === TYPED_DEST ? 'practice' : 'voice',
+      voice_reason: state.voiceReason || (state.voiceProbed ? 'unresolved' : 'unprobed'),
+    }); } catch(e){}
     teardownQueue();
-    var voiceMode = 'quickclash';
-    var target = '/voice-debate?mode=' + encodeURIComponent(voiceMode) + '&handoff=spar-ai-choice';
     var navigated = false;
     function go(){
       if (navigated) return;
