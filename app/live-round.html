@@ -9352,6 +9352,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       else if (b.getAttribute('data-m') === 'design') openAvatarDesigner();
       else setCamMode(b.getAttribute('data-m'));
     });
+    // Pre-fetch the face tracker (~13MB once per browser) the moment a
+    // pointer reaches the Avatar or Design button, so the mask is driven
+    // by the face from its first second rather than after a 10-20s
+    // download during which it runs on mic energy and reads as broken.
+    bar.addEventListener('pointerenter', function(){
+      if (window.DebateCam && window.DebateCam.warm) window.DebateCam.warm();
+    }, { once: true });
     shell.appendChild(bar);
     camConv.bar = bar;
     buildCamHint(shell);

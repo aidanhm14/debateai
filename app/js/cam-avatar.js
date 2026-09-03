@@ -238,10 +238,21 @@
   // fetched only the first time avatar mode starts with a camera present.
   const MP_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
   const MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-  const tracker = { status: 'idle', lm: null, lastTs: 0 };
+  const tracker = { status: 'idle', lm: null, lastTs: 0, tries: 0, startedAt: 0, readyAt: 0 };
+  function trackerEvent(name, extra) {
+    try { if (typeof window.gtag === 'function') window.gtag('event', name, extra || {}); } catch (e) {}
+  }
+  // Loading is ~13MB (wasm + model) on a cold cache, which is 10 to 20
+  // seconds on an ordinary connection, and during that window the mask
+  // runs on mic energy and reads as "not following me". Two things
+  // limit it: warm() lets a page start the download before anyone
+  // presses Avatar, and a failed load retries (a flaky CDN fetch used to
+  // pin the page on the fallback for its whole life).
   function loadTracker() {
     if (tracker.status !== 'idle') return;
     tracker.status = 'loading';
+    tracker.tries += 1;
+    tracker.startedAt = performance.now();
     import(MP_CDN + '/vision_bundle.mjs')
       .then(function (vision) {
         return vision.FilesetResolver.forVisionTasks(MP_CDN + '/wasm').then(function (files) {
@@ -254,10 +265,15 @@
           return create('GPU').catch(function () { return create('CPU'); });
         });
       })
-      .then(function (lm) { tracker.lm = lm; tracker.status = 'ready'; })
+      .then(function (lm) {
+        tracker.lm = lm; tracker.status = 'ready'; tracker.readyAt = performance.now();
+        trackerEvent('avatar_tracker_ready', { ms: Math.round(tracker.readyAt - tracker.startedAt), tries: tracker.tries });
+      })
       .catch(function (e) {
         tracker.status = 'failed';
         console.warn('[cam-avatar] face tracker unavailable, mic-driven fallback', e);
+        trackerEvent('avatar_tracker_failed', { tries: tracker.tries, reason: String(e && e.message || e).slice(0, 80) });
+        if (tracker.tries < 3) setTimeout(function () { if (tracker.status === 'failed') tracker.status = 'idle'; }, 6000 * tracker.tries);
       });
   }
 
@@ -437,8 +453,25 @@
     const bl = function (v) { return clamp((v - 0.20) / 0.34, 0, 1); };
     f.blinkL = bl(g('eyeBlinkRight'));                          // mirrored swap
     f.blinkR = bl(g('eyeBlinkLeft'));
-    f.gazeX = clamp(((g('eyeLookOutLeft') + g('eyeLookInRight')) - (g('eyeLookOutRight') + g('eyeLookInLeft'))) * 1.25, -1, 1);
-    f.gazeY = clamp(((g('eyeLookUpLeft') + g('eyeLookUpRight')) - (g('eyeLookDownLeft') + g('eyeLookDownRight'))) * 1.0, -1, 1);
+    // Gaze is read off the IRIS LANDMARKS rather than the eyeLook
+    // blendshapes: the iris centre's offset between the eye corners is a
+    // geometric fact in image space, so it mirrors exactly the way the
+    // pose above mirrors. The blendshape names carry a left/right
+    // convention that is easy to get backwards, and the old vertical
+    // sign was inverted on the cartoon face. Positive gazeY is UP.
+    if (pts.length >= 478) {
+      const eye = function (outer, inner, iris) {
+        const a = pts[outer], b = pts[inner], c = pts[iris];
+        const half = Math.hypot(b.x - a.x, b.y - a.y) / 2 || 0.001;
+        return { gx: (c.x - (a.x + b.x) / 2) / half, gy: (c.y - (a.y + b.y) / 2) / half };
+      };
+      const r = eye(33, 133, 468), l = eye(362, 263, 473);
+      f.gazeX = clamp(-((r.gx + l.gx) / 2) * 2.2, -1, 1);   // image-right is screen-left in a mirror
+      f.gazeY = clamp(-((r.gy + l.gy) / 2) * 3.2, -1, 1);   // image-down is looking down
+    } else {
+      f.gazeX = clamp(-((g('eyeLookOutLeft') + g('eyeLookInRight')) - (g('eyeLookOutRight') + g('eyeLookInLeft'))) * 1.25, -1, 1);
+      f.gazeY = clamp(((g('eyeLookUpLeft') + g('eyeLookUpRight')) - (g('eyeLookDownLeft') + g('eyeLookDownRight'))) * 1.0, -1, 1);
+    }
     return f;
   }
 
@@ -784,31 +817,97 @@
     }
   }
 
+  // ── The head rig ───────────────────────────────────────────────────────
+  // Every feature lives on the surface of an ellipsoid (headW wide, R tall)
+  // at a longitude and latitude, and is projected through the tracked yaw
+  // and pitch. That is what keeps an eye INSIDE the skull when the head
+  // turns: the old renderer slid features sideways across a rigid disc, so
+  // a thirty degree turn pushed the far eye off the face entirely and the
+  // brows floated over the temple (2026-09-03, from a live screenshot).
+  // Each anchor also reports how much its patch of surface faces the
+  // camera (sx, the horizontal foreshortening of anything drawn there) and
+  // whether it is on the visible hemisphere at all (vis), so a far ear
+  // narrows, then fades, then goes behind the head.
+  const YAW_RAD = 0.66, PITCH_RAD = 0.42;
+  function makeRig(f, R, headW) {
+    const yaw = clamp(f.yaw, -1, 1) * YAW_RAD, pitch = clamp(f.pitch, -1, 1) * PITCH_RAD;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const rig = function (lon, lat, d) {
+      d = d || 1;
+      const cl = Math.cos(lat), sl = Math.sin(lat);
+      // unit point on the sphere, z toward the camera
+      const x0 = Math.sin(lon) * cl, y0 = sl, z0 = Math.cos(lon) * cl;
+      // yaw about the vertical axis, then pitch about the horizontal one
+      const x1 = x0 * cy + z0 * sy, z1 = z0 * cy - x0 * sy;
+      const y2 = y0 * cp + z1 * sp, z2 = z1 * cp - y0 * sp;
+      return {
+        x: x1 * headW * d, y: y2 * R * d, z: z2,
+        sx: Math.max(0.10, Math.cos(lon + yaw)),
+        vis: clamp((z2 + 0.06) / 0.28, 0, 1),
+      };
+    };
+    rig.yaw = yaw; rig.pitch = pitch;
+    return rig;
+  }
+  // Where the features sit on the sphere. Eyes and brows share a
+  // longitude; the nose stands proud of the surface (d > 1) so it moves
+  // more than the eyes on a turn, which is the parallax that makes the
+  // face read as a volume rather than a decal.
+  const EYE_LON = 0.433, EYE_LAT = -0.100, BROW_LAT = -0.363;
+  const NOSE_LAT = 0.201, MOUTH_LAT = 0.547, EAR_LON = 1.52, HAIR_LAT = -0.70;
+
   /* The face itself, in head-local space: the caller has already
-     translated to the head centre, rolled it, and filled the skull. */
-  function drawFaceLook(ctx, R, headW, squash, fx, fy, jawDrop, openAmt, f, look, headPath) {
+     translated to the head centre, rolled it, and filled the skull.
+     Every feature is placed through the rig above and drawn in its own
+     local frame, so the drawing code below never sees the head turn. */
+  function drawFaceLook(ctx, R, headW, at, jawDrop, openAmt, f, look, headPath) {
     // In 2D mode soft() is a no-op, so one flag turns every modelling pass
     // below off without a second copy of the drawing code.
     const bloom = look.flat ? function () {} : soft;
-    const eyeY = -R * 0.10 + fy;
-    const eyeDX = headW * 0.42;
     const eyeW = R * 0.235, eyeH = R * 0.165;
     const wrap = look.kind === 'wrap';
+    const yaw = at.yaw, pitch = at.pitch;
+    // Put the pen at a surface anchor, foreshortened to how much that patch
+    // of skin faces the camera, faded as it rolls over the limb.
+    function place(p, fn, keepAlpha) {
+      if (p.vis <= 0.01) return;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(p.sx, 1);
+      if (!keepAlpha && p.vis < 1) ctx.globalAlpha *= p.vis;
+      fn();
+      ctx.restore();
+    }
 
-    // ears, then the hair that covers them
+    // ---- ears -----------------------------------------------------------
+    // The near ear swings toward the camera on a turn and widens as it
+    // shows its face; the far one goes behind the skull. Their own
+    // visibility window is wider than the rig's because at rest they sit
+    // right on the limb and must still read as fully there.
     if (!wrap) {
       for (let s = -1; s <= 1; s += 2) {
+        const p = at(s * EAR_LON, 0, 1.03);
+        const earVis = clamp((p.z + 0.34) / 0.34, 0, 1);
+        if (earVis <= 0.01) continue;
+        const facing = 1 - Math.abs(Math.sin(s * EAR_LON + yaw));
+        const earW = headW * 0.13 * (1 + facing * 1.5);
+        ctx.save(); ctx.globalAlpha *= earVis;
         ctx.beginPath();
-        ctx.ellipse(s * headW * 1.03 + fx * 0.3, eyeY + R * 0.10, headW * 0.13, R * 0.18, 0, 0, Math.PI * 2);
-        ctx.fillStyle = s * f.yaw > 0 ? look.skinD : look.skin; ctx.fill();
+        ctx.ellipse(p.x, p.y, earW, R * 0.18, 0, 0, Math.PI * 2);
+        ctx.fillStyle = s * yaw < 0 ? look.skinD : look.skin; ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(s * headW * 1.03 + fx * 0.3, eyeY + R * 0.10, headW * 0.06, R * 0.09, 0, 0, Math.PI * 2);
-        ctx.fillStyle = look.skinDD; ctx.globalAlpha = look.flat ? 0.32 : 0.5; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.ellipse(p.x + s * earW * 0.1, p.y, earW * 0.46, R * 0.09, 0, 0, Math.PI * 2);
+        ctx.fillStyle = look.skinDD; ctx.globalAlpha *= look.flat ? 0.32 : 0.5; ctx.fill();
+        ctx.restore();
       }
     }
 
     // ---- hair front -----------------------------------------------------
+    // Hair is a cap on the skull, so it slides a fraction of what the face
+    // slides: the hairline is a surface feature, the crown barely moves.
     const k = look.kind;
+    const hairShift = at(0, HAIR_LAT).x * 0.42;
+    ctx.save(); ctx.translate(hairShift, 0);
     if (k === 'wrap') {
       ctx.fillStyle = '#b98499';
       ctx.beginPath();
@@ -836,100 +935,137 @@
           ctx.closePath(); ctx.fillStyle = look.hair; ctx.fill();
         }
       }
-      // gloss: the single strongest cue that hair is a volume, not a shape
+      // gloss: the single strongest cue that hair is a volume, not a shape.
+      // It slides against the turn, which is what a highlight on a sphere
+      // does when the sphere rotates under a fixed light.
       ctx.save();
       hairCap(ctx, headW, R, extra, brow); ctx.clip();
-      bloom(ctx, -headW * 0.34, -R * 0.80, headW * 0.42, R * 0.16, LIT, 0.30);
-      bloom(ctx, headW * 0.30, -R * 0.86, headW * 0.28, R * 0.11, LIT, 0.18);
+      const gl = -Math.sin(yaw) * headW * 0.30;
+      bloom(ctx, -headW * 0.34 + gl, -R * 0.80, headW * 0.42, R * 0.16, LIT, 0.30);
+      bloom(ctx, headW * 0.30 + gl, -R * 0.86, headW * 0.28, R * 0.11, LIT, 0.18);
       bloom(ctx, 0, -R * 0.30, headW * 1.1, R * 0.24, DARK, 0.34);
       ctx.restore();
     }
+    ctx.restore();
 
     // ---- brows ----------------------------------------------------------
-    const browY = eyeY - R * 0.255;
     const bw = eyeW * 1.05;
-    ctx.lineCap = 'round'; ctx.strokeStyle = look.browC;
-    ctx.lineWidth = Math.max(2, R * (look.brows === 2 ? 0.062 : 0.052));
+    ctx.lineCap = 'round';
     for (let s = -1; s <= 1; s += 2) {
-      const cx = fx + s * eyeDX;
+      const p = at(s * EYE_LON, BROW_LAT);
       const up = (s < 0 ? f.browUpL : f.browUpR) * R * 0.09 + f.browUp * R * 0.02;
       const down = f.browDown * R * 0.05;
       const arch = look.brows === 1 ? R * 0.02 : R * 0.055;
-      ctx.beginPath();
-      ctx.moveTo(cx - s * bw, browY - up + down + R * 0.02);
-      ctx.quadraticCurveTo(cx, browY - up + down - arch, cx + s * bw, browY - up + down * 1.6 - (look.brows === 2 ? R * 0.02 : 0));
-      ctx.stroke();
+      place(p, function () {
+        ctx.strokeStyle = look.browC;
+        ctx.lineWidth = Math.max(2, R * (look.brows === 2 ? 0.062 : 0.052));
+        ctx.beginPath();
+        ctx.moveTo(-s * bw, -up + down + R * 0.02);
+        ctx.quadraticCurveTo(0, -up + down - arch, s * bw, -up + down * 1.6 - (look.brows === 2 ? R * 0.02 : 0));
+        ctx.stroke();
+      });
     }
 
     // ---- eyes -----------------------------------------------------------
+    // The eyeball is a sphere set into the socket, so on a turn or a nod
+    // the pupil leads the lids a little, and looking down draws the upper
+    // lid with it. Gaze is signed so that positive gazeY is UP, which is
+    // how the tracker reports it (the old renderer had it inverted).
     for (let s = -1; s <= 1; s += 2) {
-      const cx = fx + s * eyeDX;
+      const p = at(s * EYE_LON, EYE_LAT);
       const blink = s < 0 ? f.blinkL : f.blinkR;
-      const open = clamp(1 - blink, 0, 1);
-      if (open < 0.12) {
-        ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.026);
+      const squint = s < 0 ? f.squintL : f.squintR;
+      const open = clamp(1 - blink, 0, 1) * (1 - clamp(squint, 0, 1) * 0.30);
+      place(p, function () {
+        if (open < 0.12) {
+          ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.026);
+          ctx.beginPath();
+          ctx.moveTo(-eyeW, 0);
+          ctx.quadraticCurveTo(0, eyeH * 0.5, eyeW, 0);
+          ctx.stroke();
+          return;
+        }
+        const lidFollow = 1 - Math.max(0, -f.gazeY) * 0.28;
+        const up = eyeH * open * lidFollow, dn = eyeH * 0.88 * open;
+        function whitePath() {
+          ctx.beginPath();
+          ctx.moveTo(-eyeW, 0);
+          ctx.quadraticCurveTo(0, -up * 2, eyeW, 0);
+          ctx.quadraticCurveTo(0, dn * 2, -eyeW, 0);
+          ctx.closePath();
+        }
+        whitePath(); ctx.fillStyle = '#fdfcf9'; ctx.fill();
+        ctx.save(); whitePath(); ctx.clip();
+        // socket shadow across the top of the eyeball
+        bloom(ctx, 0, -up * 0.9, eyeW * 0.95, up * 0.9, DARK, 0.45);
+        const ir = eyeW * 0.46;
+        const ix = (f.gazeX || 0) * eyeW * 0.50 + Math.sin(yaw) * eyeW * 0.42;
+        const iy = -(f.gazeY || 0) * eyeH * 0.45 + Math.sin(pitch) * eyeH * 0.40;
+        let irFill = look.iris;
+        if (!look.flat) {
+          const g = ctx.createRadialGradient(ix - ir * 0.3, iy - ir * 0.34, ir * 0.1, ix, iy, ir);
+          g.addColorStop(0, shade(look.iris, 0.16));
+          g.addColorStop(0.62, look.iris);
+          g.addColorStop(1, shade(look.iris, -0.16));
+          irFill = g;
+        }
+        ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fillStyle = irFill; ctx.fill();
+        ctx.strokeStyle = 'rgba(20,12,8,0.55)'; ctx.lineWidth = Math.max(1, ir * 0.16);
+        ctx.beginPath(); ctx.arc(ix, iy, ir * 0.94, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ix, iy, ir * 0.44, 0, Math.PI * 2); ctx.fillStyle = '#150f0c'; ctx.fill();
+        // The catchlight stays on the lamp side of the ball whatever the
+        // eye is doing, so it is anchored to the socket, not the pupil.
+        ctx.beginPath(); ctx.arc(ix * 0.35 + ir * 0.36, iy * 0.35 - ir * 0.42, ir * 0.34, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+        if (!look.flat) {
+          ctx.beginPath(); ctx.arc(ix - ir * 0.46, iy + ir * 0.46, ir * 0.17, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+        }
+        ctx.restore();
+        // lash line last, so it sits over the white and the iris alike
+        ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.028);
         ctx.beginPath();
-        ctx.moveTo(cx - eyeW, eyeY);
-        ctx.quadraticCurveTo(cx, eyeY + eyeH * 0.5, cx + eyeW, eyeY);
+        ctx.moveTo(-eyeW * 1.04, -up * 0.1);
+        ctx.quadraticCurveTo(0, -up * 2.3, eyeW * 1.04, -up * 0.1);
         ctx.stroke();
-        continue;
-      }
-      const up = eyeH * open, dn = eyeH * 0.88 * open;
-      function whitePath() {
-        ctx.beginPath();
-        ctx.moveTo(cx - eyeW, eyeY);
-        ctx.quadraticCurveTo(cx, eyeY - up * 2, cx + eyeW, eyeY);
-        ctx.quadraticCurveTo(cx, eyeY + dn * 2, cx - eyeW, eyeY);
-        ctx.closePath();
-      }
-      whitePath(); ctx.fillStyle = '#fdfcf9'; ctx.fill();
-      ctx.save(); whitePath(); ctx.clip();
-      // socket shadow across the top of the eyeball
-      bloom(ctx, cx, eyeY - up * 0.9, eyeW * 0.95, up * 0.9, DARK, 0.45);
-      const ir = eyeW * 0.46;
-      const ix = cx + (f.gazeX || 0) * eyeW * 0.30 - f.yaw * eyeW * 0.16;
-      const iy = eyeY + (f.gazeY || 0) * eyeH * 0.40;
-      let irFill = look.iris;
-      if (!look.flat) {
-        const g = ctx.createRadialGradient(ix - ir * 0.3, iy - ir * 0.34, ir * 0.1, ix, iy, ir);
-        g.addColorStop(0, shade(look.iris, 0.16));
-        g.addColorStop(0.62, look.iris);
-        g.addColorStop(1, shade(look.iris, -0.16));
-        irFill = g;
-      }
-      ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fillStyle = irFill; ctx.fill();
-      ctx.strokeStyle = 'rgba(20,12,8,0.55)'; ctx.lineWidth = Math.max(1, ir * 0.16);
-      ctx.beginPath(); ctx.arc(ix, iy, ir * 0.94, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(ix, iy, ir * 0.44, 0, Math.PI * 2); ctx.fillStyle = '#150f0c'; ctx.fill();
-      ctx.beginPath(); ctx.arc(ix + ir * 0.36, iy - ir * 0.42, ir * 0.34, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-      if (!look.flat) {
-        ctx.beginPath(); ctx.arc(ix - ir * 0.46, iy + ir * 0.46, ir * 0.17, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
-      }
-      ctx.restore();
-      // lash line last, so it sits over the white and the iris alike
-      ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.028);
-      ctx.beginPath();
-      ctx.moveTo(cx - eyeW * 1.04, eyeY - up * 0.1);
-      ctx.quadraticCurveTo(cx, eyeY - up * 2.3, cx + eyeW * 1.04, eyeY - up * 0.1);
-      ctx.stroke();
+      });
     }
 
     // ---- nose -----------------------------------------------------------
-    const noseY = eyeY + R * 0.30 + jawDrop * 0.2;
-    bloom(ctx, fx - R * 0.055, noseY - R * 0.05, R * 0.115, R * 0.14, DARK, 0.30);
-    bloom(ctx, fx + R * 0.045, noseY - R * 0.08, R * 0.07, R * 0.08, LIT, 0.20);
-    ctx.strokeStyle = look.skinDD; ctx.lineWidth = Math.max(2, R * 0.028);
-    ctx.beginPath();
-    ctx.moveTo(fx - R * 0.085, noseY - R * 0.01);
-    ctx.quadraticCurveTo(fx, noseY + R * 0.085, fx + R * 0.085, noseY - R * 0.01);
-    ctx.stroke();
+    // Proud of the surface (d 1.10), so it travels further than the eyes
+    // on a turn and casts onto the far cheek.
+    {
+      const p = at(0, NOSE_LAT, 1.10);
+      const far = -Math.sin(yaw);
+      place(p, function () {
+        bloom(ctx, far * R * 0.10 - R * 0.035, -R * 0.05, R * 0.115, R * 0.14, DARK, 0.30 + Math.abs(far) * 0.14);
+        bloom(ctx, R * 0.045 - far * R * 0.03, -R * 0.08, R * 0.07, R * 0.08, LIT, 0.20);
+        ctx.strokeStyle = look.skinDD; ctx.lineWidth = Math.max(2, R * 0.028);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-R * 0.085, -R * 0.01 + jawDrop * 0.2);
+        ctx.quadraticCurveTo(0, R * 0.085 + jawDrop * 0.2, R * 0.085, -R * 0.01 + jawDrop * 0.2);
+        ctx.stroke();
+      }, true);
+      // The bridge, only when the head is turned enough for it to show.
+      const bridge = clamp(Math.abs(Math.sin(yaw)) * 1.6 - 0.12, 0, 1);
+      if (bridge > 0 && !look.flat) {
+        const top = at(0, EYE_LAT + 0.02, 1.04);
+        ctx.save(); ctx.globalAlpha *= bridge * 0.55;
+        ctx.strokeStyle = look.skinDD; ctx.lineWidth = Math.max(1.5, R * 0.02); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(top.x + far * R * 0.02, top.y);
+        ctx.quadraticCurveTo(p.x + far * R * 0.06, (top.y + p.y) / 2, p.x - far * R * 0.06, p.y - R * 0.02);
+        ctx.stroke(); ctx.restore();
+      }
+    }
 
     // ---- facial hair ----------------------------------------------------
     if (look.facial === 1 || look.facial === 2) {
+      const mp = at(0, 0.45);
       ctx.save(); headPath(); ctx.clip();
+      ctx.translate(mp.x * 0.9, 0);
       ctx.globalAlpha = look.facial === 2 ? 1 : 0.22;
       ctx.fillStyle = look.hair;
+      const eyeY = -R * 0.10;
       ctx.beginPath();
       ctx.moveTo(-headW, eyeY + R * 0.10);
       ctx.bezierCurveTo(-headW * 0.9, eyeY + R * 0.40, -headW * 0.5, eyeY + R * 0.50, 0, eyeY + R * 0.52);
@@ -940,83 +1076,110 @@
     }
 
     // ---- mouth ----------------------------------------------------------
-    const smile = clamp(Math.max(f.smile, (f.smileL + f.smileR) * 0.5), 0, 1);
-    const mouthY = eyeY + R * 0.62 + jawDrop * 0.75;
-    const moW = R * (0.21 + smile * 0.08) * (1 + f.wide * 0.22) * squash;
-    const openH = openAmt * R * 0.24;
-    const lift = smile * R * 0.075;
-    const lipD = shade(look.lip, -0.12), lipL = look.lip;
-    if (openH < R * 0.02) {
-      // closed: two lips, the lower one catching the light
-      ctx.beginPath();
-      ctx.moveTo(fx - moW, mouthY + lift * 0.45);
-      ctx.quadraticCurveTo(fx - moW * 0.42, mouthY - R * 0.055, fx, mouthY - R * 0.018);
-      ctx.quadraticCurveTo(fx + moW * 0.42, mouthY - R * 0.055, fx + moW, mouthY + lift * 0.45);
-      ctx.quadraticCurveTo(fx, mouthY + R * 0.05, fx - moW, mouthY + lift * 0.45);
-      ctx.closePath(); ctx.fillStyle = lipD; ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(fx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
-      ctx.quadraticCurveTo(fx, mouthY + R * 0.145 + lift, fx + moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
-      ctx.quadraticCurveTo(fx, mouthY + R * 0.10 + lift, fx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
-      ctx.closePath(); ctx.fillStyle = lipL; ctx.fill();
-    } else {
-      const upperY = mouthY - openH * 0.42 - lift * 0.5;
-      const lowerY = mouthY + openH * 0.72;
-      ctx.beginPath();
-      ctx.moveTo(fx - moW, upperY + R * 0.01);
-      ctx.quadraticCurveTo(fx, upperY - R * 0.03 - lift, fx + moW, upperY + R * 0.01);
-      ctx.quadraticCurveTo(fx + moW * 0.68, lowerY + R * 0.02, fx, lowerY + R * 0.03);
-      ctx.quadraticCurveTo(fx - moW * 0.68, lowerY + R * 0.02, fx - moW, upperY + R * 0.01);
-      ctx.closePath();
-      ctx.fillStyle = '#54262a'; ctx.fill();
-      ctx.save(); ctx.clip();
-      // upper teeth, then the tongue once the jaw is really open
-      ctx.fillStyle = '#fdfaf4';
-      ctx.beginPath();
-      ctx.moveTo(fx - moW, upperY - R * 0.01);
-      ctx.quadraticCurveTo(fx, upperY - R * 0.05 - lift, fx + moW, upperY - R * 0.01);
-      ctx.lineTo(fx + moW, upperY + openH * 0.26);
-      ctx.quadraticCurveTo(fx, upperY + openH * 0.18, fx - moW, upperY + openH * 0.26);
-      ctx.closePath(); ctx.fill();
-      const tongue = clamp((openAmt - 0.42) / 0.4, 0, 1);
-      if (tongue > 0) {
-        ctx.fillStyle = 'rgba(178,60,74,' + (0.85 * tongue).toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.ellipse(fx, lowerY - openH * 0.12, moW * 0.52, openH * 0.24, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-      // lips around the opening
-      ctx.strokeStyle = lipD; ctx.lineWidth = Math.max(2, R * 0.028);
-      ctx.beginPath();
-      ctx.moveTo(fx - moW, upperY + R * 0.01);
-      ctx.quadraticCurveTo(fx, upperY - R * 0.03 - lift, fx + moW, upperY + R * 0.01);
-      ctx.stroke();
-      ctx.strokeStyle = lipL; ctx.lineWidth = Math.max(2.4, R * 0.036);
-      ctx.beginPath();
-      ctx.moveTo(fx - moW * 0.98, upperY + R * 0.01);
-      ctx.quadraticCurveTo(fx, lowerY + R * 0.06, fx + moW * 0.98, upperY + R * 0.01);
-      ctx.stroke();
+    {
+      const p = at(0, MOUTH_LAT);
+      const smile = clamp(Math.max(f.smile, (f.smileL + f.smileR) * 0.5), 0, 1);
+      const moW = R * (0.21 + smile * 0.08) * (1 + f.wide * 0.22);
+      const openH = openAmt * R * 0.24;
+      const lift = smile * R * 0.075;
+      const lipD = shade(look.lip, -0.12), lipL = look.lip;
+      const mx = f.jawSide * R * 0.05;
+      // Corners lift on their own, so a smirk is a smirk.
+      const cL = (f.smileL - smile) * R * 0.05, cR = (f.smileR - smile) * R * 0.05;
+      place(p, function () {
+        const mouthY = jawDrop * 0.75;
+        if (openH < R * 0.02) {
+          // closed: two lips, the lower one catching the light
+          ctx.beginPath();
+          ctx.moveTo(mx - moW, mouthY + lift * 0.45 - cL);
+          ctx.quadraticCurveTo(mx - moW * 0.42, mouthY - R * 0.055, mx, mouthY - R * 0.018);
+          ctx.quadraticCurveTo(mx + moW * 0.42, mouthY - R * 0.055, mx + moW, mouthY + lift * 0.45 - cR);
+          ctx.quadraticCurveTo(mx, mouthY + R * 0.05, mx - moW, mouthY + lift * 0.45 - cL);
+          ctx.closePath(); ctx.fillStyle = lipD; ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(mx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35 - cL);
+          ctx.quadraticCurveTo(mx, mouthY + R * 0.145 + lift, mx + moW * 0.88, mouthY + R * 0.036 + lift * 0.35 - cR);
+          ctx.quadraticCurveTo(mx, mouthY + R * 0.10 + lift, mx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35 - cL);
+          ctx.closePath(); ctx.fillStyle = lipL; ctx.fill();
+        } else {
+          const upperY = mouthY - openH * 0.42 - lift * 0.5;
+          const lowerY = mouthY + openH * 0.72;
+          ctx.beginPath();
+          ctx.moveTo(mx - moW, upperY + R * 0.01 - cL);
+          ctx.quadraticCurveTo(mx, upperY - R * 0.03 - lift, mx + moW, upperY + R * 0.01 - cR);
+          ctx.quadraticCurveTo(mx + moW * 0.68, lowerY + R * 0.02, mx, lowerY + R * 0.03);
+          ctx.quadraticCurveTo(mx - moW * 0.68, lowerY + R * 0.02, mx - moW, upperY + R * 0.01 - cL);
+          ctx.closePath();
+          ctx.fillStyle = '#54262a'; ctx.fill();
+          ctx.save(); ctx.clip();
+          // upper teeth, then the tongue once the jaw is really open
+          ctx.fillStyle = '#fdfaf4';
+          ctx.beginPath();
+          ctx.moveTo(mx - moW, upperY - R * 0.01);
+          ctx.quadraticCurveTo(mx, upperY - R * 0.05 - lift, mx + moW, upperY - R * 0.01);
+          ctx.lineTo(mx + moW, upperY + openH * 0.26);
+          ctx.quadraticCurveTo(mx, upperY + openH * 0.18, mx - moW, upperY + openH * 0.26);
+          ctx.closePath(); ctx.fill();
+          const tongue = clamp((openAmt - 0.42) / 0.4, 0, 1);
+          if (tongue > 0) {
+            ctx.fillStyle = 'rgba(178,60,74,' + (0.85 * tongue).toFixed(2) + ')';
+            ctx.beginPath();
+            ctx.ellipse(mx, lowerY - openH * 0.12, moW * 0.52, openH * 0.24, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+          // lips around the opening
+          ctx.strokeStyle = lipD; ctx.lineWidth = Math.max(2, R * 0.028);
+          ctx.beginPath();
+          ctx.moveTo(mx - moW, upperY + R * 0.01 - cL);
+          ctx.quadraticCurveTo(mx, upperY - R * 0.03 - lift, mx + moW, upperY + R * 0.01 - cR);
+          ctx.stroke();
+          ctx.strokeStyle = lipL; ctx.lineWidth = Math.max(2.4, R * 0.036);
+          ctx.beginPath();
+          ctx.moveTo(mx - moW * 0.98, upperY + R * 0.01 - cL);
+          ctx.quadraticCurveTo(mx, lowerY + R * 0.06, mx + moW * 0.98, upperY + R * 0.01 - cR);
+          ctx.stroke();
+        }
+      }, true);
     }
 
     // ---- glasses --------------------------------------------------------
+    // Each lens sits on its eye anchor; the bridge and the temple arms
+    // are drawn between anchors, so on a turn the near arm swings into
+    // view along the side of the head and the far one is hidden by it.
     if (look.glasses) {
+      const pL = at(-EYE_LON, EYE_LAT, 1.02), pR = at(EYE_LON, EYE_LAT, 1.02);
       ctx.strokeStyle = 'rgba(28,30,36,0.92)';
       ctx.lineWidth = Math.max(2, R * 0.024);
-      for (let s = -1; s <= 1; s += 2) {
-        const cx = fx + s * eyeDX;
-        ctx.beginPath();
-        if (look.glasses === 1) ctx.arc(cx, eyeY, eyeW * 1.18, 0, Math.PI * 2);
-        else if (ctx.roundRect) ctx.roundRect(cx - eyeW * 1.16, eyeY - eyeH * 1.5, eyeW * 2.32, eyeH * 3, eyeH * 0.9);
-        else ctx.rect(cx - eyeW * 1.16, eyeY - eyeH * 1.5, eyeW * 2.32, eyeH * 3);
-        ctx.fillStyle = 'rgba(226,240,255,0.08)'; ctx.fill(); ctx.stroke();
-      }
+      ctx.lineCap = 'round';
+      [pL, pR].forEach(function (p) {
+        place(p, function () {
+          ctx.beginPath();
+          if (look.glasses === 1) ctx.arc(0, 0, eyeW * 1.18, 0, Math.PI * 2);
+          else if (ctx.roundRect) ctx.roundRect(-eyeW * 1.16, -eyeH * 1.5, eyeW * 2.32, eyeH * 3, eyeH * 0.9);
+          else ctx.rect(-eyeW * 1.16, -eyeH * 1.5, eyeW * 2.32, eyeH * 3);
+          ctx.fillStyle = 'rgba(226,240,255,0.08)'; ctx.fill(); ctx.stroke();
+        }, true);
+      });
+      const half = eyeW * 1.16;
       ctx.beginPath();
-      ctx.moveTo(fx - eyeDX + eyeW * 1.16, eyeY - eyeH * 0.2);
-      ctx.quadraticCurveTo(fx, eyeY - eyeH * 0.6, fx + eyeDX - eyeW * 1.16, eyeY - eyeH * 0.2);
+      ctx.moveTo(pL.x + half * pL.sx, pL.y - eyeH * 0.2);
+      ctx.quadraticCurveTo((pL.x + pR.x) / 2, (pL.y + pR.y) / 2 - eyeH * 0.6, pR.x - half * pR.sx, pR.y - eyeH * 0.2);
       ctx.stroke();
+      for (let s = -1; s <= 1; s += 2) {
+        const lens = s < 0 ? pL : pR;
+        const hinge = at(s * (EYE_LON + 0.62), EYE_LAT - 0.02, 1.02);
+        const armVis = clamp((hinge.z + 0.15) / 0.30, 0, 1);
+        if (armVis <= 0.02) continue;
+        ctx.save(); ctx.globalAlpha *= armVis;
+        ctx.beginPath();
+        ctx.moveTo(lens.x + s * half * lens.sx, lens.y - eyeH * 0.15);
+        ctx.lineTo(hinge.x, hinge.y - eyeH * 0.25);
+        ctx.stroke(); ctx.restore();
+      }
     }
   }
+
 
   function drawAvatar(ctx, w, h, label, f, level, now, design) {
     design = normalizeDesign(design);
@@ -1031,8 +1194,6 @@
     // How far the head travels for a given lean. Wider than it looks on
     // paper: the tile is small, so a lean that moves the real head two
     // inches has to move this one visibly or it reads as a static badge.
-    const hx = w / 2 + f.x * baseR * 0.62;
-    const hy = h / 2 - baseR * 0.10 + f.y * baseR * 0.44;
     // The body's pose, a beat behind the head (see smoothInto). A face
     // that never went through the smoother, such as the designer preview,
     // falls back to its own pose so the body is not stuck at centre.
@@ -1040,6 +1201,12 @@
     const lagY = f.live ? f.lagY : f.y;
     const lagYaw = f.live ? f.lagYaw : f.yaw;
     const lagRoll = f.live ? f.lagRoll : f.roll;
+    // Where the head lands in canvas space, roll aside: the body carries
+    // most of a lean and the head adds the rest (see the body chain).
+    // Only the rings, the glow and the seat label read these; the head
+    // itself is drawn inside the body frame further down.
+    const hx = w / 2 + lagX * baseR * 0.40 + f.x * baseR * 0.24 + f.yaw * R * 0.07;
+    const hy = h / 2 - baseR * 0.10 + lagY * baseR * 0.16 + f.y * baseR * 0.28;
 
     // Speaking energy expands in two clean rings and a pair of small level
     // stacks. These stay legible when the call shrinks this to a corner tile.
@@ -1081,39 +1248,72 @@
     ctx.restore();
     }
 
-    // Shoulders follow the head at a fraction of its offset, so the face
-    // moves against them and reads as a person rather than a floating badge.
-    // Torso: it slides with a lean, turns a little with the head, and
-    // rises and settles with the body. All from the lagged pose, so every
-    // one of them arrives after the head has already moved.
-    const sx = w / 2 + (lagX * 0.30 + lagYaw * 0.10) * baseR;
-    const sy = h / 2 + baseR * (0.98 + lagY * 0.09);
-    // Shoulders counter-roll a fraction of the head's tilt, around a pivot
-    // low in the chest, so a head cock travels down through the body.
-    ctx.save(); ctx.translate(w / 2, h + baseR * 0.2); ctx.rotate(lagRoll * 0.22); ctx.translate(-w / 2, -(h + baseR * 0.2));
+    // ── The body chain ──────────────────────────────────────────────────
+    // Torso, then head, each carrying part of the pose. The torso leans
+    // and rolls with a lagged copy of the head's pose (see smoothInto),
+    // the shoulders turn with it, and the head carries the remainder of
+    // the roll about its own centre, so a head cock travels down the spine
+    // and a lean moves the whole figure. The old version rolled the head
+    // alone on a torso that moved 22% of a lean, which read as a mask
+    // twisting on a sign post (2026-09-03, "allow the entire body to be
+    // flexible"). All of the head is drawn INSIDE the body frame, so it
+    // rides the lean and the roll for free.
+    const pivotX = w / 2, pivotY = h + baseR * 0.25;
+    const bodyRoll = lagRoll * 0.42;
+    const bodyLeanX = lagX * baseR * 0.40;
+    const bodyLeanY = lagY * baseR * 0.16;
+    // Breathing: a slow rise of the chest, deeper while speaking. Phased
+    // off baseR so two tiles the same size still breathe out of step.
+    const breath = 0.5 + 0.5 * Math.sin(now * 0.0017 + baseR);
+    const breathLift = -R * (0.010 + talk * 0.014) * breath;
+    // Shoulders: the side the body turns toward comes forward, wider and
+    // lower; the far side narrows and lifts. lagYaw > 0 faces screen-right.
+    const bodyTurn = clamp(lagYaw, -1, 1);
+    const shL = 1 + Math.max(0, bodyTurn) * 0.10 - Math.max(0, -bodyTurn) * 0.14;
+    const shR = 1 + Math.max(0, -bodyTurn) * 0.10 - Math.max(0, bodyTurn) * 0.14;
+    const dropL = Math.max(0, bodyTurn) * R * 0.05 - Math.max(0, -bodyTurn) * R * 0.03;
+    const dropR = Math.max(0, -bodyTurn) * R * 0.05 - Math.max(0, bodyTurn) * R * 0.03;
+
+    ctx.save();
+    ctx.translate(pivotX, pivotY); ctx.rotate(bodyRoll); ctx.translate(-pivotX, -pivotY);
+    ctx.translate(bodyLeanX, bodyLeanY + breathLift);
+    const sx = w / 2, sy = h / 2 + baseR * 0.98;
     const bodyGrad = ctx.createLinearGradient(sx, sy - R * 0.4, sx, h);
     bodyGrad.addColorStop(0, outfit.color); bodyGrad.addColorStop(1, outfit.dark);
     ctx.beginPath();
-    ctx.moveTo(sx - R * 1.72, h + 4);
-    ctx.bezierCurveTo(sx - R * 1.58, sy - R * 0.02, sx - R * 0.86, sy - R * 0.40, sx, sy - R * 0.36);
-    ctx.bezierCurveTo(sx + R * 0.86, sy - R * 0.40, sx + R * 1.58, sy - R * 0.02, sx + R * 1.72, h + 4);
+    // The hem runs well below the canvas so a roll never uncovers a corner.
+    ctx.moveTo(sx - R * 1.72 * shL, h + R * 0.8);
+    ctx.lineTo(sx - R * 1.72 * shL, h + 4);
+    ctx.bezierCurveTo(sx - R * 1.58 * shL, sy - R * 0.02 + dropL, sx - R * 0.86 * shL, sy - R * 0.40 + dropL, sx, sy - R * 0.36);
+    ctx.bezierCurveTo(sx + R * 0.86 * shR, sy - R * 0.40 + dropR, sx + R * 1.58 * shR, sy - R * 0.02 + dropR, sx + R * 1.72 * shR, h + 4);
+    ctx.lineTo(sx + R * 1.72 * shR, h + R * 0.8);
     ctx.closePath();
     ctx.fillStyle = bodyGrad; ctx.fill();
     ctx.strokeStyle = rgba(accent, 0.28); ctx.lineWidth = 3; ctx.stroke();
     // Jacket seams and hood drawstrings give the lower half structure.
+    // They swing with the turn so the front of the jacket faces the way
+    // the body does.
     ctx.strokeStyle = 'rgba(240,237,230,0.10)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(sx - R * 0.54, sy - R * 0.28); ctx.quadraticCurveTo(sx - R * 0.35, sy + R * 0.12, sx - R * 0.22, h); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sx + R * 0.54, sy - R * 0.28); ctx.quadraticCurveTo(sx + R * 0.35, sy + R * 0.12, sx + R * 0.22, h); ctx.stroke();
-    ctx.restore();
+    const seam = bodyTurn * R * 0.16;
+    ctx.beginPath(); ctx.moveTo(sx - R * 0.54 + seam, sy - R * 0.28 + dropL * 0.5); ctx.quadraticCurveTo(sx - R * 0.35 + seam, sy + R * 0.12, sx - R * 0.22 + seam * 1.3, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx + R * 0.54 + seam, sy - R * 0.28 + dropR * 0.5); ctx.quadraticCurveTo(sx + R * 0.35 + seam, sy + R * 0.12, sx + R * 0.22 + seam * 1.3, h); ctx.stroke();
+    // Collar shadow under the chin, which is what seats the head on the
+    // body instead of in front of it.
+    soft(ctx, sx + f.x * baseR * 0.2, sy - R * 0.30, R * 0.9, R * 0.22, DARK, 0.45);
 
-    // head group: rotate with roll; features shift with yaw/pitch to fake
-    // a 3D turn; head squashes slightly on strong turns
+    // head group, inside the body frame: the head's own lean past the
+    // body's, its nod, and the part of the roll the body did not take.
+    // The skull is an ellipsoid rotating about the neck, so a turn also
+    // shifts the whole silhouette a little toward the way it faces.
+    const headOffX = w / 2 + f.x * baseR * 0.24 + f.yaw * R * 0.07;
+    const headOffY = h / 2 - baseR * 0.10 + f.y * baseR * 0.28 + f.pitch * R * 0.05;
     ctx.save();
-    ctx.translate(hx, hy);
-    ctx.rotate(f.roll * 1.06);
-    const squash = 1 - Math.abs(f.yaw) * 0.17;
-    const fx = f.yaw * R * 0.52;                 // feature shift, x
-    const fy = f.pitch * R * 0.40;               // feature shift, y
+    ctx.translate(headOffX, headOffY);
+    ctx.rotate(f.roll - bodyRoll);
+    const squash = 1 - Math.abs(f.yaw) * 0.05;
+    // Feature placement moved onto the rig (makeRig); the mask branch
+    // below draws in the rig's frame, so nothing is offset by hand any more.
+    const fx = 0, fy = 0;
 
     // Openness drives the whole lower face, not just the lips. A real jaw
     // lengthens the head as it drops; without this the mouth reads as a hole
@@ -1122,6 +1322,8 @@
     const jawDrop = openAmt * R * 0.105;
 
     const headW = R * 0.88 * squash;
+    // Every feature below is placed through the rig, never by hand.
+    const at = makeRig(f, R, headW);
 
     // The head's own shadow on the hood, then a neck. Without these the head
     // is a badge floating in front of a garment; with them it is a mass
@@ -1155,7 +1357,7 @@
       ctx.closePath();
     }
 
-    if (look) drawHairBack(ctx, R, headW, look);
+    if (look) { ctx.save(); ctx.translate(at(0, HAIR_LAT).x * 0.30, 0); drawHairBack(ctx, R, headW, look); ctx.restore(); }
 
     // ---- head form ------------------------------------------------------
     // A vertical gradient first (lit crown, shadowed jaw) instead of a flat
@@ -1231,9 +1433,17 @@
     // shared anonymous-mask identity. Every one of them covers the eye
     // band, because that is the part doing the anonymity work; they vary
     // in how much of the face they take and how they read at tile size.
-    if (look) drawFaceLook(ctx, R, headW, squash, fx, fy, jawDrop, openAmt, f, look, headPath);
+    if (look) drawFaceLook(ctx, R, headW, at, jawDrop, openAmt, f, look, headPath);
     if (!look) {
-    const my = -R * 0.20 + fy, mw = R * 1.13 * squash, mh = R * 0.48;
+    // The mask is a plate on the face: it rides the rig at the brow line
+    // and foreshortens as one piece, and its eyes, brows and mouth are
+    // drawn in the plate's own frame. headPath is re-issued through the
+    // inverse transform so the clips below still follow the skull.
+    const mp = at(0, -0.20, 1.03);
+    const msx = Math.max(0.42, mp.sx);
+    ctx.save(); ctx.translate(mp.x, mp.y + R * 0.20); ctx.scale(msx, 1);
+    const headPathM = function () { ctx.save(); ctx.scale(1 / msx, 1); ctx.translate(-mp.x, -(mp.y + R * 0.20)); headPath(); ctx.restore(); };
+    const my = -R * 0.20, mw = R * 1.13, mh = R * 0.48;
     const maskGrad = ctx.createLinearGradient(fx - mw, my - mh, fx + mw, my + mh);
     maskGrad.addColorStop(0, shade(accent, -0.34));
     maskGrad.addColorStop(0.34, shade(accent, 0.14));
@@ -1309,7 +1519,7 @@
 
     // The mask casts onto the face it sits on. Drawn before the mask and
     // clipped to the head, so it is the face that darkens, not the backdrop.
-    ctx.save(); headPath(); ctx.clip();
+    ctx.save(); headPathM(); ctx.clip();
     soft(ctx, fx, my + mh * 0.72, mw * 0.62, mh * 0.42, DARK, 0.5);
     ctx.restore();
 
@@ -1352,8 +1562,8 @@
         ctx.save(); eyePath(); ctx.clip();
         // The pupil is the smallest thing on the tile and the one people
         // read first, so it gets most of the sclera to travel across.
-        const px = (f.gazeX + f.yaw * 0.5) * eyeW * 0.62;
-        const py = (-f.gazeY + f.pitch * 0.45) * eyeH * 0.62;
+        const px = (f.gazeX + Math.sin(at.yaw) * 0.42) * eyeW * 0.62;
+        const py = (-f.gazeY + Math.sin(at.pitch) * 0.40) * eyeH * 0.62;
         const pupilR = Math.min(eyeW * 0.38, eyeH * 0.76);
         // iris as a sphere: lit from below-front, dark limbal ring
         const iris = ctx.createRadialGradient(px, py + pupilR * 0.35, pupilR * 0.1, px, py, pupilR * 1.5);
@@ -1386,7 +1596,7 @@
 
     // Nose: a lit bridge with a shadow down one side and a tip, all restrained
     // enough to stay a mask rather than becoming a portrait.
-    ctx.save(); headPath(); ctx.clip();
+    ctx.save(); headPathM(); ctx.clip();
     soft(ctx, fx - R * 0.03, my + mh * 0.62, R * 0.055, mh * 0.44, LIT, 0.16);
     soft(ctx, fx + R * 0.075, my + mh * 0.70, R * 0.06, mh * 0.42, DARK, 0.34);
     soft(ctx, fx, my + mh * 1.02, R * 0.075, R * 0.05, LIT, 0.13);
@@ -1472,9 +1682,11 @@
     ctx.strokeStyle = 'rgba(255,132,132,0.42)'; ctx.lineWidth = Math.max(1.4, R * 0.012);
     ctx.beginPath(); ctx.moveTo(mouthX - moW * 0.38, lowerY - openH * 0.10);
     ctx.quadraticCurveTo(mouthX, lowerY + openH * 0.02, mouthX + moW * 0.38, lowerY - openH * 0.10); ctx.stroke();
+    ctx.restore();   // the plate frame
     }
 
-    ctx.restore();
+    ctx.restore();   // the head group
+    ctx.restore();   // the body frame
 
     // seat label on the torso, screen-space so it never rides the chin
     if (label) {
@@ -1535,6 +1747,13 @@
     if (vTracks.length) {
       videoEl.srcObject = new MediaStream(vTracks);
       try { await videoEl.play(); } catch (e) { /* camera modes just show off-tile */ }
+      // Start the tracker download now if this person is likely to want
+      // it, rather than the moment they press Avatar: anyone starting in
+      // avatar mode, or who has ever saved a look. Camera-mode joiners
+      // with no history pay nothing until they ask (or the page warms it).
+      let likely = mode === 'avatar' || opts.warm === true;
+      try { likely = likely || !!localStorage.getItem(DESIGN_KEY) || !!localStorage.getItem(LOOKS_KEY); } catch (e) {}
+      if (likely) loadTracker();
     }
 
     const meter = makeMouthMeter(mediaStream);
@@ -1546,6 +1765,13 @@
     let lastVideoTime = -1;
     let lastDetect = 0;       // detection throttle clock
     let demoFace = null;      // QA override (debugFace)
+    let trackWt = 0;          // 0 = idle performance, 1 = the tracked face
+    const BLEND_KEYS = Object.keys(zeroFace()).filter(function (k) { return !/^(v|lag)/.test(k) && k !== 'live'; });
+    function blendFace(a, b, t) {
+      const o = zeroFace();
+      for (let i = 0; i < BLEND_KEYS.length; i++) { const k = BLEND_KEYS[i]; o[k] = a[k] + (b[k] - a[k]) * t; }
+      return o;
+    }
 
     let running = true;
     let lastTick = performance.now();
@@ -1560,8 +1786,12 @@
       // ~15fps tracker budget: the landmarker is the most expensive step
       // in the loop, and smoothInto interpolates the gap invisibly.
       if (now - lastDetect < 62) return;
-      if (videoEl.currentTime === lastVideoTime) return;
-      lastVideoTime = videoEl.currentTime;
+      // Skip a frame the camera has not advanced, but never starve: Safari
+      // has been seen holding currentTime still on a MediaStream video, and
+      // a gate that waits for it leaves the mask on mic energy forever.
+      const ct = videoEl.currentTime;
+      if (ct === lastVideoTime && now - lastDetect < 220) return;
+      lastVideoTime = ct;
       lastDetect = now;
       // detectForVideo timestamps must increase monotonically even across
       // instances sharing the landmarker
@@ -1690,10 +1920,24 @@
         else {
           detect(now);
           const tracked = now - lastFaceTs < 450;
-          src = tracked ? Object.assign({}, target) : idleTargets(now, audio);
+          // Cross-fade between the tracked face and the idle performance
+          // over ~400ms instead of cutting, so a tracker that loses the
+          // face for a beat (a hand across the lens, a turn past its
+          // range) never snaps the mask into a different pose.
+          trackWt += ((tracked ? 1 : 0) - trackWt) * (1 - Math.exp(-dt / 380));
+          if (trackWt > 0.995) src = Object.assign({}, target);
+          else if (trackWt < 0.005) src = idleTargets(now, audio);
+          else src = blendFace(idleTargets(now, audio), target, trackWt);
           // Audio fills tracking gaps and adds faster syllable detail without
           // replacing the person's real expression when the camera sees it.
           if (tracked) {
+            // Life in a still face: nobody holds a pose. A slow drift rides
+            // under the tracked signal and vanishes the moment the person
+            // moves more than it does.
+            const s2 = now / 1000;
+            src.x += Math.sin(s2 * 0.31 + ph1) * 0.012;
+            src.y += Math.sin(s2 * 0.47 + ph2) * 0.010;
+            src.roll += Math.sin(s2 * 0.23 + ph3) * 0.006;
             src.jaw = Math.max(src.jaw, lv * 0.8);
             src.pucker = Math.max(src.pucker, audio.round * 0.62);
             src.wide = Math.max(src.wide, audio.wide * 0.64);
@@ -2045,6 +2289,9 @@
 
   window.DebateCam = {
     start: start,
+    // Pre-fetch the face tracker (idempotent, ~13MB once per browser).
+    // Call it when someone is about to want Avatar mode, not on page load.
+    warm: function () { loadTracker(); return tracker.status; },
     getDesign: getSavedDesign,
     setDesign: saveDesign,
     getLooks: getLooksState,
