@@ -2223,7 +2223,7 @@
      on screen: they built an avatar (which outranks the Google photo),
      or there is no photo, or the photo we tried failed. A Google user
      with a working photo and no custom avatar pays nothing. */
-  /* The three keys the avatar engine can be holding an identity in, in
+  /* The storage keys the avatar engine can be holding an identity in, in
      the order DBAvatar.getPublicIdentity() prefers them. This probe has to
      agree with that function or the bar disagrees with every other surface
      on the site about who somebody is.
@@ -2235,10 +2235,14 @@
      leaderboard and every ballot showed the mask; the topbar showed a
      holiday snap. Reported with a screenshot of exactly that pair. Then the
      same day the drawn picture set became a third thing somebody can
-     choose, under its own key, so it joins the list. The rule is the one
+     choose, under its own key, so it joins the list. Uploaded photos are
+     the fourth. They store a version rather than the image itself, but the
+     key still has to send the topbar through the shared identity renderer.
+     Otherwise a stale Firebase photoURL can outrank the upload. The rule is
+     the one
      above: this list is the same set of keys getPublicIdentity() reads, or
      the bar disagrees with the rest of the site about who somebody is. */
-  var AVATAR_KEYS = ['debatable-live-avatar-v1', 'debatable-pfp-v1', 'debatable-avatar', 'debate' + 'it-avatar'];
+  var AVATAR_KEYS = ['debatable-profile-photo-v1', 'debatable-live-avatar-v1', 'debatable-pfp-v1', 'debatable-avatar', 'debate' + 'it-avatar'];
   function hasBuiltAvatar(){
     try {
       for (var i = 0; i < AVATAR_KEYS.length; i++){

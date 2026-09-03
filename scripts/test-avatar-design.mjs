@@ -253,6 +253,8 @@ ok(cleanLiveDesign({ style:'face3d' }).style === 'face2d',
   ok(/URLSearchParams\(location\.search\)\.get\('edit'\) === 'picture'[\s\S]{0,700}?DBAvatar\.openBuilder/.test(profile),
     '/profile deep link does not open the profile-picture chooser');
   const topbar = read('app/js/topbar.js');
+  ok(/var AVATAR_KEYS = \[[^\]]*'debatable-profile-photo-v1'/.test(topbar),
+    'topbar identity probe ignores uploaded profile photos');
   ok(/href:\s*'\/profile\?edit=picture'[\s\S]{0,180}?id:\s*'sheetProfilePicture'/.test(topbar),
     'navigation sheet does not link directly to the profile-picture chooser');
   ok(/getElementById\('sheetProfilePicture'\)[\s\S]{0,180}?realUser/.test(topbar),
@@ -266,6 +268,57 @@ ok(cleanLiveDesign({ style:'face3d' }).style === 'face2d',
   ok(uiRoot === uiApp, 'mirrored ui.css files drifted');
   ok(/\.ui-topbar-more-profile\[hidden\]\{display:none\}/.test(uiApp),
     'desktop profile-picture action can ignore its signed-out hidden state');
+}
+
+// A mounted uploaded photo is a normal HTML image over a generated avatar.
+// The first implementation put it in an SVG <image>; Chrome painted only
+// the hardcoded dark rectangle in the signed-in topbar even though the
+// endpoint returned a valid 512px JPEG. Exercise the DOM path so neither the
+// black-dot embed nor an empty fallback can come back unnoticed.
+{
+  const store = new Map([
+    ['debatable-profile-photo-v1', '1770000000000'],
+    ['debatable-avatar-pref', 'photo'],
+  ]);
+  const made = [];
+  const document = {
+    createElement(tag) {
+      const el = {
+        tagName: String(tag).toUpperCase(), style: {}, parentNode: null,
+        listeners: {}, naturalWidth: 1,
+        addEventListener(name, fn) { this.listeners[name] = fn; },
+      };
+      made.push(el);
+      return el;
+    },
+  };
+  const win = {
+    localStorage: {
+      getItem: (key) => store.has(key) ? store.get(key) : null,
+      setItem: (key, value) => { store.set(key, String(value)); },
+      removeItem: (key) => { store.delete(key); },
+    },
+    addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true,
+  };
+  new Function('window', 'document', 'CustomEvent', read('app/js/avatar.js'))(win, document, function () {});
+  const host = {
+    style: {}, attrs: {}, children: [], _html: '',
+    classList: { add() {} },
+    setAttribute(name, value) { this.attrs[name] = value; },
+    set innerHTML(value) { this._html = value; this.children = []; },
+    get innerHTML() { return this._html; },
+    appendChild(el) { el.parentNode = this; this.children.push(el); },
+    removeChild(el) { this.children = this.children.filter((item) => item !== el); el.parentNode = null; },
+  };
+  win.DBAvatar.mountIdentity(host, { uid:'testProfileUid_12345678', name:'John', size:18, live:true });
+  const img = host.children.find((el) => el.tagName === 'IMG');
+  ok(!!img && /\/api\/profile-photo\?uid=testProfileUid_12345678&v=1770000000000$/.test(img.src || ''),
+    'mounted uploaded photo does not use a normal versioned image request');
+  ok(/<svg/.test(host.innerHTML) && !/fill="#2a2a31"/.test(host.innerHTML),
+    'mounted uploaded photo does not keep a real avatar underneath the image');
+  if (img && img.listeners.error) img.listeners.error();
+  ok(host.children.length === 0 && /<svg/.test(host.innerHTML),
+    'failed uploaded photo does not uncover the generated avatar fallback');
 }
 
 // The real set keeps supplied non-person pictures wearable and the older

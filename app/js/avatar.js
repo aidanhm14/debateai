@@ -1816,7 +1816,14 @@
      opts: { uid, name, photo, size, config, live, alt }
 
      The generated portrait is painted first, as the node's own
-     background, and a photo (when there is one) goes on top. That
+     background, and a photo (when there is one) goes on top. Uploaded
+     photos use a normal HTML image here rather than the <image> inside
+     publicSvg(). The latter is needed by string-only surfaces and share
+     cards, but it painted only its dark fallback in the signed-in topbar
+     on Chrome even while the exact image endpoint returned a valid JPEG.
+     This mounted path owns the topbar and profile, so it gets the browser's
+     proven raster-image path plus an error event we can actually handle.
+     That
      ordering is the point: the face is already there before the network
      is consulted, so a slow photo never shows a hole and a broken one
      just uncovers what was underneath. Three ways a Google photo fails,
@@ -1830,6 +1837,20 @@
     var o = opts || {};
     var size = o.size || 32;
 
+    function appendPhoto(src) {
+      if (!src) return;
+      var img = document.createElement('img');
+      img.alt = o.alt || '';
+      img.referrerPolicy = 'no-referrer';
+      img.decoding = 'async';
+      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
+      var fail = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      img.addEventListener('error', fail);
+      img.addEventListener('load', function () { if (!img.naturalWidth) fail(); });
+      img.src = src;
+      node.appendChild(img);
+    }
+
     function paint() {
       var id = identity(o);
       node.classList.add('db-identity');
@@ -1842,21 +1863,21 @@
       node.style.display = 'block';
       node.style.position = 'relative';
       var uploadedPhoto = id.kind === 'photo' && !!id.v;
-      node.innerHTML = (id.kind === 'live' || id.kind === 'portrait' || id.kind === 'pfp' || uploadedPhoto)
+      // A real avatar stays underneath the network image. A missing or
+      // broken blob therefore shows a person-shaped fallback, never the
+      // unexplained dark dot that reported this bug.
+      node.innerHTML = uploadedPhoto
+        ? svg(randomConfig(o.uid || o.name || 'anon'), '100%')
+        : (id.kind === 'live' || id.kind === 'portrait' || id.kind === 'pfp')
         ? publicSvg(id, '100%', { uid:o.uid, name:o.name })
         : svg(id.config, '100%');
 
+      if (uploadedPhoto) {
+        appendPhoto(profilePhotoSrc(o.uid, id.v));
+        return;
+      }
       if (id.kind !== 'photo' || !id.photo) return;
-      var img = document.createElement('img');
-      img.alt = o.alt || '';
-      img.referrerPolicy = 'no-referrer';
-      img.decoding = 'async';
-      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block';
-      var fail = function () { if (img.parentNode) img.parentNode.removeChild(img); };
-      img.addEventListener('error', fail);
-      img.addEventListener('load', function () { if (!img.naturalWidth) fail(); });
-      img.src = id.photo;
-      node.appendChild(img);
+      appendPhoto(id.photo);
     }
 
     paint();
