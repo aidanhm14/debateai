@@ -138,7 +138,13 @@ export default async (req) => {
   try { body = await req.json(); } catch { return jsonResponse(400, { error: 'Invalid JSON' }); }
   const name = safeRoomName(body && body.name);
   if (!name || name.length < 3) return jsonResponse(400, { error: 'name required (>=3 chars, alphanumeric/hyphen)' });
-  const role = body && body.role === 'viewer' ? 'viewer' : 'debater';
+  // `stage` is the chromeless /air and OBS renderer. It receives the
+  // same hidden, receive-only token as a viewer, but is not a person and
+  // must keep working without an interactive Google prompt.
+  const role = body && body.role === 'stage' ? 'stage'
+    : body && body.role === 'viewer' ? 'viewer'
+    : 'debater';
+  const receiveOnly = role === 'viewer' || role === 'stage';
 
   // Video-ban gate. uid ban and IP ban both block.
   const who = await identify(req);
@@ -180,19 +186,16 @@ export default async (req) => {
   // above, the admission check fails closed because guessing a room name
   // must never produce a participant token.
   const admission = await tournamentAdmission(name);
-  // 2026-09-01, the founder: "require all ppl to enter the video spawn
-  // room to sign in with Google, no anonymous option". A debater token
-  // is minted only against a verified Google or phone-provider Firebase
-  // token (phone added the same day: paid social traffic arrives in
-  // in-app browsers where Google OAuth cannot run, and a verified number
-  // is as accountable as a Google account). Same set as spar-pair.mjs.
-  // Viewers (role:'viewer') stay open: spectating needs no account.
-  // Tournament rooms are gated by their server-written admission record
-  // below, which is the stricter check, so they are left to it.
-  if (role !== 'viewer' && !admission.tournament && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
+  // 2026-09-03, the founder: every PERSON entering live video, including
+  // a receive-only viewer, needs Google on web or Apple in the iOS app.
+  // The stage renderer is the sole non-person exception so /air and OBS
+  // can keep carrying a round without an interactive sign-in screen.
+  if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
     return jsonResponse(403, {
       code: 'GOOGLE_SIGN_IN_REQUIRED',
-      error: 'Sign in with Google or your phone to enter the video room.',
+      error: role === 'viewer'
+        ? 'Sign in with Google to spectate live debates.'
+        : 'Sign in with Google to enter the video room.',
     });
   }
   if (admission.tournament) {
@@ -204,7 +207,7 @@ export default async (req) => {
           : 'Tournament admission could not be verified. Try again.',
       });
     }
-    if (role === 'viewer') {
+    if (receiveOnly) {
       if (admission.data.spectatorAccess !== 'public') {
         return jsonResponse(403, { error: 'This tournament room is not open to spectators.' });
       }
@@ -348,7 +351,7 @@ export default async (req) => {
     user_id: (who.uid || who.ipKey).slice(0, 36),
     exp: expSec,
   };
-  if (role === 'viewer') tokenProps.permissions = { hasPresence: false, canSend: false };
+  if (receiveOnly) tokenProps.permissions = { hasPresence: false, canSend: false };
   const mintToken = (props) => fetch(DAILY_API + '/meeting-tokens', {
     method: 'POST',
     headers,

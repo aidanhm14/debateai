@@ -53,6 +53,7 @@ function check(ok, message) {
 const dailyRoom = read('app/netlify/functions/create-daily-room.mjs');
 const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
+const watch = read('app/watch.html');
 
 check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client guest allowance must stay at zero');
 check(pair.includes('const GUEST_FREE_ROUNDS = 0;'), 'server guest allowance must stay at zero');
@@ -66,7 +67,10 @@ check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the
 check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider))'), 'matcher must reject a stale active seat marker');
 check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
 check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'video room minter must define the two-provider set');
-check(dailyRoom.includes('!LIVE_VIDEO_PROVIDERS.has(who.provider)'), 'video room minter must gate debater tokens on the set');
+check(dailyRoom.includes("if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider))"), 'video room minter must gate every human role on the provider set');
+check(dailyRoom.includes("role === 'viewer'\n        ? 'Sign in with Google to spectate live debates.'"), 'viewer rejection must name the spectator Google door');
+check(dailyRoom.includes("body.role === 'stage' ? 'stage'"), 'video room minter must recognize the non-person stage renderer');
+check(dailyRoom.includes("const receiveOnly = role === 'viewer' || role === 'stage';"), 'viewer and stage tokens must both stay receive-only');
 check(rules.includes("request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com']"), 'rules must define isLiveVideoAccount over the same set');
 // Phone retired 2026-09-03. A stray 'phone' in any of the seven sets
 // reopens a door the founder closed; grep every copy for it.
@@ -107,6 +111,15 @@ check(
 );
 check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'live-round seat gate must accept Google and Apple accounts only');
 check(liveRound.includes('liveVideo: true'), 'live-round must open the shared card in live-video mode');
+check(liveRound.includes("if (!prefill.stage && !isLiveVideoUser(state.user))"), 'live-round must gate human spectators while preserving the stage renderer');
+check(liveRound.includes("if (isSpectator() && !prefill.stage && !isLiveVideoUser(user))"), 'persisted anonymous state must not gate the non-person stage renderer');
+check(liveRound.includes("role: prefill.stage ? 'stage' : (isSpectator() ? 'viewer' : 'debater')"), 'live-round must label the non-person stage request explicitly');
+check(liveRound.includes("headline: isSpectator() ? 'Sign in to spectate live debates'"), 'direct spectator links must open the dedicated sign-in prompt');
+check(liveRound.includes("if (isSpectator() && !prefill.stage) showAuthGate();"), 'signed-out human spectators must not mint an anonymous account');
+check(livePopup.includes('spectatorAuth: needsSpectatorAuth'), 'sitewide live cards must mark signed-out spectators for auth');
+check(livePopup.includes("headline: 'Sign in to spectate live debates'"), 'sitewide live cards must use the dedicated spectator prompt');
+check(watch.includes("headline:'Sign in to spectate live debates'"), 'Watch live rows must use the dedicated spectator prompt');
+check(watch.includes("destination:link.getAttribute('href')"), 'Watch sign-in must return to the exact live room');
 check(authModal.includes('liveVideo = !!(opts && opts.liveVideo) && !googleOnly;'), 'shared auth prompt must accept live-video mode');
 check(authModal.includes('var noEmail = true;'), 'every public prompt, including live video, must omit the email door');
 check(authModal.includes('var providerButtons = googleBtn;'), 'chooser must render Google as the one provider button on web');

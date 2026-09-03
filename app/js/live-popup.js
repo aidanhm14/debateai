@@ -26,10 +26,12 @@
  * "Watch the replay", not LIVE NOW. Only a round actually in progress
  * gets the live badge and the pulsing dot.
  *
- * Spectating needs no account, so the live and replay cards hand an
- * anonymous visitor straight through. A waiting person needs a real
- * opponent, so a signed-out visitor gets the shared account dialog in
- * the middle of the screen instead of a second bottom-corner card.
+ * Live spectating requires Google on web, or Apple in the iOS app. The
+ * live card opens that account door before handing the visitor into the
+ * room. Replays remain outside this live-video gate. A waiting person
+ * also needs a real opponent, so a signed-out visitor gets the shared
+ * account dialog in the middle of the screen instead of a second
+ * bottom-corner card.
  *
  * Blur: BLUR_PX below. 0 ships frames as they are, which is what the
  * live strip and /watch already do. 10 gives the frosted treatment.
@@ -61,7 +63,7 @@
   var BLUR_PX = 0;
 
   /* LIVE-ONLY MODE (2026-08-31, the founder: when someone joins while a
-     round is live, notify them asap and let them join anonymously).
+     round is live, notify them asap).
      The sitewide loader was retired 2026-08-25 because the REPLAY source
      kept putting the same recorded participant's face on unrelated
      pages. That objection is about replays, not live rounds, so the
@@ -107,8 +109,8 @@
      around to it, the round is half over. So the live source alone gets
      its own lane: first read ~2.5s after arrival, then a 60s watcher for
      the length of the visit, so a round that goes live mid-browse
-     reaches the visitor within a minute. Spectating needs no account,
-     so the card hands an anonymous visitor straight into the room.
+     reaches the visitor within a minute. A visitor without a live-video
+     account gets the Google door before the room opens.
      Restraint the lane KEEPS: hidden tabs never poll, a dismissal's 4h
      snooze holds, someone mid-round is never poked, and another corner
      card gets right of way. What it BYPASSES, deliberately: the 15s
@@ -398,6 +400,7 @@
         if (!pick) pick = r;
       }
       if (!pick) return null;
+      var needsSpectatorAuth = !googleUser();
       return {
         kind: 'live',
         key: 'live:' + pick.room,
@@ -409,8 +412,9 @@
         // meta line reads off `started` rather than asserting a speech.
         meta: pick.status === 'ballot' ? 'JUDGING'
           : (pick.started === false ? 'STARTING' : 'IN PROGRESS'),
-        cta: 'Watch this round',
+        cta: needsSpectatorAuth ? 'Sign in to watch' : 'Watch this round',
         href: '/live-round?room=' + encodeURIComponent(pick.room) + '&spectate=1',
+        spectatorAuth: needsSpectatorAuth,
         // Versioned by the shot timestamp: a new still is a new URL,
         // which is what lets room-shot cache the bytes for a minute.
         img: pick.shot
@@ -680,8 +684,20 @@
       emit('live_popup_dismiss', { kind: item.kind, had_pic: !!item.img });
       close('dismiss');
     });
-    card.addEventListener('click', function () {
-      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast, needs_auth: !!item.needsAuth });
+    card.addEventListener('click', function (ev) {
+      emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast, needs_auth: !!(item.needsAuth || item.spectatorAuth) });
+      if (item.spectatorAuth && typeof window.openAuthModal === 'function') {
+        ev.preventDefault();
+        close('auth');
+        emit('live_popup_auth_open', { page: here, role: 'spectator' });
+        window.openAuthModal('signin', {
+          liveVideo: true,
+          destination: item.href,
+          headline: 'Sign in to spectate live debates',
+          sub: 'Continue with Google to enter the audience. Your camera and microphone stay off.'
+        });
+        return;
+      }
     });
 
     document.body.appendChild(card);
@@ -747,7 +763,8 @@
       kind: 'live', key: 'demo', badge: 'LIVE NOW',
       headline: 'Billionaire tax should not go up',
       who: 'banaandebater vs Yael', meta: 'IN PROGRESS',
-      cta: 'Watch this round', href: '/live-round?room=demo&spectate=1',
+      cta: googleUser() ? 'Watch this round' : 'Sign in to watch', href: '/live-round?room=demo&spectate=1',
+      spectatorAuth: !googleUser(),
       img: demoPic ? '/landing-shot-live.jpg' : null,
       initials: ['B', 'Y']
     };

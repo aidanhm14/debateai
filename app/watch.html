@@ -999,7 +999,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
     </div>
   </section>
 
-  <section class="live-strip" id="liveNowStrip" aria-label="Live rounds you can watch right now">
+  <section class="live-strip" id="liveNowStrip" aria-label="Live rounds you can spectate after signing in with Google">
     <div class="live-strip-head">
       <span class="ls-badge"><i></i>LIVE</span>
       <b>Live debates</b>
@@ -2594,6 +2594,32 @@ html[data-watch-gallery] .yt-note{max-width:none}
   var strip=document.getElementById('liveNowStrip');
   var rows=document.getElementById('liveNowRows');
   if(!strip||!rows) return;
+  function canSpectate(){
+    try{
+      var u=window.firebase&&firebase.auth&&firebase.auth().currentUser;
+      if(!u||u.isAnonymous)return false;
+      var pd=u.providerData||[];
+      for(var i=0;i<pd.length;i++)if(pd[i]&&(pd[i].providerId==='google.com'||pd[i].providerId==='apple.com'))return true;
+    }catch(e){}
+    return false;
+  }
+  function paintWatchActions(){
+    var label=canSpectate()?'Watch this round':'Sign in to watch';
+    Array.prototype.forEach.call(rows.querySelectorAll('.ls-watch'),function(el){el.textContent=label});
+  }
+  rows.addEventListener('click',function(ev){
+    var link=ev.target&&ev.target.closest?ev.target.closest('a.ls-row'):null;
+    if(!link||canSpectate())return;
+    if(typeof window.openAuthModal!=='function')return;
+    ev.preventDefault();
+    window.openAuthModal('signin',{
+      liveVideo:true,
+      destination:link.getAttribute('href'),
+      headline:'Sign in to spectate live debates',
+      sub:'Continue with Google to enter the audience. Your camera and microphone stay off.'
+    });
+  });
+  try{if(window.firebase&&firebase.auth)firebase.auth().onAuthStateChanged(paintWatchActions)}catch(e){}
   function hydrate(){
     fetch('/api/watch-live',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).then(function(j){
       var rounds=(j&&j.rounds)||[];
@@ -2617,7 +2643,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
             '<span class="ls-motion">'+esc(r.motion||'Live debate')+'</span>'+
             '<span class="ls-meta"><span class="ls-chip">'+esc(label)+'</span> '+esc(who)+' \u00b7 '+state+'</span>'+
           '</span>'+
-          '<span class="ls-watch">Watch</span>'+
+          '<span class="ls-watch">'+(canSpectate()?'Watch this round':'Sign in to watch')+'</span>'+
         '</a></li>';
       }).join('');
       strip.classList.add('has-rounds');
