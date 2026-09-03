@@ -155,9 +155,10 @@ check('the arena meter follows micLive, not muted',
 check('VAD eagerness lowered', /eagerness: 'low'/.test(page));
 check('server_vad threshold raised', /threshold: 0\.68/.test(page));
 check('opening turn does not recite the sides',
-  /do NOT announce who is on which side/i.test(page));
-check('opening turn reads the topic and asks one short question',
-  page.includes('Read the full claim from the session context exactly as written') &&
+  /Do not say who is on which side/.test(page));
+check('opening turn hands the model the literal topic, never the session context',
+  page.includes('response: { instructions: openingInstruction(currentMotion) }') &&
+  !page.includes('from the session context') &&
   page.includes('Wanna know how this is gonna work?'));
 check('the interrupt gate is live before the welcome starts',
   page.includes('bargeIv = setInterval(bargeTick, 50);\n  requestOpeningTurn();'));

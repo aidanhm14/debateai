@@ -95,6 +95,7 @@ const activeNavigationFiles = [
   'app/predict.html',
   'app/native.html',
   'app/voice-debate.html',
+  'app/newvoice.html',
   'app/tournaments.html',
   'app/js/auth-prompt.js',
   'app/js/upgrade-cta.js',
