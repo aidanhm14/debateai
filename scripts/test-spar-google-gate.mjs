@@ -146,9 +146,9 @@ check(spar.includes('var liveDisplay = GATE_LIVE_BASE + queueWaiting;'), 'signed
 check(spar.includes("text.textContent = liveDisplay + ' live now';"), 'signed-out gate must render the combined live display');
 check(spar.includes('live_display: liveDisplay, queue_waiting: queueWaiting'), 'gate analytics must preserve displayed and measured counts separately');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
-check(spar.includes('autoPopAuthModal();'), 'signed-out gate must open its sign-in prompt on arrival');
-check(spar.includes('var AUTH_POP_DELAY_MS = 5000;'), 'automatic prompt must wait five seconds before opening');
-check(spar.includes('setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);'), 'automatic prompt must use the calm-entry delay');
+check(!spar.includes('autoPopAuthModal'), 'signed-out gate must remain the sole sign-in prompt instead of opening a duplicate modal');
+check(!spar.includes('AUTH_POP_DELAY_MS'), 'signed-out gate must not carry a delayed auth-popup timer');
+check(!spar.includes('spar_auth_autopop'), 'signed-out gate must not emit telemetry for a retired automatic popup');
 check(authModal.includes('googleOnly = !!(opts && opts.googleOnly);'), 'shared auth prompt must keep Google-only mode for the admin gates');
 check(authModal.includes("(noEmail ? '' : '<div class=\"da-or\">or use email</div>'"), 'Google-only and live-video prompts must omit the email door');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');

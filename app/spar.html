@@ -4135,7 +4135,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var gateCopy = document.getElementById('gateCopyLink');
     if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
     startGateLiveCount();
-    autoPopAuthModal();
   }
 
   // In-app browsers have no address bar, so "open this in Safari" is not
@@ -4177,52 +4176,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
   }
 
-  // ── Live-video gate auto-pop ──────────────────────────────────
-  // Restored by the founder 2026-08-31, then softened the same evening:
-  // the gate gets five calm seconds to explain itself before the account
-  // ask appears. A click on the gate's own buttons stays immediate.
-  // It uses the shared, proven auth implementation in live-video mode
-  // (Google, no email door). Once per browser session:
-  // closing it is an answer, and the full gate remains underneath.
-  var authPopArmed = false;
-  var AUTH_POP_DELAY_MS = 5000;
-  function autoPopAuthModal(){
-    if (authPopArmed) return;
-    authPopArmed = true;
-    try { if (sessionStorage.getItem('da-spar-auth-pop')) return; } catch(e){}
-    var tries = 0;
-    function tryOpenAuthPop(){
-      tries++;
-      if (!document.getElementById('sparGateCard')) return;
-      try { if (sessionStorage.getItem('da-spar-auth-pop')) return; } catch(e){}
-      if (typeof window.openAuthModal === 'function'){
-        try { sessionStorage.setItem('da-spar-auth-pop', '1'); } catch(e){}
-        window.openAuthModal('signup', {
-          liveVideo: true,
-          headline: 'Sign in to debate live',
-          sub: 'Sign in with Google. Join the live queue, keep your rounds, and climb the leaderboard.'
-        });
-        try { gtag('event', 'spar_auth_autopop', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
-      } else if (tries <= 12){
-        setTimeout(tryOpenAuthPop, 500);
-      } else {
-        // auth-modal.js never arrived (blocked script, odd cache). The
-        // gate's own buttons still work; give up quietly.
-      }
-    }
-    setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);
-  }
-
   // ── Guest sign-in popup on the searching screen (2026-08-25) ─
   // the founder, on a screenshot of the green "get pinged" strip: "have this
   // be like a pop up to encourage google sign in on the spar page."
   //
-  // Read this next to autoPopAuthModal above, which was cut two days
-  // earlier for being a pop nobody needed. The difference is the screen
-  // it stands on. That one covered the GATE, which is already a full
-  // sign-in card, so it charged a dismissal for a path that was on
-  // screen anyway and hid the reasons to take it. This one stands on
-  // the SEARCHING screen, where a guest is queued, has nothing to do
+  // This does not run on the signed-out gate, which already owns a full
+  // Google sign-in card. It stands only on the SEARCHING screen, where a
+  // guest is queued, has nothing to do
   // until somebody arrives, and the entire sign-in surface is a 12px
   // strip below the fold on a phone. So it adds a door rather than
   // covering one, and the strip hides while it is up so the offer is
@@ -4348,7 +4308,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // The gate's inline email form needs the gate card's DOM, which is
       // not on this screen, so the other paths come from the shared
       // chooser (2026-08-12). Google is the fallback if it never loaded.
-      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
+      if (typeof window.openAuthModal === 'function') window.openAuthModal('signup', { liveVideo: true });
       else doGoogleSignIn();
     });
     document.getElementById('sipNot').addEventListener('click', function(){ dismissSignInPop('button'); });
@@ -4363,7 +4323,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // Native still routes through the required terms agreement before auth.
     // Web keeps the direct one-tap Google path.
     if (window.__DB_NATIVE && typeof window.openAuthModal === 'function'){
-      window.openAuthModal('signup');
+      window.openAuthModal('signup', { liveVideo: true });
       return;
     }
     // Inside an in-app browser Google cannot complete (disallowed_useragent

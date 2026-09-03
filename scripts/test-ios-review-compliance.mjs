@@ -79,7 +79,7 @@ ok('the retired phone door does not come back', () => {
 });
 
 ok('native spar sign-in cannot bypass the shared terms chooser', () => {
-  assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,250}window\.openAuthModal\('signup'\)/);
+  assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,300}window\.openAuthModal\('signup',\s*\{\s*liveVideo:\s*true\s*\}\)/);
   assert.doesNotMatch(spar, /id="(?:emailStartBtn|gateEmailForm)"/, 'retired spar email path returned without a native terms guard');
 });
 
