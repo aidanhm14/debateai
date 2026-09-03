@@ -113,7 +113,7 @@ test('edge catches direct scripted requests for extensionless pages', () => {
 });
 
 const track = readFileSync(new URL('../app/js/track.js', import.meta.url), 'utf8');
-const clarity = readFileSync(new URL('../app/js/clarity.js', import.meta.url), 'utf8');
+const replay = readFileSync(new URL('../app/js/posthog.js', import.meta.url), 'utf8');
 const endpoint = readFileSync(new URL('../app/netlify/functions/presence-live.mjs', import.meta.url), 'utf8');
 const adminEndpoint = readFileSync(new URL('../app/netlify/functions/admin-visitors.mjs', import.meta.url), 'utf8');
 const appNetlify = readFileSync(new URL('../app/netlify.toml', import.meta.url), 'utf8');
@@ -139,8 +139,22 @@ test('client gate invalidates sessions trusted by v1', () => {
 });
 
 test('session replay also waits for trusted interaction', () => {
-  assert.match(clarity, /event\.isTrusted !== true/);
-  assert.match(clarity, /intentionally behind the interaction gate/);
+  assert.match(replay, /event\.isTrusted !== true/);
+  assert.match(replay, /behind the interaction gate/);
+  assert.match(replay, /navigator\.webdriver === true\) return/);
+  // track.js is the only tag every public page carries, so it is the
+  // only place replay may be injected from (coverage = tracking coverage).
+  assert.match(track, /\/js\/posthog\.js/);
+});
+
+test('session replay records movement, never content', () => {
+  assert.match(replay, /maskAllInputs: true/);
+  assert.match(replay, /blockSelector: 'video, canvas, iframe'/);
+  assert.match(replay, /SKIP_PATHS = \/\^\\\/\(messages\|chat\|inbox\|admin/);
+  // Identify by uid only. A name or email in a replay is a leak of the
+  // public-alias rule.
+  assert.doesNotMatch(replay, /displayName|user\.email|\.email\b/);
+  assert.match(replay, /ph\.identify\(user\.uid/);
 });
 
 test('server write has automation and shared-rate gates', () => {

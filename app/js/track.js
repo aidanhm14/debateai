@@ -26,6 +26,19 @@
       document.head.appendChild(pt);
     }
   } catch (e) {}
+  // Session replay (PostHog) rides the same tag for the same reason:
+  // track.js is the one script every public page carries, so injecting
+  // here makes replay coverage equal to tracking coverage with no
+  // per-page wiring. posthog.js gates itself on a trusted interaction,
+  // skips the inbox and admin paths, and no-ops without a key.
+  try {
+    if (!document.querySelector('script[src="/js/posthog.js"]')) {
+      var ph = document.createElement('script');
+      ph.src = '/js/posthog.js';
+      ph.defer = true;
+      document.head.appendChild(ph);
+    }
+  } catch (e) {}
 })();
 
 (function () {

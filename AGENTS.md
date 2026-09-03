@@ -869,7 +869,10 @@ Dead code, bugs and superseded infrastructure still get deleted properly.
   `/api/presence-live` beat), and `topbar.js` does not pull it. On 2026-08-14,
   60 of 114 public pages had no tag and reported nothing, `/index` among them.
   Every public page carries `<script defer src="/js/track.js"></script>` now;
-  a NEW page needs it added by hand. Admin, og-image, offline and
+  a NEW page needs it added by hand. track.js also injects `js/posthog.js`
+  (PostHog session replay, interaction-gated, inputs masked, inbox and admin
+  skipped), so replay coverage is exactly track.js coverage. The Clarity
+  loader is gone; do not re-add it. Admin, og-image, offline and
   _more-preview are excluded on purpose. Grep per file, don't assume.
 - **A new topbar page must reserve the FIXED bar's height itself.**
   `.ui-topbar` is position:fixed (52px, under the 32px strip) and
