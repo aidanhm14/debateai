@@ -26,9 +26,10 @@ As of 2026-08-27, every public round is **casual 1v1**: one person on
 each side, no teams, format picker, or tournament rulebook. Competitive
 debate formats are not part of human matching, public social rounds, or
 the default AI entry. **Narrow AI-practice exception, called 2026-09-03:**
-`/newvoice` offers a clearly labeled "Competitive speeches" path for
-competitive debaters. It opens `/practice?entry=competitive`, where the
-format picker and format-native speech engine are visible. Do not expose
+The direct `/newvoice` experiment offers a clearly labeled "Competitive
+practice" path for competitive debaters. It opens
+`/practice?entry=competitive`, where the format picker and format-native
+speech engine are visible. Do not expose
 those formats on `/spar`, `/live-round`, the default `/practice` entry,
 navigation, marketing, metadata, or public guides. `/partners` and the
 old format guide routes redirect into the casual product.
@@ -90,7 +91,7 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       ├── realtime-session.mjs
 │   │       │     OpenAI Realtime (gpt-realtime-2.1 default, falls back to
 │   │       │     gpt-realtime) ephemeral-token minter for /voice-debate,
-│   │       │     /newvoice (the landing's primary voice CTA), and the
+│   │       │     /newvoice (an experimental direct route), and the
 │   │       │     coach/room-judge minters share the same model try-list.
 │   │       │     App-Check gated, rate-limited (6/hour/IP). Browser
 │   │       │     does direct WebRTC to OpenAI; server is never in the

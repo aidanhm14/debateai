@@ -25,7 +25,7 @@ function check(label, ok) {
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
-check('Explore menu has one live AI door', topbar.includes("href: '/newvoice?autostart=1&handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes("label: 'Competitive Voice AI'"));
+check('Explore menu routes the one public AI door to the stable room', topbar.includes("href: '/voice-debate?handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes("href: '/newvoice?autostart=1&handoff=topbar-ai'"));
 check('default practice starts in casual 1v1', practice.includes("if (!COMPETITIVE_ENTRY) return 'quick';") && !practice.includes("localStorage.getItem('debateos-round-format')"));
 check('competitive practice is an explicit scoped entry',
   practice.includes("get('entry') === 'competitive'") &&
@@ -45,17 +45,18 @@ check('queue promises no automatic AI switch', spar.includes('We will not switch
 check('AI choice appears after the stated wait', spar.includes('var AI_OFFER_AFTER_SEC = 60') && /elapsed >= AI_OFFER_AFTER_SEC[^]*aiOpponentOffer/.test(spar));
 check('AI option is explicit', spar.includes('Debate the AI'));
 check('human wait remains explicit', spar.includes('Keep waiting'));
-check('AI click starts the simple realtime room', spar.includes("var VOICE_DEST = '/newvoice?autostart=1&handoff=spar-ai-choice'"));
+check('AI click opens the stable voice room', spar.includes("var VOICE_DEST = '/voice-debate?handoff=spar-ai-choice'"));
 check('spar offers prep while waiting', spar.includes('prep while you wait'));
 check('old unverifiable queue claims are gone', !spar.includes('Pinging recent sparrers') && !spar.includes('Searching active circuits'));
 check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar));
 
-check('practice voice CTA opens the room immediately',
-  practice.includes("q.set('autostart', '1')") && practice.includes("return '/newvoice?' + q.toString()"));
+check('practice voice CTA opens the stable room',
+  practice.includes("return '/voice-debate?' + q.toString()") && !practice.includes("return '/newvoice?' + q.toString()"));
 check('direct newvoice names three real debate paths',
-  newvoice.includes('Live back-and-forth') &&
+  newvoice.includes('Casual back-and-forth') &&
   newvoice.includes('<b>Conversation</b>') &&
-  newvoice.includes('<b>Competitive speeches</b>') &&
+  newvoice.includes('<b>Competitive practice</b>') &&
+  newvoice.includes('For competitive debaters.') &&
   !newvoice.includes('3 types of debate out loud.'));
 check('conversation path reaches the realtime prompt',
   newvoice.includes("debateStyle = btn.dataset.path === 'conversation'") &&

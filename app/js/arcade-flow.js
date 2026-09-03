@@ -198,10 +198,6 @@
         b.setAttribute('role', 'radio');
         b.setAttribute('aria-checked', answers[step.key] === opt.value ? 'true' : 'false');
         var txt = el('span');
-        // Optional small-caps line above the title. The Match Desk uses it
-        // to name the fight a claim belongs to ("The system fight"), so two
-        // adjacent cards read as the two chairs of one clash.
-        if (opt.kicker) txt.appendChild(el('span', 'afl-opt-k', opt.kicker));
         txt.appendChild(el('span', 'afl-opt-t', opt.label));
         if (opt.sub) txt.appendChild(el('span', 'afl-opt-s', opt.sub));
         b.appendChild(txt);

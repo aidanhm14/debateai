@@ -278,7 +278,7 @@
     // adjacent anywhere LINKS feeds the mobile sheet or Explore menu.
     { href: '/learn',         label: 'Learn'        },
     { href: '/prep',          label: 'Prep a round' },
-    { href: '/newvoice?autostart=1&handoff=topbar-ai', label: 'Debate the AI', strong: true },
+    { href: '/voice-debate?handoff=topbar-ai', label: 'Debate the AI', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
@@ -533,9 +533,9 @@
       // 'Competitive' tells that reader the surface is not for them, which
       // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
       // the action instead of the audience.
-      // 2026-09-03: the one AI door moved to /newvoice and opens the room
-      // immediately. /voice-debate stays live for old direct links only.
-      // { href: '/voice-debate', label: 'Debate the AI', strong: true },
+      // 2026-09-03: /newvoice was removed from the public AI door after its
+      // spoken opener leaked private model instructions. Keep the stable
+      // /voice-debate room here until that isolation bug is repaired.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/practice',    label: 'Timed rounds vs AI', strong: true },
@@ -1027,7 +1027,7 @@
       spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });
       spotWrap.appendChild(spot);
       // There is no second AI row here. The one AI door lives in the
-      // Practice column and opens /newvoice immediately.
+      // Practice column and opens the stable voice room.
       panel.appendChild(spotWrap);
 
       // 2026-08-26, per Aidan: "make it 4 sections not 5 and fit
@@ -1080,11 +1080,11 @@
         return { head: head, links: links };
       }
       // /spar leads the spotlight card, so it is not repeated here.
-      // One AI door. /voice-debate has no nav entry; /newvoice is the
-      // live, interruptible room and is the flagship below.
+      // One AI door. The experimental /newvoice room is intentionally not
+      // public while its spoken-topic boundary is being repaired.
       var columnGroups = [
         column('Practice', [
-          ['/newvoice?autostart=1&handoff=topbar-ai', 'big'],
+          ['/voice-debate?handoff=topbar-ai', 'big'],
           ['/flow',           ''],
           ['/topics',         ''],
         ]),
@@ -3198,15 +3198,20 @@
     if (!ctl) return;
     try { if (window.getComputedStyle(ctl).display === 'none') return; } catch(e){}
 
-    // One card in that corner at a time. experience-ask.js mounts at
-    // 2.2s and this fires at 3.5s, so on a page where the visitor has
-    // not answered the debate-experience question yet they would stack.
-    // That question is the more valuable of the two (it changes the
-    // whole page's register, this changes a colour), so it wins the slot
-    // and this stays quiet. Deliberately WITHOUT setting the seen flag:
-    // skipping is not showing, so the reminder is still owed and will
-    // appear on a later page once the corner is free.
-    if (document.getElementById('daExpAsk')) return;
+    // Do not stack onboarding asks. At the one-minute mark another card
+    // may still be open, so wait and try again rather than spending this
+    // once-ever reminder behind it.
+    var busy = document.querySelectorAll('#daExpAsk,.signup-pill,.ditHP-card,.lpull,.da-livepop');
+    for (var i = 0; i < busy.length; i++) {
+      try {
+        var cs = window.getComputedStyle(busy[i]);
+        var box = busy[i].getBoundingClientRect();
+        if (cs.display !== 'none' && cs.visibility !== 'hidden' && box.width > 0 && box.height > 0) {
+          setTimeout(function(){ whenVisible(go); }, 15000);
+          return;
+        }
+      } catch (e) {}
+    }
 
     reportArm(bucket, path);
     if (bucket.arm === 'control') return;
@@ -3248,8 +3253,8 @@
     });
   }
 
-  // After the topbar has mounted, and late enough that it is not
-  // competing with the page's own first paint for attention. Also never
+  // Wait a full minute so onboarding and page-specific prompts get the
+  // person's attention first. Also never
   // while the tab is hidden: this reminder is once-ever per browser and
   // its 12-second auto-dismiss sets that flag, so firing it into a
   // background tab would spend the single showing on nobody.
@@ -3261,7 +3266,7 @@
       fn();
     });
   }
-  function arm(){ whenVisible(function(){ setTimeout(function(){ whenVisible(go); }, 3500); }); }
+  function arm(){ whenVisible(function(){ setTimeout(function(){ whenVisible(go); }, 60000); }); }
   if (document.readyState === 'complete') arm();
   else window.addEventListener('load', arm);
 })();

@@ -341,8 +341,20 @@ check(
   topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
     && topbar.includes("Math.random() < .5 ? 'prompt' : 'control'")
     && topbar.includes('dark_nudge_experiment_view')
-    && topbar.includes('Change to dark mode?'),
-  'dark-mode prompt has a sticky prompt/control experiment with telemetry',
+    && topbar.includes('Change to dark mode?')
+    && topbar.includes('}, 60000)')
+    && topbar.includes("#daExpAsk,.signup-pill,.ditHP-card,.lpull,.da-livepop")
+    && read('app/js/live-popup.js').includes("'.da-dark-nudge'"),
+  'dark-mode prompt waits one minute and defers to other cards',
+);
+const matchDesk = read('app/spar.html');
+check(
+  matchDesk.includes('font-size:clamp(36px,4.5vw,68px);font-weight:750')
+    && matchDesk.includes('font-size:21px;font-weight:750')
+    && !matchDesk.includes('.mp-panel--hot')
+    && !matchDesk.includes('.mp-opt--vsr')
+    && !read('app/js/arcade-flow.js').includes('opt.kicker'),
+  'Match Desk makes questions prominent and has no fight labels',
 );
 check(
   watch.includes('data-default-theme="crimson"')

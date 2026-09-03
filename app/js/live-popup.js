@@ -350,7 +350,7 @@
          covering it would trade one nudge for another.
 
      Both checks run at every width. */
-  var CORNER_SELECTORS = ['#daExpAsk', '.signup-pill', '.ditHP-card', '.lpull'];
+  var CORNER_SELECTORS = ['#daExpAsk', '.signup-pill', '.ditHP-card', '.lpull', '.da-dark-nudge'];
   var CARD_MIN_H = 120;
 
   function cornerBoxes() {
