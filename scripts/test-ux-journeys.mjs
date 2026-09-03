@@ -325,9 +325,11 @@ check(
   'native tabs expose Friends and use the raised Debate control as app home',
 );
 check(
-  topbar.includes("{ href: '/challenges',  label: 'Challenges', big: true }")
+  topbar.includes("{ href: '/challenges',  label: 'Claims & challenges', big: true }")
+    && topbar.includes("['/challenges',     'big']")
+    && !topbar.includes("['/live',           'big']")
     && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
-  'navigation opens the paired challenge and schedule surface on Challenges',
+  'navigation renders Claims & challenges as the Debate flagship',
 );
 check(
   topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
