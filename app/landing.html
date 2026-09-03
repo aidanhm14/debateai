@@ -8687,17 +8687,47 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     font-size:13.5px;font-weight:700;text-decoration:none}
   .mh-more a:active{color:var(--mh-red)}
   /* The relocated board. It arrives carrying its desktop styling, so
-     this is only what a phone needs: full width, a little tighter, and
-     room under it before the headline. */
+     this is only what a phone needs. */
   #mhBoardSlot:empty{display:none}
-  #mhBoardSlot{margin:0 0 20px}
-  #mhome .fs-board{display:block;width:100%;max-width:none;margin:0;padding:14px 14px 15px}
-  #mhome .fs-board h2.fs-motion{font-size:23px;line-height:1.1;margin-bottom:11px}
+  #mhBoardSlot{margin:14px 0 0}
+  #mhome .fs-board{display:block;width:100%;max-width:none;margin:0;padding:14px 14px 13px}
+  /* 2026-09-02, the founder: "shrink the text size of resolution see how
+     it feels crowded". At 23px a real motion ran five lines and filled
+     the card. */
+  #mhome .fs-board h2.fs-motion{font-size:18px;line-height:1.18;margin-bottom:10px;
+    -webkit-line-clamp:4;font-weight:800}
   #mhome .fs-board-debate{font-size:.72rem;line-height:1.25}
-  #mhome .fs-board .fs-ballot{margin-top:2px}
-  @media(max-width:360px){.mhome{padding-left:14px;padding-right:14px}.mh-title{font-size:34px}
+
+  /* THE CARD IS THE RESOLUTION AND TWO NUMBERS (2026-09-02, the founder:
+     "have it just be the resolution without the judge - just have the
+     judge give points left and rifhgt to each").
+
+     Everything the judge slot used to say goes: the "AI judge is
+     deciding" wait line, the "AI judge's decision" label, the "X wins"
+     sentence and the four-row scorecard. What is left is #fsScore,
+     which already renders name-attributed points with the seat colour
+     dot in front of each ("Caleb 88  Mia 62"), so the judge's output on
+     a phone is exactly the points it gave each side.
+
+     This also closes the white space under the motion: the slot used to
+     reserve 147px for a scorecard that had not arrived. It now reserves
+     one line, so the card still does not resize when the result lands.
+     Desktop is untouched and keeps the full ballot. */
+  /* The reserve lives on .fs-ballot, which is always in the layout, and
+     NOT on .fs-ballot-top, which sits inside .fs-ballot-card and is
+     display:none until the result lands. Reserving inside the hidden
+     half reserves nothing: measured, the card still jumped 20px at
+     settle. 28px is the 9px padding plus the one score line. */
+  #mhome .fs-board .fs-ballot{margin-top:0;min-height:28px;padding-top:9px}
+  #mhome .fs-board .fs-ballot-wait,
+  #mhome .fs-board .fs-ballot-k,
+  #mhome .fs-board .fs-ballot-top b,
+  #mhome .fs-board .fs-card{display:none !important}
+  #mhome .fs-board .fs-ballot-top{margin:0;min-height:20px}
+  #mhome .fs-board .fs-ballot-top span{margin-left:0;font-size:.92rem;font-weight:800}
+  @media(max-width:360px){.mhome{padding-left:14px;padding-right:14px}
     .mh-primary-label{font-size:27px}.mh-row{grid-template-columns:1fr}.mh-card{min-height:0}
-    #mhome .fs-board h2.fs-motion{font-size:21px}}
+    #mhome .fs-board h2.fs-motion{font-size:17px}}
   @media(prefers-reduced-motion:reduce){.mh-wave i,.mh-live-dot{animation:none}}
 </style>
 <section id="mhome" class="mhome" aria-label="Start a live debate" data-nosnippet>
@@ -8709,10 +8739,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          looks its nodes up by id: a second copy would fight the first
          over every id on the card. Desktop never runs the move, so the
          board stays exactly where it is above 720px. -->
-    <div id="mhBoardSlot"></div>
-    <p class="mh-title">The chess.com of debating.</p>
-    <p class="mh-sub">Get matched with a stranger, argue it out on camera, and an AI judge decides who won.</p>
-
+    <!-- 2026-09-02, the founder on a phone: "get rid of the chess.com of
+         debating thing - have the join live debates at top". The door is
+         the first thing now and the headline is gone, so the phone opens
+         on the action and then shows a real round underneath it as the
+         proof. The desktop first screen keeps its own headline; this cut
+         is the mobile home only. -->
     <a class="mh-primary" href="/spar" data-cta="mhome-join" aria-label="Join a live debate">
       <span class="mh-primary-top"><span class="mh-primary-label">Join a debate</span><span class="mh-arrow" aria-hidden="true">&rarr;</span></span>
       <span class="mh-primary-meta">
@@ -8722,6 +8754,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </span>
       </span>
     </a>
+
+    <!-- The example round board is MOVED here on a phone (2026-09-02).
+         It is relocated rather than retyped, the same appendChild move
+         the landing TOC uses, because the board is driven by a rotator
+         that looks its nodes up by id: a second copy would fight the
+         first over every id on the card. Desktop never runs the move. -->
+    <div id="mhBoardSlot"></div>
 
     <div class="mh-row">
       <a class="mh-card" href="/newvoice" data-cta="mhome-ai">
