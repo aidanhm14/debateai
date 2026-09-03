@@ -6,9 +6,13 @@
 // coverage: every public page. Pages without track.js (admin, og-image,
 // offline, _more-preview) get nothing, on purpose.
 //
-// SETUP: paste the project API key (starts with "phc_") into POSTHOG_KEY.
-// The key is a public write-only token and is safe in client code. A
-// missing key makes this whole file a no-op.
+// The key below is the PostHog project's public write-only token (project
+// "Debatable", id 592578, US cloud). It is safe in client code: it can only
+// write events, never read them. Replacing it with a placeholder makes this
+// whole file a no-op, which is the kill switch of last resort.
+//
+// Recording is ALSO gated server-side by the project's session_recording_opt_in
+// flag. Both have to be on; the client config alone records nothing.
 //
 // What is recorded, and what is not:
 //   - Recording starts only after a browser-trusted pointer, key, or touch
@@ -32,7 +36,7 @@
 // (5,000 replays a month) starts running out.
 (function () {
   'use strict';
-  var POSTHOG_KEY = 'PASTE_POSTHOG_PROJECT_KEY_HERE';
+  var POSTHOG_KEY = 'phc_y452hj6U7rddCk65KXa4zPWGjaVJskvKVModV6UhYodL';
   var POSTHOG_HOST = 'https://us.i.posthog.com';
   var REPLAY_SAMPLE = 1; // 0..1 share of sessions that record a replay
 
