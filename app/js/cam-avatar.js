@@ -41,13 +41,14 @@
   const LOOKS_KEY = 'debatable-avatar-looks-v1';
   const DEFAULT_KEY = 'debatable-live-avatar-default-v1';
   const DESIGN_EVENT = 'debatable-avatar-design';
-  const DEFAULT_DESIGN = { style: 'face', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
+  const DEFAULT_DESIGN = { style: 'face3d', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
   const DESIGN_OPTIONS = {
     // 'face' paints the debater's own cartoon portrait (js/avatar.js) in 3D;
     // 'mask' is the original anonymous arena figure. Face is the default
     // because a call reads better with a person in it than with a badge.
     style: [
-      { key: 'face', label: 'My avatar' },
+      { key: 'face3d', label: '3D avatar' },
+      { key: 'face2d', label: '2D avatar' },
       { key: 'mask', label: 'Anonymous mask' },
     ],
     scene: [
@@ -687,12 +688,24 @@
   /* faceLook(design) -> the resolved look, or null to keep the mask.
      Reads the debater's own portrait config so switching to Face mode on a
      call shows the avatar they built, not a stranger. */
-  function faceLook(design) {
-    if (design.style !== 'face') return null;
+  // The portrait config is read from js/avatar.js, which parses localStorage.
+  // The draw loop runs at 24fps, so it is cached and invalidated by the same
+  // event the builder fires when somebody saves a new face.
+  let faceCfgCache = null, faceCfgOk = false;
+  window.addEventListener('debatable-avatar-change', function () { faceCfgOk = false; });
+  function faceCfg() {
+    if (faceCfgOk) return faceCfgCache;
     const A = window.DBAvatar;
     let cfg = null;
     try { cfg = A && (A.getUser() || A.randomConfig('live-face')); } catch (e) { cfg = null; }
-    if (!cfg) cfg = { face: 0, skin: 1, hair: 1, top: 1, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 0, iris: 0 };
+    faceCfgCache = cfg || { face: 0, skin: 1, hair: 1, top: 1, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 0, iris: 0 };
+    faceCfgOk = true;
+    return faceCfgCache;
+  }
+  function faceLook(design) {
+    if (design.style !== 'face3d' && design.style !== 'face2d') return null;
+    const A = window.DBAvatar;
+    const cfg = faceCfg();
     const SK = (A && A.SKIN) || FB_SKIN, HR = (A && A.HAIR) || FB_HAIR, IR = (A && A.IRIS) || FB_IRIS;
     const skin = pick(SK, cfg.skin, FB_SKIN[1]);
     const hair = pick(HR, cfg.hair, FB_HAIR[1]);
@@ -706,6 +719,7 @@
       browC: shade(hair, (cfg.hair | 0) >= 4 ? -0.18 : 0.02),
       iris: pick(IR, cfg.iris, FB_IRIS[0]),
       lip: mixHex(skin, '#b0505c', 0.55),
+      flat: design.style === 'face2d',
       kind: HAIR_KIND[cfg.top | 0] || 'cap',
       eyes: cfg.eyes | 0, brows: cfg.brows | 0, glasses: cfg.glasses | 0, facial: cfg.facial | 0
     };
@@ -773,6 +787,9 @@
   /* The face itself, in head-local space: the caller has already
      translated to the head centre, rolled it, and filled the skull. */
   function drawFaceLook(ctx, R, headW, squash, fx, fy, jawDrop, openAmt, f, look, headPath) {
+    // In 2D mode soft() is a no-op, so one flag turns every modelling pass
+    // below off without a second copy of the drawing code.
+    const bloom = look.flat ? function () {} : soft;
     const eyeY = -R * 0.10 + fy;
     const eyeDX = headW * 0.42;
     const eyeW = R * 0.235, eyeH = R * 0.165;
@@ -786,7 +803,7 @@
         ctx.fillStyle = s * f.yaw > 0 ? look.skinD : look.skin; ctx.fill();
         ctx.beginPath();
         ctx.ellipse(s * headW * 1.03 + fx * 0.3, eyeY + R * 0.10, headW * 0.06, R * 0.09, 0, 0, Math.PI * 2);
-        ctx.fillStyle = look.skinDD; ctx.globalAlpha = 0.5; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.fillStyle = look.skinDD; ctx.globalAlpha = look.flat ? 0.32 : 0.5; ctx.fill(); ctx.globalAlpha = 1;
       }
     }
 
@@ -822,9 +839,9 @@
       // gloss: the single strongest cue that hair is a volume, not a shape
       ctx.save();
       hairCap(ctx, headW, R, extra, brow); ctx.clip();
-      soft(ctx, -headW * 0.34, -R * 0.80, headW * 0.42, R * 0.16, LIT, 0.30);
-      soft(ctx, headW * 0.30, -R * 0.86, headW * 0.28, R * 0.11, LIT, 0.18);
-      soft(ctx, 0, -R * 0.30, headW * 1.1, R * 0.24, DARK, 0.34);
+      bloom(ctx, -headW * 0.34, -R * 0.80, headW * 0.42, R * 0.16, LIT, 0.30);
+      bloom(ctx, headW * 0.30, -R * 0.86, headW * 0.28, R * 0.11, LIT, 0.18);
+      bloom(ctx, 0, -R * 0.30, headW * 1.1, R * 0.24, DARK, 0.34);
       ctx.restore();
     }
 
@@ -868,21 +885,27 @@
       whitePath(); ctx.fillStyle = '#fdfcf9'; ctx.fill();
       ctx.save(); whitePath(); ctx.clip();
       // socket shadow across the top of the eyeball
-      soft(ctx, cx, eyeY - up * 0.9, eyeW * 0.95, up * 0.9, DARK, 0.45);
+      bloom(ctx, cx, eyeY - up * 0.9, eyeW * 0.95, up * 0.9, DARK, 0.45);
       const ir = eyeW * 0.46;
       const ix = cx + (f.gazeX || 0) * eyeW * 0.30 - f.yaw * eyeW * 0.16;
       const iy = eyeY + (f.gazeY || 0) * eyeH * 0.40;
-      const g = ctx.createRadialGradient(ix - ir * 0.3, iy - ir * 0.34, ir * 0.1, ix, iy, ir);
-      g.addColorStop(0, shade(look.iris, 0.16));
-      g.addColorStop(0.62, look.iris);
-      g.addColorStop(1, shade(look.iris, -0.16));
-      ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      let irFill = look.iris;
+      if (!look.flat) {
+        const g = ctx.createRadialGradient(ix - ir * 0.3, iy - ir * 0.34, ir * 0.1, ix, iy, ir);
+        g.addColorStop(0, shade(look.iris, 0.16));
+        g.addColorStop(0.62, look.iris);
+        g.addColorStop(1, shade(look.iris, -0.16));
+        irFill = g;
+      }
+      ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fillStyle = irFill; ctx.fill();
       ctx.strokeStyle = 'rgba(20,12,8,0.55)'; ctx.lineWidth = Math.max(1, ir * 0.16);
       ctx.beginPath(); ctx.arc(ix, iy, ir * 0.94, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath(); ctx.arc(ix, iy, ir * 0.44, 0, Math.PI * 2); ctx.fillStyle = '#150f0c'; ctx.fill();
       ctx.beginPath(); ctx.arc(ix + ir * 0.36, iy - ir * 0.42, ir * 0.34, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.beginPath(); ctx.arc(ix - ir * 0.46, iy + ir * 0.46, ir * 0.17, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+      if (!look.flat) {
+        ctx.beginPath(); ctx.arc(ix - ir * 0.46, iy + ir * 0.46, ir * 0.17, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+      }
       ctx.restore();
       // lash line last, so it sits over the white and the iris alike
       ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.028);
@@ -894,8 +917,8 @@
 
     // ---- nose -----------------------------------------------------------
     const noseY = eyeY + R * 0.30 + jawDrop * 0.2;
-    soft(ctx, fx - R * 0.055, noseY - R * 0.05, R * 0.115, R * 0.14, DARK, 0.30);
-    soft(ctx, fx + R * 0.045, noseY - R * 0.08, R * 0.07, R * 0.08, LIT, 0.20);
+    bloom(ctx, fx - R * 0.055, noseY - R * 0.05, R * 0.115, R * 0.14, DARK, 0.30);
+    bloom(ctx, fx + R * 0.045, noseY - R * 0.08, R * 0.07, R * 0.08, LIT, 0.20);
     ctx.strokeStyle = look.skinDD; ctx.lineWidth = Math.max(2, R * 0.028);
     ctx.beginPath();
     ctx.moveTo(fx - R * 0.085, noseY - R * 0.01);
@@ -1039,8 +1062,8 @@
     if (look) {
       // No hood in face mode: a lit ground behind the head is what makes a
       // cartoon face pop off a dark scene, and a hood would swallow the hair.
-      soft(ctx, hx, hy - R * 0.10, R * 2.05, R * 2.05, LIT, 0.11);
-      soft(ctx, hx, hy + R * 0.30, R * 1.5, R * 1.2, DARK, 0.22);
+      soft(ctx, hx, hy - R * 0.10, R * 2.05, R * 2.05, LIT, look.flat ? 0.06 : 0.11);
+      soft(ctx, hx, hy + R * 0.30, R * 1.5, R * 1.2, DARK, look.flat ? 0.12 : 0.22);
     }
     // Hood behind the head. The split accent rim keeps the silhouette crisp
     // against a black video tile without reading as a plain circle.
@@ -1140,15 +1163,18 @@
     // On a head this dark the rim is what separates it from the backdrop.
     headPath();
     const skull = ctx.createLinearGradient(0, -R * 1.05, 0, R * 1.10);
-    skull.addColorStop(0, shade(HEAD, look ? 0.07 : 0.15));
-    skull.addColorStop(0.42, shade(HEAD, 0.02));
-    skull.addColorStop(1, shade(HEAD, look ? -0.16 : -0.52));
+    // 2D is deliberately one flat colour end to end: the whole point of that
+    // option is a face with no lighting in it.
+    const lit = look && look.flat ? 0 : 1;
+    skull.addColorStop(0, shade(HEAD, lit * (look ? 0.07 : 0.15)));
+    skull.addColorStop(0.42, shade(HEAD, lit * 0.02));
+    skull.addColorStop(1, shade(HEAD, lit * (look ? -0.16 : -0.52)));
     ctx.fillStyle = skull; ctx.fill();
 
     ctx.save(); headPath(); ctx.clip();
     // Skin needs a fraction of the modelling a near-black mask head needs:
     // the same alphas that give the mask its planes turn a face muddy.
-    const sh = look ? 0.42 : 1, li = look ? 1.5 : 1;
+    const sh = look ? (look.flat ? 0 : 0.42) : 1, li = look ? (look.flat ? 0 : 1.5) : 1;
     soft(ctx, -headW * 0.40, -R * 0.66, headW * 0.80, R * 0.56, LIT, 0.13 * li);   // key light
     soft(ctx, -headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.40 * sh);  // temples
     soft(ctx, headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.50 * sh);
@@ -1186,7 +1212,7 @@
     // the single strongest depth cue available on a subject this dark.
     ctx.save(); headPath(); ctx.clip();
     ctx.translate(-R * 0.055, -R * 0.035);
-    for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < (look && look.flat ? 0 : 2); pass++) {
       headPath();
       ctx.lineWidth = pass ? Math.max(1.6, R * 0.018) : Math.max(4, R * 0.085);
       // The rim slides with the turn, so the lit edge stays on the side of
@@ -1776,6 +1802,49 @@
     document.head.appendChild(style);
   }
 
+  /* The face rows. These do NOT edit the design object: they edit the
+     debater's portrait config in js/avatar.js, which is the same face the
+     leaderboard and every ballot draw. One face per person, edited from
+     wherever they happen to be standing. */
+  const FACE_FIELDS = [
+    { key: 'skin', label: 'Skin', pal: 'SKIN' },
+    { key: 'hair', label: 'Hair colour', pal: 'HAIR' },
+    { key: 'top', label: 'Hairstyle', names: ['Buzz', 'Crop', 'Quiff', 'Afro', 'Waves', 'Bun', 'Bob', 'Side part', 'Braids', 'Ponytail', 'Long', 'Coils', 'Curls', 'Hijab'] },
+    { key: 'face', label: 'Face shape', names: ['Round', 'Wide', 'Slim'] },
+    { key: 'eyes', label: 'Eyes', names: ['Open', 'Wide', 'Sharp', 'Soft'] },
+    { key: 'iris', label: 'Eye colour', pal: 'IRIS' },
+    { key: 'brows', label: 'Brows', names: ['Arched', 'Level', 'Bold'] },
+    { key: 'mouth', label: 'Mouth', names: ['Soft', 'Smile', 'Neutral', 'Grin', 'Set'] },
+    { key: 'facial', label: 'Facial hair', names: ['None', 'Stubble', 'Beard', 'Moustache'] },
+    { key: 'glasses', label: 'Glasses', names: ['None', 'Round', 'Rect'] },
+  ];
+  function buildFaceGroup(host) {
+    const section = document.createElement('div');
+    section.className = 'dac-group'; section.setAttribute('data-group-name', 'faceCfg');
+    FACE_FIELDS.forEach(function (field) {
+      const label = document.createElement('span'); label.className = 'dac-label'; label.textContent = field.label;
+      const choices = document.createElement('div'); choices.className = 'dac-choices';
+      const pal = field.pal ? ((window.DBAvatar && window.DBAvatar[field.pal]) || []) : null;
+      const n = pal ? pal.length : field.names.length;
+      for (let i = 0; i < n; i++) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'dac-choice';
+        button.setAttribute('data-face-group', field.key);
+        button.setAttribute('data-face-value', String(i));
+        button.setAttribute('aria-pressed', 'false');
+        if (pal) {
+          button.className += ' dac-choice--swatch';
+          button.title = field.label + ' ' + (i + 1);
+          const swatch = document.createElement('span'); swatch.className = 'dac-swatch'; swatch.style.background = pal[i];
+          button.appendChild(swatch);
+        } else button.textContent = field.names[i];
+        choices.appendChild(button);
+      }
+      section.appendChild(label); section.appendChild(choices);
+    });
+    host.appendChild(section);
+  }
+
   function buildDesignerGroup(host, title, group) {
     const section = document.createElement('div'); section.className = 'dac-group';
     section.setAttribute('data-group-name', group);
@@ -1812,6 +1881,17 @@
     let editLookId = initialLook ? initialLook.id : '';
     let lookName = initialLook ? initialLook.name : 'My avatar';
     let alive = true, raf = 0, lastPaint = 0;
+    // The face is edited in place so the preview shows it immediately.
+    // Cancelling has to put back whatever they walked in with.
+    const A0 = window.DBAvatar;
+    const faceBefore = A0 && A0.getUser ? A0.getUser() : null;
+    let faceKept = false;
+    let face = (A0 && (A0.getUser() || A0.randomConfig('live-face'))) || null;
+    function pushFace() { if (A0 && A0.setUser && face) A0.setUser(face); }
+    function restoreFace() {
+      if (!A0 || faceKept) return;
+      if (faceBefore) A0.setUser(faceBefore); else if (A0.clearUser) A0.clearUser();
+    }
     const oldOverflow = document.body.style.overflow;
     const overlay = document.createElement('div'); overlay.className = 'dac-overlay';
     overlay.innerHTML =
@@ -1828,6 +1908,7 @@
     const lookInput = looksGroup.querySelector('.dac-look-name');
     lookInput.value = lookName;
     buildDesignerGroup(controls, 'Look', 'style');
+    buildFaceGroup(controls);
     buildDesignerGroup(controls, 'Scene', 'scene');
     buildDesignerGroup(controls, 'Mask', 'mask');
     buildDesignerGroup(controls, 'Color', 'accent');
@@ -1859,15 +1940,25 @@
       // Mask shape and mask eyes belong to the anonymous figure. With the
       // cartoon face chosen they control nothing, so they come off the panel
       // rather than sitting there inert.
+      const isFace = draft.style === 'face3d' || draft.style === 'face2d';
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-face-group]'), function (button) {
+        const on = face && (face[button.getAttribute('data-face-group')] | 0) === +button.getAttribute('data-face-value');
+        button.classList.toggle('is-selected', !!on);
+        button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
       Array.prototype.forEach.call(overlay.querySelectorAll('[data-group-name]'), function (section) {
         const g = section.getAttribute('data-group-name');
-        if (g === 'mask' || g === 'eyes') section.hidden = draft.style === 'face';
+        // Mask shape and mask eyes belong to the anonymous figure; the face
+        // rows belong to the two cartoon looks. Neither sits there inert.
+        if (g === 'mask' || g === 'eyes') section.hidden = isFace;
+        if (g === 'faceCfg') section.hidden = !isFace;
       });
       paintLooks();
     }
     function close() {
       if (!alive) return;
       alive = false; cancelAnimationFrame(raf);
+      restoreFace();
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = oldOverflow;
       overlay.remove();
@@ -1912,6 +2003,12 @@
       if (ev.target.closest('[data-look-new]')) {
         editLookId = ''; lookName = 'New look'; lookInput.value = lookName; lookInput.select(); sync(); return;
       }
+      const faceChoice = ev.target.closest('[data-face-group]');
+      if (faceChoice) {
+        if (!face) face = { face: 0, skin: 1, hair: 1, top: 1, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 0, iris: 0 };
+        face[faceChoice.getAttribute('data-face-group')] = +faceChoice.getAttribute('data-face-value');
+        pushFace(); sync(); return;
+      }
       const choice = ev.target.closest('[data-group]');
       if (choice) {
         draft[choice.getAttribute('data-group')] = choice.getAttribute('data-value');
@@ -1923,10 +2020,13 @@
         if (key === 'cancel') close();
         else if (key === 'surprise') {
           Object.keys(DEFAULT_DESIGN).forEach(function (group) {
+            if (group === 'style') return;   // the look is a choice, not a dice roll
             const options = DESIGN_OPTIONS[group]; draft[group] = options[Math.floor(Math.random() * options.length)].key;
           });
+          if (A0 && A0.randomConfig) { face = A0.randomConfig(String(Math.random())); pushFace(); }
           sync();
         } else if (key === 'save') {
+          faceKept = true;
           const saved = saveLook(draft, lookInput.value, editLookId);
           if (typeof opts.onSave === 'function') opts.onSave(saved);
           close();
