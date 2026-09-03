@@ -13,14 +13,21 @@
 //      mint (see the 2026-07-28 rate-limit entry), so an anonymous
 //      camera would be an unaccountable camera. sign_in_provider must
 //      not be 'anonymous'.
-//   2. Cloudflare Turnstile (TURNSTILE_SITE_KEY + TURNSTILE_SECRET_KEY
-//      env). This gate FAILS CLOSED: with no keys configured the whole
-//      feature is unavailable and the client never offers the camera.
-//      Shipping a stranger-camera feature with its human check quietly
-//      skipped is the one degradation that is not acceptable here, so
-//      unconfigured means off, not open. Setting the two env vars turns
-//      cameras on with no redeploy. (A configured-but-unreachable
-//      Cloudflare is different, and fails OPEN: the other gates hold.)
+//   2. A HUMAN CHECK, satisfied one of two ways, never skipped:
+//      (a) APPROVAL — a debater seated in this round accepted this
+//          uid's joinRequests entry (kind 'cam'). A named person in the
+//          room vouching for a named account is a stronger check than a
+//          captcha, because it knows who is asking and can say no.
+//      (b) Cloudflare Turnstile (TURNSTILE_SITE_KEY +
+//          TURNSTILE_SECRET_KEY), the self-serve door. Optional, and
+//          when it is configured the client runs it ON TOP of (a)
+//          rather than instead of it.
+//      This still FAILS CLOSED: with neither an approval nor a passing
+//      challenge, no token is minted. What changed on 2026-09-02 is
+//      that unconfigured Turnstile no longer takes the whole feature
+//      down — it used to mean nobody could ever join a call, which is
+//      how this shipped dark. (A configured-but-unreachable Cloudflare
+//      is different, and fails OPEN: the other gates hold.)
 //   3. video_bans — same identity derivation as create-daily-room, so
 //      a strike earned anywhere in the video system blocks the camera
 //      here too.
@@ -75,6 +82,34 @@ async function banFor(db, keys) {
   return null;
 }
 
+// A join request is only a human check while it is FRESH and while the
+// person who accepted it was actually seated in the round. The rules
+// already restrict 'accepted' to a participant; this re-reads it off
+// the round document we have in hand, because the token this unlocks
+// puts a stranger's camera in front of two people.
+const APPROVAL_TTL_MS = 2 * 3600 * 1000;
+
+async function approvedToJoin(db, room, uid, roundData) {
+  try {
+    const snap = await withDeadline(
+      db.collection('live_rounds').doc(room).collection('joinRequests').doc(uid).get(), 2500);
+    if (!snap.exists) return false;
+    const r = snap.data() || {};
+    if (r.kind !== 'cam' || r.status !== 'accepted') return false;
+    const by = r.respondedBy;
+    if (!by || (by !== roundData.proUid && by !== roundData.conUid)) return false;
+    const at = r.respondedAt && r.respondedAt.toMillis ? r.respondedAt.toMillis() : 0;
+    // An approval that has aged out is not a live invitation. Ask again.
+    if (!at || Date.now() - at > APPROVAL_TTL_MS) return false;
+    return true;
+  } catch (e) {
+    // Fail CLOSED. Every other gate here fails open because it is a
+    // courtesy; this one is the human check.
+    console.warn('[audience-cam] approval read failed:', e.message);
+    return false;
+  }
+}
+
 async function verifyTurnstile(token, request) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) return { ok: false, unconfigured: true };
@@ -98,14 +133,19 @@ async function verifyTurnstile(token, request) {
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
 
-  // Cameras need BOTH halves: video config and a working human check.
-  const configured = !!(process.env.DAILY_API_KEY && process.env.DAILY_DOMAIN
-    && process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY);
+  // Video config is the hard requirement. Turnstile is one of the two
+  // human checks, not a switch on the whole feature.
+  const configured = !!(process.env.DAILY_API_KEY && process.env.DAILY_DOMAIN);
+  const turnstileOn = !!(process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY);
 
   if (request.method === 'GET') {
     return jsonResponse({
-      siteKey: process.env.TURNSTILE_SITE_KEY || null,
+      siteKey: turnstileOn ? process.env.TURNSTILE_SITE_KEY : null,
+      // `enabled` means the client may offer a way into the call at all.
       enabled: configured,
+      // Self-serve ("join now, pass a captcha") needs Turnstile. Without
+      // it the only door is asking the debaters, which is the default.
+      selfServe: configured && turnstileOn,
       maxCams: MAX_CAMS,
     }, 200, request);
   }
@@ -116,7 +156,7 @@ export default async (request) => {
   const domain = process.env.DAILY_DOMAIN;
   if (!configured) {
     return jsonResponse({
-      error: 'Audience cameras are not switched on for this site yet.',
+      error: 'Video is not switched on for this site yet.',
       unconfigured: true,
     }, 503, request);
   }
@@ -146,10 +186,16 @@ export default async (request) => {
   ]);
   if (!rl.ok) return errorResponse('Too many camera joins. Try again later.', 429, request);
 
-  // 3. Human check. Unconfigured was already refused above, so a
-  // failure here is a real failed or missing challenge.
-  const ts = await verifyTurnstile(body.turnstileToken, request);
-  if (!ts.ok) return jsonResponse({ error: 'Verification failed. Reload and try the check again.', turnstile: true }, 403, request);
+  // 3. Turnstile, when it is configured AND the client sent a token.
+  // A pass here satisfies the human check on its own (the self-serve
+  // door); anything else falls through to the approval check at step 6,
+  // which is the only other way past it.
+  let human = false;
+  if (turnstileOn && body.turnstileToken) {
+    const ts = await verifyTurnstile(body.turnstileToken, request);
+    if (!ts.ok) return jsonResponse({ error: 'Verification failed. Reload and try the check again.', turnstile: true }, 403, request);
+    human = true;
+  }
 
   let db;
   try { db = getDb(); } catch (e) { return errorResponse('Service unavailable', 503, request); }
@@ -179,7 +225,15 @@ export default async (request) => {
     return errorResponse('Debaters use the in-room camera controls', 400, request);
   }
 
-  // 6. Concurrency cap over fresh camAt heartbeats.
+  // 6. The other human check: a debater in this round let them in.
+  if (!human && !(await approvedToJoin(db, room, uid, roundData))) {
+    return jsonResponse({
+      error: 'Ask the debaters to let you into the call first.',
+      needApproval: true,
+    }, 403, request);
+  }
+
+  // 7. Concurrency cap over fresh camAt heartbeats.
   try {
     const camSnap = await withDeadline(
       db.collection('live_rounds').doc(room).collection('watchers')
@@ -193,7 +247,7 @@ export default async (request) => {
     }
   } catch (e) { /* fail open — the cap is a courtesy, not a security line */ }
 
-  // 7. Mint the video-only token. canSend:['video'] is the hard rule:
+  // 8. Mint the video-only token. canSend:['video'] is the hard rule:
   // Daily's media server refuses an audio publish from this token.
   const firstName = String(payload.name || 'Guest').trim().split(/\s+/)[0].slice(0, 20) || 'Guest';
   try {

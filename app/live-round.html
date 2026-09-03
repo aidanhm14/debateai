@@ -801,8 +801,10 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
      the prep card poking through it (screenshot 2026-08-18). */
   position:fixed;right:0;top:50%;z-index:120;
   transform:translateY(-50%);
-  display:inline-flex;flex-direction:column;align-items:center;gap:7px;
-  padding:14px 8px;border-radius:10px 0 0 10px;cursor:pointer;
+  display:inline-flex;flex-direction:column;align-items:center;gap:8px;
+  /* Widened 2026-09-02: the tab was a 34px hairline against the window
+     edge and read as page furniture rather than the way into chat. */
+  padding:20px 11px;border-radius:12px 0 0 12px;cursor:pointer;
   /* Same trap #audPanel documents: the surface is near-black in every
      theme, but var(--text) flips to dark ink on the light theme, which
      rendered the vertical "Audience" label dark-on-dark (verified in a
@@ -814,8 +816,12 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 #audFab{transition:transform .18s,border-color .18s,box-shadow .18s}
 #audFab:hover{border-color:rgba(239,68,68,.6);transform:translateY(-50%) translateX(-3px);box-shadow:-12px 0 28px rgba(0,0,0,.45),0 0 0 1px rgba(239,68,68,.25)}
 #audFab:active{transform:translateY(-50%)}
-#audFab span{font-size:.98rem;line-height:1}
-#audFab b{font-size:.68rem;font-weight:800;letter-spacing:.06em;writing-mode:vertical-rl;text-orientation:mixed}
+#audFab span{font-size:1.16rem;line-height:1}
+#audFab b{font-size:.78rem;font-weight:800;letter-spacing:.09em;writing-mode:vertical-rl;text-orientation:mixed}
+/* Unread pip: chat is now wide enough to be worth coming back to, so the
+   tab has to say when something arrived while it was shut. */
+#audFab i{position:absolute;top:8px;right:6px;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px rgba(239,68,68,.8);display:none}
+#audFab.has-unread i{display:block}
 body.lr-aud-open #audFab{display:none}
 
 /* Comment pop-ups (2026-08-23: moved to the right EDGE, beside the
@@ -823,7 +829,7 @@ body.lr-aud-open #audFab{display:none}
    over the bottom-left of the video). Read-only surface; composing
    stays in the Audience rail. position:fixed so they ride the
    viewport edge whatever pane they were mounted into. */
-#audPops{position:fixed;right:56px;bottom:110px;z-index:118;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:min(70%,340px)}
+#audPops{position:fixed;right:66px;bottom:110px;z-index:118;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:min(70%,340px)}
 .aud-pop{background:rgba(8,8,10,.82);backdrop-filter:blur(5px);border:1px solid rgba(255,255,255,.14);border-left:3px solid #ef4444;border-radius:12px;padding:8px 12px;font-size:.78rem;line-height:1.45;color:#f0ede6;max-width:100%;overflow-wrap:break-word;box-shadow:0 8px 22px rgba(0,0,0,.35);animation:audPopIn .28s ease}
 .aud-pop b{color:#ef4444;font-size:.7rem;margin-right:4px}
 .aud-pop.is-fading{opacity:0;transform:translateX(14px);transition:opacity .65s ease,transform .65s ease}
@@ -843,7 +849,7 @@ body.lr-mini #audPops,body.lr-pip #audPops{display:none}
      tuck the rail under it or leave a gap. 64px matches .bar min-height
      as the pre-measurement default. */
   position:fixed;right:0;top:var(--lr-bar-h,64px);bottom:0;z-index:120;
-  width:var(--aud-w,336px);
+  width:var(--aud-w,420px);
   display:flex;flex-direction:column;overflow:hidden;
   /* 2026-08-11: was a flat var(--surface,#141417) — reads as a dead
      rectangle pasted over the round rather than part of the same room.
@@ -884,8 +890,8 @@ body.lr-mini #audPops,body.lr-pip #audPops{display:none}
 #audPanel[hidden]{display:none}
 /* Reflow rather than overlay: the round gives up exactly the rail's
    width. Transitioned so opening chat reads as the page making room. */
-@media(min-width:1080px){
-  body.lr-aud-open .split{ margin-right:var(--aud-w,336px); }
+@media(min-width:1180px){
+  body.lr-aud-open .split{ margin-right:var(--aud-w,420px); }
   .split{ transition:margin-right .2s ease; }
 }
 @media(prefers-reduced-motion:reduce){ .split{transition:none} }
@@ -893,7 +899,7 @@ body.lr-mini #audPops,body.lr-pip #audPops{display:none}
    would fight the floating console for the same corner. */
 body.lr-mini #audPanel,body.lr-pip #audPanel{
   top:auto;bottom:96px;right:14px;border-radius:16px;
-  height:min(60vh,520px);border:1px solid var(--border,rgba(255,255,255,.12));
+  width:min(420px,calc(100vw - 28px));height:min(68vh,600px);border:1px solid var(--border,rgba(255,255,255,.12));
 }
 body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
 #audPanel .aud-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border,rgba(255,255,255,.1))}
@@ -947,14 +953,14 @@ body.lr-mini .split,body.lr-pip .split{ margin-right:0 !important; }
    stops reflowing the round and becomes an overlay sheet against the
    right edge. Still full height (chat wants the vertical run), just
    layered over the round instead of beside it. */
-@media(max-width:1079px){
-  #audPanel{width:min(340px,calc(100vw - 24px));border-radius:16px 0 0 16px}
+@media(max-width:1179px){
+  #audPanel{width:min(420px,calc(100vw - 24px));border-radius:16px 0 0 16px}
   .split{margin-right:0 !important}
 }
 @media(max-width:640px){
   /* Phone: a side sheet at this width is a column of two-word lines, so
      chat takes the full width and sits as a bottom sheet instead. */
-  #audPanel{left:0;right:0;width:auto;top:auto;height:min(68vh,520px);
+  #audPanel{left:0;right:0;width:auto;top:auto;height:min(78vh,600px);
     border-radius:16px 16px 0 0;border-left:0;border-top:1px solid var(--border,rgba(255,255,255,.12))}
 }
 /* The shell is a permanently-dark tile (#050506) in every theme, but the
@@ -1714,6 +1720,8 @@ body.spectator-mode .speech-header{background:color-mix(in srgb,var(--bg) 91%,#d
 .join-req-top{font-size:.9rem;color:var(--text,#fff);margin-bottom:6px}
 .join-req-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;margin-right:7px;vertical-align:middle}
 .join-req-comment{font-size:.82rem;font-style:normal;color:var(--text-dim,rgba(255,255,255,.7));margin:0 0 10px;line-height:1.4}
+/* What accepting grants, on the card that grants it. */
+.join-req-note{font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.62));margin:0 0 10px;line-height:1.45}
 .join-req-actions{display:flex;align-items:center;gap:8px}
 .join-req-actions .btn{padding:8px 14px;font-size:.78rem}
 .join-req-timer{margin-left:auto;font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.55));font-variant-numeric:tabular-nums}
@@ -17757,6 +17765,8 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     active: false, joining: false,
     stream: null, frame: null, guard: null, guardVideo: null,
     pill: null, beatNow: null, cfg: null, cfgPending: false,
+    // Ask-to-join state. 'none' | 'pending' | 'accepted' | 'rejected'.
+    req: 'none', reqUnsub: null, reqSending: false,
   };
 
   function startSpectatorBeat(){
@@ -17779,6 +17789,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       mine.set(payload).catch(function(){});
     };
     audCam.beatNow = beat;
+    // The request listener needs a signed-in uid, which may not have
+    // existed when the pill was built. Idempotent, so a second call is
+    // free.
+    if (audCam.pill) watchMyCallRequest();
     beat();
     state.watchHbInterval = setInterval(beat, WATCH_HB_MS);
     window.addEventListener('pagehide', function(){ mine.delete().catch(function(){}); });
@@ -17824,9 +17838,9 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     apply();
   }
 
-  // The pill only exists once the server confirms cameras are switched
-  // on (Daily config AND Turnstile keys). Offering a button that always
-  // answers "not configured" is worse than no button.
+  // The pill only exists once the server confirms video is configured.
+  // Offering a button that always answers "not configured" is worse
+  // than no button.
   function buildAudCamPill(shell){
     if (audCam.pill || audCam.cfgPending || !shell) return;
     audCam.cfgPending = true;
@@ -17838,6 +17852,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         audCam.cfg = cfg || {};
         if (!cfg || !cfg.enabled) return;   // stays absent, by design
         reallyBuildAudCamPill(shell);
+        watchMyCallRequest();
       });
   }
   function reallyBuildAudCamPill(shell){
@@ -17845,24 +17860,129 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var btn = document.createElement('button');
     btn.id = 'audCamPill';
     btn.type = 'button';
-    btn.innerHTML = '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>';
-    btn.title = 'Appear on camera as audience. Video only, your mic never turns on.';
-    btn.addEventListener('click', function(){ audCam.active ? stopAudienceCam('user') : joinAudienceCam(); });
+    btn.addEventListener('click', onAudCamPillClick);
     shell.appendChild(btn);
     audCam.pill = btn;
     paintAudCamPill();
   }
+
+  // One button, four states, because a watcher only ever has one next
+  // move: ask, wait (or take the ask back), join, stop.
+  function onAudCamPillClick(){
+    if (audCam.active){ stopAudienceCam('user'); return; }
+    if (audCam.joining) return;
+    if (audCam.req === 'pending'){ withdrawCallJoin(); return; }
+    if (audCam.req === 'accepted'){ joinAudienceCam(); return; }
+    // Turnstile configured means the self-serve door is open and there
+    // is nobody to wait on.
+    if (audCam.cfg && audCam.cfg.selfServe){ joinAudienceCam(); return; }
+    requestCallJoin();
+  }
+
   function paintAudCamPill(){
     var btn = audCam.pill;
     if (!btn) return;
     var off = state.allowAudienceCams === false;
     btn.hidden = off || !isSpectator();
-    btn.classList.toggle('is-live', audCam.active);
-    btn.innerHTML = audCam.active
-      ? '<span class="acp-dot" aria-hidden="true"></span> <b>On camera · stop</b>'
-      : (audCam.joining
-        ? '<b>Checking&hellip;</b>'
-        : '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>');
+    btn.classList.toggle('is-live', audCam.active || audCam.req === 'pending');
+    var label;
+    if (audCam.active) label = '<span class="acp-dot" aria-hidden="true"></span> <b>On camera &middot; stop</b>';
+    else if (audCam.joining) label = '<b>Joining&hellip;</b>';
+    else if (audCam.reqSending) label = '<b>Asking&hellip;</b>';
+    else if (audCam.req === 'pending') label = '<span class="acp-dot" aria-hidden="true"></span> <b>Waiting to be let in</b>';
+    else if (audCam.req === 'accepted') label = '<span aria-hidden="true">&#128247;</span> <b>You are in &middot; turn camera on</b>';
+    else if (audCam.cfg && audCam.cfg.selfServe) label = '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>';
+    else label = '<span aria-hidden="true">&#9995;</span> <b>Ask to join the call</b>';
+    btn.innerHTML = label;
+    btn.title = audCam.req === 'pending'
+      ? 'The debaters have been asked. Tap to take the request back.'
+      : 'Join the call on camera. Video only, your mic never turns on.';
+  }
+
+  // ── Ask to join the call (watcher side) ──────────────────────────
+  // Watching is open; being IN the call is not, because the two people
+  // in the round are the ones it costs. So the ask goes to them and
+  // they answer it. Rides the joinRequests collection the seat and
+  // watch requests already use, under its own kind so the debaters'
+  // card can say which of the three is being asked for.
+  function myCallRequestRef(){
+    var u = firebaseAuth && firebaseAuth.currentUser;
+    if (!u || !firebaseDb || !state.room) return null;
+    return firebaseDb.collection('live_rounds').doc(state.room)
+      .collection('joinRequests').doc(u.uid);
+  }
+
+  function requestCallJoin(){
+    if (state.allowAudienceCams === false){ toast('The debaters have cameras off for this round.'); return; }
+    var u = firebaseAuth && firebaseAuth.currentUser;
+    if (!u || u.isAnonymous){
+      toast('Joining the call needs a named account. Sign in, then ask again.');
+      try { doGoogleSignIn(); } catch(e){}
+      return;
+    }
+    var ref = myCallRequestRef();
+    if (!ref) return;
+    audCam.reqSending = true;
+    paintAudCamPill();
+    ref.set({
+      kind: 'cam',
+      status: 'pending',
+      name: publicNameOf(state.user || u),
+      requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true }).then(function(){
+      audCam.req = 'pending';
+      toast('Asked the debaters to let you into the call.');
+      watchMyCallRequest();
+      try { gtag('event', 'call_join_request', { room: state.room }); } catch(e){}
+    }).catch(function(e){
+      console.warn('[call-join] request failed', e);
+      toast('Could not send that request. Try again.');
+    }).then(function(){
+      audCam.reqSending = false;
+      paintAudCamPill();
+    });
+  }
+
+  function withdrawCallJoin(){
+    var ref = myCallRequestRef();
+    if (!ref) return;
+    // 'withdrawn' rather than a delete: the rules allow the requester
+    // exactly 'pending' and 'withdrawn', and a status the debaters'
+    // card already treats as not-pending takes the card down for them.
+    ref.set({ status: 'withdrawn' }, { merge: true }).catch(function(){});
+    audCam.req = 'none';
+    paintAudCamPill();
+    toast('Request withdrawn.');
+  }
+
+  function watchMyCallRequest(){
+    if (audCam.reqUnsub) return;
+    var ref = myCallRequestRef();
+    if (!ref) return;
+    audCam.reqUnsub = ref.onSnapshot(function(snap){
+      var d = snap.exists ? (snap.data() || {}) : null;
+      if (!d || d.kind !== 'cam'){ return; }
+      if (d.status === 'accepted'){
+        var wasWaiting = audCam.req !== 'accepted';
+        audCam.req = 'accepted';
+        paintAudCamPill();
+        // Only auto-join off a fresh accept. A reload with a standing
+        // approval leaves the camera off until they press the button,
+        // because turning a camera on for someone who did not just ask
+        // is not a thing a page gets to do on its own.
+        if (wasWaiting && !audCam.active && !audCam.joining){
+          toast('You are in. Turning your camera on.');
+          joinAudienceCam();
+        }
+      } else if (d.status === 'rejected'){
+        if (audCam.req === 'pending') toast('The debaters passed on that request.');
+        audCam.req = 'rejected';
+        paintAudCamPill();
+      } else if (d.status === 'pending'){
+        audCam.req = 'pending';
+        paintAudCamPill();
+      }
+    }, function(){});
   }
   function audCamOnPolicyChange(){
     if (state.allowAudienceCams === false && audCam.active){
@@ -17932,9 +18052,13 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     Promise.resolve(audCam.cfg || fetch('/api/audience-cam').then(function(r){ return r.json(); }).catch(function(){ return {}; }))
       .then(function(cfg){
         audCam.cfg = cfg || {};
-        if (!cfg || !cfg.enabled || !cfg.siteKey){
-          throw new Error('Audience cameras are not switched on for this site yet.');
+        if (!cfg || !cfg.enabled){
+          throw new Error('Video is not switched on for this site yet.');
         }
+        // The captcha is the SELF-SERVE door. When it is not configured
+        // the human check is the debaters' accept, which the server
+        // re-reads for itself, so there is nothing to run here.
+        if (!cfg.selfServe || !cfg.siteKey) return null;
         return audCamVerify(cfg.siteKey);
       })
       .then(function(tsToken){
@@ -18163,7 +18287,19 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   // audienceEvals/{uid}. Evals feed audienceBallotLines()
   // at ballot time as guarded advisory texture. Local-only rounds
   // (no Firestore) get a read-only explainer instead of composers.
-  var AUD = { started:false, tab:'comments', unsubs:{} };
+  var AUD = { started:false, tab:'comments', unsubs:{}, seen:0, primed:false };
+
+  // The rail is shut for most of a round, so a comment that lands while
+  // it is shut is invisible. Mark the tab rather than pushing anything
+  // over the video: the pop-ups already own that job, and doing both
+  // would be two notifications for one comment.
+  function audMarkUnread(n){
+    var fab = document.getElementById('audFab');
+    var panel = document.getElementById('audPanel');
+    if (!fab) return;
+    if (panel && !panel.hidden){ AUD.seen = n; fab.classList.remove('has-unread'); return; }
+    fab.classList.toggle('has-unread', n > AUD.seen);
+  }
 
   function audCol(name){
     return (firebaseDb && state.roundDocRef) ? state.roundDocRef.collection(name) : null;
@@ -18191,14 +18327,15 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     if (document.getElementById('audFab')) return;
     var fab = document.createElement('button');
     fab.id = 'audFab'; fab.type = 'button';
-    fab.setAttribute('aria-label', 'Audience: comments and judge notes');
-    fab.title = 'Audience: comments and judge notes';
-    fab.innerHTML = '<span aria-hidden="true">&#128172;</span><b>Audience</b>';
+    fab.setAttribute('aria-label', 'Chat: comments and judge notes');
+    fab.title = 'Chat: comments and judge notes';
+    fab.innerHTML = '<span aria-hidden="true">&#128172;</span><b>Chat</b>'
+                  + '<i aria-hidden="true"></i>';
     var panel = document.createElement('div');
     panel.id = 'audPanel'; panel.hidden = true;
     panel.innerHTML =
       '<div class="aud-head">' +
-        '<b>Audience</b>' +
+        '<b>Chat</b>' +
         '<span class="aud-live" id="audCount"><i aria-hidden="true"></i>0 watching</span>' +
         '<button type="button" class="aud-x" id="audClose" aria-label="Close">&times;</button>' +
       '</div>' +
@@ -18250,6 +18387,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     // chat sits BESIDE the transcript instead of on top of it.
     document.body.classList.toggle('lr-aud-open', open);
     if (open) syncAudBarOffset();
+    if (open){
+      if (fab) fab.classList.remove('has-unread');
+      var seen = panel.querySelectorAll('#audCommentList .aud-row').length;
+      if (seen) AUD.seen = seen;
+    }
     if (open && !AUD.started) audStart();
   }
 
@@ -18297,6 +18439,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
                '<p>' + escHtml(String(c.text || '').slice(0, 500)) + '</p></div>';
       }).join('') : '<div class="aud-empty">No comments yet. Say what you\'re seeing.</div>';
       list.scrollTop = list.scrollHeight;
+      // The first snapshot is the backlog, not news. Seed the baseline
+      // from it or every arrival opens the round with the tab already lit.
+      if (!AUD.primed){ AUD.primed = true; AUD.seen = rows.length; }
+      audMarkUnread(rows.length);
     }, function(){});
   }
 
@@ -18441,6 +18587,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
           if (stale) stale.remove();
           return;
         }
+        // Cameras off means an accepted cam request mints no token, so
+        // the card would promise something the round has already said no
+        // to. The other two kinds are unaffected by that switch.
+        if (req.kind === 'cam' && state.allowAudienceCams === false) return;
         var stamp = (req.requestedAt && req.requestedAt.toMillis) ? req.requestedAt.toMillis() : 0;
         var key = (req.comment || '') + ':' + stamp;
         if (handled[docSnap.id] === key) return;   // already showing this exact pending state
@@ -18455,23 +18605,35 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
     var card = document.createElement('div');
     card.id = 'joinReq-' + reqRef.id;
     card.className = 'join-req-card';
-    // Two different asks share this surface. A DEBATE request wants a
-    // seat and is time-critical, so it keeps the 20s auto-decline. A
-    // WATCH request wants the audience and is not: auto-declining
-    // spectators after 20s would bounce almost all of them, because
-    // the debaters are mid-speech and not looking at a card. Watch
-    // requests sit there until somebody answers.
+    // Three asks share this surface. A DEBATE request wants a seat and
+    // is time-critical, so it keeps the 20s auto-decline. A WATCH
+    // request wants the audience and is not: auto-declining spectators
+    // after 20s would bounce almost all of them, because the debaters
+    // are mid-speech and not looking at a card. A CAM request wants a
+    // camera in the call, which is the same shape as watch — the
+    // person is already here and can wait for an answer — so it does
+    // not run a clock either. An unanswered ask is not a no.
     var isWatch = req.kind === 'watch';
-    var name = escHtml(req.name || (isWatch ? 'Someone' : 'A debater'));
+    var isCam = req.kind === 'cam';
+    var timed = !isWatch && !isCam;
+    var name = escHtml(req.name || (timed ? 'A debater' : 'Someone'));
     var comment = req.comment ? '<div class="join-req-comment">“' + escHtml(req.comment) + '”</div>' : '';
+    var asks = isCam ? 'wants to join the call on camera'
+             : (isWatch ? 'wants to watch this round' : 'wants to join this round');
+    // Say what accepting actually grants, because "Let in" alone does
+    // not tell a debater mid-round that a stranger's face is about to
+    // appear in their video call.
+    var note = isCam
+      ? '<div class="join-req-note">They appear on camera beside you. Their mic cannot open.</div>'
+      : '';
     card.innerHTML =
       '<div class="join-req-top"><span class="join-req-dot"></span><strong>' + name + '</strong> ' +
-        (isWatch ? 'wants to watch this round' : 'wants to join this round') + '</div>' +
-      comment +
+        asks + '</div>' +
+      comment + note +
       '<div class="join-req-actions">' +
         '<button type="button" class="btn btn-primary join-req-accept">Let in</button>' +
         '<button type="button" class="btn join-req-reject">Decline</button>' +
-        (isWatch ? '' : '<span class="join-req-timer" aria-hidden="true">20</span>') +
+        (timed ? '<span class="join-req-timer" aria-hidden="true">20</span>' : '') +
       '</div>';
     document.body.appendChild(card);
     try { window.SFX && window.SFX.notify && window.SFX.notify(); } catch(e){}
@@ -18486,7 +18648,7 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       }, { merge: true }).catch(function(e){ console.warn('[join] resolve failed', e); });
       card.remove();
     }
-    var iv = isWatch ? null : setInterval(function(){
+    var iv = !timed ? null : setInterval(function(){
       secs--; if (timerEl) timerEl.textContent = secs;
       if (secs <= 0) resolve('rejected');   // 20s → auto-reject
     }, 1000);
@@ -20195,6 +20357,17 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
         '<div class="cv-aud" aria-label="Audience cameras"></div><div class="cv-note"></div>' +
         '<div class="cv-quality" role="status" aria-live="polite"></div>' + tray + '</div>';
       window.__lrDailyWrapper = true;
+      // The watcher's ask-to-join-the-call pill. Real button, real
+      // states, no network: buildAudCamPill would fetch config and the
+      // click paths all bail before a write in design mode. Here so the
+      // copy on it can be edited in /god like everything else on this
+      // screen, and so the four labels can be read without a live round.
+      if (spectator){
+        quiet(function(){
+          audCam.cfg = { enabled: true, selfServe: false, maxCams: 4 };
+          reallyBuildAudCamPill(shell);
+        });
+      }
     }
     function enterRound(i, opts){
       opts = opts || {};
