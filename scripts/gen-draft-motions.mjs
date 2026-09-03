@@ -19,7 +19,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'app/practice.html');
 const OUT = path.join(ROOT, 'app/netlify/functions/lib/draft-motions.mjs');
 const ORDER = ['quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress', 'mun'];
-const MIN_POOL = 6; // SLATE_SIZE + 1
+const MIN_POOL = 6; // POOL_SIZE + 2: an offer, a send-back and a counter
 
 const src = fs.readFileSync(SRC, 'utf8');
 
@@ -97,8 +97,9 @@ fs.writeFileSync(OUT, `// draft-motions.mjs — the slate pool for the pre-round
 //
 //   node scripts/gen-draft-motions.mjs
 //
-// Every pool must hold at least SLATE_SIZE + 1 motions or a slate cannot be
-// drawn without repeats. scripts/test-motion-draft.mjs asserts that in the
+// Every pool must hold at least POOL_SIZE + 2 motions, so an offer, a
+// send-back and a counter can each name a different one without repeats.
+// scripts/test-motion-draft.mjs asserts that in the
 // pre-commit hook, because a short pool surfaces as a duplicated card in
 // front of two real people mid-draft rather than as an error anyone sees.
 

@@ -103,12 +103,12 @@ The full product/voice/decisions doc is [soul.md](soul.md). Read it.
 │   │       │   │                            intensity, normalizes pauses.
 │   │       │   └── appcheck.mjs           Firebase App Check verification.
 │   │       ├── round-draft.mjs + lib/motion-draft.mjs + lib/draft-motions.mjs
-│       │     The pre-round MOTION DRAFT, in the ROOM. Casual rounds use
-│       │     five motions and two blind strikes each; a tournament may
-│       │     stamp its own server-side pool and counts. A coin flip splits
-│       │     the motion call from the side call. motion-draft.mjs is PURE and
-│       │     owns every decision; round-draft runs it over the round
-│       │     doc, spar-pair only STAMPS which pairs are eligible.
+│       │     The pre-round MOTION NEGOTIATION, in the ROOM. One debater
+│       │     offers a motion; the other takes it, sends it back once, or
+│       │     counters with their own. Whoever settles the motion does not
+│       │     settle the side. Blind strikes were retired 2026-09-02.
+│       │     motion-draft.mjs is PURE and owns every decision; round-draft
+│       │     runs it over the round doc, spar-pair only STAMPS eligibility.
 │       │     See the "Motion draft" section below before touching it.
 │       ├── partner-match.mjs, duo-pair.mjs
 │       │     2v2 matchmaking. partner-match forms the duo (invite code
@@ -458,29 +458,32 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 
 ## Motion draft (in the ROOM, pre-round)
 
-The default is five motions with two BLIND strikes per side. A tournament
-room may carry a server-stamped draft profile instead. The Debatable Open
-draws three motions from its published pool of twenty and gives each side
-one blind strike. The strikes reveal together, and a coin flip splits what
-is left: one debater calls the motion (when more than one survived), the
-other calls their side.
+**Blind strikes were retired 2026-09-02.** It is a NEGOTIATION now. One
+debater offers a motion; the other takes it, sends it back once, or
+counters with their own. The invariant that survives from the strike
+design is the only thing you have to hold in your head:
 
-**It runs in /live-round, not on the /spar queue** (moved 2026-08-26, the
-same day it shipped on the queue). It was gated on `draftOptIn` being on
-BOTH queue docs and only /spar set it, so any pair including a background
-"Spar live" peer or a /debate-chat peer silently ran on an unvetoed
-motion. Every one of those surfaces lands in the room, so the room is
-where the beat belongs.
+> **One person settles the motion. The other settles the side.**
+
+- **Take it** -> that motion is the round, and the responder picks their side.
+- **Send it back** -> the offerer owes a different motion, the responder
+  must take it, and the responder still picks their side. **One per round.**
+- **Counter** -> the responder puts their own motion up, and the offerer
+  then picks WHICH of the two runs *and* picks their own side. Getting your
+  own motion onto the table is what costs you the bench.
+
+A coin flip decides only who offers first. A tournament room draws its
+suggestions from the event's published pool and refuses hand-written text.
 
 ```
-lib/motion-draft.mjs      PURE: slate, coin flip, phase machine, resolution,
-                            and publicDraft() — the blindness projection
+lib/motion-draft.mjs      PURE: pool, coin flip, phase machine, the three
+                            answers, seeded timeouts, publicDraft()
 lib/draft-motions.mjs     GENERATED pool. Regenerate, never hand-edit:
                             node scripts/gen-draft-motions.mjs
 round-draft.mjs           POST /api/round-draft. Owns the state, in a
                             transaction over round_drafts/{room}
 spar-pair.mjs             STAMPS eligibility only (round_drafts/{room}).
-                            Still runs the AI-opponent draft for /spar solo
+                            Also runs the AI-opponent draft for /spar solo
 live-round.html           the board (search "MOTION DRAFT")
 scripts/test-round-draft.mjs    runs in the pre-commit hook
 scripts/test-motion-draft.mjs   runs in the pre-commit hook
@@ -488,64 +491,50 @@ scripts/test-motion-draft.mjs   runs in the pre-commit hook
 
 Things that are easy to break by accident:
 
-- **Survivors is not always one.** Two strikes each from five, blind, can
-  OVERLAP, so the casual profile leaves 1, 2 or 3. One strike each from
-  three leaves 1 or 2. Overlap happens often, so the motion-pick beat is a
-  normal path, not an edge case. Any copy or layout you add has to read
-  right for every server-stamped profile and survivor count.
-- **`publicDraft()` IS the blindness. Treat it as security, not
-  formatting.** Two queue docs used to give it away for free: each side
-  could only hold its own strikes. One shared round doc has no field-level
-  read rule, so the full draft lives in `round_drafts/{room}` (unlisted, so
-  the rules' default deny covers it) and the round doc gets a REDACTED
-  projection: during the strike beat, WHO has committed and never WHAT they
-  struck. Leak a strike there and whoever strikes second reads the other's
-  picks in devtools, which is the whole draft.
-- **Never auto-fill the PEER's strikes.** A short set from the person who
-  is actually here gets filled from the seed; a missing set from the person
-  who is not gets no help at all, and the pair unwinds through the existing
-  ghost path. Striking for an absent debater is how a room opens onto an
-  empty chair, which is the 411-round finding. The pick beats are the
-  opposite on purpose: both sides have proven presence by then, so either
-  may expire the clock and the round survives a slow click.
+- **The side invariant is the product, not a detail.** Any change that
+  hands one debater both the motion and the side on a branch makes the coin
+  flip decide the round. `scripts/test-motion-draft.mjs` asserts it per
+  branch and over a 400-draft fuzz; do not weaken those assertions to make
+  a new branch pass.
+- **One send-back, never two.** Both the count and the fact that the vetoed
+  motion cannot be re-offered are load-bearing: without the second, the
+  veto is a suggestion.
+- **Never auto-resolve the first two beats for the PEER.** Until the
+  responder has answered, exactly one person has moved, so filling in for
+  the other is how a room opens onto an empty chair (the 411-round
+  finding). `eitherMayExpire()` states which beats are safe, and
+  round-draft refuses a non-actor expire on the rest. A stale draft (past
+  `DRAFT_MAX_MS`) is the one exception and runs itself out to done.
 - **Timeout resolution is seeded, never random at call time.** Both clients
   and the server derive it independently, so a `Math.random()` here lands
-  two browsers on two different motions.
-- **Eligibility and configuration are STAMPED by the server, never claimed
-  by a client.** `spar-pair` writes `round_drafts/{room}` for every casual
-  pair it makes. Tournament pairing writes the same eligibility stamp plus
-  its public pool and three/one counts. `round-draft` refuses to open
-  without that stamp and ignores client-supplied configuration. Clients
-  cannot write there, so neither eligibility nor the tournament pool can be
-  forged. Do NOT re-key this on a per-surface opt-in: that is the bug the
-  move fixed.
-
-- **Either debater may add ONE motion of their own during the strike beat**
-  (`action:'add'`, 2026-09-02). It is a card like any other: both see it,
-  either can strike it, and it runs only if it survives the same strikes.
-  The window closes the moment ANY strike is in, or the adder would hold a
-  survivor the other side never got to veto; an add restarts the strike
-  clock so the other side can read it. Text passes `content-guard`'s
-  motion check before it is stored, and a stamped tournament pool
-  (`poolLocked`) refuses adds outright. Do not turn this into a consent
-  flow: the strike is the veto.
+  two browsers on two different motions. The guard pins the seeded outcome
+  to a LITERAL and samples the side beat twelve times, because comparing
+  two calls passes a coin flip half the time.
+- **Eligibility and the pool are STAMPED by the server, never claimed by a
+  client.** `spar-pair` writes `round_drafts/{room}` for every casual pair;
+  tournament pairing stamps the published pool. `round-draft` refuses to
+  open without that stamp and ignores client-supplied configuration.
+- **A hand-written motion goes through `checkContent` before it is stored.**
+  It is the one place a heavy subject can enter a round that every seeded
+  bank already refuses. The /spar AI fallback offers pool cards only for
+  exactly this reason.
 - **Nothing may start a speech while a draft is pending.**
-  `startSpeechTimer` refuses, ahead of the judge lock. Otherwise the round
-  opens on a motion the strikes are about to overrule and both sides get
-  rewritten mid-speech.
+  `startSpeechTimer` refuses, ahead of the judge lock.
+- **`publicDraft()` is no longer blindness.** Every beat has one actor and
+  moves in public, so it is an honest whole-draft copy. It is kept as the
+  one place that decides what a shared document may say: if a future beat
+  IS secret, redact it there and nowhere else.
 - **Never put visibility in the board's entrance animation.**
   `anim-governor.js` ships animations PAUSED on /live-round, so a keyframe
-  carrying `opacity` with `fill-mode: both` freezes the cards at 0 forever:
-  five motions in the DOM, nothing on screen, on the beat the round cannot
-  continue without. Measured, not theoretical. Same page defines only
-  `--bg`, `--text`, `--accent`; `--panel` and `--surface` do NOT exist here
-  and fell back to a white card with white text in dark mode.
+  carrying `opacity` with `fill-mode: both` freezes the cards at 0 forever.
+  Same page defines only `--bg`, `--text`, `--accent`; `--panel` and
+  `--surface` do NOT exist here and fell back to a white card with white
+  text in dark mode.
 
-`?draftdemo=1` on /spar renders the old queue board against a synthetic pair
-with every POST short-circuited (`&overlap=0` forces the clean split,
-`&role=side` holds the side call). It still covers the beats and the copy.
 The draft is a sequence of timed beats, so verify it in a browser: reading
-the diff tells you nothing about the feel, and it hid two real defects.
+the diff tells you nothing about the feel. `window.__lrRenderDraft(doc)` on
+/live-round is the snapshot hook and takes a synthetic draft, which is how
+every beat above was checked without two signed-in humans and a live queue.
 
 ## The AI judge integrity layer (READ BEFORE TOUCHING JUDGING)
 

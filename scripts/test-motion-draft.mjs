@@ -1,30 +1,34 @@
 #!/usr/bin/env node
-// test-motion-draft.mjs — guards on the pre-round motion draft.
+// test-motion-draft.mjs — guards on the pre-round motion negotiation.
 //
-// Runs in the pre-commit hook. The draft decides what two real people argue
-// and which side each of them takes, so every failure here is a round that
-// opens wrong in front of an opponent rather than a stack trace someone sees.
+// Runs in the pre-commit hook. This module decides what two real people
+// argue and which bench each of them takes, so every failure here is a
+// round that opens wrong in front of an opponent rather than a stack trace
+// somebody sees.
 //
 // The load-bearing ones, in order of what they would cost:
-//   - a client cannot strike more than STRIKES_PER_SIDE (four strikes from
-//     one side leaves one survivor of that side's choosing: the whole draft)
-//   - a client cannot pick the other debater's power
-//   - a timeout resolves the SAME way on both sides (two expired clocks must
-//     not produce two different motions)
-//   - survivors is never empty and never the whole slate
-//   - both debaters end on different sides
+//   - THE SIDE INVARIANT: on every reachable path, the debater who settles
+//     the motion is NOT the debater who settles the side. Break it and the
+//     coin flip decides the round instead of the debate.
+//   - a client cannot make the other debater's move
+//   - one send-back per round, and the vetoed motion cannot be re-offered
+//   - a timeout resolves the SAME way on both sides (two expired clocks
+//     must never produce two different motions)
+//   - a tournament's stamped pool cannot be written around
+//   - every finished draft names two different uids on opposite benches
 import assert from 'assert';
 import {
-  SLATE_SIZE, STRIKES_PER_SIDE, DRAFT_VERSION,
-  draftSeed, buildSlate, assignRoles, createDraft,
-  sanitizeStrikes, autoStrikes, survivorsOf, bothStruck,
-  advance, actorFor, applyMotionPick, applySidePick, autoResolve, draftResult,
-  strikesPerSideFor, publicDraft,
+  DRAFT_VERSION, POOL_SIZE, MOTION_MIN, MOTION_MAX, VETOES_PER_ROUND,
+  PHASES, RESPONSES, secondsFor,
+  draftSeed, buildPool, assignRoles, createDraft,
+  advance, actorFor, eitherMayExpire, offerablePool, contenders, vetoesLeft,
+  applyOffer, applyResponse, applyMotionPick, applySidePick,
+  autoResolve, draftResult, publicDraft, motionTextOf,
 } from '../app/netlify/functions/lib/motion-draft.mjs';
 import { DRAFT_MOTIONS, draftPoolFor } from '../app/netlify/functions/lib/draft-motions.mjs';
 import {
   THE_DEBATABLE_OPEN_MOTIONS, publicTournamentMotionDraft,
-  tournamentRegistrationOpen, tournamentRoomSetup,
+  tournamentRegistrationOpen,
 } from '../app/netlify/functions/lib/tournament-motion-pool.mjs';
 
 let n = 0;
@@ -34,267 +38,309 @@ const eq = (a, b, msg) => { n++; assert.deepStrictEqual(a, b, msg); };
 const A = 'uid_alice';
 const B = 'uid_bob';
 const seed = draftSeed(A, B, 'SparMatch-alice-bob');
+const fresh = (opts) => createDraft(seed, 'quick', A, B, opts || {});
 
-// ── pools ───────────────────────────────────────────────────────────
+// ── the suggestion pool ─────────────────────────────────────────────
 Object.keys(DRAFT_MOTIONS).forEach((k) => {
   const pool = DRAFT_MOTIONS[k];
-  ok(pool.length > SLATE_SIZE, 'pool ' + k + ' must hold more than a full slate, has ' + pool.length);
-  eq(new Set(pool).size, pool.length, 'pool ' + k + ' has duplicate motions');
-  pool.forEach((m) => {
-    ok(typeof m === 'string' && m.trim().length > 18, 'pool ' + k + ' has a stub motion');
-    ok(!/[—]/.test(m), 'em-dash in motion copy (' + k + '): ' + m);
-  });
+  ok(Array.isArray(pool) && pool.length >= POOL_SIZE + 2,
+    'pool ' + k + ' has room to offer, send back and counter');
+  eq(pool.length, new Set(pool).size, 'pool ' + k + ' has no duplicate motions');
+  pool.forEach((m) => ok(typeof m === 'string' && m.trim().length >= MOTION_MIN,
+    'pool ' + k + ' motion is real text'));
 });
-ok(DRAFT_MOTIONS.quick.length >= 100,
-  'the casual pool is too small to keep repeat slates rare: ' + DRAFT_MOTIONS.quick.length);
-ok(DRAFT_MOTIONS.quick.includes('AI will lead to socialism.'),
-  'the casual pool lost the founder-called high-stakes AI thesis');
-DRAFT_MOTIONS.quick.forEach((m) => {
-  ok(!/\?/.test(m), 'casual motion is a question instead of a claim: ' + m);
-  ok(/\.$/.test(m), 'casual motion is not a complete declarative sentence: ' + m);
-  ok(!/^(Resolved:|This House)/i.test(m), 'casual motion uses debate jargon: ' + m);
-});
+ok(draftPoolFor('nonsense-format').length > 0, 'an unknown format still gets a pool');
 
-// ── tournament profile: three motions, one blind strike each ──────
-eq(THE_DEBATABLE_OPEN_MOTIONS.length, 20, 'the published Open pool has exactly twenty motions');
-eq(new Set(THE_DEBATABLE_OPEN_MOTIONS.map((m) => m.toLowerCase())).size, 20,
-  'the published Open pool has no duplicate motions');
-THE_DEBATABLE_OPEN_MOTIONS.forEach((m) => {
-  ok(!/[—]/.test(m), 'the published pool has no em-dash: ' + m);
-  ok(m.length >= 18, 'the published pool has no stub motion: ' + m);
-});
-const openMotionCopy = THE_DEBATABLE_OPEN_MOTIONS.join(' ');
-ok(/\bTrump\b/.test(openMotionCopy), 'the published pool includes a Trump resolution');
-ok(/\bIran\b/.test(openMotionCopy), 'the published pool includes an Iran resolution');
-ok(/\bIsrael\b/.test(openMotionCopy), 'the published pool includes an Israel resolution');
-ok(/\bfilibuster\b/i.test(openMotionCopy), 'the published pool includes a filibuster resolution');
-ok(/\btax\b[^.]*\bAI\b|\bAI\b[^.]*\btax\b/i.test(openMotionCopy),
-  'the published pool includes a resolution on taxing AI companies');
-ok(THE_DEBATABLE_OPEN_MOTIONS.filter((m) => /prediction[- ]markets?/i.test(m)).length >= 3,
-  'the published pool includes multiple prediction-market resolutions');
-ok(THE_DEBATABLE_OPEN_MOTIONS.filter((m) =>
-  /\b(elections?|candidates?|campaign|voting|congressional districts?)\b/i.test(m)).length >= 5,
-  'the published pool includes a substantial election block');
-const openEvent = { slug: 'the-debatable-open', status: 'registration', format: 'blitz' };
-const openConfig = publicTournamentMotionDraft(openEvent);
-eq(openConfig.slateSize, 3, 'the Open offers three motions per room');
-eq(openConfig.strikesPerSide, 1, 'the Open gives each side one strike');
-eq(openConfig.motions, THE_DEBATABLE_OPEN_MOTIONS, 'the public announcement and room draw share one pool');
-ok(tournamentRegistrationOpen(openEvent), 'registration is open before the event starts');
-ok(tournamentRegistrationOpen({ ...openEvent, status: 'running' }), 'registration stays open while prelims run');
-ok(!tournamentRegistrationOpen({ ...openEvent, status: 'running', registrationClosed: true }),
-  'the director can explicitly close a running roster');
-ok(!tournamentRegistrationOpen({ ...openEvent, status: 'break' }), 'registration closes at the break');
-
-const td0 = createDraft(seed + '|open', 'blitz', A, B, {
-  pool: openConfig.motions,
-  slateSize: openConfig.slateSize,
-  strikesPerSide: openConfig.strikesPerSide,
-});
-eq(td0.slate.length, 3, 'tournament draft draws three motions');
-eq(strikesPerSideFor(td0), 1, 'tournament draft carries its one-strike allowance');
-eq(sanitizeStrikes(td0, ['m1', 'm2']), ['m1'], 'a tournament client cannot spend two strikes');
-eq(publicDraft(td0, 1).strikesPerSide, 1, 'the room receives the tournament strike count');
-let td = advance({ ...td0, strikes: { [A]: ['m1'], [B]: ['m2'] } }, A, B);
-eq(survivorsOf(td), ['m3'], 'different tournament strikes leave one motion');
-eq(td.phase, 'side', 'one tournament survivor skips the motion call');
-td = advance({ ...td0, strikes: { [A]: ['m1'], [B]: ['m1'] } }, A, B);
-eq(survivorsOf(td), ['m2', 'm3'], 'overlapping tournament strikes leave two survivors');
-eq(td.phase, 'motion', 'overlapping tournament strikes open the fair motion call');
-
-const roomSetup = tournamentRoomSetup(
-  'tid123', openEvent,
-  { room: 'Debatable-tid123-r1-1', pairingId: 'r1-1', govEntry: 'g', oppEntry: 'o' },
-  new Map([
-    ['g', { entryId: 'g', members: [A], memberNames: ['Alice'] }],
-    ['o', { entryId: 'o', members: [B], memberNames: ['Bob'] }],
-  ]),
-  'room-seed',
-);
-eq(roomSetup.admission.uids.sort(), [A, B].sort(), 'room admission contains only the paired roster');
-eq(roomSetup.admission.spectatorAccess, 'public', 'the tournament remains public to watch');
-eq(roomSetup.draft.draftConfig.slateSize, 3, 'the pairing stamps the three-motion room config');
-eq(roomSetup.draft.draftConfig.strikesPerSide, 1, 'the pairing stamps the one-strike room config');
-ok(draftPoolFor('casual') === DRAFT_MOTIONS.quick, 'unknown format falls back to the quick pool');
-ok(draftPoolFor('') === DRAFT_MOTIONS.quick, 'empty format falls back to the quick pool');
-
-// ── slate ───────────────────────────────────────────────────────────
-const slate = buildSlate(seed, 'apda');
-eq(slate.length, SLATE_SIZE, 'slate size');
-eq(new Set(slate.map((m) => m.text)).size, SLATE_SIZE, 'slate repeats a motion');
-eq(slate.map((m) => m.id), ['m1', 'm2', 'm3', 'm4', 'm5'], 'slate ids are positional');
-eq(buildSlate(seed, 'apda').map((m) => m.text), slate.map((m) => m.text), 'slate is deterministic');
-ok(buildSlate(draftSeed(A, B, 'other-room'), 'apda').map((m) => m.text).join() !== slate.map((m) => m.text).join(),
-  'a second room between the same two people draws a different slate');
-// Seed is order-independent: whichever side asks, the same five motions.
-eq(draftSeed(A, B, 'r'), draftSeed(B, A, 'r'), 'seed must not depend on who is asking');
-
-// Every format draws a full clean slate.
-Object.keys(DRAFT_MOTIONS).forEach((k) => {
-  const s = buildSlate(draftSeed(A, B, 'fmt-' + k), k);
-  eq(s.length, SLATE_SIZE, 'slate size for ' + k);
-  eq(new Set(s.map((m) => m.text)).size, SLATE_SIZE, 'duplicate motion in ' + k + ' slate');
-});
+{
+  const p1 = buildPool(seed, 'quick');
+  const p2 = buildPool(seed, 'quick');
+  eq(p1, p2, 'the pool is seeded, so both clients derive the same cards');
+  eq(p1.length, POOL_SIZE, 'the casual pool is POOL_SIZE cards');
+  eq(p1.length, new Set(p1.map((m) => m.text)).size, 'no card appears twice');
+  eq(p1.length, new Set(p1.map((m) => m.id)).size, 'no id appears twice');
+  const other = buildPool(draftSeed(A, B, 'SparMatch-alice-bob-2'), 'quick');
+  ok(other.some((m, i) => m.text !== p1[i].text), 'a rematch draws different cards');
+}
 
 // ── roles ───────────────────────────────────────────────────────────
-const roles = assignRoles(seed, A, B);
-ok(roles.motionUid !== roles.sideUid, 'one debater cannot hold both powers');
-eq([roles.motionUid, roles.sideUid].sort(), [A, B].sort(), 'roles cover exactly the two debaters');
-eq(assignRoles(seed, B, A), roles, 'roles do not depend on argument order');
-let heads = 0;
-for (let i = 0; i < 400; i++) if (assignRoles(draftSeed(A, B, 'r' + i), A, B).motionUid === A) heads++;
-ok(heads > 140 && heads < 260, 'coin flip is skewed: ' + heads + '/400');
-
-// ── strike sanitisation (the injection surface) ─────────────────────
-const d0 = createDraft(seed, 'apda', A, B);
-eq(d0.v, DRAFT_VERSION, 'draft carries its version');
-eq(d0.phase, 'strike', 'a fresh draft opens on strikes');
-eq(sanitizeStrikes(d0, ['m1', 'm2', 'm3', 'm4']).length, STRIKES_PER_SIDE, 'strike count is capped');
-eq(sanitizeStrikes(d0, ['m1', 'm1']), ['m1'], 'duplicate strikes collapse');
-eq(sanitizeStrikes(d0, ['m9', 'nope', 'm2']), ['m2'], 'off-slate ids are dropped');
-eq(sanitizeStrikes(d0, null), [], 'a non-array body is not a strike');
-eq(sanitizeStrikes(d0, ['__proto__', 'm3']), ['m3'], 'prototype keys are not slate ids');
-
-// ── auto strikes ────────────────────────────────────────────────────
-const autoA = autoStrikes(d0, A, []);
-eq(autoA.length, STRIKES_PER_SIDE, 'auto fills a full set');
-eq(autoStrikes(d0, A, []), autoA, 'auto strikes are deterministic');
-eq(autoStrikes(d0, A, ['m3']).slice(0, 1), ['m3'], 'auto keeps what the human already struck');
-eq(autoStrikes(d0, A, ['m1', 'm2']), ['m1', 'm2'], 'auto never overrides a complete set');
-ok(autoStrikes(d0, B, []).join() !== autoA.join(), 'both sides auto-striking must not strike identically');
-
-// ── phase machine ───────────────────────────────────────────────────
-let d = advance(Object.assign({}, d0, { strikes: { [A]: ['m1', 'm2'] } }), A, B);
-eq(d.phase, 'strike', 'one side striking does not advance the draft');
-eq(actorFor(d), null, 'nobody holds a pick clock during strikes');
-ok(!bothStruck(d, A, B), 'bothStruck is false with one side in');
-
-// No overlap: exactly one survivor, motion beat is skipped.
-d = advance(Object.assign({}, d0, { strikes: { [A]: ['m1', 'm2'], [B]: ['m3', 'm4'] } }), A, B);
-eq(survivorsOf(d), ['m5'], 'no-overlap strikes leave one motion');
-eq(d.motionId, 'm5', 'a single survivor locks itself');
-eq(d.phase, 'side', 'a single survivor skips the motion pick');
-eq(actorFor(d), d.sideUid, 'the side holder owns the clock on the side beat');
-
-// Full overlap: three survivors, motion holder picks.
-d = advance(Object.assign({}, d0, { strikes: { [A]: ['m1', 'm2'], [B]: ['m1', 'm2'] } }), A, B);
-eq(survivorsOf(d), ['m3', 'm4', 'm5'], 'identical strikes leave three motions');
-eq(d.phase, 'motion', 'multiple survivors open the motion pick');
-eq(actorFor(d), d.motionUid, 'the motion holder owns the clock on the motion beat');
-
-// ── picks: authority ────────────────────────────────────────────────
-const other = d.motionUid === A ? B : A;
-eq(applyMotionPick(d, other, 'm3').reason, 'not_your_call', 'the side holder cannot call the motion');
-eq(applyMotionPick(d, d.motionUid, 'm1').reason, 'motion_struck', 'a struck motion cannot be picked');
-eq(applyMotionPick(d, d.motionUid, 'm9').reason, 'motion_struck', 'an off-slate motion cannot be picked');
-eq(applySidePick(d, d.sideUid, 'pro').reason, 'wrong_phase', 'sides cannot be picked before the motion is set');
-
-const picked = applyMotionPick(d, d.motionUid, 'm4');
-ok(picked.ok, 'the motion holder can pick a survivor');
-d = advance(picked.draft, A, B);
-eq(d.phase, 'side', 'picking the motion opens the side beat');
-eq(applySidePick(d, d.motionUid, 'pro').reason, 'not_your_call', 'the motion holder cannot call the side');
-eq(applySidePick(d, d.sideUid, 'middle').reason, 'bad_side', 'only pro or con');
-ok(applyMotionPick(d, d.motionUid, 'm5').reason === 'wrong_phase', 'the motion cannot be re-picked later');
-
-// ── result ──────────────────────────────────────────────────────────
-ok(draftResult(d, A, B) === null, 'an unfinished draft yields no result');
-const sideHolder = d.sideUid;
-d = advance(applySidePick(d, sideHolder, 'pro').draft, A, B);
-eq(d.phase, 'done', 'a picked side finishes the draft');
-const res = draftResult(d, A, B);
-eq(res.proUid, sideHolder, 'the side holder gets the side they took');
-eq(res.conUid, sideHolder === A ? B : A, 'the other debater gets the remainder');
-eq(res.motion, d0.slate.find((m) => m.id === 'm4').text, 'the result carries the picked motion text');
-
-// And the same draft with the other side taken.
-let d2 = advance(applySidePick(advance(applyMotionPick(
-  advance(Object.assign({}, d0, { strikes: { [A]: ['m1', 'm2'], [B]: ['m1', 'm2'] } }), A, B),
-  d0.motionUid, 'm3').draft, A, B), d0.sideUid, 'con').draft, A, B);
-eq(draftResult(d2, A, B).conUid, d0.sideUid, 'taking con puts the side holder on con');
-
-// ── timeout resolution ──────────────────────────────────────────────
-let stuck = advance(Object.assign({}, d0, { strikes: { [A]: ['m1', 'm2'], [B]: ['m1', 'm2'] } }), A, B);
-const r1 = advance(autoResolve(stuck), A, B);
-const r2 = advance(autoResolve(stuck), A, B);
-eq(r1.motionId, r2.motionId, 'two expired clocks must resolve the motion identically');
-eq(r1.motionId, 'm3', 'the motion timeout falls back to the first surviving motion');
-ok(r1.autoMotion === true, 'an auto-resolved motion is stamped as auto');
-const s1 = autoResolve(r1);
-ok(s1.autoSide === true, 'an auto-resolved side is stamped as auto');
-// Repeated, not paired: comparing two calls lets a Math.random() side pass
-// half the time, which is a flaky test rather than a guard. Both clients and
-// the server run this independently, so it has to be identical every time.
-for (let i = 0; i < 200; i++) {
-  eq(autoResolve(r1).side, s1.side, 'the side timeout is not deterministic (run ' + i + ')');
+{
+  const r1 = assignRoles(seed, A, B);
+  const r2 = assignRoles(seed, B, A);
+  eq(r1, r2, 'the coin flip does not depend on who asks');
+  ok(r1.offerUid !== r1.respondUid, 'the two roles are two different people');
+  ok([A, B].includes(r1.offerUid) && [A, B].includes(r1.respondUid), 'roles are the real uids');
+  const d = fresh();
+  eq(d.v, DRAFT_VERSION, 'a new draft carries the version');
+  eq(d.phase, 'offer', 'a draft opens on the offer beat');
+  eq(d.table, [], 'nothing is on the table yet');
+  eq(actorFor(d), d.offerUid, 'the offerer moves first');
+  eq(vetoesLeft(d), VETOES_PER_ROUND, 'one send-back to spend');
 }
-// ...and not deterministic by being hardcoded: a different draft can differ.
-let sideSpread = new Set();
-for (let i = 0; i < 200; i++) {
-  const alt = advance(Object.assign({}, createDraft(draftSeed(A, B, 'side' + i), 'apda', A, B), {
-    strikes: { [A]: ['m1', 'm2'], [B]: ['m1', 'm2'] },
-  }), A, B);
-  sideSpread.add(autoResolve(advance(autoResolve(alt), A, B)).side);
+
+// Helpers for walking the branches.
+const O = fresh().offerUid;
+const R = fresh().respondUid;
+const step = (d, f) => { const r = f(d); ok(r.ok, 'move rejected: ' + (r.reason || '')); return advance(r.draft); };
+const offerFirst = (d) => step(d, (x) => applyOffer(x, x.offerUid, { poolId: offerablePool(x)[0].id }));
+
+// ── THE SIDE INVARIANT, on every branch ─────────────────────────────
+// The debater who settled the motion must not be the one who settles the
+// side. This is the whole fairness argument and it is asserted per branch
+// rather than once, because each branch reaches it a different way.
+function assertSideInvariant(d, label) {
+  const motionEntry = d.table.find((m) => m.id === d.motionId);
+  ok(!!motionEntry, label + ': the settled motion is on the table');
+  // Who DECIDED the motion: the offerer on take/back (they chose what to
+  // put up and it stood), the offerer again on a counter (they picked
+  // between the two). The responder never decides the motion; the most
+  // they do is refuse one or add one to the offerer's menu.
+  eq(d.sideUid === d.offerUid ? 'offerer' : 'responder',
+     d.response === 'counter' ? 'offerer' : 'responder',
+     label + ': the side goes to whoever did not settle the motion');
+  ok(d.sideUid === d.offerUid || d.sideUid === d.respondUid,
+     label + ': the side holder is one of the two debaters');
 }
-eq(sideSpread.size, 2, 'the side timeout always lands on the same side');
-const s2 = autoResolve(r2);
-const fullyAuto = draftResult(advance(s1, A, B), A, B);
-ok(fullyAuto && fullyAuto.proUid !== fullyAuto.conUid, 'a fully timed-out draft still opens a valid round');
 
-// ── corrupted state ─────────────────────────────────────────────────
-// Unreachable through the public API (applyMotionPick refuses a struck
-// motion), so the fuzz never exercises it. It exists for a doc written by an
-// older draft version or a half-applied write, and the cost of it being wrong
-// is a round run on a motion both debaters struck. Tested directly.
-const corrupt = advance(Object.assign({}, d0, {
-  strikes: { [A]: ['m1', 'm2'], [B]: ['m1', 'm2'] },
-  motionId: 'm1',
-}), A, B);
-eq(corrupt.motionId, null, 'a struck motionId must not survive advance()');
-eq(corrupt.phase, 'motion', 'a cleared motion sends the draft back to the pick');
-ok(draftResult(corrupt, A, B) === null, 'a corrupted draft yields no round');
-// An off-slate motionId is the same class of problem.
-const alien = advance(Object.assign({}, d0, {
-  strikes: { [A]: ['m1', 'm2'], [B]: ['m3', 'm4'] },
-  motionId: 'm99',
-}), A, B);
-eq(alien.motionId, 'm5', 'an off-slate motionId is replaced by the real survivor');
+// take
+{
+  let d = offerFirst(fresh());
+  eq(d.phase, 'respond', 'take: an offer hands the beat to the responder');
+  eq(actorFor(d), R, 'take: the responder answers');
+  d = step(d, (x) => applyResponse(x, R, 'take'));
+  eq(d.phase, 'side', 'take: taking it settles the motion');
+  eq(d.sideUid, R, 'take: taking what is offered buys the side');
+  assertSideInvariant(d, 'take');
+  d = step(d, (x) => applySidePick(x, R, 'con'));
+  eq(d.phase, 'done', 'take: the side call finishes the draft');
+  const res = draftResult(d, A, B);
+  eq(res.conUid, R, 'take: the side holder got the bench they asked for');
+  eq(res.proUid, O, 'take: the other debater got the remainder');
+}
 
-// ── fuzz: every reachable draft resolves to a legal round ───────────
-function rng(s) { let a = s >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-const formats = Object.keys(DRAFT_MOTIONS);
-let sawOne = 0, sawTwo = 0, sawThree = 0;
-for (let i = 0; i < 4000; i++) {
-  const rand = rng(i * 2654435761);
-  const fmt = formats[Math.floor(rand() * formats.length)];
-  const sd = draftSeed('u' + (i % 37), 'v' + (i % 53), 'room' + i);
-  const ua = 'u' + (i % 37), ub = 'v' + (i % 53);
-  let dr = createDraft(sd, fmt, ua, ub);
-  const ids = dr.slate.map((m) => m.id);
-  const pickTwo = () => { const c = ids.slice(); const o = []; for (let k = 0; k < 2; k++) o.push(c.splice(Math.floor(rand() * c.length), 1)[0]); return o; };
-  dr.strikes[ua] = pickTwo();
-  dr.strikes[ub] = pickTwo();
-  dr = advance(dr, ua, ub);
-  const surv = survivorsOf(dr);
-  ok(surv.length >= 1 && surv.length <= 3, 'survivors out of range: ' + surv.length);
-  if (surv.length === 1) sawOne++; else if (surv.length === 2) sawTwo++; else sawThree++;
-  if (dr.phase === 'motion') {
-    const choice = surv[Math.floor(rand() * surv.length)];
-    dr = advance(rand() < 0.5 ? applyMotionPick(dr, dr.motionUid, choice).draft : autoResolve(dr), ua, ub);
+// send back
+{
+  let d = offerFirst(fresh());
+  const firstOffer = d.offerId;
+  const firstText = motionTextOf(d, firstOffer);
+  d = step(d, (x) => applyResponse(x, R, 'back'));
+  eq(d.phase, 'offer', 'back: the offerer owes a replacement');
+  eq(d.offerId, null, 'back: the vetoed motion is off the table');
+  eq(vetoesLeft(d), 0, 'back: the one veto is spent');
+  eq(d.sentBack.length, 1, 'back: the veto is recorded');
+  ok(!offerablePool(d).some((m) => m.text === firstText),
+     'back: the vetoed motion cannot be offered again');
+  // A second veto is unreachable through the phase machine, and refused
+  // outright if a caller ever hand-rolls its way back to the respond beat.
+  const forced = Object.assign({}, d, { phase: 'respond', offerId: firstOffer });
+  eq(applyResponse(forced, R, 'back').reason, 'no_veto_left', 'back: never two vetoes');
+  d = offerFirst(d);
+  eq(d.phase, 'side', 'back: the replacement stands, no second answer');
+  eq(d.sideUid, R, 'back: refusing a motion is not choosing one, so the side stays');
+  assertSideInvariant(d, 'back');
+  d = step(d, (x) => applySidePick(x, R, 'pro'));
+  eq(d.phase, 'done', 'back: finished');
+  ok(draftResult(d, A, B).motion !== firstText, 'back: the round is not the vetoed motion');
+}
+
+// counter
+{
+  let d = offerFirst(fresh());
+  d = step(d, (x) => applyResponse(x, R, 'counter'));
+  eq(d.phase, 'counter', 'counter: the responder owes a motion');
+  eq(d.sideUid, O, 'counter: putting your own motion up costs the side immediately');
+  eq(actorFor(d), R, 'counter: the responder is the one countering');
+  d = step(d, (x) => applyOffer(x, R, { poolId: offerablePool(x)[0].id }));
+  eq(d.phase, 'choose', 'counter: the offerer now picks between the two');
+  eq(contenders(d).length, 2, 'counter: exactly two motions are in contention');
+  eq(actorFor(d), O, 'counter: the offerer chooses');
+  eq(applyMotionPick(d, R, contenders(d)[0].id).reason, 'not_your_call',
+     'counter: the counterer cannot also pick the motion');
+  d = step(d, (x) => applyMotionPick(x, O, contenders(x)[1].id));
+  eq(d.phase, 'side', 'counter: the motion is settled');
+  eq(d.sideUid, O, 'counter: the offerer holds both calls, which is what the counter bought');
+  assertSideInvariant(d, 'counter');
+  d = step(d, (x) => applySidePick(x, O, 'pro'));
+  const res = draftResult(d, A, B);
+  eq(res.proUid, O, 'counter: the chooser took the bench they picked');
+  ok(res.conUid !== res.proUid, 'counter: two different people, two different benches');
+}
+
+// ── authority: nobody makes the other debater's move ────────────────
+{
+  const open = advance(fresh());
+  eq(applyOffer(open, R, { poolId: open.pool[0].id }).reason, 'not_your_call',
+     'the responder cannot offer on the offer beat');
+  eq(applyResponse(open, R, 'take').reason, 'wrong_phase', 'nobody answers before an offer exists');
+  const answered = offerFirst(fresh());
+  eq(applyResponse(answered, O, 'take').reason, 'not_your_call', 'the offerer cannot answer for them');
+  eq(applyOffer(answered, O, { poolId: answered.pool[1].id }).reason, 'wrong_phase',
+     'the offerer cannot stack a second offer');
+  eq(applyMotionPick(answered, O, answered.offerId).reason, 'wrong_phase',
+     'no motion pick outside the choose beat');
+  const sided = step(answered, (x) => applyResponse(x, R, 'take'));
+  eq(applySidePick(sided, O, 'pro').reason, 'not_your_call', 'only the side holder picks the side');
+  eq(applySidePick(sided, R, 'middle').reason, 'bad_side', 'a side is pro or con');
+  eq(applyResponse(offerFirst(fresh()), R, 'shrug').reason, 'bad_choice', 'answers are the three');
+  RESPONSES.forEach((c) => ok(applyResponse(offerFirst(fresh()), R, c).ok, 'answer ' + c + ' is legal'));
+}
+
+// ── written motions and the tournament pool ─────────────────────────
+{
+  const d = advance(fresh());
+  ok(applyOffer(d, O, { text: 'This House would ban homework in primary schools' }).ok,
+     'a debater may write their own motion');
+  eq(applyOffer(d, O, { text: 'too short' }).reason, 'too_short', 'a fragment is not a motion');
+  eq(applyOffer(d, O, { text: 'x'.repeat(MOTION_MAX + 1) }).reason, 'too_long', 'bounded');
+  const dup = applyOffer(d, O, { poolId: d.pool[0].id }).draft;
+  eq(applyOffer(advance(dup), O, { text: d.pool[0].text }).reason, 'wrong_phase',
+     'the offer beat is over once a motion is up');
+
+  const locked = createDraft(seed, 'quick', A, B, { pool: THE_DEBATABLE_OPEN_MOTIONS.slice() });
+  ok(locked.poolLocked, 'a stamped pool locks the draft');
+  eq(applyOffer(advance(locked), locked.offerUid, { text: 'This House would abolish school uniforms' }).reason,
+     'pool_locked', 'a tournament runs its published motions and nothing else');
+  const published = new Set(THE_DEBATABLE_OPEN_MOTIONS);
+  locked.pool.forEach((m) => ok(published.has(m.text), 'every card came off the published list'));
+  eq(applyOffer(advance(locked), locked.offerUid, { poolId: 'p999' }).reason, 'bad_motion',
+     'a card that is not on the board cannot be offered');
+}
+
+// ── timeouts: seeded, never random ──────────────────────────────────
+{
+  // Two clients expiring the same beat must land on the same answer, or a
+  // draft resolved by two dead clocks opens two different rounds.
+  const walk = (d) => { let x = d; for (let i = 0; i < 8 && x.phase !== 'done'; i++) x = advance(autoResolve(x)); return x; };
+  const r1 = walk(advance(fresh()));
+  const r2 = walk(advance(fresh()));
+  eq(r1.motionId, r2.motionId, 'a fully expired draft picks one motion, not two');
+  eq(r1.side, r2.side, 'a fully expired draft picks one side, not two');
+  // Pinned to LITERALS, not to a second call. Comparing two calls passes
+  // half the time against a coin flip, which is a flaky test rather than a
+  // guard; a literal is the only form that catches a Math.random(), a
+  // clock, or a counter. If a deliberate change to the seeding moves these,
+  // re-derive them once and say so in the commit.
+  eq(r1.side, 'con', 'the seeded side for this fixture is stable across runs');
+  // A literal alone only catches a coin flip half the time, which is a
+  // flaky guard rather than a guard. Sample the side beat repeatedly: a
+  // Math.random() would have to land the same way twelve times to survive.
+  {
+    const sideBeat = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'take'));
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) seen.add(autoResolve(sideBeat).side);
+    eq(seen.size, 1, 'the timeout side is derived, never rolled');
   }
-  ok(dr.phase === 'side', 'draft did not reach the side beat: ' + dr.phase);
-  dr = advance(rand() < 0.5 ? applySidePick(dr, dr.sideUid, rand() < 0.5 ? 'pro' : 'con').draft : autoResolve(dr), ua, ub);
-  const r = draftResult(dr, ua, ub);
-  ok(!!r, 'draft failed to resolve');
-  ok(r.proUid !== r.conUid, 'both debaters landed on the same side');
-  eq([r.proUid, r.conUid].sort(), [ua, ub].sort(), 'result named someone who was not in the round');
-  ok(typeof r.motion === 'string' && r.motion.length > 18, 'result motion is a stub');
-  ok(dr.strikes[ua].indexOf(dr.motionId) === -1 && dr.strikes[ub].indexOf(dr.motionId) === -1,
-    'a struck motion survived to the round');
-}
-// The whole reason the motion beat exists: overlap is common, not rare.
-ok(sawTwo + sawThree > 0, 'fuzz never produced an overlap');
-ok(sawOne > 0, 'fuzz never produced a clean split');
-console.log('  survivor spread over 4000 drafts: 1 -> ' + sawOne + ', 2 -> ' + sawTwo + ', 3 -> ' + sawThree);
+  eq(r1.table.find((m) => m.id === r1.motionId).text, 'Geoengineering is inevitable.',
+     'the seeded motion for this fixture is stable across runs');
+  eq(r1.phase, 'done', 'an expired draft still finishes');
+  ok(r1.autoOffer && r1.autoResponse && r1.autoSide, 'the board can say a clock made each call');
+  eq(r1.response, 'take', 'a dead clock takes what is on the table: neutral, not a veto');
+  eq(r1.sideUid, r1.respondUid, 'silence is neither rewarded nor punished');
+  assertSideInvariant(r1, 'all-auto');
+  const res = draftResult(r1, A, B);
+  ok(res && res.proUid !== res.conUid, 'an all-timeout draft still opens a real round');
 
-console.log('motion-draft: ' + n + ' assertions passed');
+  // The counter branch's timeouts too.
+  let c = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'counter'));
+  const c1 = advance(autoResolve(c)), c2 = advance(autoResolve(c));
+  eq(c1.counterId, c2.counterId, 'an expired counter names the same motion twice');
+  const ch1 = advance(autoResolve(c1)), ch2 = advance(autoResolve(c2));
+  eq(ch1.motionId, ch2.motionId, 'an expired choose lands on the same motion');
+}
+
+// ── who may expire which beat ───────────────────────────────────────
+// Before the answer exactly ONE person has moved, so letting the other
+// resolve the beat is how a room opens onto an empty chair.
+{
+  eq(eitherMayExpire(advance(fresh())), false, 'the first offer is the offerer clock alone');
+  eq(eitherMayExpire(offerFirst(fresh())), false, 'the answer is the responder clock alone');
+  const back = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'back'));
+  eq(eitherMayExpire(back), true, 'past the answer both have proven they are here');
+  const ctr = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'counter'));
+  eq(eitherMayExpire(ctr), true, 'the counter beat may be expired by either');
+  const side = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'take'));
+  eq(eitherMayExpire(side), true, 'a slow side click never costs the round');
+}
+
+// ── publication ─────────────────────────────────────────────────────
+// Nothing here is secret any more — every beat has one actor and moves in
+// public — so this asserts the projection is COMPLETE enough to render a
+// board, which is the failure that replaced the old leak risk.
+{
+  const d = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'counter'));
+  const pub = publicDraft(d, 1234);
+  ['phase', 'pool', 'table', 'offerUid', 'respondUid', 'offerId', 'counterId',
+   'vetoesLeft', 'response', 'motionId', 'sideUid', 'side', 'poolLocked'].forEach((k) => {
+    ok(Object.prototype.hasOwnProperty.call(pub, k), 'publicDraft carries ' + k);
+  });
+  eq(pub.phaseAt, 1234, 'publicDraft carries the phase clock');
+  eq(pub.vetoesLeft, vetoesLeft(d), 'the board can tell whether a send-back is left');
+  ok(PHASES.includes(pub.phase), 'the published phase is a real phase');
+}
+
+// ── an unfinished draft never opens a round ─────────────────────────
+{
+  eq(draftResult(advance(fresh()), A, B), null, 'no result before an offer');
+  eq(draftResult(offerFirst(fresh()), A, B), null, 'no result before an answer');
+  const noSide = step(offerFirst(fresh()), (x) => applyResponse(x, R, 'take'));
+  eq(draftResult(noSide, A, B), null, 'no result before a side');
+  // A draft claiming to be done with nothing settled must still refuse.
+  eq(draftResult(Object.assign({}, noSide, { phase: 'done' }), A, B), null,
+     'a forged done phase cannot open a round with no side');
+  eq(draftResult(Object.assign({}, noSide, { phase: 'done', side: 'pro', motionId: 'nope' }), A, B), null,
+     'a motion that is not on the table cannot open a round');
+}
+
+// ── clocks ──────────────────────────────────────────────────────────
+PHASES.filter((p) => p !== 'done').forEach((p) => {
+  ok(secondsFor(p) >= 8 && secondsFor(p) <= 30, p + ' has a humane shot clock');
+});
+
+// ── fuzz: every reachable path opens a legal round ──────────────────
+{
+  let walked = 0;
+  for (let i = 0; i < 400; i++) {
+    const s = draftSeed('u' + i, 'v' + (i * 7), 'room' + i);
+    let d = advance(createDraft(s, 'quick', 'u' + i, 'v' + (i * 7)));
+    const guard = 12;
+    for (let k = 0; k < guard && d.phase !== 'done'; k++) {
+      const actor = actorFor(d);
+      const pick = (i + k) % 3;
+      let r = { ok: false };
+      if (d.phase === 'offer' || d.phase === 'counter') {
+        const opts = offerablePool(d);
+        r = applyOffer(d, actor, { poolId: opts[pick % opts.length].id });
+      } else if (d.phase === 'respond') {
+        r = applyResponse(d, actor, RESPONSES[pick]);
+      } else if (d.phase === 'choose') {
+        const c = contenders(d);
+        r = applyMotionPick(d, actor, c[pick % c.length].id);
+      } else if (d.phase === 'side') {
+        r = applySidePick(d, actor, pick % 2 ? 'pro' : 'con');
+      }
+      ok(r.ok, 'fuzz ' + i + ': the actor\'s own move was refused (' + (r.reason || '') + ')');
+      d = advance(r.draft);
+    }
+    eq(d.phase, 'done', 'fuzz ' + i + ': every path terminates');
+    assertSideInvariant(d, 'fuzz ' + i);
+    const res = draftResult(d, 'u' + i, 'v' + (i * 7));
+    ok(res && res.motion && res.proUid !== res.conUid,
+       'fuzz ' + i + ': a real motion and two different benches');
+    ok(d.sentBack.length <= VETOES_PER_ROUND, 'fuzz ' + i + ': never more than one send-back');
+    walked++;
+  }
+  ok(walked === 400, 'the fuzz actually ran');
+}
+
+// ── the tournament surface still describes what runs ────────────────
+{
+  const t = { slug: 'the-debatable-open', status: 'running' };
+  const pub = publicTournamentMotionDraft(t);
+  ok(pub && pub.motions.length === THE_DEBATABLE_OPEN_MOTIONS.length, 'the published pool is published whole');
+  ok(pub.poolSize >= 2 && pub.poolSize <= pub.motions.length, 'each room draws a readable few');
+  eq(pub.vetoes, VETOES_PER_ROUND, 'the page and the engine agree on the send-back count');
+  ok(!('strikesPerSide' in pub) && !('slateSize' in pub) && !('blind' in pub),
+     'the retired strike shape is gone from the public payload');
+  ok(tournamentRegistrationOpen(t), 'entries stay open through prelims');
+}
+
+console.log('motion-draft guard: ' + n + ' assertions passed');

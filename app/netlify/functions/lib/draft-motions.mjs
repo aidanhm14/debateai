@@ -5,8 +5,9 @@
 //
 //   node scripts/gen-draft-motions.mjs
 //
-// Every pool must hold at least SLATE_SIZE + 1 motions or a slate cannot be
-// drawn without repeats. scripts/test-motion-draft.mjs asserts that in the
+// Every pool must hold at least POOL_SIZE + 2 motions, so an offer, a
+// send-back and a counter can each name a different one without repeats.
+// scripts/test-motion-draft.mjs asserts that in the
 // pre-commit hook, because a short pool surfaces as a duplicated card in
 // front of two real people mid-draft rather than as an error anyone sees.
 

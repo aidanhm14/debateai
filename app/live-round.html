@@ -3235,11 +3235,11 @@ html.stage-mode .stage-ov{display:block}
 }
 
 /* ── MOTION DRAFT ─────────────────────────────────────────────────
-   The pre-round veto, over the room. Full-surface on purpose: for the
-   ~28s it runs it IS the round, and a board someone can scroll past is
-   a veto someone forgets to use. Kickoff, prep and the transport are
-   all behind it, and startSpeechTimer refuses while it is up, so there
-   is no way to start a speech on a motion still being struck. */
+   The pre-round negotiation, over the room. Full-surface on purpose:
+   for the ~40s it runs it IS the round, and a board someone can scroll
+   past is a call someone forgets to make. Kickoff, prep and the
+   transport are all behind it, and startSpeechTimer refuses while it is
+   up, so no speech can start on a motion still being settled. */
 .draft-board{
   position:fixed;inset:0;z-index:400;display:grid;place-items:center;
   padding:20px;background:rgba(8,8,10,.82);backdrop-filter:blur(7px);
@@ -3275,6 +3275,32 @@ html.stage-mode .stage-ov{display:block}
   animation:dfIn .26s ease both;animation-delay:calc(var(--i,0) * 45ms);
 }
 .df-motion:hover{transform:translateX(3px);border-color:rgba(127,127,127,.45)}
+/* The offered motion, and the reason the responder is looking at this
+   screen at all. Bigger than a card in a list because it is the only
+   thing on the table. */
+.df-offer{
+  margin:0 0 16px;padding:18px 20px;border-radius:13px;
+  border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.07);
+  font-size:1.22rem;line-height:1.35;font-weight:700;
+}
+/* The three answers, each carrying its own price in the sub-line. The
+   cost is the whole beat, so it is never in a tooltip. */
+.df-choices{display:grid;gap:9px}
+.df-choice{
+  display:block;width:100%;text-align:left;font:inherit;cursor:pointer;
+  padding:13px 15px;border-radius:12px;border:1px solid rgba(127,127,127,.28);
+  background:transparent;color:inherit;
+  transition:border-color .15s,transform .15s,background .15s;
+}
+.df-choice:hover:not([disabled]){transform:translateX(3px);border-color:var(--accent,#ef4444)}
+.df-choice[disabled]{opacity:.42;cursor:default}
+.df-choice b{display:block;font-size:1rem;font-weight:800;margin-bottom:2px}
+.df-choice i{font-style:normal;font-size:.82rem;line-height:1.45;opacity:.72}
+.df-choice.take b{color:#16a34a}
+.df-choice.counter b{color:var(--accent,#ef4444)}
+.df-motion.picked{
+  border-color:var(--accent,#ef4444);background:rgba(239,68,68,.09);font-weight:700;
+}
 .df-motion.struck{
   border-color:var(--accent,#ef4444);opacity:.5;text-decoration:line-through;
   text-decoration-color:var(--accent,#ef4444);text-decoration-thickness:2px;
@@ -15555,98 +15581,90 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     window.__lrRenderMotionProposal = renderMotionProposal;
 
-    // ── MOTION DRAFT (the pre-round veto) ────────────────────────────
-    // A slate lands, both debaters use the server-declared strike count
-    // with the other side's
-    // picks hidden, the strikes reveal together, and a coin flip splits
-    // what is left: one debater calls the motion when more than one
-    // survived, the other calls their side. Side choice is what the last
-    // word on the motion costs; handing one person both powers would make
-    // the coin flip decide the round.
-    //
-    // This lived on the /spar queue docs for one day and the per-surface
-    // rollout was the bug: it needed both queue docs to opt in, only /spar
-    // did, so a pair that included a background "Spar live" peer or a
-    // /debate-chat peer silently ran on a motion nobody vetoed. Every one
-    // of those surfaces lands HERE, so the draft moved into the room and
-    // the entry surface stopped mattering.
+    // ── MOTION DRAFT (the pre-round negotiation) ─────────────────────
+    // The strike beat is gone (2026-09-02, the founder). One debater
+    // OFFERS a motion, the other ANSWERS it, and every answer costs
+    // something. Take it and you pick your side. Send it back once and
+    // they owe you a different one, and you still pick your side. Counter
+    // with your own and they pick which motion runs AND which bench they
+    // take. One person decides the motion, the other decides the side,
+    // whichever branch you walk.
     //
     // The server (round-draft.mjs, over lib/motion-draft.mjs) owns every
     // decision. This file renders what the round doc says and posts
-    // intent. It never computes a phase, a survivor set that matters, or a
-    // side, because a client that could decide its own side would decide
-    // to win. Blindness is enforced server-side too: during the strike
-    // beat the round doc carries WHO has submitted and never WHAT they
-    // struck, so there is nothing in this browser to peek at.
-    var DRAFT_STRIKE_SEC = 14;  // must match STRIKE_SEC
-    var DRAFT_PICK_SEC = 9;     // must match PICK_SEC
-    var DRAFT_REVEAL_MS = 2300; // both strike sets on screen before the pick UI
-    var dfPicks = [], dfBusy = false, dfTimer = 0, dfRevealUntil = 0, dfOpened = false, dfLastPhase = '';
-    // "Add your own claim or motion" on the strike beat. Open state and typed text
-    // survive a re-render, because the board repaints on every round
-    // snapshot and losing a half-typed motion to the opponent committing
-    // would be the board eating the one thing it asked for.
-    var dfAddOpen = false, dfAddText = '', dfAddErr = '';
-    var DRAFT_CUSTOM_MIN = 12, DRAFT_CUSTOM_MAX = 200; // must match CUSTOM_MOTION_MIN/MAX
-    function dfCustomCount(uid){
-      var d = dfDraft();
-      return ((d && d.slate) || []).filter(function(m){ return m && m.addedBy === uid; }).length;
-    }
-    // The window closes when anyone commits: a motion added after the
-    // opponent struck is one they never got to veto.
-    function dfCanAdd(){
-      var d = dfDraft();
-      if (!d || d.phase !== 'strike' || !dfIAmDebater() || dfSubmitted()) return false;
-      if (((d.submitted) || []).length) return false;
-      if (d.poolLocked) return false;
-      return dfCustomCount(dfMyUid()) < 1;
-    }
-    function dfAddReason(code, message){
-      return ({
-        blocked: message || 'That motion is off limits here. Try a different one.',
-        strikes_in: 'Too late, a strike is already in.',
-        already_added: 'You already added one.',
-        too_short: 'Give it a few more words.',
-        too_long: 'Keep it under ' + DRAFT_CUSTOM_MAX + ' characters.',
-        duplicate: 'That one is already on the slate.',
-        pool_locked: 'This tournament runs its published motions only.',
-        wrong_phase: 'The strike window has closed.',
-      })[code] || 'Could not add that motion.';
-    }
+    // intent; it never computes a phase or a side, because a client that
+    // could decide its own side would decide to win. There is no blindness
+    // left to enforce, because there is no simultaneous move left: every
+    // beat has exactly one actor and everything on the doc is already
+    // public to the room.
+    var DF_SEC = { offer: 16, respond: 14, counter: 14, choose: 10, side: 9 }; // must match motion-draft.mjs
+    var DRAFT_MOTION_MIN = 12, DRAFT_MOTION_MAX = 200;   // must match MOTION_MIN/MAX
+    var dfBusy = false, dfTimer = 0, dfOpened = false, dfLastPhase = '';
+    // Composer state for the offer and counter beats. Survives a re-render,
+    // because the board repaints on every round snapshot and losing a
+    // half-typed motion to somebody else's write would be the board eating
+    // the one thing it just asked for.
+    var dfPick = '', dfWriteOpen = false, dfWriteText = '', dfErr = '';
 
     function dfDraft(){ return state.draft || null; }
-    function dfStrikeCount(){ var d = dfDraft(); return Math.max(1, Number(d && d.strikesPerSide) || 2); }
-    function dfCountWord(n){ return n === 1 ? 'one' : n === 2 ? 'two' : String(n); }
     function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
     function dfPending(){ var ph = dfPhase(); return ph && ph !== 'done'; }
     function dfMyUid(){ return (state.user && state.user.uid) || ''; }
     function dfIAmDebater(){ return !isSpectator() && !!dfMyUid(); }
-    function dfSubmitted(){
-      var d = dfDraft(); var list = (d && d.submitted) || [];
-      return list.indexOf(dfMyUid()) !== -1;
-    }
+    function dfTable(){ var d = dfDraft(); return (d && d.table) || []; }
+    function dfPool(){ var d = dfDraft(); return (d && d.pool) || []; }
     function dfMotionText(id){
-      var d = dfDraft(); var hit = ((d && d.slate) || []).filter(function(m){ return m.id === id; })[0];
+      var hit = dfTable().filter(function(m){ return m.id === id; })[0];
       return hit ? hit.text : '';
     }
-    // Survivors, for DISPLAY only. Meaningless (and empty) during the
-    // strike beat, which is the point: the strikes are not here yet.
-    function dfSurvivors(){
+    // Mirrors offerablePool(): the suggestions minus anything already on the
+    // table, so the motion just sent back cannot be offered straight back.
+    function dfOfferable(){
+      var taken = {};
+      dfTable().forEach(function(m){ taken[String(m.text || '').toLowerCase()] = true; });
+      return dfPool().filter(function(m){ return !taken[String(m.text || '').toLowerCase()]; });
+    }
+    function dfContenders(){
       var d = dfDraft(); if (!d) return [];
-      var struck = {}, st = d.strikes || {};
-      Object.keys(st).forEach(function(u){ (st[u] || []).forEach(function(id){ struck[id] = true; }); });
-      return (d.slate || []).filter(function(m){ return !struck[m.id]; });
+      return [d.offerId, d.counterId].filter(Boolean).map(dfMotionText).map(function(t, i){
+        return { id: (i === 0 ? d.offerId : d.counterId), text: t };
+      }).filter(function(m){ return m.text; });
     }
-    function dfStruckBy(id){
-      var d = dfDraft(); var out = [], st = (d && d.strikes) || {};
-      Object.keys(st).forEach(function(u){ if ((st[u] || []).indexOf(id) !== -1) out.push(u); });
-      return out;
+    function dfActor(){
+      var d = dfDraft(); if (!d) return '';
+      if (d.phase === 'offer') return d.offerUid;
+      if (d.phase === 'respond' || d.phase === 'counter') return d.respondUid;
+      if (d.phase === 'choose') return d.offerUid;
+      if (d.phase === 'side') return d.sideUid;
+      return '';
     }
+    function dfMine(){ return dfActor() === dfMyUid(); }
     function dfNameFor(uid){
       if (uid === dfMyUid()) return 'You';
       if (uid === state.proUid) return state.proName || 'Pro';
       if (uid === state.conUid) return state.conName || 'Con';
-      return 'Opponent';
+      return 'Your opponent';
+    }
+    function dfOtherName(){
+      var d = dfDraft(); if (!d) return 'Your opponent';
+      return dfNameFor(d.offerUid === dfMyUid() ? d.respondUid : d.offerUid);
+    }
+    function dfCanWrite(){
+      var d = dfDraft();
+      return !!(d && !d.poolLocked);
+    }
+    function dfErrText(code, message){
+      return ({
+        blocked: message || 'That motion is off limits here. Try a different one.',
+        too_short: 'Give it a few more words.',
+        too_long: 'Keep it under ' + DRAFT_MOTION_MAX + ' characters.',
+        duplicate: 'That one is already on the table.',
+        bad_motion: 'That motion is not available any more.',
+        pool_locked: 'This tournament runs its published motions only.',
+        no_veto_left: 'You have used your one send-back.',
+        not_your_call: 'That call is not yours this round.',
+        wrong_phase: 'That beat has moved on.',
+      })[code] || 'Could not do that. Try again.';
     }
 
     function dfPost(action, extra){
@@ -15672,24 +15690,22 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
     function dfClock(){
       var d = dfDraft(); if (!d || !d.phaseAt) return null;
-      var total = (d.phase === 'strike' ? DRAFT_STRIKE_SEC : DRAFT_PICK_SEC) * 1000;
+      var total = (DF_SEC[d.phase] || 9) * 1000;
       return Math.max(0, Math.ceil((d.phaseAt + total - Date.now()) / 1000));
     }
-    // The clock is what the beat is FOR, so zero always does something:
-    // during strikes it commits whatever is selected and lets the server
-    // fill the rest, and on a pick beat it asks the server to expire. A
-    // peer's strikes are never filled from here.
+    // The clock is what the beat is FOR, so zero always does something.
+    // Only the debater whose own clock ran out asks the server to expire
+    // the first two beats: before the answer, one person has moved and
+    // resolving for the other is how a room opens onto an empty chair. Past
+    // the answer either side may, because both have proven they are here.
     function dfOnZero(){
       if (dfBusy || !dfIAmDebater()) return;
-      var ph = dfPhase();
-      if (ph === 'strike'){
-        if (dfSubmitted()) return;
-        dfBusy = true;
-        dfPost('expire', { strikes: dfPicks.slice() }).catch(function(){}).then(function(){ dfBusy = false; });
-      } else if (ph === 'motion' || ph === 'side'){
-        dfBusy = true;
-        dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; });
-      }
+      var d = dfDraft(); if (!d) return;
+      var eitherMay = d.phase === 'counter' || d.phase === 'choose' || d.phase === 'side'
+        || (d.phase === 'offer' && !!d.response);
+      if (!eitherMay && !dfMine()) return;
+      dfBusy = true;
+      dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; });
     }
 
     function dfHost(){
@@ -15710,6 +15726,34 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var left = dfClock();
       if (left === null) return '';
       return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '"><b>' + left + '</b>s</div>';
+    }
+    function dfWaiting(step, title, sub){
+      return '<div class="df-card">' + dfHead(step, title, sub) + dfClockHtml() + '</div>';
+    }
+    // The composer, shared by the offer beat and the counter beat because
+    // "name the motion you want" is the same act either way.
+    function dfComposer(goLabel){
+      var cards = dfOfferable().map(function(m, i){
+        return '<button type="button" class="df-motion' + (dfPick === m.id ? ' picked' : '') + '" data-df-pool="'
+          + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+      }).join('');
+      var write = '';
+      if (dfCanWrite()){
+        write = dfWriteOpen
+          ? '<div class="df-add open">'
+            + '<input type="text" id="dfWriteInput" maxlength="' + DRAFT_MOTION_MAX + '" placeholder="Write a claim or motion, e.g. Homework should be banned." value="' + escHtml(dfWriteText) + '" autocomplete="off" />'
+            + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfWriteGo">Offer this</button>'
+            + '<button type="button" class="df-add-cancel" id="dfWriteCancel">Cancel</button></div>'
+            + (dfErr ? '<p class="df-add-err">' + escHtml(dfErr) + '</p>' : '<p class="df-add-hint">Your opponent sees it and answers it like any other offer.</p>')
+            + '</div>'
+          : '<button type="button" class="df-add-open" id="dfWriteOpen">+ Write your own instead</button>';
+      } else if (dfErr){
+        write = '<p class="df-add-err">' + escHtml(dfErr) + '</p>';
+      }
+      return '<div class="df-motions">' + cards + '</div>' + write
+        + '<div class="df-foot">' + dfClockHtml()
+        + '<button type="button" class="df-go" id="dfOfferGo"' + (dfPick ? '' : ' disabled') + '>'
+        + (dfPick ? escHtml(goLabel) : 'Pick one') + '</button></div>';
     }
 
     function renderDraft(){
@@ -15741,118 +15785,111 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       }, 250);
 
       // A spectator watches; they hold no power here and a board full of
-      // buttons they cannot press would just be a lie about who decides.
+      // buttons they cannot press would be a lie about who decides.
       if (!dfIAmDebater()){
-        var spectatorSlate = (d.slate || []).length;
-        var spectatorStrikes = dfStrikeCount();
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Pre-round', 'The debaters are striking motions.',
-                   dfCountWord(spectatorSlate).replace(/^./, function(c){ return c.toUpperCase(); })
-                   + ' landed. Each side removes ' + dfCountWord(spectatorStrikes)
-                   + ', blind. Whatever survives is the round.')
+          + dfHead('Pre-round', 'The debaters are settling the motion.',
+                   'One offers a motion, the other takes it, sends it back, or counters with their own. Whoever decides the motion does not decide the side.')
           + '</div>';
         return;
       }
 
       var ph = d.phase;
-      var revealing = ph !== 'strike' && Date.now() < dfRevealUntil;
+      var replacing = ph === 'offer' && d.response === 'back';
 
-      if (ph === 'strike'){
-        var strikeCount = dfStrikeCount();
-        if (dfSubmitted()){
-          host.innerHTML = '<div class="df-card">'
-            + dfHead('Step 1 of 2', 'Strikes are in.',
-                     'Waiting for ' + escHtml(dfNameFor(state.proUid === dfMyUid() ? state.conUid : state.proUid))
-                     + '. They reveal together.')
-            + dfClockHtml() + '</div>';
-          return;
-        }
-        var cards = (d.slate || []).map(function(m, i){
-          var on = dfPicks.indexOf(m.id) !== -1;
-          var tag = m.addedBy ? '<span class="df-tag">' + (m.addedBy === dfMyUid() ? 'Yours' : 'Added by ' + escHtml(dfNameFor(m.addedBy))) + '</span>' : '';
-          return '<button type="button" class="df-motion' + (on ? ' struck' : '') + (m.addedBy ? ' custom' : '') + '" data-df-strike="'
-            + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + tag + '</button>';
-        }).join('');
-        var addRow = '';
-        if (dfCanAdd()){
-          addRow = dfAddOpen
-            ? '<div class="df-add open">'
-              + '<input type="text" id="dfAddInput" maxlength="' + DRAFT_CUSTOM_MAX + '" placeholder="Write a claim or motion, e.g. Homework should be banned." value="' + escHtml(dfAddText) + '" autocomplete="off" />'
-              + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfAddGo">Add to the slate</button>'
-              + '<button type="button" class="df-add-cancel" id="dfAddCancel">Cancel</button></div>'
-              + (dfAddErr ? '<p class="df-add-err">' + escHtml(dfAddErr) + '</p>' : '<p class="df-add-hint">This option opens after you meet your opponent. Either of you can add one, and both can strike it. Adding one restarts the clock.</p>')
-              + '</div>'
-            : '<button type="button" class="df-add-open" id="dfAddOpen">+ Add your own claim or motion</button>';
-        }
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Strike <em>' + dfCountWord(strikeCount) + '</em> motion' + (strikeCount === 1 ? '.' : 's.'),
-                   'Every motion here was picked because both sides can win it. Your opponent is striking ' + dfCountWord(strikeCount)
-                   + ' as well, and cannot see yours. Whatever survives is the round.')
-          + '<div class="df-motions">' + cards + '</div>'
-          + addRow
-          + '<div class="df-foot">' + dfClockHtml()
-          + '<button type="button" class="df-go" id="dfCommit"' + (dfPicks.length === strikeCount ? '' : ' disabled')
-          + '>' + (dfPicks.length === strikeCount
-            ? (strikeCount === 1 ? 'Lock in strike' : 'Lock in strikes')
-            : 'Pick ' + (strikeCount - dfPicks.length) + ' more')
-          + '</button></div></div>';
-        if (dfAddOpen){
-          var inp = document.getElementById('dfAddInput');
-          if (inp && document.activeElement !== inp){
-            try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){}
-          }
-        }
-        return;
-      }
-
-      if (revealing){
-        var rows = (d.slate || []).map(function(m){
-          var by = dfStruckBy(m.id);
-          return '<div class="df-reveal-row' + (by.length ? ' out' : ' in') + '">'
-            + '<span>' + escHtml(m.text) + '</span>'
-            + '<i>' + (by.length ? by.map(dfNameFor).map(escHtml).join(' + ') : 'survives') + '</i></div>';
-        }).join('');
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('The strikes', 'Both sides are in.', 'Struck by either debater is struck.')
-          + '<div class="df-reveal">' + rows + '</div></div>';
-        setTimeout(renderDraft, Math.max(120, dfRevealUntil - Date.now()));
-        return;
-      }
-
-      if (ph === 'motion'){
-        var mine = d.motionUid === dfMyUid();
-        var surv = dfSurvivors();
-        if (!mine){
-          host.innerHTML = '<div class="df-card">'
-            + dfHead('Step 2 of 2', escHtml(dfNameFor(d.motionUid)) + ' is calling the motion.',
-                     'You call your side next. That is the trade.')
-            + dfClockHtml() + '</div>';
+      if (ph === 'offer'){
+        if (!dfMine()){
+          host.innerHTML = dfWaiting('Step 1 of 2',
+            escHtml(dfOtherName()) + (replacing ? ' owes you another motion.' : ' is choosing a motion to offer.'),
+            replacing
+              ? 'You sent the last one back, so this one stands and you still pick your side.'
+              : 'You answer it next: take it, send it back once, or counter with your own.');
           return;
         }
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 2 of 2', 'Call the motion.',
-                   'You won the motion call. Your opponent picks their side after, so choose one you can argue either way.')
-          + '<div class="df-motions">' + surv.map(function(m, i){
+          + dfHead('Step 1 of 2',
+                   replacing ? 'Offer a different one.' : 'Offer a motion.',
+                   replacing
+                     ? escHtml(dfOtherName()) + ' sent your first motion back. They have to take this one, and they still pick their side, so offer something you can argue either way.'
+                     : escHtml(dfOtherName()) + ' answers this: take it, send it back once, or counter with their own. If they take it, they pick their side, so offer something you can argue either way.')
+          + dfComposer(replacing ? 'Offer this instead' : 'Offer this motion')
+          + '</div>';
+        dfFocusWrite();
+        return;
+      }
+
+      if (ph === 'respond'){
+        var offered = dfMotionText(d.offerId);
+        if (!dfMine()){
+          host.innerHTML = dfWaiting('Step 1 of 2',
+            escHtml(dfOtherName()) + ' is answering.',
+            'On the table: ' + escHtml(offered));
+          return;
+        }
+        var vetoLeft = Number(d.vetoesLeft || 0) > 0;
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 1 of 2', 'Your call.',
+                   escHtml(dfOtherName()) + ' offered this. Whoever settles the motion does not settle the side, so every answer here costs something.')
+          + '<div class="df-offer">' + escHtml(offered) + '</div>'
+          + '<div class="df-choices">'
+          + '<button type="button" class="df-choice take" data-df-respond="take"><b>Take it</b><i>We debate this. You pick your side.</i></button>'
+          + (vetoLeft
+            ? '<button type="button" class="df-choice back" data-df-respond="back"><b>Send it back</b><i>They offer a different one and you have to take that. You still pick your side. One only.</i></button>'
+            : '<button type="button" class="df-choice back" disabled><b>Send it back</b><i>Used. You get one per round.</i></button>')
+          + '<button type="button" class="df-choice counter" data-df-respond="counter"><b>Counter with your own</b><i>You put a motion up too. Then they pick which one we debate, and they pick their side.</i></button>'
+          + '</div>'
+          + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
+        return;
+      }
+
+      if (ph === 'counter'){
+        if (!dfMine()){
+          host.innerHTML = dfWaiting('Step 1 of 2',
+            escHtml(dfOtherName()) + ' is countering.',
+            'They put a motion up too. You pick which of the two we debate, and you pick your side.');
+          return;
+        }
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 1 of 2', 'Put your motion up.',
+                   'You gave up the side call for this. ' + escHtml(dfOtherName())
+                   + ' chooses between their motion and yours, so pick one they would actually take.')
+          + dfComposer('Counter with this')
+          + '</div>';
+        dfFocusWrite();
+        return;
+      }
+
+      if (ph === 'choose'){
+        var list = dfContenders();
+        if (!dfMine()){
+          host.innerHTML = dfWaiting('Step 2 of 2',
+            escHtml(dfOtherName()) + ' is choosing between the two.',
+            'They pick the motion and their side. That is what countering cost you.');
+          return;
+        }
+        host.innerHTML = '<div class="df-card">'
+          + dfHead('Step 2 of 2', 'Pick the motion.',
+                   'They countered, so you take both calls: the motion now, and your side next.')
+          + '<div class="df-motions">' + list.map(function(m, i){
               return '<button type="button" class="df-motion" data-df-motion="' + escHtml(m.id)
-                + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+                + '" style="--i:' + i + '">' + escHtml(m.text)
+                + '<span class="df-tag">' + (i === 0 ? 'Yours' : 'Theirs') + '</span></button>';
             }).join('') + '</div>'
           + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
         return;
       }
 
       if (ph === 'side'){
-        var mineS = d.sideUid === dfMyUid();
         var motion = dfMotionText(d.motionId);
-        if (!mineS){
-          host.innerHTML = '<div class="df-card">'
-            + dfHead('Step 2 of 2', escHtml(dfNameFor(d.sideUid)) + ' is calling their side.',
-                     'The motion is settled: ' + escHtml(motion))
-            + dfClockHtml() + '</div>';
+        if (!dfMine()){
+          host.innerHTML = dfWaiting('Step 2 of 2',
+            escHtml(dfNameFor(d.sideUid)) + ' is picking their side.',
+            'The motion is settled: ' + escHtml(motion));
           return;
         }
         host.innerHTML = '<div class="df-card">'
           + dfHead('Step 2 of 2', 'Pick your side.',
-                   'You did not call the motion, so you call this. The round is: ' + escHtml(motion))
+                   'The round is: ' + escHtml(motion))
           + '<div class="df-sides">'
           + '<button type="button" class="df-side pro" data-df-side="pro"><b>Pro</b><i>Argue for it</i></button>'
           + '<button type="button" class="df-side con" data-df-side="con"><b>Con</b><i>Argue against it</i></button>'
@@ -15860,28 +15897,42 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       }
     }
 
-    function dfSubmitCustom(){
-      if (dfBusy || !dfCanAdd()) return;
-      var text = String(dfAddText || '').replace(/\s+/g, ' ').trim();
-      if (text.length < DRAFT_CUSTOM_MIN){ dfAddErr = dfAddReason('too_short'); renderDraft(); return; }
+    function dfFocusWrite(){
+      if (!dfWriteOpen) return;
+      var inp = document.getElementById('dfWriteInput');
+      if (inp && document.activeElement !== inp){
+        try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){}
+      }
+    }
+
+    function dfSendOffer(payload){
+      if (dfBusy) return;
       dfBusy = true;
-      dfPost('add', { text: text }).then(function(res){
+      dfErr = '';
+      dfPost('offer', payload).then(function(res){
         if (res && res.ok){
-          dfAddOpen = false; dfAddText = ''; dfAddErr = '';
-          try { gtag('event', 'live_draft_custom_motion', { format: state.formatKey, len: text.length }); } catch(e){}
+          dfPick = ''; dfWriteOpen = false; dfWriteText = '';
+          try { gtag('event', 'live_draft_offer', { format: state.formatKey, written: payload.text ? 1 : 0 }); } catch(e){}
         } else {
-          dfAddErr = dfAddReason(res && res.reason, res && res.message);
+          dfErr = dfErrText(res && res.reason, res && res.message);
         }
-      }).catch(function(){ dfAddErr = dfAddReason(); })
+      }).catch(function(){ dfErr = dfErrText(); })
         .then(function(){ dfBusy = false; renderDraft(); });
     }
+
     document.addEventListener('input', function(ev){
-      if (ev.target && ev.target.id === 'dfAddInput') dfAddText = ev.target.value;
+      if (ev.target && ev.target.id === 'dfWriteInput') dfWriteText = ev.target.value;
     }, true);
     document.addEventListener('keydown', function(ev){
-      if (!ev.target || ev.target.id !== 'dfAddInput') return;
-      if (ev.key === 'Enter'){ ev.preventDefault(); dfSubmitCustom(); }
-      else if (ev.key === 'Escape'){ ev.preventDefault(); dfAddOpen = false; dfAddText = ''; dfAddErr = ''; renderDraft(); }
+      if (!ev.target || ev.target.id !== 'dfWriteInput') return;
+      if (ev.key === 'Enter'){
+        ev.preventDefault();
+        var t = String(dfWriteText || '').replace(/\s+/g, ' ').trim();
+        if (t.length < DRAFT_MOTION_MIN){ dfErr = dfErrText('too_short'); renderDraft(); return; }
+        dfSendOffer({ text: t });
+      } else if (ev.key === 'Escape'){
+        ev.preventDefault(); dfWriteOpen = false; dfWriteText = ''; dfErr = ''; renderDraft();
+      }
     }, true);
 
     // One delegated listener for the whole board, so a re-render never
@@ -15889,35 +15940,36 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     document.addEventListener('click', function(ev){
       var host = document.getElementById('draftBoard');
       if (!host || host.classList.contains('hidden') || !host.contains(ev.target)) return;
-      if (ev.target.closest('#dfAddOpen')){
-        dfAddOpen = true; dfAddErr = '';
+      if (ev.target.closest('#dfWriteOpen')){ dfWriteOpen = true; dfErr = ''; renderDraft(); return; }
+      if (ev.target.closest('#dfWriteCancel')){ dfWriteOpen = false; dfWriteText = ''; dfErr = ''; renderDraft(); return; }
+      if (ev.target.closest('#dfWriteGo')){
+        var t = String(dfWriteText || '').replace(/\s+/g, ' ').trim();
+        if (t.length < DRAFT_MOTION_MIN){ dfErr = dfErrText('too_short'); renderDraft(); return; }
+        dfSendOffer({ text: t });
+        return;
+      }
+      var pool = ev.target.closest('[data-df-pool]');
+      if (pool){
+        var id = pool.getAttribute('data-df-pool');
+        dfPick = (dfPick === id) ? '' : id;
+        dfErr = '';
         renderDraft();
         return;
       }
-      if (ev.target.closest('#dfAddCancel')){
-        dfAddOpen = false; dfAddText = ''; dfAddErr = '';
-        renderDraft();
+      if (ev.target.closest('#dfOfferGo')){
+        if (!dfPick) return;
+        dfSendOffer({ poolId: dfPick });
         return;
       }
-      if (ev.target.closest('#dfAddGo')){
-        dfSubmitCustom();
-        return;
-      }
-      var strike = ev.target.closest('[data-df-strike]');
-      if (strike){
-        var id = strike.getAttribute('data-df-strike');
-        var at = dfPicks.indexOf(id);
-        if (at !== -1) dfPicks.splice(at, 1);
-        else if (dfPicks.length < dfStrikeCount()) dfPicks.push(id);
-        renderDraft();
-        return;
-      }
-      if (ev.target.closest('#dfCommit')){
-        if (dfBusy || dfPicks.length !== dfStrikeCount()) return;
+      var answer = ev.target.closest('[data-df-respond]');
+      if (answer){
+        if (dfBusy) return;
         dfBusy = true;
-        dfPost('strike', { strikes: dfPicks.slice() })
-          .catch(function(){})
-          .then(function(){ dfBusy = false; renderDraft(); });
+        var choice = answer.getAttribute('data-df-respond');
+        dfPost('respond', { choice: choice }).then(function(res){
+          if (res && !res.ok) dfErr = dfErrText(res.reason, res.message);
+          try { gtag('event', 'live_draft_respond', { choice: choice, format: state.formatKey }); } catch(e){}
+        }).catch(function(){}).then(function(){ dfBusy = false; renderDraft(); });
         return;
       }
       var pick = ev.target.closest('[data-df-motion]');
@@ -15941,20 +15993,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     window.__lrRenderDraft = function(d){
       var next = (d && d.draft) || null;
       if (next && d.draftPhaseAt && d.draftPhaseAt.toMillis) next.phaseAt = d.draftPhaseAt.toMillis();
-      var was = dfLastPhase;
       state.draft = next;
       var now = next ? String(next.phase || '') : '';
-      // The reveal beat: the one moment both strike sets are on screen
-      // together. Armed on the transition out of 'strike', never on a
-      // re-render, so a snapshot mid-reveal cannot restart it.
-      if (was === 'strike' && now && now !== 'strike') dfRevealUntil = Date.now() + DRAFT_REVEAL_MS;
-      if (now === 'strike' && was !== 'strike'){ dfPicks = []; dfAddOpen = false; dfAddText = ''; dfAddErr = ''; }
-      // Strikes are keyed by id, so a card that arrived after a pick was
-      // made is harmless; a pick on an id that no longer exists is not.
-      if (next && next.slate){
-        var live = {}; next.slate.forEach(function(m){ live[m.id] = true; });
-        dfPicks = dfPicks.filter(function(id){ return live[id]; });
-      }
+      // A new beat clears the composer: a pool card selected on the offer
+      // beat means nothing on the counter beat, and carrying it across
+      // would arm a button with somebody else's intent.
+      if (now !== dfLastPhase){ dfPick = ''; dfWriteOpen = false; dfWriteText = ''; dfErr = ''; }
+      // A suggestion that left the offerable set while it was selected
+      // would arm the go button against a motion the server will refuse.
+      if (dfPick && !dfOfferable().some(function(m){ return m.id === dfPick; })) dfPick = '';
       dfLastPhase = now;
       renderDraft();
     };

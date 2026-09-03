@@ -58,20 +58,20 @@ function sourcePool(tournament) {
   return String(t.slug || '') === OPEN_SLUG ? THE_DEBATABLE_OPEN_MOTIONS.slice() : [];
 }
 
+// Blind strikes were retired on 2026-09-02 for the offer-and-answer
+// negotiation (lib/motion-draft.mjs). A tournament's shape is now just its
+// published pool: each room draws a few suggestions from that list, one
+// debater offers, and the other takes it, sends it back once, or counters.
+// The retired `motionSlateSize` / `motionStrikesPerSide` fields on a
+// tournament document are ignored rather than read, so an event created
+// under the old rules still runs; it just runs the new beat.
 export function tournamentDraftConfig(tournament) {
   const t = tournament || {};
   const pool = sourcePool(t);
   if (pool.length < 3) return null;
-
-  const defaultSlate = String(t.slug || '') === OPEN_SLUG ? 3 : 5;
-  const slateSize = Math.max(3, Math.min(pool.length, 7,
-    Math.round(Number(t.motionSlateSize) || defaultSlate)));
-  const maxStrikes = Math.max(1, Math.floor((slateSize - 1) / 2));
-  const defaultStrikes = String(t.slug || '') === OPEN_SLUG ? 1 : 2;
-  const strikesPerSide = Math.max(1, Math.min(maxStrikes,
-    Math.round(Number(t.motionStrikesPerSide) || defaultStrikes)));
-
-  return { pool, slateSize, strikesPerSide, blind: true };
+  const poolSize = Math.max(2, Math.min(pool.length, 8,
+    Math.round(Number(t.motionPoolSize) || 4)));
+  return { pool, poolSize, vetoes: 1 };
 }
 
 export function publicTournamentMotionDraft(tournament) {
@@ -79,9 +79,8 @@ export function publicTournamentMotionDraft(tournament) {
   if (!config) return null;
   return {
     motions: config.pool.slice(),
-    slateSize: config.slateSize,
-    strikesPerSide: config.strikesPerSide,
-    blind: true,
+    poolSize: config.poolSize,
+    vetoes: config.vetoes,
   };
 }
 

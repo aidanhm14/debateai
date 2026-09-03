@@ -4,10 +4,8 @@ import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { sendToUser } from './lib/webpush.mjs';
 import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
 import {
-  STRIKE_SEC, PICK_SEC, STRIKES_PER_SIDE,
-  draftSeed, createDraft, sanitizeStrikes, autoStrikes,
-  advance as advanceDraft, actorFor, applyMotionPick, applySidePick,
-  autoResolve, draftResult,
+  draftSeed, createDraft, advance as advanceDraft,
+  applyOffer, applyResponse, applySidePick, autoResolve, draftResult, publicDraft,
 } from './lib/motion-draft.mjs';
 
 // Server-side pair-matcher for /spar.
@@ -119,10 +117,6 @@ function draftFinals(draft, mine, theirs, myUid, peerUid) {
     proName: nameOf(res.proUid),
     conName: nameOf(res.conUid),
   };
-}
-
-function draftPhaseMs(phase) {
-  return (phase === 'strike' ? STRIKE_SEC : PICK_SEC) * 1000;
 }
 
 function phaseAtMs(doc) {
@@ -563,8 +557,8 @@ export default async (request) => {
   const format = String(body?.format || '').trim().toLowerCase();
   // Separate throttle lanes — see the isThrottled comment. A consent
   // click must never 429 because the queue poller POSTed recently.
-  if (action === 'consent' || action === 'draft' || action === 'solo') {
-    // Draft picks share the consent lane, not the pair lane: both are human
+  if (action === 'consent' || action === 'solo') {
+    // Draft moves share the consent lane, not the pair lane: both are human
     // clicks on a clock, and a 429 on either one strands a live handshake.
     if (isThrottled(myUid + ':consent', CONSENT_THROTTLE_MS)) {
       return errorResponse('Consent attempts throttled. Wait a moment.', 429, request);
@@ -588,6 +582,19 @@ export default async (request) => {
   //
   // Placed ABOVE the guest gate on purpose: this opens no room with a real
   // person in it, so it must not spend a guest's live-round allowance.
+  // The AI opponent's version of the negotiation, and it is deliberately
+  // the HUMAN'S HALF of it. The AI always offers and the human always
+  // responds: the response is the beat with the real choice in it (take,
+  // send back, counter), and a coin flip that sometimes handed the
+  // interesting move to a machine would make the fallback a worse ritual
+  // half the time for no gain. Stateless — the draft is rebuilt from the
+  // seed on every call rather than stored, so there is nothing to keep
+  // between the two round trips.
+  //
+  // Pool cards only: a hand-written motion has to clear the site's content
+  // boundary, and that guard lives in round-draft.mjs where the human draft
+  // runs. Offering an unguarded text field here would be the one place a
+  // heavy subject could enter a round.
   if (action === 'solo') {
     if (!DRAFT_ENABLED) return jsonResponse({ ok: false, reason: 'draft_off' }, 200, request);
     const AI_UID = 'ai';
@@ -595,33 +602,65 @@ export default async (request) => {
     const rawSeed = String(body?.seed || '');
     const seedPrefix = 'solo:' + myUid + ':';
 
-    if (!body?.strikes) {
+    // The AI holds the offer and every beat the human does not; force the
+    // roles rather than taking the coin flip, and drive the AI's beats with
+    // the same seeded autoResolve the human draft uses on a timeout.
+    const buildSolo = (seed) => {
+      const base = createDraft(seed, fmt, myUid, AI_UID);
+      return advanceDraft(Object.assign({}, base, { offerUid: AI_UID, respondUid: myUid }));
+    };
+    const runAi = (d) => {
+      let out = d;
+      // Bounded, not while(true): an autoResolve that failed to move the
+      // phase would otherwise spin until the function times out.
+      for (let i = 0; i < 8; i++) {
+        if (out.phase === 'done') break;
+        const actor = out.phase === 'respond' ? myUid
+          : (out.phase === 'offer' || out.phase === 'choose') ? out.offerUid
+          : out.phase === 'counter' ? out.respondUid
+          : out.sideUid;
+        if (String(actor) !== String(AI_UID)) break;
+        out = advanceDraft(autoResolve(out));
+      }
+      return out;
+    };
+
+    // The human's moves are replayed from scratch on every call, so the
+    // whole draft is a pure function of (seed, moves) and there is no state
+    // to keep between round trips. An invalid move is SKIPPED rather than
+    // refused, and the beat it was for resolves on its seed instead: the
+    // client auto-submits at zero, and a hard refusal there would kill the
+    // round over a slow reader who was sitting right there.
+    const replay = (seed, moves) => {
+      let d = runAi(buildSolo(seed));
+      for (const raw of (Array.isArray(moves) ? moves : []).slice(0, 6)) {
+        const mv = raw && typeof raw === 'object' ? raw : {};
+        const a = String(mv.a || '');
+        let res = { ok: false };
+        if (a === 'respond') res = applyResponse(d, myUid, mv.choice);
+        else if (a === 'offer') res = applyOffer(d, myUid, { poolId: String(mv.poolId || '') });
+        else if (a === 'side') res = applySidePick(d, myUid, mv.side);
+        d = advanceDraft(res.ok ? res.draft : autoResolve(d));
+        d = runAi(d);
+      }
+      return d;
+    };
+
+    if (!body?.moves) {
       const seed = seedPrefix + Date.now().toString(36);
-      const draft = createDraft(seed, fmt, myUid, AI_UID);
-      return jsonResponse({
-        ok: true,
-        seed,
-        slate: draft.slate,
-        motionUid: draft.motionUid,
-        sideUid: draft.sideUid,
-      }, 200, request);
+      const draft = runAi(buildSolo(seed));
+      return jsonResponse({ ok: true, seed, aiUid: AI_UID, draft: publicDraft(draft, Date.now()) }, 200, request);
     }
 
     if (!rawSeed.startsWith(seedPrefix)) {
       return jsonResponse({ ok: false, reason: 'bad_seed' }, 200, request);
     }
-    // Rebuilt from the seed rather than stored. Same five motions, same coin
-    // flip, no state to keep between the two calls.
-    const draft = createDraft(rawSeed, fmt, myUid, AI_UID);
-    const submitted = sanitizeStrikes(draft, body.strikes);
-    const mine = submitted.length === STRIKES_PER_SIDE
-      ? submitted
-      : autoStrikes(draft, myUid, submitted);
-    const next = advanceDraft({
-      ...draft,
-      strikes: { [myUid]: mine, [AI_UID]: autoStrikes(draft, AI_UID, []) },
-    }, myUid, AI_UID);
-    return jsonResponse({ ok: true, draft: next, aiUid: AI_UID }, 200, request);
+    const draft = replay(rawSeed, body.moves);
+    return jsonResponse({
+      ok: true, aiUid: AI_UID, seed: rawSeed,
+      draft: publicDraft(draft, Date.now()),
+      result: draftResult(draft, myUid, AI_UID),
+    }, 200, request);
   }
 
   // Human video pairing takes Google or a verified phone number
@@ -822,67 +861,19 @@ export default async (request) => {
         const consents = { ...(mine.consents || {}) };
         consents[myUid] = true;
 
-        // On a drafting pair, accepting IS submitting your two strikes, and
-        // that is deliberate: striking is an act, so it proves presence the
-        // way a button that says "ready" never did (the 411-round finding).
-        // A short or junk set is FILLED rather than refused, because the
-        // client auto-submits at zero and a refusal there would kill a round
-        // over a slow reader who was sitting right there.
-        //
-        // Note what is NOT done here: the peer's missing strikes are never
-        // auto-filled. Striking for an absent person is how a room opens
-        // onto an empty chair. Their silence unwinds the pair through the
-        // ghost path above, exactly as a silent consent always has.
-        const draft = mine.draft || null;
-        let nextDraft = null;
-        if (draft) {
-          const submitted = sanitizeStrikes(draft, body?.strikes);
-          const strikes = submitted.length === STRIKES_PER_SIDE
-            ? submitted
-            : autoStrikes(draft, myUid, submitted);
-          // BLIND MEANS BLIND, and this is the line that makes it true.
-          // A queue doc is readable by its owner, so mirroring both sides'
-          // strikes onto both docs would hand whoever strikes second the
-          // first striker's picks in devtools, which is the entire draft.
-          // Each doc therefore carries only its OWN owner's strikes while
-          // the strike beat is live; the peer's set is read here, out of
-          // the peer's doc, inside the transaction, and the merged set is
-          // written to both docs only once both sides have committed.
-          const theirStrikes = (theirs.draft && theirs.draft.strikes) || {};
-          nextDraft = advanceDraft(
-            { ...draft, strikes: { ...theirStrikes, ...(draft.strikes || {}), [myUid]: strikes } },
-            myUid,
-            peerUid,
-          );
-        }
+        // The motion negotiation does not live here. It runs in the room
+        // (round-draft.mjs) against the eligibility stamp this function
+        // writes, so accepting is a plain consent again and the queue doc
+        // carries no draft state at all.
 
         if (!consents[peerUid]) {
           // I'm in; the peer still has my note to read. Mirror the flag
           // onto both docs so both clients can render progress.
-          //
-          // My draft goes on MY doc only. The peer gets the handshake flag
-          // and nothing else: at this moment they have not struck, so any
-          // strike of mine on their doc is a leak of the blind phase.
-          tx.update(myRef, nextDraft ? { consents, draft: nextDraft } : { consents });
+          tx.update(myRef, { consents });
           tx.update(peerRef, { consents });
           return { ok: true, pending: 'peer' };
         }
 
-        // Both sides struck, and the draft still has beats to run. The pair
-        // holds in 'consent' rather than flipping to 'matched': a room that
-        // opened here would open on an undecided motion and unassigned
-        // sides. The reveal, the motion call and the side call all happen
-        // through the 'draft' action below.
-        if (nextDraft && nextDraft.phase !== 'done') {
-          const patch = {
-            consents,
-            draft: nextDraft,
-            draftPhaseAt: FieldValue.serverTimestamp(),
-          };
-          tx.update(myRef, patch);
-          tx.update(peerRef, patch);
-          return { ok: true, drafting: nextDraft.phase, actor: actorFor(nextDraft) };
-        }
         // Both sides in — finalize. Every matched-shape field was
         // already written in phase 1; this flip is what subscribeMyDoc
         // navigates on.
@@ -891,8 +882,6 @@ export default async (request) => {
           matchedAt: FieldValue.serverTimestamp(),
           consents,
           pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
-          ...(nextDraft ? { draft: nextDraft } : {}),
-          ...(nextDraft ? draftFinals(nextDraft, mine, theirs, myUid, peerUid) || {} : {}),
         };
         // Per-side, not in `finals`: each doc skips the OTHER uid. This is
         // what stops the matcher handing you back the person you are in a
@@ -922,117 +911,11 @@ export default async (request) => {
     }
   }
 
-  // ── action: 'draft' — the motion/side beats after both sides strike ──
-  //
-  // Two shapes. A PICK carries `pick` ('motion' | 'side') and `value`, and
-  // only the debater who holds that power may send it; the coin flip in
-  // lib/motion-draft.mjs decides who that is, and the pure layer enforces it
-  // so the check cannot drift between here and the client.
-  //
-  // An EXPIRE carries `expire: true` and may come from EITHER side. That
-  // asymmetry against the strike phase is the point: by the time a pick clock
-  // is running, both people have already proven they are here by striking, so
-  // the round should not die over one slow click. During strikes the opposite
-  // holds and silence unwinds the pair, because silence there means nobody is
-  // in the chair. An expire is checked against the SERVER's own phase clock,
-  // never the caller's word, or a client could skip a beat it is losing.
-  if (action === 'draft') {
-    try {
-      const result = await db.runTransaction(async (tx) => {
-        const [mineSnap, theirsSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
-          tx.get(myRef),
-          tx.get(peerRef),
-          tx.get(myTournamentSeatRef),
-          tx.get(peerTournamentSeatRef),
-        ]);
-        if (mySeatSnap.exists) {
-          if (mineSnap.exists) tx.delete(myRef);
-          return { ok: false, reason: 'tournament_seat_active' };
-        }
-        if (peerSeatSnap.exists) {
-          if (mineSnap.exists) tx.delete(myRef);
-          if (theirsSnap.exists) tx.delete(peerRef);
-          return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
-        }
-        if (!mineSnap.exists) return { ok: false, reason: 'consent_state_gone' };
-        const mine = mineSnap.data();
-        const theirs = theirsSnap.exists ? theirsSnap.data() : null;
-        // Already finalized by the other side's pick. Not an error: both
-        // clients watch the same doc and either may have raced here.
-        if (mine.status === 'matched' && mine.matchedWith === peerUid) {
-          return { ok: true, matched: true, room: mine.room, already: true };
-        }
-        if (mine.status !== 'consent' || mine.matchedWith !== peerUid) {
-          return { ok: false, reason: 'consent_state_gone' };
-        }
-        if (!theirs || theirs.status !== 'consent' || theirs.matchedWith !== myUid) {
-          return { ok: false, reason: 'peer_gone' };
-        }
-        const draft = mine.draft;
-        if (!draft) return { ok: false, reason: 'no_draft' };
-        if (draft.phase !== 'motion' && draft.phase !== 'side') {
-          return { ok: false, reason: 'wrong_phase', phase: draft.phase };
-        }
-
-        let next;
-        if (body?.expire) {
-          const elapsed = Date.now() - phaseAtMs(mine);
-          if (elapsed + DRAFT_EXPIRE_GRACE_MS < draftPhaseMs(draft.phase)) {
-            return { ok: false, reason: 'too_early', phase: draft.phase };
-          }
-          next = autoResolve(draft);
-        } else {
-          const pick = String(body?.pick || '');
-          const applied = pick === 'motion'
-            ? applyMotionPick(draft, myUid, String(body?.value || ''))
-            : pick === 'side'
-              ? applySidePick(draft, myUid, String(body?.value || ''))
-              : { ok: false, reason: 'bad_pick' };
-          if (!applied.ok) return { ok: false, reason: applied.reason };
-          next = applied.draft;
-        }
-        next = advanceDraft(next, myUid, peerUid);
-
-        if (next.phase !== 'done') {
-          const patch = { draft: next, draftPhaseAt: FieldValue.serverTimestamp() };
-          tx.update(myRef, patch);
-          tx.update(peerRef, patch);
-          return { ok: true, drafting: next.phase, actor: actorFor(next) };
-        }
-
-        // Draft resolved. This is the flip subscribeMyDoc navigates on, and
-        // it is the first moment the round has a motion and real sides.
-        const finals = {
-          status: 'matched',
-          matchedAt: FieldValue.serverTimestamp(),
-          draft: next,
-          pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
-          ...(draftFinals(next, mine, theirs, myUid, peerUid) || {}),
-        };
-        tx.update(myRef, {
-          ...finals,
-          skipUids: FieldValue.arrayUnion(peerUid),
-          ['matchSkipAt.' + peerUid]: FieldValue.serverTimestamp(),
-        });
-        tx.update(peerRef, {
-          ...finals,
-          skipUids: FieldValue.arrayUnion(myUid),
-          ['matchSkipAt.' + myUid]: FieldValue.serverTimestamp(),
-        });
-        return { ok: true, matched: true, room: mine.room };
-      });
-      // Same charge point as the consent finalize: the room opens here for a
-      // drafting pair, so this is where a guest round is spent. `already`
-      // guards the double-charge when both clients race the final pick.
-      if (result?.matched && !result.already) {
-        await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
-      }
-      return jsonResponse(result, 200, request);
-    } catch (err) {
-      console.error('[spar-pair] draft transaction error:', err?.message || err);
-      return errorResponse('Draft transaction failed: ' + (err?.message || 'unknown'), 500, request);
-    }
-  }
+  // The queue-doc draft is GONE. It moved into the room on 2026-08-26
+  // (round-draft.mjs), and `const draft = null` below means this function
+  // has not written one since; the action that resolved its beats sat here
+  // answering 'no_draft' to anybody who found it. Deleted rather than left
+  // as a second phase machine to keep in step with the pure module.
 
   // Room name: lex-sorted UID pair PLUS a per-match suffix. Both
   // clients read the room off their own queue doc (the server is the

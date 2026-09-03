@@ -1,12 +1,13 @@
 // round-draft.mjs — the pre-round motion draft, run inside the ROOM.
 //
 // POST /api/round-draft
-//   { action: 'open',   room }
-//   { action: 'strike', room, strikes: ['m1','m4'] }
-//   { action: 'motion', room, motionId: 'm3' }
-//   { action: 'side',   room, side: 'pro' | 'con' }
-//   { action: 'expire', room }
-//   { action: 'add',    room, text: 'This house would ...' }   (strike beat only)
+//   { action: 'open',     room }
+//   { action: 'offer',    room, poolId: 'p2' }                  offer / counter beat
+//   { action: 'offer',    room, text: 'This house would ...' }  same, written by hand
+//   { action: 'respond',  room, choice: 'take'|'back'|'counter' }
+//   { action: 'motion',   room, motionId: 't1' }                the choose beat
+//   { action: 'side',     room, side: 'pro' | 'con' }
+//   { action: 'expire',   room }
 //
 // WHY THIS MOVED. The draft shipped on the QUEUE docs (spar-pair), which
 // meant it only ran when both docs carried draftOptIn, and only /spar set
@@ -21,14 +22,14 @@
 // the entry surface stops mattering. It also buys back the clock: both
 // debaters are already seated, so no beat is racing a page navigation.
 //
-// THE STATE IS SPLIT, AND THE SPLIT IS THE BLINDNESS. On the queue model
-// each doc held only its own owner's strikes, so blind was free. One
-// shared round doc has no field-level read rules, so the full draft lives
-// in round_drafts/{room} — an unlisted collection, which firestore.rules
-// ends by denying, so no client can read it — and live_rounds/{room}.draft
-// carries a REDACTED projection: during the strike beat, who has submitted
-// but never what they struck. Strikes reach the round doc only when both
-// are in and the reveal is the point.
+// THE STATE IS STILL SPLIT, but no longer for blindness. Blind strikes are
+// gone (2026-09-02); the negotiation is sequential and public, so there is
+// nothing on the draft one debater must not see. round_drafts/{room} stays
+// authoritative because it also holds the ELIGIBILITY STAMP — uids, seed,
+// format, the tournament pool — and that is server-written in an unlisted
+// collection that firestore.rules ends by denying, so a client cannot forge
+// its way into a draft or swap the motions it draws from. The round doc
+// gets publicDraft(), which is now a whole-draft copy.
 //
 // ELIGIBILITY IS SERVER-WRITTEN, NEVER CLAIMED. spar-pair stamps
 // round_drafts/{room} at pair time. A round that arrives any other way
@@ -45,11 +46,9 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
 import {
-  STRIKE_SEC, PICK_SEC,
-  createDraft, sanitizeStrikes, advance, actorFor,
-  applyMotionPick, applySidePick, autoResolve, autoStrikes,
-  draftResult, survivorsOf, publicDraft, strikesPerSideFor,
-  addCustomMotion, CUSTOM_MOTION_MAX,
+  secondsFor, createDraft, advance, actorFor, eitherMayExpire,
+  applyOffer, applyResponse, applyMotionPick, applySidePick, autoResolve,
+  draftResult, publicDraft, MOTION_MAX,
 } from './lib/motion-draft.mjs';
 import { checkContent } from './lib/content-guard.mjs';
 
@@ -64,12 +63,18 @@ const EXPIRE_GRACE_MS = 1500;
 // done anyway had a client been alive to say so.
 const DRAFT_MAX_MS = 4 * 60 * 1000;
 
+// Enough passes to walk offer → respond → counter → choose → side from any
+// starting beat, with slack. A bound rather than a while(true), because an
+// autoResolve that ever failed to move the phase would otherwise spin the
+// transaction until the function times out.
+const PHASES_MAX = 8;
+
 function roomName(value) {
   return String(value || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 120);
 }
 
 function phaseMs(phase) {
-  return (phase === 'strike' ? STRIKE_SEC : PICK_SEC) * 1000;
+  return secondsFor(phase) * 1000;
 }
 
 function atMs(value) {
@@ -186,74 +191,57 @@ export default async (request) => {
       const openedAt = atMs(st.openedAt) || phaseAt;
       const stale = openedAt && (Date.now() - openedAt) > DRAFT_MAX_MS;
 
-      if (action === 'strike') {
-        if (draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
-        const required = strikesPerSideFor(draft);
-        // Your own strikes only, once. Re-striking after committing would
-        // let someone watch the phase flip and then change their mind.
-        if ((draft.strikes[uid] || []).length >= required) {
-          return { ok: true, draft: publicDraft(draft, phaseAt) };
+      if (action === 'offer') {
+        // One act, two beats: putting your motion up as the offerer, and
+        // putting your counter up as the responder. The pure layer decides
+        // which of the two this caller is entitled to.
+        const poolId = String((body && body.poolId) || '');
+        let input = { poolId };
+        if (!poolId) {
+          const text = String((body && body.text) || '').replace(/\s+/g, ' ').trim().slice(0, MOTION_MAX + 1);
+          // The site motion boundary applies before anything is stored. A
+          // hand-written motion is the one place a heavy subject can enter
+          // a round that every seeded bank already refuses.
+          const guard = checkContent({ text, kind: 'motion' });
+          if (!guard.ok) return { ok: false, reason: 'blocked', message: guard.reason || 'Pick a different motion.' };
+          input = { text };
         }
-        const mine = sanitizeStrikes(draft, body && body.strikes);
-        if (mine.length < required) return { ok: false, reason: 'need_strikes', required };
-        draft = Object.assign({}, draft, {
-          strikes: Object.assign({}, draft.strikes, { [uid]: mine }),
-        });
-        draft = advance(draft, uids[0], uids[1]);
+        const res = applyOffer(draft, uid, input);
+        if (!res.ok) return { ok: false, reason: res.reason };
+        draft = advance(res.draft);
+      } else if (action === 'respond') {
+        const res = applyResponse(draft, uid, body && body.choice);
+        if (!res.ok) return { ok: false, reason: res.reason };
+        draft = advance(res.draft);
       } else if (action === 'motion') {
         const res = applyMotionPick(draft, uid, body && body.motionId);
         if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft, uids[0], uids[1]);
+        draft = advance(res.draft);
       } else if (action === 'side') {
         const res = applySidePick(draft, uid, body && body.side);
         if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft, uids[0], uids[1]);
-      } else if (action === 'add') {
-        // Your own motion on the slate. A tournament room runs its
-        // published pool and nothing else, so a stamped pool refuses this.
-        if (draft.poolLocked) return { ok: false, reason: 'pool_locked' };
-        if (draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
-        const text = String((body && body.text) || '').replace(/\s+/g, ' ').trim().slice(0, CUSTOM_MOTION_MAX + 1);
-        // The site motion boundary applies before anything is stored. A
-        // custom field is the one place a heavy subject can enter a round
-        // that every seeded bank already refuses.
-        const guard = checkContent({ text, kind: 'motion' });
-        if (!guard.ok) return { ok: false, reason: 'blocked', message: guard.reason || 'Pick a different motion.' };
-        const res = addCustomMotion(draft, uid, text);
-        if (!res.ok) return { ok: false, reason: res.reason };
-        draft = res.draft;
-        // Restart the strike clock so the other side has time to read a
-        // card that just appeared. Treated as a phase move below.
-        phaseAt = 0;
+        draft = advance(res.draft);
       } else if (action === 'expire') {
         const elapsed = Date.now() - (phaseAt || 0);
         if (!stale && phaseAt && elapsed < (phaseMs(draft.phase) - EXPIRE_GRACE_MS)) {
           return { ok: false, reason: 'too_early' };
         }
-        if (draft.phase === 'strike') {
-          // Fill only the callers who ARE here. A silent peer's strikes are
-          // never invented: striking for an absent person is how a room
-          // opens onto an empty chair, and on a stale draft filling both is
-          // still better than a room stuck forever on a dead beat.
-          const fill = stale ? uids : [uid];
-          const next = Object.assign({}, draft.strikes);
-          // A caller whose clock ran out with one card selected keeps that
-          // card; the fill only covers what they did not spend. Losing a
-          // deliberate strike to a timer would be the clock overruling the
-          // one choice the beat exists to give them.
-          const partial = sanitizeStrikes(draft, body && body.strikes);
-          fill.forEach((u) => {
-            if ((next[u] || []).length >= strikesPerSideFor(draft)) return;
-            next[u] = autoStrikes(draft, u, u === uid ? partial : next[u]);
-          });
-          draft = advance(Object.assign({}, draft, { strikes: next }), uids[0], uids[1]);
-        } else {
-          // Either side may expire a pick clock. Past the strike beat both
-          // people have proven they are there, so a slow click should not
-          // cost the round; the resolution is seeded, so both sides and the
-          // server land on the same motion and the same side whichever POST
-          // arrives first.
-          draft = advance(autoResolve(draft), uids[0], uids[1]);
+        // Before the responder has answered, exactly ONE person has moved,
+        // so resolving the beat for the other is how a room opens onto an
+        // empty chair. Only the debater whose own clock ran out may expire
+        // those two beats; a silent peer unwinds through the ghost path.
+        // A stale draft is the exception: a room stuck forever on a dead
+        // beat is worse than a resolution nobody watched.
+        if (!stale && !eitherMayExpire(draft) && String(actorFor(draft)) !== uid) {
+          return { ok: false, reason: 'not_your_clock' };
+        }
+        draft = advance(autoResolve(draft));
+        // A stale draft runs itself out to the end rather than handing the
+        // next caller another dead beat to expire.
+        if (stale) {
+          for (let i = 0; i < PHASES_MAX && draft.phase !== 'done'; i++) {
+            draft = advance(autoResolve(draft));
+          }
         }
       } else {
         return { ok: false, reason: 'bad_action' };
@@ -276,7 +264,7 @@ export default async (request) => {
       }
       tx.set(roundRef, roundPatch, { merge: true });
 
-      return { ok: true, draft: publicDraft(draft, phaseAt), survivors: survivorsOf(draft) };
+      return { ok: true, draft: publicDraft(draft, phaseAt) };
     });
 
     if (!out.ok) return jsonResponse(out, out.reason === 'not_a_debater' ? 403 : 200, request);

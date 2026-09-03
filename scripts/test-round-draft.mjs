@@ -1,253 +1,165 @@
-// Guards the room-side motion draft.
+#!/usr/bin/env node
+// test-round-draft.mjs — guards the ROOM-side motion negotiation.
 //
 // The draft moved out of the queue docs and into the round (round-draft.mjs)
-// so that the entry surface stops deciding whether a pair gets to veto a
-// motion. That move cost the thing the queue model got for free: two docs
-// meant each side could only ever hold its own strikes. One shared round
-// doc has no field-level read rule, so blindness is now a property of
-// publicDraft() and of nothing else. If that projection ever leaks a strike
-// during the strike beat, the whole beat is theatre — one side opens
-// devtools, reads the other's strikes, and strikes to leave the motion it
-// wants. That is what most of this file is about.
+// so that the entry surface stops deciding whether a pair gets a say in the
+// motion. Blind strikes were retired on 2026-09-02, so this file is no
+// longer about a leak: every beat now has exactly one actor and everything
+// on the draft is already public to the room. What it IS about is the three
+// properties the room depends on and the pure module alone cannot state:
+//
+//   1. THE ROUND DOC NEVER OPENS ON AN UNFINISHED DRAFT. finalPatch is the
+//      only thing that rewrites the motion and the seats, and it must
+//      refuse anything the negotiation has not settled.
+//   2. THE FIRST TWO BEATS ARE NOT EXPIRABLE BY THE PEER. Before the answer
+//      exactly one person has moved; resolving for the other is how a room
+//      opens onto an empty chair (the 411-round finding).
+//   3. A STALE DRAFT STILL FINISHES. A room stuck forever on a dead beat is
+//      worse than a resolution nobody watched, and the endpoint's stale
+//      path has to reach 'done' inside its bounded loop.
+//
+// The endpoint itself needs Firestore, so this exercises the pure layer the
+// endpoint delegates every decision to, in the shapes the endpoint uses.
 import {
-  STRIKES_PER_SIDE, SLATE_SIZE,
-  createDraft, publicDraft, sanitizeStrikes, autoStrikes, advance,
-  survivorsOf, applyMotionPick, applySidePick, autoResolve, draftResult,
-  draftSeed, actorFor, addCustomMotion, CUSTOM_MOTION_MIN, CUSTOM_MOTION_MAX,
+  createDraft, draftSeed, advance, actorFor, eitherMayExpire,
+  applyOffer, applyResponse, applyMotionPick, applySidePick,
+  autoResolve, draftResult, publicDraft, offerablePool, contenders,
+  secondsFor, PHASES,
 } from '../app/netlify/functions/lib/motion-draft.mjs';
 
-let fail = 0;
-const ok = (cond, label) => { if (!cond) { fail++; console.error('FAIL  ' + label); } };
-const eq = (a, b, label) => ok(JSON.stringify(a) === JSON.stringify(b), label + `  (${JSON.stringify(a)} !== ${JSON.stringify(b)})`);
+let fail = 0, n = 0;
+const ok = (cond, label) => { n++; if (!cond) { fail++; console.error('FAIL  ' + label); } };
+const eq = (a, b, label) => ok(JSON.stringify(a) === JSON.stringify(b),
+  label + '  (' + JSON.stringify(a) + ' !== ' + JSON.stringify(b) + ')');
 
 const A = 'uidAlpha', B = 'uidBravo';
 const seed = draftSeed(A, B, 'SparMatch-a-b-1');
-const fresh = () => createDraft(seed, 'quick', A, B);
-const strikesFor = (d) => sanitizeStrikes(d, d.slate.map((m) => m.id)).length;
+const fresh = () => advance(createDraft(seed, 'quick', A, B));
+const O = fresh().offerUid, R = fresh().respondUid;
+const go = (d, f) => { const r = f(d); ok(r.ok, 'setup move refused: ' + (r.reason || '')); return advance(r.draft); };
+const offered = () => go(fresh(), (x) => applyOffer(x, O, { poolId: offerablePool(x)[0].id }));
 
-// ── the slate ──
+// ── 1. finalPatch's precondition: draftResult ───────────────────────
+// round-draft.mjs writes the motion and both seats ONLY when this returns
+// something. Every unfinished shape must come back null, or a room opens
+// with no motion, or with two people on the same bench.
 {
-  const d = fresh();
-  eq(d.slate.length, SLATE_SIZE, 'slate is five motions');
-  ok(new Set(d.slate.map((m) => m.text)).size === SLATE_SIZE, 'slate has no repeated motion');
-  ok(d.motionUid !== d.sideUid, 'the two powers never land on one debater');
-  ok([A, B].includes(d.motionUid) && [A, B].includes(d.sideUid), 'both powers land on a debater in the round');
-  // Determinism: the server and both clients must agree.
-  eq(createDraft(seed, 'quick', A, B), createDraft(seed, 'quick', B, A), 'same pair, same draft, whichever side asks');
-}
-
-// ── BLINDNESS. The reason this file exists. ──
-{
-  let d = fresh();
-  const ids = d.slate.map((m) => m.id);
-
-  let pub = publicDraft(d, 1);
-  eq(pub.strikes, {}, 'nothing struck yet: no strikes published');
-  eq(pub.submitted, [], 'nobody submitted yet');
-
-  // One side commits. This is the dangerous moment: the peer has not
-  // struck, and anything published here is a peek.
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]] } }, A, B);
-  eq(d.phase, 'strike', 'one side in is still the strike beat');
-  pub = publicDraft(d, 1);
-  eq(pub.strikes, {}, 'BLIND: a committed side never publishes its strikes');
-  eq(pub.submitted, [A], 'the peer learns only THAT you are in');
-  ok(JSON.stringify(pub).indexOf(ids[0]) === -1 || pub.slate.some((m) => m.id === ids[0]),
-    'a struck id appears only as a slate entry, never as a strike');
-  // Exercise the redaction rather than the happy path: a fresh draft has
-  // no motion anyway, so asserting null on it proves nothing. Force both
-  // fields set while the phase is still 'strike' (a replayed or malformed
-  // state is exactly when a leak would matter) and require them withheld.
-  const leaky = publicDraft({ ...d, phase: 'strike', motionId: ids[4], side: 'pro' }, 1);
-  eq(leaky.motionId, null, 'BLIND: a motion is withheld while the beat is still open');
-  eq(leaky.side, null, 'BLIND: a side is withheld while the beat is still open');
-  eq(leaky.strikes, {}, 'BLIND: and so are the strikes');
-  // "Submitted" means committed, not started. A side that has tapped one
-  // card is still deciding, and publishing that as submitted would tell
-  // the peer how far along they are, which is a tell about their strikes.
-  const midway = publicDraft({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2]] } }, 1);
-  eq(midway.submitted, [A], 'a side one card in does not read as submitted');
-
-  // Both in: the reveal is the point.
-  d = advance({ ...d, strikes: { ...d.strikes, [B]: [ids[2], ids[3]] } }, A, B);
-  ok(d.phase !== 'strike', 'both in ends the strike beat');
-  pub = publicDraft(d, 1);
-  eq(pub.strikes[A], [ids[0], ids[1]], 'reveal: A\'s strikes are published');
-  eq(pub.strikes[B], [ids[2], ids[3]], 'reveal: B\'s strikes are published');
-  eq(pub.submitted.sort(), [A, B].sort(), 'both listed as submitted');
-}
-
-// ── the arithmetic the whole design rests on ──
-{
-  // Two strikes each from five, blind, so they can overlap: survivors is
-  // 1, 2 or 3. Never 0 (four distinct removals from five is the most two
-  // sides can manage) and never 5 (each side must spend both).
-  const seen = new Set();
-  for (let i = 0; i < 4000; i++) {
-    const d0 = createDraft('fuzz|' + i, 'quick', A, B);
-    // Both sides fill the way a real expired clock fills: seeded per uid,
-    // so the two sets differ the way two people's choices differ.
-    const d = advance({ ...d0, strikes: { [A]: autoStrikes(d0, A, []), [B]: autoStrikes(d0, B, []) } }, A, B);
-    const n = survivorsOf(d).length;
-    seen.add(n);
-    ok(n >= 1 && n <= 3, 'survivors always between one and three');
-    if (n === 1) ok(d.phase === 'side' || d.phase === 'motion' || d.phase === 'done',
-      'one survivor skips straight past the motion call');
-  }
-  ok(seen.has(1), 'a single survivor does happen (the motion call must handle it)');
-}
-
-// ── client input is never trusted ──
-{
-  const d = fresh();
-  const ids = d.slate.map((m) => m.id);
-  eq(sanitizeStrikes(d, [ids[0], ids[0], ids[1]]), [ids[0], ids[1]], 'duplicates collapse');
-  eq(sanitizeStrikes(d, [ids[0], ids[1], ids[2], ids[3]]).length, STRIKES_PER_SIDE,
-    'a POST striking four cannot leave one survivor of its own choosing');
-  eq(sanitizeStrikes(d, ['not-a-motion', ids[2]]), [ids[2]], 'ids off the slate are dropped');
-  eq(sanitizeStrikes(d, null), [], 'garbage input strikes nothing');
-}
-
-// ── a timeout keeps what you actually chose ──
-{
-  const d = fresh();
-  const ids = d.slate.map((m) => m.id);
-  // Every card, not one: filling from empty would keep any single id by
-  // luck often enough that one case proves nothing.
-  ids.forEach((id) => {
-    const filled = autoStrikes(d, A, [id]);
-    eq(filled.length, STRIKES_PER_SIDE, 'a partial selection is topped up, not replaced (' + id + ')');
-    ok(filled.indexOf(id) !== -1, 'the card the debater actually picked survives their own clock (' + id + ')');
-  });
-  eq(autoStrikes(d, A, []), autoStrikes(d, A, []), 'the same expired clock always fills the same way');
-  ok(JSON.stringify(autoStrikes(d, A, [])) !== JSON.stringify(autoStrikes(d, B, [])),
-    'two silent sides do not fill identically (which would leave three survivors every time)');
-}
-
-// ── neither debater may use the other\'s power ──
-{
-  let d = fresh();
-  const ids = d.slate.map((m) => m.id);
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2]] } }, A, B);
-  eq(d.phase, 'strike', 'a short strike set does not advance the beat');
-
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2], ids[3]] } }, A, B);
-  eq(survivorsOf(d), [ids[4]], 'no overlap leaves exactly one');
-  eq(d.motionId, ids[4], 'one survivor is the motion, nobody calls it');
-  eq(d.phase, 'side', 'straight to the side call');
-  eq(actorFor(d), d.sideUid, 'the side holder owns this beat');
-
-  const wrong = applySidePick(d, d.motionUid, 'pro');
-  eq(wrong.ok, false, 'the motion holder cannot also call the side');
-  eq(wrong.reason, 'not_your_call', 'and is told why');
-  eq(applySidePick(d, d.sideUid, 'winner').ok, false, 'a made-up side is refused');
-
-  const good = applySidePick(d, d.sideUid, 'con');
-  ok(good.ok, 'the side holder may call their side');
-  const done = advance(good.draft, A, B);
-  eq(done.phase, 'done', 'that completes the draft');
+  eq(draftResult(fresh(), A, B), null, 'nothing settled: no round');
+  eq(draftResult(offered(), A, B), null, 'offer up but unanswered: no round');
+  const taken = go(offered(), (x) => applyResponse(x, R, 'take'));
+  eq(draftResult(taken, A, B), null, 'motion settled, side not: no round');
+  const countered = go(offered(), (x) => applyResponse(x, R, 'counter'));
+  eq(draftResult(countered, A, B), null, 'counter owed: no round');
+  const done = go(taken, (x) => applySidePick(x, R, 'pro'));
   const res = draftResult(done, A, B);
-  ok(!!res, 'a completed draft yields a result');
-  eq(res.motion, done.slate.find((m) => m.id === ids[4]).text, 'the surviving motion is the round');
-  eq(res.conUid, done.sideUid, 'the side holder got the side they called');
-  ok(res.proUid !== res.conUid, 'the two seats are different people');
-  eq([res.proUid, res.conUid].sort(), [A, B].sort(), 'and they are the two debaters');
+  ok(!!res, 'a settled draft opens a round');
+  ok(res.proUid !== res.conUid, 'the two seats are two different people');
+  ok([A, B].includes(res.proUid) && [A, B].includes(res.conUid), 'the seats are the real debaters');
+  ok(res.motion && res.motion.length > 8, 'the round carries real motion text');
+  // Forged shapes the endpoint could be handed by a corrupted document.
+  eq(draftResult(Object.assign({}, done, { motionId: 'ghost' }), A, B), null,
+     'a motion that is not on the table cannot seat anyone');
+  eq(draftResult(Object.assign({}, done, { side: null }), A, B), null,
+     'a done draft with no side cannot seat anyone');
+  eq(draftResult(Object.assign({}, done, { sideUid: null }), A, B), null,
+     'a done draft with no side holder cannot seat anyone');
+  eq(draftResult(Object.assign({}, done, { phase: 'side' }), A, B), null,
+     'an unfinished phase cannot seat anyone whatever else is set');
 }
 
-// ── a struck motion can never be the round ──
+// ── 2. whose clock is whose ─────────────────────────────────────────
+// round-draft's expire action refuses when eitherMayExpire is false and the
+// caller is not the actor. These are the two beats that must refuse.
 {
-  let d = fresh();
-  const ids = d.slate.map((m) => m.id);
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[0], ids[2]] } }, A, B);
-  eq(d.phase, 'motion', 'an overlapping strike leaves a real motion call');
-  const struck = applyMotionPick(d, d.motionUid, ids[0]);
-  eq(struck.ok, false, 'the motion holder cannot un-strike a motion by picking it');
-  eq(struck.reason, 'motion_struck', 'and is told why');
-  eq(applyMotionPick(d, d.sideUid, ids[3]).ok, false, 'the side holder cannot call the motion');
-  ok(applyMotionPick(d, d.motionUid, ids[3]).ok, 'a survivor may be called');
+  const first = fresh();
+  eq(eitherMayExpire(first), false, 'the opening offer is the offerer clock alone');
+  eq(actorFor(first), O, 'and the offerer is the one on it');
+  const ans = offered();
+  eq(eitherMayExpire(ans), false, 'the answer is the responder clock alone');
+  eq(actorFor(ans), R, 'and the responder is the one on it');
+  // Everything past the answer: both have moved, so a slow click must not
+  // cost the round.
+  const back = go(ans, (x) => applyResponse(x, R, 'back'));
+  ok(eitherMayExpire(back), 'the replacement offer may be expired by either');
+  const ctr = go(ans, (x) => applyResponse(x, R, 'counter'));
+  ok(eitherMayExpire(ctr), 'the counter beat may be expired by either');
+  const chose = go(ctr, (x) => applyOffer(x, R, { poolId: offerablePool(x)[0].id }));
+  ok(eitherMayExpire(chose), 'the choose beat may be expired by either');
+  const side = go(ans, (x) => applyResponse(x, R, 'take'));
+  ok(eitherMayExpire(side), 'the side beat may be expired by either');
+  // actorFor must name somebody on every live beat, or the endpoint's
+  // authority check compares against undefined and lets anyone through.
+  [first, ans, back, ctr, chose, side].forEach((d, i) => {
+    ok(!!actorFor(d), 'beat ' + i + ' (' + d.phase + ') names an actor');
+    ok([A, B].includes(actorFor(d)), 'beat ' + i + ' names a real debater');
+  });
+  eq(actorFor(go(side, (x) => applySidePick(x, R, 'pro'))), null, 'a finished draft has no actor');
 }
 
-// ── an unfinished draft can never open a room ──
+// ── 3. the stale path finishes ──────────────────────────────────────
+// round-draft runs autoResolve in a bounded loop on a stale draft. From any
+// beat, that loop has to reach 'done', or the next caller inherits the same
+// dead beat and the room never opens.
 {
-  let d = fresh();
-  eq(draftResult(d, A, B), null, 'a fresh draft has no result');
-  const ids = d.slate.map((m) => m.id);
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2], ids[3]] } }, A, B);
-  eq(draftResult(d, A, B), null, 'a draft still owing a side call has no result');
+  const starts = [
+    ['offer', fresh()],
+    ['respond', offered()],
+    ['counter', go(offered(), (x) => applyResponse(x, R, 'counter'))],
+    ['choose', go(go(offered(), (x) => applyResponse(x, R, 'counter')),
+                  (x) => applyOffer(x, R, { poolId: offerablePool(x)[0].id }))],
+    ['side', go(offered(), (x) => applyResponse(x, R, 'take'))],
+    ['back', go(offered(), (x) => applyResponse(x, R, 'back'))],
+  ];
+  starts.forEach(([label, start]) => {
+    let d = start, steps = 0;
+    for (let i = 0; i < 8 && d.phase !== 'done'; i++) { d = advance(autoResolve(d)); steps++; }
+    eq(d.phase, 'done', 'stale from ' + label + ' reaches done');
+    ok(steps <= 8, 'stale from ' + label + ' finishes inside the endpoint loop bound');
+    ok(!!draftResult(d, A, B), 'stale from ' + label + ' still opens a real round');
+  });
 }
 
-// ── two clocks expiring at once resolve the SAME way on both sides ──
+// ── the projection the round doc carries ────────────────────────────
+// The board renders from this and nothing else, so a missing field is a
+// beat somebody cannot answer.
 {
-  let d = fresh();
-  const ids = d.slate.map((m) => m.id);
-  d = advance({ ...d, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[0], ids[2]] } }, A, B);
-  const fromA = advance(autoResolve(d), A, B);
-  const fromB = advance(autoResolve(d), A, B);
-  eq(fromA.motionId, fromB.motionId, 'a timed-out motion call lands on one motion, not on whoever POSTed first');
-  const sideA = advance(autoResolve(fromA), A, B);
-  const sideB = advance(autoResolve(fromB), A, B);
-  eq(sideA.side, sideB.side, 'a timed-out side call lands on one side');
-  eq(draftResult(sideA, A, B), draftResult(sideB, A, B), 'both sides compute the same room');
-  ok(sideA.autoMotion === true && sideA.autoSide === true, 'an auto-resolved draft says it was a clock, not a person');
+  const beats = [fresh(), offered(),
+    go(offered(), (x) => applyResponse(x, R, 'counter')),
+    go(offered(), (x) => applyResponse(x, R, 'take'))];
+  beats.forEach((d) => {
+    const pub = publicDraft(d, 999);
+    ok(PHASES.includes(pub.phase), pub.phase + ': published phase is real');
+    ok(Array.isArray(pub.pool) && pub.pool.length >= 2, pub.phase + ': the suggestions travel');
+    ok(Array.isArray(pub.table), pub.phase + ': the table travels');
+    ok(typeof pub.vetoesLeft === 'number', pub.phase + ': the send-back count travels');
+    ok(pub.offerUid && pub.respondUid, pub.phase + ': both roles travel');
+    eq(pub.phaseAt, 999, pub.phase + ': the shot clock travels');
+    // The board computes its own offerable set from pool + table, so those
+    // two together have to be enough to reproduce it.
+    const taken = new Set(pub.table.map((m) => String(m.text).toLowerCase()));
+    const clientSide = pub.pool.filter((m) => !taken.has(String(m.text).toLowerCase()));
+    eq(clientSide.map((m) => m.id), offerablePool(d).map((m) => m.id),
+       pub.phase + ': the board derives the same offerable set as the server');
+  });
+  // Contenders on the choose beat have to be reconstructible too, or the
+  // debater picking between two motions sees fewer than two.
+  const chooseBeat = go(go(offered(), (x) => applyResponse(x, R, 'counter')),
+                        (x) => applyOffer(x, R, { poolId: offerablePool(x)[0].id }));
+  const pub = publicDraft(chooseBeat, 1);
+  eq([pub.offerId, pub.counterId].filter(Boolean).length, 2, 'both contenders are on the doc');
+  eq(contenders(chooseBeat).length, 2, 'and the server agrees there are two');
 }
 
-// ── "add your own motion" (2026-09-02) ──
-// A custom card is a card like any other: both see it, either can strike
-// it. The window closes the moment a strike is in, or the adder could put
-// up a motion the other side never got to veto.
+// ── the clocks the client mirrors ───────────────────────────────────
+// live-round.html and spar.html both hardcode these; a drift means a client
+// asks the server to expire a beat the server thinks is still live.
 {
-  let d = fresh();
-  const text = 'This house would ban homework in primary schools.';
-  const r = addCustomMotion(d, A, text);
-  ok(r.ok, 'a debater can add one motion during the strike beat');
-  eq(r.draft.slate.length, SLATE_SIZE + 1, 'the custom motion is appended to the slate');
-  const added = r.draft.slate[r.draft.slate.length - 1];
-  eq(added.text, text, 'the text lands verbatim');
-  eq(added.addedBy, A, 'the card records who added it');
-  ok(new Set(r.draft.slate.map((m) => m.id)).size === SLATE_SIZE + 1, 'the custom id collides with nothing dealt');
-  eq(d.slate.length, SLATE_SIZE, 'the input draft is not mutated');
-  eq(strikesFor(r.draft), STRIKES_PER_SIDE, 'the strike allowance does not grow with the slate');
-
-  ok(!addCustomMotion(r.draft, A, 'This house would ban homework entirely, forever.').ok, 'one custom motion per side');
-  const rB = addCustomMotion(r.draft, B, 'This house would abolish tipping in restaurants.');
-  ok(rB.ok && rB.draft.slate.length === SLATE_SIZE + 2, 'the other side may add its own');
-  eq(addCustomMotion(r.draft, B, text.toUpperCase()).reason, 'duplicate', 'a motion already on the slate is refused');
-  eq(addCustomMotion(d, A, 'x'.repeat(CUSTOM_MOTION_MIN - 1)).reason, 'too_short', 'a fragment is refused');
-  eq(addCustomMotion(d, A, 'x'.repeat(CUSTOM_MOTION_MAX + 1)).reason, 'too_long', 'an essay is refused');
-
-  // Published to both sides, with the author, so the board can label it.
-  const pub = publicDraft(r.draft, 1);
-  ok(pub.slate.some((m) => m.addedBy === A && m.text === text), 'the custom card is published with its author');
-  eq(pub.poolLocked, false, 'a casual slate reports custom motions as allowed');
-
-  // The window: any strike in, no more adds. Otherwise the adder gets a
-  // guaranteed survivor of their own choosing.
-  const ids = d.slate.map((m) => m.id);
-  const struck = advance({ ...r.draft, strikes: { [B]: [ids[0], ids[1]] } }, A, B);
-  eq(addCustomMotion(struck, A, 'This house would make voting compulsory.').reason, 'strikes_in', 'no adds once the other side has struck');
-  eq(addCustomMotion(struck, B, 'This house would make voting compulsory.').reason, 'strikes_in', 'no adds once you have struck either');
-
-  // It faces the same strikes and can run.
-  const cid = added.id;
-  let done = advance({ ...r.draft, strikes: { [A]: [ids[0], ids[1]], [B]: [ids[2], ids[3]] } }, A, B);
-  ok(survivorsOf(done).indexOf(cid) !== -1, 'a custom card survives like any other');
-  const pick = applyMotionPick(done, done.motionUid, cid);
-  ok(pick.ok, 'the motion holder may call the custom motion');
-  done = advance(pick.draft, A, B);
-  done = advance(applySidePick(done, done.sideUid, 'con').draft, A, B);
-  eq(draftResult(done, A, B).motion, text, 'the room opens on the custom text');
-
-  // And it can be struck out.
-  const gone = advance({ ...r.draft, strikes: { [A]: [ids[0], ids[1]], [B]: [cid, ids[2]] } }, A, B);
-  ok(survivorsOf(gone).indexOf(cid) === -1, 'the other side can strike a custom motion');
-  eq(applyMotionPick(gone, gone.motionUid, cid).reason, 'motion_struck', 'a struck custom motion cannot be called');
-
-  // Tournament pools are closed.
-  const t = createDraft(seed, 'quick', A, B, { pool: ['Motion one for the pool', 'Motion two for the pool', 'Motion three for the pool'], slateSize: 3, strikesPerSide: 1 });
-  eq(t.poolLocked, true, 'a stamped pool locks the slate');
-  eq(addCustomMotion(t, A, 'This house would ban homework in primary schools.').reason, 'pool_locked', 'no custom motions on a stamped pool');
-  eq(publicDraft(t, 1).poolLocked, true, 'the lock is published so the board hides the option');
+  eq(secondsFor('offer'), 16, 'offer clock matches the client constant');
+  eq(secondsFor('respond'), 14, 'respond clock matches the client constant');
+  eq(secondsFor('counter'), 14, 'counter clock matches the client constant');
+  eq(secondsFor('choose'), 10, 'choose clock matches the client constant');
+  eq(secondsFor('side'), 9, 'side clock matches the client constant');
 }
 
-if (fail) { console.error(`\n${fail} assertion(s) failed`); process.exit(1); }
-console.log('round draft: all assertions pass');
+if (fail) { console.error('\nround-draft guard: ' + fail + ' FAILED of ' + n); process.exit(1); }
+console.log('round-draft guard: ' + n + ' assertions passed');

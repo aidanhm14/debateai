@@ -1,51 +1,95 @@
-// motion-draft.mjs — the pre-round motion draft. PURE. No I/O, no Firestore.
+// motion-draft.mjs — the pre-round motion negotiation. PURE. No I/O, no Firestore.
 //
-// Both debaters get the SAME server-stamped slate, use its strike allowance
-// with the other side's strikes hidden, and whatever survives runs. Casual
-// defaults are five motions and two strikes each; tournament rooms may stamp
-// another pool and count. A coin flip splits the two powers that are left:
-// one debater calls the motion when more than one survives, the other calls
-// their side. That split is the whole fairness argument. Last word on the
-// motion is real power, so side choice is what it costs; handing one person
-// both would make the flip decide the round.
+// THE STRIKE BEAT IS GONE (2026-09-02, the founder: "get rid of the whole
+// feature to strike motions - offer a motion, then offer one to offer one
+// or strike - give them options in a strategic manner"). Blind strikes over
+// a dealt slate were a vetoing game: both sides removed motions at once and
+// whatever nobody hated became the round, which reliably produced the
+// blandest card on the table. This is a NEGOTIATION instead. One debater
+// puts a motion up. The other answers it. Every answer is a real choice with
+// a real cost, and the cost is always the same currency:
 //
-// The arithmetic that shapes everything here: blind strikes can OVERLAP,
-// so survivors is not always one. The casual five/two profile leaves 1, 2
-// or 3; the tournament three/one profile leaves 1 or 2. The allowance is
-// capped below half the slate, so a valid draft always keeps a motion alive.
+//   ONE PERSON DECIDES THE MOTION. THE OTHER DECIDES THE SIDE.
 //
-// Determinism is load-bearing in two directions. The slate is seeded off the
-// pair so both clients could derive it independently, and the auto-picks a
-// timeout falls back to are seeded too, so a draft resolved by two expired
-// clocks lands on the same motion and the same sides for both people rather
-// than on whichever client's POST arrived first.
+// That invariant survives from the strike design and is the whole fairness
+// argument. Last word on what is argued is real power, so last word on which
+// bench you sit is what it costs; handing one person both would make the
+// coin flip decide the round rather than the debate.
 //
-// State lives on both queue docs under `draft` and is advanced by the server
-// (spar-pair.mjs) inside the existing consent transaction. The client renders
-// it and never decides it: a client that could pick its own side would just
-// pick the winning one.
+// The tree, and every branch is priced:
+//
+//   1. OFFER    the offerer (seeded coin flip) puts one motion up.
+//   2. RESPOND  the responder picks one of three:
+//        take     we debate it. The responder picks their side.
+//        back     kill it. The offerer must offer a DIFFERENT one and the
+//                 responder must take that. The responder still picks their
+//                 side, because they never chose a motion, they refused one.
+//                 ONE free veto, never two.
+//        counter  the responder puts their own motion up. The offerer then
+//                 picks WHICH of the two runs and picks their own side.
+//      So the only way to get your own motion onto the table is to give up
+//      the side. That is the trade, and it is one sentence long on purpose.
+//   3. SIDE     whoever the branch handed the side call to takes a bench.
+//
+// WHAT THIS DELETED, and why none of it is missed. There is no slate, no
+// strike allowance, no reveal, and no blindness: every move here is
+// SEQUENTIAL and PUBLIC, one actor at a time, so there is no simultaneous
+// secret to protect. publicDraft() used to BE the blindness and is now an
+// honest identity projection; the round doc can carry the whole draft
+// because nothing on it is a card somebody has not played yet.
+//
+// Determinism is still load-bearing. The suggestion pool is seeded off the
+// pair so both clients derive the same cards, and every timeout resolution
+// is seeded too, so a beat that expires on both clocks at once cannot land
+// the two browsers on two different motions.
+//
+// A client never decides anything here. The server (round-draft.mjs) runs
+// this module over the stored draft; a client that could pick its own side
+// would pick the winning one.
 
 import { draftPoolFor } from './draft-motions.mjs';
 
-export const DRAFT_VERSION = 2;
-export const SLATE_SIZE = 5;
-export const STRIKES_PER_SIDE = 2;
+export const DRAFT_VERSION = 3;
 
-// Shot clocks, seconds. The strike window carries the reading load (five
-// motions to weigh) so it gets the longest; the two pick beats are a single
-// choice off a short list. Total worst case is ~28s of pre-round, which is
-// long for a queue and short for a champ select. It is active time, not
-// waiting time, which is the trade being made.
-export const STRIKE_SEC = 14;
-export const PICK_SEC = 9;
+// How many suggestions whoever is offering gets to choose between. Four is
+// enough to have a preference and few enough to read in a shot clock; a
+// tournament stamps its own published pool instead.
+export const POOL_SIZE = 4;
 
-export const PHASES = ['strike', 'motion', 'side', 'done'];
+// Shot clocks, seconds. The two beats that carry reading load (choosing what
+// to offer, weighing three answers) get the longer clocks; picking between
+// two motions or two benches is one glance. Worst path — offer, counter,
+// choose, side — is about 49s, and every second of it is somebody's turn
+// rather than dead waiting.
+export const OFFER_SEC = 16;
+export const RESPOND_SEC = 14;
+export const COUNTER_SEC = 14;
+export const CHOOSE_SEC = 10;
+export const SIDE_SEC = 9;
+
+export const PHASES = ['offer', 'respond', 'counter', 'choose', 'side', 'done'];
+export const RESPONSES = ['take', 'back', 'counter'];
+
+// A motion written by hand rather than taken off the suggestion cards.
+// Bounds here are structural; the CONTENT boundary (the site's motion rules)
+// is the endpoint's job and runs before any of this is reached.
+export const MOTION_MIN = 12;
+export const MOTION_MAX = 200;
+
+export function secondsFor(phase) {
+  if (phase === 'offer') return OFFER_SEC;
+  if (phase === 'respond') return RESPOND_SEC;
+  if (phase === 'counter') return COUNTER_SEC;
+  if (phase === 'choose') return CHOOSE_SEC;
+  if (phase === 'side') return SIDE_SEC;
+  return SIDE_SEC;
+}
 
 // ── seeded randomness ───────────────────────────────────────────────
-// FNV-1a, then mulberry32. Both are tiny, both are deterministic across
-// Node and every browser, and neither pulls a dependency into a function
-// bundle. Math.random() cannot be used anywhere in this file: the two
-// clients and the server all have to land on the same answer.
+// FNV-1a, then mulberry32. Both tiny, both deterministic across Node and
+// every browser, neither pulls a dependency into a function bundle.
+// Math.random() cannot be used anywhere in this file: the two clients and
+// the server all have to land on the same answer.
 function hash32(str) {
   let h = 0x811c9dc5;
   const s = String(str);
@@ -66,9 +110,8 @@ function mulberry32(a) {
   };
 }
 
-// Fisher-Yates over a COPY. Shuffling the pool in place would mutate the
-// module-level DRAFT_MOTIONS array and quietly reorder every later draft in
-// the same warm Lambda instance.
+// Fisher-Yates over a COPY. Shuffling in place would mutate the module-level
+// pool array and quietly reorder every later draft in the same warm Lambda.
 function shuffled(list, rand) {
   const out = list.slice();
   for (let i = out.length - 1; i > 0; i--) {
@@ -81,280 +124,322 @@ function shuffled(list, rand) {
 }
 
 // The seed for a pair. Sorted uids, so both sides compute the same value
-// whichever one of them is asking, plus the room id so two people who queue
-// into each other twice in a session do not get the same five motions again.
+// whichever one is asking, plus the room id so two people who queue into
+// each other twice do not get the same cards again.
 export function draftSeed(uidA, uidB, room) {
   return [String(uidA || ''), String(uidB || '')].sort().join('~') + '|' + String(room || '');
 }
 
-// ── slate ───────────────────────────────────────────────────────────
+// ── the suggestion pool ─────────────────────────────────────────────
 
-export function buildSlate(seed, format, options = {}) {
-  const customPool = Array.isArray(options.pool)
+export function buildPool(seed, format, options = {}) {
+  const custom = Array.isArray(options.pool)
     ? options.pool.map((m) => String(m || '').trim()).filter(Boolean)
     : [];
-  const pool = customPool.length >= 3 ? customPool : draftPoolFor(format);
-  const want = Math.max(3, Math.min(pool.length, 7,
-    Math.round(Number(options.slateSize) || SLATE_SIZE)));
-  const rand = mulberry32(hash32('slate:' + seed));
-  const picked = shuffled(pool, rand).slice(0, want);
-  return picked.map((text, i) => ({ id: 'm' + (i + 1), text: String(text) }));
+  const locked = custom.length >= 2;
+  const source = locked ? custom : draftPoolFor(format);
+  // Both kinds draw the same way. A tournament's published list is the
+  // SOURCE, not the screen: every motion a room can reach came off the
+  // published twenty, and each room draws its own few from it, which is
+  // what the strike design did too. Twenty cards under a shot clock is a
+  // reading exercise, not a choice.
+  const want = Math.max(2, Math.min(source.length, 8,
+    Math.round(Number(options.poolSize) || POOL_SIZE)));
+  const rand = mulberry32(hash32('pool:' + seed));
+  return shuffled(source, rand).slice(0, want).map((text, i) => ({ id: 'p' + (i + 1), text: String(text) }));
 }
 
-// Roles. One debater calls the motion, the other calls the side, and which
-// is which is a coin flip nobody can influence: it is derived from the seed
-// before either of them has touched anything.
+// Who offers first. A coin flip nobody can influence: derived from the seed
+// before either debater has touched anything. It decides only who MOVES
+// first, not who ends up with which power — the branch decides that.
 export function assignRoles(seed, uidA, uidB) {
   const pair = [String(uidA), String(uidB)].sort();
   const heads = mulberry32(hash32('coin:' + seed))() < 0.5;
-  return {
-    motionUid: heads ? pair[0] : pair[1],
-    sideUid: heads ? pair[1] : pair[0],
-  };
+  return { offerUid: heads ? pair[0] : pair[1], respondUid: heads ? pair[1] : pair[0] };
 }
 
 export function createDraft(seed, format, uidA, uidB, options = {}) {
   const roles = assignRoles(seed, uidA, uidB);
-  const slate = buildSlate(seed, format, options);
-  const maxStrikes = Math.max(1, Math.floor((slate.length - 1) / 2));
-  const strikesPerSide = Math.max(1, Math.min(maxStrikes,
-    Math.round(Number(options.strikesPerSide) || STRIKES_PER_SIDE)));
+  const pool = buildPool(seed, format, options);
   return {
     v: DRAFT_VERSION,
     seed: String(seed),
-    slate,
-    strikesPerSide,
-    // A stamped pool (tournament) is the whole slate; nobody adds to it.
-    poolLocked: Array.isArray(options.pool) && options.pool.length >= 3,
-    motionUid: roles.motionUid,
-    sideUid: roles.sideUid,
-    strikes: {},
+    pool,
+    // A stamped pool (tournament) publishes its motions, so nobody writes
+    // one by hand: an event's motion list has to mean what it says.
+    poolLocked: Array.isArray(options.pool) && options.pool.length >= 2,
+    offerUid: roles.offerUid,
+    respondUid: roles.respondUid,
+    // Motions actually put on the table. Grows by at most three (an offer,
+    // a replacement after a send-back, a counter).
+    table: [],
+    offerId: null,     // the live offer, from offerUid
+    counterId: null,   // the counter, from respondUid
+    sentBack: [],      // table ids the responder refused; at most one
+    response: null,    // 'take' | 'back' | 'counter'
     motionId: null,
-    side: null,       // the side sideUid takes: 'pro' | 'con'
-    autoMotion: false, // a clock, not a person, made this call
+    sideUid: null,     // set by the branch, not by the coin flip
+    side: null,        // the side sideUid takes: 'pro' | 'con'
+    autoOffer: false,  // a clock, not a person, made this call
+    autoResponse: false,
+    autoMotion: false,
     autoSide: false,
-    phase: 'strike',
+    phase: 'offer',
   };
 }
 
-// ── strikes ─────────────────────────────────────────────────────────
+// ── reading the draft ───────────────────────────────────────────────
 
-function slateIds(draft) {
-  return (draft && Array.isArray(draft.slate) ? draft.slate : []).map((m) => m.id);
+export function tableOf(draft) {
+  return (draft && Array.isArray(draft.table)) ? draft.table : [];
 }
-
-// Old in-flight drafts carry no per-draft allowance. Derive the legacy two
-// from their five-card slate, while custom tournament drafts carry one.
-export function strikesPerSideFor(draft) {
-  const size = slateIds(draft).length || SLATE_SIZE;
-  const max = Math.max(1, Math.floor((size - 1) / 2));
-  return Math.max(1, Math.min(max,
-    Math.round(Number(draft && draft.strikesPerSide) || STRIKES_PER_SIDE)));
+export function poolOf(draft) {
+  return (draft && Array.isArray(draft.pool)) ? draft.pool : [];
 }
-
-// Client input. Never trust the count, the membership, or the uniqueness:
-// a hand-rolled POST striking four motions would leave one survivor of its
-// own choosing, which is the whole draft handed to whoever opens devtools.
-export function sanitizeStrikes(draft, raw) {
-  const valid = new Set(slateIds(draft));
-  const required = strikesPerSideFor(draft);
-  const out = [];
-  const list = Array.isArray(raw) ? raw : [];
-  for (const r of list) {
-    const id = String(r || '');
-    if (valid.has(id) && out.indexOf(id) === -1) out.push(id);
-    if (out.length >= required) break;
-  }
-  return out;
+export function motionTextOf(draft, id) {
+  const hit = tableOf(draft).find((m) => m.id === String(id));
+  return hit ? hit.text : '';
 }
-
-// Fill a short or empty strike set. Called for a timeout, and for the AI
-// opponent. Seeded per uid so the same expired clock always fills the same
-// way, and so the two sides do not fill identically (which would leave three
-// survivors every single time a pair both went quiet).
-export function autoStrikes(draft, uid, existing) {
-  const required = strikesPerSideFor(draft);
-  const have = sanitizeStrikes(draft, existing);
-  if (have.length >= required) return have;
-  const rand = mulberry32(hash32('auto:' + (draft && draft.seed) + ':' + String(uid)));
-  const rest = shuffled(slateIds(draft).filter((id) => have.indexOf(id) === -1), rand);
-  return have.concat(rest.slice(0, required - have.length));
+// One free veto, never two. Written as a function because it is a RULE, and
+// a rule stated once cannot drift between the server and the board.
+export const VETOES_PER_ROUND = 1;
+export function vetoesLeft(draft) {
+  const used = (draft && Array.isArray(draft.sentBack)) ? draft.sentBack.length : 0;
+  return Math.max(0, VETOES_PER_ROUND - used);
 }
-
-// What is left. Order follows the slate, not the strike order, so the
-// deterministic fallback below ("first survivor") means the same thing on
-// every client.
-export function survivorsOf(draft) {
-  const struck = new Set();
-  const strikes = (draft && draft.strikes) || {};
-  Object.keys(strikes).forEach((uid) => {
-    (Array.isArray(strikes[uid]) ? strikes[uid] : []).forEach((id) => struck.add(id));
-  });
-  return slateIds(draft).filter((id) => !struck.has(id));
+// What the offerer may still put up: the suggestions, minus anything already
+// on the table or already refused. Deliberately excludes sent-back motions,
+// because re-offering the one they just killed would make the veto a joke.
+export function offerablePool(draft) {
+  const taken = new Set(tableOf(draft).map((m) => String(m.text || '').toLowerCase()));
+  return poolOf(draft).filter((m) => !taken.has(String(m.text || '').toLowerCase()));
 }
-
-// ── custom motions ──────────────────────────────────────────────────
-//
-// Either debater may put ONE motion of their own on the slate during the
-// strike beat. It is a card like any other: both people see it, either can
-// strike it, and it can only run if it survives the same two strikes the
-// dealt motions face. That is what keeps it fair without a consent flow.
-//
-// The window closes the moment anyone commits strikes. A motion added after
-// the opponent has struck is a motion they never got to veto, which would
-// hand the adder a guaranteed survivor of their own choosing. The endpoint
-// resets the strike clock on an add so the other side has time to read it.
-//
-// Content is the ENDPOINT's job (content-guard, the site motion boundary);
-// this only owns the structure. Text bounds here are a floor, not the
-// guard.
-export const CUSTOM_MOTION_MIN = 12;
-export const CUSTOM_MOTION_MAX = 200;
-export const CUSTOM_PER_SIDE = 1;
-
-export function customMotionsBy(draft, uid) {
-  return (draft && Array.isArray(draft.slate) ? draft.slate : [])
-    .filter((m) => m && String(m.addedBy || '') === String(uid));
-}
-
-export function anyStrikesIn(draft) {
-  const s = (draft && draft.strikes) || {};
-  return Object.keys(s).some((u) => Array.isArray(s[u]) && s[u].length > 0);
-}
-
-export function addCustomMotion(draft, uid, rawText) {
-  if (!draft || draft.phase !== 'strike') return { ok: false, reason: 'wrong_phase' };
-  if (draft.poolLocked) return { ok: false, reason: 'pool_locked' };
-  if (anyStrikesIn(draft)) return { ok: false, reason: 'strikes_in' };
-  if (customMotionsBy(draft, uid).length >= CUSTOM_PER_SIDE) return { ok: false, reason: 'already_added' };
-  const text = String(rawText || '').replace(/\s+/g, ' ').trim();
-  if (text.length < CUSTOM_MOTION_MIN) return { ok: false, reason: 'too_short' };
-  if (text.length > CUSTOM_MOTION_MAX) return { ok: false, reason: 'too_long' };
-  const slate = Array.isArray(draft.slate) ? draft.slate : [];
-  const lower = text.toLowerCase();
-  if (slate.some((m) => String(m.text || '').toLowerCase() === lower)) return { ok: false, reason: 'duplicate' };
-  // Ids stay unique across dealt and added cards; slateIds() drives every
-  // strike and survivor computation, so a collision would merge two motions.
-  const id = 'c' + (slate.filter((m) => String(m.id || '').charAt(0) === 'c').length + 1);
-  const entry = { id, text, addedBy: String(uid) };
-  return { ok: true, draft: Object.assign({}, draft, { slate: slate.concat([entry]) }) };
-}
-
-export function bothStruck(draft, uidA, uidB) {
-  const s = (draft && draft.strikes) || {};
-  const required = strikesPerSideFor(draft);
-  const done = (u) => Array.isArray(s[u]) && s[u].length === required;
-  return done(uidA) && done(uidB);
+// The motions the offerer is choosing between at the 'choose' beat.
+export function contenders(draft) {
+  if (!draft) return [];
+  return [draft.offerId, draft.counterId]
+    .filter(Boolean)
+    .map((id) => tableOf(draft).find((m) => m.id === id))
+    .filter(Boolean);
 }
 
 // ── phase machine ───────────────────────────────────────────────────
 //
-// Returns a NEW draft object; never mutates the argument. Called after every
-// write so the phase on the doc is always derived from the facts on the doc,
-// not from a client's claim about which beat it is on.
-export function advance(draft, uidA, uidB) {
-  const d = Object.assign({}, draft, { strikes: Object.assign({}, draft.strikes) });
-
-  if (!bothStruck(d, uidA, uidB)) {
-    d.phase = 'strike';
-    return d;
-  }
-
-  const survivors = survivorsOf(d);
-
-  // One survivor means the strikes already decided it. The motion holder
-  // gets no choice here and the client renders the lock-in beat instead,
-  // which is a moment rather than a decision.
-  if (survivors.length === 1) {
-    d.motionId = survivors[0];
-  } else if (d.motionId && survivors.indexOf(d.motionId) === -1) {
-    // A motion that was picked and then somehow is not a survivor cannot be
-    // trusted. Fall back rather than run a round on a struck motion.
-    d.motionId = null;
-  }
-
-  if (!d.motionId) {
-    d.phase = 'motion';
-    return d;
-  }
-  if (d.side !== 'pro' && d.side !== 'con') {
-    d.phase = 'side';
-    return d;
-  }
-  d.phase = 'done';
+// Returns a NEW draft; never mutates the argument. Called after every write
+// so the phase on the doc is derived from the FACTS on the doc rather than
+// from a client's claim about which beat it is on.
+export function advance(draft) {
+  const d = Object.assign({}, draft);
+  if (d.motionId && (d.side === 'pro' || d.side === 'con')) d.phase = 'done';
+  else if (d.motionId) d.phase = 'side';
+  else if (d.response === 'counter' && !d.counterId) d.phase = 'counter';
+  else if (d.response === 'counter') d.phase = 'choose';
+  else if (!d.offerId) d.phase = 'offer';
+  else d.phase = 'respond';
   return d;
 }
 
-// Whose clock is running. The client uses this to know whether to render a
-// decision or a spectator view, and the server uses it to reject a pick from
-// the debater who does not hold that power.
+// Whose clock is running. The client uses it to know whether to render a
+// decision or a watching state; the server uses it to reject a move from the
+// debater who does not hold that power.
 export function actorFor(draft) {
   if (!draft) return null;
-  if (draft.phase === 'motion') return draft.motionUid;
+  if (draft.phase === 'offer') return draft.offerUid;
+  if (draft.phase === 'respond') return draft.respondUid;
+  if (draft.phase === 'counter') return draft.respondUid;
+  if (draft.phase === 'choose') return draft.offerUid;
   if (draft.phase === 'side') return draft.sideUid;
   return null;
 }
 
+// The first two beats are the ones that PROVE somebody is at a keyboard.
+// Before the responder has answered, exactly one person has moved, so
+// resolving a stalled beat for the silent one is how a room opens onto an
+// empty chair — the 411-round finding. Those beats may only be expired by
+// the debater whose own clock ran out; a silent peer unwinds through the
+// ghost path instead. Past the response both have acted, so either side may
+// expire and a slow click never costs the round.
+export function eitherMayExpire(draft) {
+  if (!draft) return false;
+  return draft.phase === 'counter' || draft.phase === 'choose' || draft.phase === 'side'
+    || (draft.phase === 'offer' && !!draft.response);
+}
+
+// ── moves ───────────────────────────────────────────────────────────
+
+function normalizeText(raw) {
+  return String(raw || '').replace(/\s+/g, ' ').trim();
+}
+
+function nextTableId(draft) {
+  return 't' + (tableOf(draft).length + 1);
+}
+
+// Put a motion on the table. Used by BOTH the offer beat and the counter
+// beat, because "name the motion you want" is the same act either way.
+// `poolId` takes one of the suggestions; `text` writes one by hand and is
+// refused outright on a stamped tournament pool.
+export function applyOffer(draft, uid, input = {}) {
+  const phase = draft && draft.phase;
+  if (phase !== 'offer' && phase !== 'counter') return { ok: false, reason: 'wrong_phase' };
+  const who = phase === 'offer' ? draft.offerUid : draft.respondUid;
+  if (String(uid) !== String(who)) return { ok: false, reason: 'not_your_call' };
+
+  let text = '';
+  const poolId = input.poolId ? String(input.poolId) : '';
+  if (poolId) {
+    const card = offerablePool(draft).find((m) => m.id === poolId);
+    if (!card) return { ok: false, reason: 'bad_motion' };
+    text = card.text;
+  } else {
+    if (draft.poolLocked) return { ok: false, reason: 'pool_locked' };
+    text = normalizeText(input.text);
+    if (text.length < MOTION_MIN) return { ok: false, reason: 'too_short' };
+    if (text.length > MOTION_MAX) return { ok: false, reason: 'too_long' };
+  }
+  const lower = text.toLowerCase();
+  // Offering the motion that was just sent back, or the one already up,
+  // would let the offerer answer a veto by ignoring it.
+  if (tableOf(draft).some((m) => String(m.text || '').toLowerCase() === lower)) {
+    return { ok: false, reason: 'duplicate' };
+  }
+
+  const entry = { id: nextTableId(draft), text, by: String(uid) };
+  const d = Object.assign({}, draft, { table: tableOf(draft).concat([entry]) });
+  if (phase === 'offer') {
+    d.offerId = entry.id;
+    d.autoOffer = false;
+    // A send-back buys ONE replacement and the responder must take it. The
+    // motion settles here, and the side stays with the responder because
+    // refusing a motion is not choosing one.
+    if (d.response === 'back') {
+      d.motionId = entry.id;
+      d.sideUid = d.respondUid;
+    }
+  } else {
+    d.counterId = entry.id;
+  }
+  return { ok: true, draft: d };
+}
+
+// The responder's answer, and the whole strategic beat.
+export function applyResponse(draft, uid, choice) {
+  if (!draft || draft.phase !== 'respond') return { ok: false, reason: 'wrong_phase' };
+  if (String(uid) !== String(draft.respondUid)) return { ok: false, reason: 'not_your_call' };
+  const c = String(choice || '').toLowerCase();
+  if (RESPONSES.indexOf(c) === -1) return { ok: false, reason: 'bad_choice' };
+
+  const d = Object.assign({}, draft, { response: c, autoResponse: false });
+  if (c === 'take') {
+    d.motionId = draft.offerId;
+    d.sideUid = draft.respondUid;
+  } else if (c === 'back') {
+    if (vetoesLeft(draft) <= 0) return { ok: false, reason: 'no_veto_left' };
+    d.sentBack = (draft.sentBack || []).concat([draft.offerId]);
+    d.offerId = null;
+    // The side stays with the responder; the offerer owes a replacement.
+  } else {
+    // Counter. Putting your own motion up costs the side, every time.
+    d.sideUid = draft.offerUid;
+  }
+  return { ok: true, draft: d };
+}
+
+// The offerer picking between their motion and the counter.
 export function applyMotionPick(draft, uid, motionId) {
-  if (draft.phase !== 'motion') return { ok: false, reason: 'wrong_phase' };
-  if (String(uid) !== String(draft.motionUid)) return { ok: false, reason: 'not_your_call' };
-  const survivors = survivorsOf(draft);
-  if (survivors.indexOf(String(motionId)) === -1) return { ok: false, reason: 'motion_struck' };
-  return { ok: true, draft: Object.assign({}, draft, { motionId: String(motionId), autoMotion: false }) };
+  if (!draft || draft.phase !== 'choose') return { ok: false, reason: 'wrong_phase' };
+  if (String(uid) !== String(draft.offerUid)) return { ok: false, reason: 'not_your_call' };
+  const id = String(motionId);
+  if (contenders(draft).every((m) => m.id !== id)) return { ok: false, reason: 'bad_motion' };
+  return { ok: true, draft: Object.assign({}, draft, { motionId: id, autoMotion: false }) };
 }
 
 export function applySidePick(draft, uid, side) {
-  if (draft.phase !== 'side') return { ok: false, reason: 'wrong_phase' };
+  if (!draft || draft.phase !== 'side') return { ok: false, reason: 'wrong_phase' };
   if (String(uid) !== String(draft.sideUid)) return { ok: false, reason: 'not_your_call' };
   const s = String(side).toLowerCase();
   if (s !== 'pro' && s !== 'con') return { ok: false, reason: 'bad_side' };
   return { ok: true, draft: Object.assign({}, draft, { side: s, autoSide: false }) };
 }
 
-// Timeout resolution. Deliberately NOT random at call time: both clients and
-// the server derive the same answer from the seed, so a draft that expires on
-// both sides at once cannot resolve two different ways.
+// ── timeouts ────────────────────────────────────────────────────────
+//
+// Deliberately NOT random at call time: both clients and the server derive
+// the same answer from the seed, so a beat that expires on two clocks at
+// once cannot resolve two different ways. Every auto path is marked on the
+// draft so the board can say a clock made the call, not a person.
 export function autoResolve(draft) {
   const d = Object.assign({}, draft);
-  if (d.phase === 'motion') {
-    const survivors = survivorsOf(d);
-    d.motionId = survivors[0] || null;
+  const rand = (salt) => mulberry32(hash32(salt + ':' + d.seed + ':' + tableOf(d).length))();
+
+  if (d.phase === 'offer' || d.phase === 'counter') {
+    const options = offerablePool(d);
+    // Nothing left to offer is only reachable on an exhausted custom pool.
+    // Falling through leaves the phase where it was rather than opening a
+    // round on no motion at all.
+    if (!options.length) return d;
+    const pick = options[Math.floor(rand('auto-offer') * options.length)] || options[0];
+    const res = applyOffer(d, d.phase === 'offer' ? d.offerUid : d.respondUid, { poolId: pick.id });
+    if (!res.ok) return d;
+    const out = res.draft;
+    if (d.phase === 'offer') out.autoOffer = true;
+    return out;
+  }
+  if (d.phase === 'respond') {
+    // A clock running out is not a veto and not a counter. Taking what is
+    // on the table is the neutral outcome, and it is the one that leaves
+    // the side with the person who did not act, so silence is never
+    // rewarded and never punished.
+    const res = applyResponse(d, d.respondUid, 'take');
+    if (!res.ok) return d;
+    const out = res.draft;
+    out.autoResponse = true;
+    return out;
+  }
+  if (d.phase === 'choose') {
+    const list = contenders(d);
+    if (!list.length) return d;
+    d.motionId = list[Math.floor(rand('auto-motion') * list.length)].id;
     d.autoMotion = true;
-  } else if (d.phase === 'side') {
-    d.side = mulberry32(hash32('side:' + d.seed))() < 0.5 ? 'pro' : 'con';
+    return d;
+  }
+  if (d.phase === 'side') {
+    d.side = rand('auto-side') < 0.5 ? 'pro' : 'con';
     d.autoSide = true;
+    return d;
   }
   return d;
 }
 
 // ── publication ─────────────────────────────────────────────────────
 //
-// What a SHARED doc is allowed to say. The queue model got blindness for
-// free, because each doc held only its own owner's strikes. In the room
-// both debaters read one document and Firestore has no field-level read
-// rule, so the full draft stays server-side and this is the projection
-// that goes out: during the strike beat, WHO has committed and never WHAT
-// they struck. Seeing the other side's strikes before committing your own
-// is the one thing that would make the whole beat pointless, so this
-// function is the blindness, not a formatting helper.
+// The projection that reaches live_rounds/{room}.draft, which every client
+// in the room can read. Under the strike design this function WAS the
+// blindness: two people moved at once, so publishing one side's strikes
+// handed the other the whole draft. There is no simultaneous move left, so
+// there is nothing to withhold and this is now an honest whole-draft copy.
+// It is kept as a function on purpose: it is the one place that decides what
+// a shared document is allowed to say, and the next beat that IS secret
+// should be redacted here rather than anywhere else.
 export function publicDraft(draft, phaseAt) {
-  const open = draft.phase === 'strike';
-  const strikes = draft.strikes || {};
-  const required = strikesPerSideFor(draft);
-  const submitted = Object.keys(strikes)
-    .filter((uid) => (strikes[uid] || []).length >= required);
   return {
     v: draft.v,
     phase: draft.phase,
-    slate: draft.slate,
-    strikesPerSide: required,
+    pool: draft.pool,
     poolLocked: !!draft.poolLocked,
-    motionUid: draft.motionUid,
-    sideUid: draft.sideUid,
-    submitted,
-    strikes: open ? {} : strikes,
-    motionId: open ? null : (draft.motionId || null),
-    side: open ? null : (draft.side || null),
+    table: tableOf(draft),
+    offerUid: draft.offerUid,
+    respondUid: draft.respondUid,
+    offerId: draft.offerId || null,
+    counterId: draft.counterId || null,
+    sentBack: draft.sentBack || [],
+    vetoesLeft: vetoesLeft(draft),
+    response: draft.response || null,
+    motionId: draft.motionId || null,
+    sideUid: draft.sideUid || null,
+    side: draft.side || null,
+    autoOffer: !!draft.autoOffer,
+    autoResponse: !!draft.autoResponse,
     autoMotion: !!draft.autoMotion,
     autoSide: !!draft.autoSide,
     phaseAt: phaseAt || null,
@@ -366,10 +451,15 @@ export function publicDraft(draft, phaseAt) {
 // The only thing downstream cares about: which motion, and who is on which
 // side. `side` is the side the SIDE HOLDER took, so the other debater gets
 // the remainder. Returns null until the draft is done, so a caller cannot
-// half-open a round on an unfinished draft.
+// half-open a round on an unfinished negotiation.
 export function draftResult(draft, uidA, uidB) {
-  if (!draft || draft.phase !== 'done' || !draft.motionId) return null;
-  const entry = (draft.slate || []).find((m) => m.id === draft.motionId);
+  // Every one of these is load-bearing. `side` in particular: without the
+  // check a done-but-sideless draft still produced an assignment, because
+  // `side === 'pro'` is merely false when the side was never picked, which
+  // silently seated the side holder on Con. Caught by the guard, 2026-09-02.
+  if (!draft || draft.phase !== 'done' || !draft.motionId || !draft.sideUid) return null;
+  if (draft.side !== 'pro' && draft.side !== 'con') return null;
+  const entry = tableOf(draft).find((m) => m.id === draft.motionId);
   if (!entry) return null;
   const other = String(draft.sideUid) === String(uidA) ? String(uidB) : String(uidA);
   const proUid = draft.side === 'pro' ? String(draft.sideUid) : other;
