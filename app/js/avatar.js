@@ -105,29 +105,48 @@
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // THE STUDIO RENDERER
+  // THE CARTOON RENDERER  (2026-09-02: the studio portrait became a
+  // Bitmoji-style cartoon, per Aidan. The earlier engine's rule sheet
+  // said "no balloon heads, no sticker-pack grins"; that call is
+  // reversed here on purpose, so do not restore it from a stale doc.)
   //
   // Design rules (hold every one when extending):
-  //   · Frontal bust, natural human proportions (face ≈ 4:5). The whole
-  //     figure is drawn in a 0-100 "studio space" and zoomed 1.3x about
-  //     (50,40) so the head reads at chip sizes without balloon anatomy.
-  //   · Light from the upper left: bg radial at (66%, 18%), soft rim on
-  //     the lit side, gentle shadow under jaw and at the neck.
-  //   · Backgrounds are deep tonal duotones. NO particles, orbits, rings.
-  //   · Features are calm and real: almond eyes with iris color, subtle
-  //     frontal nose (shadow + nostrils, never an outline), natural lips.
-  //   · Soft form is painted with the hl/sh brush gradients. NO feGaussianBlur:
-  //     filters blur on the CPU and a leaderboard paints dozens at once.
+  //   · Frontal bust. Big rounded head, small features, generous eyes.
+  //     Drawn in a 0-100 space and zoomed 1.3x about (50,40).
+  //   · FLAT COLOR. One fill per shape, plus at most one cel shadow in a
+  //     darker tint of that same fill. No radial skin gradient, no rim
+  //     light, no vignette. A cartoon reads by silhouette, not by light.
+  //   · Eyes are the face: large whites, a big colored iris, a round
+  //     highlight, one soft dark lash line. Nose is a hint, never a
+  //     drawing. Mouth is bold enough to read at 24px.
+  //   · Backdrops are flat friendly color, not moody duotone.
+  //   · No SVG filters anywhere. Filters blur on the CPU and a
+  //     leaderboard paints dozens of these at once.
   // ════════════════════════════════════════════════════════════════════
 
-  // Face variants: 0 soft/round jaw · 1 strong/square · 2 slim/tapered
+  // Shared feature geometry. Every renderer below (static and the talking
+  // controller's dynamic groups) reads these, so a nudge here moves the
+  // face consistently instead of drifting one surface out of step.
+  var EYE_Y = 38.8, EYE_L = 43.4, EYE_R = 56.6, BROW_Y = 32.2, MOUTH_Y = 51.2;
+
+  // Face variants: 0 soft/round · 1 strong/wide jaw · 2 slim/tapered.
+  // Cartoon proportion: widest at the cheeks, tapering to a rounded chin.
   var FACES = [
-    'M50 17.8 C59.6 17.8 65.4 24.4 65.7 33.8 C65.9 40.2 64.4 46.6 61.4 51 C58.7 55.1 54.7 57.8 50 57.8 C45.3 57.8 41.3 55.1 38.6 51 C35.6 46.6 34.1 40.2 34.3 33.8 C34.6 24.4 40.4 17.8 50 17.8 Z',
-    'M50 17.6 C60 17.6 65.8 24 66 33.4 C66.2 40 65 46.8 62.2 51.4 C59.6 55.5 55 58 50 58 C45 58 40.4 55.5 37.8 51.4 C35 46.8 33.8 40 34 33.4 C34.2 24 40 17.6 50 17.6 Z',
-    'M50 18 C59 18 64.8 24.6 65.1 33.9 C65.3 40.4 63.8 46.9 60.9 51.4 C58.3 55.6 54.4 58.2 50 58.2 C45.6 58.2 41.7 55.6 39.1 51.4 C36.2 46.9 34.7 40.4 34.9 33.9 C35.2 24.6 41 18 50 18 Z'
+    'M50 16.4 C61.2 16.4 67 23.4 67 33.8 C67 41 65.6 46.8 62.6 51.2 C59.7 55.5 55.2 58.4 50 58.4 C44.8 58.4 40.3 55.5 37.4 51.2 C34.4 46.8 33 41 33 33.8 C33 23.4 38.8 16.4 50 16.4 Z',
+    'M50 16.2 C61.8 16.2 67.6 23.2 67.6 33.6 C67.6 41.6 66.8 47.4 64 51.8 C61.2 56 56.2 59 50 59 C43.8 59 38.8 56 36 51.8 C33.2 47.4 32.4 41.6 32.4 33.6 C32.4 23.2 38.2 16.2 50 16.2 Z',
+    'M50 16.8 C60.4 16.8 66.2 24 66.2 33.8 C66.2 40.8 64.8 46.6 61.8 51 C58.9 55.4 54.5 58.6 50 58.6 C45.5 58.6 41.1 55.4 38.2 51 C35.2 46.6 33.8 40.8 33.8 33.8 C33.8 24 39.6 16.8 50 16.8 Z'
   ];
-  // Rim light along the lit (right) side of the face.
-  var RIM = 'M60.5 21.5 C63.8 24.6 65.5 28.8 65.7 33.8 C65.9 40.2 64.4 46.6 61.4 51';
+  // Ear anchor per face variant, so an ear always sits on the silhouette.
+  var EAR_X = [33.2, 32.6, 34.0];
+
+  // mix two #rrggbb colors; t=0 is a, t=1 is b
+  function mix(a, b, t) {
+    var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    var r = Math.round(((x >> 16) & 255) + (((y >> 16) & 255) - ((x >> 16) & 255)) * t);
+    var g = Math.round(((x >> 8) & 255) + (((y >> 8) & 255) - ((x >> 8) & 255)) * t);
+    var bl = Math.round((x & 255) + ((y & 255) - (x & 255)) * t);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1);
+  }
 
   // Garment collars, centered on x50, drawn over the shoulder mass.
   var GARB = {
@@ -306,84 +325,137 @@
     }
   ];
 
+  /* Hairstyles were authored against a narrower head. Scaling the whole
+     group (rather than redrawing 14 silhouettes) sits every style on the
+     wider cartoon skull with no bare temples, and is where the hair's
+     specular sweep goes so a style never reads as a flat sticker. */
+  function wig(d, hairC, gloss, gid) {
+    if (!d) return '';
+    return '<g transform="translate(50 26) scale(1.07 1.04) translate(-50 -26)">' + d +
+      (gloss ? '<ellipse cx="55.5" cy="19" rx="10" ry="3.4" fill="url(#' + gid + 'hl)" opacity=".22" transform="rotate(8 55.5 19)"/>' +
+               '<ellipse cx="41" cy="18.6" rx="5.4" ry="2.4" fill="url(#' + gid + 'hl)" opacity=".14"/>' : '') +
+      '</g>';
+  }
+
   // ---- feature drawing --------------------------------------------------
-  function eyePair(kind, irisCol, fine) {
-    var h = kind === 1 ? 3.0 : kind === 2 ? 1.9 : kind === 3 ? 2.05 : 2.4;
-    var ir = kind === 1 ? 2.0 : kind === 2 ? 1.7 : 1.85;
-    var lashD = kind === 3 ? 1.6 : 2.5;
+  // Cartoon geometry, dimensional shading: big whites, a domed iris with a
+  // limbal ring and two catchlights, a soft nose, lips with a gloss. Every
+  // soft edge is painted with the hl/sh brush gradients, never a filter.
+  var EYE_SPEC = [
+    { w: 4.8, up: 3.7, dn: 3.3, ir: 2.75, crease: 0 }, // 0 open
+    { w: 5.0, up: 4.5, dn: 3.8, ir: 3.05, crease: 0 }, // 1 wide
+    { w: 5.1, up: 2.6, dn: 2.3, ir: 2.4,  crease: 1 }, // 2 sharp
+    { w: 4.6, up: 3.1, dn: 3.5, ir: 2.65, crease: 0 }  // 3 soft
+  ];
+  var LASH = '#2b211a';
+
+  function eyeWhite(cx, w, up, dn) {
+    return 'M' + (cx - w) + ' ' + EYE_Y + ' Q' + cx + ' ' + (EYE_Y - up).toFixed(2) + ' ' + (cx + w) + ' ' + EYE_Y +
+           ' Q' + cx + ' ' + (EYE_Y + dn).toFixed(2) + ' ' + (cx - w) + ' ' + EYE_Y + ' Z';
+  }
+  /* A domed iris. gid is the portrait's def-id prefix, so the gradients are
+     unique per rendered SVG; pass null (the talking controller does) and the
+     iris falls back to flat fills that need no defs. */
+  function iris(ix, iy, ir, irisCol, fine, gid) {
+    var fill = gid ? 'url(#' + gid + 'ir)' : irisCol;
+    return '<circle cx="' + ix + '" cy="' + iy + '" r="' + ir + '" fill="' + fill + '"/>' +
+      '<circle cx="' + ix + '" cy="' + iy + '" r="' + ir + '" fill="none" stroke="' + shade(irisCol, -0.5) + '" stroke-width=".55" opacity=".7"/>' +
+      '<circle cx="' + ix + '" cy="' + iy + '" r="' + (ir * 0.44).toFixed(2) + '" fill="#150f0c"/>' +
+      '<circle cx="' + (ix + ir * 0.38).toFixed(2) + '" cy="' + (iy - ir * 0.44).toFixed(2) + '" r="' + (ir * 0.36).toFixed(2) + '" fill="#fff"/>' +
+      (fine ? '<circle cx="' + (ix - ir * 0.5).toFixed(2) + '" cy="' + (iy + ir * 0.5).toFixed(2) + '" r="' + (ir * 0.2).toFixed(2) + '" fill="#fff" opacity=".6"/>' : '');
+  }
+  function eyePair(kind, irisCol, fine, gid) {
+    var S = EYE_SPEC[kind] || EYE_SPEC[0];
     function eye(cx) {
-      var s = '<path d="M' + (cx - 3.4) + ' 38.3 Q' + cx + ' ' + (38.3 - h).toFixed(1) + ' ' + (cx + 3.4) + ' 38.3 Q' + cx + ' ' + (38.3 + h * 0.85).toFixed(1) + ' ' + (cx - 3.4) + ' 38.3 Z" fill="#fdfcf9"/>' +
-        '<circle cx="' + cx + '" cy="38.4" r="' + ir + '" fill="' + irisCol + '"/>' +
-        '<circle cx="' + cx + '" cy="38.4" r="' + (ir * 0.5).toFixed(2) + '" fill="#17120d"/>' +
-        '<circle cx="' + (cx + 0.7) + '" cy="37.6" r=".55" fill="#fff"/>' +
-        '<path d="M' + (cx - 3.6) + ' 37.9 Q' + cx + ' ' + (37.9 - lashD).toFixed(1) + ' ' + (cx + 3.6) + ' 37.9" fill="none" stroke="#1d1712" stroke-width="1.25" stroke-linecap="round"/>';
-      if (kind === 2 && fine) s += '<path d="M' + (cx - 3.1) + ' 36.2 Q' + cx + ' 35.1 ' + (cx + 3.1) + ' 36.2" fill="none" stroke="#000" stroke-width=".7" stroke-linecap="round" opacity=".22"/>';
+      var clip = gid ? 'ey' + (cx < 50 ? 'L' : 'R') : '';
+      var s = '<path d="' + eyeWhite(cx, S.w, S.up, S.dn) + '" fill="#fdfcf9"/>' +
+        iris(cx, EYE_Y + (kind === 3 ? 0.35 : 0), S.ir, irisCol, fine, gid);
+      // socket shadow across the top of the eyeball, then the lash line
+      if (gid && fine) s += '<g clip-path="url(#' + gid + clip + ')"><ellipse cx="' + cx + '" cy="' + (EYE_Y - S.up + 0.4).toFixed(2) + '" rx="' + (S.w * 0.95).toFixed(2) + '" ry="' + (S.up * 0.7).toFixed(2) + '" fill="url(#' + gid + 'sh)" opacity=".38"/></g>';
+      s += '<path d="M' + (cx - S.w - 0.2) + ' ' + (EYE_Y - 0.4).toFixed(2) + ' Q' + cx + ' ' + (EYE_Y - S.up - 1.2).toFixed(2) + ' ' + (cx + S.w + 0.2) + ' ' + (EYE_Y - 0.4).toFixed(2) + '" fill="none" stroke="' + LASH + '" stroke-width="1.6" stroke-linecap="round"/>';
+      if (S.crease && fine) s += '<path d="M' + (cx - S.w + 0.4) + ' ' + (EYE_Y - S.up - 2.3).toFixed(2) + ' Q' + cx + ' ' + (EYE_Y - S.up - 3.3).toFixed(2) + ' ' + (cx + S.w - 0.4) + ' ' + (EYE_Y - S.up - 2.3).toFixed(2) + '" fill="none" stroke="' + LASH + '" stroke-width=".8" stroke-linecap="round" opacity=".3"/>';
       return s;
     }
-    return eye(44) + eye(56);
+    return eye(EYE_L) + eye(EYE_R);
   }
 
   function browPair(kind, browC) {
+    var hi = shade(browC, 0.22);
     function brow(cx) {
-      var s = cx < 50 ? 1 : -1; // inner end faces center
-      if (kind === 1) return '<path d="M' + (cx - 4) + ' ' + (33.6 + (s < 0 ? -0.5 : 0)) + ' L' + (cx + 4) + ' ' + (33.6 + (s < 0 ? 0 : -0.5)) + '" stroke="' + browC + '" stroke-width="1.5" stroke-linecap="round" opacity=".9"/>';
-      if (kind === 2) return '<path d="M' + (cx - 4.2) + ' ' + (cx < 50 ? 34.2 : 33.4) + ' Q' + cx + ' 31.6 ' + (cx + 4.2) + ' ' + (cx < 50 ? 33.4 : 34.2) + '" fill="none" stroke="' + browC + '" stroke-width="1.9" stroke-linecap="round"/>';
-      return '<path d="M' + (cx - 4) + ' 33.9 Q' + cx + ' 32.3 ' + (cx + 4) + ' 33.9" fill="none" stroke="' + browC + '" stroke-width="1.4" stroke-linecap="round"/>';
+      var inner = cx < 50 ? cx + 4.6 : cx - 4.6;
+      var outer = cx < 50 ? cx - 4.6 : cx + 4.6;
+      var y0, y1, yc, wgt;
+      if (kind === 1) { y0 = BROW_Y + 0.5; yc = BROW_Y - 0.5; y1 = BROW_Y + 0.2; wgt = 2.5; }
+      else if (kind === 2) { y0 = BROW_Y + 1.1; yc = BROW_Y - 1.3; y1 = BROW_Y - 0.3; wgt = 3; }
+      else { y0 = BROW_Y + 0.9; yc = BROW_Y - 1.8; y1 = BROW_Y + 0.5; wgt = 2.4; }
+      var d = 'M' + outer + ' ' + y0 + ' Q' + cx + ' ' + yc + ' ' + inner + ' ' + y1;
+      return '<path d="' + d + '" fill="none" stroke="' + browC + '" stroke-width="' + wgt + '" stroke-linecap="round"/>' +
+        '<path d="' + d + '" fill="none" stroke="' + hi + '" stroke-width="' + (wgt * 0.34).toFixed(2) + '" stroke-linecap="round" opacity=".45" transform="translate(0 -' + (wgt * 0.24).toFixed(2) + ')"/>';
     }
-    return brow(44) + brow(56);
+    return brow(EYE_L) + brow(EYE_R);
   }
 
-  function nosePath(skinDD, fine) {
-    return '<path d="M48.9 40 C48.5 43 48.3 45.2 47.9 46.6" fill="none" stroke="' + skinDD + '" stroke-width="1" stroke-linecap="round" opacity=".28"/>' +
-      '<path d="M47.6 47.9 Q50 49.4 52.4 47.9" fill="none" stroke="' + skinDD + '" stroke-width="1.1" stroke-linecap="round" opacity=".5"/>' +
-      (fine ? '<circle cx="47.5" cy="47.4" r=".62" fill="' + skinDD + '" opacity=".55"/><circle cx="52.5" cy="47.4" r=".62" fill="' + skinDD + '" opacity=".55"/>' : '');
+  // A cartoon nose is a hint with volume: one side shadow, a lit tip.
+  function nosePath(skinDD, skinHi, fine, gid) {
+    return (fine && gid ? '<ellipse cx="48.4" cy="44.4" rx="2.9" ry="3.2" fill="url(#' + gid + 'sh)" opacity=".24"/>' +
+        '<ellipse cx="51" cy="44.2" rx="1.9" ry="1.7" fill="url(#' + gid + 'hl)" opacity=".3"/>' : '') +
+      '<path d="M47.5 45.6 Q50 48.1 52.5 45.6" fill="none" stroke="' + skinDD + '" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>' +
+      (fine ? '<path d="M52.4 45.9 Q53.1 45.2 53.2 44.3" fill="none" stroke="' + skinDD + '" stroke-width=".9" stroke-linecap="round" opacity=".35"/>' : '');
   }
 
   function mouthPath(kind, lip, fine) {
-    if (kind === 1) { // warm smile
-      return '<path d="M45.2 51.4 Q47.8 50.2 50 51.1 Q52.2 50.2 54.8 51.4 Q52.4 53.4 50 53.3 Q47.6 53.4 45.2 51.4 Z" fill="' + lip + '"/>' +
-        '<path d="M45.9 52.6 Q50 55.8 54.1 52.6 Q52.2 55.3 50 55.3 Q47.8 55.3 45.9 52.6 Z" fill="' + shade(lip, 0.16) + '"/>' +
-        (fine ? '<path d="M44.7 51.2 L45.6 51.9 M55.3 51.2 L54.4 51.9" stroke="' + lip + '" stroke-width=".7" stroke-linecap="round" opacity=".6"/>' : '');
+    var lipD = shade(lip, -0.26), lipL = shade(lip, 0.2), gloss = shade(lip, 0.55);
+    function shine(_x, y, w) {
+      return fine ? '<path d="M' + (50 - w) + ' ' + y + ' Q50 ' + (y + 1.1) + ' ' + (50 + w) + ' ' + y + '" fill="none" stroke="' + gloss + '" stroke-width=".9" stroke-linecap="round" opacity=".5"/>' : '';
+    }
+    if (kind === 1) { // big warm smile
+      return '<path d="M44.4 50.1 Q47.3 48.6 50 49.8 Q52.7 48.6 55.6 50.1 Q52.8 52.7 50 52.6 Q47.2 52.7 44.4 50.1 Z" fill="' + lipD + '"/>' +
+        '<path d="M45.2 51.5 Q50 55.9 54.8 51.5 Q52.4 55.3 50 55.3 Q47.6 55.3 45.2 51.5 Z" fill="' + lip + '"/>' + shine(2.2, 53.7, 2.2) +
+        (fine ? '<path d="M43.9 49.8 L45 50.8 M56.1 49.8 L55 50.8" stroke="' + lipD + '" stroke-width=".9" stroke-linecap="round" opacity=".7"/>' : '');
     }
     if (kind === 2) { // neutral
-      return '<path d="M45.8 52 Q47.9 51.2 50 51.7 Q52.1 51.2 54.2 52 Q52.1 53.3 50 53.2 Q47.9 53.3 45.8 52 Z" fill="' + lip + '"/>' +
-        '<path d="M46.5 53 Q50 54.8 53.5 53 Q51.9 54.6 50 54.6 Q48.1 54.6 46.5 53 Z" fill="' + shade(lip, 0.16) + '"/>';
+      return '<path d="M45.4 51.1 Q47.7 50.1 50 50.7 Q52.3 50.1 54.6 51.1 Q52.3 52.5 50 52.4 Q47.7 52.5 45.4 51.1 Z" fill="' + lipD + '"/>' +
+        '<path d="M46.2 52.1 Q50 54.2 53.8 52.1 Q52 53.9 50 53.9 Q48 53.9 46.2 52.1 Z" fill="' + lip + '"/>' + shine(2, 52.9, 2);
     }
-    if (kind === 3) { // open smile, a sliver of teeth
-      return '<path d="M45.3 51.5 Q50 50.3 54.7 51.5 Q53.5 55.7 50 55.7 Q46.5 55.7 45.3 51.5 Z" fill="' + shade(lip, -0.26) + '"/>' +
-        '<path d="M46.4 51.8 Q50 51 53.6 51.8 L53.1 53.2 Q50 52.6 46.9 53.2 Z" fill="#f4efe5"/>' +
-        '<path d="M46.6 54.9 Q50 56.2 53.4 54.9" fill="none" stroke="' + shade(lip, 0.2) + '" stroke-width="1" stroke-linecap="round" opacity=".8"/>';
+    if (kind === 3) { // open grin with teeth
+      return '<path d="M44.6 50 Q50 48.5 55.4 50 Q54.1 56.1 50 56.1 Q45.9 56.1 44.6 50 Z" fill="#54262a"/>' +
+        '<path d="M45.9 50.4 Q50 49.2 54.1 50.4 L53.5 52.5 Q50 51.6 46.5 52.5 Z" fill="#fdfaf4"/>' +
+        (fine ? '<path d="M45.9 50.4 Q50 49.2 54.1 50.4 L53.9 51 Q50 49.9 46.1 51 Z" fill="#cfc7bb" opacity=".55"/>' : '') +
+        (fine ? '<path d="M47 54 Q50 52.9 53 54 Q52 56 50 56 Q48 56 47 54 Z" fill="' + mix(lip, '#a03a48', 0.55) + '"/>' : '') +
+        '<path d="M45.6 55 Q50 57.5 54.4 55" fill="none" stroke="' + lip + '" stroke-width="1.4" stroke-linecap="round"/>' + shine(2, 56.2, 2);
     }
-    if (kind === 4) { // focused
-      return '<path d="M46.4 52.1 Q50 51.4 53.6 52.1 Q52 53.3 50 53.3 Q48 53.3 46.4 52.1 Z" fill="' + lip + '"/>' +
-        '<path d="M47.1 53 Q50 54.3 52.9 53 Q51.7 54.1 50 54.1 Q48.3 54.1 47.1 53 Z" fill="' + shade(lip, 0.14) + '"/>';
+    if (kind === 4) { // focused half-smile
+      return '<path d="M45.8 51.2 Q49.8 50 54.4 50.8 Q52.1 52.5 49.8 52.5 Q47.5 52.4 45.8 51.2 Z" fill="' + lipD + '"/>' +
+        '<path d="M46.6 52.2 Q50 54.1 53.6 52 Q51.8 53.9 49.9 53.9 Q48.1 53.9 46.6 52.2 Z" fill="' + lip + '"/>' + shine(1.8, 52.9, 1.8);
     }
-    // 0 — soft
-    return '<path d="M45.6 51.8 Q47.8 50.6 50 51.5 Q52.2 50.6 54.4 51.8 Q52.2 53.2 50 53.1 Q47.8 53.2 45.6 51.8 Z" fill="' + lip + '"/>' +
-      '<path d="M46.3 52.9 Q50 55.4 53.7 52.9 Q52 54.7 50 54.7 Q48 54.7 46.3 52.9 Z" fill="' + shade(lip, 0.16) + '"/>';
+    // 0 — soft closed smile
+    return '<path d="M45 50.6 Q47.5 49.3 50 50.3 Q52.5 49.3 55 50.6 Q52.5 52.5 50 52.4 Q47.5 52.5 45 50.6 Z" fill="' + lipD + '"/>' +
+      '<path d="M45.8 51.8 Q50 55.2 54.2 51.8 Q52.2 54.5 50 54.5 Q47.8 54.5 45.8 51.8 Z" fill="' + lip + '"/>' + shine(2, 53.4, 2);
   }
 
   function facialPath(kind, hairC, skin, clipId) {
     if (!kind) return '';
     if (kind === 3) { // mustache
-      return '<path d="M45.2 50.3 Q50 48.5 54.8 50.3 Q52.4 51.6 50 51.4 Q47.6 51.6 45.2 50.3 Z" fill="' + hairC + '" opacity=".92"/>';
+      return '<path d="M44.8 49.2 Q50 47.1 55.2 49.2 Q52.6 50.8 50 50.6 Q47.4 50.8 44.8 49.2 Z" fill="' + hairC + '"/>' +
+        '<path d="M46.6 48.6 Q50 47.4 53.4 48.6" fill="none" stroke="' + shade(hairC, 0.22) + '" stroke-width=".7" stroke-linecap="round" opacity=".5"/>';
     }
+    // one jawline shape, used solid for a beard and faint for stubble
+    var jaw = 'M31 39.5 C32 45 37 47.6 43 48.6 C46 49.2 54 49.2 57 48.6 C63 47.6 68 45 69 39.5 L69 66 L31 66 Z';
     if (kind === 2) { // short beard
-      return '<g clip-path="url(#' + clipId + ')">' +
-        '<path d="M34 42 C35 51 38.6 57.6 44 59.8 L56 59.8 C61.4 57.6 65 51 66 42 C66 52 60.5 58.8 50 58.8 C39.5 58.8 34 52 34 42 Z" fill="' + hairC + '"/>' +
-        '<rect x="34" y="47.5" width="32" height="13" fill="' + hairC + '" opacity=".92"/></g>' +
-        '<ellipse cx="50" cy="52.8" rx="6.6" ry="3.7" fill="' + skin + '"/>';
+      return '<g clip-path="url(#' + clipId + ')"><path d="' + jaw + '" fill="' + hairC + '"/>' +
+        '<path d="M31 39.5 C32 45 37 47.6 43 48.6 C46 49.2 54 49.2 57 48.6 C63 47.6 68 45 69 39.5 L69 42 C66 47.6 60 50.4 50 50.4 C40 50.4 34 47.6 31 42 Z" fill="' + shade(hairC, 0.18) + '" opacity=".5"/></g>' +
+        '<ellipse cx="50" cy="50.6" rx="7.4" ry="4.4" fill="' + skin + '"/>';
     }
     // 1 — stubble
-    return '<g clip-path="url(#' + clipId + ')"><rect x="34" y="45.6" width="32" height="14" fill="' + hairC + '" opacity=".16"/></g>';
+    return '<g clip-path="url(#' + clipId + ')"><path d="' + jaw + '" fill="' + hairC + '" opacity=".22"/></g>';
   }
 
   function detailPath(kind, skinDD) {
     if (kind === 1) { // freckles
-      return '<g fill="' + skinDD + '" opacity=".5"><circle cx="42" cy="44.4" r=".5"/><circle cx="44.8" cy="45.6" r=".45"/><circle cx="39.8" cy="43.4" r=".45"/><circle cx="58" cy="44.4" r=".5"/><circle cx="55.2" cy="45.6" r=".45"/><circle cx="60.2" cy="43.4" r=".45"/><circle cx="48.4" cy="46.6" r=".4"/><circle cx="51.6" cy="46.6" r=".4"/></g>';
+      return '<g fill="' + skinDD + '" opacity=".45"><circle cx="41.4" cy="45.4" r=".62"/><circle cx="44.4" cy="46.8" r=".55"/><circle cx="39" cy="44.2" r=".55"/><circle cx="58.6" cy="45.4" r=".62"/><circle cx="55.6" cy="46.8" r=".55"/><circle cx="61" cy="44.2" r=".55"/></g>';
     }
     if (kind === 2) { // blush
-      return '<ellipse cx="41.6" cy="44.8" rx="3.2" ry="1.8" fill="#e26d6d" opacity=".2"/><ellipse cx="58.4" cy="44.8" rx="3.2" ry="1.8" fill="#e26d6d" opacity=".2"/>';
+      return '<ellipse cx="40.6" cy="45.8" rx="3.9" ry="2.3" fill="#e2686d" opacity=".28"/><ellipse cx="59.4" cy="45.8" rx="3.9" ry="2.3" fill="#e2686d" opacity=".28"/>';
     }
     return '';
   }
@@ -394,14 +466,16 @@
     var skin = SKIN[c.skin], hairC = HAIR[c.hair], bg = BG[c.bg];
     return {
       face: c.face, skin: skin, hair: hairC, hs: c.top,
-      bg: [shade(bg, -0.52), shade(bg, -0.72)],
+      // friendly cartoon backdrop, softened off the raw palette color so
+      // the face stays the loudest thing in the chip
+      bg: [shade(bg, 0.36), shade(bg, 0.06)],
       garbStyle: GARB_STYLE[c.outfit], garbC: OUTFIT[c.outfit],
       acc: ACC_KEYS[c.accessory], glasses: c.glasses,
       eyes: c.eyes, brows: c.brows, mouth: c.mouth,
       facial: c.facial, detail: c.detail,
       iris: IRIS[c.iris],
-      browC: shade(hairC, c.hair >= 4 ? -0.42 : 0.06),
-      lip: shade(skin, -0.3),
+      browC: shade(hairC, c.hair >= 4 ? -0.4 : 0.02),
+      lip: mix(skin, '#b0505c', 0.55),
       hideEar: c.top === 13,
       label: 'avatar'
     };
@@ -409,7 +483,7 @@
 
   /* portrait(P, size, opts) — the one renderer.
      opts.view    [x,y,w,h] viewBox crop (builder thumbnails). Drops the
-                  circular clip + ring so crops read as clean rectangles.
+                  circular clip so crops read as clean rectangles.
      opts.talking wraps the head in .ta-face and the animated features in
                   .ta-brows / .ta-eyes / .ta-mouth for mountTalking. */
   function portrait(P, size, opts) {
@@ -417,30 +491,36 @@
     var sz = (size === '100%') ? '100%' : (size || 96);
     var fine = !(typeof sz === 'number' && sz <= 54);
     var id = 'dbp' + (++uid);
-    var skin = P.skin, skinD = shade(skin, -0.16), skinDD = shade(skin, -0.3);
+    var skin = P.skin, skinD = shade(skin, -0.14), skinDD = shade(skin, -0.3), skinHi = shade(skin, 0.24);
     var hair = HAIRSTYLES[P.hs](P.hair);
     var garb = GARB[P.garbStyle](P.garbC, P.garbC2);
     var talking = !!opts.talking;
     var view = opts.view ? opts.view.join(' ') : '0 0 100 100';
+    var ex = EAR_X[P.face] == null ? 33.9 : EAR_X[P.face];
+    var S0 = EYE_SPEC[P.eyes] || EYE_SPEC[0];
 
     var defs = '<clipPath id="' + id + 'fc"><path d="' + FACES[P.face] + '"/></clipPath>' +
+      '<clipPath id="' + id + 'eyL"><path d="' + eyeWhite(EYE_L, S0.w, S0.up, S0.dn) + '"/></clipPath>' +
+      '<clipPath id="' + id + 'eyR"><path d="' + eyeWhite(EYE_R, S0.w, S0.up, S0.dn) + '"/></clipPath>' +
       (opts.view ? '' : '<clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>') +
-      '<radialGradient id="' + id + 'bg" cx="66%" cy="18%" r="100%"><stop offset="0%" stop-color="' + shade(P.bg[0], 0.10) + '"/><stop offset="52%" stop-color="' + P.bg[0] + '"/><stop offset="100%" stop-color="' + shade(P.bg[1], -0.06) + '"/></radialGradient>' +
-      '<radialGradient id="' + id + 'sk" cx="44%" cy="24%" r="86%"><stop offset="0%" stop-color="' + shade(skin, 0.24) + '"/><stop offset="40%" stop-color="' + shade(skin, 0.06) + '"/><stop offset="66%" stop-color="' + skin + '"/><stop offset="88%" stop-color="' + skinD + '"/><stop offset="100%" stop-color="' + shade(skin, -0.24) + '"/></radialGradient>' +
-      '<linearGradient id="' + id + 'gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(P.garbC, 0.14) + '"/><stop offset="55%" stop-color="' + P.garbC + '"/><stop offset="100%" stop-color="' + shade(P.garbC, -0.20) + '"/></linearGradient>' +
-      // the two soft brushes: all volume below is painted with these, so
-      // there is not a single SVG filter in the whole portrait
-      '<radialGradient id="' + id + 'hl"><stop offset="0%" stop-color="#fff" stop-opacity=".85"/><stop offset="55%" stop-color="#fff" stop-opacity=".3"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
-      '<radialGradient id="' + id + 'sh"><stop offset="0%" stop-color="#000" stop-opacity=".7"/><stop offset="55%" stop-color="#000" stop-opacity=".26"/><stop offset="100%" stop-color="#000" stop-opacity="0"/></radialGradient>' +
-      (opts.view ? '' : '<radialGradient id="' + id + 'vg" cx="50%" cy="42%" r="66%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".3"/></radialGradient>');
+      '<radialGradient id="' + id + 'bg" cx="34%" cy="16%" r="112%"><stop offset="0%" stop-color="' + shade(P.bg[0], 0.16) + '"/><stop offset="55%" stop-color="' + P.bg[0] + '"/><stop offset="100%" stop-color="' + P.bg[1] + '"/></radialGradient>' +
+      // the head's own volume: lit from the upper left, falling off at the jaw
+      '<radialGradient id="' + id + 'sk" cx="40%" cy="26%" r="82%"><stop offset="0%" stop-color="' + shade(skin, 0.2) + '"/><stop offset="46%" stop-color="' + shade(skin, 0.05) + '"/><stop offset="74%" stop-color="' + skin + '"/><stop offset="100%" stop-color="' + shade(skin, -0.2) + '"/></radialGradient>' +
+      '<radialGradient id="' + id + 'ir" cx="46%" cy="34%" r="72%"><stop offset="0%" stop-color="' + shade(P.iris, 0.34) + '"/><stop offset="58%" stop-color="' + P.iris + '"/><stop offset="100%" stop-color="' + shade(P.iris, -0.34) + '"/></radialGradient>' +
+      '<linearGradient id="' + id + 'gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(P.garbC, 0.12) + '"/><stop offset="60%" stop-color="' + P.garbC + '"/><stop offset="100%" stop-color="' + shade(P.garbC, -0.22) + '"/></linearGradient>' +
+      // the two soft brushes. Every soft edge in the portrait is one of
+      // these, so there is not a single SVG filter in the whole thing.
+      '<radialGradient id="' + id + 'hl"><stop offset="0%" stop-color="#fff" stop-opacity=".9"/><stop offset="55%" stop-color="#fff" stop-opacity=".32"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="' + id + 'sh"><stop offset="0%" stop-color="#3a1e10" stop-opacity=".62"/><stop offset="55%" stop-color="#3a1e10" stop-opacity=".22"/><stop offset="100%" stop-color="#3a1e10" stop-opacity="0"/></radialGradient>';
 
     var ears = P.hideEar ? '' :
-      '<ellipse cx="33.9" cy="39.4" rx="2.5" ry="4" fill="' + skinD + '"/>' +
-      '<ellipse cx="66.1" cy="39.4" rx="2.5" ry="4" fill="' + skin + '"/>' +
-      (fine ? '<path d="M33.5 37.6 C34.6 37.9 34.9 39.4 34.1 40.8 M66.5 37.6 C65.4 37.9 65.1 39.4 65.9 40.8" fill="none" stroke="' + skinDD + '" stroke-width=".8" stroke-linecap="round" opacity=".6"/>' : '');
+      '<ellipse cx="' + ex + '" cy="39.8" rx="3" ry="4.3" fill="' + skin + '"/>' +
+      '<ellipse cx="' + (100 - ex) + '" cy="39.8" rx="3" ry="4.3" fill="' + skin + '"/>' +
+      (fine ? '<path d="M' + (ex + 0.3) + ' 38 C' + (ex + 1.5) + ' 38.5 ' + (ex + 1.7) + ' 40.5 ' + (ex + 0.6) + ' 41.8 M' + (100 - ex - 0.3) + ' 38 C' + (100 - ex - 1.5) + ' 38.5 ' + (100 - ex - 1.7) + ' 40.5 ' + (100 - ex - 0.6) + ' 41.8" fill="none" stroke="' + skinDD + '" stroke-width=".9" stroke-linecap="round" opacity=".5"/>' +
+        '<ellipse cx="' + ex + '" cy="41.4" rx="2.4" ry="2.6" fill="url(#' + id + 'sh)" opacity=".3"/>' : '');
 
     var browsSvg = browPair(P.brows, P.browC);
-    var eyesSvg = eyePair(P.eyes, P.iris, fine);
+    var eyesSvg = eyePair(P.eyes, P.iris, fine, id);
     var mouthSvg = mouthPath(P.mouth, P.lip, fine);
     if (talking) {
       browsSvg = '<g class="ta-brows">' + browsSvg + '</g>';
@@ -449,34 +529,27 @@
     }
 
     var headBlock =
-      // neck with the head's cast shadow (the big depth tell)
-      '<path d="M44.6 52 L55.4 52 L55.8 69 L44.2 69 Z" fill="' + skinD + '"/>' +
-      '<ellipse cx="50" cy="56.5" rx="7.4" ry="4.6" fill="url(#' + id + 'sh)" opacity=".55"/>' +
+      // neck, then the chin's cast shadow across the top of it
+      '<path d="M44.4 50 L55.6 50 L56.6 68 L43.4 68 Z" fill="' + skinD + '"/>' +
+      '<ellipse cx="50" cy="56.4" rx="8.4" ry="4.4" fill="url(#' + id + 'sh)" opacity=".55"/>' +
       ears +
       // head
       '<path d="' + FACES[P.face] + '" fill="url(#' + id + 'sk)"/>' +
-      // volume: under-hair occlusion, socket shading, core shadow, key light
-      '<ellipse cx="50" cy="24.5" rx="14.5" ry="4.4" fill="url(#' + id + 'sh)" opacity=".3"/>' +
-      (fine ? '<ellipse cx="44" cy="37.4" rx="4.8" ry="2.8" fill="url(#' + id + 'sh)" opacity=".16"/>' +
-              '<ellipse cx="56" cy="37.4" rx="4.8" ry="2.8" fill="url(#' + id + 'sh)" opacity=".16"/>' : '') +
-      '<ellipse cx="38.6" cy="43" rx="4.6" ry="10.5" fill="url(#' + id + 'sh)" opacity=".26"/>' +
-      (fine ? '<ellipse cx="53.5" cy="27.5" rx="8.6" ry="4.8" fill="url(#' + id + 'hl)" opacity=".22"/>' +
-              '<ellipse cx="59.5" cy="42.5" rx="4.4" ry="3.4" fill="url(#' + id + 'hl)" opacity=".16"/>' +
-              '<ellipse cx="50.8" cy="45.4" rx="1.8" ry="1.6" fill="url(#' + id + 'hl)" opacity=".22"/>' +
-              '<ellipse cx="50.5" cy="55.6" rx="3" ry="1.6" fill="url(#' + id + 'hl)" opacity=".14"/>' : '') +
+      '<g clip-path="url(#' + id + 'fc)">' +
+        // shadow where the hair sits, temple falloff, and the lit cheek
+        '<ellipse cx="50" cy="20" rx="20" ry="8" fill="url(#' + id + 'sh)" opacity=".3"/>' +
+        (fine ? '<ellipse cx="65" cy="42" rx="6" ry="13" fill="url(#' + id + 'sh)" opacity=".24"/>' +
+                '<ellipse cx="42" cy="34" rx="9" ry="7" fill="url(#' + id + 'hl)" opacity=".2"/>' +
+                '<ellipse cx="50" cy="55" rx="7" ry="4" fill="url(#' + id + 'sh)" opacity=".22"/>' +
+                '<ellipse cx="50" cy="52.6" rx="3.4" ry="2.2" fill="url(#' + id + 'hl)" opacity=".16"/>' : '') +
+      '</g>' +
       facialPath(P.facial, P.hair, skin, id + 'fc') +
       detailPath(P.detail, skinDD) +
       browsSvg +
       eyesSvg +
-      nosePath(skinDD, fine) +
+      nosePath(skinDD, skinHi, fine, id) +
       mouthSvg +
-      // rim light down the lit side
-      '<path d="' + RIM + '" fill="none" stroke="#fff" stroke-linecap="round" stroke-width=".9" opacity=".32"/>' +
-      (fine ? '<path d="' + RIM + '" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="2.4" opacity=".1"/>' : '') +
-      hair.front +
-      // hair specular sweep
-      (P.hs !== 0 && fine ? '<ellipse cx="55" cy="18.5" rx="9" ry="3" fill="url(#' + id + 'hl)" opacity=".18" transform="rotate(8 55 18.5)"/>' +
-        '<ellipse cx="42" cy="17.5" rx="5" ry="2.2" fill="url(#' + id + 'hl)" opacity=".12"/>' : '') +
+      wig(hair.front, P.hair, fine, id) +
       glassesPath(P.glasses) +
       ACC[P.acc]();
     if (talking) headBlock = '<g class="ta-face">' + headBlock + '</g>';
@@ -485,21 +558,16 @@
       '<defs>' + defs + '</defs>' +
       (opts.view ? '<g>' : '<g clip-path="url(#' + id + ')">') +
       '<rect x="-12" y="-12" width="124" height="124" fill="url(#' + id + 'bg)"/>' +
-      // studio depth: soft glow behind the bust
-      '<ellipse cx="57" cy="34" rx="30" ry="27" fill="url(#' + id + 'hl)" opacity=".1"/>' +
-      // the 1.3x studio zoom: heads read at chip size, anatomy stays human
       '<g transform="translate(50 40) scale(1.3) translate(-50 -40)">' +
-      hair.back +
-      // shoulders + fabric light
-      '<path d="M26 100 C27 81 36.5 71.5 50 70 C63.5 71.5 73 81 74 100 Z" fill="url(#' + id + 'gb)"/>' +
-      '<path d="M33 82 C37 75.5 43 71.6 50 71 C57 71.6 63 75.5 67 82" fill="none" stroke="' + shade(P.garbC, 0.26) + '" stroke-width="2" stroke-linecap="round" opacity=".35"/>' +
-      garb +
-      // chest occlusion under the jawline
-      '<ellipse cx="50" cy="70.5" rx="11" ry="3" fill="url(#' + id + 'sh)" opacity=".3"/>' +
+      wig(hair.back, P.hair, false, id) +
+      // shoulders, then the head's soft cast shadow onto them
+      // shoulders sit close under the jaw: a long neck is the fastest way
+      // to lose the cartoon proportion the whole face is built on
+      '<path d="M25 100 C26 78 35.5 67.8 50 66.4 C64.5 67.8 74 78 75 100 Z" fill="url(#' + id + 'gb)"/>' +
+      '<ellipse cx="50" cy="68.6" rx="14" ry="4.4" fill="url(#' + id + 'sh)" opacity=".5"/>' +
+      '<g transform="translate(0 -3.4)">' + garb + '</g>' +
       headBlock +
       '</g>' +
-      (opts.view ? '' : '<rect width="100" height="100" fill="url(#' + id + 'vg)"/>' +
-        '<circle cx="50" cy="50" r="48.8" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width=".8"/>') +
       '</g></svg>';
   }
 
@@ -514,23 +582,23 @@
   // re-rendered groups never lose gradient references.
 
   function dynMouth(open, emotion, shape, lip) {
-    var corner = emotion === 'encouraging' ? 0.8 : (emotion === 'pushing' ? -0.5 : 0);
+    var corner = emotion === 'encouraging' ? 0.9 : (emotion === 'pushing' ? -0.5 : 0);
+    var lipD = shade(lip, -0.24);
     open = open < 0 ? 0 : open > 1 ? 1 : open;
     shape = shape == null ? 0.5 : (shape < 0 ? 0 : shape > 1 ? 1 : shape);
     if (open < 0.07) {
-      // closed lips with a corner-lift for emotion
-      var cU = (51.8 - corner).toFixed(2), cD = (52.9 - corner).toFixed(2);
-      return '<path d="M45.6 ' + cU + ' Q47.8 50.6 50 51.5 Q52.2 50.6 54.4 ' + cU + ' Q52.2 53.2 50 53.1 Q47.8 53.2 45.6 ' + cU + ' Z" fill="' + lip + '"/>' +
-        '<path d="M46.3 ' + cD + ' Q50 55.4 53.7 ' + cD + ' Q52 54.7 50 54.7 Q48 54.7 46.3 ' + cD + ' Z" fill="' + shade(lip, 0.16) + '"/>';
+      var cU = (51 - corner).toFixed(2), cD = (52.2 - corner).toFixed(2);
+      return '<path d="M45 ' + cU + ' Q47.5 ' + (49.7 - corner).toFixed(2) + ' 50 ' + (50.7 - corner).toFixed(2) + ' Q52.5 ' + (49.7 - corner).toFixed(2) + ' 55 ' + cU + ' Q52.5 ' + (52.9 - corner).toFixed(2) + ' 50 ' + (52.8 - corner).toFixed(2) + ' Q47.5 ' + (52.9 - corner).toFixed(2) + ' 45 ' + cU + ' Z" fill="' + lipD + '"/>' +
+        '<path d="M45.8 ' + cD + ' Q50 ' + (55.6 - corner).toFixed(2) + ' 54.2 ' + cD + ' Q52.2 ' + (54.9 - corner).toFixed(2) + ' 50 ' + (54.9 - corner).toFixed(2) + ' Q47.8 ' + (54.9 - corner).toFixed(2) + ' 45.8 ' + cD + ' Z" fill="' + lip + '"/>';
     }
-    var w = (3.2 + shape * 2.3).toFixed(2);
-    var up = (0.7 + open * 1.1 + corner).toFixed(2);
-    var dn = (0.9 + open * 4.4).toFixed(2);
-    var s = '<path d="M' + (50 - w) + ' 52 Q50 ' + (52 - up) + ' ' + (50 + (+w)) + ' 52 Q50 ' + (52 + (+dn)) + ' ' + (50 - w) + ' 52 Z" fill="#4b2426"/>';
-    if (open > 0.24) {
-      s += '<path d="M' + (50 - w + 0.8).toFixed(2) + ' 51.9 Q50 ' + (52 - up * 0.72).toFixed(2) + ' ' + (50 + (+w) - 0.8).toFixed(2) + ' 51.9 L' + (50 + (+w) - 1.2).toFixed(2) + ' 52.5 Q50 52.9 ' + (50 - w + 1.2).toFixed(2) + ' 52.5 Z" fill="#f3eee4"/>';
+    var w = (3.9 + shape * 2.2).toFixed(2);
+    var up = (0.9 + open * 1.2 + corner).toFixed(2);
+    var dn = (1.2 + open * 4.6).toFixed(2);
+    var s = '<path d="M' + (50 - w) + ' ' + MOUTH_Y + ' Q50 ' + (MOUTH_Y - up).toFixed(2) + ' ' + (50 + (+w)) + ' ' + MOUTH_Y + ' Q50 ' + (MOUTH_Y + (+dn)).toFixed(2) + ' ' + (50 - w) + ' ' + MOUTH_Y + ' Z" fill="#5b2b2e"/>';
+    if (open > 0.22) {
+      s += '<path d="M' + (50 - w + 0.9).toFixed(2) + ' ' + (MOUTH_Y - 0.15).toFixed(2) + ' Q50 ' + (MOUTH_Y - up * 0.78).toFixed(2) + ' ' + (50 + (+w) - 0.9).toFixed(2) + ' ' + (MOUTH_Y - 0.15).toFixed(2) + ' L' + (50 + (+w) - 1.3).toFixed(2) + ' ' + (MOUTH_Y + 0.75).toFixed(2) + ' Q50 ' + (MOUTH_Y + 1.15).toFixed(2) + ' ' + (50 - w + 1.3).toFixed(2) + ' ' + (MOUTH_Y + 0.75).toFixed(2) + ' Z" fill="#fdfaf4"/>';
     }
-    s += '<path d="M' + (50 - w) + ' 52.2 Q50 ' + (52 + (+dn) + 1.2).toFixed(2) + ' ' + (50 + (+w)) + ' 52.2" fill="none" stroke="' + shade(lip, 0.12) + '" stroke-width="1.1" stroke-linecap="round" opacity=".65"/>';
+    s += '<path d="M' + (50 - w) + ' ' + (MOUTH_Y + 0.3).toFixed(2) + ' Q50 ' + (MOUTH_Y + (+dn) + 1.4).toFixed(2) + ' ' + (50 + (+w)) + ' ' + (MOUTH_Y + 0.3).toFixed(2) + '" fill="none" stroke="' + lip + '" stroke-width="1.3" stroke-linecap="round"/>';
     return s;
   }
 
@@ -539,27 +607,25 @@
     gx = gx || 0; gy = gy || 0;
     function eye(cx) {
       if (openFrac < 0.18) {
-        return '<path d="M' + (cx - 3.4) + ' 38.6 Q' + cx + ' 39.6 ' + (cx + 3.4) + ' 38.6" fill="none" stroke="#1d1712" stroke-width="1.3" stroke-linecap="round"/>';
+        return '<path d="M' + (cx - 4.8) + ' ' + (EYE_Y + 0.2) + ' Q' + cx + ' ' + (EYE_Y + 1.6) + ' ' + (cx + 4.8) + ' ' + (EYE_Y + 0.2) + '" fill="none" stroke="' + LASH + '" stroke-width="1.6" stroke-linecap="round"/>';
       }
-      var h = (2.5 * openFrac).toFixed(2);
-      var ix = (cx + gx * 1.1).toFixed(2), iy = (38.4 + gy * 0.8).toFixed(2);
-      return '<path d="M' + (cx - 3.4) + ' 38.3 Q' + cx + ' ' + (38.3 - h) + ' ' + (cx + 3.4) + ' 38.3 Q' + cx + ' ' + (38.3 + h * 0.85).toFixed(2) + ' ' + (cx - 3.4) + ' 38.3 Z" fill="#fdfcf9"/>' +
-        '<circle cx="' + ix + '" cy="' + iy + '" r="1.85" fill="' + irisCol + '"/>' +
-        '<circle cx="' + ix + '" cy="' + iy + '" r=".95" fill="#17120d"/>' +
-        '<circle cx="' + (+ix + 0.7).toFixed(2) + '" cy="' + (+iy - 0.8).toFixed(2) + '" r=".5" fill="#fff"/>' +
-        '<path d="M' + (cx - 3.6) + ' 37.9 Q' + cx + ' 35.4 ' + (cx + 3.6) + ' 37.9" fill="none" stroke="#1d1712" stroke-width="1.25" stroke-linecap="round"/>';
+      var up = (3.7 * openFrac).toFixed(2), dn = (3.3 * openFrac).toFixed(2);
+      var ix = +(cx + gx * 1.2).toFixed(2), iy = +(EYE_Y + gy * 0.9).toFixed(2);
+      return '<path d="' + eyeWhite(cx, 4.8, +up, +dn) + '" fill="#fdfcf9"/>' +
+        iris(ix, iy, 2.75, irisCol, true) +
+        '<path d="M' + (cx - 5) + ' ' + (EYE_Y - 0.4) + ' Q' + cx + ' ' + (EYE_Y - up - 1.1).toFixed(2) + ' ' + (cx + 5) + ' ' + (EYE_Y - 0.4) + '" fill="none" stroke="' + LASH + '" stroke-width="1.5" stroke-linecap="round"/>';
     }
-    return eye(44) + eye(56);
+    return eye(EYE_L) + eye(EYE_R);
   }
 
   function dynBrows(raise, angle, browC) {
     var r = raise || 0, a = angle || 0;
     function brow(cx) {
-      var inner = cx < 50 ? cx + 4 : cx - 4;
-      var outer = cx < 50 ? cx - 4 : cx + 4;
-      return '<path d="M' + outer + ' ' + (33.9 - r).toFixed(2) + ' Q' + cx + ' ' + (32.3 - r).toFixed(2) + ' ' + inner + ' ' + (33.9 - r + a).toFixed(2) + '" fill="none" stroke="' + browC + '" stroke-width="1.5" stroke-linecap="round"/>';
+      var inner = cx < 50 ? cx + 4.6 : cx - 4.6;
+      var outer = cx < 50 ? cx - 4.6 : cx + 4.6;
+      return '<path d="M' + outer + ' ' + (BROW_Y + 0.9 - r).toFixed(2) + ' Q' + cx + ' ' + (BROW_Y - 1.8 - r).toFixed(2) + ' ' + inner + ' ' + (BROW_Y + 0.5 - r + a).toFixed(2) + '" fill="none" stroke="' + browC + '" stroke-width="2.4" stroke-linecap="round"/>';
     }
-    return brow(44) + brow(56);
+    return brow(EYE_L) + brow(EYE_R);
   }
 
   function talkingSvg(config, size) {
@@ -760,12 +826,14 @@
     var A = CAMEOS[((idx % CAMEOS.length) + CAMEOS.length) % CAMEOS.length];
     return portrait({
       face: A.face, skin: A.skin, hair: A.hair, hs: A.hs,
-      bg: A.bg, garbStyle: A.garb[0], garbC: A.garb[1], garbC2: A.garb[2],
+      // the cast's backdrops were authored deep for the old studio look;
+      // lifted here so they read as flat cartoon color like everyone else
+      bg: [shade(A.bg[0], 0.46), shade(A.bg[1], 0.34)], garbStyle: A.garb[0], garbC: A.garb[1], garbC2: A.garb[2],
       acc: A.acc, glasses: A.glasses || 0,
       eyes: 0, brows: A.face === 1 ? 1 : A.face === 2 ? 2 : 0, mouth: 0,
       facial: 0, detail: 0,
       iris: '#3b2a1c', browC: shade(A.hair === '#000000' ? '#2a2a2a' : A.hair, 0.06),
-      lip: shade(A.skin, -0.3), hideEar: A.hs === 13, label: A.name
+      lip: mix(A.skin, '#b0505c', 0.55), hideEar: A.hs === 13, label: A.name
     }, size);
   }
   // persona key → cameo index (identity-matched to the voice cast)
@@ -810,6 +878,7 @@
   function normLiveDesign(d) {
     d = d || {};
     return {
+      style: d.style === 'mask' ? 'mask' : 'face',
       scene: inList(d.scene, LIVE_SCENES, 'arena'),
       accent: Object.prototype.hasOwnProperty.call(LIVE_ACCENTS, d.accent) ? d.accent : 'crimson',
       outfit: Object.prototype.hasOwnProperty.call(LIVE_OUTFITS, d.outfit) ? d.outfit : 'ink',
@@ -1120,16 +1189,16 @@
     { group: 'Face' },
     { key: 'face', label: 'Face shape', n: N_FACE, view: [27, 4, 46, 62], h: 68 },
     { key: 'skin', label: 'Skin', pal: SKIN },
-    { key: 'detail', label: 'Details', n: N_DETAIL, view: [30, 39, 40, 14], h: 34 },
+    { key: 'detail', label: 'Details', n: N_DETAIL, view: [30, 39, 40, 15], h: 34 },
     { group: 'Hair' },
     { key: 'top', label: 'Style', n: N_TOP, view: [16, -4, 68, 66], h: 62 },
     { key: 'hair', label: 'Color', pal: HAIR },
-    { key: 'facial', label: 'Facial hair', n: N_FACIAL, view: [28, 44, 44, 24], h: 46 },
+    { key: 'facial', label: 'Facial hair', n: N_FACIAL, view: [27, 45, 46, 25], h: 46 },
     { group: 'Expression' },
-    { key: 'eyes', label: 'Eyes', n: N_EYES, view: [32, 31, 36, 13], h: 34 },
+    { key: 'eyes', label: 'Eyes', n: N_EYES, view: [30, 30, 40, 15], h: 34 },
     { key: 'iris', label: 'Eye color', pal: IRIS },
-    { key: 'brows', label: 'Brows', n: N_BROWS, view: [32, 26, 36, 12], h: 30 },
-    { key: 'mouth', label: 'Mouth', n: N_MOUTH, view: [38, 50, 24, 14], h: 42 },
+    { key: 'brows', label: 'Brows', n: N_BROWS, view: [30, 25, 40, 13], h: 30 },
+    { key: 'mouth', label: 'Mouth', n: N_MOUTH, view: [36, 50, 28, 15], h: 42 },
     { group: 'Style' },
     { key: 'glasses', label: 'Glasses', n: N_GLASSES, view: [28, 29, 44, 18], h: 38 },
     { key: 'accessory', label: 'Gear', n: N_ACC, view: [22, 10, 56, 42], h: 50 },
@@ -1545,6 +1614,6 @@
     normPublicIdentity: normPublicIdentity, maskSvg: maskSvg, publicSvg: publicSvg,
     talkingSvg: talkingSvg, mountTalking: mountTalking,
     cameo: cameo, cameoSvg: cameoSvg, CAMEOS: CAMEOS, CAMEO_MAP: CAMEO_MAP,
-    SKIN: SKIN, HAIR: HAIR, BG: BG, OUTFIT: OUTFIT, EVENT: EVT
+    SKIN: SKIN, HAIR: HAIR, BG: BG, OUTFIT: OUTFIT, IRIS: IRIS, EVENT: EVT
   };
 })(window);

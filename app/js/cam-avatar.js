@@ -36,13 +36,20 @@
   // stay under Daily's high-CPU warning on ordinary laptops.
   const OUT_W = 960, OUT_H = 540, FPS = 24;
   const INK = '#0b0b0c', BONE = '#f0ede6', RED = '#dd2e2e', DIM = '#232326';
-  const HEAD = '#1b1b1f';
+  const MASK_HEAD = '#1b1b1f';
   const DESIGN_KEY = 'debatable-live-avatar-v1';
   const LOOKS_KEY = 'debatable-avatar-looks-v1';
   const DEFAULT_KEY = 'debatable-live-avatar-default-v1';
   const DESIGN_EVENT = 'debatable-avatar-design';
-  const DEFAULT_DESIGN = { scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
+  const DEFAULT_DESIGN = { style: 'face', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
   const DESIGN_OPTIONS = {
+    // 'face' paints the debater's own cartoon portrait (js/avatar.js) in 3D;
+    // 'mask' is the original anonymous arena figure. Face is the default
+    // because a call reads better with a person in it than with a badge.
+    style: [
+      { key: 'face', label: 'My avatar' },
+      { key: 'mask', label: 'Anonymous mask' },
+    ],
     scene: [
       { key: 'arena', label: 'Arena', sample: 'radial-gradient(circle at 50% 45%,#492028,#16161a 48%,#070708)' },
       { key: 'skyline', label: 'Skyline', sample: 'linear-gradient(#101b38 0 54%,#16213a 55%,#05070d 56%)' },
@@ -648,11 +655,353 @@
 
   }
 
+  // ── the 3D cartoon face ───────────────────────────────────────────────
+  // The video tile paints the same person the profile portrait draws: skin,
+  // hair and features resolved from the saved DBAvatar config, shaded with
+  // the same soft() brush the anonymous mask uses so the head sits IN the
+  // scene instead of looking pasted onto it. Every feature is live: blinks,
+  // gaze, brow raise, smile corners and jaw all come off the tracker.
+  //
+  // Fallback palettes mirror js/avatar.js. They are only read when that
+  // engine is not on the page; when it is, its own palettes win, so the
+  // face on the call and the face on the profile are the same face.
+  const FB_SKIN = ['#f8ddc3', '#f0c6a2', '#dba172', '#bd7c4c', '#96603a', '#654227'];
+  const FB_HAIR = ['#141210', '#3a2418', '#6b4423', '#a5713f', '#e7c979', '#cfd3db', '#7c86ff', '#ff77c8'];
+  const FB_IRIS = ['#5b4130', '#2a2320', '#4f7046', '#3e6a8e', '#7a6a44', '#5c6672'];
+  // The portrait's 14 silhouettes collapse to six masses here. A hair shape
+  // that reads at 300px in SVG becomes noise on a call tile, so canvas gets
+  // the archetype rather than the drawing.
+  const HAIR_KIND = ['buzz', 'cap', 'quiff', 'full', 'long', 'bun', 'bob',
+                     'cap', 'braids', 'tail', 'long', 'full', 'cap', 'wrap'];
+
+  function pick(list, i, fallback) {
+    const v = list && list[i | 0];
+    return typeof v === 'string' ? v : fallback;
+  }
+  function mixHex(a, b, t) {
+    const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    const c = function (sh) { return Math.round(((x >> sh) & 255) + (((y >> sh) & 255) - ((x >> sh) & 255)) * t); };
+    return '#' + [c(16), c(8), c(0)].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  /* faceLook(design) -> the resolved look, or null to keep the mask.
+     Reads the debater's own portrait config so switching to Face mode on a
+     call shows the avatar they built, not a stranger. */
+  function faceLook(design) {
+    if (design.style !== 'face') return null;
+    const A = window.DBAvatar;
+    let cfg = null;
+    try { cfg = A && (A.getUser() || A.randomConfig('live-face')); } catch (e) { cfg = null; }
+    if (!cfg) cfg = { face: 0, skin: 1, hair: 1, top: 1, eyes: 0, brows: 0, mouth: 0, facial: 0, glasses: 0, iris: 0 };
+    const SK = (A && A.SKIN) || FB_SKIN, HR = (A && A.HAIR) || FB_HAIR, IR = (A && A.IRIS) || FB_IRIS;
+    const skin = pick(SK, cfg.skin, FB_SKIN[1]);
+    const hair = pick(HR, cfg.hair, FB_HAIR[1]);
+    return {
+      skin: skin,
+      skinD: shade(skin, -0.09),
+      skinDD: shade(skin, -0.2),
+      hair: hair,
+      hairHi: shade(hair, 0.16),
+      hairDk: shade(hair, -0.1),
+      browC: shade(hair, (cfg.hair | 0) >= 4 ? -0.18 : 0.02),
+      iris: pick(IR, cfg.iris, FB_IRIS[0]),
+      lip: mixHex(skin, '#b0505c', 0.55),
+      kind: HAIR_KIND[cfg.top | 0] || 'cap',
+      eyes: cfg.eyes | 0, brows: cfg.brows | 0, glasses: cfg.glasses | 0, facial: cfg.facial | 0
+    };
+  }
+
+  // The crown mass. `extra` grows it past the skull for fuller styles.
+  function hairCap(ctx, headW, R, extra, brow) {
+    const w = headW * (1 + extra), t = R * (1.05 + extra * 0.8);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.99, -R * 0.14);
+    ctx.bezierCurveTo(-w * 1.04, -R * 0.80, -w * 0.68, -t, 0, -t);
+    ctx.bezierCurveTo(w * 0.68, -t, w * 1.04, -R * 0.80, w * 0.99, -R * 0.14);
+    ctx.bezierCurveTo(w * 0.88, -R * 0.46, w * 0.54, -R * brow, 0, -R * brow);
+    ctx.bezierCurveTo(-w * 0.54, -R * brow, -w * 0.88, -R * 0.46, -w * 0.99, -R * 0.14);
+    ctx.closePath();
+  }
+
+  // Hair that lives BEHIND the head. Called before the skull is filled.
+  function drawHairBack(ctx, R, headW, look) {
+    const k = look.kind;
+    if (k === 'buzz' || k === 'cap' || k === 'quiff' || k === 'bob') return;
+    ctx.fillStyle = look.hairDk;
+    if (k === 'long') {
+      ctx.beginPath();
+      ctx.moveTo(-headW * 1.02, -R * 0.30);
+      ctx.bezierCurveTo(-headW * 1.42, R * 0.30, -headW * 1.36, R * 1.30, -headW * 1.16, R * 1.72);
+      ctx.lineTo(-headW * 0.52, R * 1.72);
+      ctx.bezierCurveTo(-headW * 0.74, R * 0.90, -headW * 0.78, R * 0.10, -headW * 0.62, -R * 0.40);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(headW * 1.02, -R * 0.30);
+      ctx.bezierCurveTo(headW * 1.42, R * 0.30, headW * 1.36, R * 1.30, headW * 1.16, R * 1.72);
+      ctx.lineTo(headW * 0.52, R * 1.72);
+      ctx.bezierCurveTo(headW * 0.74, R * 0.90, headW * 0.78, R * 0.10, headW * 0.62, -R * 0.40);
+      ctx.closePath(); ctx.fill();
+    } else if (k === 'braids') {
+      for (let s = -1; s <= 1; s += 2) {
+        ctx.beginPath();
+        ctx.ellipse(s * headW * 1.05, R * 0.55, headW * 0.16, R * 0.95, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = look.hair;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.ellipse(s * headW * 1.05, R * (0.05 + i * 0.5), headW * 0.15, R * 0.2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = look.hairDk;
+      }
+    } else if (k === 'tail' || k === 'bun') {
+      ctx.beginPath();
+      ctx.ellipse(headW * 0.98, k === 'bun' ? -R * 0.62 : R * 0.42, headW * 0.34, R * (k === 'bun' ? 0.34 : 0.72), 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (k === 'full') {
+      ctx.beginPath();
+      ctx.ellipse(0, -R * 0.30, headW * 1.30, R * 1.16, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (k === 'wrap') {
+      ctx.fillStyle = shade('#b98499', -0.14);
+      ctx.beginPath();
+      ctx.ellipse(0, R * 0.10, headW * 1.24, R * 1.34, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* The face itself, in head-local space: the caller has already
+     translated to the head centre, rolled it, and filled the skull. */
+  function drawFaceLook(ctx, R, headW, squash, fx, fy, jawDrop, openAmt, f, look, headPath) {
+    const eyeY = -R * 0.10 + fy;
+    const eyeDX = headW * 0.42;
+    const eyeW = R * 0.235, eyeH = R * 0.165;
+    const wrap = look.kind === 'wrap';
+
+    // ears, then the hair that covers them
+    if (!wrap) {
+      for (let s = -1; s <= 1; s += 2) {
+        ctx.beginPath();
+        ctx.ellipse(s * headW * 1.03 + fx * 0.3, eyeY + R * 0.10, headW * 0.13, R * 0.18, 0, 0, Math.PI * 2);
+        ctx.fillStyle = s * f.yaw > 0 ? look.skinD : look.skin; ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s * headW * 1.03 + fx * 0.3, eyeY + R * 0.10, headW * 0.06, R * 0.09, 0, 0, Math.PI * 2);
+        ctx.fillStyle = look.skinDD; ctx.globalAlpha = 0.5; ctx.fill(); ctx.globalAlpha = 1;
+      }
+    }
+
+    // ---- hair front -----------------------------------------------------
+    const k = look.kind;
+    if (k === 'wrap') {
+      ctx.fillStyle = '#b98499';
+      ctx.beginPath();
+      ctx.moveTo(-headW * 1.12, R * 0.70);
+      ctx.bezierCurveTo(-headW * 1.20, -R * 0.30, -headW * 0.72, -R * 1.24, 0, -R * 1.24);
+      ctx.bezierCurveTo(headW * 0.72, -R * 1.24, headW * 1.20, -R * 0.30, headW * 1.12, R * 0.70);
+      ctx.bezierCurveTo(headW * 0.86, R * 0.30, headW * 0.80, -R * 0.42, 0, -R * 0.42);
+      ctx.bezierCurveTo(-headW * 0.80, -R * 0.42, -headW * 0.86, R * 0.30, -headW * 1.12, R * 0.70);
+      ctx.closePath(); ctx.fill();
+    } else {
+      const extra = k === 'full' ? 0.16 : k === 'long' || k === 'bob' ? 0.06 : 0.03;
+      const brow = k === 'quiff' ? 0.60 : k === 'buzz' ? 0.74 : 0.68;
+      hairCap(ctx, headW, R, extra, brow);
+      ctx.globalAlpha = k === 'buzz' ? 0.5 : 1;
+      ctx.fillStyle = look.hair; ctx.fill();
+      ctx.globalAlpha = 1;
+      if (k === 'bob' || k === 'long') {
+        // the front curtain either side of the face
+        for (let s = -1; s <= 1; s += 2) {
+          ctx.beginPath();
+          ctx.moveTo(s * headW * 1.02, -R * 0.40);
+          ctx.bezierCurveTo(s * headW * 1.12, R * 0.20, s * headW * 1.02, R * 0.72, s * headW * 0.84, R * 0.96);
+          ctx.lineTo(s * headW * 0.62, R * 0.80);
+          ctx.bezierCurveTo(s * headW * 0.80, R * 0.30, s * headW * 0.82, -R * 0.20, s * headW * 0.74, -R * 0.52);
+          ctx.closePath(); ctx.fillStyle = look.hair; ctx.fill();
+        }
+      }
+      // gloss: the single strongest cue that hair is a volume, not a shape
+      ctx.save();
+      hairCap(ctx, headW, R, extra, brow); ctx.clip();
+      soft(ctx, -headW * 0.34, -R * 0.80, headW * 0.42, R * 0.16, LIT, 0.30);
+      soft(ctx, headW * 0.30, -R * 0.86, headW * 0.28, R * 0.11, LIT, 0.18);
+      soft(ctx, 0, -R * 0.30, headW * 1.1, R * 0.24, DARK, 0.34);
+      ctx.restore();
+    }
+
+    // ---- brows ----------------------------------------------------------
+    const browY = eyeY - R * 0.255;
+    const bw = eyeW * 1.05;
+    ctx.lineCap = 'round'; ctx.strokeStyle = look.browC;
+    ctx.lineWidth = Math.max(2, R * (look.brows === 2 ? 0.062 : 0.052));
+    for (let s = -1; s <= 1; s += 2) {
+      const cx = fx + s * eyeDX;
+      const up = (s < 0 ? f.browUpL : f.browUpR) * R * 0.09 + f.browUp * R * 0.02;
+      const down = f.browDown * R * 0.05;
+      const arch = look.brows === 1 ? R * 0.02 : R * 0.055;
+      ctx.beginPath();
+      ctx.moveTo(cx - s * bw, browY - up + down + R * 0.02);
+      ctx.quadraticCurveTo(cx, browY - up + down - arch, cx + s * bw, browY - up + down * 1.6 - (look.brows === 2 ? R * 0.02 : 0));
+      ctx.stroke();
+    }
+
+    // ---- eyes -----------------------------------------------------------
+    for (let s = -1; s <= 1; s += 2) {
+      const cx = fx + s * eyeDX;
+      const blink = s < 0 ? f.blinkL : f.blinkR;
+      const open = clamp(1 - blink, 0, 1);
+      if (open < 0.12) {
+        ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.026);
+        ctx.beginPath();
+        ctx.moveTo(cx - eyeW, eyeY);
+        ctx.quadraticCurveTo(cx, eyeY + eyeH * 0.5, cx + eyeW, eyeY);
+        ctx.stroke();
+        continue;
+      }
+      const up = eyeH * open, dn = eyeH * 0.88 * open;
+      function whitePath() {
+        ctx.beginPath();
+        ctx.moveTo(cx - eyeW, eyeY);
+        ctx.quadraticCurveTo(cx, eyeY - up * 2, cx + eyeW, eyeY);
+        ctx.quadraticCurveTo(cx, eyeY + dn * 2, cx - eyeW, eyeY);
+        ctx.closePath();
+      }
+      whitePath(); ctx.fillStyle = '#fdfcf9'; ctx.fill();
+      ctx.save(); whitePath(); ctx.clip();
+      // socket shadow across the top of the eyeball
+      soft(ctx, cx, eyeY - up * 0.9, eyeW * 0.95, up * 0.9, DARK, 0.45);
+      const ir = eyeW * 0.46;
+      const ix = cx + (f.gazeX || 0) * eyeW * 0.30 - f.yaw * eyeW * 0.16;
+      const iy = eyeY + (f.gazeY || 0) * eyeH * 0.40;
+      const g = ctx.createRadialGradient(ix - ir * 0.3, iy - ir * 0.34, ir * 0.1, ix, iy, ir);
+      g.addColorStop(0, shade(look.iris, 0.16));
+      g.addColorStop(0.62, look.iris);
+      g.addColorStop(1, shade(look.iris, -0.16));
+      ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(20,12,8,0.55)'; ctx.lineWidth = Math.max(1, ir * 0.16);
+      ctx.beginPath(); ctx.arc(ix, iy, ir * 0.94, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ix, iy, ir * 0.44, 0, Math.PI * 2); ctx.fillStyle = '#150f0c'; ctx.fill();
+      ctx.beginPath(); ctx.arc(ix + ir * 0.36, iy - ir * 0.42, ir * 0.34, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(ix - ir * 0.46, iy + ir * 0.46, ir * 0.17, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+      ctx.restore();
+      // lash line last, so it sits over the white and the iris alike
+      ctx.strokeStyle = '#2b211a'; ctx.lineWidth = Math.max(2, R * 0.028);
+      ctx.beginPath();
+      ctx.moveTo(cx - eyeW * 1.04, eyeY - up * 0.1);
+      ctx.quadraticCurveTo(cx, eyeY - up * 2.3, cx + eyeW * 1.04, eyeY - up * 0.1);
+      ctx.stroke();
+    }
+
+    // ---- nose -----------------------------------------------------------
+    const noseY = eyeY + R * 0.30 + jawDrop * 0.2;
+    soft(ctx, fx - R * 0.055, noseY - R * 0.05, R * 0.115, R * 0.14, DARK, 0.30);
+    soft(ctx, fx + R * 0.045, noseY - R * 0.08, R * 0.07, R * 0.08, LIT, 0.20);
+    ctx.strokeStyle = look.skinDD; ctx.lineWidth = Math.max(2, R * 0.028);
+    ctx.beginPath();
+    ctx.moveTo(fx - R * 0.085, noseY - R * 0.01);
+    ctx.quadraticCurveTo(fx, noseY + R * 0.085, fx + R * 0.085, noseY - R * 0.01);
+    ctx.stroke();
+
+    // ---- facial hair ----------------------------------------------------
+    if (look.facial === 1 || look.facial === 2) {
+      ctx.save(); headPath(); ctx.clip();
+      ctx.globalAlpha = look.facial === 2 ? 1 : 0.22;
+      ctx.fillStyle = look.hair;
+      ctx.beginPath();
+      ctx.moveTo(-headW, eyeY + R * 0.10);
+      ctx.bezierCurveTo(-headW * 0.9, eyeY + R * 0.40, -headW * 0.5, eyeY + R * 0.50, 0, eyeY + R * 0.52);
+      ctx.bezierCurveTo(headW * 0.5, eyeY + R * 0.50, headW * 0.9, eyeY + R * 0.40, headW, eyeY + R * 0.10);
+      ctx.lineTo(headW, R * 1.6); ctx.lineTo(-headW, R * 1.6);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1; ctx.restore();
+    }
+
+    // ---- mouth ----------------------------------------------------------
+    const smile = clamp(Math.max(f.smile, (f.smileL + f.smileR) * 0.5), 0, 1);
+    const mouthY = eyeY + R * 0.62 + jawDrop * 0.75;
+    const moW = R * (0.21 + smile * 0.08) * (1 + f.wide * 0.22) * squash;
+    const openH = openAmt * R * 0.24;
+    const lift = smile * R * 0.075;
+    const lipD = shade(look.lip, -0.12), lipL = look.lip;
+    if (openH < R * 0.02) {
+      // closed: two lips, the lower one catching the light
+      ctx.beginPath();
+      ctx.moveTo(fx - moW, mouthY + lift * 0.45);
+      ctx.quadraticCurveTo(fx - moW * 0.42, mouthY - R * 0.055, fx, mouthY - R * 0.018);
+      ctx.quadraticCurveTo(fx + moW * 0.42, mouthY - R * 0.055, fx + moW, mouthY + lift * 0.45);
+      ctx.quadraticCurveTo(fx, mouthY + R * 0.05, fx - moW, mouthY + lift * 0.45);
+      ctx.closePath(); ctx.fillStyle = lipD; ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(fx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
+      ctx.quadraticCurveTo(fx, mouthY + R * 0.145 + lift, fx + moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
+      ctx.quadraticCurveTo(fx, mouthY + R * 0.10 + lift, fx - moW * 0.88, mouthY + R * 0.036 + lift * 0.35);
+      ctx.closePath(); ctx.fillStyle = lipL; ctx.fill();
+    } else {
+      const upperY = mouthY - openH * 0.42 - lift * 0.5;
+      const lowerY = mouthY + openH * 0.72;
+      ctx.beginPath();
+      ctx.moveTo(fx - moW, upperY + R * 0.01);
+      ctx.quadraticCurveTo(fx, upperY - R * 0.03 - lift, fx + moW, upperY + R * 0.01);
+      ctx.quadraticCurveTo(fx + moW * 0.68, lowerY + R * 0.02, fx, lowerY + R * 0.03);
+      ctx.quadraticCurveTo(fx - moW * 0.68, lowerY + R * 0.02, fx - moW, upperY + R * 0.01);
+      ctx.closePath();
+      ctx.fillStyle = '#54262a'; ctx.fill();
+      ctx.save(); ctx.clip();
+      // upper teeth, then the tongue once the jaw is really open
+      ctx.fillStyle = '#fdfaf4';
+      ctx.beginPath();
+      ctx.moveTo(fx - moW, upperY - R * 0.01);
+      ctx.quadraticCurveTo(fx, upperY - R * 0.05 - lift, fx + moW, upperY - R * 0.01);
+      ctx.lineTo(fx + moW, upperY + openH * 0.26);
+      ctx.quadraticCurveTo(fx, upperY + openH * 0.18, fx - moW, upperY + openH * 0.26);
+      ctx.closePath(); ctx.fill();
+      const tongue = clamp((openAmt - 0.42) / 0.4, 0, 1);
+      if (tongue > 0) {
+        ctx.fillStyle = 'rgba(178,60,74,' + (0.85 * tongue).toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.ellipse(fx, lowerY - openH * 0.12, moW * 0.52, openH * 0.24, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      // lips around the opening
+      ctx.strokeStyle = lipD; ctx.lineWidth = Math.max(2, R * 0.028);
+      ctx.beginPath();
+      ctx.moveTo(fx - moW, upperY + R * 0.01);
+      ctx.quadraticCurveTo(fx, upperY - R * 0.03 - lift, fx + moW, upperY + R * 0.01);
+      ctx.stroke();
+      ctx.strokeStyle = lipL; ctx.lineWidth = Math.max(2.4, R * 0.036);
+      ctx.beginPath();
+      ctx.moveTo(fx - moW * 0.98, upperY + R * 0.01);
+      ctx.quadraticCurveTo(fx, lowerY + R * 0.06, fx + moW * 0.98, upperY + R * 0.01);
+      ctx.stroke();
+    }
+
+    // ---- glasses --------------------------------------------------------
+    if (look.glasses) {
+      ctx.strokeStyle = 'rgba(28,30,36,0.92)';
+      ctx.lineWidth = Math.max(2, R * 0.024);
+      for (let s = -1; s <= 1; s += 2) {
+        const cx = fx + s * eyeDX;
+        ctx.beginPath();
+        if (look.glasses === 1) ctx.arc(cx, eyeY, eyeW * 1.18, 0, Math.PI * 2);
+        else if (ctx.roundRect) ctx.roundRect(cx - eyeW * 1.16, eyeY - eyeH * 1.5, eyeW * 2.32, eyeH * 3, eyeH * 0.9);
+        else ctx.rect(cx - eyeW * 1.16, eyeY - eyeH * 1.5, eyeW * 2.32, eyeH * 3);
+        ctx.fillStyle = 'rgba(226,240,255,0.08)'; ctx.fill(); ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(fx - eyeDX + eyeW * 1.16, eyeY - eyeH * 0.2);
+      ctx.quadraticCurveTo(fx, eyeY - eyeH * 0.6, fx + eyeDX - eyeW * 1.16, eyeY - eyeH * 0.2);
+      ctx.stroke();
+    }
+  }
+
   function drawAvatar(ctx, w, h, label, f, level, now, design) {
     design = normalizeDesign(design);
     const accent = findOption('accent', design.accent).color;
     const outfit = findOption('outfit', design.outfit);
     const talk = Math.max(level, f.jaw * 0.8);
+    const look = faceLook(design);
+    const HEAD = look ? look.skin : MASK_HEAD;
     drawBackdrop(ctx, w, h, now, talk, design);
     const baseR = Math.min(w, h) * 0.305;
     const R = baseR * f.s * (1 + level * 0.015);
@@ -687,8 +1036,15 @@
       }
     }
 
+    if (look) {
+      // No hood in face mode: a lit ground behind the head is what makes a
+      // cartoon face pop off a dark scene, and a hood would swallow the hair.
+      soft(ctx, hx, hy - R * 0.10, R * 2.05, R * 2.05, LIT, 0.11);
+      soft(ctx, hx, hy + R * 0.30, R * 1.5, R * 1.2, DARK, 0.22);
+    }
     // Hood behind the head. The split accent rim keeps the silhouette crisp
     // against a black video tile without reading as a plain circle.
+    if (!look) {
     ctx.save(); ctx.translate(hx, hy);
     const hood = ctx.createRadialGradient(-R * 0.25, -R * 0.35, R * 0.15, 0, R * 0.08, R * 1.3);
     hood.addColorStop(0, shade(outfit.color, 0.06)); hood.addColorStop(0.62, shade(outfit.color, -0.08)); hood.addColorStop(1, outfit.dark);
@@ -700,6 +1056,7 @@
     ctx.closePath(); ctx.fillStyle = hood; ctx.fill();
     ctx.strokeStyle = rgba(accent, 0.52); ctx.lineWidth = Math.max(3, R * 0.025); ctx.stroke();
     ctx.restore();
+    }
 
     // Shoulders follow the head at a fraction of its offset, so the face
     // moves against them and reads as a person rather than a floating badge.
@@ -755,7 +1112,7 @@
     ctx.bezierCurveTo(neckW * 1.25, R * 1.18, neckW * 1.05, R * 1.02, neckW, R * 0.72);
     ctx.closePath();
     const neckGrad = ctx.createLinearGradient(0, R * 0.72, 0, R * 1.30);
-    neckGrad.addColorStop(0, shade(HEAD, -0.30));
+    neckGrad.addColorStop(0, shade(HEAD, look ? -0.10 : -0.30));
     neckGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = neckGrad; ctx.fill();
     ctx.save(); ctx.clip();
@@ -775,35 +1132,40 @@
       ctx.closePath();
     }
 
+    if (look) drawHairBack(ctx, R, headW, look);
+
     // ---- head form ------------------------------------------------------
     // A vertical gradient first (lit crown, shadowed jaw) instead of a flat
     // fill, then the planes of a skull painted as soft brushes, then a rim.
     // On a head this dark the rim is what separates it from the backdrop.
     headPath();
     const skull = ctx.createLinearGradient(0, -R * 1.05, 0, R * 1.10);
-    skull.addColorStop(0, shade(HEAD, 0.15));
+    skull.addColorStop(0, shade(HEAD, look ? 0.07 : 0.15));
     skull.addColorStop(0.42, shade(HEAD, 0.02));
-    skull.addColorStop(1, shade(HEAD, -0.52));
+    skull.addColorStop(1, shade(HEAD, look ? -0.16 : -0.52));
     ctx.fillStyle = skull; ctx.fill();
 
     ctx.save(); headPath(); ctx.clip();
-    soft(ctx, -headW * 0.40, -R * 0.66, headW * 0.80, R * 0.56, LIT, 0.13);   // key light
-    soft(ctx, -headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.40);  // temples
-    soft(ctx, headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.50);
-    soft(ctx, -headW * 0.58, R * 0.04, headW * 0.32, R * 0.18, LIT, 0.10);    // cheekbone
-    soft(ctx, headW * 0.60, R * 0.08, headW * 0.30, R * 0.18, LIT, 0.06);
-    soft(ctx, -headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.38);   // cheek hollow
-    soft(ctx, headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.46);
-    soft(ctx, 0, R * 0.84 + jawDrop, headW * 0.36, R * 0.22, LIT, 0.09);      // chin
-    soft(ctx, 0, R * 1.10 + jawDrop, headW * 0.78, R * 0.26, DARK, 0.55);     // under the jaw
-    soft(ctx, fx, -R * 0.50 + fy, headW * 0.72, R * 0.16, DARK, 0.34);        // brow ridge
+    // Skin needs a fraction of the modelling a near-black mask head needs:
+    // the same alphas that give the mask its planes turn a face muddy.
+    const sh = look ? 0.42 : 1, li = look ? 1.5 : 1;
+    soft(ctx, -headW * 0.40, -R * 0.66, headW * 0.80, R * 0.56, LIT, 0.13 * li);   // key light
+    soft(ctx, -headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.40 * sh);  // temples
+    soft(ctx, headW * 0.95, -R * 0.26, headW * 0.30, R * 0.36, DARK, 0.50 * sh);
+    soft(ctx, -headW * 0.58, R * 0.04, headW * 0.32, R * 0.18, LIT, 0.10 * li);    // cheekbone
+    soft(ctx, headW * 0.60, R * 0.08, headW * 0.30, R * 0.18, LIT, 0.06 * li);
+    soft(ctx, -headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.38 * sh);   // cheek hollow
+    soft(ctx, headW * 0.66, R * 0.44, headW * 0.34, R * 0.28, DARK, 0.46 * sh);
+    soft(ctx, 0, R * 0.84 + jawDrop, headW * 0.36, R * 0.22, LIT, 0.09 * li);      // chin
+    soft(ctx, 0, R * 1.10 + jawDrop, headW * 0.78, R * 0.26, DARK, 0.55 * sh);     // under the jaw
+    soft(ctx, fx, -R * 0.50 + fy, headW * 0.72, R * 0.16, DARK, 0.34 * sh);        // brow ridge
     // Side shade. The old version flipped between two fixed alphas at
     // yaw 0, so a turn changed the shading in one step and then stopped
     // saying anything. Now the far side darkens with how far the head has
     // turned and the lit band SLIDES with it, which is the cue that reads
     // as a head rotating rather than a flat card sliding.
     const turn = clamp(Math.abs(f.yaw), 0, 1);
-    const far = 0.28 + turn * 0.26, near = 0.05;
+    const far = (0.28 + turn * 0.26) * sh, near = 0.05 * sh;
     const side = ctx.createLinearGradient(-headW, 0, headW, 0);
     side.addColorStop(0, 'rgba(0,0,0,' + (f.yaw < 0 ? near : far).toFixed(3) + ')');
     side.addColorStop(clamp(0.52 + f.yaw * 0.20, 0.08, 0.92), 'rgba(0,0,0,0)');
@@ -814,8 +1176,10 @@
     // Rim: the head path stroked again, offset up-left and clipped to the
     // head, so only the far edge lights. This is the single strongest 3D
     // cue available on a dark subject.
-    headPath();
-    ctx.lineWidth = Math.max(2.4, R * 0.026); ctx.strokeStyle = rgba(accent, 0.62); ctx.stroke();
+    if (!look) {
+      headPath();
+      ctx.lineWidth = Math.max(2.4, R * 0.026); ctx.strokeStyle = rgba(accent, 0.62); ctx.stroke();
+    }
 
     // Rim: the head stroked again, offset up-left and clipped to itself, so
     // only the far edge lights. Two passes, a bloom then a hot line. This is
@@ -832,7 +1196,7 @@
       const rim = ctx.createLinearGradient(-headW * 0.4 + rimShift, -R * 0.9, headW + rimShift, R * 0.95);
       rim.addColorStop(0, rgba(accent, 0));
       rim.addColorStop(0.40, rgba(accent, 0));
-      rim.addColorStop(1, pass ? 'rgba(255,236,232,0.92)' : rgba(accent, 0.42));
+      rim.addColorStop(1, pass ? (look ? 'rgba(255,242,232,0.55)' : 'rgba(255,236,232,0.92)') : rgba(accent, look ? 0.16 : 0.42));
       ctx.strokeStyle = rim; ctx.stroke();
     }
     ctx.restore();
@@ -841,6 +1205,8 @@
     // shared anonymous-mask identity. Every one of them covers the eye
     // band, because that is the part doing the anonymity work; they vary
     // in how much of the face they take and how they read at tile size.
+    if (look) drawFaceLook(ctx, R, headW, squash, fx, fy, jawDrop, openAmt, f, look, headPath);
+    if (!look) {
     const my = -R * 0.20 + fy, mw = R * 1.13 * squash, mh = R * 0.48;
     const maskGrad = ctx.createLinearGradient(fx - mw, my - mh, fx + mw, my + mh);
     maskGrad.addColorStop(0, shade(accent, -0.34));
@@ -1080,6 +1446,7 @@
     ctx.strokeStyle = 'rgba(255,132,132,0.42)'; ctx.lineWidth = Math.max(1.4, R * 0.012);
     ctx.beginPath(); ctx.moveTo(mouthX - moW * 0.38, lowerY - openH * 0.10);
     ctx.quadraticCurveTo(mouthX, lowerY + openH * 0.02, mouthX + moW * 0.38, lowerY - openH * 0.10); ctx.stroke();
+    }
 
     ctx.restore();
 
@@ -1104,7 +1471,7 @@
     ctx.fillStyle = accent; ctx.fill();
     ctx.font = '14px monospace'; ctx.fillStyle = 'rgba(240,237,230,0.78)';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(talk > 0.10 ? 'ANONYMOUS · SPEAKING' : 'ANONYMOUS · LIVE', chipX + 40, chipY + 1);
+    ctx.fillText((look ? 'AVATAR' : 'ANONYMOUS') + (talk > 0.10 ? ' · SPEAKING' : ' · LIVE'), chipX + 40, chipY + 1);
   }
 
   function drawCameraFrame(ctx, w, h, videoEl) {
@@ -1411,6 +1778,7 @@
 
   function buildDesignerGroup(host, title, group) {
     const section = document.createElement('div'); section.className = 'dac-group';
+    section.setAttribute('data-group-name', group);
     const label = document.createElement('span'); label.className = 'dac-label'; label.textContent = title;
     const choices = document.createElement('div'); choices.className = 'dac-choices';
     DESIGN_OPTIONS[group].forEach(function (option) {
@@ -1459,6 +1827,7 @@
     const lookRow = looksGroup.querySelector('.dac-look-row');
     const lookInput = looksGroup.querySelector('.dac-look-name');
     lookInput.value = lookName;
+    buildDesignerGroup(controls, 'Look', 'style');
     buildDesignerGroup(controls, 'Scene', 'scene');
     buildDesignerGroup(controls, 'Mask', 'mask');
     buildDesignerGroup(controls, 'Color', 'accent');
@@ -1486,6 +1855,13 @@
         const selected = draft[button.getAttribute('data-group')] === button.getAttribute('data-value');
         button.classList.toggle('is-selected', selected);
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      // Mask shape and mask eyes belong to the anonymous figure. With the
+      // cartoon face chosen they control nothing, so they come off the panel
+      // rather than sitting there inert.
+      Array.prototype.forEach.call(overlay.querySelectorAll('[data-group-name]'), function (section) {
+        const g = section.getAttribute('data-group-name');
+        if (g === 'mask' || g === 'eyes') section.hidden = draft.style === 'face';
       });
       paintLooks();
     }
