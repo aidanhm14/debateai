@@ -3354,7 +3354,10 @@ html.stage-mode .stage-ov{display:block}
 /* The board is a modal beat; nothing behind it should be reachable. */
 /* The kickoff element is #kickoffPrompt (it carries no class), so the
    old .kickoff-strip selector here suppressed nothing. */
-body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
+/* The resolution moved into the speech header on 2026-09-02, so the
+   header copy has to be suppressed here too: a draft is deciding what
+   the motion IS, and the pre-draft one must not sit behind the board. */
+body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffPrompt{visibility:hidden}
 
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Oswald:wght@500..700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
@@ -3629,16 +3632,37 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
           <span class="sh-sep" aria-hidden="true">·</span>
           <span class="speech-name" id="speechName">Speech</span>
         </div>
-        <div class="speech-primary">
-          <div class="speaker-line" style="margin-bottom:0">
-            <span class="now-speaking-label">Now speaking</span>
-            <span class="speaker-name" id="speakerName">, </span>
-            <span class="tag" id="speakerSide">, </span>
+        <!-- 2026-09-02, the founder off a live-round screenshot: "bring the
+             motion to the top next to the timer - need to be SIMPLE and
+             CATCHY". The resolution is the one sentence the round is about,
+             so it reads first, on the same line as the clock, instead of
+             sitting under the start button in the band below. It is the
+             SAME node (#rmbMotion), moved: every writer, the inline editor
+             and the both-sides consent flow are id-keyed and unchanged. The
+             band below keeps the sides, the context and the tools. -->
+        <div class="sh-main">
+          <div class="sh-motion" id="shMotion">
+            <span class="rmb-eyebrow">Resolution
+              <!-- The edit tools used to live only behind Options, which
+                   nobody found. This is the same inline editor + consent
+                   flow, surfaced on the resolution itself. -->
+              <button type="button" class="rmb-change" id="rmbChangeBtn" hidden title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change</button>
+              <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">&#127922;</button>
+              <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
+            </span>
+            <div class="rmb-motion" id="rmbMotion">&#8212;</div>
           </div>
-          <div class="spectator-meta" id="spectatorMeta" aria-label="Round details">
-            <span class="spectator-meta-chip" id="spectatorMatchup"></span>
-            <span class="spectator-meta-chip" id="spectatorJudge"></span>
-            <span class="spectator-meta-chip" id="spectatorPrep" hidden></span>
+          <div class="speech-primary">
+            <div class="speaker-line" style="margin-bottom:0">
+              <span class="now-speaking-label">Now speaking</span>
+              <span class="speaker-name" id="speakerName">, </span>
+              <span class="tag" id="speakerSide">, </span>
+            </div>
+            <div class="spectator-meta" id="spectatorMeta" aria-label="Round details">
+              <span class="spectator-meta-chip" id="spectatorMatchup"></span>
+              <span class="spectator-meta-chip" id="spectatorJudge"></span>
+              <span class="spectator-meta-chip" id="spectatorPrep" hidden></span>
+            </div>
           </div>
         </div>
         <div class="speech-clock">
@@ -3692,16 +3716,11 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
       </div>
       <div class="round-motion-bar" id="roundMotionBar">
         <div class="rmb-text">
-          <span class="rmb-eyebrow">Resolution
-            <!-- The edit tools used to live only behind Options ▾, which
-                 nobody found. This is the same inline editor + consent
-                 flow, surfaced on the resolution itself. -->
-            <button type="button" class="rmb-change" id="rmbChangeBtn" hidden title="Suggest a different resolution. Your opponent has to agree before it changes.">✎ Change</button>
-            <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">🎲</button>
-            <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
-          </span>
+          <!-- The resolution itself moved up beside the clock (see the
+               speech header). What is left here is everything ABOUT the
+               round rather than the round's sentence: the context brief,
+               who argues which side, and the room tools. -->
           <div class="rmb-motion-row">
-            <div class="rmb-motion" id="rmbMotion">—</div>
             <div class="rmb-motion-actions">
               <div class="rmb-timer" aria-label="Speech timer">
                 <span class="rmb-timer-label" id="rmbTimerState">Ready</span>
@@ -3711,9 +3730,9 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
               <button type="button" class="rmb-context-btn" id="rmbContextBtn" title="Generate a neutral background brief for this resolution">✦ Generate context</button>
             </div>
           </div>
-          <!-- Which side argues what, one compact line directly under the
-               resolution. The full wording moved to Round details; the
-               reason it exists at all is in renderSidesGuide(). -->
+          <!-- Which side argues what, one compact line. The full wording
+               moved to Round details; the reason it exists at all is in
+               renderSidesGuide(). -->
           <div class="sides-guide" id="sidesGuide" hidden></div>
           <div class="rmb-brief" id="rmbBrief" hidden></div>
           <!-- What "This House" is. Deterministic, filled by
@@ -5495,7 +5514,10 @@ body.drafting .round-motion-bar,body.drafting #kickoffPrompt{visibility:hidden}
   var resolutionPopFrame = 0;
   function revealResolution(force){
     var motion = document.getElementById('rmbMotion');
-    var bar = document.getElementById('roundMotionBar');
+    // The resolution moved into the speech header (2026-09-02), so the
+    // entrance animates the block that actually holds it. Animating the
+    // band below would now move a strip the changed text is not in.
+    var bar = document.getElementById('shMotion') || document.getElementById('roundMotionBar');
     if (!motion || !bar || document.activeElement === motion) return;
     var text = (motion.textContent || '').trim();
     if (!text || text === '—' || text === '(motion not set)') return;
@@ -21956,6 +21978,78 @@ body.lr-mini .rmb-vidtoggle,body.lr-pip .rmb-vidtoggle{display:none}
 .speech-clock-label.is-paused{color:var(--amber)}
 .speech-clock-label.is-speaking::before{animation:pulse 1.5s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){.speech-clock-label.is-speaking::before{animation:none}}
+
+/* The resolution, beside the clock (2026-09-02). Column one of the
+   header now reads resolution, then who is speaking; the clock keeps
+   column two. Declared HERE, late, on purpose: `body.round-running
+   .rmb-motion` and the `.round-motion-bar .rmb-motion` rules earlier in
+   this sheet were written for the band, and a header copy sized by them
+   renders as a billboard over the timer. */
+.sh-main{
+  grid-column:1;min-width:0;
+  display:flex;flex-direction:column;justify-content:center;gap:10px;
+}
+.sh-motion{min-width:0}
+.sh-motion .rmb-eyebrow{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;
+  font-size:.6rem;font-weight:850;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent,#ef4444);
+}
+.sh-motion .rmb-motion{
+  font-family:var(--resolution-font);
+  font-size:clamp(1.35rem,2.7vw,2.1rem);
+  font-weight:650;line-height:1.1;letter-spacing:.005em;
+  color:var(--text);text-wrap:balance;
+}
+.sh-motion .rmb-motion[contenteditable="true"]{
+  outline:1px dashed var(--accent,#ef4444);outline-offset:3px;
+  border-radius:6px;cursor:text;
+}
+/* Once a clock is running the "Now speaking" line folds away (it is on
+   both video tiles and in the speech name), so the sentence takes the
+   room it gives up. */
+body.round-running .sh-motion .rmb-motion{font-size:clamp(1.5rem,3vw,2.4rem)}
+/* A watcher is reading captions, not preparing against the motion. */
+body.spectator-mode .sh-motion .rmb-motion{font-size:clamp(1.05rem,1.7vw,1.35rem)}
+/* The video split can leave this panel phone-narrow inside a desktop
+   window, which is what the container is for. */
+@container round-panel (max-width:520px){
+  .sh-main{gap:8px}
+  .sh-motion .rmb-motion,
+  body.round-running .sh-motion .rmb-motion{
+    font-size:clamp(1.2rem,5.6cqi,1.62rem);
+    overflow-wrap:anywhere;text-wrap:pretty;
+  }
+}
+/* The clock holds 150px and wants a 24px gutter, so under ~440px of panel
+   the resolution is left arguing inside 160px: measured at a 390px phone
+   it wrapped to four lines and ran into the Now speaking line under it,
+   and at 320px the two eyebrow buttons stacked one per row. Below that
+   width the motion takes the whole line and the clock goes under it,
+   which is what the rest of the header already does at that size. */
+@container round-panel (max-width:440px){
+  .speech-header{grid-template-columns:minmax(0,1fr)}
+  .sh-main,.speech-clock{grid-column:1}
+  .speech-clock{
+    min-width:0;align-items:flex-start;padding:12px 0 0;
+    border-left:0;border-top:1px solid var(--border);
+  }
+  .sh-motion .rmb-motion,
+  body.round-running .sh-motion .rmb-motion{font-size:clamp(1.3rem,7cqi,1.75rem)}
+  .sh-motion .rmb-eyebrow{gap:6px}
+  .sh-motion .rmb-change{padding:3px 7px;font-size:.6rem}
+}
+
+/* The band below is no longer the resolution, so it stops dressing like
+   one. The hero padding, the red tab bleeding off the top edge and the
+   lifted shadow all belonged to the headline that moved up; what is left
+   is a quiet strip of round terms (context, sides, room tools). */
+.round-motion-bar{
+  padding:clamp(13px,1.7cqi,20px) clamp(18px,3cqi,40px) clamp(14px,1.9cqi,22px);
+  box-shadow:none;background:var(--ui-surface);
+}
+.round-motion-bar::before{display:none}
+.rmb-motion-row{margin-top:0}
 
 .speech-header .speech-actions{grid-column:1/-1;margin-top:2px}
 .speech-header .ready-hint{grid-column:1/-1;margin-top:0}
