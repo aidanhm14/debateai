@@ -354,9 +354,8 @@ const URLS = [
   // the one page that host owns. That reason is now void, because the
   // page is served at https://itsdebatable.com/prep — a 200 on a host
   // that already has a cert — and self-canonicals there. It is also the
-  // only way anyone finds it: nothing on the site links to /prep, so
-  // without this line the page stays an orphan.
-  { path: '/prep',            changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-22' },
+  // /learn and the shared navigation now link to it directly.
+  { path: '/prep',            changefreq: 'monthly', priority: '0.80', lastmod: '2026-09-03' },
   // debateprep.com — STILL STAGED, DELIBERATELY NOT ENABLED. The 2026-07-23
   // reading has WORSENED rather than improved: the zone no longer carries
   // 75.2.60.5 at all, only GoDaddy Domain Forwarding (15.197.225.128,

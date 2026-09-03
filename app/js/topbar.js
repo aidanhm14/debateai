@@ -264,16 +264,20 @@
     // 2026-08-12: `strong` is the new MIDDLE tier in the Explore menu
     // (see ui.css .ui-topbar-more-item.is-strong). The Improve column had
     // no `big` row at all, so it rendered as six identical rows and the
-    // eye had nowhere to land. "How it works" is the first question a
+    // eye had nowhere to land. "How this works" is the first question a
     // stranger asks, so it is the one that gets the weight.
-    { href: '/how-it-works',  label: 'How it works', compactKeep: true, strong: true },
+    { href: '/how-it-works',  label: 'How this works', compactKeep: true, strong: true },
     // 2026-08-27: Bet and Bounties leave the permanent rail for now.
     // Their routes stay live, and both remain discoverable as bold rows
     // in the Debate section of Explore (MORE_GROUPS + columnGroups).
 
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
+    // 2026-09-03: Learn and Prep are distinct again. Learn teaches the
+    // moves; Prep turns them into a case for the next round. Keep them
+    // adjacent anywhere LINKS feeds the mobile sheet or Explore menu.
     { href: '/learn',         label: 'Learn'        },
+    { href: '/prep',          label: 'Prep a round' },
     { href: '/newvoice?autostart=1&handoff=topbar-ai', label: 'Debate the AI', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
@@ -557,10 +561,10 @@
     // Page stays live; restore = uncomment the line below.
       // { href: '/oral-exam-prep', label: 'Oral exam prep', wip: true },
     ]},
-    // The taught half. On desktop this column also carries /how-it-works,
-    // /learn and /coach, which are LINKS rows: the panel composes columns
-    // by intent rather than by which array owns a row (see the column()
-    // block in render), so those three appear here without leaving LINKS.
+    // The taught half. On desktop this column also carries /learn, /prep
+    // and /coach, which are LINKS rows: the panel composes columns by
+    // intent rather than by which array owns a row (see the column() block
+    // in render), so they appear here without leaving LINKS.
     { head: 'Learn', links: [
       // 2026-08-29: removed from the menu per the founder ("get rid of ...
       // coaches"). Page stays live; restore = uncomment the line below.
@@ -793,6 +797,7 @@
     '/debate-online':  { desc: 'Live, AI, and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
     '/learn':          { desc: 'Clear claims, rebuttals, and weighing', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
+    '/prep':           { desc: 'Turn a motion into a case', icon: '<path d="M6 4.8h9.2l2.8 2.8v11.6H6zM15.2 4.8v3h2.8M9 11h6M9 14.2h6M9 17.4h3.8"/>' },
     '/judge':          { desc: 'Record together or upload a transcript', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
     '/live':           { desc: 'Put a live round on the calendar', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
@@ -1072,9 +1077,11 @@
           ['/flow',           ''],
           ['/topics',         ''],
         ]),
-        column('Learn', [
-          ['/how-it-works',   'big'],
-          ['/learn',          'strong'],
+        column('Learn & prep', [
+          // How this works already has the prominent top-nav button.
+          // This column is the next step: learn the moves, then build the case.
+          ['/learn',          'big'],
+          ['/prep',           'strong'],
           ['/coach',          ''],
           ['/coaches',        ''],
           ['/squad',          ''],
