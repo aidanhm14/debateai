@@ -1,0 +1,66 @@
+# Post-deploy browser smoke against production.
+#
+# Netlify builds origin/main on its own; this job waits for that deploy to
+# actually be live (the served sw.js carries the CACHE_NAME the commit
+# carries) and then runs e2e/ against itsdebatable.com in a real Chromium.
+# A failure emails the committer through GitHub's default notifications.
+name: e2e smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Site to test'
+        default: 'https://itsdebatable.com'
+        required: false
+
+concurrency:
+  group: e2e-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://itsdebatable.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the Netlify deploy to go live
+        run: |
+          want=$(grep -o "CACHE_NAME = '[^']*'" app/sw.js | head -1 | sed "s/.*'\(.*\)'/\1/")
+          echo "commit carries $want"
+          for i in $(seq 1 40); do
+            have=$(curl -sS -A "DebatableE2E/1 deploy-wait" "$BASE_URL/sw.js?nocache=$i" | grep -o "CACHE_NAME = '[^']*'" | head -1 | sed "s/.*'\(.*\)'/\1/")
+            echo "attempt $i: live has ${have:-nothing}"
+            if [ -n "$have" ] && [ "$have" = "$want" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "deploy never matched in 10 minutes; running anyway against whatever is live"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

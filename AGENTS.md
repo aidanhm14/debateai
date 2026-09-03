@@ -278,6 +278,38 @@ cd app && npx netlify dev
 worktree flow below). Don't ask permission to deploy on this repo. Verify
 locally first; ship in batches of ~10 minutes of work, not big PRs.
 
+## Browser smoke tests and agent MCP servers (added 2026-09-03)
+
+Three additions, each answering a failure this log records more than once:
+a feature fully built, correct in every line, and never executed.
+
+- **`e2e/` is a Playwright smoke suite that runs against PRODUCTION after
+  every push to `main`** (`.github/workflows/e2e-smoke.yml` waits for the
+  served `sw.js` to carry the commit's `CACHE_NAME`, then runs). It checks
+  the first screen, the signed-out `/spar` gate, `/watch`, `/practice`
+  mounting, the `/partners` redirect, `sw.js` parsing, the tokenless
+  `/api/claude` refusal, the public read endpoints and the judge calendar.
+  A failure emails the committer. Run it by hand with `cd e2e && npm test`;
+  `BASE_URL=` points it at a deploy preview. **It runs in a real Chromium
+  with an overridden UA and `channel: 'chromium'`, because the edge
+  traffic filter 204s headless clients and a 204 on a navigation is
+  `net::ERR_ABORTED`.** Read `e2e/README.md` before adding a test, and
+  never point the two-person spar test at the live queue while a real
+  person is waiting (it checks `/api/spar-queue` and skips itself).
+- **`.mcp.json` at the repo root gives every Claude Code session the
+  Chrome DevTools MCP** (`chrome-devtools-mcp`, isolated profile). Use it
+  for what the Browser pane cannot do: performance traces, long-task
+  entries, CPU and network throttling, and a headed Chrome where
+  `document.hidden` is real. Two negative results in the decision log
+  were artifacts of the hidden-tab harness; this is the tool that would
+  have caught both.
+- **Supabase was evaluated and NOT adopted.** Auth, rules, storage and App
+  Check are Firebase, and a second source of truth on this deploy topology
+  is a worse problem than the query gaps it would close. The Firebase-native
+  answer to "Firestore cannot aggregate this" is the Firestore-to-BigQuery
+  export extension. Revisit Supabase only for pgvector over the argument
+  corpus, and only once `contributable` is in the hundreds.
+
 ## Deploy topology & safe-ship (READ THIS BEFORE YOU PUSH)
 
 The one thing that bites every agent handed this repo. Get it right.

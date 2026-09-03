@@ -1168,12 +1168,14 @@ if printf '%s\n' "$STAGED" | grep -qE '^(app/)?sw\.js$'; then
 fi
 
 # Look for client-side file changes that should invalidate the cache.
-# Server-side .mjs functions never reach the browser, so they're excluded.
+# Server-side .mjs functions never reach the browser, so they're excluded,
+# and so is e2e/ (Playwright smoke tests, run from CI, never served).
 TRIGGERS="$(
   printf '%s\n' "$STAGED" \
     | grep -E '\.(html|js|mjs|css)$' \
     | grep -vE '^app/netlify/functions/' \
     | grep -vE '^netlify/functions/' \
+    | grep -vE '^e2e/' \
     || true
 )"
 [ -z "$TRIGGERS" ] && exit 0
