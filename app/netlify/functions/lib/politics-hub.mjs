@@ -5,6 +5,85 @@
 // cold visitor can browse them. Keep the groups broad and plain-language.
 // Competitive formats do not belong on these pages.
 
+export const PARTY_POSITION_SOURCES = {
+  democratic: 'https://democrats.org/wp-content/uploads/2025/07/2024-Democratic-Party-Platform.pdf',
+  republican: 'https://prod-static.gop.com/media/RNC2024-Platform.pdf',
+};
+
+// These are deliberately phrased as common party CASES, not statements
+// about every voter. A person chooses which case to defend before the issue
+// enters the public challenge board. The question and neutral clash are what
+// the judge sees; party identity never becomes a judging input.
+export const PARTISAN_ISSUES = [
+  {
+    id: 'immigration-path',
+    question: 'Should undocumented immigrants who have lived in the U.S. for years have a path to citizenship?',
+    topic: 'Immigration',
+    democratic: 'Pair a path to citizenship with stronger border staffing and faster asylum decisions.',
+    republican: 'Secure the border and increase removals before considering broader legal status.',
+    clash: 'Does earned legal status recognize long-term contribution, or weaken deterrence before the border is under control?',
+  },
+  {
+    id: 'taxes-wealth',
+    question: 'Should the U.S. raise taxes on corporations and the wealthiest households?',
+    topic: 'Taxes',
+    democratic: 'Raise top and corporate taxes to fund public services and make the tax code more equal.',
+    republican: 'Keep taxes lower to reward investment, hiring, and economic growth.',
+    clash: 'Which creates more broad prosperity, stronger public investment or stronger incentives to invest privately?',
+    dossierSlug: 'should-billionaires-exist',
+  },
+  {
+    id: 'health-coverage',
+    question: 'Should the government guarantee universal health coverage?',
+    topic: 'Health care',
+    democratic: 'Guarantee broader coverage through a larger federal role and stronger public benefits.',
+    republican: 'Preserve private choice and use competition, transparency, and targeted support to lower costs.',
+    clash: 'Is health care more reliable as a public guarantee or as a competitive system with a safety net?',
+    dossierSlug: 'should-the-government-provide-universal-healthcare',
+  },
+  {
+    id: 'climate-energy',
+    question: 'Should Washington speed the shift from fossil fuels through clean-energy rules and subsidies?',
+    topic: 'Climate and energy',
+    democratic: 'Use federal investment and standards to accelerate cleaner energy and reduce emissions.',
+    republican: 'Expand domestic energy production and cut federal mandates that raise costs or restrict supply.',
+    clash: 'Do federal rules correct a climate risk markets underprice, or impose costs before alternatives are ready?',
+    dossierSlug: 'is-nuclear-energy-worth-it',
+  },
+  {
+    id: 'gun-laws',
+    question: 'Should federal gun laws be stricter?',
+    topic: 'Gun policy',
+    democratic: 'Expand background checks and national limits on access for people judged to present a high risk.',
+    republican: 'Protect lawful gun ownership and focus on enforcing existing laws against dangerous conduct.',
+    clash: 'Do broader federal rules prevent avoidable harm, or burden lawful ownership without stopping dangerous people?',
+  },
+  {
+    id: 'voter-id',
+    question: 'Should federal elections require government-issued photo ID?',
+    topic: 'Elections',
+    democratic: 'Avoid rules that burden eligible voters, expand access, and provide free identification where required.',
+    republican: 'Require photo ID to strengthen election security and public confidence in the result.',
+    clash: 'Does an ID rule add justified confidence, or create a larger access cost than the problem it addresses?',
+  },
+  {
+    id: 'school-choice',
+    question: 'Should public education money follow students to private or charter schools?',
+    topic: 'Education',
+    democratic: 'Invest public funds in accountable public schools and limit diversion to private providers.',
+    republican: 'Give families broad school choice, including public support for alternatives to district schools.',
+    clash: 'Does portable funding empower families, or weaken the common system responsible for serving every student?',
+  },
+  {
+    id: 'police-accountability',
+    question: 'Should federal police funding depend on national accountability standards?',
+    topic: 'Policing',
+    democratic: 'Fund public safety with national standards for training, transparency, and misconduct.',
+    republican: 'Replenish local police and resist federal rules that limit local control or officer discretion.',
+    clash: 'Do federal conditions create necessary accountability, or make local public safety answer to the wrong authority?',
+  },
+];
+
 export const POLITICS_GROUPS = [
   {
     id: 'elections-democracy',

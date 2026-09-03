@@ -109,6 +109,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .pill-live{background:rgba(185,28,28,.1);border-color:rgba(185,28,28,.3);color:var(--red)}
   .pill-next{background:rgba(29,78,216,.09);border-color:rgba(29,78,216,.28);color:var(--blue)}
   .pill-aim{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+  .pill-politics{background:linear-gradient(90deg,rgba(29,78,216,.09),rgba(185,28,28,.09));
+    border-color:rgba(90,64,125,.22);color:var(--ink-soft)}
   .card-time{margin-left:auto}
   .claim{margin:0;font-size:1.2rem;font-weight:800;line-height:1.25;letter-spacing:-.01em}
   .claim a{text-decoration:none}
@@ -173,6 +175,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     align-items:flex-start;justify-content:center;padding:80px 16px 40px;overflow-y:auto}
   .modal{background:var(--card);border-radius:20px;max-width:560px;width:100%;padding:26px 24px 22px;
     box-shadow:0 30px 80px rgba(20,18,16,.3)}
+  .modal-k{font-size:.68rem;font-weight:900;line-height:1.2;letter-spacing:.14em;text-transform:uppercase;color:var(--red);margin:0 0 7px}
   .modal h2{margin:0 0 4px;font-size:1.5rem;font-weight:800;letter-spacing:-.01em}
   .modal .sub{margin:0 0 18px;color:var(--ink-soft);font-size:.92rem}
   .field{margin:0 0 14px}
@@ -260,6 +263,14 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     'This House believes exams reward the wrong skills.'
   ];
 
+  function blankPrefill(){
+    return { claim:'', context:'', sideA:'For', sideB:'Against', side:'a', topic:'', category:'' };
+  }
+  function queryText(value, max, fallback){
+    var out = String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+    return out || fallback || '';
+  }
+
   var state = {
     user:null, tab:'open-public', slug:null,
     feed:null, one:null, loading:true, err:'',
@@ -272,7 +283,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // Signed-out visitors still get to pick a side. The pick is held
     // here and POSTed the moment they sign in, which is the design the
     // `side` action in challenge.mjs describes.
-    pendingSide:{}, mySide:{}
+    pendingSide:{}, mySide:{},
+    // Political discovery pages arrive with a complete challenge draft:
+    // question, neutral context, party-side labels, and the side the person
+    // chose to defend. Nothing posts until they review and confirm it here.
+    prefill:blankPrefill(), source:''
   };
   try { state.mySide = JSON.parse(localStorage.getItem('da-challenge-side')||'{}'); } catch(e){}
 
@@ -377,6 +392,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   window.addEventListener('popstate', function(){ routeFromUrl(false); });
   function routeFromUrl(push){
     var q = new URLSearchParams(location.search);
+    // Rebuild composer state from the URL on every history change. This
+    // prevents a political or directed draft from leaking into a normal
+    // board route after Back, Forward, or a client-side navigation.
+    state.compose = false;
+    state.toUid = ''; state.toName = '';
+    state.prefill = blankPrefill(); state.source = '';
     // /c/<slug> is the permalink; ?c=<slug> stays readable so an older
     // link or a hand-typed URL still resolves.
     var fromPath = /^\/c\/(.+)$/.exec(location.pathname);
@@ -388,6 +409,22 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (q.get('to')){
       state.toUid = String(q.get('to')).slice(0, 128);
       state.toName = String(q.get('name') || '').slice(0, 60);
+      state.prefill = blankPrefill();
+      state.source = '';
+      state.compose = true;
+    }
+    if (q.get('claim')){
+      var source = queryText(q.get('source'), 40);
+      state.prefill = {
+        claim: queryText(q.get('claim'), 300),
+        context: queryText(q.get('context'), 2000),
+        sideA: queryText(q.get('sideA'), 40, 'For'),
+        sideB: queryText(q.get('sideB'), 40, 'Against'),
+        side: q.get('side') === 'b' ? 'b' : 'a',
+        topic: queryText(q.get('topic'), 40),
+        category: queryText(q.get('category'), 40, source === 'political-debate' ? 'Politics' : '')
+      };
+      state.source = source;
       state.compose = true;
     }
     state.slug = c || null;
@@ -487,6 +524,18 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   async function create(){
     var claim = ($('cClaim').value || '').trim();
     if (!claim) { state.err = 'Write the motion you are willing to defend.'; return render(); }
+    // Capture the editable draft before repainting the modal into its busy
+    // state. Reading the controls after render would silently restore the
+    // original URL prefill and discard the person's edits.
+    var description = ($('cDesc').value || '').trim();
+    var chosenSide = $('cSide').value === 'b' ? 'b' : 'a';
+    var sideA = state.prefill.sideA || 'For';
+    var sideB = state.prefill.sideB || 'Against';
+    var topic = state.prefill.topic || '';
+    var category = state.prefill.category || '';
+    state.prefill.claim = claim;
+    state.prefill.context = description;
+    state.prefill.side = chosenSide;
     state.busy = true; state.err = ''; render();
     try {
       await ensureAuth();
@@ -494,20 +543,24 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         action:'create',
         claim: claim,
         challengedUid: state.toUid || '',
-        description: ($('cDesc').value || '').trim(),
-        sideA: 'For',
-        sideB: 'Against',
+        description: description,
+        sideA: sideA,
+        sideB: sideB,
+        topic: topic,
+        category: category,
         format: 'quick',
         mode: 'async',
-        side: $('cSide').value
+        side: chosenSide
       });
       sfx('confirm');
       track('challenge_create', {
         format:r.challenge.format, mode:r.challenge.mode,
-        directed: r.challenge.challengedUid ? 1 : 0
+        directed: r.challenge.challengedUid ? 1 : 0,
+        source: state.source || 'challenge-board'
       });
       state.busy = false; state.compose = false;
       state.toUid = ''; state.toName = '';
+      state.prefill = blankPrefill(); state.source = '';
       nav({ slug: r.challenge.slug });
     } catch(e){
       state.busy = false; state.err = e.message; render();
@@ -594,6 +647,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
     return '<article class="card' + (c.challengedUid ? ' card-directed' : '') + '">' +
       '<div class="card-top">' + statusPill(c) +
+        (c.category === 'Politics' ? '<span class="pill pill-politics">Politics</span>' : '') +
         // The name lives in the who-line below, so the pill stays one word
         // wide and the card top does not wrap onto a second row.
         (c.challengedUid ? '<span class="pill pill-aim">' +
@@ -609,20 +663,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   function composeHtml(){
     var aimed = !!state.toUid;
     var who = state.toName || 'this debater';
+    var draft = state.prefill || blankPrefill();
+    var political = state.source === 'political-debate';
+    var chosenLabel = draft.side === 'b' ? draft.sideB : draft.sideA;
     return '<div class="modal-bg" id="composeBg"><div class="modal">' +
-      '<h2>' + (aimed ? 'Challenge ' + esc(who) : 'Start a challenge') + '</h2>' +
+      (political ? '<div class="modal-k">Democrats vs Republicans</div>' : '') +
+      '<h2>' + (aimed ? 'Challenge ' + esc(who) : (political ? 'Post this political challenge' : 'Start a challenge')) + '</h2>' +
       '<p class="sub">' + (aimed
         // Shortened names already end in a period ("Priya R."), so the name
         // is trimmed before a sentence-ending one rather than doubling it.
         ? 'Write a motion you are willing to defend against ' + esc(who.replace(/\.$/, '')) + '. Only they can take it.'
-        : 'Put one clear motion on the board. Someone else takes the open side.') + '</p>' +
+        : (political
+          ? 'You chose the ' + esc(chosenLabel) + '. Review the framing, then put it on the board for someone willing to defend the other side.'
+          : 'Put one clear motion on the board. Someone else takes the open side.')) + '</p>' +
       (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
       '<div class="field"><label for="cClaim">Motion</label>' +
-        '<textarea id="cClaim" maxlength="300" placeholder="This House would abolish legacy preference in college admissions."></textarea></div>' +
+        '<textarea id="cClaim" maxlength="300" placeholder="This House would abolish legacy preference in college admissions.">'+esc(draft.claim)+'</textarea></div>' +
       '<div class="field"><label for="cSide">Your side</label><select id="cSide">' +
-        '<option value="a">For</option><option value="b">Against</option></select></div>' +
+        '<option value="a"'+(draft.side==='a'?' selected':'')+'>'+esc(draft.sideA)+'</option>' +
+        '<option value="b"'+(draft.side==='b'?' selected':'')+'>'+esc(draft.sideB)+'</option></select></div>' +
       '<div class="field"><label for="cDesc">Context (optional)</label>' +
-        '<textarea id="cDesc" maxlength="2000" placeholder="What you mean by the motion, or where you think the real clash is."></textarea></div>' +
+        '<textarea id="cDesc" maxlength="2000" placeholder="What you mean by the motion, or where you think the real clash is.">'+esc(draft.context)+'</textarea></div>' +
       '<p class="hint">Need a date and time? Use the <a href="/live">Schedule tab</a> instead.</p>' +
       '<div class="modal-foot">' +
         '<button class="btn btn-red" id="cGo"'+(state.busy?' disabled':'')+'>'+
@@ -768,17 +829,25 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // The board's own compose button always opens an OPEN challenge, even if
     // the visitor arrived on a ?to= link, so the aimed-at state cannot leak
     // into a claim they meant for everyone.
-    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.compose = true; render(); }
+    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.prefill=blankPrefill(); state.source=''; state.compose = true; render(); }
     var pb = $('postBtn'); if (pb) pb.onclick = openCompose;
     var eb = $('emptyPost'); if (eb) eb.onclick = openCompose;
     on('[data-seed]', function(b){ b.onclick = function(){
-      state.err=''; state.toUid=''; state.toName=''; state.compose = true; render();
+      state.err=''; state.toUid=''; state.toName=''; state.prefill=blankPrefill(); state.source=''; state.compose = true; render();
       var f = $('cClaim'); if (f){ f.value = b.getAttribute('data-seed'); f.focus(); } }; });
 
     var go = $('cGo'); if (go) go.onclick = create;
-    var cc = $('cCancel'); if (cc) cc.onclick = function(){ state.compose = false; state.err=''; render(); };
+    function closeCompose(){
+      state.compose=false; state.err=''; state.toUid=''; state.toName='';
+      state.prefill=blankPrefill(); state.source='';
+      // A URL-prefilled draft should not reopen after the person cancels
+      // and refreshes. Cancel returns to the canonical public board.
+      try { history.replaceState({}, '', '/challenges'); } catch(e){}
+      render();
+    }
+    var cc = $('cCancel'); if (cc) cc.onclick = closeCompose;
     var bg = $('composeBg'); if (bg) bg.onclick = function(ev){
-      if (ev.target === bg){ state.compose = false; state.err=''; render(); } };
+      if (ev.target === bg) closeCompose(); };
   }
 
   routeFromUrl(false);

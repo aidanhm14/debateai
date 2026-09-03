@@ -5,7 +5,8 @@ import { readFileSync, statSync } from 'node:fs';
 import politicalDebate from '../app/netlify/functions/political-debate.mjs';
 import debate from '../app/netlify/functions/debate.mjs';
 import { MOTION_BANK } from '../app/netlify/functions/lib/debate-bank.mjs';
-import { POLITICS_GROUPS, politicalSlugCount } from '../app/netlify/functions/lib/politics-hub.mjs';
+import { checkContent } from '../app/netlify/functions/lib/content-guard.mjs';
+import { PARTISAN_ISSUES, POLITICS_GROUPS, politicalSlugCount } from '../app/netlify/functions/lib/politics-hub.mjs';
 
 async function htmlFrom(handler, path) {
   const response = await handler(new Request(`https://itsdebatable.com${path}`));
@@ -32,6 +33,16 @@ for (const group of POLITICS_GROUPS) {
 }
 
 assert.ok(politicalSlugCount() >= 30, 'politics guide should be a substantive collection');
+assert.ok(PARTISAN_ISSUES.length >= 8, 'partisan path should cover the major red-blue fault lines');
+assert.equal(new Set(PARTISAN_ISSUES.map(issue => issue.id)).size, PARTISAN_ISSUES.length, 'partisan issue ids must be unique');
+for (const issue of PARTISAN_ISSUES) {
+  assert.ok(issue.democratic && issue.republican && issue.clash, `${issue.id} needs both party cases and a neutral clash`);
+  const guard = checkContent({
+    text: [issue.question, issue.democratic, issue.republican, issue.clash].join(' '),
+    kind: 'motion',
+  });
+  assert.ok(guard.ok, `${issue.id} violates the site topic boundary: ${guard.reason || 'unknown'}`);
+}
 
 const hub = await htmlFrom(politicalDebate, '/api/political-debate');
 const topics = await htmlFrom(politicalDebate, '/api/political-debate/topics');
@@ -40,14 +51,32 @@ const politicalQuestion = await htmlFrom(debate, '/api/debate/should-the-elector
 
 assert.match(hub, /<title>Political Debate Online \| Discuss Current Issues \| Debatable<\/title>/);
 assert.match(hub, /<link rel="canonical" href="https:\/\/itsdebatable\.com\/political-debate">/);
-assert.match(hub, /Political debate where the other side answers back\./);
+assert.match(hub, /Democrats versus Republicans\. Pick a side\./);
 assert.match(hub, /\/img\/politics\/capitol\.jpg/);
 assert.match(hub, /<script defer src="\/js\/track\.js"><\/script>/);
 assert.match(hub, /"@type":"FAQPage"/);
+assert.equal((hub.match(/class="party-card"/g) || []).length, PARTISAN_ISSUES.length);
+assert.match(hub, /Common Democratic case/);
+assert.match(hub, /Common Republican case/);
+assert.match(hub, /href="\/challenges\?claim=/);
+const challengeHrefs = [...hub.matchAll(/href="(\/challenges\?[^"#]+)"/g)]
+  .map(match => match[1].replaceAll('&amp;', '&'));
+assert.ok(challengeHrefs.length >= PARTISAN_ISSUES.length * 2, 'each partisan case needs a challenge handoff');
+const democraticHandoff = new URL(challengeHrefs[0], 'https://itsdebatable.com');
+const republicanHandoff = new URL(challengeHrefs[1], 'https://itsdebatable.com');
+assert.equal(democraticHandoff.searchParams.get('claim'), PARTISAN_ISSUES[0].question);
+assert.equal(democraticHandoff.searchParams.get('sideA'), 'Democratic case');
+assert.equal(democraticHandoff.searchParams.get('sideB'), 'Republican case');
+assert.equal(democraticHandoff.searchParams.get('side'), 'a');
+assert.equal(republicanHandoff.searchParams.get('side'), 'b');
+assert.equal(democraticHandoff.searchParams.get('category'), 'Politics');
+assert.equal(democraticHandoff.searchParams.get('source'), 'political-debate');
 
 assert.match(topics, /<title>Political Debate Topics \| Current Issues to Argue \| Debatable<\/title>/);
 assert.match(topics, /id="topicSearch"/);
 assert.match(topics, /id="pickTopic"/);
+assert.match(topics, /Pick one and challenge/);
+assert.match(topics, /data-challenge="\/challenges\?claim=/);
 assert.equal((topics.match(/data-topic-card/g) || []).length, politicalSlugCount() + 2);
 for (const group of POLITICS_GROUPS) assert.match(topics, new RegExp(`id="${group.id}"`));
 
@@ -82,8 +111,14 @@ assert.match(contested, /Political Discussions Today/);
 
 const landing = readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
 const topbar = readFileSync(new URL('../app/js/topbar.js', import.meta.url), 'utf8');
+const challenges = readFileSync(new URL('../app/challenges.html', import.meta.url), 'utf8');
 assert.match(landing, /href="\/political-debate">Political debate<\/a>/);
 assert.match(topbar, /href: '\/political-debate', label: 'Political debates'/);
+assert.match(challenges, /q\.get\('claim'\)/);
+assert.match(challenges, /state\.prefill\.sideA \|\| 'For'/);
+assert.match(challenges, /Post this political challenge/);
+assert.match(challenges, /source: state\.source \|\| 'challenge-board'/);
+assert.match(challenges, /c\.category === 'Politics'/);
+assert.match(challenges, /history\.replaceState\(\{\}, '', '\/challenges'\)/);
 
-console.log(`political SEO guard: ${politicalSlugCount()} questions, 5 image-led categories, 4 rendered surfaces passed`);
-
+console.log(`political SEO guard: ${PARTISAN_ISSUES.length} partisan challenges, ${politicalSlugCount()} questions, 5 image-led categories passed`);
