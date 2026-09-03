@@ -83,6 +83,7 @@ const PUBLIC_MOTION_SOURCES = [
   'app/netlify/functions/lib/fundamentals-bank.mjs',
   'app/netlify/functions/lib/guide-bank.mjs',
   'app/netlify/functions/lib/motion-library.mjs',
+  'app/netlify/functions/lib/spar-match-profile.mjs',
 ];
 
 for (const rel of PUBLIC_MOTION_SOURCES) {

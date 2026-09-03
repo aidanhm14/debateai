@@ -885,7 +885,7 @@ h1 em{color:var(--accent);font-style:normal}
   .mp-masthead__line span:last-child{display:none}
   .match-profile-flow .afl-rail{padding:7px 10px}
   .match-profile-flow .afl-mute{display:none}
-  .match-profile-flow .afl-panel{padding:22px 15px calc(28px + env(safe-area-inset-bottom))}
+  .match-profile-flow .afl-panel{padding:22px 15px calc(132px + env(safe-area-inset-bottom))}
   /* Sizes here are px, not rem, and that is deliberate. ui.css forces
      html{font-size:13.5px !important} under 560px, which beats the
      2026-08-18 readability floor's 15.5px even though that block is later
@@ -929,7 +929,7 @@ h1 em{color:var(--accent);font-style:normal}
   .mp-ai-summary__copy{grid-column:1;grid-row:auto;margin-top:5px}
 }
 @media(max-height:760px) and (min-width:981px){
-  .match-profile-flow .afl-panel{padding-top:24px;padding-bottom:24px}
+  .match-profile-flow .afl-panel{padding-top:24px;padding-bottom:132px}
   .match-profile-flow .afl-step{margin-bottom:20px}
   .match-profile-flow .afl-q{font-size:clamp(2.5rem,4vw,4rem)}
   .match-profile-flow .afl-hint{margin-bottom:16px}
@@ -3017,83 +3017,92 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   if (storedLang !== 'en') setupOpen = true; // a non-English pick keeps its step open
 
   // ── Matchmaker profile ────────────────────────────────────────
-  // A short player-build before the queue. The hot take NEVER leaves this
-  // device. The queue sees only the neutral matching
-  // rule: similar rating, another person who asked for a viewpoint clash,
-  // or first available. Answers do not alter the judge or rank a belief.
-  // The claim bank is versus-PAIRS on purpose: every fight offers both
-  // chairs at equal weight (socialism AND capitalism, no billionaires AND
-  // billionaires are fine), so picking a claim is choosing a seat in a
-  // debate, never agreeing with the house. Keep the bank balanced; a
-  // one-sided bank reads as the site taking positions.
-  var MATCH_PROFILE_VERSION = 3;
-  var MATCH_PROFILE_KEY = 'da-spar-match-profile-v3';
-  var LEGACY_MATCH_PROFILE_KEY = 'da-spar-match-profile-v2';
+  // A short player-build before the queue. Issue-level political answers
+  // sync to a PRIVATE, server-only profile. They never ride the public queue,
+  // reach the opponent, enter analytics, or touch the judge. The matchmaker
+  // uses them only to rank viewpoint candidates and seed the room's motion
+  // suggestions with issues both people marked as worth discussing.
+  var MATCH_PROFILE_VERSION = 4;
+  var MATCH_PROFILE_KEY = 'da-spar-match-profile-v4';
+  var LEGACY_MATCH_PROFILE_KEY = 'da-spar-match-profile-v3';
+  var OLDEST_MATCH_PROFILE_KEY = 'da-spar-match-profile-v2';
   var MATCH_PROFILE_LABELS = {
     background: {
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
     },
-    hotTake: {
-      socialism: 'Socialism over capitalism', capitalism: 'Capitalism, best we have',
-      billionaires: 'No billionaires', billionaires_fine: 'Billionaires are fine',
-      merit_myth: 'Meritocracy is a myth', merit_real: 'Hard work still wins',
-      borders_open: 'Much easier immigration', borders_closed: 'A country picks who enters',
-      mod_hands_off: 'No political moderation', mod_harder: 'Moderate much harder', skip: 'Skipped'
+    economy: {
+      redistribute: 'More redistribution', markets: 'More room for markets', skip: 'Not my topic'
     },
-    topicFocus: {
-      random: 'Surprise me', systems: 'The big system fights', personal: 'Topics I care about', mix: 'Mix both'
+    immigration: {
+      easier: 'Make legal immigration easier', selective: 'Keep entry selective', skip: 'Not my topic'
+    },
+    speech: {
+      moderate: 'Moderate political content harder', hands_off: 'Leave lawful political speech alone', skip: 'Not my topic'
+    },
+    democracy: {
+      reform: 'Major reform is overdue', stability: 'Stability before redesign', skip: 'Not my topic'
     },
     mode: {
       viewpoint: 'Viewpoint clash', rating: 'Closest rating', fast: 'First available'
     },
     clipIntent: {
       ask: 'Ask me after the round', private: 'Keep it private'
-    },
-    summaryAssist: {
-      prompt: 'Give me the AI prompt', none: 'Not now'
     }
   };
   function allowedProfileValue(group, value, fallback){
     return Object.prototype.hasOwnProperty.call(MATCH_PROFILE_LABELS[group], value) ? value : fallback;
   }
-  // The claim bank moved to versus-pairs on 2026-09-01. Old stored picks
-  // map to their nearest new claim; a pick with no honest equivalent falls
-  // to 'skip' rather than being guessed at (assigning someone a side of a
-  // fight they never chose is worse than asking again).
-  var LEGACY_HOT_TAKES = {
-    immigration: 'borders_open', moderation: 'mod_hands_off',
-    police: 'skip', ai_utility: 'skip', universities: 'skip'
-  };
+  // Migrate the one old hot-take into exactly one issue answer. Anything
+  // without an honest equivalent is dropped rather than inferred.
+  function legacyPolitics(hotTake){
+    var out = { economy: 'skip', immigration: 'skip', speech: 'skip', democracy: 'skip' };
+    var hot = String(hotTake || '');
+    if (/^(socialism|billionaires|merit_myth)$/.test(hot)) out.economy = 'redistribute';
+    else if (/^(capitalism|billionaires_fine|merit_real)$/.test(hot)) out.economy = 'markets';
+    else if (hot === 'borders_open' || hot === 'immigration') out.immigration = 'easier';
+    else if (hot === 'borders_closed') out.immigration = 'selective';
+    else if (hot === 'mod_harder') out.speech = 'moderate';
+    else if (hot === 'mod_hands_off' || hot === 'moderation') out.speech = 'hands_off';
+    return out;
+  }
   function cleanMatchProfile(raw){
     var version = Number(raw && raw.version);
-    if (!raw || (version !== 2 && version !== MATCH_PROFILE_VERSION)) return null;
-    var hot = String(raw.hotTake || '');
-    if (LEGACY_HOT_TAKES[hot]) hot = LEGACY_HOT_TAKES[hot];
+    if (!raw || (version !== 2 && version !== 3 && version !== MATCH_PROFILE_VERSION)) return null;
+    var politics = version === MATCH_PROFILE_VERSION ? raw : legacyPolitics(raw.hotTake);
     return {
       version: MATCH_PROFILE_VERSION,
       background: allowedProfileValue('background', String(raw.background || ''), 'first'),
-      hotTake: allowedProfileValue('hotTake', hot, 'skip'),
-      topicFocus: allowedProfileValue('topicFocus', String(raw.topicFocus || ''), 'mix'),
+      economy: allowedProfileValue('economy', String(politics.economy || ''), 'skip'),
+      immigration: allowedProfileValue('immigration', String(politics.immigration || ''), 'skip'),
+      speech: allowedProfileValue('speech', String(politics.speech || ''), 'skip'),
+      democracy: allowedProfileValue('democracy', String(politics.democracy || ''), 'skip'),
       mode: allowedProfileValue('mode', String(raw.mode || ''), 'viewpoint'),
-      clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private'),
-      summaryAssist: allowedProfileValue('summaryAssist', String(raw.summaryAssist || ''), 'none')
+      clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private')
     };
   }
   function defaultMatchProfile(){
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
-      background: 'first', hotTake: 'skip', topicFocus: 'mix',
-      mode: 'viewpoint', clipIntent: 'private', summaryAssist: 'none'
+      background: 'first', economy: 'skip', immigration: 'skip',
+      speech: 'skip', democracy: 'skip', mode: 'viewpoint', clipIntent: 'private'
     });
+  }
+  function matchProfilePoliticsCount(profile){
+    profile = profile || defaultMatchProfile();
+    return ['economy','immigration','speech','democracy'].reduce(function(n, key){
+      return n + (profile[key] === 'skip' ? 0 : 1);
+    }, 0);
   }
   var matchProfile = null;
   try {
     matchProfile = cleanMatchProfile(JSON.parse(localStorage.getItem(MATCH_PROFILE_KEY) || 'null'));
     if (!matchProfile) matchProfile = cleanMatchProfile(JSON.parse(localStorage.getItem(LEGACY_MATCH_PROFILE_KEY) || 'null'));
+    if (!matchProfile) matchProfile = cleanMatchProfile(JSON.parse(localStorage.getItem(OLDEST_MATCH_PROFILE_KEY) || 'null'));
     if (matchProfile) localStorage.setItem(MATCH_PROFILE_KEY, JSON.stringify(matchProfile));
     localStorage.removeItem(LEGACY_MATCH_PROFILE_KEY);
+    localStorage.removeItem(OLDEST_MATCH_PROFILE_KEY);
   } catch(e){}
-  // A known friend does not need the six-question public matchmaker. Use
+  // A known friend does not need the seven-question public matchmaker. Use
   // the neutral defaults for this one queue record and take them straight
   // to the invite after the normal account and age checks.
   if (incomingFriendInvite && !matchProfile) matchProfile = defaultMatchProfile();
@@ -3114,12 +3123,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     live.appendChild(mpEl('b', 'mp-masthead__live-count', '0'));
     live.appendChild(document.createTextNode(' live now'));
     status.appendChild(live);
-    status.appendChild(mpEl('span', 'mp-masthead__privacy', 'Answers stay on this device'));
+    status.appendChild(mpEl('span', 'mp-masthead__privacy', 'Politics stay private to matchmaking'));
     top.appendChild(status);
     head.appendChild(top);
     var line = mpEl('div', 'mp-masthead__line');
     line.appendChild(mpEl('em', '', 'Find someone worth disagreeing with.'));
-    line.appendChild(mpEl('span', '', 'Private edition  /  Six quick choices'));
+    line.appendChild(mpEl('span', '', 'Private edition  /  Seven quick choices'));
     head.appendChild(line);
     return head;
   }
@@ -3148,34 +3157,47 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         ]
       },
       {
-        key: 'hotTake', q: 'Pick a side of a real fight.',
-        hint: 'Five fights, both chairs on offer. Pick the claim that makes you want the microphone. It does not have to be your true belief.',
-        summaryLabel: 'Your side', 'default': profile.hotTake,
-        className: 'mp-panel--hot',
+        key: 'economy', q: 'Where do you lean on money and power?',
+        hint: 'Pick your real lean, or leave the issue out. This helps find a useful disagreement. It never affects the judge.',
+        summaryLabel: 'Economy', 'default': profile.economy,
+        className: 'mp-panel--politics',
         options: [
-          { value: 'socialism', kicker: 'The system fight', label: 'Socialism would work better than capitalism.' },
-          { value: 'capitalism', kicker: 'The system fight', label: 'Capitalism is the best system we have.', className: 'mp-opt--vsr' },
-          { value: 'billionaires', kicker: 'The wealth fight', label: 'Billionaires should not exist.' },
-          { value: 'billionaires_fine', kicker: 'The wealth fight', label: 'Billionaires are fine. Envy is not an argument.', className: 'mp-opt--vsr' },
-          { value: 'merit_myth', kicker: 'The merit fight', label: 'Meritocracy is a myth. Birth decides more than talent.' },
-          { value: 'merit_real', kicker: 'The merit fight', label: 'Hard work still beats luck.', className: 'mp-opt--vsr' },
-          { value: 'borders_open', kicker: 'The border fight', label: 'Immigration should be far easier.' },
-          { value: 'borders_closed', kicker: 'The border fight', label: 'A country has the right to choose who comes in.', className: 'mp-opt--vsr' },
-          { value: 'mod_hands_off', kicker: 'The speech fight', label: 'Platforms should stop moderating politics.' },
-          { value: 'mod_harder', kicker: 'The speech fight', label: 'Platforms should moderate much harder.', className: 'mp-opt--vsr' },
-          { value: 'skip', label: 'None of these. Skip this question.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
+          { value: 'redistribute', label: 'Government should do more', sub: 'Tax wealth more and expand public programs.' },
+          { value: 'markets', label: 'Markets need more room', sub: 'Growth and competition beat more redistribution.' },
+          { value: 'skip', label: 'Not my topic', sub: 'Leave this out of matching.', summaryLabel: 'Not my topic', className: 'mp-opt--skip' }
         ]
       },
       {
-        key: 'topicFocus', q: 'What do you want to talk about?',
-        hint: 'Go anywhere, lean into the big system fights, or stay close to what matters to you.',
-        summaryLabel: 'Topics', 'default': profile.topicFocus,
-        className: 'mp-panel--topics',
+        key: 'immigration', q: 'Where do you lean on immigration?',
+        hint: 'Pick the direction you would rather defend, or leave the issue out.',
+        summaryLabel: 'Immigration', 'default': profile.immigration,
+        className: 'mp-panel--politics',
         options: [
-          { value: 'random', label: 'Surprise me', sub: 'Random debate topics.' },
-          { value: 'systems', label: 'The big fights', sub: 'Socialism, capitalism, class, borders.' },
-          { value: 'personal', label: 'What I care about', sub: 'Topics with a real stake for me.' },
-          { value: 'mix', label: 'Mix both', sub: 'One foot in each.' }
+          { value: 'easier', label: 'Make legal immigration easier', sub: 'Open more paths to enter and stay.' },
+          { value: 'selective', label: 'Keep entry selective', sub: 'A country should set and enforce tighter limits.' },
+          { value: 'skip', label: 'Not my topic', sub: 'Leave this out of matching.', summaryLabel: 'Not my topic', className: 'mp-opt--skip' }
+        ]
+      },
+      {
+        key: 'speech', q: 'Where do you lean on political speech online?',
+        hint: 'This is about lawful political content, not threats or targeted abuse.',
+        summaryLabel: 'Political speech', 'default': profile.speech,
+        className: 'mp-panel--politics',
+        options: [
+          { value: 'moderate', label: 'Moderate it harder', sub: 'Platforms should remove more harmful misinformation.' },
+          { value: 'hands_off', label: 'Leave lawful speech alone', sub: 'Platforms should intervene less in political argument.' },
+          { value: 'skip', label: 'Not my topic', sub: 'Leave this out of matching.', summaryLabel: 'Not my topic', className: 'mp-opt--skip' }
+        ]
+      },
+      {
+        key: 'democracy', q: 'Where do you lean on political reform?',
+        hint: 'Pick the instinct closer to yours. Specific motions still get decided together in the room.',
+        summaryLabel: 'Democracy', 'default': profile.democracy,
+        className: 'mp-panel--politics',
+        options: [
+          { value: 'reform', label: 'Major reform is overdue', sub: 'Elections and institutions need structural change.' },
+          { value: 'stability', label: 'Stability comes first', sub: 'Reform should be cautious about breaking what works.' },
+          { value: 'skip', label: 'Not my topic', sub: 'Leave this out of matching.', summaryLabel: 'Not my topic', className: 'mp-opt--skip' }
         ]
       },
       {
@@ -3184,7 +3206,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         summaryLabel: 'Matching', 'default': profile.mode,
         className: 'mp-panel--mode',
         options: [
-          { value: 'viewpoint', label: 'Viewpoint clash', sub: 'Someone else who asked for a clash.' },
+          { value: 'viewpoint', label: 'Viewpoint clash', sub: 'Shared issue, real disagreement when available.' },
           { value: 'rating', label: 'Closest rating', sub: 'Nearest public Glicko rating.' },
           { value: 'fast', label: 'First available', sub: 'Take the next eligible person in line.' }
         ]
@@ -3198,16 +3220,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           { value: 'ask', label: 'Ask me after the round', sub: 'Offer the separate choice if the exchange is good.' },
           { value: 'private', label: 'Keep it private', sub: 'Do not suggest publishing.' }
         ]
-      },
-      {
-        key: 'summaryAssist', q: 'Want your AI chat to help put your views into words?',
-        hint: 'We can make a prompt from your choices. Add your own details, then paste it into the AI chat you already use.',
-        summaryLabel: 'AI writing help', summary: false, 'default': profile.summaryAssist,
-        className: 'mp-panel--summary',
-        options: [
-          { value: 'prompt', label: 'Yes, give me the prompt', sub: 'It asks you questions before it drafts.' },
-          { value: 'none', label: 'Not now', sub: 'Keep only the private choices above.' }
-        ]
       }
     ];
   }
@@ -3216,67 +3228,73 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
       background: a.background,
-      hotTake: a.hotTake,
-      topicFocus: a.topicFocus,
+      economy: a.economy,
+      immigration: a.immigration,
+      speech: a.speech,
+      democracy: a.democracy,
       mode: a.mode,
-      clipIntent: a.clipIntent,
-      summaryAssist: a.summaryAssist
+      clipIntent: a.clipIntent
     }) || defaultMatchProfile();
-  }
-
-  function buildMatchProfileAiPrompt(answers){
-    var lines = [
-      'Help me write a clear first-person summary of what I like debating, in my own voice.',
-      '',
-      'What I have already chosen:',
-      '- A claim I might defend: ' + profileLabel('hotTake', answers.hotTake),
-      '- Topic energy: ' + profileLabel('topicFocus', answers.topicFocus),
-      '- What kind of matchup I want: ' + profileLabel('mode', answers.mode),
-      '',
-      'Ask me three short follow-up questions, one at a time, before you write anything. Focus on what I believe, why I believe it, and where I am uncertain.',
-      'Then draft an 80 to 120 word first-person summary that sounds natural, specific, and open to disagreement.',
-      'Do not invent beliefs or make me sound more extreme than I am. If something is unclear, mark it as an assumption and ask me to correct it.',
-      'Do not include sensitive personal details unless I explicitly add them.',
-      '',
-      'Details I want to add: [write here]'
-    ];
-    return lines.join('\n');
-  }
-
-  function copyMatchProfilePrompt(prompt, button){
-    function copied(){
-      button.textContent = 'Prompt copied';
-      window.setTimeout(function(){ button.textContent = 'Copy prompt for my AI chat'; }, 1800);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(prompt).then(copied).catch(function(){});
-      return;
-    }
-    var field = document.createElement('textarea');
-    field.value = prompt;
-    field.setAttribute('readonly', '');
-    field.style.position = 'fixed';
-    field.style.opacity = '0';
-    document.body.appendChild(field);
-    field.select();
-    try { if (document.execCommand('copy')) copied(); } catch(e){}
-    document.body.removeChild(field);
-  }
-
-  function buildMatchProfileAiCard(answers){
-    if (answers.summaryAssist !== 'prompt') return null;
-    var box = mpEl('section', 'mp-ai-summary');
-    var copy = mpEl('button', 'mp-ai-summary__copy', 'Copy prompt for my AI chat');
-    copy.type = 'button';
-    box.appendChild(mpEl('h3', '', 'Write it in your own words'));
-    box.appendChild(mpEl('p', '', 'Copy a private prompt for the AI chat you already use. It will interview you, then draft something you can edit. Nothing is sent from Debatable.'));
-    copy.addEventListener('click', function(){ copyMatchProfilePrompt(buildMatchProfileAiPrompt(answers), copy); });
-    box.appendChild(copy);
-    return box;
   }
 
   function saveMatchProfileLocal(){
     try { localStorage.setItem(MATCH_PROFILE_KEY, JSON.stringify(matchProfile)); } catch(e){}
+  }
+
+  function privateMatchProfilePayload(){
+    var p = matchProfile || defaultMatchProfile();
+    return {
+      version: MATCH_PROFILE_VERSION,
+      matchMode: p.mode,
+      stances: {
+        economy: p.economy,
+        immigration: p.immigration,
+        speech: p.speech,
+        democracy: p.democracy
+      }
+    };
+  }
+
+  // Sync before the queue write. Success is represented on the public queue
+  // by one neutral boolean, never by an answer. On any failure that boolean
+  // stays false, so an older server profile cannot silently steer this search.
+  function syncPrivateMatchProfile(){
+    if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('no_user'));
+    var payload = privateMatchProfilePayload();
+    var key = JSON.stringify(payload);
+    if (state.privateProfileSyncKey === key) return Promise.resolve(state.privateProfileReady);
+    if (state.privateProfileSyncPromise) return state.privateProfileSyncPromise;
+    state.privateProfileReady = false;
+    var controller = window.AbortController ? new AbortController() : null;
+    var timer = controller ? setTimeout(function(){ controller.abort(); }, 3500) : null;
+    state.privateProfileSyncPromise = state.user.getIdToken().then(function(token){
+      return fetch('/api/spar-match-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ profile: payload }),
+        signal: controller ? controller.signal : undefined
+      });
+    }).then(function(res){
+      return res.json().catch(function(){ return {}; }).then(function(body){
+        if (!res.ok || !body.ok) throw new Error(body.error || ('http_' + res.status));
+        state.privateProfileReady = body.stored === true;
+        state.privateProfileSyncKey = key;
+        return state.privateProfileReady;
+      });
+    }).catch(function(err){
+      state.privateProfileReady = false;
+      state.privateProfileSyncKey = '';
+      throw err;
+    }).then(function(value){
+      if (timer) clearTimeout(timer);
+      state.privateProfileSyncPromise = null;
+      return value;
+    }, function(err){
+      if (timer) clearTimeout(timer);
+      state.privateProfileSyncPromise = null;
+      throw err;
+    });
+    return state.privateProfileSyncPromise;
   }
 
   function applyMatchProfileExperience(){
@@ -3308,9 +3326,21 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       steps: matchProfileSteps(matchProfile),
       launch: {
         title: 'Your side of the table is set.',
-        hint: 'Your answers stay on this device. Only your matching rule enters the queue, and you can change everything later.',
-        cta: opts.editing ? 'Save changes' : 'Enter the queue',
-        extra: buildMatchProfileAiCard
+        hint: 'Entering the queue saves your issue answers to a private match profile. Debatable uses them only to rank viewpoint matches and suggest topics both people chose. Other people and the judge never see them.',
+        cta: opts.editing ? 'Save changes' : 'Enter the queue'
+      },
+      onSkip: function(){
+        document.body.classList.remove('match-profile-open');
+        matchProfile = defaultMatchProfile();
+        saveMatchProfileLocal();
+        applyMatchProfileExperience();
+        state.profileReady = true;
+        state.profileFlowOpen = false;
+        state.privateProfileSyncKey = '';
+        state.privateProfileReady = false;
+        paintMatchProfileCard();
+        try { gtag('event', 'spar_match_profile_skip', { via: 'flow' }); } catch(e){}
+        if (opts.onDone) opts.onDone();
       },
       onDone: function(answers){
         document.body.classList.remove('match-profile-open');
@@ -3319,8 +3349,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         applyMatchProfileExperience();
         state.profileReady = true;
         state.profileFlowOpen = false;
+        state.privateProfileSyncKey = '';
+        state.privateProfileReady = false;
         paintMatchProfileCard();
-        try { gtag('event', 'spar_match_profile_saved', { mode: matchProfile.mode, topics: matchProfile.topicFocus, clips: matchProfile.clipIntent }); } catch(e){}
+        try { gtag('event', 'spar_match_profile_saved', { mode: matchProfile.mode, politics_count: matchProfilePoliticsCount(matchProfile), clips: matchProfile.clipIntent }); } catch(e){}
         if (opts.onDone) opts.onDone();
       },
       onClose: function(){
@@ -3351,7 +3383,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<span><b>SKIP</b><small>Just meet someone right now. Answers stay optional.</small></span>' +
           '<span class="mp-skip-arrow" aria-hidden="true">&rarr;</span></button>';
         bar.querySelector('button').addEventListener('click', function(){
-          try { gtag('event', 'spar_match_profile_skip', { via: 'big' }); } catch(e){}
           railSkip.click();
         });
         root.appendChild(bar);
@@ -3405,6 +3436,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     profileFlowOpen: false,        // auth refreshes must not open or paint beneath the flow
     ratings: null,                 // public ladder rows, loaded only for Closest rating
     ratingsLoading: null,
+    privateProfileReady: false,    // server confirmed this search may use the private profile
+    privateProfileSyncKey: '',     // exact local payload last confirmed by the server
+    privateProfileSyncPromise: null,
     friendInviteToken: makeFriendInviteToken(), // opaque token friends resolve while I wait
     incomingFriendInvite: incomingFriendInvite,
     friendInviteLookupDone: false,
@@ -3472,6 +3506,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
   function matchProfileCardInner(){
     var p = matchProfile || defaultMatchProfile();
+    var politicsCount = matchProfilePoliticsCount(p);
     return '<div class="match-profile-head">' +
         '<span class="match-profile-rank" aria-hidden="true">MP</span>' +
         '<span class="match-profile-title"><strong>Matchmaker profile</strong><span>Your private matching preferences</span></span>' +
@@ -3480,10 +3515,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="match-profile-stats">' +
         '<span class="match-profile-chip">Debates <b>' + escHtml(profileLabel('background', p.background)) + '</b></span>' +
         '<span class="match-profile-chip">Match <b>' + escHtml(profileLabel('mode', p.mode)) + '</b></span>' +
-        '<span class="match-profile-chip">Topics <b>' + escHtml(profileLabel('topicFocus', p.topicFocus)) + '</b></span>' +
+        '<span class="match-profile-chip">Politics <b>' + (politicsCount ? politicsCount + ' topic' + (politicsCount === 1 ? '' : 's') : 'Neutral') + '</b></span>' +
         '<span class="match-profile-chip">Clips <b>' + escHtml(profileLabel('clipIntent', p.clipIntent)) + '</b></span>' +
       '</div>' +
-      '<p class="match-profile-privacy">Your answers stay on this device. The queue sees only the matching rule above. Publishing still needs a separate yes from everyone in the round.</p>';
+      '<p class="match-profile-privacy">Political answers are private to matchmaking. The public queue gets no positions, your opponent and judge never see them, and publishing still needs a separate yes from everyone in the round.</p>';
   }
   function matchProfileCardHtml(){
     return '<div class="match-profile-card" id="matchProfileCard">' + matchProfileCardInner() + '</div>';
@@ -3498,10 +3533,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="gate" id="sparProfileGate">' +
         '<div class="eyebrow"><span class="pip"></span>Build your matchup</div>' +
         '<h2>Who should be across the table?</h2>' +
-        '<p>Six quick choices set what you like, what you want to talk about, how you want to match, and your clip preference.</p>' +
+        '<p>Seven quick choices find a useful political disagreement and give both people better topic options.</p>' +
         '<button type="button" class="btn primary" id="startMatchProfileBtn">Build my profile</button>' +
         '<button type="button" class="btn mp-gate-skip" id="skipMatchProfileBtn"><b>SKIP</b> Just meet someone now</button>' +
-        '<div class="gate-disclaimer">Your answers stay on this device. Skip uses neutral defaults.</div>' +
+        '<div class="gate-disclaimer">Political answers are optional and private to matchmaking. Skip stores no political profile.</div>' +
       '</div>';
     var b = document.getElementById('startMatchProfileBtn');
     if (b) b.addEventListener('click', function(){
@@ -3509,9 +3544,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
     var sk = document.getElementById('skipMatchProfileBtn');
     if (sk) sk.addEventListener('click', function(){
-      matchProfile = matchProfile || defaultMatchProfile();
+      matchProfile = defaultMatchProfile();
       saveMatchProfileLocal();
       applyMatchProfileExperience();
+      state.privateProfileSyncKey = '';
+      state.privateProfileReady = false;
       state.profileReady = true;
       try { gtag('event', 'spar_match_profile_skip', { via: 'gate' }); } catch(e){}
       joinQueue();
@@ -3529,7 +3566,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (editProfile){
         e.preventDefault();
         startMatchProfileFlow({ editing: true, onDone: function(){
-          if (state.queueDocRef) state.queueDocRef.update({ matchMode: matchProfile.mode }).catch(function(){});
+          syncPrivateMatchProfile().then(function(){
+            if (state.queueDocRef) state.queueDocRef.update({
+              matchMode: matchProfile.mode,
+              matchProfileReady: state.privateProfileReady
+            }).catch(function(){});
+          }).catch(function(){
+            if (state.queueDocRef) state.queueDocRef.update({
+              matchMode: matchProfile.mode,
+              matchProfileReady: false
+            }).catch(function(){});
+          });
         }});
         return;
       }
@@ -6208,7 +6255,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       });
   }
 
-  function joinQueue(){
+  function joinQueue(privateProfileSynced){
     if (!firebaseDb) return;
     if (state.profileFlowOpen) return;
     // Guests queue too, until their free rounds are spent (see the guest
@@ -6227,6 +6274,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // spar-pair enforces the minor-with-minor rule server-side.
     if (window.daAskAgeBand && !window.daAgeBand()){
       window.daAskAgeBand(function(){ joinQueue(); });
+      return;
+    }
+    if (!privateProfileSynced){
+      state.cancelled = false;
+      shell.innerHTML = '<div class="gate"><div class="eyebrow"><span class="pip"></span>Match Desk</div><h2>Setting your match.</h2><p>Saving the private preferences you chose.</p></div>';
+      syncPrivateMatchProfile().catch(function(err){
+        console.warn('[spar] private match profile sync failed:', err && err.message);
+      }).then(function(){
+        if (!state.cancelled) joinQueue(true);
+      });
       return;
     }
     state.cancelled = false;
@@ -6278,10 +6335,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       format: formatParam,
       paradigm: state.paradigm || '',
       lang: state.lang || 'en',
-      // Neutral matchmaking preference only. The political take answers
-      // that informed the user's choice remain in localStorage and are
-      // never written to Firestore.
+      // Neutral matchmaking preference plus one boolean saying the PRIVATE
+      // server profile synced for this search. No political position ever
+      // rides this signed-in-readable queue document.
       matchMode: matchProfile.mode || 'fast',
+      matchProfileReady: state.privateProfileReady === true,
       blockedUids: blockedUids.slice(-100),
       // Opaque, per-page token used by /spar?invite=. It only resolves while
       // this doc is waiting; the first successful spar-pair transaction
@@ -7249,7 +7307,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }
       orderMatchCandidates(others).then(function(ordered){
         if (state.cancelled || !ordered.length) return;
-        attemptMatch(ordered[0].id, ordered[0].data());
+        var privateCandidates = [];
+        // Friend links keep their promised seat. Ordinary viewpoint mode
+        // sends only eligible queue ids, never answers, so spar-pair can
+        // privately choose the strongest shared-interest disagreement.
+        if (matchProfile && matchProfile.mode === 'viewpoint'
+            && state.privateProfileReady && friendInviteOrder(ordered[0]) !== 0){
+          privateCandidates = ordered.slice(0, 8).map(function(doc){ return doc.id; });
+        }
+        attemptMatch(ordered[0].id, ordered[0].data(), privateCandidates);
       });
     }).catch(function(err){
       console.warn('[spar] queue query failed', err);
@@ -7286,7 +7352,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // the user knows pairing is having trouble rather than burning the
   // full fallback clock in silence.
   var PAIR_REQUEST_TIMEOUT_MS = 15000;
-  function attemptMatch(peerUid /* peerData unused now */){
+  function attemptMatch(peerUid, peerData, privateCandidates){
     if (state.cancelled || !state.user || !firebaseAuth) return;
     // Guard against re-firing while a pair attempt is in flight —
     // tryMatch polls every 2s and the snapshot listener also pokes
@@ -7315,6 +7381,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         },
         body: JSON.stringify({
           peerUid: peerUid,
+          candidateUids: Array.isArray(privateCandidates) ? privateCandidates : [],
           format: formatParam,
         }),
       });

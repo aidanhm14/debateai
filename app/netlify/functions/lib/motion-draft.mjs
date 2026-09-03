@@ -136,8 +136,15 @@ export function buildPool(seed, format, options = {}) {
   const custom = Array.isArray(options.pool)
     ? options.pool.map((m) => String(m || '').trim()).filter(Boolean)
     : [];
+  const suggestions = Array.isArray(options.suggestions)
+    ? options.suggestions.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
   const locked = custom.length >= 2;
-  const source = locked ? custom : draftPoolFor(format);
+  // `pool` is an event rule and therefore locked. `suggestions` is the
+  // private matchmaker's mutually interesting starting deck; either person
+  // can still write a counter of their own. Keeping those meanings separate
+  // prevents personalization from quietly inheriting tournament rigidity.
+  const source = locked ? custom : (suggestions.length >= 2 ? suggestions : draftPoolFor(format));
   // Both kinds draw the same way. A tournament's published list is the
   // SOURCE, not the screen: every motion a room can reach came off the
   // published twenty, and each room draws its own few from it, which is

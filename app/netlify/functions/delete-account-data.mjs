@@ -39,6 +39,7 @@ export default async (request) => {
     'user_profiles',
     'user_fingerprints',
     'matchmaking_queue',
+    'spar_match_profiles',
     'push_subscriptions',
     'user_blocks',
     'floor_users',

@@ -4,6 +4,12 @@ import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { sendToUser } from './lib/webpush.mjs';
 import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
 import {
+  cleanSparMatchProfile,
+  hasPoliticalSignal,
+  rankPoliticalCandidates,
+  mutualPoliticalMotionPool,
+} from './lib/spar-match-profile.mjs';
+import {
   draftSeed, createDraft, advance as advanceDraft,
   applyOffer, applyResponse, applySidePick, autoResolve, draftResult, publicDraft,
 } from './lib/motion-draft.mjs';
@@ -526,6 +532,63 @@ function shortName(profile) {
   return parts[0] || 'Anonymous';
 }
 
+const PRIVATE_CANDIDATE_LIMIT = 8;
+
+function candidateUids(raw, myUid, fallbackUid) {
+  const out = [];
+  const seen = new Set([String(myUid || '')]);
+  const add = (value) => {
+    const uid = String(value || '').trim().slice(0, 160);
+    if (!uid || seen.has(uid)) return;
+    seen.add(uid);
+    out.push(uid);
+  };
+  for (const value of (Array.isArray(raw) ? raw : [])) {
+    add(value);
+    if (out.length >= PRIVATE_CANDIDATE_LIMIT) break;
+  }
+  add(fallbackUid);
+  return out.slice(0, PRIVATE_CANDIDATE_LIMIT);
+}
+
+// Pick the best viewpoint match without returning anybody's political data
+// to the browser. Queue docs contribute only a yes/no marker saying their
+// private profile synced for THIS search. If sync failed, an old stored
+// profile cannot silently keep steering new matches.
+async function choosePrivateProfilePeer(db, myUid, fallbackUid, rawCandidates) {
+  const uids = candidateUids(rawCandidates, myUid, fallbackUid);
+  if (uids.length < 2) return String(fallbackUid || '');
+  try {
+    const queue = db.collection('matchmaking_queue');
+    const profiles = db.collection('spar_match_profiles');
+    const reads = await Promise.all([
+      queue.doc(myUid).get(),
+      profiles.doc(myUid).get(),
+      ...uids.flatMap((uid) => [queue.doc(uid).get(), profiles.doc(uid).get()]),
+    ]);
+    const myQueue = reads[0].exists ? (reads[0].data() || {}) : {};
+    const myProfile = reads[1].exists ? cleanSparMatchProfile(reads[1].data()) : null;
+    if (myQueue.status !== 'waiting' || myQueue.matchProfileReady !== true
+        || !myProfile || myProfile.matchMode !== 'viewpoint' || !hasPoliticalSignal(myProfile)) {
+      return String(fallbackUid || '');
+    }
+
+    const candidates = [];
+    for (let i = 0; i < uids.length; i++) {
+      const queueSnap = reads[2 + i * 2];
+      const profileSnap = reads[3 + i * 2];
+      const queued = queueSnap.exists ? (queueSnap.data() || {}) : {};
+      if (queued.status !== 'waiting' || queued.matchProfileReady !== true || !profileSnap.exists) continue;
+      candidates.push({ uid: uids[i], profile: cleanSparMatchProfile(profileSnap.data()) });
+    }
+    const ranked = rankPoliticalCandidates(myProfile, candidates);
+    return ranked.length ? ranked[0].uid : String(fallbackUid || '');
+  } catch (err) {
+    console.warn('[spar-pair] private profile ordering failed:', err?.message || err);
+    return String(fallbackUid || '');
+  }
+}
+
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -552,7 +615,7 @@ export default async (request) => {
   catch { return errorResponse('Invalid JSON body', 400, request); }
 
   const action = String(body?.action || 'pair');
-  const peerUid = String(body?.peerUid || '').trim();
+  let peerUid = String(body?.peerUid || '').trim();
   const format = String(body?.format || '').trim().toLowerCase();
   // Separate throttle lanes — see the isThrottled comment. A consent
   // click must never 429 because the queue poller POSTed recently.
@@ -705,6 +768,9 @@ export default async (request) => {
       }, 403, request);
     }
     await markGuest(db, myUid);
+  }
+  if (action === 'pair' && Array.isArray(body?.candidateUids)) {
+    peerUid = await choosePrivateProfilePeer(db, myUid, peerUid, body.candidateUids);
   }
   if (action === 'pair' && !VALID_FORMATS.has(format)) {
     return errorResponse('Invalid format', 400, request);
@@ -994,6 +1060,8 @@ export default async (request) => {
   // pairing. Read both directions in the same transaction as the queue docs.
   const myBlockRef = db.collection('user_blocks').doc(myUid).collection('blocked').doc(peerUid);
   const peerBlockRef = db.collection('user_blocks').doc(peerUid).collection('blocked').doc(myUid);
+  const myMatchProfileRef = db.collection('spar_match_profiles').doc(myUid);
+  const peerMatchProfileRef = db.collection('spar_match_profiles').doc(peerUid);
 
   // Fire the stale-doc reaper on the side. We don't await because the
   // user's polling loop will pick the cleaner queue on its next tick
@@ -1003,13 +1071,16 @@ export default async (request) => {
 
   try {
     const result = await db.runTransaction(async (tx) => {
-      const [mineSnap, theirsSnap, myBlockSnap, peerBlockSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
+      const [mineSnap, theirsSnap, myBlockSnap, peerBlockSnap, mySeatSnap, peerSeatSnap,
+        myMatchProfileSnap, peerMatchProfileSnap] = await Promise.all([
         tx.get(myRef),
         tx.get(peerRef),
         tx.get(myBlockRef),
         tx.get(peerBlockRef),
         tx.get(myTournamentSeatRef),
         tx.get(peerTournamentSeatRef),
+        tx.get(myMatchProfileRef),
+        tx.get(peerMatchProfileRef),
       ]);
 
       if (mySeatSnap.exists) {
@@ -1167,6 +1238,19 @@ export default async (request) => {
       const readyCheck = !(myParadigm || theirParadigm) && !crossFormat;
       const needsConsent = true;
 
+      // Political answers never leave the private collection. The only
+      // downstream artifact is a reviewed set of motion suggestions, and
+      // only when both queue docs prove the profiles synced for this search.
+      // The judge sees the settled motion, never why it was suggested.
+      let privateSuggestions = [];
+      if (mine.matchProfileReady === true && theirs.matchProfileReady === true
+          && myMatchProfileSnap.exists && peerMatchProfileSnap.exists) {
+        privateSuggestions = mutualPoliticalMotionPool(
+          myMatchProfileSnap.data(),
+          peerMatchProfileSnap.data(),
+        );
+      }
+
       // The motion draft. Both docs must have opted in: a client that
       // cannot render a draft must never be handed one, or it sits on a card
       // it does not understand until the reaper sweeps it. The slate is
@@ -1187,6 +1271,9 @@ export default async (request) => {
           format: pairedFormat,
           seed: draftSeed(myUid, peerUid, room),
           names: { [myUid]: myShort, [peerUid]: peerShort },
+          ...(privateSuggestions.length >= 2
+            ? { draftConfig: { suggestions: privateSuggestions } }
+            : {}),
           createdAt: FieldValue.serverTimestamp(),
         }, { merge: true });
       }

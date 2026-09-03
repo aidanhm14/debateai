@@ -51,6 +51,11 @@ Object.keys(DRAFT_MOTIONS).forEach((k) => {
 });
 ok(draftPoolFor('nonsense-format').length > 0, 'an unknown format still gets a pool');
 
+const suggested = ['Suggestion one is long enough.', 'Suggestion two is long enough.', 'Suggestion three is long enough.'];
+const personalized = createDraft('suggested-seed', 'quick', A, B, { suggestions: suggested });
+ok(personalized.pool.every((card) => suggested.includes(card.text)), 'private suggestions replace the broad deck');
+eq(personalized.poolLocked, false, 'private suggestions do not lock hand-written counters');
+
 {
   const p1 = buildPool(seed, 'quick');
   const p2 = buildPool(seed, 'quick');

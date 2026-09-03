@@ -90,8 +90,9 @@ export default async (request) => {
 
   try {
     const db = getDb();
-    const [profile, generations, consents, leaderboard, voiceTranscripts, voiceRounds] = await Promise.all([
+    const [profile, matchPreferences, generations, consents, leaderboard, voiceTranscripts, voiceRounds] = await Promise.all([
       db.collection('user_profiles').doc(uid).get().then((d) => (d.exists ? plain(d.data()) : null)),
+      db.collection('spar_match_profiles').doc(uid).get().then((d) => (d.exists ? plain(d.data()) : null)),
       dumpQuery(db.collection('generations').where('uid', '==', uid)),
       dumpQuery(db.collection('consent_events').where('uid', '==', uid)),
       dumpQuery(db.collection('leaderboard_entries').where('uid', '==', uid)),
@@ -126,6 +127,7 @@ export default async (request) => {
         withdrawAt: '/api/corpus-withdraw',
       },
       profile,
+      privateMatchPreferences: matchPreferences,
       rounds: generations,
       voiceTranscripts,
       voiceRounds,

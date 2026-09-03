@@ -513,6 +513,19 @@ if [ -f "$DRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Political matchmaking is useful only while its privacy boundary and the
+# mutual-interest topic rule move together. This also proves the suggestion
+# deck stays editable, unlike a tournament's locked published pool.
+SPAR_MATCH_PROFILE_GUARD="$REPO_ROOT/scripts/test-spar-match-profile.mjs"
+if [ -f "$SPAR_MATCH_PROFILE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-spar-match-profile.mjs >/tmp/spar-match-profile-guard.log 2>&1); then
+    echo "[spar-match-profile] commit blocked: private political matching or mutual topics regressed:" >&2
+    tail -30 /tmp/spar-match-profile-guard.log >&2
+    echo "[spar-match-profile] see scripts/test-spar-match-profile.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Silence-hallucination guard. A transcription model handed ten seconds
 # of silence returns the prompt it was given, not nothing, and our prompt

@@ -497,6 +497,16 @@ service cloud.firestore {
       allow delete: if isSignedIn() && queueUid == request.auth.uid;
     }
 
+    // Optional issue-level political preferences for live matchmaking.
+    // This collection is deliberately darker than user_profiles: political
+    // opinions are sensitive data, the queue is browsable by signed-in
+    // clients, and even an owner-only client read would add no product value.
+    // /api/spar-match-profile writes it and spar-pair reads it with the Admin
+    // SDK. The opponent, the judge, and every browser are denied.
+    match /spar_match_profiles/{profileUid} {
+      allow read, write: if false;
+    }
+
     // Server-owned exclusive seat for a tournament pairing. A person may
     // read only their own reservation so the sitewide availability pill can
     // say "Tournament match" and stand down from the general Spar pool.
