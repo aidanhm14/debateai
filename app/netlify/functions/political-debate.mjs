@@ -8,6 +8,8 @@
 import { MOTION_BANK } from './lib/debate-bank.mjs';
 import {
   FEATURED_POLITICAL_SLUGS,
+  INDEPENDENT_ISSUES,
+  INDEPENDENT_SYSTEM_SOURCES,
   PARTISAN_ISSUES,
   PARTY_POSITION_SOURCES,
   POLITICS_GROUPS,
@@ -32,7 +34,7 @@ function motionFor(slug) {
 function groupMotions(group) {
   return group.slugs.map(motionFor).filter(Boolean);
 }
-function challengeHref({ question, context, sideA = 'For', sideB = 'Against', topic = 'Politics' }, side = 'a') {
+function challengeHref({ question, context, sideA = 'For', sideB = 'Against', topic = 'Politics', lane = 'general' }, side = 'a') {
   const query = new URLSearchParams();
   query.set('claim', question);
   if (context) query.set('context', context);
@@ -42,6 +44,7 @@ function challengeHref({ question, context, sideA = 'For', sideB = 'Against', to
   query.set('topic', topic);
   query.set('category', 'Politics');
   query.set('source', 'political-debate');
+  query.set('lane', lane);
   return `/challenges?${query.toString()}`;
 }
 function partisanChallengeHref(issue, side) {
@@ -51,6 +54,17 @@ function partisanChallengeHref(issue, side) {
     sideA: 'Democratic case',
     sideB: 'Republican case',
     topic: issue.topic,
+    lane: 'partisan',
+  }, side);
+}
+function independentChallengeHref(issue, side) {
+  return challengeHref({
+    question: issue.question,
+    context: `Independent case: ${issue.independent} Two-party case: ${issue.twoParty} Central clash: ${issue.clash}`,
+    sideA: 'Independent case',
+    sideB: 'Two-party case',
+    topic: issue.topic,
+    lane: 'independent',
   }, side);
 }
 function motionChallengeHref(motion) {
@@ -58,6 +72,7 @@ function motionChallengeHref(motion) {
     question: motion.title,
     context: `Central clash: ${motion.clash.question}`,
     topic: motion.category,
+    lane: 'general',
   });
 }
 function modeFromUrl(url) {
@@ -150,6 +165,23 @@ function sharedStyles() {
   .party-brief{display:inline-flex;margin-top:14px;font:800 11px/1.2 var(--sans);color:var(--muted);border-bottom:1px solid var(--line-strong);padding-bottom:3px}
   .party-source{margin:18px 0 0;color:var(--muted);font:600 11px/1.55 var(--sans)}
   .party-source a{border-bottom:1px solid var(--line-strong)}
+  .independent-section{scroll-margin-top:24px}
+  .independent-shell{background:#20201d;color:#fff;border-radius:28px;padding:34px;box-shadow:0 28px 70px -48px rgba(25,23,20,.9)}
+  .independent-shell .eyebrow{color:#e6c768}
+  .independent-shell .section-head{margin-bottom:24px}
+  .independent-shell .section-head p{color:rgba(255,255,255,.68)}
+  .independent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .independent-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:20px}
+  .independent-card .party-topic{color:rgba(255,255,255,.54)}
+  .independent-card h3{font-size:23px;color:#fff;margin-bottom:16px}
+  .independent-card .party-side{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.035)}
+  .independent-card .party-case{color:rgba(255,255,255,.7)}
+  .independent-card .ind .party-label,.independent-card .ind .party-action{color:#e6c768}
+  .independent-card .system .party-label,.independent-card .system .party-action{color:#b9c6d3}
+  .independent-card .ind:hover{border-color:rgba(230,199,104,.7);background:rgba(230,199,104,.075)}
+  .independent-card .system:hover{border-color:rgba(185,198,211,.55);background:rgba(185,198,211,.065)}
+  .independent-source{margin:17px 0 0;color:rgba(255,255,255,.56);font:600 11px/1.55 var(--sans)}
+  .independent-source a{color:rgba(255,255,255,.84);border-bottom:1px solid rgba(255,255,255,.28)}
   .category-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px}
   .category{position:relative;min-height:300px;border-radius:18px;overflow:hidden;color:#fff;background:#222;isolation:isolate;box-shadow:0 14px 40px -30px rgba(25,23,20,.85);transition:transform .16s}
   .category:hover{transform:translateY(-4px)}
@@ -234,8 +266,9 @@ function sharedStyles() {
     .shell{padding:18px 17px 86px}.nav{align-items:flex-start}.nav-links .nav-link:not(.primary){display:none}
     h1{font-size:clamp(42px,14vw,61px)}.lede{font-size:18px}.hero{gap:26px}.hero-photo{height:410px;border-radius:20px}
     .section{padding-top:70px}.section-head{display:block}.category-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 1px 14px}.category{min-width:76vw;scroll-snap-align:start}
-    .party-grid,.question-grid,.steps,.topic-list{grid-template-columns:1fr}.question{min-height:0}.charter-copy{padding:30px 24px}.charter-list{grid-template-columns:1fr;padding:22px}
+    .party-grid,.independent-grid,.question-grid,.steps,.topic-list{grid-template-columns:1fr}.question{min-height:0}.charter-copy{padding:30px 24px}.charter-list{grid-template-columns:1fr;padding:22px}
     .party-card{padding:17px}.party-sides{grid-template-columns:1fr}.party-side{min-height:0}.party-card h3{font-size:22px}
+    .independent-shell{padding:25px 17px;border-radius:22px}
     .cta-band{display:block;padding:29px 24px}.cta-band .btn{margin-top:20px}.faq{grid-template-columns:1fr;gap:8px}
     .topics-hero{padding-top:18px}.topics-photo{height:230px}.guide{position:static}.guide-in{grid-template-columns:1fr}.filters{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}.filter{white-space:nowrap}
     .group-head{grid-template-columns:1fr}.group-photo{height:190px}.topic-group{padding-top:56px}
@@ -302,6 +335,35 @@ function partisanSection() {
   </section>`;
 }
 
+function independentCard(issue) {
+  return `<article class="independent-card" id="independent-${esc(issue.id)}">
+    <div class="party-topic">${esc(issue.topic)} · Independent vs two-party system</div>
+    <h3>${esc(issue.question)}</h3>
+    <div class="party-sides">
+      <a class="party-side ind" href="${esc(independentChallengeHref(issue, 'a'))}">
+        <span class="party-label">Independent case</span>
+        <span class="party-case">${esc(issue.independent)}</span>
+        <span class="party-action">Defend this case →</span>
+      </a>
+      <a class="party-side system" href="${esc(independentChallengeHref(issue, 'b'))}">
+        <span class="party-label">Two-party case</span>
+        <span class="party-case">${esc(issue.twoParty)}</span>
+        <span class="party-action">Defend this case →</span>
+      </a>
+    </div>
+  </article>`;
+}
+
+function independentSection() {
+  return `<section class="section independent-section" id="independent" aria-labelledby="independent-heading">
+    <div class="independent-shell">
+      <div class="section-head"><div><div class="eyebrow">The Independent lane</div><h2 id="independent-heading">Challenge the two-party system itself.</h2></div><p>Independent voters and candidates do not share one national platform. These questions make the honest Independent case: more room to run, be heard, and compete.</p></div>
+      <div class="independent-grid">${INDEPENDENT_ISSUES.map(independentCard).join('')}</div>
+      <p class="independent-source">Election-system context follows the nonpartisan <a href="${esc(INDEPENDENT_SYSTEM_SOURCES.rankedChoice)}" target="_blank" rel="noopener">NCSL guide to ranked-choice voting</a>, its <a href="${esc(INDEPENDENT_SYSTEM_SOURCES.primaries)}" target="_blank" rel="noopener">primary-system guide</a>, and <a href="${esc(INDEPENDENT_SYSTEM_SOURCES.debates)}" target="_blank" rel="noopener">FEC debate rules</a>.</p>
+    </div>
+  </section>`;
+}
+
 function featuredCard(motion) {
   const group = POLITICS_GROUPS.find(item => item.slugs.includes(motion.slug));
   return `<article class="question">
@@ -319,6 +381,7 @@ function faqMarkup() {
   return `<div>
     <details><summary>Can I debate politics online here?</summary><p>Yes. Choose a political question, take a side, and start a timed round. You can argue against the AI immediately or use live matching to find another person.</p></details>
     <details><summary>Does Debatable take a political side?</summary><p>No position is assigned a platform endorsement. The judge applies the published rubric to the claims, support, responses, comparisons, and follow-through heard in the round.</p></details>
+    <details><summary>Is Independent treated as one political platform?</summary><p>No. Independent voters and candidates disagree on policy. The Independent lane focuses on whether the political system should make more room for candidates outside the two major parties.</p></details>
     <details><summary>Can I debate a real person?</summary><p>Yes. Post an asynchronous challenge or use casual one-on-one video. Live video requires Google on the web or Apple in the iOS app.</p></details>
     <details><summary>Do I have to argue my own opinion?</summary><p>No. Take either side. Arguing the unfamiliar case is often the fastest way to find the part of your own view that still needs work.</p></details>
   </div>`;
@@ -360,11 +423,13 @@ function footer() {
 function renderHub() {
   const canonical = `${SITE_ORIGIN}/political-debate`;
   const title = 'Political Debate Online | Discuss Current Issues | Debatable';
-  const description = 'Choose a Democratic or Republican case on a polarized political question, post it as a challenge, and meet someone willing to defend the other side.';
+  const description = 'Political discussion for people who always end up talking politics. Choose a Democratic, Republican, or Independent case and challenge someone to answer it.';
   const featured = FEATURED_POLITICAL_SLUGS.map(motionFor).filter(Boolean);
+  const systemQuestions = [...PARTISAN_ISSUES, ...INDEPENDENT_ISSUES];
   const faqs = [
     ['Can I debate politics online here?', 'Yes. Choose a political question, take a side, and start a timed round against the AI or another person.'],
     ['Does Debatable take a political side?', 'No position is assigned a platform endorsement. The judge applies the published rubric to the argument made in the round.'],
+    ['Is Independent treated as one political platform?', 'No. Independent voters and candidates disagree on policy. The Independent lane focuses on whether the political system should make more room for candidates outside the two major parties.'],
     ['Can I debate a real person?', 'Yes. Post an asynchronous challenge or use casual one-on-one video. Live video requires Google on the web or Apple in the iOS app.'],
     ['Do I have to argue my own opinion?', 'No. You can take either side of a question.'],
   ];
@@ -375,7 +440,7 @@ function renderHub() {
         '@type': 'CollectionPage',
         '@id': `${canonical}#page`,
         name: 'Political Debate Online',
-        headline: 'Democrats versus Republicans. Pick a side.',
+        headline: 'For people who always end up talking politics.',
         description,
         url: canonical,
         image: HERO_IMAGE,
@@ -384,12 +449,12 @@ function renderHub() {
         isPartOf: { '@type': 'WebSite', name: 'Debatable', url: `${SITE_ORIGIN}/` },
         mainEntity: {
           '@type': 'ItemList',
-          numberOfItems: PARTISAN_ISSUES.length,
-          itemListElement: PARTISAN_ISSUES.map((issue, index) => ({
+          numberOfItems: systemQuestions.length,
+          itemListElement: systemQuestions.map((issue, index) => ({
             '@type': 'ListItem',
             position: index + 1,
             name: issue.question,
-            url: `${canonical}#issue-${issue.id}`,
+            url: `${canonical}#${issue.independent ? 'independent-' : 'issue-'}${issue.id}`,
           })),
         },
       },
@@ -415,16 +480,17 @@ function renderHub() {
     ${topNav()}
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">Democrats vs Republicans · casual 1v1</div>
-        <h1>Democrats versus Republicans. Pick a side.</h1>
-        <p class="lede">Choose the issue. Defend the common Democratic or Republican case. Post it to Challenges, where another person can take the other side and put both arguments on the record.</p>
+        <div class="eyebrow">Political talk with an answer back</div>
+        <h1>For people who always end up talking politics.</h1>
+        <p class="lede">Bring the group chat argument. Pick a common Democratic or Republican case, or challenge the two-party system from the Independent lane. Post it to Challenges and find somebody willing to answer.</p>
         <div class="actions">
-          <a class="btn red" href="#party-lines">Choose a partisan question <span class="arrow" aria-hidden="true">↓</span></a>
-          <a class="btn" href="/challenges">See open challenges</a>
+          <a class="btn red" href="#party-lines">Pick a political fight <span class="arrow" aria-hidden="true">↓</span></a>
+          <a class="btn" href="#independent">Independent lane</a>
         </div>
         <div class="signals" aria-label="How political debates work">
-          <span class="signal">Common Democratic case</span>
-          <span class="signal">Common Republican case</span>
+          <span class="signal">Democratic case</span>
+          <span class="signal">Republican case</span>
+          <span class="signal">Independent case</span>
           <span class="signal">Neutral judge</span>
         </div>
       </div>
@@ -437,6 +503,8 @@ function renderHub() {
 
     ${partisanSection()}
 
+    ${independentSection()}
+
     <section class="section" aria-labelledby="care-heading">
       <div class="section-head"><div><div class="eyebrow">Beyond the party line</div><h2 id="care-heading">Five ways into politics.</h2></div><p>Not every political argument maps cleanly onto red and blue. Browse by the institution, policy, or public question you want to test.</p></div>
       <div class="category-grid">${POLITICS_GROUPS.map(categoryCard).join('')}</div>
@@ -448,9 +516,9 @@ function renderHub() {
     </section>
 
     <section class="section" aria-labelledby="works-heading">
-      <div class="section-head"><div><div class="eyebrow">How it works</div><h2 id="works-heading">One question becomes a public challenge.</h2></div><p>The party framing gets you to a sharp clash. The challenge system gets another person onto the other side.</p></div>
+      <div class="section-head"><div><div class="eyebrow">How it works</div><h2 id="works-heading">One political take becomes a public challenge.</h2></div><p>Bring the opinion you would normally drop into a group chat. The challenge system finds somebody willing to take the other side.</p></div>
       <div class="steps">
-        <article class="step"><div class="step-num">1</div><h3>Pick red or blue</h3><p>Choose the common Democratic or Republican case you are willing to defend.</p></article>
+        <article class="step"><div class="step-num">1</div><h3>Pick your lane</h3><p>Choose a Democratic, Republican, or Independent case you are willing to defend.</p></article>
         <article class="step"><div class="step-num">2</div><h3>Post the challenge</h3><p>The question, both party cases, and your chosen side arrive prefilled. Sign in and put it on the board.</p></article>
         <article class="step"><div class="step-num">3</div><h3>Meet the answer</h3><p>Another person takes the open side. Both arguments go on the record, then the judge explains what won.</p></article>
       </div>
@@ -541,7 +609,7 @@ function topicsScript() {
 function renderTopics() {
   const canonical = `${SITE_ORIGIN}/political-debate-topics`;
   const title = 'Political Debate Topics | Current Issues to Argue | Debatable';
-  const description = `Browse ${politicalSlugCount()} political debate topics, compare common Democratic and Republican cases, choose a side, and post the question as a public challenge.`;
+  const description = `Browse ${politicalSlugCount()} political debate topics for people who talk politics. Compare Democratic, Republican, and Independent cases, then post a public challenge.`;
   const allMotions = POLITICS_GROUPS.flatMap(group => groupMotions(group));
   const structured = {
     '@context': 'https://schema.org',
@@ -580,11 +648,13 @@ function renderTopics() {
   <body><main class="shell">
     ${topNav()}
     <section class="topics-hero">
-      <div><div class="eyebrow">Political debate topics</div><h1>Political questions with two real sides.</h1><p class="lede">Start with the Democratic versus Republican fault lines, or browse ${politicalSlugCount()} questions across public life. Choose a side and the question opens in Challenges, ready to post.</p></div>
+      <div><div class="eyebrow">For people who talk politics</div><h1>Political questions people are already arguing about.</h1><p class="lede">Start with the Democratic versus Republican fault lines, challenge the two-party system from the Independent lane, or browse ${politicalSlugCount()} questions across public life. Every question opens in Challenges, ready to post.</p></div>
       <figure class="topics-photo photo"><img src="/img/politics/ballot.jpg" alt="A secure ballot drop box outside a public library" width="675" height="900" decoding="async"><a class="credit" href="https://commons.wikimedia.org/wiki/File:Ballot_Box.jpg" target="_blank" rel="noopener">Kelson Vibber, CC0</a></figure>
     </section>
 
     ${partisanSection()}
+
+    ${independentSection()}
 
     <div class="guide" aria-label="Filter political debate topics">
       <div class="guide-in">

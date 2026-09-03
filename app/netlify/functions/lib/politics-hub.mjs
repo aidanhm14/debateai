@@ -10,6 +10,12 @@ export const PARTY_POSITION_SOURCES = {
   republican: 'https://prod-static.gop.com/media/RNC2024-Platform.pdf',
 };
 
+export const INDEPENDENT_SYSTEM_SOURCES = {
+  rankedChoice: 'https://www.ncsl.org/elections-and-campaigns/ranked-choice-voting',
+  primaries: 'https://www.ncsl.org/elections-and-campaigns/state-primary-election-types',
+  debates: 'https://www.fec.gov/help-candidates-and-committees/making-disbursements-ssf-or-connected-organization/public-debates/',
+};
+
 // These are deliberately phrased as common party CASES, not statements
 // about every voter. A person chooses which case to defend before the issue
 // enters the public challenge board. The question and neutral clash are what
@@ -81,6 +87,45 @@ export const PARTISAN_ISSUES = [
     democratic: 'Fund public safety with national standards for training, transparency, and misconduct.',
     republican: 'Replenish local police and resist federal rules that limit local control or officer discretion.',
     clash: 'Do federal conditions create necessary accountability, or make local public safety answer to the wrong authority?',
+  },
+];
+
+// Independent voters and candidates do not share one national platform.
+// This lane therefore covers the structural case for political alternatives
+// rather than inventing a single Independent position on taxes, borders, or
+// culture. Every card remains binary because every public round is casual 1v1.
+export const INDEPENDENT_ISSUES = [
+  {
+    id: 'vote-independent',
+    question: 'Should voters back independent candidates even when they are unlikely to win?',
+    topic: 'Independent candidates',
+    independent: 'Vote for the strongest candidate and build an alternative over time; strategic voting keeps the two-party lock in place.',
+    twoParty: 'Work through a major-party primary because elections allocate power now and a low-polling independent can split a coalition.',
+    clash: 'Is a vote mainly an immediate choice between viable outcomes, or a long-term investment in political competition?',
+  },
+  {
+    id: 'ranked-choice',
+    question: 'Should federal elections use ranked-choice voting?',
+    topic: 'Ranked-choice voting',
+    independent: 'Let people rank an independent or third-party candidate first without losing a fallback choice.',
+    twoParty: 'Keep one-choice ballots simple, legible, and less vulnerable to exhausted ballots or disputed counting rounds.',
+    clash: 'Is broader candidate choice worth a more complex count, or is a simple plurality ballot the more trusted rule?',
+  },
+  {
+    id: 'open-primaries',
+    question: 'Should states replace party primaries with open top-four primaries?',
+    topic: 'Open primaries',
+    independent: 'Put every candidate on one primary ballot so independents and unaffiliated voters can compete from the start.',
+    twoParty: 'Let political parties choose their own nominees before the general election and preserve clear party responsibility.',
+    clash: 'Should nominations belong to the whole electorate, or to the parties whose names and coalitions appear on the ballot?',
+  },
+  {
+    id: 'debate-access',
+    question: 'Should major televised debates include more independent and third-party candidates?',
+    topic: 'Debate access',
+    independent: 'Broader access tests major-party ideas in public and lets support grow after voters hear a serious alternative.',
+    twoParty: 'Use meaningful support thresholds so debates stay focused on candidates with a realistic path to governing.',
+    clash: 'Do strict thresholds protect a useful debate, or prevent independent candidates from ever becoming viable?',
   },
 ];
 

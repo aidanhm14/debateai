@@ -264,7 +264,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   ];
 
   function blankPrefill(){
-    return { claim:'', context:'', sideA:'For', sideB:'Against', side:'a', topic:'', category:'' };
+    return { claim:'', context:'', sideA:'For', sideB:'Against', side:'a', topic:'', category:'', lane:'' };
   }
   function queryText(value, max, fallback){
     var out = String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -422,7 +422,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         sideB: queryText(q.get('sideB'), 40, 'Against'),
         side: q.get('side') === 'b' ? 'b' : 'a',
         topic: queryText(q.get('topic'), 40),
-        category: queryText(q.get('category'), 40, source === 'political-debate' ? 'Politics' : '')
+        category: queryText(q.get('category'), 40, source === 'political-debate' ? 'Politics' : ''),
+        // Cached political links from before lanes existed are ordinary
+        // For/Against questions, so they belong to the general treatment.
+        lane: queryText(q.get('lane'), 20, source === 'political-debate' ? 'general' : '')
       };
       state.source = source;
       state.compose = true;
@@ -665,16 +668,20 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var who = state.toName || 'this debater';
     var draft = state.prefill || blankPrefill();
     var political = state.source === 'political-debate';
+    var politicalLane = draft.lane === 'partisan' ? 'Democrats vs Republicans'
+      : (draft.lane === 'independent' ? 'Independent politics' : 'Political challenge');
     var chosenLabel = draft.side === 'b' ? draft.sideB : draft.sideA;
     return '<div class="modal-bg" id="composeBg"><div class="modal">' +
-      (political ? '<div class="modal-k">Democrats vs Republicans</div>' : '') +
+      (political ? '<div class="modal-k">'+esc(politicalLane)+'</div>' : '') +
       '<h2>' + (aimed ? 'Challenge ' + esc(who) : (political ? 'Post this political challenge' : 'Start a challenge')) + '</h2>' +
       '<p class="sub">' + (aimed
         // Shortened names already end in a period ("Priya R."), so the name
         // is trimmed before a sentence-ending one rather than doubling it.
         ? 'Write a motion you are willing to defend against ' + esc(who.replace(/\.$/, '')) + '. Only they can take it.'
         : (political
-          ? 'You chose the ' + esc(chosenLabel) + '. Review the framing, then put it on the board for someone willing to defend the other side.'
+          ? (draft.lane === 'general'
+            ? 'Review the question, choose your side, then put it on the board for someone willing to defend the other side.'
+            : 'You chose the ' + esc(chosenLabel) + '. Review the framing, then put it on the board for someone willing to defend the other side.')
           : 'Put one clear motion on the board. Someone else takes the open side.')) + '</p>' +
       (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
       '<div class="field"><label for="cClaim">Motion</label>' +
