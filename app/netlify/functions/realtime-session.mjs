@@ -1127,6 +1127,9 @@ export default async (request, context) => {
       (body.side || '').toLowerCase()
     ) ? body.side.toLowerCase() : 'opp';
     const format = String(body.format || 'APDA').slice(0, 60);
+    const debateStyle = mode === 'clash' && body.debateStyle === 'conversation'
+      ? 'conversation'
+      : 'live';
 
     // Character / user / bond fields (gamified persona system).
     // Sanitize aggressively — anything here lands inside the system
@@ -1389,9 +1392,19 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       : '';
     const difficulty = Object.prototype.hasOwnProperty.call(CLASH_DIFFICULTY, (body.difficulty || '').toLowerCase())
       ? body.difficulty.toLowerCase() : 'standard';
+    const conversationBlock = debateStyle === 'conversation'
+      ? `CONVERSATION MODE:
+- This is an open-ended conversation, not timed speech practice. Keep the exchange loose and natural.
+- Reply in one to three short sentences. Usually end with one direct question that tests the user's reasoning.
+- Give the user room to think. Do not seize a pause, finish their sentence, or turn one answer into a formal speech.
+- Still disagree. Test assumptions, name tradeoffs, and follow their specific examples. Do not drift into coaching or praise.
+- One question at a time. Wait for the answer before opening a new line of attack.
+
+`
+      : '';
     const motionPolicyBlock = SENSITIVE_MOTION_POLICY + '\n\n';
     const instructions = mode === 'clash'
-      ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + modeBlock +
+      ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + modeBlock + '\n\n' + conversationBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
         CLASH_DIFFICULTY[difficulty] +
         audienceRegisterBlock

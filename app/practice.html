@@ -5511,11 +5511,10 @@ function buildPrompt(speech, userSide, motion, history, notes, format, oppStr, o
   // should not have to re-onboard to hear it. Empty = infer as before.
   var registerChoice = '';
   try {registerChoice = localStorage.getItem('da-opp-register') || '';} catch (e) {}
-  // New public rounds always use the casual plain-language register.
-  // Stored competitive preferences remain readable history, but no
-  // longer change how a new opponent speaks.
-  var wantsCompetitiveRegister = false;
-  var wantsPlainRegister = true;
+  // The dedicated competitive AI path restores the real format register.
+  // Default AI rounds and every human-matching surface stay plain casual 1v1.
+  var wantsCompetitiveRegister = COMPETITIVE_ENTRY && format !== 'quick';
+  var wantsPlainRegister = !wantsCompetitiveRegister;
   var usePlainRegister = true;
   var audienceRegisterNote = wantsCompetitiveRegister ? `
 
@@ -6239,6 +6238,12 @@ async function shareScoreCard(data) {
    APP
    ═══════════════════════════════════════════════════ */
 
+// Competitive formats are a deliberate, scoped AI-practice path. Human
+// matching and the default AI entry remain casual 1v1. /newvoice links here
+// with entry=competitive when someone explicitly chooses full speeches.
+var COMPETITIVE_ENTRY = false;
+try {COMPETITIVE_ENTRY = new URLSearchParams(location.search).get('entry') === 'competitive';} catch (e) {}
+
 function App() {
   var auth = useAuth();
   var { user, team, loading: authLoading, signIn, signOut } = auth;
@@ -6311,7 +6316,14 @@ function App() {
   var [triageBusy, setTriageBusy] = useState(false);
   var [triageError, setTriageError] = useState('');
   var [triageExpanded, setTriageExpanded] = useState(false);
-  var [format, setFormat] = useState('quick');
+  var [format, setFormat] = useState(() => {
+    if (!COMPETITIVE_ENTRY) return 'quick';
+    try {
+      var picked = (new URLSearchParams(location.search).get('format') || '').toLowerCase();
+      if (picked && FORMATS[picked] && picked !== 'quick') return picked;
+    } catch (e) {}
+    return 'apda';
+  });
   var [oppStrengths, setOppStrengths] = useState([]);
   var [oppWeaknesses, setOppWeaknesses] = useState([]);
   var [brain, setBrain] = useState(() => pickBrainForTask('opponent'));
@@ -6407,7 +6419,11 @@ function App() {
       // handoff arrives format-only (the queue has no motion until match
       // time), and should still land one tap from Start in that format.
       var wantFormat = 'quick';
-      try {setFormat('quick');} catch (_) {}
+      if (COMPETITIVE_ENTRY) {
+        var requestedFormat = (qs.get('format') || '').trim().toLowerCase();
+        wantFormat = requestedFormat && FORMATS[requestedFormat] && requestedFormat !== 'quick' ? requestedFormat : 'apda';
+      }
+      try {setFormat(wantFormat);} catch (_) {}
       // Side and voice are valid format-only handoffs too. Debate now has
       // no motion in its URL, so these must be applied before that check.
       var wantSide = (qs.get('side') || '').trim();
@@ -7315,6 +7331,7 @@ function App() {
     // 50/50 da-setup-ab split is retired; respect a user's saved choice
     // but otherwise land them in the guided flow.
     try {
+      if (COMPETITIVE_ENTRY) return 'advanced';
       var choice = localStorage.getItem('da-setup-mode');
       if (choice === 'simple' || choice === 'advanced') return choice;
       return 'simple';
@@ -7588,7 +7605,12 @@ function App() {
   // claim label, pitch prompts). Quick Clash is excluded: it's pitch's own
   // native format, so staying on it isn't "leaving" the pitch path.
   var chooseFormat = (k) => {
-    setFormat('quick');
+    var next = COMPETITIVE_ENTRY && FORMATS[k] && k !== 'quick' ? k : 'quick';
+    setFormat(next);
+    if (useCase === 'pitch' && next !== 'quick') {
+      setUseCase('debater');
+      try {localStorage.setItem('debateos-use-case', 'debater');} catch (e) {}
+    }
   };
 
   // Auto-save round state every 30s during speech phase, plus on every
@@ -8557,7 +8579,7 @@ function App() {
   // for a friend. This is the same fork made explicit and per-round.
   // '' means "infer from onboarding", which is the pre-existing
   // behaviour and stays the default for anyone who never touches it.
-  var [oppRegister, setOppRegister] = useState('normal');
+  var [oppRegister, setOppRegister] = useState(COMPETITIVE_ENTRY ? 'competitive' : 'normal');
   var pickRegister = (v) => {
     setOppRegister(v);
     try {
@@ -11348,15 +11370,21 @@ Rules:
       );
     }
     return el(React.Fragment, null,
+    COMPETITIVE_ENTRY ?
+    el('h1', { className: 't-hero', style: { fontSize: 'clamp(2.6rem,6vw,5rem)' } }, 'Competitive ', el('em', null, 'speeches')) :
     el('h1', { className: 't-hero' }, 'Debat', el('em', null, 'able')),
     !(setupMode === 'simple') && el('p', { className: 't-sub', style: { marginBottom: 10 } },
+    COMPETITIVE_ENTRY ?
+    'Pick your format, run the real speech order, and get a format-aware ballot.' :
     'Casual 1v1, a full clock, an opponent that argues back, and written feedback at the end.'),
     // 2026-06-16: trained-on-debate trust line for the advanced/competitive
     // hero. This is the audience that cares most about format accuracy, so
     // name the moat here too. Mirrors the simple-mode line; tightened the
     // t-sub bottom margin above so the two read as one block.
     !(setupMode === 'simple') && el('p', { style: { textAlign: 'center', maxWidth: 520, margin: '0 auto 48px', fontSize: '.8rem', lineHeight: 1.5, color: 'var(--c-dim)' } },
-    el('strong', { style: { color: 'var(--c-text)' } }, 'Trained on real debate.'),
+    el('strong', { style: { color: 'var(--c-text)' } }, COMPETITIVE_ENTRY ? 'Built for competitive debaters.' : 'Trained on real debate.'),
+    COMPETITIVE_ENTRY ?
+    ' Full speech clocks, circuit vocabulary, and ElevenLabs voices on Voice plans. Free uses the same opponents with OpenAI voice.' :
     ' Hundreds of real debates and judge reviews help it give specific, useful feedback. Completed Debatable rounds are the main path to a certificate; live rounds against people count too.')
     );
   }(),
@@ -11392,7 +11420,7 @@ Rules:
   // Back-to-simple escape hatch. Hidden in Counter mode (no simple
   // equivalent). Sticks the choice so the user stays in whichever
   // mode they last picked.
-  !isCounterExt && el('div', { style: { textAlign: 'center', marginBottom: 4 } },
+  !isCounterExt && !COMPETITIVE_ENTRY && el('div', { style: { textAlign: 'center', marginBottom: 4 } },
   el('button', {
     onClick: goSimple,
     className: 'transcript-btn',
@@ -11403,7 +11431,7 @@ Rules:
   // stays there (goSimple/goAdvanced stick the choice), so without this
   // the door is invisible to exactly the people most likely to want an
   // opponent they can cut off.
-  !isCounterExt && voiceDoorCard({ margin: '8px auto 14px' }, 'practice-setup-advanced'),
+  !isCounterExt && !COMPETITIVE_ENTRY && voiceDoorCard({ margin: '8px auto 14px' }, 'practice-setup-advanced'),
   // Use-case picker — the non-debater onramp. Replaces the old
   // generic "30 seconds to your first speech" welcome card.
   //
@@ -11419,7 +11447,7 @@ Rules:
   // Counter mode (viva trainer) hides this: it has its own onboarding.
   // The 'debater' choice no-ops the pre-fill so APDA/BP/PF setup
   // works exactly as before for the primary audience.
-  !isCounterExt && !useCase && !daOnboarded && el('div', {
+  !isCounterExt && !COMPETITIVE_ENTRY && !useCase && !daOnboarded && el('div', {
     className: 'recovery-banner',
     style: {
       background: 'linear-gradient(135deg,rgba(239,68,68,.10),rgba(245,158,11,.06))',
@@ -11481,7 +11509,7 @@ Rules:
   // contextual sign-in moment we have. Hidden for signed-in users
   // since the round-history + style-summary surfaces do that job.
   // Dismissed permanently once either CTA fires (useCaseConfirmed).
-  !isCounterExt && useCase && !user && !useCaseConfirmed && USE_CASES[useCase] && el('div', {
+  !isCounterExt && !COMPETITIVE_ENTRY && useCase && !user && !useCaseConfirmed && USE_CASES[useCase] && el('div', {
     style: {
       marginBottom: 8,
       padding: '12px 14px',
@@ -11591,7 +11619,9 @@ Rules:
   // or full circuit vocabulary. Rendered above the difficulty badge
   // because it is a choice, not a readout.
   !isCounterExt && function () {
-    var opts = [
+    var opts = COMPETITIVE_ENTRY ? [
+    { k: 'competitive', t: 'Competitive', d: 'Full circuit vocabulary and format-native structure.' }] :
+    [
     { k: 'normal', t: 'Normal', d: 'Plain English. No debate jargon.' }];
 
     return el('div', { style: { marginTop: 16 } },
@@ -11602,7 +11632,7 @@ Rules:
       return el('button', {
         key: o.k,
         type: 'button',
-        onClick: () => pickRegister(on ? '' : o.k),
+        onClick: () => pickRegister(COMPETITIVE_ENTRY ? 'competitive' : on ? '' : o.k),
         'aria-pressed': on ? 'true' : 'false',
         style: {
           flex: '1 1 180px', textAlign: 'left', cursor: 'pointer',
@@ -11660,7 +11690,7 @@ Rules:
   // feedback was "too annoying / too harsh." This pattern keeps the
   // affordance discoverable without dominating the page above the
   // form.
-  !isCounterExt && el('div', { style: {
+  !isCounterExt && !COMPETITIVE_ENTRY && el('div', { style: {
       display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
       gap: 12, marginTop: 18, marginBottom: 8, flexWrap: 'wrap'
     } },
@@ -11739,7 +11769,7 @@ Rules:
   // Format finder launcher. The 15-chip wall below assumes the user
   // already knows debate taxonomy; anyone who doesn't gets a guided
   // 3-question narrowing instead of a wall.
-  false && !isCounterExt && el('div', { style: { marginBottom: 6 } },
+  COMPETITIVE_ENTRY && !isCounterExt && el('div', { style: { marginBottom: 10 } },
   el('button', {
     onClick: () => openFmtQuiz('advanced'),
     style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 999, background: 'rgba(239,68,68,.08)', border: '1px dashed rgba(239,68,68,.4)', color: '#ef4444', fontSize: '.74rem', fontWeight: 800, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit' }
@@ -11756,8 +11786,11 @@ Rules:
   // formats). The FORMATS dict stays in its original semantic order;
   // these arrays decouple display from data.
   !isCounterExt && el('div', { style: { display: 'flex', flexDirection: 'column', gap: 0, maxWidth: 780, margin: '0 auto' } },
+  (COMPETITIVE_ENTRY ? [
+  { cap: 'Parliamentary', keys: ['apda', 'bp', 'asian', 'worlds', 'popper'] },
+  { cap: 'US circuit', keys: ['pf', 'ld', 'policy', 'congress'] }] :
   [
-  { cap: 'Casual', keys: ['quick'] }].
+  { cap: 'Casual', keys: ['quick'] }]).
   map((g) => el('div', { key: g.cap, style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' } },
   el('span', { style: { fontSize: '.56rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--c-muted)', minWidth: 100, textAlign: 'right', paddingRight: 8, flexShrink: 0 } }, g.cap),
   el('div', { className: 'pills', style: { margin: '5px 0', justifyContent: 'flex-start', flex: 1, minWidth: 240 } },

@@ -8,6 +8,7 @@ const topbar = read('app/js/topbar.js');
 const practice = read('app/practice.html');
 const voice = read('app/voice-debate.html');
 const newvoice = read('app/newvoice.html');
+const realtimeSession = read('app/netlify/functions/realtime-session.mjs');
 const spar = read('app/spar.html');
 
 let passed = 0;
@@ -25,7 +26,11 @@ function check(label, ok) {
 
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
 check('Explore menu has one live AI door', topbar.includes("href: '/newvoice?autostart=1&handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes("label: 'Competitive Voice AI'"));
-check('practice always starts in casual 1v1', practice.includes("var [format, setFormat] = useState('quick');") && !practice.includes("localStorage.getItem('debateos-round-format')"));
+check('default practice starts in casual 1v1', practice.includes("if (!COMPETITIVE_ENTRY) return 'quick';") && !practice.includes("localStorage.getItem('debateos-round-format')"));
+check('competitive practice is an explicit scoped entry',
+  practice.includes("get('entry') === 'competitive'") &&
+  practice.includes("{ cap: 'Parliamentary', keys: ['apda', 'bp', 'asian', 'worlds', 'popper'] }") &&
+  practice.includes("{ cap: 'US circuit', keys: ['pf', 'ld', 'policy', 'congress'] }"));
 check('practice seeds the saved side', practice.includes("localStorage.getItem('debateos-round-side')"));
 check('practice seeds the saved voice', practice.includes("localStorage.getItem('debateos-round-voice')"));
 check('practice launch requires an explicit now flag', practice.includes("qs.get('now') === '1'"));
@@ -47,7 +52,19 @@ check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar
 
 check('practice voice CTA opens the room immediately',
   practice.includes("q.set('autostart', '1')") && practice.includes("return '/newvoice?' + q.toString()"));
-check('direct newvoice names three spoken debate types', newvoice.includes('3 types of debate out loud.'));
+check('direct newvoice names three real debate paths',
+  newvoice.includes('Live back-and-forth') &&
+  newvoice.includes('<b>Conversation</b>') &&
+  newvoice.includes('<b>Competitive speeches</b>') &&
+  !newvoice.includes('3 types of debate out loud.'));
+check('conversation path reaches the realtime prompt',
+  newvoice.includes("debateStyle = btn.dataset.path === 'conversation'") &&
+  newvoice.includes('debateStyle,') &&
+  newvoice.includes("debateStyle === 'conversation' ? Math.max(base, 3200) : base") &&
+  realtimeSession.includes("body.debateStyle === 'conversation'") &&
+  realtimeSession.includes('CONVERSATION MODE:'));
+check('competitive voice path opens formats instead of realtime minting',
+  newvoice.includes('/practice?entry=competitive&amp;format=apda&amp;handoff=newvoice'));
 check('newvoice handoffs auto-start after deferred page setup',
   newvoice.includes("const autoStart = entryQuery.get('autostart') === '1'") &&
   newvoice.includes("window.addEventListener('DOMContentLoaded', () =>"));

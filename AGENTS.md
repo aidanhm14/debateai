@@ -24,11 +24,14 @@ Debatable is a voice-first adversarial-argument trainer at
 **itsdebatable.com**. **Debatable is the only public product name.**
 As of 2026-08-27, every public round is **casual 1v1**: one person on
 each side, no teams, format picker, or tournament rulebook. Competitive
-debate formats are not part of the site. Legacy format parsers, prompts,
-and stored fields may remain dormant only to preserve old rounds and
-migration compatibility. Do not expose them in setup, navigation,
-marketing, metadata, or public guides. `/partners` and the old format
-guide routes redirect into the casual product.
+debate formats are not part of human matching, public social rounds, or
+the default AI entry. **Narrow AI-practice exception, called 2026-09-03:**
+`/newvoice` offers a clearly labeled "Competitive speeches" path for
+competitive debaters. It opens `/practice?entry=competitive`, where the
+format picker and format-native speech engine are visible. Do not expose
+those formats on `/spar`, `/live-round`, the default `/practice` entry,
+navigation, marketing, metadata, or public guides. `/partners` and the
+old format guide routes redirect into the casual product.
 Do not put retired names in visible copy, accessibility labels,
 structured-data aliases, social metadata, generated audio, or CTA copy.
 Use plain actions such as "Start debating" and "Start a round."
