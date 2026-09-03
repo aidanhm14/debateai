@@ -138,10 +138,6 @@ const URLS = [
   // everyone-has-an-opinion.html and is what the page's own canonical
   // already points at.
   { path: '/argue-online',                            changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-11' },
-  // /get-paid-to-debate answers the money-intent cluster ("get paid to
-  // debate", "win money debating", "make money arguing"). Rewritten
-  // 2026-08-11 around the live event; it used to answer "not here yet".
-  { path: '/get-paid-to-debate',                      changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-11' },
   // /masterclass answers the learn-intent cluster ("learn to debate",
   // "debate class", "online debate course") with the 8-week curriculum.
   { path: '/masterclass',                             changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-30' },

@@ -235,6 +235,34 @@ check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a
 check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50%'), 'landing carousel controls expose a 44px hit area');
 
 const topbar = read('app/js/topbar.js');
+const openRetiredAt = topbar.indexOf('RETIRED 2026-09-03');
+const openReturnAt = topbar.indexOf('return;', openRetiredAt);
+const openTimerAt = topbar.indexOf('var DWELL_MS', openRetiredAt);
+check(
+  openRetiredAt >= 0
+    && openReturnAt > openRetiredAt
+    && openReturnAt < openTimerAt
+    && !topbar.includes("{ href: '/tournaments', label: 'Tournaments'")
+    && !topbar.includes("['/tournaments',    'strong']"),
+  'the Open popup and its shared navigation promotion stay retired',
+);
+check(
+  !landing.includes('data-cta="open-strip"')
+    && !landing.includes('Can I win money debating here?')
+    && !landing.includes('>The Debatable Open</a>'),
+  'landing does not advertise the Open',
+);
+for (const path of ['app/debate-online.html', 'app/debate-strangers.html', 'app/omegle-alternative.html']) {
+  check(!read(path).includes('data-open-event-band'), `${path} has no Open campaign band`);
+}
+check(!read('app/community.html').includes('id="sideOpen"'), 'community has no Open campaign card');
+check(!read('app/spar.html').includes('data-cta="spar-rail-tournaments"'), 'matchmaking rail has no cash-tournament promotion');
+check(
+  !read('app/netlify/functions/sitemap.mjs').includes("path: '/get-paid-to-debate'")
+    && /from = "\/get-paid-to-debate"[\s\S]{0,100}to = "\/spar"[\s\S]{0,60}status = 301/.test(read('netlify.toml'))
+    && /from = "\/get-paid-to-debate"[\s\S]{0,100}to = "\/spar"[\s\S]{0,60}status = 301/.test(read('app/netlify.toml')),
+  'the prize-event SEO page is retired from discovery and redirects to the live product',
+);
 check(
   !landing.includes('landingSignOutBtn')
     && !landing.includes('renderUserChip')

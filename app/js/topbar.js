@@ -431,18 +431,9 @@
     // whole panel and left the flagship card and the three short columns
     // standing beside a column of empty space.
     //
-    // Split along the seam the old name was already admitting to:
-    // entering a contest is a different intent from watching one or
-    // finding people to do it with. Nothing was dropped and no link
-    // changed; the rows moved with their own notes. Tallest column is
-    // now Train at 9, so the panel loses about a third of its height.
-    // 2026-08-26: head renamed Compete -> Debate. Room came off the bar
-    // that morning, which left the LINKS-fed Debate column holding two
-    // rows, and the founder asked for four sections instead of five. The
-    // rows here ARE the debate column: entering a contest and where you
-    // stand after it. Nothing moved between LINKS and MORE_GROUPS — a row
-    // in both renders twice, because the sheet draws MORE_GROUPS plus
-    // every LINKS row.
+    // 2026-08-26: head renamed Compete -> Debate, leaving four sections.
+    // 2026-09-03: tournament discovery came out because the Open is not
+    // part of the product being advertised. Direct event routes remain.
     { head: 'Debate', links: [
       // 2026-07-22: async rounds — record now, they answer later. The
       // no-simultaneity surface, so it belongs next to the live ones.
@@ -453,7 +444,6 @@
       // Challenges is the primary page; its in-page switch reaches the
       // calendar without making the choice look larger than it is.
       { href: '/challenges',  label: 'Challenges', big: true },
-      { href: '/tournaments', label: 'Tournaments', big: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
@@ -466,8 +456,8 @@
       // 2026-08-14 (the founder: "bring leaderboard back"): REVERSES the rule
       // that used to sit here, which kept Leaderboard out of navigation
       // "until the ranking system is strong enough to promote". It sits
-      // in the competition cluster because that is the question it
-      // answers: you entered a tournament, where did you land.
+      // in Debate because that is the question it answers after a round:
+      // where did you land.
       //
       // The board is not empty and has not been since the 2026-07-18
       // seed pass, so the original reason (promoting a blank page) does
@@ -1100,7 +1090,6 @@
         ]),
         column('Debate', [
           ['/live',           'big'],
-          ['/tournaments',    'strong'],
           ['/private',        ''],
           ['/leaderboard',    'strong'],
           ['/claim',          ''],
@@ -2891,6 +2880,11 @@
 (function(){
   if (window.__daOpenModal) return;
   window.__daOpenModal = 1;
+
+  /* RETIRED 2026-09-03. The Open is still available to entrants at its
+     direct event routes, but it is not part of the product we advertise.
+     Keep this campaign interruption dormant. */
+  return;
 
   var DWELL_MS = 30000;
   var SEEN_KEY = 'da-open-modal-seen';
