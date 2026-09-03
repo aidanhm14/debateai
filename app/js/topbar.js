@@ -242,10 +242,10 @@
   // Voice so the two real-time-entry actions sit adjacent at the front
   // of the bar — Voice = match against AI, Spar = match against a human.
   var LINKS = [
-    // 2026-08-18: the signed-in home feed. Social platforms open on
-    // "what's happening", and this is that surface: live band, open
-    // challenges, fresh results, top of the board.
-    { href: '/home',          label: 'Home', compactKeep: true },
+    // 2026-09-03: Community is the signed-in home. The separate /home
+    // feed repeated the same live activity and split the social center
+    // into two thin destinations.
+    { href: '/community',     label: 'Community', compactKeep: true },
     // 2026-07-09: order follows the product path. Start live, learn the
     // rules, prep the case, judge a round, then schedule and credential.
     // 2026-08-22: 'LIVE' -> 'Debate live'. LINKS no longer feeds the
@@ -653,13 +653,8 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/atlas',       label: 'Debate atlas' },
-      // 2026-08-25, Aidan: "this button should be bigger and highlighted
-      // better bc community matters in building chats". Promoted from
-      // tier 2 (`strong`) to the column's flagship tile. Watch &
-      // community had no `big` row at all, so its most important
-      // destination was rendering at the same weight as everything
-      // under it. Demoting is deleting `big` and restoring `strong`.
-      { href: '/community',   label: 'Community', big: true },
+      // Community moved to the permanent rail on 2026-09-03 when /home
+      // folded into it. Do not render the same destination twice.
       // Friends (2026-08-31): the friend graph. Sits directly under
       // Community because it answers the same question one person
       // deeper: not "who is out there" but "my people". `strong` so a

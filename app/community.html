@@ -1489,8 +1489,9 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     ]
   }
   </script>
+<link rel="stylesheet" href="/css/social-depth.css?v=2">
 </head>
-<body>
+<body class="social-community">
 
 <!-- Shared topbar — single source of truth for nav + theme picker +
      auth slot across landing/learn/voice-debate/etc.
@@ -2069,16 +2070,17 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     if (!verified && !role) out.push(badgeChip(it.isNew ? 'New Member' : 'Member', it.isNew ? 'new' : 'debater'));
     return out.join('');
   }
-  // Clickable author name → public profile at /users/[handle].
-  function handleFromName(name){
-    return String(name == null ? '' : name).trim().toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'anon';
-  }
+  // Profile links use a claimed handle or the author's uid. A display
+  // name is not a handle: guessing one created convincing links to
+  // profiles that did not exist.
   function authorLink(name, it){
     var n = String(name == null ? 'Anonymous' : name);
     if (n === 'Anonymous' || n === '?' || n === '—' || !n.trim()) return escHtml(n);
-    var h = (it && it.handle) ? it.handle : handleFromName(n);
-    return '<a class="author-link" href="/users/' + encodeURIComponent(h) + '">' + escHtml(n) + '</a>';
+    var h = it && (it.handle || it.authorHandle || it.sharedByHandle);
+    var uid = it && (it.authorUid || it.uid || it.userId || it.ownerUid || it.sharedByUid || it.debaterUid);
+    if (h) return '<a class="author-link" href="/users/' + encodeURIComponent(h) + '">' + escHtml(n) + '</a>';
+    if (uid) return '<a class="author-link" href="/users?uid=' + encodeURIComponent(uid) + '">' + escHtml(n) + '</a>';
+    return escHtml(n);
   }
 
   function applyFilters(){

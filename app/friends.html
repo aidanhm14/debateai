@@ -106,13 +106,22 @@ body.has-beta-strip{padding-top:84px}
 .fr-gate h2{font-size:1.15rem}
 .fr-gate .fr-btn{margin-top:12px}
 </style>
+<link rel="stylesheet" href="/css/social-depth.css?v=2">
 </head>
-<body>
+<body class="social-friends">
 <div id="daTopbar"></div>
 
 <main class="fr-wrap" aria-label="Friends">
-  <h1 class="fr-head">Friends</h1>
-  <p class="fr-sub">The people you debate. Find someone, add them, challenge them to a live round, and see who is looking for a round right now.</p>
+  <header class="fr-hero">
+    <span class="fr-kicker">Your circle</span>
+    <h1 class="fr-head">People worth arguing with.</h1>
+    <p class="fr-sub">Keep the people you meet, see who is ready for a round, and turn one good argument into the next one.</p>
+    <nav class="fr-jump" aria-label="Friends page sections">
+      <a href="#frListCard">Friends</a>
+      <a href="#frIncomingCard">Requests</a>
+      <a href="#frFindCard">Discover</a>
+    </nav>
+  </header>
 
   <div class="fr-flash" id="frFlash" hidden></div>
 
@@ -136,6 +145,28 @@ body.has-beta-strip{padding-top:84px}
   </div>
 
   <div id="frMain" hidden>
+    <div class="fr-layout">
+    <div class="fr-primary">
+    <div class="fr-card" id="frListCard">
+      <div class="fr-section-head"><h2>Your friends</h2><span class="fr-count" id="frCount">0</span></div>
+      <div id="frList"></div>
+      <div class="fr-empty" id="frEmpty" hidden>
+        No friends yet. Finish a round and add the person across from you, or share your invite link.
+      </div>
+      <div id="frOutgoing"></div>
+    </div>
+
+    <div class="fr-card" id="frIncomingCard" hidden>
+      <div class="fr-section-head"><h2>Requests</h2><span class="fr-count" id="frRequestCount">0</span></div>
+      <div id="frIncoming"></div>
+    </div>
+
+    <!-- Profile-pic nudge: js/pfp-nudge.js renders here for a named
+         account with no chosen picture. -->
+    <div data-pfp-nudge></div>
+    </div>
+
+    <aside class="fr-side" aria-label="Discover and invite people">
     <!-- Find people (2026-09-01, the founder: "have a find users feature
          and it goes to profiles on leaderboard or those signed up so ppl
          can make connections"). Search runs server-side (/api/find-users)
@@ -151,24 +182,6 @@ body.has-beta-strip{padding-top:84px}
       <div class="fr-empty" id="frFindEmpty" hidden>Nobody by that name yet. Send them your invite link below.</div>
     </div>
 
-    <div class="fr-card" id="frIncomingCard" hidden>
-      <h2>Requests</h2>
-      <div id="frIncoming"></div>
-    </div>
-
-    <!-- Profile-pic nudge: js/pfp-nudge.js renders here for a named
-         account with no chosen picture. -->
-    <div data-pfp-nudge></div>
-
-    <div class="fr-card">
-      <h2>Your friends</h2>
-      <div id="frList"></div>
-      <div class="fr-empty" id="frEmpty" hidden>
-        No friends yet. Finish a round and add your opponent from the ballot, or send your invite link below.
-      </div>
-      <div id="frOutgoing"></div>
-    </div>
-
     <div class="fr-card">
       <h2>Invite someone you know</h2>
       <p class="quiet">Send this link to a friend. When they sign in, you land in each other's requests.</p>
@@ -178,6 +191,8 @@ body.has-beta-strip{padding-top:84px}
         <button class="fr-btn" id="frInviteShare" type="button" hidden>Share</button>
       </div>
       <p class="fr-note">A challenge sends your friend a ping and a room link. The green dot means they are in the live queue right now; a friend without the dot still gets the challenge by notification and message.</p>
+    </div>
+    </aside>
     </div>
   </div>
 </main>
@@ -210,6 +225,8 @@ body.has-beta-strip{padding-top:84px}
   var db = null, me = null;
   var avail = {};            // otherUid -> bool, painted async
   var lastView = null;
+  var people = {};           // public profile details, hydrated by uid
+  var peoplePending = {};
 
   function myName(){ return (window.daPublicName ? window.daPublicName(me) : null) || 'A debater'; }
 
@@ -298,37 +315,63 @@ body.has-beta-strip{padding-top:84px}
   }
 
   function row(r, kind){
+    var p = people[r.otherUid] || {};
+    var shownName = p.name || r.otherName || 'Someone';
+    var href = p.handle ? '/users/' + encodeURIComponent(p.handle) : '/users?uid=' + encodeURIComponent(r.otherUid);
     var dot = kind === 'friend'
       ? '<span class="fr-dot' + (avail[r.otherUid] ? ' on' : '') + '" data-dot="' + esc(r.otherUid) + '"></span>'
         + '<span data-dotlabel="' + esc(r.otherUid) + '">' + (avail[r.otherUid] ? 'In the live queue now' : 'Not in the queue') + '</span>'
       : (kind === 'incoming' ? 'Wants to be friends' : 'Request sent');
     var acts = '';
     if (kind === 'friend') {
-      acts = '<button class="fr-btn pri" data-act="challenge" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Challenge</button>'
-        + '<button class="fr-btn" data-act="message" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Message</button>'
-        + '<button class="fr-btn quietb" data-act="remove" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Remove</button>';
+      acts = '<button class="fr-btn pri" data-act="challenge" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Challenge</button>'
+        + '<button class="fr-btn" data-act="message" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Message</button>'
+        + '<button class="fr-btn quietb" data-act="remove" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Remove</button>';
     } else if (kind === 'incoming') {
-      acts = '<button class="fr-btn pri" data-act="accept" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(r.otherName) + '">Accept</button>'
+      acts = '<button class="fr-btn pri" data-act="accept" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Accept</button>'
         + '<button class="fr-btn" data-act="ignore" data-uid="' + esc(r.otherUid) + '">Ignore</button>';
     } else {
       acts = '<button class="fr-btn quietb" data-act="cancel" data-uid="' + esc(r.otherUid) + '">Cancel</button>';
     }
+    var av = p.photo || p.photoURL
+      ? '<span class="fr-av" aria-hidden="true"><span class="fr-av-fallback">' + esc(initial(shownName)) + '</span><img src="' + esc(p.photo || p.photoURL) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>'
+      : '<span class="fr-av" aria-hidden="true">' + esc(initial(shownName)) + '</span>';
+    var bio = p.bio ? '<div class="fr-bio">' + esc(p.bio) + '</div>' : '';
     return '<div class="fr-row">'
-      + '<span class="fr-av" aria-hidden="true">' + esc(initial(r.otherName)) + '</span>'
-      + '<div class="fr-id"><div class="fr-name">' + esc(r.otherName) + '</div>'
-      + '<div class="fr-meta">' + dot + '</div></div>'
+      + av
+      + '<a class="fr-person" href="' + href + '"><div class="fr-id"><div class="fr-name">' + esc(shownName)
+      + (p.handle ? '<span class="fr-handle">@' + esc(p.handle) + '</span>' : '') + '</div>'
+      + bio + '<div class="fr-meta">' + dot + '</div></div></a>'
       + '<div class="fr-acts">' + acts + '</div>'
       + '</div>';
   }
 
-  function paint(v){
+  function hydratePeople(rows){
+    if (!db || !rows || !rows.length) return;
+    var todo = rows.map(function(r){ return r.otherUid; }).filter(function(uid){
+      if (!uid || people[uid] || peoplePending[uid]) return false;
+      peoplePending[uid] = true;
+      return true;
+    }).slice(0, 40);
+    if (!todo.length) return;
+    Promise.all(todo.map(function(uid){
+      return db.collection('public_profiles').doc(uid).get().then(function(doc){
+        people[uid] = doc.exists && doc.data() ? doc.data() : {};
+      }).catch(function(){ people[uid] = {}; }).then(function(){ delete peoplePending[uid]; });
+    })).then(function(){ if (lastView) paint(lastView, true); });
+  }
+
+  function paint(v, hydrated){
     lastView = v;
     $('frIncomingCard').hidden = !v.incoming.length;
+    $('frCount').textContent = String(v.friends.length);
+    $('frRequestCount').textContent = String(v.incoming.length);
     $('frIncoming').innerHTML = v.incoming.map(function(r){ return row(r, 'incoming'); }).join('');
     $('frList').innerHTML = v.friends.map(function(r){ return row(r, 'friend'); }).join('');
     $('frEmpty').hidden = !!(v.friends.length || v.outgoing.length);
     $('frOutgoing').innerHTML = v.outgoing.map(function(r){ return row(r, 'outgoing'); }).join('');
     refreshDots(v.friends);
+    if (!hydrated) hydratePeople(v.friends.concat(v.incoming, v.outgoing));
   }
 
   var dotsBusy = false;

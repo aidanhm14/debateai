@@ -22,7 +22,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/leaderboard">
 <meta property="og:title" content="Leaderboard · Debatable">
-<meta property="og:description" content="Top debaters across all formats, AI-judged.">
+<meta property="og:description" content="People ranked from judged casual rounds on Debatable.">
 <meta property="og:image" content="https://itsdebatable.com/og-leaderboard.png?v=deb1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Leaderboard · Debatable">
@@ -1204,8 +1204,9 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 .deb-av{width:34px;height:34px}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+  <link rel="stylesheet" href="/css/social-depth.css?v=2">
 </head>
-<body>
+<body class="social-leaderboard">
 
 <div id="daTopbar"></div>
 
@@ -1352,7 +1353,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 </aside>
 
 <footer class="footer">
-  Judged voice rounds only. <a href="/live">Debate someone live</a> · <a href="/voice-debate">Practice solo</a> · <a href="/learn">Learn the formats</a>
+  Judged voice rounds only. <a href="/live">Debate someone live</a> · <a href="/voice-debate">Practice solo</a> · <a href="/learn">Learn the basics</a>
 </footer>
 
 <script>
@@ -1545,16 +1546,12 @@ function nameCell(r, cls){
   if(!href) return `<div class="${cls}">${name}</div>`;
   return `<a class="${cls} deb-link" href="${href}" data-cta="lb-profile">${name}</a>`;
 }
-// Subject is the axis now, but a row whose motion we cannot classify
-// (seeds carry no motion, and some older entries were written before the
-// field existed) still has a format worth showing. Falling back keeps the
-// line informative instead of blanking it.
+// Subject is the axis now. Older rows may still carry retired format
+// fields, but public product surfaces keep those fields dormant.
 function subjectLabel(r){
   const d=DBDomains.get(domainOf(r));
   if(d.key!=='general') return {text:d.short||d.name, accent:d.accent, title:d.name+'. '+d.blurb};
-  const fmt=r&&(r.formatName||r.format);
-  if(fmt) return {text:fmt, accent:'', title:'Subject not recorded for this round'};
-  return null;
+  return {text:'General', accent:'', title:'General subject'};
 }
 function subjectChip(r){
   const s=subjectLabel(r);
@@ -2325,7 +2322,7 @@ function renderTicker(rows){
   }
   const html=items.map(r=>
     `<span class="ticker-item"><strong>${escapeHtml(r.displayName||'Anonymous')}</strong>`+
-    `<span class="t-sep">·</span>${escapeHtml(r.formatName||r.format||'round')}`+
+    `<span class="t-sep">·</span>${state.view==='live'?'Casual 1v1':'AI round'}`+
     `<span class="t-sep">·</span><span class="t-score">${fmtScore(r.score)}</span>`+
     `<span class="t-sep">·</span>${escapeHtml(fmtAgo(r.completedAt))}</span>`
   ).join('');
@@ -2572,7 +2569,7 @@ async function renderYourRank(){
       <div>
         <div class="your-rank-eye">Your rank</div>
         <div class="your-rank-line">${rankCopy}</div>
-        <div class="your-rank-sub">${escapeHtml(best.formatName||best.format||'—')} · ${escapeHtml(best.displayName||'You')}</div>
+        <div class="your-rank-sub">${state.view==='live'?'Casual 1v1':'AI round'} · ${escapeHtml(best.displayName||'You')}</div>
       </div>
       <a class="your-rank-cta" href="/profile">Open your dashboard →</a>
     </div>`;
