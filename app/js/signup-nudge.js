@@ -98,13 +98,24 @@
       if (/[?&]nudge=pill(?:&|$)/.test(qp)) { surfaceArm = 'pill'; surfaceForced = true; return; }
     } catch (e) {}
     try {
-      var v = localStorage.getItem(SURFACE_KEY) || '';
-      if (v !== 'modal' && v !== 'pill') {
-        v = Math.random() < 0.5 ? 'modal' : 'pill';
-        localStorage.setItem(SURFACE_KEY, v);
-      }
+      // PINNED TO 'pill' 2026-09-02, and the reason is the sign-in wall
+      // being switched off in the same commit. This module stands down
+      // while the wall is armed (__ditSigninWallArmed), so turning the
+      // wall off un-suppresses it — and the 'modal' arm is a veiled
+      // role="dialog" card that mounts at ~7 seconds. The landing is not
+      // in the skip list, so killing a 45-second pop-up would have
+      // installed a 7-second one in its place on the same page, which is
+      // the opposite of what was asked for.
+      //
+      // The A/B this ends (signup_nudge_surface_v1, modal vs pill) is
+      // moot once the answer to "should a sign-in modal open itself" is
+      // no. The pill is a corner chip, not a pop-up. ?nudge=modal still
+      // forces the old arm for QA, and deleting this block restores the
+      // coin flip.
+      var v = 'pill';
+      try { localStorage.setItem(SURFACE_KEY, v); } catch (e) {}
       surfaceArm = v;
-    } catch (e) { surfaceArm = 'modal'; }
+    } catch (e) { surfaceArm = 'pill'; }
   })();
   function isModal(){ return surfaceArm === 'modal'; }
 

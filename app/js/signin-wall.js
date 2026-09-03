@@ -76,7 +76,27 @@
   if (window.__ditSigninWall) return;
   window.__ditSigninWall = true;
 
-  var DISABLED = false;
+  // OFF since 2026-09-02, Aidan: get rid of the pop-up sign-in on pages
+  // that already say sign in with Google. The wall opened the shared
+  // chooser LOCKED over exactly those pages — the landing carries
+  // "Sign in or create account" in the first screen, the mobile home
+  // and the link row, and SKIP_PATHS only ever excused /spar, /partners
+  // and /debate-chat for owning their own gate. Same complaint as
+  // 2026-08-23 on /spar ("i already told u to get rid of this pop up
+  // above the one below it"), one surface up.
+  //
+  // WHAT THIS COSTS, stated rather than discovered later: the wall
+  // shipped 2026-08-26 and signups went from ~3.6/day to ~25/day right
+  // after, so it is plausibly most of the 499 accounts. What it did NOT
+  // move is activation, flat at 14% across the change, which is the
+  // number the 08-26 entry said to judge it by and which nobody read.
+  // Expect signups to fall. If they fall AND activation stays flat, the
+  // wall was manufacturing accounts that never argued and this is free.
+  //
+  // Everything below is left intact and dormant on purpose: this is the
+  // file's own documented off switch, so restoring is one word. Do not
+  // delete the module.
+  var DISABLED = true;
   // Two thresholds, and the gap between them is the whole SEO argument.
   //
   // 45 seconds is the number that was asked for and it is what a visitor
