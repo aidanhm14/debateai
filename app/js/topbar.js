@@ -992,6 +992,17 @@
       var intro = el('div', { class: 'ui-topbar-more-intro' }, [
         el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
         el('div', { class: 'ui-topbar-more-intro-sub' }, 'Practice, learn, watch, and debate.'),
+        // Account actions do not belong under one of the four product
+        // categories. Keep the picture action in the panel header, visible
+        // only once auth confirms a named account, and deep-link straight
+        // into the chooser rather than making someone hunt through profile.
+        el('a', {
+          href: '/profile?edit=picture',
+          id: 'exploreProfilePicture',
+          class: 'ui-topbar-more-profile',
+          role: 'menuitem',
+          hidden: 'hidden',
+        }, 'Change profile picture'),
       ]);
       panel.appendChild(intro);
 
@@ -1546,6 +1557,19 @@
       'aria-label': 'Mobile navigation',
       hidden: 'hidden',
     });
+    // The profile-picture chooser used to be reachable only after opening
+    // /profile and knowing the portrait itself was a button. Put the action
+    // in the sheet people actually search when they want to change account
+    // details. The query opens the chooser on arrival, so this is an action,
+    // not a vague route to another settings page.
+    var sheetPicture = el('a', {
+      href: '/profile?edit=picture',
+      id: 'sheetProfilePicture',
+      class: 'ui-topbar-sheet-link',
+      role: 'menuitem',
+      hidden: 'hidden',
+    }, 'Change profile picture');
+    sheet.appendChild(sheetPicture);
     pageLinks.forEach(function(L){
       var sheetLink = el('a', {
         href: L.href,
@@ -2459,6 +2483,10 @@
           if (ss) ss.textContent = realUser ? 'Sign out' : 'Sign in · free';
           var sa = document.getElementById('sheetAccountSettings');
           if (sa){ if (realUser) sa.removeAttribute('hidden'); else sa.setAttribute('hidden', 'hidden'); }
+          var sp = document.getElementById('sheetProfilePicture');
+          if (sp){ if (realUser) sp.removeAttribute('hidden'); else sp.setAttribute('hidden', 'hidden'); }
+          var ep = document.getElementById('exploreProfilePicture');
+          if (ep){ if (realUser) ep.removeAttribute('hidden'); else ep.setAttribute('hidden', 'hidden'); }
           var sn = document.getElementById('sheetSetName');
           if (sn){ if (realUser) sn.removeAttribute('hidden'); else sn.setAttribute('hidden', 'hidden'); }
           try { daTopbarFriendsTab(realUser); } catch(e){}

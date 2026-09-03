@@ -248,6 +248,24 @@ ok(cleanLiveDesign({ style:'face3d' }).style === 'face2d',
   ok(!profile.includes('id="editLiveAvatar"'), '/profile still offers the live camera designer as a profile picture');
   ok(/profileAvatar[\s\S]{0,1800}?DBAvatar\.openBuilder/.test(profile),
     '/profile avatar does not open the profile-picture chooser');
+  ok((profile.match(/id="heroPictureEdit"/g) || []).length === 2,
+    '/profile does not show the profile-picture action in both dashboard states');
+  ok(/URLSearchParams\(location\.search\)\.get\('edit'\) === 'picture'[\s\S]{0,700}?DBAvatar\.openBuilder/.test(profile),
+    '/profile deep link does not open the profile-picture chooser');
+  const topbar = read('app/js/topbar.js');
+  ok(/href:\s*'\/profile\?edit=picture'[\s\S]{0,180}?id:\s*'sheetProfilePicture'/.test(topbar),
+    'navigation sheet does not link directly to the profile-picture chooser');
+  ok(/getElementById\('sheetProfilePicture'\)[\s\S]{0,180}?realUser/.test(topbar),
+    'navigation sheet profile-picture action is not gated to signed-in accounts');
+  ok(/id:\s*'exploreProfilePicture'[\s\S]{0,220}?Change profile picture/.test(topbar),
+    'desktop Explore panel does not show the profile-picture action');
+  ok(/getElementById\('exploreProfilePicture'\)[\s\S]{0,180}?realUser/.test(topbar),
+    'desktop Explore profile-picture action is not gated to signed-in accounts');
+  const uiRoot = read('css/ui.css');
+  const uiApp = read('app/css/ui.css');
+  ok(uiRoot === uiApp, 'mirrored ui.css files drifted');
+  ok(/\.ui-topbar-more-profile\[hidden\]\{display:none\}/.test(uiApp),
+    'desktop profile-picture action can ignore its signed-out hidden state');
 }
 
 // The real set keeps supplied non-person pictures wearable and the older

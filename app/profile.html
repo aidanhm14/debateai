@@ -162,6 +162,8 @@ body{
   color:var(--text-dim);border-bottom:1px solid var(--accent-border);
 }
 .name-edit:hover{color:var(--accent)}
+.profile-edits{display:flex;flex-wrap:wrap;gap:5px 14px;margin:0 0 6px}
+.profile-edits .name-edit{margin:0}
 .hero-meta .title-pill{
   display:inline-block;margin-top:10px;
   padding:5px 12px;font-size:.7rem;font-weight:800;letter-spacing:.06em;
@@ -1981,6 +1983,12 @@ function wireSettings(user, rows){
       else document.getElementById('settings')?.setAttribute('open', 'open');
     });
   }
+  const heroPictureEdit = document.getElementById('heroPictureEdit');
+  if(heroPictureEdit){
+    heroPictureEdit.addEventListener('click', () => {
+      if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
+    });
+  }
   window.addEventListener('dbidentity:change', (ev) => {
     const picked = (ev && ev.detail && ev.detail.name) || '';
     const shown = picked || user.displayName || user.email || 'Debater';
@@ -2241,6 +2249,14 @@ function hydrateProfileAvatar(){
     if(!window.DBAvatar || !window.DBAvatar.mountIdentity) return;
     window.DBAvatar.mountIdentity(host, opts);
     host.style.borderRadius = '50%';
+    // A direct menu action lands on /profile?edit=picture. Open once, then
+    // remove the marker so refresh/back does not keep reopening the modal.
+    if(new URLSearchParams(location.search).get('edit') === 'picture'){
+      const next = new URL(location.href);
+      next.searchParams.delete('edit');
+      history.replaceState(history.state, '', next.pathname + next.search + next.hash);
+      window.DBAvatar.openBuilder();
+    }
   };
   host.addEventListener('click', () => {
     if(window.DBAvatar && window.DBAvatar.openBuilder) window.DBAvatar.openBuilder();
@@ -2407,7 +2423,10 @@ function renderEmpty(user, profileData){
       <div class="hero-meta">
         <div class="hero-kicker">Your corner</div>
         <h1 class="name" id="heroName">${escapeHtml(first)}</h1>
-        <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
+        <div class="profile-edits">
+          <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
+          <button type="button" class="name-edit" id="heroPictureEdit">Change profile picture</button>
+        </div>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">Novice</span>
       </div>
@@ -2548,7 +2567,10 @@ function renderDashboard(user, rows, profileData){
       <div class="hero-meta">
         <div class="hero-kicker">Your corner</div>
         <h1 class="name" id="heroName">${escapeHtml(first)}</h1>
-        <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
+        <div class="profile-edits">
+          <button type="button" class="name-edit" id="heroNameEdit">Change your name</button>
+          <button type="button" class="name-edit" id="heroPictureEdit">Change profile picture</button>
+        </div>
         <div class="sub">${escapeHtml(user.email || '')}</div>
         <span class="title-pill">${escapeHtml(s.level.cur.name)}</span>
       </div>
