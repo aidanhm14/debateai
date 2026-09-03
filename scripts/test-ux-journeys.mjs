@@ -271,7 +271,13 @@ check(
 
 const sharedUi = read('app/css/ui.css');
 check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a 44px hit area');
-check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50%'), 'landing carousel controls expose a 44px hit area');
+check(
+  !landing.includes('class="fs-pager"')
+    && !landing.includes('id="fsPrev"')
+    && !landing.includes('id="fsNext"')
+    && !landing.includes('id="fsCount"'),
+  'landing keeps the example-round pager retired',
+);
 
 const topbar = read('app/js/topbar.js');
 const openRetiredAt = topbar.indexOf('RETIRED 2026-09-03');
