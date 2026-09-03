@@ -304,11 +304,7 @@ body.has-beta-strip{padding-top:84px}
   function sendRequest(otherUid, otherName){
     return window.DBFriends.request(otherUid, otherName, myName()).then(function(){
       try { gtag('event', 'friend_request_sent', { event_category: 'friends' }); } catch (e) {}
-      dmPing(otherUid, otherName,
-        '🤝 ' + myName() + ' added you as a friend on Debatable. Accept at https://itsdebatable.com/friends',
-        'Friend request'
-      );
-      flash('Request sent. They will see it on their friends page and in messages.');
+      flash('Request sent. They will see it in Notifications.');
     }).catch(function(err){
       flash(window.DBDM && window.DBDM.sendReason ? window.DBDM.sendReason(err) : 'Could not send the request.', true);
     });
@@ -329,7 +325,7 @@ body.has-beta-strip{padding-top:84px}
         + '<button class="fr-btn quietb" data-act="remove" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Remove</button>';
     } else if (kind === 'incoming') {
       acts = '<button class="fr-btn pri" data-act="accept" data-uid="' + esc(r.otherUid) + '" data-name="' + esc(shownName) + '">Accept</button>'
-        + '<button class="fr-btn" data-act="ignore" data-uid="' + esc(r.otherUid) + '">Ignore</button>';
+        + '<button class="fr-btn" data-act="deny" data-uid="' + esc(r.otherUid) + '">Deny</button>';
     } else {
       acts = '<button class="fr-btn quietb" data-act="cancel" data-uid="' + esc(r.otherUid) + '">Cancel</button>';
     }
@@ -406,7 +402,12 @@ body.has-beta-strip{padding-top:84px}
         flash('You are friends now.');
       }).catch(function(){ flash('Could not accept right now. Try again in a moment.', true); });
     }
-    else if (act === 'ignore') window.DBFriends.ignore(uid);
+    else if (act === 'deny') {
+      window.DBFriends.remove(uid).then(function(){
+        try { gtag('event', 'friend_request_denied', { event_category: 'friends' }); } catch (e) {}
+        flash('Request denied.');
+      }).catch(function(){ flash('Could not deny right now. Try again in a moment.', true); });
+    }
     else if (act === 'remove') {
       if (confirm('Remove ' + name + ' from your friends?')) {
         window.DBFriends.remove(uid).catch(function(){ flash('Could not remove right now.', true); });

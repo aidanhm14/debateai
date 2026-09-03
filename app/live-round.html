@@ -15367,7 +15367,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           inner = '<span style="font-weight:700">You and ' + escHtml(oppName) + ' are friends.</span> '
             + '<a href="/friends" style="color:var(--accent,#f87171);font-weight:700">Your friends →</a>';
         } else if (st === 'outgoing') {
-          inner = 'Friend request sent to ' + escHtml(oppName) + '. They can accept at their friends page.';
+          inner = 'Friend request sent to ' + escHtml(oppName) + '. They can accept from Notifications.';
         } else if (st === 'incoming') {
           inner = '<span style="font-weight:700">' + escHtml(oppName) + ' already asked to be friends.</span> '
             + '<button class="btn btn-primary" id="friendAcceptBtn" type="button" style="margin-left:8px">Accept</button>';
@@ -15383,9 +15383,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
           window.DBFriends.request(oppUid, oppName, myPub).then(function(){
             try { gtag('event', 'friend_request_sent', { event_category: 'friends', event_label: 'ballot' }); } catch (e) {}
-            friendPing(db2, me, oppUid, oppName,
-              '🤝 ' + myPub + ' added you as a friend after your round. Accept at https://itsdebatable.com/friends',
-              'Friend request');
           }).catch(function(){ addBtn.disabled = false; });
         };
         var accBtn = document.getElementById('friendAcceptBtn');
@@ -15396,36 +15393,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         };
       });
     } catch (e) { console.warn('[friend slot]', e); }
-  }
-
-  // One thread open, one send, close: the request ping rides the whole
-  // existing DM stack (bell, toast, email, web push). Best effort.
-  function friendPing(db2, me, otherUid, otherName, text, preview){
-    try {
-      if (!window.DBDM) return;
-      var threadId = [me.uid, otherUid].sort().join('_');
-      var pInfo = {};
-      var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
-      pInfo[me.uid] = { name: myPub, photo: me.photoURL || '' };
-      pInfo[otherUid] = { name: otherName || 'Debater', photo: '' };
-      var h = window.DBDM.open({
-        db: db2, uid: me.uid, threadId: threadId,
-        thread: { participants: [me.uid, otherUid], participantInfo: pInfo },
-        senderName: function(){ return myPub; },
-        senderPhoto: function(){ return me.photoURL || ''; },
-      });
-      if (!h) return;
-      h.send(text, preview ? { preview: preview } : undefined).then(function(){
-        me.getIdToken().then(function(tok){
-          fetch('/.netlify/functions/push-send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ recipientUid: otherUid, threadId: threadId }),
-          }).catch(function(){});
-        }).catch(function(){});
-        setTimeout(function(){ try { h.close(); } catch (e) {} }, 4000);
-      }).catch(function(){ try { h.close(); } catch (e) {} });
-    } catch (e) {}
   }
 
   function renderBallotBody(b, mode){

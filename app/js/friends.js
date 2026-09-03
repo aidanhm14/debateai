@@ -134,6 +134,21 @@
       state: st,
       names: names,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function () {
+      // A friend request is its own notification, not a synthetic DM.
+      // Best effort: the Firestore request is already durable, while this
+      // wakes devices that are not currently looking at Debatable.
+      try {
+        var user = firebase.auth && firebase.auth().currentUser;
+        if (!user || user.uid !== uid) return;
+        user.getIdToken().then(function (token) {
+          return fetch('/api/notify-friend-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ recipientUid: String(otherUid), pairId: id }),
+          });
+        }).catch(function () {});
+      } catch (e) {}
     });
   }
 

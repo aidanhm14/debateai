@@ -15,10 +15,13 @@
  *   4. floating          → fixed top-right chip when no known bar
  *      exists (in-round pages with bespoke chrome).
  *
- * Data model (matches /spar's existing DM system):
+ * Personal data models:
  *   dm_threads/{sorted-uid-pair} {
  *     participants:[a,b], participantInfo:{uid:{name,photo}},
  *     lastMessage, lastMessageAt, lastMessageFrom, unread:{uid:n}
+ *   }
+ *   friendships/{sorted-uid-pair} {
+ *     uids:[a,b], requestedBy:a, state:{a:'accepted'}, names:{uid:name}
  *   }
  *
  * Behavior: unread badge with a hover/click preview, an in-page toast on
@@ -737,6 +740,12 @@
       '.ui-bell-dot{width:7px;height:7px;border-radius:50%;background:var(--dab-accent);flex-shrink:0}' +
       '.ui-bell-row__preview{font-size:.74rem;color:var(--dab-dim);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}' +
       '.ui-bell-row__time{font-size:.66rem;color:var(--dab-ghost);flex-shrink:0}' +
+      '.ui-bell-friend{align-items:flex-start}' +
+      '.ui-bell-friend__actions{display:flex;align-items:center;gap:7px;margin-top:7px}' +
+      '.ui-bell-friend__actions button{min-height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--dab-border-strong);background:transparent;color:var(--dab-text);font-family:inherit;font-size:.7rem;font-weight:800;cursor:pointer}' +
+      '.ui-bell-friend__actions button:hover{border-color:var(--dab-accent)}' +
+      '.ui-bell-friend__actions .is-accept{border-color:var(--dab-accent);background:var(--dab-accent);color:#fff}' +
+      '.ui-bell-friend__actions button:disabled{opacity:.55;cursor:default}' +
       '.ui-bell-foot{display:block;flex-shrink:0;padding:12px 14px;text-align:center;font-size:.78rem;font-weight:700;color:var(--dab-accent);text-decoration:none;border-top:1px solid var(--dab-border)}' +
       '.ui-bell-foot:hover{background:var(--dab-elev)}' +
       '#da-bell-toasts{position:fixed;top:calc(66px + env(safe-area-inset-top,0px));left:50%;z-index:9999;display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100vw - 24px));transform:translateX(-50%);pointer-events:none}' +
@@ -918,9 +927,8 @@
   }
 
   // ── controller: badge + page feed ─────────────────────────────────
-  // The bell counts two things: a "What's new" updates feed (the changelog,
-  // which loads for every visitor) and the DM inbox (which wires up only
-  // once a user is signed in). One combined unread badge opens the preview.
+  // The bell combines product, round, reply, message, and friend-request
+  // notifications. Personal feeds wire up only once a user is signed in.
   function controller(bell) {
     var badge = bell.querySelector('.ui-bell-badge');
     var panel = null, seenSnapshot = 0;
@@ -930,17 +938,25 @@
     // exists, every data callback repaints it alongside the panel.
     var pageEl = document.getElementById('daNotifPage');
     var pageFilter = 'all';
+    if (pageEl) {
+      try {
+        var requestedFilter = new URLSearchParams(location.search).get('filter') || 'all';
+        if (/^(all|friends|matches|replies|messages|updates)$/.test(requestedFilter)) pageFilter = requestedFilter;
+      } catch (_) {}
+    }
 
     function bindPageFilters() {
       var buttons = document.querySelectorAll('[data-notif-filter]');
       for (var i = 0; i < buttons.length; i++) {
+        buttons[i].setAttribute('aria-pressed', buttons[i].getAttribute('data-notif-filter') === pageFilter ? 'true' : 'false');
         buttons[i].addEventListener('click', function () {
           var next = this.getAttribute('data-notif-filter') || 'all';
-          if (!/^(all|matches|replies|messages|updates)$/.test(next)) next = 'all';
+          if (!/^(all|friends|matches|replies|messages|updates)$/.test(next)) next = 'all';
           pageFilter = next;
           for (var j = 0; j < buttons.length; j++) {
             buttons[j].setAttribute('aria-pressed', buttons[j].getAttribute('data-notif-filter') === pageFilter ? 'true' : 'false');
           }
+          try { history.replaceState(null, '', pageFilter === 'all' ? '/notifications' : '/notifications?filter=' + encodeURIComponent(pageFilter)); } catch (_) {}
           paintPage();
         });
       }
@@ -990,6 +1006,11 @@
     // DM state
     var myUid = null, dmRows = [], dmUnread = 0, signedInReal = false;
     var threadsUnsub = null, prevUnread = {}, firstSnap = true;
+
+    // Friend requests are live, actionable notifications. They stay unread
+    // until accepted or denied, rather than disappearing because the bell
+    // happened to open.
+    var friendRows = [], friendsUnsub = null, friendFirstSnap = true;
 
     // Forum-reply state — replies landing on YOUR /community discussion
     // threads. Before this layer they surfaced nowhere off /community.
@@ -1207,14 +1228,14 @@
       }
     }
 
-    // ── combined unread badge (DMs + new updates + new activity) ─────
+    // ── combined unread badge ────────────────────────────────────────
     function renderBadge() {
       if (!badge) return;
       // The unread count is for real signed-in users only. A signed-out
       // (or anonymous) visitor has no DMs and nothing they've "missed", so
       // the old phantom "9+" was noise. They still get the bell + the
       // panel (activity / what's-new) on click; just no nagging number.
-      var n = signedInReal ? (dmUnread + updatesUnreadCount() + activityUnreadCount() + replyUnreadCount()) : 0;
+      var n = signedInReal ? (friendRows.length + dmUnread + updatesUnreadCount() + activityUnreadCount() + replyUnreadCount()) : 0;
       if (n > 0) { badge.hidden = false; badge.textContent = n > 9 ? '9+' : String(n); bell.classList.add('has-unread'); }
       else { badge.hidden = true; bell.classList.remove('has-unread'); }
     }
@@ -1228,7 +1249,9 @@
         if (!u || u.isAnonymous) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
+          if (friendsUnsub) { try { friendsUnsub(); } catch (e) {} friendsUnsub = null; }
           myUid = null; dmRows = []; dmUnread = 0; prevUnread = {}; firstSnap = true;
+          friendRows = []; friendFirstSnap = true;
           replyRows = []; replyFirstSnap = true;
           renderBadge(); if (panel || pageEl) paintPanel();
           return;
@@ -1264,7 +1287,47 @@
         .onSnapshot(onThreads, function (err) {
           console.warn('[notifications] inbox listen failed', err && err.message);
         });
+      subscribeFriendRequests(db);
       subscribeForumReplies(db);
+    }
+
+    // ── friend-request layer ─────────────────────────────────────────
+    // This watches the consent document itself. No DM is created, so a
+    // request cannot become a conversation unless someone actually writes
+    // a message after the friendship decision.
+    function subscribeFriendRequests(db) {
+      if (friendsUnsub) { try { friendsUnsub(); } catch (e) {} friendsUnsub = null; }
+      friendFirstSnap = true;
+      friendsUnsub = db.collection('friendships')
+        .where('uids', 'array-contains', myUid)
+        .onSnapshot(function (snap) {
+          var rows = [];
+          snap.forEach(function (doc) {
+            var data = doc.data() || {};
+            var uids = Array.isArray(data.uids) ? data.uids : [];
+            var otherUid = uids[0] === myUid ? uids[1] : uids[0];
+            var state = data.state || {};
+            if (!otherUid || state[otherUid] !== 'accepted' || state[myUid] === 'accepted') return;
+            var names = data.names || {};
+            rows.push({
+              id: doc.id,
+              otherUid: otherUid,
+              name: names[otherUid] || 'A debater',
+              when: data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : 0,
+            });
+          });
+          rows.sort(function (a, b) { return b.when - a.when; });
+          var fresh = !friendFirstSnap && rows.filter(function (row) {
+            return !friendRows.some(function (old) { return old.id === row.id; });
+          })[0];
+          friendRows = rows;
+          renderBadge();
+          if (panel || pageEl) paintPanel();
+          if (fresh) announceFriendRequest(fresh);
+          friendFirstSnap = false;
+        }, function (err) {
+          console.warn('[notifications] friend requests listen failed', err && err.message);
+        });
     }
 
     // ── forum-reply layer ────────────────────────────────────────────
@@ -1499,6 +1562,24 @@
       '</a>';
     }
 
+    function friendRequestRowHtml(r) {
+      var when = r.when ? relTime(r.when) : '';
+      return '<div class="ui-bell-row ui-bell-friend is-unread" data-friend-request="' + escHtml(r.id) + '">' +
+        '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--dab-accent)">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>' +
+        '</span>' +
+        '<span class="ui-bell-row__main">' +
+          '<span class="ui-bell-row__name">' + escHtml(r.name) + '<span class="ui-bell-dot"></span></span>' +
+          '<span class="ui-bell-row__preview">Sent you a friend request</span>' +
+          '<span class="ui-bell-friend__actions">' +
+            '<button type="button" class="is-accept" data-friend-request-action="accept" data-pair="' + escHtml(r.id) + '" aria-label="Accept friend request from ' + escHtml(r.name) + '">Accept</button>' +
+            '<button type="button" data-friend-request-action="deny" data-pair="' + escHtml(r.id) + '" aria-label="Deny friend request from ' + escHtml(r.name) + '">Deny</button>' +
+          '</span>' +
+        '</span>' +
+        '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
+      '</div>';
+    }
+
     function dmRowHtml(t) {
       var disp = threadDisplay(t.data, myUid, t.id);
       var when = t.data.lastMessageAt && t.data.lastMessageAt.toMillis ? relTime(t.data.lastMessageAt.toMillis()) : '';
@@ -1670,6 +1751,27 @@
         : '';
     }
 
+    function friendsFeedHtml(showEmpty, limit) {
+      if (!myUid) {
+        return showEmpty
+          ? '<div class="ui-bell-head ui-bell-head--mid">Friend requests</div><div class="ui-bell-empty">Sign in to see friend requests.</div>'
+          : '';
+      }
+      if (friendRows.length) {
+        var shown = limit ? friendRows.slice(0, limit) : friendRows;
+        var hidden = friendRows.length - shown.length;
+        return '<div class="ui-bell-head ui-bell-head--mid">Friend requests<span class="ui-bell-head__n">' + friendRows.length + '</span></div>' +
+          '<div class="ui-bell-list">' + shown.map(friendRequestRowHtml).join('') + '</div>' +
+          (hidden > 0
+            ? '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="friends">' +
+                hidden + ' more request' + (hidden === 1 ? '' : 's') + '</button>'
+            : '<a class="ui-bell-foot" href="/friends">Open friends</a>');
+      }
+      return showEmpty
+        ? '<div class="ui-bell-head ui-bell-head--mid">Friend requests</div><div class="ui-bell-empty">No friend requests waiting.</div><a class="ui-bell-foot" href="/friends">Find people</a>'
+        : '';
+    }
+
     // `limit` caps the section in the dropdown. Before this the messages
     // list rendered every thread, so on an account with a dozen
     // conversations the Rounds, Replies and Updates sections sat below
@@ -1716,11 +1818,13 @@
     // cap ends in a control that opens that section in full.
     function buildFeedHtml(full, filter, compact) {
       filter = filter || 'all';
+      if (filter === 'friends') return friendsFeedHtml(true);
       if (filter === 'matches') return matchesFeedHtml(true);
       if (filter === 'replies') return repliesFeedHtml(true);
       if (filter === 'messages') return messagesFeedHtml(true);
       if (filter === 'updates') return updatesFeedHtml(true);
       var html = '';
+      html += friendsFeedHtml(false, compact ? 3 : 0);
       html += messagesFeedHtml(false, compact ? 4 : 0);
       html += repliesFeedHtml(false, compact ? 3 : 0);
       html += matchesFeedHtml(!compact);
@@ -1735,6 +1839,7 @@
     function panelTabsHtml() {
       var tabs = [
         { k: 'all',      label: 'All',      n: 0 },
+        { k: 'friends',  label: 'Friends',  n: friendRows.length },
         { k: 'messages', label: 'Messages', n: dmUnread },
         { k: 'matches',  label: 'Rounds',   n: activityUnreadCount() },
         { k: 'replies',  label: 'Replies',  n: replyUnreadCount() },
@@ -1767,6 +1872,7 @@
       if (newScroller && oldScrollTop) newScroller.scrollTop = oldScrollTop;
       if (myUid) bindLiveAlertToggle();
       bindPanelSectionControls();
+      bindFriendRequestActions(panel);
       bindMuteToggles(panel);
     }
 
@@ -1815,10 +1921,45 @@
       }
     }
 
+    function bindFriendRequestActions(root) {
+      if (!root || !myUid || !window.firebase || !window.firebase.firestore) return;
+      var btns = root.querySelectorAll('[data-friend-request-action]');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].addEventListener('click', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          var button = this;
+          var pairId = button.getAttribute('data-pair') || '';
+          var action = button.getAttribute('data-friend-request-action');
+          if (!pairId || !/^(accept|deny)$/.test(action)) return;
+          var row = button.closest('[data-friend-request]');
+          var rowButtons = row ? row.querySelectorAll('button') : [button];
+          for (var j = 0; j < rowButtons.length; j++) rowButtons[j].disabled = true;
+          button.textContent = action === 'accept' ? 'Accepting' : 'Denying';
+          var ref = window.firebase.firestore().collection('friendships').doc(pairId);
+          var work;
+          if (action === 'accept') {
+            var update = { acceptedAt: window.firebase.firestore.FieldValue.serverTimestamp() };
+            update['state.' + myUid] = 'accepted';
+            work = ref.update(update);
+          } else {
+            work = ref.delete();
+          }
+          work.then(function () {
+            try { if (window.gtag) window.gtag('event', action === 'accept' ? 'friend_request_accepted' : 'friend_request_denied', { event_category: 'notifications' }); } catch (_) {}
+          }).catch(function () {
+            for (var k = 0; k < rowButtons.length; k++) rowButtons[k].disabled = false;
+            button.textContent = action === 'accept' ? 'Accept' : 'Deny';
+            daNotify({ title: 'Could not update the request', body: 'Try again in a moment.', glyph: '!', sound: false });
+          });
+        });
+      }
+    }
+
     function paintPage() {
       if (!pageEl) return;
       pageEl.innerHTML = buildFeedHtml(true, pageFilter);
       if (myUid) bindLiveAlertToggle();
+      bindFriendRequestActions(pageEl);
       bindMuteToggles(pageEl);
       // Viewing the page reads everything: advance the seen markers (the
       // snapshots above keep this visit's unread dots visible) and clear
@@ -1827,6 +1968,17 @@
       markActivitySeen();
       markRepliesSeen();
       renderBadge();
+    }
+
+    function announceFriendRequest(row) {
+      daNotify({
+        eyebrow: 'Friend request',
+        title: row.name,
+        body: 'Accept or deny in Notifications.',
+        href: '/notifications?filter=friends',
+        glyph: '+',
+      });
+      daFlashTitle('Friend request');
     }
 
     function announce(disp, preview) {

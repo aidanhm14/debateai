@@ -155,6 +155,33 @@ check(
 );
 
 const notifications = read('app/js/notifications.js');
+const friendsPage = read('app/friends.html');
+const friendRequestSend = friendsPage.slice(friendsPage.indexOf('function sendRequest'), friendsPage.indexOf('function row'));
+const ballotFriendFlow = liveRound.slice(liveRound.indexOf('function fillFriendSlot'), liveRound.indexOf('function renderBallotBody'));
+const friendNotify = read('app/netlify/functions/notify-friend-request.mjs');
+check(
+  notifications.includes("db.collection('friendships')")
+    && notifications.includes('data-friend-request-action="accept"')
+    && notifications.includes('data-friend-request-action="deny"')
+    && notifications.includes("filter === 'friends'")
+    && notifications.includes('friendRows.length + dmUnread'),
+  'friend requests are first-class actionable notifications with accept and deny controls',
+);
+check(
+  !friendRequestSend.includes('dmPing(')
+    && !ballotFriendFlow.includes('friendPing(')
+    && !friendsPage.includes('They will see it on their friends page and in messages.'),
+  'sending a friend request never manufactures a direct message',
+);
+check(
+  friendNotify.includes("friendship.requestedBy !== callerUid")
+    && friendNotify.includes("state[recipientUid] === 'accepted'")
+    && friendNotify.includes("url: '/notifications?filter=friends'")
+    && friendNotify.includes("path: '/api/notify-friend-request'"),
+  'friend-request push verifies the pending relationship and opens the independent notification flow',
+);
+check(inlineScriptsParse('app/friends.html'), 'app/friends.html inline scripts parse');
+check(inlineScriptsParse('app/notifications.html'), 'app/notifications.html inline scripts parse');
 check(
   notifications.includes("var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1'")
     && notifications.includes("var DA_IOS_ENABLE_OFFER_KEY = 'da-ios-live-enable-offer-v1'")
