@@ -73,6 +73,24 @@ ok('the terms gate is never enforced by a disabled button', () => {
     'chooser phone button must gate before it replaces the chooser');
 });
 
+// A verified phone credential whose number already has an account must
+// sign that account in, never dead-end. Measured 2026-09-02: one in five
+// phone attempts hit account-exists-with-different-credential, which was
+// not in the recovery set and surfaced as "Try again" -- advice that can
+// never work for a returning user.
+ok('a phone number that already has an account signs in rather than dead-ending', () => {
+  for (const code of [
+    'auth/credential-already-in-use',
+    'auth/phone-number-already-exists',
+    'auth/account-exists-with-different-credential',
+    'auth/email-already-in-use',
+  ]) {
+    assert.match(auth, new RegExp(`LINK_COLLISION = \\{[\\s\\S]{0,400}'${code.replace(/[/-]/g, '\\$&')}'`), code);
+  }
+  assert.match(auth, /LINK_COLLISION\[\(err && err\.code\) \|\| ''\]\) \{[\s\S]{0,120}signInWithCredential\(credential\)/,
+    'phone link collisions must fall through to signInWithCredential');
+});
+
 ok('native spar sign-in cannot bypass the shared terms chooser', () => {
   assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,250}window\.openAuthModal\('signup'\)/);
   assert.doesNotMatch(spar, /id="(?:emailStartBtn|gateEmailForm)"/, 'retired spar email path returned without a native terms guard');

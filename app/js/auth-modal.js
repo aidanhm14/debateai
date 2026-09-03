@@ -653,7 +653,10 @@
     var code = (err && err.code) || '';
     if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') return 'Enter a valid phone number with its country code, like +1 555 123 4567.';
     if (code === 'auth/invalid-verification-code') return 'That code is not right. Check the text and try again.';
-    if (code === 'auth/code-expired' || code === 'auth/session-expired') return 'That code expired. Ask for a new one.';
+    // Two of five phone attempts in the ten days to 2026-09-02 died on
+    // this code, so the message names the control that fixes it rather
+    // than leaving the reader to find it.
+    if (code === 'auth/code-expired' || code === 'auth/session-expired') return 'That code expired. Tap "Send a new code" below and we will text you another.';
     if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded') return 'Too many codes were requested. Wait a while, then try again.';
     if (code === 'auth/captcha-check-failed' || code === 'auth/missing-app-credential') return 'The security check expired. Try sending the code again.';
     if (code === 'auth/operation-not-allowed') return 'Phone sign-in is not available yet. Use email or Google.';
@@ -769,10 +772,29 @@
       auth = firebase.auth();
       var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
       var current = auth.currentUser;
+      // Linking the verified number onto the anonymous session keeps the
+      // guest's work. When the number already belongs to an account,
+      // linking cannot succeed and signing in with the same credential
+      // is the right answer, so EVERY collision code falls through to
+      // it rather than a curated pair.
+      //
+      // auth/account-exists-with-different-credential was missing from
+      // that pair, and it is not hypothetical: it was 1 of 5 phone
+      // attempts in the ten days to 2026-09-02. It surfaced as "Could
+      // not verify that code. Try again," which is advice that can
+      // never work, on a returning user whose number is already on an
+      // account. That is the "cannot sign back in" report. Treat a new
+      // collision code as this bug recurring, not as a new one.
+      var LINK_COLLISION = {
+        'auth/credential-already-in-use': 1,
+        'auth/phone-number-already-exists': 1,
+        'auth/account-exists-with-different-credential': 1,
+        'auth/email-already-in-use': 1,
+        'auth/provider-already-linked': 1,
+      };
       var attempt = current && current.isAnonymous && current.linkWithCredential
         ? current.linkWithCredential(credential).catch(function (err) {
-            var errCode = (err && err.code) || '';
-            if (errCode === 'auth/credential-already-in-use' || errCode === 'auth/phone-number-already-exists') {
+            if (LINK_COLLISION[(err && err.code) || '']) {
               return auth.signInWithCredential(credential);
             }
             throw err;
