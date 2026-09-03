@@ -473,6 +473,48 @@ html[data-theme="light"] .side-pill{background:linear-gradient(180deg,rgba(220,3
   text-wrap:balance;
 }
 .stage-mid{flex:1;position:relative;z-index:1}
+.settling{
+  position:absolute;inset:0;display:none;place-items:center;padding:24px;
+}
+#stage.is-connecting .settling{display:grid}
+#stage.is-connecting .stage-bottom{opacity:0;pointer-events:none;animation:none}
+.settling-card{
+  width:min(480px,calc(100vw - 40px));text-align:center;padding:30px 26px 26px;
+  border:1px solid rgba(239,68,68,.22);border-radius:28px;
+  background:linear-gradient(180deg,rgba(24,18,18,.68),rgba(8,8,12,.54));
+  box-shadow:0 28px 90px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter:blur(14px);
+}
+html[data-theme="light"] .settling-card{
+  background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(246,245,240,.58));
+  box-shadow:0 28px 80px rgba(80,35,35,.09),inset 0 1px 0 rgba(255,255,255,.85);
+}
+.settling-orbit{position:relative;width:136px;height:72px;margin:0 auto 18px}
+.settling-orbit::before,.settling-orbit::after{
+  content:'';position:absolute;top:50%;width:19px;height:19px;border-radius:50%;
+  transform:translateY(-50%);box-shadow:0 0 0 8px rgba(255,255,255,.025),0 0 24px currentColor;
+}
+.settling-orbit::before{left:8px;color:var(--user);background:var(--user)}
+.settling-orbit::after{right:8px;color:var(--red);background:var(--red)}
+.settling-line{
+  position:absolute;left:30px;right:30px;top:50%;height:1px;
+  background:linear-gradient(90deg,var(--user),rgba(255,255,255,.2) 50%,var(--red));
+  transform:translateY(-50%);overflow:visible;
+}
+.settling-line::after{
+  content:'';position:absolute;top:50%;left:50%;width:10px;height:10px;border-radius:50%;
+  background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 22px rgba(239,68,68,.7);
+  animation:settlingBreathe 1.9s ease-in-out infinite;
+}
+.settling-kicker{color:#fca5a5;font-size:10px;font-weight:800;letter-spacing:.19em;text-transform:uppercase}
+html[data-theme="light"] .settling-kicker{color:#b91c1c}
+.settling-card h2{margin-top:8px;font-family:var(--serif);font-size:clamp(25px,4vw,34px);line-height:1.12}
+.settling-card p{margin-top:9px;color:var(--ink-dim);font-size:15px;line-height:1.45}
+.settling-card small{display:block;margin-top:18px;color:var(--ink-faint);font-size:12.5px;line-height:1.45}
+@keyframes settlingBreathe{
+  0%,100%{transform:translate(-50%,-50%) scale(.8);opacity:.5}
+  50%{transform:translate(-50%,-50%) scale(1.28);opacity:1}
+}
 .stage-bottom{
   position:relative;z-index:2;
   padding:0 20px calc(22px + env(safe-area-inset-bottom));
@@ -731,7 +773,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   .controls{gap:8px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ember,.live-dot,#startBtn,.ai-signal,.ai-signal-dot{animation:none}
+  .ember,.live-dot,#startBtn,.ai-signal,.ai-signal-dot,.settling-line::after{animation:none}
   .ai-signal-dot{left:58%;opacity:1;transform:translate(-50%,-50%)}
   .rise{animation-duration:.01s}
 }
@@ -761,8 +803,8 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
       <a href="/">Debat<span>able</span></a>
       <span class="live-tag"><span class="live-dot"></span>LIVE</span>
     </div>
-    <h1 class="setup-h1 rise rise-2">Debate the AI.</h1>
-    <p class="setup-sub rise rise-3">Say what you think. The AI argues the other side out loud. You choose how challenging it is.</p>
+    <h1 class="setup-h1 rise rise-2">3 types of debate out loud.</h1>
+    <p class="setup-sub rise rise-3">Pick a feel, take a side, and start talking. You can change the AI's speed at any point.</p>
     <div class="ai-presence rise rise-3" role="status" aria-label="Your AI debate partner is ready.">
       <span class="ai-signal" aria-hidden="true"><i class="ai-signal-line"></i><i class="ai-signal-dot"></i></span>
       <span class="ai-presence-copy"><b>AI debate partner ready</b><small>It listens, replies, and may interrupt like a real person.</small></span>
@@ -786,7 +828,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
       <div class="guide-head">
         <div class="guide-title">
           <div class="guide-k">Set up your debate</div>
-          <h2>Choose how you want to practice</h2>
+          <h2>Pick the kind of round</h2>
         </div>
         <div class="loadout-status"><i aria-hidden="true"></i>Live voice debate</div>
       </div>
@@ -822,17 +864,17 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
         <div class="guide-intent" id="intentGuide">
           <button class="guide-chip on" type="button" data-intent="warmup" aria-pressed="true">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19h14M7 16l3-8 3 5 2-4 2 7"/></svg></span><span class="guide-code">STYLE 01</span></span>
-            <span class="guide-copy"><b>Warm-up</b><span>A balanced opponent at a normal pace.</span></span>
+            <span class="guide-copy"><b>Quick back-and-forth</b><span>A short, natural argument at a normal pace.</span></span>
             <span class="mode-meter" aria-hidden="true"><i class="hot"></i><i></i><i></i></span>
           </button>
           <button class="guide-chip" type="button" data-intent="circuit" aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-8 12h7l-1 8 8-12h-7z"/></svg></span><span class="guide-code">STYLE 02</span></span>
-            <span class="guide-copy"><b>Tough challenge</b><span>A strong opponent that responds quickly.</span></span>
+            <span class="guide-copy"><b>Push me harder</b><span>Stronger opposition with faster replies.</span></span>
             <span class="mode-meter" aria-hidden="true"><i class="hot"></i><i class="hot"></i><i class="hot"></i></span>
           </button>
           <button class="guide-chip" type="button" data-intent="coached" aria-pressed="false">
             <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.6 2.7 8.1 7 10 4.3-1.9 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-5"/></svg></span><span class="guide-code">STYLE 03</span></span>
-            <span class="guide-copy"><b>Practice with feedback</b><span>A calmer debate with extra judge feedback.</span></span>
+            <span class="guide-copy"><b>Debate + feedback</b><span>A calmer argument, then brief judge notes.</span></span>
             <span class="mode-meter" aria-hidden="true"><i class="hot"></i><i class="hot"></i><i></i></span>
           </button>
         </div>
@@ -899,13 +941,6 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
     </button>
     <div class="setup-err" id="setupErr"></div>
     <p class="setup-note rise rise-6">Headphones help. When you finish, you will get a result and feedback.</p>
-    <!-- Two doors out of the simple room, in the order a newcomer
-         needs them. This page is the plain back-and-forth: you talk,
-         it talks back. The other two are the competitive surfaces, so
-         they are named for who they are for rather than for the
-         features they carry. -->
-    <a class="setup-alt rise rise-6" href="/practice"><span><b>Timed rounds with a written ballot</b><small>For competitive debaters. Real speech clocks, your format's structure, HD voice, and a judge's decision at the end.</small></span><span class="alt-go">Open →</span></a>
-    <a class="setup-alt rise rise-6" href="/voice-debate"><span><b>More practice options</b><small>Choose a debate format, voice, speech length, and more. Get full feedback at the end.</small></span><span class="alt-go">Open →</span></a>
   </div>
 </section>
 
@@ -916,7 +951,17 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
     <div class="status-pill" id="statusPill"><span class="live-dot"></span><span id="statusText">CONNECTING</span></div>
     <div class="stage-motion" id="stageMotion"></div>
   </div>
-  <div class="stage-mid"></div>
+  <div class="stage-mid">
+    <div class="settling" id="settling" role="status" aria-live="polite">
+      <div class="settling-card">
+        <div class="settling-orbit" aria-hidden="true"><i class="settling-line"></i></div>
+        <div class="settling-kicker">Opening the room</div>
+        <h2>Pulling up two chairs.</h2>
+        <p id="settlingLine">Bringing your opponent in.</p>
+        <small>No perfect opening needed. Cut in as soon as you hear the topic.</small>
+      </div>
+    </div>
+  </div>
   <div class="stage-bottom">
     <div class="judge-strip" id="judgeStrip" hidden>
       <span class="js-tag">Judge</span>
@@ -1296,6 +1341,10 @@ const statusText = $('statusText');
 const statusPill = $('statusPill');
 const capYou = $('capYou'), capAi = $('capAi');
 const capYouText = $('capYouText'), capAiText = $('capAiText');
+let entryQuery = new URLSearchParams();
+try { entryQuery = new URLSearchParams(location.search); } catch (e) {}
+const autoStart = entryQuery.get('autostart') === '1';
+const previewMode = entryQuery.get('preview') || '';
 
 /* ── state ───────────────────────────────────────────────────── */
 let side = 'for';                  // user's side
@@ -1303,6 +1352,9 @@ try {
   const savedSide = localStorage.getItem('debateos-newvoice-side');
   if (savedSide === 'for' || savedSide === 'against') side = savedSide;
 } catch (e) {}
+const handedSide = (entryQuery.get('side') || '').toLowerCase();
+if (handedSide === 'gov' || handedSide === 'pro' || handedSide === 'for') side = 'for';
+if (handedSide === 'opp' || handedSide === 'con' || handedSide === 'against') side = 'against';
 let status = 'idle';               // idle | connecting | live | ended
 let pc = null, dc = null, micStream = null, audioEl = null;
 let audioCtx = null, userAnalyser = null, aiAnalyser = null;
@@ -1390,6 +1442,7 @@ Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
   b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
 });
 window.addEventListener('prefs-synced', (ev) => {
+  if (entryQuery.has('side')) return;
   const changed = ev && ev.detail && ev.detail.changed || [];
   if (changed.indexOf('debateos-newvoice-side') === -1) return;
   try {
@@ -1416,6 +1469,8 @@ function randomClaim(){
   return claimDeck.pop();
 }
 claimInput.value = randomClaim();
+const handedMotion = (entryQuery.get('motion') || '').trim();
+if (handedMotion) claimInput.value = handedMotion.slice(0, 220);
 
 $('shuffleBtn').addEventListener('click', () => {
   const btn = $('shuffleBtn');
@@ -1583,6 +1638,15 @@ function setPace(k){
   if (dc && dc.readyState === 'open') sendSessionConfig(vadFallbackSent ? 'server' : 'semantic');
 }
 
+function prepareConnectingStage(motion){
+  $('stage').classList.add('is-connecting');
+  statusPill.classList.add('connecting');
+  statusText.textContent = 'OPENING ROOM';
+  $('stageMotion').textContent = motion;
+  $('settlingLine').textContent = 'Bringing your opponent in.';
+  show('stage');
+}
+
 function fail(msg, html){
   setupErr.innerHTML = html || '';
   if (!html) setupErr.textContent = msg;
@@ -1590,8 +1654,30 @@ function fail(msg, html){
   startBtn.disabled = false;
   startLabel.textContent = 'Start debating';
   status = 'idle';
+  $('stage').classList.remove('is-connecting');
+  statusPill.classList.remove('connecting');
   show('setup');
   cleanup();
+}
+
+let openingSent = false;
+function requestOpeningTurn(){
+  if (openingSent || status !== 'live' || !dc || dc.readyState !== 'open') return;
+  openingSent = true;
+  awaitingResponse = true;
+  try {
+    dc.send(JSON.stringify({
+      type: 'response.create',
+      // The first exchange orients a newcomer without turning into an
+      // instruction screen. They can interrupt it with their first point.
+      response: { instructions:
+        'Read the full claim from the session context exactly as written. Say: "Okay, topic is: [the full claim]." Then ask exactly: "Wanna know how this is gonna work?" Stop immediately and wait. ' +
+        'Do NOT announce who is on which side. Do not argue yet. Do not add a greeting, explanation, or extra sentence.' },
+    }));
+  } catch (e) {
+    openingSent = false;
+    awaitingResponse = false;
+  }
 }
 
 /* ── audio plumbing ──────────────────────────────────────────── */
@@ -1632,6 +1718,7 @@ async function start(){
   startBtn.disabled = true;
   startLabel.textContent = 'Connecting…';
   status = 'connecting';
+  prepareConnectingStage(motion);
   connectAbort = new AbortController();
   connectWatchdog = setTimeout(() => { try { connectAbort.abort(); } catch (e) {} }, 20000);
   getCtx(); // resume inside the user gesture for iOS
@@ -1641,6 +1728,7 @@ async function start(){
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
     });
+    $('settlingLine').textContent = 'Microphone ready. Bringing your opponent in.';
     userAnalyser = tap(micStream);
     if (userAnalyser) userBuf = new Uint8Array(userAnalyser.frequencyBinCount);
     // Listen to the room while the rest of connect happens. Deliberately not
@@ -1721,6 +1809,7 @@ async function start(){
     if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
     negotiatedModel = session.model || '';
     negotiatedReasoningEffort = session.reasoningEffort || null;
+    $('settlingLine').textContent = 'Opponent found. Making the room live.';
 
     // 3. Peer connection. STUN so NAT'd networks can reach OpenAI.
     const stun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
@@ -1744,32 +1833,12 @@ async function start(){
     };
     micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
 
-    // 4. Data channel: config + opening jab.
+    // 4. Data channel: config + a short, interruptible welcome.
     dc = pc.createDataChannel('oai-events');
     dc.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch (err) {} };
     dc.onopen = () => {
       sendSessionConfig('semantic');
-      const userWord = side === 'for' ? 'for' : 'against';
-      const aiWord = side === 'for' ? 'against' : 'for';
-      try {
-        dc.send(JSON.stringify({
-          type: 'response.create',
-          // START ON THE ARGUMENT. The old version of this asked for the
-          // claim read back in full and then a clause naming both sides,
-          // which produced openings like "Cities should replace street
-          // parking with parks and bike lanes. They are for it, and I am
-          // against it." Both facts are already on the user's screen: the
-          // motion is the page heading and they chose their own side one tap
-          // ago. Reciting them spends the first ten seconds saying nothing.
-          response: { instructions:
-            'You are arguing ' + aiWord + ' the claim; they are ' + userWord + ' it. ' +
-            'Open in under twenty seconds and open ON THE ARGUMENT. ' +
-            'Do NOT read the claim back to them, do NOT announce who is on which side, do NOT greet them. They can see the claim and they picked their side. ' +
-            'First sentence is your position and the reason for it, together. Then two or three sentences walking the reasoning through, with one concrete real-world example. A real case, not a quip, not a list. ' +
-            'Close by handing them the floor and teaching the handoff in one short clause, like: "the floor is yours. say your turn when you want me back in, or just pause." ' +
-            'Serious, calm, confident. No jokes, no welcome speech, no other rules explanation, no "Absolutely", no enthusiasm words.' },
-        }));
-      } catch (e) {}
+      requestOpeningTurn();
     };
 
     // 5. SDP exchange. Single POST, so wait for ICE gathering (max 3s).
@@ -1847,6 +1916,7 @@ async function start(){
   $('tsPanel').hidden = true;
   renderTs();
   statusPill.classList.remove('connecting');
+  $('stage').classList.remove('is-connecting');
   statusText.textContent = 'LIVE · 0:00';
   show('stage');
   startArena();
@@ -1857,6 +1927,7 @@ async function start(){
   }, 500);
   bargeMs = 0;
   bargeIv = setInterval(bargeTick, 50);
+  requestOpeningTurn();
 }
 
 /* ── barge-in gate ────────────────────────────────────────────────
@@ -1878,6 +1949,7 @@ async function start(){
 const SPEECH_LEVEL = 0.18;     // mic RMS floor that counts as the user talking
 const BARGE_LEVEL = 0.30;      // absolute floor: how loud to interrupt the AI
 const BARGE_SUSTAIN_MS = 1100; // continuous loud speech needed to take the floor
+let openingAiTurns = 0;        // the welcome and its optional how-it-works reply
 // AMBIENT CALIBRATION. A fixed threshold cannot know the room: 0.18 is a
 // whisper in a library and inaudible in a cafe, so the same constant is
 // either deaf or hair-trigger depending on where someone sits. The mic is
@@ -1920,7 +1992,10 @@ function pref(name, field, fallback){
 // to trip than the bare constant, never easier.
 function speechGate(){ return Math.max(SPEECH_LEVEL, noiseFloor + NOISE_MARGIN) * pref('room', 'gate', 1); }
 function bargeFloor(){ return Math.max(BARGE_LEVEL * pref('barge', 'lvl', 1), speechGate() + 0.10); }
-function bargeSustainMs(){ return pref('barge', 'ms', BARGE_SUSTAIN_MS); }
+function bargeSustainMs(){
+  const preferred = pref('barge', 'ms', BARGE_SUSTAIN_MS);
+  return openingAiTurns < 2 ? Math.min(preferred, 550) : preferred;
+}
 function turnWaitMs(){ return pref('turnWait', 'ms', TURN_SILENCE_MS); }
 // ECHO GUARD (2026-07-22, per "the AI stops mid-sentence when nobody is
 // talking"). BARGE_LEVEL alone was a FIXED floor, so the gate could not tell
@@ -2173,6 +2248,7 @@ function handleEvent(e){
       aiHold = 0;
       aiTurnAt = 0;
       lastAiDoneAt = Date.now();
+      openingAiTurns += 1;
       setSpeaking('ai', false);
       maybeLiveJudge();
       break;
@@ -2366,7 +2442,7 @@ function cleanup(){
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
   timerIv = null;
   try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
-  bargeIv = null; bargeMs = 0; aiTalking = false; aiHold = 0; aiTurnAt = 0;
+  bargeIv = null; bargeMs = 0; aiTalking = false; aiHold = 0; aiTurnAt = 0; openingAiTurns = 0; openingSent = false;
   pendingTurn = false; awaitingResponse = false; nudgeFired = false;
   stopArena();
   try { if (dc) dc.close(); } catch (e) {}
@@ -2877,6 +2953,12 @@ startBtn.addEventListener('click', start);
 claimInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); start(); }
 });
+if (autoStart && !previewMode) {
+  window.addEventListener('DOMContentLoaded', () => {
+    try { window.track && window.track('newvoice_autostart', { handoff: entryQuery.get('handoff') || 'direct' }); } catch (e) {}
+    start();
+  }, { once: true });
+}
 
 function fmtTime(ms){
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -3055,9 +3137,13 @@ function simLevel(who){
   return 0.28 + 0.3 * Math.abs(Math.sin(t * 2.3)) + Math.random() * 0.14;
 }
 (function maybeSim(){
-  let q = null;
-  try { q = new URLSearchParams(location.search); } catch (e) { return; }
-  if (!q || q.get('preview') !== 'stage') return;
+  if (previewMode === 'connecting') {
+    status = 'connecting';
+    currentMotion = (claimInput.value || '').trim() || randomClaim();
+    prepareConnectingStage(currentMotion);
+    return;
+  }
+  if (previewMode !== 'stage') return;
   simMode = true;
   status = 'live';
   startedAt = Date.now();

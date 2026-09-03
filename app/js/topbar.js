@@ -206,7 +206,7 @@
 
   // Normalize a few synonyms so "/" and "/landing" both light up Home.
   function pathMatches(href){
-    var h = href.replace(/\/$/,'') || '/';
+    var h = href.split(/[?#]/)[0].replace(/\/$/,'') || '/';
     if (h === here) return true;
     if (h === '/' && (here === '' || here === '/landing')) return true;
     if (h === '/practice' && /\/practice/.test(here)) return true;
@@ -274,7 +274,7 @@
     // 2026-07-01: /scale removed from the topbar per the founder (declutter).
     // 2026-07-09: /scale now redirects into /future, the combined company philosophy page.
     { href: '/learn',         label: 'Learn'        },
-    { href: '/practice',      label: 'AI round', strong: true },
+    { href: '/newvoice?autostart=1&handoff=topbar-ai', label: 'Debate the AI', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
@@ -540,11 +540,8 @@
       // 'Competitive' tells that reader the surface is not for them, which
       // is the gate soul.md sec 2 already forbids. 'Debate the AI' names
       // the action instead of the audience.
-      // 2026-09-01: removed in two founder passes the same day — first
-      // demoted from the flagship tile, then cut entirely ("there should
-      // be only 1 AI to debate against"). The one AI door is the AI
-      // round flagship (/practice). /voice-debate stays live for direct
-      // links; restore = uncomment the line below.
+      // 2026-09-03: the one AI door moved to /newvoice and opens the room
+      // immediately. /voice-debate stays live for old direct links only.
       // { href: '/voice-debate', label: 'Debate the AI', strong: true },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
@@ -848,6 +845,7 @@
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
     '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
+    '/newvoice':       { desc: 'Talk out loud, interrupt, and get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/flow':           { desc: 'Speech to flow, clash, and answers', plain: 'Turns a speech into clear notes', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
     '/voice-debate':   { desc: 'Talk out loud, it argues back, you get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
@@ -856,7 +854,7 @@
     '/oral-exam-prep': { desc: 'Defend your work out loud', icon: '<path d="M2.6 9.4L12 4.6l9.4 4.8-9.4 4.8z"/><path d="M6.6 11.9v4.2c3.6 2.7 7.2 2.7 10.8 0v-4.2M21.4 9.4v5"/>' },
   };
   function menuIcon(href){
-    var m = MENU_META[href];
+    var m = MENU_META[String(href || '').split(/[?#]/)[0]];
     var inner = m && m.icon ? m.icon : '<circle cx="12" cy="12" r="3.5"/>';
     return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
   }
@@ -1028,11 +1026,8 @@
         '</span>';
       spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });
       spotWrap.appendChild(spot);
-      // 2026-09-01 second pass, the founder off a screenshot of this row:
-      // "get rid of this there should be only 1 AI to debate against."
-      // The spotlight's 'Debate the AI' alt row is gone; the ONE AI door
-      // is the AI round flagship in the Practice column. /voice-debate
-      // stays live for direct links, with no nav entry.
+      // There is no second AI row here. The one AI door lives in the
+      // Practice column and opens /newvoice immediately.
       panel.appendChild(spotWrap);
 
       // 2026-08-26, per Aidan: "make it 4 sections not 5 and fit
@@ -1085,18 +1080,11 @@
         return { head: head, links: links };
       }
       // /spar leads the spotlight card, so it is not repeated here.
-      // 2026-09-01, two founder passes: the /voice-debate tile, then its
-      // spotlight alt row and sheet row, all came out — one AI door,
-      // the AI round flagship below. /voice-debate has NO nav entry.
+      // One AI door. /voice-debate has no nav entry; /newvoice is the
+      // live, interruptible room and is the flagship below.
       var columnGroups = [
         column('Practice', [
-          // 2026-09-01, per the founder's annotated screenshot: the AI
-          // round (/practice, full judged rounds against the clock) is
-          // the column's flagship now, and the /voice-debate tile plus
-          // 'Judge a round' come out of the desktop panel. Voice keeps
-          // its spotlight alt row here and its sheet row on mobile, so
-          // the paid voice surface never loses its door.
-          ['/practice',       'big'],
+          ['/newvoice?autostart=1&handoff=topbar-ai', 'big'],
           ['/flow',           ''],
           ['/topics',         ''],
         ]),
@@ -1144,7 +1132,7 @@
         ]);
         col.appendChild(head);
         G.links.forEach(function(L){
-          var meta = MENU_META[L.href] || {};
+          var meta = MENU_META[String(L.href || '').split(/[?#]/)[0]] || {};
           var a = el('a', {
             href: L.href,
             role: 'menuitem',

@@ -10642,16 +10642,15 @@ Rules:
   var simpleFmtLabel = format === 'quick' ? 'Casual 1v1' :
   format === 'viva' ? 'Oral Exam (Viva)' :
   (FORMATS[format] || {}).name || 'Custom';
-  // Handoff into the live voice round. voice-debate.html reads ?motion,
-  // ?side and ?handoff on load (the non-ext branch of its prefill
-  // effect) and forces quickclash mode itself, so a typed setup lands
-  // one tap from Connect with the same motion and the same side.
+  // Handoff into the live voice room. /newvoice reads the motion and side,
+  // then opens the room immediately so this CTA is the start action.
   var voiceRoundUrl = () => {
     var q = new URLSearchParams();
-    if (motion.trim()) q.set('motion', motion.trim().slice(0, 600));
+    if (motion.trim()) q.set('motion', motion.trim().slice(0, 220));
     q.set('side', side === 'con' ? 'opp' : 'gov');
+    q.set('autostart', '1');
     q.set('handoff', 'practice-setup');
-    return '/voice-debate?' + q.toString();
+    return '/newvoice?' + q.toString();
   };
   // Rendered on BOTH setup screens. Shared rather than inlined twice
   // because the honest half of this card is the comparison between the
@@ -10670,12 +10669,7 @@ Rules:
     style: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #ef4444', background: '#ef4444', color: '#fff', borderRadius: 999, padding: '10px 17px', fontFamily: 'inherit', fontSize: '.84rem', fontWeight: 900, textDecoration: 'none' }
   },
   el('span', { 'aria-hidden': true }, '🎙'), 'Debate out loud'
-  ),
-  el('a', {
-    href: '/newvoice',
-    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: from || 'practice-setup' });} catch (_) {}},
-    style: { fontSize: '.76rem', color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }
-  }, 'Or the casual voice room')
+  )
   ),
   el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', lineHeight: 1.45, marginTop: 9 } },
   'Voice rounds are spoken end to end, with one brain and no speech clock. Free voice rounds are limited, then voice is part of a plan.'
@@ -11111,25 +11105,11 @@ Rules:
   )
   ),
   el('div', { style: { textAlign: 'center', marginTop: 10, fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.45, maxWidth: 460, margin: '10px auto 0' } }, 'One person on each side. No teams, format jargon, or tournament rulebook.'),
-  // ── SECOND OPPONENT: the live voice room ──────────────────────
-  // 2026-09-02, Aidan: bring the Realtime voice opponent back as a
-  // visible second door on this page. It already existed and was
-  // reachable only from inside the advanced brain picker, and only
-  // when someone had picked GPT, so the surface that sells the
-  // difference was hidden behind a setting almost nobody opens.
-  //
-  // The two engines are genuinely different products and the copy
-  // says which is which rather than upselling: this page is typed +
-  // TTS (six brains, format depth, a speech clock, turn by turn),
-  // /voice-debate is OpenAI Realtime over WebRTC (one brain, spoken
-  // both ways, server-side VAD so cutting in mid-sentence actually
-  // stops the AI). Neither is the better round; they are good at
-  // different things.
-  //
-  // The motion carries over because voice-debate reads ?motion (and
-  // ?side / ?background). /newvoice does NOT read any of them, so
-  // its link is deliberately bare: a deep link carrying a motion
-  // there would promise something the page ignores.
+  // ── LIVE VOICE HANDOFF ────────────────────────────────────────
+  // This typed room and the live voice room are genuinely different:
+  // typed gives deliberate turns; /newvoice is spoken both ways and
+  // lets someone cut in mid-sentence. The motion and side carry over,
+  // and the destination starts immediately.
   //
   // No free-round count is quoted. FREE_VOICE_NAMED / FREE_VOICE_ANON
   // are env-overridable in lib/voice-usage.mjs, so a number printed
@@ -12298,7 +12278,7 @@ Rules:
   // accent so it doesn't look like a generic upsell.
   // Pro-only because Realtime API charges per minute of audio.
   brain === 'gpt' && el('a', {
-    href: '/voice-debate',
+    href: voiceRoundUrl(),
     style: {
       display: 'block',
       marginTop: 10,
@@ -12320,27 +12300,6 @@ Rules:
   el('strong', { style: { color: '#fbbf24', fontWeight: 700 } }, 'Voice mode'),
   ' uses OpenAI Realtime so you can cut in mid-sentence, take POIs, run cross-ex live. Pro feature because the Realtime API charges us per audio minute.'
   )
-  ),
-  // Second door on the same engine, and the lighter one. /newvoice
-  // runs the lean clash stack: same OpenAI Realtime opponent, no
-  // format, no speech clock, and a ~1.5s silence trigger instead of
-  // the trainer's server-VAD, so it answers noticeably faster and
-  // reads casual. Sits under the trainer card because a user who has
-  // just picked GPT is already choosing the Realtime voice; this
-  // tells them which of the two rooms they actually want. NOT a
-  // motion handoff: /newvoice reads no motion parameter, so a deep
-  // link carrying one would promise something the page ignores.
-  brain === 'gpt' && el('div', { style: { marginTop: 6, fontSize: '.7rem', color: 'var(--c-dim)', lineHeight: 1.45 } },
-  el('a', {
-    href: '/newvoice',
-    onClick: function () {try {if (typeof gtag === 'function') gtag('event', 'newvoice_cross_sell', { from: 'brain-picker' });} catch (_) {}},
-    // var(--c-text) rather than a brand hue: this line sits on the
-    // page background, which is cream on light and near-black on
-    // dark, and every accent that read as "quick clash" (cyan #22d3ee)
-    // measured 1.65:1 on cream. The underline carries the affordance.
-    style: { color: 'var(--c-text)', fontWeight: 700, textDecoration: 'underline' }
-  }, 'Casual voice round'),
-  ' is the same OpenAI Realtime opponent in a voice-first room: quicker replies, one unstructured round, no speech clock.'
   ),
   // Inline lock popover, shown when a free user clicks a Pro brain.
   // Auto-dismisses after 5s (handled by the useEffect on brainLock).
@@ -13738,17 +13697,14 @@ Rules:
       onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(88,101,242,.18)';e.currentTarget.style.borderColor = 'rgba(88,101,242,.5)';},
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(88,101,242,.10)';e.currentTarget.style.borderColor = 'rgba(88,101,242,.32)';}
     }, 'Find a scrim partner on Discord →'),
-    // Cross-surface handoff. Same motion, voice round (Full Round
-    // mode). Users learn which surface they prefer by trying both —
-    // this pill makes the second try a 1-click move. Violet to
-    // distinguish from /today (blue) and Discord (indigo); reads as
-    // "alternative path," not "warning" (amber) or "win" (green).
+    // Cross-surface handoff. Same motion and side, one-click into the
+    // interruptible room.
     el('a', {
-      href: '/voice-debate?motion=' + encodeURIComponent(motion || '') + '&mode=quickclash&handoff=typed',
+      href: '/newvoice?motion=' + encodeURIComponent(motion || '') + '&side=' + (side === 'con' ? 'opp' : 'gov') + '&autostart=1&handoff=typed',
       // rel=nofollow: this is a personal cross-surface deep-link for
       // the user who just ran a round, not a page Googlebot should
       // discover or follow. Paired with robots.txt Disallow on the
-      // /voice-debate? query pattern.
+      // personalized query pattern.
       rel: 'nofollow',
       onClick: () => {try {if (typeof gtag === 'function') gtag('event', 'voice_handoff_sent', { from: 'typed-feedback', format: format });} catch (_) {}},
       style: {
@@ -13762,29 +13718,7 @@ Rules:
       },
       onMouseOver: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.18)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.5)';},
       onMouseOut: (e) => {e.currentTarget.style.background = 'rgba(167,139,250,.10)';e.currentTarget.style.borderColor = 'rgba(167,139,250,.32)';}
-    }, 'Voice round on this motion →'),
-    // Third path, and the low-commitment one. The pill above hands
-    // this motion to the full trainer on real speech clocks; this one
-    // opens the lean clash room, same OpenAI Realtime opponent with
-    // quicker replies and no format. No motion parameter on purpose:
-    // /newvoice reads none, so carrying one would be a dead promise.
-    // Cyan because blue, indigo and violet are taken by the three
-    // pills beside it, and green already means "streak done".
-    el('a', {
-      href: '/newvoice',
-      onClick: () => {try {if (typeof gtag === 'function') gtag('event', 'newvoice_handoff_sent', { from: 'typed-feedback', format: format });} catch (_) {}},
-      // Colours live in .nv-clash-pill instead of inline, because this
-      // pill needs a different cyan per theme: the pale #67e8f9 the
-      // three pills beside it are built on measures 1.33:1 on the
-      // light surface. Inline styles would win over the theme rule.
-      className: 'nv-clash-pill',
-      style: {
-        display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: '10px 18px', borderRadius: 999,
-        fontSize: '.78rem', fontWeight: 700, letterSpacing: '.02em',
-        textDecoration: 'none', transition: 'background .15s,border-color .15s'
-      }
-    }, 'Or a quick clash. Casual, quicker replies →')
+    }, 'Debate this motion out loud →')
     ),
     // Publish-to-public panel — signed-in users only. Sends the
     // round to /api/round/publish which writes a sanitized doc to

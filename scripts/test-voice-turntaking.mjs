@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 
 const page = readFileSync(new URL('../app/newvoice.html', import.meta.url), 'utf8');
+const realtime = readFileSync(new URL('../app/netlify/functions/realtime-session.mjs', import.meta.url), 'utf8');
 
 function slice(from, to) {
   const a = page.indexOf(from);
@@ -86,6 +87,11 @@ check('gate stays usable after a loud calibration', api.speechGate() <= 0.33);
 api.set('noiseFloor', 0);
 api.set('harnessLevel', 0);
 
+check('the welcome is easy to interrupt', api.get('bargeSustainMs')() === 550);
+api.set('openingAiTurns', 2);
+check('normal debate returns to the user barge preference', api.get('bargeSustainMs')() === 1100);
+api.set('openingAiTurns', 0);
+
 // ── the floor ──────────────────────────────────────────────────────
 api.set('pttMode', true); api.set('pttOpen', false);
 
@@ -148,8 +154,18 @@ check('the arena meter follows micLive, not muted',
   !/muted \? 0 : level\(userAnalyser/.test(page));
 check('VAD eagerness lowered', /eagerness: 'low'/.test(page));
 check('server_vad threshold raised', /threshold: 0\.68/.test(page));
-check('opening turn no longer recites the sides',
-  /do NOT announce who is on which side/.test(page));
+check('opening turn does not recite the sides',
+  /do NOT announce who is on which side/i.test(page));
+check('opening turn reads the topic and asks one short question',
+  page.includes('Read the full claim from the session context exactly as written') &&
+  page.includes('Wanna know how this is gonna work?'));
+check('the interrupt gate is live before the welcome starts',
+  page.includes('bargeIv = setInterval(bargeTick, 50);\n  requestOpeningTurn();'));
+check('the spoken how-it-works answer stays brief',
+  realtime.includes('If they say yes or ask how it works, answer in no more than three short sentences') &&
+  realtime.includes("Cut me off whenever. You start."));
+check('clash turns are short back-and-forth',
+  realtime.includes('usually ten to twenty seconds'));
 
 for (const f of failures) console.log('  FAIL:', f);
 console.log(`\n${pass} passed, ${failures.length} failed`);
