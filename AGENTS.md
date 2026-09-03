@@ -478,7 +478,16 @@ scripts/test-welcome-email.mjs   runs in the pre-commit hook
 - **Copy rules apply and are tested:** no em-dashes, no banned phrases, no
   founder name or credential, "people" not "debaters", canonical price only.
 
-## Motion draft (in the ROOM, pre-round)
+## Motion draft (in the ROOM, on demand)
+
+**It does NOT run by default (2026-09-02, the founder: the round starts
+immediately).** A pair lands on the motion the queue gave them and Speech 1
+is live at once. The draft opens only when a seated debater presses
+"Draft one together" under the resolution (`dfOpen` in live-round.html,
+`window.__lrOpenDraft`); the other two doors there, Change it and Roll one,
+are the existing both-sides consent flow. Do not re-add an automatic
+`__lrOpenDraft()` call on the round snapshot; that is the gate that was
+removed. Everything below describes what happens once somebody opens it.
 
 **Blind strikes were retired 2026-09-02.** It is a NEGOTIATION now. One
 debater offers a motion; the other takes it, sends it back once, or

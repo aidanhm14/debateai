@@ -2405,6 +2405,14 @@ body.round-running .sg-swap{display:none}
 }
 .rmb-change:hover{color:var(--text,#fff);border-color:var(--border-strong,rgba(255,255,255,.4))}
 body.round-running .rmb-change{display:none}
+/* The row of doors under the resolution. Readable on purpose: the old
+   0.62rem chrome was "quiet" to the point that nobody found it, and the
+   founder's ask was that a pair who do not know what to argue can see
+   their options without a modal in the way. */
+.rmb-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.rmb-tools-q{font-size:.8rem;font-weight:700;color:var(--text-dim,rgba(255,255,255,.62));margin-right:2px}
+.rmb-tools .rmb-change{font-size:.8rem;font-weight:700;letter-spacing:0;padding:7px 12px;border-radius:10px;color:var(--text,#fff)}
+body.round-running .rmb-tools{display:none}
 .round-motion-bar .rmb-motion{
   font-family:'DM Sans','Inter',Arial,sans-serif;
   /* 2026-09-01, founder off a screenshot: "make the resolutions widen -
@@ -3672,11 +3680,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <!-- The edit tools used to live only behind Options, which
                    nobody found. This is the same inline editor + consent
                    flow, surfaced on the resolution itself. -->
-              <button type="button" class="rmb-change" id="rmbChangeBtn" hidden title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change</button>
-              <button type="button" class="rmb-change" id="rmbRollBtn" hidden title="Roll a random resolution to propose">&#127922;</button>
               <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
+            <!-- 2026-09-02: the pre-round negotiation no longer gates the
+                 round. The resolution is on screen, the round can start,
+                 and these are the three doors for a pair that does not
+                 want to argue this one. All three are consent flows or
+                 the on-demand draft; none of them changes the motion for
+                 one side alone. -->
+            <div class="rmb-tools" id="rmbTools" hidden>
+              <span class="rmb-tools-q">Not this one?</span>
+              <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change it</button>
+              <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose">&#127922; Roll one</button>
+              <button type="button" class="rmb-change" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters.">&#9878; Draft one together</button>
+            </div>
           </div>
           <div class="speech-primary">
             <div class="speaker-line" style="margin-bottom:0">
@@ -6498,9 +6516,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var dHint = $('readyHint');
       if (dHint){
         dHint.style.display = '';
-        dHint.innerHTML = '<strong>Finish the motion draft first.</strong> '
-          + 'You and your opponent are still striking motions. '
-          + 'The round starts once the draft settles.';
+        dHint.innerHTML = '<strong>Finish the draft first.</strong> '
+          + 'One of you opened a motion draft, and the resolution is not settled until it closes. '
+          + 'Speech 1 starts the moment it does.';
       }
       toast('The motion draft is still open. Speech 1 starts once it settles.');
       var dBoard = document.getElementById('draftBoard');
@@ -15681,11 +15699,27 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // Ask the server to open one. It refuses unless the pair was stamped
     // eligible at match time, so a /live challenge round or a direct link
     // keeps the motion its poster chose and this is a no-op there.
+    // On demand only. The round starts on whatever motion the pair arrived
+    // with; this is the "we do not know what to argue" door, opened from the
+    // resolution bar by either debater. The server still refuses a room
+    // that was not stamped eligible at match time, and that refusal has to
+    // be SAID here, because a button that does nothing reads as broken.
     function dfOpen(){
-      if (dfOpened || dfDraft() || !dfIAmDebater()) return;
-      if (state.speechIdx > 0 || (state.log && state.log.length)) return;
+      if (dfDraft()){ toast('A draft is already running.'); return; }
+      if (!dfIAmDebater()){ toast('Only a seated debater can open a draft.'); return; }
+      if (state.speechIdx > 0 || (state.log && state.log.length)){ toast('The round has started. The resolution is locked.'); return; }
+      if (dfOpened) return;
       dfOpened = true;
-      dfPost('open').catch(function(){ dfOpened = false; });
+      try { gtag('event', 'live_round_draft_open_manual'); } catch(e){}
+      dfPost('open').then(function(res){
+        dfOpened = false;
+        var code = res && (res.ok === false ? res.reason : res.error);
+        if (code){
+          toast(code === 'not_eligible'
+            ? 'This room was not matched through the queue, so there is no draft here. Use Change it to suggest a different resolution.'
+            : dfErrText(code));
+        }
+      }).catch(function(){ dfOpened = false; toast('Could not open a draft. Try again.'); });
     }
 
     function dfClock(){
@@ -16541,11 +16575,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // hook) lives outside this closure and is what knows when the lock
     // flips.
     var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn'), rmbLock = $('rmbLockNote');
+    var rmbTools = $('rmbTools'), rmbDraft = $('rmbDraftBtn');
     function syncMotionChangeBtns(){
       var seated = state.phase === 'round' && !isSpectator();
       var show = seated && !motionChangeLocked();
+      if (rmbTools) rmbTools.hidden = !show;
       if (rmbChange) rmbChange.hidden = !show;
       if (rmbRoll) rmbRoll.hidden = !show;
+      // The draft needs a second person on the other bench; a solo or
+      // hotseat room has nobody to offer to.
+      if (rmbDraft){
+        var seats = seatUids();
+        rmbDraft.hidden = !show || seats.length < 2 || seats[0] === seats[1];
+      }
       // Once locked the control does not just vanish: it says why.
       if (rmbLock){
         rmbLock.textContent = tournamentControlsLocked()
@@ -16648,6 +16690,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
       var gm = $('rebGenMotion'); if (gm) gm.click();
       try { gtag('event', 'live_round_motion_roll_inline'); } catch(e){}
+    });
+    if (rmbDraft) rmbDraft.addEventListener('click', function(){
+      if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
+      if (window.__lrOpenDraft) window.__lrOpenDraft();
     });
     var rmbEl = $('rmbMotion');
     if (rmbEl) rmbEl.addEventListener('blur', function(){
@@ -20745,7 +20791,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // below: while a draft is live the motion is not a thing either side
     // may propose changing, it is a thing they are still settling.
     if (window.__lrRenderDraft) { try { window.__lrRenderDraft(d); } catch(e){} }
-    if (window.__lrOpenDraft) { try { window.__lrOpenDraft(); } catch(e){} }
+    // The draft is NOT opened here any more (2026-09-02, the founder: the
+    // round starts immediately). It opens only when a debater asks for it
+    // from the resolution bar; a doc that already carries one still renders.
     // Pending resolution change, if either side has asked for one.
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
     // Pending side swap, same shape: one debater asked to trade sides.
