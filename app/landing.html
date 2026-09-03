@@ -8568,6 +8568,37 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .mh-card-sub.is-live{color:var(--mh-red)}
   .mh-card-sub.is-live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
     background:var(--mh-red);margin-right:6px;vertical-align:1px}
+  /* The leaderboard strip. [hidden] is asserted explicitly because the
+     display:block below would otherwise beat the UA sheet. */
+  .mh-board{display:block;margin-top:12px;padding:13px 14px 12px;border:1px solid var(--mh-line);
+    border-radius:18px;background:var(--mh-card);color:var(--mh-ink);text-decoration:none}
+  .mh-board[hidden]{display:none}
+  .mh-board:active{transform:scale(.99);border-color:rgba(220,38,38,.5)}
+  .mh-board-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px}
+  .mh-board-title{font-family:'Inter','Archivo',system-ui,sans-serif;font-weight:800;font-size:19px;line-height:1.05;letter-spacing:-.01em}
+  .mh-board-more{font-size:12.5px;font-weight:800;color:var(--mh-red);white-space:nowrap}
+  .mh-board-more [data-mh-total]:not(:empty)::after{content:" \00b7 ";color:var(--mh-muted)}
+  .mh-board-more [data-mh-total]{color:var(--mh-muted);font-weight:700}
+  /* One row, scrolls sideways past five. Scrollbars hidden: the row reads
+     as a shelf, and the edge fade below says there is more. */
+  .mh-board-row{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 4px;margin:0 -2px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;
+    -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .mh-board-row::-webkit-scrollbar{display:none}
+  .mh-tile{flex:0 0 auto;width:66px;display:flex;flex-direction:column;align-items:center;gap:5px;scroll-snap-align:start}
+  .mh-ava{position:relative;width:56px;height:56px;border-radius:16px;overflow:hidden;
+    border:1.5px solid var(--mh-line);background:var(--mh-card)}
+  .mh-tile:first-child .mh-ava{border-color:rgba(220,38,38,.65)}
+  .mh-ava img,.mh-ava svg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .mh-ava img{z-index:1}
+  .mh-ava .db-pfp{z-index:0}
+  .mh-rk{position:absolute;left:-1px;top:-1px;z-index:2;min-width:19px;height:19px;padding:0 5px;border-radius:0 0 9px 0;
+    background:#1a1a1f;color:#fff;font:800 11px/19px 'Inter','Archivo',system-ui,sans-serif;text-align:center}
+  .mh-tile:first-child .mh-rk{background:var(--mh-red)}
+  .mh-nm{max-width:66px;font-size:11.5px;font-weight:800;line-height:1.15;text-align:center;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mh-sc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;
+    font-size:11.5px;font-weight:700;color:var(--mh-muted);line-height:1}
   .mh-signin{margin-top:18px}
   body.signed-in .mh-signin{display:none !important}
   .mh-signin-btn{display:block;width:100%;min-height:52px;padding:14px 18px;border:1px solid var(--mh-line);
@@ -8665,6 +8696,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <span class="mh-card-sub" id="mhWatchMeta">Live rounds and replays</span>
       </a>
     </div>
+
+    <!-- The leaderboard on a phone (2026-09-03, the founder: "integrate the
+         side leaderboard into mobile version, rn its not there"). The
+         desktop rail (#lbRail) is a column of faces docked on the left
+         edge, which has no phone equivalent, so this is the same top rows
+         as a horizontal strip: face, rank, name, score. It sits directly
+         above the sign-in ask on purpose, because that ask says "climb
+         the leaderboard" and this is the board it means. Same data, same
+         picture tiers and the same three-real-rows floor as the rail; it
+         renders nothing until real rows arrive. -->
+    <a class="mh-board" id="mhBoard" href="/leaderboard" data-cta="mhome-board" hidden aria-label="Leaderboard">
+      <span class="mh-board-head">
+        <span class="mh-board-title">Leaderboard</span>
+        <span class="mh-board-more"><span data-mh-total></span>See all &rarr;</span>
+      </span>
+      <span class="mh-board-row" id="mhBoardRow"></span>
+    </a>
 
     <div class="mh-signin">
       <button type="button" class="mh-signin-btn" data-fs-signin data-cta="mhome-signin">Continue with Google</button>
@@ -9467,14 +9515,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var mq = null;
     try { mq = window.matchMedia ? window.matchMedia('(min-width:1101px)') : null; } catch (e) { mq = null; }
     var req = null, waiting = [];
-    function start(){
+    // `force` is the phone strip (#mhBoard) asking for the same payload
+    // (2026-09-03). The request is shared and 5-minute-cached upstream,
+    // so a second consumer costs nothing; what must NOT happen on a
+    // phone is the hero shift, which is why the class is keyed on width
+    // and the fetch on width-or-force, separately.
+    function start(force){
+      var wide = !mq || mq.matches;
+      // Same tick as the width crossing, so the hero is already in its
+      // shifted position the first time it paints with the rail. See
+      // the note on html.lbr-ready in the first-screen styles. Idempotent,
+      // and evaluated before the early return so a phone that started the
+      // request and is later dragged wide still gets the shift.
+      if (wide) document.documentElement.classList.add('lbr-ready');
       if (req) return;
-      if (mq && !mq.matches) return;
+      if (!wide && !force) return;
       try {
-        // Same tick as the width crossing, so the hero is already in its
-        // shifted position the first time it paints with the rail. See
-        // the note on html.lbr-ready in the first-screen styles.
-        document.documentElement.classList.add('lbr-ready');
         req = fetch('/api/leaderboard-top', { cache: 'no-cache' })
           .then(function(r){ return r.ok ? r.json() : null; })
           .catch(function(){ return null; });
@@ -9499,7 +9555,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var recheck = function(){
         if (!armed) return;
         start();
-        if (!req) return;
+        // Stay armed until the viewport is actually wide: a phone-forced
+        // request must not disarm the hero shift for a later widen.
+        if (!req || (mq && !mq.matches)) return;
         armed = false;
         try {
           window.removeEventListener('resize', recheck);
@@ -9515,7 +9573,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       window.addEventListener('resize', recheck, { passive: true });
       window.addEventListener('orientationchange', recheck, { passive: true });
     }
-    return { start: start, then: function(fn){ if (req) req.then(fn); else waiting.push(fn); } };
+    return { start: start, then: function(fn){ if (req) req.then(fn); else waiting.push(fn); }, started: function(){ return !!req; } };
   })();
 </script>
 
@@ -15207,7 +15265,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     return typeof A.emblem === 'function' ? A.emblem(seed, name, anon(name), {}) : '';
   }
   var wantsEngine = false;
-  function face(r, i, taken){
+  // The picture a row wears, shared by the desktop rail tile and the
+  // phone strip tile: built avatar (engine swaps it in), else account
+  // photo over a set picture, else the set picture.
+  function faceInner(r, i, taken){
     var seed = (r && r.uid) || (r && r.name) || ('row' + i);
     var inner = '', attrs = '';
     if (r && r.avatarIdentity){
@@ -15232,8 +15293,43 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     } else {
       inner = pfpArt(seed, taken, r && r.name);
     }
-    return '<span class="lbr-pic"><span class="lbr-ava"' + attrs + '>' + inner + '</span>'
+    return { inner: inner, attrs: attrs };
+  }
+  function face(r, i, taken){
+    var f = faceInner(r, i, taken);
+    return '<span class="lbr-pic"><span class="lbr-ava"' + f.attrs + '>' + f.inner + '</span>'
       + '<span class="lbr-rk">' + (i + 1) + '</span></span>';
+  }
+  /* The phone strip (#mhBoard in the mobile home). Same rows, same
+     three-real-rows floor, same picture tiers; five tiles in a row that
+     scrolls sideways. */
+  var PHONE_ROWS = 5;
+  function renderMobile(rows, total){
+    var board = document.getElementById('mhBoard');
+    var row = board && document.getElementById('mhBoardRow');
+    if (!board || !row) return false;
+    if (!rows || rows.length < 3) return false;
+    var n = Math.min(rows.length, PHONE_ROWS);
+    var taken = {};
+    var html = '';
+    for (var i = 0; i < n; i++){
+      var r = rows[i] || {};
+      var rated = r.kind === 'rating' && typeof r.rating === 'number';
+      var num = rated ? String(Math.round(r.rating)) : score(r.score);
+      var name = anon(r.name) ? 'Anonymous' : esc(r.name);
+      var f = faceInner(r, i, taken);
+      html += '<span class="mh-tile">'
+        + '<span class="mh-ava"' + f.attrs + '>' + f.inner + '<b class="mh-rk">' + (i + 1) + '</b></span>'
+        + '<span class="mh-nm">' + name + '</span>'
+        + '<span class="mh-sc">' + esc(num) + '</span>'
+        + '</span>';
+    }
+    row.innerHTML = html;
+    if (wantsEngine){ try { upgradeAvatars(row); } catch (e) {} }
+    var tot = board.querySelector('[data-mh-total]');
+    if (tot && typeof total === 'number' && total > n) tot.textContent = total + ' ranked';
+    board.hidden = false;
+    return true;
   }
   /* Only a row carrying a REAL built identity needs the avatar engine, so
      it loads after the rail has painted and only when there is one to
@@ -15356,8 +15452,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     });
   }
   var painted = false;
+  var phone = false;
+  try { phone = !!(window.matchMedia && window.matchMedia('(max-width:720px)').matches); } catch (e) {}
   function paint(j){
     if (painted) return;
+    if (phone){
+      // The rail is display:none under 720px, so painting it would only
+      // fire a view event for a thing nobody saw. The strip takes the rows.
+      if (!renderMobile(j && j.rows, j && j.total)) return;
+      painted = true;
+      try { if (window.gtag) gtag('event', 'mhome_board_view'); } catch (e) {}
+      return;
+    }
     if (!render(j && j.rows, j && j.total)) return;
     painted = true;
     watch();
@@ -15366,6 +15472,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function paintWhenReady(j){ setReady().then(function(){ paint(j); }); }
   if (window.__lbTop && window.__lbTop.then) window.__lbTop.then(paintWhenReady);
   else if (window.__lbTopReq) window.__lbTopReq.then(paintWhenReady).catch(function(){});
+  // On a phone nothing else asks for the board, so the strip asks. Off the
+  // first paint on purpose: the mobile home is one screen and this sits
+  // below the two cards, so a beat of delay costs nothing anyone sees.
+  if (phone && window.__lbTop && window.__lbTop.start && document.getElementById('mhBoard')){
+    var kick = function(){ try { window.__lbTop.start(true); } catch (e) {} };
+    if ('requestIdleCallback' in window) requestIdleCallback(kick, { timeout: 1500 }); else setTimeout(kick, 700);
+  }
+  // Layout QA hook: lets a browser with no API paint the strip from rows.
+  window.__mhBoardRender = renderMobile;
 
   rail.addEventListener('click', function(e){
     var a = e.target && e.target.closest ? e.target.closest('[data-lbr]') : null;
