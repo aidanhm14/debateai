@@ -4,6 +4,7 @@ const source = fs.readFileSync(new URL('../app/js/auth-modal.js', import.meta.ur
 const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
 const signupNudge = fs.readFileSync(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
 const experienceAsk = fs.readFileSync(new URL('../app/js/experience-ask.js', import.meta.url), 'utf8');
+const livePull = fs.readFileSync(new URL('../app/js/live-pull.js', import.meta.url), 'utf8');
 let failures = 0;
 
 function check(condition, label) {
@@ -64,6 +65,12 @@ check(
   'the public web chooser offers Google only',
 );
 check(
+  source.includes('#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center')
+    && source.includes("'Sign in to Debatable'")
+    && source.includes('The same button signs you in or creates your account. No password to remember.'),
+  'the shared web sign-in is a centered Google dialog for new and returning accounts',
+);
+check(
   source.includes('window.__DB_NATIVE && !googleOnly')
     && source.includes('Continue with Apple'),
   'the iOS shell keeps its required Apple option',
@@ -92,6 +99,11 @@ check(
     && /iPhone\|iPad\|iPod/.test(signupNudge)
     && signupNudge.includes("navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1"),
   'proactive Google One Tap is desktop-only and excludes iOS and iPadOS',
+);
+check(
+  livePull.includes("window.addEventListener('debatable:authmodal-open'")
+    && livePull.includes('if (card.parentNode) card.remove();'),
+  'the landing live nudge yields to the centered sign-in dialog',
 );
 
 if (failures) process.exit(1);

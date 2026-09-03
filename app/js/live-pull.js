@@ -191,6 +191,14 @@
       }
     }, 800);
 
+    // A centered sign-in dialog owns the screen. If this older live nudge
+    // arrived first, remove it as soon as auth opens rather than leaving a
+    // second call to action visible under the veil.
+    window.addEventListener('debatable:authmodal-open', function () {
+      clearInterval(yieldT);
+      if (card.parentNode) card.remove();
+    }, { once: true });
+
     var later = card.querySelector('.lpull-later');
     if (later) later.addEventListener('click', function () {
       click('dismiss');

@@ -444,12 +444,11 @@
     // never asks which one the visitor means. The dormant email markup
     // below is retained for safe completion of links already in flight,
     // not as a public provider choice.
-    var headline = (lockCopy && lockCopy.headline) ||
-      (creating ? 'Sign in or create an account' : 'Welcome back');
+    var headline = (lockCopy && lockCopy.headline) || 'Sign in to Debatable';
     var subline = (lockCopy && lockCopy.sub) ||
-      (creating
-        ? 'Google signs you in or creates your account. Your rounds, ballots, XP and place on the board live there.'
-        : 'Pick up your rounds, rank, and style profile.');
+      (window.__DB_NATIVE && !googleOnly
+        ? 'Continue with Google or Apple. The same buttons sign you in or create your account.'
+        : 'Continue with Google. The same button signs you in or creates your account. No password to remember.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
       '<h2>' + esc(headline) + '</h2>' +

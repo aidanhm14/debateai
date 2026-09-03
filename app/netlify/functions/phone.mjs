@@ -79,7 +79,7 @@ export default async (request) => {
   }
   if (!isNamedAccount(decoded)) {
     return jsonResponse({
-      error: 'Text alerts need a Google or email account.',
+      error: 'Text alerts need a signed-in account.',
       code: 'NAMED_ACCOUNT_REQUIRED',
     }, 403, request);
   }

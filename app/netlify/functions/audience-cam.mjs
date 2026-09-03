@@ -174,7 +174,7 @@ export default async (request) => {
   catch (e) { return errorResponse('Sign in to join on camera', 401, request); }
   const provider = payload.firebase && payload.firebase.sign_in_provider;
   if (!provider || provider === 'anonymous') {
-    return jsonResponse({ error: 'Camera spectating needs a named account. Sign in with Google or email first.', needNamed: true }, 401, request);
+    return jsonResponse({ error: 'Camera spectating needs a named account. Continue with Google first.', needNamed: true }, 401, request);
   }
   const uid = payload.sub;
 

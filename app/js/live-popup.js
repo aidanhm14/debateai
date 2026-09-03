@@ -27,8 +27,9 @@
  * gets the live badge and the pulsing dot.
  *
  * Spectating needs no account, so the live and replay cards hand an
- * anonymous visitor straight through. The waiting card points at /spar,
- * which does ask for one, because the person on the other bench is real.
+ * anonymous visitor straight through. A waiting person needs a real
+ * opponent, so a signed-out visitor gets the shared account dialog in
+ * the middle of the screen instead of a second bottom-corner card.
  *
  * Blur: BLUR_PX below. 0 ships frames as they are, which is what the
  * live strip and /watch already do. 10 gives the frosted treatment.
@@ -75,11 +76,11 @@
   /* 2026-09-01, the founder: "tell anonymous user someone is live in a
      pop up 'wants to debate' and then do 'need to sign in'". The WAITING
      source (someone is in the /spar queue right now) is armed SITEWIDE
-     again, not only on the intent pages. The card reads "<name> wants to
-     debate"; for a visitor without a Google or phone account, tapping it
-     opens the shared sign-in modal in live-video mode (Google or phone)
-     and lands them on /spar afterwards. The REPLAY source stays
-     retired everywhere (the 2026-08-25 face objection stands). */
+     again, not only on the intent pages. 2026-09-03 refines the signed-out
+     treatment: open the shared centered Google dialog directly. Do not
+     make a guest click a bottom-corner teaser and then face a second card.
+     A signed-in person still gets the compact open-seat card because they
+     can take the seat immediately. The REPLAY source stays retired. */
   var WAITING_SITEWIDE = true;
 
   /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
@@ -209,9 +210,13 @@
   function snoozed() {
     return now() - readNum(localStorage, SNOOZE_KEY) < SNOOZE_MS;
   }
+  function authModalOpen() {
+    try { return document.body.classList.contains('signin-modal-open'); } catch (e) { return false; }
+  }
   function gated() {
     if (force || demo) return false;
     if (busyInRound()) return true;
+    if (authModalOpen()) return true;
     if (snoozed()) return true;
     if (readNum(sessionStorage, COUNT_KEY) >= MAX_PER_SESSION) return true;
     if (now() - readNum(sessionStorage, LAST_KEY) < GAP_MS) return true;
@@ -220,7 +225,7 @@
   /* The fast lane's gate: everything about consent and courtesy, nothing
      about pacing. */
   function liveGated() {
-    return busyInRound() || snoozed() || cornerBusy();
+    return busyInRound() || authModalOpen() || snoozed() || cornerBusy();
   }
 
   function clock(sec) {
@@ -442,9 +447,9 @@
     return '';
   }
 
-  /* Has this visitor a Google or phone-provider account? Anything else
-     (no firebase on the page, no user, anonymous, email) needs the sign-in
-     step before the video room. Same set as /spar's door. */
+  /* Has this visitor a live-video account? The website uses Google. Apple
+     remains valid in the iOS app because App Store rules require it.
+     Anything else needs the centered sign-in step before the video room. */
   function googleUser() {
     try {
       var fb = window.firebase;
@@ -554,8 +559,55 @@
       '</span>';
   }
 
+  function openWaitingSignIn(item, opts) {
+    if (typeof window.openAuthModal !== 'function') return false;
+    shown = true;
+    markSeen(item.key);
+    write(sessionStorage, LAST_KEY, now());
+    write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
+    emit('live_popup_auth_open', {
+      page: here,
+      placement: 'center',
+      automatic: true,
+      fast: !!(opts && opts.fast)
+    });
+    window.openAuthModal('signin', {
+      liveVideo: true,
+      headline: (item.name || 'Someone') + ' wants to debate',
+      sub: 'Continue with Google to take the open seat. The same button works for new and returning accounts, with no password to remember.',
+      onDone: function (user) {
+        if (!user) {
+          write(localStorage, SNOOZE_KEY, now());
+          emit('live_popup_auth_dismiss', { page: here, placement: 'center' });
+          return;
+        }
+        emit('live_popup_auth_done', { page: here, placement: 'center' });
+        window.location.href = '/spar';
+      }
+    });
+    return true;
+  }
+
   function render(item, opts) {
     opts = opts || {};
+    /* A guest waiting invitation IS the sign-in ask. Open the shared
+       centered dialog directly instead of rendering the bottom-right
+       live card first. auth-modal.js is injected just ahead of this file
+       by topbar.js, but allow a short load race without falling back to a
+       second corner treatment. */
+    if (item.kind === 'wait' && item.needsAuth) {
+      if (openWaitingSignIn(item, opts)) return;
+      var attempt = Number(opts.authAttempt || 0);
+      if (attempt < 20) {
+        setTimeout(function () {
+          var retryOpts = {};
+          for (var k in opts) retryOpts[k] = opts[k];
+          retryOpts.authAttempt = attempt + 1;
+          render(item, retryOpts);
+        }, 250);
+      }
+      return;
+    }
     if (cardVisible) return;
     /* The slow loop spends its one card and stops. The fast lane may
        render again later in the visit (a NEW round going live is new
@@ -628,26 +680,8 @@
       emit('live_popup_dismiss', { kind: item.kind, had_pic: !!item.img });
       close('dismiss');
     });
-    card.addEventListener('click', function (ev) {
+    card.addEventListener('click', function () {
       emit('live_popup_click', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast, needs_auth: !!item.needsAuth });
-      /* The "need to sign in" step: a visitor without a live-video account
-         gets the shared modal (Google or phone) and is sent to the queue
-         once signed in. Without the modal script the link falls through
-         to /spar, whose own gate asks the same thing. */
-      if (item.needsAuth && typeof window.openAuthModal === 'function') {
-        ev.preventDefault();
-        close('auth');
-        emit('live_popup_auth_open', { page: here });
-        window.openAuthModal('signup', {
-          liveVideo: true,
-          headline: (item.name || 'Someone') + ' wants to debate. Sign in to take the seat.',
-          sub: 'Sign in with Google. The video room takes a real account, so the person across from you is one too. Sign in and you land in the queue.',
-          onDone: function () {
-            emit('live_popup_auth_done', { page: here });
-            window.location.href = '/spar';
-          }
-        });
-      }
     });
 
     document.body.appendChild(card);

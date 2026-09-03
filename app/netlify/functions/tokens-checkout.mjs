@@ -31,7 +31,7 @@ export default async (request) => {
   if (!isNamedAccount(decoded)) {
     return jsonResponse({
       error: 'NAMED_ACCOUNT_REQUIRED',
-      message: 'Sign in with Google, an emailed link, or email and password before subscribing.',
+      message: 'Continue with Google before subscribing.',
     }, 403, request);
   }
   const uid = decoded.sub;

@@ -118,8 +118,8 @@
   // below routes there). /js/coach-fab.js is now a no-op stub; the
   // auto-injector that used to mount the orb on every topbar page is gone.
 
-  // Shared sign-in modal (email/password + Google; Apple in the native app).
-  // Loaded site-wide so every auth CTA can offer the same choices.
+  // Shared sign-in modal (Google on web; Google + Apple in the native app).
+  // Loaded site-wide so every auth CTA reaches the same centered door.
   (function ensureAuthModalLoaded(){
     if (document.querySelector('script[src*="/js/auth-modal.js"]')) return;
     var s = document.createElement('script');
@@ -2127,9 +2127,8 @@
       fbBootstrap(function(){
         try {
           var auth = window.firebase.auth();
-          // Every sign-in surface offers the same choices. The shared modal
-          // carries Google, an emailed link, and email/password; this Google
-          // popup stays as the fallback for a page that loads without it.
+          // Every web sign-in surface uses the shared centered Google modal.
+          // This direct Google popup stays as the fallback if that script fails.
           if (typeof window.openAuthModal === 'function') { window.openAuthModal(); return; }
           var provider = new window.firebase.auth.GoogleAuthProvider();
           provider.setCustomParameters({ prompt: 'select_account' });
@@ -2171,7 +2170,8 @@
   }
 
   // Signed-OUT state: a ghost "Sign in" button. Click opens the shared
-  // email/password + Google chooser.
+  // centered Google chooser. The same provider button handles a new or
+  // returning account, so there is no separate password lifecycle.
   function renderSignedOut(slot){
     slot.style.display = 'inline-flex';
     slot.style.alignItems = 'center';
@@ -2632,16 +2632,12 @@
   (document.body || document.head || document.documentElement).appendChild(s);
 })();
 
-/* The sitewide corner card is back as of 2026-08-31, LIVE ROUNDS ONLY
-   (the founder: someone arriving while a round is live should hear about
-   it asap and be able to spectate anonymously in one tap). The 2026-08-25
-   retirement was about the REPLAY source parading the same recorded
-   participant on unrelated pages; live-popup.js now ships LIVE_ONLY=true,
-   so the waiting/replay cards stay dormant and only a round actually in
-   progress fires — checked ~2.5s after arrival, then once a visible
-   minute, with the card handing anonymous visitors straight into
-   /live-round as spectators. live-popup.js owns every restraint rule
-   (skip pages, snooze, mid-round guard, corner right-of-way). */
+/* Sitewide live prompts. A round in progress uses the compact corner card
+   and lets anyone spectate. A waiting person opens the centered Google
+   dialog for a signed-out visitor, while a signed-in visitor gets the
+   compact open-seat card. Replays stay retired so recorded participants
+   are not recirculated on unrelated pages. live-popup.js owns the timing,
+   snooze, mid-round, and collision rules. */
 (function(){
   if (window.__ditLivePopup || document.querySelector('script[src*="/js/live-popup.js"]')) return;
   var s = document.createElement('script');

@@ -101,7 +101,7 @@ export default async (request) => {
   // not one person.
   const provider = decoded.firebase && decoded.firebase.sign_in_provider;
   if (!provider || provider === 'anonymous') {
-    return errorResponse('Voting on a final needs a real account. Sign in with Google or email.', 403, request);
+    return errorResponse('Voting on a final needs a real account. Continue with Google.', 403, request);
   }
   const uid = decoded.sub;
 

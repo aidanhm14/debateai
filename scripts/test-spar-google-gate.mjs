@@ -92,6 +92,19 @@ check(spar.includes("if (inAppBrowser()){ doInAppSignIn(); return; }"), 'every i
 check(spar.includes('liveVideo: true') && !spar.includes('googleOnly: true'), 'spar prompts must open the shared card in live-video mode, never Google-only');
 check(livePopup.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'wants-to-debate popup must accept Google and Apple accounts only');
 check(livePopup.includes('liveVideo: true'), 'wants-to-debate popup must open live-video mode');
+check(
+  livePopup.includes("if (item.kind === 'wait' && item.needsAuth)")
+    && livePopup.includes('if (openWaitingSignIn(item, opts)) return;')
+    && livePopup.includes("placement: 'center'")
+    && livePopup.includes("window.openAuthModal('signin',"),
+  'a signed-out wants-to-debate alert must open the centered auth dialog instead of a corner card',
+);
+check(
+  livePopup.includes('onDone: function (user)')
+    && livePopup.includes("if (!user) {")
+    && livePopup.includes("write(localStorage, SNOOZE_KEY, now());"),
+  'dismissing the centered sign-in dialog must not send a guest to the queue or immediately reprompt',
+);
 check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'live-round seat gate must accept Google and Apple accounts only');
 check(liveRound.includes('liveVideo: true'), 'live-round must open the shared card in live-video mode');
 check(authModal.includes('liveVideo = !!(opts && opts.liveVideo) && !googleOnly;'), 'shared auth prompt must accept live-video mode');
