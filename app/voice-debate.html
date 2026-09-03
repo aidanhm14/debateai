@@ -3881,6 +3881,23 @@ function fmtTime(sec) {
 // runs compressed APDA clocks (26:00 bounded, see APDA_SEQUENCE) so the
 // whole speech sequence plus the spoken ballot fits under this cap.
 var SESSION_HARD_CAP_SEC = 30 * 60;
+// The mint can hand back a shorter cap (voiceUsage.reserveMinutes) when the
+// minutes budget is nearly spent; sessionCapSec() is what the clock reads.
+var sessionCapSecOverride = 0;
+var voiceSessionIdRef = { current: '' };
+function sessionCapSec() {return sessionCapSecOverride > 0 ? Math.min(SESSION_HARD_CAP_SEC, sessionCapSecOverride) : SESSION_HARD_CAP_SEC;}
+function reportVoiceSessionEnd() {
+  var sid = voiceSessionIdRef.current;voiceSessionIdRef.current = '';
+  if (!sid) return;
+  try {
+    var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+    if (!u) return;
+    u.getIdToken().then(function (tok) {
+      fetch('/api/voice-session-end', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ sessionId: sid }) }).catch(function () {});
+    }).catch(function () {});
+  } catch (e) {}
+}
+window.addEventListener('pagehide', reportVoiceSessionEnd);
 var SESSION_WARN_AT_SEC = 60; // remaining-time threshold to surface the wrap-up nudge
 
 /* ── Web Audio helpers ───────────────────────────── */
@@ -4657,8 +4674,10 @@ function App() {
   // (ANON_VOICE_ROUNDS / FREE_VOICE_ROUNDS), so if those are ever moved
   // without touching this file the page under-promises rather than
   // over-promises, and the server response is what actually decides.
-  var ANON_VOICE_LIMIT = 1;
-  var FREE_VOICE_LIMIT = 2;
+  // MINUTES since 2026-09-03 (lib/voice-minutes.mjs). Same env defaults
+  // as the server; UX-only, the server is authoritative.
+  var ANON_VOICE_LIMIT = 8;
+  var FREE_VOICE_LIMIT = 20;
   var ANON_USAGE_KEY = 'da-voice-anon-used';
   // Owner allowlist — bypasses the voice cap on the client so the gate
   // never shows the upgrade card to these accounts. Server enforces the
@@ -4717,7 +4736,7 @@ function App() {
           // field is read only so rounds spent before 2026-08-26 still
           // show; nothing writes it any more.
           var snap = await db.collection('voice_usage').doc(u.uid).get();
-          if (snap.exists) used = Math.max(0, parseInt(snap.data().rounds, 10) || 0);
+          if (snap.exists) {var vd = snap.data();used = Math.max(0, parseInt(vd.minutes, 10) || 0, (parseInt(vd.rounds, 10) || 0) * 8);}
           if (!used) {
             var legacy = await db.collection('user_profiles').doc(u.uid).get();
             if (legacy.exists) used = Math.max(0, parseInt(legacy.data().voiceSessionsUsed, 10) || 0);
@@ -5914,6 +5933,7 @@ function App() {
   }
 
   function stop(systemMsg) {
+    reportVoiceSessionEnd();
     try {window.SFX && SFX.end && SFX.end();} catch (sfxErr) {console.warn('[stop] SFX skipped:', sfxErr);}
     // Kill any lingering thinking ambience so it doesn't drone after
     // the session ends (e.g. user hits End-drill mid-thinking-gap).
@@ -6310,6 +6330,7 @@ function App() {
         throw new Error('Could not start session: ' + friendly);
       }
       var session = await mintRes.json();
+      try {var vu = session && session.voiceUsage;voiceSessionIdRef.current = vu && vu.sessionId || '';sessionCapSecOverride = vu && Number(vu.reserveMinutes) > 0 ? Number(vu.reserveMinutes) * 60 : 0;} catch (e) {sessionCapSecOverride = 0;}
       var ephemeralKey = session?.client_secret?.value;
       if (!ephemeralKey) throw new Error('Session response missing client_secret.');
       setNegotiatedModel(session.model || '');
@@ -6996,12 +7017,12 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       // ── Session hard cap (safety net) ────────────────────────
       // Soft wrap-up nudge so the cap stops blindsiding the user. Fires
       // once when there's a minute left.
-      if (!capWarnedRef.current && t >= SESSION_HARD_CAP_SEC - SESSION_WARN_AT_SEC && t < SESSION_HARD_CAP_SEC) {
+      if (!capWarnedRef.current && t >= sessionCapSec() - SESSION_WARN_AT_SEC && t < sessionCapSec()) {
         capWarnedRef.current = true;
         addSystem('Heads up. About 60 seconds left in this round. Wrap your point or end the session yourself.');
       }
-      if (t >= SESSION_HARD_CAP_SEC) {
-        var mins = Math.round(SESSION_HARD_CAP_SEC / 60);
+      if (t >= sessionCapSec()) {
+        var mins = Math.round(sessionCapSec() / 60);
         stop('Session ended (' + mins + '-minute cap reached).');
       }
     }, 250);

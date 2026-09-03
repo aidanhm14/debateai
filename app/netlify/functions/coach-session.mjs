@@ -21,7 +21,7 @@ import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 import {
-  readVoiceUsage, chargeVoiceRound, FREE_VOICE_NAMED,
+  voiceGate, openVoiceSession, FREE_VOICE_NAMED,
 } from './lib/voice-usage.mjs';
 import { planBypassesVoiceCap } from './lib/plans.mjs';
 import { checkContent, SENSITIVE_MOTION_POLICY } from './lib/content-guard.mjs';
@@ -286,6 +286,7 @@ export default async (request) => {
   // ── Memory load + Pro check (one Firestore read) ───────────────
   const db = getDb();
   let isPro = false;
+  let __hasPlan = false;
   let voiceUsedBefore = 0;
   let profile = {};
   let fingerprint = '';
@@ -297,8 +298,6 @@ export default async (request) => {
     }
     // voice_usage/ is the counter; the profile doc is passed only so
     // pre-2026-08-26 history carries over (lib/voice-usage.mjs).
-    const usedNow = await readVoiceUsage(db, uid, profile);
-    voiceUsedBefore = usedNow === null ? 0 : usedNow;
   } catch (err) {
     console.warn('[coach-session] user_profiles read failed:', err.message);
   }
@@ -312,17 +311,31 @@ export default async (request) => {
     const teamResult = await getUserTeam(uid);
     const team = teamResult && teamResult.team;
     if (team) {
-      isPro = planBypassesVoiceCap(team);
+      isPro = false; __hasPlan = planBypassesVoiceCap(team);
     }
   } catch (err) {
     console.warn('[coach-session] plan lookup failed:', err.message);
   }
   if (isOwnerEmail(email)) isPro = true;
 
-  if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT) {
+  // Minutes model (2026-09-03, lib/voice-minutes.mjs): the gate is read
+  // AFTER the plan is known so a paid plan is measured against its monthly
+  // budget, not the free lifetime taste. The reserve it returns is the
+  // session's cap. `gateInfo` is null only when the row could not be read,
+  // and then the round is allowed (a Firestore blip must not wall a user).
+  let gateInfo = null;
+  if (!isPro) {
+    try {
+      gateInfo = await voiceGate(db, uid, { named: true, hasPlan: __hasPlan, legacyProfileData: profile });
+      voiceUsedBefore = gateInfo ? gateInfo.used : 0;
+    } catch (err) { console.warn('[coach] gate read failed:', err.message); }
+  }
+  const __limit = gateInfo ? gateInfo.budget.minutes : FREE_VOICE_LIFETIME_LIMIT;
+
+  if (!isPro && gateInfo && !gateInfo.allowed) {
     return new Response(JSON.stringify({
       error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions (shared with voice rounds). Upgrade to Pro for unlimited.',
-      upgrade: true, used: voiceUsedBefore, limit: FREE_VOICE_LIFETIME_LIMIT,
+      upgrade: true, period: __hasPlan ? 'month' : 'lifetime', used: voiceUsedBefore, limit: __limit,
     }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
@@ -439,7 +452,7 @@ export default async (request) => {
   // could reset. See lib/voice-usage.mjs.
   if (!isPro) {
     try {
-      await chargeVoiceRound(db, uid, { surface: 'coach' });
+      await openVoiceSession(db, uid, { named: true, hasPlan: __hasPlan, sessionId: 'coach_' + Date.now(), surface: 'coach' });
     } catch (err) {
       console.warn('[coach-session] voice charge failed:', err.message);
     }
@@ -454,7 +467,7 @@ export default async (request) => {
     drill,
     sdpUrl,
     used: voiceUsedBefore + (isPro ? 0 : 1),
-    limit: isPro ? null : FREE_VOICE_LIFETIME_LIMIT,
+    limit: isPro ? null : __limit,
     isPro,
   }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });
 };

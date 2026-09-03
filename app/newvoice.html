@@ -1427,6 +1427,11 @@ function applyMicTrack(){
   if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = micLive(); });
 }
 const HARD_CAP_MS = 8 * 60_000;    // realtime audio is billed by the minute
+// The mint may hand back a SHORTER cap when the budget is nearly spent
+// (voiceUsage.reserveMinutes). The server settles by its own clock, so
+// this is the client honouring the reserve it was given, not enforcing it.
+let roundCapMs = HARD_CAP_MS;
+let voiceSessionId = '';
 
 function show(name){
   Object.values(views).forEach(v => v.classList.remove('on'));
@@ -1849,8 +1854,10 @@ async function start(){
         const err = new Error('cap');
         // Apple 3.1.1: no pricing link inside the native app.
         err.html = window.__DB_NATIVE ?
-          'You\'ve used your free voice rounds for now. Typed sparring is always open at <a href="/practice">/practice</a>.' :
-          'You\'ve used your free voice rounds. <a href="/pricing#plans">Voice is $12/mo with no cap</a>, and typed sparring is always open at <a href="/practice">/practice</a>.';
+          'You\'ve used your free voice minutes for now. Typed sparring is always open at <a href="/practice">/practice</a>.' :
+          (body.period === 'month'
+            ? 'You\'ve used this month\'s voice minutes. They refill on the 1st, <a href="/tokens">tokens top you up now</a>, and typed sparring is always open at <a href="/practice">/practice</a>.'
+            : 'You\'ve used your free voice minutes. <a href="/pricing#plans">Voice is $12/mo for two hours a month</a>, and typed sparring is always open at <a href="/practice">/practice</a>.');
         throw err;
       }
       // Anonymous cap: the server answers 401 SIGN_IN_REQUIRED, and this
@@ -1876,8 +1883,11 @@ async function start(){
     // plan a mint is a round.
     try {
       const u = session && session.voiceUsage;
-      voiceRoundsLeft = (u && typeof u.limit === 'number') ? Math.max(0, u.limit - (u.used || 0)) : null;
-    } catch (e) { voiceRoundsLeft = null; }
+      voiceRoundsLeft = (u && typeof u.minutesLeft === 'number') ? Math.max(0, u.minutesLeft) : null;
+      voiceSessionId = (u && u.sessionId) || '';
+      roundCapMs = (u && Number.isFinite(Number(u.reserveMinutes)) && Number(u.reserveMinutes) > 0)
+        ? Math.min(HARD_CAP_MS, Number(u.reserveMinutes) * 60_000) : HARD_CAP_MS;
+    } catch (e) { voiceRoundsLeft = null; voiceSessionId = ''; roundCapMs = HARD_CAP_MS; }
     const ephemeralKey = session && session.client_secret && session.client_secret.value;
     if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
     negotiatedModel = session.model || '';
@@ -2001,7 +2011,7 @@ async function start(){
   timerIv = setInterval(() => {
     const el = Date.now() - startedAt;
     statusText.textContent = 'LIVE · ' + fmtTime(el);
-    if (el > HARD_CAP_MS) endRound('cap');
+    if (el > roundCapMs) endRound('cap');
   }, 500);
   bargeMs = 0;
   bargeIv = setInterval(bargeTick, 50);
@@ -2519,7 +2529,28 @@ $('paceBtn').addEventListener('click', () => {
   setPace(next);
 });
 
+// Tell the server the session is over so it settles by ITS clock at the
+// real length rather than at the full reserve on the next mint. keepalive
+// so it survives a tab close. It can only ever lower the charge, never
+// raise it, which is why a lost call is harmless.
+function reportSessionEnd(){
+  const sid = voiceSessionId; voiceSessionId = '';
+  if (!sid) return;
+  try {
+    const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (!u) return;
+    u.getIdToken().then((tok) => {
+      fetch('/api/voice-session-end', {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ sessionId: sid }),
+      }).catch(() => {});
+    }).catch(() => {});
+  } catch (e) {}
+}
+window.addEventListener('pagehide', reportSessionEnd);
 function cleanup(){
+  reportSessionEnd();
   try { const ed = $('topicEditor'); if (ed) ed.hidden = true; const tb = $('topicEditBtn'); if (tb) tb.hidden = true; } catch (e) {}
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
   timerIv = null;
@@ -2969,8 +3000,8 @@ function openTopicEditor(){
   if (note) note.textContent = voiceRoundsLeft === null
     ? 'Restarting ends this round without a result and opens a fresh one on the new topic.'
     : (voiceRoundsLeft > 0
-      ? 'Restarting ends this round without a result and starts a new one, which counts as a round. You have ' + voiceRoundsLeft + ' free round' + (voiceRoundsLeft === 1 ? '' : 's') + ' left.'
-      : 'Restarting starts a new round, and this was your last free one. The next round needs Voice or tokens.');
+      ? 'Restarting ends this round without a result and starts a new one. Only the minutes you actually use count. You have ' + voiceRoundsLeft + ' minute' + (voiceRoundsLeft === 1 ? '' : 's') + ' of voice left.'
+      : 'Restarting starts a new round, and your voice minutes are used up. The next round needs Voice or tokens.');
   ed.hidden = false;
   $('topicEditBtn').hidden = true;
   try { inp.focus({ preventScroll: true }); inp.select(); } catch (e) {}

@@ -39,75 +39,99 @@
 // ─────────────────────────────────────────────────────────────
 
 import { FieldValue } from './firestore.mjs';
+import {
+  budgetFor, evaluate, applyMint, applyEnd, minutesUsed, settleOpen,
+  ANON_VOICE_MINUTES, FREE_VOICE_MINUTES, PLAN_VOICE_MINUTES_MONTH, SESSION_RESERVE_MIN,
+} from './voice-minutes.mjs';
+
+// ─────────────────────────────────────────────────────────────
+// 2026-09-03: the unit is MINUTES, not rounds, and a paid plan gets a
+// monthly budget rather than a bypass. The model is pure in
+// lib/voice-minutes.mjs (read its header); this file is the I/O around it.
+// Every write is a transaction over voice_usage/{uid}, admin-SDK only,
+// so the open-session record and the settlement it implies are as
+// unforgeable as the counter was.
+// ─────────────────────────────────────────────────────────────
 
 export const VOICE_USAGE_COLLECTION = 'voice_usage';
+export { ANON_VOICE_MINUTES, FREE_VOICE_MINUTES, PLAN_VOICE_MINUTES_MONTH, SESSION_RESERVE_MIN };
+// Kept under the old names so the three minters' copy keeps reading:
+// these are MINUTES now.
+export const FREE_VOICE_NAMED = FREE_VOICE_MINUTES;
+export const FREE_VOICE_ANON = ANON_VOICE_MINUTES;
+export function freeVoiceLimit(isNamed) { return isNamed ? FREE_VOICE_NAMED : FREE_VOICE_ANON; }
 
-// Free voice rounds, by what kind of identity is asking. Both are env
-// overridable so the allowance can be tuned without a deploy, which is
-// the posture GUEST_FREE_ROUNDS already uses for the /spar trial.
-//
-// NAMED: 2 since 2026-06-27. Voice is the paid hook, so the free tier
-// is a taste rather than a habit.
-// ANON: 1. An anonymous uid is free and unlimited to mint, so this
-// number is a courtesy to a real first-time visitor, not a security
-// boundary. What bounds abuse is the per-IP layer in the caller.
-export const FREE_VOICE_NAMED = Number(process.env.FREE_VOICE_ROUNDS ?? 2);
-export const FREE_VOICE_ANON = Number(process.env.ANON_VOICE_ROUNDS ?? 1);
+function usageRef(db, uid) { return db.collection(VOICE_USAGE_COLLECTION).doc(uid); }
 
-export function freeVoiceLimit(isNamed) {
-  return isNamed ? FREE_VOICE_NAMED : FREE_VOICE_ANON;
-}
-
-function usageRef(db, uid) {
-  return db.collection(VOICE_USAGE_COLLECTION).doc(uid);
+function withLegacy(doc, legacyProfileData) {
+  const d = { ...(doc || {}) };
+  const legacy = Math.max(0, parseInt(legacyProfileData?.voiceSessionsUsed, 10) || 0);
+  if (legacy > (Number(d.rounds) || 0)) d.legacyRounds = legacy;
+  return d;
 }
 
 /**
- * Voice rounds this uid has spent.
- *
- * Fails CLOSED at Infinity is wrong here and fails OPEN at 0 is wrong
- * too, so it does neither: an unreadable counter returns null and the
- * caller decides. realtime-session treats null as "let the round
- * happen" (a Firestore blip must not deny a paying-adjacent user) while
- * still logging it, which matches how the old inline read behaved.
- *
- * @returns {Promise<number|null>} rounds used, or null if unreadable
+ * The gate, read-only. Settles an orphan in memory to decide, and the
+ * next write (mint or end) settles it for real.
+ * @returns {Promise<{allowed:boolean, used:number, remaining:number, reserve:number, budget:{kind,minutes}}|null>} null if unreadable
  */
-export async function readVoiceUsage(db, uid, legacyProfileData) {
+export async function voiceGate(db, uid, { named = false, hasPlan = false, legacyProfileData = null, nowMs = Date.now() } = {}) {
   if (!uid) return null;
-  const legacy = Math.max(0, parseInt(legacyProfileData?.voiceSessionsUsed, 10) || 0);
+  const budget = budgetFor({ named, hasPlan });
   try {
     const snap = await usageRef(db, uid).get();
-    const server = snap.exists ? Math.max(0, Number(snap.data()?.rounds || 0)) : 0;
-    return Math.max(server, legacy);
+    const doc = withLegacy(snap.exists ? snap.data() : {}, legacyProfileData);
+    const ev = evaluate(doc, budget, nowMs);
+    return { allowed: ev.allowed, used: ev.used, remaining: ev.remaining, reserve: ev.reserve, budget };
   } catch (err) {
-    console.warn('[voice-usage] read failed:', err?.message || err);
-    return legacy || null;
+    console.warn('[voice-usage] gate read failed:', err?.message || err);
+    return null;
   }
 }
 
-/**
- * Charge one voice round.
- *
- * AWAITED BY THE CALLER, deliberately. Lambda freezes the execution
- * context the moment the handler returns, so an unawaited write is not
- * deferred, it is abandoned — the lesson spar-pair.mjs learned in
- * production when markGuest silently never landed. A dropped charge
- * here is a free round on the most expensive surface we have.
- *
- * Called only AFTER a successful mint, so a failed mint never burns
- * someone's quota.
- */
-export function chargeVoiceRound(db, uid, { anonymous = false, surface = '' } = {}) {
-  return usageRef(db, uid).set({
-    rounds: FieldValue.increment(1),
-    anonymous: !!anonymous,
-    lastRoundAt: FieldValue.serverTimestamp(),
-    lastSurface: String(surface || '').slice(0, 40),
-  }, { merge: true });
+/** Legacy reader: minutes used against the FREE lifetime budget. Prefer voiceGate(). */
+export async function readVoiceUsage(db, uid, legacyProfileData) {
+  const g = await voiceGate(db, uid, { named: true, legacyProfileData });
+  return g ? g.used : null;
 }
 
-// Who bypasses the voice cap lives in lib/plans.mjs, not here: that
-// file is PURE (no firebase-admin), which is what lets the pre-commit
-// plan guard import it without credentials. This module does I/O, so
-// anything the guard needs to assert has to live over there.
+/**
+ * Open a session: settle any orphan, charge one minute, record the
+ * reserve and the server-stamped start. AWAITED by callers (Lambda
+ * freezes the context on return; an unawaited write is abandoned).
+ * Called only AFTER a successful mint, so a failed mint costs nothing.
+ */
+export async function openVoiceSession(db, uid, { named = false, hasPlan = false, sessionId = '', surface = '', anonymous = false, reserve, legacyProfileData = null, nowMs = Date.now() } = {}) {
+  const ref = usageRef(db, uid);
+  const budget = budgetFor({ named, hasPlan });
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const doc = withLegacy(snap.exists ? snap.data() : {}, legacyProfileData);
+    const out = applyMint(doc, budget, nowMs, sessionId, { surface, anonymous, reserve });
+    const write = { ...out.doc, updatedAt: FieldValue.serverTimestamp() };
+    delete write.legacyRounds;
+    tx.set(ref, write, { merge: false });
+    return { reserve: out.reserve, used: out.used, remaining: out.remaining, budget };
+  });
+}
+
+/** The end call. Settles by server time; a stale id is a no-op. */
+export async function endVoiceSession(db, uid, sessionId, nowMs = Date.now()) {
+  const ref = usageRef(db, uid);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return { matched: false, charged: 0 };
+    const out = applyEnd(snap.data(), sessionId, nowMs);
+    if (!out.matched) return { matched: false, charged: 0 };
+    tx.set(ref, { ...out.doc, updatedAt: FieldValue.serverTimestamp() }, { merge: false });
+    return { matched: true, charged: out.charged };
+  });
+}
+
+/** Legacy name: opens a session at the default reserve. Prefer openVoiceSession(). */
+export function chargeVoiceRound(db, uid, { anonymous = false, surface = '', named = !anonymous, hasPlan = false, sessionId = '' } = {}) {
+  return openVoiceSession(db, uid, { named, hasPlan, sessionId: sessionId || (surface + '_' + Date.now()), surface, anonymous });
+}
+
+// Who gets the monthly budget lives in lib/plans.mjs (planBypassesVoiceCap),
+// which is PURE so the pre-commit plan guard can import it.

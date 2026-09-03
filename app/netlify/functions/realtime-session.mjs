@@ -35,7 +35,7 @@ import { checkLayers, callerIp } from './lib/rate-limit.mjs';
 import { TOKENS, TOKENS_LIVE, getTokenBalance, spendTokens } from './lib/tokens.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 import {
-  readVoiceUsage, chargeVoiceRound, freeVoiceLimit,
+  voiceGate, openVoiceSession, freeVoiceLimit, SESSION_RESERVE_MIN,
   FREE_VOICE_NAMED, FREE_VOICE_ANON,
 } from './lib/voice-usage.mjs';
 import { planBypassesVoiceCap } from './lib/plans.mjs';
@@ -1008,6 +1008,13 @@ export default async (request, context) => {
   let voiceUsedBefore = 0;
   let tokenFunded = false;
   let tokenBalance = 0;
+  // Minutes model (2026-09-03, lib/voice-minutes.mjs): `gate` is the
+  // read-only evaluation of this caller's budget, and `reserve` is how
+  // many minutes this session may run, which the client takes as its
+  // hard cap. A plan no longer bypasses; it has a monthly budget.
+  let gate = null;
+  let reserveMinutes = SESSION_RESERVE_MIN;
+  let hasPlan = false;
   // Which allowance applies. A named account gets the free taste; an
   // anonymous uid gets less, because minting one is free and unlimited,
   // so its allowance is a courtesy to a first-time visitor rather than a
@@ -1031,8 +1038,6 @@ export default async (request, context) => {
       // spent rounds before 2026-08-26 keeps that history; see the
       // migration note in lib/voice-usage.mjs.
       const legacyProfile = (profileSnap && profileSnap.exists) ? profileSnap.data() : null;
-      const used = await readVoiceUsage(db, signedInUid, legacyProfile);
-      voiceUsedBefore = used === null ? 0 : used;
       // Plan state lives on the TEAMS collection (written by
       // stripe-webhook / razorpay-activate) — user_profiles never gets
       // plan/isPro. Resolve via getUserTeam the way the brain endpoints
@@ -1043,11 +1048,17 @@ export default async (request, context) => {
         const teamResult = await withTimeout(getUserTeam(signedInUid), 1500, 'plan read');
         const team = teamResult && teamResult.team;
         if (team){
-          isPro = planBypassesVoiceCap(team);
+          hasPlan = planBypassesVoiceCap(team);
         }
       } catch(planErr){
         console.warn('[realtime-session] plan lookup failed:', planErr && planErr.message);
       }
+      // The gate reads the minutes row and settles any orphan in memory.
+      gate = await withTimeout(
+        voiceGate(db, signedInUid, { named: callerIsNamed, hasPlan, legacyProfileData: legacyProfile }), 1500, 'voice gate read'
+      ).catch((err) => { console.warn('[realtime-session] gate read soft-failed:', err.message); return null; });
+      voiceUsedBefore = gate ? gate.used : 0;
+      reserveMinutes = gate ? gate.reserve : SESSION_RESERVE_MIN;
       } // end non-owner cap reads
       // An anonymous visitor past their taste is asked to sign in, not
       // asked to pay: 401 rather than 402, because waiting does not clear
@@ -1055,16 +1066,17 @@ export default async (request, context) => {
       // brain endpoint's SIGN_IN_REQUIRED (2026-08-19). The token path is
       // skipped for them on purpose, since buying tokens needs a real
       // account, so an anonymous uid can never hold a balance.
-      if (!isPro && !callerIsNamed && voiceUsedBefore >= freeLimit){
+      const walled = !isPro && gate && !gate.allowed;
+      if (walled && !callerIsNamed){
         return new Response(JSON.stringify({
-          error: 'SIGN_IN_REQUIRED: That was your free voice round. Sign in to keep going.',
+          error: 'SIGN_IN_REQUIRED: That was your free voice time. Sign in to keep going.',
           code: 'SIGN_IN_REQUIRED',
           signIn: true,
           used: voiceUsedBefore,
           limit: freeLimit,
         }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
       }
-      if (!isPro && voiceUsedBefore >= FREE_VOICE_LIFETIME_LIMIT){
+      if (walled){
         // Token-funded path: past the free cap, a token balance covers
         // the round (TOKENS.VOICE_ROUND per mint). Balance is checked
         // here; the spend happens AFTER a successful mint, same as the
@@ -1080,10 +1092,13 @@ export default async (request, context) => {
           tokenFunded = true;
         } else {
           return new Response(JSON.stringify({
-            error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice rounds. Voice is $12 a month for unlimited rounds, or top up with tokens.',
+            error: hasPlan
+              ? 'VOICE_MONTH_LIMIT: You\'ve used this month\'s ' + (gate ? gate.budget.minutes : freeLimit) + ' minutes of live voice. It refills on the 1st, or top up with tokens.'
+              : 'VOICE_FREE_LIMIT: You\'ve used your ' + (gate ? gate.budget.minutes : freeLimit) + ' free minutes of live voice. Voice is $12 a month for ' + (gate ? gate.budget.minutes : freeLimit) + '+ minutes a month, or top up with tokens.',
             upgrade: true,
+            period: hasPlan ? 'month' : 'lifetime',
             used: voiceUsedBefore,
-            limit: FREE_VOICE_LIFETIME_LIMIT,
+            limit: gate ? gate.budget.minutes : freeLimit,
             // Token fields ride the 402 so the client can surface the
             // tokens path the moment TOKENS_LIVE flips, no client change.
             tokensLive: TOKENS_LIVE,
@@ -1634,12 +1649,15 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // request to save it, so the counter this whole gate reads was being
     // written unreliably at best. Bounded at 2s so a Firestore stall
     // still cannot hold the WebRTC handshake open indefinitely.
+    let openInfo = null;
     if (signedInUid && !isPro){
       try {
-        await withTimeout(chargeVoiceRound(getDb(), signedInUid, {
-          anonymous: !callerIsNamed,
-          surface: 'realtime',
+        openInfo = await withTimeout(openVoiceSession(getDb(), signedInUid, {
+          named: callerIsNamed, hasPlan, sessionId: sessionId || '',
+          surface: 'realtime', anonymous: !callerIsNamed,
+          reserve: tokenFunded ? SESSION_RESERVE_MIN : reserveMinutes,
         }), 2000, 'voice charge');
+        if (openInfo && openInfo.reserve) reserveMinutes = openInfo.reserve;
       } catch(e){
         console.warn('[realtime-session] voice charge failed:', e && e.message);
       }
@@ -1684,9 +1702,18 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       sdpUrl,
       sdpHeaders,
       voiceUsage: signedInUid ? {
-        used: voiceUsedBefore + 1,
-        limit: isPro ? null : freeLimit,
+        // Minutes. `limit` null only for the owner bypass; a plan has a
+        // monthly budget and reports it.
+        unit: 'minutes',
+        period: isPro ? null : (hasPlan ? 'month' : 'lifetime'),
+        used: openInfo ? openInfo.used : voiceUsedBefore + 1,
+        limit: isPro ? null : (gate ? gate.budget.minutes : freeLimit),
+        minutesLeft: isPro ? null : (openInfo ? openInfo.remaining : Math.max(0, (gate ? gate.remaining : freeLimit) - 1)),
+        // The session's hard cap, in minutes. The client ends the round here.
+        reserveMinutes: isPro ? SESSION_RESERVE_MIN : reserveMinutes,
+        sessionId: sessionId || null,
         isPro: isPro,
+        hasPlan: hasPlan,
         tokenFunded: tokenFunded,
         tokensSpent: tokenFunded ? TOKENS.VOICE_ROUND : 0,
         tokensBalance: tokensAfter,

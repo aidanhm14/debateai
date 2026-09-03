@@ -385,6 +385,20 @@ if [ -f "$DELIVERY_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Voice-minutes guard. What a realtime session costs, and that a paid
+# plan has a monthly budget rather than a bypass, is decided in the pure
+# lib/voice-minutes.mjs; this pins every rule, settlement included.
+# ──────────────────────────────────────────────────────────────────
+VOICEMIN_GUARD="$REPO_ROOT/scripts/test-voice-minutes.mjs"
+if [ -f "$VOICEMIN_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-voice-minutes.mjs >/tmp/voice-minutes-guard.log 2>&1); then
+    echo "[voice-minutes] commit blocked: the voice budget rules no longer hold:" >&2
+    grep '^  FAIL' /tmp/voice-minutes-guard.log >&2 || tail -20 /tmp/voice-minutes-guard.log >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Topic-isolation guard. /newvoice once spoke private model instructions
 # as the debate topic because the opening turn told the model to read
 # the claim "from the session context". The spoken topic is now a
