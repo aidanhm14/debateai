@@ -49,10 +49,28 @@ const DIM_AXES = [...REQUIRED_AXES, ...OPTIONAL_AXES];
 // thinking against max_tokens, so a cap tuned before they existed reads
 // as a parse bug forever and looks like the parser's fault.
 //
-// 3000 clears the widest measured ballot (2064 tokens) with headroom.
-// This is the one place both surfaces read it from, so live rounds, which
-// can settle credits, were carrying the same defect.
-const JUROR_MAX_TOKENS = Number(process.env.JUDGE_JUROR_MAX_TOKENS || 3000);
+// 3000 cleared the widest measured ballot (2064 tokens) with headroom,
+// and STOPPED BEING ENOUGH the same silent way (2026-09-03). The models
+// moved again: the pinned Google seat had been failing every live round
+// with "no JSON in ballot output", which reads as a parser bug and is
+// not one. Sent the real ballot prompt at a 3000 budget, DeepSeek came
+// back `finish_reason: length`, `completion_tokens: 3000`,
+// `reasoning_tokens: 3000`, and an EMPTY visible message: the whole
+// budget went to thinking and the model never got to write the ballot.
+// A juror that emits nothing is indistinguishable from a juror that
+// emits garbage, so this presents as the parser's fault forever.
+//
+// Measured at 8000 on the same round, all three pinned seats return
+// end_turn/stop and parse: anthropic 1548 output tokens, openai 1196,
+// google 731. So the ceiling is not a spend, it is headroom. A model
+// that finishes in 731 tokens is billed for 731 whatever this says;
+// raising it only stops the ones that were being cut off mid-thought.
+//
+// THE LESSON, now the third time this repo has paid for it (900 -> 3000
+// -> 8000): a token cap is a claim about how much thinking a ballot
+// takes, and nothing re-measures it when the pinned models change.
+// Re-measure it whenever a season re-pins.
+const JUROR_MAX_TOKENS = Number(process.env.JUDGE_JUROR_MAX_TOKENS || 8000);
 
 /**
  * Per-axis scorecard. Every axis must carry finite scores for BOTH sides

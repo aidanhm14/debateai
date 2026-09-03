@@ -187,8 +187,13 @@ function t(label, cond) {
   const runSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-run.mjs', import.meta.url), 'utf8');
   t('degradation is measured in votes, not configured keys',
     /degraded: tally\.votesCast < wanted\.length/.test(runSrc));
+  // 8000 since 2026-09-03. At 3000 the current reasoning models spend the
+  // entire budget thinking and return an EMPTY message, which the parser
+  // can only report as "no JSON in ballot output". Measured: the pinned
+  // Google seat failed that way on every live round. This guard exists so
+  // the number is never quietly lowered back under what a ballot costs.
   t('the juror budget clears a reasoning ballot',
-    /JUROR_MAX_TOKENS = Number\(process\.env\.JUDGE_JUROR_MAX_TOKENS \|\| 3000\)/.test(runSrc));
+    /JUROR_MAX_TOKENS = Number\(process\.env\.JUDGE_JUROR_MAX_TOKENS \|\| 8000\)/.test(runSrc));
 
   const jurorsSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-jurors.mjs', import.meta.url), 'utf8');
   t('every pinned provider has a dispatch entry',

@@ -96,14 +96,14 @@ async function callAnthropic(juror, system, user, maxTokens, timeoutMs = JUROR_T
 // OpenAI and DeepSeek both speak the chat-completions shape, so they
 // share one caller. The differences that matter are the token-limit
 // field name and the reasoning-effort field, both keyed off the model.
-async function callChatCompletions(url, key, juror, system, user, maxTokens, effortField, timeoutMs = JUROR_TIMEOUT_MS) {
+async function callChatCompletions(url, key, juror, system, user, maxTokens, effortField, timeoutMs = JUROR_TIMEOUT_MS, extraHeaders = null) {
   const to = withTimeout(timeoutMs);
   const effort = effortField ? effortOf(juror) : null;
   try {
     const r = await fetch(url, {
       method: 'POST',
       signal: to.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(extraHeaders || {}) },
       body: JSON.stringify({
         model: juror.model,
         ...(usesCompletionTokens(juror.model)
@@ -163,11 +163,47 @@ async function callGoogle(juror, system, user, maxTokens, timeoutMs = JUROR_TIME
   } finally { to.done(); }
 }
 
+// xAI speaks the chat-completions shape. Grok is a fourth independent
+// family, which is the only reason it is here: a panel's whole value is
+// that its members fail differently, and two seats trained by the same
+// lab are one seat wearing two names.
+async function callXai(juror, system, user, maxTokens, timeoutMs = JUROR_TIMEOUT_MS) {
+  const key = process.env.XAI_API_KEY;
+  if (!key) throw new Error('XAI_API_KEY unset');
+  try {
+    return await callChatCompletions('https://api.x.ai/v1/chat/completions', key, juror, system, user, maxTokens, 'reasoning_effort', timeoutMs);
+  } catch (err) { throw new Error('xai ' + ((err && err.message) || err)); }
+}
+
+// OpenRouter, which is how Moonshot's Kimi is reachable: both direct
+// Moonshot keys on this account are rejected (verified against
+// api.moonshot.ai and api.moonshot.cn on 2026-09-03), and the repo
+// already routes Open Lab through OpenRouter.
+//
+// A ROUTER IS NOT A FAMILY. It can serve any model, so pinning
+// `openrouter` as a provider would let the model behind a published
+// seat change without the season changing, which is exactly the quiet
+// swap the charter exists to prevent. The season therefore pins the
+// full upstream model id and OpenRouter is only the transport. The
+// attribution headers are what keep this account's usage identifiable.
+async function callOpenrouter(juror, system, user, maxTokens, timeoutMs = JUROR_TIMEOUT_MS) {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error('OPENROUTER_API_KEY unset');
+  try {
+    return await callChatCompletions(
+      'https://openrouter.ai/api/v1/chat/completions', key, juror, system, user, maxTokens, 'reasoning_effort', timeoutMs,
+      { 'HTTP-Referer': 'https://itsdebatable.com', 'X-Title': 'Debatable' },
+    );
+  } catch (err) { throw new Error('openrouter ' + ((err && err.message) || err)); }
+}
+
 const PROVIDERS = {
   anthropic: callAnthropic,
   openai: callOpenai,
   google: callGoogle,
   deepseek: callDeepseek,
+  xai: callXai,
+  openrouter: callOpenrouter,
 };
 
 export const SUPPORTED_PROVIDERS = Object.keys(PROVIDERS);
@@ -182,6 +218,8 @@ export function jurorAvailable(juror) {
   if (juror.provider === 'openai') return !!process.env.OPENAI_API_KEY;
   if (juror.provider === 'google') return !!process.env.GEMINI_API_KEY;
   if (juror.provider === 'deepseek') return !!process.env.DEEPSEEK_API_KEY;
+  if (juror.provider === 'xai') return !!process.env.XAI_API_KEY;
+  if (juror.provider === 'openrouter') return !!process.env.OPENROUTER_API_KEY;
   return false;
 }
 
