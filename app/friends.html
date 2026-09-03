@@ -114,9 +114,13 @@ body.has-beta-strip{padding-top:84px}
 <main class="fr-wrap" aria-label="Friends">
   <header class="fr-hero">
     <h1 class="fr-head">Your friends</h1>
-    <nav class="fr-jump" aria-label="Friends page sections">
+    <!-- Revealed only once the cards behind it exist. Signed out every
+         target sits inside the hidden #frMain, and the Requests card is
+         itself hidden until somebody has actually asked, so shipping the
+         nav unconditionally meant links that scrolled nowhere. -->
+    <nav class="fr-jump" id="frJump" aria-label="Friends page sections" hidden>
       <a href="#frListCard">Friends</a>
-      <a href="#frIncomingCard">Requests</a>
+      <a href="#frIncomingCard" id="frJumpRequests" hidden>Requests</a>
       <a href="#frFindCard">Discover</a>
     </nav>
   </header>
@@ -358,6 +362,7 @@ body.has-beta-strip{padding-top:84px}
   function paint(v, hydrated){
     lastView = v;
     $('frIncomingCard').hidden = !v.incoming.length;
+    $('frJumpRequests').hidden = !v.incoming.length;
     $('frCount').textContent = String(v.friends.length);
     $('frRequestCount').textContent = String(v.incoming.length);
     $('frIncoming').innerHTML = v.incoming.map(function(r){ return row(r, 'incoming'); }).join('');
@@ -461,6 +466,7 @@ body.has-beta-strip{padding-top:84px}
   function showGate(){
     $('frGate').hidden = false;
     $('frMain').hidden = true;
+    $('frJump').hidden = true;
     $('frGateBtn').onclick = function(){
       if (window.openAuthModal) window.openAuthModal('signin');
       else { var n = 0; var t = setInterval(function(){ if (window.openAuthModal){ clearInterval(t); window.openAuthModal('signin'); } else if (++n > 40) clearInterval(t); }, 150); }
@@ -532,6 +538,7 @@ body.has-beta-strip{padding-top:84px}
     db = firebase.firestore();
     $('frGate').hidden = true;
     $('frMain').hidden = false;
+    $('frJump').hidden = false;
     window.DBFriends.init({ db: db, uid: me.uid });
     window.DBFriends.watch(function(v){
       if (v.status === 'ready') paint(v);
