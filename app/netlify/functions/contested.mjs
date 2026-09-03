@@ -37,14 +37,6 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function roundHref(line) {
-  const query = new URLSearchParams();
-  query.set('motion', line.headline || 'A current political question');
-  if (line.summary) query.set('background', line.summary);
-  query.set('handoff', 'contested');
-  return `/practice?${query.toString()}`;
-}
-
 function isSafeFaultLine(line) {
   const text = [
     line && line.headline,
@@ -161,7 +153,7 @@ function renderFaultLine(line) {
       ${sideBlock(b, 'side-b', 'The other side')}
     </div>
     ${cites ? `<div class="cites">Traced to: ${cites}</div>` : ''}
-    <div class="round-row"><span>Take either side and test the disagreement out loud.</span><a class="round-btn" href="${esc(roundHref(line))}">Debate this current issue <span aria-hidden="true">→</span></a></div>
+    <div class="round-row"><span>Take either side and test the disagreement out loud.</span><a class="round-btn" href="/spar" data-cta="contested-issue-live">Debate someone live <span aria-hidden="true">→</span></a></div>
   </article>`;
 }
 
@@ -193,7 +185,7 @@ export default async (request) => {
     ? faultLines.map(renderFaultLine).join('')
     : `<div class="empty">
          <p>Nothing published yet.</p>
-         <p style="margin-top:8px;font-size:14px">Current disagreements are reviewed before they appear here. Browse the <a href="/political-debate-topics">political topic guide</a> or start a round.</p>
+         <p style="margin-top:8px;font-size:14px">Current disagreements are reviewed before they appear here. Browse the <a href="/political-debate-topics">political topic guide</a> or <a href="/spar">debate someone live</a>.</p>
        </div>`;
 
   // ItemList rather than Article: this is a list of contested questions,
@@ -241,11 +233,11 @@ export default async (request) => {
 <body>
 <div class="shell">
   <nav class="topnav">
-    <a href="/">Debatable</a>
+    <a href="/"><span aria-hidden="true">←</span> Debatable</a>
     <span style="display:flex;gap:8px;flex-wrap:wrap">
       <a href="/political-debate">Political debate</a>
       <a href="/political-debate-topics">Political topics</a>
-      <a class="cta" href="/practice">Start a round</a>
+      <a class="cta" href="/spar" data-cta="contested-live">Debate someone now</a>
     </span>
   </nav>
 
@@ -258,7 +250,7 @@ export default async (request) => {
 
   ${body}
 
-  <p class="foot">Collected from public posts, published only after review, and filtered through Debatable's topic boundary. Want one as a live round? <a href="/practice">Pick a side and start.</a></p>
+  <p class="foot">Collected from public posts, published only after review, and filtered through Debatable's topic boundary. Ready to leave the guide? <a href="/spar">Debate someone now.</a></p>
 </div>
 </body>
 </html>`;

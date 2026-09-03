@@ -279,11 +279,11 @@ function sharedStyles() {
 
 function topNav() {
   return `<nav class="nav" aria-label="Main navigation">
-    <a class="brand" href="/">Debat<b>able</b></a>
+    <a class="brand" href="/"><span aria-hidden="true">←</span> Debat<b>able</b></a>
     <div class="nav-links">
       <a class="nav-link" href="/political-debate-topics">Political topics</a>
       <a class="nav-link" href="/contested">Current issues</a>
-      <a class="nav-link primary" href="/challenges">Open challenges</a>
+      <a class="nav-link primary" href="/spar" data-cta="political-seo-nav-live">Debate someone now</a>
     </div>
   </nav>`;
 }
@@ -416,14 +416,14 @@ function baseHead({ title, description, canonical, image = HERO_IMAGE, type = 'w
 function footer() {
   return `<footer class="footer">
     <span>© 2026 Debatable. Everyone has an opinion.</span>
-    <span class="footer-links"><a href="/political-debate">Political debate</a><a href="/political-debate-topics">Political topics</a><a href="/contested">Current issues</a><a href="/debate">All questions</a><a href="/judge-integrity">Judge integrity</a><a href="/safety">Safety</a></span>
+    <span class="footer-links"><a href="/">Home</a><a href="/spar">Debate someone now</a><a href="/political-debate">Political debate</a><a href="/political-debate-topics">Political topics</a><a href="/contested">Current issues</a><a href="/debate">All questions</a><a href="/judge-integrity">Judge integrity</a><a href="/safety">Safety</a></span>
   </footer>`;
 }
 
 function renderHub() {
   const canonical = `${SITE_ORIGIN}/political-debate`;
   const title = 'Political Debate Online | Discuss Current Issues | Debatable';
-  const description = 'Political discussion for people who always end up talking politics. Choose a Democratic, Republican, or Independent case and challenge someone to answer it.';
+  const description = 'Political discussion for people who always end up talking politics. Explore Democratic, Republican, and Independent cases, then debate someone live.';
   const featured = FEATURED_POLITICAL_SLUGS.map(motionFor).filter(Boolean);
   const systemQuestions = [...PARTISAN_ISSUES, ...INDEPENDENT_ISSUES];
   const faqs = [
@@ -482,10 +482,10 @@ function renderHub() {
       <div class="hero-copy">
         <div class="eyebrow">Political talk with an answer back</div>
         <h1>For people who always end up talking politics.</h1>
-        <p class="lede">Bring the group chat argument. Pick a common Democratic or Republican case, or challenge the two-party system from the Independent lane. Post it to Challenges and find somebody willing to answer.</p>
+        <p class="lede">Bring the group chat argument. Browse common Democratic and Republican cases, or challenge the two-party system from the Independent lane. When you are ready, enter the live Match Desk and argue with another person.</p>
         <div class="actions">
-          <a class="btn red" href="#party-lines">Pick a political fight <span class="arrow" aria-hidden="true">↓</span></a>
-          <a class="btn" href="#independent">Independent lane</a>
+          <a class="btn red" href="/spar" data-cta="political-hub-live">Debate someone now <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn" href="/political-debate-topics">Browse political questions</a>
         </div>
         <div class="signals" aria-label="How political debates work">
           <span class="signal">Democratic case</span>
@@ -516,11 +516,11 @@ function renderHub() {
     </section>
 
     <section class="section" aria-labelledby="works-heading">
-      <div class="section-head"><div><div class="eyebrow">How it works</div><h2 id="works-heading">One political take becomes a public challenge.</h2></div><p>Bring the opinion you would normally drop into a group chat. The challenge system finds somebody willing to take the other side.</p></div>
+      <div class="section-head"><div><div class="eyebrow">How it works</div><h2 id="works-heading">Read the clash, then enter the live arena.</h2></div><p>The politics pages help you find and sharpen the disagreement. Debatable's Match Desk is where you meet another person and argue live.</p></div>
       <div class="steps">
-        <article class="step"><div class="step-num">1</div><h3>Pick your lane</h3><p>Choose a Democratic, Republican, or Independent case you are willing to defend.</p></article>
-        <article class="step"><div class="step-num">2</div><h3>Post the challenge</h3><p>The question, both party cases, and your chosen side arrive prefilled. Sign in and put it on the board.</p></article>
-        <article class="step"><div class="step-num">3</div><h3>Meet the answer</h3><p>Another person takes the open side. Both arguments go on the record, then the judge explains what won.</p></article>
+        <article class="step"><div class="step-num">1</div><h3>Find the fight</h3><p>Browse Democratic, Republican, and Independent cases until you reach the clash you care about.</p></article>
+        <article class="step"><div class="step-num">2</div><h3>Enter the Match Desk</h3><p>Join live matching. A short motion draft gives both people a say before the question is settled.</p></article>
+        <article class="step"><div class="step-num">3</div><h3>Argue it live</h3><p>One person takes each side, the clock keeps the exchange moving, and the judge explains what won.</p></article>
       </div>
     </section>
 
@@ -536,7 +536,7 @@ function renderHub() {
       </div>
     </section>
 
-    <section class="section"><div class="cta-band"><div><h2>Find the question you cannot leave alone.</h2><p>${politicalSlugCount()} political and public-policy questions, each connected to the challenge board.</p></div><a class="btn" href="/political-debate-topics">Browse political debate topics <span aria-hidden="true">→</span></a></div></section>
+    <section class="section"><div class="cta-band"><div><h2>Ready to argue with somebody?</h2><p>Leave the guide and enter Debatable's live Match Desk for a casual one-on-one round.</p></div><a class="btn" href="/spar" data-cta="political-hub-bottom-live">Debate someone now <span aria-hidden="true">→</span></a></div></section>
 
     <section class="section faq" aria-labelledby="faq-heading"><div><div class="eyebrow">Questions</div><h2 id="faq-heading">Before you enter.</h2></div>${faqMarkup()}</section>
     ${footer()}
@@ -609,7 +609,7 @@ function topicsScript() {
 function renderTopics() {
   const canonical = `${SITE_ORIGIN}/political-debate-topics`;
   const title = 'Political Debate Topics | Current Issues to Argue | Debatable';
-  const description = `Browse ${politicalSlugCount()} political debate topics for people who talk politics. Compare Democratic, Republican, and Independent cases, then post a public challenge.`;
+  const description = `Browse ${politicalSlugCount()} political debate topics for people who talk politics. Compare Democratic, Republican, and Independent cases, then debate someone live.`;
   const allMotions = POLITICS_GROUPS.flatMap(group => groupMotions(group));
   const structured = {
     '@context': 'https://schema.org',
@@ -648,7 +648,7 @@ function renderTopics() {
   <body><main class="shell">
     ${topNav()}
     <section class="topics-hero">
-      <div><div class="eyebrow">For people who talk politics</div><h1>Political questions people are already arguing about.</h1><p class="lede">Start with the Democratic versus Republican fault lines, challenge the two-party system from the Independent lane, or browse ${politicalSlugCount()} questions across public life. Every question opens in Challenges, ready to post.</p></div>
+      <div><div class="eyebrow">For people who talk politics</div><h1>Political questions people are already arguing about.</h1><p class="lede">Start with the Democratic versus Republican fault lines, challenge the two-party system from the Independent lane, or browse ${politicalSlugCount()} questions across public life. Use the guides to sharpen your view, then debate another person live.</p><div class="actions"><a class="btn red" href="/spar" data-cta="political-topics-live">Debate someone now <span class="arrow" aria-hidden="true">→</span></a><a class="btn" href="/">Back to Debatable</a></div></div>
       <figure class="topics-photo photo"><img src="/img/politics/ballot.jpg" alt="A secure ballot drop box outside a public library" width="675" height="900" decoding="async"><a class="credit" href="https://commons.wikimedia.org/wiki/File:Ballot_Box.jpg" target="_blank" rel="noopener">Kelson Vibber, CC0</a></figure>
     </section>
 
@@ -668,7 +668,7 @@ function renderTopics() {
     </div>
 
     ${POLITICS_GROUPS.map(topicGroup).join('')}
-    <section class="section"><div class="cta-band"><div><h2>Stop browsing when one gets under your skin.</h2><p>Post it, defend your side, and make room for someone who thinks you are wrong.</p></div><a class="btn" href="/challenges">See open challenges <span aria-hidden="true">→</span></a></div></section>
+    <section class="section"><div class="cta-band"><div><h2>Stop browsing when one gets under your skin.</h2><p>Enter live matching and make room for someone who thinks you are wrong.</p></div><a class="btn" href="/spar" data-cta="political-topics-bottom-live">Debate someone now <span aria-hidden="true">→</span></a></div></section>
     ${footer()}
   </main>${topicsScript()}</body></html>`;
 }

@@ -345,7 +345,7 @@ function topNav() {
     <span class="nav-group">
       <a href="/debate">All questions</a>
       <a href="/political-debate">Political debate</a>
-      <a class="nav-cta" href="/practice">Start a round <span class="ar">→</span></a>
+      <a class="nav-cta" href="/spar" data-cta="question-brief-live">Debate someone now <span class="ar">→</span></a>
     </span>
   </nav>`;
 }
@@ -353,7 +353,7 @@ function topNav() {
 function rail(motion) {
   return `<div class="rail" aria-label="Round controls">
     <a href="#sample" title="Sample round"><span class="ic">▶</span><span class="tx">Sample round</span></a>
-    <a href="${esc(trainerHref(motion))}" title="Start round"><span class="ic">🎙</span><span class="tx">Start round</span></a>
+    <a href="/spar" title="Debate someone live"><span class="ic">🎙</span><span class="tx">Debate live</span></a>
     <a href="/community" title="Discuss"><span class="ic">💬</span><span class="tx">Discuss</span></a>
     <a href="#top" title="Top"><span class="ic">↑</span><span class="tx">Top</span></a>
   </div>`;
@@ -587,7 +587,7 @@ ${rail(m)}
         <span class="otherway-body">Start now. The AI takes the other side, the clock keeps the exchange moving, and a separate judge writes the decision.</span>
         <span class="otherway-arr">→</span>
       </a>
-      <a class="otherway-card" href="/debate-strangers">
+      <a class="otherway-card" href="/spar">
         <span class="otherway-eye">Spar · instant human</span>
         <span class="otherway-title">Debate a person live</span>
         <span class="otherway-body">Join the live queue for a casual one-on-one video round. Google sign-in is required for human matching.</span>
@@ -606,7 +606,7 @@ ${rail(m)}
          inbound links, which is the shape of a page Google has seen and
          judged not worth keeping. 56 more links from this family is the
          cheapest test of whether that judgement moves. -->
-    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/debate">All questions</a> · <a href="/live">Live rounds</a> · <a href="/watch">Watch rounds</a> · <a href="/practice">Start a round</a></span>
+    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/debate">All questions</a> · <a href="/live">Live rounds</a> · <a href="/watch">Watch rounds</a> · <a href="/spar">Debate someone now</a></span>
   </footer>
 </main>
 
@@ -716,7 +716,7 @@ function renderHubPage() {
 
   <footer class="dfoot">
     <span>© 2026 Debatable</span>
-    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/contested">Current issues</a> · <a href="/practice">Start a round</a> · <a href="/">Home</a></span>
+    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/contested">Current issues</a> · <a href="/spar">Debate someone now</a> · <a href="/">Home</a></span>
   </footer>
 </main>
 </body></html>`;

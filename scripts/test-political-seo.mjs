@@ -62,6 +62,8 @@ const politicalQuestion = await htmlFrom(debate, '/api/debate/should-the-elector
 assert.match(hub, /<title>Political Debate Online \| Discuss Current Issues \| Debatable<\/title>/);
 assert.match(hub, /<link rel="canonical" href="https:\/\/itsdebatable\.com\/political-debate">/);
 assert.match(hub, /For people who always end up talking politics\./);
+assert.match(hub, /href="\/spar" data-cta="political-hub-live">Debate someone now/);
+assert.match(hub, /href="\/"[^>]*><span aria-hidden="true">←<\/span> Debat<b>able<\/b>/);
 assert.match(hub, /\/img\/politics\/capitol\.jpg/);
 assert.match(hub, /<script defer src="\/js\/track\.js"><\/script>/);
 assert.match(hub, /"@type":"FAQPage"/);
@@ -100,6 +102,8 @@ assert.match(topics, /id="topicSearch"/);
 assert.match(topics, /id="pickTopic"/);
 assert.match(topics, /Pick one and challenge/);
 assert.match(topics, /Political questions people are already arguing about\./);
+assert.match(topics, /href="\/spar" data-cta="political-topics-live">Debate someone now/);
+assert.match(topics, /href="\/">Back to Debatable<\/a>/);
 assert.match(topics, /data-challenge="\/challenges\?claim=/);
 assert.equal((topics.match(/data-topic-card/g) || []).length, politicalSlugCount() + 2);
 for (const group of POLITICS_GROUPS) assert.match(topics, new RegExp(`id="${group.id}"`));
@@ -115,6 +119,8 @@ assert.match(allQuestions, /Politics &amp; public life/);
 assert.match(allQuestions, /Questions worth arguing about\./);
 assert.match(politicalQuestion, /Political debate topics/);
 assert.match(politicalQuestion, /Round<\/span><span class="v">One person on each side/);
+assert.match(politicalQuestion, /href="\/spar" data-cta="question-brief-live">Debate someone now/);
+assert.doesNotMatch(politicalQuestion, />Start a round</);
 
 const rootNetlify = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
 const appNetlify = readFileSync(new URL('../app/netlify.toml', import.meta.url), 'utf8');
@@ -132,6 +138,8 @@ const contested = readFileSync(new URL('../app/netlify/functions/contested.mjs',
 assert.match(contested, /isSensitiveMotion/);
 assert.doesNotMatch(contested, /FORMAT_LABELS/);
 assert.match(contested, /Political Discussions Today/);
+assert.match(contested, /class="cta" href="\/spar" data-cta="contested-live">Debate someone now<\/a>/);
+assert.doesNotMatch(contested, /href="\/practice">Start a round<\/a>/);
 
 const landing = readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
 const topbar = readFileSync(new URL('../app/js/topbar.js', import.meta.url), 'utf8');
