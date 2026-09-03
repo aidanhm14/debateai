@@ -1727,19 +1727,17 @@ body.draft-live #daExpAsk{display:none !important}
 }
 .gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
-/* The second key on the door. Same footprint as the Google button so the
-   two read as peers, outlined so the primary still leads. */
-.gate-phone{
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  width:100%;margin-top:10px;padding:13px 18px;
-  font:inherit;font-weight:700;font-size:15px;
-  color:inherit;background:transparent;
-  border:1.5px solid rgba(128,128,128,.45);border-radius:12px;cursor:pointer;
-  transition:border-color .15s,transform .15s
-}
-.gate-phone:hover{border-color:currentColor;transform:translateY(-1px)}
-.gate-phone svg{width:18px;height:18px;flex-shrink:0}
+/* In-app browser instruction. The Copy link button is inline because a
+   webview has no address bar, so "open this in Safari" needs the link. */
 .gate-inapp{font-size:13.5px;line-height:1.45;opacity:.85;margin:-4px 0 12px}
+.gate-copy{
+  display:inline-block;margin-left:6px;padding:3px 10px;
+  font:inherit;font-weight:700;font-size:12.5px;line-height:1.3;
+  color:inherit;background:transparent;
+  border:1.5px solid rgba(128,128,128,.45);border-radius:999px;cursor:pointer;
+  transition:border-color .15s
+}
+.gate-copy:hover{border-color:currentColor}
 /* Inline email sign-in on the gate card. The card already carries the
    same two paths the shared chooser does, so opening that chooser over
    it stacked one offer on an identical offer and hid the half only the
@@ -3652,16 +3650,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return u.providerData.some(function(p){ return p && p.providerId === 'google.com'; });
   }
 
-  // ── The live-video door: Google or a verified phone number ──────
-  // 2026-09-01. Paid social traffic (TikTok, Instagram, X, Reddit) lands
-  // inside that app's browser, where Google OAuth cannot run at all: on
-  // 2026-08-24, 339 of 340 TikTok sessions arrived that way and zero got
-  // a round. A verified phone number is as accountable as a Google
-  // account, so it is the second key on this door. The provider written
-  // to the queue doc is the one the account actually holds; rules bind
-  // it to the verified token. Same set as spar-pair.mjs, firestore.rules
-  // (isLiveVideoAccount), create-daily-room.mjs, notifications.js.
-  var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone', 'apple.com'];
+  // ── The live-video door: Google, or Apple in the iOS app ────────
+  // Phone was a third key from 2026-09-01 to 2026-09-03 (paid social
+  // traffic lands in in-app browsers where Google OAuth cannot run) and
+  // was retired on the founder's call: Google plus whatever else is quick,
+  // not text and not phone. An in-app visitor now gets the copy-link
+  // instruction to open the site in Safari or Chrome. The provider
+  // written to the queue doc is the one the account actually holds;
+  // rules bind it to the verified token. Same set as spar-pair.mjs,
+  // firestore.rules (isLiveVideoAccount), create-daily-room.mjs,
+  // notifications.js, live-popup.js, live-round.html.
+  var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];
   function liveVideoProvider(u){
     if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
     for (var i = 0; i < u.providerData.length; i++){
@@ -3736,10 +3735,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
   }
 
-  // The live-video queue takes Google or a verified phone number.
+  // The live-video queue takes Google (or Apple in the iOS app).
   // Email/password accounts remain real accounts everywhere else, but this
-  // surface asks them for one of those two before putting another person
-  // on the other side of a camera.
+  // surface asks for Google before putting another person on the other
+  // side of a camera.
   function canQueue(u){
     return isLiveVideoUser(u);
   }
@@ -3803,7 +3802,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="gate" id="sparGuestBoot">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
         '<h2>Opening the live-video door.</h2>' +
-        '<p>Sign in with Google, Apple, or your phone to join.</p>' +
+        '<p>Sign in with Google to join.</p>' +
       '</div>';
   }
 
@@ -4042,22 +4041,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
         '<h2>Join a live debate.</h2>' +
-        '<p>Sign in with Google, Apple, or your phone for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>' +
-        (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in, so use your phone number. One text, no password.</p>' : '') +
+        '<p>Sign in with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>' +
+        // In-app browsers (TikTok, Instagram, and friends) refuse Google
+        // OAuth outright, and there is no second key on this door any
+        // more, so the honest instruction is the one that works: open the
+        // site in a real browser. Copy link exists because a webview has
+        // no address bar to copy from.
+        (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in. Open itsdebatable.com/spar in Safari or Chrome to join. <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
         // Ships hidden so a text-only client does not read an unhydrated
         // label. paintGateLive reveals 4 + the fresh waiting count.
         '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
-        // Two keys, ordered by which one can actually turn in this
-        // browser: Google leads on the open web, phone leads inside an
-        // in-app browser where Google refuses OAuth outright.
-        (inApp
-          ? '<button class="gate-google" id="phoneSignInBtn" type="button">' + GATE_PHONE_SVG + 'Continue with phone</button>' +
-            '<button class="gate-phone" id="signInBtn" type="button">Google instead (opens outside this app)</button>'
-          : '<button class="gate-google" id="signInBtn" type="button">' +
+        // One key. Inside an in-app browser the button is still rendered
+        // rather than hidden (the detector is a user-agent guess), and
+        // its click lands on the copy-link instruction above.
+        ('<button class="gate-google" id="signInBtn" type="button">' +
               '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
               'Sign up with Google' +
-            '</button>' +
-            '<button class="gate-phone" id="phoneSignInBtn" type="button">' + GATE_PHONE_SVG + 'Continue with phone</button>') +
+            '</button>') +
         // Age line. Live rounds pair strangers, so the standing 13-17
         // supervision rule from the terms belongs at this door, not only
         // in a legal page nobody opens. /safety is the readable version.
@@ -4065,33 +4065,53 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div id="gateError"></div>' +
         '</div>' +
       '</div>';
-    // Two doors and no third: Google goes straight to Google, phone opens
-    // the shared chooser already on the phone step. No email or anonymous
-    // door is rendered, because the queue would refuse both.
+    // One door and no second: Google goes straight to Google. No email,
+    // phone, or anonymous door is rendered, because the queue would
+    // refuse all three.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
-    document.getElementById('phoneSignInBtn').addEventListener('click', doPhoneSignIn);
+    var gateCopy = document.getElementById('gateCopyLink');
+    if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
     startGateLiveCount();
     autoPopAuthModal();
   }
 
-  var GATE_PHONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 18H7V4h10v16zm-5-3.2a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>';
-
-  // Phone is the door that works in every browser, in-app ones included.
-  // It rides the shared chooser's phone step (auth-modal.js), opened in
-  // live-video mode so no email door is advertised that the queue rejects.
-  function doPhoneSignIn(){
-    try { gtag('event', 'spar_gate_phone_click', { inapp: inAppBrowser() ? 1 : 0 }); } catch(e){}
-    if (typeof window.openAuthModal === 'function'){
-      window.openAuthModal('signup', {
-        liveVideo: true,
-        startWith: 'phone',
-        headline: 'Sign in to debate live',
-        sub: 'One text to your phone, then you land in the live queue.'
-      });
-      return;
+  // In-app browsers have no address bar, so "open this in Safari" is not
+  // an instruction anyone can follow without the link in hand. Same
+  // pattern as the shared chooser's Copy link (auth-modal.js, 2026-08-24).
+  function copyGateLink(btn){
+    var url = 'https://itsdebatable.com/spar';
+    function done(ok){
+      if (!btn) return;
+      btn.textContent = ok ? 'Copied' : 'Copy failed';
+      setTimeout(function(){ btn.textContent = 'Copy link'; }, 1800);
     }
+    try { gtag('event', 'spar_gate_copy_link', { inapp: inAppBrowser() ? 1 : 0 }); } catch(e){}
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){ done(true); }, function(){ done(false); });
+        return;
+      }
+    } catch(e){}
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = url; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(ok);
+    } catch(e){ done(false); }
+  }
+  // An in-app Google click: the popup would fail with disallowed_useragent
+  // and the redirect dies on partitioned storage, so say the true thing
+  // instead of failing twice. Every secondary "sign in" path lands here.
+  function doInAppSignIn(){
+    try { gtag('event', 'spar_gate_inapp_click', {}); } catch(e){}
     var ge = document.getElementById('gateError');
-    if (ge) ge.innerHTML = '<div class="error">Sign-in is still loading. Try again in a moment.</div>';
+    if (ge){
+      ge.innerHTML = '<div class="error">This app\'s browser blocks Google sign-in. Open itsdebatable.com/spar in Safari or Chrome to join. <button type="button" class="gate-copy" id="gateCopyLink2">Copy link</button></div>';
+      var b = document.getElementById('gateCopyLink2');
+      if (b) b.addEventListener('click', function(){ copyGateLink(b); });
+    }
   }
 
   // ── Live-video gate auto-pop ──────────────────────────────────
@@ -4099,8 +4119,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // the gate gets five calm seconds to explain itself before the account
   // ask appears. A click on the gate's own buttons stays immediate.
   // It uses the shared, proven auth implementation in live-video mode
-  // (Google or phone, no email door), and inside an in-app browser it
-  // opens straight on the phone step. Once per browser session:
+  // (Google, no email door). Once per browser session:
   // closing it is an answer, and the full gate remains underneath.
   var authPopArmed = false;
   var AUTH_POP_DELAY_MS = 5000;
@@ -4117,9 +4136,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         try { sessionStorage.setItem('da-spar-auth-pop', '1'); } catch(e){}
         window.openAuthModal('signup', {
           liveVideo: true,
-          startWith: inAppBrowser() ? 'phone' : '',
           headline: 'Sign in to debate live',
-          sub: 'Google, Apple, or your phone. Join the live queue, keep your rounds, and climb the leaderboard.'
+          sub: 'Sign in with Google. Join the live queue, keep your rounds, and climb the leaderboard.'
         });
         try { gtag('event', 'spar_auth_autopop', { reason: gateSpent() ? 'guest_rounds_spent' : 'no_session' }); } catch(e){}
       } else if (tries <= 12){
@@ -4289,7 +4307,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // on the popup, and the redirect dies on partitioned storage). Every
     // secondary path on this page that says "sign in" lands here, so the
     // one place to turn that click into a door that opens is here.
-    if (inAppBrowser()){ doPhoneSignIn(); return; }
+    if (inAppBrowser()){ doInAppSignIn(); return; }
     if (!firebaseAuth){
       var gateError = document.getElementById('gateError');
       if (gateError) gateError.innerHTML = '<div class="error">Google sign-in did not load. Refresh the page and try again.</div>';

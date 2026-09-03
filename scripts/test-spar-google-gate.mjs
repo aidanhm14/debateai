@@ -41,30 +41,42 @@ function check(ok, message) {
   console.error(`FAIL spar-google-gate: ${message}`);
 }
 
-// THE LIVE-VIDEO DOOR IS GOOGLE OR PHONE (2026-08-27 Google-only; phone added
-// 2026-09-01). Five places carry the same three-provider set and must agree:
-// rules, spar-pair, create-daily-room, spar.html, notifications.js. Inside
-// an in-app browser every live-video prompt leads with phone, because
-// Google OAuth cannot complete there (measured 2026-08-24: 339/340 TikTok
-// sessions, zero rounds). The guest allowance stays at zero.
+// THE LIVE-VIDEO DOOR IS GOOGLE, OR APPLE IN THE iOS APP (2026-08-27
+// Google-only; Apple added 2026-09-01; phone added 2026-09-01 and RETIRED
+// 2026-09-03 on the founder's call: no text, no phone). Seven places carry
+// the same two-provider set and must agree: rules, spar-pair,
+// create-daily-room, spar.html, notifications.js, live-popup.js,
+// live-round.html. Inside an in-app browser Google OAuth cannot complete
+// (measured 2026-08-24: 339/340 TikTok sessions, zero rounds), and with
+// phone gone the honest instruction is open-in-Safari plus Copy link. The
+// guest allowance stays at zero.
 const dailyRoom = read('app/netlify/functions/create-daily-room.mjs');
 const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
 
 check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client guest allowance must stay at zero');
 check(pair.includes('const GUEST_FREE_ROUNDS = 0;'), 'server guest allowance must stay at zero');
-check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone', 'apple.com'];"), 'spar must define the three-provider live-video set');
-check(spar.includes('return isLiveVideoUser(u);'), 'foreground queue must require a Google or phone user');
-check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone', 'apple.com'];"), 'background pill must define the same three-provider set');
-check(notifications.includes('return !!liveVideoProvider(u);'), 'background queue must require a Google or phone user');
-check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone', 'apple.com']);"), 'matcher must define the three-provider set');
+check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'spar must define the two-provider live-video set');
+check(spar.includes('return isLiveVideoUser(u);'), 'foreground queue must require a Google or Apple user');
+check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'background pill must define the same two-provider set');
+check(notifications.includes('return !!liveVideoProvider(u);'), 'background queue must require a Google or Apple user');
+check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'matcher must define the two-provider set');
 check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token');
 check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled gate code clients handle');
 check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider))'), 'matcher must reject a stale active seat marker');
 check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
-check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone', 'apple.com']);"), 'video room minter must define the three-provider set');
+check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'video room minter must define the two-provider set');
 check(dailyRoom.includes('!LIVE_VIDEO_PROVIDERS.has(who.provider)'), 'video room minter must gate debater tokens on the set');
-check(rules.includes("request.auth.token.firebase.sign_in_provider in ['google.com', 'phone', 'apple.com']"), 'rules must define isLiveVideoAccount over the same set');
+check(rules.includes("request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com']"), 'rules must define isLiveVideoAccount over the same set');
+// Phone retired 2026-09-03. A stray 'phone' in any of the seven sets
+// reopens a door the founder closed; grep every copy for it.
+for (const [label, src] of [['rules', rules], ['spar-pair', pair], ['create-daily-room', dailyRoom], ['spar', spar], ['notifications', notifications], ['live-popup', livePopup], ['live-round', liveRound]]) {
+  const code = src.replace(/\/\/[^\n]*/g, '');
+  check(!/'google\.com',\s*'phone'/.test(code) && !/providerId === 'phone'/.test(code), `${label} must not carry phone in a live-video provider set`);
+}
+check(!authModal.includes("startWith === 'phone'"), 'shared chooser must not open on a retired phone step');
+check(!authModal.includes('id="daPhone"'), 'shared chooser must not render a phone button');
+check(!authModal.includes('PhoneAuthProvider'), 'shared chooser must not carry the phone provider');
 check(rules.includes('allow create: if isLiveVideoAccount()'), 'Firestore must reject queue creation outside the set');
 check(rules.includes("request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider"), 'Firestore must bind the queue marker to the caller\'s own verified provider');
 check(!rules.includes("request.resource.data.authProvider == 'google.com'"), 'rules must not pin the queue marker to Google alone');
@@ -74,19 +86,18 @@ check(!spar.includes("authProvider: 'google.com'"), 'foreground queue must not h
 check(!notifications.includes("authProvider: 'google.com'"), 'background queue must not hardcode Google');
 check(spar.includes('function inAppBrowser(){'), 'spar must detect in-app browsers');
 check(spar.includes("typeof window.__ditIsInAppBrowser === 'function'"), 'spar must defer to the shared in-app detector');
-check(spar.includes('id="phoneSignInBtn"'), 'signed-out gate must offer the phone door');
-check(spar.includes("'<button class=\"gate-google\" id=\"phoneSignInBtn\" type=\"button\">' + GATE_PHONE_SVG + 'Continue with phone</button>'"), 'in-app gate must lead with phone in the primary slot');
-check(spar.includes("if (inAppBrowser()){ doPhoneSignIn(); return; }"), 'every in-app Google click on spar must route to phone');
+check(!spar.includes('id="phoneSignInBtn"'), 'signed-out gate must not offer the retired phone door');
+check(spar.includes('id="gateCopyLink"'), 'in-app gate must offer Copy link, since a webview has no address bar');
+check(spar.includes("if (inAppBrowser()){ doInAppSignIn(); return; }"), 'every in-app Google click on spar must land on the open-in-Safari instruction');
 check(spar.includes('liveVideo: true') && !spar.includes('googleOnly: true'), 'spar prompts must open the shared card in live-video mode, never Google-only');
-check(livePopup.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'phone' || pd[i].providerId === 'apple.com'"), 'wants-to-debate popup must accept phone accounts');
+check(livePopup.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'wants-to-debate popup must accept Google and Apple accounts only');
 check(livePopup.includes('liveVideo: true'), 'wants-to-debate popup must open live-video mode');
-check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'phone' || pd[i].providerId === 'apple.com'"), 'live-round seat gate must accept phone accounts');
+check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'live-round seat gate must accept Google and Apple accounts only');
 check(liveRound.includes('liveVideo: true'), 'live-round must open the shared card in live-video mode');
 check(authModal.includes('liveVideo = !!(opts && opts.liveVideo) && !googleOnly;'), 'shared auth prompt must accept live-video mode');
 check(authModal.includes("var noEmail = googleOnly || liveVideo;"), 'live-video prompt must omit the email door');
-check(authModal.includes('var providerButtons = inApp ? phoneBtn + googleBtn : googleBtn + phoneBtn;'), 'in-app chooser must put phone before Google');
-check(authModal.includes("if (opts && opts.startWith === 'phone' && !googleOnly) {"), 'shared auth prompt must be able to open on the phone step');
-check(authModal.includes("liveVideo ? 'Use your phone number: one text, no password.'"), 'in-app live-video note must point at phone');
+check(authModal.includes('var providerButtons = googleBtn;'), 'chooser must render Google as the one provider button on web');
+check(authModal.includes("googleOnly || liveVideo ? 'Open the site in Safari or Chrome to sign in with Google.'"), 'in-app live-video note must point at a real browser');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');
 
@@ -107,7 +118,6 @@ check(spar.includes('autoPopAuthModal();'), 'signed-out gate must open its sign-
 check(spar.includes('var AUTH_POP_DELAY_MS = 5000;'), 'automatic prompt must wait five seconds before opening');
 check(spar.includes('setTimeout(tryOpenAuthPop, AUTH_POP_DELAY_MS);'), 'automatic prompt must use the calm-entry delay');
 check(authModal.includes('googleOnly = !!(opts && opts.googleOnly);'), 'shared auth prompt must keep Google-only mode for the admin gates');
-check(authModal.includes("var phoneBtn = googleOnly ? '' : '<button type=\"button\" class=\"da-btn da-btn--hero\" id=\"daPhone\">'"), 'Google-only auth prompt must omit the phone door');
 check(authModal.includes("(noEmail ? '' : '<div class=\"da-or\">or use email</div>'"), 'Google-only and live-video prompts must omit the email door');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');

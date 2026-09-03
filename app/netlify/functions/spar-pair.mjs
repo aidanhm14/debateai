@@ -318,20 +318,19 @@ function joinedAtMs(data) {
 
 // Providers that may hold a SEAT in a live video round. Keep in sync with
 // create-daily-room.mjs and isLiveVideoAccount() in firestore.rules.
-const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone', 'apple.com']);
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 
 // ── The guest lane ────────────────────────────────────────────────
 //
 // 2026-08-27 (the founder): no anonymous preview for human video pairing.
-// The /spar door is Google, phone, or Apple (phone added 2026-09-01, because paid
-// social traffic lands in in-app browsers; Apple added 2026-09-01 because the
-// App Store requires the Apple button and an accepted sign-in that cannot
-// reach the live queue is a dead end on the feature the app is named for).
-// (phone reasoning continued: paid
-// social traffic lands in in-app browsers where Google OAuth cannot run),
-// enforced below from the verified token before either queue document can
-// be paired. firestore.rules, create-daily-room.mjs, spar.html,
-// notifications.js and live-popup.js carry the same two-provider set.
+// The /spar door is Google, or Apple in the iOS app (Apple added 2026-09-01
+// because the App Store requires the Apple button and an accepted sign-in
+// that cannot reach the live queue is a dead end on the feature the app is
+// named for). Phone was a third key from 2026-09-01 to 2026-09-03 and was
+// retired on the founder's call. The set is enforced below from the verified
+// token before either queue document can be paired. firestore.rules,
+// create-daily-room.mjs, spar.html, notifications.js, live-popup.js and
+// live-round.html carry the same two-provider set.
 // The old metering machinery is
 // retained only to read and preserve historical guest-round records; an env
 // override must not reopen the lane behind the current product decision.
@@ -663,14 +662,14 @@ export default async (request) => {
     }, 200, request);
   }
 
-  // Human video pairing takes Google or a verified phone number
+  // Human video pairing takes Google, or Apple in the iOS app
   // (LIVE_VIDEO_PROVIDERS). This is checked from the verified token, not
   // from the client-written queue doc, so an anonymous session, email
   // account, old tab, or handcrafted request cannot bypass the door.
   // The AI-only draft above remains available because it seats no stranger.
   if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
     return jsonResponse({
-      error: 'Sign in with Google, Apple, or your phone to join a live video round.',
+      error: 'Sign in with Google to join a live video round.',
       code: 'GOOGLE_SIGN_IN_REQUIRED',
     }, 403, request);
   }

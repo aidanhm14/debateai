@@ -190,6 +190,18 @@ if [ -f "$SPAR_GOOGLE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# The automatic welcome email (2026-09-03). One send per account, pure
+# eligibility rule, voice rules on the template, client trigger present.
+WELCOME_GUARD="$REPO_ROOT/scripts/test-welcome-email.mjs"
+if [ -f "$WELCOME_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-welcome-email.mjs >/tmp/welcome-guard.log 2>&1); then
+    echo "[welcome-guard] commit blocked - the welcome email broke a rule:" >&2
+    tail -30 /tmp/welcome-guard.log >&2
+    echo "[welcome-guard] see scripts/test-welcome-email.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Spectator vote logging is a public client-to-function contract. Keep the
 # Netlify path and Firestore write signature from drifting apart again.
 LOG_VOTE_GUARD="$REPO_ROOT/scripts/test-log-vote.mjs"

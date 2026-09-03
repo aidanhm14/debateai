@@ -45,7 +45,7 @@ ok('terms agreement is visible and affirmative before auth', () => {
 });
 
 ok('every shared sign-in method enforces the agreement', () => {
-  for (const signature of ['doGoogle()', 'doAppleSignIn()', 'doEmailPassword(event)', 'doEmailLink(event)', 'doPhoneStart(event, mode)', 'doPhoneCode(event, verificationId)']) {
+  for (const signature of ['doGoogle()', 'doAppleSignIn()', 'doEmailPassword(event)', 'doEmailLink(event)']) {
     const escaped = signature.replace(/[()]/g, '\\$&');
     assert.match(auth, new RegExp(`function ${escaped} \\{[\\s\\S]{0,120}if \\(!requireTerms\\(\\)\\) return;`), signature);
   }
@@ -53,42 +53,29 @@ ok('every shared sign-in method enforces the agreement', () => {
 
 // The agreement must be TAKEABLE on every screen that demands it, and
 // asking must never be silent. Both halves broke in production and were
-// measured 2026-09-02: startWith:'phone' skips the chooser (in-app
-// browsers, /spar), so the phone screen showed "Agree to the Terms of
-// Use before signing in" with no checkbox anywhere on it; and the
-// chooser disabled the provider buttons, which dispatch no click when
-// disabled, so requireTerms()'s message and focus were unreachable and
-// tapping "Continue with phone" did nothing at all.
-ok('the phone screen can take the agreement it demands', () => {
-  assert.match(auth, /function renderPhoneStart\(mode, value\)[\s\S]{0,2200}termsAccepted\(\) \? '' : termsFieldHtml\(\)/,
-    'phone screen no longer renders the terms field');
+// measured 2026-09-02 on the (since retired, 2026-09-03) phone screen:
+// it demanded agreement with no checkbox on it, and the chooser disabled
+// the provider buttons, which dispatch no click when disabled, so
+// requireTerms()'s message and focus were unreachable. The chooser is
+// the one screen that asks now, and it must carry the field.
+ok('the chooser can take the agreement it demands', () => {
   assert.match(auth, /function termsFieldHtml\(\)[\s\S]{0,400}id="daTerms" type="checkbox"/,
     'shared terms field markup missing');
+  assert.match(auth, /function renderChooser\([\s\S]{0,9000}termsFieldHtml\(\)/,
+    'chooser no longer renders the terms field');
 });
 
 ok('the terms gate is never enforced by a disabled button', () => {
-  assert.doesNotMatch(auth, /\['#daApple', '#daG', '#daPhone', '#daEmailBtn'\][\s\S]{0,220}\.disabled = /,
+  assert.doesNotMatch(auth, /\['#daApple', '#daG', '#daEmailBtn'\][\s\S]{0,220}\.disabled = /,
     'provider buttons disabled again: a disabled button fires no click, so requireTerms() cannot report');
-  assert.match(auth, /#daPhone'\)\.addEventListener\('click', function \(\) \{[\s\S]{0,320}if \(!requireTerms\(\)\) return;/,
-    'chooser phone button must gate before it replaces the chooser');
+  assert.doesNotMatch(auth, /#daG'\)\.disabled = true/, 'Google button must never be disabled as a terms gate');
 });
 
-// A verified phone credential whose number already has an account must
-// sign that account in, never dead-end. Measured 2026-09-02: one in five
-// phone attempts hit account-exists-with-different-credential, which was
-// not in the recovery set and surfaced as "Try again" -- advice that can
-// never work for a returning user.
-ok('a phone number that already has an account signs in rather than dead-ending', () => {
-  for (const code of [
-    'auth/credential-already-in-use',
-    'auth/phone-number-already-exists',
-    'auth/account-exists-with-different-credential',
-    'auth/email-already-in-use',
-  ]) {
-    assert.match(auth, new RegExp(`LINK_COLLISION = \\{[\\s\\S]{0,400}'${code.replace(/[/-]/g, '\\$&')}'`), code);
-  }
-  assert.match(auth, /LINK_COLLISION\[\(err && err\.code\) \|\| ''\]\) \{[\s\S]{0,120}signInWithCredential\(credential\)/,
-    'phone link collisions must fall through to signInWithCredential');
+// Phone sign-in was retired 2026-09-03 (Aidan: Google plus whatever else
+// is quick, not text and not phone). Apple stays in the iOS shell only.
+ok('the retired phone door does not come back', () => {
+  assert.doesNotMatch(auth, /PhoneAuthProvider|RecaptchaVerifier|id="daPhone"|startWith === 'phone'/,
+    'phone sign-in markup or provider returned to the shared chooser');
 });
 
 ok('native spar sign-in cannot bypass the shared terms chooser', () => {

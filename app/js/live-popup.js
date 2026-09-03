@@ -452,7 +452,7 @@
       var cu = fb.auth().currentUser;
       if (!cu || cu.isAnonymous) return false;
       var pd = cu.providerData || [];
-      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'phone' || pd[i].providerId === 'apple.com')) return true;
+      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com')) return true;
     } catch (e) {}
     return false;
   }
@@ -640,9 +640,8 @@
         emit('live_popup_auth_open', { page: here });
         window.openAuthModal('signup', {
           liveVideo: true,
-          startWith: (typeof window.__ditIsInAppBrowser === 'function' && window.__ditIsInAppBrowser()) ? 'phone' : '',
           headline: (item.name || 'Someone') + ' wants to debate. Sign in to take the seat.',
-          sub: 'Google or your phone. The video room takes a real account, so the person across from you is one too. Sign in and you land in the queue.',
+          sub: 'Sign in with Google. The video room takes a real account, so the person across from you is one too. Sign in and you land in the queue.',
           onDone: function () {
             emit('live_popup_auth_done', { page: here });
             window.location.href = '/spar';

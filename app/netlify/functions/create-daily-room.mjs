@@ -40,7 +40,7 @@ import { parseTournamentRoom } from './lib/tournament-round.mjs';
 
 // Providers that may hold a SEAT in a live video room. Keep in sync with
 // spar-pair.mjs and isLiveVideoAccount() in firestore.rules.
-const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone', 'apple.com']);
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 
 const DAILY_API = 'https://api.daily.co/v1';
 

@@ -35,18 +35,13 @@ check(
   'successful Google popup sign-in uses the guarded completion path',
 );
 
-const phoneStart = functionBody('doPhoneStart', 'renderPhoneCode');
-const phoneCode = functionBody('doPhoneCode', 'doGoogle');
+// Phone sign-in was retired 2026-09-03 (Aidan: Google plus whatever else is
+// quick, not text and not phone). The check that used to pin its reCAPTCHA
+// and link-collision recovery now pins its absence, so a stale branch
+// cannot rebase it back in.
 check(
-  /new firebase\.auth\.RecaptchaVerifier/.test(phoneStart) &&
-    /provider\.verifyPhoneNumber/.test(phoneStart),
-  'phone sign-in sends its code through Firebase with reCAPTCHA',
-);
-check(
-  /PhoneAuthProvider\.credential/.test(phoneCode) &&
-    /current\.linkWithCredential\(credential\)/.test(phoneCode) &&
-    /auth\.signInWithCredential\(credential\)/.test(phoneCode),
-  'phone sign-in upgrades anonymous users and recovers existing accounts',
+  !/PhoneAuthProvider|RecaptchaVerifier|function doPhoneStart|function doPhoneCode/.test(source),
+  'phone sign-in stays retired from the shared chooser',
 );
 
 if (failures) process.exit(1);

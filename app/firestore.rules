@@ -25,13 +25,15 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
-    // The live-video door (2026-09-01): Google or a verified phone number.
-    // Both are accountable identities. Phone exists here because paid
-    // social traffic arrives in in-app browsers where Google OAuth cannot
-    // run at all, and a door with one key that does not turn is a wall.
+    // The live-video door: Google on the web, Google or Apple in the iOS
+    // app. Phone was a third key from 2026-09-01 to 2026-09-03 and was
+    // retired on the founder's call (no text, no phone). Same set as
+    // spar-pair.mjs, create-daily-room.mjs, spar.html, notifications.js,
+    // live-popup.js and live-round.html; scripts/test-spar-google-gate.mjs
+    // pins all seven.
     function isLiveVideoAccount() {
       return isSignedIn()
-        && request.auth.token.firebase.sign_in_provider in ['google.com', 'phone', 'apple.com'];
+        && request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com'];
     }
 
     function isOwner(uid) {
@@ -470,9 +472,10 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: Google, phone, or Apple-authenticated owners only (2026-08-27,
-      //    phone and Apple added 2026-09-01; Apple because the App Store
-      //    requires the button and the iOS app must be able to reach the queue). Live video has no anonymous preview and
+      //  - create: Google or Apple-authenticated owners only (2026-08-27;
+      //    Apple added 2026-09-01 because the App Store requires the button
+      //    and the iOS app must be able to reach the queue; phone was added
+      //    the same day and retired 2026-09-03). Live video has no anonymous preview and
       //    no email-only queue lane. The authProvider marker must equal the
       //    caller's OWN verified provider, so a client cannot stamp a
       //    provider it does not hold. spar-pair repeats the provider check

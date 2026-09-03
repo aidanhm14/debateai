@@ -403,7 +403,7 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   carries an authored motion, not "Round of your choice." This is a display
   and editorial rule, not permission to add an unlicensed portrait.
 - **Social app, not ed-tech (2026-08-16).** JSON-LD applicationCategory is SocialNetworkingApplication, manifest is social/entertainment, copy leads with people-vs-people. Don't reintroduce Education* categories or prep/training-first framing on product surfaces. Counter (extension) is the one sanctioned education surface.
-- **Live video takes Google, a verified phone number, or Apple, with no anonymous preview** (2026-08-27; phone added 2026-09-01 because paid social traffic lands in in-app browsers where Google OAuth cannot run; Apple added 2026-09-01 because the App Store mandates the Apple button and the iOS app was looping at the queue gate). The provider set lives in seven places that must agree: `isLiveVideoAccount()` in `firestore.rules`, `LIVE_VIDEO_PROVIDERS` in `spar-pair.mjs` and `create-daily-room.mjs`, and the client copies in `spar.html`, `js/notifications.js`, `js/live-popup.js`, and `live-round.html`; `scripts/test-spar-google-gate.mjs` pins all seven. Inside an in-app browser every live-video sign-in prompt leads with phone (`?inapp=1` on /spar forces that rendering for QA). Older text below that says "Google-only" describes the 2026-08-27 state.
+- **Live video takes Google, or Apple in the iOS app, with no anonymous preview** (2026-08-27; Apple added 2026-09-01 because the App Store mandates the Apple button and the iOS app was looping at the queue gate; phone was added 2026-09-01 and RETIRED 2026-09-03 on Aidan's call: Google plus whatever else is quick, not text and not phone). The provider set lives in seven places that must agree: `isLiveVideoAccount()` in `firestore.rules`, `LIVE_VIDEO_PROVIDERS` in `spar-pair.mjs` and `create-daily-room.mjs`, and the client copies in `spar.html`, `js/notifications.js`, `js/live-popup.js`, and `live-round.html`; `scripts/test-spar-google-gate.mjs` pins all seven. Inside an in-app browser there is no key that turns for live video, so /spar shows the open-in-Safari-or-Chrome instruction with a Copy link button (`?inapp=1` on /spar forces that rendering for QA). Older text below that says "Google-only" describes the 2026-08-27 state.
   `/spar`, `spar-pair.mjs`, `matchmaking_queue` create rules, and the
   background "Spar live" pill must agree. Email/password remains a real
   account everywhere else, and anonymous AI rounds are unchanged. The
@@ -455,6 +455,28 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 - **Never precache `/` in the service worker** — it broke root routing.
 - **Never skip git hooks** (`--no-verify`).
 - **Pricing is locked** and **consumer billing is LIVE as of 2026-08-26** (`BETA_NO_CHARGE=false`, `BETA_PRO_UNLOCK=false`): Free $0, BYOK $1/mo, Individual $10/year, **Voice $12/mo**, Tokens $4.99/mo, Team $50/year, **Program $200/season** (cut from $550 on 2026-09-02; the price is the API cost of a roster's season, stated on the page). Real cards are charged on every one of those except Free, so any copy claiming the product is free during beta is now a false claim, not stale wording. **A school roster is always the $200 season license, never a seat plan** — do not quote Team to a coach. Changing a price is three edits that land together: `lib/plans.mjs`, a NEW Stripe price object (never edit one in place), and the env var; `scripts/test-plans.mjs` and `scripts/check-prices.mjs` both run in the hook. **A new paid tier is not shipped until it is in `VOICE_PRO_PLANS` / `PAID_PLANS` / `requirePaidPlan` too** — Voice was advertised on /pricing for months while no gate had heard of it, so buying it granted nothing. (Lifetime was removed from pricing displays 2026-07-03; the backend entitlement stays. See soul.md §7 + decision log.)
+
+## The welcome email (automatic, one per account)
+
+```
+lib/welcome-email.mjs            the template, the eligibility rule, claim+send+stamp
+welcome-email.mjs                POST /api/welcome-email, fired by auth-modal.js on sign-up
+scheduled-welcome-sweep.mjs      every 30 min, catches sign-ins the client path missed
+scripts/test-welcome-email.mjs   runs in the pre-commit hook
+```
+
+- **The stamp is `user_profiles.signupWelcomeSentAt`**, shared with the
+  catch-up campaign `admin-signup-welcome.mjs`, so neither can double-mail.
+  A transaction claims the send first (`signupWelcomeClaimedAt`, 10-minute
+  lease). Do not add a third sender that reads a different field.
+- **Primary-inbox shape is the point.** No images, no buttons, no pixel, at
+  most four links, a plain-text part, Reply-To on a read inbox, and NO
+  List-Unsubscribe headers (`stream:'welcome'` is not in the bulk list in
+  `lib/email.mjs` on purpose; the footer carries the unsubscribe link). The
+  guard pins these. Making it look like a newsletter is how it stops
+  landing where it was asked to land.
+- **Copy rules apply and are tested:** no em-dashes, no banned phrases, no
+  founder name or credential, "people" not "debaters", canonical price only.
 
 ## Motion draft (in the ROOM, pre-round)
 

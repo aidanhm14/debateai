@@ -1809,12 +1809,11 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
-    // The live-video door: Google or a verified phone number (2026-09-01,
-    // phone added so paid social traffic inside in-app browsers has a key
-    // that turns). Same set as spar.html, spar-pair.mjs and the
-    // isLiveVideoAccount() rule. The provider written to the queue doc is
+    // The live-video door: Google, or Apple in the iOS app. Phone was a
+    // third key from 2026-09-01 to 2026-09-03 and was retired. Same set as
+    // spar.html, spar-pair.mjs and the isLiveVideoAccount() rule. The provider written to the queue doc is
     // the one the account holds; rules bind it to the verified token.
-    var LIVE_VIDEO_PROVIDERS = ['google.com', 'phone', 'apple.com'];
+    var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];
     function liveVideoProvider(u) {
       if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
       for (var i = 0; i < u.providerData.length; i++) {

@@ -1,14 +1,14 @@
 // ──────────────────────────────────────────────────────────────────
 // auth-modal.js — shared sign-in helper for Debatable.
 //
-// Web offers Google, phone, an emailed sign-in link, and email/password. The
+// Web offers Google, an emailed sign-in link, and email/password. The
 // native app adds Apple, then exchanges every provider credential into
 // the same Firebase web session used by the live site.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // Firebase (shared script ids with notifications.js so nothing double-loads).
 //
-// Firebase providers: Google, phone, email link (passwordless), and
+// Firebase providers: Google, email link (passwordless), and
 // email/password on web; Apple is also shown in the iOS shell to satisfy
 // App Store login-choice rules.
 //
@@ -149,13 +149,11 @@
          has to act on, and red is the action colour on this card. */
       '#ditAuth .da-spam{font-size:13.5px;line-height:1.5;margin:0 0 4px;padding:11px 13px;border-radius:12px;border:1px solid rgba(245,158,11,.42);background:rgba(245,158,11,.10);color:' + ink + '}' +
       '#ditAuth .da-spam strong{display:block;margin-bottom:3px}' +
-      '#ditAuth .da-phone-disclosure{font-size:12px;line-height:1.45;color:' + sub + ';margin:11px 2px 0}' +
-      '#ditAuth #daPhoneRecaptcha{min-height:0;margin-top:10px}' +
       '@media (max-width:380px){#ditAuth{padding:10px}#ditAuth .da-card{padding:26px 20px 20px;border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-btn--hero{font-size:16px}}';
     document.head.appendChild(s);
   }
 
-  var modal = null, auth = null, lastFocus = null, phoneRecaptcha = null;
+  var modal = null, auth = null, lastFocus = null;
   // Set by openAuthModal(mode, {onDone}); consumed once by handOff().
   var onDone = null;
   // LOCKED mode (2026-08-26). openAuthModal(mode, {locked:true}) opens the
@@ -169,12 +167,12 @@
   var locked = false;
   var lockCopy = null;
   // Some product doors are provider-specific. The /admin gates are Google-
-  // only. Live video (/spar, the video room) takes Google OR a verified
-  // phone number and nothing else (2026-09-01), so its prompts open this
-  // card in liveVideo mode: no email door advertised that the queue would
-  // reject, and inside an in-app browser the phone step leads, because
-  // Google cannot complete there at all. startWith:'phone' opens straight
-  // on the phone form.
+  // only. Live video (/spar, the video room) takes Google on the web and
+  // Google or Apple in the iOS app, and nothing else (2026-09-03: phone
+  // sign-in retired, see soul.md), so its prompts open this card in
+  // liveVideo mode: no email door advertised that the queue would reject.
+  // Inside an in-app browser there is no key that turns for live video;
+  // the note says to open the site in Safari or Chrome and offers the link.
   var googleOnly = false;
   var liveVideo = false;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
@@ -206,7 +204,6 @@
     lockCopy = null;
     googleOnly = false;
     liveVideo = false;
-    clearPhoneRecaptcha();
     try { document.documentElement.classList.remove('da-auth-locked'); } catch (e) {}
     if (modal) modal.classList.remove('on');
     document.body.classList.remove('signin-modal-open');
@@ -232,7 +229,7 @@
   // this browser however many times it is tried.
   function providerFailMsg() {
     return isInAppBrowser()
-      ? 'This app\'s browser blocks Google sign-in. Use your phone or email below, or open the site in Safari or Chrome.'
+      ? 'This app\'s browser blocks Google sign-in. Use email below, or open the site in Safari or Chrome.'
       : 'Google sign-in failed. Try again.';
   }
 
@@ -283,8 +280,6 @@
   var GOOGLE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
 
   var APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>';
-
-  var PHONE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>';
 
   function home() { return document.getElementById('ditAuthCard'); }
   function setErr(m) {
@@ -348,13 +343,12 @@
       return true;
     }
     // The message has to point at something the reader can actually
-    // reach. Before 2026-09-02 it did not: the phone screen carries no
-    // agreement field, and startWith:'phone' opens straight onto it for
-    // in-app browsers and /spar, so a visitor who had never accepted
-    // got "Agree to the Terms of Use before signing in" on a screen
-    // with no checkbox on it and no way to agree. Measured on
-    // production. The phone screen renders the field now, so `input` is
-    // present on every screen that can ask this question.
+    // reach. Before 2026-09-02 it did not: the (since retired) phone
+    // screen carried no agreement field, so a visitor who had never
+    // accepted got "Agree to the Terms of Use before signing in" on a
+    // screen with no checkbox on it and no way to agree. Measured on
+    // production. Every screen that can ask this question now renders
+    // the field, so `input` is present whenever the ask is made.
     setErr(input
       ? 'Tick the box to agree to the Terms of Use, then continue.'
       : 'Agree to the Terms of Use before signing in.');
@@ -394,10 +388,13 @@
       : last === 'email' ? 'password' : 'link';
     var linkMode = emailMode === 'link';
     if (last === 'apple' && !window.__DB_NATIVE) last = '';
+    // Phone sign-in was retired 2026-09-03; a device that last used it
+    // must not be told to reach for a button that is no longer there.
+    if (last === 'phone') last = '';
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
-         last === 'phone' ? 'your phone' : last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
+         last === 'emaillink' ? 'an emailed link' : 'an email and password') + '.</p>'
       : '';
     // APPLE IS THE APP'S BUTTON ONLY (2026-08-26, Aidan: "dont allow
     // apple sign in, bc i cant email ppl for apple, only allow apple for
@@ -430,16 +427,15 @@
     var noEmail = googleOnly || liveVideo;
     var inAppNote = inApp
       ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
-        (googleOnly ? 'Open the site in Safari or Chrome.'
-          : liveVideo ? 'Use your phone number: one text, no password.'
-          : 'Use your phone or email below, or open the site in Safari or Chrome.') +
+        (googleOnly || liveVideo ? 'Open the site in Safari or Chrome to sign in with Google.'
+          : 'Use email below, or open the site in Safari or Chrome.') +
         ' <button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
-    // Inside an in-app browser the phone button leads and Google follows:
-    // the key that turns goes first. On the open web Google leads.
+    // Google is the one provider button on web. Phone sign-in was
+    // retired 2026-09-03 (Aidan: Google plus what can be set up quickly,
+    // not text and not phone); Apple stays in the iOS shell only.
     var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
-    var phoneBtn = googleOnly ? '' : '<button type="button" class="da-btn da-btn--hero" id="daPhone">' + PHONE_SVG + 'Continue with phone</button>';
-    var providerButtons = inApp ? phoneBtn + googleBtn : googleBtn + phoneBtn;
+    var providerButtons = googleBtn;
     var acceptedTerms = termsAccepted();
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
@@ -523,21 +519,14 @@
     // and that is the fix rather than an oversight. A disabled button
     // dispatches no click, so requireTerms() -- the whole of the
     // feedback this gate has, its message and its focus -- sat behind
-    // an event the browser would never deliver. Tapping "Continue with
-    // phone" did nothing at all, twice, and people reported sign-in as
+    // an event the browser would never deliver. Tapping a provider
+    // button did nothing at all, twice, and people reported sign-in as
     // broken. Acceptance is still enforced: every handler calls
     // requireTerms() before it touches Firebase, which is what the iOS
     // review guard pins.
     wireTermsField(c);
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
-    if (c.querySelector('#daPhone')) c.querySelector('#daPhone').addEventListener('click', function () {
-      // Gate BEFORE navigating: this is the one provider whose next
-      // screen replaces the chooser, so leaving un-agreed used to strand
-      // the reader on a screen that demanded agreement it could not take.
-      if (!requireTerms()) return;
-      renderPhoneStart(mode);
-    });
     var emailForm = c.querySelector('#daEmailForm');
     if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
     // Carry what has been typed across either switch. Retyping an address
@@ -584,7 +573,6 @@
     // account" with three equal choices.
     try {
       var fam = /google/.test(method) ? 'google' : /apple/.test(method) ? 'apple'
-        : /phone/.test(method) ? 'phone'
         : /link/.test(method) ? 'emaillink' : 'email';
       localStorage.setItem('debateos-last-signin-method', fam);
     } catch (e) {}
@@ -603,6 +591,21 @@
       var createdMs = u && u.metadata && u.metadata.creationTime ? Date.parse(u.metadata.creationTime) : NaN;
       var isNew = /signup/.test(method) || (isFinite(createdMs) && (Date.now() - createdMs) < 10 * 60 * 1000);
       if (isNew) track('sign_up', { method: method });
+      // The welcome email (2026-09-03). Fired here so it lands while the
+      // tab is still open; the server decides eligibility from Auth's
+      // own creation time and stamps the profile, so a re-fire is a
+      // no-op and a miss is caught by scheduled-welcome-sweep.mjs.
+      // keepalive: finishSignIn navigates right after this, and a plain
+      // fetch would be cancelled with the page.
+      if (u && !u.isAnonymous && u.getIdToken) {
+        u.getIdToken().then(function (idToken) {
+          return fetch('/api/welcome-email', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + idToken },
+            keepalive: true
+          });
+        }).catch(function () {});
+      }
     } catch (e) {}
     if (handOff(method)) return;
     // Close before navigating. Assigning the current URL can be delayed or
@@ -633,186 +636,6 @@
       cb((firebase.auth && firebase.auth().currentUser) || null, method);
     } catch (e) {}
     return true;
-  }
-
-  function clearPhoneRecaptcha() {
-    if (!phoneRecaptcha) return;
-    try { phoneRecaptcha.clear(); } catch (e) {}
-    phoneRecaptcha = null;
-  }
-
-  function normalizePhone(raw) {
-    var value = String(raw || '').trim();
-    if (!value) return '';
-    var digits = value.replace(/\D/g, '');
-    if (!value.startsWith('+') || digits.length < 8 || digits.length > 15) return '';
-    return '+' + digits;
-  }
-
-  function phoneAuthMessage(err, stage) {
-    var code = (err && err.code) || '';
-    if (code === 'auth/invalid-phone-number' || code === 'auth/missing-phone-number') return 'Enter a valid phone number with its country code, like +1 555 123 4567.';
-    if (code === 'auth/invalid-verification-code') return 'That code is not right. Check the text and try again.';
-    // Two of five phone attempts in the ten days to 2026-09-02 died on
-    // this code, so the message names the control that fixes it rather
-    // than leaving the reader to find it.
-    if (code === 'auth/code-expired' || code === 'auth/session-expired') return 'That code expired. Tap "Send a new code" below and we will text you another.';
-    if (code === 'auth/too-many-requests' || code === 'auth/quota-exceeded') return 'Too many codes were requested. Wait a while, then try again.';
-    if (code === 'auth/captcha-check-failed' || code === 'auth/missing-app-credential') return 'The security check expired. Try sending the code again.';
-    if (code === 'auth/operation-not-allowed') return 'Phone sign-in is not available yet. Use email or Google.';
-    if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
-    return stage === 'code' ? 'Could not verify that code. Try again.' : 'Could not send the code. Try email or Google.';
-  }
-
-  function renderPhoneStart(mode, value) {
-    clearPhoneRecaptcha();
-    var c = home(); if (!c) return;
-    c.innerHTML =
-      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
-      '<h2>Continue with phone</h2>' +
-      '<p class="da-sub">One text signs you in or creates your account. Use the same number next time.</p>' +
-      '<form class="da-form" id="daPhoneForm" novalidate>' +
-        '<label class="da-label" for="daPhoneNumber">Mobile number</label>' +
-        '<input class="da-input" id="daPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567" value="' + esc(value || '') + '" />' +
-        '<p class="da-phone-disclosure">Include the country code. Debatable will send one verification text. Message and data rates may apply. Google processes the number for spam and abuse prevention.</p>' +
-        // startWith:'phone' skips the chooser entirely (in-app browsers,
-        // where Google cannot complete, and /spar), so this is the only
-        // screen a visitor may ever see. It has to be able to take the
-        // agreement, not just demand it.
-        (termsAccepted() ? '' : termsFieldHtml()) +
-        '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daPhoneSend">Text me a code</button>' +
-        '<div id="daPhoneRecaptcha" aria-live="polite"></div>' +
-      '</form>' +
-      '<div class="da-status" role="status"></div>' +
-      '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneBack">' + (liveVideo ? 'Use Google instead' : 'Use email or Google instead') + '</button></p>';
-    var xBtn = c.querySelector('.da-x');
-    if (xBtn) xBtn.addEventListener('click', close);
-    wireTermsField(c);
-    c.querySelector('#daPhoneBack').addEventListener('click', function () { renderChooser(mode); });
-    c.querySelector('#daPhoneForm').addEventListener('submit', function (event) { doPhoneStart(event, mode); });
-    var input = c.querySelector('#daPhoneNumber');
-    if (input) input.focus();
-  }
-
-  function doPhoneStart(event, mode) {
-    if (event) event.preventDefault();
-    if (!requireTerms()) return;
-    setErr(''); setStatus('');
-    var c = home();
-    var input = c && c.querySelector('#daPhoneNumber');
-    var phone = normalizePhone(input && input.value);
-    if (!phone) { setErr('Include the country code, like +1 555 123 4567.'); return; }
-    var btn = c.querySelector('#daPhoneSend');
-    btn.disabled = true;
-    btn.textContent = 'Sending code…';
-    bootstrap(function () {
-      try {
-        auth = firebase.auth();
-        if (auth.useDeviceLanguage) auth.useDeviceLanguage();
-        clearPhoneRecaptcha();
-        phoneRecaptcha = new firebase.auth.RecaptchaVerifier('daPhoneSend', { size: 'invisible' });
-        var provider = new firebase.auth.PhoneAuthProvider();
-        track('sign_in_start', { method: 'phone' });
-        provider.verifyPhoneNumber(phone, phoneRecaptcha).then(function (verificationId) {
-          clearPhoneRecaptcha();
-          track('phone_code_sent');
-          renderPhoneCode(mode, phone, verificationId);
-        }).catch(function (err) {
-          clearPhoneRecaptcha();
-          btn.disabled = false;
-          btn.textContent = 'Text me a code';
-          setErr(phoneAuthMessage(err, 'send'));
-          track('phone_code_error', { code: String((err && err.code) || 'unknown').slice(0, 60) });
-        });
-      } catch (err) {
-        clearPhoneRecaptcha();
-        btn.disabled = false;
-        btn.textContent = 'Text me a code';
-        setErr(phoneAuthMessage(err, 'send'));
-      }
-    });
-  }
-
-  function renderPhoneCode(mode, phone, verificationId) {
-    var c = home(); if (!c) return;
-    c.innerHTML =
-      (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
-      '<h2>Enter the code</h2>' +
-      '<p class="da-sub">We texted a six-digit code to <span class="da-sent-to">' + esc(phone) + '</span>.</p>' +
-      '<form class="da-form" id="daPhoneCodeForm" novalidate>' +
-        '<label class="da-label" for="daPhoneCode">Verification code</label>' +
-        '<input class="da-input" id="daPhoneCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="123456" />' +
-        '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daPhoneConfirm">Finish signing in</button>' +
-      '</form>' +
-      '<div class="da-status" role="status"></div>' +
-      '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch"><button type="button" class="da-link" id="daPhoneAgain">Send a new code</button><span style="opacity:.5"> · </span><button type="button" class="da-link" id="daPhoneChoose">Use another way in</button></p>';
-    var xBtn = c.querySelector('.da-x');
-    if (xBtn) xBtn.addEventListener('click', close);
-    c.querySelector('#daPhoneAgain').addEventListener('click', function () { renderPhoneStart(mode, phone); });
-    c.querySelector('#daPhoneChoose').addEventListener('click', function () { renderChooser(mode); });
-    c.querySelector('#daPhoneCodeForm').addEventListener('submit', function (event) { doPhoneCode(event, verificationId); });
-    var input = c.querySelector('#daPhoneCode');
-    if (input) input.focus();
-  }
-
-  function doPhoneCode(event, verificationId) {
-    if (event) event.preventDefault();
-    if (!requireTerms()) return;
-    setErr(''); setStatus('');
-    var c = home();
-    var input = c && c.querySelector('#daPhoneCode');
-    var code = String((input && input.value) || '').replace(/\D/g, '');
-    if (code.length !== 6) { setErr('Enter the six-digit code from the text.'); return; }
-    var btn = c.querySelector('#daPhoneConfirm');
-    btn.disabled = true;
-    btn.textContent = 'Signing you in…';
-    try {
-      auth = firebase.auth();
-      var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
-      var current = auth.currentUser;
-      // Linking the verified number onto the anonymous session keeps the
-      // guest's work. When the number already belongs to an account,
-      // linking cannot succeed and signing in with the same credential
-      // is the right answer, so EVERY collision code falls through to
-      // it rather than a curated pair.
-      //
-      // auth/account-exists-with-different-credential was missing from
-      // that pair, and it is not hypothetical: it was 1 of 5 phone
-      // attempts in the ten days to 2026-09-02. It surfaced as "Could
-      // not verify that code. Try again," which is advice that can
-      // never work, on a returning user whose number is already on an
-      // account. That is the "cannot sign back in" report. Treat a new
-      // collision code as this bug recurring, not as a new one.
-      var LINK_COLLISION = {
-        'auth/credential-already-in-use': 1,
-        'auth/phone-number-already-exists': 1,
-        'auth/account-exists-with-different-credential': 1,
-        'auth/email-already-in-use': 1,
-        'auth/provider-already-linked': 1,
-      };
-      var attempt = current && current.isAnonymous && current.linkWithCredential
-        ? current.linkWithCredential(credential).catch(function (err) {
-            if (LINK_COLLISION[(err && err.code) || '']) {
-              return auth.signInWithCredential(credential);
-            }
-            throw err;
-          })
-        : auth.signInWithCredential(credential);
-      attempt.then(function () {
-        finishSignIn('phone');
-      }).catch(function (err) {
-        btn.disabled = false;
-        btn.textContent = 'Finish signing in';
-        setErr(phoneAuthMessage(err, 'code'));
-        track('phone_code_error', { code: String((err && err.code) || 'unknown').slice(0, 60) });
-      });
-    } catch (err) {
-      btn.disabled = false;
-      btn.textContent = 'Finish signing in';
-      setErr(phoneAuthMessage(err, 'code'));
-    }
   }
 
   function doGoogle() {
@@ -1551,19 +1374,13 @@
     // cases where the default would be actively wrong: a failed link
     // must not land on a password form.
     renderChooser(mode, opts && opts.emailMode);
-    // A caller that already knows which door the person will use (the
-    // /spar gate's phone button, or any live-video prompt inside an
-    // in-app browser) opens on that step; the chooser stays one tap back.
-    if (opts && opts.startWith === 'phone' && !googleOnly) {
-      renderPhoneStart(mode === 'signup' && lastMethod() ? 'signin' : mode);
-    }
     modal.classList.add('on');
     document.body.classList.add('signin-modal-open');
     try { document.documentElement.classList.toggle('da-auth-locked', locked); } catch (e) {}
     // Retract Google One Tap if it's showing (signup-nudge.js listens);
     // two account choosers at once reads as broken.
     try { window.dispatchEvent(new CustomEvent('debatable:authmodal-open')); } catch (e) {}
-    var closeButton = modal.querySelector('.da-x') || modal.querySelector('#daG') || modal.querySelector('#daPhone') || modal.querySelector('#daEmail');
+    var closeButton = modal.querySelector('.da-x') || modal.querySelector('#daG') || modal.querySelector('#daEmail');
     if (closeButton) closeButton.focus();
   }
   window.openAuthModal = openAuthModal;
