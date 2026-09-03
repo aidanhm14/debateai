@@ -121,6 +121,23 @@ check(
 );
 check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
 
+const watch = read('app/watch.html');
+check(
+  (watch.match(/data-pan-shelf role=/g) || []).length === 2
+    && watch.includes("window.matchMedia('(prefers-reduced-motion: reduce)')")
+    && watch.includes("['pointerdown','touchstart','wheel','keydown','focusin','mouseenter']")
+    && watch.includes("new IntersectionObserver(function(entries)")
+    && watch.includes('animateTo(target, 2800')
+    && watch.includes("shelf.id === 'replaysGrid' ? 1300 : 6500"),
+  'watch shelves preview their overflow smoothly and yield to human control',
+);
+check(
+  watch.includes('<span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span>')
+    && watch.includes('.watch-shelf.no-overflow .watch-shelf-cue'),
+  'watch shelves visibly explain horizontal browsing only when content overflows',
+);
+check(inlineScriptsParse('app/watch.html'), 'app/watch.html inline scripts parse');
+
 const liveRound = read('app/live-round.html');
 check(
   (liveRound.match(/data-aud-tab=/g) || []).length === 2

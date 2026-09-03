@@ -715,6 +715,21 @@ body.social-watch .rail-list{display:flex;gap:12px;max-height:none;overflow-x:au
 body.social-watch .yt-card,
 body.social-watch .rail-list .card{display:block;flex:0 0 calc(50% - 6px);min-width:235px;max-width:none;scroll-snap-align:start}
 body.social-watch .rail-list .card .thumb{margin:0 0 10px}
+.watch-shelf{position:relative;min-width:0}
+.watch-shelf::after{content:"";position:absolute;z-index:2;top:0;right:0;bottom:10px;width:72px;
+  background:linear-gradient(90deg,transparent,var(--surface) 86%);pointer-events:none;
+  opacity:1;transition:opacity .45s ease}
+.watch-shelf-cue{position:absolute;z-index:3;right:8px;top:50%;display:inline-flex;align-items:center;gap:7px;
+  min-height:36px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);
+  box-shadow:0 6px 18px rgba(20,20,24,.14);color:var(--text);font-size:12px;font-weight:850;
+  letter-spacing:.02em;pointer-events:none;transform:translateY(-50%);opacity:1;
+  transition:opacity .45s ease,transform .45s ease}
+.watch-shelf-cue b{font-size:18px;line-height:1;animation:watch-shelf-nudge 1.8s ease-in-out infinite}
+.watch-shelf-cue .cue-swipe{display:none}
+.watch-shelf.has-panned::after,.watch-shelf.no-overflow::after{opacity:0}
+.watch-shelf.has-panned .watch-shelf-cue,.watch-shelf.no-overflow .watch-shelf-cue{opacity:0;transform:translate(8px,-50%)}
+.watch-shelf .is-auto-panning{scroll-snap-type:none!important}
+@keyframes watch-shelf-nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 
 @media(max-width:900px){
   body.social-watch .watch-cols{grid-template-columns:minmax(0,1fr);gap:18px}
@@ -729,10 +744,13 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
   body.social-watch .yt-sec{padding:16px;border-radius:20px}
   body.social-watch .yt-card,
   body.social-watch .rail-list .card{flex-basis:86%;min-width:0;width:auto;max-width:320px}
+  .watch-shelf-cue .cue-scroll{display:none}
+  .watch-shelf-cue .cue-swipe{display:inline}
   .ls-row{grid-template-columns:104px minmax(0,1fr);gap:11px;padding:12px}
   .ls-shot{width:104px}
   .ls-watch{grid-column:2;justify-self:start;padding:8px 14px}
 }
+@media(prefers-reduced-motion:reduce){.watch-shelf-cue b{animation:none}}
 
 /* ── Stance card, ported from /spectate ──────────────────────────────
    The "where do you stand" before/after pair. The preferences builder
@@ -1009,7 +1027,8 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
         On YouTube
       </span>
     </div>
-    <div class="yt-grid">
+    <div class="watch-shelf">
+    <div class="yt-grid" data-pan-shelf role="region" aria-label="YouTube debate picks. Scroll horizontally for more." tabindex="0">
       <a class="yt-card" href="https://www.youtube.com/watch?v=cwSXDr7XkNc" target="_blank" rel="noopener noreferrer">
         <span class="yt-thumb">
           <img src="https://i.ytimg.com/vi/cwSXDr7XkNc/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
@@ -1050,6 +1069,8 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
         </div>
       </a>
     </div>
+    <span class="watch-shelf-cue" aria-hidden="true"><span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span><b>&rarr;</b></span>
+    </div>
     <p class="yt-note">Hosted on YouTube by the organisations that ran them. They open in a new tab. Debatable is not affiliated with them. <a href="/spar">Take a side yourself</a>.</p>
   </section>
 
@@ -1070,7 +1091,8 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
       <button class="fchip" type="button" data-filter="round">Rounds</button>
       <button class="fchip" type="button" data-filter="clip">Clips</button>
     </div>
-    <div class="rail-list" id="replaysGrid">
+    <div class="watch-shelf">
+    <div class="rail-list" id="replaysGrid" data-pan-shelf role="region" aria-label="Debatable debate replays. Scroll horizontally for more." tabindex="0">
       <div class="card still">
         <div class="thumb" aria-hidden="true">
           <img class="th-img" src="/assets/replays/76cda947-3a6c-4a53-ab22-55225681f45c.jpg" alt="" loading="lazy" decoding="async">
@@ -1112,11 +1134,98 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
         </div>
       </div>
     </div>
+    <span class="watch-shelf-cue" aria-hidden="true"><span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span><b>&rarr;</b></span>
+    </div>
     <p class="sec-sub" id="replaysSub" style="margin:14px 0 0;font-size:13.5px">Ordinary rooms publish once every seat opts in. Tournament preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a></p>
   </section>
 
     </aside>
   </div>
+
+  <!-- Each shelf gives one quiet preview pan after it enters the viewport.
+       Any sign of human control cancels it permanently, so the page never
+       competes with someone who is already browsing. -->
+  <script>
+  (function(){
+    var reduceMotion = false;
+    try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pan-shelf]'), function(shelf){
+      var frame = shelf.parentElement;
+      var timer = 0;
+      var raf = 0;
+      var stopped = false;
+      var started = false;
+
+      function maxScroll(){ return Math.max(0, shelf.scrollWidth - shelf.clientWidth); }
+      function refreshOverflow(){ frame.classList.toggle('no-overflow', maxScroll() < 8); }
+      function cancelPreview(){
+        if (stopped) return;
+        stopped = true;
+        clearTimeout(timer);
+        cancelAnimationFrame(raf);
+        shelf.classList.remove('is-auto-panning');
+        frame.classList.add('has-panned');
+      }
+      function animateTo(left, duration, done){
+        if (stopped || document.hidden) return;
+        var from = shelf.scrollLeft;
+        var distance = left - from;
+        var began = 0;
+        shelf.classList.add('is-auto-panning');
+        function step(now){
+          if (stopped) return;
+          if (!began) began = now;
+          var progress = Math.min(1, (now - began) / duration);
+          var eased = .5 - Math.cos(Math.PI * progress) / 2;
+          shelf.scrollLeft = from + distance * eased;
+          if (progress < 1) raf = requestAnimationFrame(step);
+          else {
+            shelf.classList.remove('is-auto-panning');
+            if (done) done();
+          }
+        }
+        raf = requestAnimationFrame(step);
+      }
+      function preview(){
+        refreshOverflow();
+        if (stopped || reduceMotion || maxScroll() < 8 || shelf.scrollLeft > 4) return;
+        var first = shelf.firstElementChild;
+        var second = first && first.nextElementSibling;
+        var step = second ? second.offsetLeft - first.offsetLeft : shelf.clientWidth * .55;
+        var target = Math.min(maxScroll(), Math.max(120, step));
+        if (target < 8) return;
+        frame.classList.add('has-panned');
+        animateTo(target, 2800, function(){
+          timer = setTimeout(function(){
+            animateTo(0, 2200);
+          }, 700);
+        });
+      }
+      function schedule(){
+        if (started || stopped || reduceMotion) return;
+        started = true;
+        timer = setTimeout(preview, shelf.id === 'replaysGrid' ? 1300 : 6500);
+      }
+
+      ['pointerdown','touchstart','wheel','keydown','focusin','mouseenter'].forEach(function(type){
+        shelf.addEventListener(type, cancelPreview, { passive:true });
+      });
+      window.addEventListener('resize', refreshOverflow, { passive:true });
+      if (window.MutationObserver) new MutationObserver(refreshOverflow).observe(shelf, { childList:true });
+      refreshOverflow();
+
+      if ('IntersectionObserver' in window){
+        var observer = new IntersectionObserver(function(entries){
+          if (!entries[0].isIntersecting) return;
+          observer.disconnect();
+          schedule();
+        }, { threshold:.3 });
+        observer.observe(frame);
+      } else schedule();
+    });
+  })();
+  </script>
 
   <!-- Stance before and after, ported from /spectate when it folded in.
        Hidden until a motion resolves; nothing here is published or
