@@ -3434,7 +3434,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
        invites them into a second one. See js/round-presence.js. -->
   <script defer src="/js/round-presence.js"></script>
 </head>
-<body>
+<body class="lr-setup">
 
 <nav class="bar">
   <a href="/" class="bar-logo" aria-label="Debatable home"><em>Debatable</em><span class="bar-context">&nbsp;· Live Round</span></a>
@@ -3634,21 +3634,23 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         <!-- 2-side default. BP / Worlds rounds also expose four
              team-name inputs (cgName / coName) which the setup logic
              reveals when state.formatKey is a 4-team format. -->
-        <div class="field">
-          <label for="proName" id="proLabel">Pro speaker</label>
-          <input id="proName" type="text" maxlength="40" placeholder="Name on the Pro/Aff side" />
-        </div>
-        <div class="field">
-          <label for="conName" id="conLabel">Con speaker</label>
-          <input id="conName" type="text" maxlength="40" placeholder="Name on the Con/Neg side" />
-        </div>
-        <div class="field" id="cgField" style="display:none">
-          <label for="cgName">Closing Government team</label>
-          <input id="cgName" type="text" maxlength="40" placeholder="MG + GW team" />
-        </div>
-        <div class="field" id="coField" style="display:none">
-          <label for="coName">Closing Opposition team</label>
-          <input id="coName" type="text" maxlength="40" placeholder="MO + OW team" />
+        <div class="setup-speaker-grid">
+          <div class="field setup-speaker setup-speaker--pro">
+            <label for="proName" id="proLabel">Pro speaker</label>
+            <input id="proName" type="text" maxlength="40" placeholder="Name on the Pro side" />
+          </div>
+          <div class="field setup-speaker setup-speaker--con">
+            <label for="conName" id="conLabel">Con speaker</label>
+            <input id="conName" type="text" maxlength="40" placeholder="Name on the Con side" />
+          </div>
+          <div class="field" id="cgField" style="display:none">
+            <label for="cgName">Closing Government team</label>
+            <input id="cgName" type="text" maxlength="40" placeholder="MG + GW team" />
+          </div>
+          <div class="field" id="coField" style="display:none">
+            <label for="coName">Closing Opposition team</label>
+            <input id="coName" type="text" maxlength="40" placeholder="MO + OW team" />
+          </div>
         </div>
       </div>
       <div class="panel-section">
@@ -3661,24 +3663,32 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             <option value="open">Just argue · no speeches, both mics live, end whenever</option>
           </select>
         </div>
-        <div class="label">Speech sequence</div>
-        <div id="sequencePreview" style="font-size:.78rem;color:var(--text-dim);line-height:1.6"></div>
-        <div class="label" style="margin-top:14px">Prep time</div>
-        <div class="field">
-          <select id="prepSel">
-            <option value="0">No prep, start right away</option>
-            <option value="1">1 minute</option>
-            <option value="3">3 minutes</option>
-            <option value="5" selected>5 minutes</option>
-            <option value="10">10 minutes</option>
-            <option value="15">15 minutes</option>
-          </select>
+        <div class="setup-timing-grid">
+          <div class="setup-timing-card">
+            <div class="label">Speech sequence</div>
+            <div id="sequencePreview" style="font-size:.78rem;color:var(--text-dim);line-height:1.6"></div>
+          </div>
+          <div class="setup-timing-card">
+            <div class="label">Prep time</div>
+            <div class="field">
+              <select id="prepSel">
+                <option value="0">No prep, start right away</option>
+                <option value="1">1 minute</option>
+                <option value="3">3 minutes</option>
+                <option value="5" selected>5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="panel-section">
-        <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
-        <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Click Start to launch the video room and begin Speech 1. Both speakers should join the same room.</p>
-        <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+      <div class="panel-section setup-start">
+        <div class="setup-start-inner">
+          <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
+          <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Start opens the video room and begins Speech 1. Send this page to the other speaker so you both enter the same room.</p>
+          <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+        </div>
       </div>
     </div>
 
@@ -5148,8 +5158,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function renderSetupJudgeTypes(){
     var host = $('setupJudgeTypes');
     if (!host) return;
+    host.classList.toggle('is-fixed', tournamentControlsLocked() || SINGLE_JUDGE);
     if (tournamentControlsLocked()){
-      host.innerHTML = '<div class="jd-card is-agreed" aria-label="Three-judge tournament council fixed">' +
+      host.innerHTML = '<div class="jd-card setup-judge-fixed is-agreed" aria-label="Three-judge tournament council fixed">' +
         '<div class="jd-card-name"><span class="jd-dot"></span>Three-judge council</div>' +
         '<div class="jd-card-tag">All 3 must return. 2 matching votes decide. Fixed for this tournament.</div>' +
       '</div>';
@@ -5158,7 +5169,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (SINGLE_JUDGE){
       var hint = $('setupJudgeHint');
       if (hint) hint.textContent = '\u00b7 one AI judge, the same for both sides';
-      host.innerHTML = '<div class="jd-card is-agreed" aria-label="AI judge, fixed">' +
+      host.innerHTML = '<div class="jd-card setup-judge-fixed is-agreed" aria-label="AI judge, fixed">' +
         '<div class="jd-card-name"><span class="jd-dot"></span>The AI judge</div>' +
         '<div class="jd-card-tag">Decides on what was said and how it was weighed. Nothing to pick.</div>' +
         judgeHowHtml('Setup') +
@@ -5209,15 +5220,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         + '<span class="tag tag-con">' + escHtml(f.sideLabels[f.sides[1]]) + '</span>';
     $('formatDisplay').innerHTML =
       '<span class="tag">' + escHtml(f.name) + '</span>' +
-      sideChips +
+      ((state.formatKey === 'quick' || f.open) ? '' : sideChips) +
       '<span class="tag">' + f.speeches.length + ' speech' + (f.speeches.length===1?'':'es') + '</span>' +
       // Sits in the chip row for every format, not just open clash: debaters
       // routinely assume an AI judge only scores the prepared speeches.
-      '<span class="tag tag-judge">Questions + interruptions scored</span>' +
+      '<span class="tag tag-judge">Every response scored</span>' +
       (state.formatKey === 'quick'
-        ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Casual 1v1. <strong style="color:var(--text)">The AI judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
+        ? '<div class="setup-format-copy"><strong>The AI judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
         : (f.open
-          ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Just argue. <strong style="color:var(--text)">Both mics stay on, there is no clock to beat, and either of you ends it.</strong> The judge reads the whole exchange and decides.</div>'
+          ? '<div class="setup-format-copy"><strong>Both mics stay on, there is no clock to beat, and either of you ends it.</strong> The judge reads the whole exchange and decides.</div>'
           : '')) +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
@@ -5406,6 +5417,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // CSS keys off this to collapse the stepper + explainer lines while
     // speeches run; the full guide returns for setup + ballot.
     guide.setAttribute('data-phase', phase);
+    document.body.classList.toggle('lr-setup', phase === 'setup');
     // The phone layout pins the speech controls to the bottom of the
     // viewport, but only while there is a speech to control.
     document.body.classList.toggle('lr-round-live', phase === 'round');
@@ -22588,6 +22600,82 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 .safety-check input{width:18px;height:18px;margin:0;accent-color:var(--accent,#ef4444)}
 </style>
 <style>
+/* ══════════════════════════════════════════════════════════════════
+   Setup layout (2026-09-03).
+   The video can be collapsed, which turns the round panel into a full
+   desktop canvas. The setup used to stretch every field and divider to
+   that canvas width. Keep one readable form measure, show the two sides
+   as a matchup, and group the two timing decisions together. Container
+   queries key off the panel because the draggable split can make it
+   narrow inside a wide browser window.
+   ══════════════════════════════════════════════════════════════════ */
+#setupView{
+  width:100%;max-width:1120px;align-self:center;
+}
+.setup-speaker-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.setup-speaker-grid .field{margin-bottom:0}
+.setup-speaker label{display:flex;align-items:center;gap:7px}
+.setup-speaker label::before{
+  content:'';width:8px;height:8px;border-radius:50%;flex:none;
+  background:currentColor;box-shadow:0 0 0 3px rgba(127,127,127,.08);
+}
+.setup-speaker--pro label{color:var(--green)}
+.setup-speaker--con label{color:var(--accent)}
+.setup-speaker input{min-height:54px;border-left-width:3px}
+.setup-speaker--pro input{border-left-color:rgba(34,197,94,.72)}
+.setup-speaker--con input{border-left-color:rgba(239,68,68,.72)}
+.setup-speaker--pro input:focus{
+  border-color:rgba(34,197,94,.72);box-shadow:0 0 0 3px rgba(34,197,94,.10);
+}
+.setup-speaker--con input:focus{
+  border-color:rgba(239,68,68,.72);box-shadow:0 0 0 3px rgba(239,68,68,.10);
+}
+.setup-timing-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.setup-timing-card{
+  min-width:0;padding:14px 15px;border:1px solid var(--border);
+  border-radius:14px;background:var(--ui-surface);
+}
+.setup-timing-card .field{margin-bottom:0}
+.setup-timing-card select{min-height:46px}
+.setup-start-inner{width:100%;max-width:600px;margin:0 auto}
+.setup-format-copy{
+  flex-basis:100%;max-width:760px;font-size:.78rem;line-height:1.5;
+  color:var(--text-dim);
+}
+.setup-format-copy strong{color:var(--text)}
+.setup-judge-grid.is-fixed{grid-template-columns:minmax(0,1fr)}
+.setup-judge-fixed{
+  --jx:var(--accent);
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:7px 14px;padding:13px 14px;cursor:default;
+  border-color:var(--border-strong);background:var(--ui-surface);
+}
+.setup-judge-fixed.is-agreed{
+  border-color:var(--border-strong);background:var(--ui-surface);
+}
+.setup-judge-fixed:hover{transform:none;border-color:var(--border-strong)}
+.setup-judge-fixed .jd-card-name{margin:0}
+.setup-judge-fixed .jd-card-tag{grid-column:1/-1;margin:0}
+.setup-judge-fixed .jd-how{grid-column:2;grid-row:1}
+@container round-panel (min-width:560px){
+  .setup-speaker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .setup-timing-grid{grid-template-columns:minmax(0,1.35fr) minmax(240px,.65fr)}
+  .setup-judge-fixed{grid-template-columns:max-content minmax(0,1fr) auto}
+  .setup-judge-fixed .jd-card-name{grid-column:1;grid-row:1}
+  .setup-judge-fixed .jd-card-tag{grid-column:2;grid-row:1}
+  .setup-judge-fixed .jd-how{grid-column:3;grid-row:1}
+}
+@media(min-width:1001px){
+  body.lr-vid-off #setupView{
+    margin:22px auto 40px;border:1px solid var(--border);border-radius:20px;
+    overflow:hidden;background:var(--bg-card);box-shadow:var(--shadow-lg);
+  }
+}
+@media(max-width:560px){
+  #setupView .panel-section{padding:20px 16px}
+  .setup-timing-card{padding:13px}
+}
+
 /* ══════════════════════════════════════════════════════════════════
    Active-round simplification (2026-08-24).
    The round panel had grown to answer a dozen questions at once. It now
