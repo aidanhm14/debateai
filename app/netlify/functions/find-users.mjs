@@ -37,7 +37,13 @@ const BROWSE_TTL_MS = 60 * 1000;
 function clean(s, n) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n); }
 function safePhoto(u) {
   const s = String(u || '');
-  return /^https:\/\/lh\d\.googleusercontent\.com\//.test(s) ? s.slice(0, 400) : null;
+  if (/^https:\/\/lh\d\.googleusercontent\.com\//.test(s)) return s.slice(0, 400);
+  try {
+    const url = new URL(s);
+    const own = (url.hostname === 'itsdebatable.com' || url.hostname === 'www.itsdebatable.com')
+      && url.pathname === '/api/profile-photo' && /^[A-Za-z0-9_-]{8,128}$/.test(url.searchParams.get('uid') || '');
+    return own ? url.href.slice(0, 400) : null;
+  } catch { return null; }
 }
 function norm(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, ''); }
 

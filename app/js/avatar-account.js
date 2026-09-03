@@ -21,17 +21,19 @@
   var PFP_KEY = 'debatable-pfp-v1';
   var PREF_KEY = 'debatable-avatar-pref';
   var PFP_AUTO_KEY = 'debatable-pfp-auto-v1';
+  var PHOTO_KEY = 'debatable-profile-photo-v1';
   var META_KEY = 'debatable-avatar-sync-v1';
   var PORTRAIT_EVT = 'debatable-avatar-change';
   var LIVE_EVT = 'debatable-avatar-design';
   var READY_EVT = 'debatable-avatar-account-ready';
   /* v2 added pfpId + pref. v3 adds pfpAuto so the UI can offer the stable
      account default once without treating it as a deliberate choice.
+     v4 adds the uploaded photo version and the photo preference.
      A v1 record predates picture fields and therefore makes
      NO statement about the picked picture, so applyRecord leaves the two
      local keys alone rather than clearing a pick every time an old cached
      client's record hydrates. Only a v2+ record may write or clear them. */
-  var VERSION = 3;
+  var VERSION = 4;
   var applyingRemote = false;
   var currentUser = null;
   var db = null;
@@ -44,7 +46,7 @@
      user's own local storage by applyRecord().
 
      2026-08-24, from a report of "it's not saving my profile picture when
-     I change it". These five lists had fallen behind js/cam-avatar.js by
+     I change it". These lists had fallen behind js/cam-avatar.js by
      one release of options: three scenes, three colours, three outfits,
      four masks and three eye shapes existed in the designer and not here.
      Measured on the founder's account: picking the Oni mask, Gold, and
@@ -62,6 +64,7 @@
   var OUTFITS = ['ink','navy','plum','pine','slate','rust','bone','royal'];
   var MASKS = ['blade','classic','visor','wing','oni','plate','slim'];
   var EYES = ['focus','sharp','open','calm','round','keen','hooded'];
+  var STYLES = ['face2d','mask'];
   function offered(group, fallbackList) {
     try {
       var table = global.DebateCam && global.DebateCam.designOptions;
@@ -87,6 +90,7 @@
   function cleanDesign(d) {
     d = d || {};
     return {
+      style: valid(d.style === 'face3d' ? 'face2d' : d.style, offered('style', STYLES), 'face2d'),
       scene: valid(d.scene, offered('scene', SCENES), 'arena'),
       accent: valid(d.accent, offered('accent', ACCENTS), 'crimson'),
       outfit: valid(d.outfit, offered('outfit', OUTFITS), 'ink'),
@@ -152,10 +156,14 @@
     } catch (e) {}
     return id;
   }
-  // Only the two values avatar.js ever writes. Anything else reads as
+  function cleanPhotoVersion(value) {
+    var n = Number(value);
+    return Number.isFinite(n) && n > 0 && n <= Number.MAX_SAFE_INTEGER ? Math.floor(n) : 0;
+  }
+  // Only the three values avatar.js ever writes. Anything else reads as
   // "never chose", which falls back to the pre-picker identity order.
   function cleanPref(value) {
-    return value === 'pfp' || value === 'portrait' ? value : '';
+    return value === 'photo' || value === 'pfp' || value === 'portrait' ? value : '';
   }
   function meta() { return read(META_KEY, {}) || {}; }
   function localRecord() {
@@ -170,11 +178,12 @@
       liveDesign: live,
       liveLooks: looks,
       pfpId: cleanPfpId(readRaw(PFP_KEY)),
+      photoVersion: cleanPhotoVersion(readRaw(PHOTO_KEY)),
       pref: cleanPref(readRaw(PREF_KEY)),
       pfpAuto: readRaw(PFP_AUTO_KEY) === '1' && !!cleanPfpId(readRaw(PFP_KEY))
     };
   }
-  function hasIdentity(record) { return !!(record && (record.portraitConfig || record.liveDesign || record.pfpId)); }
+  function hasIdentity(record) { return !!(record && (record.photoVersion || record.portraitConfig || record.liveDesign || record.pfpId)); }
   function touch() {
     var m = meta(); m.updatedAtMs = Date.now(); write(META_KEY, m);
   }
@@ -187,6 +196,10 @@
     if (global.DBAvatar && global.DBAvatar.getPublicIdentity) {
       var id = global.DBAvatar.getPublicIdentity();
       if (!id) return null;
+      if (id.kind === 'photo') {
+        var version = cleanPhotoVersion(id.v);
+        return version ? { kind:'photo', v:version } : null;
+      }
       if (id.kind === 'live') return { kind:'live', design:cleanDesign(id.design) };
       if (id.kind === 'portrait') return { kind:'portrait', config:cleanPortrait(id.config) };
       if (id.kind === 'pfp') {
@@ -200,11 +213,11 @@
       }
     }
     var record = localRecord();
-    // Same order as avatar.js getPublicIdentity: the kind chosen LAST wins,
-    // then the pre-picker fallback order.
+    // Same order as avatar.js getPublicIdentity: the kind chosen LAST wins.
+    if (record.pref === 'photo' && record.photoVersion) return { kind:'photo', v:record.photoVersion };
     if (record.pref === 'pfp' && record.pfpId) return { kind:'pfp', id:record.pfpId };
     if (record.pref === 'portrait' && record.portraitConfig) return { kind:'portrait', config:record.portraitConfig };
-    if (record.liveDesign) return { kind:'live', design:record.liveDesign };
+    if (record.photoVersion) return { kind:'photo', v:record.photoVersion };
     if (record.portraitConfig) return { kind:'portrait', config:record.portraitConfig };
     return record.pfpId ? { kind:'pfp', id:record.pfpId } : null;
   }
@@ -217,6 +230,9 @@
   }
   function applyRecord(remote) {
     remote = remote || {};
+    var remoteVersion = Math.max(1, Number(remote.version) || 1);
+    var localPhotoVersion = cleanPhotoVersion(readRaw(PHOTO_KEY));
+    var localPref = cleanPref(readRaw(PREF_KEY));
     var record = {
       version: VERSION,
       updatedAtMs: Math.max(0, Number(remote.updatedAtMs) || Date.now()),
@@ -224,13 +240,15 @@
       liveDesign: remote.liveDesign ? cleanDesign(remote.liveDesign) : null,
       liveLooks: cleanLooks(remote.liveLooks),
       pfpId: cleanPfpId(remote.pfpId),
-      pref: cleanPref(remote.pref),
+      photoVersion: remoteVersion >= 4 ? cleanPhotoVersion(remote.photoVersion) : localPhotoVersion,
+      pref: remoteVersion < 4 && localPhotoVersion && localPref === 'photo' ? 'photo' : cleanPref(remote.pref),
       pfpAuto: Number(remote.version) >= 3 && remote.pfpAuto === true
     };
     applyingRemote = true;
     write(PORTRAIT_KEY, record.portraitConfig);
     write(LIVE_KEY, record.liveDesign);
     write(LOOKS_KEY, record.liveLooks);
+    if (remoteVersion >= 4) writeRaw(PHOTO_KEY, record.photoVersion ? String(record.photoVersion) : '');
     if (Number(remote.version) >= 2) {
       writeRaw(PFP_KEY, record.pfpId);
       writeRaw(PREF_KEY, record.pref);
@@ -270,7 +288,7 @@
      one-time keep-or-change offer honest. */
   function ensureDefaultPfp(user, cb) {
     var before = localRecord();
-    if (!user || before.pfpId) { cb(before, false); return; }
+    if (!user || before.pfpId || before.photoVersion) { cb(before, false); return; }
     loadPfpLib(function (lib) {
       if (!currentUser || currentUser.uid !== user.uid) return;
       if (!lib || !lib.list || !lib.list.length || !lib.pick) { cb(localRecord(), false); return; }

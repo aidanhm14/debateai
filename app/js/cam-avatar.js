@@ -41,14 +41,13 @@
   const LOOKS_KEY = 'debatable-avatar-looks-v1';
   const DEFAULT_KEY = 'debatable-live-avatar-default-v1';
   const DESIGN_EVENT = 'debatable-avatar-design';
-  const DEFAULT_DESIGN = { style: 'face3d', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
+  const DEFAULT_DESIGN = { style: 'face2d', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus' };
   const DESIGN_OPTIONS = {
-    // 'face' paints the debater's own cartoon portrait (js/avatar.js) in 3D;
-    // 'mask' is the original anonymous arena figure. Face is the default
-    // because a call reads better with a person in it than with a badge.
+    // The shaded 3D face was retired 2026-09-03. It made head movement read
+    // like a light sweeping over the skin. The flat cartoon stays expressive
+    // without that effect; the anonymous mask remains available by choice.
     style: [
-      { key: 'face3d', label: '3D avatar' },
-      { key: 'face2d', label: '2D avatar' },
+      { key: 'face2d', label: 'Cartoon avatar' },
       { key: 'mask', label: 'Anonymous mask' },
     ],
     scene: [
@@ -114,7 +113,7 @@
     input = input || {};
     const out = {};
     Object.keys(DEFAULT_DESIGN).forEach(function (group) {
-      const key = input[group];
+      const key = group === 'style' && input[group] === 'face3d' ? 'face2d' : input[group];
       out[group] = findOption(group, key).key;
     });
     return out;
@@ -126,6 +125,11 @@
       out[group] = opts[Math.floor(Math.random() * opts.length)].key;
     });
     return out;
+  }
+  function differentOption(group, current) {
+    const options = DESIGN_OPTIONS[group].filter(function (option) { return option.key !== current; });
+    const pool = options.length ? options : DESIGN_OPTIONS[group];
+    return pool[Math.floor(Math.random() * pool.length)].key;
   }
   // Somebody who never opens the designer should still not look like
   // everybody else who never opened it. DEFAULT_DESIGN alone made every
@@ -736,7 +740,7 @@
     return faceCfgCache;
   }
   function faceLook(design) {
-    if (design.style !== 'face3d' && design.style !== 'face2d') return null;
+    if (design.style !== 'face2d') return null;
     const A = window.DBAvatar;
     const cfg = faceCfg();
     const SK = (A && A.SKIN) || FB_SKIN, HR = (A && A.HAIR) || FB_HAIR, IR = (A && A.IRIS) || FB_IRIS;
@@ -752,7 +756,7 @@
       browC: shade(hair, (cfg.hair | 0) >= 4 ? -0.18 : 0.02),
       iris: pick(IR, cfg.iris, FB_IRIS[0]),
       lip: mixHex(skin, '#b0505c', 0.55),
-      flat: design.style === 'face2d',
+      flat: true,
       kind: HAIR_KIND[cfg.top | 0] || 'cap',
       eyes: cfg.eyes | 0, brows: cfg.brows | 0, glasses: cfg.glasses | 0, facial: cfg.facial | 0
     };
@@ -2184,7 +2188,7 @@
       // Mask shape and mask eyes belong to the anonymous figure. With the
       // cartoon face chosen they control nothing, so they come off the panel
       // rather than sitting there inert.
-      const isFace = draft.style === 'face3d' || draft.style === 'face2d';
+      const isFace = draft.style === 'face2d';
       Array.prototype.forEach.call(overlay.querySelectorAll('[data-face-group]'), function (button) {
         const on = face && (face[button.getAttribute('data-face-group')] | 0) === +button.getAttribute('data-face-value');
         button.classList.toggle('is-selected', !!on);
@@ -2265,7 +2269,7 @@
         else if (key === 'surprise') {
           Object.keys(DEFAULT_DESIGN).forEach(function (group) {
             if (group === 'style') return;   // the look is a choice, not a dice roll
-            const options = DESIGN_OPTIONS[group]; draft[group] = options[Math.floor(Math.random() * options.length)].key;
+            draft[group] = differentOption(group, draft[group]);
           });
           if (A0 && A0.randomConfig) { face = A0.randomConfig(String(Math.random())); pushFace(); }
           sync();

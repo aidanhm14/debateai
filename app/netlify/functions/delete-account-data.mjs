@@ -1,4 +1,5 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { getStore } from '@netlify/blobs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -43,6 +44,7 @@ export default async (request) => {
     'floor_users',
   ];
   const directJobs = directCollections.map((name) => deleteRef(db, db.collection(name).doc(uid)));
+  directJobs.push(getStore('profile-photos').delete(`avatar/${uid}.jpg`));
   const queryJobs = [
     deleteQuery(db, db.collection('generations').where('uid', '==', uid)),
     deleteQuery(db, db.collection('leaderboard_entries').where('uid', '==', uid)),

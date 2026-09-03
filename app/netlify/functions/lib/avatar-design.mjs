@@ -1,6 +1,6 @@
 /* The avatar option keys, in one place.
  *
- * WHY THIS FILE EXISTS. The same five lists were written out four times:
+ * WHY THIS FILE EXISTS. The same design lists were written out four times:
  * in the designer (js/cam-avatar.js DESIGN_OPTIONS), in the renderer
  * (js/avatar.js LIVE_*), in the account sync (js/avatar-account.js), and
  * in every server function that copies an avatar onto a public document.
@@ -23,6 +23,7 @@
  */
 
 export const AVATAR_DESIGN_OPTIONS = {
+  style:  ['face2d', 'mask'],
   scene:  ['arena', 'skyline', 'library', 'studio', 'orbit', 'forest', 'chamber', 'neon', 'void'],
   accent: ['crimson', 'electric', 'violet', 'teal', 'rose', 'silver', 'gold', 'lime', 'ice'],
   outfit: ['ink', 'navy', 'plum', 'pine', 'slate', 'rust', 'bone', 'royal'],
@@ -34,14 +35,14 @@ export const AVATAR_DESIGN_OPTIONS = {
  * entry of each list, so the fallback is the designer's own default rather
  * than a second opinion about what a default is. */
 export const AVATAR_DESIGN_FALLBACK = {
-  scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus',
+  style: 'face2d', scene: 'arena', accent: 'crimson', outfit: 'ink', mask: 'blade', eyes: 'focus',
 };
 
 /* Portrait avatars are numeric indices into the renderer's part banks, so
  * they need a range rather than an allow-list. The cap matches every other
  * copy of this check. */
 export const AVATAR_PORTRAIT_KEYS = [
-  'skin', 'hair', 'top', 'eyes', 'brows', 'mouth', 'facial',
+  'face', 'skin', 'hair', 'top', 'eyes', 'brows', 'mouth', 'facial',
   'glasses', 'accessory', 'bg', 'outfit', 'iris', 'detail',
 ];
 const PORTRAIT_MAX = 20;
@@ -54,7 +55,8 @@ export function cleanLiveDesign(input) {
   const d = input && typeof input === 'object' ? input : {};
   const out = {};
   for (const group of Object.keys(AVATAR_DESIGN_OPTIONS)) {
-    out[group] = SETS[group].has(d[group]) ? d[group] : AVATAR_DESIGN_FALLBACK[group];
+    const value = group === 'style' && d[group] === 'face3d' ? 'face2d' : d[group];
+    out[group] = SETS[group].has(value) ? value : AVATAR_DESIGN_FALLBACK[group];
   }
   return out;
 }
@@ -91,6 +93,10 @@ export const AVATAR_PFP_ID = /^[a-z][a-z0-9-]{0,23}$/;
 
 export function cleanAvatarIdentity(value) {
   if (!value || typeof value !== 'object') return null;
+  if (value.kind === 'photo') {
+    const version = Number(value.v);
+    return Number.isSafeInteger(version) && version > 0 ? { kind: 'photo', v: version } : null;
+  }
   if (value.kind === 'live') return { kind: 'live', design: cleanLiveDesign(value.design) };
   if (value.kind === 'pfp' && typeof value.id === 'string' && AVATAR_PFP_ID.test(value.id)) {
     return { kind: 'pfp', id: value.id };

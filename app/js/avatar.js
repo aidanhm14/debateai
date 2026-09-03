@@ -47,11 +47,12 @@
      picker behaves exactly as it did. */
   var PFP_KEY = 'debatable-pfp-v1';
   var PREF_KEY = 'debatable-avatar-pref';
+  var PHOTO_KEY = 'debatable-profile-photo-v1';
   /* Set by avatar-account.js only while the stable account default has not
      been confirmed or changed. Any deliberate save clears it. */
   var AUTO_PFP_KEY = 'debatable-pfp-auto-v1';
   var LIVE_EVT = 'debatable-avatar-design';
-  // These five lists MUST stay in step with DESIGN_OPTIONS in
+  // These six lists MUST stay in step with DESIGN_OPTIONS in
   // js/cam-avatar.js. A key that exists there and not here is silently
   // normalized away, so a debater's chosen look would render one way on
   // their call tile and another way on every profile and ballot.
@@ -60,6 +61,7 @@
   var LIVE_OUTFITS = { ink:['#27272f','#09090b'], navy:['#20334d','#090e18'], plum:['#392942','#110b16'], pine:['#1f3a35','#08110f'], slate:['#414956','#101318'], rust:['#4a2a20','#150a07'], bone:['#b9b1a4','#4a453d'], royal:['#2c2a63','#0b0a1c'] };
   var LIVE_MASKS = ['blade','classic','visor','wing','oni','plate','slim'];
   var LIVE_EYES = { focus:[3.5,0], sharp:[2.8,7], open:[4.6,0], calm:[2.2,0], round:[4.8,0], keen:[3.0,-8], hooded:[2.4,4] };
+  var LIVE_STYLES = ['face2d','mask'];
   var maskSeq = 0;
   var uid = 0;
 
@@ -398,11 +400,9 @@
     return brow(EYE_L) + brow(EYE_R);
   }
 
-  // A cartoon nose is a hint with volume: one side shadow, a lit tip.
+  // A cartoon nose is a line, not a moving pool of light across the face.
   function nosePath(skinDD, skinHi, fine, gid) {
-    return (fine && gid ? '<ellipse cx="48.4" cy="44.4" rx="2.9" ry="3.2" fill="url(#' + gid + 'sh)" opacity=".24"/>' +
-        '<ellipse cx="51" cy="44.2" rx="1.9" ry="1.7" fill="url(#' + gid + 'hl)" opacity=".3"/>' : '') +
-      '<path d="M47.5 45.6 Q50 48.1 52.5 45.6" fill="none" stroke="' + skinDD + '" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>' +
+    return '<path d="M47.5 45.6 Q50 48.1 52.5 45.6" fill="none" stroke="' + skinDD + '" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>' +
       (fine ? '<path d="M52.4 45.9 Q53.1 45.2 53.2 44.3" fill="none" stroke="' + skinDD + '" stroke-width=".9" stroke-linecap="round" opacity=".35"/>' : '');
   }
 
@@ -507,8 +507,6 @@
       '<clipPath id="' + id + 'eyR"><path d="' + eyeWhite(EYE_R, S0.w, S0.up, S0.dn) + '"/></clipPath>' +
       (opts.view ? '' : '<clipPath id="' + id + '"><circle cx="50" cy="50" r="50"/></clipPath>') +
       '<radialGradient id="' + id + 'bg" cx="34%" cy="16%" r="112%"><stop offset="0%" stop-color="' + shade(P.bg[0], 0.16) + '"/><stop offset="55%" stop-color="' + P.bg[0] + '"/><stop offset="100%" stop-color="' + P.bg[1] + '"/></radialGradient>' +
-      // the head's own volume: lit from the upper left, falling off at the jaw
-      '<radialGradient id="' + id + 'sk" cx="40%" cy="26%" r="82%"><stop offset="0%" stop-color="' + shade(skin, 0.2) + '"/><stop offset="46%" stop-color="' + shade(skin, 0.05) + '"/><stop offset="74%" stop-color="' + skin + '"/><stop offset="100%" stop-color="' + shade(skin, -0.2) + '"/></radialGradient>' +
       '<radialGradient id="' + id + 'ir" cx="46%" cy="34%" r="72%"><stop offset="0%" stop-color="' + shade(P.iris, 0.34) + '"/><stop offset="58%" stop-color="' + P.iris + '"/><stop offset="100%" stop-color="' + shade(P.iris, -0.34) + '"/></radialGradient>' +
       '<linearGradient id="' + id + 'gb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + shade(P.garbC, 0.12) + '"/><stop offset="60%" stop-color="' + P.garbC + '"/><stop offset="100%" stop-color="' + shade(P.garbC, -0.22) + '"/></linearGradient>' +
       // the two soft brushes. Every soft edge in the portrait is one of
@@ -537,15 +535,7 @@
       '<ellipse cx="50" cy="56.4" rx="8.4" ry="4.4" fill="url(#' + id + 'sh)" opacity=".55"/>' +
       ears +
       // head
-      '<path d="' + FACES[P.face] + '" fill="url(#' + id + 'sk)"/>' +
-      '<g clip-path="url(#' + id + 'fc)">' +
-        // shadow where the hair sits, temple falloff, and the lit cheek
-        '<ellipse cx="50" cy="20" rx="20" ry="8" fill="url(#' + id + 'sh)" opacity=".3"/>' +
-        (fine ? '<ellipse cx="65" cy="42" rx="6" ry="13" fill="url(#' + id + 'sh)" opacity=".24"/>' +
-                '<ellipse cx="42" cy="34" rx="9" ry="7" fill="url(#' + id + 'hl)" opacity=".2"/>' +
-                '<ellipse cx="50" cy="55" rx="7" ry="4" fill="url(#' + id + 'sh)" opacity=".22"/>' +
-                '<ellipse cx="50" cy="52.6" rx="3.4" ry="2.2" fill="url(#' + id + 'hl)" opacity=".16"/>' : '') +
-      '</g>' +
+      '<path d="' + FACES[P.face] + '" fill="' + skin + '"/>' +
       facialPath(P.facial, P.hair, skin, id + 'fc') +
       detailPath(P.detail, skinDD) +
       browsSvg +
@@ -881,7 +871,9 @@
   function normLiveDesign(d) {
     d = d || {};
     return {
-      style: d.style === 'mask' ? 'mask' : 'face',
+      // face3d was retired 2026-09-03. Old saved designs migrate to the
+      // flat face instead of keeping the moving face-shading effect.
+      style: d.style === 'mask' ? 'mask' : inList(d.style, LIVE_STYLES, 'face2d'),
       scene: inList(d.scene, LIVE_SCENES, 'arena'),
       accent: Object.prototype.hasOwnProperty.call(LIVE_ACCENTS, d.accent) ? d.accent : 'crimson',
       outfit: Object.prototype.hasOwnProperty.call(LIVE_OUTFITS, d.outfit) ? d.outfit : 'ink',
@@ -933,6 +925,24 @@
     try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
     return id;
   }
+  function cleanPhotoVersion(value) {
+    var n = Number(value);
+    return Number.isFinite(n) && n > 0 && n <= Number.MAX_SAFE_INTEGER ? Math.floor(n) : 0;
+  }
+  function getPhotoVersion() {
+    try { return cleanPhotoVersion(global.localStorage.getItem(PHOTO_KEY)); } catch (e) { return 0; }
+  }
+  function setPhotoVersion(value) {
+    var version = cleanPhotoVersion(value);
+    if (!version) return 0;
+    try {
+      global.localStorage.setItem(PHOTO_KEY, String(version));
+      global.localStorage.setItem(PREF_KEY, 'photo');
+      global.localStorage.removeItem(AUTO_PFP_KEY);
+    } catch (e) {}
+    try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {}
+    return version;
+  }
   function getPfpIdentity() {
     var id = getPfp();
     return id ? { kind:'pfp', id:id } : null;
@@ -946,16 +956,36 @@
        pre-2026-08-24 order, so an account that never opened the picker is
        unaffected. */
     var p = pref();
+    if (p === 'photo') { var photo = getPhotoVersion(); if (photo) return { kind:'photo', v:photo }; }
     if (p === 'pfp') { var chosen = getPfpIdentity(); if (chosen) return chosen; }
     if (p === 'portrait') { var mine = getUser(); if (mine) return { kind:'portrait', config:mine }; }
-    var live = getLiveIdentity();
-    if (live) return live;
+    // The camera avatar stays an in-room privacy layer. It is no longer a
+    // profile identity, so an old live design cannot replace a person's
+    // uploaded picture, portrait, or picked tile across the rest of the app.
+    var savedPhoto = getPhotoVersion();
+    if (savedPhoto) return { kind:'photo', v:savedPhoto };
     var portrait = getUser();
     if (portrait) return { kind:'portrait', config:portrait };
     return getPfpIdentity();
   }
   function normPublicIdentity(value) {
     value = value || {};
+    // user_profiles stores the complete cross-device record, while queue
+    // and round documents carry one compact public kind. Some boards read
+    // the account record directly, so resolve its preference here instead
+    // of letting it fall through to a generated stranger.
+    if (!value.kind && typeof value === 'object') {
+      if (value.pref === 'photo' && cleanPhotoVersion(value.photoVersion)) return { kind:'photo', v:cleanPhotoVersion(value.photoVersion) };
+      if (value.pref === 'pfp' && value.pfpId) return normPublicIdentity({ kind:'pfp', id:value.pfpId });
+      if (value.pref === 'portrait' && value.portraitConfig) return { kind:'portrait', config:norm(value.portraitConfig) };
+      if (cleanPhotoVersion(value.photoVersion)) return { kind:'photo', v:cleanPhotoVersion(value.photoVersion) };
+      if (value.portraitConfig) return { kind:'portrait', config:norm(value.portraitConfig) };
+      if (value.pfpId) return normPublicIdentity({ kind:'pfp', id:value.pfpId });
+    }
+    if (value.kind === 'photo') {
+      var version = cleanPhotoVersion(value.v);
+      return version ? { kind:'photo', v:version } : null;
+    }
     if (value.kind === 'live' && value.design) {
       return { kind:'live', name:String(value.name || 'Avatar').slice(0,32), lookId:String(value.lookId || '').slice(0,64), design:normLiveDesign(value.design) };
     }
@@ -1142,6 +1172,14 @@
   }
   function publicSvg(value, size, fallback) {
     var id = normPublicIdentity(value);
+    fallback = fallback || {};
+    if (id && id.kind === 'photo') {
+      var photoUid = String(fallback.uid || '');
+      if (/^[A-Za-z0-9_-]{8,128}$/.test(photoUid)) {
+        var src = 'https://itsdebatable.com/api/profile-photo?uid=' + encodeURIComponent(photoUid) + '&amp;v=' + id.v;
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' + (size || 100) + '" height="' + (size || 100) + '" viewBox="0 0 100 100" role="img" aria-label="Profile picture"><rect width="100" height="100" fill="#2a2a31"/><image href="' + src + '" width="100" height="100" preserveAspectRatio="xMidYMid slice"/></svg>';
+      }
+    }
     if (id && id.kind === 'live') return maskSvg(id.design, size);
     if (id && id.kind === 'portrait') return svg(id.config, size);
     if (id && id.kind === 'pfp') {
@@ -1153,7 +1191,6 @@
       loadPfpLib(function () { try { global.dispatchEvent(new CustomEvent(EVT, { detail: null })); } catch (e) {} });
       return '';
     }
-    fallback = fallback || {};
     return svg(randomConfig(fallback.uid || fallback.name || 'anon'), size);
   }
 
@@ -1161,21 +1198,57 @@
   function hashStr(s) { var h = 2166136261; s = String(s || ''); for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function randomConfig(seed) {
     var rnd = (seed != null)
-      ? (function () { var a = hashStr(seed); return function () { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })()
+      ? (function () {
+          // Mulberry32 gives adjacent seeds a well-mixed sequence. The old
+          // linear generator visibly clustered hair, skin, and backdrops.
+          var a = hashStr(seed);
+          return function () {
+            a = (a + 0x6D2B79F5) | 0;
+            var t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        })()
       : Math.random;
     function p(n) { return Math.floor(rnd() * n); }
+    function optional(n, emptyChance) { return rnd() < emptyChance ? 0 : 1 + p(n - 1); }
     return norm({
       face: p(N_FACE),
       skin: p(SKIN.length), hair: p(HAIR.length),
       top: p(N_TOP - 1),                                  // hijab is a deliberate choice, never assigned at random
       eyes: p(N_EYES), brows: p(N_BROWS), mouth: p(N_MOUTH),
-      facial: (rnd() < 0.72 ? 0 : p(N_FACIAL)),           // mostly clean
-      glasses: (rnd() < 0.6 ? 0 : p(N_GLASSES)),
-      accessory: (rnd() < 0.68 ? 0 : p(N_ACC)),           // gear is a highlight, not the norm
+      facial: optional(N_FACIAL, 0.72),                    // mostly clean
+      glasses: optional(N_GLASSES, 0.6),
+      accessory: optional(N_ACC, 0.68),                    // gear is a highlight, not the norm
       iris: (rnd() < 0.6 ? p(2) : p(IRIS.length)),        // naturals dominate
       detail: (rnd() < 0.78 ? 0 : 1 + p(N_DETAIL - 1)),   // details are a garnish
       bg: p(BG.length), outfit: p(OUTFIT.length)
     });
+  }
+
+  function differentRandomConfig(current) {
+    current = norm(current || defaults());
+    var best = randomConfig(), bestDistance = -1;
+    var keys = ['face','skin','hair','top','eyes','brows','mouth','facial','glasses','accessory','iris','detail','bg','outfit'];
+    var widths = { face:N_FACE, skin:SKIN.length, hair:HAIR.length, top:N_TOP - 1, eyes:N_EYES, brows:N_BROWS, mouth:N_MOUTH, facial:N_FACIAL, glasses:N_GLASSES, accessory:N_ACC, iris:IRIS.length, detail:N_DETAIL, bg:BG.length, outfit:OUTFIT.length };
+    for (var attempt = 0; attempt < 12; attempt++) {
+      var candidate = randomConfig();
+      var distance = keys.reduce(function (n, key) { return n + (candidate[key] !== current[key] ? 1 : 0); }, 0);
+      if (distance > bestDistance) { best = candidate; bestDistance = distance; }
+      if (distance >= 9 && candidate.top !== current.top && candidate.bg !== current.bg) break;
+    }
+    // The dice are well mixed, but the button makes a product promise too:
+    // every press must LOOK different. Force any remaining equal core parts,
+    // then advance equal fields until at least nine visible choices changed.
+    if (best.top === current.top) best.top = (current.top + 1) % widths.top;
+    if (best.bg === current.bg) best.bg = (current.bg + 1) % widths.bg;
+    bestDistance = keys.reduce(function (n, key) { return n + (best[key] !== current[key] ? 1 : 0); }, 0);
+    keys.forEach(function (key) {
+      if (bestDistance >= 9 || best[key] !== current[key]) return;
+      best[key] = (current[key] + 1) % widths[key];
+      bestDistance++;
+    });
+    return best;
   }
 
   // ---- theme helper -----------------------------------------------------
@@ -1210,6 +1283,45 @@
     { key: 'bg', label: 'Backdrop', pal: BG, duo: true }
   ];
 
+  function profilePhotoSrc(photoUid, version) {
+    photoUid = String(photoUid || '');
+    version = cleanPhotoVersion(version);
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(photoUid) || !version) return '';
+    return '/api/profile-photo?uid=' + encodeURIComponent(photoUid) + '&v=' + version;
+  }
+
+  function cropPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
+        reject(new Error('Choose a JPG, PNG, or WebP picture.')); return;
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        reject(new Error('Choose a picture under 12 MB.')); return;
+      }
+      var objectUrl = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var side = Math.min(img.naturalWidth, img.naturalHeight);
+          if (!side) throw new Error('That picture could not be read.');
+          var canvas = document.createElement('canvas');
+          canvas.width = 512; canvas.height = 512;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 512, 512);
+          canvas.toBlob(function (blob) {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) reject(new Error('That picture could not be prepared.'));
+            else resolve(blob);
+          }, 'image/jpeg', 0.86);
+        } catch (err) {
+          URL.revokeObjectURL(objectUrl); reject(err);
+        }
+      };
+      img.onerror = function () { URL.revokeObjectURL(objectUrl); reject(new Error('That picture could not be read.')); };
+      img.src = objectUrl;
+    });
+  }
+
   function openBuilder(opts) {
     opts = opts || {};
     if (document.querySelector('[data-dbav-modal]')) return; // one at a time
@@ -1222,11 +1334,19 @@
     var sel = '#dc2626';
 
     var cfg = norm(getUser() || randomConfig());
-    /* Which of the two things in this modal the debater is choosing. It
+    /* Which profile-picture kind the person is choosing. It
        starts on whatever they last chose, so reopening the builder shows
        them their own face rather than resetting to the designer. */
-    var mode = (pref() === 'pfp' && getPfp()) ? 'pfp' : 'portrait';
+    var currentPref = pref();
+    var mode = (currentPref === 'photo' && getPhotoVersion()) ? 'photo'
+      : (currentPref === 'pfp' && getPfp()) ? 'pfp' : 'portrait';
     var pfpId = getPfp();
+    var photoVersion = getPhotoVersion();
+    var photoBlob = null;
+    var photoPreviewUrl = '';
+    var authUser = null;
+    try { authUser = global.firebase && global.firebase.auth ? global.firebase.auth().currentUser : null; } catch (e) {}
+    var photoUid = authUser && authUser.uid;
     var lastFocus = document.activeElement;
     var prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden'; // the page must not scroll under the modal
@@ -1234,39 +1354,103 @@
     var back = document.createElement('div');
     back.setAttribute('data-dbav-modal', '1');
     back.setAttribute('role', 'dialog');
-    back.setAttribute('aria-label', 'Design your avatar');
+    back.setAttribute('aria-label', 'Change your profile picture');
     // z-index sits above the onboarding card (2147483501). The builder is
     // opened FROM that card, so anything lower opens behind it.
-    back.style.cssText = 'position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(6,6,10,.66);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)';
+    back.style.cssText = 'position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;background:rgba(6,6,10,.66);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)';
 
     var box = document.createElement('div');
-    box.style.cssText = 'width:min(780px,96vw);max-height:92vh;display:flex;flex-direction:column;background:' + surf + ';color:' + txt + ';border:1px solid ' + bd + ';border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.45);font-family:inherit;overflow:hidden';
+    box.style.cssText = 'width:calc(100vw - 20px);max-width:780px;min-width:0;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px);box-sizing:border-box;display:flex;flex-direction:column;background:' + surf + ';color:' + txt + ';border:1px solid ' + bd + ';border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.45);font-family:inherit;overflow:hidden';
     back.appendChild(box);
 
     // header with live preview
     var head = document.createElement('div');
-    head.style.cssText = 'display:flex;align-items:center;gap:20px;padding:18px 24px;border-bottom:1px solid ' + bd + ';flex-shrink:0';
+    head.style.cssText = 'display:flex;align-items:center;gap:clamp(12px,3vw,20px);padding:clamp(14px,2.4vw,18px) clamp(14px,3vw,24px);border-bottom:1px solid ' + bd + ';flex-shrink:0';
     var prev = document.createElement('div');
-    prev.style.cssText = 'width:104px;height:104px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 14px 36px rgba(0,0,0,.28)';
+    prev.style.cssText = 'width:min(104px,22vw);height:min(104px,22vw);border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 14px 36px rgba(0,0,0,.28)';
     var htxt = document.createElement('div');
     htxt.style.cssText = 'flex:1;min-width:0';
     htxt.innerHTML = '<div style="font-size:.64rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:' + sel + ';margin-bottom:5px">Your identity</div>' +
-      '<div style="font-size:1.24rem;font-weight:800;letter-spacing:-.01em">Design your avatar</div>' +
-      '<div style="font-size:.84rem;color:' + dim + ';margin-top:4px;line-height:1.35">One face, everywhere you debate: your brain, coach sessions, and live rooms.</div>';
+      '<div style="font-size:1.24rem;font-weight:800;letter-spacing:-.01em">Change your profile picture</div>' +
+      '<div style="font-size:.84rem;color:' + dim + ';margin-top:4px;line-height:1.35">Upload a photo, pick a picture, or make an avatar of your own.</div>';
     head.appendChild(prev); head.appendChild(htxt);
     box.appendChild(head);
 
     var body = document.createElement('div');
-    body.style.cssText = 'padding:4px 24px 12px;overflow:auto;flex:1;overscroll-behavior:contain';
+    body.style.cssText = 'padding:4px clamp(14px,3vw,24px) 12px;overflow:auto;overflow-x:hidden;flex:1;overscroll-behavior:contain';
     box.appendChild(body);
 
     function renderPreview() {
       var lib = pfpLib();
+      if (mode === 'photo') {
+        var src = photoPreviewUrl || profilePhotoSrc(photoUid, photoVersion);
+        if (src) {
+          prev.innerHTML = '';
+          var img = document.createElement('img');
+          img.alt = 'Profile picture preview';
+          img.src = src;
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block';
+          prev.appendChild(img);
+          updateFooter();
+          return;
+        }
+      }
       prev.innerHTML = (mode === 'pfp' && pfpId && lib) ? lib.svg(pfpId, '100%') : svg(cfg, '100%');
+      updateFooter();
     }
 
     var swatchEls = []; // { key, i, node }
     var shapeEls = [];  // { key, i, node, view }
+
+    var photoStatus = null;
+    var maker = null;
+
+    function mountUpload() {
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'margin:14px 0 4px;padding:16px;border:1px solid ' + bd + ';border-radius:16px;background:' + surf2;
+      var h = document.createElement('div');
+      h.textContent = 'Upload a photo';
+      h.style.cssText = 'font-size:.9rem;font-weight:800;color:' + txt;
+      var note = document.createElement('div');
+      note.textContent = 'Choose a JPG, PNG, or WebP. It is cropped to a square.';
+      note.style.cssText = 'font-size:.74rem;color:' + dim + ';margin:4px 0 12px';
+      var choose = document.createElement('button');
+      choose.type = 'button'; choose.textContent = photoVersion ? 'Choose a new photo' : 'Choose photo';
+      choose.style.cssText = 'font-family:inherit;font-size:.82rem;font-weight:750;color:#fff;background:' + sel + ';border:none;border-radius:999px;padding:10px 16px;cursor:pointer';
+      var make = document.createElement('button');
+      make.type = 'button'; make.textContent = 'Make your own avatar';
+      make.style.cssText = 'font-family:inherit;font-size:.82rem;font-weight:700;color:' + txt + ';background:transparent;border:1px solid ' + bd + ';border-radius:999px;padding:9px 15px;cursor:pointer';
+      var actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+      actions.appendChild(choose); actions.appendChild(make);
+      var input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp'; input.hidden = true;
+      photoStatus = document.createElement('div');
+      photoStatus.setAttribute('role', 'status');
+      photoStatus.style.cssText = 'min-height:1.15em;font-size:.74rem;color:' + dim + ';margin-top:9px';
+      choose.addEventListener('click', function () { input.click(); });
+      make.addEventListener('click', function () {
+        mode = 'portrait'; pickerPaint(); refreshSelected();
+        if (maker) maker.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        photoStatus.textContent = 'Preparing photo...';
+        cropPhoto(file).then(function (blob) {
+          photoBlob = blob;
+          if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+          photoPreviewUrl = URL.createObjectURL(blob);
+          mode = 'photo'; pickerPaint(); renderPreview();
+          photoStatus.textContent = 'Ready to save.';
+        }).catch(function (err) {
+          photoStatus.textContent = err && err.message ? err.message : 'Could not use that picture.';
+        });
+        input.value = '';
+      });
+      wrap.appendChild(h); wrap.appendChild(note); wrap.appendChild(actions); wrap.appendChild(input); wrap.appendChild(photoStatus);
+      body.appendChild(wrap);
+    }
 
     /* ── Pick a picture ───────────────────────────────────────────────
        2026-08-24, Aidan: "those should be options yea". The drawn set was
@@ -1326,7 +1510,7 @@
       var g = document.createElement('div');
       g.textContent = label;
       g.style.cssText = 'font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:' + txt + ';margin:18px 0 2px;padding-bottom:6px;border-bottom:2px solid ' + sel;
-      body.appendChild(g);
+      (maker || body).appendChild(g);
     }
     function rowWrap(label) {
       var w = document.createElement('div');
@@ -1338,7 +1522,7 @@
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
       w.appendChild(row);
-      body.appendChild(w);
+      (maker || body).appendChild(w);
       return row;
     }
 
@@ -1376,7 +1560,15 @@
        the mode follows the hand rather than needing its own toggle. */
     function pick(key, i) { cfg[key] = i; mode = 'portrait'; pickerPaint(); refreshSelected(); refreshShapeThumbs(); }
 
+    mountUpload();
     mountPicker();
+    maker = document.createElement('div');
+    maker.setAttribute('data-avatar-maker', '1');
+    body.appendChild(maker);
+    var makerHead = document.createElement('div');
+    makerHead.textContent = 'Make your own avatar';
+    makerHead.style.cssText = 'font-size:.82rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:' + txt + ';margin:20px 0 0;padding-bottom:8px;border-bottom:2px solid ' + sel;
+    maker.appendChild(makerHead);
     ROWS.forEach(function (f) {
       if (f.group) { groupHead(f.group); return; }
       var row = rowWrap(f.label);
@@ -1415,7 +1607,7 @@
 
     // footer
     var foot = document.createElement('div');
-    foot.style.cssText = 'display:flex;gap:10px;align-items:center;padding:14px 24px 16px;background:' + surf + ';border-top:1px solid ' + bd + ';flex-shrink:0';
+    foot.style.cssText = 'display:flex;gap:8px;align-items:center;padding:12px clamp(12px,3vw,24px) calc(12px + env(safe-area-inset-bottom));background:' + surf + ';border-top:1px solid ' + bd + ';flex-shrink:0';
     var rand = document.createElement('button');
     rand.type = 'button';
     rand.textContent = 'Surprise me';
@@ -1423,10 +1615,13 @@
     rand.addEventListener('click', function () {
       var lib = pfpLib();
       if (mode === 'pfp' && lib && lib.list.length) {
-        pfpId = lib.list[Math.floor(Math.random() * lib.list.length)].id;
+        var choices = lib.list.filter(function (item) { return item.id !== pfpId; });
+        pfpId = (choices.length ? choices : lib.list)[Math.floor(Math.random() * (choices.length || lib.list.length))].id;
         pickerPaint(); renderPreview(); return;
       }
-      cfg = randomConfig(); refreshSelected(); refreshShapeThumbs();
+      mode = 'portrait';
+      cfg = differentRandomConfig(cfg);
+      pickerPaint(); refreshSelected(); refreshShapeThumbs();
     });
     var spacer = document.createElement('div'); spacer.style.flex = '1';
     var cancel = document.createElement('button');
@@ -1440,8 +1635,15 @@
     foot.appendChild(rand); foot.appendChild(spacer); foot.appendChild(cancel); foot.appendChild(save);
     box.appendChild(foot);
 
+    function updateFooter() {
+      if (!save) return;
+      save.textContent = mode === 'photo' ? 'Save photo' : mode === 'pfp' ? 'Use picture' : 'Save avatar';
+      rand.textContent = mode === 'pfp' ? 'Pick another' : 'Surprise me';
+    }
+
     function close() {
       if (thumbRaf) cancelAnimationFrame(thumbRaf);
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
       if (back.parentNode) back.parentNode.removeChild(back);
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
@@ -1451,12 +1653,65 @@
     cancel.addEventListener('click', close);
     back.addEventListener('click', function (e) { if (e.target === back) close(); });
     document.addEventListener('keydown', onKey);
+    function finishSave(saved) {
+      if (typeof opts.onSave === 'function') { try { opts.onSave(saved); } catch (e) {} }
+      close();
+    }
+    function uploadPhoto() {
+      var user = null;
+      try { user = global.firebase && global.firebase.auth ? global.firebase.auth().currentUser : null; } catch (e) {}
+      if (!user || user.isAnonymous || !user.getIdToken) {
+        return Promise.reject(new Error('Sign in to upload a profile picture.'));
+      }
+      return user.getIdToken().then(function (token) {
+        return fetch('/api/profile-photo', {
+          method: 'POST',
+          headers: { 'Authorization':'Bearer ' + token, 'Content-Type':'image/jpeg' },
+          body: photoBlob
+        });
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) throw new Error(data.error || 'Could not upload that picture.');
+          return data;
+        });
+      }).then(function (data) {
+        photoVersion = setPhotoVersion(data.version);
+        photoUid = user.uid;
+        var jobs = [];
+        if (user.updateProfile && data.url) jobs.push(user.updateProfile({ photoURL:data.url }));
+        // The server has already persisted the photo identity. These client
+        // writes refresh the live auth object and any open profile editor.
+        try {
+          if (global.firebase.firestore && data.url) {
+            jobs.push(global.firebase.firestore().collection('user_profiles').doc(user.uid).set({ photoURL:data.url }, { merge:true }));
+          }
+        } catch (e) {}
+        return Promise.allSettled(jobs).then(function () { return { kind:'photo', v:photoVersion }; });
+      });
+    }
     save.addEventListener('click', function () {
-      /* Both are kept. Saving a picture does not throw away a portrait
+      /* Every kind is kept. Saving a picture does not throw away a portrait
          somebody designed, and saving a portrait does not forget the
          picture they had; only the preference moves. */
       var saved;
-      if (mode === 'pfp' && pfpId) {
+      if (mode === 'photo') {
+        if (!photoBlob && photoVersion) {
+          finishSave({ kind:'photo', v:setPhotoVersion(photoVersion) });
+          return;
+        }
+        if (!photoBlob) {
+          if (photoStatus) photoStatus.textContent = 'Choose a photo first.';
+          return;
+        }
+        save.disabled = true;
+        save.textContent = 'Uploading...';
+        if (photoStatus) photoStatus.textContent = 'Uploading photo...';
+        uploadPhoto().then(finishSave).catch(function (err) {
+          save.disabled = false; updateFooter();
+          if (photoStatus) photoStatus.textContent = err && err.message ? err.message : 'Could not upload that picture.';
+        });
+        return;
+      } else if (mode === 'pfp' && pfpId) {
         saved = { kind:'pfp', id:setPfp(pfpId) };
       } else {
         saved = setUser(cfg);
@@ -1465,12 +1720,12 @@
           global.localStorage.removeItem(AUTO_PFP_KEY);
         } catch (e) {}
       }
-      if (typeof opts.onSave === 'function') { try { opts.onSave(saved); } catch (e) {} }
-      close();
+      finishSave(saved);
     });
 
     document.body.appendChild(back);
     refreshSelected();
+    updateFooter();
     save.focus();
   }
 
@@ -1497,7 +1752,7 @@
       var currentIdentity = getPublicIdentity();
       var has = !!currentIdentity;
       var av = has
-        ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.22)">' + publicSvg(currentIdentity, '100%') + '</div>'
+        ? '<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.22)">' + publicSvg(currentIdentity, '100%', { uid:user && user.uid }) + '</div>'
         : '<div style="width:64px;height:64px;border-radius:50%;flex-shrink:0;overflow:hidden;opacity:.55">' + svg(randomConfig('preview'), '100%') + '</div>';
       var title = has
         ? (first ? 'Welcome back, ' + esc(first) + '.' : 'Welcome back.')
@@ -1530,10 +1785,9 @@
   // identity() is the single answer to "what do we draw for this person".
   // Order is deliberate:
   //   1. a published public identity — what they chose to show the room
-  //   2. their live mask design     — a deliberate choice
-  //   3. the avatar they built      — outranks anything inherited
-  //   4. their Google photo         — a real face, better than a generated one
-  //   5. a portrait seeded off uid  — randomConfig is deterministic when
+  //   2. the avatar they built      — outranks anything inherited
+  //   3. their Google photo         — a real face, better than a generated one
+  //   4. a portrait seeded off uid  — randomConfig is deterministic when
   //                                   seeded, so this is stable forever, not
   //                                   a new stranger on every page load
   // The last rung is what makes the whole thing safe to rely on: there is
@@ -1587,11 +1841,12 @@
       node.style.flexShrink = '0';
       node.style.display = 'block';
       node.style.position = 'relative';
-      node.innerHTML = (id.kind === 'live' || id.kind === 'portrait' || id.kind === 'pfp')
+      var uploadedPhoto = id.kind === 'photo' && !!id.v;
+      node.innerHTML = (id.kind === 'live' || id.kind === 'portrait' || id.kind === 'pfp' || uploadedPhoto)
         ? publicSvg(id, '100%', { uid:o.uid, name:o.name })
         : svg(id.config, '100%');
 
-      if (id.kind !== 'photo') return;
+      if (id.kind !== 'photo' || !id.photo) return;
       var img = document.createElement('img');
       img.alt = o.alt || '';
       img.referrerPolicy = 'no-referrer';
@@ -1624,6 +1879,7 @@
     identity: identity, mountIdentity: mountIdentity,
     getLiveIdentity: getLiveIdentity, getPublicIdentity: getPublicIdentity,
     getPfp: getPfp, setPfp: setPfp, getPfpIdentity: getPfpIdentity,
+    getPhotoVersion: getPhotoVersion, setPhotoVersion: setPhotoVersion,
     normPublicIdentity: normPublicIdentity, maskSvg: maskSvg, publicSvg: publicSvg,
     talkingSvg: talkingSvg, mountTalking: mountTalking,
     cameo: cameo, cameoSvg: cameoSvg, CAMEOS: CAMEOS, CAMEO_MAP: CAMEO_MAP,

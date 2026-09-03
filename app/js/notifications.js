@@ -2208,6 +2208,7 @@
         if (window.DBAvatarAccount && DBAvatarAccount.publicIdentity) return DBAvatarAccount.publicIdentity();
         if (window.DBAvatar && DBAvatar.getPublicIdentity) {
           var built = DBAvatar.getPublicIdentity();
+          if (built && built.kind === 'photo') return { kind:'photo', v:built.v };
           if (built && built.kind === 'live') return { kind:'live', design:built.design };
           if (built && built.kind === 'portrait') return { kind:'portrait', config:built.config };
           if (built && built.kind === 'pfp') return { kind:'pfp', id:built.id };

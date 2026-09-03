@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Avatar option guard.
  *
- * The same five option lists (scene, accent, outfit, mask, eyes) are
+ * The same six option lists (style, scene, accent, outfit, mask, eyes) are
  * written out in four places: the designer that offers them, the renderer
  * that draws them, the account sync that stores them, and the shared
  * server allow-list that copies them onto public documents. Every one of
@@ -42,7 +42,7 @@ function sameSet(a, b, label) {
     `${label}: missing [${missing.join(', ')}] extra [${extra.join(', ')}]`);
 }
 
-const GROUPS = ['scene', 'accent', 'outfit', 'mask', 'eyes'];
+const GROUPS = ['style', 'scene', 'accent', 'outfit', 'mask', 'eyes'];
 
 // ── 1. The designer's table, parsed out of the file that owns it.
 const cam = read('app/js/cam-avatar.js');
@@ -53,7 +53,7 @@ for (const group of GROUPS) {
   const m = camBlock.match(new RegExp(`\\n\\s{4}${group}:\\s*\\[([\\s\\S]*?)\\n\\s{4}\\]`));
   ok(!!m, `cam-avatar.js: no ${group} option list found`);
   designer[group] = m ? [...m[1].matchAll(/key:\s*'([^']+)'/g)].map((x) => x[1]) : [];
-  ok(designer[group].length >= 3, `cam-avatar.js: ${group} parsed as ${designer[group].length} options`);
+  ok(designer[group].length >= (group === 'style' ? 2 : 3), `cam-avatar.js: ${group} parsed as ${designer[group].length} options`);
 }
 
 // ── 2. The shared server allow-list.
@@ -78,6 +78,7 @@ const mapKeysOf = (name) => {
   return m ? [...m[1].matchAll(/(?:^|[{,\s])([a-z]+)\s*:/g)].map((x) => x[1]) : null;
 };
 const renderer = {
+  style: listOf('LIVE_STYLES'),
   scene: listOf('LIVE_SCENES'),
   mask: listOf('LIVE_MASKS'),
   accent: mapKeysOf('LIVE_ACCENTS'),
@@ -96,6 +97,7 @@ const acctList = (name) => {
   return m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : null;
 };
 const sync = {
+  style: acctList('STYLES'),
   scene: acctList('SCENES'), accent: acctList('ACCENTS'), outfit: acctList('OUTFITS'),
   mask: acctList('MASKS'), eyes: acctList('EYES'),
 };
@@ -113,7 +115,7 @@ for (const group of GROUPS) {
   }
 }
 // And anything else still resolves to the default rather than through.
-const junk = cleanLiveDesign({ scene: '../../etc', accent: 42, outfit: null, mask: {}, eyes: 'nope' });
+const junk = cleanLiveDesign({ style: 'glossy', scene: '../../etc', accent: 42, outfit: null, mask: {}, eyes: 'nope' });
 for (const group of GROUPS) {
   ok(junk[group] === AVATAR_DESIGN_FALLBACK[group], `cleanLiveDesign let junk through on ${group}`);
 }
@@ -123,6 +125,11 @@ const id = cleanAvatarIdentity({ kind: 'live', design: { scene: 'neon', evil: 1 
 ok(id && id.kind === 'live' && id.design.scene === 'neon', 'cleanAvatarIdentity lost a valid live design');
 ok(id && !('evil' in id) && !('evil' in id.design), 'cleanAvatarIdentity forwarded an unknown field');
 ok(cleanAvatarIdentity({ kind: 'nonsense' }) === null, 'cleanAvatarIdentity accepted an unknown kind');
+const photo = cleanAvatarIdentity({ kind: 'photo', v: 1770000000000, url: 'https://evil.example/x' });
+ok(photo && photo.kind === 'photo' && photo.v === 1770000000000 && !('url' in photo),
+  'cleanAvatarIdentity did not rebuild a valid uploaded photo identity');
+ok(cleanAvatarIdentity({ kind: 'photo', v: 'yesterday' }) === null,
+  'cleanAvatarIdentity accepted an invalid uploaded photo version');
 const portrait = cleanAvatarIdentity({ kind: 'portrait', config: { skin: 999, hair: -4, junk: 3 } });
 ok(portrait.config.skin === 20 && portrait.config.hair === 0 && !('junk' in portrait.config),
   'cleanAvatarIdentity portrait clamp/allow-list');
@@ -206,6 +213,15 @@ function loadAccountSync(win) {
     const src = read('app/js/avatar-account.js');
     return /hasIdentity[\s\S]{0,200}?pfpId/.test(src);
   })(), 'hasIdentity does not count a pfp-only record');
+
+  // v4 carries the uploaded profile photo without accepting a URL from the
+  // client. It outranks the camera avatar and survives account hydration.
+  sync.applyRecord({ version: 4, updatedAtMs: 9, photoVersion: 1770000000000, pref: 'photo', liveDesign: { style:'mask' } });
+  rec = sync.localRecord();
+  ok(rec.photoVersion === 1770000000000 && rec.pref === 'photo',
+    'applyRecord did not carry the v4 uploaded photo fields');
+  ok(sync.publicIdentity() && sync.publicIdentity().kind === 'photo',
+    'uploaded photo did not outrank the live camera avatar');
 }
 
 // A new uid gets one stable wearable picture immediately, marked as an
@@ -217,6 +233,21 @@ function loadAccountSync(win) {
   const rec = sync.localRecord();
   ok(rec.pfpId === 'frog' && rec.pref === 'pfp' && rec.pfpAuto === true,
     'hydrate did not assign and prefer the stable default pfp');
+}
+
+// The retired 3D face cannot be reintroduced through a stale saved design.
+ok(!designer.style.includes('face3d') && designer.style.includes('face2d'),
+  'designer still offers the shaded 3D face');
+ok(cleanLiveDesign({ style:'face3d' }).style === 'face2d',
+  'legacy face3d design does not migrate to the flat avatar');
+
+// /profile opens the one profile-picture chooser. Live camera looks stay in
+// live rooms and no longer replace the account picture from this surface.
+{
+  const profile = read('app/profile.html');
+  ok(!profile.includes('id="editLiveAvatar"'), '/profile still offers the live camera designer as a profile picture');
+  ok(/profileAvatar[\s\S]{0,1800}?DBAvatar\.openBuilder/.test(profile),
+    '/profile avatar does not open the profile-picture chooser');
 }
 
 // The real set keeps supplied non-person pictures wearable and the older

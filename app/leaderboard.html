@@ -1755,7 +1755,10 @@ function safeAvatarUrl(value){
   try {
     const url=new URL(String(value||''));
     const host=url.hostname.toLowerCase();
-    return url.protocol==='https:' && (host==='googleusercontent.com'||host.endsWith('.googleusercontent.com'))
+    const google=host==='googleusercontent.com'||host.endsWith('.googleusercontent.com');
+    const uploaded=(host==='itsdebatable.com'||host==='www.itsdebatable.com')
+      && url.pathname==='/api/profile-photo' && /^[A-Za-z0-9_-]{8,128}$/.test(url.searchParams.get('uid')||'');
+    return url.protocol==='https:' && (google||uploaded)
       ? escapeHtml(url.href)
       : '';
   } catch (_) {
@@ -1814,7 +1817,7 @@ function avatarHTML(row){
   // script is blocked. Do not flatten this back to "any avatarIdentity
   // wins": that is exactly the state that hid the photos.
   const id=row&&row.avatarIdentity;
-  const chosen=!!(id&&(id.portraitConfig||id.kind));
+  const chosen=!!(id&&(id.portraitConfig||id.kind||(id.pref==='photo'&&id.photoVersion)));
   const maskSvg=(id&&window.DBAvatar&&DBAvatar.publicSvg)
     ? DBAvatar.publicSvg(id,'100%',{uid:row.uid,name:row.displayName}) : '';
   if(chosen&&maskSvg) return maskSvg;

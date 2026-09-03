@@ -37,8 +37,8 @@ const REAL_ROWS = 5;                  // real, named people only. Its one consum
 // not be there, so anything that fails these checks resolves to null and
 // the row falls back to initials.
 //
-// photoURL is host-pinned to googleusercontent, matching the same check
-// /leaderboard already applies before rendering one client-side. An
+// photoURL is host-pinned to Google or Debatable's own upload endpoint,
+// matching the check /leaderboard applies before rendering client-side. An
 // arbitrary URL here would let a stored value point the homepage at any
 // host on the internet.
 function safePhoto(value) {
@@ -48,7 +48,10 @@ function safePhoto(value) {
     const url = new URL(raw);
     if (url.protocol !== 'https:') return null;
     const host = url.hostname.toLowerCase();
-    if (host !== 'googleusercontent.com' && !host.endsWith('.googleusercontent.com')) return null;
+    const google = host === 'googleusercontent.com' || host.endsWith('.googleusercontent.com');
+    const uploaded = (host === 'itsdebatable.com' || host === 'www.itsdebatable.com')
+      && url.pathname === '/api/profile-photo' && /^[A-Za-z0-9_-]{8,128}$/.test(url.searchParams.get('uid') || '');
+    if (!google && !uploaded) return null;
     return url.href;
   } catch { return null; }
 }
@@ -61,10 +64,23 @@ const IDENTITY_STR = (v) => (typeof v === 'string' && v.length <= 24 ? v : undef
 const IDENTITY_NUM = (v) => (typeof v === 'number' && v >= 0 && v < 64 ? v : undefined);
 function safeIdentity(value) {
   if (!value || typeof value !== 'object') return null;
+  if (!value.kind) {
+    if (value.pref === 'photo' && Number.isSafeInteger(value.photoVersion) && value.photoVersion > 0) {
+      return { kind: 'photo', v: value.photoVersion };
+    }
+    if (value.pref === 'pfp' && value.pfpId) return safeIdentity({ kind:'pfp', id:value.pfpId });
+    if (value.pref === 'portrait' && value.portraitConfig) return safeIdentity({ kind:'portrait', config:value.portraitConfig });
+    if (Number.isSafeInteger(value.photoVersion) && value.photoVersion > 0) return { kind:'photo', v:value.photoVersion };
+    if (value.portraitConfig) return safeIdentity({ kind:'portrait', config:value.portraitConfig });
+    if (value.pfpId) return safeIdentity({ kind:'pfp', id:value.pfpId });
+  }
+  if (value.kind === 'photo' && Number.isSafeInteger(value.v) && value.v > 0) {
+    return { kind: 'photo', v: value.v };
+  }
   if (value.kind === 'live' && value.design && typeof value.design === 'object') {
     const d = value.design;
     return { kind: 'live', design: {
-      scene: IDENTITY_STR(d.scene), accent: IDENTITY_STR(d.accent),
+      style: IDENTITY_STR(d.style), scene: IDENTITY_STR(d.scene), accent: IDENTITY_STR(d.accent),
       outfit: IDENTITY_STR(d.outfit), mask: IDENTITY_STR(d.mask), eyes: IDENTITY_STR(d.eyes),
     } };
   }
