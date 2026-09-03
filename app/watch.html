@@ -684,6 +684,38 @@ footer a{color:var(--dim)}
   .yt-note{font-size:13px;margin-top:12px}
 }
 
+/* The social frame used to turn Watch back into one full-width feed and
+   restore its billboard-sized hero. Keep the masthead as a label, then
+   give Debatable and outside debates equal visual weight. The shelves
+   scroll inside their panels so a live feed can grow without lengthening
+   the page one card at a time. */
+body.social-watch .page-head{padding:84px 28px 24px;border-radius:0 0 22px 22px}
+body.social-watch .page-head::after{display:none}
+body.social-watch .page-title{max-width:none;font-size:clamp(2.55rem,4vw,3.8rem);line-height:1;letter-spacing:-.055em}
+body.social-watch .watch-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch;margin-top:22px}
+body.social-watch .watch-main{min-width:0}
+body.social-watch .watch-rail,
+body.social-watch .yt-sec{box-sizing:border-box;height:100%;margin:0;padding:22px;border:1px solid var(--border);border-radius:24px;background:var(--surface);box-shadow:var(--social-shadow-soft)}
+body.social-watch .watch-rail{position:static;order:0}
+body.social-watch .yt-grid,
+body.social-watch .rail-list{display:flex;gap:12px;max-height:none;overflow-x:auto;overflow-y:hidden;padding:0 2px 10px 0;scroll-snap-type:x mandatory;scrollbar-width:thin}
+body.social-watch .yt-card,
+body.social-watch .rail-list .card{display:block;flex:0 0 calc(50% - 6px);min-width:235px;max-width:none;scroll-snap-align:start}
+body.social-watch .rail-list .card .thumb{margin:0 0 10px}
+
+@media(max-width:900px){
+  body.social-watch .watch-cols{grid-template-columns:minmax(0,1fr);gap:18px}
+  body.social-watch .watch-rail{order:-1}
+}
+@media(max-width:720px){
+  body.social-watch .page-head{padding:78px 20px 20px}
+  body.social-watch .page-title{font-size:2rem;letter-spacing:-.045em}
+  body.social-watch .watch-rail,
+  body.social-watch .yt-sec{padding:16px;border-radius:20px}
+  body.social-watch .yt-card,
+  body.social-watch .rail-list .card{flex-basis:86%;min-width:0;width:auto;max-width:320px}
+}
+
 /* ── Stance card, ported from /spectate ──────────────────────────────
    The "where do you stand" before/after pair. The preferences builder
    and the full-screen setup takeover did NOT come across: this page is
@@ -832,17 +864,7 @@ footer a{color:var(--dim)}
 
 <div class="wrap">
   <header class="page-head">
-    <div class="page-eyebrow">Watch</div>
-    <h1 class="page-title">Watch the room turn.</h1>
-    <p class="page-sub">Sit in on a live round, take a side, then read the call. Replays keep the people, pressure, and decision together.</p>
-    <div class="hero-cta">
-      <a class="cta-primary" id="ctaWatch" href="/live">See what is live</a>
-    </div>
-    <p class="hero-textcta">
-      <a href="#replaysSec">Browse Debatable replays</a>
-      <span class="sep" aria-hidden="true">&middot;</span>
-      <a id="ctaDebate" href="/spar">Start a round</a>
-    </p>
+    <h1 class="page-title">Watch the debates.</h1>
   </header>
 
   <!-- Waiting state and open rooms, both ported from /spectate when that
@@ -883,11 +905,6 @@ footer a{color:var(--dim)}
     <div class="live-frame" id="liveFrame" aria-label="Live tournament stream"></div>
   </section>
 
-  <!-- Two columns: the reading column, and the recordings beside it.
-       Folding /spectate in made this page long enough that a full-width
-       replay grid pushed every explainer below three screens of stills. -->
-  <div class="watch-cols">
-    <div class="watch-main">
   <!-- Replay player -->
   <section class="player-card" id="playerCard">
     <div class="player-head">
@@ -945,6 +962,10 @@ footer a{color:var(--dim)}
     <div class="grid" id="clipsGrid"></div>
   </section>
 
+  <!-- The two watch sources share the first content row. Outside videos
+       stay clearly attributed; Debatable moves first when they stack. -->
+  <div class="watch-cols">
+    <div class="watch-main">
   <!-- ── WATCH AND LEARN ─────────────────────────────────────────────
        Championship rounds hosted on YouTube by the organisations that
        ran them. Every card LINKS OUT rather than embedding, on purpose:
@@ -959,8 +980,8 @@ footer a{color:var(--dim)}
   <section class="yt-sec" id="watch-learn">
     <div class="yt-head">
       <div>
-        <h2 class="sec-title">Three worth watching</h2>
-        <div class="sec-sub">One against a room, one full chamber, one audience vote.</div>
+        <h2 class="sec-title">YouTube debates</h2>
+        <div class="sec-sub">Three picks from outside Debatable.</div>
       </div>
       <span class="yt-badge">
         <span class="yt-mark" aria-hidden="true"><svg viewBox="0 0 24 28"><path fill="#fff" d="M8 5v18l14-9z"/></svg></span>
@@ -1020,7 +1041,7 @@ footer a{color:var(--dim)}
        and when recordings exist loadFeed swaps in the real cards. -->
   <section class="sec" id="replaysSec" style="margin-top:0">
     <div class="rail-head">
-      <h2>Round replays</h2>
+      <h2>Debatable debates</h2>
       <a class="rail-all" href="/spar">Get in one</a>
     </div>
     <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
@@ -1266,16 +1287,6 @@ footer a{color:var(--dim)}
       return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
     });
   }
-
-  // ── Hero CTAs ────────────────────────────────────────────────────
-  // Theme now lives in the shared topbar's toggle; this page just
-  // counts which door a spectator takes.
-  $('ctaDebate').addEventListener('click', function(){
-    try { gtag('event', 'watch_cta_debate'); } catch(e){}
-  });
-  $('ctaWatch').addEventListener('click', function(){
-    try { gtag('event', 'watch_cta_live'); } catch(e){}
-  });
 
   // ── Owner controls ───────────────────────────────────────────────
   // A recording that should not be up needs to come down from the page
