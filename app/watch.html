@@ -325,44 +325,6 @@ video{width:100%;max-height:66vh;display:block;background:#000}
 input.clip-title{flex:1;min-width:180px;font-family:inherit;font-size:15px;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
 input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 
-/* ── Culture band (2026-08-12)
-   The replay corpus starts empty, so everything under the header used to
-   be text and a "nothing published yet" grid. These are photographs of
-   the thing this page is about: a 1v1 with a clock on the table, a room
-   holding up cards, a televised debate, a stream with the argument
-   running in chat beside it. No captions by design. The pictures carry
-   the point that people already watch argument; the copy under them is
-   what we add to it. */
-.culture{margin-top:34px}
-.culture-line{color:var(--dim);font-size:16.5px;line-height:1.55;max-width:720px;margin-bottom:16px}
-.culture-line b{color:var(--text);font-weight:800}
-.culture-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.culture-grid figure{
-  margin:0;position:relative;overflow:hidden;border-radius:var(--radius);
-  border:1px solid var(--border);background:var(--surface2);
-  /* 16/10, not 4/3. Three of the four sources are 1.5 to 1.78 wide and
-     put their subjects at the left and right edges (the two speakers
-     across a table, the stage with chat down the right side), so a 4/3
-     box was cutting 22 to 25 percent off the width and taking a speaker
-     with it. At 16/10 the worst case loses about 7 percent. */
-  aspect-ratio:16/10;box-shadow:var(--shadow)
-}
-.culture-grid img{
-  display:block;width:100%;height:100%;object-fit:cover;
-  filter:saturate(.82) contrast(1.02)
-}
-/* The photographs are outside sources at mixed exposure; a shared wash
-   keeps them reading as one band rather than four pasted screenshots. */
-.culture-grid figure:after{
-  content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(180deg,rgba(11,11,13,0) 42%,rgba(11,11,13,.42) 100%)
-}
-[data-theme="light"] .culture-grid figure:after{
-  background:linear-gradient(180deg,rgba(22,22,26,0) 46%,rgba(22,22,26,.26) 100%)
-}
-@media(max-width:900px){.culture-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:460px){.culture-grid{gap:9px}}
-
 /* ── Grids */
 .sec{margin-top:38px}
 #replaysSec{margin-top:26px}
@@ -508,35 +470,56 @@ input.clip-title:focus-visible{outline:2px solid var(--red);outline-offset:1px}
 .card.soon h3{color:var(--dim)}
 .empty{color:var(--faint);font-size:16px;padding:26px;border:1px dashed var(--border);border-radius:var(--radius);text-align:center}
 
-/* ── STATIC EXPLAINER BLOCKS ───────────────────────────────────────
-   Crawlable prose for spectator-intent search. /watch used to ship
-   140 static words wrapped around a JS-filled grid, so a crawler that
-   did not run scripts saw an empty page promising video. These blocks
-   are plain HTML on purpose: they describe what watching here means
-   whether or not the replay corpus has anything in it yet. Not
-   .card — that class is cursor:pointer and these do not click. */
-.sbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
-.sbox h3{font-size:17px;font-weight:800;margin-bottom:7px}
-.sbox p{color:var(--dim);font-size:15.5px;line-height:1.6}
-.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
-.source-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-.source-type{display:block;margin-bottom:7px;color:var(--red);font-size:11.5px;font-weight:800;
-  letter-spacing:.12em;text-transform:uppercase}
-.source-answer{max-width:900px;margin-bottom:16px;color:var(--dim);font-size:16.5px;line-height:1.65}
-.source-answer strong{color:var(--text)}
-.steps{list-style:none;counter-reset:s;display:grid;gap:12px}
-.steps li{counter-increment:s;position:relative;padding-left:44px;color:var(--dim);font-size:15.5px;line-height:1.6}
-.steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:29px;height:29px;border-radius:50%;
-  background:var(--red);color:#fff;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
-.steps li strong{color:var(--text);display:block;margin-bottom:2px}
-.faq-list{display:grid;gap:10px}
-.faq-q{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px 18px}
-.faq-q h3{font-size:16.5px;font-weight:700;margin-bottom:6px}
-.faq-q p{color:var(--dim);font-size:15.5px;line-height:1.62}
-.faq-q p + p{margin-top:8px}
-.sec-note{color:var(--faint);font-size:14.5px;line-height:1.6;margin-top:14px;max-width:760px}
-.sbox a,.faq-q a,.steps a,.sec-note a{color:var(--red);text-decoration:none;font-weight:600}
-.sbox a:hover,.faq-q a:hover,.steps a:hover,.sec-note a:hover{text-decoration:underline}
+/* ── The short version ─────────────────────────────────────────────
+   The old tail rendered five consecutive explainers and nine open FAQ
+   cards. The copy still matters for a first-time watcher and for search,
+   but it does not all deserve a place in the default scan. Three beats
+   stay open; reference material sits behind one honest drawer. */
+.watch-basics{display:grid;grid-template-columns:minmax(230px,.72fr) minmax(0,1.8fr);gap:32px;
+  align-items:start;margin-top:44px;padding:28px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.basics-kicker{display:block;color:var(--red-link);font-size:11.5px;font-weight:900;letter-spacing:.14em;
+  text-transform:uppercase;margin-bottom:8px}
+.basics-head h2{font-size:clamp(24px,3vw,34px);line-height:1.08;max-width:12ch}
+.basics-grid{list-style:none;counter-reset:watch-step;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.basics-grid li{counter-increment:watch-step;position:relative;min-width:0;padding:42px 16px 16px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.basics-grid li:before{content:'0' counter(watch-step);position:absolute;top:14px;left:16px;color:var(--red-link);
+  font-family:'Geist Mono',monospace;font-size:12px;font-weight:800;letter-spacing:.08em}
+.basics-grid b{display:block;font-size:16.5px;margin-bottom:6px}
+.basics-grid span{display:block;color:var(--dim);font-size:14.5px;line-height:1.52}
+.basics-grid a,.watch-reference a{color:var(--red-link);font-weight:700;text-decoration:none}
+.basics-grid a:hover,.watch-reference a:hover{text-decoration:underline;text-underline-offset:3px}
+
+.watch-reference{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.watch-reference>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:18px;
+  cursor:pointer;padding:19px 22px}
+.watch-reference>summary::-webkit-details-marker{display:none}
+.watch-reference>summary b{display:block;font-size:16.5px}
+.watch-reference>summary small{display:block;color:var(--faint);font-size:13.5px;line-height:1.4;margin-top:3px}
+.reference-open{flex:none;color:var(--red-link);font-size:13.5px;font-weight:800}
+.reference-open:before{content:'Open guide'}
+.reference-open:after{content:' +';font-family:'Geist Mono',monospace}
+.watch-reference[open] .reference-open:before{content:'Close guide'}
+.watch-reference[open] .reference-open:after{content:' \2212'}
+.watch-reference[open]>summary{border-bottom:1px solid var(--border)}
+.reference-body{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.65fr);gap:34px;padding:24px 22px 26px}
+.reference-body h2{font-size:19px;margin-bottom:12px}
+.faq-list{display:grid;gap:8px}
+.faq-q{border-top:1px solid var(--border)}
+.faq-q:last-child{border-bottom:1px solid var(--border)}
+.faq-q summary{list-style:none;cursor:pointer;position:relative;padding:12px 30px 12px 0;font-size:15px;font-weight:800}
+.faq-q summary::-webkit-details-marker{display:none}
+.faq-q summary:after{content:'+';position:absolute;right:4px;top:10px;color:var(--red-link);
+  font:700 18px 'Geist Mono',monospace}
+.faq-q[open] summary:after{content:'\2212'}
+.faq-q p{color:var(--dim);font-size:14.5px;line-height:1.58;padding:0 28px 14px 0}
+.source-intro{color:var(--dim);font-size:14.5px;line-height:1.55;margin-bottom:12px}
+.source-list{list-style:none;display:grid;gap:8px}
+.source-list li{border-top:1px solid var(--border);padding-top:10px}
+.source-list b{display:block;font-size:14.5px}
+.source-list span{display:block;color:var(--faint);font-size:13.5px;line-height:1.45;margin-top:2px}
+.source-check{color:var(--faint);font-size:12.5px;line-height:1.5;margin-top:14px}
 
 footer{margin:70px 0 40px;color:var(--faint);font-size:14px;text-align:center}
 footer a{color:var(--dim)}
@@ -546,9 +529,19 @@ footer a{color:var(--dim)}
   /* iOS focuses text inputs by magnifying the page when their type is
      smaller than 16px. Keep the clip editor at the no-zoom threshold. */
   input.clip-title{font-size:16px}
-  .source-grid{grid-template-columns:1fr}
+  .watch-basics{grid-template-columns:1fr;gap:20px;padding:24px 0}
+  .basics-head h2{max-width:16ch}
+  .basics-grid{grid-template-columns:1fr}
+  .basics-grid li{padding:14px 14px 14px 50px}
+  .basics-grid li:before{top:16px;left:14px}
+  .watch-reference>summary{padding:17px}
+  .watch-reference>summary small{max-width:25ch}
+  .reference-body{grid-template-columns:1fr;gap:28px;padding:20px 17px 22px}
 }
-@media (min-width:641px) and (max-width:900px){.source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:641px) and (max-width:920px){
+  .watch-basics{grid-template-columns:1fr;gap:22px}
+  .basics-head h2{max-width:none}
+}
 
 /* ── MERGED SPECTATOR SURFACE (2026-09-02) ───────────────────────────
    /spectate folded into this page. Everything below is written on THIS
@@ -579,7 +572,7 @@ footer a{color:var(--dim)}
 .wait-state strong{display:block;font-size:16px;line-height:1.15}
 .wait-state p{margin:3px 0 0;color:var(--dim);font-size:14.5px;line-height:1.3}
 .wait-meta{display:flex;align-items:center;gap:14px;flex:0 0 auto}
-.timer-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.timer-wrap{display:none}
 .timer-label{font-size:10.5px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
 .timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;color:var(--dim)}
 .wait-link{color:var(--dim);font-weight:800;font-size:14.5px;text-underline-offset:3px}
@@ -623,9 +616,8 @@ footer a{color:var(--dim)}
 .yt-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:24px;
   background:#ff0000;border-radius:6px;flex:0 0 auto}
 .yt-mark svg{width:11px;height:13px;display:block}
-.yt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:24px 18px;margin-top:16px}
-@media(min-width:1081px){.yt-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:400px){.yt-grid{grid-template-columns:1fr}}
+.yt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 14px;margin-top:16px}
+@media(max-width:720px){.yt-grid{grid-template-columns:1fr}}
 .yt-card{display:block;text-decoration:none;color:inherit}
 .yt-thumb{display:block;position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
   background:var(--surface2);border:1px solid var(--border)}
@@ -644,7 +636,7 @@ footer a{color:var(--dim)}
 .yt-event{font-size:11.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red-link)}
 .yt-card h3{font-size:16.5px;font-weight:700;line-height:1.34;margin:5px 0 0}
 .yt-card:hover h3{text-decoration:underline;text-underline-offset:2px}
-.yt-motion{color:var(--dim);font-size:14.5px;line-height:1.5;margin-top:6px}
+.yt-motion{color:var(--dim);font-size:14px;line-height:1.48;margin-top:6px}
 .yt-foot{display:flex;align-items:center;gap:7px;margin-top:8px;color:var(--faint);font-size:13px}
 .yt-foot .yt-chan{font-weight:700}
 .yt-note{color:var(--faint);font-size:14px;line-height:1.6;margin-top:18px;max-width:820px}
@@ -653,9 +645,13 @@ footer a{color:var(--dim)}
 
 /* ── Two-column body: main reading column, recordings rail beside it */
 .watch-cols{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:30px;align-items:start;margin-top:38px}
+.watch-main,.watch-rail{min-width:0}
+/* social-depth turns this grid into a column. Carrying grid's start
+   alignment into flex makes both columns take their max-content width. */
+.social-watch .watch-cols{align-items:stretch}
 @media(max-width:1080px){.watch-cols{grid-template-columns:1fr;gap:38px}}
 .watch-rail{position:sticky;top:96px}
-@media(max-width:1080px){.watch-rail{position:static}}
+@media(max-width:1080px){.watch-rail{position:static;order:-1}}
 .rail-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .rail-head h2{font-size:20px;font-weight:800}
 .rail-all{color:var(--red-link);font-weight:700;font-size:13.5px;text-decoration:none}
@@ -676,6 +672,17 @@ footer a{color:var(--dim)}
 .rail-list .card h3{font-size:14.5px;line-height:1.35}
 .rail-list .card .foot{font-size:12px;margin-top:5px;flex-direction:column;align-items:flex-start;gap:2px}
 .rail-list .hl-line{display:none}
+@media(max-width:720px){
+  .watch-cols{margin-top:30px;gap:34px}
+  .rail-list,.yt-grid{display:flex;overflow-x:auto;gap:12px;scroll-snap-type:x mandatory;
+    scrollbar-width:none;padding:0 18px 8px 0}
+  .social-watch .watch-rail .rail-list{overflow-x:auto;overflow-y:hidden}
+  .rail-list::-webkit-scrollbar,.yt-grid::-webkit-scrollbar{display:none}
+  .rail-list .card{display:block;flex:none;width:78vw;max-width:300px;scroll-snap-align:start}
+  .yt-card{flex:none;width:82vw;max-width:320px;scroll-snap-align:start}
+  .yt-motion{display:none}
+  .yt-note{font-size:13px;margin-top:12px}
+}
 
 /* ── Stance card, ported from /spectate ──────────────────────────────
    The "where do you stand" before/after pair. The preferences builder
@@ -780,48 +787,33 @@ footer a{color:var(--dim)}
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "Where can I watch debates online?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Use Debatable for live one-on-one rounds with a written ballot, Open to Debate for weekly public-policy and culture debates, C-SPAN's Video Library for U.S. political and congressional video, and Parliamentlive.tv for UK House of Commons and committee proceedings." }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I watch people debate live online here?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Rounds between real people are scheduled and run live, and viewers sit in on the room while the speeches happen. When a tournament is being streamed, it plays at the top of this page, on the homepage, and inside the tournament event lobby." }
-      },
-      {
-        "@type": "Question",
         "name": "Can spectators bet on who is winning?",
         "acceptedAnswer": { "@type": "Answer", "text": "Inside a live room, signed-in spectators age 18 or older in eligible regions can bet free play tokens on Pro or Con before the middle speech. The AI judge's ballot settles the market. Play tokens cannot be bought, transferred, redeemed, or cashed out." }
       },
       {
         "@type": "Question",
         "name": "Do I need an account to watch?",
-        "acceptedAnswer": { "@type": "Answer", "text": "For a full round, yes. Playing a published replay takes a free account, and so does taking a viewer seat inside a scheduled round, because each room holds a limited number of people. A tournament stream playing on this page plays as is. An account costs nothing and takes about ten seconds." }
+        "acceptedAnswer": { "@type": "Answer", "text": "For a full round, yes. Playing a published replay and taking a viewer seat both require a free account. A tournament stream playing on this page does not." }
       },
       {
         "@type": "Question",
         "name": "Are these real people or AI?",
-        "acceptedAnswer": { "@type": "Answer", "text": "The debaters are real people arguing against each other. An AI opponent exists for solo practice when nobody is available, and the judge that writes the ballot is AI, but the rounds published here are people." }
-      },
-      {
-        "@type": "Question",
-        "name": "What do people debate about?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Motions run across policy, ethics, technology, economics, and international affairs. Both debaters see the motion at the same time and are assigned a side, so neither one arrives with a prepared script." }
+        "acceptedAnswer": { "@type": "Answer", "text": "The published rounds are real people arguing against each other. The judge that writes the result is AI." }
       },
       {
         "@type": "Question",
         "name": "Can I watch debates that already happened?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ordinary live-room recording is opt in. Tournament rounds are always recorded, with preliminary footage private by default, so only recordings cleared for publication appear in the replay library." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ordinary live-room recording is opt in. Tournament rounds are recorded, with preliminary footage private by default. Only recordings cleared for publication appear here." }
       },
       {
         "@type": "Question",
         "name": "How long is a round?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Replay cards show the total running time. In a live room, the clock for each speech stays visible while the round is happening, so you always know how much is left." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Replay cards show the total running time. In a live room, the clock for each speech stays visible." }
       },
       {
         "@type": "Question",
         "name": "Can I take part instead of just watching?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Get matched with an opponent and you are in a round yourself, with the same clock and the same written ballot at the end." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Start a round and you get the same clock and written ballot." }
       }
     ]
   }
@@ -844,18 +836,13 @@ footer a{color:var(--dim)}
     <h1 class="page-title">Watch the room turn.</h1>
     <p class="page-sub">Sit in on a live round, take a side, then read the call. Replays keep the people, pressure, and decision together.</p>
     <div class="hero-cta">
-      <a class="cta-primary" id="ctaDebate" href="/spar">Jump in and debate</a>
+      <a class="cta-primary" id="ctaWatch" href="/live">See what is live</a>
     </div>
-    <!-- Watching is a text link under the button, not a second pill. Two
-         equal pills made the page ask a question; the round is the thing
-         worth pressing and everything else reads as the alternative. The
-         ids stay put because the GA handlers below key on them. -->
     <p class="hero-textcta">
-      <a id="ctaWatch" href="/live">Watch a live round instead</a>
+      <a href="#replaysSec">Browse Debatable replays</a>
       <span class="sep" aria-hidden="true">&middot;</span>
-      <a href="#watch-learn">Study a championship final</a>
+      <a id="ctaDebate" href="/spar">Start a round</a>
     </p>
-    <p class="hero-cta-note">Play tokens are free and have no cash value. Token betting is for signed-in people age 18 or older in eligible regions.</p>
   </header>
 
   <!-- Waiting state and open rooms, both ported from /spectate when that
@@ -865,8 +852,8 @@ footer a{color:var(--dim)}
     <div class="wait-state">
       <span class="wait-dot" aria-hidden="true"></span>
       <div>
-        <strong>No round is open yet</strong>
-        <p>Keep this tab open. The moment one starts, it appears right here.</p>
+        <strong>No live round right now</strong>
+        <p>Browse a replay while this page keeps watch.</p>
       </div>
     </div>
     <div class="wait-meta">
@@ -874,7 +861,7 @@ footer a{color:var(--dim)}
         <span class="timer-label">Checking</span>
         <span class="timer" id="waitTimer">00:00</span>
       </div>
-      <a class="wait-link" href="/live">See the room board</a>
+      <a class="wait-link" href="#replaysSec">Browse replays</a>
     </div>
   </section>
 
@@ -972,8 +959,8 @@ footer a{color:var(--dim)}
   <section class="yt-sec" id="watch-learn">
     <div class="yt-head">
       <div>
-        <h2 class="sec-title">Debates worth watching</h2>
-        <div class="sec-sub">One person against a room, a full Union chamber, and the national finals. Watch how it is done, then take a side yourself.</div>
+        <h2 class="sec-title">Three worth watching</h2>
+        <div class="sec-sub">One against a room, one full chamber, one audience vote.</div>
       </div>
       <span class="yt-badge">
         <span class="yt-mark" aria-hidden="true"><svg viewBox="0 0 24 28"><path fill="#fff" d="M8 5v18l14-9z"/></svg></span>
@@ -994,19 +981,6 @@ footer a{color:var(--dim)}
           <div class="yt-foot"><span class="yt-chan">Jubilee</span><span aria-hidden="true">&middot;</span><span>4.5M views</span></div>
         </div>
       </a>
-      <a class="yt-card" href="https://www.youtube.com/watch?v=qrX9b9x0dx4" target="_blank" rel="noopener noreferrer">
-        <span class="yt-thumb">
-          <img src="https://i.ytimg.com/vi/qrX9b9x0dx4/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">1:21:38</span>
-        </span>
-        <div class="yt-body">
-          <span class="yt-event">Jubilee · Surrounded</span>
-          <h3>Governor Wes Moore vs 20 Non-Voters</h3>
-          <p class="yt-motion">A sitting governor sits down with twenty people who have given up on voting and has to earn every one of them.</p>
-          <div class="yt-foot"><span class="yt-chan">Jubilee</span><span aria-hidden="true">&middot;</span><span>387K views</span></div>
-        </div>
-      </a>
       <a class="yt-card" href="https://www.youtube.com/watch?v=ZJpD2TbCm8w" target="_blank" rel="noopener noreferrer">
         <span class="yt-thumb">
           <img src="https://i.ytimg.com/vi/ZJpD2TbCm8w/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
@@ -1018,32 +992,6 @@ footer a{color:var(--dim)}
           <h3>This House Would Cancel &lsquo;Cancel Culture&rsquo;</h3>
           <p class="yt-motion">A full chamber debate in the Oxford Union. Set-piece speeches, floor speeches, then the house divides and walks through the doors.</p>
           <div class="yt-foot"><span class="yt-chan">OxfordUnion</span><span aria-hidden="true">&middot;</span><span>Full debate</span></div>
-        </div>
-      </a>
-      <a class="yt-card" href="https://www.youtube.com/watch?v=VqxlDsNUmvY" target="_blank" rel="noopener noreferrer">
-        <span class="yt-thumb">
-          <img src="https://i.ytimg.com/vi/VqxlDsNUmvY/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">53:22</span>
-        </span>
-        <div class="yt-body">
-          <span class="yt-event">APDA Nationals · Final</span>
-          <h3>APDA National Championship Final, Harvard against Brown</h3>
-          <p class="yt-motion">&ldquo;The US federal government should not be able to subpoena journalists for their sources.&rdquo; Government took it 7 to 0.</p>
-          <div class="yt-foot"><span class="yt-chan">APDA Nationals</span><span aria-hidden="true">&middot;</span><span>American Parliamentary</span></div>
-        </div>
-      </a>
-      <a class="yt-card" href="https://www.youtube.com/watch?v=vb-WehPSiTo" target="_blank" rel="noopener noreferrer">
-        <span class="yt-thumb">
-          <img src="https://i.ytimg.com/vi/vb-WehPSiTo/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">55:23</span>
-        </span>
-        <div class="yt-body">
-          <span class="yt-event">APDA Nationals · Quarterfinal</span>
-          <h3>APDA Nationals Quarterfinal, Princeton against Chicago</h3>
-          <p class="yt-motion">Princeton on government, Chicago on opposition, at the 2023 national championship. Case built live off an info slide, no prepared evidence.</p>
-          <div class="yt-foot"><span class="yt-chan">UChicago Debate Society</span><span aria-hidden="true">&middot;</span><span>American Parliamentary</span></div>
         </div>
       </a>
       <a class="yt-card" href="https://www.youtube.com/watch?v=144uOfr4SYA" target="_blank" rel="noopener noreferrer">
@@ -1060,7 +1008,7 @@ footer a{color:var(--dim)}
         </div>
       </a>
     </div>
-    <p class="yt-note">These rounds are hosted on YouTube by the organisations that ran them and open in a new tab. Debatable is not affiliated with any of them and none of them endorse this site. <a href="/spar">Argue one of these motions yourself</a>.</p>
+    <p class="yt-note">Hosted on YouTube by the organisations that ran them. They open in a new tab. Debatable is not affiliated with them. <a href="/spar">Take a side yourself</a>.</p>
   </section>
 
     </div>
@@ -1103,16 +1051,6 @@ footer a{color:var(--dim)}
       </div>
       <div class="card still">
         <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/6ac54034-4b19-4cf9-81a8-f80eca3eff02.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would recognize Taiwan as an independent state</h3>
-          <div class="foot"><span>Cleo A. vs Debate M.</span><span>Aug 15, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
           <img class="th-img" src="/assets/replays/92c759d8-2e9e-4db2-a31f-cc51e4aa21b3.jpg" alt="" loading="lazy" decoding="async">
           <span class="th-tag">Round</span>
         </div>
@@ -1131,73 +1069,12 @@ footer a{color:var(--dim)}
           <div class="foot"><span>Cleo A. vs Wade G.</span><span>Aug 15, 2026</span></div>
         </div>
       </div>
-
-      <!-- Held back under the watermark. These four are the redundant
-           half of the still set: two of the three Taiwan rounds (the
-           third stays above), plus two more. The card
-           keeps its motion and its frame so the grid still reads as a
-           library filling up, rather than going half empty. -->
-      <div class="card still soon">
-        <div class="thumb soon" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/e4f66ee4-2877-4962-a61c-9d3be5bddf34.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-          <span class="th-soon"><span>Dropping soon</span></span>
-        </div>
-        <div class="card-body">
-          <h3>This House would recognize Taiwan as an independent state</h3>
-          <div class="foot"><span>Yuna N. vs Debate M.</span><span>Dropping soon</span></div>
-        </div>
-      </div>
-      <div class="card still soon">
-        <div class="thumb soon" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/b630edf6-c659-424d-a148-329a38fb81d6.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-          <span class="th-soon"><span>Dropping soon</span></span>
-        </div>
-        <div class="card-body">
-          <h3>This House would recognize Taiwan as an independent state</h3>
-          <div class="foot"><span>Nia I. vs Sasha S.</span><span>Dropping soon</span></div>
-        </div>
-      </div>
-      <div class="card still soon">
-        <div class="thumb soon" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/1116076d-d51f-467f-be01-bff2a1154212.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-          <span class="th-soon"><span>Dropping soon</span></span>
-        </div>
-        <div class="card-body">
-          <h3>This House would ban private jet ownership</h3>
-          <div class="foot"><span>Wade G. vs Zoya K.</span><span>Dropping soon</span></div>
-        </div>
-      </div>
-      <div class="card still soon">
-        <div class="thumb soon" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/67b5b372-777e-4719-bb79-be5b450d88b5.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-          <span class="th-soon"><span>Dropping soon</span></span>
-        </div>
-        <div class="card-body">
-          <h3>This House would scrap legacy admissions at universities</h3>
-          <div class="foot"><span>Ren R. vs Zoya K.</span><span>Dropping soon</span></div>
-        </div>
-      </div>
     </div>
     <p class="sec-sub" id="replaysSub" style="margin:14px 0 0;font-size:13.5px">Ordinary rooms publish once every seat opts in. Tournament preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a></p>
   </section>
 
     </aside>
   </div>
-
-  <section class="culture" aria-label="Watching argument">
-    <p class="culture-line">People already watch strangers argue for hours, on a stage, on a stream, in a room holding up cards. <b>Here, spectators have a position before the ballot lands.</b> Bet free play tokens on who is winning, watch the live split move, then see whether the judge agrees.</p>
-    <p class="vote-thesis"><strong>The audience is part of the round.</strong> Spectators forecast the winner with play tokens, mark the arguments that move them, and get the judge's written reason for decision at the end.</p>
-    <div class="culture-grid">
-      <figure><img src="/img/culture/creator-vs-stranger.jpg" alt="A one on one debate at a table with a countdown clock between the speakers and an audience seated around them" width="964" height="563" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/room-votes.jpg" alt="A speaker at a table in the middle of a circle of seated people holding coloured cards" width="678" height="452" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/televised-debate.jpg" alt="Two candidates at podiums on a televised debate stage" width="1100" height="825" loading="lazy" decoding="async"></figure>
-      <figure><img src="/img/culture/stream-chat.jpg" alt="A debate playing on a livestream with viewer chat running down the side of the screen" width="738" height="414" loading="lazy" decoding="async"></figure>
-    </div>
-  </section>
 
   <!-- Stance before and after, ported from /spectate when it folded in.
        Hidden until a motion resolves; nothing here is published or
@@ -1263,131 +1140,67 @@ footer a{color:var(--dim)}
     </section>
 
 
-  <!-- ── STATIC EXPLAINER ────────────────────────────────────────────
-       Everything below is plain HTML and renders with scripts off. It
-       carries the page when the replay corpus is thin, and it is what a
-       crawler reads when someone searches for a place to watch a debate. -->
-
-  <section class="sec" id="where-to-watch">
-    <h2 class="sec-title">Where to watch debates online</h2>
-    <p class="source-answer"><strong>Use Debatable for live one-on-one rounds with a written ballot, Open to Debate for weekly public-policy and culture debates, C-SPAN's Video Library for U.S. political and congressional video, and Parliamentlive.tv for UK House of Commons and committee proceedings.</strong></p>
-    <div class="sgrid source-grid">
-      <div class="sbox">
-        <span class="source-type">Live one-on-one rounds</span>
-        <h3><a href="#replaysSec">Debatable</a></h3>
-        <p>Watch real people take opposite sides against a clock. Live rooms, opt-in replays, clips, and the written decision sit together, so the argument does not end when the video stops.</p>
-      </div>
-      <div class="sbox">
-        <span class="source-type">Public policy and culture</span>
-        <h3><a href="https://opentodebate.org/" target="_blank" rel="noopener">Open to Debate</a></h3>
-        <p>Weekly produced debates on politics, culture, science, and public life. Full programs are available from its official site through YouTube, Substack, podcast platforms, and participating public-radio stations.</p>
-      </div>
-      <div class="sbox">
-        <span class="source-type">U.S. politics and government</span>
-        <h3><a href="https://www.c-span.org/videolibrary/" target="_blank" rel="noopener">C-SPAN Video Library</a></h3>
-        <p>Search past U.S. candidate debates, congressional floor debate, hearings, and public-affairs programs. C-SPAN also carries live federal proceedings when they are in session.</p>
-      </div>
-      <div class="sbox">
-        <span class="source-type">UK Parliament</span>
-        <h3><a href="https://www.parliamentlive.tv/Commons" target="_blank" rel="noopener">Parliamentlive.tv</a></h3>
-        <p>Watch House of Commons, Westminster Hall, and committee proceedings live, then use the same official service to open recently archived sessions.</p>
-      </div>
+  <!-- Three open beats replace the old five-section explainer. The
+       deeper answers remain plain HTML inside the drawer below. -->
+  <section class="watch-basics" id="how-to-watch">
+    <div class="basics-head">
+      <span class="basics-kicker">One round</span>
+      <h2>Pick it. Watch it. Call it.</h2>
     </div>
-    <p class="sec-note">Links and availability checked against each organization's official watch page on August 27, 2026.</p>
-  </section>
-
-  <section class="sec" id="what-you-can-watch">
-    <h2 class="sec-title">Three ways to watch</h2>
-    <div class="sec-sub">Live while it happens, after the fact, or just the part that mattered.</div>
-    <div class="sgrid">
-      <div class="sbox">
-        <h3>Live rounds</h3>
-        <p>Two debaters take opposite sides of one motion and speak against a clock. You sit in on the room read only, so you hear every speech and every point of information as it lands, not an edited version afterwards. Scheduled rounds are listed on <a href="/live">live rounds</a>.</p>
-      </div>
-      <div class="sbox">
-        <h3>Round replays</h3>
-        <p>When both debaters agree to record, the round is captured end to end and published here once it finishes. A replay is the whole thing, opening speech through to the written ballot, not a highlight reel with the reasoning cut out.</p>
-      </div>
-      <div class="sbox">
-        <h3>Clips</h3>
-        <p>Anyone watching a replay can mark a start and an end, name the moment, and save it. That is how the turn, the dropped argument, or the answer nobody had gets pulled out of a long round and shared as a link.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="sec" id="how-to-watch">
-    <h2 class="sec-title">How to watch a live round</h2>
-    <div class="sec-sub">From this page to sitting in the room.</div>
-    <ol class="steps">
-      <li><strong>Open the schedule.</strong> Upcoming rounds are listed on <a href="/live">live rounds</a> with the motion and the start time.</li>
-      <li><strong>Take a viewer seat.</strong> Rooms hold a limited number of people, so a seat is reserved for you rather than handed out at the door.</li>
-      <li><strong>Watch read only.</strong> You see and hear both debaters. You cannot speak into the round, so nobody gets talked over by the audience.</li>
-      <li><strong>Bet tokens on who is winning.</strong> Signed-in spectators age 18 or older in eligible regions can back Pro or Con with free play tokens before the middle speech.</li>
-      <li><strong>Read the ballot.</strong> When the round ends the judge writes up who won and why, argument by argument. That is the part most debate video leaves out.</li>
+    <ol class="basics-grid">
+      <li><b>Choose</b><span>Open a <a href="/live">live room</a> or pick a replay. The motion and running time are up front.</span></li>
+      <li><b>Watch</b><span>You are read only. Both people, every speech, and the clock stay on screen.</span></li>
+      <li><b>Call it</b><span>Back Pro or Con if eligible. The judge's written ballot tells you what won.</span></li>
     </ol>
-    <p class="sec-note">If nothing is scheduled when you arrive, the replay library above is the fastest way to see what a round actually looks like. You can also <a href="/spar">get matched into a round yourself</a> instead of watching, <a href="/debate-strangers">debate a stranger 1-on-1</a>, see how it works as <a href="/omegle-alternative">the Omegle alternative</a>, or read how <a href="/debate-online">debating online</a> works before you step in.</p>
   </section>
 
-  <section class="sec" id="what-a-round-looks-like">
-    <h2 class="sec-title">What you are actually watching</h2>
-    <div class="sec-sub">A round is not a comment thread with faces on it.</div>
-    <div class="sgrid">
-      <div class="sbox">
-        <h3>One motion, two sides</h3>
-        <p>Both debaters get the same motion and are assigned a side. Nobody picks the argument they already believe, which is why the rounds are worth watching. You are seeing people defend a position on the merits.</p>
-      </div>
-      <div class="sbox">
-        <h3>Timed speeches</h3>
-        <p>Speeches run to a clock in a fixed order. The clock is the reason a round stays a debate instead of drifting into an argument nobody is refereeing.</p>
-      </div>
-      <div class="sbox">
-        <h3>A written ballot</h3>
-        <p>Every published round ends with a reason for decision: which arguments landed, which got dropped, and what decided it. Rounds and their ballots are collected in <a href="/community">the community feed</a>, and results roll up to <a href="/leaderboard">the leaderboard</a>.</p>
-      </div>
+  <details class="watch-reference" id="faq">
+    <summary>
+      <span><b>New here?</b><small>Account rules, replays, and other places to watch</small></span>
+      <span class="reference-open" aria-hidden="true"></span>
+    </summary>
+    <div class="reference-body">
+      <section aria-labelledby="quickAnswersTitle">
+        <h2 id="quickAnswersTitle">Quick answers</h2>
+        <div class="faq-list">
+          <details class="faq-q">
+            <summary>Can spectators bet on who is winning?</summary>
+            <p>Inside a live room, signed-in spectators age 18 or older in eligible regions can bet free play tokens on Pro or Con before the middle speech. The AI judge's ballot settles the market. Play tokens cannot be bought, transferred, redeemed, or cashed out.</p>
+          </details>
+          <details class="faq-q">
+            <summary>Do I need an account to watch?</summary>
+            <p>For a full round, yes. Playing a published replay and taking a viewer seat both require a free account. A tournament stream playing on this page does not.</p>
+          </details>
+          <details class="faq-q">
+            <summary>Are these real people or AI?</summary>
+            <p>The published rounds are real people arguing against each other. The judge that writes the result is AI.</p>
+          </details>
+          <details class="faq-q">
+            <summary>Can I watch debates that already happened?</summary>
+            <p>Yes. Ordinary live-room recording is opt in. Tournament rounds are recorded, with preliminary footage private by default. Only recordings cleared for publication appear here.</p>
+          </details>
+          <details class="faq-q">
+            <summary>How long is a round?</summary>
+            <p>Replay cards show the total running time. In a live room, the clock for each speech stays visible.</p>
+          </details>
+          <details class="faq-q">
+            <summary>Can I take part instead of just watching?</summary>
+            <p>Yes. <a href="/spar">Start a round</a> and you get the same clock and written ballot.</p>
+          </details>
+        </div>
+      </section>
+      <aside aria-labelledby="otherSourcesTitle">
+        <h2 id="otherSourcesTitle">Other places to watch</h2>
+        <p class="source-intro">Debatable is for live one-on-one rounds. These official archives cover produced debates and government proceedings.</p>
+        <ul class="source-list">
+          <li><b><a href="https://opentodebate.org/" target="_blank" rel="noopener">Open to Debate</a></b><span>Public policy and culture debates.</span></li>
+          <li><b><a href="https://www.c-span.org/videolibrary/" target="_blank" rel="noopener">C-SPAN Video Library</a></b><span>U.S. political debates and congressional proceedings.</span></li>
+          <li><b><a href="https://www.parliamentlive.tv/Commons" target="_blank" rel="noopener">Parliamentlive.tv</a></b><span>UK Commons and committee proceedings.</span></li>
+        </ul>
+        <p class="source-check">Links checked against each organisation's official watch page on August 27, 2026.</p>
+      </aside>
     </div>
-  </section>
-
-  <section class="sec" id="faq">
-    <h2 class="sec-title">Questions about watching</h2>
-    <div class="faq-list">
-      <div class="faq-q">
-        <h3>Where can I watch debates online?</h3>
-        <p>Use Debatable for live one-on-one rounds with a written ballot, Open to Debate for weekly public-policy and culture debates, C-SPAN's Video Library for U.S. political and congressional video, and Parliamentlive.tv for UK House of Commons and committee proceedings.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Can I watch people debate live online here?</h3>
-        <p>Yes. Rounds between real people are scheduled and run live, and viewers sit in on the room while the speeches happen. When a tournament is being streamed, it plays at the top of this page, on the homepage, and inside the tournament event lobby.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Can spectators bet on who is winning?</h3>
-        <p>Inside a live room, signed-in spectators age 18 or older in eligible regions can bet free play tokens on Pro or Con before the middle speech. The AI judge's ballot settles the market. Play tokens cannot be bought, transferred, redeemed, or cashed out.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Do I need an account to watch?</h3>
-        <p>For a full round, yes. Playing a published replay takes a free account, and so does taking a viewer seat inside a scheduled round, because each room holds a limited number of people. A tournament stream playing on this page plays as is. An account costs nothing and takes about ten seconds.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Are these real people or AI?</h3>
-        <p>The debaters are real people arguing against each other. An AI opponent exists for solo practice when nobody is available, and the judge that writes the ballot is AI, but the rounds published here are people.</p>
-      </div>
-      <div class="faq-q">
-        <h3>What do people debate about?</h3>
-        <p>Motions run across policy, ethics, technology, economics, and international affairs. Both debaters see the motion at the same time and are assigned a side, so neither one arrives with a prepared script.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Can I watch debates that already happened?</h3>
-        <p>Yes. Ordinary live-room recording is opt in. Tournament rounds are always recorded, with preliminary footage private by default, so only recordings cleared for publication appear here.</p>
-      </div>
-      <div class="faq-q">
-        <h3>How long is a round?</h3>
-        <p>Replay cards show the total running time. In a live room, the clock for each speech stays visible while the round is happening, so you always know how much is left.</p>
-      </div>
-      <div class="faq-q">
-        <h3>Can I take part instead of just watching?</h3>
-        <p>Yes. <a href="/spar">Get matched with an opponent</a> and you are in a round yourself, with the same clock and the same written ballot at the end.</p>
-      </div>
-    </div>
-  </section>
+  </details>
 
   <footer>
     <a href="/">Home</a> · <a href="/live">Live rounds</a> · <a href="/spar">Find an opponent</a> · <a href="/community">Community</a> · <a href="/leaderboard">Leaderboard</a>
@@ -1748,8 +1561,8 @@ footer a{color:var(--dim)}
       // data-n is the count-up hook below; the final value is rendered
       // as the text so the number is right even if the script stops here.
       pts = '<div class="vr-points">'
-          + '<div class="vr-pt"><b' + (b.proPoints != null && isFinite(Number(b.proPoints)) ? ' data-n="' + Number(b.proPoints) + '"' : '') + '>' + esc(b.proPoints == null ? '—' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
-          + '<div class="vr-pt"><b' + (b.conPoints != null && isFinite(Number(b.conPoints)) ? ' data-n="' + Number(b.conPoints) + '"' : '') + '>' + esc(b.conPoints == null ? '—' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
+          + '<div class="vr-pt"><b' + (b.proPoints != null && isFinite(Number(b.proPoints)) ? ' data-n="' + Number(b.proPoints) + '"' : '') + '>' + esc(b.proPoints == null ? '-' : b.proPoints) + '</b><span>' + esc(proName) + '</span></div>'
+          + '<div class="vr-pt"><b' + (b.conPoints != null && isFinite(Number(b.conPoints)) ? ' data-n="' + Number(b.conPoints) + '"' : '') + '>' + esc(b.conPoints == null ? '-' : b.conPoints) + '</b><span>' + esc(conName) + '</span></div>'
           + '</div>'
           + (band ? '<div class="vr-band">' + esc(band) + (scale100 ? ' &middot; out of 100' : '') + '</div>' : '');
     }
@@ -2433,7 +2246,7 @@ footer a{color:var(--dim)}
     return a;
   }
 
-  var STILL_FLOOR = 8;
+  var STILL_FLOOR = 4;
   function renderFeed(){
     if (!feedItems.length) return;   // nothing published: the stills are the grid
     var grid = $('replaysGrid');
@@ -2547,12 +2360,11 @@ footer a{color:var(--dim)}
 })();
 </script>
 
-<!-- Open-rooms strip, ported verbatim from /spectate. The `.wrap-foot`
-     it dismisses does not exist on this page; the guard already covers
-     that. -->
+<!-- Open-rooms strip, carried over from /spectate. Legacy format fields
+     stay stored for old rounds but the public board calls every one a
+     round, matching the casual one-on-one product. -->
 <script>
 (function(){
-  var FORMATS={quick:'Quick Clash',apda:'APDA',bp:'BP',worlds:'Worlds (WUDC)',asian:'Asian Parli',ld:'LD',pf:'Public Forum',policy:'Policy'};
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   var strip=document.getElementById('liveNowStrip');
   var rows=document.getElementById('liveNowRows');
@@ -2567,7 +2379,7 @@ footer a{color:var(--dim)}
         return;
       }
       rows.innerHTML=rounds.map(function(r){
-        var label=FORMATS[r.format]||String(r.format||'').toUpperCase();
+        var label='Round';
         var who=[r.proName,r.conName].filter(Boolean).join(' vs ')||'In progress';
         var state=r.status==='ballot'?'Judge writing the ballot':(r.started===false?'Getting started':'Round in progress');
         return '<a class="ls-row" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">'+
