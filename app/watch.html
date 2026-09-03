@@ -65,6 +65,24 @@
   document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
 })();
 </script>
+<!-- The two gallery URLs reuse this page's live feed and player instead
+     of copying them into pages that would drift. Mark the mode before
+     paint so the overview never flashes around the selected gallery. -->
+<script>
+(function(){
+  var path = location.pathname.replace(/\/+$/, '');
+  var mode = path === '/watch/youtube' ? 'youtube' : (path === '/watch/debatable' ? 'debatable' : '');
+  if (!mode) {
+    try {
+      var requested = new URLSearchParams(location.search).get('gallery');
+      if (requested === 'youtube' || requested === 'debatable') mode = requested;
+    } catch(e){}
+  }
+  if (!mode) return;
+  document.documentElement.setAttribute('data-watch-gallery', mode);
+  document.title = mode === 'youtube' ? 'YouTube Debate Gallery | Debatable' : 'Debatable Replay Gallery | Debatable';
+})();
+</script>
 
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
@@ -619,6 +637,13 @@ footer a{color:var(--dim)}
    provenance honest. */
 .yt-sec{margin-top:38px}
 .yt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+.yt-head-actions,.rail-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
+.gallery-title-link{color:inherit;text-decoration:none}
+.gallery-title-link:hover{text-decoration:underline;text-underline-offset:4px}
+.gallery-open{display:inline-flex;align-items:center;gap:7px;color:var(--red-link);font-size:13.5px;font-weight:800;text-decoration:none;white-space:nowrap}
+.gallery-open span{font-size:18px;line-height:1;transition:transform .18s ease}
+.gallery-open:hover span{transform:translateX(3px)}
+.gallery-open:focus-visible,.gallery-title-link:focus-visible{outline:2px solid var(--red);outline-offset:4px;border-radius:4px}
 .yt-badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--dim)}
 .yt-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:24px;
   background:#ff0000;border-radius:6px;flex:0 0 auto}
@@ -751,6 +776,56 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
   .ls-watch{grid-column:2;justify-self:start;padding:8px 14px}
 }
 @media(prefers-reduced-motion:reduce){.watch-shelf-cue b{animation:none}}
+
+/* Dedicated galleries. The overview stays compact and horizontally
+   browseable; opening either source turns only that shelf into a full
+   grid. The replay gallery keeps the same element so live feed updates,
+   filters and inline playback continue to work without parallel logic. */
+.gallery-heading{display:none}
+.gallery-return{display:inline-flex;align-items:center;gap:7px;margin-bottom:10px;color:var(--red-link);
+  font-size:14px;font-weight:800;text-decoration:none}
+.gallery-return:hover{text-decoration:underline;text-underline-offset:3px}
+.gallery-page-sub{max-width:680px;margin-top:8px;color:var(--dim);font-size:16px;line-height:1.5}
+html[data-watch-gallery] .watch-home-title{display:none}
+html[data-watch-gallery="youtube"] .gallery-heading-youtube,
+html[data-watch-gallery="debatable"] .gallery-heading-debatable{display:block}
+html[data-watch-gallery] .wait-banner,
+html[data-watch-gallery] #liveNowStrip,
+html[data-watch-gallery] #liveBand,
+html[data-watch-gallery] .watch-basics,
+html[data-watch-gallery] .watch-reference{display:none!important}
+html[data-watch-gallery] .watch-cols{grid-template-columns:minmax(0,1fr);margin-top:24px}
+html[data-watch-gallery="youtube"] .watch-rail{display:none}
+html[data-watch-gallery="debatable"] .watch-main{display:none}
+html[data-watch-gallery] body.social-watch .yt-sec,
+html[data-watch-gallery] body.social-watch .watch-rail{height:auto;padding:28px}
+html[data-watch-gallery] body.social-watch .yt-grid,
+html[data-watch-gallery] body.social-watch .rail-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:26px 18px;max-height:none;overflow:visible;padding:0;scroll-snap-type:none;scrollbar-width:auto}
+html[data-watch-gallery] body.social-watch .yt-card,
+html[data-watch-gallery] body.social-watch .rail-list .card{display:block;min-width:0;width:auto;max-width:none}
+html[data-watch-gallery] .watch-shelf::after,
+html[data-watch-gallery] .watch-shelf-cue,
+html[data-watch-gallery] .gallery-open{display:none}
+html[data-watch-gallery="youtube"] .yt-head>div:first-child,
+html[data-watch-gallery="debatable"] .rail-head>h2{display:none}
+html[data-watch-gallery="youtube"] .yt-head,
+html[data-watch-gallery="debatable"] .rail-head{justify-content:flex-end}
+html[data-watch-gallery] .yt-note{max-width:none}
+@media(max-width:900px){
+  html[data-watch-gallery] body.social-watch .yt-grid,
+  html[data-watch-gallery] body.social-watch .rail-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  html[data-watch-gallery] .page-head{padding-top:76px}
+  html[data-watch-gallery] .watch-masthead{align-items:flex-end}
+  html[data-watch-gallery] .watch-join{display:none}
+  html[data-watch-gallery] body.social-watch .yt-sec,
+  html[data-watch-gallery] body.social-watch .watch-rail{padding:16px}
+  html[data-watch-gallery] body.social-watch .yt-grid,
+  html[data-watch-gallery] body.social-watch .rail-list{grid-template-columns:minmax(0,1fr);gap:22px}
+  .yt-head-actions,.rail-actions{gap:10px}
+}
 
 /* ── Stance card, ported from /spectate ──────────────────────────────
    The "where do you stand" before/after pair. The preferences builder
@@ -901,7 +976,17 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
 <div class="wrap">
   <header class="page-head">
     <div class="watch-masthead">
-      <h1 class="page-title">Watch the debates.</h1>
+      <h1 class="page-title watch-home-title">Watch the debates.</h1>
+      <div class="gallery-heading gallery-heading-youtube">
+        <a class="gallery-return" href="/watch">&larr; All debates</a>
+        <h1 class="page-title">YouTube debates.</h1>
+        <p class="gallery-page-sub">All three picks, in one place.</p>
+      </div>
+      <div class="gallery-heading gallery-heading-debatable">
+        <a class="gallery-return" href="/watch">&larr; All debates</a>
+        <h1 class="page-title">Debatable debates.</h1>
+        <p class="gallery-page-sub">Every published round and clip.</p>
+      </div>
       <a class="watch-join" id="ctaDebate" href="/spar">Get in a debate yourself. Join a live room!</a>
     </div>
   </header>
@@ -1019,13 +1104,16 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
   <section class="yt-sec" id="watch-learn">
     <div class="yt-head">
       <div>
-        <h2 class="sec-title">YouTube debates</h2>
+        <h2 class="sec-title"><a class="gallery-title-link" href="/watch/youtube">YouTube debates</a></h2>
         <div class="sec-sub">Three picks from outside Debatable.</div>
       </div>
+      <div class="yt-head-actions">
+      <a class="gallery-open" href="/watch/youtube" aria-label="See the full YouTube debates gallery">See gallery <span aria-hidden="true">&rarr;</span></a>
       <span class="yt-badge">
         <span class="yt-mark" aria-hidden="true"><svg viewBox="0 0 24 28"><path fill="#fff" d="M8 5v18l14-9z"/></svg></span>
         On YouTube
       </span>
+      </div>
     </div>
     <div class="watch-shelf">
     <div class="yt-grid" data-pan-shelf role="region" aria-label="YouTube debate picks. Scroll horizontally for more." tabindex="0">
@@ -1083,8 +1171,11 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
        and when recordings exist loadFeed swaps in the real cards. -->
   <section class="sec" id="replaysSec" style="margin-top:0">
     <div class="rail-head">
-      <h2>Debatable debates</h2>
+      <h2><a class="gallery-title-link" href="/watch/debatable">Debatable debates</a></h2>
+      <div class="rail-actions">
+      <a class="gallery-open" href="/watch/debatable" aria-label="See the full Debatable debates gallery">See gallery <span aria-hidden="true">&rarr;</span></a>
       <a class="rail-all" href="/spar">Get in one</a>
+      </div>
     </div>
     <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
       <button class="fchip on" type="button" data-filter="all">All</button>

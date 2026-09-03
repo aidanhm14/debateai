@@ -136,6 +136,28 @@ check(
     && watch.includes('.watch-shelf.no-overflow .watch-shelf-cue'),
   'watch shelves visibly explain horizontal browsing only when content overflows',
 );
+check(
+  watch.includes('href="/watch/youtube" aria-label="See the full YouTube debates gallery"')
+    && watch.includes('href="/watch/debatable" aria-label="See the full Debatable debates gallery"')
+    && watch.includes("path === '/watch/youtube' ? 'youtube'")
+    && watch.includes("data-watch-gallery=\"youtube\"")
+    && watch.includes("data-watch-gallery=\"debatable\""),
+  'each Watch source opens its own full gallery view',
+);
+check(
+  watch.includes('body.social-watch .rail-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))')
+    && watch.includes('html[data-watch-gallery="debatable"] .watch-main{display:none}')
+    && watch.includes('html[data-watch-gallery="youtube"] .watch-rail{display:none}'),
+  'gallery views expand the selected source into a responsive grid',
+);
+for (const path of ['netlify.toml', 'app/netlify.toml']) {
+  const redirects = read(path);
+  check(
+    /from = "\/watch\/youtube"[\s\S]{0,60}to = "\/watch\.html"[\s\S]{0,40}status = 200/.test(redirects)
+      && /from = "\/watch\/debatable"[\s\S]{0,60}to = "\/watch\.html"[\s\S]{0,40}status = 200/.test(redirects),
+    `${path} serves both Watch gallery routes`,
+  );
+}
 check(inlineScriptsParse('app/watch.html'), 'app/watch.html inline scripts parse');
 
 const liveRound = read('app/live-round.html');
