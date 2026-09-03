@@ -10,10 +10,10 @@
  * Inputs are left alone so we never rewrite something while a person types.
  *
  * Plain-copy swaps: an element carrying data-plain="simpler wording" shows
- * that wording when the visitor said they are new (or unsure), and keeps its
- * authored debate-register text for competitive visitors and for anyone who
- * never answered. The authored text is stashed on the element so the swap
- * reverses cleanly when the answer changes.
+ * that wording by default and for visitors who said they are new (or unsure).
+ * Only an explicit competitive answer keeps the authored debate-register
+ * text. The authored text is stashed on the element so the swap reverses
+ * cleanly when the answer changes.
  *
  * Intent is the second half of the same question, asked only of someone who
  * said they do not compete: do they want to LEARN competitive debate, or do
@@ -63,9 +63,10 @@
    * 100-page site does not converge, so the common vocabulary is handled
    * here and data-plain stays for sentences that need real rewriting.
    *
-   * This runs ONLY for visitors who said they are new or unsure.
-   * Competitive visitors, and anyone who never answered, see the
-   * authored words untouched — the precision is the point for them.
+   * This runs for visitors who said they are new or unsure and for
+   * unanswered visitors, because casual, accessible language is the safe
+   * product default. Only an explicit competitive answer keeps the
+   * authored terminology untouched.
    *
    * Rules that keep an automatic find-and-replace from going wrong:
    *  - Longest phrases first, so "speaker points" is consumed before
@@ -208,8 +209,7 @@
   }
 
   function plainActive() {
-    var v = read();
-    return v === 'new' || v === 'unsure';
+    return read() !== 'competitive';
   }
 
   function swapPlainCopy(root) {

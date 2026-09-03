@@ -4,6 +4,7 @@ const source = fs.readFileSync(new URL('../app/js/auth-modal.js', import.meta.ur
 const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
 const signupNudge = fs.readFileSync(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
 const experienceAsk = fs.readFileSync(new URL('../app/js/experience-ask.js', import.meta.url), 'utf8');
+const audienceMode = fs.readFileSync(new URL('../app/js/audience-mode.js', import.meta.url), 'utf8');
 const livePull = fs.readFileSync(new URL('../app/js/live-pull.js', import.meta.url), 'utf8');
 let failures = 0;
 
@@ -81,6 +82,17 @@ check(
     && experienceAsk.includes('Competitive debater')
     && experienceAsk.includes('New to debate'),
   'the experience ask states its plain-language purpose',
+);
+check(
+  experienceAsk.includes('var ASK_AFTER_MS = 60000;')
+    && experienceAsk.includes("sessionStorage.getItem(SPENT)")
+    && experienceAsk.includes('if (document.hidden) return;')
+    && !experienceAsk.includes('}, 2200);'),
+  'the experience ask waits for one cumulative visible minute',
+);
+check(
+  /function plainActive\(\) \{\s*return read\(\) !== 'competitive';\s*\}/.test(audienceMode),
+  'unanswered visitors get the accessible plain-language mode by default',
 );
 
 const communityJoinLinks = landing.match(/<a[^>]+data-community-join[^>]*>/g) || [];

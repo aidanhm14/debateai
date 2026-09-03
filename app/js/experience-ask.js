@@ -1,6 +1,6 @@
 /* ──────────────────────────────────────────────────────────────────
-   "Are you a competitive debater or new?" — asked once, on arrival,
-   site-wide.
+   "Are you a competitive debater or new?" — asked once, after one
+   visible minute of use, site-wide.
 
    Aidan, 2026-08-22: "when entering site ask ppl if they already
    debate or dont and are new (no worries if your not!)".
@@ -24,8 +24,11 @@
    strip under the Open ribbon, and is not a modal: a modal in front
    of a stranger who has seen nothing yet is a toll booth, and the one
    thing the answer is for is making the page behind it easier to read.
-   It waits for the visitor to look at the page first, then asks from
-   the corner, once, and never again either way.
+   Unanswered visitors get the plain-language version by default, then
+   this waits for one cumulative visible minute in the tab before asking
+   from the corner, once, and never again either way. Hidden-tab time
+   does not count, and the budget follows full-page navigation inside
+   the same browser session.
 
    Answering is not a commitment: /settings carries the same control,
    and the card says so.
@@ -41,7 +44,22 @@
 
   var KEY = 'debateos-experience';
   var ASKED = 'debateos-experience-asked';
+  var SPENT = 'debateos-experience-visible-ms';
+  var ASK_AFTER_MS = 60000;
+  var TICK_MS = 1000;
   var VALID = { competitive: 1, new: 1, unsure: 1 };
+
+  // QA can shorten the wait without changing the production default:
+  // ?experienceask=1 asks after one visible second. The override is
+  // intentionally bounded and can only make the prompt arrive sooner.
+  (function qaOverride() {
+    try {
+      var m = /[?&]experienceask=(\d{1,2})(?:&|$)/.exec(location.search);
+      if (!m) return;
+      var seconds = parseInt(m[1], 10);
+      if (seconds >= 1 && seconds <= 60) ASK_AFTER_MS = seconds * 1000;
+    } catch (e) {}
+  })();
 
   /* Pages where the question is an interruption rather than a
      shortcut. Two kinds: a round in progress or about to be (asking
@@ -82,6 +100,12 @@
 
   function read(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
   function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function spent() {
+    try { return parseInt(sessionStorage.getItem(SPENT), 10) || 0; } catch (e) { return 0; }
+  }
+  function setSpent(value) {
+    try { sessionStorage.setItem(SPENT, String(value)); } catch (e) {}
+  }
 
   function answered() { return !!VALID[read(KEY)] || read(ASKED) === '1'; }
 
@@ -231,12 +255,8 @@
     track('audience_ask_shown', { surface: 'entry_card' });
   }
 
-  /* A short wait, on purpose. The question is easy to answer once you
-     have seen what the site is, and unanswerable in the first 200ms
-     when it is still a headline. Also lets the Open strip and the
-     topbar settle so nothing lands on top of a moving layout. */
-  /* Never ask a tab nobody is looking at. Two reasons, and the second
-     is the one that actually costs something:
+  /* Never charge time to a tab nobody is looking at. Two reasons, and
+     the second is the one that actually costs something:
 
      1. anim-governor.js pauses every animation on a hidden document
         (a blanket `html.anim-hidden *` rule, no opt-out), and this card
@@ -249,7 +269,7 @@
         from the data afterwards.
 
      Waiting costs nothing: the question is only worth asking of someone
-     actually reading the page, which is the same test. */
+     actually using the page, which is the same test. */
   function whenVisible(fn) {
     if (!document.hidden) { fn(); return; }
     document.addEventListener('visibilitychange', function onVis() {
@@ -259,7 +279,35 @@
     });
   }
 
-  function start() { whenVisible(function () { setTimeout(function () { whenVisible(mount); }, 2200); }); }
+  var timer = null;
+  var elapsed = spent();
+
+  function stop() {
+    if (!timer) return;
+    clearInterval(timer);
+    timer = null;
+  }
+
+  function showWhenReady() {
+    stop();
+    // Let a newly loaded page settle before mounting when the minute was
+    // already earned on an earlier page in this session.
+    whenVisible(function () { setTimeout(function () { whenVisible(mount); }, 800); });
+  }
+
+  function tick() {
+    if (answered()) { stop(); return; }
+    if (document.hidden) return;
+    elapsed += TICK_MS;
+    setSpent(elapsed);
+    if (elapsed >= ASK_AFTER_MS) showWhenReady();
+  }
+
+  function start() {
+    if (answered()) return;
+    if (elapsed >= ASK_AFTER_MS) { showWhenReady(); return; }
+    timer = setInterval(tick, TICK_MS);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
