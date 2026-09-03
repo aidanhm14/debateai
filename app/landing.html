@@ -7660,38 +7660,38 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        by ~70px signed in. Centring splits that difference evenly top and
        bottom, so the mismatch reads as a composition rather than as a
        ragged edge, and it self-corrects if either column changes height. */
-    .fscreen-wrap > .fs-board{grid-column:2;grid-row:1;align-self:center}
+    .fscreen-wrap > .fs-board-wrap{grid-column:2;grid-row:1;align-self:center}
     /* SIGNED IN: the sign-in row under the board is display:none, so row
        2 of column 2 holds nothing and the board takes both rows, centred
        against the copy the same way. This is the state most returning
        visitors see, and it is the one with the bigger height difference. */
-    body.signed-in .fscreen-wrap > .fs-board{grid-row:1 / span 2;align-self:center}
+    body.signed-in .fscreen-wrap > .fs-board-wrap{grid-row:1 / span 2;align-self:center}
   }
-  /* ── Guest sign-in "N live right now" nudge ── 2026-08-24 ──────────
-     A live-presence pill above the guest Google button. Guest-only,
-     inherited from body.signed-in .fs-signin{display:none}. Green is the
-     site's liveness colour (the Bet pill, the spar "N waiting" pulse),
-     kept off the red CTAs so it reads as a status signal, not a button.
-     Takes its own full-width row so it sits ABOVE the button + why-line
-     on both columns. The number is a founder-called 3 minimum plus the
-     measured live count (2026-09-02, see fsLiveNow) and is always on. */
-  .fs-live-now{flex:0 0 auto;align-self:flex-start;max-width:100%;display:inline-flex;align-items:center;gap:8px;
-    padding:6px 12px;border-radius:999px;background:rgba(22,163,74,.10);
-    border:1px solid rgba(22,163,74,.28);font-size:.82rem;font-weight:700;
-    color:#15803d;white-space:nowrap}
-  .fs-live-now[hidden]{display:none}
-  /* 2026-09-02: the signed-in half of the live-right-now line. Doubled
-     specificity on purpose so it beats the base .fs-live-now display rule
-     whatever the source order ends up being. */
-  .fs-live-now.fs-live-now--signed{display:none;align-self:flex-start;margin:0 0 12px}
-  body.signed-in .fs-live-now.fs-live-now--signed{display:inline-flex}
-  .fs-live-now b{font-weight:800}
-  .fs-live-now-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#16a34a;
-    box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:fsLiveNowPulse 1.8s ease-out infinite}
-  @keyframes fsLiveNowPulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%,100%{box-shadow:0 0 0 7px rgba(22,163,74,0)}}
-  @media(prefers-reduced-motion:reduce){.fs-live-now-dot{animation:none}}
-  :root:not([data-theme="light"]) .fs-live-now{background:rgba(22,163,74,.16);
-    border-color:rgba(34,197,94,.42);color:#4ade80}
+  /* ── "N live right now" ── 2026-09-03, the founder, pointing at the
+     example board: "put this actually above (and in red) without the
+     circle around it - just text and a blipping red dot - right above
+     this". It was a green bordered pill in the CTA column (2026-08-24 for
+     guests over the Google button, 2026-09-02 a signed-in copy over the
+     doors). One line now, for everyone, sitting directly above the board:
+     plain red text, a blinking red dot, no pill. Static inside
+     .fs-board-wrap so it takes real room instead of floating into the
+     screen padding; the wrapper carries the board's grid placement. Not
+     on phones: the board moves into the phone home there, whose red door
+     already carries the same count. The number is a founder-called 3
+     minimum plus the measured live count (fsLiveNow, near the end of the
+     document). The markup ships "3" so a JS-off visitor never sees an
+     empty "<b></b> live right now". */
+  .fs-board-wrap{position:relative;min-width:0}
+  .fs-live-line{display:flex;align-items:center;gap:9px;margin:0 0 10px 6px;
+    font-size:.86rem;font-weight:800;letter-spacing:.01em;color:#dc2626;white-space:nowrap}
+  .fs-live-line[hidden]{display:none}
+  .fs-live-line b{font-weight:900}
+  .fs-live-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#dc2626;
+    animation:fsLiveBlip 1.1s steps(1,end) infinite}
+  @keyframes fsLiveBlip{0%,55%{opacity:1}56%,100%{opacity:.16}}
+  @media(prefers-reduced-motion:reduce){.fs-live-dot{animation:none}}
+  :root:not([data-theme="light"]) .fs-live-line{color:#f05252}
+  :root:not([data-theme="light"]) .fs-live-dot{background:#f05252}
   /* ── Mobile first screen (TikTok traffic lands here) ── 2026-08-24 ──
      The globe is 112px of ambience between the CTAs and the proof, and
      the constellation crosses it, so it comes off on phones (the
@@ -7704,7 +7704,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fscreen-copy .fs-globe{display:none}
     .fscreen-wrap > .fscreen-copy{order:1}
     .fscreen-wrap > .fs-signin--side{order:2;margin-top:2px}
-    .fscreen-wrap > .fs-board{order:3}
+    .fscreen-wrap > .fs-board-wrap{order:3}
     .fscreen-wrap > .fs-live{order:4}
   }
   /* Live-round count on Spectate. Filled by the watch-live poll near the
@@ -8877,7 +8877,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              The signed-in half; the guest pill lives above the sign-in button
              inside .fs-signin--side, which body.signed-in hides. CSS shows
              exactly one of the two, never both. -->
-        <div class="fs-live-now fs-live-now--signed"><span class="fs-live-now-dot" aria-hidden="true"></span><span><b data-live-now>3</b> live right now</span></div>
         <div class="fs-ctas">
           <!-- 2026-09-03, the founder, off a screenshot of this button:
                "change this to match now". The phone home already opens on
@@ -8919,7 +8918,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              The signed-in half; the guest pill lives above the sign-in button
              inside .fs-signin--side, which body.signed-in hides. CSS shows
              exactly one of the two, never both. -->
-        <div class="fs-live-now fs-live-now--signed"><span class="fs-live-now-dot" aria-hidden="true"></span><span><b data-live-now>3</b> live right now</span></div>
         <div class="fs-ctas">
           <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
           <!-- 2026-09-03, the founder, off a screenshot of the red door:
@@ -9025,6 +9023,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     </div>
 
 
+    <!-- 2026-09-03, the founder, pointing at the example board: "put this
+         actually above (and in red) without the circle around it - just
+         text and a blipping red dot - right above this". The live-right-now
+         line used to be a green pill in the CTA column (guest copy over the
+         Google button, signed-in copy over the doors). One copy now, for
+         everyone, directly above the board. data-live-now-wrap keeps the
+         fsLiveNow script near the end of the document filling it. -->
+    <div class="fs-board-wrap">
+    <div class="fs-live-line" data-live-now-wrap><span class="fs-live-dot" aria-hidden="true"></span><span><b data-live-now>3</b> live right now</span></div>
     <div class="fs-board" id="fsBoard">
       <!-- 2026-08-31 per the founder: pressing the card goes to /spar, the
            live debating page, not /spectate ("pressing this should not go to
@@ -9170,6 +9177,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="fs-chal-note" id="fsChalNote">None confirmed, none affiliated, none endorsing.</p>
       </div>
     </div>
+    </div><!-- /.fs-board-wrap -->
 
     <!-- The live stream takes this same slot when the arena is on air,
          and the example board above hides for the duration. A real
@@ -9224,10 +9232,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            the end of the document) is where the arithmetic lives. The
            markup ships "3" so a JS-off visitor sees the floor, never an
            empty "<b></b> live right now". -->
-      <div class="fs-live-now" data-live-now-wrap>
-        <span class="fs-live-now-dot" aria-hidden="true"></span>
-        <span><b data-live-now>3</b> live right now</span>
-      </div>
       <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-signin"><svg class="g-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.1z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.7C7.9 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8l7.3-5.7z"/><path fill="#EA4335" d="M24 10.8c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C35 4.3 30 2 24 2 15.4 2 7.9 7 4.3 14.2l7.3 5.7c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>Continue with Google
       </button>
       <p class="fs-signin-why">Keep your rounds and climb the leaderboard.</p>
@@ -19845,8 +19849,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      SIGNED-IN desktop visitor saw no live-right-now line anywhere, which
      is what "bring back the thing" was about. Measured on production
      first: guest desktop yes, mobile #mhome yes, signed-in desktop
-     nothing. .fs-live-now--signed above the CTA row is the signed-in
-     half; it renders only under body.signed-in so nobody sees two, and
+     nothing. 2026-09-03: one .fs-live-line above the example board is the only
+     copy now, for guests and signed-in alike (the CTA-column pills are gone), and
      it carries data-live-now so this querySelectorAll paints it too. */
   (function(){
     var wrap = document.querySelector('[data-live-now-wrap]');

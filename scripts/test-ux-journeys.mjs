@@ -294,6 +294,15 @@ check(
     && landing.includes("b.classList.remove('is-live')"),
   'landing keeps a Watch door beside Join a debate',
 );
+// 2026-09-03, the founder: the live-right-now count is one plain red line
+// with a blinking dot directly above the example board, not a pill in the
+// CTA column.
+check(
+  /<div class="fs-board-wrap">\s*<div class="fs-live-line" data-live-now-wrap>[\s\S]*?<div class="fs-board" id="fsBoard">/.test(landing)
+    && !landing.includes('fs-live-now--signed')
+    && !landing.includes('class="fs-live-now"'),
+  'landing puts the live count above the example board as a plain red line',
+);
 
 const topbar = read('app/js/topbar.js');
 const openRetiredAt = topbar.indexOf('RETIRED 2026-09-03');
