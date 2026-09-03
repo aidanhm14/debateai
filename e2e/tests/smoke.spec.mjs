@@ -62,10 +62,20 @@ test.describe('public pages', () => {
     await expect(google).toContainText(/with Google/i);
     await expect(page.locator('.gate-guest:visible, .gate-email:visible')).toHaveCount(0);
     await expect(page.getByText(/live now/i).first()).toBeVisible();
-    // 2026-08-31: the shared chooser opens over the gate, Google-only
-    // (liveVideo). It must never offer an email, phone, or guest door here,
-    // because the live queue refuses all three.
+    // 2026-09-03 (f06ddddf): NOTHING pops over the gate. The gate is already
+    // a full Google sign-in card, so a chooser opening on top of it charged
+    // a dismissal for a door that was on screen anyway. This pop has been
+    // added and removed four times (08-23 in, 08-23 out, 08-31 in with a 5s
+    // delay, 09-03 out); the founder's last word is out, and this holds it
+    // there. The window is the old auto-pop delay plus slack, so a restored
+    // timer fails here rather than passing by arriving late.
     const chooser = page.locator('#ditAuth');
+    await page.waitForTimeout(6_500);
+    await expect(chooser).toBeHidden();
+    // The chooser still exists behind an explicit tap (topbar Sign in), and
+    // there it must be Google-only: no email, phone, or guest door, because
+    // the live queue refuses all three (178be072).
+    await page.locator('#barSignIn').click();
     await expect(chooser).toBeVisible({ timeout: 10_000 });
     await expect(chooser).toContainText(/with Google/i);
     await expect(chooser).not.toContainText(/email|phone|guest/i);
@@ -75,7 +85,16 @@ test.describe('public pages', () => {
   test('/watch renders its static copy without JavaScript help', async ({ page, request }) => {
     const errors = trackErrors(page);
     await page.goto('/watch');
-    await expect(page.locator('h1.page-title')).toContainText(/Watch/);
+    // 14696eef put three <h1 class="page-title"> in the markup (home plus
+    // the two gallery mastheads, which CSS hides until JS stamps
+    // data-watch-gallery), so a class locator resolves three nodes and
+    // strict mode throws. The promise to a stranger is about what RENDERS:
+    // exactly one level-1 heading, and it says Watch. getByRole reads the
+    // accessibility tree, so display:none headings do not count, and the
+    // count guard fails the day a second one becomes visible.
+    const h1 = page.getByRole('heading', { level: 1 });
+    await expect(h1).toHaveCount(1);
+    await expect(h1).toContainText(/Watch/);
     const sm = await request.get('/sitemap-recordings.xml');
     expect(sm.status()).toBe(200);
     expect(await sm.text()).toMatch(/<(urlset|sitemapindex)/);
