@@ -27,8 +27,8 @@ check('typed quick rubric normalizes all three score dimensions',
   practice.includes("max: 15") && practice.includes("max: 10") && practice.includes("max: 5"));
 check('typed full ballot falls back to the lowest user speech',
   practice.includes('userSpeeches.sort((a, b) => parseFloat(a.score) - parseFloat(b.score))'));
-check('typed weakness launches a two-minute voice drill',
-  practice.includes("return '/voice-debate?' + q.toString()"));
+check('typed weakness launches a voice drill on the AI door',
+  practice.includes("return '/newvoice?' + q.toString()"));
 
 check('voice ballot preserves mode and side on rematch',
   voiceRfd.includes("roundQ.set('mode'") && voiceRfd.includes("roundQ.set('side'"));

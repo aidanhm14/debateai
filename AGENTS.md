@@ -610,6 +610,56 @@ the diff tells you nothing about the feel. `window.__lrRenderDraft(doc)` on
 /live-round is the snapshot hook and takes a synthetic draft, which is how
 every beat above was checked without two signed-in humans and a live queue.
 
+## The AI door: /newvoice (talk it through, spoken voice switch, scored)
+
+`/newvoice` is the public "Debate the AI" door. As of 2026-09-03 its setup
+is one choice per screen (how, topic, side, voice, go), and the round can
+start with NO topic: "Talk it through with the AI" opens the room, the
+model asks what they want to argue about, and hands the agreed claim back
+through a Realtime function tool. Every finished round is scored 1-100 and
+a named account's score posts to `leaderboard_entries` (kind `voice`).
+
+```
+lib/realtime-tools.mjs      PURE: VOICE_OPTIONS, the two tools (set_claim,
+                              set_voice), the scoping / flex / continuation
+                              prompt blocks, and the continuation token.
+realtime-session.mjs        reads body.scoping and body.continuation, attaches
+                              the tools on clash mints, returns roundToken + tools.
+newvoice.html               the five-screen run, tool handling, switchVoice(),
+                              the scored judge, postLeaderboard(), rateAiRound().
+scripts/test-newvoice-talk-it-out.mjs   runs in the pre-commit hook.
+```
+
+Things that are easy to break by accident:
+
+- **The Realtime API cannot change a session's voice once it has spoken,
+  so a voice switch is a RECONNECT** on the same mic, clock and transcript.
+  A reconnect is a mint, and a mint is what the voice gate decides on, so
+  the first mint hands the page a `roundToken` (HMAC over uid + first-mint
+  time, `VOICE_CONTINUE_SECRET` with `EMAIL_UNSUB_SECRET` as the fallback)
+  and a mint carrying a valid one is NEVER WALLED. **It is verified BEFORE
+  the gate** (a person at the edge of their minutes must still be able to
+  switch mid-round) and **re-signed with the FIRST mint's clock**, so a
+  chain of switches dies 20 minutes after the round it continues was
+  admitted. Never re-sign with `Date.now()`. Under the minutes model
+  (`lib/voice-minutes.mjs`) a continuation still opens a session: that is
+  what settles the one it replaces by server time, so a switch costs at
+  most the one-minute minimum and the minutes keep counting.
+- **The claim the model proposes goes through `sanitizeTopic` and the
+  lock-in line is a literal the CLIENT writes** ("Locked in. Topic is: ...").
+  The model is never asked to find or read the topic out of its own
+  instructions; that is the 2026-09-03 topic-isolation failure and the
+  scoping opener is a quoted literal for the same reason.
+- **A follow-up `response.create` after a tool call waits for
+  `response.done`.** The function-call response is still open when the
+  arguments arrive, and a second create inside it is refused.
+- **session.update REPLACES `tools` when the key is present**, so the page
+  re-sends the definitions the mint returned on every config push.
+- **The judge scores only the turns after the claim locked** (`roundStartIdx`),
+  a round with no locked claim is not scored, and the leaderboard write is
+  named accounts only, 1-100 only, at least two spoken turns and 40 words,
+  the alias as the name, honouring `leaderboardOptOut`.
+
 ## The AI judge integrity layer (READ BEFORE TOUCHING JUDGING)
 
 The judge is the one component where a quiet change is a legal problem

@@ -62,6 +62,10 @@ import { getExemplarBlock } from './lib/exemplars.mjs';
 import { getDistillationBlock } from './lib/distillations.mjs';
 import { checkContent, SENSITIVE_MOTION_POLICY } from './lib/content-guard.mjs';
 import { sanitizeTopic } from './lib/topic-isolation.mjs';
+import {
+  REALTIME_TOOLS, VOICE_IDS, DEFAULT_VOICE, flexBlock, scopingBlock, continuationBlock,
+  sanitizePriorTranscript, signContinuation, verifyContinuation,
+} from './lib/realtime-tools.mjs';
 
 /* ── AI COUNCIL ──────────────────────────────────────────────────
    When smartness > 1, the function calls Claude / Gemini / Grok /
@@ -957,6 +961,25 @@ export default async (request, context) => {
     signedInUid = null;
   }
 
+  // The body is read here, ahead of the metering, because a CONTINUATION
+  // (a voice switch mid-round, see lib/realtime-tools.mjs) has to be
+  // recognised BEFORE the cap gate: the round it continues was already
+  // charged, and a person on their last free round would otherwise be
+  // refused the switch. The token is HMAC-bound to this caller's uid and
+  // to the first mint's clock, so it cannot be minted by a client or
+  // chained past CONTINUATION_MAX_AGE_MS.
+  let body = {};
+  try { body = await request.json(); } catch (e) { body = {}; }
+  if (!body || typeof body !== 'object') body = {};
+  const continueSecret = process.env.VOICE_CONTINUE_SECRET || process.env.EMAIL_UNSUB_SECRET || '';
+  let continued = false;
+  let continuedIat = 0;
+  if (signedInUid && continueSecret && typeof body.continuation === 'string') {
+    const v = verifyContinuation(continueSecret, body.continuation, signedInUid);
+    if (v.ok) { continued = true; continuedIat = v.iat; }
+    else console.warn('[realtime-session] continuation refused:', v.reason);
+  }
+
   // Only a NAMED account earns the per-UID lane. Anonymous-auth callers
   // fall back to the IP lane; see the note on VOICE_LAYERS_USER.
   const meterUid = (signedInUid && isNamedAccount(earlyDecoded)) ? signedInUid : null;
@@ -1066,7 +1089,12 @@ export default async (request, context) => {
       // brain endpoint's SIGN_IN_REQUIRED (2026-08-19). The token path is
       // skipped for them on purpose, since buying tokens needs a real
       // account, so an anonymous uid can never hold a balance.
-      const walled = !isPro && gate && !gate.allowed;
+      // A CONTINUATION (a voice switch mid-round, verified above) is never
+      // walled: the person is already in a round the gate admitted, and the
+      // minutes they use from here are settled by server time like the
+      // session it continues. The token is what stops a client from
+      // claiming that on a fresh round.
+      const walled = !isPro && !continued && gate && !gate.allowed;
       if (walled && !callerIsNamed){
         return new Response(JSON.stringify({
           error: 'SIGN_IN_REQUIRED: That was your free voice time. Sign in to keep going.',
@@ -1115,7 +1143,6 @@ export default async (request, context) => {
   }
 
   try {
-    const body = await request.json();
     const mode = ALLOWED_MODES.has((body.mode || '').toLowerCase())
       ? body.mode.toLowerCase() : 'quickclash';
     const voice = ALLOWED_VOICES.has((body.voice || '').toLowerCase())
@@ -1148,6 +1175,11 @@ export default async (request, context) => {
         code: 'SENSITIVE_MOTION',
       }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
+    // A "talk it through" round: clash mode with NO motion and an explicit
+    // scoping flag. The model's first job is to find the claim with the
+    // person and hand it to set_claim; the page turns that into the motion.
+    const scoping = mode === 'clash' && body.scoping === true && !motion;
+    const priorTranscript = continued ? sanitizePriorTranscript(body.priorTranscript) : '';
     const side = ['gov', 'opp', 'pm', 'lo', 'mg', 'mo', 'pmr', 'lor'].includes(
       (body.side || '').toLowerCase()
     ) ? body.side.toLowerCase() : 'opp';
@@ -1428,8 +1460,22 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
 `
       : '';
     const motionPolicyBlock = SENSITIVE_MOTION_POLICY + '\n\n';
+    // Clash carries the two tools (lib/realtime-tools.mjs): the voice can be
+    // changed by asking, and a topic can be agreed out loud. A scoping
+    // session swaps the OPENING EXCHANGE for the find-the-claim phase; a
+    // continuation carries the round so far so a voice switch does not
+    // restart the argument.
+    let clashModeBlock = modeBlock;
+    if (scoping) {
+      clashModeBlock = clashModeBlock
+        .replace('THE CLAIM, exactly and only: "an open motion (the user will state it)".', 'THE CLAIM is whatever set_claim returns, exactly and only; until then there is none.')
+        .replace(/OPENING EXCHANGE:[\s\S]*?\n\n/, '');
+    }
+    const clashToolsBlock = mode === 'clash'
+      ? (continued ? continuationBlock(priorTranscript, voice) : '') + (scoping ? scopingBlock() : '') + flexBlock(voice)
+      : '';
     const instructions = mode === 'clash'
-      ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + modeBlock + '\n\n' + conversationBlock +
+      ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + clashToolsBlock + clashModeBlock + '\n\n' + conversationBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
         CLASH_DIFFICULTY[difficulty] +
         audienceRegisterBlock
@@ -1527,6 +1573,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // turn_detection + transcription inline; the GA mint endpoint takes
     // a smaller surface and you push the rest as a session.update event
     // over the data channel after the WebRTC connection opens.
+    const sessionTools = mode === 'clash' ? REALTIME_TOOLS : null;
     const gaBody = (m) => {
       const s = {
         type: 'realtime',
@@ -1534,6 +1581,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
         audio: { output: { voice, speed } },
         instructions,
       };
+      if (sessionTools) { s.tools = sessionTools; s.tool_choice = 'auto'; }
       // reasoning.effort only exists on the 2.1 family; attaching it to an
       // older fallback model would 400 the mint and drop us to the legacy
       // path for no reason. Gate it so the fallback chain stays clean.
@@ -1546,6 +1594,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       model: m,
       voice,
       instructions,
+      ...(sessionTools ? { tools: sessionTools, tool_choice: 'auto' } : {}),
       modalities: ['audio', 'text'],
       input_audio_transcription: { model: transcribeModel },
       turn_detection: {
@@ -1649,6 +1698,9 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // request to save it, so the counter this whole gate reads was being
     // written unreliably at best. Bounded at 2s so a Firestore stall
     // still cannot hold the WebRTC handshake open indefinitely.
+    // A continuation opens a session too: that is what settles the one it
+    // replaces (the next mint stamps the close) and keeps the minutes
+    // metered by server time across the switch.
     let openInfo = null;
     if (signedInUid && !isPro){
       try {
@@ -1669,7 +1721,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // timeout the round goes unspent (logged, acceptable failure mode,
     // mirrors the usage-counter contract above).
     let tokensAfter = null;
-    if (tokenFunded && signedInUid){
+    if (tokenFunded && signedInUid && !continued){
       try {
         const spendRes = await withTimeout(spendTokens({
           uid: signedInUid,
@@ -1694,6 +1746,16 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       model,
       voice,
       mode,
+      // The page re-sends these in session.update (which replaces `tools`
+      // when the key is present) and handles the calls as events.
+      tools: sessionTools,
+      scoping,
+      continued,
+      // Lets the page reconnect for a voice switch without a second charge.
+      // Re-signed with the FIRST mint's clock, so a chain expires together.
+      roundToken: (signedInUid && continueSecret)
+        ? signContinuation(continueSecret, signedInUid, continued ? continuedIat : Date.now())
+        : null,
       // Null unless the negotiated model actually supports reasoning
       // effort — the client only echoes it into session.update when set,
       // so a fallback model never gets a field it would 400 on.

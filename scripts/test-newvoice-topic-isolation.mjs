@@ -120,7 +120,7 @@ check('speed is settable before the round', page.includes('id="paceSeg"'));
 check('speed is settable during the round and pushed into the live session',
   page.includes("$('paceBtn').addEventListener('click'") &&
   page.includes("if (dc && dc.readyState === 'open') sendSessionConfig(vadFallbackSent ? 'server' : 'semantic');") &&
-  page.includes("output: { voice: 'marin', speed: PACE[paceKey] || 1.05 }"));
+  page.includes("output: { voice: currentVoice, speed: PACE[paceKey] || 1.05 }"));
 check('the interrupt gate is armed before the opener is requested',
   page.includes('bargeIv = setInterval(bargeTick, 50);\n  requestOpeningTurn();'));
 check('an unattended autostart failure lands quietly on setup',

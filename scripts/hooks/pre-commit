@@ -417,6 +417,23 @@ if [ -f "$TOPIC_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Talk-it-through guard. /newvoice can find the claim with the person
+# out loud, switch voices mid-round on a continuation token, and post a
+# 1-100 score to the leaderboard. This pins the token (verified before
+# the cap gate, bound to the caller, expiring from the FIRST mint), the
+# tool contract, and the named-only board write.
+# ──────────────────────────────────────────────────────────────────
+TALK_GUARD="$REPO_ROOT/scripts/test-newvoice-talk-it-out.mjs"
+if [ -f "$TALK_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-newvoice-talk-it-out.mjs >/tmp/talk-it-out-guard.log 2>&1); then
+    echo "[talk-it-out] commit blocked: the voice-switch token, the tools, or the board write regressed:" >&2
+    grep "^  FAIL" /tmp/talk-it-out-guard.log >&2 || tail -20 /tmp/talk-it-out-guard.log >&2
+    echo "[talk-it-out] see scripts/test-newvoice-talk-it-out.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Ballot-sweep guard. The patient judge is what lands a ballot when the
 # pinned jurors run longer than a synchronous invocation can wait, so
 # two things must hold: the internal door it opens in live-judge stays
