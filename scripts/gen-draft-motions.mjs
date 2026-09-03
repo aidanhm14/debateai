@@ -37,8 +37,17 @@ function block(s, startIdx, open, close) {
 
 // Pull quoted strings that look like motions. The length and shape filters
 // drop array-internal comments, keys, and any markup that wanders in.
+//
+// Whole-line comments are stripped FIRST, and that is load-bearing rather than
+// tidy: for a comment INSIDE a pool array, an apostrophe or a quotation mark
+// opens a string as far as this scanner is concerned, and every motion up to
+// the next one is swallowed. It fails silently, because a half-scraped pool is
+// still longer than MIN_POOL, so the symptom is a quietly shortened slate pool
+// rather than an error. Measured 2026-09-02 on a draft of the bloc below: one
+// apostrophe in an in-array comment took the quick pool from 43 to 18.
 function strings(body) {
   const out = [];
+  body = body.split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n');
   const re = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g;
   let m;
   while ((m = re.exec(body))) {
