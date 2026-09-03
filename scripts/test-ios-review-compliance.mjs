@@ -51,6 +51,28 @@ ok('every shared sign-in method enforces the agreement', () => {
   }
 });
 
+// The agreement must be TAKEABLE on every screen that demands it, and
+// asking must never be silent. Both halves broke in production and were
+// measured 2026-09-02: startWith:'phone' skips the chooser (in-app
+// browsers, /spar), so the phone screen showed "Agree to the Terms of
+// Use before signing in" with no checkbox anywhere on it; and the
+// chooser disabled the provider buttons, which dispatch no click when
+// disabled, so requireTerms()'s message and focus were unreachable and
+// tapping "Continue with phone" did nothing at all.
+ok('the phone screen can take the agreement it demands', () => {
+  assert.match(auth, /function renderPhoneStart\(mode, value\)[\s\S]{0,2200}termsAccepted\(\) \? '' : termsFieldHtml\(\)/,
+    'phone screen no longer renders the terms field');
+  assert.match(auth, /function termsFieldHtml\(\)[\s\S]{0,400}id="daTerms" type="checkbox"/,
+    'shared terms field markup missing');
+});
+
+ok('the terms gate is never enforced by a disabled button', () => {
+  assert.doesNotMatch(auth, /\['#daApple', '#daG', '#daPhone', '#daEmailBtn'\][\s\S]{0,220}\.disabled = /,
+    'provider buttons disabled again: a disabled button fires no click, so requireTerms() cannot report');
+  assert.match(auth, /#daPhone'\)\.addEventListener\('click', function \(\) \{[\s\S]{0,320}if \(!requireTerms\(\)\) return;/,
+    'chooser phone button must gate before it replaces the chooser');
+});
+
 ok('native spar sign-in cannot bypass the shared terms chooser', () => {
   assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,250}window\.openAuthModal\('signup'\)/);
   assert.doesNotMatch(spar, /id="(?:emailStartBtn|gateEmailForm)"/, 'retired spar email path returned without a native terms guard');

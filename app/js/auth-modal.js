@@ -316,6 +316,30 @@
       else localStorage.removeItem(TERMS_KEY);
     } catch (e) {}
   }
+  // ONE definition of the agreement field, because it now has to appear
+  // on more than one screen. Apple 1.2 wants affirmative acceptance
+  // before auth, and scripts/test-ios-review-compliance.mjs pins both
+  // this markup and the requireTerms() call inside every sign-in
+  // handler, so neither may be dropped.
+  function termsFieldHtml() {
+    return '<label class="da-terms"><input id="daTerms" type="checkbox" ' +
+      (termsAccepted() ? 'checked ' : '') +
+      '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. ' +
+      'Debatable has zero tolerance for objectionable content or abusive users.</span></label>';
+  }
+  // Persist on CHANGE only. The old sync ran on every render and called
+  // rememberTerms(false) before the reader had touched anything, so a
+  // screen that happened to render without the field could revoke a
+  // receipt the reader had already given.
+  function wireTermsField(container) {
+    var input = container && container.querySelector('#daTerms');
+    if (!input) return;
+    input.addEventListener('change', function () {
+      rememberTerms(!!input.checked);
+      if (input.checked) setErr('');
+    });
+  }
+
   function requireTerms() {
     var c = home();
     var input = c && c.querySelector('#daTerms');
@@ -323,8 +347,23 @@
       rememberTerms(true);
       return true;
     }
-    setErr('Agree to the Terms of Use before signing in.');
-    try { if (input) input.focus(); } catch (e) {}
+    // The message has to point at something the reader can actually
+    // reach. Before 2026-09-02 it did not: the phone screen carries no
+    // agreement field, and startWith:'phone' opens straight onto it for
+    // in-app browsers and /spar, so a visitor who had never accepted
+    // got "Agree to the Terms of Use before signing in" on a screen
+    // with no checkbox on it and no way to agree. Measured on
+    // production. The phone screen renders the field now, so `input` is
+    // present on every screen that can ask this question.
+    setErr(input
+      ? 'Tick the box to agree to the Terms of Use, then continue.'
+      : 'Agree to the Terms of Use before signing in.');
+    try {
+      if (input) {
+        if (input.scrollIntoView) input.scrollIntoView({ block: 'center' });
+        input.focus();
+      }
+    } catch (e) {}
     return false;
   }
 
@@ -430,7 +469,7 @@
       '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
       inAppNote +
-      '<label class="da-terms"><input id="daTerms" type="checkbox" ' + (acceptedTerms ? 'checked ' : '') + '/><span>I agree to the <a href="/terms">Terms of Use</a> and <a href="/privacy">Privacy Policy</a>. Debatable has zero tolerance for objectionable content or abusive users.</span></label>' +
+      termsFieldHtml() +
       nativeButtons +
       providerButtons +
       (noEmail ? '' : '<div class="da-or">or use email</div>' +
@@ -480,21 +519,25 @@
         } else { legacyCopy(url, done); }
       } catch (e) { legacyCopy(url, done); }
     });
-    var terms = c.querySelector('#daTerms');
-    function syncTerms() {
-      var accepted = !!(terms && terms.checked);
-      rememberTerms(accepted);
-      ['#daApple', '#daG', '#daPhone', '#daEmailBtn'].forEach(function (selector) {
-        var button = c.querySelector(selector);
-        if (button) button.disabled = !accepted;
-      });
-      if (accepted) setErr('');
-    }
-    if (terms) terms.addEventListener('change', syncTerms);
-    syncTerms();
+    // The provider buttons are NOT disabled while the box is unticked,
+    // and that is the fix rather than an oversight. A disabled button
+    // dispatches no click, so requireTerms() -- the whole of the
+    // feedback this gate has, its message and its focus -- sat behind
+    // an event the browser would never deliver. Tapping "Continue with
+    // phone" did nothing at all, twice, and people reported sign-in as
+    // broken. Acceptance is still enforced: every handler calls
+    // requireTerms() before it touches Firebase, which is what the iOS
+    // review guard pins.
+    wireTermsField(c);
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
-    if (c.querySelector('#daPhone')) c.querySelector('#daPhone').addEventListener('click', function () { renderPhoneStart(mode); });
+    if (c.querySelector('#daPhone')) c.querySelector('#daPhone').addEventListener('click', function () {
+      // Gate BEFORE navigating: this is the one provider whose next
+      // screen replaces the chooser, so leaving un-agreed used to strand
+      // the reader on a screen that demanded agreement it could not take.
+      if (!requireTerms()) return;
+      renderPhoneStart(mode);
+    });
     var emailForm = c.querySelector('#daEmailForm');
     if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
     // Carry what has been typed across either switch. Retyping an address
@@ -629,6 +672,11 @@
         '<label class="da-label" for="daPhoneNumber">Mobile number</label>' +
         '<input class="da-input" id="daPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567" value="' + esc(value || '') + '" />' +
         '<p class="da-phone-disclosure">Include the country code. Debatable will send one verification text. Message and data rates may apply. Google processes the number for spam and abuse prevention.</p>' +
+        // startWith:'phone' skips the chooser entirely (in-app browsers,
+        // where Google cannot complete, and /spar), so this is the only
+        // screen a visitor may ever see. It has to be able to take the
+        // agreement, not just demand it.
+        (termsAccepted() ? '' : termsFieldHtml()) +
         '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daPhoneSend">Text me a code</button>' +
         '<div id="daPhoneRecaptcha" aria-live="polite"></div>' +
       '</form>' +
@@ -637,6 +685,7 @@
       '<p class="da-switch"><button type="button" class="da-link" id="daPhoneBack">' + (liveVideo ? 'Use Google instead' : 'Use email or Google instead') + '</button></p>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
+    wireTermsField(c);
     c.querySelector('#daPhoneBack').addEventListener('click', function () { renderChooser(mode); });
     c.querySelector('#daPhoneForm').addEventListener('submit', function (event) { doPhoneStart(event, mode); });
     var input = c.querySelector('#daPhoneNumber');
