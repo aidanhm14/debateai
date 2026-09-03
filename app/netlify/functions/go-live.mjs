@@ -24,10 +24,6 @@ import { sendSmsToManyUsers, smsConfigured } from './lib/sms.mjs';
 const MAX_SMS_RECIPIENTS = 60;
 
 const VALID_FORMATS = ['quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress', 'casual'];
-const FORMAT_LABEL = {
-  quick: 'General', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli',
-  ld: 'LD', pf: 'PF', policy: 'Policy', congress: 'Congress', casual: 'a casual round',
-};
 const BROADCAST_COOLDOWN_MS = 10 * 60 * 1000; // one broadcast per debater per 10 min
 // Guests broadcast too (2026-08-22): most queue joiners are anonymous, and a
 // broadcast only named accounts can fire almost never fires. But anonymous
@@ -51,13 +47,13 @@ export default async (request) => {
 
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
-  let format = String((body && body.format) || 'quick').toLowerCase();
-  if (VALID_FORMATS.indexOf(format) < 0) format = 'quick';
+  let format = String((body && body.format) || 'casual').toLowerCase();
+  if (VALID_FORMATS.indexOf(format) < 0) format = 'casual';
   const named = isNamedAccount(decoded);
   // The notification text is server-constructed, and for a guest the name is
   // too — a client-supplied name here would be a phishing surface.
   const name = named
-    ? String((decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40)
+    ? String((decoded.name || '').split(/\s+/)[0] || 'Someone').slice(0, 40)
     : 'Someone';
 
   const db = getDb();
@@ -157,7 +153,7 @@ export default async (request) => {
 
   const payload = {
     title: name + ' is live on Debatable',
-    body: 'Looking for a ' + (FORMAT_LABEL[format] || format) + ' round. Tap to jump in.',
+    body: 'Looking for someone to debate. Tap to jump in.',
     url: '/spar?from=live-alert',
     // Guests share one tag so back-to-back guest broadcasts replace the
     // notification instead of stacking (sw.js sets renotify:true, so a
@@ -174,7 +170,7 @@ export default async (request) => {
         kind: 'live',
         // Server-constructed, same as the push text. Deliberately short: a
         // text is read on a lock screen, and the link is the whole point.
-        body: `${name} is live on Debatable looking for a ${FORMAT_LABEL[format] || format} round. https://itsdebatable.com/spar?from=sms\n\nReply STOP to stop.`,
+        body: `${name} is live on Debatable and looking for someone to debate. https://itsdebatable.com/spar?from=sms\n\nReply STOP to stop.`,
       })
       : Promise.resolve({ recipients: 0, sent: 0 }),
   ]);

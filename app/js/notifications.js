@@ -60,6 +60,35 @@
   // reach the user even with the tab or installed PWA fully closed. Needs a
   // signed-in identity (push is routed by uid) and server-side VAPID keys; if
   // push isn't configured server-side yet, this no-ops. Runs once per page.
+  // notifications.js rides more pages than the handful that carried this
+  // metadata in authored markup. Install it before an iPhone user opens the
+  // Share menu, otherwise Add to Home Screen can produce a plain bookmark
+  // instead of the standalone web app Web Push requires.
+  function daEnsurePwaMetadata(){
+    try {
+      if (document.querySelector('link[rel~="manifest"]')) return;
+      var link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = '/manifest.json';
+      document.head.appendChild(link);
+    } catch (_) {}
+  }
+  daEnsurePwaMetadata();
+
+  // Do not assume a previous visit to /app registered the worker. Most live
+  // traffic lands on /spar or the landing page, and navigator.serviceWorker
+  // .ready never resolves when no registration exists. Registering here turns
+  // the notification permission into a real PushManager subscription.
+  function daEnsurePushServiceWorker(){
+    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('service_worker_unavailable'));
+    return navigator.serviceWorker.getRegistration('/').then(function (reg) {
+      var activation = reg ? navigator.serviceWorker.ready : navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function () { return navigator.serviceWorker.ready; });
+      return Promise.race([
+        activation,
+        new Promise(function (_, reject) { setTimeout(function () { reject(new Error('service_worker_timeout')); }, 8000); }),
+      ]);
+    });
+  }
   function daB64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4); var s = (b + p).replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(s); var arr = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i); return arr; }
   function daCurrentUser(){ try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (_) { return null; } }
   // True inside the Capacitor native app (iOS/Android shell), false on web.
@@ -101,25 +130,25 @@
       }); } catch (_) {}
     } catch (_) { _daNativeRegistered = false; }
   }
-  var _daPushRegistered = false;
+  var _daPushRegistered = false, _daPushPromise = null;
   function daRegisterPush(){
     try {
-      if (daIsNative()) { daRegisterNativePush(); return; }
-      if (_daPushRegistered) return;
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      if (!window.Notification || Notification.permission !== 'granted') return;
+      if (daIsNative()) { daRegisterNativePush(); return Promise.resolve(false); }
+      if (_daPushRegistered) return Promise.resolve(true);
+      if (_daPushPromise) return _daPushPromise;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve(false);
+      if (!window.Notification || Notification.permission !== 'granted') return Promise.resolve(false);
       var user = daCurrentUser();
-      if (!user) return;
-      _daPushRegistered = true;
-      navigator.serviceWorker.ready.then(function (reg) {
-        fetch('/.netlify/functions/push-subscribe', { method: 'GET' })
+      if (!user || user.isAnonymous) return Promise.resolve(false);
+      _daPushPromise = daEnsurePushServiceWorker().then(function (reg) {
+        return fetch('/.netlify/functions/push-subscribe', { method: 'GET' })
           .then(function (r) { return r.json(); })
           .then(function (cfg) {
-            if (!cfg || !cfg.configured || !cfg.publicKey) { _daPushRegistered = false; return; }
+            if (!cfg || !cfg.configured || !cfg.publicKey) throw new Error('push_not_configured');
             return reg.pushManager.getSubscription().then(function (existing) {
               return existing || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: daB64ToU8(cfg.publicKey) });
             }).then(function (sub) {
-              if (!sub) return;
+              if (!sub) throw new Error('subscription_missing');
               return user.getIdToken().then(function (tok) {
                 return fetch('/.netlify/functions/push-subscribe', {
                   method: 'POST',
@@ -128,10 +157,22 @@
                 });
               });
             });
-          })
-          .catch(function () { _daPushRegistered = false; });
-      }).catch(function () { _daPushRegistered = false; });
-    } catch (_) { _daPushRegistered = false; }
+          });
+      }).then(function (r) {
+        if (!r || !r.ok) throw new Error('subscription_save_failed');
+        _daPushRegistered = true;
+        return true;
+      }).catch(function () {
+        _daPushRegistered = false;
+        _daPushPromise = null;
+        return false;
+      });
+      return _daPushPromise;
+    } catch (_) {
+      _daPushRegistered = false;
+      _daPushPromise = null;
+      return Promise.resolve(false);
+    }
   }
   // ── live-round alerts (go-live broadcast) ────────────────────────
   // Receive side: an opt-in, separate from being available yourself, so a
@@ -199,6 +240,143 @@
       });
     }).then(function () { if (cb) cb(on); }).catch(function () { if (cb) cb(on); });
   }
+
+  // A signed-in iPhone owner previously had to discover this switch inside
+  // the bell or after already joining /spar. Offer the setup once on the
+  // quieter pages. Browser mode explains the required Home Screen install;
+  // standalone mode asks for permission on the button tap, then verifies the
+  // device subscription before turning the account-wide live-alert flag on.
+  var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1';
+  var DA_IOS_ENABLE_OFFER_KEY = 'da-ios-live-enable-offer-v1';
+  var DA_IOS_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+  var _daIosOfferTimer = null, _daIosOfferShown = false;
+  function daIosDeviceName(){
+    try {
+      if (/iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iPad';
+      return /iPhone|iPod/i.test(navigator.userAgent) ? 'iPhone' : '';
+    } catch (_) { return ''; }
+  }
+  function daStandalone(){
+    try { return navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }
+    catch (_) { return false; }
+  }
+  function daOfferSnoozed(key){
+    try {
+      var at = parseInt(localStorage.getItem(key) || '0', 10) || 0;
+      return at > 0 && Date.now() - at < DA_IOS_OFFER_SNOOZE_MS;
+    } catch (_) { return false; }
+  }
+  function daSnoozeOffer(key){ try { localStorage.setItem(key, String(Date.now())); } catch (_) {} }
+  function daVisibleModalUp(){
+    try {
+      var nodes = document.querySelectorAll('[aria-modal="true"],.da-match-overlay,#sparSignInPop,#daAgeGate');
+      for (var i = 0; i < nodes.length; i++) if (nodes[i].getClientRects().length) return true;
+    } catch (_) {}
+    return false;
+  }
+  function daTrackIosOffer(action, state){
+    try { if (window.gtag) gtag('event', 'live_alerts_iphone_offer', { action: action, state: state, path: location.pathname }); } catch (_) {}
+  }
+  function daCloseIosOffer(key, action){
+    var card = document.getElementById('daIosLiveOffer');
+    if (!card) return;
+    if (key) daSnoozeOffer(key);
+    daTrackIosOffer(action || 'close', card.getAttribute('data-state') || '');
+    card.classList.remove('is-in');
+    setTimeout(function () { if (card.parentNode) card.remove(); }, 240);
+  }
+  function daPaintIosInstallSteps(card, key, device){
+    var title = card.querySelector('.da-ios-live-offer__title');
+    var copy = card.querySelector('.da-ios-live-offer__copy');
+    var actions = card.querySelector('.da-ios-live-offer__actions');
+    if (!title || !copy || !actions) return;
+    title.textContent = 'Add Debatable to your Home Screen';
+    copy.innerHTML = '<ol class="da-ios-live-offer__steps">' +
+      '<li>Tap the Share button in your browser.</li>' +
+      '<li>Choose <b>Add to Home Screen</b>.</li>' +
+      '<li>Open Debatable from the new icon, then tap <b>Turn on alerts</b>.</li>' +
+    '</ol>';
+    actions.innerHTML = '<button type="button" class="da-ios-live-offer__primary">Got it</button>';
+    actions.querySelector('button').addEventListener('click', function () { daCloseIosOffer(key, 'install_steps_done'); });
+    daTrackIosOffer('show_install_steps', device.toLowerCase());
+  }
+  function daPaintIosBlocked(card, key, device){
+    var title = card.querySelector('.da-ios-live-offer__title');
+    var copy = card.querySelector('.da-ios-live-offer__copy');
+    var actions = card.querySelector('.da-ios-live-offer__actions');
+    if (!title || !copy || !actions) return;
+    title.textContent = 'Alerts are blocked on this ' + device;
+    copy.textContent = 'Open Settings, tap Notifications, then Debatable. Allow notifications and come back here.';
+    actions.innerHTML = '<button type="button" class="da-ios-live-offer__primary">Got it</button>';
+    actions.querySelector('button').addEventListener('click', function () { daCloseIosOffer(key, 'blocked_done'); });
+  }
+  function daMountIosOffer(state, device){
+    if (_daIosOfferShown || document.getElementById('daIosLiveOffer')) return;
+    var key = state === 'install' ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
+    if (daOfferSnoozed(key)) return;
+    injectStyles();
+    var card = document.createElement('aside');
+    card.id = 'daIosLiveOffer';
+    card.className = 'da-ios-live-offer';
+    card.setAttribute('data-state', state);
+    card.setAttribute('role', 'region');
+    card.setAttribute('aria-labelledby', 'daIosLiveOfferTitle');
+    var install = state === 'install';
+    card.innerHTML =
+      '<button type="button" class="da-ios-live-offer__close" aria-label="Not now">&times;</button>' +
+      '<span class="da-ios-live-offer__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
+      '<div class="da-ios-live-offer__main">' +
+        '<span class="da-ios-live-offer__eyebrow">Live debate alerts</span>' +
+        '<strong class="da-ios-live-offer__title" id="daIosLiveOfferTitle">' + (install ? 'Get live alerts on your ' + device : 'Know when someone goes live') + '</strong>' +
+        '<span class="da-ios-live-offer__copy">' + (install
+          ? 'Add Debatable to your Home Screen. Then it can ping you when someone is looking for a round, even after you leave the browser.'
+          : 'Turn on ' + device + ' notifications. Tap a ping to jump straight into the live queue.') + '</span>' +
+        '<span class="da-ios-live-offer__actions"><button type="button" class="da-ios-live-offer__primary">' + (install ? 'Show setup' : 'Turn on alerts') + '</button><button type="button" class="da-ios-live-offer__later">Not now</button></span>' +
+      '</div>';
+    document.body.appendChild(card);
+    _daIosOfferShown = true;
+    requestAnimationFrame(function () { card.classList.add('is-in'); });
+    card.querySelector('.da-ios-live-offer__close').addEventListener('click', function () { daCloseIosOffer(key, 'dismiss'); });
+    card.querySelector('.da-ios-live-offer__later').addEventListener('click', function () { daCloseIosOffer(key, 'not_now'); });
+    card.querySelector('.da-ios-live-offer__primary').addEventListener('click', function () {
+      if (install) { daPaintIosInstallSteps(card, key, device); return; }
+      var permission = (window.Notification && Notification.permission) || 'default';
+      if (permission === 'denied') { daTrackIosOffer('permission_blocked', state); daPaintIosBlocked(card, key, device); return; }
+      var ask = permission === 'granted' ? Promise.resolve('granted') : Notification.requestPermission();
+      ask.then(function (p) {
+        if (p !== 'granted') { daTrackIosOffer('permission_' + p, state); daPaintIosBlocked(card, key, device); return; }
+        card.classList.add('is-working');
+        daRegisterPush().then(function (saved) {
+          card.classList.remove('is-working');
+          if (!saved) {
+            card.querySelector('.da-ios-live-offer__copy').textContent = 'Could not finish setup. Check your connection and try again.';
+            daTrackIosOffer('subscribe_failed', state);
+            return;
+          }
+          daSetLiveAlerts(true, function () { daCloseIosOffer(key, 'enabled'); });
+        });
+      }).catch(function () { daPaintIosBlocked(card, key, device); });
+    });
+    daTrackIosOffer('impression', state);
+  }
+  function maybeOfferIphoneLiveAlerts(user){
+    if (!user || user.isAnonymous || daIsNative() || DA_ON_ROUND_PAGE) return;
+    var device = daIosDeviceName();
+    if (!device || document.hidden || daVisibleModalUp()) return;
+    var standalone = daStandalone();
+    var permission = (window.Notification && Notification.permission) || 'default';
+    if (standalone && (!window.Notification || !('PushManager' in window))) return;
+    if (standalone && permission === 'granted' && daGetLiveAlerts()) return;
+    var state = standalone ? 'enable' : 'install';
+    var key = state === 'install' ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
+    if (daOfferSnoozed(key)) return;
+    if (standalone) daEnsurePushServiceWorker().catch(function () {});
+    if (_daIosOfferTimer) clearTimeout(_daIosOfferTimer);
+    _daIosOfferTimer = setTimeout(function () {
+      _daIosOfferTimer = null;
+      if (!document.hidden && !daBusyRound() && !daVisibleModalUp()) daMountIosOffer(state, device);
+    }, 2200);
+  }
   // Broadcast side: tell the pool a debater just went live. Server enforces a
   // per-debater cooldown, so calling this on every "Available" flip is safe.
   // Guests broadcast too (2026-08-22) — most queue joiners are anonymous, and
@@ -215,7 +393,7 @@
         return fetch('/.netlify/functions/go-live', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-          body: JSON.stringify({ format: format || 'apda', mode: mode || 'spar' }),
+          body: JSON.stringify({ format: format || 'casual', mode: mode || 'spar' }),
         });
       }).then(function (r) { return r && r.json ? r.json() : null; })
         .then(function (j) { if (cb) cb(j || null); })
@@ -569,6 +747,20 @@
       '.da-bell-toast__eyebrow{font-size:.58rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--dab-accent)}' +
       '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--dab-text)}' +
       '.da-bell-toast__preview{font-size:.78rem;color:var(--dab-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.da-ios-live-offer{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:99990;display:flex;align-items:flex-start;gap:13px;width:min(440px,calc(100vw - 24px));padding:17px 42px 17px 17px;background:var(--dab-surface);border:1px solid rgba(34,197,94,.42);border-radius:18px;box-shadow:var(--dab-shadow);color:var(--dab-text);font-family:inherit;text-align:left;opacity:0;transform:translate(-50%,18px) scale(.98);transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1)}' +
+      '.da-ios-live-offer.is-in{opacity:1;transform:translate(-50%,0) scale(1)}' +
+      '.da-ios-live-offer__close{position:absolute;top:4px;right:5px;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border:0;background:transparent;color:var(--dab-ghost);font:400 24px/1 system-ui;cursor:pointer}' +
+      '.da-ios-live-offer__icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:rgba(34,197,94,.14);color:#22c55e}' +
+      '.da-ios-live-offer__main{display:flex;flex:1;min-width:0;flex-direction:column}' +
+      '.da-ios-live-offer__eyebrow{margin:1px 0 4px;font-size:.62rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#22c55e}' +
+      '.da-ios-live-offer__title{font-size:1rem;font-weight:850;line-height:1.25;color:var(--dab-text)}' +
+      '.da-ios-live-offer__copy{margin-top:5px;font-size:.82rem;line-height:1.48;color:var(--dab-dim)}' +
+      '.da-ios-live-offer__steps{margin:5px 0 0;padding-left:20px}.da-ios-live-offer__steps li{margin:5px 0}' +
+      '.da-ios-live-offer__actions{display:flex;align-items:center;gap:9px;margin-top:13px}' +
+      '.da-ios-live-offer__actions button{min-height:44px;padding:0 15px;border-radius:10px;font-family:inherit;font-size:.8rem;font-weight:800;cursor:pointer}' +
+      '.da-ios-live-offer__primary{border:0;background:#22c55e;color:#06210f}' +
+      '.da-ios-live-offer__later{border:1px solid var(--dab-border);background:transparent;color:var(--dab-dim)}' +
+      '.da-ios-live-offer.is-working .da-ios-live-offer__primary{opacity:.58;pointer-events:none}' +
       '@keyframes daBellLivePulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
       '@media(max-width:560px){.ui-bell-panel{width:auto;max-width:none}.ui-bell-panel__hint{display:none}}' +
       '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}}' +
@@ -649,7 +841,7 @@
       // white-walled bedroom) on purpose — seat-you / seat-opp share a
       // shoot and read as AI-clone (see landing.html's SKIP/same-shoot
       // note for the same fix on the hero).
-      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-match-overlay,.da-match-card,.da-match-phase,.da-match-ring.is-wait .da-match-ring__bar,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
+      '@media(prefers-reduced-motion:reduce){.ui-bell-panel,.da-bell-toast,.da-ios-live-offer,.da-match-overlay,.da-match-card,.da-match-phase,.da-match-ring.is-wait .da-match-ring__bar,.da-spar-pill.is-on .da-spar-pill__dot{animation:none;transition:none}}';
     var style = document.createElement('style');
     style.id = 'da-bell-styles';
     style.textContent = css;
@@ -1048,11 +1240,12 @@
         u.getIdToken().then(function (tok) {
           return fetch('/.netlify/functions/notify-prefs', { headers: { 'Authorization': 'Bearer ' + tok } });
         }).then(function (r) { return r.json(); }).then(function (p) {
-          if (!p) return;
+          if (!p) { maybeOfferIphoneLiveAlerts(u); return; }
           try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
           daMergeMutedFromServer(p.mutedThreads);
           if (panel || pageEl) paintPanel();
-        }).catch(function () {});
+          maybeOfferIphoneLiveAlerts(u);
+        }).catch(function () { maybeOfferIphoneLiveAlerts(u); });
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
@@ -1354,7 +1547,7 @@
         '</span>' +
         '<span style="flex:1;min-width:0">' +
           '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--dab-text)">Alert me when rounds are forming</span>' +
-          '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">Get pinged when a debater goes live, even in another app</span>' +
+          '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">Get pinged when someone goes live, even in another app</span>' +
         '</span>' +
         '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--dab-border-strong)') + '">' +
           '<span style="position:absolute;top:2px;left:' + (on ? '17px' : '2px') + ';width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s"></span>' +

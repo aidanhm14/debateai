@@ -148,6 +148,47 @@ check(
   'read-only and account pages skip the timed signup overlay',
 );
 
+const notifications = read('app/js/notifications.js');
+check(
+  notifications.includes("var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1'")
+    && notifications.includes("var DA_IOS_ENABLE_OFFER_KEY = 'da-ios-live-enable-offer-v1'")
+    && notifications.includes('DA_IOS_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000'),
+  'signed-in iPhone live-alert offers are device-state-specific and snoozeable',
+);
+check(
+  notifications.includes('if (!user || user.isAnonymous || daIsNative() || DA_ON_ROUND_PAGE) return;')
+    && notifications.includes("var state = standalone ? 'enable' : 'install'"),
+  'iPhone alert offer only targets named web users outside active rounds',
+);
+check(
+  notifications.includes('Add Debatable to your Home Screen')
+    && notifications.includes('Choose <b>Add to Home Screen</b>.')
+    && notifications.includes('Notification.requestPermission()'),
+  'iPhone alert offer teaches the Home Screen requirement and asks permission on a tap',
+);
+check(
+  notifications.includes("navigator.serviceWorker.register('/sw.js', { scope: '/' })")
+    && notifications.includes('return reg.pushManager.getSubscription()')
+    && notifications.includes('daRegisterPush().then(function (saved)'),
+  'iPhone alert setup registers a worker and verifies a saved push subscription before enabling',
+);
+check(
+  notifications.includes("body: JSON.stringify({ format: format || 'casual'")
+    && notifications.includes("if (standalone && (!window.Notification || !('PushManager' in window))) return;"),
+  'iPhone alert setup defaults to casual rounds and hides on unsupported Home Screen apps',
+);
+const goLive = read('app/netlify/functions/go-live.mjs');
+check(
+  goLive.includes("body: 'Looking for someone to debate. Tap to jump in.'")
+    && !/FORMAT_LABEL|APDA|Asian Parli|Public Forum/.test(goLive),
+  'live-alert notification copy stays casual and format-free',
+);
+const manifest = JSON.parse(read('app/manifest.json'));
+check(
+  manifest.display === 'standalone' && manifest.scope === '/' && !/formats|debater|ballot/i.test(manifest.description),
+  'installable app metadata supports iPhone push without retired product language',
+);
+
 const sharedUi = read('app/css/ui.css');
 check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a 44px hit area');
 check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50%'), 'landing carousel controls expose a 44px hit area');
