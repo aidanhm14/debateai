@@ -996,7 +996,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
         <button type="button" class="ctl ctl-mini" id="topicEditCancel">Cancel</button>
         <button type="submit" class="ctl ctl-mini ctl-go" id="topicEditGo">Restart on this topic</button>
       </div>
-      <small>Restarting ends this round without a result and opens a fresh one on the new topic.</small>
+      <small id="topicEditNote">Restarting ends this round without a result and opens a fresh one on the new topic.</small>
     </form>
   </div>
   <div class="stage-mid">
@@ -1764,6 +1764,7 @@ function level(analyser, buf){
 }
 
 /* ── the connect flow (mirrors voice-debate.html, trimmed) ───── */
+let voiceRoundsLeft = null;       // null = no cap applies (paid) or unknown
 let autoStartPending = false;
 async function start(){
   if (status !== 'idle') return;
@@ -1869,6 +1870,14 @@ async function start(){
       throw new Error('Could not start: ' + (body.openai || body.error || ('HTTP ' + mintRes.status)));
     }
     const session = await mintRes.json();
+    // The free-round count rides the mint (voiceUsage.used / .limit; limit
+    // is null on a plan that bypasses the cap). Kept so the Change-topic
+    // editor can say what a restart costs: it re-mints, and on the free
+    // plan a mint is a round.
+    try {
+      const u = session && session.voiceUsage;
+      voiceRoundsLeft = (u && typeof u.limit === 'number') ? Math.max(0, u.limit - (u.used || 0)) : null;
+    } catch (e) { voiceRoundsLeft = null; }
     const ephemeralKey = session && session.client_secret && session.client_secret.value;
     if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
     negotiatedModel = session.model || '';
@@ -2954,6 +2963,14 @@ function openTopicEditor(){
   const ed = $('topicEditor'), inp = $('topicEditInput');
   if (!ed || status !== 'live') return;
   inp.value = currentMotion || '';
+  // On the free plan a restart is a new round against the cap, and the
+  // person deciding deserves to know that before they press it.
+  const note = $('topicEditNote');
+  if (note) note.textContent = voiceRoundsLeft === null
+    ? 'Restarting ends this round without a result and opens a fresh one on the new topic.'
+    : (voiceRoundsLeft > 0
+      ? 'Restarting ends this round without a result and starts a new one, which counts as a round. You have ' + voiceRoundsLeft + ' free round' + (voiceRoundsLeft === 1 ? '' : 's') + ' left.'
+      : 'Restarting starts a new round, and this was your last free one. The next round needs Voice or tokens.');
   ed.hidden = false;
   $('topicEditBtn').hidden = true;
   try { inp.focus({ preventScroll: true }); inp.select(); } catch (e) {}
