@@ -2162,7 +2162,10 @@ body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue,body.specta
    #playPauseBtn directly under it; the waiter's action is the nudge.
    Tokens carry literal fallbacks (this page's limited token set). */
 .lr-open-card{
-  position:absolute;top:12px;left:12px;z-index:6;max-width:calc(100% - 24px);
+  /* Below .cam-modes (absolute, top:10px, centred, ~36px tall). At
+     top:12px the two overlapped and the camera bar painted straight
+     through the headline: measured on a real round 2026-09-03. */
+  position:absolute;top:58px;left:12px;z-index:6;max-width:calc(100% - 24px);
   display:inline-flex;align-items:center;gap:12px;
   padding:10px 16px 10px 14px;border-radius:12px;
   border:1px solid rgba(255,255,255,.18);border-left:4px solid var(--accent,#ef4444);
@@ -2176,7 +2179,7 @@ body.spectator-mode .lr-start-dock,body.spectator-mode .lr-start-cue,body.specta
 .lr-open-card .lr-open-nudge:disabled{opacity:.65}
 /* Not over a docked or popped-out video, where there is no room for it. */
 body.lr-mini .lr-open-card,#jitsiPane.lr-pip-pane .lr-open-card,body.spectator-mode .lr-open-card{display:none!important}
-@media (max-width:560px){.lr-open-card{top:8px;left:8px;padding:8px 12px 8px 11px}.lr-open-card .lr-oc-title{font-size:1rem}}
+@media (max-width:560px){.lr-open-card{top:52px;left:8px;padding:8px 12px 8px 11px}.lr-open-card .lr-oc-title{font-size:1rem}}
 /* Same posture as #audPops: a fixed overlay has no business floating
    over the site while the round is a mini player or a PiP window. */
 body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
@@ -3741,6 +3744,16 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         <div class="ready-beat" id="readyBeat" hidden></div>
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
+        <!-- 2026-09-03, per the founder ("start conversation or start
+             formal speeches"): the two ways to run a round are two doors
+             at the ready beat, not a setting chosen somewhere upstream.
+             Either one sets the mode for BOTH screens and starts it.
+             Shown only at Speech 1 with the clock still at ready; once
+             the round is running the transport is the one button below. -->
+        <div class="row mode-doors" id="modeDoors" hidden>
+          <button class="btn btn-play" id="startConvoBtn" type="button">▶ Start conversation</button>
+          <button class="btn btn-play" id="startFormalBtn" type="button">▶ Start formal speeches</button>
+        </div>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
@@ -6789,6 +6802,94 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     else if (state.timerState === 'running') pauseSpeechTimer();
   }
 
+  // ── The two doors ─────────────────────────────────────────────────
+  // Conversation or formal speeches, chosen in the room at the start
+  // beat. Pressing either PUBLISHES the format so both screens agree
+  // (the peer adopts d.format in the round snapshot and re-renders),
+  // then starts it. Never shown when the tournament fixes the format,
+  // never to a spectator, and never once a speech has run.
+  function modeDoorsVisible(){
+    return state.phase === 'round'
+      && state.speechIdx === 0
+      && state.timerState === 'ready'
+      && !isSpectator()
+      && !!mySide()
+      && !tournamentControlsLocked();
+  }
+  function paintModeDoors(){
+    var row = $('modeDoors');
+    if (!row) return;
+    var show = modeDoorsVisible();
+    row.hidden = !show;
+    document.body.classList.toggle('mode-doors-open', show);
+    if (!show) return;
+    var open = openMode();
+    var convo = $('startConvoBtn'), formal = $('startFormalBtn');
+    if (convo){
+      convo.classList.toggle('is-current', open);
+      convo.innerHTML = '\u25b6 Start conversation<span class="md-sub">No speeches. Both mics on, talk it out.</span>';
+    }
+    if (formal){
+      formal.classList.toggle('is-current', !open);
+      // Formal speeches has a first speaker, and it may not be me. Say so
+      // rather than offering a Start that cannot start.
+      var f = FORMATS.quick, sp = f && f.speeches[0];
+      var firstIsMine = !open ? isMyTurn() : (mySide() === 'pro');
+      var firstName = (sp && sideBench(f, sp.side) === 'gov')
+        ? (state.proName || 'Pro') : (state.conName || 'Con');
+      formal.innerHTML = firstIsMine
+        ? '\u25b6 Start formal speeches<span class="md-sub">4 timed speeches. You speak first.</span>'
+        : '\u25b6 Switch to formal speeches<span class="md-sub">4 timed speeches. ' + escHtml(firstName) + ' speaks first.</span>';
+    }
+  }
+  // The round type, to the round doc, so the other screen follows. Narrow
+  // on purpose: publishRoundMeta (which also writes the motion) lives
+  // inside the motion-editor closure and is not reachable from here, and
+  // re-writing the motion from this beat could stamp over an open
+  // change proposal.
+  function publishRoundFormat(){
+    if (isSpectator() || tournamentControlsLocked()) return;
+    var ref = getRoundDocRef();
+    if (!ref) return;
+    ref.update({
+      format: state.formatKey,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(function(){});
+  }
+  // Set the mode for both screens, then start if this seat is allowed to.
+  function startInMode(key){
+    if (!FORMATS[key] || isSpectator()) return;
+    if (tournamentControlsLocked()){ toast('The tournament fixes the round type.'); return; }
+    if (state.formatKey !== key){
+      state.formatKey = key;
+      var fs = $('formatSel'); if (fs) fs.value = key;
+      var rfs = $('roundFormatSel'); if (rfs) rfs.value = key;
+      var plM = $('phaseLabel');
+      if (plM) plM.innerHTML = '<span class="dot"></span> ' + (key === 'open'
+        ? 'Live · Just argue'
+        : 'Live · Speech 1/' + FORMATS[key].speeches.length);
+      renderRound();
+      publishRoundFormat();
+      try { gtag('event', 'live_round_mode_pick', { mode: key }); } catch(e){}
+    }
+    if (isMyTurn()){
+      startSpeechTimer();
+    } else {
+      // Formal speeches, and the first speech is not mine. The mode is
+      // published; the other seat holds the start.
+      paintModeDoors();
+      updatePlayPauseBtn();
+      var who = (FORMATS[key].speeches[0] && sideBench(FORMATS[key], FORMATS[key].speeches[0].side) === 'gov')
+        ? (state.proName || 'Pro') : (state.conName || 'Con');
+      toast('Formal speeches it is. ' + who + ' starts.');
+    }
+  }
+  (function(){
+    var c = $('startConvoBtn'), f = $('startFormalBtn');
+    if (c) c.addEventListener('click', function(){ startInMode('open'); });
+    if (f) f.addEventListener('click', function(){ startInMode('quick'); });
+  })();
+
   // ── Just argue (2026-09-03) ───────────────────────────────────────
   // One conversation instead of speeches. Both seats hold the controls
   // (isMyTurn answers true for both), so the timer sync below is
@@ -6988,12 +7089,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     var open = openMode();
+    // The two doors own the ready beat at Speech 1; the single Start owns
+    // every other ready state (a later speech in a formal round).
+    try { paintModeDoors(); } catch(e){}
     if (state.timerState === 'ready'){
       actionState('start');
       btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
       btn.className = 'btn btn-play';
       if (readyHint){
-        readyHint.hidden = false;
+        // The two doors carry their own sub-lines; this would be a third
+        // description of the same press.
+        readyHint.hidden = modeDoorsVisible();
         readyHint.textContent = open
           ? 'Starts the clock and both mics. Either of you can press it.'
           : (state.micSupport.available
@@ -20625,7 +20731,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     card.classList.toggle('is-waiter', ctx.mode === 'waiter');
     card.innerHTML = '';
     var mk = function(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-    if (openMode()){
+    if (modeDoorsVisible()){
+      // The two doors are directly under this, so the line says what the
+      // choice is rather than naming a speaker who may not exist yet.
+      card.appendChild(mk('h3', 'lr-oc-title', 'Both here. Pick how to run it.'));
+    } else if (openMode()){
       card.appendChild(mk('h3', 'lr-oc-title', 'Both here. Either of you starts it.'));
     } else if (ctx.mode === 'opener'){
       var t = 'You speak first.';
@@ -21270,7 +21380,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // side: repaint the round view + phase label with the new format.
     if (changedSetup && state.phase === 'round' && state.speechIdx === 0){
       var plE = $('phaseLabel');
-      if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length;
+      if (plE && FORMATS[state.formatKey]) plE.innerHTML = '<span class="dot"></span> ' + (openMode()
+        ? (isSpectator() ? 'Spectating · Just argue' : 'Live · Just argue')
+        : (isSpectator() ? 'Spectating · Speech ' : 'Live · Speech ') + '1/' + FORMATS[state.formatKey].speeches.length);
       renderRound();
     }
     // Judge draft: adopt the peer's nomination and recompute agreement.
@@ -22625,6 +22737,32 @@ body.spectator-mode .sh-motion .rmb-motion{font-size:clamp(1.05rem,1.7vw,1.35rem
    clock starts, so End and Skip cannot compete with the action that gets
    a first-time visitor into the round. */
 .speech-header[data-action-state="start"] .speech-actions{display:grid;grid-template-columns:1fr}
+/* The two doors replace the single Start at the speech-1 ready beat, so
+   they inherit its geometry: full width, same height, same weight. Equal
+   billing on purpose, since neither is the "advanced" one. */
+.speech-header .mode-doors{grid-column:1/-1;margin-top:2px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.speech-header .mode-doors[hidden]{display:none}
+.speech-header .mode-doors .btn{
+  width:100%;min-height:62px;border-radius:14px;
+  font-size:.94rem;letter-spacing:.01em;text-transform:none;
+  box-shadow:0 10px 26px rgba(185,28,28,.24);
+}
+/* The mode the room is currently in reads as the default, without
+   demoting the other one to a link. */
+/* NOT var(--ui-surface): on the light theme it resolves to a near-black
+   while this panel is paper, so the secondary door measured 1.14 against
+   its own text. Same trap as #audFab and #kickoffGo. --text and --bg are
+   the two tokens this page actually defines in every theme. */
+.speech-header .mode-doors .btn:not(.is-current){
+  background:transparent;border:1px solid var(--border,rgba(128,128,128,.4));
+  color:var(--text);box-shadow:none;
+}
+.speech-header .mode-doors .btn:not(.is-current):hover{
+  border-color:var(--accent,#ef4444);
+}
+.speech-header .mode-doors .md-sub{display:block;margin-top:3px;font-size:.68rem;font-weight:600;opacity:.72;text-transform:none;letter-spacing:0}
+body.mode-doors-open .speech-header[data-action-state="start"] #playPauseBtn{display:none}
+@media (max-width:560px){.speech-header .mode-doors{grid-template-columns:1fr}}
 .speech-header[data-action-state="start"] #playPauseBtn{
   width:100%;min-height:62px;border-radius:14px;
   font-size:1rem;letter-spacing:.01em;text-transform:none;
