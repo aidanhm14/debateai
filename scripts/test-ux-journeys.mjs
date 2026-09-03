@@ -108,6 +108,12 @@ for (const path of activeNavigationFiles) {
 
 const landing = read('app/landing.html');
 check(
+  !landing.includes('fs-board-debate')
+    && !landing.includes('Choose what you argue about. Press this card to debate.'),
+  'landing example board keeps the instruction line retired',
+);
+check(!landing.includes('class="fb-floating"'), 'landing keeps the floating feedback button retired');
+check(
   landing.includes('href="https://discord.gg/WMHZW9BKvJ"')
     && landing.includes('data-cta="landing-quick-discord"')
     && landing.includes('/img/landing/discord-community-800.jpg'),
@@ -194,6 +200,13 @@ check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a
 check(read('app/landing.html').includes('width:44px;height:44px;border-radius:50%'), 'landing carousel controls expose a 44px hit area');
 
 const topbar = read('app/js/topbar.js');
+check(
+  !landing.includes('landingSignOutBtn')
+    && !landing.includes('renderUserChip')
+    && topbar.includes("nameLink.href = '/profile'")
+    && topbar.includes("ss.textContent = realUser ? 'Sign out'"),
+  'landing profile chip leaves sign out inside the account sheet',
+);
 check(
   topbar.includes("{ href: '/friends', label: 'Friends'")
     && topbar.includes("{ href: '/', label: 'Debate', primary: true")

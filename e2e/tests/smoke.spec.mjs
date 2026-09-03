@@ -39,6 +39,7 @@ test.describe('public pages', () => {
     // and served nothing; see the userAgent note in playwright.config.mjs.
     expect(res.status(), 'edge filter must serve the test browser').toBe(200);
     await expect(page.locator('#first-screen')).toBeVisible();
+    await expect(page.locator('.fs-board-debate, .fb-floating')).toHaveCount(0);
     const cta = page.locator('.fs-cta--primary:visible').first();
     await expect(cta).toBeVisible();
     expect(await cta.getAttribute('href')).toBe('/spar');
