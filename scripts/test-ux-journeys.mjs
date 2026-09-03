@@ -286,6 +286,14 @@ check(
     && landing.includes('function manual(dir)'),
   'landing steps the example rounds with on-tile arrows and no counter',
 );
+// 2026-09-03, the founder: "now add the 'watch' button". The first-screen
+// Watch doors are always rendered (no [hidden]); the poll only upgrades them.
+check(
+  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch" href="\/watch" data-fs-watch-live/g) || []).length === 2
+    && !/data-fs-watch-live[^>]*\shidden/.test(landing)
+    && landing.includes("b.classList.remove('is-live')"),
+  'landing keeps a Watch door beside Join a debate',
+);
 
 const topbar = read('app/js/topbar.js');
 const openRetiredAt = topbar.indexOf('RETIRED 2026-09-03');
