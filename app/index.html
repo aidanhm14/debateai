@@ -838,7 +838,13 @@ button,input,select,textarea{font-family:inherit}
 }
 
 /* ── Tab page transitions ────────────────────── */
-.tab-pane{will-change:opacity,transform}
+/* will-change is scoped to the two transient classes that actually
+   animate. It used to sit on .tab-pane itself, which promoted all 17
+   panes to permanent full-viewport compositor layers and, because a
+   composited layer loses subpixel antialiasing, softened every glyph
+   in the app. Measured 2026-09-02: removing it made body text visibly
+   sharper. Promote for the 400ms it animates, not for the session. */
+.tab-pane.tab-enter,.tab-pane.tab-exit{will-change:opacity,transform}
 .tab-pane.active{animation:none}
 .tab-pane.tab-enter{animation:tabFadeIn .4s cubic-bezier(.16,1,.3,1) both}
 .tab-pane.tab-exit{animation:tabFadeOut .2s ease-in both}
@@ -2267,13 +2273,33 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
    Plus a prefers-reduced-motion block for users who opt out of motion
    in their OS settings. kills the feature pulse, logo entrance, etc.
    ═══════════════════════════════════════════════════ */
-.nav-btn,.nav-btn-feature,.orb-glow,.orb-ring,.cta,.topbar-pill{will-change:transform}
+/* Only the orb actually animates continuously, so only the orb keeps a
+   standing layer. The rest transform on hover, so they are promoted on
+   hover: 29 permanent layers became 2. A permanent will-change is a
+   permanent GPU allocation and a permanent loss of subpixel text AA. */
+.orb-glow,.orb-ring{will-change:transform}
+.nav-btn:hover,.nav-btn-feature:hover,.cta:hover,.topbar-pill:hover,
+.nav-btn:focus-visible,.nav-btn-feature:focus-visible,.cta:focus-visible,.topbar-pill:focus-visible{will-change:transform}
 .tab-pane{content-visibility:auto;contain-intrinsic-size:600px}
 @media (max-width:768px){
   /* Heavy blurs wreck scroll perf on phones. drop to saturate() or 0. */
-  .panel,.panel-inner,.depth-card,.guide-overlay,.feedback-modal-overlay,.auth-overlay,.hamburger-overlay,.nav-other-dropdown{
+  /* Overlays only. These are transient (they exist while something is
+     open), so a layer each is a fair price for the scrim effect. */
+  .guide-overlay,.feedback-modal-overlay,.auth-overlay,.hamburger-overlay,.nav-other-dropdown{
     backdrop-filter:saturate(1.1)!important;
     -webkit-backdrop-filter:saturate(1.1)!important;
+  }
+  /* .panel/.panel-inner/.depth-card were downgraded blur -> saturate(1.1)
+     in 2026-05 rather than removed. Re-measured 2026-09-02 at 375x812:
+     the panels compute to a TRANSPARENT background, so a 10% saturation
+     of a near-flat page behind them is not visible — before/after
+     screenshots were pixel-identical — while still costing a compositor
+     layer and a backdrop re-rasterization for each of the 13 panels on
+     screen, on exactly the phones the 2026-05 rule was written to help.
+     Removed rather than downgraded again. */
+  .panel,.panel-inner,.depth-card{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
   }
   /* .apda-toggle, .argmap-node: read-only polish, not worth the blur cost. */
   .apda-toggle,.argmap-node{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -2296,6 +2322,54 @@ body.crimson-theme{background:#151518!important;color:#f5f0f0!important}
   }
   .orb-ring.pulse,.nav-btn-feature{animation:none!important}
 }
+
+/* ═══════════════════════════════════════════════════
+   BACKDROP-FILTER: only where it can actually be seen (2026-09-02)
+   ───────────────────────────────────────────────────
+   backdrop-filter is the most expensive property in this file: it
+   forces a compositor layer AND re-rasterizes everything behind the
+   element every frame the element is on screen. The 2026-05 pass above
+   trimmed it on phones only, so desktop still paid full price for all
+   of it. Measured on /app at 1440x900: 38 elements running a live
+   backdrop blur.
+
+   A blur is only VISIBLE when two things are true: the element is
+   meaningfully translucent, and the backdrop behind it has detail.
+   Blurring a flat colour returns the same flat colour at full cost.
+   Three groups failed that test and are switched off at every width:
+
+   1. Opaque surfaces. .cases-sidebar is #363638f8 in dark and an
+      #fff !important in light; .depth-card is #fff in light and
+      #1e1e24 in crimson. You cannot see through any of them, so the
+      blurred backdrop is computed and then completely covered.
+   2. Form controls (24 of them: textarea, select, input). They sit on
+      a flat .panel fill, so there is no detail to blur, and several
+      ran blur(16px) each.
+   3. .output. This is the streaming ballot/case surface, so it
+      repaints on every appended token, and each repaint re-rasterized
+      a 12px backdrop blur. It is the hottest paint path in the app and
+      the blur was invisible against the flat panel behind it.
+
+   Kept deliberately: .nav, .app-dock, overlays and modals. Those sit
+   over real page content, where the blur is the effect. Restoring any
+   group is deleting its selector here. */
+.cases-sidebar,.depth-card,.output,
+.panel textarea,.panel input,.panel select,
+.practice-textarea,
+.light-theme textarea,.light-theme input,.light-theme select,
+.light-theme .practice-textarea,
+.light-theme .panel input,.light-theme .panel textarea,.light-theme .panel select,
+.crimson-theme textarea,.crimson-theme input,.crimson-theme select,
+.crimson-theme .prep-room-grid input,.crimson-theme .prep-room-grid textarea{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+/* .output also declared will-change:contents, which tells the browser
+   never to cache this surface's painted result. It is the one element
+   on the page whose contents genuinely stream, but paired with the
+   blur above it meant a full re-rasterization per token. The blur is
+   gone; `contain:layout style` already scopes the reflow. */
+.output{will-change:auto}
 
 /* ── Debatable revised construction (2026-05-18) ────────────────────────
    Semantic theme tokens + Case Generator cockpit shell. Layers on top of
@@ -4408,6 +4482,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4432,8 +4507,7 @@ ANTHROPIC API HELPER
 // Same interface as before (update / finish / cancel) so no callsite changes.
 function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {var streamed = ''; // everything the API has produced so far
   var revealed = 0; // chars the user has seen
-  var rafId = null;var finished = false;
-  var BASE_STEP = 3; // chars per frame when in-sync (≈180 chars/sec. real typing feel)
+  var rafId = null;var finished = false;var BASE_STEP = 3; // chars per frame when in-sync (≈180 chars/sec. real typing feel)
   var CATCHUP_CAP = 400; // beyond this, we speed up so the user isn't stuck watching the animation
 
   function scheduleTick() {if (rafId == null) rafId = requestAnimationFrame(tick);}

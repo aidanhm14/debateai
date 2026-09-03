@@ -169,6 +169,24 @@
     document.head.appendChild(s);
   })();
 
+  // Decorative CSS animation costs a compositor layer and a repaint every
+  // frame, forever, whether or not anyone is looking at it — a backgrounded
+  // tab keeps paying, because rAF throttles and CSS keyframes do not.
+  // anim-governor.js pauses animations on a hidden tab and inside
+  // off-screen sections. It shipped 2026-08-18 but was hand-included on
+  // only FIVE pages, so /spar (14 infinite animations), /voice-debate (32),
+  // /judge (14), /coach (13), /live (11) and the rest ran theirs forever.
+  // Same trap as track.js and notifications.js: topbar presence is not
+  // coverage. The module is idempotent (__daAnimGovernorLoaded), so the
+  // five pages that already include it are unaffected.
+  (function ensureAnimGovernorLoaded(){
+    if (document.querySelector('script[src*="/js/anim-governor.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/anim-governor.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+
   function openSharedAuth(mode){
     mode = mode || 'signin';
     if (typeof window.openAuthModal === 'function'){

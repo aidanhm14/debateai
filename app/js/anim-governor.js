@@ -13,6 +13,12 @@
    No-ops on browsers without IntersectionObserver. */
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  /* Idempotent: topbar.js injects this on every topbar page, and five
+     pages also carry their own <script> tag. Running twice would add a
+     second style element and a second IntersectionObserver over every
+     section, so the second run is a no-op. */
+  if (window.__daAnimGovernorLoaded) return;
+  window.__daAnimGovernorLoaded = true;
   var d = document;
   var root = d.documentElement;
 
