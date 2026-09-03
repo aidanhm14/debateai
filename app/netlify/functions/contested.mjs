@@ -5,10 +5,10 @@
 // APPROVED BY A HUMAN before it could reach this page. Nothing renders
 // straight from the firehose.
 //
-// Two audiences, one page. A debater looking for something current to
-// run gets motions in real tournament phrasing on either side. A search
-// visitor typing "debate topics about X" gets a page that answers with
-// the actual argument rather than a listicle.
+// A search visitor looking for current political discussions gets the
+// actual disagreement, the language each side uses, source receipts, and a
+// direct handoff into a casual round. Competitive format labels and
+// tournament phrasing are deliberately absent from this public surface.
 //
 // Honesty rules, and they are not decoration:
 //   - The page says where this came from. "Sourced from public posts on
@@ -26,19 +26,34 @@
 // netlify.toml (/contested -> /api/contested).
 
 import { getDb } from './lib/firestore.mjs';
+import { isSensitiveMotion } from './lib/content-guard.mjs';
 
 const SITE_ORIGIN = 'https://itsdebatable.com';
-const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
-
-const FORMAT_LABELS = {
-  apda: 'APDA', bp: 'British Parli', asian: 'Asian Parli',
-  worlds: 'World Schools', pf: 'Public Forum', ld: 'Lincoln-Douglas',
-};
+const OG_IMAGE = `${SITE_ORIGIN}/img/politics/capitol.jpg`;
 
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function roundHref(line) {
+  const query = new URLSearchParams();
+  query.set('motion', line.headline || 'A current political question');
+  if (line.summary) query.set('background', line.summary);
+  query.set('handoff', 'contested');
+  return `/practice?${query.toString()}`;
+}
+
+function isSafeFaultLine(line) {
+  const text = [
+    line && line.headline,
+    line && line.summary,
+    line && line.sideA && line.sideA.label,
+    line && line.sideB && line.sideB.label,
+    ...((line && line.motions) || []).map(m => m && m.text),
+  ].filter(Boolean).join(' ');
+  return !isSensitiveMotion(text);
 }
 
 function styles() {
@@ -62,6 +77,8 @@ function styles() {
     -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;min-height:100vh;
   }
   em,i{font-style:normal}
+  img{display:block;max-width:100%}
+  figure{margin:0}
   a{color:var(--red);text-decoration:none}
   a:hover{text-decoration:underline}
   .shell{max-width:940px;margin:0 auto;padding:32px 36px 120px}
@@ -73,6 +90,9 @@ function styles() {
   h1{font:500 clamp(30px,4.4vw,45px)/1.14 var(--serif);letter-spacing:-.015em;margin-bottom:18px}
   .sub{font-size:18px;line-height:1.55;color:var(--dim);max-width:640px;margin-bottom:10px}
   .prov{font-size:13.5px;color:var(--ghost);max-width:640px;margin-bottom:34px}
+  .hero-img{height:260px;border-radius:18px;overflow:hidden;position:relative;margin:0 0 28px;background:#d9d2c5}
+  .hero-img img{width:100%;height:100%;object-fit:cover;object-position:center 45%}
+  .hero-credit{position:absolute;right:9px;bottom:9px;background:rgba(15,15,15,.74);color:#fff;padding:5px 8px;border-radius:6px;font:700 9px/1.2 var(--sans)}
   .fl{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:24px;margin-bottom:22px;
       box-shadow:0 1px 2px rgba(20,20,30,.03)}
   .fl-top{display:flex;justify-content:space-between;gap:14px;align-items:baseline;flex-wrap:wrap}
@@ -99,9 +119,14 @@ function styles() {
   .cites{margin-top:14px;font-size:12px;color:var(--ghost)}
   .cites a{color:var(--ghost);margin-right:10px;border-bottom:1px solid var(--line-2)}
   .cites a:hover{color:var(--ink);text-decoration:none}
+  .round-row{border-top:1px solid var(--line);padding-top:16px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .round-row span{font-size:13.5px;color:var(--dim)}
+  .round-btn{display:inline-flex;align-items:center;gap:8px;background:var(--red);color:#fff;border-radius:10px;padding:11px 14px;font:800 12px/1 var(--sans);white-space:nowrap}
+  .round-btn:hover{background:#991b1b;text-decoration:none}
+  .guide-link{display:inline-flex;margin:0 0 30px;font:800 12px/1 var(--sans);color:var(--red);border-bottom:1px solid rgba(185,28,28,.3);padding-bottom:4px}
   .empty{border:1px dashed var(--line-2);border-radius:16px;padding:40px 28px;text-align:center;color:var(--dim)}
   .foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ghost)}
-  @media(max-width:640px){.shell{padding:22px 18px 90px}.mot{flex-direction:column;gap:2px}.mot .f{padding-top:0}}
+  @media(max-width:640px){.shell{padding:22px 18px 90px}.hero-img{height:200px}.round-row{align-items:flex-start;flex-direction:column}.round-btn{width:100%;justify-content:center}}
   `;
 }
 
@@ -119,15 +144,6 @@ function renderFaultLine(line) {
     </div>`;
   };
 
-  const motions = (line.motions || []).map(m => `
-    <div class="mot">
-      <div class="f">${esc(FORMAT_LABELS[m.format] || m.format)}</div>
-      <div>
-        <div class="t">${esc(m.text)}</div>
-        ${m.bg ? `<div class="bg">${esc(m.bg)}</div>` : ''}
-      </div>
-    </div>`).join('');
-
   // Receipts. Capped at six so the row stays readable; the point is that
   // the trail exists and is followable, not that every post is listed.
   const cites = (line.citations || []).slice(0, 6)
@@ -144,8 +160,8 @@ function renderFaultLine(line) {
       ${sideBlock(a, 'side-a', 'One side')}
       ${sideBlock(b, 'side-b', 'The other side')}
     </div>
-    ${motions ? `<div class="mots"><div class="k">Run it as a motion</div>${motions}</div>` : ''}
     ${cites ? `<div class="cites">Traced to: ${cites}</div>` : ''}
+    <div class="round-row"><span>Take either side and test the disagreement out loud.</span><a class="round-btn" href="${esc(roundHref(line))}">Debate this current issue <span aria-hidden="true">→</span></a></div>
   </article>`;
 }
 
@@ -158,6 +174,7 @@ export default async (request) => {
     const doc = await db.collection('topic_pulse').doc('current').get();
     const data = doc.exists ? (doc.data() || {}) : {};
     faultLines = Array.isArray(data.faultLines) ? data.faultLines : [];
+    faultLines = faultLines.filter(isSafeFaultLine);
     updatedAt = data.updatedAt && typeof data.updatedAt.toMillis === 'function'
       ? data.updatedAt.toMillis() : null;
   } catch (err) {
@@ -169,14 +186,14 @@ export default async (request) => {
   const canonical = `${SITE_ORIGIN}/contested`;
   const updatedLabel = updatedAt ? new Date(updatedAt).toISOString().slice(0, 10) : '';
 
-  const title = 'What is being argued right now · Debatable';
-  const description = 'Live fault lines from public posts on X, turned into competitive debate motions on either side. Reviewed before publishing, updated as the argument moves.';
+  const title = 'Political Discussions Today | Current Issues · Debatable';
+  const description = 'See the political disagreements moving right now, the language each side uses, and the public posts behind them. Pick an issue and take it into a live judged round.';
 
   const body = faultLines.length
     ? faultLines.map(renderFaultLine).join('')
     : `<div class="empty">
          <p>Nothing published yet.</p>
-         <p style="margin-top:8px;font-size:14px">Fault lines are harvested nightly and reviewed before they appear here. Check back tomorrow, or <a href="/practice">start a round</a> on a motion from the library.</p>
+         <p style="margin-top:8px;font-size:14px">Current disagreements are reviewed before they appear here. Browse the <a href="/political-debate-topics">political topic guide</a> or start a round.</p>
        </div>`;
 
   // ItemList rather than Article: this is a list of contested questions,
@@ -189,6 +206,7 @@ export default async (request) => {
     description,
     url: canonical,
     numberOfItems: faultLines.length,
+    dateModified: updatedLabel || '2026-09-03',
     itemListElement: faultLines.slice(0, 30).map((l, i) => ({
       '@type': 'ListItem',
       position: i + 1,
@@ -209,9 +227,14 @@ export default async (request) => {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:image" content="${OG_IMAGE}">
+<meta property="og:image:width" content="1400">
+<meta property="og:image:height" content="726">
+<meta property="og:image:alt" content="Current political discussions on Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
+<meta name="twitter:image" content="${OG_IMAGE}">
+<script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
 <style>${styles()}</style>
 </head>
@@ -220,20 +243,22 @@ export default async (request) => {
   <nav class="topnav">
     <a href="/">Debatable</a>
     <span style="display:flex;gap:8px;flex-wrap:wrap">
-      <a href="/motions">Motion library</a>
-      <a href="/topics">Topics</a>
+      <a href="/political-debate">Political debate</a>
+      <a href="/political-debate-topics">Political topics</a>
       <a class="cta" href="/practice">Start a round</a>
     </span>
   </nav>
 
-  <p class="eye">Contested now${updatedLabel ? ` &middot; updated ${esc(updatedLabel)}` : ''}</p>
+  <p class="eye">Political discussions today${updatedLabel ? ` &middot; updated ${esc(updatedLabel)}` : ''}</p>
   <h1>What people are actually arguing about.</h1>
-  <p class="sub">Not headlines. Disagreements, where serious people are landing on opposite sides, with the terms each side actually uses and a motion you can run tonight.</p>
-  <p class="prov">Sourced from public posts on X and reviewed before publishing. Volume on a platform is not evidence, and nothing here says who is right. The point is to show you where the clash sits so you can argue either side of it.</p>
+  <p class="sub">Current issues are easier to understand when you can see the disagreement itself. Read the language each side uses, follow the sources, then take either side into a round.</p>
+  <p class="prov">Sourced from public posts on X and reviewed before publishing. Volume on a platform is not evidence, and nothing here says who is right. The point is to show where the clash sits.</p>
+  <figure class="hero-img"><img src="/img/politics/capitol.jpg" alt="The west front of the United States Capitol" width="1400" height="726" decoding="async"><a class="hero-credit" href="https://commons.wikimedia.org/wiki/File:United_States_Capitol_-_west_front.jpg" target="_blank" rel="noopener">Architect of the Capitol, public domain</a></figure>
+  <a class="guide-link" href="/political-debate-topics">Browse evergreen political questions →</a>
 
   ${body}
 
-  <p class="foot">Harvested nightly, published only after review. Motions are written in tournament phrasing per format. Want one as a live round? <a href="/practice">Pick a side and start.</a></p>
+  <p class="foot">Collected from public posts, published only after review, and filtered through Debatable's topic boundary. Want one as a live round? <a href="/practice">Pick a side and start.</a></p>
 </div>
 </body>
 </html>`;

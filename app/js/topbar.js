@@ -491,6 +491,9 @@
       // good. `strong` because that ordering constraint makes discovery
       // time-critical in a way no other row here is.
       { href: '/claim',       label: 'Import your record', plain: 'Bring your past results', strong: true },
+      // 2026-09-03: the politics acquisition hub. This is a first-class
+      // browse path into casual rounds, not a competitive-format guide.
+      { href: '/political-debate', label: 'Political debates', plain: 'Political debates', strong: true },
       // Moved here 2026-09-02 from the one-row 'Practice' group (see the note
       // there). Picking what to argue is a pre-round act, so it sits with the
       // other ways into a round rather than under a header of its own.

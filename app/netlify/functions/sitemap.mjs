@@ -26,7 +26,7 @@ const SITE_ORIGIN = 'https://itsdebatable.com';
 // whole sitemap's trustworthiness.
 const STABLE_DATE = '2026-07-22'; // bumped when meaningful content changes (2026-07-22: domain cutover to itsdebatable.com changed every page's canonical URL; 2026-06-08: sitewide Debatable rebrand changed every page's brand, title, canonical)
 const DYNAMIC = new Set([
-  '/', '/community', '/live',
+  '/', '/community', '/live', '/contested',
   '/champions', '/leaderboard',
 ]);
 
@@ -45,7 +45,7 @@ const URLS = [
   // These are all still LIVE and still reachable from the nav; they are
   // simply not submitted. Relist any one of them the day it
   // server-renders its content. Word counts as measured:
-  //   /contested 142   /exhibition 10   /what-to-debate 77
+  //   /exhibition 10   /what-to-debate 77
   //   /high-school 36   /communication-profile 9   /registry 125
   //   /voice-rfd 14    /brain 57
   // /exhibition is the one worth a second note: it was deliberately
@@ -101,6 +101,14 @@ const URLS = [
   // dossier, guide and motion families now link it by name.
   { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-28' },
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-28' },
+  // Politics acquisition cluster. /political-debate is the product-intent
+  // landing page; /political-debate-topics is the distinct browsable index.
+  // /contested was delisted as a 142-word shell on 2026-08-24 and returns
+  // now that it server-renders the current disagreement, both sides, source
+  // receipts, and a direct handoff into a casual round.
+  { path: '/political-debate',                        changefreq: 'weekly',  priority: '0.94', lastmod: '2026-09-03' },
+  { path: '/political-debate-topics',                 changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-03' },
+  { path: '/contested',                               changefreq: 'daily',   priority: '0.88' },
   // Multilingual search cluster. These are full native-language pages with
   // reciprocal hreflang, visible language links, and localized app handoffs.
   { path: '/languages/',                              changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-10' },

@@ -18,6 +18,7 @@
 // distinct from the light /learn surfaces and the marketing landing.
 
 import { MOTION_BANK, getMotion, listMotions } from './lib/debate-bank.mjs';
+import { getPoliticsGroup, isPoliticalMotion } from './lib/politics-hub.mjs';
 
 const SITE_ORIGIN = 'https://itsdebatable.com';
 const OG_IMAGE = `${SITE_ORIGIN}/og-image.png?v=floor1`;
@@ -33,15 +34,14 @@ function jsonLd(obj) {
 function trainerHref(motion, side) {
   const m = encodeURIComponent(motion.title);
   const s = side ? `&side=${side}` : '';
-  // Hand off to the live voice round (voice-debate.html), prefilled so the
-  // user is one tap from Connect. Background = the dossier's own framing +
-  // central clash, piped into the AI's system prompt for the live round.
+  // Hand off to the canonical AI round, prefilled with the question and
+  // central clash so the visitor is one tap from starting.
   // Drills pass a bare { title } object, so subtitle/clash may be absent.
   const bgParts = [];
   if (motion.subtitle) bgParts.push(motion.subtitle);
   if (motion.clash && motion.clash.question) bgParts.push(`The round turns on this: ${motion.clash.question}`);
   const bg = bgParts.length ? `&background=${encodeURIComponent(bgParts.join(' '))}` : '';
-  return `/voice-debate?motion=${m}${s}${bg}&handoff=dossier`;
+  return `/practice?motion=${m}${s}${bg}&handoff=dossier`;
 }
 
 function extractFromUrl(url) {
@@ -61,7 +61,7 @@ function notFoundResponse() {
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Motion not found · Debatable</title>
+<title>Question not found · Debatable</title>
 <meta name="robots" content="noindex">
 <style>
   body{background:#fbfaf7;color:#1b1b21;font:17px/1.7 'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;margin:0;padding:64px 24px;text-align:center}
@@ -71,10 +71,10 @@ function notFoundResponse() {
   .list{max-width:640px;margin:18px auto 0;line-height:2}
 </style>
 </head><body>
-<h1>That motion is not on file.</h1>
+<h1>That question is not on file.</h1>
 <p>Open one of these instead.</p>
 <div class="list">${motions.map(m => `<a href="/debate/${m.slug}">${esc(m.title)}</a>`).join(' · ')}</div>
-<p style="margin-top:28px"><a href="/debate">All motions →</a></p>
+<p style="margin-top:28px"><a href="/debate">All questions →</a></p>
 </body></html>`;
   return new Response(body, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
@@ -83,6 +83,7 @@ function commonStyles() {
   return `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
+  img{display:block;max-width:100%}
   :root{
     --bg:#fbfaf7; --ink:#1b1b21; --dim:#5f5f6a; --ghost:#5f5f6a;
     --pro:#15803d; --pro-soft:rgba(21,128,61,.09); --pro-line:rgba(21,128,61,.38);
@@ -143,6 +144,10 @@ function commonStyles() {
   .chip{display:inline-flex;flex-direction:column;gap:3px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 13px;min-width:0;box-shadow:0 1px 2px rgba(20,20,30,.03)}
   .chip .k{font:800 9.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ghost)}
   .chip .v{font-size:13.5px;color:var(--ink);font-weight:600}
+  .issue-photo{height:190px;border-radius:16px;overflow:hidden;position:relative;margin-top:20px;background:#ddd5c8}
+  .issue-photo img{width:100%;height:100%;object-fit:cover}
+  .issue-photo .photo-credit{position:absolute;right:9px;bottom:9px;background:rgba(15,15,15,.74);color:#fff;padding:5px 8px;border-radius:6px;font:700 9px/1.2 var(--sans)}
+  .issue-photo .photo-credit:hover{background:rgba(15,15,15,.9);text-decoration:none}
 
   .panel{position:sticky;top:24px;border:1px solid var(--line-2);border-radius:20px;padding:24px;
     background:linear-gradient(180deg,rgba(220,38,38,.05),#fff);
@@ -338,8 +343,9 @@ function topNav() {
   return `<nav class="topnav">
     <a class="nav-home" href="/"><span class="ar">←</span> Debatable</a>
     <span class="nav-group">
-      <a href="/debate">All motions</a>
-      <a class="nav-cta" href="/practice">Practice <span class="ar">→</span></a>
+      <a href="/debate">All questions</a>
+      <a href="/political-debate">Political debate</a>
+      <a class="nav-cta" href="/practice">Start a round <span class="ar">→</span></a>
     </span>
   </nav>`;
 }
@@ -347,7 +353,7 @@ function topNav() {
 function rail(motion) {
   return `<div class="rail" aria-label="Round controls">
     <a href="#sample" title="Sample round"><span class="ic">▶</span><span class="tx">Sample round</span></a>
-    <a href="${esc(trainerHref(motion))}" title="Practice"><span class="ic">🎙</span><span class="tx">Practice</span></a>
+    <a href="${esc(trainerHref(motion))}" title="Start round"><span class="ic">🎙</span><span class="tx">Start round</span></a>
     <a href="/community" title="Discuss"><span class="ic">💬</span><span class="tx">Discuss</span></a>
     <a href="#top" title="Top"><span class="ic">↑</span><span class="tx">Top</span></a>
   </div>`;
@@ -367,6 +373,9 @@ function renderMotionPage(m) {
   const titleCore = `${m.title} Both Sides, Argued · Debatable`;
   const title = `${m.title} · Debatable`;
   const canonical = `${SITE_ORIGIN}/debate/${m.slug}`;
+  const politicsGroup = getPoliticsGroup(m.slug);
+  const pageImage = politicsGroup ? `${SITE_ORIGIN}${politicsGroup.image}` : OG_IMAGE;
+  const pageDescription = `${m.title} Explore the strongest case on both sides, see the central clash, then take a side in a live judged round on Debatable.`;
   const proHref = trainerHref(m, 'pro');
   const conHref = trainerHref(m, 'con');
   const anyHref = trainerHref(m);
@@ -377,19 +386,27 @@ function renderMotionPage(m) {
       {
         '@type': 'Article',
         headline: `${m.title} Both Sides, Argued`,
-        description: m.description,
+        description: pageDescription,
         about: m.category,
         keywords: m.keywords.join(', '),
         author: { '@type': 'Organization', name: 'Debatable', url: SITE_ORIGIN },
         publisher: { '@type': 'Organization', name: 'Debatable', logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/icons/icon-512.png?v=2` } },
-        url: canonical, mainEntityOfPage: canonical, inLanguage: 'en', image: OG_IMAGE,
+        url: canonical, mainEntityOfPage: canonical, inLanguage: 'en', image: pageImage,
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Debatable', item: `${SITE_ORIGIN}/` },
-          { '@type': 'ListItem', position: 2, name: 'Debate', item: `${SITE_ORIGIN}/debate` },
-          { '@type': 'ListItem', position: 3, name: m.title, item: canonical },
+          ...(politicsGroup
+            ? [
+                { '@type': 'ListItem', position: 2, name: 'Political debate', item: `${SITE_ORIGIN}/political-debate` },
+                { '@type': 'ListItem', position: 3, name: 'Political debate topics', item: `${SITE_ORIGIN}/political-debate-topics` },
+                { '@type': 'ListItem', position: 4, name: m.title, item: canonical },
+              ]
+            : [
+                { '@type': 'ListItem', position: 2, name: 'Debate', item: `${SITE_ORIGIN}/debate` },
+                { '@type': 'ListItem', position: 3, name: m.title, item: canonical },
+              ]),
         ],
       },
     ],
@@ -402,19 +419,19 @@ function renderMotionPage(m) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
-<meta name="description" content="${esc(m.description)}">
+<meta name="description" content="${esc(pageDescription)}">
 <meta name="keywords" content="${esc(m.keywords.join(', '))}">
 <link rel="canonical" href="${canonical}">
 <meta property="og:title" content="${esc(titleCore)}">
-<meta property="og:description" content="${esc(m.description)}">
+<meta property="og:description" content="${esc(pageDescription)}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:type" content="article">
-<meta property="og:image" content="${OG_IMAGE}">
+<meta property="og:image" content="${esc(pageImage)}">
 <meta property="og:site_name" content="Debatable">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titleCore)}">
-<meta name="twitter:description" content="${esc(m.description)}">
-<meta name="twitter:image" content="${OG_IMAGE}">
+<meta name="twitter:description" content="${esc(pageDescription)}">
+<meta name="twitter:image" content="${esc(pageImage)}">
 <meta name="theme-color" content="#fbfaf7">
 <link rel="icon" href="/icons/icon-192.png">
 <script defer src="/js/track.js"></script><script defer src="/js/home-magnet.js"></script>
@@ -429,16 +446,15 @@ ${rail(m)}
 
   <section class="hero">
     <div>
-      <span class="stamp"><span class="dot"></span> Debate Dossier</span>
-      <div class="hero-eye"><b>${esc(m.category)}</b> · Live Motion</div>
+      <span class="stamp"><span class="dot"></span> Question brief</span>
+      <div class="hero-eye"><b>${esc(politicsGroup ? politicsGroup.label : m.category)}</b> · Casual 1v1</div>
       <h1>${esc(m.title)}</h1>
-      <p class="hero-sub">${esc(m.subtitle)}</p>
+      <p class="hero-sub">${esc(m.clash.question)}</p>
       <div class="chips">
-        <div class="chip"><span class="k">Format</span><span class="v">${esc(m.formats)}</span></div>
-        <div class="chip"><span class="k">Difficulty</span><span class="v">${esc(m.difficulty)}</span></div>
+        <div class="chip"><span class="k">Round</span><span class="v">One person on each side</span></div>
         <div class="chip"><span class="k">Main clash</span><span class="v">${esc(m.mainClash)}</span></div>
-        <div class="chip"><span class="k">Best for</span><span class="v">${esc((m.bestFor || []).join(', '))}</span></div>
       </div>
+      ${politicsGroup ? `<figure class="issue-photo"><img src="${esc(politicsGroup.image)}" alt="${esc(politicsGroup.imageAlt)}" width="${esc(politicsGroup.imageWidth)}" height="${esc(politicsGroup.imageHeight)}" loading="eager" decoding="async"><a class="photo-credit" href="${esc(politicsGroup.imageSource)}" target="_blank" rel="noopener">${esc(politicsGroup.imageCredit)}</a></figure>` : ''}
     </div>
     <aside class="panel">
       <h3>Ready to argue this?</h3>
@@ -447,7 +463,7 @@ ${rail(m)}
       <a class="btn btn-con" href="${esc(conHref)}">Take Con <span class="arr">→</span></a>
       <a class="btn btn-ghost" href="${esc(anyHref)}">Let the AI pick my side <span class="arr">→</span></a>
       <a class="btn btn-ghost" href="#sample">Watch the sample round <span class="arr">↓</span></a>
-      <div class="fine">3-minute round · AI opponent · judge ballot after</div>
+      <div class="fine">3-minute round · one question · written judge decision</div>
     </aside>
   </section>
 
@@ -470,7 +486,7 @@ ${rail(m)}
   </section>
 
   <section class="sec">
-    <div class="sec-eye">Argument arena · prep both sides</div>
+    <div class="sec-eye">Argument arena · both sides</div>
     <div class="arena">
       <div class="col-pro">
         <div class="side-head"><span class="side-tag">Pro</span></div>
@@ -487,7 +503,7 @@ ${rail(m)}
   </section>
 
   <section class="sec" id="sample">
-    <div class="sec-eye">Sample round · flowed with judge notes</div>
+    <div class="sec-eye">Sample round · with judge notes</div>
     <div class="transcript">
       ${m.round.map(t => `<div class="turn ${t.side}">
         <div class="turn-head"><span class="turn-spk">${esc(t.speech)}</span>${t.badge ? `<span class="badge">${esc(t.badge)}</span>` : ''}</div>
@@ -521,7 +537,7 @@ ${rail(m)}
   <section class="sec">
     <div class="grid2">
       <div>
-        <div class="sec-eye" style="margin-top:0">Related motions</div>
+        <div class="sec-eye" style="margin-top:0">Related questions</div>
         <ul class="rel-list">
           ${related.map(r => `<li><a href="/debate/${esc(r.slug)}"><span class="rt">${esc(r.title)}</span><span class="rarr">→</span></a></li>`).join('')}
         </ul>
@@ -531,7 +547,7 @@ ${rail(m)}
         <ul class="drills">
           ${(m.drills || []).map(d => `<a class="drill-item" href="${esc(trainerHref({ title: d.motion }))}"><span class="dl">${esc(d.label)}</span><span class="dx">→</span></a>`).join('')}
         </ul>
-        <div class="sec-eye" style="margin-top:22px">Train for this round</div>
+        <div class="sec-eye" style="margin-top:22px">Sharpen this argument</div>
         <ul class="rel-list">
           <li><a href="/learn/guides/how-to-win-a-debate"><span class="rt">How to win a debate</span><span class="rarr">→</span></a></li>
           <li><a href="/learn/guides/how-to-improve-your-rebuttals"><span class="rt">How to improve your rebuttals</span><span class="rarr">→</span></a></li>
@@ -542,12 +558,12 @@ ${rail(m)}
   </section>
 
   <section class="sec sec-otherways">
-    <div class="sec-eye" style="margin-top:0">Other ways to argue this motion</div>
+    <div class="sec-eye" style="margin-top:0">Other ways to argue this question</div>
     <div class="otherways-grid">
       <a class="otherway-card" href="/live">
         <span class="otherway-eye">Live · with humans</span>
-        <span class="otherway-title">Post this motion live</span>
-        <span class="otherway-body">Drop the motion on the live board. Another debater accepts, you both join a video room, AI judges the round at the end.</span>
+        <span class="otherway-title">Schedule a live round</span>
+        <span class="otherway-body">Post a challenge, meet another person in a video room, and get the judge's decision when the round ends.</span>
         <span class="otherway-arr">→</span>
       </a>
       <!-- 2026-08-24, internal-link rebalance. This card used to point at
@@ -567,14 +583,14 @@ ${rail(m)}
            destination for that intent anyway. -->
       <a class="otherway-card" href="/debate-an-ai">
         <span class="otherway-eye">AI · on demand</span>
-        <span class="otherway-title">Debate an AI on this motion</span>
-        <span class="otherway-body">No waiting for an opponent. The AI takes the other side in your format, holds a real clock, takes points of information, and a separate AI judge writes the ballot.</span>
+        <span class="otherway-title">Debate the AI on this question</span>
+        <span class="otherway-body">Start now. The AI takes the other side, the clock keeps the exchange moving, and a separate judge writes the decision.</span>
         <span class="otherway-arr">→</span>
       </a>
       <a class="otherway-card" href="/debate-strangers">
         <span class="otherway-eye">Spar · instant human</span>
-        <span class="otherway-title">Queue for an instant scrim</span>
-        <span class="otherway-body">No scheduling. The matchmaker pairs you with another debater in seconds, AI fallback if none available.</span>
+        <span class="otherway-title">Debate a person live</span>
+        <span class="otherway-body">Join the live queue for a casual one-on-one video round. Google sign-in is required for human matching.</span>
         <span class="otherway-arr">→</span>
       </a>
     </div>
@@ -590,13 +606,13 @@ ${rail(m)}
          inbound links, which is the shape of a page Google has seen and
          judged not worth keeping. 56 more links from this family is the
          cheapest test of whether that judgement moves. -->
-    <span><a href="/debate">All motions</a> · <a href="/topics">Format guides</a> · <a href="/live">Live rounds</a> · <a href="/watch">Watch rounds</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a></span>
+    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/debate">All questions</a> · <a href="/live">Live rounds</a> · <a href="/watch">Watch rounds</a> · <a href="/practice">Start a round</a></span>
   </footer>
 </main>
 
 <div class="sticky" id="stickyCta">
   <div class="sticky-in">
-    <div class="sq">${esc(m.title)}<b>3-minute round · AI opponent · judge ballot after</b></div>
+    <div class="sq">${esc(m.title)}<b>3-minute round · one question · written judge decision</b></div>
     <div class="sbtns">
       <a class="s-pro" href="${esc(proHref)}">Take Pro</a>
       <a class="s-con" href="${esc(conHref)}">Take Con</a>
@@ -624,8 +640,8 @@ ${rail(m)}
 
 function renderHubPage() {
   const motions = listMotions();
-  const title = 'Debate Both Sides of the Big Questions · Debatable';
-  const description = "Argument dossiers on the questions people actually search: AI regulation, AI and jobs, AI in school, AI art, TikTok, social media for minors, UBI, nuclear. Both sides, a sample round, a judge ballot. Then argue it yourself.";
+  const title = 'Questions Worth Arguing About | Both Sides · Debatable';
+  const description = 'Explore the strongest arguments on both sides of political, technology, economic, science, and everyday questions. Read the clash, then take a side in a live judged round.';
   const canonical = `${SITE_ORIGIN}/debate`;
 
   const ld = {
@@ -648,15 +664,15 @@ function renderHubPage() {
     ],
   };
 
-  const aiSlugs = ['should-ai-be-regulated', 'will-ai-replace-human-jobs', 'should-students-be-allowed-to-use-ai', 'should-ai-generated-art-be-copyrighted', 'should-the-us-ban-tiktok', 'should-social-media-be-banned-for-minors'];
-  const ai = aiSlugs.map(s => MOTION_BANK[s]).filter(Boolean);
-  const econ = motions.filter(m => !aiSlugs.includes(m.slug));
+  const political = motions.filter(m => isPoliticalMotion(m.slug));
+  const ai = motions.filter(m => !isPoliticalMotion(m.slug) && /^AI|^Tech/.test(m.category));
+  const everyday = motions.filter(m => !isPoliticalMotion(m.slug) && !ai.includes(m));
 
   const card = m => `<a class="hub-card" href="/debate/${esc(m.slug)}">
     <div class="hc-eye">${esc(m.category)}</div>
     <div class="hc-t">${esc(m.title)}</div>
     <div class="hc-clash">${esc(m.mainClash)}. ${esc(m.clash.question)}</div>
-    <div class="hc-meta"><span class="hc-chip">${esc(m.difficulty)}</span><span class="hc-chip">${esc(m.formats)}</span></div>
+    <div class="hc-meta"><span class="hc-chip">Casual 1v1</span><span class="hc-chip">Read both sides</span></div>
   </a>`;
 
   return `<!doctype html>
@@ -685,20 +701,22 @@ function renderHubPage() {
 <a id="top"></a>
 <main class="shell">
   ${topNav()}
-  <span class="stamp"><span class="dot"></span> Debate Dossiers</span>
-  <h1 class="hub-h1" style="margin-top:20px">Pick a fight.</h1>
+  <span class="stamp"><span class="dot"></span> Question briefs</span>
+  <h1 class="hub-h1" style="margin-top:20px">Questions worth arguing about.</h1>
   <p class="hub-intro">${esc(description)}</p>
-  <p class="hub-intro">Debating competitively? The tournament motions, in the phrasing your circuit actually uses, live in the <a href="/motions">motion library</a>.</p>
 
-  <div class="hub-group-eye">AI &amp; technology</div>
+  <div class="hub-group-eye"><a href="/political-debate">Politics &amp; public life</a></div>
+  <div class="hub-grid">${political.map(card).join('')}</div>
+
+  <div class="hub-group-eye">Technology &amp; AI</div>
   <div class="hub-grid">${ai.map(card).join('')}</div>
 
-  <div class="hub-group-eye">Economy &amp; society</div>
-  <div class="hub-grid">${econ.map(card).join('')}</div>
+  <div class="hub-group-eye">Culture &amp; everyday life</div>
+  <div class="hub-grid">${everyday.map(card).join('')}</div>
 
   <footer class="dfoot">
     <span>© 2026 Debatable</span>
-    <span><a href="/topics">Format guides</a> · <a href="/learn">Learn</a> · <a href="/practice">Practice</a> · <a href="/">Home</a></span>
+    <span><a href="/political-debate">Political debate</a> · <a href="/political-debate-topics">Political topics</a> · <a href="/contested">Current issues</a> · <a href="/practice">Start a round</a> · <a href="/">Home</a></span>
   </footer>
 </main>
 </body></html>`;

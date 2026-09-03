@@ -283,6 +283,19 @@ if [ -f "$BRAND_ENTITY_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Political-discovery guard. The search acquisition path is one connected
+# product surface: taxonomy, server-rendered pages, sitemap, landing links,
+# and the casual-round handoff must move together.
+POLITICAL_SEO_GUARD="$REPO_ROOT/scripts/test-political-seo.mjs"
+if [ -f "$POLITICAL_SEO_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-political-seo.mjs >/tmp/political-seo-guard.log 2>&1); then
+    echo "[political-seo] commit blocked - the political discovery path is incomplete or unsafe:" >&2
+    tail -30 /tmp/political-seo-guard.log >&2
+    echo "[political-seo] see scripts/test-political-seo.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Highlights guard. lib/highlights.mjs turns round transcripts into
 # titled clip windows on public replay cards. The two promises: no
