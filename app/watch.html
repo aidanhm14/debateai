@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-lightweb="web">
+<html lang="en" data-theme="crimson" data-lighting="dark" data-default-theme="crimson" data-theme-storage="da-watch-theme">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -53,13 +53,13 @@
      page rules win the cascade. Required for the .ui-topbar mount below. -->
 <link rel="stylesheet" href="/css/ui.css">
 
-<!-- Theme, before first paint. Same `da-theme` key topbar.js writes.
-     Light is the sitewide default; dark is a saved choice carried over
-     from any other page. Runs pre-paint so neither theme flashes. -->
+<!-- Theme, before first paint. Watch starts dark for a visitor with no
+     saved choice; the shared toggle still carries an explicit light or
+     dark choice between pages. -->
 <script>
 (function(){
-  var t = 'light';
-  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  var t = 'crimson';
+  try { t = localStorage.getItem('da-watch-theme') || 'crimson'; } catch(e){}
   if (t !== 'light') t = 'crimson';
   document.documentElement.setAttribute('data-theme', t);
   document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
@@ -85,33 +85,21 @@
 </script>
 
 <style>
-/* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
-   same recipe as /pricing and /schools, per the founder: "it adds a nice
-   depth"). The shared canvas is position:fixed; painted late at
-   z-index 0 it would sit ON TOP of static content, so the page
-   background moves to <html>, <body> goes transparent, and the canvas
-   drops to z-index -1: behind every element, in front of the paper.
-   Dark themes keep ui.css's own opacity; only the light arm is lifted,
-   because red-on-cream at .45 is close to invisible. */
-html[data-lightweb="web"]{background:var(--bg)}
-html[data-lightweb="web"] body{background:transparent}
-html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
-html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
-html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
-
 :root{
   color-scheme:dark;
-  --bg:#0b0b0d;
-  --surface:#141417;
-  --surface2:#1c1c21;
-  --surface-hover:#26262c;
-  --border:rgba(255,255,255,.08);
-  --text:#f4f4f2;
-  --dim:rgba(244,244,242,.68);
-  --faint:rgba(244,244,242,.68);
-  --red:#ef4444;
-  --red-deep:#dc2626;
-  --red-link:#ef4444;   /* text-on-background red, see light override */
+  --font-display:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --font-body:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --bg:#101112;
+  --surface:#171819;
+  --surface2:#202123;
+  --surface-hover:#292a2d;
+  --border:rgba(255,255,255,.11);
+  --text:#f3f1ec;
+  --dim:rgba(243,241,236,.70);
+  --faint:rgba(243,241,236,.60);
+  --red:#e5484d;
+  --red-deep:#d73f44;
+  --red-link:#f05a5f;   /* text-on-background red, see light override */
   --green:#22c55e;
   --radius:14px;
   --shadow:none;
@@ -135,7 +123,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'Archivo',Georgia,serif;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;min-height:100vh}
 em,i{font-style:normal}
 /* Keep the desktop feed in the calmer, pulled-back frame people get at a
    slightly wider browser zoom. This is a width constraint, not CSS zoom,
@@ -721,19 +709,20 @@ footer a{color:var(--dim)}
    give Debatable and outside debates equal visual weight. The shelves
    scroll inside their panels so a live feed can grow without lengthening
    the page one card at a time. */
-body.social-watch .page-head{padding:84px 28px 24px;border-radius:0 0 22px 22px}
+body.social-watch .page-head{max-width:none;margin-top:52px;padding:42px 0 26px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+html.dbnative body.social-watch .page-head{margin-top:0;padding-top:20px}
 body.social-watch .page-head::after{display:none}
-body.social-watch .page-title{max-width:none;font-size:clamp(2.55rem,4vw,3.8rem);line-height:1;letter-spacing:-.055em}
+body.social-watch .page-title{max-width:none;margin:0;font-family:'Source Serif 4',Georgia,serif !important;font-size:clamp(2.35rem,3.7vw,3.4rem);font-weight:600;line-height:1.02;letter-spacing:-.035em}
 .watch-masthead{display:flex;align-items:center;justify-content:space-between;gap:28px}
 .watch-join{display:inline-flex;align-items:center;justify-content:center;max-width:330px;min-height:66px;padding:14px 24px;
-  border-radius:14px;background:var(--red);box-shadow:0 12px 28px rgba(239,68,68,.22);color:#fff;text-align:center;
-  text-decoration:none;font-size:17px;font-weight:850;line-height:1.25;transition:background .15s ease,transform .15s ease,box-shadow .15s ease}
-.watch-join:hover{background:var(--red-deep);transform:translateY(-2px);box-shadow:0 16px 32px rgba(239,68,68,.28)}
+  border:1px solid var(--red);border-radius:9px;background:var(--red);box-shadow:none;color:#fff;text-align:center;
+  text-decoration:none;font-size:16px;font-weight:750;line-height:1.25;transition:background .15s ease,border-color .15s ease}
+.watch-join:hover{background:var(--red-deep);border-color:var(--red-deep)}
 .watch-join:focus-visible{outline:3px solid var(--text);outline-offset:3px}
 body.social-watch .watch-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch;margin-top:22px}
 body.social-watch .watch-main{min-width:0}
 body.social-watch .watch-rail,
-body.social-watch .yt-sec{box-sizing:border-box;height:100%;margin:0;padding:22px;border:1px solid var(--border);border-radius:24px;background:var(--surface);box-shadow:var(--social-shadow-soft)}
+body.social-watch .yt-sec{box-sizing:border-box;height:100%;margin:0;padding:22px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:none}
 body.social-watch .watch-rail{position:static;order:0}
 body.social-watch .yt-grid,
 body.social-watch .rail-list{display:flex;gap:12px;max-height:none;overflow-x:auto;overflow-y:hidden;padding:0 2px 10px 0;scroll-snap-type:x mandatory;scrollbar-width:thin}
@@ -761,12 +750,12 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
   body.social-watch .watch-rail{order:-1}
 }
 @media(max-width:720px){
-  body.social-watch .page-head{padding:78px 20px 20px}
-  body.social-watch .page-title{font-size:1.75rem;letter-spacing:-.04em}
+  body.social-watch .page-head{margin-top:46px;padding:24px 0 18px}
+  body.social-watch .page-title{font-size:1.95rem;letter-spacing:-.025em}
   .watch-masthead{gap:14px}
-  .watch-join{max-width:184px;min-height:54px;padding:10px 13px;border-radius:12px;font-size:13px}
+  .watch-join{max-width:184px;min-height:54px;padding:10px 13px;border-radius:8px;font-size:13px}
   body.social-watch .watch-rail,
-  body.social-watch .yt-sec{padding:16px;border-radius:20px}
+  body.social-watch .yt-sec{padding:16px;border-radius:12px}
   body.social-watch .yt-card,
   body.social-watch .rail-list .card{flex-basis:86%;min-width:0;width:auto;max-width:320px}
   .watch-shelf-cue .cue-scroll{display:none}
@@ -961,7 +950,6 @@ html[data-watch-gallery] .yt-note{max-width:none}
     ]
   }
   </script>
-<link rel="stylesheet" href="/css/social-depth.css?v=2">
 </head>
 <body class="social-watch">
 
@@ -3033,9 +3021,5 @@ html[data-watch-gallery] .yt-note{max-width:none}
      offers the Google/email chooser. This page is a common first
      screen, so the nudge is how a spectator becomes an account. -->
 <script defer src="/js/signup-nudge.js"></script>
-<!-- Shared neural-constellation background. Animates on this light
-     surface because <html> carries data-lightweb="web". -->
-<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
-<script defer src="/js/ui-neural.js"></script>
 </body>
 </html>

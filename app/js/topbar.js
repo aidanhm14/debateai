@@ -1923,6 +1923,10 @@
       if (ft) ft.style.display = 'none';
       return;
     }
+    /* A page may keep a surface-specific theme choice while still using
+       the shared toggle. /watch does this so its first visit can be dark
+       without changing the saved default for the rest of the site. */
+    var themeStorageKey = document.documentElement.getAttribute('data-theme-storage') || 'da-theme';
     /* DARK MODE DISABLED (2026-07-09): pin every non-forced page to the
        light token set and stop. Everything below (migration, bucketing,
        click wiring) stays intact for revival via DARK_MODE_ENABLED at
@@ -1963,7 +1967,7 @@
     /* The old da-theme-default-v2 migration (cleared light prefs to make
        dark the brand default) stays retired: light is the default now. */
     var saved = '';
-    try { saved = localStorage.getItem('da-theme') || ''; } catch(e){}
+    try { saved = localStorage.getItem(themeStorageKey) || ''; } catch(e){}
     /* 2026-08-22 per the founder: the 2026-08-19 70/30 light/crimson
        bucket is retired, light is the default for everyone. Visitors the
        old split AUTO-bucketed into crimson (da-theme-ab === 'crimson',
@@ -1983,16 +1987,17 @@
       }
     } catch(e){}
     if (!saved) {
-      /* Light for every unset visitor. ?themeAb=crimson stays as a QA
-         force for the dark surface; da-theme-ab keeps the assigned arm
-         for the GA4 property below. */
-      saved = 'light';
+      /* Light for every unset visitor unless a dual-palette page names a
+         different first-load default. This is a default, not a lock: a
+         saved choice still wins and the shared toggle remains available. */
+      var pageDefault = document.documentElement.getAttribute('data-default-theme');
+      saved = pageDefault === 'crimson' ? 'crimson' : 'light';
       try {
         var q = (location.search || '').toLowerCase();
         if (/[?&]themeab=crimson(?:&|$)/.test(q)) saved = 'crimson';
-      } catch(e){ saved = 'light'; }
+      } catch(e){ saved = pageDefault === 'crimson' ? 'crimson' : 'light'; }
       try {
-        localStorage.setItem('da-theme', saved);
+        localStorage.setItem(themeStorageKey, saved);
         localStorage.setItem('da-theme-ab', saved);
         localStorage.setItem('da-theme-light-v3', '1');
       } catch(e){}
@@ -2043,6 +2048,7 @@
       var lighting = (next === 'light') ? 'light' : 'dark';
       try {
         localStorage.setItem('da-theme', next);
+        localStorage.setItem(themeStorageKey, next);
         localStorage.setItem('debateos-lighting', lighting);
       } catch(e){}
       try {

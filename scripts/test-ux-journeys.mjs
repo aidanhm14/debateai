@@ -336,6 +336,22 @@ check(
     && topbar.includes('Change to dark mode?'),
   'dark-mode prompt has a sticky prompt/control experiment with telemetry',
 );
+check(
+  watch.includes('data-default-theme="crimson"')
+    && watch.includes('data-theme-storage="da-watch-theme"')
+    && watch.includes("localStorage.getItem('da-watch-theme') || 'crimson'")
+    && topbar.includes("getAttribute('data-theme-storage')")
+    && topbar.includes('localStorage.setItem(themeStorageKey, next)'),
+  'Watch defaults dark and its shared toggle remembers an explicit Watch choice',
+);
+check(
+  !watch.includes('/css/social-depth.css')
+    && !watch.includes('id="uiNeuralCanvas"')
+    && watch.includes("--font-body:'DM Sans'")
+    && watch.includes("font-family:'Source Serif 4',Georgia,serif !important"),
+  'Watch keeps the restrained editorial surface without decorative depth assets',
+);
+check(inlineScriptsParse('app/watch.html'), 'app/watch.html inline scripts parse');
 const challenges = read('app/challenges.html');
 check(
   !challenges.includes('data-force-theme="light"')
