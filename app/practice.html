@@ -6263,7 +6263,13 @@ function App() {
     __signedInStatus = !!user;
   }, [user]);
 
-  var [lighting, setLighting] = useState(() => {try {return localStorage.getItem('debateos-lighting') || 'dark';} catch {return 'dark';}});
+  /* Seed from the attribute the early <head> script already derived from
+     `da-theme`, and only then from the page-local key. Seeding from
+     `debateos-lighting` alone let a stale 'light' left by another page
+     win on mount over a dark `da-theme`, so the light-only overrides
+     (.adv-setup-btn and friends) fired on the dark palette: white text
+     on a white pill. One source of truth, the one first paint used. */
+  var [lighting, setLighting] = useState(() => {try {var fromAttr = document.documentElement.getAttribute('data-lighting');if (fromAttr === 'light' || fromAttr === 'dark') return fromAttr;return localStorage.getItem('debateos-lighting') || 'dark';} catch {return 'dark';}});
   useEffect(() => {
     document.documentElement.setAttribute('data-lighting', lighting);
     try {localStorage.setItem('debateos-lighting', lighting);} catch {}

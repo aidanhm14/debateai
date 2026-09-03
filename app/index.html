@@ -82,8 +82,11 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script defer src="/js/auth-modal.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<!-- Storage backs the case-file locker in the Cases sidebar (2026-07-22). -->
-<script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
+<!-- Storage backs the case-file locker in the Cases sidebar (2026-07-22).
+     Loaded on demand by ensureFirebaseStorage() the first time a file is
+     uploaded, opened or deleted; nothing on the boot path touches it, so
+     eager-loading it was parse time and heap for every visitor, most of
+     whom never open the locker. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/usage-banner.js"></script>
@@ -2904,6 +2907,13 @@ body.light-theme .nav .nav-btn:not(.active):not(.active-orange):not(.nav-btn-fea
   .mo-rail{position:static;gap:18px}
   .mo-src{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .mo-src::-webkit-scrollbar{display:none}
+  /* The scrollbar is hidden, so without this the last visible card
+     clips mid-word at the viewport edge and reads as a layout bug
+     rather than a row that scrolls. A right-edge fade is the cue. */
+  .mo-src,.mo-topics{
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);
+    mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);
+  }
   .mo-src-item{flex:0 0 auto;max-width:230px;border-color:#ffffff14}
   .mo-stage{min-height:0}
   .mo-shelf{grid-template-columns:1fr}
@@ -4483,6 +4493,8 @@ function PolyBackground() {
 
 
 
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4509,9 +4521,7 @@ function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
   var revealed = 0; // chars the user has seen
   var rafId = null;var finished = false;var BASE_STEP = 3; // chars per frame when in-sync (≈180 chars/sec. real typing feel)
   var CATCHUP_CAP = 400; // beyond this, we speed up so the user isn't stuck watching the animation
-
   function scheduleTick() {if (rafId == null) rafId = requestAnimationFrame(tick);}
-
   function tick() {
     rafId = null;
     var behind = streamed.length - revealed;
@@ -4880,6 +4890,7 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
     if (!file) return;
     var uid = firebaseAuth && firebaseAuth.currentUser && firebaseAuth.currentUser.uid;
     if (!uid) {setFileErr('Sign in to keep files with your account.');return;}
+    await ensureFirebaseStorage();
     if (!firebaseStorage) {setFileErr('File storage is still loading. Try again in a moment.');return;}
     if (file.size > 10 * 1024 * 1024) {setFileErr('That file is over 10MB.');return;}
     setFileBusy(file.name);
@@ -4903,7 +4914,9 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
   };
 
   var openFile = async (f) => {
-    if (!firebaseStorage || !f || !f.path) return;
+    if (!f || !f.path) return;
+    await ensureFirebaseStorage();
+    if (!firebaseStorage) return;
     setFileErr('');
     try {
       var url = await firebaseStorage.ref(f.path).getDownloadURL();
@@ -4917,7 +4930,7 @@ function SavedCasesSidebar({ isOpen, onClose, cases, onSelect, onDelete, onExpor
       persistFiles(next);
       return next;
     });
-    try {if (firebaseStorage && f.path) await firebaseStorage.ref(f.path).delete();} catch (_) {}
+    try {if (f.path) {await ensureFirebaseStorage();if (firebaseStorage) await firebaseStorage.ref(f.path).delete();}} catch (_) {}
   };
 
   // Collect all unique tags from cases
@@ -12367,6 +12380,25 @@ var FIREBASE_CONFIG = {
 };
 
 var firebaseApp, firebaseAuth, firebaseDb, firebaseStorage;
+// The Storage SDK is not on the boot path (see the <head> comment): it
+// loads the first time the case-file locker actually needs it. Resolves
+// to the storage instance, or to undefined if the SDK cannot be fetched;
+// callers keep their existing "still loading" error path for that case.
+var firebaseStoragePromise = null;
+function ensureFirebaseStorage() {
+  if (firebaseStorage) return Promise.resolve(firebaseStorage);
+  if (firebaseStoragePromise) return firebaseStoragePromise;
+  firebaseStoragePromise = new Promise(function (resolve) {
+    function take() {try {if (typeof firebase !== 'undefined' && firebase.storage) firebaseStorage = firebase.storage();} catch (_) {}resolve(firebaseStorage);}
+    if (typeof firebase !== 'undefined' && firebase.storage) return take();
+    var sc = document.createElement('script');
+    sc.src = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js';
+    sc.onload = take;
+    sc.onerror = function () {firebaseStoragePromise = null;resolve(undefined);};
+    document.head.appendChild(sc);
+  });
+  return firebaseStoragePromise;
+}
 
 // Initialize Firebase. Returns true on success, false if SDK still missing.
 // Extracted so we can re-run it after a dynamic SDK load recovers from a
@@ -12406,7 +12438,7 @@ async function loadFirebaseDynamically() {
     { base: 'https://www.gstatic.com/firebasejs/10.13.2/', suffix: '-compat.js' },
     { base: 'https://cdn.jsdelivr.net/npm/firebase@10.12.0/', suffix: '-compat.js' }];
 
-    var modules = ['firebase-app', 'firebase-auth', 'firebase-firestore', 'firebase-storage'];
+    var modules = ['firebase-app', 'firebase-auth', 'firebase-firestore']; // storage loads on demand
     var loadOne = (src) => new Promise((resolve, reject) => {
       var s = document.createElement('script');
       s.src = src;s.async = false; // preserve order
