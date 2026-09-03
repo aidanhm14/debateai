@@ -108,6 +108,28 @@ export const BENCH_PERSONAS = {
       ],
     },
   },
+  xai: {
+    key: 'xai',
+    name: 'The Auditor',
+    glyph: '◆',
+    color: '#1D9BF0',
+    seat: 'Wing',
+    temper: 'Blunt. Decides on the thing nobody came back for, and says so in a paragraph.',
+    hardOn: ['drop', 'comparative'],
+    hardOnLine: 'Hardest on a point left unanswered and a comparison neither side actually made.',
+    paradigm: {
+      note: [
+        'I am looking for the argument that went unanswered. Not the best line in the round, the one that was still standing when the round ended, because that is the one you both agreed to leave there.',
+        'Say the comparison out loud. Two cases that never touch are two speeches, not a debate, and if neither of you tells me which harm is bigger I am left picking, which is not my job.',
+        'I write short. A short ballot is not a thin one; it is the round with the parts that did not decide it taken out.',
+      ],
+      inPractice: [
+        { k: 'Speed', v: 'Say less and finish it. An argument at half the pace that actually lands beats three that do not.' },
+        { k: 'Evidence', v: 'One real example you explain beats four you name.' },
+        { k: 'Extensions', v: 'If you drop it and want it back, tell me why it still matters now.' },
+      ],
+    },
+  },
   // Fallbacks so an override or a future season pin still renders a
   // face. An unnamed family is reported as unnamed rather than silently
   // borrowing another juror's persona.

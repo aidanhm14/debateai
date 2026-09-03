@@ -431,7 +431,9 @@ SEASONS.push({
 SEASONS.push({
   id: '2026-open-majority',
   from: Date.UTC(2026, 7, 29, 15),
-  to: Date.UTC(2027, 3, 1),
+  // Closed when the council was re-pinned. Kept intact as the record for
+  // every ballot judged under these three models.
+  to: Date.UTC(2026, 8, 3, 19, 0),
   rubricVersion: 'adjudication-2026-08c',
   published: true,
   panel: {
@@ -440,6 +442,89 @@ SEASONS.push({
   },
   note:
     'The three pinned model families and the published casual one-on-one rubric are unchanged. Two matching votes carry when one provider is unavailable. A split council remains unresolved, and a one-vote emergency ballot is labeled as a single judge.',
+});
+
+// ── Autumn council ──────────────────────────────────────────────────
+// The rubric, the weighing order, the two-vote majority and the refusal
+// to tie-break are all UNCHANGED. This season changes exactly one thing:
+// which three models sit the bench.
+//
+// WHY, and it is not primarily cost. The Google seat had been failing
+// every live round with "no JSON in ballot output" because the juror
+// token budget was too small for a current reasoning model to think and
+// then write (fixed separately, 3000 -> 8000). While that was true, every
+// live ballot was stamped degraded on two of three, so the published
+// promise of a three-family council was not being kept.
+//
+// EVERY MODEL HERE WAS RUN AGAINST THE REAL BALLOT PROMPT on a real
+// stuck round (SparMatch-Ky3Q2opK, four speeches) on 2026-09-03, and the
+// ballots were READ, not just parsed, because "cheaper" is worthless if
+// the reasoning gets thinner. Measured, with live per-token prices:
+//
+//   claude-sonnet-5      13.4s   $0.0316   con 58.5/68
+//   grok-4.3              8.8s   $0.0060   con 51.5/67
+//   gemini-3.6-flash     28.4s   $0.0054   pro 68/46.5
+//   ---- replaced -------------------------------------------
+//   claude-fable-5       25.3s   $0.1305   pro 63/52.5
+//   gpt-5.5              34.5s   $0.0562   pro 56.5/44.5
+//
+// The council goes from about $0.192 a ballot to about $0.043, roughly
+// 4.5x, and gets FASTER at the same time: sonnet-5 is the quickest
+// Anthropic seat measured, ahead of both fable-5 and haiku-4.5.
+//
+// A CHEAPER SEAT IS NOT A WEAKER ONE, and that was checked rather than
+// assumed. grok-4.3 writes the shortest ballot of the six (354 output
+// tokens) and it is a real one: it names the deciding issue, tracks the
+// dependency argument across both of Con's speeches, and catches that Pro
+// never returned to the conditional-benefits comparison. Output length is
+// not depth. claude-haiku-4.5 is cheaper still ($0.0099, 9x) and was
+// deliberately NOT taken for the anchor seat: sonnet-5 is the stronger
+// judge, it is faster, and the saving between them is a cent a round.
+//
+// xAI REPLACES OpenAI rather than joining it, because the council's value
+// is that its members fail differently and the seat count is fixed at
+// three. Grok is a fourth lab, and on this round it voted with sonnet-5
+// against the other four models, so it is not a rubber stamp.
+//
+// STATED PLAINLY: THIS CAN CHANGE VERDICTS, and the measurement is more
+// interesting than a clean flip. Run single-shot on that round, sonnet-5
+// and grok-4.3 both said Con while the four other models said Pro; run as
+// an assembled council through runPanel, it came back Pro 2-1, 66.5 to
+// 54.8, agreement 0.67. So the seats genuinely disagree, they are not
+// stable between runs on a close round, and which three sit the bench is
+// capable of moving a result. That is why this is a season rather than an
+// edit, and why the entry above is left intact for the ballots it judged.
+//
+// VERIFIED END TO END BEFORE PINNING, not seat by seat: the whole council
+// ran through runPanel on the real prompt and returned votesCast 3/3,
+// degraded false, resolution majority, in 23.8s wall (sonnet 12.6s, grok
+// 10.3s, gemini 23.7s). The bench it replaces had been returning 2/3 and
+// stamping every live ballot degraded.
+//
+// Moonshot's Kimi and DeepSeek were both requested and NEITHER could be
+// seated. Sent the real ballot prompt, deepseek-v4-flash ran 73s and
+// spent all 8000 tokens reasoning without writing a ballot; kimi-k2.6 and
+// kimi-k3 returned nothing in 90 seconds (a trivial prompt answers in
+// 1-5s, so the route is fine and the task is what defeats them). Both
+// direct Moonshot keys on this account are rejected outright. They are
+// wired as standby families in judge-jurors.mjs and can be seated in one
+// line once they can produce a ballot inside a usable budget.
+SEASONS.push({
+  id: '2026-autumn-council',
+  from: Date.UTC(2026, 8, 3, 19, 0),
+  to: Date.UTC(2027, 3, 1),
+  rubricVersion: 'adjudication-2026-08c',
+  published: true,
+  panel: {
+    ...SEASONS[SEASONS.length - 1].panel,
+    jurors: [
+      { id: 'j1', provider: 'anthropic', model: 'claude-sonnet-5', effort: 'low' },
+      { id: 'j2', provider: 'xai', model: 'grok-4.3', effort: 'low' },
+      { id: 'j3', provider: 'google', model: 'gemini-3.6-flash' },
+    ],
+  },
+  note:
+    'Same rubric, same weighing order, same two-vote majority, same refusal to tie-break a split. Three independent labs, re-pinned to models verified against the real ballot prompt: Anthropic, xAI and Google. The council reads the round for about a quarter of what the previous bench cost and returns faster.',
 });
 
 export const SEASON_IDS = SEASONS.map((s) => s.id);

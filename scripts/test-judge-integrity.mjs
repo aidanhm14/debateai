@@ -159,8 +159,13 @@ function t(label, cond) {
     jurors.every((j) => !!j.provider && !!j.model));
   t('the panel spans three model families',
     new Set(jurors.map((j) => j.provider)).size === 3);
-  t('the live Open council lets two matching votes carry through one provider outage',
-    current.id === '2026-open-majority'
+  // Pinned to the live season on purpose, so re-pinning the bench is a
+  // deliberate edit here too rather than something a season swap carries
+  // silently. The SUBSTANCE is the two-vote rule, unchanged since the
+  // Open: a council still carries on two matching votes through one
+  // provider outage, and still refuses to break a 1-1.
+  t('the live council lets two matching votes carry through one provider outage',
+    current.id === '2026-autumn-council'
       && current.panel.quorum === 2
       && current.panel.minimumVotes === 2);
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
