@@ -70,7 +70,48 @@ export const RECOVERY_GRACE_MS = Number(process.env.LIVE_JUDGE_RECOVERY_GRACE_MS
 // little cleanup headroom, then let recovery take over. The old two-minute
 // lease made a killed invocation look active long after no process existed.
 export const JUDGE_LEASE_MS = Number(process.env.LIVE_JUDGE_LEASE_MS || 45_000);
+
+// ── The patient path ────────────────────────────────────────────────
+// Measured 2026-09-03 against a real stuck round (SparMatch-Ky3Q2opK,
+// four speeches, ~2.6k tokens of transcript) with production keys and a
+// generous timeout: claude-fable-5 took 25.9s, gpt-5.5 34.2s and
+// gemini-3.6-flash 23.3s. EVERY JUROR SUCCEEDED. They are simply slower
+// than the 22s cap above, and the cap cannot be raised because a
+// synchronous invocation dies at roughly 26 seconds anyway. So all three
+// were aborted, the panel recorded votesCast:0, the client scheduled a
+// retry, and the retry hit the identical wall. Five times, then the
+// round sat on "Ballot is generating" forever.
+//
+// A scheduled sweep runs in a background invocation with a 15 minute
+// ceiling, so it can simply wait. These two values only ever apply to
+// that path; the synchronous request keeps its own tight budget, since
+// a fast panel is still worth trying while somebody is watching.
+export const SWEEP_JUROR_TIMEOUT_MS = Number(process.env.LIVE_JUDGE_SWEEP_JUROR_TIMEOUT_MS || 90_000);
+// The lease has to outlive the run it protects. At 45s a second sweeper
+// would claim a room whose first panel was still mid-flight and pay for
+// the same three jurors twice.
+export const SWEEP_LEASE_MS = Number(process.env.LIVE_JUDGE_SWEEP_LEASE_MS || 300_000);
 export const FAILURE_COOLDOWN_MS = Number(process.env.LIVE_JUDGE_FAILURE_COOLDOWN_MS || 30_000);
+
+// A uid the sweep presents so every downstream check reads it as a
+// non-participant watcher. It is not a real account and can never be one:
+// Firebase uids are 28 characters and this is not one of them, so it can
+// never collide with a debater and can never be written into a seat.
+export const SWEEP_UID = '__ballot_sweep__';
+
+export function isInternalJudgeCall(request) {
+  const want = String(process.env.INTERNAL_JUDGE_KEY || '');
+  // Unset means the internal door does not exist. Never treat a missing
+  // secret as a match, or every caller becomes the sweep.
+  if (want.length < 16) return false;
+  const got = String((request.headers && request.headers.get('x-internal-judge-key')) || '');
+  if (got.length !== want.length) return false;
+  // Constant-time compare: this grants panel access, so a timing oracle on
+  // it is worth closing even though the value never reaches a browser.
+  let diff = 0;
+  for (let i = 0; i < want.length; i += 1) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+}
 
 export function timestampMillis(value) {
   if (!value) return 0;
@@ -92,8 +133,15 @@ export function recoveryWaitMs(round, now = Date.now()) {
 export function judgeLeaseWaitMs(round, now = Date.now()) {
   if (!round || round.serverJudgeState !== 'running') return 0;
   const startedAt = timestampMillis(round.serverJudgeStartedAt);
-  if (!startedAt) return JUDGE_LEASE_MS;
-  return Math.max(0, startedAt + JUDGE_LEASE_MS - now);
+  // A claim states how long it intends to hold the room, because the two
+  // callers have very different run lengths: the request path is bounded
+  // by the invocation wall, the sweep can legitimately take minutes. A
+  // doc written before this field existed falls back to the short lease,
+  // which is the safe direction (it expires sooner, not later).
+  const claimed = Math.max(0, Math.trunc(Number(round.serverJudgeLeaseMs) || 0));
+  const lease = claimed > 0 ? Math.min(claimed, SWEEP_LEASE_MS) : JUDGE_LEASE_MS;
+  if (!startedAt) return lease;
+  return Math.max(0, startedAt + lease - now);
 }
 
 // "No winner" is a substantive result, not an infrastructure error. It is
@@ -416,27 +464,44 @@ export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('POST only', 405, request);
 
-  // live-round.html mints App Check tokens sitewide, so a request without
-  // one is a script aimed at the panel, not a round asking for its ballot.
-  const appCheck = await checkAppCheck(request);
-  if (!appCheck.ok) {
-    return jsonResponse({
-      error: 'App verification failed. Reload the page and try again.',
-      code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase(),
-    }, 401, request);
+  // The scheduled sweep calls this handler in-process, with no browser and
+  // therefore no App Check token and no signed-in user. It presents a
+  // shared secret that only ever exists in the server environment. It buys
+  // exactly one thing, the right to be treated as a WATCHER asking for
+  // recovery, and it is deliberately NOT a participant: it still waits out
+  // the recovery grace, still takes the lease, and can never claim a room
+  // whose own debaters are mid-request. With the secret unset the sweep
+  // cannot call at all, which is the safe direction to fail.
+  const internal = isInternalJudgeCall(request);
+
+  if (!internal) {
+    // live-round.html mints App Check tokens sitewide, so a request without
+    // one is a script aimed at the panel, not a round asking for its ballot.
+    const appCheck = await checkAppCheck(request);
+    if (!appCheck.ok) {
+      return jsonResponse({
+        error: 'App verification failed. Reload the page and try again.',
+        code: 'APP_CHECK_' + String(appCheck.reason || '').toUpperCase(),
+      }, 401, request);
+    }
   }
 
-  const token = extractBearerToken(request);
+  const token = internal ? null : extractBearerToken(request);
   let decoded = null;
   if (token) { try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; } }
-  const uid = decoded ? decoded.sub : null;
+  const uid = internal ? SWEEP_UID : (decoded ? decoded.sub : null);
   if (!uid) return errorResponse('Sign in to do that', 401, request);
 
   const rateDenied = async () => errorResponse(
     'Judging is briefly rate limited. The transcript is saved and the ballot can be retried in a bit.',
     429, request,
   );
-  if (isNamedAccount(decoded)) {
+  // The sweep is already bounded by its own per-run cap and by the lease,
+  // and metering it against a shared key would let one busy minute lock
+  // out every later round.
+  if (internal) {
+    // no per-caller metering
+  } else if (isNamedAccount(decoded)) {
     const limited = await checkLayers('livejudge', 'uid_' + uid, NAMED_LAYERS);
     if (!limited.ok) return rateDenied();
   } else {
@@ -532,6 +597,7 @@ export default async (request, context) => {
       serverJudgeState: 'running',
       serverJudgeStartedAt: FieldValue.serverTimestamp(),
       serverJudgeAttempt: FieldValue.increment(1),
+      serverJudgeLeaseMs: internal ? SWEEP_LEASE_MS : JUDGE_LEASE_MS,
     });
     return { kind: 'claimed', round: fresh };
   });
@@ -589,12 +655,16 @@ export default async (request, context) => {
       aKey: 'pro',
       bKey: 'con',
       singleModel: JUDGE_MODEL,
-      jurorTimeoutMs: LIVE_JUROR_TIMEOUT_MS,
+      jurorTimeoutMs: internal ? SWEEP_JUROR_TIMEOUT_MS : LIVE_JUROR_TIMEOUT_MS,
       // The live function has one synchronous request window. If the first
       // panel returns no usable Claude vote, a second full provider call can
       // overrun that window and strand the room behind its lease. Return the
       // incomplete panel promptly so the durable recovery loop can retry.
-      allowRuntimeFallbackCall: false,
+      // The request path cannot afford a second round of provider calls
+      // inside one invocation. The sweep has minutes, so it takes the
+      // retry rather than publishing a degraded single-judge ballot when
+      // a full panel is still reachable.
+      allowRuntimeFallbackCall: internal,
       // Only new casual rooms use the 100-point parser. A saved legacy
       // room keeps the scale it was shown before anyone spoke.
       scoreScale: ['quick','open'].includes(String(d.format || '').toLowerCase()) ? 100 : 30,

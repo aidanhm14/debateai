@@ -372,6 +372,24 @@ if [ -f "$DELIVERY_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # ──────────────────────────────────────────────────────────────────
+# Ballot-sweep guard. The patient judge is what lands a ballot when the
+# pinned jurors run longer than a synchronous invocation can wait, so
+# two things must hold: the internal door it opens in live-judge stays
+# shut to everyone else (an unset secret must never read as a match),
+# and the sweep only spends provider calls on rounds that are genuinely
+# stuck, bounded per run.
+# ──────────────────────────────────────────────────────────────────
+SWEEP_GUARD="$REPO_ROOT/scripts/test-ballot-sweep.mjs"
+if [ -f "$SWEEP_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ballot-sweep.mjs >/tmp/ballot-sweep-guard.log 2>&1); then
+    echo "[ballot-sweep] commit blocked — the patient judge's guards no longer hold:" >&2
+    grep '^  FAIL' /tmp/ballot-sweep-guard.log >&2 || tail -20 /tmp/ballot-sweep-guard.log >&2
+    echo "[ballot-sweep] see scripts/test-ballot-sweep.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────
 # Speaker-score guard. The headline points on every ballot are derived
 # from the scored axes at published weights, and those weights are a
 # claim about what winning an argument is made of. A silent change to
