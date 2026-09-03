@@ -1732,6 +1732,7 @@ body.spectator-mode .speech-header{background:color-mix(in srgb,var(--bg) 91%,#d
 .join-req-comment{font-size:.82rem;font-style:normal;color:var(--text-dim,rgba(255,255,255,.7));margin:0 0 10px;line-height:1.4}
 /* What accepting grants, on the card that grants it. */
 .join-req-note{font-size:.78rem;color:var(--text-dim,rgba(255,255,255,.62));margin:0 0 10px;line-height:1.45}
+.join-req-err{font-size:.76rem;color:#fca5a5;margin:0 0 8px;line-height:1.4;font-weight:700}
 .join-req-actions{display:flex;align-items:center;gap:8px}
 .join-req-actions .btn{padding:8px 14px;font-size:.78rem}
 .join-req-timer{margin-left:auto;font-size:.72rem;color:var(--text-dim,rgba(255,255,255,.55));font-variant-numeric:tabular-nums}
@@ -18725,6 +18726,41 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // room. Debaters in the round see an accept/reject card with a 20s
   // auto-reject. A declined visitor can re-send with a note, which
   // re-surfaces the card with their comment.
+  // ── Who gets asked ────────────────────────────────────────────────
+  // ONE debater answers each request, not both (2026-09-03, the founder).
+  // Two cards popping over two people mid-speech for one stranger is
+  // twice the interruption for one decision, and either of them could
+  // resolve it, so the answer went to whoever happened to be looking
+  // rather than to anyone in particular.
+  //
+  // The owner is picked at random per request and DERIVED, never rolled:
+  // both clients have to reach the same answer with no write between
+  // them, so it is a hash of the requester's uid against the room, the
+  // same discipline the motion draft's coin flip uses. Math.random() here
+  // would give the two browsers two different answers, and the request
+  // would either prompt both of them or neither.
+  // Seats are SORTED before they are indexed, which is what makes the
+  // owner survive a side trade: swapping proUid and conUid mid-round
+  // (the 2026-08-24 switch-sides beat) leaves the sorted pair identical,
+  // so a request does not change hands because the benches did.
+  function joinReqOwner(reqId){
+    var seats = [state.proUid, state.conUid].filter(Boolean).map(String).sort();
+    if (seats.length < 2) return seats[0] || '';
+    var s = String(reqId || '') + '|' + String(state.room || '');
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return seats[(h >>> 0) % 2];
+  }
+  // A silent owner must not swallow the ask. The card carries no clock
+  // for a watch or a cam request (auto-declining somebody who is already
+  // here is worse than making them wait), so this handoff is the only
+  // thing standing between "one person decides" and a request that hangs
+  // forever behind a debater who is mid-speech and not looking.
+  var JOIN_REQ_HANDOFF_MS = 25000;
+
   function startJoinRequestHost(){
     if (state.joinHostInit) return;
     if (!state.user || !firebaseDb) return;
@@ -18733,12 +18769,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     state.joinHostInit = true;
     var col = r.collection('joinRequests');
     var handled = {};
+    var pending = {};   // reqId -> timer, for the handoff to the other seat
     state.joinHostUnsub = col.onSnapshot(function(snap){
       snap.forEach(function(docSnap){
         var req = docSnap.data() || {};
+        var id = docSnap.id;
         if (req.status !== 'pending'){
-          delete handled[docSnap.id];
-          var stale = document.getElementById('joinReq-' + docSnap.id);
+          delete handled[id];
+          if (pending[id]){ clearTimeout(pending[id]); delete pending[id]; }
+          var stale = document.getElementById('joinReq-' + id);
           if (stale) stale.remove();
           return;
         }
@@ -18748,13 +18787,39 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if (req.kind === 'cam' && state.allowAudienceCams === false) return;
         var stamp = (req.requestedAt && req.requestedAt.toMillis) ? req.requestedAt.toMillis() : 0;
         var key = (req.comment || '') + ':' + stamp;
-        if (handled[docSnap.id] === key) return;   // already showing this exact pending state
-        handled[docSnap.id] = key;
-        showJoinRequestCard(col.doc(docSnap.id), req);
+        if (handled[id] === key) return;   // already showing this exact pending state
+        handled[id] = key;
+
+        var mine = joinReqOwner(id) === String(state.user.uid);
+        if (mine){
+          showJoinRequestCard(col.doc(id), req);
+          return;
+        }
+        // Not mine. Hold, and pick it up only if the other seat has not
+        // answered by the time the handoff lands. Measured from OUR
+        // clock rather than the doc's, because both clients heard this
+        // snapshot at the same moment and the doc timestamp may not have
+        // round-tripped yet.
+        if (pending[id]) clearTimeout(pending[id]);
+        pending[id] = setTimeout(function(){
+          delete pending[id];
+          // A timer outliving its round would pop a card over the ballot,
+          // 25 seconds after the thing it is about stopped mattering.
+          if (state.phase === 'ballot' || state.phase === 'complete') return;
+          if (isSpectator()) return;
+          col.doc(id).get().then(function(fresh){
+            var d = fresh.exists ? (fresh.data() || {}) : null;
+            // Answered, withdrawn or gone in the meantime: nothing to do.
+            if (!d || d.status !== 'pending') return;
+            if (d.kind === 'cam' && state.allowAudienceCams === false) return;
+            if (document.getElementById('joinReq-' + id)) return;
+            showJoinRequestCard(col.doc(id), d, true);
+          }).catch(function(){});
+        }, JOIN_REQ_HANDOFF_MS);
       });
     }, function(){});
   }
-  function showJoinRequestCard(reqRef, req){
+  function showJoinRequestCard(reqRef, req, handedOver){
     var prev = document.getElementById('joinReq-' + reqRef.id);
     if (prev) prev.remove();
     var card = document.createElement('div');
@@ -18781,27 +18846,63 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var note = isCam
       ? '<div class="join-req-note">They appear on camera beside you. Their mic cannot open.</div>'
       : '';
+    // Say why it arrived late, so a card landing 25 seconds after the ask
+    // does not read as the round asking the same person twice.
+    var over = handedOver
+      ? '<div class="join-req-note">Your opponent has not answered this, so it is yours.</div>'
+      : '';
     card.innerHTML =
       '<div class="join-req-top"><span class="join-req-dot"></span><strong>' + name + '</strong> ' +
         asks + '</div>' +
-      comment + note +
+      comment + note + over +
       '<div class="join-req-actions">' +
         '<button type="button" class="btn btn-primary join-req-accept">Let in</button>' +
         '<button type="button" class="btn join-req-reject">Decline</button>' +
         (timed ? '<span class="join-req-timer" aria-hidden="true">20</span>' : '') +
       '</div>';
     document.body.appendChild(card);
+    // A chime alone is missed by someone mid-speech with the tab behind
+    // another window, and a request nobody sees is a request nobody
+    // answers. Sound, a toast in the round's own language, and the tab
+    // title until they come back to it.
     try { window.SFX && window.SFX.notify && window.SFX.notify(); } catch(e){}
-    var secs = 20, timerEl = card.querySelector('.join-req-timer'), done = false;
+    try { toast(name + ' ' + asks + '. Your call.'); } catch(e){}
+    joinReqTitleNudge(true);
+    var clearNudge = function(){ joinReqTitleNudge(false); };
+    card.addEventListener('click', clearNudge);
+    window.addEventListener('focus', clearNudge, { once: true });
+    var secs = 20, timerEl = card.querySelector('.join-req-timer'), done = false, sending = false;
+    var actions = card.querySelector('.join-req-actions');
+    function setBusy(on){
+      [].forEach.call(card.querySelectorAll('button'), function(b){ b.disabled = on; });
+    }
+    // The card comes down when the WRITE LANDS, never before. It used to
+    // set done and remove itself first and let the write fail into a
+    // console warning, which meant a dropped write left the watcher
+    // waiting on an answer that was never recorded, and the debater
+    // looking at nothing. Now a failure keeps the card, says so, and
+    // stays clickable, because an unanswered ask is the one outcome
+    // this surface must not produce silently.
     function resolve(status){
-      if (done) return; done = true;
+      if (done || sending) return;
+      var me = state.user && state.user.uid;
+      if (!me){ joinReqFail(card, 'Sign-in dropped. Reload to answer this.'); return; }
+      sending = true;
+      setBusy(true);
       clearInterval(iv);
-      reqRef.set({
-        status: status,
-        respondedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        respondedBy: state.user.uid,
-      }, { merge: true }).catch(function(e){ console.warn('[join] resolve failed', e); });
-      card.remove();
+      var payload = { status: status, respondedBy: me };
+      try { payload.respondedAt = firebase.firestore.FieldValue.serverTimestamp(); } catch(e){}
+      Promise.resolve(reqRef.set(payload, { merge: true })).then(function(){
+        done = true;
+        card.remove();
+        joinReqTitleNudge(false);
+        try { gtag('event', 'join_request_resolved', { kind: req.kind || 'debate', status: status, handed: handedOver ? 1 : 0 }); } catch(e){}
+      }).catch(function(e){
+        console.warn('[join] resolve failed', e);
+        sending = false;
+        setBusy(false);
+        joinReqFail(card, 'That did not send. Try again.');
+      });
     }
     var iv = !timed ? null : setInterval(function(){
       secs--; if (timerEl) timerEl.textContent = secs;
@@ -18809,6 +18910,41 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }, 1000);
     card.querySelector('.join-req-accept').addEventListener('click', function(){ resolve('accepted'); });
     card.querySelector('.join-req-reject').addEventListener('click', function(){ resolve('rejected'); });
+  }
+
+  // One retryable error line on a join-request card. Replaces itself, so
+  // three failed taps do not stack three warnings.
+  function joinReqFail(card, msg){
+    if (!card) return;
+    var line = card.querySelector('.join-req-err');
+    if (!line){
+      line = document.createElement('div');
+      line.className = 'join-req-err';
+      var actions = card.querySelector('.join-req-actions');
+      if (actions) card.insertBefore(line, actions); else card.appendChild(line);
+    }
+    line.textContent = msg;
+  }
+
+  // Flashes the tab title while a request is waiting on this debater.
+  // Restores the real title on stop, so a round that ends mid-request
+  // does not leave the tab shouting.
+  var joinReqTitle = { iv: 0, was: '' };
+  function joinReqTitleNudge(on){
+    if (on){
+      if (joinReqTitle.iv) return;
+      joinReqTitle.was = document.title;
+      var flip = false;
+      joinReqTitle.iv = setInterval(function(){
+        flip = !flip;
+        document.title = flip ? 'Someone wants in' : joinReqTitle.was;
+      }, 1200);
+      return;
+    }
+    if (!joinReqTitle.iv) return;
+    clearInterval(joinReqTitle.iv);
+    joinReqTitle.iv = 0;
+    if (joinReqTitle.was) document.title = joinReqTitle.was;
   }
 
   // ── Prep countdown (before Speech 1) ──────────────────────────────
@@ -20498,6 +20634,39 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         quiet(function(){
           audCam.cfg = { enabled: true, selfServe: false, maxCams: 4 };
           reallyBuildAudCamPill(shell);
+        });
+      }
+      // &joinreq=1 paints the debater's side of that ask: the card one of
+      // the two of them gets when a watcher knocks. Add &joinreq=handoff
+      // for the version that arrives late because the other seat never
+      // answered. Real card, real buttons, no Firestore — the resolve
+      // writes through a stub, because in design mode getRoundDocRef()
+      // returns null and nothing here may touch a round document.
+      var jr = /[?&]joinreq=([a-z0-9]*)/.exec(location.search);
+      if (jr && !spectator){
+        quiet(function(){
+          // Resolving reads state.user.uid, which design mode leaves null
+          // so the editor is not classified as a spectator. Give the debug
+          // view a uid of its own so Let in / Decline actually run their
+          // path; &joinreq=fail withholds it, which is how the dropped-
+          // write branch gets looked at.
+          // Re-asserted on a timer because the auth listener runs later and
+          // writes state.user = user || null, which on a preview host with
+          // no authorized domain means null and takes the demo uid with it.
+          var demoUser = function(){
+            if (!state.user && jr[1] !== 'fail') state.user = { uid: 'demo-debater' };
+          };
+          demoUser();
+          setTimeout(demoUser, 1200);
+          setTimeout(demoUser, 3000);
+          var stub = {
+            id: 'demo-watcher',
+            set: function(){
+              return jr[1] === 'err' ? Promise.reject(new Error('demo')) : Promise.resolve();
+            },
+          };
+          showJoinRequestCard(stub, { kind: 'cam', status: 'pending', name: 'Sasha' },
+                              jr[1] === 'handoff');
         });
       }
     }
