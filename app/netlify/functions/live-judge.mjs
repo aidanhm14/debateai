@@ -597,7 +597,7 @@ export default async (request, context) => {
       allowRuntimeFallbackCall: false,
       // Only new casual rooms use the 100-point parser. A saved legacy
       // room keeps the scale it was shown before anyone spoke.
-      scoreScale: String(d.format || '').toLowerCase() === 'quick' ? 100 : 30,
+      scoreScale: ['quick','open'].includes(String(d.format || '').toLowerCase()) ? 100 : 30,
     });
   } catch (err) {
     console.error('[live-judge] panel failed', room, err.message);

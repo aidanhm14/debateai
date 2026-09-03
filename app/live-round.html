@@ -561,6 +561,15 @@ body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;lef
 .mo-row{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;line-height:1.45;color:var(--text-dim);cursor:pointer}
 .mo-row input{margin-top:2px;accent-color:#b91c1c}
 .rd-ts-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--text-dim)}
+/* Just argue (2026-09-03): no target, no bar, no skip, no extension row,
+   no side tag on the header; the peer's transcript box sits under mine. */
+body.lr-open #timerTarget,body.lr-open .timer-progress,body.lr-open #skipSpeechBtn,
+body.lr-open #extRow,body.lr-open #speakerSide,body.lr-open #overtimeNote{display:none!important}
+.open-peer{margin-top:10px;border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px;background:var(--bg-card,rgba(128,128,128,.06));overflow:hidden}
+.open-peer-head{display:flex;align-items:baseline;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border,rgba(128,128,128,.2));font-size:.72rem;color:var(--text-dim)}
+.open-peer-head strong{font-size:.82rem;color:var(--text)}
+.open-peer-body{padding:10px 12px;min-height:72px;max-height:220px;overflow:auto;white-space:pre-wrap;font-size:.92rem;line-height:1.5;color:var(--text)}
+.open-peer-body:empty::before{content:'Nothing yet.';color:var(--text-dim)}
 .judge-how-body p{margin:0;font-size:.82rem;line-height:1.55;color:var(--text-dim)}
 .judge-how-body p b{color:var(--text);font-weight:750}
 .judge-how-body p a{color:var(--accent,#ef4444)}
@@ -3618,7 +3627,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         <div class="label" hidden>Round type</div>
         <div class="field" hidden>
           <select id="formatSel">
-            <option value="quick">Casual 1v1 · open clash, one person per side</option>
+            <option value="quick">Timed speeches · open clash, one person per side</option>
+            <option value="open">Just argue · no speeches, both mics live, end whenever</option>
           </select>
         </div>
         <div class="label">Speech sequence</div>
@@ -3947,6 +3957,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           <div class="lang-offer-act" id="langOfferAct"></div>
         </div>
         <textarea id="speechText" placeholder="Speech transcript appears here. Mic auto-transcribes, or just type/paste what was said."></textarea>
+        <!-- Just argue only: the other person's words, live from their
+             own mic. Painted by openAdoptPeer; hidden in every other mode. -->
+        <div class="open-peer" id="openPeer" hidden>
+          <div class="open-peer-head"><strong id="openPeerName">Opponent</strong><span>live, from their mic</span></div>
+          <div class="open-peer-body" id="openPeerBody"></div>
+        </div>
         <div id="micQuality" hidden></div>
         <!-- The spectator's reading surface. Painted from #speechText by
              paintSpecCaptions so the textarea stays the one place every
@@ -4155,6 +4171,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // are humans here, AI only judges at the end). speeches[] is the
   // canonical ordering; each entry has code, name, side, time(seconds).
   var FORMATS = {
+    // 'open' is JUST ARGUE (2026-09-03, per the founder): no speeches, no
+    // clock target, both mics live at once, and one End. The single
+    // "speech" is a container so every consumer that walks f.speeches
+    // (log, ballot, sequence, progress) keeps working; openMode() is what
+    // the mechanics branch on. side:'pro' is a placeholder, never a
+    // control gate: isMyTurn() answers true for both seats in this mode.
+    // time is a ceiling for the timer maths, not an allotment; drawTimer
+    // counts up and applies no overtime here.
+    open: { name:'Just argue', open:true, sides:['pro','con'], sideLabels:{pro:'Pro',con:'Con'}, speeches:[
+      { code:'TALK', name:'Open conversation', side:'pro', time:3600 },
+    ]},
     // 'quick' is the GENERAL default mode (key kept as 'quick' so old
     // links, queue docs, and mid-flight rounds keep resolving). Open
     // clash: interruptions are legit and the AI captures them in the
@@ -4293,6 +4320,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return sideBench(f, sideKey) === 'gov' ? 'gov' : 'opp';
   }
   function isFourTeam(f){ return f && Array.isArray(f.sides) && f.sides.length >= 4; }
+  // Just argue: one open conversation instead of timed speeches.
+  function openMode(){ var f = FORMATS[state.formatKey]; return !!(f && f.open); }
   function govSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'gov'; }); }
   function oppSides(f){ return f.sides.filter(function(s){ return sideBench(f, s) === 'opp'; }); }
 
@@ -4524,6 +4553,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       "- Crisis specifics: crisis notes need who / what / where / when / why / how. Build a CRISIS ARC over multiple notes. Reward delegates who establish protection + funding early; penalize delegates who reveal their arc publicly (that's how opponents derail them). In JCC, ignoring the other room is fatal — penalize.",
       "- The INDIA CIRCUIT (IIMUN, HMUN India, DAIMUN, Delhi MUN) uses a MORE FORMAL register than American MUN. 'Honorable Chair, the delegate of [country] would like to bring to the attention of the august committee...' is the norm. Calibrate accordingly.",
     ],
+    open: [
+      "- This was an OPEN CONVERSATION, not timed speeches. Both people talked freely, interrupted, and answered each other in real time. Every line of the transcript is tagged with who said it; judge the exchange as one continuous argument.",
+      "- There is no speech structure to reward or punish. Do not penalize either side for the absence of a constructive, a rebuttal, or signposting. Structure is not the format.",
+      "- A claim the other person never answered still counts as conceded, exactly as a drop would. A point that was interrupted and then abandoned counts for whoever last held it with a warrant.",
+      "- Interruptions are the format, not misconduct. Score talking over the other person only when it replaced an answer; a quick challenge that exposed a gap is real engagement.",
+      "- Weigh the exchange the way a sharp listener would: who made the better case for their side by the end, who answered more of what was actually said, and whose claims survived being pushed on.",
+      "- No time rules apply. Ignore length entirely; a shorter, tighter case beats a longer one that never engaged.",
+    ],
     quick: [
       "- Casual one-on-one: one opening and one closing a side. Plain English only. Do not apply a tournament format or tournament jargon.",
       "- SCORE EACH PERSON OUT OF 100: argument strength (0-50), responses to the other person's case (0-35), and structure and clarity (0-15). The higher total wins. State the three components and the totals in the decision.",
@@ -4593,7 +4630,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   var prefill = {
     motion: qs.get('motion') || '',
     background: qs.get('background') || '',
-    format: 'quick',
+    format: (String(qs.get('format') || '').toLowerCase() === 'open') ? 'open' : 'quick',
     pro:    qs.get('pro')    || '',
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
@@ -5096,7 +5133,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       '<span class="tag tag-judge">Questions + interruptions scored</span>' +
       (state.formatKey === 'quick'
         ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Casual 1v1. <strong style="color:var(--text)">The AI judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
-        : '') +
+        : (f.open
+          ? '<div style="flex-basis:100%;font-size:.78rem;line-height:1.5;color:var(--text-dim)">Just argue. <strong style="color:var(--text)">Both mics stay on, there is no clock to beat, and either of you ends it.</strong> The judge reads the whole exchange and decides.</div>'
+          : '')) +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
       (state.paradigm
@@ -5141,7 +5180,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var who = sideBench(f, sp.side) === 'gov' ? 'pro' : 'con';
       return '<span class="tag tag-' + who + '" style="margin:2px 4px 2px 0">' + escHtml(sp.code) + ' · ' + Math.round(sp.time/60*10)/10 + 'm</span>';
     }).join('');
-    $('sequencePreview').innerHTML = seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
+    $('sequencePreview').innerHTML = f.open
+      ? '<div style="color:var(--text-ghost)">No speech order. One open conversation, as long as it takes; End whenever.</div>'
+      : seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
 
     updateStartBtn();
     updateRoundGuide();
@@ -5505,6 +5546,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (isSpectator()) return false;
     var ms = mySide();
     if (!ms) return true; // no UID mapping → don't gate
+    // Just argue: nobody holds the floor. Both seats start, pause, end,
+    // and both mics run at once.
+    if (f.open) return true;
     var spIsFirstSide = sideBench(f, sp.side) === 'gov';
     var myBench = (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
     if (!myBench) return false;
@@ -5626,7 +5670,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // Judge strip repaints with the round: interactive before speech 1,
     // a readable record of what was agreed for the rest of the round.
     try { renderJudgeDraft(); } catch(e){}
-    try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
+    // Just argue has no idle bench, so the aides that elect one (fact
+    // check driver, room-audio backstop, POI capture) have nobody to run
+    // on. Skipped outright rather than left to discover that on a timer.
+    document.body.classList.toggle('lr-open', !!f.open);
+    if (!f.open) try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
     // Deterministic per-speech reset for the room-audio backstop. bkTick
     // carries the same guard, but it runs on a 3s timer and the flag it
     // clears (bk.owning) suppresses the local mic while it is set, so
@@ -5634,8 +5682,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // transcript for the first seconds of their speech. Keyed on the
     // speech index, so the mid-round renderRound calls (a resolution
     // change agreed before Speech 1) cannot drop a live capture.
-    try { startBackstopLoop(); if (bk.idx !== state.speechIdx) bkReset(); } catch(e){}
-    try { startPoiLoop(); } catch(e){}
+    if (!f.open){
+      try { startBackstopLoop(); if (bk.idx !== state.speechIdx) bkReset(); } catch(e){}
+      try { startPoiLoop(); } catch(e){}
+    } else {
+      try { openSegStart(); } catch(e){}
+    }
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
@@ -5652,8 +5704,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var remaining = total - cur1;
       // "1 of 4" already says how many are left; keep the tail to the
       // one fact the count doesn't carry (the ballot comes next).
-      prog.textContent = 'Speech ' + cur1 + ' of ' + total +
-        (remaining === 0 ? ' · ballot next' : ' · then ballot');
+      prog.textContent = f.open
+        ? 'Just argue · end it whenever you are done, the judge decides'
+        : 'Speech ' + cur1 + ' of ' + total +
+          (remaining === 0 ? ' · ballot next' : ' · then ballot');
     }
     var myTurn = isMyTurn();
     var ms = mySide();
@@ -5683,7 +5737,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (_langLbl) _langLbl.textContent = spectator ? 'Captions in' : 'Debating in';
     // The side pill renders immediately after this, so the name carries
     // the name and nothing else.
-    $('speakerName').textContent = speakerName;
+    $('speakerName').textContent = f.open
+      ? ((state.proName || 'Pro') + ' and ' + (state.conName || 'Con'))
+      : speakerName;
+    var nsl = document.querySelector('.now-speaking-label');
+    if (nsl) nsl.textContent = f.open ? 'Both mics live' : 'Now speaking';
     var sideTag = $('speakerSide');
     sideTag.textContent = sideLabel;
     sideTag.className = 'tag ' + (isFirstSide ? 'tag-pro' : 'tag-con');
@@ -5729,8 +5787,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var modeName = $('rebModeName'), modeSub = $('rebModeSub'), judgeFlag = $('rebJudgeFlag');
       if (modeName && modeSub){
         if (state.formatKey === 'quick'){
-          modeName.textContent = 'General round';
+          modeName.textContent = 'Timed speeches';
           modeSub.textContent = '4 speeches, then the ballot.';
+        } else if (f.open){
+          modeName.textContent = 'Just argue';
+          modeSub.textContent = 'No speeches. Talk it out, then end it for the decision.';
         } else {
           modeName.textContent = f.name;
           modeSub.textContent = f.speeches.length + ' speeches, then the ballot.';
@@ -5867,7 +5928,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var _aiBtn = $('rosterOppAiReport');
       if (_aiBtn){ var _aiMe = state.user && state.user.uid; _aiBtn.hidden = !(_aiMe && _oppUid && _oppUid !== _aiMe && !spectator); }
     }
-    $('timerTarget').textContent = '/ ' + fmtTime(sp.time);
+    $('timerTarget').textContent = f.open ? '' : '/ ' + fmtTime(sp.time);
+    // The other person's words, live from their own mic. Only this mode
+    // has two transcripts running at once; everywhere else the textarea
+    // mirrors the one active speaker.
+    var openPeer = $('openPeer');
+    if (openPeer){
+      var showPeer = !!f.open && !spectator && !!ms;
+      openPeer.hidden = !showPeer;
+      var pn = $('openPeerName');
+      if (pn) pn.textContent = (ms === 'pro' ? state.conName : state.proName) || 'Opponent';
+    }
     document.body.classList.remove('speech-live');
     document.body.classList.remove('round-running');
     restoreAidesAfterSpeech();
@@ -5942,7 +6013,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         micHint.hidden = !noMic;
       }
       if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = ''; }
-      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = 'End speech →'; endBtn.className = 'btn btn-end'; }
+      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = openMode() ? 'End and get the decision →' : 'End speech →'; endBtn.className = 'btn btn-end'; }
+      if (openMode() && ta && !noMic) ta.placeholder = 'Your words appear here as you talk. Type instead if you would rather.';
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
         hint.textContent = noMic
@@ -6332,6 +6404,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var text = ($('speechText').value || '').slice(0, 8000);
     if (text === _lastPublishedTranscript) return;
     _lastPublishedTranscript = text;
+    if (openMode()){
+      // Two people publish at once here, so each seat owns its own key.
+      // A single currentTranscript would be the two of them overwriting
+      // each other a few words at a time.
+      var oside = mySide(); if (!oside) return;
+      var live = {}; live[oside] = { text: text, lang: myLang(), updatedAtMs: Date.now() };
+      ref.set({ openLive: live }, { merge: true }).catch(function(){});
+      return;
+    }
     ref.set({
       currentTranscript: {
         speechIdx: state.speechIdx,
@@ -6458,6 +6539,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var remaining = state.timerTotalSec - elapsed;
     var num = $('timerNum'), bar = $('timerBar');
     if (!num) return;
+    if (openMode()){
+      // Just argue: elapsed, nothing else. No target, no warn, no
+      // overtime note, no judge cutoff.
+      num.textContent = fmtTime(elapsed);
+      num.className = 'timer-num' + (state.timerState === 'paused' ? ' paused' : '');
+      if (bar){ bar.style.width = '0%'; bar.className = 'timer-bar'; }
+      var oc = $('rmbTimerNum');
+      if (oc){ oc.textContent = num.textContent; oc.className = 'rmb-timer-num' + (state.timerState === 'paused' ? ' paused' : ''); }
+      var on = $('overtimeNote'); if (on) on.hidden = true;
+      return;
+    }
     num.textContent = remaining >= 0 ? fmtTime(remaining) : '+' + fmtTime(-remaining);
     var pct = Math.min(100, Math.max(0, 100 * elapsed / Math.max(1, state.timerTotalSec)));
     bar.style.width = pct + '%';
@@ -6696,6 +6788,147 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.timerState === 'ready' || state.timerState === 'paused') startSpeechTimer();
     else if (state.timerState === 'running') pauseSpeechTimer();
   }
+
+  // ── Just argue (2026-09-03) ───────────────────────────────────────
+  // One conversation instead of speeches. Both seats hold the controls
+  // (isMyTurn answers true for both), so the timer sync below is
+  // symmetric: whoever presses Start publishes, the other seat adopts and
+  // turns its own mic on; whoever presses End writes the exchange.
+  //
+  // Each seat transcribes its OWN mic into its own textarea, exactly as
+  // a speaker does in a timed round. What is new is the interleave: every
+  // few seconds the seat commits the sentences that have landed since the
+  // last tick as a timestamped segment, publishes its segment list under
+  // its own key, and the seat that ends the round merges both lists by
+  // time. Timestamps are absolute Date.now(); the reader corrects the
+  // peer's by the skew it measures on each openLive write, the same
+  // rebase applyRemoteTimer does for the clock.
+  var openSeg = { committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
+  function openSegStart(){
+    if (openSeg.timer) return;
+    openSeg.committed = ''; openSeg.segs = []; openSeg.stableTicks = 0; openSeg.lastLen = 0;
+    openSeg.timer = setInterval(function(){ try { openSegTick(false); } catch(e){} }, 2500);
+  }
+  function openSegStop(){
+    if (openSeg.timer){ clearInterval(openSeg.timer); openSeg.timer = null; }
+  }
+  // Commit what has landed since the last tick. Sentence boundary first;
+  // a tail that has not grown for two ticks (about 5s of quiet) commits
+  // as it stands so a trailing clause is never stranded until End.
+  function openSegTick(force){
+    if (!openMode() || isSpectator() || state.phase !== 'round') return;
+    if (state.timerState === 'ready' && !force) return;
+    var ta = $('speechText'); var v = ta ? String(ta.value || '') : '';
+    if (v.length === openSeg.lastLen) openSeg.stableTicks++; else { openSeg.stableTicks = 0; openSeg.lastLen = v.length; }
+    // The box was rewritten under us (a paste, an edit above the
+    // committed line): restart from the top rather than double-count.
+    if (v.indexOf(openSeg.committed) !== 0){ openSeg.committed = ''; openSeg.segs = []; }
+    var rest = v.slice(openSeg.committed.length);
+    var m = rest.match(/^[\s\S]*[.!?\u2026](?=\s|$)/);
+    var take = m ? m[0] : ((force || openSeg.stableTicks >= 2) ? rest : '');
+    if (!take.trim()) return;
+    openSeg.committed = v.slice(0, openSeg.committed.length + take.length);
+    openSeg.segs.push({ at: Date.now(), text: take.trim() });
+    if (force) openPublishSegs(); else openScheduleSegPublish();
+  }
+  function openScheduleSegPublish(){
+    if (openSeg.pubTimer) return;
+    openSeg.pubTimer = setTimeout(function(){ openSeg.pubTimer = null; openPublishSegs(); }, 800);
+  }
+  function openPublishSegs(){
+    if (isSpectator() || !openMode()) return;
+    var ref = getRoundDocRef(); var side = mySide();
+    if (!ref || !side) return;
+    // Bound the doc: keep the newest segments under ~12K chars of text.
+    var segs = openSeg.segs.slice(), total = 0;
+    for (var i = segs.length - 1; i >= 0; i--){ total += segs[i].text.length; if (total > 12000){ segs = segs.slice(i + 1); break; } }
+    var payload = {}; payload[side] = segs;
+    ref.set({ openSegs: payload }, { merge: true }).catch(function(){});
+  }
+  function openPeerSide(){ var s = mySide(); return s === 'pro' ? 'con' : (s === 'con' ? 'pro' : ''); }
+  function openAdoptPeer(d){
+    var peer = openPeerSide();
+    if (d.openLive){
+      if (peer && d.openLive[peer]){
+        var pl = d.openLive[peer];
+        if (typeof pl.updatedAtMs === 'number' && pl.updatedAtMs !== state.openPeerStamp){
+          state.openPeerStamp = pl.updatedAtMs;
+          state.openPeerSkew = Date.now() - pl.updatedAtMs;
+        }
+        var body = $('openPeerBody');
+        if (body && body.textContent !== (pl.text || '')){
+          var stick = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+          body.textContent = pl.text || '';
+          if (stick) body.scrollTop = body.scrollHeight;
+        }
+      }
+      if (isSpectator()){
+        // A watcher reads both, each under its name, in the caption pane.
+        var parts = [];
+        ['pro','con'].forEach(function(sd){
+          var t = d.openLive[sd] && d.openLive[sd].text;
+          if (t) parts.push(((sd === 'pro' ? state.proName : state.conName) || sd) + ': ' + t);
+        });
+        var taS = $('speechText');
+        if (taS && taS.value !== parts.join('\n\n')){ taS.value = parts.join('\n\n'); try { paintSpecCaptions(); } catch(e){} }
+      }
+    }
+    if (d.openSegs && peer && Array.isArray(d.openSegs[peer])) state.openPeerSegs = d.openSegs[peer];
+  }
+  function openAdoptRemoteTimer(t){
+    if (!t || t.speechIdx !== state.speechIdx) return;
+    if (t.state === state.timerState) return;
+    if (t.state === 'running' && state.timerState !== 'running'){
+      var wasReady = state.timerState === 'ready';
+      applyRemoteTimer(t);
+      hidePrepBanner();
+      document.body.classList.add('speech-live');
+      try { foldAidesForSpeech(); } catch(e){}
+      try { openSegStart(); } catch(e){}
+      if (wasReady && !state.micActive && state.autoMic && state.micSupport && state.micSupport.available){
+        try { setMicActive(true); } catch(e){}
+      }
+    } else if (t.state === 'paused' && state.timerState === 'running'){
+      applyRemoteTimer(t);
+    }
+  }
+  function openLine(side, text){
+    var f = FORMATS[state.formatKey];
+    var nm = (side === 'pro' ? state.proName : state.conName) || side;
+    var lbl = f && f.sideLabels ? f.sideLabels[side === 'pro' ? f.sides[0] : f.sides[1]] : side;
+    return nm + ' (' + lbl + '): ' + text;
+  }
+  // My own lines, for the storage capture (never the other person's).
+  function openMyText(){
+    try { openSegTick(true); } catch(e){}
+    var side = mySide();
+    return openSeg.segs.map(function(sg){ return openLine(side, sg.text); }).join('\n');
+  }
+  // The whole exchange in the order it was said, for the ballot.
+  function openMergedText(){
+    try { openSegTick(true); } catch(e){}
+    var mine = mySide(), peer = openPeerSide();
+    var skew = state.openPeerSkew || 0;
+    var rows = openSeg.segs.map(function(sg){ return { at: sg.at, side: mine, text: sg.text }; });
+    (state.openPeerSegs || []).forEach(function(sg){
+      if (sg && sg.text) rows.push({ at: (sg.at || 0) + skew, side: peer, text: String(sg.text) });
+    });
+    rows.sort(function(a, b){ return a.at - b.at; });
+    // Merge consecutive rows from the same person into one line.
+    var out = [];
+    rows.forEach(function(r){
+      var last = out[out.length - 1];
+      if (last && last.side === r.side) last.text += ' ' + r.text;
+      else out.push({ side: r.side, text: r.text });
+    });
+    return out.map(function(r){ return openLine(r.side, r.text); }).join('\n\n');
+  }
+  // The design scenes and ?opendebug=1 get a handle on the engine, so
+  // the interleave can be driven and read without two real seats.
+  if (/[?&](design|opendebug)=/.test(location.search)){
+    window.__lrOpen = { seg: openSeg, tick: openSegTick, merged: openMergedText, mine: openMyText, state: state, isMyTurn: isMyTurn, isSpectator: isSpectator, openMode: openMode,
+      setPeer: function(segs, skew){ state.openPeerSegs = segs; state.openPeerSkew = skew || 0; } };
+  }
   function stopTimer(){
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
     state.timerState = 'ended';
@@ -6754,15 +6987,18 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       btn.className = 'btn btn-control-locked';
       return;
     }
+    var open = openMode();
     if (state.timerState === 'ready'){
       actionState('start');
-      btn.textContent = ms ? '▶ Start my speech' : '▶ Start speech';
+      btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
       btn.className = 'btn btn-play';
       if (readyHint){
         readyHint.hidden = false;
-        readyHint.textContent = state.micSupport.available
-          ? 'Starts the timer, mic, and live transcript.'
-          : 'Starts the timer. Type your speech below for the judge.';
+        readyHint.textContent = open
+          ? 'Starts the clock and both mics. Either of you can press it.'
+          : (state.micSupport.available
+            ? 'Starts the timer, mic, and live transcript.'
+            : 'Starts the timer. Type your speech below for the judge.');
       }
     } else if (state.timerState === 'running'){
       actionState('active');
@@ -6776,7 +7012,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (readyHint){ readyHint.hidden = false; readyHint.textContent = 'Paused. Resume when you are ready.'; }
     } else {
       actionState('start');
-      btn.textContent = ms ? '▶ Start my speech' : '▶ Start speech';
+      btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
       btn.className = 'btn btn-play';
     }
     // Whose turn it is and whether the clock has started are local, so the
@@ -11130,7 +11366,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // be consenting to store.
     // pmOpen() deliberately NOT here — see updatePlayPauseBtn.
     try { pmInitSpectator(); } catch(e){}
-    $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
+    $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (openMode() ? 'Live · Just argue' : 'Live · Speech 1/' + FORMATS[state.formatKey].speeches.length);
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
     // Start sits at the foot of a long setup form, so by the time it is
@@ -11939,12 +12175,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var sideKey = sp.side;
     var isFirstSide = sideBench(f, sideKey) === 'gov';
     var speakerName = speakerNameFor(f, state.speechIdx);
+    // Just argue: the entry is the whole exchange, both people's lines in
+    // the order they were said. Mine come from the local segment log,
+    // theirs from what they published on the doc.
+    var openText = f.open ? openMergedText() : '';
     var entry = {
       code: sp.code,
       name: sp.name,
       side: sp.side,
-      speakerName: speakerName,
-      text: opts.skipped ? '(skipped)' : (overCutText() || '(no transcript)'),
+      speakerName: f.open ? ((state.proName || 'Pro') + ' and ' + (state.conName || 'Con')) : speakerName,
+      open: !!f.open,
+      text: opts.skipped ? '(skipped)' : (f.open ? (openText || '(no transcript)') : (overCutText() || '(no transcript)')),
       // The language the speech was DELIVERED in (the speaker's pick, not
       // the reader's). Rides the synced entry so both benches' ballot
       // builders can tag the transcript for cross-language judging.
@@ -11966,7 +12207,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // the timeline. End is atMs + durationSec*1000. Purely additive;
       // every existing consumer reads named fields, not the whole shape.
       atMs: state.roundStartedAt ? Math.max(0, (Date.now() - state.roundStartedAt) - Math.round(elapsed * 1000)) : null,
-      overran: elapsed > sp.time + 5,
+      overran: f.open ? false : elapsed > sp.time + 5,
       skipped: !!opts.skipped,
       // The tournament applies its disclosed camera-presence adjustment
       // after the argument ballot. Per-speech mode lets mixed use be
@@ -11980,7 +12221,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // elected driver, so normal two-sided rooms still make one request.
     try { factCheckTick({ force: true, speechIdx: state.speechIdx, text: entry.text, lastWords: state.fcLastWords || 0 }); } catch(e){}
     state.log.push(entry);
-    try { capPushSpeech(entry); } catch(e){}
+    // Storage consent covers the words a person said, under their own
+    // uid, and nothing the other person said. In open mode the entry
+    // holds both, so the capture gets only this seat's own lines.
+    try { capPushSpeech(f.open ? Object.assign({}, entry, { side: capMySideKey(), text: openMyText() }) : entry); } catch(e){}
     state.speechIdx++;
     try { pmLockCheck(); } catch(e){}
     publishSpeech(entry);
@@ -12008,7 +12252,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.speechIdx >= f.speeches.length){
       finishRound();
     } else {
-      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
+      $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (f.open ? 'Live · Just argue' : 'Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length);
       renderRound();
       try { floorJudgeComment(entry); } catch(e){}
       // speechIdx already advanced: the speech that just ended is idx-1.
@@ -12249,6 +12493,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function buildBallotPrompt(){
     var f = FORMATS[state.formatKey];
     var transcript = state.log.map(function(l, li){
+      if (l.open){
+        return '[OPEN CONVERSATION · ' + (state.proName || 'Pro') + ' (' + f.sideLabels[f.sides[0]] + ') and '
+          + (state.conName || 'Con') + ' (' + f.sideLabels[f.sides[1]] + '). Every line is tagged with its speaker. Order is the order it was said.]'
+          + '\n' + l.text;
+      }
       // For 4-team formats the side label IS the team identifier
       // ("Closing Government" vs "Opening Government") so MG/GW don't
       // get mis-tagged as OG speeches in the judge's transcript.
@@ -12283,7 +12532,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       "- Quote-style references are great. Cite specific phrases or claims from the transcript so debaters can find the exact moment.",
       "",
       "FORMAT RULES — judge through this lens:",
-      "- " + f.name + " conventions apply. The speech sequence is fixed and the speakers ran it.",
+      f.open
+        ? "- Just argue: one open conversation, no speech sequence. The rules below describe how to read it."
+        : "- " + f.name + " conventions apply. The speech sequence is fixed and the speakers ran it.",
       ...(JUDGE_RULES[state.formatKey] || []),
       "- Reward: clash, weighing, warranted analysis, format-appropriate strategic choices, clear ballot stories.",
       "- Penalize: dropped arguments, unweighed contradictions, abandoning offense, jargon without warrant, no engagement with the other side.",
@@ -13881,6 +14132,16 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (!e || e.skipped) return false;
       var t = String(e.text || '').trim();
       return !!t && t !== '(skipped)' && t !== '(no transcript)';
+    }
+    if (f.open){
+      // One entry holds the whole exchange, tagged per line. A round
+      // happened if both people are in it.
+      var ot = (log[0] && !log[0].skipped) ? String(log[0].text || '') : '';
+      var pLbl = '(' + f.sideLabels[f.sides[0]] + '):', cLbl = '(' + f.sideLabels[f.sides[1]] + '):';
+      if (ot.indexOf(pLbl) < 0 || ot.indexOf(cLbl) < 0){
+        return { ok: false, reason: 'One side never spoke, so there was no round to record' };
+      }
+      return { ok: true };
     }
     var real = 0, govSpoke = false, oppSpoke = false;
     for (var i = 0; i < totalSpeeches; i++){
@@ -16765,7 +17026,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       state.formatKey = this.value;
       var fsMain = $('formatSel'); if (fsMain) fsMain.value = this.value;
       var pl = $('phaseLabel');
-      if (pl) pl.innerHTML = '<span class="dot"></span> Live · Speech 1/' + FORMATS[state.formatKey].speeches.length;
+      if (pl) pl.innerHTML = '<span class="dot"></span> ' + (openMode() ? 'Live · Just argue' : 'Live · Speech 1/' + FORMATS[state.formatKey].speeches.length);
       renderRound();
       publishRoundMeta();
       try { gtag('event', 'live_round_format_change_inround', { format: state.formatKey }); } catch(e){}
@@ -20364,7 +20625,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     card.classList.toggle('is-waiter', ctx.mode === 'waiter');
     card.innerHTML = '';
     var mk = function(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-    if (ctx.mode === 'opener'){
+    if (openMode()){
+      card.appendChild(mk('h3', 'lr-oc-title', 'Both here. Either of you starts it.'));
+    } else if (ctx.mode === 'opener'){
       var t = 'You speak first.';
       if (ctx.nudgeFresh) t = (ctx.nudgeName || ctx.oppName) + ' is ready. You speak first.';
       card.appendChild(mk('h3', 'lr-oc-title', t));
@@ -20423,7 +20686,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // says only what the press does, so the two never say the same thing.
       if (hint){
         hint.hidden = false;
-        var line = 'Starts the clock, the mic and the transcript.';
+        var line = openMode() ? 'Starts the clock and both mics. Either of you can press it.' : 'Starts the clock, the mic and the transcript.';
         if (hint.textContent !== line) hint.textContent = line;
       }
       // The pulse classes belong to the start-cue system, which reads them
@@ -20572,7 +20835,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     };
 
     function seed(){
-      state.formatKey = 'quick';
+      state.formatKey = (prefill.format === 'open') ? 'open' : 'quick';
       state.motion = MOTION;
       state.background = '';
       state.proName = 'Sam'; state.conName = 'Jordan';
@@ -20684,7 +20947,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var sv = $('setupView'); if (sv) sv.classList.add('hidden');
       $('roundView').classList.remove('hidden');
       $('ballotView').classList.add('hidden');
-      $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (i + 1) + '/' + FORMATS.quick.speeches.length;
+      $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (openMode() ? 'Live · Just argue' : 'Live · Speech ' + (i + 1) + '/' + FORMATS[state.formatKey].speeches.length);
       renderRound();
       // renderRound runs prepareTimer, which puts the clock back to ready,
       // so the frozen running clock is applied after it.
@@ -21060,7 +21323,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         watchAdmission();
         return;
       }
-      $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (spec ? 'Spectating · Speech ' : 'Live · Speech ') + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length;
+      $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (openMode()
+        ? (spec ? 'Spectating · Just argue' : 'Live · Just argue')
+        : (spec ? 'Spectating · Speech ' : 'Live · Speech ') + ((d.speechIdx||0)+1) + '/' + FORMATS[state.formatKey].speeches.length);
       $('setupView').classList.add('hidden');
       var sw = document.getElementById('spectatorWait');
       if (sw) sw.remove();
@@ -21099,8 +21364,16 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       try { renderFactChecks(); } catch(e){}
       var f = FORMATS[state.formatKey];
       if (state.speechIdx < f.speeches.length){
-        $('phaseLabel').innerHTML = '<span class="dot"></span> Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length;
+        $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (f.open ? 'Live · Just argue' : 'Live · Speech ' + (state.speechIdx+1) + '/' + f.speeches.length);
         renderRound();
+      } else if (openMode()){
+        // The other person ended the conversation. Their client wrote the
+        // merged exchange; mine only has to stop listening.
+        try { setMicActive(false); } catch(e){}
+        try { openSegStop(); } catch(e){}
+        if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
+        state.timerState = 'ended';
+        document.body.classList.remove('speech-live');
       } else if (state.timerInterval){
         // Last speech done. renderRound() is what normally clears the
         // mirrored timer (via prepareTimer -> stopTimer) and it is skipped
@@ -21122,7 +21395,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // active speaker owns its own timer locally.
     if (state.phase === 'round' && d.currentTimer && !isMyTurn()){
       applyRemoteTimer(d.currentTimer);
+    } else if (state.phase === 'round' && openMode() && d.currentTimer && !isSpectator()){
+      openAdoptRemoteTimer(d.currentTimer);
     }
+    if (state.phase === 'round' && openMode()) { try { openAdoptPeer(d); } catch(e){} }
 
     // Off-side live-transcript mirroring. The active speaker debounce-
     // publishes their textarea contents; we paint it into our disabled
@@ -21493,7 +21769,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   $('endSpeechBtn').addEventListener('click', function(){
     // Confirm-out if the timer was never started (likely accidental click).
     if (state.timerState === 'ready'){
-      if (!confirm('End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')){
+      if (!confirm(openMode()
+          ? 'End the conversation before it started? Nothing was said, so the judge has nothing to decide.'
+          : 'End ' + FORMATS[state.formatKey].speeches[state.speechIdx].code + ' without starting the timer? The speech will be logged as 0:00.')){
         try { gtag('event', 'live_endspeech_notimer_cancel', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
         return;
       }
@@ -21509,7 +21787,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // without their arguments in front of it. Say so while it can still
     // be fixed by typing.
     var taNow = $('speechText');
-    if (taNow && !taNow.value.trim() && state.timerState !== 'ready'){
+    if (taNow && !taNow.value.trim() && state.timerState !== 'ready' && !openMode()){
       if (!confirm('No transcript was captured for this speech.\n\nThe AI judge reads the transcript, so this speech will not count toward the ballot, and it will show as empty in the saved round. Paste or type what you argued to have it counted.\n\nEnd the speech with no transcript anyway?')){
         try { gtag('event', 'live_endspeech_notranscript_cancel', { format: state.formatKey, speech_idx: state.speechIdx }); } catch(e){}
         try { taNow.focus(); } catch(e){}

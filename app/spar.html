@@ -2926,12 +2926,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
   }
   var incomingFriendInvite = cleanFriendInviteToken(qs.get('invite'));
-  var FORMATS = ['quick'];
+  // 2026-09-03, per the founder: 'open' is JUST ARGUE, one conversation
+  // with both mics live and no speeches, and it is the default for a
+  // stranger match. 'quick' is timed speeches. A stored 'quick' from
+  // before this existed is not a preference, so only the URL overrides.
+  var FORMATS = ['open', 'quick'];
   var FORMAT_LABELS = {
-    quick: 'Casual 1v1',
+    open: 'Just argue',
+    quick: 'Timed speeches',
   };
   var DISCORD_INVITE = 'https://discord.gg/WMHZW9BKvJ';
-  var formatParam = 'quick';
+  var formatParam = (String(qs.get('format') || '').toLowerCase() === 'quick') ? 'quick' : 'open';
   // Whether the language step starts open. Judge type is no longer in
   // this disclosure; the three choices stay visible at the top of the
   // setup card.
@@ -5363,7 +5368,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // names (wsdc/asian_parli/congress/mun/india_*), since the logger
   // normalizes to its own set. Unknown/'other' falls through to a
   // generic "a live round" so a row never shows a raw slug.
-  var SEEK_LABELS = { quick: 'Casual 1v1' };
+  var SEEK_LABELS = { open: 'Just argue', quick: 'Timed speeches' };
   var SEEK_FRESH_MS = 12 * 60 * 1000; // green dot = looked within ~12 min
 
   // Render the recent-attempts list. Each row is one prior debater who
@@ -8595,7 +8600,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // failed match converts into an RSVP for a future one. Same device
   // id + anonymous posture as /community; hidden when nothing is
   // scheduled; refreshes every 2 min while the tab is visible.
-  var SCHED_FMT_LABELS = { quick:'Casual 1v1' };
+  var SCHED_FMT_LABELS = { open:'Just argue', quick:'Timed speeches' };
   function schedDeviceId(){
     var id = '';
     try { id = localStorage.getItem('da-device-id') || ''; } catch(e){}

@@ -60,7 +60,7 @@ import {
 // stay OUT of the round rather than ride along unconsented.
 
 const VALID_FORMATS = new Set([
-  'quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual',
+  'open','quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual',
 ]);
 
 // Judge-paradigm note hygiene: single line, hard cap, control chars
