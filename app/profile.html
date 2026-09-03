@@ -1044,6 +1044,62 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
 .set-status.ok{color:var(--green, #22c55e)}
 .set-status.err{color:var(--accent)}
 
+/* ─── Delete account ───
+   A destructive, irreversible panel, so it is styled to read as one:
+   its own bordered block in the accent colour rather than another pill
+   in the row of settings buttons. Everything is on theme tokens
+   (--bg-card / --border / --accent / --text-dim), which all three
+   canonical themes define, so it renders correctly in grey, crimson and
+   light rather than in whichever one it was authored against. */
+.del-panel{
+  margin-top:18px;padding:16px 18px 18px;
+  border:1px solid var(--accent);border-radius:14px;
+  background:var(--bg-card);
+}
+.del-panel[hidden]{display:none!important}
+.del-panel h3{
+  margin:0 0 8px;font-size:.9rem;font-weight:800;color:var(--accent);
+  letter-spacing:.01em;
+}
+.del-lede{margin:0 0 10px;font-size:.78rem;line-height:1.55;color:var(--text)}
+.del-warn{
+  margin:0 0 10px;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--border);background:var(--bg-elev);
+  font-size:.74rem;line-height:1.5;color:var(--text)
+}
+.del-warn b{color:var(--accent)}
+.del-keep{margin:0 0 10px}
+.del-keep-h{
+  font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:6px
+}
+.del-keep ul{margin:0;padding-left:16px}
+.del-keep li{font-size:.72rem;line-height:1.5;color:var(--text-dim);margin-bottom:5px}
+.del-keep li b{color:var(--text);font-weight:700}
+.del-first{margin:0 0 12px;font-size:.72rem;line-height:1.5;color:var(--text-dim)}
+.del-link{
+  background:none;border:0;padding:0;font:inherit;color:var(--accent);
+  font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px
+}
+.del-confirm{display:block;font-size:.72rem;color:var(--text-dim);margin-bottom:6px}
+.del-confirm b{color:var(--text)}
+#delConfirmInput{
+  width:100%;max-width:220px;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--border);background:var(--bg-elev);color:var(--text);
+  font-family:inherit;font-size:.8rem;font-weight:700;letter-spacing:.08em;
+}
+#delConfirmInput:focus{outline:none;border-color:var(--accent)}
+.del-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+/* 44px, not the 35px the neighbouring .set-btn row uses. These two
+   are the destructive pair on a surface an iPhone user reaches, and
+   Apple's minimum tap target is 44pt; a mis-hit here is somebody
+   pressing Delete when they meant Keep. */
+.del-actions .set-btn{min-height:44px;padding-top:0;padding-bottom:0}
+#delConfirmInput{min-height:44px}
+.del-go{background:var(--accent);border-color:transparent;color:#fff}
+.del-go:hover:not([disabled]){filter:brightness(1.08);color:#fff;border-color:transparent}
+.del-go[disabled]{opacity:.45}
+
 /* ─── Native first-run profile ───
    The web dashboard can afford to expose every progression system at
    once. In the app, that same zero-round state sat above a fixed tab bar
@@ -1945,6 +2001,33 @@ function renderSettings(user, profileData){
           <button class="set-btn danger" id="deleteAccountBtn" type="button">Delete account</button>
         </div>
         <div class="set-status" id="setStatus"></div>
+
+        <!-- Delete account. Apple Guideline 5.1.1(v) wants this reachable
+             and finishable from inside the app, so it is a panel on the
+             settings page rather than a link out to a support address.
+             It is deliberately not a confirm() dialog: this destroys a
+             subscription, a rating and every stored round, a browser
+             dialog carries none of that, and "OK" is one twitch away.
+             The consequences are rendered from /api/delete-account-data,
+             never typed here, so the screen cannot promise an erasure
+             the server does not perform. -->
+        <div class="del-panel" id="deletePanel" hidden>
+          <h3>Delete your account</h3>
+          <p class="del-lede" id="delLede">Checking what this will affect…</p>
+          <div id="delWarn"></div>
+          <div class="del-keep" id="delKeep" hidden>
+            <div class="del-keep-h">What we keep, and why</div>
+            <ul id="delKeepList"></ul>
+          </div>
+          <p class="del-first">Want your data first? <button type="button" class="del-link" id="delExport">Download everything</button> or <button type="button" class="del-link" id="delWithdraw">withdraw your rounds from research</button>. Neither is possible once the account is gone.</p>
+          <label class="del-confirm" for="delConfirmInput">Type <b>DELETE</b> to confirm</label>
+          <input id="delConfirmInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DELETE" />
+          <div class="del-actions">
+            <button class="set-btn" id="delCancel" type="button">Keep my account</button>
+            <button class="set-btn del-go" id="delConfirmBtn" type="button" disabled>Delete my account</button>
+          </div>
+          <div class="set-status" id="delStatus"></div>
+        </div>
       </div>
     </details>
   `;
@@ -2179,31 +2262,169 @@ function wireSettings(user, rows){
     });
   }
 
+  // ── Delete account ──────────────────────────────────────────────
+  //
+  // App Store Guideline 5.1.1(v): deletion must be startable AND
+  // finishable inside the app. What was here before could not finish.
+  // It POSTed the data purge and then called `user.delete()` in this
+  // browser, which Firebase refuses with `auth/requires-recent-login`
+  // for any session older than a few minutes, so the ordinary path was:
+  // profile, rounds and leaderboard history destroyed, account still
+  // alive, and a message asking the person to sign out, sign back in,
+  // and come do it again. The server owns the whole operation now
+  // (including the Firebase Auth record, which service-account
+  // credentials can delete with no recency requirement), and this code
+  // does exactly two things: get an informed confirmation, and stop
+  // holding a session afterwards.
   const deleteBtn = document.getElementById('deleteAccountBtn');
-  if(deleteBtn){
-    deleteBtn.addEventListener('click', async () => {
-      if(!confirm('Delete your Debatable account, saved rounds, profile, and leaderboard history? This cannot be undone.')) return;
-      deleteBtn.disabled = true;
-      setStatus('Deleting your account…');
+  const delPanel = document.getElementById('deletePanel');
+  if(deleteBtn && delPanel){
+    const delLede = document.getElementById('delLede');
+    const delWarn = document.getElementById('delWarn');
+    const delKeep = document.getElementById('delKeep');
+    const delKeepList = document.getElementById('delKeepList');
+    const delInput = document.getElementById('delConfirmInput');
+    const delGo = document.getElementById('delConfirmBtn');
+    const delCancel = document.getElementById('delCancel');
+    const delStatus = document.getElementById('delStatus');
+    let previewed = false;
+
+    function delSay(msg, cls){
+      if(!delStatus) return;
+      delStatus.textContent = msg || '';
+      delStatus.className = 'set-status ' + (cls || '');
+    }
+
+    // The consequences are READ FROM THE SERVER, never written here.
+    // Retention copy that lives in HTML drifts from the code that does
+    // the deleting, and on this screen that drift is a false promise
+    // about someone's data rather than a stale sentence.
+    async function loadPreview(){
+      if(previewed) return;
+      try{
+        const token = await user.getIdToken();
+        const r = await fetch('/api/delete-account-data', { headers:{ Authorization:'Bearer ' + token } });
+        const data = await r.json();
+        if(!r.ok) throw new Error(data.error || 'Could not check your account.');
+        previewed = true;
+
+        delLede.textContent = 'This deletes your Debatable account for good. Your profile, your saved rounds and transcripts, your leaderboard entries, your rating, your messages and your @handle are removed, and you will not be able to sign in with '
+          + (data.account && data.account.email ? data.account.email : 'this account') + ' again. There is no undo and no grace period.';
+
+        // Deleting an account that is paying for a plan without saying
+        // so is how somebody ends up with a cancelled plan they were
+        // sharing, or a card still being charged for an account that
+        // does not exist. Both directions get named.
+        const sub = data.subscription || {};
+        if(sub.hasSubscription){
+          const seats = sub.seatsAffected ? (' It currently covers ' + sub.seatsAffected + ' people.') : '';
+          delWarn.innerHTML = '<div class="del-warn"><b>Your subscription is cancelled with the account.</b> You own the '
+            + escapeHtml(sub.plan || 'paid') + ' plan' + (sub.teamName ? ' for ' + escapeHtml(sub.teamName) : '')
+            + ', and deleting your account cancels it immediately with no further charges and no refund of the current period.'
+            + escapeHtml(seats) + ' Cancel it separately from Plan &amp; billing first if anyone else is relying on it.</div>';
+        } else if(sub.checkFailed){
+          delWarn.innerHTML = '<div class="del-warn">We could not reach Stripe to check whether you have an active plan. If you do, cancel it from <b>Plan &amp; billing</b> before deleting, so nothing keeps billing an account that no longer exists.</div>';
+        } else {
+          delWarn.innerHTML = '';
+        }
+
+        const keep = Array.isArray(data.retained) ? data.retained : [];
+        if(keep.length){
+          delKeepList.innerHTML = keep.map(function(k){
+            return '<li><b>' + escapeHtml(k.what) + '.</b> ' + escapeHtml(k.why) + '</li>';
+          }).join('');
+          delKeep.hidden = false;
+        }
+        delSay('');
+      } catch(e){
+        // A failed preview must not become a locked door. The person can
+        // still delete; they just get the conservative version of the
+        // warning instead of the specific one. `previewed` deliberately
+        // stays false so reopening the panel retries: a transient blip
+        // should not latch the vaguer copy for the rest of the session.
+        previewed = false;
+        delLede.textContent = 'This deletes your Debatable account for good: your profile, saved rounds, transcripts, leaderboard entries, rating, messages and @handle. There is no undo.';
+        delWarn.innerHTML = '<div class="del-warn">We could not load the details of what this affects. If you have a paid plan, cancel it from <b>Plan &amp; billing</b> first.</div>';
+        delSay('');
+      }
+    }
+
+    deleteBtn.addEventListener('click', () => {
+      delPanel.hidden = false;
+      delSay('');
+      loadPreview();
+      requestAnimationFrame(() => {
+        delPanel.scrollIntoView({ block:'nearest', behavior:'smooth' });
+        try { delInput.focus(); } catch(_){}
+      });
+    });
+
+    if(delCancel) delCancel.addEventListener('click', () => {
+      delPanel.hidden = true;
+      delInput.value = '';
+      delGo.disabled = true;
+      setStatus('Your account was not deleted.', 'ok');
+    });
+
+    // Typed, not clicked. The gate is the point: the phrase comes from
+    // the server (confirmPhrase) and the server rejects a POST that does
+    // not carry it, so a stray or replayed request cannot delete an
+    // account on its own.
+    delInput.addEventListener('input', () => {
+      delGo.disabled = delInput.value.trim().toUpperCase() !== 'DELETE';
+    });
+
+    if(document.getElementById('delExport')){
+      document.getElementById('delExport').addEventListener('click', () => {
+        const btn = document.getElementById('exportAllData');
+        if(btn) btn.click();
+      });
+    }
+    if(document.getElementById('delWithdraw')){
+      document.getElementById('delWithdraw').addEventListener('click', () => {
+        const btn = document.getElementById('corpusWithdraw');
+        if(btn) btn.click();
+      });
+    }
+
+    delGo.addEventListener('click', async () => {
+      if(delInput.value.trim().toUpperCase() !== 'DELETE') return;
+      delGo.disabled = true;
+      if(delCancel) delCancel.disabled = true;
+      delInput.disabled = true;
+      delSay('Deleting your account…');
       try{
         const token = await user.getIdToken(true);
         const response = await fetch('/api/delete-account-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ confirm: true }),
+          body: JSON.stringify({ confirm: 'DELETE' }),
         });
-        if(!response.ok) throw new Error('Could not remove account data.');
-        await user.delete();
+        const data = await response.json().catch(() => ({}));
+        if(!response.ok || !data.accountDeleted){
+          throw new Error(data.error || 'Could not delete the account.');
+        }
+
+        // The account is gone at this point whatever else happened. A
+        // queued remainder (purgeComplete false) is a cleanup job, not
+        // a failure, and must not be shown as one.
+        delSay('Your account has been deleted. Signing you out…', 'ok');
         try {
           Object.keys(localStorage).forEach(key => {
-            if (/^(dit-|da-|debateos-)/.test(key)) localStorage.removeItem(key);
+            if (/^(dit-|da-|debateos-|debatable-)/.test(key)) localStorage.removeItem(key);
           });
         } catch(_){}
-        location.href = window.__DB_NATIVE ? '/native' : '/';
+        try { sessionStorage.clear(); } catch(_){}
+        // Sign out rather than user.delete(): the server already removed
+        // the Auth record, so this browser is just holding a token for
+        // an account that no longer exists.
+        try { if(auth) await auth.signOut(); } catch(_){}
+        location.replace((window.__DB_NATIVE ? '/native' : '/') + '?deleted=1');
       } catch(e){
-        const recent = e && (e.code === 'auth/requires-recent-login' || /recent login/i.test(e.message || ''));
-        setStatus(recent ? 'Sign out, sign in again, then return here to delete the account.' : (e.message || 'Could not delete the account.'), 'err');
-        deleteBtn.disabled = false;
+        delSay((e && e.message) || 'Could not delete the account. Try again, or email hello@itsdebatable.com.', 'err');
+        delGo.disabled = false;
+        if(delCancel) delCancel.disabled = false;
+        delInput.disabled = false;
       }
     });
   }

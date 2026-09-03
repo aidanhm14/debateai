@@ -275,3 +275,45 @@ export async function generateEmailSignInLink(email, continueUrl) {
   if (!data.oobLink) throw new Error('sendOobCode returned no link');
   return data.oobLink;
 }
+
+/**
+ * Delete a Firebase Auth user, server-side and authoritatively.
+ *
+ * THIS IS THE COMPLIANCE-CRITICAL CALL in the account-deletion flow, and
+ * it exists because the client-side alternative cannot be relied on.
+ * `user.delete()` in the browser throws `auth/requires-recent-login` for
+ * anyone whose sign-in is more than a few minutes old, which is nearly
+ * everyone who ever reaches a settings page. The flow that used it
+ * deleted the Firestore data FIRST and then hit that error, leaving a
+ * person with an emptied profile and a live account, told to sign out,
+ * sign back in, and come do it again. App Store Guideline 5.1.1(v) wants
+ * account deletion to complete from inside the app; that flow completed
+ * for almost nobody.
+ *
+ * The service account has no recency requirement, so this always works
+ * and cannot half-succeed. Deleting the Auth record also revokes nothing
+ * retroactively — an already-minted ID token stays cryptographically
+ * valid for up to an hour — which is fine and is in fact useful, because
+ * the rest of the purge runs on admin credentials and does not need the
+ * caller's token to still resolve.
+ *
+ * Returns true if the account was deleted or was already gone. A
+ * missing account is a success: the caller asked for it to not exist.
+ */
+export async function deleteAuthUser(uid) {
+  if (!uid || typeof uid !== 'string') throw new Error('uid required');
+  const { projectId } = resolveCreds();
+  const token = await getAccessToken();
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/projects/${projectId}/accounts:delete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ localId: uid }),
+  });
+  if (res.ok) return true;
+  const errText = await res.text().catch(() => '');
+  // Identity Toolkit answers USER_NOT_FOUND when the record is already
+  // gone. Treating that as a failure would make a retried deletion look
+  // broken to the one person most likely to be retrying it.
+  if (/USER_NOT_FOUND/i.test(errText)) return true;
+  throw new Error(`accounts:delete ${res.status}: ${errText.slice(0, 200)}`);
+}

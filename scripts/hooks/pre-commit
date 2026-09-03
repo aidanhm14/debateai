@@ -106,6 +106,25 @@ if [ -f "$IOS_REVIEW_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Account-deletion guard. App Store Guideline 5.1.1(v) requires deletion to be
+# startable AND finishable inside the app, and this repo has already shipped a
+# flow that could not finish: it purged the data and then called user.delete()
+# in the browser, which Firebase refuses for any session older than a few
+# minutes, leaving an emptied profile attached to a live account. The guard
+# drives the purge against a stub Firestore (a single-page delete that leaves
+# rows behind is invisible to a regex) and pins the promises around it: the
+# Auth record goes server-side, the subscription is cancelled first, guests
+# are refused, and the retention copy is read from the server manifest.
+ACCOUNT_DELETION_GUARD="$REPO_ROOT/scripts/test-account-deletion.mjs"
+if [ -f "$ACCOUNT_DELETION_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-account-deletion.mjs >/tmp/account-deletion-guard.log 2>&1); then
+    echo "[account-deletion-guard] commit blocked - account deletion no longer completes or no longer deletes what it claims:" >&2
+    tail -30 /tmp/account-deletion-guard.log >&2
+    echo "[account-deletion-guard] see scripts/test-account-deletion.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Auth-modal lifecycle guard. Onboarding reacts to the completed Firebase
 # session immediately, so the higher-z-index sign-in card must come down before
 # same-page navigation or it can hide onboarding behind a completed login.

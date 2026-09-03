@@ -121,4 +121,25 @@ user from the current round immediately, and prevents the two accounts from
 being matched again. Debatable reviews safety reports within 24 hours and
 removes confirmed offending content and users.
 
-Account deletion is available in Me > Account & settings > Delete account.
+## Account deletion (Guideline 5.1.1(v))
+
+Account deletion is available in the app at Me > Account & settings > Delete
+account. It is reachable on a brand-new account with no rounds played, which
+is the state a review account will be in.
+
+The control opens a confirmation panel that states what is removed, warns if
+an active subscription will be cancelled, lists what is retained and why, and
+offers a data export first. Deletion requires typing DELETE and then completes
+in the app. It is not a deactivation, it is not queued for manual approval, and
+it does not ask the person to email support.
+
+On confirmation the server deletes the Firebase Auth credential itself, so the
+account can no longer be signed into, along with the profile, public profile,
+handle, saved rounds and transcripts, leaderboard entries, rating, direct
+messages, matchmaking records, push and email preferences. Any active paid
+subscription is cancelled at the same moment, before the account is destroyed.
+Rounds debated against another person are kept as that person's own record with
+the deleted user's seat relabelled. Financial records required for tax and
+accounting are retained without a name.
+
+A test account can be created and deleted end to end without contacting us.
