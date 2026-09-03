@@ -272,12 +272,19 @@ check(
 
 const sharedUi = read('app/css/ui.css');
 check(sharedUi.includes('height:44px;'), 'shared mobile topbar controls expose a 44px hit area');
+// 2026-09-03: the header pager ("1 of 24" plus two small arrows) came off
+// earlier today; later the same day the founder asked for buttons to step
+// between the example rounds, so arrows ride the tiles instead, with no
+// counter and no header row. Both halves are asserted.
 check(
-  !landing.includes('class="fs-pager"')
-    && !landing.includes('id="fsPrev"')
-    && !landing.includes('id="fsNext"')
-    && !landing.includes('id="fsCount"'),
-  'landing keeps the example-round pager retired',
+  !landing.includes('id="fsCount"')
+    && !landing.includes('class="fs-board-top"')
+    && landing.includes('id="fsPrev"')
+    && landing.includes('id="fsNext"')
+    && landing.indexOf('id="fsPrev"') > landing.indexOf('class="fs-board-hit"')
+    && landing.indexOf('id="fsNext"') < landing.indexOf('<div class="fs-stage"')
+    && landing.includes('function manual(dir)'),
+  'landing steps the example rounds with on-tile arrows and no counter',
 );
 
 const topbar = read('app/js/topbar.js');

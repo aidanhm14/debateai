@@ -7929,6 +7929,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board{cursor:pointer}
   .fs-board-hit{position:absolute;inset:0;z-index:3;display:block;border-radius:inherit}
   .fs-board-hit:focus-visible{outline:2px solid #dc2626;outline-offset:-4px}
+  /* 2026-09-03, per the founder: "allow buttons to swipe between these
+     images". Prev/next arrows ride the tiles, above the hit anchor at
+     z-index 3, so a press steps the board instead of opening /spar. The
+     header pager with its "1 of 24" counter was removed earlier the same
+     day; this is a different shape, not its return. Vertical placement is
+     set by script (--fs-nav-top) from the stage's real rect, because the
+     card's offset parent changes when the board moves into #mhome. */
+  .fs-nav{position:absolute;top:var(--fs-nav-top,120px);z-index:4;width:36px;height:36px;margin-top:-18px;
+    border-radius:50%;border:1px solid rgba(245,239,231,.28);background:rgba(20,18,22,.74);color:#f5efe7;
+    display:grid;place-items:center;padding:0;cursor:pointer;font-family:inherit;
+    transition:background .15s,border-color .15s}
+  .fs-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .fs-nav:hover{background:rgba(20,18,22,.92);border-color:#f5efe7}
+  .fs-nav:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  .fs-nav--prev{left:6px}
+  .fs-nav--next{right:6px}
+  [data-theme="light"] .fs-nav{border-color:rgba(26,26,31,.2);background:rgba(255,255,255,.88);color:#1a1a1f}
+  [data-theme="light"] .fs-nav:hover{background:#fff;border-color:#1a1a1f}
   /* 2026-09-02, per the founder: some cards carry a short title above the
      motion ("Democrats vs Republicans", "Left vs Right") so a visitor can
      see the FIGHT before reading the sentence. Hidden unless the ROUNDS
@@ -8624,6 +8642,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   #mhBoardSlot:empty{display:none}
   #mhBoardSlot{margin:14px 0 0}
   #mhome .fs-board{display:block;width:100%;max-width:none;margin:0;padding:14px 14px 13px}
+  #mhome .fs-nav{width:32px;height:32px;margin-top:-16px}
   /* 2026-09-02, the founder: "shrink the text size of resolution see how
      it feels crowded". At 23px a real motion ran five lines and filled
      the card. */
@@ -9011,6 +9030,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            one speaking" read without standing in for a person. The live
            signals that actually sell the panel are the red speaking ring,
            the mic dot and the clock, and all three are untouched. -->
+      <!-- 2026-09-03, per the founder: "allow buttons to swipe between these
+           images". Step arrows on the tiles; a horizontal swipe and the
+           arrow keys do the same. They sit above the hit anchor. -->
+      <button type="button" class="fs-nav fs-nav--prev" id="fsPrev" aria-label="Previous round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button type="button" class="fs-nav fs-nav--next" id="fsNext" aria-label="Next round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <div class="fs-stage" aria-hidden="true">
         <div class="fs-tile fs-tile--speaking">
           <img class="fs-fade" id="fsFaceA" src="/img/round/faces/face46.jpg" alt="" decoding="async">
@@ -12226,6 +12250,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (el.fsWinner) el.fsWinner.style.color = '';
   }
 
+  // 2026-09-03: a manual step holds the auto-advance for a while so the
+  // card the visitor picked is not painted over mid-read. The market tick
+  // keeps running so the card still looks live.
+  var HOLD_AFTER_MANUAL_MS = 20000;
+  var manualHoldUntil = 0;
+  function held(){ return Date.now() < manualHoldUntil; }
+
   function step(){
     if (document.hidden) return;
     elapsed += TICK_MS;
@@ -12233,7 +12264,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       // Nothing to run, so it holds for one judged card's worth of time and
       // hands the board back. Shorter than RUN+HOLD would leave a reader
       // halfway through the motion.
-      if (elapsed >= RUN_MS + HOLD_MS) go(idx + 1);
+      if (elapsed >= RUN_MS + HOLD_MS && !held()) go(idx + 1);
       return;
     }
     if (elapsed <= RUN_MS){
@@ -12258,7 +12289,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         el.fsClock.textContent = '0' + Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
       }
       if (elapsed > RUN_MS - TICK_MS) settle();
-    } else if (elapsed >= RUN_MS + HOLD_MS){
+    } else if (elapsed >= RUN_MS + HOLD_MS && !held()){
       go(idx + 1);
     }
   }
@@ -12268,6 +12299,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (reduced){ paintRound(idx); if (ROUNDS[idx].kind !== 'challenge') settle(); return; }
     board.classList.add('is-swapping');
     setTimeout(function(){ paintRound(idx); board.classList.remove('is-swapping'); }, 260);
+  }
+
+  function manual(dir){
+    manualHoldUntil = Date.now() + HOLD_AFTER_MANUAL_MS;
+    go(idx + dir);
+    try { if (window.dosTrack) dosTrack('first_screen_board_nav', { dir: dir > 0 ? 'next' : 'prev', round: idx + 1 }); } catch(e){}
   }
 
   paintRound(0);
@@ -12282,6 +12319,48 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (es.some(function(e){ return e.isIntersecting; })) start(); else stop();
     }, { rootMargin: '120px 0px' }).observe(root);
   } else { start(); }
+
+  // Arrows, swipe and keys. Manual steps go through manual() so the hold
+  // above applies whichever way the visitor stepped.
+  (function(){
+    var prev = document.getElementById('fsPrev'), next = document.getElementById('fsNext');
+    var stage = board.querySelector('.fs-stage');
+    if (!prev || !next || !stage) return;
+    function press(dir){ return function(e){ e.preventDefault(); e.stopPropagation(); manual(dir); }; }
+    prev.addEventListener('click', press(-1));
+    next.addEventListener('click', press(1));
+    // The arrows sit at the vertical centre of the tiles. Measured from
+    // rects, not offsetTop: the board's offset parent changes when the card
+    // moves into #mhome, and the tiles change height as faces load.
+    function place(){
+      var br = board.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      if (!sr.height) return;
+      board.style.setProperty('--fs-nav-top', Math.round(sr.top - br.top + sr.height / 2) + 'px');
+    }
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('load', place);
+    if ('ResizeObserver' in window) new ResizeObserver(place).observe(stage);
+    board.addEventListener('transitionend', place);
+    var _go = go;
+    go = function(i){ _go(i); setTimeout(place, 300); };
+    // Swipe on the card: horizontal only, so scrolling the page over the
+    // card is left alone. A plain tap still reaches the hit anchor.
+    var sx = 0, sy = 0, tracking = false;
+    board.addEventListener('touchstart', function(e){
+      if (e.touches.length !== 1) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; tracking = true;
+    }, { passive: true });
+    board.addEventListener('touchend', function(e){
+      if (!tracking) return; tracking = false;
+      var t = e.changedTouches[0]; var dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.2){ e.preventDefault(); manual(dx < 0 ? 1 : -1); }
+    }, { passive: false });
+    board.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowRight'){ e.preventDefault(); manual(1); }
+      else if (e.key === 'ArrowLeft'){ e.preventDefault(); manual(-1); }
+    });
+  })();
 })();
 </script>
 

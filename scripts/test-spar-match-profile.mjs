@@ -65,6 +65,10 @@ const spar = fs.readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8
 const pair = fs.readFileSync(new URL('../app/netlify/functions/spar-pair.mjs', import.meta.url), 'utf8');
 const rules = fs.readFileSync(new URL('../app/firestore.rules', import.meta.url), 'utf8');
 const accountDelete = fs.readFileSync(new URL('../app/netlify/functions/delete-account-data.mjs', import.meta.url), 'utf8');
+// 2026-09-03: the purge list moved into lib/account-deletion.mjs when the
+// deletion was rebuilt server-side; the function reaches it through
+// purgeIdentity. Read both, and assert the function still calls the lib.
+const accountDeleteLib = fs.readFileSync(new URL('../app/netlify/functions/lib/account-deletion.mjs', import.meta.url), 'utf8');
 const dataExport = fs.readFileSync(new URL('../app/netlify/functions/my-data-export.mjs', import.meta.url), 'utf8');
 const privacy = fs.readFileSync(new URL('../app/privacy.html', import.meta.url), 'utf8');
 for (const sensitive of ['economy', 'immigration', 'speech', 'democracy']) {
@@ -78,7 +82,9 @@ assert.match(spar, /@media\(max-width:620px\)[\s\S]*?\.match-profile-flow \.afl-
 assert.match(pair, /collection\('spar_match_profiles'\)/);
 assert.match(pair, /draftConfig:\s*\{ suggestions: privateSuggestions \}/);
 assert.match(rules, /match \/spar_match_profiles\/\{profileUid\}[\s\S]*allow read, write: if false;/);
-assert.match(accountDelete, /'spar_match_profiles'/, 'account deletion must remove the sensitive profile');
+assert.match(accountDeleteLib, /'spar_match_profiles'/, 'account deletion must remove the sensitive profile');
+assert.match(accountDelete, /purgeIdentity/, 'account deletion must run the identity purge that removes the profile');
+assert.match(accountDelete, /from '\.\/lib\/account-deletion\.mjs'/, 'account deletion must import the purge from its lib');
 assert.match(dataExport, /privateMatchPreferences:\s*matchPreferences/, 'self-serve export must include the sensitive profile');
 assert.match(privacy, /Private political matchmaking preferences/, 'privacy policy must disclose the sensitive profile');
 
