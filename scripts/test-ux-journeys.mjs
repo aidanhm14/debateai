@@ -250,9 +250,9 @@ check(
   'native tabs expose Friends and use the raised Debate control as app home',
 );
 check(
-  topbar.includes("{ href: '/live',        label: 'Schedule & challenges', big: true }")
+  topbar.includes("{ href: '/challenges',  label: 'Challenges', big: true }")
     && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
-  'navigation combines schedule and challenges into the schedule-first destination',
+  'navigation opens the paired challenge and schedule surface on Challenges',
 );
 check(
   topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
@@ -270,9 +270,23 @@ check(
 );
 const live = read('app/live.html');
 check(
-  challenges.indexOf('href="/live">Schedule</a>') < challenges.indexOf('href="/challenges" aria-current="page">Challenges</a>')
-    && live.indexOf('href="/live" aria-current="page">Schedule</a>') < live.indexOf('href="/challenges">Challenges</a>'),
-  'both paired page switches put Schedule before Challenges',
+  challenges.indexOf('href="/challenges" aria-current="page">Challenges</a>') < challenges.indexOf('href="/live">Schedule</a>')
+    && live.indexOf('href="/challenges">Challenges</a>') < live.indexOf('href="/live" aria-current="page">Schedule</a>'),
+  'both paired page switches put Challenges before Schedule',
+);
+check(
+  challenges.includes("var TABS = [")
+    && !challenges.includes("label:'Live now'")
+    && !challenges.includes("fetch('/api/async/feed'")
+    && !challenges.includes("fetch('/api/recent-activity'")
+    && challenges.includes("format: 'quick'")
+    && challenges.includes('Need a date and time? Use the <a href="/live">Schedule tab</a> instead.'),
+  'Challenges is a focused casual challenge board and Schedule owns dated rounds',
+);
+check(
+  challenges.includes('.field input,.field textarea,.field select{font-size:16px}')
+    && live.includes('.field input,.field textarea,.field select{font-size:16px}'),
+  'challenge and schedule forms stay above the iOS auto-zoom threshold',
 );
 check(inlineScriptsParse('app/challenges.html'), 'app/challenges.html inline scripts parse');
 

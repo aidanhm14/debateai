@@ -449,11 +449,10 @@
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/rounds',      label: 'Async rounds', strong: true, wip: true },
-      // 2026-09-01: one door for the paired schedule/challenge surface.
-      // It opens on Schedule first; the in-page switch reaches Challenges.
-      // Keeping two rows for the same pair made the choice look larger
-      // than it is.
-      { href: '/live',        label: 'Schedule & challenges', big: true },
+      // 2026-09-03: one door for the paired challenge/schedule surface.
+      // Challenges is the primary page; its in-page switch reaches the
+      // calendar without making the choice look larger than it is.
+      { href: '/challenges',  label: 'Challenges', big: true },
       { href: '/tournaments', label: 'Tournaments', big: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
