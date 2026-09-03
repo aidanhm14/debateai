@@ -588,9 +588,10 @@ footer a{color:var(--dim)}
 .ls-badge i{width:6px;height:6px;border-radius:50%;background:#fff;animation:lsBlink 1.2s infinite}
 @keyframes lsBlink{0%,100%{opacity:1}50%{opacity:.25}}
 .live-strip-head b{font-size:15px}
-.ls-row{display:flex;align-items:center;gap:16px;padding:15px 18px;border-top:1px solid var(--border);
+.live-rows{list-style:none;margin:0;padding:0}
+.ls-row{display:grid;grid-template-columns:160px minmax(0,1fr) auto;align-items:center;gap:16px;padding:15px 18px;border-top:1px solid var(--border);
   text-decoration:none;color:inherit;transition:background .15s ease}
-.ls-row:first-child{border-top:none}
+.live-rows li:first-child .ls-row{border-top:none}
 .ls-row:hover{background:var(--surface-hover)}
 .ls-body{flex:1;min-width:0}
 .ls-motion{display:block;font-weight:800;font-size:17px;line-height:1.28;overflow:hidden;
@@ -601,6 +602,12 @@ footer a{color:var(--dim)}
 .ls-row:hover .ls-watch{background:var(--red-deep);transform:translateY(-1px)}
 .ls-chip{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:2px 9px;
   font-size:11.5px;font-weight:800;margin-right:6px}
+.ls-shot{display:block;position:relative;width:160px;aspect-ratio:16/9;overflow:hidden;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface2)}
+.ls-shot img{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ls-shot-fallback{display:grid;grid-template-columns:1fr 1fr;width:100%;height:100%;gap:1px;background:var(--border)}
+.ls-shot-fallback i{display:flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--faint);
+  font:800 11px 'Geist Mono',monospace;letter-spacing:.08em;font-style:normal}
 
 /* ── Watch and learn: real debates hosted on YouTube ─────────────────
    These are OTHER PEOPLE'S videos on someone else's platform, so every
@@ -692,6 +699,12 @@ footer a{color:var(--dim)}
 body.social-watch .page-head{padding:84px 28px 24px;border-radius:0 0 22px 22px}
 body.social-watch .page-head::after{display:none}
 body.social-watch .page-title{max-width:none;font-size:clamp(2.55rem,4vw,3.8rem);line-height:1;letter-spacing:-.055em}
+.watch-masthead{display:flex;align-items:center;justify-content:space-between;gap:28px}
+.watch-join{display:inline-flex;align-items:center;justify-content:center;max-width:330px;min-height:66px;padding:14px 24px;
+  border-radius:14px;background:var(--red);box-shadow:0 12px 28px rgba(239,68,68,.22);color:#fff;text-align:center;
+  text-decoration:none;font-size:17px;font-weight:850;line-height:1.25;transition:background .15s ease,transform .15s ease,box-shadow .15s ease}
+.watch-join:hover{background:var(--red-deep);transform:translateY(-2px);box-shadow:0 16px 32px rgba(239,68,68,.28)}
+.watch-join:focus-visible{outline:3px solid var(--text);outline-offset:3px}
 body.social-watch .watch-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch;margin-top:22px}
 body.social-watch .watch-main{min-width:0}
 body.social-watch .watch-rail,
@@ -709,11 +722,16 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
 }
 @media(max-width:720px){
   body.social-watch .page-head{padding:78px 20px 20px}
-  body.social-watch .page-title{font-size:2rem;letter-spacing:-.045em}
+  body.social-watch .page-title{font-size:1.75rem;letter-spacing:-.04em}
+  .watch-masthead{gap:14px}
+  .watch-join{max-width:184px;min-height:54px;padding:10px 13px;border-radius:12px;font-size:13px}
   body.social-watch .watch-rail,
   body.social-watch .yt-sec{padding:16px;border-radius:20px}
   body.social-watch .yt-card,
   body.social-watch .rail-list .card{flex-basis:86%;min-width:0;width:auto;max-width:320px}
+  .ls-row{grid-template-columns:104px minmax(0,1fr);gap:11px;padding:12px}
+  .ls-shot{width:104px}
+  .ls-watch{grid-column:2;justify-self:start;padding:8px 14px}
 }
 
 /* ── Stance card, ported from /spectate ──────────────────────────────
@@ -864,7 +882,10 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
 
 <div class="wrap">
   <header class="page-head">
-    <h1 class="page-title">Watch the debates.</h1>
+    <div class="watch-masthead">
+      <h1 class="page-title">Watch the debates.</h1>
+      <a class="watch-join" id="ctaDebate" href="/spar">Get in a debate yourself. Join a live room!</a>
+    </div>
   </header>
 
   <!-- Waiting state and open rooms, both ported from /spectate when that
@@ -890,9 +911,9 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
   <section class="live-strip" id="liveNowStrip" aria-label="Live rounds you can watch right now">
     <div class="live-strip-head">
       <span class="ls-badge"><i></i>LIVE</span>
-      <b>Open rooms</b>
+      <b>Live debates</b>
     </div>
-    <div id="liveNowRows"></div>
+    <ul class="live-rows" id="liveNowRows"></ul>
   </section>
 
 
@@ -1287,6 +1308,11 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
       return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
     });
   }
+
+  var ctaDebate = $('ctaDebate');
+  if (ctaDebate) ctaDebate.addEventListener('click', function(){
+    try { gtag('event', 'watch_cta_debate'); } catch(e){}
+  });
 
   // ── Owner controls ───────────────────────────────────────────────
   // A recording that should not be up needs to come down from the page
@@ -2393,13 +2419,18 @@ body.social-watch .rail-list .card .thumb{margin:0 0 10px}
         var label='Round';
         var who=[r.proName,r.conName].filter(Boolean).join(' vs ')||'In progress';
         var state=r.status==='ballot'?'Judge writing the ballot':(r.started===false?'Getting started':'Round in progress');
-        return '<a class="ls-row" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">'+
+        var shot='<span class="ls-shot" aria-hidden="true">'+
+          '<span class="ls-shot-fallback"><i>PRO</i><i>CON</i></span>'+
+          (r.shot?'<img src="/api/room-shot?room='+encodeURIComponent(r.room)+'&v='+encodeURIComponent(r.shot)+'" alt="" loading="lazy" decoding="async" onerror="this.remove()">':'')+
+        '</span>';
+        return '<li><a class="ls-row" href="/live-round?room='+encodeURIComponent(r.room)+'&spectate=1">'+
+          shot+
           '<span class="ls-body">'+
             '<span class="ls-motion">'+esc(r.motion||'Live debate')+'</span>'+
             '<span class="ls-meta"><span class="ls-chip">'+esc(label)+'</span> '+esc(who)+' \u00b7 '+state+'</span>'+
           '</span>'+
           '<span class="ls-watch">Watch</span>'+
-        '</a>';
+        '</a></li>';
       }).join('');
       strip.classList.add('has-rounds');
       if(banner)banner.classList.add('live');
