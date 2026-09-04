@@ -5810,6 +5810,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var ms = mySide();
     var spectator = isSpectator();
     document.body.classList.toggle('spectator-mode', spectator);
+    try { if (spectator) ensureSpecMenu(); } catch(e){}
     // "Live transcript" is what the person producing it calls it. A
     // watcher is reading captions, and the language select next to the
     // heading is theirs (it picks the language the captions are
@@ -6906,7 +6907,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var show = modeDoorsVisible();
     row.hidden = !show;
     document.body.classList.toggle('mode-doors-open', show);
-    if (!show) return;
+    if (!show){ hidePrepNudge(); return; }
     var open = openMode();
     var convo = $('startConvoBtn'), formal = $('startFormalBtn');
     if (convo){
@@ -6957,6 +6958,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       try { gtag('event', 'live_round_mode_pick', { mode: key }); } catch(e){}
     }
     if (isMyTurn()){
+      // 2026-09-03, the founder: "just the start convo mode or start formal
+      // speeches - then encourage prep time at that point". Prep is offered
+      // the moment it matters, after the formal door, instead of standing
+      // above everything as a green block. Conversation mode has no prep.
+      if (key !== 'open' && state.prepMin > 0 && !state.prepStartedAtMs && !state.prepSkipped){
+        showPrepNudge();
+        return;
+      }
       startSpeechTimer();
     } else {
       // Formal speeches, and the first speech is not mine. The mode is
@@ -6967,6 +6976,50 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         ? (state.proName || 'Pro') : (state.conName || 'Con');
       toast('Formal speeches it is. ' + who + ' starts.');
     }
+  }
+  // The prep offer that follows the formal door. Local to this screen: the
+  // clock itself still publishes through beginPrepClock, so the peer's
+  // banner ticks exactly as before. Replaces the doors while it is up
+  // (body.prep-nudge-open) and stands down the moment the speech starts.
+  function showPrepNudge(){
+    var doors = $('modeDoors'); if (!doors) return;
+    var n = $('prepNudge');
+    if (!n){
+      n = document.createElement('div');
+      n.id = 'prepNudge'; n.className = 'prep-nudge';
+      doors.insertAdjacentElement('afterend', n);
+    }
+    renderPrepNudge();
+  }
+  function renderPrepNudge(){
+    var n = $('prepNudge'); if (!n) return;
+    var running = !!state.prepStartedAtMs;
+    var over = running && Date.now() >= state.prepStartedAtMs + (state.prepMin || 0) * 60000;
+    n.hidden = false;
+    n.innerHTML = running
+      ? '<span class="pn-text">' + (over ? 'Prep is over. Start when you are ready.' : 'Prep is running. Start whenever you are ready.') + '</span>'
+        + '<button type="button" class="btn btn-play pn-go" id="prepNudgeGo">\u25b6 Start my speech</button>'
+      : '<span class="pn-text">Want prep time first? Both of you get ' + escHtml(String(state.prepMin)) + ':00.</span>'
+        + '<div class="pn-row">'
+        +   '<button type="button" class="btn pn-prep" id="prepNudgePrep">\u23f1 Take ' + escHtml(String(state.prepMin)) + ':00 prep</button>'
+        +   '<button type="button" class="btn btn-play pn-go" id="prepNudgeGo">\u25b6 Skip prep, start speaking</button>'
+        + '</div>';
+    var pb = $('prepNudgePrep');
+    if (pb) pb.addEventListener('click', function(){
+      beginPrepClock(true); renderPrepNudge();
+      try { gtag('event', 'live_prep_nudge', { pick: 'prep' }); } catch(e){}
+    });
+    var gb = $('prepNudgeGo');
+    if (gb) gb.addEventListener('click', function(){
+      state.prepSkipped = true; hidePrepNudge();
+      try { gtag('event', 'live_prep_nudge', { pick: running ? 'start_during_prep' : 'skip' }); } catch(e){}
+      startSpeechTimer();
+    });
+    document.body.classList.add('prep-nudge-open');
+  }
+  function hidePrepNudge(){
+    var n = $('prepNudge'); if (n) n.hidden = true;
+    document.body.classList.remove('prep-nudge-open');
   }
   (function(){
     var c = $('startConvoBtn'), f = $('startFormalBtn');
@@ -11000,7 +11053,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
        mini/pip shells, all of which have their own cramped layouts.
        Because the tile goes out of flow, it also comes out of data-n, or
        the grid keeps a column open for a tile that is no longer in it. */
-    var mini = !room.viewer && seats.length === 2 && screens.length === 0 && !room.selfHidden
+    // 2026-09-03 (the founder's phone sketch): on a phone both seats stay in
+    // the flow side by side and the speaker's tile grows, so the corner
+    // self-view is desktop only.
+    var phoneTiles = !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches);
+    var mini = !room.viewer && seats.length === 2 && screens.length === 0 && !room.selfHidden && !phoneTiles
       && !document.body.classList.contains('lr-mini')
       && !document.body.classList.contains('lr-pip');
     room.stage.classList.toggle('self-mini', mini);
@@ -18992,6 +19049,47 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }, { passive: true });
   }
 
+  // Phone spectator chrome (2026-09-03, the founder: "for the audience i
+  // just want it to be screen, chat, resolution boldly, and then options
+  // to learn more via transcript / round notes summary / the betting on
+  // who wins thing"). Under 760px the panel hides everything but the
+  // resolution; a Chat bar sits above it and this row under it is the way
+  // back into the rest. Desktop never shows either (CSS).
+  function ensureSpecMenu(){
+    if (document.getElementById('specMenu')) return;
+    var head = document.querySelector('#roundView .speech-header');
+    if (!head) return;
+    var chat = document.createElement('button');
+    chat.type = 'button'; chat.id = 'specChatBar'; chat.className = 'spec-chat-bar';
+    chat.innerHTML = '<span aria-hidden="true">\ud83d\udcac</span> Chat with the audience';
+    chat.addEventListener('click', function(){ audSetOpen(true); });
+    head.insertAdjacentElement('beforebegin', chat);
+    var m = document.createElement('div');
+    m.id = 'specMenu'; m.className = 'spec-menu';
+    m.innerHTML = '<button type="button" class="sm-btn" data-sm="transcript" aria-pressed="false">Transcript</button>'
+      + '<button type="button" class="sm-btn" data-sm="notes" aria-pressed="false">Round notes</button>'
+      + '<button type="button" class="sm-btn" data-sm="bet" aria-pressed="false">Bet on who wins</button>';
+    head.insertAdjacentElement('afterend', m);
+    m.addEventListener('click', function(e){
+      var b = e.target && e.target.closest ? e.target.closest('[data-sm]') : null;
+      if (!b) return;
+      var k = b.getAttribute('data-sm');
+      var target = k === 'notes' ? $('moreOptions') : (k === 'bet' ? $('audienceTools') : document.querySelector('.transcript-area'));
+      if (k === 'bet' && target && !(($('audienceToolsBody') || {}).children || []).length){
+        toast('Betting opens once the round is live.'); return;
+      }
+      var cls = 'spec-show-' + k;
+      var on = !document.body.classList.contains(cls);
+      document.body.classList.toggle(cls, on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on && target){
+        if ('open' in target) target.open = true;
+        target.hidden = false;
+        if (target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      try { gtag('event', 'spec_menu', { pick: k, on: on }); } catch(e){}
+    });
+  }
   function audSetOpen(open){
     var panel = document.getElementById('audPanel');
     var fab = document.getElementById('audFab');
@@ -19897,6 +19995,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     function renderIdle(){
       banner.classList.remove('is-over');
+      banner.classList.add('is-idle');
       if (isSpectator()){
         setSpectatorPrep('Prep ' + state.prepMin + ':00 · waiting');
         banner.innerHTML = '<span>Prep · ' + state.prepMin + ':00 · waiting for a debater to start the clock</span>';
@@ -19942,6 +20041,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       function tick(){
         if (state.speechIdx > 0 || state.phase !== 'round'){ hidePrepBanner(); return; }
         var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
+        banner.classList.remove('is-idle');
         if (rem > 0){
           banner.classList.remove('is-over');
           if (isSpectator()) setSpectatorPrep('Prep ' + fmt(rem));
@@ -19951,6 +20051,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           if (isSpectator()) setSpectatorPrep('Prep over');
           banner.innerHTML = '<span>Prep over. Hit Start speech when you are ready.</span>';
           if (state.prepInterval){ clearInterval(state.prepInterval); state.prepInterval = null; }
+          try { renderPrepNudge(); } catch(e){}
         }
       }
       tick();
@@ -21190,6 +21291,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         return;
       }
       if (scene === 'ready' || scene === 'readyset'){
+        // Five minutes of prep, so the scene also shows the prep offer
+        // that follows the formal door (2026-09-03).
+        state.prepMin = 5;
         enterRound(0, { watching: 3 });
         // The both-ready beat reads the round doc and the seat uids,
         // neither of which these scenes have (seats are deliberately
@@ -23087,6 +23191,100 @@ body.lr-modal-open .panel{overflow:hidden}
   body.lr-round-live .panel{padding-bottom:76px}
   body.lr-round-live.spectator-mode .panel{padding-bottom:0}
 }
+/* ── Phones, redesigned 2026-09-03 (the founder, off a live-round
+   screenshot with the prep block, the TALK chip row and the context band
+   circled): "get rid of those things ... need to just make it the
+   resolution for mobile. just the start convo mode or start formal
+   speeches - then encourage prep time at that point". And for the
+   audience: "just ... screen, chat, resolution boldly, and then options to
+   learn more via transcript / round notes summary / the betting on who
+   wins thing". Everything hidden here keeps its id and its renderer; the
+   phone simply does not paint it until it is wanted. Desktop untouched. */
+@media(max-width:760px){
+  /* Debater, before speech 1: the resolution and the two doors. */
+  body.mode-doors-open:not(.spectator-mode) #roundGuide,
+  body.mode-doors-open:not(.spectator-mode) .sh-line,
+  body.mode-doors-open:not(.spectator-mode) .speech-primary,
+  body.mode-doors-open:not(.spectator-mode) .speech-clock,
+  body.mode-doors-open:not(.spectator-mode) .timer-progress,
+  body.mode-doors-open:not(.spectator-mode) #readyHint,
+  body.mode-doors-open:not(.spectator-mode) #roundMotionBar,
+  body.mode-doors-open:not(.spectator-mode) #roundDetails,
+  body.mode-doors-open:not(.spectator-mode) #moreOptions,
+  body.mode-doors-open:not(.spectator-mode) #judgeAdjudicates,
+  body.mode-doors-open:not(.spectator-mode) .transcript-area,
+  body.mode-doors-open:not(.spectator-mode) .prep-banner.is-idle{display:none}
+  body.mode-doors-open:not(.spectator-mode) .speech-header{display:flex;flex-direction:column;gap:14px;padding:18px 16px 20px}
+  body.mode-doors-open:not(.spectator-mode) .sh-main{display:block}
+  body.mode-doors-open:not(.spectator-mode) .rmb-motion{font-size:1.7rem;line-height:1.14;font-weight:800;letter-spacing:-.01em}
+  body.mode-doors-open:not(.spectator-mode) .rmb-tools{margin-top:10px}
+  body.mode-doors-open:not(.spectator-mode) .mode-doors{grid-template-columns:1fr;gap:10px;margin-top:4px}
+  body.mode-doors-open:not(.spectator-mode) .mode-doors .btn{min-height:64px;font-size:1rem}
+  /* The prep clock, once running, is one small line rather than a block. */
+  body:not(.spectator-mode) .prep-banner{margin:0;padding:7px 12px;font-size:.74rem;border-radius:0;border-left:0;border-right:0}
+  /* Spectator: screen, chat, resolution, then the three ways in. */
+  body.spectator-mode #roundGuide,
+  body.spectator-mode .sh-line,
+  body.spectator-mode .spectator-meta,
+  body.spectator-mode .timer-progress,
+  body.spectator-mode #readyHint,
+  body.spectator-mode #roundMotionBar,
+  body.spectator-mode #roundDetails,
+  body.spectator-mode #judgeAdjudicates,
+  body.spectator-mode #rmbTools,
+  body.spectator-mode #audFab,
+  body.spectator-mode:not(.spec-show-transcript) .transcript-area,
+  body.spectator-mode:not(.spec-show-notes) #moreOptions,
+  body.spectator-mode:not(.spec-show-bet) #audienceTools{display:none}
+  body.spectator-mode .panel{padding-right:0}
+  body.spectator-mode .speech-header{display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px}
+  body.spectator-mode .sh-main{display:block}
+  body.spectator-mode .rmb-motion{font-size:1.7rem;line-height:1.14;font-weight:800;letter-spacing:-.01em}
+  .spec-chat-bar{display:flex;align-items:center;justify-content:center;gap:9px;width:auto;margin:12px 16px 0;
+    min-height:50px;border-radius:14px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;
+    font-family:inherit;font-weight:800;font-size:.95rem;letter-spacing:.01em;cursor:pointer}
+  .spec-chat-bar span{font-size:1.2rem;line-height:1}
+  .spec-menu{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 16px 14px}
+  .spec-menu .sm-btn{min-height:44px;border-radius:12px;border:1px solid var(--border,rgba(128,128,128,.4));
+    background:transparent;color:var(--text);font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer;padding:6px 8px}
+  .spec-menu .sm-btn[aria-pressed="true"]{border-color:var(--accent,#ef4444);color:var(--accent,#ef4444)}
+}
+@media(min-width:761px){.spec-chat-bar,.spec-menu{display:none}}
+/* The prep offer that follows the formal door (see showPrepNudge). */
+body.prep-nudge-open .speech-header .mode-doors{display:none}
+.prep-nudge{grid-column:1/-1;display:flex;flex-direction:column;gap:10px;margin-top:2px;padding:14px;border-radius:14px;
+  border:1px solid var(--border,rgba(128,128,128,.4));background:transparent}
+.prep-nudge[hidden]{display:none}
+.prep-nudge .pn-text{font-size:.86rem;font-weight:700;color:var(--text)}
+.prep-nudge .pn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.prep-nudge .btn{width:100%;min-height:54px;border-radius:12px;text-transform:none;font-size:.9rem;justify-content:center}
+.prep-nudge .pn-prep{background:transparent;border:1px solid var(--border,rgba(128,128,128,.4));color:var(--text);box-shadow:none}
+.prep-nudge .pn-prep:hover{border-color:var(--accent,#ef4444)}
+@media(max-width:560px){.prep-nudge .pn-row{grid-template-columns:1fr}}
+/* Two seats on a phone (the founder's sketch, 2026-09-03): side by side,
+   and the speaker's tile grows while the other shrinks, sliding back and
+   forth as the turn changes. is-speaking comes from Daily's active-speaker
+   event, so it follows the voice, not the clock. Spectators used to get a
+   full-bleed main tile with the other seat as a corner picture; that is
+   undone here so both are on screen at once. */
+@media(max-width:900px){
+  /* body.spectator-mode is on the selectors so these outrank the
+     spectator stage rules (a full-bleed main tile with a corner picture),
+     which carry the body class too. */
+  .cv-stage[data-n="2"]:not(.has-screen),
+  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen){display:flex;flex-direction:row;align-items:stretch;gap:6px;padding:6px;position:static}
+  .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile,
+  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile{flex:1 1 0 !important;min-width:0;aspect-ratio:auto !important;transition:flex-grow .6s cubic-bezier(.2,.7,.2,1),border-color .2s,box-shadow .2s}
+  .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile.is-speaking,
+  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile.is-speaking{flex-grow:1.9 !important}
+  body.spectator-mode .cv-stage:not(.has-screen){position:static}
+  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile,
+  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile:nth-child(2){
+    position:static !important;inset:auto !important;right:auto !important;bottom:auto !important;
+    width:auto !important;height:auto !important;max-width:none !important;transform:none !important;z-index:auto !important;
+  }
+}
+@media(prefers-reduced-motion:reduce){.cv-stage[data-n="2"] > .cv-tile{transition:none}}
 /* Short landscape keeps video and console side by side. At that point a
    1000px viewport produces a roughly 450px console, so viewport-based
    type sizing made the resolution look like a billboard and squeezed it
