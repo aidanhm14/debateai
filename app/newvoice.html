@@ -889,6 +889,8 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
 }
 .topic-cat:hover{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.09);transform:translateY(-1px)}
 .topic-cat.on{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 8px 22px rgba(239,68,68,.3)}
+.topic-cat-story{border-style:dashed;border-color:rgba(239,68,68,.5);font-family:var(--serif);font-weight:600;font-size:15px}
+.topic-cat-story.on{border-style:solid}
 .claim-list{width:100%;display:grid;gap:8px;margin-top:16px;animation:rise .35s cubic-bezier(.2,.7,.2,1) both}
 .claim-opt{
   appearance:none;cursor:pointer;text-align:left;width:100%;
@@ -898,6 +900,7 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   transition:border-color .18s,background .18s,transform .15s;
 }
 .claim-opt:hover{border-color:rgba(255,255,255,.26);transform:translateY(-1px)}
+.claim-list.story .claim-opt{font-size:15.5px;line-height:1.45;padding:14px 18px}
 .claim-opt.on{border-color:rgba(239,68,68,.78);background:linear-gradient(180deg,rgba(239,68,68,.16),rgba(20,10,14,.64));box-shadow:0 0 0 2px rgba(239,68,68,.12)}
 .claim-more{
   margin-top:10px;background:none;border:none;cursor:pointer;color:var(--ink-dim);
@@ -1328,7 +1331,12 @@ try {
    pool in practice.html (mirrored in lib/draft-motions.mjs), in plain
    words, on the questions people are actually arguing about right now.
    The bank is grouped because the picker now asks WHICH subject first
-   and only then hands over resolutions on it.
+   and only then hands over resolutions on it. STORYTIME (his phrase,
+   "hyper specific scenario") is the odd lane: each entry is a two or
+   three sentence scene with names, sums and dates, ending in one call the
+   person defends or attacks. Same for-or-against shape, so nothing
+   downstream changes; the specificity is the whole point, and 220 chars is
+   the ceiling because the topic box and sanitizeTopic() cap there.
    Two rules still hold. Every claim passes the double-sided test: a smart
    person can win either side without contorting. And the site-wide
    content boundary (soul.md sec 4, the 2026-08-27 entry) applies in full;
@@ -1476,6 +1484,24 @@ const CLAIM_GROUPS = [
     'Authenticity will become a luxury good',
     'Convenience has made people less capable',
     'The decline of religion has made politics more extreme',
+  ] },
+  { key: 'story', label: 'Storytime', sub: 'One hyper-specific scenario, and you call it', claims: [
+    'Your roommate has quietly eaten your groceries for a month. You Venmo-request them $60 with no message. Skipping the conversation was the right move',
+    'A friend asks you to be a job reference and you know they will be bad at the job. You say yes anyway. That was the right call',
+    'Your sister makes her wedding child-free. Your cousin has a newborn and says she cannot come. Your sister should hold the line',
+    'Your manager promotes a colleague who does less than you but talks more in meetings. You raise it in your next one-on-one. You should have said nothing',
+    'A stranger lets their dog off leash in a no-dogs park every morning. You report it to the city instead of talking to them. That was fair',
+    'Your best friend\'s new partner is dull and a little rude to waiters. You tell your friend. You should have kept it to yourself',
+    'Your parents offer to cover your rent if you move back to your hometown. You are 26 with a job you like. You should take the deal',
+    'A coworker adds you to a group chat that mostly mocks your boss. You leave it without a word. That was the right move',
+    'Your landlord raises the rent by $300 but offers to freeze it if you sign for three years. You should sign',
+    'A friend cancels dinner for the third time this month, each time with a good excuse. You should stop inviting them',
+    'Your 18-year-old wants to skip college for a coding bootcamp and a $55,000 job offer. As the parent, you should say yes',
+    'At a group dinner one friend orders three cocktails and a steak and the bill is split evenly. You should ask to split by item',
+    'A relative gave you $500 for a specific purpose. Six months later you spend it on something else. You owe them an explanation',
+    'Your team has a no-messages-after-6pm rule. Your boss texts at 9pm with "no rush". You should reply in the morning',
+    'Your neighbor\'s kid mows your lawn unasked, then knocks and asks for $20. You should pay',
+    'A friend borrowed $400 in March and has since posted two vacations. It is September. You should bring it up',
   ] },
   { key: 'health', label: 'Health', sub: 'Medicine, food, and bodies', claims: [
     'Healthcare should be free for everyone',
@@ -1887,6 +1913,7 @@ function renderClaimList(){
   if (!claimList) return;
   claimList.innerHTML = '';
   claimList.hidden = !g;
+  claimList.classList.toggle('story', !!g && g.key === 'story');
   if (claimMore) claimMore.hidden = !g;
   if (!g) return;
   const seen = new Set();
@@ -1915,7 +1942,7 @@ function paintTopicCats(){
   CLAIM_GROUPS.forEach((g) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'topic-cat' + (g.key === topicCat ? ' on' : '');
+    b.className = 'topic-cat' + (g.key === 'story' ? ' topic-cat-story' : '') + (g.key === topicCat ? ' on' : '');
     b.dataset.cat = g.key;
     b.setAttribute('aria-pressed', g.key === topicCat ? 'true' : 'false');
     b.title = g.sub;
