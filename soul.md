@@ -197,6 +197,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **The rail holds still, the doors get air, and the board widens only where the screen is tall enough** (2026-09-03, Aidan: "dont have them moving. also - put some space between these - remember - the big screen can widen"). The idle breathing on the leaderboard faces, shipped an hour earlier, is removed; the magnify on approach is the only motion left. The gap between Join a debate and the Watch / Debate the AI pair goes 8 to 16px, and the pair's own gap to 14px. The 740px column that keeps the Google line above an 800px fold stays the base; from 1500x900 the column is 880px and from 1800x1000 it is 980px, gated on height as well as width because a wide short laptop is the case that pushed the sign-in under the fold in the first place.
+
 - **First screen fitted to the fold, and the hovered rail face comes forward** (2026-09-03, Aidan, off the live page: "make a bit smaller so the google is visible below move comment - make sure the front selected one hovers actually in front so it has depth"). The column goes 900 to 740px and the door stack loses a little height, so the Google sign-in line ends inside an 800px viewport at 1440 wide (measured 797px). The chats panel is capped at 560px so the bottom-right sign-in nudge card no longer lands on it; "move comment" is read as that collision. On the rail, the magnified face and its two neighbours now carry a z-index so the hovered one sits in front of the rank pips beside it, with a deeper shadow and a white ring for depth.
 
 - **First screen tuned off the live page: grey pair, wider board, chats further right, a louder rail** (2026-09-03, Aidan, three notes in a row: "have them both be gray", then "widen the display thing and put the comment section a bit more right - expand and make the leaderboard standout and have the circular motion effect more intensely"). Watch and Debate the AI both take the same grey fill (the charcoal Debate the AI lasted one look). The board column goes 780 to 900px and the chats panel sits a 56 to 120px gap to its right on a 1560px wrap; the rail's rightward shift no longer scales the composition down. The leaderboard rail's faces go 68 to 84px with a 26px rank pip, the approach magnify goes 1.28x to 1.55x with neighbours at 1.24x, and the faces breathe on a slow staggered 3.6s loop while idle, which stops on hover and under reduced motion. Verified at 1600px: both buttons grey, board 900 wide, 96px to the chats, rail at 84px with the loop running, no overflow.
@@ -1453,5 +1455,5 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ---
 
-*Last updated: 2026-09-03 (latest pass: first screen fitted to the fold, hovered rail face in front)*
-*Last updated: 2026-09-03 (latest pass: first screen fitted to the fold, hovered rail face in front)*
+*Last updated: 2026-09-03 (latest pass: rail still, doors spaced, board widens on tall screens)*
+*Last updated: 2026-09-03 (latest pass: rail still, doors spaced, board widens on tall screens)*
