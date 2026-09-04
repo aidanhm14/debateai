@@ -452,6 +452,12 @@ html[data-theme="light"] .ai-presence-copy b{color:#b91c1c}
 html[data-theme="light"] .guide-chip{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(246,245,240,.78))}
 html[data-theme="light"] .guide-chip.on{background:linear-gradient(180deg,rgba(220,38,38,.12),rgba(255,255,255,.84))}
 html[data-theme="light"] .guide-icon{background:rgba(22,22,26,.045)}
+html[data-theme="light"] .topic-cat{background:rgba(22,22,26,.04)}
+html[data-theme="light"] .topic-cat:hover{background:rgba(22,22,26,.08);border-color:rgba(22,22,26,.2)}
+html[data-theme="light"] .topic-cat.on{background:#dc2626;border-color:#dc2626}
+html[data-theme="light"] .claim-opt{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(246,245,240,.78))}
+html[data-theme="light"] .claim-opt.on{background:linear-gradient(180deg,rgba(220,38,38,.12),rgba(255,255,255,.84))}
+html[data-theme="light"] #claimCatTag{color:#b91c1c}
 html[data-theme="light"] .match-builder{background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.45))}
 html[data-theme="light"] #claimInput,
 html[data-theme="light"] .side-seg,
@@ -790,6 +796,8 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
   .guide-icon svg{width:20px;height:20px}
   .guide-copy{margin-top:13px}
   .guide-copy span{font-size:10.5px}
+  .topic-cat{padding:9px 13px;font-size:13px}
+  .claim-opt{padding:12px 14px;font-size:16px}
   .builder-head{align-items:flex-start;flex-direction:column;gap:5px}
   .side-btn{padding:12px 6px;gap:6px}
   .side-glyph{font-size:17px}
@@ -870,6 +878,36 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
 .wiz-claim{width:min(720px,100%);margin-top:12px}
 .wiz-claim textarea{font-size:19px}
 .wiz .guide-grid{width:min(720px,100%);margin-top:14px}
+.topic-filter{width:min(720px,100%);margin-top:16px;display:flex;flex-direction:column;align-items:center}
+.topic-filter-q{color:var(--ink-dim);font:600 15px/1.4 var(--sans);text-align:center}
+.topic-cats{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}
+.topic-cat{
+  appearance:none;cursor:pointer;border-radius:999px;padding:10px 16px;
+  border:1px solid var(--card-line);background:rgba(255,255,255,.05);color:var(--ink);
+  font:650 14px/1 var(--sans);letter-spacing:.005em;
+  transition:background .18s,border-color .18s,color .18s,transform .15s;
+}
+.topic-cat:hover{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.09);transform:translateY(-1px)}
+.topic-cat.on{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 8px 22px rgba(239,68,68,.3)}
+.claim-list{width:100%;display:grid;gap:8px;margin-top:16px;animation:rise .35s cubic-bezier(.2,.7,.2,1) both}
+.claim-opt{
+  appearance:none;cursor:pointer;text-align:left;width:100%;
+  padding:14px 18px;border-radius:14px;border:1px solid var(--card-line);
+  background:linear-gradient(180deg,rgba(10,10,15,.72),rgba(10,10,15,.48));color:var(--ink);
+  font:500 17px/1.3 var(--serif);
+  transition:border-color .18s,background .18s,transform .15s;
+}
+.claim-opt:hover{border-color:rgba(255,255,255,.26);transform:translateY(-1px)}
+.claim-opt.on{border-color:rgba(239,68,68,.78);background:linear-gradient(180deg,rgba(239,68,68,.16),rgba(20,10,14,.64));box-shadow:0 0 0 2px rgba(239,68,68,.12)}
+.claim-more{
+  margin-top:10px;background:none;border:none;cursor:pointer;color:var(--ink-dim);
+  font:700 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:8px 6px;
+}
+.claim-more:hover{color:var(--ink)}
+#claimCatTag{
+  font-style:normal;margin-left:6px;padding:3px 8px;border-radius:999px;
+  border:1px solid rgba(239,68,68,.4);color:#fca5a5;letter-spacing:.08em;font-size:10px;
+}
 .wiz-claim-echo{
   margin-top:14px;max-width:34ch;text-align:center;color:var(--ink-dim);
   font:500 17px/1.45 var(--serif);
@@ -994,7 +1032,7 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
      "like a video game ... voice, resolution, side being a page each so
      its simple - big text - obvious"). Every control keeps the id the
      round logic and the hook tests read (claimInput, sideSeg, diffSeg,
-     paceSeg, micSeg, judgeSeg, startBtn, pathGuide, topicGuide); only the
+     paceSeg, micSeg, judgeSeg, startBtn, pathGuide, topicCats); only the
      arrangement changed. Picking an option advances the run. -->
 <section id="setup" class="view on">
   <div class="setup-card wiz">
@@ -1038,42 +1076,30 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
     <!-- 2 · Topic -->
     <div class="wiz-step" data-step="2">
       <h1 class="wiz-q">What are we arguing about?</h1>
-      <p class="wiz-sub">Say it in one sentence, pick one below, or talk it through with the AI first.</p>
+      <p class="wiz-sub">Pick a subject and take one of the resolutions on it, write your own, or talk it through with the AI first.</p>
       <button class="wiz-talk" id="talkItOutBtn" type="button">
         <span class="wiz-talk-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg></span>
         <span class="wiz-talk-copy"><b>Talk it through with the AI</b><span>Not sure yet? Open the room and say what is on your mind. It helps you land the claim and your side, then argues the other one. Scored like any round.</span></span>
         <span class="wiz-talk-go" aria-hidden="true">→</span>
       </button>
-      <div class="wiz-or"><span>or set it now</span></div>
+      <div class="wiz-or"><span>or pick a subject</span></div>
+      <div class="topic-filter" id="topicFilter">
+        <p class="topic-filter-q">What do you want to argue about?</p>
+        <div class="topic-cats" id="topicCats" role="group" aria-label="Subject"></div>
+        <div class="claim-list" id="claimList" hidden></div>
+        <button class="claim-more" id="claimMore" type="button" hidden>Show me five more</button>
+      </div>
       <div class="claim-wrap wiz-claim">
         <div class="claim-label">
-          <span class="section-label"><span>Your topic</span></span>
+          <span class="section-label"><span>Your topic</span><em id="claimCatTag" hidden></em></span>
           <button id="shuffleBtn" type="button" aria-label="Get a new topic">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
             New topic
           </button>
         </div>
-        <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false" placeholder="Type any statement to argue about, or pick one below" aria-label="Your topic"></textarea>
+        <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false" placeholder="Or type any statement you want to argue about" aria-label="Your topic"></textarea>
         <p class="resolution-note">You will argue for or against this statement.</p>
       </div>
-      <div class="guide-grid" id="topicGuide">
-          <button class="guide-chip" type="button" data-claim="Phones should be locked away during class." aria-pressed="false">
-            <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.7-.9 5.3-.4 8 1.4v12c-2.7-1.8-5.3-2.3-8-1.4z"/><path d="M20 5.5c-2.7-.9-5.3-.4-8 1.4v12c2.7-1.8 5.3-2.3 8-1.4z"/></svg></span><span class="guide-code">TOPIC 01</span></span>
-            <span class="guide-copy"><b>School life</b><span>Phones, homework, grades, and school rules.</span></span>
-          </button>
-          <button class="guide-chip" type="button" data-claim="AI art is real art." aria-pressed="false">
-            <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9.5 11h5M9.5 14h3M12 3v4M12 17v4M3 12h4M17 12h4"/></svg></span><span class="guide-code">TOPIC 02</span></span>
-            <span class="guide-copy"><b>Phones and AI</b><span>Screens, apps, and what AI should be allowed to do.</span></span>
-          </button>
-          <button class="guide-chip" type="button" data-claim="Billionaires should not exist." aria-pressed="false">
-            <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3c2.2 2.4 3.3 5.4 3.3 9S14.2 18.6 12 21M12 3C9.8 5.4 8.7 8.4 8.7 12S9.8 18.6 12 21"/></svg></span><span class="guide-code">TOPIC 03</span></span>
-            <span class="guide-copy"><b>Money and work</b><span>Pay, bosses, rent, and who deserves what.</span></span>
-          </button>
-          <button class="guide-chip" type="button" data-claim="Cars should be banned from downtown." aria-pressed="false">
-            <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20V9h12v11M4 9h16L12 4zM9 12v5M12 12v5M15 12v5"/></svg></span><span class="guide-code">TOPIC 04</span></span>
-            <span class="guide-copy"><b>City life</b><span>Cars, rent, transit, and how we live together.</span></span>
-          </button>
-        </div>
       <div class="wiz-nav">
         <button type="button" class="wiz-back" data-go="1">Back</button>
         <button type="button" class="wiz-next" id="topicNextBtn">Pick a side →</button>
@@ -1295,236 +1321,178 @@ try {
 'use strict';
 
 /* ── claims bank ─────────────────────────────────────────────
-   2026-09-03, the founder: the old bank was "too boring" and "did not make
-   sense to normal people". It read like a policy syllabus (proportional
-   representation, citizen assemblies, collective sanctions). These are the
-   arguments people actually have at dinner, in the words they have them in.
+   2026-09-03, the founder, off a phone screenshot of this screen: the
+   dinner-table bank ("Gym class should be optional", "Cats are better
+   than dogs") and its four cards were "absolutely abhorrent". Back to the
+   resolutions in the archive: the Aug 31 bank and the canonical quick
+   pool in practice.html (mirrored in lib/draft-motions.mjs), in plain
+   words, on the questions people are actually arguing about right now.
+   The bank is grouped because the picker now asks WHICH subject first
+   and only then hands over resolutions on it.
    Two rules still hold. Every claim passes the double-sided test: a smart
-   person can win either side without contorting, so nothing here is
-   obviously right. And the site-wide content boundary (soul.md sec 4, the
-   2026-08-27 entry) applies in full; scripts/test-sensitive-motions.mjs
-   scans this bank on every commit. Contested is the goal; targeted is
-   not. */
-const CLAIMS = [
-  /* School */
-  'Homework should be banned',
-  'Phones should be locked away during class',
-  'School should start at 10am',
-  'Kids should get paid for good grades',
-  'College is a bad deal for most people',
-  'Everyone should take a year off before college',
-  'Gym class should be optional',
-  'Grades do more harm than good',
-  'Teachers should be paid like doctors',
-  'School uniforms are a good idea',
-  'Students should be allowed to use AI on homework',
-  'Group projects should be banned',
-  'Cursive is a waste of time to teach',
-  'A four-day school week is better for kids',
-  'Every school should serve free lunch',
-  'Kids should learn to code before they learn algebra',
-
-  /* Phones, the internet, and AI */
-  'Social media should have an age limit, like alcohol',
-  'Nobody under 14 should have a smartphone',
-  'AI art is real art',
-  'Dating apps have ruined dating',
-  'You should have to use your real name online',
-  'Companies should pay you for your data',
-  'Self-driving cars should be allowed on every road',
-  'Your phone should lock you out after three hours a day',
-  'Everyone should be allowed to fix their own phone',
-  'AI companions will do more harm than good',
-  'Anything made by AI should have a visible label',
-  'The internet has made people dumber',
-  'Group chats are better than in-person friendships',
-  'Screens should be banned from bedrooms',
-  'Robots should look after old people',
-  'Being famous online is a real job',
-
-  /* Money and work */
-  'Working from home beats the office',
-  'Nobody should work more than four days a week',
-  'Tipping should be abolished',
-  'Billionaires should not exist',
-  'Everyone should work a restaurant job at least once',
-  'Unpaid internships should be illegal',
-  'Job ads should have to show the salary',
-  'Renting is smarter than buying a house',
-  'You should never lend money to a friend',
-  'Inheritances over a million should be taxed heavily',
-  'Bosses should never message you after 6pm',
-  'Everyone should get free money from the government every month',
-  'Following your passion is bad career advice',
-  'Cash should be accepted everywhere',
-  'CEOs are paid too much',
-  'It is fine to quit a job without notice',
-
-  /* Politics and rules */
-  'Voting should be required by law',
-  '16-year-olds should be allowed to vote',
-  'Politicians should have term limits',
-  'People in prison should still get to vote',
-  'Jury duty should be optional',
-  'Every young adult should do a year of national service',
-  'Protesters should be allowed to block roads',
-  'Police should always wear body cameras',
-  'Trials should be shown on TV',
-  'Drug use should be treated as a health problem, not a crime',
-  'Hate speech should be illegal',
-  'Rich people should pay for everyone else to go to college',
-  'The government should track everyone with a digital ID',
-  'Lying in a political ad should be a crime',
-
-  /* Movies, music, and culture */
-  'Streaming has ruined movies',
-  'Museums should give back stolen artifacts',
-  'Cancel culture has gone too far',
-  'You can separate the art from the artist',
-  'Reality TV is bad for society',
-  'A movie does not have to follow the book',
-  'Spoilers stop counting after one year',
-  'Ads are a fair price for free apps',
-  'Influencers are the new journalists',
-  'Sports betting ads should be banned',
-  'True crime shows exploit real victims',
-  'Celebrities should stay out of politics',
-  'Dubbed is better than subtitled',
-  'Remakes are ruining Hollywood',
-  'Concert tickets should have a price cap',
-  'Music was better twenty years ago',
-  'Paywalls on news do more harm than good',
-  'Video games are a sport',
-
-  /* The planet and animals */
-  'Nuclear power is the answer to climate change',
-  'Space travel is worth the money',
-  'Zoos should be shut down',
-  'Meat should cost more to protect the planet',
-  'Frequent flyers should pay a bigger tax',
-  'Rich countries owe the world for climate change',
-  'Banning plastic straws is pointless',
-  'People should be allowed to keep exotic pets',
-  'Fast fashion should be taxed',
-  'Lawns are a waste of water',
-  'Testing medicine on animals is justified',
-  'Humans should try to live on Mars this century',
-  'Single-use plastic should be banned',
-  'Cities should charge more for water during a drought',
-
-  /* City life */
-  'Cars should be banned from downtown',
-  'Public transit should be free',
-  'Rent control works',
-  'Drivers should pay to enter busy parts of the city',
-  'Skyscrapers make cities better',
-  'The suburbs are a better place to live than the city',
-  'Homeless people should get a home first, no strings attached',
-  'Every city needs free public bathrooms',
-  'More cameras make cities safer',
-  'Bars should be allowed to stay open all night',
-  'Drinking in public should be legal',
-  'Museums should be free',
-  'Buses and trains should run all night',
-  'Empty homes should be taxed until someone lives in them',
-  'Neighbors should not be able to block new housing',
-
-  /* The world */
-  'Foreign aid does more good than harm',
-  'Countries should let in far more immigrants',
-  'Tourist hotspots should cap how many visitors they take',
-  'Hosting the Olympics is a waste of money',
-  'Democracies should trade with dictatorships',
-  'The world should have one currency',
-  'English should be the official language of the world',
-  'Countries should pay other countries to take their refugees',
-  'A world government would be better than what we have',
-  'Poor countries should grow first and cut pollution later',
-
-  /* Health and bodies */
-  'The drinking age should be 18',
-  'Vaccines should be required to attend school',
-  'Everyone should be an organ donor unless they opt out',
-  'Soda should be taxed like cigarettes',
-  'Healthcare should be free for everyone',
-  'Mental health days should be paid',
-  'Plastic surgery should be banned for anyone under 18',
-  'Calorie counts belong on every menu',
-  'Athletes should be allowed to use performance-enhancing drugs',
-  'Sleep matters more than exercise',
-  'Drug ads should be banned from TV',
-  'People should be allowed to sell a kidney',
-  'Fast food should come with a warning label',
-  'Junk food should be banned from schools',
-
-  /* Love, family, and friends */
-  'Dating apps have made love harder to find',
-  'Marriage is outdated',
-  'Couples should share all their money',
-  'Friends matter more than romance',
-  'Parents should track their teenagers by phone',
-  'Kids should be paid for chores',
-  'Parents should not post their kids online',
-  'You should live together before getting married',
-  'Exes can be real friends',
-  'A big age gap in a relationship is a red flag',
-  'Weddings are a waste of money',
-  'Public proposals are unfair to the person being asked',
-  'Long-distance relationships can work',
-  'It is fine to ghost someone after one date',
-  'You should tell a friend when their partner is bad for them',
-  'Adult children owe their parents financial support',
-  'Having kids is a duty to society',
-  'Divorce should be easier to get',
-
-  /* Sports */
-  'Pro athletes are paid too much',
-  'College athletes should be paid',
-  'Esports are real sports',
-  'Video replay has ruined football',
-  'Salary caps make sports better',
-  'Taxpayers should never pay for a stadium',
-  'Boxing and MMA should be banned',
-  'Sports betting should be legal everywhere',
-  'Athletes should keep politics out of sports',
-  'Kids should play many sports, not just one',
-  'Chess is a sport',
-  'Participation trophies are good for kids',
-  'Losing teaches you more than winning',
-  'Fans should own their teams',
-
-  /* Everyday arguments */
-  'Experiences make better gifts than things',
-  'Living alone is worth the extra money',
-  'Breakfast is the most important meal of the day',
-  'Books are better than movies',
-  'Cats are better than dogs',
-  'New Year resolutions are pointless',
-  'A long commute is worth a bigger home',
-  'Kids should not be allowed in restaurants after 8pm',
-  'Surprise parties are a bad idea',
-  'Everyone should quit social media for a month a year',
-  'Being early is better than being on time',
-  'Expensive things are usually worth it',
-  'Pick meaning over money when choosing a career',
-  'Failure should be celebrated more than success',
-  'Competition ruins hobbies',
-  'Nostalgia is bad for you',
-  'Everyone should read the news every day',
-  'Convenience has made life worse',
-  'Pineapple belongs on pizza',
-  'A hot dog is a sandwich',
-  'Working out in the morning beats working out at night',
-  'Coffee is better than tea',
-  'Winter is better than summer',
-  'Being on your phone at dinner is rude',
-  'Reclining your seat on a plane is fine',
-  'Splitting the bill evenly is unfair',
-  'Small talk is a waste of time',
-  'Kids should be allowed to swear at home',
-  'Everyone should learn to cook before they turn 18',
-  'It is better to be a big fish in a small pond',
+   person can win either side without contorting. And the site-wide
+   content boundary (soul.md sec 4, the 2026-08-27 entry) applies in full;
+   scripts/test-sensitive-motions.mjs scans this bank on every commit.
+   Contested is the goal; targeted is not. */
+const CLAIM_GROUPS = [
+  { key: 'ai', label: 'AI', sub: 'Jobs, art, and who pays', claims: [
+    'AI will destroy more good jobs than it creates',
+    'The AI boom is a bubble',
+    'AI companies should pay the people whose work trained their models',
+    'Schools should treat AI like a calculator, not cheating',
+    'AI companions will make people lonelier',
+    'Open-source AI is more dangerous than corporate-controlled AI',
+    'Anything made by AI should carry a visible label',
+    'AI will make college degrees less valuable',
+    'Data centers should have to build their own power plants',
+    'Companies should be responsible for every deal their AI agents make',
+    'AI will make experts more valuable, not less',
+    'AI companies will become more powerful than governments',
+  ] },
+  { key: 'money', label: 'Money', sub: 'Wealth, taxes, and who deserves what', claims: [
+    'Billionaires are a policy failure',
+    'A wealth tax is the only realistic way to prevent oligarchy',
+    'Universal basic income would weaken workers',
+    'Inheritance matters more than hard work in deciding who gets rich',
+    'The minimum wage should rise automatically with local rents',
+    'Private equity is making ordinary life worse',
+    'Economic growth matters more than economic equality',
+    'Tipping should be replaced by higher wages',
+    'Governments should guarantee a job to anyone who wants one',
+    'Cash is essential to freedom',
+    'Large inheritances should be taxed heavily',
+    'The next financial crisis will begin outside the banking system',
+  ] },
+  { key: 'work', label: 'Work', sub: 'Offices, unions, and careers', claims: [
+    'Remote work is better for workers than the office',
+    'The four-day work week should be the standard',
+    'Employers should stop requiring degrees for most jobs',
+    'Unions will matter more in the AI economy than they did in the industrial one',
+    'Gig workers should be treated as employees',
+    'Unpaid internships should be illegal',
+    'Job listings should have to show the salary',
+    'Companies should pay a tax when automation replaces a worker',
+    'Following your passion is bad career advice',
+    'Workers should elect representatives to company boards',
+    'Companies should be required to share productivity gains with workers',
+    'Work gives life more meaning than leisure',
+  ] },
+  { key: 'politics', label: 'Politics', sub: 'Votes, parties, and power', claims: [
+    'Voting should be mandatory',
+    'The voting age should be lowered to 16',
+    'Elected officials should face strict term limits',
+    'Citizens chosen by lottery would govern better than elected politicians',
+    'Political parties make democracy worse',
+    'Private donations to political campaigns should be banned',
+    'Courts should be allowed to remove politicians who repeatedly lie',
+    'Supreme Court justices should serve fixed terms',
+    'Every young adult should complete a year of national service',
+    'National elections should use ranked-choice voting',
+    'Elections have stopped deciding economic policy',
+    'Moderates lose the elections that radicals win',
+    'Class politics will replace identity politics',
+  ] },
+  { key: 'internet', label: 'Internet', sub: 'Feeds, privacy, and free speech', claims: [
+    'Social media does more harm than good',
+    'Nobody under 16 should be on social media',
+    'Every social media account should be tied to a real identity',
+    'Free speech cannot survive algorithmic feeds',
+    'Recommendation algorithms should be public',
+    'People should have a legal right to disappear from the internet',
+    'Governments should be allowed to ban foreign-owned social platforms',
+    'Companies should pay you for your data',
+    'Political ads made with AI should be banned',
+    'The internet has ended the possibility of a shared reality',
+    'The world would be better without targeted advertising',
+    'Governments should never weaken end-to-end encryption',
+  ] },
+  { key: 'world', label: 'The world', sub: 'Borders, rivals, and trade', claims: [
+    'Sanctions hurt ordinary people more than the governments they target',
+    'Small countries should stay neutral between the US and China',
+    'The dollar will lose its global dominance within a generation',
+    'Nuclear weapons have prevented more wars than they have caused',
+    'Rich countries cannot stay rich without high immigration',
+    'Countries should trade only with governments that respect democracy',
+    'Military alliances make their members less safe',
+    'The next superpower will be a company, not a country',
+    'Globalization made national democracy weaker',
+    'Museums should return artifacts taken from other countries',
+    'National security matters more than free trade',
+    'Europe will decline unless it deregulates',
+  ] },
+  { key: 'climate', label: 'Climate', sub: 'Energy, carbon, and who pays', claims: [
+    'Nuclear power is the only realistic path to clean energy',
+    'Fossil fuel companies should pay for climate adaptation',
+    'Climate policy will fail unless it makes energy cheaper',
+    'Rich countries should pay poorer countries for the costs of climate change',
+    'Electric cars distract from better public transit',
+    'Geoengineering is inevitable',
+    'Water should never be privately owned',
+    'People should pay more for goods with large carbon footprints',
+    'Frequent flyers should pay a rising tax on each flight',
+    'Economic growth and climate stability are compatible',
+    'Governments should tax meat to cut emissions',
+    'Air conditioning should be treated as essential infrastructure',
+  ] },
+  { key: 'cities', label: 'Cities', sub: 'Housing, rent, and transit', claims: [
+    'Housing should be built even when current homeowners oppose it',
+    'Corporations should not be allowed to own single-family homes',
+    'Cities should charge drivers to enter downtown',
+    'Public transit should be free',
+    'Rent control does more good than harm',
+    'Homeownership should stop being the main way families build wealth',
+    'The future belongs to cities, not suburbs',
+    'Remote work will hollow out major cities',
+    'Empty homes should be taxed until someone lives in them',
+    'Cities should stay open all night',
+    'Neighbors should not be able to block new housing',
+    'Cars should be banned from downtown',
+  ] },
+  { key: 'school', label: 'School', sub: 'Grades, phones, and college', claims: [
+    'College has become a luxury signal rather than an education',
+    'Public college should be free',
+    'Students should be allowed to use AI on homework',
+    'Public schools should ban smartphones for the entire day',
+    'Universities should ban legacy admissions',
+    'Standardized tests are a fair measure of ability',
+    'Every teenager should work for a year before college',
+    'Teacher pay should be tied to student performance',
+    'Universities should stay neutral on political questions',
+    'Financial literacy should be a required school subject',
+    'Grades do more harm than good',
+    'Schools should abolish gifted programs',
+  ] },
+  { key: 'culture', label: 'Culture', sub: 'Media, fame, and how we live', claims: [
+    'Streaming has made movies and music worse',
+    'Cancel culture does more good than harm',
+    'You can separate the art from the artist',
+    'Celebrity activism does more harm than good',
+    'Meritocracy is mostly a myth',
+    'Loneliness is a political problem, not a private one',
+    'Sports betting ads should be banned',
+    'Dating apps have made relationships worse',
+    'Adulthood should begin at 21, not 18',
+    'College athletes should be paid',
+    'Authenticity will become a luxury good',
+    'Convenience has made people less capable',
+    'The decline of religion has made politics more extreme',
+  ] },
+  { key: 'health', label: 'Health', sub: 'Medicine, food, and bodies', claims: [
+    'Healthcare should be free for everyone',
+    'Soda should be taxed like cigarettes',
+    'People should be allowed to sell a kidney',
+    'Everyone should be an organ donor unless they opt out',
+    'Vaccines should be required to attend school',
+    'Athletes should be allowed to use performance-enhancing drugs',
+    'Drug use should be treated as a health problem, not a crime',
+    'Human enhancement will create a permanent class system',
+    'Drug ads should be banned from TV',
+    'Mental health days should be paid',
+    'Animal testing is justified for medical research',
+    'Calorie counts belong on every menu',
+  ] },
 ];
+const CLAIMS = CLAIM_GROUPS.reduce((all, g) => all.concat(g.claims), []);
 
 /* ── dom ─────────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
@@ -1693,18 +1661,33 @@ window.addEventListener('prefs-synced', (ev) => {
     });
   } catch (e) {}
 });
-let claimDeck = [];
-function randomClaim(){
-  if (!claimDeck.length) {
-    claimDeck = CLAIMS.slice();
-    for (let i = claimDeck.length - 1; i > 0; i--) {
+/* One shuffled deck per subject plus one for the whole bank, so a run of
+   draws never repeats until the deck is spent. topicCat is the subject the
+   person chose in the picker; empty means any subject. */
+let topicCat = '';
+// True while the topic box holds a claim the page put there (prefill or
+// shuffle) rather than one the person typed or picked. A subject pick may
+// overwrite an auto-fill; it must never overwrite what someone wrote.
+let claimAuto = true;
+const claimDecks = {};
+function drawClaim(list, key){
+  let deck = claimDecks[key];
+  if (!deck || !deck.length) {
+    deck = list.slice();
+    for (let i = deck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const hold = claimDeck[i];
-      claimDeck[i] = claimDeck[j];
-      claimDeck[j] = hold;
+      const hold = deck[i];
+      deck[i] = deck[j];
+      deck[j] = hold;
     }
+    claimDecks[key] = deck;
   }
-  return claimDeck.pop();
+  return deck.pop();
+}
+function claimGroup(key){ return CLAIM_GROUPS.find((g) => g.key === key) || null; }
+function randomClaim(){
+  const g = claimGroup(topicCat);
+  return g ? drawClaim(g.claims, g.key) : drawClaim(CLAIMS, '*');
 }
 /* ── topic isolation ─────────────────────────────────────────────
    MIRRORED from netlify/functions/lib/topic-isolation.mjs; the test
@@ -1769,6 +1752,8 @@ $('shuffleBtn').addEventListener('click', () => {
     let next = sanitizeTopic(randomClaim());
     while (next === claimInput.value) next = sanitizeTopic(randomClaim());
     claimInput.value = next;
+    claimAuto = true;
+    if (claimList) Array.from(claimList.querySelectorAll('.claim-opt')).forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
     claimInput.classList.remove('swap');
   }, 160);
 });
@@ -1867,17 +1852,104 @@ function markGuide(group, btn){
     b.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 }
-const topicGuide = $('topicGuide');
-if (topicGuide) topicGuide.addEventListener('click', (e) => {
-  const btn = e.target && e.target.closest && e.target.closest('.guide-chip');
-  if (!btn || !btn.dataset.claim) return;
-  markGuide(topicGuide, btn);
+/* ── subject filter ──────────────────────────────────────────
+   The picker asks WHICH subject first ("AI, money, politics...") and only
+   then shows five resolutions on it. Picking one fills the topic box; the
+   box stays the single source of truth for what gets argued, so the rest
+   of the flow (side echo, summary, the spoken opener) never learns a new
+   shape. "Show me five more" and the New topic shuffle both draw from the
+   chosen subject's deck. */
+const topicCats = $('topicCats');
+const claimList = $('claimList');
+const claimMore = $('claimMore');
+const claimCatTag = $('claimCatTag');
+const CLAIMS_PER_PAGE = 5;
+function paintClaimTag(){
+  if (!claimCatTag) return;
+  const g = claimGroup(topicCat);
+  claimCatTag.hidden = !g;
+  claimCatTag.textContent = g ? g.label : '';
+}
+function setClaim(text, opt){
+  Array.from(claimList.querySelectorAll('.claim-opt')).forEach((b) => {
+    const on = b === opt;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
   claimInput.classList.add('swap');
   setTimeout(() => {
-    claimInput.value = btn.dataset.claim;
+    claimInput.value = text;
     claimInput.classList.remove('swap');
-    claimInput.focus({ preventScroll: true });
   }, 120);
+}
+function renderClaimList(){
+  const g = claimGroup(topicCat);
+  if (!claimList) return;
+  claimList.innerHTML = '';
+  claimList.hidden = !g;
+  if (claimMore) claimMore.hidden = !g;
+  if (!g) return;
+  const seen = new Set();
+  for (let i = 0; i < Math.min(CLAIMS_PER_PAGE, g.claims.length); i++) {
+    let c = drawClaim(g.claims, g.key);
+    let guard = 0;
+    while (seen.has(c) && guard++ < g.claims.length) c = drawClaim(g.claims, g.key);
+    seen.add(c);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'claim-opt';
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = c;
+    b.addEventListener('click', () => {
+      setClaim(c, b);
+      talkItOut = false;
+      claimAuto = false;
+      try { window.track && window.track('newvoice_topic_pick', { cat: g.key }); } catch (e) {}
+    });
+    claimList.appendChild(b);
+  }
+}
+function paintTopicCats(){
+  if (!topicCats) return;
+  topicCats.innerHTML = '';
+  CLAIM_GROUPS.forEach((g) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'topic-cat' + (g.key === topicCat ? ' on' : '');
+    b.dataset.cat = g.key;
+    b.setAttribute('aria-pressed', g.key === topicCat ? 'true' : 'false');
+    b.title = g.sub;
+    b.textContent = g.label;
+    topicCats.appendChild(b);
+  });
+}
+if (topicCats) {
+  paintTopicCats();
+  topicCats.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest && e.target.closest('.topic-cat');
+    if (!b || !b.dataset.cat) return;
+    // Tapping the chosen subject again clears the filter.
+    topicCat = b.dataset.cat === topicCat ? '' : b.dataset.cat;
+    delete claimDecks[topicCat];
+    Array.from(topicCats.querySelectorAll('.topic-cat')).forEach((x) => {
+      const on = x.dataset.cat === topicCat;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    renderClaimList();
+    paintClaimTag();
+    // The box was showing a claim nobody chose, so it follows the subject:
+    // the first listed resolution lands in it, already marked.
+    if (claimAuto && topicCat) {
+      const first = claimList && claimList.querySelector('.claim-opt');
+      if (first) setClaim(first.textContent, first);
+    }
+    try { window.track && window.track('newvoice_topic_cat', { cat: topicCat || 'any' }); } catch (e) {}
+  });
+}
+if (claimMore) claimMore.addEventListener('click', () => {
+  renderClaimList();
+  try { window.track && window.track('newvoice_topic_more', { cat: topicCat || 'any' }); } catch (e) {}
 });
 function paintDebateStyle(){
   const pathGuide = $('pathGuide');
@@ -3815,11 +3887,7 @@ $('topicNextBtn').addEventListener('click', () => {
   if (!sanitizeTopic(claimInput.value)) claimInput.value = sanitizeTopic(randomClaim());
   goStep(3);
 });
-claimInput.addEventListener('input', () => { talkItOut = false; });
-if (topicGuide) topicGuide.addEventListener('click', (e) => {
-  const btn = e.target && e.target.closest && e.target.closest('.guide-chip');
-  if (btn && btn.dataset.claim) talkItOut = false;
-});
+claimInput.addEventListener('input', () => { talkItOut = false; claimAuto = false; });
 if (pathGuide) pathGuide.addEventListener('click', (e) => {
   const btn = e.target && e.target.closest && e.target.closest('button[data-path]');
   if (btn) setTimeout(() => goStep(2), 180);
