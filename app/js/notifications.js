@@ -2462,7 +2462,21 @@
         try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
         preparePublicAvatar(function (avatarIdentity) {
           if (!available || !myRef) return;
-          myRef.set({
+          // Read before write (see foreignLiveDoc): a /spar tab on any
+          // device may already be mid-handshake on this uid's doc. Booting
+          // a page with the pill armed must not reset that to 'waiting'.
+          myRef.get().then(function (snap) {
+            var cur = snap && snap.exists ? (snap.data() || {}) : null;
+            if (foreignLiveDoc(cur)) { watchOwnDoc(); return; }
+            return writeAvailableDoc(avatarIdentity);
+          }).catch(function (err) { console.warn('[spar-live] join read failed', err && err.message); });
+        });
+      });
+    }
+    function writeAvailableDoc(avatarIdentity) {
+      var blockedUids = [];
+      try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
+      return myRef.set({
             uid: myUid,
             authProvider: liveVideoProvider(myUser),
             displayName: shortNm(myUser),
@@ -2481,8 +2495,6 @@
             watchOwnDoc(); startTimers(); scan();
           })
             .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
-        });
-      });
     }
     // Zombie-screen guard (2026-08-18, mirrors spar.html): the heartbeat
     // below already stops for hidden tabs, but a VISIBLE unattended
@@ -2509,6 +2521,40 @@
     // Re-create the waiting doc after the server reaper cancelled it (or a
     // stale_peer_skip), so a green "Available" pill can never sit on a doc
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
+    // ── Doc ownership (2026-09-03) ──────────────────────────────────
+    // The queue doc is keyed by uid, and two surfaces write it: /spar's
+    // joinQueue and this pill. The presence marker above only reaches tabs
+    // that share localStorage, so a second device, a private window or the
+    // iOS shell could not see that /spar owned the doc and rewrote it here
+    // as a fresh 'waiting' record mid-handshake. Measured live 2026-09-03:
+    // a consent proposal got clobbered by a background set() about 30s in,
+    // both sides were re-proposed, and the pair chimed in a loop that never
+    // opened a room. Ownership is read off the DOC now: a doc without
+    // background:true belongs to /spar. While it is live (mid-handshake,
+    // matched, or waiting with a fresh heartbeat) this pill never writes it
+    // and never renders or answers its cards; /spar does. A stale one
+    // (heartbeat older than the matcher's own 3-minute cutoff) is dead and
+    // may be taken over.
+    var FOREIGN_FRESH_MS = 3 * 60 * 1000;
+    function stampMs(v) {
+      try {
+        if (!v) return 0;
+        if (typeof v.toMillis === 'function') return v.toMillis();
+        if (v.seconds != null) return v.seconds * 1000;
+      } catch (e) {}
+      return 0;
+    }
+    function foreignLiveDoc(d) {
+      if (!d || d.background === true) return false;
+      if (d.status === 'consent' || d.status === 'matched') return true;
+      if (d.status === 'waiting') {
+        var at = stampMs(d.joinedAt);
+        // An unresolved serverTimestamp reads as 0 on the writer's own
+        // latency-compensated snapshot; treat "just written" as live.
+        return !at || (Date.now() - at) < FOREIGN_FRESH_MS;
+      }
+      return false;
+    }
     function requeue() {
       if (!myUid || !myRef || !available || busyElsewhere() || MATCHING_PAUSED || overlay || navigating) return;
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
@@ -2516,12 +2562,19 @@
       docGone = false;
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
-      myRef.set({
-        uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '', avatarIdentity: publicAvatarIdentity(),
-        ageBand: agBand(),
-        format: fmt(), status: 'waiting', broaden: true, background: true,
-        blockedUids: blockedUids.slice(-100), joinedAt: ts()
-      }).then(function () { startTimers(); scan(); }).catch(function () {});
+      // Read before write: never bulldoze a doc /spar is running a
+      // handshake on (see foreignLiveDoc). Watching it is enough; the
+      // snapshot handler requeues when it dies.
+      myRef.get().then(function (snap) {
+        var cur = snap && snap.exists ? (snap.data() || {}) : null;
+        if (foreignLiveDoc(cur)) { stopTimers(); watchOwnDoc(); return; }
+        return myRef.set({
+          uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '', avatarIdentity: publicAvatarIdentity(),
+          ageBand: agBand(),
+          format: fmt(), status: 'waiting', broaden: true, background: true,
+          blockedUids: blockedUids.slice(-100), joinedAt: ts()
+        }).then(function () { startTimers(); scan(); });
+      }).catch(function () {});
     }
     function goOffline() {
       stopTimers();
@@ -2590,6 +2643,19 @@
         }
         docGone = false;
         var d = doc.data() || {};
+        // /spar owns this doc (no background marker). Its own tab renders
+        // the card and answers it; this pill must neither show a duplicate
+        // nor auto-pass it from a post-decline cooldown, which is what
+        // turned one clobbered proposal into a chime loop. A stale foreign
+        // 'waiting' doc means that tab is gone: take the seat back.
+        if (d.background !== true) {
+          if (foreignLiveDoc(d)) { stopTimers(); return; }
+          // Stale waiting, matched_ai, an old matched: that surface is done
+          // with the doc. requeue() re-reads before it writes.
+          docGone = true;
+          if (!document.hidden) requeue();
+          return;
+        }
         // READY-CHECK (2026-08-12). spar-pair now lands EVERY pair in
         // 'consent' first, background sessions included, so this is the
         // state an invite arrives in. 'matched' only appears once both

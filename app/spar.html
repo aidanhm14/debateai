@@ -6288,6 +6288,34 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]');
       if (!Array.isArray(blockedUids)) blockedUids = [];
     } catch(e){ blockedUids = []; }
+    // ── Adopt, do not overwrite (2026-09-03) ──────────────────────────
+    // This is a full set(). Called while a consent proposal or a match is
+    // already on my doc (a second /spar tab, a device switch, an auth
+    // re-fire, the attention rejoin) it rewrote the handshake as a fresh
+    // 'waiting' doc and both sides got re-proposed in a loop. If the doc
+    // is mid-handshake or matched and the stamp is fresh, attach to it and
+    // let subscribeMyDoc render the card or navigate; the ordinary write
+    // runs only when nothing live is there. Freshness bound keeps an
+    // abandoned old 'matched' doc from trapping every visit in a dead room.
+    var ADOPT_FRESH_MS = 3 * 60 * 1000;
+    function liveHandshake(d){
+      if (!d || !d.room || !d.matchedWith) return false;
+      if (d.status !== 'consent' && d.status !== 'matched') return false;
+      var at = stampMs(d.status === 'matched' ? (d.matchedAt || d.proposedAt) : (d.proposedAt || d.joinedAt));
+      return !!at && (Date.now() - at) < ADOPT_FRESH_MS;
+    }
+    ref.get().then(function(snap){
+      var cur = snap && snap.exists ? snap.data() : null;
+      if (liveHandshake(cur)){
+        console.info('[spar] adopting live ' + cur.status + ' doc instead of rewriting it');
+        updateDiag({ last: 'adopted ' + cur.status });
+        subscribeMyDoc();
+        startQueueHeartbeat();
+        return;
+      }
+      writeQueueDoc();
+    }).catch(function(){ writeQueueDoc(); });
+    function writeQueueDoc(){
     ref.set({
       uid: state.user.uid,
       // Server matcher requires this marker on BOTH queue seats. Firestore
@@ -6378,6 +6406,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }
       shell.innerHTML += '<div class="error">' + escHtml(msg) + ' <a href="/practice" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
     });
+    }
     renderSearching();
   }
 
