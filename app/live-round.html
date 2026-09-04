@@ -2103,6 +2103,52 @@ body.round-running .speech-clock-label.is-speaking{display:none}
   margin-top:2px;font-size:.8rem;color:var(--text-dim);
   letter-spacing:.01em;line-height:1.5;
 }
+/* 2026-09-04, the founder: "get rid of these". The line under the start
+   button ("Starts the clock and both mics...") and the helper row in the
+   motion bar (duplicate small clock, "Neutral context ->", Generate
+   context) are off. The doors carry their own sub-lines and the context
+   brief is still one click away in Round details > Options. */
+#readyHint{display:none!important}
+.rmb-motion-row{display:none!important}
+/* The sides line is one sentence now, so the side word reads in the
+   sentence's own case rather than as a legend chip. */
+#sidesGuide .sg-item{font-size:.86rem;color:var(--text-dim)}
+#sidesGuide .sg-side{font-size:inherit;letter-spacing:0;text-transform:none;font-weight:800}
+#sidesGuide .sg-what{color:var(--text-dim)}
+/* The points bet panel is a spectator surface. A debater sees the room,
+   the resolution and the start; nothing to wager on before speaking. */
+body:not(.spectator-mode) #audienceTools{display:none!important}
+/* The recording request, as the first thing in the panel. */
+.rec-topbar{flex:none;padding:12px 22px 0}
+.rec-topbar .rmb-rec{width:100%;display:flex;align-items:center;gap:10px}
+.rec-topbar .rmb-rec-btn{
+  flex:1;justify-content:center;min-height:50px;padding:10px 16px;border-radius:12px;
+  background:#b91c1c;border-color:#b91c1c;color:#fff;
+  font-size:.86rem;font-weight:800;letter-spacing:.06em;
+}
+.rec-topbar .rmb-rec-btn:hover{background:#991b1b;border-color:#991b1b;color:#fff}
+.rec-topbar .rmb-rec-btn .rmb-rec-dot{background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
+.rec-topbar .rmb-rec.pending .rmb-rec-btn{background:rgba(245,158,11,.14);border-color:#f59e0b;color:#fbbf24}
+.rec-topbar .rmb-rec.pending .rmb-rec-dot{background:#f59e0b;box-shadow:none}
+.rec-topbar .rmb-rec.recording .rmb-rec-btn{background:rgba(239,68,68,.16);border-color:#ef4444;color:#fecaca}
+.rec-topbar .rmb-rec.recording .rmb-rec-dot{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,.6)}
+.rec-topbar .rmb-rec-elapsed{font-size:.78rem;font-weight:800;color:#fecaca}
+body.spectator-mode .rec-topbar{display:none}
+/* The aides block is a plain div now (no summary). It carries no chrome
+   of its own until notes or a fact check paint into it. */
+.lr-aides{border:0;background:transparent;margin-top:0}
+.lr-aides .rd-body{padding:0}
+.lr-aides:not(:has(.round-notes:not([hidden]),.fact-checks:not([hidden]))){display:none}
+@media(max-width:760px){
+  .rec-topbar{padding:10px 16px 0}
+  .rec-topbar .rmb-rec-btn{min-height:48px}
+  /* Two roster cards side by side on a phone truncated both names
+     ("Jo...", "OPP...") and pushed Message / Report / AI? off the card.
+     One under the other, buttons on their own row. */
+  .round-roster{flex-direction:column}
+  .roster-card .rc-dm{margin-left:0}
+  .roster-card .rc-dm,.roster-card .rc-safety{flex:0 0 auto}
+}
 /* Overtime warning under the clock. No `display` on purpose: the
    [hidden] attribute is what shows/hides it, and an author display
    would beat the UA sheet (the /predict + /spar trap). --accent is one
@@ -3687,13 +3733,28 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         <div class="setup-start-inner">
           <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
           <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Start opens the video room and begins Speech 1. Send this page to the other speaker so you both enter the same room.</p>
-          <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+          <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press the red Record this round bar at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
         </div>
       </div>
     </div>
 
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+      <!-- 2026-09-04, the founder: "put record button at the top actually".
+           One full-width red bar, first thing in the panel on every width.
+           Same #rmbRec ids and states (pending / recording / required), so
+           the consent dialog, the elapsed clock and the tournament
+           requirement all paint into it unchanged. Spectators never see it
+           (body.spectator-mode .rmb-rec). -->
+      <div class="rec-topbar" id="recTopBar">
+        <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
+          <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
+            <span class="rmb-rec-dot" aria-hidden="true"></span>
+            <span id="rmbRecLabel">Record this round</span>
+          </button>
+          <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden></span>
+        </div>
+      </div>
       <!-- One panel answers who is speaking, how long is left, and what
            to do next. 2026-08-31, the founder: "put that button higher
            up" — this block moved ABOVE the resolution bar so the clock
@@ -3840,8 +3901,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           <div class="rmb-context-chip" id="rmbContextChip" hidden></div>
         </div>
         <div class="rmb-tools">
-          <!-- The recording request moved under the transcript (2026-09-03,
-               #moreOptions). -->
+          <!-- The recording request is the red bar at the top of the panel
+               (#recTopBar, 2026-09-04). -->
           <!-- Its own control, NOT inside .lr-pip-controls: that whole
                container is hidden by the 2026-08-22 call that Minimize /
                Pop out read as clutter, and this is a different control
@@ -3977,7 +4038,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             </div>
             <span id="capNote" class="cap-note" hidden></span>
           </div>
-          <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Press Request recording under the transcript if you want a replay; it starts only if every seated person agrees.</p>
+          <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Press the red Record this round bar at the top if you want a replay; it starts only if every seated person agrees.</p>
         </div>
       </details>
 
@@ -4031,8 +4092,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
            transcript, holding round notes, the fact check and the
            recording request. The floor judge switch moved into "How the
            judge adjudicates" below. -->
-      <details class="round-details" id="moreOptions">
-        <summary>Round notes and fact checks<span class="rd-status" id="moreOptionsStatus"></span></summary>
+      <!-- 2026-09-04, the founder: the switches are gone. Notes and fact
+           checks run by default (the localStorage keys and the inline
+           Hide / Turn off buttons still work) and this is a plain block
+           that is empty until one of them has something to show. -->
+      <div class="round-details lr-aides" id="moreOptions">
         <div class="rd-body">
           <!-- Round notes. After every speech the AI writes shared notes
                onto the round doc: what was argued, and what a reply has to
@@ -4061,20 +4125,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             <div id="fcList"></div>
           </div>
 
-          <!-- The three aides as per-viewer switches. All localStorage
-               display preferences, so spectators get them too, unlike the
-               participant-only privacy menu. -->
-          <label class="mo-row"><input type="checkbox" id="moNotes"> Round notes · an index of the arguments after each speech</label>
-          <label class="mo-row"><input type="checkbox" id="moFact"> Live fact check · flags checkably false claims to the audience</label>
-          <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
-            <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
-              <span class="rmb-rec-dot" aria-hidden="true"></span>
-              <span id="rmbRecLabel">Request recording</span>
-            </button>
-            <span class="rmb-rec-elapsed" id="rmbRecElapsed" hidden></span>
-          </div>
         </div>
-      </details>
+      </div>
       <!-- 2026-09-03, per the founder: the judge explains itself in one
            line that opens to the method. Plain words, same rules the
            charter publishes at /judge-integrity; nothing here changes how
@@ -6278,28 +6330,26 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // where the motion editor used to be.
     var canSwap = false;
     try { canSwap = !!(window.__lrSwapOffered && window.__lrSwapOffered()); } catch(e){}
-    function chip(sideKey, label, what){
-      var you = side === sideKey;
-      return '<span class="sg-item' + (you ? ' is-you' : '') + '">' +
-        '<b class="sg-side ' + (sideKey === 'pro' ? 'for' : 'against') + '">' + escHtml(label) + '</b>' +
-        '<span class="sg-what">' + what + '</span>' +
-        (you ? '<em class="sg-you-chip">You</em>' : '') +
-        (you && canSwap ? '<button type="button" class="sg-swap" title="Ask your opponent to trade sides. It only happens if they agree, and only before the first speech.">\u21c4 Switch sides</button>' : '') +
-      '</span>';
-    }
-    // A motion phrased as a question makes "for the resolution" circular:
-    // there is no claim to be for. The banks are all declarative now, but
-    // either side can type a motion by hand, so the question case gets
-    // wording that still points somewhere. Answering yes is the Pro side.
+    // 2026-09-04, the founder: the two-chip legend ("PRO argues for the
+    // resolution / CON argues against the resolution / YOU") is gone, and
+    // so is the Switch sides control that rode it. What is left is the one
+    // fact a newcomer cannot work out alone: which way THEY argue. A
+    // spectator gets both names in one sentence.
     var isQuestion = /\?\s*$/.test(String(state.motion || ''));
-    el.innerHTML =
-      chip('pro', forLabel, isQuestion ? 'argues yes' : 'argues for the resolution') +
-      chip('con', againstLabel, isQuestion ? 'argues no' : 'argues against the resolution');
+    var yesWord = isQuestion ? 'yes' : 'for it';
+    var noWord = isQuestion ? 'no' : 'against it';
+    if (side === 'pro' || side === 'con'){
+      var mineFor = side === 'pro';
+      el.innerHTML = '<span class="sg-item is-you">You argue ' +
+        '<b class="sg-side ' + (mineFor ? 'for' : 'against') + '">' + (mineFor ? yesWord : noWord) + '</b>' +
+        ' <span class="sg-what">(' + escHtml(mineFor ? forLabel : againstLabel) + ').</span></span>';
+    } else {
+      var proWhoLine = fourTeam ? forLabel : (state.proName || forLabel);
+      var conWhoLine = fourTeam ? againstLabel : (state.conName || againstLabel);
+      el.innerHTML = '<span class="sg-item">' + escHtml(proWhoLine) + ' argues <b class="sg-side for">' + yesWord + '</b>. ' +
+        escHtml(conWhoLine) + ' argues <b class="sg-side against">' + noWord + '</b>.</span>';
+    }
     el.hidden = false;
-    var swapBtn = el.querySelector('.sg-swap');
-    if (swapBtn) swapBtn.addEventListener('click', function(){
-      try { if (window.__lrProposeSideSwap) window.__lrProposeSideSwap(); } catch(e){}
-    });
 
     // The long-form cells were retired 2026-09-03; #sidesDetail is no
     // longer in the document. Kept behind the existence check so a
@@ -6962,7 +7012,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // speeches - then encourage prep time at that point". Prep is offered
       // the moment it matters, after the formal door, instead of standing
       // above everything as a green block. Conversation mode has no prep.
-      if (key !== 'open' && state.prepMin > 0 && !state.prepStartedAtMs && !state.prepSkipped){
+      // 2026-09-04, the founder: the prep card is gone ("Kill both"). The
+      // formal door starts the first speech. showPrepNudge stays callable
+      // for a restore; nothing reaches it.
+      if (PREP_OFFER_ON && key !== 'open' && state.prepMin > 0 && !state.prepStartedAtMs && !state.prepSkipped){
         showPrepNudge();
         return;
       }
@@ -6981,6 +7034,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // clock itself still publishes through beginPrepClock, so the peer's
   // banner ticks exactly as before. Replaces the doors while it is up
   // (body.prep-nudge-open) and stands down the moment the speech starts.
+  var PREP_OFFER_ON = false;
   function showPrepNudge(){
     var doors = $('modeDoors'); if (!doors) return;
     var n = $('prepNudge');
@@ -8813,8 +8867,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     if (state.recordingRequired === false){
-      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Press Request recording beside the resolution. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
-      if (roundNote) roundNote.textContent = 'Nobody is asked to record by default. Press Request recording beside the resolution if you want a replay; it starts only if every seated person agrees.';
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Press the red Record this round bar at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
+      if (roundNote) roundNote.textContent = 'Nobody is asked to record by default. Press the red Record this round bar at the top if you want a replay; it starts only if every seated person agrees.';
     }
   }
 
@@ -9017,7 +9071,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           detail.textContent = required ? 'Required before Speech 1' : (requester ? cloudRecordingName(d, requester) + ' asked' : 'Your consent is needed');
         }
       } else {
-        label.textContent = required ? 'Review recording requirement' : 'Request recording';
+        label.textContent = required ? 'Review recording requirement' : 'Record this round';
         detail.textContent = participants.length >= 2 ? (required ? 'Required before Speech 1' : 'Opens consent review') : 'Needs identified seats';
       }
     }
@@ -16775,10 +16829,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       ref.update(upd).catch(function(){});
       try { gtag('event', 'live_ready_mark', { format: state.formatKey }); } catch(e){}
     }
+    // 2026-09-04, the founder: "Kill both" (the I-am-ready strip and the
+    // prep card). Presence is already proven by the seat heartbeat that
+    // every listing and /api/watch-live read; the strip was a second
+    // button before the only button that matters. markReady and the
+    // readyChecks field stay so an older client's marks still land.
+    var READY_BEAT_ON = false;
     function renderReady(d){
       var el = document.getElementById('readyBeat');
       if (!el) return;
       function off(){ el.hidden = true; el.innerHTML = ''; }
+      if (!READY_BEAT_ON) return off();
       // Only before the first speech of a live round, and only for the
       // two people who can actually speak in it.
       if (state.phase !== 'round' || state.speechIdx > 0) return off();
@@ -16812,6 +16873,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     function paintReadyBeat(kind, them, opensIsMe){
       var el = document.getElementById('readyBeat');
       if (!el) return;
+      if (!READY_BEAT_ON){ el.hidden = true; el.innerHTML = ''; return; }
       var name = escHtml(them || 'your opponent');
       el.hidden = false;
       if (kind === 'set'){
@@ -19840,6 +19902,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           judgeHowHtml('Round') +
           (judgeDraftIsLive() ? '' : ballotLengthHtml()) +
         '</div>';
+      // 2026-09-04, the founder: "get rid of these". With one judge and
+      // no choice to make, the card is a fact taking a whole block. The
+      // picks above are still set, so the speech-1 judge lock passes;
+      // only the paint is withheld. /judge-integrity carries the method.
+      el.style.display = 'none';
       return;
     }
 
@@ -19973,6 +20040,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     ];
   }
   function startPrepBanner(){
+    // 2026-09-04: the green "Prep time · both sides prepare" block is
+    // retired with the ready strip. A prep clock a peer publishes still
+    // needs somewhere to show, so the banner paints only once prep is
+    // actually running (beginPrepClock), never as an idle offer.
+    if (!PREP_OFFER_ON && !state.prepStartedAtMs) return;
     if (!state.prepMin || state.prepMin <= 0) return;
     if (state.speechIdx > 0 || state.phase !== 'round') return;  // only before Speech 1
     if (state.prepBannerShown) return;
@@ -21026,9 +21098,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // Daily room, a second person, or a signed-in seat. Same precedent as
   // ?openbeatdemo above and /spar's ?draftdemo. Scenes:
   //   setup      the pre-round form, filled in
-  //   ready      in the room, Speech 1 not started, the opponent has
-  //              said they are here and you have not
-  //   readyset   the same screen once both have said it
+  //   ready      in the room, Speech 1 not started (the I-am-ready strip
+  //              this scene used to paint was retired 2026-09-04)
+  //   readyset   same screen; kept as an alias so /god links still work
   //   speaking   my speech running: clock live, notes + fact check up
   //   waiting    the opponent's speech running, my controls locked
   //   spectator  the watcher's view of that same speech
