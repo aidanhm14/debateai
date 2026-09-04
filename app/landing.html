@@ -10913,7 +10913,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 <div class="hiw-panel-body">
                   <p class="hiw-motion">Should dating apps reveal how they rank people?</p>
                   <div class="hiw-vs">
-                    <div class="hiw-vs-seat"><img src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async"><span><span class="hiw-vs-nm">You</span><span class="hiw-vs-side">Pro</span></span></div>
+                    <div class="hiw-vs-seat"><img src="/img/round/faces/face25.jpg" alt="" loading="lazy" decoding="async"><span><span class="hiw-vs-nm">You</span><span class="hiw-vs-side">Pro</span></span></div>
                     <span class="hiw-vs-mid">VS</span>
                     <div class="hiw-vs-seat hiw-vs-seat--r"><img src="/img/round/faces/face11.jpg" alt="" loading="lazy" decoding="async"><span><span class="hiw-vs-nm">A stranger</span><span class="hiw-vs-side">Con</span></span></div>
                   </div>
@@ -11004,7 +11004,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 <div class="hiw-stage-body">
                   <div class="hiw-show-entry"><b><i>#1</i>Leaderboard finish</b><span>Enters the challenger pool</span></div>
                   <div class="hiw-stage-seats">
-                    <div class="hiw-seat"><img class="hiw-seat-photo" src="/img/round/faces/face04.jpg" alt="" loading="lazy" decoding="async"><b>Creator</b><span>Hosts the live audience</span></div>
+                    <div class="hiw-seat"><img class="hiw-seat-photo" src="/img/round/faces/face37.jpg" alt="" loading="lazy" decoding="async"><b>Creator</b><span>Hosts the live audience</span></div>
                     <span class="hiw-vs-mid">VS</span>
                     <div class="hiw-seat hiw-seat--challenger"><img class="hiw-seat-photo" src="/img/round/faces/face15.jpg" alt="" loading="lazy" decoding="async"><b>Ranked challenger</b><span>Selected from the board</span></div>
                   </div>
@@ -11730,7 +11730,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the board shows two portraits side by side, so an unguarded deal
      eventually prints one room twice and the board reads staged. Same reason
      the rotator's SKIP list drops duplicates; this is the two-up version. */
-  var FACE_W = [1,4,7,11,13,15,18,20,23,25,27,30,32,35,37,38,41,43,45,56,57,58,59,60,61,62];
+  /* 2026-09-03, per the founder ("get rid of the school images"): every
+     still shot in a library, classroom or cafeteria is OUT of circulation:
+     face01, face04, face06, face30, face43, face45 (and fictional-chloe on
+     the /spar gate). The board's hover clips animate the speaker over a
+     frozen still, so a room full of other people behind them reads as a
+     paused video rather than a live call. The files stay on disk for the
+     static uses elsewhere; SCHOOL_FACES below keeps them out of every pool
+     here. Do not re-add a number to FACE_W or FACE_M_GEN without checking
+     the background first. */
+  var SCHOOL_FACES = {1:1, 4:1, 6:1, 30:1, 43:1, 45:1};
+  var FACE_W = [7,11,13,15,18,20,23,25,27,32,35,37,38,41,56,57,58,59,60,61,62];
   /* face63 and face65 are real webcam stills cropped from live rounds,
      supplied by the founder 2026-08-31 with consent + 18+ confirmed on
      record (Ray, Yael). Same standing as the face46-54 batch.
@@ -11745,8 +11755,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      it. The women's bank has no real still today; a replacement needs a
      fresh consented crop. */
   var FACE_W_REAL = [];
-  var FACE_M_GEN = [2,3,6,8,10,12,16,17,19,21,22,24,26,28,29,31,33,34,36,40,42,44];
-  var FACE_ROOM = {1:'stacks',45:'stacks',20:'tile',32:'tile',4:'campus',6:'campus',30:'campus'};
+  var FACE_M_GEN = [2,3,8,10,12,16,17,19,21,22,24,26,28,29,31,33,34,36,40,42,44];
+  /* The 'stacks' and 'campus' rooms were the school stills; they left the
+     bank on 2026-09-03, so only the tile wall remains as a shared room. */
+  var FACE_ROOM = {20:'tile',32:'tile'};
   (function castFaces(){
     function shuffle(a){
       for (var i = a.length - 1; i > 0; i--) {
@@ -11771,8 +11783,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var cast = {};
     var mPool = shuffle(FACE_M_REAL.slice()).concat(shuffle(FACE_M_GEN.slice()));
     var wPool = shuffle(FACE_W_REAL.slice()).concat(shuffle(FACE_W.slice()));
-    for (i = 0; i < men.length; i++) cast[men[i]] = mPool[i];
-    for (i = 0; i < women.length; i++) cast[women[i]] = wPool[i];
+    /* 2026-09-03: the women's bank (21) is now shorter than the female
+       roster (26), so the deal wraps around the pool. Without the wrap the
+       overflow characters kept the literal `face:` on their ROUNDS entry,
+       which is a stale value that could be a retired or wrong-gender file.
+       A wrapped deal can put one face on both seats of a card; the repair
+       sweep below treats that as a clash and trades it away. */
+    for (i = 0; i < men.length; i++) cast[men[i]] = mPool[i % mPool.length];
+    for (i = 0; i < women.length; i++) cast[women[i]] = wPool[i % wPool.length];
 
     /* Repair same-room pairings by trading two characters' faces rather than
        redealing, so the deal stays a permutation and no face appears twice.
@@ -11788,7 +11806,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       for (i = 0; i < ROUNDS.length; i++) {
         r = ROUNDS[i];
         var ra = FACE_ROOM[cast[r.a.nm]], rb = FACE_ROOM[cast[r.b.nm]];
-        if (!ra || !rb || ra !== rb) continue;
+        var sameFace = cast[r.a.nm] === cast[r.b.nm];
+        if (!sameFace && (!ra || !rb || ra !== rb)) continue;
         clashed = true;
         /* Trade with a peer holding a ROOMLESS face by preference. Trading
            into another family member is what left a collision standing once
@@ -11800,6 +11819,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         for (p = 0; p < peers.length; p++) {
           other = peers[p];
           if (other === r.b.nm || other === r.a.nm) continue;
+          if (cast[other] === cast[r.a.nm]) continue;
           if (!FACE_ROOM[cast[other]]) { pick = p; break; }
           if (pick < 0 && FACE_ROOM[cast[other]] !== ra) pick = p;
         }
@@ -14653,7 +14673,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   //     remain as named assets for other surfaces that explicitly want
   //     a paired "you vs opponent" shot, but they should be retaken
   //     before they're re-introduced into the pool.
-  var SKIP = { 5:1, 9:1, 14:1, 24:1, 32:1, 35:1, 39:1, 40:1 }; // face09.jpg DELETED 2026-07-22 per the founder (read as AI-generated); 9 stays here so nothing re-adds it
+  var SKIP = { 5:1, 9:1, 14:1, 24:1, 32:1, 35:1, 39:1, 40:1, 1:1, 4:1, 6:1, 30:1, 43:1, 45:1 }; // 1/4/6/30/43/45 are the library and classroom stills, out since 2026-09-03 (see SCHOOL_FACES above): a frozen room of other people behind a moving speaker reads as a paused video // face09.jpg DELETED 2026-07-22 per the founder (read as AI-generated); 9 stays here so nothing re-adds it
   for (var i=1;i<=45;i++){ if (SKIP[i]) continue; POOL.push('/img/round/faces/face'+(i<10?'0':'')+i+'.jpg'); }
   // 2026-08-22: face56-62 are a second GENERATED batch, supplied by the
   // founder from their own image generator, and they ride at weight 1 with the

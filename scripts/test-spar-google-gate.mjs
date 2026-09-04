@@ -206,13 +206,32 @@ const expectedFaces = ['46', '47', '48', '49', '51', '52', '53', '54', '63', '65
 for (const face of expectedFaces) {
   check(spar.includes(`/img/round/faces/face${face}.jpg`), `gate must include consented face${face}`);
 }
-for (const face of ['fictional-sydney', 'fictional-sofia', 'fictional-kevin', 'fictional-anna', 'fictional-malik', 'fictional-chloe', 'fictional-mike']) {
+// fictional-chloe was pulled 2026-09-03 with the other library and
+// classroom stills (the founder: "get rid of the school images"); the
+// landing board's hover clips freeze the room behind a moving speaker,
+// and the gate follows the same bar so one cast rule covers both surfaces.
+for (const face of ['fictional-sydney', 'fictional-sofia', 'fictional-kevin', 'fictional-anna', 'fictional-malik', 'fictional-mike']) {
   check(spar.includes(`/img/round/faces/${face}.jpg`), `gate must include founder-supplied ${face}`);
 }
+check(!spar.includes('/img/round/faces/fictional-chloe.jpg'), 'pulled fictional-chloe must stay off the gate');
 // The Avatar-mode mask tile is gate atmosphere only; the mask must never
 // enter the landing face pools where the deal would name-caption it.
 check(spar.includes('/img/round/faces/mask-ano.jpg'), 'gate must include the Avatar-mode mask tile');
-check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 18, 'wide signed-out gate must carry eighteen surrounding tiles (15 + the 2026-08-31 batch, less the pulled face64)');
+check((spar.match(/<span class="gate-cam(?: |")/g) || []).length === 17, 'wide signed-out gate must carry seventeen surrounding tiles (15 + the 2026-08-31 batch, less the pulled face64 and fictional-chloe)');
+// The school stills (library, classroom, cafeteria backgrounds) are out of
+// every landing pool since 2026-09-03. A number here is a bare integer in
+// FACE_W / FACE_M_GEN, so the guard reads the arrays rather than filenames.
+{
+  const pool = (name) => {
+    const m = read('app/landing.html').match(new RegExp(`var ${name} = \\[([^\\]]*)\\]`));
+    return m ? m[1].split(',').map((n) => n.trim()).filter(Boolean) : null;
+  };
+  const w = pool('FACE_W'), m = pool('FACE_M_GEN');
+  check(Array.isArray(w) && Array.isArray(m), 'landing must still define FACE_W and FACE_M_GEN');
+  for (const n of ['1', '4', '6', '30', '43', '45']) {
+    check(!(w || []).includes(n) && !(m || []).includes(n), `school still face${n.padStart(2, '0')} must stay out of the landing pools`);
+  }
+}
 check(!spar.includes('/img/round/faces/face55.jpg'), 'deleted face55 must never return');
 // Pulled 2026-09-01 on the founder's call. Guarded on BOTH surfaces it rode,
 // because the landing pool holds it as a bare number rather than a filename.
