@@ -7369,7 +7369,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* 2026-08-22 per the founder: the board (the two real webcam tiles) and
      the CTAs are what should pull the eye toward the stranger match, so
      the right column takes a larger share and the wrap grows 80px. */
-  .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(32px,4.2vw,64px);align-items:center}
+  /* 2026-09-03, the founder's desktop sketch: one centred column (the
+     board with its doors under it) with the chats panel beside it from
+     1360px and the leaderboard rail docked on the left edge. The headline
+     column is gone from this screen, so the grid no longer splits the
+     width with it. */
+  .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:minmax(0,780px);justify-content:center;gap:clamp(32px,4.2vw,64px);align-items:center}
   /* 2026-08-24, per the founder: the composition moves "a tad left" so the
      leaderboard rail (#lbRail, the dock of faces docked on the left
      edge since 2026-09-01) has room to sit beside the example board instead of on top of
@@ -7423,7 +7428,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      contribute no gap. Was a -2vh optical lift correcting a dead-centred
      column against a taller board; the two columns now start on the same
      line, so there is nothing left to correct. */
-  .fscreen-copy{display:flex;flex-direction:column;align-items:stretch;gap:var(--fs-rhythm)}
+  /* 2026-09-03: the headline column is off the desktop first screen (the
+     founder's sketch has the board, its doors, the chats panel and the
+     rail, and nothing else). Its markup stays as dormant copy. */
+  .fscreen-copy{display:none}
   @media(min-width:941px){.fscreen-copy{margin-top:0}}
   @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}.fscreen{min-height:0}}
 
@@ -7594,6 +7602,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     color:rgba(26,26,31,.72);border:1px solid rgba(26,26,31,.22)}
   .fs-cta--ghost:hover{border-color:rgba(26,26,31,.5);color:#1a1a1f}
   @media(max-width:640px){.fs-cta--primary,.fs-cta--ghost{width:100%;max-width:none;padding-left:24px;padding-right:24px}}
+  /* 2026-09-03, the founder's sketch: doors under the board. One full-width
+     red Join a debate, then Watch and Debate the AI as an equal pair. */
+  .fs-actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+  .fs-actions .fs-cta--primary{width:100%;padding:19px 24px;font-size:clamp(1.14rem,1.05vw,1.32rem)}
+  .fs-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fs-actions-row .fs-cta{width:100%;padding:13px 16px}
+  @media(max-width:520px){.fs-actions-row{grid-template-columns:1fr}}
   /* Sign-in row (2026-08-11, per the founder: "advertise google sign in much
      earlier and quicker to a new visitor"). Sits directly under the two
      hero CTAs, on the first screen, so the account ask arrives with the
@@ -7652,15 +7667,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        gap is now the real distance between the board and the sign-in row
        under it, rather than 0 plus a margin on the row itself. */
     .fscreen-wrap{row-gap:14px;align-items:center}
-    .fscreen-copy{grid-column:1;grid-row:1 / span 2}
-    .fscreen-wrap > .fs-signin--side{grid-column:2;grid-row:2;align-self:start}
+    .fscreen-wrap > .fs-signin--side{grid-column:1;grid-row:2;align-self:start}
     /* centre, not start or end. Top-aligning was right while the two
        columns were within 8px of each other, but the globe is now the
        tallest thing on the screen and the copy column outruns the board
        by ~70px signed in. Centring splits that difference evenly top and
        bottom, so the mismatch reads as a composition rather than as a
        ragged edge, and it self-corrects if either column changes height. */
-    .fscreen-wrap > .fs-board-wrap{grid-column:2;grid-row:1;align-self:center}
+    .fscreen-wrap > .fs-board-wrap{grid-column:1;grid-row:1;align-self:center}
     /* SIGNED IN: the sign-in row under the board is display:none, so row
        2 of column 2 holds nothing and the board takes both rows, centred
        against the copy the same way. This is the state most returning
@@ -8384,8 +8398,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      liveness signalling and appears ONLY once real messages land. */
   .fs-chats{display:none}
   @media(min-width:1360px){
-    .fscreen-wrap{max-width:1600px;grid-template-columns:.78fr 1.2fr minmax(224px,.58fr)}
-    .fs-chats{display:flex;flex-direction:column;grid-column:3;grid-row:1 / span 2;
+    .fscreen-wrap{max-width:1360px;grid-template-columns:minmax(0,780px) minmax(240px,.5fr)}
+    .fs-chats{display:flex;flex-direction:column;grid-column:2;grid-row:1 / span 2;
       align-self:center;min-width:0;min-height:0;overflow:hidden;
       height:min(720px,calc(100svh - 150px));
       background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
@@ -8802,6 +8816,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 })();
 </script>
 <section id="first-screen" class="fscreen" aria-label="Start a live debate">
+  <!-- 2026-09-03: the headline column is off the desktop first screen (the
+       founder's sketch: board, doors, chats, rail). The screen-reader
+       headline and description move out here so they stay in the
+       accessibility tree and the indexed text; the hidden column keeps
+       the rest of its copy as dormant markup. -->
+  <h1 class="fs-h1--sr">The chess.com of debating.</h1>
+  <p class="fs-h1--sr">The live online debate platform for real people. An Omegle-style debate site: you get matched with a stranger and argue it out live on camera, and an AI judge decides who won.</p>
   <div class="fscreen-wrap">
     <!-- Search snippets use the stable meta description while this copy
          experiment runs, instead of changing with whichever arm rendered. -->
@@ -8855,7 +8876,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              only, same treatment as the category sentence below, so the
              page keeps one h1 for search and assistive tech. Restoring the
              visible line is swapping the class back to fs-sub fs-sub--lead. -->
-        <h1 class="fs-h1--sr">The chess.com of debating.</h1>
         <!-- The category sentence still has to be ON the page: "online
              debate platform" is the phrase this page ranks on, and the
              visible line above never says it. It is screen-reader-only,
@@ -8870,7 +8890,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              the omegle head terms already rank 1-5 (55-72% CTR, Search
              Console) and land on /debate-online, so treat this as a hedge,
              not a lever, and do not stack more copy here chasing it. -->
-        <p class="fs-h1--sr">The live online debate platform for real people. An Omegle-style debate site: you get matched with a stranger and argue it out live on camera, and an AI judge decides who won.</p>
         <!-- The AI judge link was cut from the first screen per the founder
              (2026-08-12). Real people arguing is the product; the judge
              is the tool underneath it and does not belong in the first
@@ -8884,44 +8903,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              The signed-in half; the guest pill lives above the sign-in button
              inside .fs-signin--side, which body.signed-in hides. CSS shows
              exactly one of the two, never both. -->
-        <div class="fs-ctas">
-          <!-- 2026-09-03, the founder, off a screenshot of this button:
-               "change this to match now". The phone home already opens on
-               "Join a debate" (the 09-02 mobile cut); the desktop door
-               said "Jump in", so the same action had two names depending
-               on screen width. One name now. Same href, same data-cta and
-               A/B tags, same box; only the words changed. -->
-          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Join a debate <span aria-hidden="true">&rarr;</span></a>
-          <!-- 2026-09-03, the founder, off a screenshot of the red door:
-               "now add the 'watch' button". The Watch door is always here.
-               Idle it is a plain ghost pill to /watch (live rounds and
-               replays) with no red ink and no dot, so it never claims a
-               round that is not happening. The /api/watch-live poll near
-               the end of the document (real liveness: both seats present,
-               draft settled, public, no floor, no padding) upgrades it to
-               "Watch live round" with the red ink and pulse, one round
-               linking straight into that room's spectate view and several
-               linking to /spectate. That poll used to be the only thing
-               that showed it at all (2026-09-01). -->
-          <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
-          <!-- 2026-09-03, the founder, off a screenshot of the Watch door:
-               "add debate the AI button". Third door on the first screen,
-               same ghost box as Watch so the stranger match keeps the only
-               red. /practice is the canonical AI round surface; the guest
-               gets one free round there before the sign-in wall. -->
-          <a class="fs-cta fs-cta--ghost fs-cta--ai" href="/practice" data-cta="first-screen-ai">Debate the AI</a>
-          <!-- 2026-09-01: the "Spectate and bet tokens" ghost CTA is cut
-               (founder struck it through on the screenshot). One door on
-               the first screen: Jump in. Spectating stays reachable from
-               the example board card, the topbar, and /spectate. -->
-          <!-- 2026-08-25: the walkthrough stays out of the first screen.
-               Its quiet text trigger now sits in #live-proof. -->
-        </div>
-        <div class="fs-signin">
-          <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-signin"><svg class="g-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.1z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.7C7.9 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8l7.3-5.7z"/><path fill="#EA4335" d="M24 10.8c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C35 4.3 30 2 24 2 15.4 2 7.9 7 4.3 14.2l7.3 5.7c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>Continue with Google
-          </button>
-          <p class="fs-signin-why">Keep your rounds and climb the leaderboard.</p>
-        </div>
+        
+        
       </div>
       <div class="fs-copy-variant fs-copy-practice" data-nosnippet>
         <p class="fs-slogan">Pick a side. Say it out loud.</p>
@@ -8931,38 +8914,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              The signed-in half; the guest pill lives above the sign-in button
              inside .fs-signin--side, which body.signed-in hides. CSS shows
              exactly one of the two, never both. -->
-        <div class="fs-ctas">
-          <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Find someone to argue with <span aria-hidden="true">&rarr;</span></a>
-          <!-- 2026-09-03, the founder, off a screenshot of the red door:
-               "now add the 'watch' button". The Watch door is always here.
-               Idle it is a plain ghost pill to /watch (live rounds and
-               replays) with no red ink and no dot, so it never claims a
-               round that is not happening. The /api/watch-live poll near
-               the end of the document (real liveness: both seats present,
-               draft settled, public, no floor, no padding) upgrades it to
-               "Watch live round" with the red ink and pulse, one round
-               linking straight into that room's spectate view and several
-               linking to /spectate. That poll used to be the only thing
-               that showed it at all (2026-09-01). -->
-          <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
-          <!-- 2026-09-03, the founder, off a screenshot of the Watch door:
-               "add debate the AI button". Third door on the first screen,
-               same ghost box as Watch so the stranger match keeps the only
-               red. /practice is the canonical AI round surface; the guest
-               gets one free round there before the sign-in wall. -->
-          <a class="fs-cta fs-cta--ghost fs-cta--ai" href="/practice" data-cta="first-screen-ai">Debate the AI</a>
-          <!-- 2026-09-01: the "Spectate and bet tokens" ghost CTA is cut
-               (founder struck it through on the screenshot). One door on
-               the first screen: Jump in. Spectating stays reachable from
-               the example board card, the topbar, and /spectate. -->
-          <!-- 2026-08-25: the walkthrough stays out of the first screen.
-               Its quiet text trigger now sits in #live-proof. -->
-        </div>
-        <div class="fs-signin">
-          <button type="button" class="fs-signin-btn" data-fs-signin data-cta="first-screen-signin"><svg class="g-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.1z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.4-9.1H4.3v5.7C7.9 41 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.1 2 20.4 2 24s.8 6.9 2.3 9.8l7.3-5.7z"/><path fill="#EA4335" d="M24 10.8c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C35 4.3 30 2 24 2 15.4 2 7.9 7 4.3 14.2l7.3 5.7c1.7-5.2 6.6-9.1 12.4-9.1z"/></svg>Continue with Google
-          </button>
-          <p class="fs-signin-why">Keep your rounds and climb the leaderboard.</p>
-        </div>
+        
+        
       </div>
       <!-- Both copy arms carry the sign-in row, so the account ask is
            independent of whichever hero-copy arm a visitor is bucketed
@@ -9194,6 +9147,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a class="fs-chal-alt" id="fsChalAlt" href="#creator-sweepstakes" data-cta="first-screen-challenge-how">How the seat gets filled</a>
         </div>
         <p class="fs-chal-note" id="fsChalNote">None confirmed, none affiliated, none endorsing.</p>
+      </div>
+    </div>
+    <!-- 2026-09-03, the founder's desktop sketch: the doors sit UNDER the
+         board. One wide red Join a debate, then Watch and Debate the AI as
+         a pair. Same hrefs, data-cta and A/B tags as the doors that used
+         to live in the headline column; the watch-live poll still finds
+         the Watch door through data-fs-watch-live. -->
+    <div class="fs-actions">
+      <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Join a debate <span aria-hidden="true">&rarr;</span></a>
+      <div class="fs-actions-row">
+        <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
+        <a class="fs-cta fs-cta--ghost fs-cta--ai" href="/practice" data-cta="first-screen-ai">Debate the AI</a>
       </div>
     </div>
     </div><!-- /.fs-board-wrap -->

@@ -289,7 +289,7 @@ check(
 // 2026-09-03, the founder: "now add the 'watch' button". The first-screen
 // Watch doors are always rendered (no [hidden]); the poll only upgrades them.
 check(
-  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch" href="\/watch" data-fs-watch-live/g) || []).length === 2
+  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch" href="\/watch" data-fs-watch-live/g) || []).length === 1
     && !/data-fs-watch-live[^>]*\shidden/.test(landing)
     && landing.includes("b.classList.remove('is-live')"),
   'landing keeps a Watch door beside Join a debate',
@@ -302,6 +302,16 @@ check(
     && !landing.includes('fs-live-now--signed')
     && !landing.includes('class="fs-live-now"'),
   'landing puts the live count above the example board as a plain red line',
+);
+// 2026-09-03, the founder's desktop sketch: the board leads, the three doors
+// sit under it (wide red Join a debate, then Watch and Debate the AI), and
+// the headline column is off the desktop first screen.
+check(
+  /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
+    && !landing.includes('<div class="fs-ctas">')
+    && landing.includes('.fscreen-copy{display:none}')
+    && /<h1 class="fs-h1--sr">[\s\S]*?<div class="fscreen-wrap">/.test(landing),
+  'landing desktop first screen is board, doors under it, no headline column',
 );
 
 const topbar = read('app/js/topbar.js');
