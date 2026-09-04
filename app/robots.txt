@@ -14,17 +14,15 @@ Disallow: /admin.html
 Disallow: /live-round
 Disallow: /live-round.html
 
-# Deep-link variants from in-app "see this on voice"/"see this typed"
-# handoff CTAs (practice.html and voice-debate.html). The destination
-# pages set canonical → /voice-debate and /practice respectively, so
-# GSC correctly classifies these as "alternate page with proper
-# canonical tag" — working as intended, but Googlebot still crawls
-# them and wastes budget on a low-authority site. Disallowing the
-# query-string patterns stops the crawl entirely; the canonical pages
-# pick up the freed budget. Use $ for end-of-line so we don't block
-# the bare paths.
-Disallow: /voice-debate?
-Disallow: /practice?
+# Deep-link variants from in-app and dossier handoff CTAs
+# (/voice-debate?motion=... and /practice?motion=...) are deliberately
+# NOT disallowed. Both destination pages carry a static canonical to the
+# bare path, and Google can only read that canonical if it is allowed to
+# crawl. Blocking them here produced the worst of both worlds (GSC,
+# 2026-09-04): 236 URLs reported as "Blocked by robots.txt" and 8 of
+# them INDEXED anyway as bare, snippetless URLs, because robots.txt
+# stops crawling, not indexing. The anchors that emit these links carry
+# rel="nofollow" instead, which is what actually limits discovery.
 
 # Canonical host is itsdebatable.com. debatethedevil.com 301s here.
 # Sitemap index references the core sitemap plus dynamic sub-sitemaps

@@ -368,9 +368,9 @@ function renderMotionPage(m) {
   <aside class="panel">
     <h3>Run this motion</h3>
     <p class="ps">Live voice round against an AI opponent, then a judge ballot.</p>
-    <a class="btn btn-pro" href="${trainerHref(m, 'gov')}">Take ${esc(propLabel)} <span class="arr">&rarr;</span></a>
-    <a class="btn btn-con" href="${trainerHref(m, 'opp')}">Take ${esc(oppLabel)} <span class="arr">&rarr;</span></a>
-    <a class="btn btn-ghost" href="/practice?motion=${encodeURIComponent(m.motion)}">Typed mode <span class="arr">&rarr;</span></a>
+    <a class="btn btn-pro" href="${trainerHref(m, 'gov')}" rel="nofollow">Take ${esc(propLabel)} <span class="arr">&rarr;</span></a>
+    <a class="btn btn-con" href="${trainerHref(m, 'opp')}" rel="nofollow">Take ${esc(oppLabel)} <span class="arr">&rarr;</span></a>
+    <a class="btn btn-ghost" href="/practice?motion=${encodeURIComponent(m.motion)}" rel="nofollow">Typed mode <span class="arr">&rarr;</span></a>
     <p class="fine">No card. Sign in to keep your record.</p>
   </aside>
 </section>

@@ -4,10 +4,15 @@ Disallow: /api/
 Disallow: /.netlify/
 Disallow: /offline.html
 
-# Deep-link variants from in-app handoff CTAs canonicalize to the
-# bare paths; disallow the query-string crawl to free crawl budget.
-Disallow: /voice-debate?
-Disallow: /practice?
+# Deep-link variants from in-app and dossier handoff CTAs
+# (/voice-debate?motion=... and /practice?motion=...) are deliberately
+# NOT disallowed. Both destination pages carry a static canonical to the
+# bare path, and Google can only read that canonical if it is allowed to
+# crawl. Blocking them here produced the worst of both worlds (GSC,
+# 2026-09-04): 236 URLs reported as "Blocked by robots.txt" and 8 of
+# them INDEXED anyway as bare, snippetless URLs, because robots.txt
+# stops crawling, not indexing. The anchors that emit these links carry
+# rel="nofollow" instead, which is what actually limits discovery.
 
 # Canonical host is itsdebatable.com. debatethedevil.com 301s here.
 Sitemap: https://itsdebatable.com/sitemap.xml

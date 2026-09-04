@@ -459,9 +459,9 @@ ${rail(m)}
     <aside class="panel">
       <h3>Ready to argue this?</h3>
       <div class="ph-sub">Pick a side. The AI takes the other.</div>
-      <a class="btn btn-pro" href="${esc(proHref)}">Take Pro <span class="arr">→</span></a>
-      <a class="btn btn-con" href="${esc(conHref)}">Take Con <span class="arr">→</span></a>
-      <a class="btn btn-ghost" href="${esc(anyHref)}">Let the AI pick my side <span class="arr">→</span></a>
+      <a class="btn btn-pro" href="${esc(proHref)}" rel="nofollow">Take Pro <span class="arr">→</span></a>
+      <a class="btn btn-con" href="${esc(conHref)}" rel="nofollow">Take Con <span class="arr">→</span></a>
+      <a class="btn btn-ghost" href="${esc(anyHref)}" rel="nofollow">Let the AI pick my side <span class="arr">→</span></a>
       <a class="btn btn-ghost" href="#sample">Watch the sample round <span class="arr">↓</span></a>
       <div class="fine">3-minute round · one question · written judge decision</div>
     </aside>
@@ -528,8 +528,8 @@ ${rail(m)}
         <div class="drill"><div class="bk">One drill before the rematch</div><p class="fb">${esc(m.ballot.drill)}</p></div>
       </div>
       <div class="rematch">
-        <a class="btn btn-pro" href="${esc(proHref)}">Run the rematch as Pro <span class="arr">→</span></a>
-        <a class="btn btn-con" href="${esc(conHref)}">Run the rematch as Con <span class="arr">→</span></a>
+        <a class="btn btn-pro" href="${esc(proHref)}" rel="nofollow">Run the rematch as Pro <span class="arr">→</span></a>
+        <a class="btn btn-con" href="${esc(conHref)}" rel="nofollow">Run the rematch as Con <span class="arr">→</span></a>
       </div>
     </div>
   </section>
@@ -545,7 +545,7 @@ ${rail(m)}
       <div>
         <div class="sec-eye" style="margin-top:0">Drills</div>
         <ul class="drills">
-          ${(m.drills || []).map(d => `<a class="drill-item" href="${esc(trainerHref({ title: d.motion }))}"><span class="dl">${esc(d.label)}</span><span class="dx">→</span></a>`).join('')}
+          ${(m.drills || []).map(d => `<a class="drill-item" href="${esc(trainerHref({ title: d.motion }))}" rel="nofollow"><span class="dl">${esc(d.label)}</span><span class="dx">→</span></a>`).join('')}
         </ul>
         <div class="sec-eye" style="margin-top:22px">Sharpen this argument</div>
         <ul class="rel-list">
@@ -614,8 +614,8 @@ ${rail(m)}
   <div class="sticky-in">
     <div class="sq">${esc(m.title)}<b>3-minute round · one question · written judge decision</b></div>
     <div class="sbtns">
-      <a class="s-pro" href="${esc(proHref)}">Take Pro</a>
-      <a class="s-con" href="${esc(conHref)}">Take Con</a>
+      <a class="s-pro" href="${esc(proHref)}" rel="nofollow">Take Pro</a>
+      <a class="s-con" href="${esc(conHref)}" rel="nofollow">Take Con</a>
     </div>
   </div>
 </div>

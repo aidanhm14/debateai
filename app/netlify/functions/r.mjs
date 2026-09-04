@@ -265,7 +265,7 @@ export function renderPage(id, doc) {
   <div class="cta-card">
     <h3>Try this motion yourself.</h3>
     <p>Same motion. Pick your side. Three minutes per speech. The AI debates back. Judge tells you what landed.</p>
-    <a class="cta-button" href="/practice?motion=${motionEncoded}">Argue this motion →</a>
+    <a class="cta-button" href="/practice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
   </div>
 
   <footer>
@@ -545,7 +545,7 @@ export function renderAsyncPage(id, d) {
     <p>The recorded speeches, the ballot, and the crowd vote live on the round page. Or take the motion yourself; the AI argues back.</p>
     <div class="cta-row">
       <a class="cta-button" href="${roundHref}">Listen to this round →</a>
-      <a class="cta-button cta-button--ghost" href="/practice?motion=${motionEncoded}">Argue this motion →</a>
+      <a class="cta-button cta-button--ghost" href="/practice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
     </div>
   </div>
 
