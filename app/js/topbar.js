@@ -187,22 +187,6 @@
     document.head.appendChild(s);
   })();
 
-  // type-arm.js is a per-browser type stack for QA (`?type=newspaper`,
-  // sticky in localStorage `da-type`, `?type=off` clears). It is only
-  // injected when that key or query is present, so the other ~110 pages
-  // pay one localStorage read and nothing else. Nobody sees a different
-  // font unless they asked for it. (2026-09-04)
-  (function ensureTypeArmLoaded(){
-    var want = false;
-    try { want = !!localStorage.getItem('da-type'); } catch (e) {}
-    if (!want) { try { want = /[?&]type=/.test(location.search); } catch (e) {} }
-    if (!want) return;
-    if (document.querySelector('script[src*="/js/type-arm.js"]')) return;
-    var s = document.createElement('script');
-    s.src = '/js/type-arm.js';
-    document.head.appendChild(s);
-  })();
-
   function openSharedAuth(mode){
     mode = mode || 'signin';
     if (typeof window.openAuthModal === 'function'){
