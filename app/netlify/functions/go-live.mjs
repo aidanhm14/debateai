@@ -164,7 +164,7 @@ export default async (request) => {
   // waiting for this to return, so the wall clock is the slower lane rather
   // than the sum. Neither can throw; both report their own tally.
   const [r, smsR] = await Promise.all([
-    targets.length ? sendToManyUsers(targets, payload) : Promise.resolve({ recipients: 0, sent: 0 }),
+    targets.length ? sendToManyUsers(targets, payload) : Promise.resolve({ recipients: 0, sent: 0, delivered: 0 }),
     smsTargets.length
       ? sendSmsToManyUsers(smsTargets, {
         kind: 'live',
@@ -182,5 +182,9 @@ export default async (request) => {
     // across both lanes rather than undercounting to the push number.
     sms: { recipients: smsR.recipients || 0, sent: smsR.sent || 0 },
     reached: (r.sent || 0) + (smsR.sent || 0),
+    // People (not devices) whose push was accepted by their push service.
+    // /spar prints this one, because it is the only count here that a
+    // waiting person can be told without overstating it.
+    delivered: (r.delivered || 0),
   }, 200, request);
 };

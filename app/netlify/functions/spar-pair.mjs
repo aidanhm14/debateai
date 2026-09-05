@@ -477,6 +477,13 @@ async function guestSpent(db, uid) {
 // net (75s). Drop this below the decide window and a live peer who is
 // simply reading the card gets cancelled out of the queue as a corpse.
 const GHOST_CONSENT_MS = 55 * 1000;
+// 2026-09-04: when the proposal push actually reached the peer's device
+// (push had never delivered before that day, see soul.md), the peer may be
+// on a lock screen a minute away from the tab, and a 45s decide window
+// cancels the match before they can get back. Both docs are stamped
+// pinged:true after the send, and every window stretches together:
+// decide 120s (client) < ghost 130s (here) < the waiting side's net 150s.
+const GHOST_CONSENT_PINGED_MS = 130 * 1000;
 
 // One-shot reaper sweep. Marks any waiting doc older than REAPER_MS
 // as cancelled so the next polling cycle stops seeing it. Throttled
@@ -826,6 +833,8 @@ export default async (request) => {
       joinedAt: FieldValue.serverTimestamp(),
       room: FieldValue.delete(),
       proposedAt: FieldValue.delete(),
+      pinged: FieldValue.delete(),
+      pingedAt: FieldValue.delete(),
       proUid: FieldValue.delete(),
       conUid: FieldValue.delete(),
       proName: FieldValue.delete(),
@@ -887,7 +896,8 @@ export default async (request) => {
           // the system-cancel path re-queues it with a clean doc.
           const proposalAge = Date.now() - tsMs(mine.proposedAt);
           const peerNeverActed = !(mine.consents && mine.consents[peerUid]);
-          if (auto && peerNeverActed && proposalAge > GHOST_CONSENT_MS) {
+          const ghostAfter = mine.pinged ? GHOST_CONSENT_PINGED_MS : GHOST_CONSENT_MS;
+          if (auto && peerNeverActed && proposalAge > ghostAfter) {
             // ghostAt, not skipAt: see GHOST_SKIP_TTL_MS. Nobody decided
             // anything here, so the block expires in 45s rather than two
             // minutes, and it never counts toward the permanent
@@ -1292,6 +1302,9 @@ export default async (request) => {
           ...common,
           status: 'consent',
           proposedAt: FieldValue.serverTimestamp(),
+          // A fresh proposal starts unpinged; the stamp is written only
+          // after this transaction commits and the push is accepted.
+          pinged: false,
           // Re-stamp joinedAt so the reaper's consent sweep measures
           // from the PROPOSAL, not each side's original queue join —
           // otherwise a long-waiting joiner could get swept mid-
@@ -1397,12 +1410,22 @@ export default async (request) => {
     if (result && result.ok && result.notifyUid) {
       try {
         const from = result.notifyFrom ? String(result.notifyFrom) : 'A debater';
-        await sendToUser(result.notifyUid, {
+        const pushed = await sendToUser(result.notifyUid, {
           title: 'Match found',
-          body: from + ' is ready to debate. Tap to accept.',
+          body: from + ' is ready to debate. You have 2 minutes to accept.',
           url: '/spar',
           tag: 'da-spar-match',
         });
+        // Only a push the service ACCEPTED earns the longer door; a peer
+        // with no working device gets the ordinary 45s, and the waiting
+        // side is told which one it is.
+        if (pushed && pushed.sent > 0) {
+          const stamp = { pinged: true, pingedAt: FieldValue.serverTimestamp() };
+          await Promise.all([
+            db.collection('matchmaking_queue').doc(myUid).set(stamp, { merge: true }).catch(() => {}),
+            db.collection('matchmaking_queue').doc(result.notifyUid).set(stamp, { merge: true }).catch(() => {}),
+          ]);
+        }
       } catch (e) { /* push is best-effort; never fail the pair on it */ }
     }
 

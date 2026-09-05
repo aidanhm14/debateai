@@ -464,6 +464,10 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.76rem;line-height:1.5;text-align:center
 }
 .motion-wait-note strong{color:var(--text);font-weight:800}
+.pinged-line{max-width:520px;margin:10px auto 0;font-size:.84rem;line-height:1.5;color:var(--text-dim);text-align:center}
+.pinged-line strong{color:var(--text);font-weight:700}
+.pinged-line[hidden]{display:none}
+.mf-hold--pinged{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.07)}
 .motion-wait-note small{display:block;margin-top:6px;font-size:.78em;opacity:.7}
 /* On the dark themes the pill fill (--bg-card ~#13070a) sits almost on
    top of the near-black page, so the chip dissolves into the background.
@@ -3713,7 +3717,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     opts = opts || {};
     var me = state.user || {};
     var ring = opts.window
-      ? '<svg class="mf-window" viewBox="0 0 100 100" aria-hidden="true" style="--mf-dur:' + CONSENT_DECIDE_SEC + 's">' +
+      ? '<svg class="mf-window" viewBox="0 0 100 100" aria-hidden="true" style="--mf-dur:' + (opts.windowSec || CONSENT_DECIDE_SEC) + 's">' +
           '<circle cx="50" cy="50" r="48"></circle></svg>'
       : '';
     return '<div class="mf-faceoff">' +
@@ -4720,6 +4724,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // spans and bails if either is missing) but is display:none in CSS.
       '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
       '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
+      // 2026-09-04, the founder: "say we're pinging the network via
+      // notifications, let's be transparent and readable". Painted by
+      // updatePingedLine only once the server reports a push it actually
+      // delivered, so it never claims a ping that did not happen.
+      '<div class="pinged-line" id="pingedLine" hidden></div>' +
       // The alerts control moved into the keep-open strip at the top of
       // the column (2026-09-04); alertsCtaHtml() is its shell.
       // 2026-09-01, Aidan on a screenshot of this screen: 'get rid of all
@@ -5247,7 +5256,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // does the spar_golive_pinged event, because reach is worth measuring
   // even when it is not worth printing. This is now the seam where the
   // count arrives and stops.
-  function updatePingedLine(){ /* no line to paint */ }
+  // 2026-09-04: the line is back, on the founder's ask for transparency,
+  // and it prints only what the server confirmed: the number of people
+  // whose push service accepted the notification. Zero prints nothing.
+  function updatePingedLine(){
+    var el = document.getElementById('pingedLine');
+    if (!el) return;
+    var n = state.broadcastDelivered || 0;
+    if (!n){ el.hidden = true; return; }
+    el.innerHTML = '<strong>We\'re pinging the network via notifications.</strong> ' +
+      (n === 1 ? '1 person who asked to be told when someone is live just got an alert that you are here.'
+               : n + ' people who asked to be told when someone is live just got an alert that you are here.');
+    el.hidden = false;
+  }
 
   function removeWaitRail(){
     removeEloRail();
@@ -6457,9 +6478,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // wait rail shows the waiter — knowing alerts just went out is the best
       // reason to keep waiting. Helper lives in js/notifications.js.
       state.broadcastPinged = 0;
+      state.broadcastDelivered = 0;
       try { if (window.daBroadcastGoLive) window.daBroadcastGoLive(formatParam, 'spar', function(res){
         if (res && res.broadcast && res.recipients > 0){
           state.broadcastPinged = res.recipients;
+          state.broadcastDelivered = res.delivered || 0;
           updatePingedLine();
           try { gtag('event', 'spar_golive_pinged', { recipients: res.recipients, format: formatParam }); } catch(e){}
         }
@@ -6660,6 +6683,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // above CONSENT_DECIDE_SEC: a live deciding peer always answers by 45s,
   // so silence past 55s is a dead tab and this net is what reports it.
   var CONSENT_WAIT_SEC   = 75;
+  // 2026-09-04: a peer whose device the proposal push actually reached
+  // (spar-pair stamps pinged:true on both docs after an accepted send)
+  // gets a longer door. Ordering contract holds: decide 120 < server
+  // ghost 130 < wait net 150.
+  var CONSENT_DECIDE_PINGED_SEC = 120;
+  var CONSENT_WAIT_PINGED_SEC   = 150;
+  function decideSecFor(d){ return (d && d.pinged) ? CONSENT_DECIDE_PINGED_SEC : CONSENT_DECIDE_SEC; }
+  function waitSecFor(d){ return (d && d.pinged) ? CONSENT_WAIT_PINGED_SEC : CONSENT_WAIT_SEC; }
   var BASE_TITLE = document.title;
 
   // Stop the search machinery without dropping my own doc listener —
@@ -6696,13 +6727,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     { until: CONSENT_DECIDE_SEC, text: 'Their window is almost up' },
     { until: 1e9, text: 'No answer yet. Holding your place.' },
   ];
+  // The pinged version says what actually happened: their phone or
+  // browser got a notification, and they have two minutes to come back.
+  var WAIT_PHASES_PINGED = [
+    { until: 8,  text: 'We pinged them via notifications' },
+    { until: 40, text: 'Giving them time to come back' },
+    { until: 90, text: 'Still holding the match for them' },
+    { until: CONSENT_DECIDE_PINGED_SEC, text: 'Their two minutes are almost up' },
+    { until: 1e9, text: 'No answer yet. Holding your place.' },
+  ];
 
   function clearWaitPhases(){
     if (state.waitPhaseTimer){ clearInterval(state.waitPhaseTimer); state.waitPhaseTimer = null; }
   }
 
-  function startWaitPhases(){
+  function startWaitPhases(phases){
     clearWaitPhases();
+    var list = phases || WAIT_PHASES;
     var t0 = Date.now();
     var last = '';
     function tick(){
@@ -6710,8 +6751,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (!el) return;
       var secs = (Date.now() - t0) / 1000;
       var text = '';
-      for (var i = 0; i < WAIT_PHASES.length; i++){
-        if (secs < WAIT_PHASES[i].until){ text = WAIT_PHASES[i].text; break; }
+      for (var i = 0; i < list.length; i++){
+        if (secs < list[i].until){ text = list[i].text; break; }
       }
       if (text === last) return;
       last = text;
@@ -6931,7 +6972,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var peerConsent = !!consents[peerUid];
     // Snapshot streams echo every write; only re-render (and reset the
     // countdown) when the consent state actually moved.
-    var key = peerUid + '|' + (myConsent ? 1 : 0) + '|' + (peerConsent ? 1 : 0);
+    // pinged is in the key: the stamp lands a beat after the proposal, and
+    // the re-render is what restarts the clock on the longer window.
+    var key = peerUid + '|' + (myConsent ? 1 : 0) + '|' + (peerConsent ? 1 : 0) + '|' + (d.pinged ? 1 : 0);
+    var decideSec = decideSecFor(d);
     if (state.inConsent && state.consentKey === key) return;
     var firstRender = !state.inConsent;
     state.inConsent = true;
@@ -6983,7 +7027,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       shell.innerHTML =
         '<div class="consent-wrap mf mf-wait" id="consentCard">' +
           '<div class="eyebrow"><span class="pip"></span>Awaiting opponent</div>' +
-          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { window: true, phase: true }) +
+          faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { window: true, phase: true, windowSec: decideSec }) +
           '<h1>Waiting on <em>' + peerName + '</em>' + nameDot(peerName) + '</h1>' +
           '<p class="lede">' + (crossFmt
             ? 'You\'re in. They\'re confirming the <strong>' + fmtLabel + '</strong> round, and it starts the second they do.'
@@ -6993,6 +7037,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
           // The line that makes Withdraw a choice instead of a reflex.
+          (d.pinged
+            ? '<div class="mf-hold mf-hold--pinged"><strong>We pinged them via notifications.</strong> Their phone or browser got an alert that you are here, so this match is held for two minutes while they come back.</div>'
+            : '') +
           '<div class="mf-hold">If they have walked away, <strong>you lose nothing.</strong> ' +
             'We put you back at the front of the queue on our own and start looking again, so there is no wait you have to sit out.</div>' +
           // 2026-08-23, the founder: "find a way to pm a match." Until
@@ -7029,11 +7076,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Silent safety net: if their tab died mid-read, unwind instead
       // of waiting forever. Stays auto-PASS (autoAccept=false) — I've
       // already accepted; this net only exists to free me from a ghost.
-      startConsentCountdown(peerUid, CONSENT_WAIT_SEC, false, false);
+      startConsentCountdown(peerUid, waitSecFor(d), false, false);
       // AFTER the countdown, never before: startConsentCountdown opens
       // with clearConsentTimer(), which sweeps the phase interval too.
       // Starting the phases first would have them cleared a line later.
-      startWaitPhases();
+      startWaitPhases(d.pinged ? WAIT_PHASES_PINGED : WAIT_PHASES);
       return;
     }
 
@@ -7075,13 +7122,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
             ? 'They said yes and the room is open. One click puts you in the <strong>' + fmtLabel + '</strong> round. Leave it and they sit in an empty room, then go back to the queue.'
             : 'Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.') + '</p>' +
           '<div class="btn-row">' +
-            '<button class="btn primary mf-go" id="consentAcceptBtn" style="--mf-dur:' + CONSENT_DECIDE_SEC + 's">' +
+            '<button class="btn primary mf-go" id="consentAcceptBtn" style="--mf-dur:' + decideSec + 's">' +
               (peerConsent ? 'Join them, start the round' : 'I\'m here, start the round') +
               '<span class="mf-drain" aria-hidden="true"></span>' +
             '</button>' +
             '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
           '</div>' +
-          '<div class="countdown">Match expires in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+          '<div class="countdown">Match expires in <strong id="consentCountNum">' + decideSec + '</strong>s</div>' +
         '</div>';
       document.getElementById('consentAcceptBtn').addEventListener('click', function(){
         this.disabled = true;
@@ -7095,7 +7142,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         clearConsentTimer();
         sendConsent(peerUid, false);
       });
-      startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, false);
+      startConsentCountdown(peerUid, decideSec, true, false);
       if (firstRender) sparChime();
       document.title = '● Match found · Spar';
       return;
@@ -7134,7 +7181,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // a judge note told them, in as many words, not to click. The
         // ready-check card above already says "Match expires"; both cards
         // now say the same true thing.
-        '<div class="countdown">Match expires in <strong id="consentCountNum">' + CONSENT_DECIDE_SEC + '</strong>s</div>' +
+        '<div class="countdown">Match expires in <strong id="consentCountNum">' + decideSec + '</strong>s</div>' +
       '</div>';
     document.getElementById('consentAcceptBtn').addEventListener('click', function(){
       this.disabled = true;
@@ -7148,7 +7195,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       clearConsentTimer();
       sendConsent(peerUid, false);
     });
-    startConsentCountdown(peerUid, CONSENT_DECIDE_SEC, true, false);
+    startConsentCountdown(peerUid, decideSec, true, false);
     // Ping the moment a real human match lands (B, 2026-06-15): the user
     // asked not to be dropped in silently. Only on first render so a
     // snapshot re-paint doesn't double-chime.

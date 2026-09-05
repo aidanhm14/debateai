@@ -91,18 +91,21 @@ export async function sendToManyUsers(uids, payload, concurrency = 8) {
     return { recipients: 0, sent: 0, configured: pushConfigured() };
   }
   const queue = uids.slice();
-  let sent = 0, recipients = 0;
+  // recipients: users we tried. sent: devices the push service accepted.
+  // delivered: users with at least one accepted device, which is the
+  // number a waiting person can be told without overstating it.
+  let sent = 0, recipients = 0, delivered = 0;
   async function worker() {
     while (queue.length) {
       const uid = queue.shift();
       const r = await sendToUser(uid, payload);
-      if (r && r.sent) sent += r.sent;
+      if (r && r.sent) { sent += r.sent; delivered++; }
       recipients++;
     }
   }
   const n = Math.max(1, Math.min(concurrency, queue.length));
   await Promise.all(Array.from({ length: n }, worker));
-  return { recipients, sent, configured: true };
+  return { recipients, sent, delivered, configured: true };
 }
 
 // Send a notification to every device the user has subscribed — Web Push
