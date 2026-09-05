@@ -800,6 +800,11 @@ body.lr-open #extRow,body.lr-open #speakerSide,body.lr-open #overtimeNote{displa
   backdrop-filter:blur(6px);
   transition:border-color .15s,background .15s;
 }
+/* Inside the call-object stage the pill is a tray button, not an overlay:
+   an absolute pill at bottom:10px sat over the tray and the bottom of the
+   video (the founder, 2026-09-04: "this is covering now"). */
+.cv-tray #audCamPill{position:static;padding:8px 12px;min-height:38px;border-radius:10px}
+.cv-tray:empty{display:none}
 #audCamPill:hover{border-color:rgba(239,68,68,.65);background:rgba(20,16,16,.92)}
 #audCamPill.is-live{border-color:rgba(239,68,68,.75);background:rgba(60,12,12,.88)}
 #audCamPill .acp-dot{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:acpPulse 1.4s infinite}
@@ -10798,8 +10803,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     room.qualityEl = quality;
     room.tray = tray; room.audioHost = audioHost;
     // No tray for a watcher: mic, camera flip, hide-me and leave are
-    // all things a guest cannot do in a round they are not in.
+    // all things a guest cannot do in a round they are not in. The one
+    // control a watcher does have, the audience-camera pill, lives in
+    // the tray so it never paints over the picture.
     if (!room.viewer) buildTray();
+    else if (audCam.pill) tray.appendChild(audCam.pill);
     setRoomNote(room.viewer ? 'Connecting to the video.' : 'Connecting to the video room.');
   }
   function trayBtn(id, label, title){
@@ -11337,6 +11345,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     call.on('left-meeting', function(){
       room.joined = false;
       teardownRoom();
+      // The audience-camera path leaves and rejoins the same call object
+      // to swap tokens; that leave is not the watcher stopping.
+      if (room.viewer && audCam.rejoining) return;
       if (room.viewer){
         setRoomExit('You stopped watching the video.',
           'The round is still running. The clock, the transcript and the ballot keep arriving here.');
@@ -11439,6 +11450,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         try { c.leave(); } catch(e){}
         try { c.destroy(); } catch(e){}
       }
+      if (audCam.pill && shell){ try { shell.appendChild(audCam.pill); } catch(e){} }
       if (room.wrap){ try { room.wrap.remove(); } catch(e){} }
       room.wrap = null; room.stage = null; room.aud = null;
       room.note = null; room.tray = null; room.audioHost = null; room.qualityEl = null;
@@ -18595,7 +18607,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     btn.id = 'audCamPill';
     btn.type = 'button';
     btn.addEventListener('click', onAudCamPillClick);
-    shell.appendChild(btn);
+    (room.viewer && room.tray ? room.tray : shell).appendChild(btn);
     audCam.pill = btn;
     paintAudCamPill();
   }
@@ -18810,6 +18822,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           throw new Error((res.body && res.body.error) || 'Camera join was refused.');
         }
         tokenOut = res.body.token;
+        audCam.name = res.body.name || '';
         // Low-res on purpose: audience texture, not broadcast quality.
         // Keeps encode cost near-zero for the spectator and decode cost
         // bounded for everyone rendering up to 4 audience tiles.
@@ -18820,7 +18833,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       })
       .then(function(ms){
         audCam.stream = ms;
-        return mountAudCamFrame(tokenOut);
+        return mountAudCamFrame(tokenOut, audCam.name);
       })
       .then(function(){
         audCam.active = true;
@@ -18837,9 +18850,46 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       .then(function(){ audCam.joining = false; paintAudCamPill(); });
   }
 
-  function mountAudCamFrame(token){
+  // 2026-09-04, after the founder joined a round on camera and the debater
+  // never saw him ("he didn't see me when i joined stream and he just
+  // left"). This path mounted Daily PREBUILT and handed it the 320x240
+  // track through setInputDevicesAsync, which the 2026-08-15 entry
+  // measured: on Prebuilt that call RESOLVES and publishes nothing of
+  // ours. The watcher was also handed a self-view instead of the debaters.
+  // Now the watcher's own call object leaves and rejoins the same room on
+  // the audience token with the track as videoSource, the shape that is
+  // proven to publish for debaters. The stage keeps drawing the debaters;
+  // the debaters' stage draws the new "Audience · name" tile in its strip.
+  function rejoinViewerCall(props){
+    var call = room.call;
+    if (!call) return Promise.reject(new Error('No call'));
+    audCam.rejoining = true;
+    var join = {
+      url: state.dailyUrl,
+      userName: props.userName,
+      videoSource: props.videoSource,
+      audioSource: false,
+    };
+    // Key omitted rather than undefined: daily-js validates on presence.
+    if (typeof props.token === 'string' && props.token) join.token = props.token;
+    room.token = join.token || '';
+    return Promise.resolve()
+      .then(function(){ return room.joined ? call.leave() : null; })
+      .then(function(){ teardownRoom(); setRoomNote('Connecting to the video.'); return call.join(join); })
+      .then(function(r){ audCam.rejoining = false; return r; },
+            function(e){ audCam.rejoining = false; throw e; });
+  }
+
+  function mountAudCamFrame(token, name){
     var shell = $('callShell') || $('jitsiPane');
     if (!shell) return Promise.reject(new Error('No video pane'));
+    if (room.call && room.viewer){
+      var track = audCam.stream && audCam.stream.getVideoTracks()[0];
+      if (!track) return Promise.reject(new Error('Camera unavailable'));
+      return rejoinViewerCall({ token: token, userName: name || 'Audience · Watcher', videoSource: track });
+    }
+    // Legacy: a browser where the call object never came up is still on
+    // the Prebuilt iframe, and this is the only path it has.
     // Retire whatever the watcher was already watching through, or two
     // joins from one tab double the audio and spend the seat twice.
     destroyViewerMount();
@@ -18888,6 +18938,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // presence survives the round trip.
       var shell = $('callShell') || $('jitsiPane');
       if (shell && state.dailyUrl) mountViewerStage(shell, viewerToken);
+    } else if (wasActive && room.call && room.viewer && state.dailyUrl){
+      rejoinViewerCall({ token: viewerToken, userName: 'Watching', videoSource: false })
+        .catch(function(e){ console.warn('[aud-cam] rejoin as watcher failed', e); });
     }
     if (audCam.beatNow) audCam.beatNow(); // next write drops camAt, freeing the slot
     paintAudCamPill();
@@ -18915,7 +18968,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       roundId: state.room,
       sessionId: function(){
         try {
-          var p = audCam.frame && audCam.frame.participants();
+          var c = audCam.frame || room.call;
+          var p = c && c.participants();
           return (p && p.local && p.local.session_id) || '';
         } catch(e){ return ''; }
       },

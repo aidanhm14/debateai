@@ -3929,9 +3929,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // implies one is on the way. On an empty queue nobody may arrive
       // for hours, so this states the position without the false
       // imminence; the Spar Night card below gives the concrete answer.
-      return '<div class="waitlist-empty">' +
-        "<strong>You're first in line.</strong> You will be matched the moment someone else starts searching, and pinged if you have left the tab." +
-        '</div>';
+      // 2026-09-04: no card on an empty queue. The slot stays for the
+      // decline and pairing-error notices that write into it.
+      return '';
     }
     var now = Math.floor(Date.now() / 1000);
     var rows = others.slice(0, 6).map(function(d){
@@ -4684,13 +4684,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // that we never bulldoze a waiting human into an AI round, so the
       // human queue keeps running underneath, Keep waiting silences it
       // for the session, and nothing here navigates on its own.
-      '<div class="ai-wait-offer" id="aiOpponentOffer" hidden>' +
-        '<span class="awo-text">No one has turned up yet. You can take a round against the AI now, or keep waiting.</span>' +
-        '<span class="awo-act">' +
-          '<button type="button" class="btn awo-go" id="aiNowBtn">Debate the AI</button>' +
-          '<button type="button" class="link-btn" id="keepSearchingBtn">Keep waiting</button>' +
-        '</span>' +
-      '</div>' +
+      // 2026-09-04, the founder off a screenshot of this screen ("delete all
+      // this too"): the AI offer strip, the first-in-line card, the queue
+      // diagnostic line and the camera/mic foot line all came off. The
+      // searching screen is the globe and Cancel. The offer timer below
+      // still runs and finds no element, which is a no-op by its own guard.
       '<div class="quiet-links">' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
       '</div>' +
@@ -4711,8 +4709,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Shows: peer count from the last query, my uid tail (so two
       // test windows confirm they're on different accounts), and the
       // last spar-pair attempt outcome (success/soft-fail reason).
-      '<div class="diag" id="diagLine" aria-live="polite" style="margin-top:10px;font-size:.66rem;color:var(--text-ghost);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;opacity:.7"></div>' +
-      '<div class="foot">Camera and mic stay off until you accept the match.</div>';
+      '';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     (function(){
       var aiBtn = document.getElementById('aiNowBtn');
@@ -5617,8 +5614,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (!note) return;
     var n = presenceLive && (presenceLive.online24 || presenceLive.online30);
     if (n > 0) {
-      // "visits", not "people": the count is per-tab sessions, not humans.
-      note.textContent = 'Each red dot: a visit to Debatable in the last 24 hours (' + n + ' visits).';
+      // 2026-09-04, the founder: no number in this caption, the dots
+      // carry it, and the word is users. The count still gates the line
+      // so it never renders over an empty globe.
+      note.textContent = 'Each red dot is a user on Debatable in the last 24 hours.';
       note.hidden = false;
     } else {
       note.hidden = true; // honest empty state: no claim, ambient art only
