@@ -1,3 +1,4 @@
+import { guardPrivateJudgeProxy } from './lib/private-judging.mjs';
 // OpenAI GPT proxy — translates Claude-style requests to OpenAI format
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { applyPromptLibrary } from './lib/prompts.mjs';
@@ -118,6 +119,8 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+    const privateGate = await guardPrivateJudgeProxy(request, body);
+    if (privateGate) return new Response(JSON.stringify(privateGate), { status: privateGate.status || 402, headers: { 'Content-Type': 'application/json', ...CORS } });
 
     // Warm-up handshake — see claude.mjs for the full rationale.
     if (body && body.warm === true) {

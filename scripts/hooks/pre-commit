@@ -38,6 +38,20 @@ SW_ROOT="$REPO_ROOT/sw.js"
 STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
 [ -z "$STAGED" ] && exit 0
 
+# Notes/export, reviewed brain transfer and private judging are one user-facing
+# round workflow. Check the stored outputs and server ledger, not just markup.
+if command -v node >/dev/null 2>&1; then
+  for check in test-private-judging test-private-judge-route test-round-notes-exports test-live-alert-setup test-brain-transfer; do
+    if [ -f "$REPO_ROOT/scripts/$check.mjs" ]; then
+      if ! (cd "$REPO_ROOT" && node "scripts/$check.mjs" >"/tmp/$check.log" 2>&1); then
+        echo "[$check] commit blocked:" >&2
+        tail -35 "/tmp/$check.log" >&2
+        exit 1
+      fi
+    fi
+  done
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Service-worker integrity guard. On 2026-08-18 both sw.js files
 # reached origin/main carrying unresolved conflict markers around

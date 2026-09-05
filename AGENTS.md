@@ -206,11 +206,11 @@ with `node scripts/check-function-imports.mjs --all`.
 
 ## The debate brain (/brain, per signed-in user)
 
-Six questions on `/brain` (the arcade-flow engine) become the identity
+Five public questions on `/brain` (the arcade-flow engine) become the identity
 the AI argues against. Storage and prompt injection:
 
 ```
-app/brain.html                      the six-step build, red arcade surface
+app/brain.html                      the five-step build and reviewed AI transfer
 lib/brain-schema.mjs                PURE: field allow-list, sanitize, block text
 lib/brain.mjs                       read/write user_profiles/{uid}.brain, applyBrain
 brain.mjs                           GET/POST /api/brain (named accounts only)
@@ -237,6 +237,12 @@ Four things that are easy to break by accident:
   mint (see the 2026-07-28 rate-limit entry), so `/api/brain` requires a
   named provider. Guests keep the brain in localStorage; it uploads on
   their first real sign-in.
+
+The public choice catalog and the manual ChatGPT/Claude transfer live in
+`app/js/brain-transfer.js`. The transfer previews editable allow-listed choices
+before Save. Raw pasted AI text is never persisted or included in prompts.
+The old format field is compatibility only; the public editor pins `quick`.
+Historical experience IDs remain accepted without exposing retired formats.
 
 Adding a step means editing three places: the step in `brain.html`, its
 field in `brain-schema.mjs`, and its `da-brain-*` key in `SYNCED_KEYS`

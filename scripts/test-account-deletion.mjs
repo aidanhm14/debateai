@@ -132,6 +132,53 @@ await okAsync('bulk purge never touches another account', async () => {
   assert.deepEqual(left, ['b'], `left ${JSON.stringify(left)}, expected only u2's row`);
 });
 
+await okAsync('private judging cache purge drains every page and only matching participant records', async () => {
+  const caches = ['private_judge_receipts', 'judge_explanation_sources'];
+  const seed = {
+    live_rounds: { shared: { proUid: 'u1', conUid: 'u2', transcript: 'Retained shared round' } },
+  };
+  for (const collection of caches) seed[collection] = {
+    ...rows(700, { uids: ['u2', 'u1'], source: { transcript: 'Private transcript copy' } }),
+    solo: { uids: ['u1'], source: { transcript: 'Submitted privately' } },
+    other: { uids: ['u2', 'u3'], source: { transcript: 'Another pair' } },
+    noMembership: { uids: [], uid: 'u1' },
+  };
+  const db = fakeDb(seed);
+  const result = await purgeBulk(db, 'u1', { only: caches });
+  assert.equal(result.deleted, 1402, 'a matching source or receipt survived pagination');
+  assert.equal(result.done, true);
+  assert.deepEqual(result.failures, []);
+  assert.ok(db.__log.queries >= 6, 'each cache must be read across at least three pages');
+  for (const collection of caches) {
+    assert.deepEqual([...db.__store.get(collection).keys()], ['other', 'noMembership'],
+      collection + ' removed a cache without this user in its participant array');
+  }
+  assert.equal(db.__store.get('live_rounds').get('shared').transcript, 'Retained shared round');
+  assert.ok(!db.__log.deletes.some(path => path.startsWith('live_rounds/')));
+});
+
+await okAsync('private judging caches remain resumable after a deletion deadline', async () => {
+  const caches = ['private_judge_receipts', 'judge_explanation_sources'];
+  const db = fakeDb({
+    private_judge_receipts: { receipt: { uids: ['u1'] }, other: { uids: ['u2'] } },
+    judge_explanation_sources: { source: { uids: ['u1', 'u2'] } },
+  });
+  const stopped = await purgeBulk(db, 'u1', { only: caches, deadline: Date.now() - 1 });
+  assert.equal(stopped.deleted, 0);
+  assert.deepEqual(stopped.remaining, caches);
+  const resumed = await purgeBulk(db, 'u1', { only: stopped.remaining });
+  assert.equal(resumed.deleted, 2);
+  assert.equal(resumed.done, true);
+  assert.deepEqual([...db.__store.get('private_judge_receipts').keys()], ['other']);
+});
+
+await okAsync('private judging usage is deleted only for the account being removed', async () => {
+  const db = fakeDb({ private_judge_usage: { u1: { used: 2 }, u2: { used: 1 } } });
+  const result = await purgeIdentity(db, 'u1');
+  assert.deepEqual(result.failures, []);
+  assert.deepEqual([...db.__store.get('private_judge_usage').keys()], ['u2']);
+});
+
 await okAsync('a deadline stops the purge and reports what is left', async () => {
   // Past deadline before the first page: nothing deleted, everything
   // named as remaining. A purge that stopped early and reported done

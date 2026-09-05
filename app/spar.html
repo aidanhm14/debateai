@@ -5323,16 +5323,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Impressions are deduped per page, not per render: renderSearching
       // remounts on requeue and would otherwise inflate the denominator.
       try { window.__daAlertsPromptLogged = window.__daAlertsPromptLogged || {}; } catch(_) {}
-      function pushSupported(){
-        try { return ('serviceWorker' in navigator) && ('PushManager' in window); } catch(_) { return false; }
-      }
-      function isIOS(){
-        try { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); } catch(_) { return false; }
-      }
-      function isStandalone(){
-        try { return navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch(_) { return false; }
-      }
-      function alertsOn(){ return typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts(); }
       // 2026-09-04, the founder pressed Turn on and the card vanished:
       // "how do i know it worked? maybe it didn't". A control that
       // disappears on success is indistinguishable from one that failed,
@@ -5341,19 +5331,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // no card, since a standing "alerts are on" is furniture.
       var justTurnedOn = false;
       function stateNow(){
-        if (typeof window.daSetLiveAlerts !== 'function') return '';  // notifications.js not up yet
-        if (alertsOn()) return justTurnedOn ? 'on' : '';
-        try { if (window.Notification && window.Notification.permission === 'denied') return 'denied'; } catch(_) {}
-        if (!pushSupported()) return (isIOS() && !isStandalone()) ? 'install' : '';
-        if (!isNamedUser(state.user)) return 'guest';
-        return 'ready';
+        if (typeof window.daGetLiveAlertsState !== 'function') return '';
+        var deviceState = window.daGetLiveAlertsState();
+        if (deviceState === 'on') return justTurnedOn ? 'on' : '';
+        if (deviceState === 'unsupported') return '';
+        return deviceState;
       }
       var COPY = {
-        ready:   ['Get pinged when someone goes live', 'Leave this page and we will notify you the moment someone is looking for a round, even in another app.', 'Turn on'],
-        guest:   ['Get pinged when someone goes live', 'The ping is routed to your account, so it takes a free sign-in. You keep the rounds you have already played.', 'Sign in'],
-        install: ['Get pinged when someone goes live', 'On iPhone this needs Debatable on your home screen. Tap Share, then Add to Home Screen, and turn alerts on from there.', ''],
-        denied:  ['Alerts are blocked in this browser', 'This site is blocked from sending notifications. Allow them in your browser site settings, then come back to this screen.', ''],
-        on:      ['Alerts are on', 'This device gets a ping the moment someone goes live, even if you leave this tab or close the browser.', '']
+        ready:   ['Get pinged when someone joins', 'Turn on notifications on this phone or computer. When someone is looking for a round, tap the alert to meet them.', 'Turn on'],
+        guest:   ['Get pinged when someone joins', 'Sign in to receive alerts on your devices. The rounds you have already played stay yours.', 'Sign in'],
+        install: ['Get alerts on your iPhone or iPad', 'Tap Share, then Add to Home Screen. Open Debatable from that icon and turn on alerts there.', ''],
+        denied:  ['Alerts are blocked in this browser', 'Allow notifications for Debatable in your browser site settings, then come back to this screen.', ''],
+        working: ['Setting up alerts...', 'Waiting for notification permission and a saved connection for this device.', ''],
+        error:   ['Alerts need another try', 'Could not finish setup. Check your connection and notification permissions, then try again.', 'Try again'],
+        on:      ['Alerts are on for this device', 'When someone joins the live queue, tap the notification to meet them. Turn alerts off any time in the bell menu.', '']
       };
       function paint(){
         var s = stateNow();
@@ -5365,7 +5356,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (s === 'guest' && signInPopOpen()) { cta.hidden = true; shown = ''; return; }
         if (s !== shown){
           titleEl.textContent = COPY[s][0];
-          bodyEl.textContent = COPY[s][1];
+          bodyEl.textContent = s === 'error' && window.daLiveAlertsHelp ? window.daLiveAlertsHelp() : COPY[s][1];
           // .btn sets display:inline-flex, which beats the hidden
           // attribute, so the button is hidden by style not by [hidden].
           if (COPY[s][2]) { btn.textContent = COPY[s][2]; btn.style.display = ''; }
@@ -5387,24 +5378,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           doGoogleSignIn();
           return;
         }
-        justTurnedOn = true;
-        btn.textContent = 'Turning on\u2026';
+        btn.disabled = true;
+        btn.textContent = 'Turning on...';
         // The card stays up. daSetLiveAlerts asks the browser for
         // permission and calls back when it has an answer; paint() then
         // shows 'on', or 'denied' if the browser prompt was refused.
-        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){ shown = ''; paint(); });
-        try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching' }); } catch(e){}
+        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(on, error){
+          btn.disabled = false;
+          justTurnedOn = !!(on && !error);
+          shown = ''; paint();
+          try { if (window.gtag) gtag('event', error ? 'live_alerts_setup_failed' : 'live_alerts_on', { from: 'spar_searching' }); } catch(e){}
+        });
       });
-      // Someone who signed in FROM this card wanted the ping, not the
-      // account, so finish the job once the named user lands rather than
-      // making them find the card again.
+      // Resume the alert setup after sign-in with a visible button.
+      // Browser permission still needs a fresh user gesture.
       function resumeAfterSignIn(){
         var want = false;
         try { want = sessionStorage.getItem(PENDING_KEY) === '1'; } catch(_) {}
         if (!want || !isNamedUser(state.user) || typeof window.daSetLiveAlerts !== 'function') return;
         try { sessionStorage.removeItem(PENDING_KEY); } catch(_) {}
-        window.daSetLiveAlerts(true, function(){ paint(); });
-        try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching_after_signin' }); } catch(e){}
+        // A new gesture is needed for Safari permission after sign-in.
+        // Leave the ready button visible; do not auto-prompt from this timer.
+        shown = ''; paint();
       }
       // Keep re-evaluating while this screen is up. notifications.js loads
       // deferred, the user can sign in mid-search, and permission can be

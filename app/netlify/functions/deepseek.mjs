@@ -1,3 +1,4 @@
+import { guardPrivateJudgeProxy } from './lib/private-judging.mjs';
 // DeepSeek proxy — DeepSeek's API is OpenAI-compatible, so this is a
 // near-clone of openai-chat.mjs with the base URL + model allowlist swapped.
 import { checkAppCheck } from './lib/appcheck.mjs';
@@ -128,6 +129,8 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+    const privateGate = await guardPrivateJudgeProxy(request, body);
+    if (privateGate) return new Response(JSON.stringify(privateGate), { status: privateGate.status || 402, headers: { 'Content-Type': 'application/json', ...CORS } });
 
     // Warm-up handshake — see claude.mjs for the full rationale.
     if (body && body.warm === true) {

@@ -56,6 +56,7 @@ export const IDENTITY_DOCS = [
   'user_certificates',
   'user_ratings',       // Glicko record
   'learning_counters',
+  'private_judge_usage', // this account's private-judging allowance and reservations
 ];
 
 // Subtrees under a uid-keyed doc. Deleted recursively.
@@ -92,6 +93,11 @@ export const BULK_QUERIES = [
   { collection: 'rfd_ratings', field: 'uid' },
   { collection: 'usage_logs', field: 'userId' },
   { collection: 'user_style_summaries', field: 'uid' },
+  // Private transcripts and derived explanations are disposable caches.
+  // Either participant's deletion removes a shared cache; the live_rounds
+  // record itself follows the existing retention policy below.
+  { collection: 'private_judge_receipts', field: 'uids', op: 'array-contains' },
+  { collection: 'judge_explanation_sources', field: 'uids', op: 'array-contains' },
 ];
 
 // Direct message threads. A thread is a two-author object, so this is
@@ -276,7 +282,7 @@ export async function purgeBulk(db, uid, { deadline, only } = {}) {
   for (const q of list) {
     if (pastDeadline(deadline)) { remaining.push(q.collection); continue; }
     try {
-      const r = await purgeQuery(db, db.collection(q.collection).where(q.field, '==', uid), { deadline });
+      const r = await purgeQuery(db, db.collection(q.collection).where(q.field, q.op || '==', uid), { deadline });
       deleted += r.deleted;
       if (!r.done) remaining.push(q.collection);
     } catch (err) {

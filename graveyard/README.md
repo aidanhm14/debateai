@@ -38,3 +38,5 @@ the newer layout adjusted around it.
 - [2026-09-01 — landing face wall](2026-09-01-landing-face-wall.md) — the
   full-bleed dark webcam mosaic ("Somebody is always up for a round.") that
   was chapter 09 of the `/landing` tour.
+
+- [2026-09-05 — how-it-works long guide](2026-09-05-how-it-works.md) — replaced the repeated guide with a shorter path into a round.

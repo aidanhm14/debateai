@@ -682,6 +682,7 @@ footer.foot a{color:var(--text-dim)}
 
   <!-- ── The judge form ──────────────────────────────────── -->
   <section class="judge-form" id="judgeForm" aria-label="Judge a debate round">
+    <p style="font-size:.85rem;line-height:1.5;color:var(--text-dim)">Two private judged rounds per account are free. After that, <a href="/pricing">Individual ($10/year) includes private judging</a>. This allowance is shared with private live rooms.</p>
 
     <!-- ── STATE 1: idle. One button. ─────────────────────── -->
     <div id="idleState">
@@ -1060,7 +1061,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     <details><summary>What happens if I get interrupted or talked over?</summary><p>Being cut off costs you nothing by itself. The judge scores what happened to the argument: whether the point survived the response, whether you beat the answer that was actually given rather than repeating your original claim, and whether anything you dropped ever came back. In a live voice round a turn that got cut off is marked as interrupted in the transcript the judge reads, so holding the thread under pressure shows up as responsiveness. The same applies to any interruption or back-and-forth.</p></details>
     <details><summary>What if I think the judge is wrong?</summary><p>Two routes. On a recorded round either debater can appeal within 72 hours, and a person decides it, never the model that made the call. Beyond one round, the judge itself is <a href="/judge-integrity#critiques">open to critiques</a>: the strongest objections to AI judging are published with our answers, and if you can build a round where the panel rewards the worse argument, send it in. The strongest critiques get run against the live panel and the results are published whether they hold or not.</p></details>
     <details><summary>Does it replace a person?</summary><p>No. It gives both sides a consistent second read and explains what decided the round. It is useful when nobody else was there to listen.</p></details>
-    <details><summary>Is it free?</summary><p>There is a free allowance. Paid plans add capacity and features; the current options live at <a href="/pricing">/pricing</a>.</p></details>
+    <details><summary>Is it free?</summary><p>Sign in for two free private judged rounds per account, shared with private live rooms. After that, Individual ($10/year), BYOK, Voice, and Team include private judging. <a href="/pricing">Compare plans</a>.</p></details>
   </div>
 
   <!-- ── The judge lens (paradigm picker). Relocated from the landing page
@@ -2003,16 +2004,16 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
 
   function brainHeaders(brainKey){
     var headers = { 'Content-Type':'application/json' };
-    if (brainKey === 'claude') return Promise.resolve(headers);
+    function signInNeeded(){ var error = new Error('Sign in to use your two free private judged rounds.'); error.status = 401; return Promise.reject(error); }
     try {
       var user = window.firebase && firebase.auth && firebase.auth().currentUser;
-      if (!user) return Promise.reject(new Error('Sign in before using this brain, or switch the AI brain back to Claude.'));
+      if (!user || user.isAnonymous) return signInNeeded();
       return user.getIdToken().then(function(token){
         if (token) headers.Authorization = 'Bearer ' + token;
         return headers;
       });
     } catch(e){
-      return Promise.reject(new Error('Sign in before using this brain, or switch the AI brain back to Claude.'));
+      return signInNeeded();
     }
   }
 
@@ -2322,26 +2323,10 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     status.style.display = 'block';
     out.style.display = 'none';
     out.textContent = '';
-    var p = buildFullBallotPrompt(b, ctx);
     brainHeaders('claude').then(function(headers){
-      return fetch('/api/claude', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
-          // Stream so the keepalive holds the connection through the
-          // model's opening pause on a long transcript.
-          stream: true,
-          system: p.system,
-          messages: [{ role:'user', content: p.user }],
-          _feature: 'live-round',
-          // The long ballot must arrive in the same voice as the verdict
-          // above it; two registers on one screen reads as two judges.
-          _judgeManner: ctx.mannerKey || 'plain',
-          _judgeDetail: ctx.detailKey || 'medium',
-          _voiceFormat: ctx.formatKey
-        })
+      return fetch('/api/private-judge', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ _judgeSupplement: true, _judgeReceipt: ctx.privateReceipt })
       });
     }).then(function(r){
       var contentType = r.headers.get('content-type') || '';
@@ -2453,7 +2438,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
     // retry loop can absorb both without making the user press the button
     // again. HTTP and account errors still fail fast.
     function attemptBallot(headers){
-      return fetch(brain.endpoint, {
+      return fetch('/api/private-judge', {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({
@@ -2465,6 +2450,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           messages: [{ role:'user', content: p.user }],
           // Every brain injects the same server-side adjudication core.
           _feature: 'live-round',
+          _judgeProvider: brainKey,
           _voiceFormat: formatKey,
           // Register and length only. The server allow-lists both and
           // prepends the delivery block; neither can reach the call, the
@@ -2473,9 +2459,15 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           _judgeDetail: detailKey
         })
       }).then(function(r){
+        var privateReceipt = r.headers.get('X-Private-Judge-Receipt') || '';
         var contentType = r.headers.get('content-type') || '';
         return r.text().then(function(raw){
-          if (!r.ok) throw new Error(serviceError(raw, r.status, brain.name));
+          if (!r.ok) {
+            var serviceErr = new Error(serviceError(raw, r.status, brain.name));
+            serviceErr.status = r.status;
+            throw serviceErr;
+          }
+          if (!privateReceipt) { try { privateReceipt = JSON.parse(raw).receipt || ''; } catch(e){} }
           // A truncated stream can die before OR after the first text delta.
           // Both arrive as HTTP 200. Require the provider's terminal event,
           // otherwise partial JSON gets mislabeled as a completed answer and
@@ -2494,6 +2486,7 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
             formatError.ballotFormat = true;
             throw formatError;
           }
+          parsed.privateJudgeReceipt = privateReceipt;
           return parsed;
         });
       });
@@ -2531,12 +2524,28 @@ Or upload a .txt, .md, or .docx file, or drag one onto this box."></textarea>
           motion: motion, roundBackground: roundBackground, formatKey: formatKey, roundSizeKey:roundSizeKey,
           teamNames: teamNames, transcript: transcript, isVoice: usedVoice,
           styleKey: styleKey, paradigmKey: paradigmKey, customParadigm: customParadigm,
-          mannerKey: mannerKey, detailKey: detailKey
+          mannerKey: mannerKey, detailKey: detailKey, privateReceipt: parsed.privateJudgeReceipt
         });
       } catch(e){ console.warn('[full ballot]', e); }
     }).catch(function(err){
       $('loading').style.display = 'none';
       showError(err && err.message ? err.message : 'Something went wrong judging the round. Try again.');
+      if (err && err.status === 401) {
+        var signIn = document.createElement('button');
+        signIn.type = 'button'; signIn.className = 'btn'; signIn.textContent = 'Sign in';
+        signIn.addEventListener('click', function(){
+          if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin'); return; }
+          var script = document.createElement('script'); script.src = '/js/auth-modal.js';
+          script.onload = function(){ if (window.openAuthModal) window.openAuthModal('signin'); };
+          document.head.appendChild(script);
+        });
+        $('formError').appendChild(signIn);
+      }
+      if (err && err.status === 402) {
+        var upgrade = document.createElement('a');
+        upgrade.href = '/pricing'; upgrade.className = 'btn'; upgrade.textContent = 'Get Individual · $10/year';
+        $('formError').appendChild(upgrade);
+      }
     }).then(function(){
       busy = false;
       $('judgeBtn').disabled = false;

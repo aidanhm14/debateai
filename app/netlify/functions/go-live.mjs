@@ -14,6 +14,7 @@ import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mj
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { sendToManyUsers, pushConfigured } from './lib/webpush.mjs';
+import { fcmConfigured } from './lib/fcm.mjs';
 import { sendSmsToManyUsers, smsConfigured } from './lib/sms.mjs';
 
 // SMS costs real money per message and lands on a handset, so the text lane
@@ -102,7 +103,7 @@ export default async (request) => {
   // Either lane being live is enough to be worth broadcasting. Gating the
   // whole thing on push alone would have made the text lane dead on arrival
   // in exactly the configuration we expect first: SMS keys set, VAPID not.
-  if (!pushConfigured() && !smsConfigured()) {
+  if (!pushConfigured() && !fcmConfigured() && !smsConfigured()) {
     return jsonResponse({ ok: true, broadcast: false, configured: false }, 200, request);
   }
 

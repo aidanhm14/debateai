@@ -1,3 +1,4 @@
+import { isPrivateJudgingRound, privateJudgeKey, privateJudgeAccounts, reservePrivateJudgment, finishPrivateJudgment } from './lib/private-judging.mjs';
 // ─────────────────────────────────────────────────────────────
 // Server-side ballot for a LIVE human-vs-human round.
 //
@@ -528,6 +529,27 @@ export default async (request, context) => {
   // provider calls.
   const participantUids = [d.proUid, d.proUid2, d.conUid, d.conUid2].filter(Boolean);
   const isParticipant = participantUids.includes(uid);
+  const privateKey = privateJudgeKey('live:' + room);
+  const previousPrivate = await db.collection('private_judge_receipts').doc(privateKey).get();
+  const previousReceipt = previousPrivate.exists ? previousPrivate.data() : null;
+  const restorePrivateResult = async output => {
+    let saved; try { saved = JSON.parse(output); } catch { saved = null; }
+    if (!saved?.ballot && !saved?.noWinner) return jsonResponse({ code: 'PRIVATE_JUDGE_ALREADY_COMPLETE', error: 'This private round was already judged. Start a new round for a new judgment.' }, 409, request);
+    // A participant can edit room state, but cannot erase the immutable
+    // receipt or reuse this room ID to buy a new panel without a new use.
+    if (saved.ballot) {
+      await ref.update({ ballot: saved.ballot, ballotPending: false, ballotUnresolved: FieldValue.delete(), status: 'ballot', serverJudgeState: 'complete' });
+      return jsonResponse({ ok: true, already: true, ballot: saved.ballot }, 200, request);
+    }
+    await ref.update({ ballot: FieldValue.delete(), ballotPending: false, ballotUnresolved: saved.noWinner, serverJudgeState: 'unresolved' });
+    const rated = await rateNoWinnerRound(db, ref, room, d, saved.noWinner, Date.now());
+    return jsonResponse({ ok: false, already: true, code: 'unresolved', noWinner: saved.noWinner, resolution: saved.noWinner.resolution || 'unresolved', rated: !!(rated && (rated.applied || rated.reason === 'already_applied')), ratedReason: rated && !rated.applied ? rated.reason : undefined }, 200, request);
+  };
+  if (previousReceipt?.state === 'complete') {
+    if (!internal && !isParticipant) return errorResponse('Not a participant', 403, request);
+    return restorePrivateResult(previousReceipt.output);
+  }
+
 
   // Already server-judged. Idempotent by design: a retry after a dropped
   // response must not re-run the panel and must not re-settle.
@@ -575,6 +597,17 @@ export default async (request, context) => {
   // transaction rechecks the ballot and recovery gate against fresh state,
   // so simultaneous participants/watchers cannot fan out provider calls.
   const now = Date.now();
+  // Private/squad IDs and earlier authorization remain private across
+  // visibility changes. Charge only the verified requester, never a peer
+  // UID taken from the participant-writable room document.
+  const metered = isPrivateJudgingRound(room, d) || previousPrivate.exists;
+  let privateAccounts = null;
+  if (metered) {
+    const payerUid = internal ? previousReceipt?.uids?.[0] : (isParticipant ? uid : null);
+    if (!payerUid) return jsonResponse({ code: 'PRIVATE_JUDGE_REQUEST_REQUIRED', error: 'A signed-in participant must request private judging before an automatic retry can run.' }, 401, request);
+    try { privateAccounts = await privateJudgeAccounts([payerUid], decoded); }
+    catch (error) { return jsonResponse({ code: error.code || 'PLAN_CHECK_UNAVAILABLE', error: error.code ? error.message : 'Could not verify private judging access. Try again shortly.' }, error.status || 503, request); }
+  }
   const claim = await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(ref);
     if (!freshSnap.exists) return { kind: 'missing' };
@@ -593,15 +626,26 @@ export default async (request, context) => {
 
     const leaseWait = judgeLeaseWaitMs(fresh, now);
     if (leaseWait > 0) return { kind: 'busy', retryAfterMs: leaseWait };
+    let meter = null;
+    if (metered || isPrivateJudgingRound(room, fresh)) {
+      if (!internal && !freshParticipants.includes(uid)) return { kind: 'forbidden' };
+      if (!privateAccounts) return { kind: 'plan_retry' };
+      meter = await reservePrivateJudgment(tx, db, { key: privateKey, accounts: privateAccounts, now, leaseMs: internal ? SWEEP_LEASE_MS : JUDGE_LEASE_MS });
+      if (meter.already) return { kind: 'private_complete', output: meter.output };
+      if (!meter.ok) return { kind: 'private_blocked', access: meter };
+    }
     tx.update(ref, {
       serverJudgeState: 'running',
       serverJudgeStartedAt: FieldValue.serverTimestamp(),
       serverJudgeAttempt: FieldValue.increment(1),
       serverJudgeLeaseMs: internal ? SWEEP_LEASE_MS : JUDGE_LEASE_MS,
     });
-    return { kind: 'claimed', round: fresh };
+    return { kind: 'claimed', round: fresh, meter };
   });
 
+  if (claim.kind === 'private_complete') return restorePrivateResult(claim.output);
+  if (claim.kind === 'plan_retry') return jsonResponse({ code: 'PLAN_CHECK_UNAVAILABLE', error: 'Private judging access changed. Retry this round.' }, 503, request);
+  if (claim.kind === 'private_blocked') return jsonResponse(claim.access, claim.access.status || 402, request);
   if (claim.kind === 'missing') return errorResponse('No such round', 404, request);
   if (claim.kind === 'forbidden') return errorResponse('Not a participant', 403, request);
   if (claim.kind === 'done') return jsonResponse({ ok: true, already: true, ballot: claim.ballot }, 200, request);
@@ -624,6 +668,23 @@ export default async (request, context) => {
     return jsonResponse({ ok: false, code: 'judge_in_progress', retryAfterMs: claim.retryAfterMs }, 202, request);
   }
   d = claim.round;
+  const publishJudgedRound = async update => {
+    const output = JSON.stringify({ ballot: update.ballot || null, noWinner: update.ballotUnresolved && update.ballotUnresolved.outcome === 'no_winner' ? update.ballotUnresolved : null });
+    const source = { kind: 'live', motion: String(d.motion || '').slice(0, 4096), format: String(d.format || 'quick').slice(0, 40), detail: String(d.ballotDetail || 'medium').slice(0, 20), manner: 'plain', transcript: transcriptFrom(d.speeches, { interjections: d.interjections }) };
+    const archive = db.collection('judge_explanation_sources').doc(privateKey);
+    const write = async tx => {
+      tx.set(archive, { state: 'complete', private: metered, uids: participantUids, source, output });
+      tx.update(ref, update);
+    };
+    // Freeze the explanation source and final result in the same commit
+    // as the ballot. The live document may later be edited by participants.
+    if (claim.meter) return finishPrivateJudgment(db, claim.meter, { success: true, output, write });
+    return db.runTransaction(write);
+  };
+  const releasePrivateJudging = () => claim.meter
+    ? finishPrivateJudgment(db, claim.meter, { success: false }).catch(error => console.error('[live-judge] private reservation release', error.message))
+    : Promise.resolve();
+
 
   // Tournament entry verification is also the ballot-configuration gate.
   // The room document is participant-writable, so its judgePicks,
@@ -671,6 +732,7 @@ export default async (request, context) => {
     });
   } catch (err) {
     console.error('[live-judge] panel failed', room, err.message);
+    await releasePrivateJudging();
     await ref.update({
       serverJudgeState: 'failed',
       serverJudgeFailedAt: FieldValue.serverTimestamp(),
@@ -700,6 +762,7 @@ export default async (request, context) => {
         serverJudgeStartedAt: FieldValue.delete(),
         serverJudgeLastPartial: partial,
       });
+      await releasePrivateJudging();
       return jsonResponse({
         ok: false,
         code: 'judge_incomplete',
@@ -709,7 +772,7 @@ export default async (request, context) => {
     }
 
     const noWinner = buildNoWinnerBallot(judged, d, judgedAt);
-    await ref.update({
+    await publishJudgedRound({
       ballotPending: false,
       ballotUnresolved: noWinner,
       serverJudgeState: 'unresolved',
@@ -786,7 +849,7 @@ export default async (request, context) => {
       }
     : baseBallot;
 
-  await ref.update({
+  await publishJudgedRound({
     ballot,
     ballotPending: false,
     ballotUnresolved: FieldValue.delete(),

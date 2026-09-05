@@ -4,21 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Build your debate brain | Debatable</title>
-<meta name="description" content="Six questions that teach the AI who you are as a debater. Your level, format, style, register, side, and what you want to sharpen. It remembers." />
+<meta name="description" content="Choose how you argue and what you want to work on. Build your brain yourself, or bring suggested choices from ChatGPT or Claude and review them." />
 <link rel="canonical" href="https://itsdebatable.com/brain" />
 <meta property="og:title" content="Build your debate brain | Debatable" />
-<meta property="og:description" content="Six questions that teach the AI who you are as a debater. It remembers." />
+<meta property="og:description" content="Set your preferences for an AI opponent. Answer five questions or review suggestions from your own AI." />
 <meta property="og:url" content="https://itsdebatable.com/brain" />
   <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Build your debate brain | Debatable" />
-<meta name="twitter:description" content="Six questions that teach the AI who you are as a debater. It remembers." />
+<meta name="twitter:description" content="Set your preferences for an AI opponent. Answer five questions or review suggestions from your own AI." />
 
 <link rel="stylesheet" href="/css/ui.css">
 <link rel="stylesheet" href="/css/arcade-flow.css">
 <script src="/js/native-bridge.js"></script>
 <script defer src="/js/arcade-flow.js"></script>
+<script src="/js/brain-transfer.js"></script>
 <script defer src="/js/topbar.js"></script>
 <script defer src="/js/prefs-sync.js"></script>
 
@@ -108,7 +109,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   .bx-start:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(220,38,38,.32); }
   .bx-start:active { transform: translateY(0); }
 
-  /* Six dots standing in for the six steps. Reads as a level select. */
+  /* Five dots stand in for the five public questions. */
   .bx-steps { display: flex; justify-content: center; gap: 9px; margin: 34px 0 0; padding: 0; list-style: none; }
   .bx-steps li {
     width: 9px; height: 9px; border-radius: 50%;
@@ -170,6 +171,25 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
      be. */
   .afl { --accent: var(--brain-red); }
 
+
+  .bx-transfer { margin: 30px 0 0; padding: 18px 20px; border: 1px solid var(--border, #ded9d1); border-radius: 16px; background: var(--bg-card, #fffdf8); text-align: left; }
+  .bx-transfer summary { cursor: pointer; font-size: 1.06rem; font-weight: 800; }
+  .bx-transfer p { line-height: 1.55; color: var(--text-dim, #57534e); font-size: .92rem; }
+  .bx-transfer h3 { margin: 24px 0 8px; font-size: .95rem; }
+  .bx-transfer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .bx-transfer button, .bx-transfer select, .bx-transfer textarea { font: inherit; }
+  .bx-transfer button { cursor: pointer; border: 1px solid var(--border, #c8c1b6); border-radius: 9px; padding: 10px 15px; background: var(--bg, #faf9f5); color: var(--text, #1a1a1f); font-size: .9rem; font-weight: 700; }
+  .bx-transfer button.bx-transfer-save { background: var(--brain-red); color: #fff; border-color: var(--brain-red); }
+  .bx-transfer button:disabled { cursor: wait; opacity: .6; }
+  .bx-transfer a { color: var(--brain-red); font-size: .88rem; }
+  .bx-transfer textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 118px; margin: 8px 0 12px; padding: 12px; border: 1px solid var(--border, #c8c1b6); border-radius: 9px; background: var(--bg, #faf9f5); color: var(--text, #1a1a1f); font: .85rem/1.5 monospace; }
+  .bx-transfer label { display: block; font-size: .88rem; font-weight: 700; }
+  .bx-transfer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0 18px; }
+  .bx-transfer select { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 10px; border: 1px solid var(--border, #c8c1b6); border-radius: 8px; color: var(--text, #1a1a1f); background: var(--bg, #faf9f5); font-size: .88rem; }
+  .bx-transfer [hidden] { display: none !important; }
+  .bx-transfer-status { min-height: 1.5em; margin: 12px 0 0 !important; }
+  @media(max-width:520px) { .bx-transfer { padding: 16px; } .bx-transfer-grid { grid-template-columns: 1fr; } }
+
   @media (prefers-reduced-motion: reduce) {
     .bx-eyebrow i, .bx-steps li, .bx-live-flag i { animation: none; }
     .bx-start { transition: none; }
@@ -189,18 +209,41 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 <div id="topbar-slot"></div>
 
 <main class="bx-wrap">
-  <div class="bx-eyebrow"><i aria-hidden="true"></i>Personal debate intelligence</div>
+  <div class="bx-eyebrow"><i aria-hidden="true"></i>Your way of arguing</div>
   <h1 class="bx-h1">Build your debate brain.</h1>
-  <p class="bx-sub" id="bxSub">Six questions. The AI learns your level, your format, and how you actually argue, then brings that into every round you run.</p>
+  <p class="bx-sub" id="bxSub">Five questions about how you argue. Give the AI opponent your preferences, or use ChatGPT or Claude to suggest them.</p>
 
   <button type="button" class="bx-start" id="bxStart">Start building <span aria-hidden="true">&rarr;</span></button>
 
-  <ul class="bx-steps" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li></ul>
+  <ul class="bx-steps" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li></ul>
 
   <div class="bx-saved" id="bxSaved" hidden>
     <h2>Your brain right now</h2>
     <dl id="bxSavedList"></dl>
   </div>
+
+  <details class="bx-transfer" id="bxTransfer">
+    <summary>Build with your AI</summary>
+    <p>Bring suggested choices from ChatGPT or Claude. Copy a prompt into your AI, paste its reply here, then review and edit before saving. This is a manual transfer. It does not link accounts or import your chat history.</p>
+    <h3>1. Ask your AI</h3>
+    <div class="bx-transfer-actions">
+      <button type="button" id="bxCopyPrompt">Copy prompt</button>
+      <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Open ChatGPT</a>
+      <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Open Claude</a>
+    </div>
+    <details><summary style="font-size:.85rem;font-weight:500;margin-top:12px">Read the prompt</summary><textarea id="bxPrompt" readonly aria-label="Prompt to copy to your AI" spellcheck="false"></textarea></details>
+    <h3>2. Bring the reply back</h3>
+    <label for="bxImportText">Paste the JSON reply</label>
+    <textarea id="bxImportText" maxlength="10000" spellcheck="false" placeholder='{"brain":{"style":"evidence","goal":"rebuttal"}}' aria-describedby="bxTransferStatus"></textarea>
+    <button type="button" id="bxReviewImport">Review choices</button>
+    <div id="bxImportReview" hidden>
+      <h3>3. Make it yours</h3>
+      <p id="bxImportSummary"></p>
+      <div class="bx-transfer-grid" id="bxImportFields"></div>
+      <button type="button" class="bx-transfer-save" id="bxSaveImport">Save these choices</button>
+    </div>
+    <p class="bx-transfer-status" id="bxTransferStatus" role="status" aria-live="polite"></p>
+  </details>
 
   <p class="bx-note">Answers are yours. <a href="/practice">Skip and just run a round</a> if you would rather start arguing.</p>
 </main>
@@ -229,85 +272,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 (function () {
   'use strict';
 
-  var STEPS = [
-    {
-      key: 'level', storageKey: 'da-brain-level',
-      q: 'How much have you done?',
-      summaryLabel: 'Level',
-      hint: 'This sets how hard the AI argues before you have said a word.',
-      options: [
-        { value: 'new', label: 'New to this', sub: 'It explains the shape of a round as it goes.' },
-        { value: 'school', label: 'School team', sub: 'Competent opponent. It will not spread you.' },
-        { value: 'circuit', label: 'Circuit regular', sub: 'Fast, technical, punishes a dropped argument.' },
-        { value: 'elite', label: 'I break at nationals', sub: 'Full strength. It goes for the throat.' }
-      ]
-    },
-    {
-      key: 'format', storageKey: 'da-brain-format',
-      q: 'What do you actually debate?',
-      summaryLabel: 'Format',
-      hint: 'Formats differ on evidence, structure and register. This picks the right one.',
-      options: [
-        { value: 'quick', label: 'General', sub: 'Two speeches a side. Judged out of 30.' },
-        { value: 'asian', label: 'Asian Parliamentary', sub: 'Three a side, reply speeches, POIs.' },
-        { value: 'wsdc', label: 'WSDC', sub: 'Worlds Schools. Content, style, strategy.' },
-        { value: 'bp', label: 'British Parliamentary', sub: 'Four benches, extensions, whips.' },
-        { value: 'apda', label: 'APDA', sub: 'American Parli. Impromptu, no tagged cards.' },
-        { value: 'pf', label: 'Public Forum', sub: 'Evidence and weighing.' },
-        { value: 'ld', label: 'Lincoln Douglas', sub: 'Value and criterion.' },
-        { value: 'policy', label: 'Policy', sub: 'Tagged cards, speed, the flow.' }
-      ]
-    },
-    {
-      key: 'style', storageKey: 'da-brain-style',
-      q: 'How do you win rounds?',
-      summaryLabel: 'Style',
-      hint: 'Your strength, so the AI knows where to attack you.',
-      options: [
-        { value: 'evidence', label: 'On the evidence', sub: 'Facts, studies, receipts.' },
-        { value: 'framework', label: 'On the framework', sub: 'Win the lens, win the round.' },
-        { value: 'weighing', label: 'On impact weighing', sub: 'Magnitude, probability, timeframe.' },
-        { value: 'clash', label: 'On clash', sub: 'Rebuttal and refutation carry it.' },
-        { value: 'delivery', label: 'On delivery', sub: 'Persuasion and presence do the work.' }
-      ]
-    },
-    {
-      key: 'register', storageKey: 'da-brain-register',
-      q: 'What should it sound like against you?',
-      summaryLabel: 'Opponent',
-      hint: 'The register of the AI opponent, not its difficulty.',
-      options: [
-        { value: 'surgical', label: 'Calm and surgical', sub: 'Quiet, precise, finds the loose thread.' },
-        { value: 'aggressive', label: 'Relentless', sub: 'Pushes hard, takes the floor back.' },
-        { value: 'warm', label: 'Warm and persuasive', sub: 'Wins the room before it wins the point.' },
-        { value: 'technical', label: 'Technical', sub: 'Line by line, on the flow.' }
-      ]
-    },
-    {
-      key: 'side', storageKey: 'da-brain-side',
-      q: 'Which side do you want?',
-      summaryLabel: 'Side',
-      hint: 'Take the side you disagree with when you want the harder round.',
-      options: [
-        { value: '', label: 'Surprise me', sub: 'Assigned when the round opens.' },
-        { value: 'prop', label: 'Proposition', sub: 'You argue for the motion.' },
-        { value: 'opp', label: 'Opposition', sub: 'You argue against it.' }
-      ]
-    },
-    {
-      key: 'goal', storageKey: 'da-brain-goal',
-      q: 'What do you want to get better at?',
-      summaryLabel: 'Sharpening',
-      hint: 'The ballot leans on this when it writes your feedback.',
-      options: [
-        { value: 'pressure', label: 'Speaking under pressure', sub: 'Holding the thread when it gets fast.' },
-        { value: 'case', label: 'Case construction', sub: 'Building something that survives contact.' },
-        { value: 'rebuttal', label: 'Rebuttal', sub: 'Answering what was actually said.' },
-        { value: 'crossex', label: 'Cross examination', sub: 'Questions that set up your own case.' },
-        { value: 'adapt', label: 'Reading the judge', sub: 'Adapting to lay, flow, and tech panels.' }
-      ]
-    }
-  ];
+  var STEPS = window.DBBrainTransfer ? window.DBBrainTransfer.steps() : [];
 
   function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -342,16 +307,30 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     return out;
   }
 
-  function pushBrain() {
+  function pushBrain(preserveServer) {
     var u = namedUser();
     if (!u) return Promise.resolve(false);
     var brain = collect();
     if (!Object.keys(brain).length) return Promise.resolve(false);
+    brain.format = 'quick'; // public rounds use the casual structure
     return u.getIdToken().then(function (tok) {
-      return fetch('/api/brain', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
-        body: JSON.stringify({ brain: brain })
+      // A partial AI import must retain choices on another device, including
+      // historical IDs that the casual editor no longer offers.
+      var existing = preserveServer ? fetch('/api/brain', { headers: { authorization: 'Bearer ' + tok } }).then(function (r) {
+        if (!r.ok) throw new Error('brain_read_failed');
+        return r.json();
+      }) : Promise.resolve(null);
+      return existing.then(function (d) {
+        var merged = {};
+        ['level', 'style', 'register', 'side', 'goal', 'format'].forEach(function (key) {
+          if (d && d.brain && Object.prototype.hasOwnProperty.call(d.brain, key) && typeof d.brain[key] === 'string') merged[key] = d.brain[key];
+        });
+        Object.keys(brain).forEach(function (key) { merged[key] = brain[key]; });
+        return fetch('/api/brain', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + tok },
+          body: JSON.stringify({ brain: merged })
+        });
       });
     }).then(function (r) { return !!(r && r.ok); })
       .catch(function () { return false; });
@@ -427,7 +406,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     });
     savedCard.hidden = false;
     startBtn.innerHTML = 'Edit your brain <span aria-hidden="true">&rarr;</span>';
-    sub.textContent = 'Six questions, already answered. Change any of them and every round after this one follows the new setup.';
+    sub.textContent = 'Your saved choices are below. Change them any time, or review new suggestions from your AI.';
   }
 
   /* ── live-rounds strip for the flow's top slot ──
@@ -448,7 +427,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         if (!d || !d.count) return;           // silent when nobody is live
         var n = d.count;
         wrap.querySelector('[data-n]').textContent =
-          n + (n === 1 ? ' debater live' : ' debaters live');
+          n + (n === 1 ? ' person live' : ' people live');
         var names = (d.debaters || []).map(function (x) { return x.name; }).filter(Boolean);
         wrap.querySelector('[data-names]').textContent =
           names.length ? names.slice(0, 3).join(' · ') + ' waiting for a round' : 'Waiting for a round';
@@ -459,36 +438,118 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     return wrap;
   }
 
-  function persist(answers) {
+  function persist(answers, preserveServer) {
     STEPS.forEach(function (s) {
       var v = answers[s.key];
       if (v === undefined || v === null) return;
-      write(s.storageKey, String(v));
+      if (s.options.some(function (o) { return o.value === v; })) write(s.storageKey, v);
     });
+    write('da-brain-format', 'quick');
     write('da-brain-built', String(Date.now()));
-    pushBrain();
+    var sync = pushBrain(preserveServer);
     try {
       if (window.gtag) window.gtag('event', 'brain_built', {
-        level: answers.level || '', format: answers.format || '', goal: answers.goal || ''
+        source: 'brain_preferences'
       });
     } catch (e) {}
+    return sync;
+  }
+
+  function mountBrainTransfer() {
+    var api = window.DBBrainTransfer;
+    var details = document.getElementById('bxTransfer');
+    var input = document.getElementById('bxImportText');
+    var promptBox = document.getElementById('bxPrompt');
+    var review = document.getElementById('bxImportReview');
+    var fields = document.getElementById('bxImportFields');
+    var status = document.getElementById('bxTransferStatus');
+    var save = document.getElementById('bxSaveImport');
+    if (!api) { details.hidden = true; return; }
+    promptBox.value = api.prompt();
+    function track(action) {
+      try { if (window.gtag) gtag('event', 'brain_ai_transfer', { action: action }); } catch (_) {}
+    }
+    document.getElementById('bxCopyPrompt').addEventListener('click', function () {
+      var copy;
+      try { copy = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(api.prompt()) : Promise.reject(new Error('clipboard_unavailable')); }
+      catch (err) { copy = Promise.reject(err); }
+      copy.then(function () {
+        status.textContent = 'Prompt copied. Paste it into ChatGPT or Claude, then bring the JSON reply back here.';
+        track('prompt_copied');
+      }).catch(function () {
+        promptBox.parentNode.open = true;
+        promptBox.focus(); promptBox.select();
+        status.textContent = 'Select and copy the prompt above, then paste it into your AI.';
+      });
+    });
+    input.addEventListener('input', function () { review.hidden = true; fields.textContent = ''; status.textContent = ''; });
+    document.getElementById('bxReviewImport').addEventListener('click', function () {
+      review.hidden = true;
+      var result;
+      try { result = api.parse(input.value); }
+      catch (err) { status.textContent = err.message; return; }
+      fields.textContent = '';
+      var current = collect();
+      STEPS.forEach(function (step) {
+        var label = document.createElement('label');
+        label.textContent = step.summaryLabel;
+        var select = document.createElement('select');
+        select.setAttribute('data-brain-field', step.key);
+        var keep = document.createElement('option'); keep.value = '__keep';
+        keep.textContent = Object.prototype.hasOwnProperty.call(current, step.key) ? 'Keep: ' + labelFor(step, current[step.key]) : 'Leave unanswered';
+        select.appendChild(keep);
+        step.options.forEach(function (choice) {
+          var option = document.createElement('option'); option.value = choice.value; option.textContent = choice.label;
+          select.appendChild(option);
+        });
+        select.value = Object.prototype.hasOwnProperty.call(result.brain, step.key) ? result.brain[step.key] : '__keep';
+        label.appendChild(select); fields.appendChild(label);
+      });
+      document.getElementById('bxImportSummary').textContent = 'Only these choices will be saved. Your other current choices stay as they are.' + (result.ignored ? ' Unsupported fields or values were left out.' : '');
+      review.hidden = false;
+      status.textContent = 'Review the suggested choices. Nothing has been saved yet.';
+      fields.querySelector('select').focus();
+      track('reviewed');
+    });
+    save.addEventListener('click', function () {
+      if (review.hidden) return;
+      var selected = {};
+      fields.querySelectorAll('select[data-brain-field]').forEach(function (select) {
+        if (select.value !== '__keep') selected[select.getAttribute('data-brain-field')] = select.value;
+      });
+      var clean = api.clean(selected);
+      if (!Object.keys(clean).length) { status.textContent = 'Choose at least one answer to save, or keep your current brain.'; return; }
+      var signedIn = !!namedUser();
+      save.disabled = true;
+      status.textContent = 'Saving your choices...';
+      persist(clean, true).then(function (synced) {
+        save.disabled = false;
+        paintSaved();
+        // The pasted reply is transient. It never enters storage or analytics.
+        input.value = '';
+        fields.textContent = '';
+        review.hidden = true;
+        status.textContent = synced ? 'Saved to your account. Your AI opponent can use these choices.' : (signedIn ? 'Saved on this device. Account sync failed; use Edit your brain to try saving again.' : 'Saved on this device. Sign in to carry your choices across devices.');
+        track(synced ? 'saved_account' : 'saved_device');
+      });
+    });
   }
 
   startBtn.addEventListener('click', function () {
-    if (!window.ArcadeFlow) { location.href = '/practice'; return; }
+    if (!window.ArcadeFlow || !STEPS.length) { location.href = '/practice'; return; }
     window.ArcadeFlow.start({
       label: 'Build your debate brain',
       topSlot: buildLiveStrip(),
       steps: withDefaults(),
       launch: {
         title: 'That is your brain.',
-        hint: 'Every round from here reads this. Change it any time at /brain.',
+        hint: 'Saved preferences for your AI opponent. The judge does not see them.',
         cta: 'Run a round with it'
       },
       onDone: function (a) {
         persist(a);
         var q = [];
-        if (a.format) q.push('format=' + encodeURIComponent(a.format));
+        q.push('format=quick');
         if (a.side) q.push('side=' + encodeURIComponent(a.side));
         q.push('source=brain');
         location.href = '/practice?' + q.join('&');
@@ -496,13 +557,14 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       /* Skip still SAVES. The defaults on a skipped run are either the
          person's own previous answers or the first option, and either is
          a truer brain than none; discarding them would mean a visitor who
-         skipped step six lost steps one through five. */
+         skipped the last step lost their earlier answers. */
       onSkip: function (a) { persist(a); paintSaved(); },
       onClose: function () { paintSaved(); }
     });
   });
 
   paintSaved();
+  mountBrainTransfer();
 
   /* Auth settles after this script runs, so the sync hangs off the state
      change rather than a one-shot read. Signing in does BOTH directions:

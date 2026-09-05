@@ -232,16 +232,26 @@ check(
 );
 check(inlineScriptsParse('app/friends.html'), 'app/friends.html inline scripts parse');
 check(inlineScriptsParse('app/notifications.html'), 'app/notifications.html inline scripts parse');
-check(
-  notifications.includes("var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1'")
-    && notifications.includes("var DA_IOS_ENABLE_OFFER_KEY = 'da-ios-live-enable-offer-v1'")
-    && notifications.includes('DA_IOS_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000'),
-  'signed-in iPhone live-alert offers are device-state-specific and snoozeable',
+// Desktop, Android, native apps and installed iPhones share this opt-in.
+// test-live-alert-setup.mjs exercises permission, registration and save
+// failures; these checks keep the journey and platform doors discoverable.
+const liveAlertOffer = notifications.slice(
+  notifications.indexOf('function maybeOfferDeviceLiveAlerts(user)'),
+  notifications.indexOf('// Broadcast side:'),
 );
 check(
-  notifications.includes('if (!user || user.isAnonymous || daIsNative() || DA_ON_ROUND_PAGE) return;')
-    && notifications.includes("var state = standalone ? 'enable' : 'install'"),
-  'iPhone alert offer only targets named web users outside active rounds',
+  notifications.includes("var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1'")
+    && notifications.includes("var DA_IOS_ENABLE_OFFER_KEY = 'da-live-enable-offer-v2'")
+    && notifications.includes('DA_IOS_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000')
+    && liveAlertOffer.includes('if (daOfferSnoozed(key)) return;'),
+  'phone and desktop live-alert offers distinguish installation from enabling and respect snooze',
+);
+check(
+  liveAlertOffer.includes('if (!user || user.isAnonymous || DA_ON_ROUND_PAGE || document.hidden || daVisibleModalUp()) return;')
+    && liveAlertOffer.includes("native ? 'phone' : 'computer'")
+    && liveAlertOffer.includes("var state = install ? 'install' : 'enable'")
+    && liveAlertOffer.includes('!daBusyRound() && !daVisibleModalUp()'),
+  'live-alert offers reach named phone and desktop users while deferring during rounds and other dialogs',
 );
 check(
   notifications.includes('Add Debatable to your Home Screen')
@@ -251,14 +261,17 @@ check(
 );
 check(
   notifications.includes("navigator.serviceWorker.register('/sw.js', { scope: '/' })")
-    && notifications.includes('return reg.pushManager.getSubscription()')
-    && notifications.includes('daRegisterPush().then(function (saved)'),
-  'iPhone alert setup registers a worker and verifies a saved push subscription before enabling',
+    && notifications.includes('return reg.pushManager.getSubscription().then(')
+    && notifications.includes("if (!r || !r.ok) throw new Error('subscription_save_failed')")
+    && notifications.includes('var setup = on ? daAskNotify() : Promise.resolve(true)')
+    && notifications.includes('return setup.then(function (saved)'),
+  'alert setup verifies device registration before saving the account opt-in',
 );
 check(
   notifications.includes("body: JSON.stringify({ format: format || 'casual'")
-    && notifications.includes("if (standalone && (!window.Notification || !('PushManager' in window))) return;"),
-  'iPhone alert setup defaults to casual rounds and hides on unsupported Home Screen apps',
+    && liveAlertOffer.includes('var install = !!(ios && !daStandalone() && !native)')
+    && liveAlertOffer.includes("if (!install && !native && (!window.Notification || !('PushManager' in window) || !('serviceWorker' in navigator))) return;"),
+  'alerts default to casual rounds, keep iPhone installation help and skip unsupported browser setup',
 );
 const goLive = read('app/netlify/functions/go-live.mjs');
 check(

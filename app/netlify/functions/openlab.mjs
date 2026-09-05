@@ -1,3 +1,4 @@
+import { guardPrivateJudgeProxy } from './lib/private-judging.mjs';
 // Open Lab brain proxy — routes to OpenRouter for open-weights models
 // that aren't shipped by the four big labs (Anthropic / OpenAI / Google
 // / xAI). Default stays Nous Hermes 4 405B: a Llama-3.1-405B fine-tune
@@ -140,6 +141,8 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+    const privateGate = await guardPrivateJudgeProxy(request, body);
+    if (privateGate) return new Response(JSON.stringify(privateGate), { status: privateGate.status || 402, headers: { 'Content-Type': 'application/json', ...CORS } });
 
     // Warm-up handshake — see claude.mjs for the full rationale.
     // (Note: openlab also runs a paid-plan check above this block, so

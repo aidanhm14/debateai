@@ -181,7 +181,10 @@ for (const k of DETAIL_KEYS) {
   if (m) t('the live round deep matches the server for ' + k, (m[1] === 'true') === DETAILS[k].deep);
 }
 const liveSends = (liveHtml.match(/_judgeDetail:/g) || []).length;
-t('both live-round judging calls send the agreed length', liveSends >= 2);
+t('the live ballot request sends the agreed length', liveSends >= 1);
+const liveServer = readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8');
+const explanationServer = readFileSync(new URL('../app/netlify/functions/private-judge.mjs', import.meta.url), 'utf8');
+t('live explanation length is frozen with the server ballot', liveServer.includes("detail: String(d.ballotDetail || 'medium')") && explanationServer.includes('normalizeDetail(source.detail)'));
 t('the live round skips the long ballot on a length that is not deep',
   /bdDeep\.deep === false/.test(liveHtml));
 

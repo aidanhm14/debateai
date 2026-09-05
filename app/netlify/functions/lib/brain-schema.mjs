@@ -40,7 +40,11 @@
 // this file is the one place the wording is decided.
 export const BRAIN_FIELDS = {
   level: {
-    'new': 'new to competitive debate',
+    'new': 'new to arguing a question in a structured round',
+    occasional: 'occasionally argues a question with other people',
+    regular: 'regularly argues a question with other people',
+    confident: 'comfortable making a point under pressure',
+    // Historical experience IDs remain readable for saved brains.
     school: 'debates on a school team',
     circuit: 'a regular on the competitive circuit',
     elite: 'breaks at national level',
@@ -78,6 +82,7 @@ export const BRAIN_FIELDS = {
     rebuttal: 'rebuttal',
     crossex: 'cross examination',
     adapt: 'reading and adapting to the judge',
+    persuade: 'making their reasoning easy to follow',
   },
 };
 

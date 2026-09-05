@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import {
   isAutomatedUserAgent,
@@ -155,6 +156,76 @@ test('session replay records movement, never content', () => {
   // public-alias rule.
   assert.doesNotMatch(replay, /displayName|user\.email|\.email\b/);
   assert.match(replay, /ph\.identify\(user\.uid/);
+});
+
+function replayRuntime({ sid, aid, blocked = false } = {}) {
+  const listeners = {};
+  const state = { initializations: 0, registrations: [], session: {}, writes: 0, identified: [], resets: 0 };
+  let authListener, interval;
+  const ph = {
+    __SV: 1,
+    init() { state.initializations++; },
+    register(props) { state.registrations.push(props); },
+    register_for_session(props) { Object.assign(state.session, props); },
+    unregister_for_session(key) { delete state.session[key]; },
+    identify(uid) { state.identified.push(uid); },
+    reset() { state.resets++; state.session = {}; },
+  };
+  const storage = value => ({
+    getItem(key) {
+      if (blocked) throw new Error('Storage blocked');
+      return key === '_da_sid' || key === '_da_aid' ? value : null;
+    },
+    setItem() { state.writes++; },
+  });
+  const window = {
+    posthog: ph,
+    addEventListener(name, fn) { listeners[name] = fn; },
+    removeEventListener(name) { delete listeners[name]; },
+    firebase: { apps: [{}], auth: () => ({ onAuthStateChanged(fn) { authListener = fn; } }) },
+  };
+  vm.runInNewContext(replay, {
+    window, document: { documentElement: { getAttribute: () => null } },
+    location: { hostname: 'itsdebatable.com', pathname: '/spar', search: '' },
+    navigator: { webdriver: false }, sessionStorage: storage(sid), localStorage: storage(aid),
+    setInterval(fn) { interval = fn; return 1; }, clearInterval() {},
+  });
+  return { state, start: event => listeners.pointerdown(event),
+    auth(user) { interval(); authListener(user); } };
+}
+
+test('replay adds existing UUID event IDs only after trusted interaction', () => {
+  const sid = '12345678-1234-4234-8234-123456789abc';
+  const aid = '87654321-4321-4321-a321-cba987654321';
+  const run = replayRuntime({ sid, aid });
+  assert.equal(run.state.initializations, 0);
+  run.start({ isTrusted: false });
+  assert.deepEqual(run.state.session, {});
+  assert.equal(run.state.initializations, 0);
+  run.start({ isTrusted: true });
+  assert.equal(run.state.initializations, 1);
+  assert.deepEqual(run.state.session, { da_session_id: sid, da_anon_id: aid });
+  assert.equal(run.state.writes, 0, 'must not create or rewrite source identifiers');
+  assert.deepEqual(run.state.identified, [], 'correlation is not identity resolution');
+  run.auth({ uid: 'named-account', isAnonymous: false });
+  run.auth(null);
+  assert.equal(run.state.resets, 1);
+  assert.deepEqual(run.state.identified, ['named-account']);
+  assert.deepEqual(run.state.session, { da_session_id: sid, da_anon_id: aid });
+});
+
+test('replay omits malformed, missing, and inaccessible correlation IDs', () => {
+  for (const input of [{ sid: 'someone@example.com', aid: '<script>secret</script>' }, {}, { blocked: true }]) {
+    const run = replayRuntime(input);
+    run.start({ isTrusted: true });
+    assert.equal(run.state.initializations, 1);
+    assert.deepEqual(run.state.session, {});
+    assert.equal(run.state.writes, 0);
+  }
+  const valid = '12345678-1234-4234-8234-123456789abc';
+  const partial = replayRuntime({ sid: valid, aid: 'invalid' });
+  partial.start({ isTrusted: true });
+  assert.deepEqual(partial.state.session, { da_session_id: valid });
 });
 
 test('server write has automation and shared-rate gates', () => {

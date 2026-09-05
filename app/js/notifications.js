@@ -51,13 +51,16 @@
   // a passive request). Safe to call repeatedly; no-ops once decided.
   function daAskNotify(){
     try {
-      if (daIsNative()) { daRegisterNativePush(); return; } // native handles its own permission prompt
-      if (!window.Notification) return;
-      if (Notification.permission === 'granted') { daRegisterPush(); return; }
+      if (daIsNative()) return daRegisterNativePush(true);
+      if (!window.Notification) return Promise.resolve(false);
+      if (Notification.permission === 'granted') return daRegisterPush();
       if (Notification.permission === 'default') {
-        Notification.requestPermission().then(function (p) { if (p === 'granted') daRegisterPush(); }).catch(function () {});
+        return Notification.requestPermission().then(function (p) {
+          return p === 'granted' ? daRegisterPush() : false;
+        }).catch(function () { return false; });
       }
     } catch (_) {}
+    return Promise.resolve(false);
   }
   // Register this browser/device for Web Push so a spar match (or a DM) can
   // reach the user even with the tab or installed PWA fully closed. Needs a
@@ -113,49 +116,60 @@
   // FCM token via @capacitor-firebase/messaging and we deliver through FCM
   // (lib/fcm.mjs). Same push_subscribe endpoint, native branch. Tap routing
   // navigates the WebView to the notification's url.
-  var _daNativeRegistered = false;
-  function daRegisterNativePush(){
-    try {
-      if (_daNativeRegistered) return;
-      var FM = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging;
-      if (!FM) return;
-      var user = daCurrentUser();
-      if (!user || user.isAnonymous) return;
-      _daNativeRegistered = true;
-      function postToken(token){
-        if (!token) return;
-        var u = daCurrentUser(); if (!u) return;
-        u.getIdToken().then(function (tok) {
-          return fetch('/.netlify/functions/push-subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ nativeToken: token, platform: (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || 'ios' }),
-          });
-        }).catch(function () {});
-      }
-      FM.requestPermissions().then(function (res) {
-        if (!res || res.receive !== 'granted') { _daNativeRegistered = false; return; }
-        FM.getToken().then(function (r) { postToken(r && r.token); }).catch(function () {});
-      }).catch(function () { _daNativeRegistered = false; });
-      // Token can rotate; re-register when it does.
+  var _daNativeRegistered = '', _daNativePromise = null, _daNativeListening = false;
+  function daRegisterNativePush(askPermission){
+    var FM = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging;
+    var user = daCurrentUser();
+    if (!FM || !user || user.isAnonymous) return Promise.resolve(false);
+    if (_daNativeRegistered === user.uid) return Promise.resolve(true);
+    if (_daNativePromise) return _daNativePromise;
+    function postToken(token){
+      var u = daCurrentUser();
+      if (!token || !u || u.isAnonymous) return Promise.resolve(false);
+      return u.getIdToken().then(function (tok) {
+        return fetch('/.netlify/functions/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ nativeToken: token, platform: (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || 'ios' }),
+        });
+      }).then(function (r) {
+        var current = daCurrentUser();
+        if (!r.ok || !current || current.uid !== u.uid) return false;
+        _daNativeRegistered = u.uid;
+        return true;
+      }).catch(function () { return false; });
+    }
+    // Checking permission on auth load must never open an OS prompt.
+    var permission;
+    try { permission = askPermission ? FM.requestPermissions() : FM.checkPermissions(); }
+    catch (_) { return Promise.resolve(false); }
+    _daNativePromise = Promise.resolve(permission).then(function (res) {
+      if (!res || res.receive !== 'granted') return false;
+      return FM.getToken().then(function (r) { return postToken(r && r.token); });
+    }).catch(function () { return false; }).then(function (saved) {
+      _daNativePromise = null;
+      return saved;
+    });
+    if (!_daNativeListening) {
+      _daNativeListening = true;
       try { FM.addListener('tokenReceived', function (e) { postToken(e && e.token); }); } catch (_) {}
-      // Tap on a notification → open the deep-linked screen in the WebView.
       try { FM.addListener('notificationActionPerformed', function (e) {
         var url = e && e.notification && e.notification.data && e.notification.data.url;
-        if (url) { try { location.href = url; } catch (_) {} }
+        if (typeof url === 'string' && url.charAt(0) === '/' && url.charAt(1) !== '/') location.href = url;
       }); } catch (_) {}
-    } catch (_) { _daNativeRegistered = false; }
+    }
+    return _daNativePromise;
   }
-  var _daPushRegistered = false, _daPushPromise = null;
+  var _daPushRegistered = '', _daPushPromise = null;
   function daRegisterPush(){
     try {
-      if (daIsNative()) { daRegisterNativePush(); return Promise.resolve(false); }
-      if (_daPushRegistered) return Promise.resolve(true);
+      if (daIsNative()) return daRegisterNativePush(false);
+      var user = daCurrentUser();
+      if (!user || user.isAnonymous) return Promise.resolve(false);
+      if (_daPushRegistered === user.uid) return Promise.resolve(true);
       if (_daPushPromise) return _daPushPromise;
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return Promise.resolve(false);
       if (!window.Notification || Notification.permission !== 'granted') return Promise.resolve(false);
-      var user = daCurrentUser();
-      if (!user || user.isAnonymous) return Promise.resolve(false);
       _daPushPromise = daEnsurePushServiceWorker().then(function (reg) {
         return fetch('/.netlify/functions/push-subscribe', { method: 'GET' })
           .then(function (r) { return r.json(); })
@@ -188,16 +202,18 @@
           });
       }).then(function (r) {
         if (!r || !r.ok) throw new Error('subscription_save_failed');
-        _daPushRegistered = true;
+        var current = daCurrentUser();
+        if (!current || current.uid !== user.uid) return false;
+        _daPushRegistered = user.uid;
         return true;
       }).catch(function () {
-        _daPushRegistered = false;
+        _daPushRegistered = '';
         _daPushPromise = null;
         return false;
       });
       return _daPushPromise;
     } catch (_) {
-      _daPushRegistered = false;
+      _daPushRegistered = '';
       _daPushPromise = null;
       return Promise.resolve(false);
     }
@@ -252,30 +268,70 @@
 
   var DA_LIVE_ALERTS_KEY = 'da-live-alerts';
   function daGetLiveAlerts() { try { return localStorage.getItem(DA_LIVE_ALERTS_KEY) === '1'; } catch (_) { return false; } }
+  var _daLiveAlertsPending = false, _daLiveAlertsError = '';
+  function daDevicePushReady(){
+    var u = daCurrentUser();
+    return !!(u && !u.isAnonymous && (daIsNative() ? _daNativeRegistered === u.uid : _daPushRegistered === u.uid && window.Notification && Notification.permission === 'granted'));
+  }
+  function daGetLiveAlertsState(){
+    if (_daLiveAlertsPending) return 'working';
+    var u = daCurrentUser();
+    if (!u || u.isAnonymous) return 'guest';
+    if (daIosDeviceName() && !daStandalone() && !daIsNative()) return 'install';
+    if (!daIsNative() && window.Notification && Notification.permission === 'denied') return 'denied';
+    if (!daIsNative() && (!window.Notification || !('serviceWorker' in navigator) || !('PushManager' in window))) return 'unsupported';
+    if (_daLiveAlertsError) return 'error';
+    return daGetLiveAlerts() && daDevicePushReady() ? 'on' : 'ready';
+  }
+  function daLiveAlertsHelp(){
+    var state = daGetLiveAlertsState();
+    if (state === 'install') return 'On iPhone or iPad, tap Share, then Add to Home Screen. Open Debatable from that icon to turn on alerts.';
+    if (state === 'denied') return 'Allow notifications for Debatable in your browser site settings, then try again.';
+    if (state === 'unsupported') return 'This browser cannot receive push alerts. Try Chrome, Edge, Firefox or Safari on a supported device.';
+    if (state === 'guest') return 'Sign in to receive alerts on your devices.';
+    return _daLiveAlertsError || 'Get a notification when someone joins the live queue. Tap it to meet them.';
+  }
   function daSetLiveAlerts(on, cb) {
     on = !!on;
-    try { localStorage.setItem(DA_LIVE_ALERTS_KEY, on ? '1' : '0'); } catch (_) {}
-    // Turning alerts ON must also secure a push subscription for this device,
-    // or there's nothing to deliver to.
-    if (on) daAskNotify();
+    if (_daLiveAlertsPending) { if (cb) cb(daGetLiveAlerts(), 'Setup is already running.'); return Promise.resolve(false); }
     var user = daCurrentUser();
-    if (!user || user.isAnonymous) { if (cb) cb(on); return; }
-    user.getIdToken().then(function (tok) {
-      return fetch('/.netlify/functions/notify-prefs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-        body: JSON.stringify({ liveAlerts: on }),
+    if (!user || user.isAnonymous) { if (cb) cb(false, 'Sign in to receive alerts.'); return Promise.resolve(false); }
+    _daLiveAlertsError = '';
+    _daLiveAlertsPending = true;
+    // Permission is requested synchronously from the button gesture. The
+    // account preference becomes true only after this device is registered.
+    var setup = on ? daAskNotify() : Promise.resolve(true);
+    return setup.then(function (saved) {
+      if (!saved) throw new Error('Could not enable alerts on this device. Check notification permissions and try again.');
+      return user.getIdToken().then(function (tok) {
+        return fetch('/.netlify/functions/notify-prefs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ liveAlerts: on }),
+        });
       });
-    }).then(function () { if (cb) cb(on); }).catch(function () { if (cb) cb(on); });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Could not save your alert preference. Check your connection and try again.');
+      var current = daCurrentUser();
+      if (!current || current.uid !== user.uid) throw new Error('Your account changed. Try again.');
+      try { localStorage.setItem(DA_LIVE_ALERTS_KEY, on ? '1' : '0'); } catch (_) {}
+      _daLiveAlertsPending = false;
+      if (cb) cb(on, '');
+      return true;
+    }).catch(function (err) {
+      _daLiveAlertsPending = false;
+      _daLiveAlertsError = err.message;
+      if (cb) cb(daGetLiveAlerts(), _daLiveAlertsError);
+      return false;
+    });
   }
 
-  // A signed-in iPhone owner previously had to discover this switch inside
-  // the bell or after already joining /spar. Offer the setup once on the
-  // quieter pages. Browser mode explains the required Home Screen install;
-  // standalone mode asks for permission on the button tap, then verifies the
-  // device subscription before turning the account-wide live-alert flag on.
+  // Offer matchmaking alerts on phones and computers, once per device on
+  // quieter pages. iOS browser mode keeps its required Home Screen steps.
+  // A button gesture requests permission, and success requires registration
+  // plus a saved account preference.
   var DA_IOS_INSTALL_OFFER_KEY = 'da-ios-live-install-offer-v1';
-  var DA_IOS_ENABLE_OFFER_KEY = 'da-ios-live-enable-offer-v1';
+  var DA_IOS_ENABLE_OFFER_KEY = 'da-live-enable-offer-v2';
   var DA_IOS_OFFER_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
   var _daIosOfferTimer = null, _daIosOfferShown = false;
   function daIosDeviceName(){
@@ -303,7 +359,7 @@
     return false;
   }
   function daTrackIosOffer(action, state){
-    try { if (window.gtag) gtag('event', 'live_alerts_iphone_offer', { action: action, state: state, path: location.pathname }); } catch (_) {}
+    try { if (window.gtag) gtag('event', 'live_alerts_device_offer', { action: action, state: state, path: location.pathname, device: daIsNative() ? 'native' : (daIosDeviceName() || 'browser') }); } catch (_) {}
   }
   function daCloseIosOffer(key, action){
     var card = document.getElementById('daIosLiveOffer');
@@ -328,16 +384,6 @@
     actions.querySelector('button').addEventListener('click', function () { daCloseIosOffer(key, 'install_steps_done'); });
     daTrackIosOffer('show_install_steps', device.toLowerCase());
   }
-  function daPaintIosBlocked(card, key, device){
-    var title = card.querySelector('.da-ios-live-offer__title');
-    var copy = card.querySelector('.da-ios-live-offer__copy');
-    var actions = card.querySelector('.da-ios-live-offer__actions');
-    if (!title || !copy || !actions) return;
-    title.textContent = 'Alerts are blocked on this ' + device;
-    copy.textContent = 'Open Settings, tap Notifications, then Debatable. Allow notifications and come back here.';
-    actions.innerHTML = '<button type="button" class="da-ios-live-offer__primary">Got it</button>';
-    actions.querySelector('button').addEventListener('click', function () { daCloseIosOffer(key, 'blocked_done'); });
-  }
   function daMountIosOffer(state, device){
     if (_daIosOfferShown || document.getElementById('daIosLiveOffer')) return;
     var key = state === 'install' ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
@@ -355,10 +401,10 @@
       '<span class="da-ios-live-offer__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
       '<div class="da-ios-live-offer__main">' +
         '<span class="da-ios-live-offer__eyebrow">Live debate alerts</span>' +
-        '<strong class="da-ios-live-offer__title" id="daIosLiveOfferTitle">' + (install ? 'Get live alerts on your ' + device : 'Know when someone goes live') + '</strong>' +
+        '<strong class="da-ios-live-offer__title" id="daIosLiveOfferTitle">' + (install ? 'Get live alerts on your ' + device : 'Know when someone is ready to debate') + '</strong>' +
         '<span class="da-ios-live-offer__copy">' + (install
           ? 'Add Debatable to your Home Screen. Then it can ping you when someone is looking for a round, even after you leave the browser.'
-          : 'Turn on ' + device + ' notifications. Tap a ping to jump straight into the live queue.') + '</span>' +
+          : 'Get a notification on this ' + device + ' when someone joins the live queue. Tap it to meet them.') + '</span>' +
         '<span class="da-ios-live-offer__actions"><button type="button" class="da-ios-live-offer__primary">' + (install ? 'Show setup' : 'Turn on alerts') + '</button><button type="button" class="da-ios-live-offer__later">Not now</button></span>' +
       '</div>';
     document.body.appendChild(card);
@@ -368,41 +414,46 @@
     card.querySelector('.da-ios-live-offer__later').addEventListener('click', function () { daCloseIosOffer(key, 'not_now'); });
     card.querySelector('.da-ios-live-offer__primary').addEventListener('click', function () {
       if (install) { daPaintIosInstallSteps(card, key, device); return; }
-      var permission = (window.Notification && Notification.permission) || 'default';
-      if (permission === 'denied') { daTrackIosOffer('permission_blocked', state); daPaintIosBlocked(card, key, device); return; }
-      var ask = permission === 'granted' ? Promise.resolve('granted') : Notification.requestPermission();
-      ask.then(function (p) {
-        if (p !== 'granted') { daTrackIosOffer('permission_' + p, state); daPaintIosBlocked(card, key, device); return; }
-        card.classList.add('is-working');
-        daRegisterPush().then(function (saved) {
-          card.classList.remove('is-working');
-          if (!saved) {
-            card.querySelector('.da-ios-live-offer__copy').textContent = 'Could not finish setup. Check your connection and try again.';
-            daTrackIosOffer('subscribe_failed', state);
-            return;
-          }
-          daSetLiveAlerts(true, function () { daCloseIosOffer(key, 'enabled'); });
-        });
-      }).catch(function () { daPaintIosBlocked(card, key, device); });
+      var btn = card.querySelector('.da-ios-live-offer__primary');
+      btn.disabled = true;
+      btn.textContent = 'Setting up alerts...';
+      card.classList.add('is-working');
+      daSetLiveAlerts(true, function (on, error) {
+        card.classList.remove('is-working');
+        btn.disabled = false;
+        if (error || !on) {
+          card.querySelector('.da-ios-live-offer__copy').textContent = daLiveAlertsHelp();
+          btn.textContent = 'Try again';
+          daTrackIosOffer('setup_failed', state);
+          return;
+        }
+        card.querySelector('.da-ios-live-offer__title').textContent = 'Alerts are on for this device';
+        card.querySelector('.da-ios-live-offer__copy').textContent = 'When someone joins the live queue, tap the notification to meet them. You can turn alerts off in the bell menu.';
+        card.querySelector('.da-ios-live-offer__actions').innerHTML = '<button type="button" class="da-ios-live-offer__primary">Got it</button>';
+        card.querySelector('.da-ios-live-offer__primary').addEventListener('click', function () { daCloseIosOffer(key, 'enabled'); });
+        daSnoozeOffer(key);
+        daTrackIosOffer('enabled', state);
+      });
     });
     daTrackIosOffer('impression', state);
   }
-  function maybeOfferIphoneLiveAlerts(user){
-    if (!user || user.isAnonymous || daIsNative() || DA_ON_ROUND_PAGE) return;
-    var device = daIosDeviceName();
-    if (!device || document.hidden || daVisibleModalUp()) return;
-    var standalone = daStandalone();
-    var permission = (window.Notification && Notification.permission) || 'default';
-    if (standalone && (!window.Notification || !('PushManager' in window))) return;
-    if (standalone && permission === 'granted' && daGetLiveAlerts()) return;
-    var state = standalone ? 'enable' : 'install';
-    var key = state === 'install' ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
+  function maybeOfferDeviceLiveAlerts(user){
+    if (!user || user.isAnonymous || DA_ON_ROUND_PAGE || document.hidden || daVisibleModalUp()) return;
+    var ios = daIosDeviceName();
+    var native = daIsNative();
+    var install = !!(ios && !daStandalone() && !native);
+    if (!install && !native && (!window.Notification || !('PushManager' in window) || !('serviceWorker' in navigator))) return;
+    if (daGetLiveAlertsState() === 'on') return;
+    var device = ios || (/Android/i.test(navigator.userAgent) || native ? 'phone' : 'computer');
+    var state = install ? 'install' : 'enable';
+    var key = install ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
     if (daOfferSnoozed(key)) return;
-    if (standalone) daEnsurePushServiceWorker().catch(function () {});
+    if (!install && !native) daEnsurePushServiceWorker().catch(function () {});
     if (_daIosOfferTimer) clearTimeout(_daIosOfferTimer);
     _daIosOfferTimer = setTimeout(function () {
       _daIosOfferTimer = null;
-      if (!document.hidden && !daBusyRound() && !daVisibleModalUp()) daMountIosOffer(state, device);
+      var current = daCurrentUser();
+      if (current && current.uid === user.uid && daGetLiveAlertsState() !== 'on' && !document.hidden && !daBusyRound() && !daVisibleModalUp()) daMountIosOffer(state, device);
     }, 2200);
   }
   // Broadcast side: tell the pool a debater just went live. Server enforces a
@@ -430,7 +481,7 @@
   }
   // Exposed so the /spar foreground matchmaker (which suppresses the
   // background matcher) can still fire the go-live broadcast on queue join.
-  try { window.daBroadcastGoLive = daBroadcastGoLive; window.daSetLiveAlerts = daSetLiveAlerts; window.daGetLiveAlerts = daGetLiveAlerts; } catch (_) {}
+  try { window.daBroadcastGoLive = daBroadcastGoLive; window.daSetLiveAlerts = daSetLiveAlerts; window.daGetLiveAlerts = daGetLiveAlerts; window.daGetLiveAlertsState = daGetLiveAlertsState; window.daLiveAlertsHelp = daLiveAlertsHelp; } catch (_) {}
   // Cross-platform attention signal: blink the tab title until the user
   // returns. Works where new Notification() doesn't — notably iOS Safari,
   // which can't fire OS notifications without an installed-PWA push build.
@@ -1271,6 +1322,11 @@
         // Only a real (non-anonymous) account counts as "signed in" for the
         // badge. Anonymous auth has no durable inbox or reachable profile.
         signedInReal = !!(u && !u.isAnonymous);
+        if (!u || u.uid !== myUid) {
+          _daPushRegistered = ''; _daPushPromise = null; _daNativeRegistered = ''; _daNativePromise = null;
+          _daLiveAlertsError = '';
+          try { localStorage.removeItem(DA_LIVE_ALERTS_KEY); } catch (_) {}
+        }
         if (!u || u.isAnonymous) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
@@ -1287,13 +1343,14 @@
         // right across devices (localStorage is only this device's cache).
         u.getIdToken().then(function (tok) {
           return fetch('/.netlify/functions/notify-prefs', { headers: { 'Authorization': 'Bearer ' + tok } });
-        }).then(function (r) { return r.json(); }).then(function (p) {
-          if (!p) { maybeOfferIphoneLiveAlerts(u); return; }
+        }).then(function (r) { if (!r.ok) throw new Error('prefs_load_failed'); return r.json(); }).then(function (p) {
+          if (!daCurrentUser() || daCurrentUser().uid !== u.uid) return;
+          if (!p) { maybeOfferDeviceLiveAlerts(u); return; }
           try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
           daMergeMutedFromServer(p.mutedThreads);
           if (panel || pageEl) paintPanel();
-          maybeOfferIphoneLiveAlerts(u);
-        }).catch(function () { maybeOfferIphoneLiveAlerts(u); });
+          maybeOfferDeviceLiveAlerts(u);
+        }).catch(function () { maybeOfferDeviceLiveAlerts(u); });
         renderBadge(); // apply the sign-in gate as soon as auth resolves
         ensureFirestore(subscribe);
       });
@@ -1646,6 +1703,7 @@
     // from the "Available" pill, which makes YOU matchable.
     function liveAlertRowHtml() {
       var on = daGetLiveAlerts();
+      var help = _daLiveAlertsError || (on ? (daDevicePushReady() ? 'Alerts are on for this device. Tap to turn them off.' : 'Alerts are on for your account. Set up this device below.') : daLiveAlertsHelp());
       return '<button type="button" id="daLiveAlertToggle" class="ui-bell-la" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
         'style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--dab-border);background:transparent;color:inherit;cursor:pointer;text-align:left;font-family:inherit">' +
         '<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:' + (on ? 'rgba(34,197,94,.14)' : 'var(--dab-elev)') + ';color:' + (on ? '#22c55e' : 'var(--dab-dim)') + '">' +
@@ -1653,23 +1711,28 @@
         '</span>' +
         '<span style="flex:1;min-width:0">' +
           '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--dab-text)">Alert me when rounds are forming</span>' +
-          '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">Get pinged when someone goes live, even in another app</span>' +
+          '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">' + escHtml(help) + '</span>' +
         '</span>' +
         '<span aria-hidden="true" style="position:relative;flex-shrink:0;width:36px;height:21px;border-radius:999px;transition:background .15s;background:' + (on ? '#22c55e' : 'var(--dab-border-strong)') + '">' +
           '<span style="position:absolute;top:2px;left:' + (on ? '17px' : '2px') + ';width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s"></span>' +
         '</span>' +
-      '</button>';
+      '</button>' + (on && !daDevicePushReady() ? '<button type="button" class="ui-bell-la-device" style="margin:8px 14px 12px;padding:8px 12px;border-radius:8px;cursor:pointer">Set up this device</button>' : '');
     }
     function bindLiveAlertToggle() {
       // Class-based so the panel and the /notifications page can both carry
       // the toggle without fighting over one element id.
+      var deviceBtns = document.querySelectorAll('.ui-bell-la-device');
+      for (var d = 0; d < deviceBtns.length; d++) deviceBtns[d].addEventListener('click', function (e) {
+        e.stopPropagation(); this.disabled = true;
+        daSetLiveAlerts(true, function () { paintPanel(); });
+      });
       var btns = document.querySelectorAll('.ui-bell-la');
       for (var i = 0; i < btns.length; i++) {
         btns[i].addEventListener('click', function (e) {
           e.stopPropagation();
           var next = !daGetLiveAlerts();
+          this.disabled = true;
           daSetLiveAlerts(next, function () { paintPanel(); });
-          paintPanel(); // optimistic repaint (also repaints the page)
         });
       }
     }

@@ -15,6 +15,7 @@ import webpush from 'web-push';
 import { createHash, createECDH } from 'crypto';
 import { getDb, FieldValue } from './firestore.mjs';
 import { sendToUserNative } from './native-push.mjs';
+import { fcmConfigured } from './fcm.mjs';
 
 // The public key is safe to ship (it's the application server key the browser
 // subscribes against). The matching private key lives only in the env.
@@ -87,8 +88,10 @@ export async function deleteSubscription(uid, endpoint) {
 // of opted-in debaters can all be pinged without a burst of parallel
 // connections. Best-effort and never throws — returns a tally.
 export async function sendToManyUsers(uids, payload, concurrency = 8) {
-  if (!Array.isArray(uids) || !uids.length || !pushConfigured()) {
-    return { recipients: 0, sent: 0, configured: pushConfigured() };
+  // Native devices can receive FCM even when browser VAPID is unavailable.
+  const configured = pushConfigured() || fcmConfigured();
+  if (!Array.isArray(uids) || !uids.length || !configured) {
+    return { recipients: 0, sent: 0, delivered: 0, configured };
   }
   const queue = uids.slice();
   // recipients: users we tried. sent: devices the push service accepted.

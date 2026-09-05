@@ -66,6 +66,27 @@
     }
   }
 
+  // Correlate future replays with IDs track.js already created. Keep these
+  // as tab-scoped event properties, never identify()/alias() inputs. UUID
+  // validation prevents arbitrary storage contents from reaching PostHog.
+  function registerEventIds(ph) {
+    var ids = {};
+    var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    try {
+      var sid = sessionStorage.getItem('_da_sid');
+      if (typeof sid === 'string' && uuid.test(sid)) ids.da_session_id = sid;
+    } catch (e) {}
+    try {
+      var aid = localStorage.getItem('_da_aid');
+      if (typeof aid === 'string' && uuid.test(aid)) ids.da_anon_id = aid;
+    } catch (e) {}
+    // A cleared or invalid source must not leave yesterday's property.
+    // Session storage also prevents another tab overwriting this tab's sid.
+    ph.unregister_for_session('da_session_id');
+    ph.unregister_for_session('da_anon_id');
+    if (Object.keys(ids).length) ph.register_for_session(ids);
+  }
+
   // Firebase auth may already be on the page (practice, index) or arrive
   // later through track.js. Poll briefly rather than load our own copy:
   // a second SDK injection is the exact race the 2026-08-18 App Check
@@ -90,6 +111,7 @@
             } else if (identified) {
               identified = false;
               ph.reset();
+              registerEventIds(ph);
             }
           } catch (e) {}
         });
@@ -133,6 +155,7 @@
         native_app: !!window.__DB_NATIVE,
       });
     } catch (e) {}
+    try { registerEventIds(window.posthog); } catch (e) {}
     watchIdentity(window.posthog);
   }
 

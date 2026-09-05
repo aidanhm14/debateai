@@ -7,6 +7,7 @@ import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { saveSubscription, deleteSubscription, VAPID_PUBLIC_KEY, pushConfigured } from './lib/webpush.mjs';
 import { saveNativeToken, deleteNativeToken } from './lib/native-push.mjs';
+import { fcmConfigured } from './lib/fcm.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -35,6 +36,7 @@ export default async (request) => {
 
   // Native app (Capacitor) registers an FCM token instead of a Web Push sub.
   if (body && body.nativeToken) {
+    if (!fcmConfigured()) return errorResponse('Native notifications are not configured', 503, request);
     await saveNativeToken(uid, body.nativeToken, body.platform);
     return jsonResponse({ ok: true, native: true }, 200, request);
   }

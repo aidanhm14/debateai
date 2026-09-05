@@ -123,6 +123,7 @@
      parse time and heap for every visitor who never opens the locker. -->
 <script defer src="/js/anim-governor.js"></script>
 <script defer src="/js/ballot-read.js"></script>
+<script defer src="/js/round-export.js"></script>
 <!-- Arcade setup flow: the shared one-question-per-screen engine (/spar's
      matchmaker questionnaire, /brain's build). "Build my round" runs the
      setup choices through it; the stacked panel survives as the fallback
@@ -8928,14 +8929,8 @@ Rules:
     }).join('\n\n');
   };
 
-  // Round notes, in plain words. The /api/flow result is a structured
-  // ledger (ids, statuses, warrants, judge notes); nobody outside a tab
-  // room reads a ledger, so it is rewritten here as the notes a friend
-  // who watched the round would hand you: your points, their points,
-  // where you disagreed, what went unanswered, how it went, next time.
-  // Sections are blocks; a section is one all-caps heading line followed
-  // by "- " bullet lines. The renderer, copy button and doc export all
-  // read that shape.
+  // AI notes only summarize what was said. Judge opinions and coaching
+  // stay in their own ballot sections, never in these shared bullets.
   var flowResultToText = (result) => {
     var r = result || {};
     var clean = (value) => String(value == null ? '' : value).trim().replace(/\u2014/g, ',');
@@ -8960,26 +8955,12 @@ Rules:
       if (/\bai\b|\bmachine\b|\bopponent\b/.test(w)) return true;
       return aiSideLabels.some((l) => l && w.indexOf(l) >= 0) && !(userSideLabel && w.indexOf(userSideLabel) >= 0);
     };
-    var STATUS_WORDS = {
-      live: 'Still standing at the end.',
-      answered: 'The other side answered it.',
-      dropped: 'Nobody answered it.',
-      turned: 'It got turned around and used against the side that made it.',
-      conceded: 'The other side gave this one up.',
-      unclear: ''
-    };
-
     var flowRows = Array.isArray(r.flow) ? r.flow : [];
     if (!flowRows.length) throw new Error('The notes came back with no arguments in them. Try again.');
     var claimOf = (row, index) => clean(row.claim) || clean(row.tag) || 'Point ' + (index + 1);
-    var byId = {};
-    flowRows.forEach((row, index) => {byId[clean(row.id || 'A' + (index + 1))] = claimOf(row, index);});
-
     var yours = [],theirs = [],others = [];
     flowRows.forEach((row, index) => {
       var line = '- ' + sentence(claimOf(row, index));
-      var status = STATUS_WORDS[lower(row.status)] || '';
-      if (status) line += ' ' + status;
       if (isYou(row.speaker)) yours.push(line);else
       if (isThem(row.speaker)) theirs.push(line);else
       others.push(line);
@@ -8990,45 +8971,6 @@ Rules:
     if (theirs.length) blocks.push(['THEIR POINTS'].concat(theirs).join('\n'));
     if (others.length) blocks.push(['OTHER POINTS MADE'].concat(others).join('\n'));
 
-    var clashes = Array.isArray(r.clashes) ? r.clashes : [];
-    if (clashes.length) {
-      blocks.push(['WHERE YOU DISAGREED'].concat(clashes.map((row) => {
-        var parts = [sentence(row.name || 'The main disagreement')];
-        if (row.comparison) parts.push(sentence(row.comparison));else
-        {
-          if (row.side_one) parts.push('One side: ' + sentence(row.side_one));
-          if (row.side_two) parts.push('The other: ' + sentence(row.side_two));
-        }
-        var edge = clean(row.edge);
-        if (edge && !/unresolved|unclear/i.test(edge)) parts.push('Edge to ' + edge + '.' + (row.reason ? ' ' + sentence(row.reason) : ''));else
-        if (row.reason) parts.push(sentence(row.reason));
-        return '- ' + parts.join(' ');
-      })).join('\n'));
-    }
-
-    var drops = Array.isArray(r.drops) ? r.drops : [];
-    if (drops.length) {
-      blocks.push(['WHAT WENT UNANSWERED'].concat(drops.map((row) => {
-        var what = byId[clean(row.argument_id)] || clean(row.argument_id) || 'One argument';
-        var who = clean(row.dropped_by);
-        var whoWord = isYou(who) ? 'You never answered it.' : isThem(who) ? 'They never answered it.' : 'Nobody answered it.';
-        var parts = [sentence(what), whoWord];
-        if (row.why_it_matters) parts.push(sentence(row.why_it_matters));
-        return '- ' + parts.join(' ');
-      })).join('\n'));
-    }
-
-    var overview = r.overview || {};
-    if (overview.ballot_story) blocks.push('HOW IT WENT\n' + sentence(overview.ballot_story));
-
-    var responses = Array.isArray(r.responses) ? r.responses : [];
-    if (responses.length) {
-      blocks.push(['NEXT TIME'].concat(responses.map((row) => {
-        var parts = [sentence(row.line || row.target || 'Say more on the main clash')];
-        if (row.why) parts.push(sentence(row.why));
-        return '- ' + parts.join(' ');
-      })).join('\n'));
-    }
     return blocks.filter(Boolean).join('\n\n');
   };
 
@@ -9044,7 +8986,7 @@ Rules:
       var response = await fetch('/api/flow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: tx, motion: motion, format: fmt.name, perspective: 'round' })
+        body: JSON.stringify({ text: tx, motion: motion, format: fmt.name, perspective: 'round', purpose: 'notes' })
       });
       var data = await response.json().catch(() => ({}));
       if (!response.ok || !data.result) throw new Error(data.error || 'The notes could not be written.');
@@ -9802,6 +9744,21 @@ Rules:
       txt += `JUDGE FEEDBACK\n${'═'.repeat(50)}\n\n${roundFeedback}\n`;
     }
     return txt;
+  };
+
+  var exportRoundToDocs = (round) => {
+    if (!window.DBRoundExport) {alert('Export is still loading. Try again in a moment.');return;}
+    var saved = round || { motion: motion, format: format, side: side, log: log, feedback: feedback, notesText: flowSheet };
+    var f = FORMATS[saved.format] || FORMATS.quick;
+    window.DBRoundExport.open({
+      title: 'Debatable: ' + (saved.motion || 'Round'), motion: saved.motion, date: saved.date,
+      sideLabels: { pro: 'For', con: 'Against', gov: 'For', opp: 'Against' },
+      notes: saved.roundNotes || [], notesText: saved.notesText || '', feedback: saved.feedback,
+      log: (saved.log || []).map((entry) => {
+        var speech = f.speeches.find((candidate) => candidate.code === entry.code);
+        return Object.assign({}, entry, { side: entry.side || speech && speech.side || '' });
+      })
+    });
   };
 
   // Download round as .txt file
@@ -12748,6 +12705,7 @@ Rules:
       var b = null;try {b = JSON.parse(viewingRound.feedback.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());} catch {}
       downloadRound(viewingRound.motion, viewingRound.format, viewingRound.side, viewingRound.log, viewingRound.feedback, b);
     } }, '⬇ Download .txt'),
+  el('button', { className: 'cta-ghost', onClick: () => exportRoundToDocs(viewingRound) }, 'Export to Google Docs'),
   el('button', { className: 'cta-ghost', style: { color: '#ef4444', borderColor: 'rgba(239,68,68,.3)' }, onClick: () => deleteRound(viewingRound.id) }, 'Delete Round')
   )
   ) : el(React.Fragment, null,
@@ -14147,7 +14105,8 @@ Rules:
     flowSheet && el('div', { style: { marginTop: 12, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto', textAlign: 'left' } },
     el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
     el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => {navigator.clipboard.writeText(flowSheet).catch(() => {});} }, 'Copy notes'),
-    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => downloadFlowDoc() }, '⬇ Open in Docs or Word'),
+    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => exportRoundToDocs() }, 'Export to Google Docs'),
+    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => downloadFlowDoc() }, 'Download notes .doc'),
     !flowLoading && el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => genFlowSheet(log) }, 'Write them again')
     ),
     el('div', { className: flowLoading ? 'type-stream-active' : '', style: { padding: '18px 20px', borderRadius: 14, background: 'var(--c-surface2, rgba(0,0,0,.03))', border: '1px solid var(--c-border, rgba(0,0,0,.10))', fontSize: '.86rem', lineHeight: 1.6 } },
@@ -14367,6 +14326,7 @@ Rules:
     el('div', { className: 'row-c', style: { marginTop: 28, flexWrap: 'wrap' } },
     el('button', { className: 'cta-ghost', onClick: copyAll }, 'Copy'),
     el('button', { className: 'cta-ghost', onClick: () => downloadRound(motion, format, side, log, feedback, ballot) }, '⬇ Download .txt'),
+    el('button', { className: 'cta-ghost', onClick: () => exportRoundToDocs() }, 'Export to Google Docs'),
     el('button', { className: 'cta-ghost', onClick: genShareCard, disabled: shareBusy, title: 'Generate a shareable PNG of this round' }, shareBusy ? 'Rendering…' : '📸 Share card'),
     el('button', {
       className: 'cta-ghost',

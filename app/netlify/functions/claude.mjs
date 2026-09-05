@@ -1,3 +1,4 @@
+import { guardPrivateJudgeProxy } from './lib/private-judging.mjs';
 // Claude API proxy — strips _feature before forwarding to Anthropic
 import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS, withDeadline } from './lib/firestore.mjs';
@@ -513,6 +514,8 @@ export default async (request, context) => {
 
   try {
     const body = await request.json();
+    const privateGate = await guardPrivateJudgeProxy(request, body);
+    if (privateGate) return new Response(JSON.stringify(privateGate), { status: privateGate.status || 402, headers: { 'Content-Type': 'application/json', ...CORS } });
 
     // Warm-up handshake (mirrors tts.mjs): client fires `warm:true`
     // when the prep phase loads so the Netlify function instance is

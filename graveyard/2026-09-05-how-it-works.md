@@ -1,182 +1,282 @@
-<!DOCTYPE html>
-<html lang="en" data-lightweb="web">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>How Debatable Works · Meet Someone, Argue It Out · Debatable</title>
-<meta name="description" content="Meet someone, choose a question, and talk it out. See how live conversations, AI notes, private invites and judge decisions work on Debatable." />
-<meta name="keywords" content="how does debatable work, debate online how it works, ai debate judge, practice debate online, ai debate opponent, online debate rounds, debate app how it works, ai judged debate">
+# How-it-works long guide
 
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="canonical" href="https://itsdebatable.com/how-it-works">
+Removed from app/how-it-works.html on 2026-09-05 after Aidan asked to really fix the page. Replaced the repeated long walkthrough, glossary and ballot example with a short path into a conversation. The original video remains on the page.
 
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://itsdebatable.com/how-it-works">
-<meta property="og:title" content="How Debatable Works · Meet Someone, Argue It Out">
-<meta property="og:description" content="Watch a live argument or take a seat. Every ranked result feeds the public board.">
-<meta property="og:image" content="https://itsdebatable.com/og-image.png?v=cards6">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How Debatable Works · Meet Someone, Argue It Out">
-<meta name="twitter:description" content="Watch a live argument or take a seat. Every ranked result feeds the public board.">
-<meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=cards6">
+Restore selectively inside main; the old sign-in, timing and format claims are stale and must be reconciled with the current product. Do not restore the full old guide unchanged.
 
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+```html
+<main>
+<div class="wrap">
 
+  <nav class="brand-bar" aria-label="Breadcrumb">
+    <a class="brand-mark" href="/" aria-label="Debatable home"><strong>Debatable</strong></a>
+    <span class="brand-sep" aria-hidden="true">/</span>
+    <span class="brand-here" aria-current="page">How it works</span>
+  </nav>
 
+  <span class="eyebrow"><span class="pip"></span> How the ranked show works</span>
+  <h1>Watch a round. Take a seat. <em>Climb.</em></h1>
+  <p class="lede">Every ranked round ends with a written decision and feeds the public board. Watch from the room, or argue one yourself.</p>
 
-<script>
-/* Theme: honor the visitor's saved `da-theme` so the sitewide dark
-   toggle reaches this page. Light stays the default for anyone who has
-   not picked. Runs before first paint, so neither theme flashes. This
-   page carries a full dual palette (dark tokens at :root, light
-   override under [data-theme="light"]), which is why it no longer
-   pins itself with data-force-theme. */
-(function(){
-  var t = 'light';
-  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
-  if (t !== 'light') t = 'crimson';
-  document.documentElement.setAttribute('data-theme', t);
-  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
-})();
-</script>
+  <!-- ── Reading order, rebuilt 2026-08-22 ──────────────────────────
+       the founder: "make this page more logical to new users."
 
-<link rel="stylesheet" href="/css/ui.css">
+       What was wrong was sequence, not sentences. The page opened on a
+       1080px video, then the plain-English version of a round, then a
+       dense SEO paragraph carrying motion / speaker points / ballot at
+       a reader who had just been told none of them, then the CTAs,
+       then a mock ballot with no caption, and then "The loop in three
+       steps", which explained the round a SECOND time in different
+       vocabulary. Two explanations of one thing, and the jargon
+       landing between them.
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  "name": "How to debate online on Debatable",
-  "description": "Meet a person, agree on a question, have a conversation or take timed turns, and read the AI judge’s decision.",
-  "step": [
-    {
-      "@type": "HowToStep",
-      "name": "Meet your opponent",
-      "text": "Join the live queue or invite a friend.",
-      "url": "https://itsdebatable.com/how-it-works#step-opponent"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Agree on a question",
-      "text": "Choose a topic together and take opposite sides.",
-      "url": "https://itsdebatable.com/how-it-works#step-topic"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Start talking",
-      "text": "Choose a natural conversation or timed turns.",
-      "url": "https://itsdebatable.com/how-it-works#step-round"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Read the decision",
-      "text": "The AI judge explains the result and scores the arguments.",
-      "url": "https://itsdebatable.com/how-it-works#step-ballot"
-    }
-  ]
-}
-</script>
+       Now: who you are, what happens, what the words mean, what a
+       ballot looks like, and only then the CTAs and the depth. The
+       video moved below the steps, because a walkthrough is worth more
+       once you know what you are watching, and the second explanation
+       is gone rather than reworded. ──────────────────────────────── -->
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Do I need to know how to debate?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No. Make a point, explain your reason, and listen to the reply. You can have a natural conversation or take timed turns. One person is on each side."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Do I need an account?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Sign in to start an AI round and keep your history across devices. Live video requires Google sign-in on web; the iOS app also supports Apple."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What if nobody is available?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Keep the live queue open, enable match alerts, or invite a friend. You can also start an AI voice round whenever you want. An AI opponent is always labeled."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can people watch or record me?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Public live rounds can have spectators. Private invite rooms stay off the public board. Recording asks everyone in the room for permission before it starts. You can leave, report, or block someone from the room."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What does the judge use?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The judge reads what both sides said and explains its decision. It considers arguments and responses, not which side it prefers. Ranked rounds use the published panel and rubric. You can read the method and appeal policy on the judge integrity page."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What does it cost?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "A Free plan is available. Private round judging includes two free uses per account, then requires a paid plan. Other limits and subscriptions are listed on the pricing page."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Where do my rounds go?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Open your profile to return to saved rounds. You can reopen a live room to read its transcript, notes and decision. Public replays and clips are on Watch when recording was agreed."
-      }
-    }
-  ]
-}
-</script>
+  <!-- Same question the corner card asks site-wide, inline here
+       because this page is the one the answer changes most.
+       experience-ask.js suppresses its own card when it finds a
+       [data-exp] control already on the page, so nobody is asked
+       twice. -->
+  <p class="exp-fork-note">The live show starts with casual one-on-one rounds. Competitive rulebooks stay available in Practice.</p>
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Debatable",
-      "item": "https://itsdebatable.com/"
-    },
-    {
-      "@type": "ListItem",
-      "position": 2,
-      "name": "How it works",
-      "item": "https://itsdebatable.com/how-it-works"
-    }
-  ]
-}
-</script>
+  <!-- The plain version, first. Everything below it is written for
+       someone who already debates; this is for someone who has never
+       done it and wants to know what actually happens. Keep it short,
+       keep it literal, and do not add product vocabulary to it.
+       Added 2026-08-11 per the founder: "very simple".
+       The three ids carry the HowTo JSON-LD steps, which used to hang
+       off a separate three-card grid saying the same thing. -->
+  <section class="simple" aria-labelledby="simple-h">
+    <h2 id="simple-h">What actually happens, in five steps</h2>
+    <ol class="simple-steps">
+      <li id="step-opponent"><b>You get a topic.</b> Something people actually disagree about, chosen because a strong case exists on both sides. You do not have to think of one.</li>
+      <li><b>You pick a side.</b> You do not have to agree with it. Arguing the side you dislike is the useful part.</li>
+      <li id="step-round"><b>You talk for a few minutes.</b> Out loud, on a clock.</li>
+      <li><b>Someone argues back.</b> A real person if one is around, an AI if not. They interrupt. You answer.</li>
+      <li id="step-ballot"><b>A judge says who won, and why.</b> In writing, in a few seconds, with the reasons laid out.</li>
+    </ol>
+    <p class="simple-foot">That is one round. About twenty minutes, four turns, prep included. You do not need to know anything about debating to start, and nobody has to watch.</p>
+  </section>
 
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Debatable",
-  "url": "https://itsdebatable.com",
-  "applicationCategory": "SocialNetworkingApplication",
-  "operatingSystem": "Web",
-  "description": "Casual one-on-one argument platform: pair with a real person or AI, take a side, and get a clear ballot with scores out of 100."
-}
-</script>
+  <!-- ── The words. The rest of this page, the ballot below, and the
+       product itself all use five terms a first-timer has no reason to
+       know, and until now the page used them without ever saying what
+       they meant. This is the single largest thing standing between a
+       new visitor and the rest of the page, so it goes before the
+       first paragraph that needs it, not in a glossary at the end. -->
+  <section class="lexicon" aria-labelledby="lexicon-h">
+    <h2 id="lexicon-h">Five words you will see</h2>
+    <dl class="lex-list">
+      <div class="lex-item"><dt>Question</dt><dd>The thing being argued. It can be something everyday, like "should cities ban private cars from their centres?"</dd></div>
+      <div class="lex-item"><dt>Side</dt><dd>Which half you argue. Pro supports the claim. Con opposes it. You can choose or be assigned one.</dd></div>
+      <div class="lex-item"><dt>Response</dt><dd>Your answer to the other person's point. A strong response deals with their reasoning instead of changing the subject.</dd></div>
+      <div class="lex-item"><dt>Score</dt><dd>A score out of 100 for how well you argued, separate from who won the round. You can lose and still score well.</dd></div>
+      <div class="lex-item"><dt>Ballot</dt><dd>What the judge writes at the end: the decision, the reasons for it, your score out of 100, and what to fix next time.</dd></div>
+    </dl>
+  </section>
 
+  <!-- The mock ballot now says what it is. It shipped decorative and
+       aria-hidden, which is right for a screen reader and wrong for a
+       first-time reader: "27.5 Prop speaks" is unreadable to anyone who
+       has not been told what speaker points are, and the caption above
+       it is what turns an illustration into an explanation. -->
+  <h2 id="the-ballot">What you get at the end</h2>
+  <p>Every round finishes with one of these. This is what an AI judge writes in the seconds after the clock stops.</p>
+
+  <div class="ballot-card" aria-hidden="true">
+    <div class="bc-top">
+      <span class="bc-flag"><i></i>Ballot</span>
+      <span>&middot;</span>
+      <span>Casual 1v1</span>
+      <span class="sp"></span>
+      <span>Written in seconds</span>
+    </div>
+    <p class="bc-verdict">Decision: <b>Con</b> wins.</p>
+    <div class="bc-points">
+      <span class="bc-pt"><b>78</b>Pro score</span>
+      <span class="bc-pt"><b>84</b>Con score</span>
+      <span class="bc-pt"><b>4</b>Claims answered</span>
+    </div>
+    <p class="bc-rfd"><b>Reason for decision</b>Pro makes the stronger opening case but never answers Con's enforcement objection. Con explains why that objection matters and compares it directly with Pro's main benefit. Fix: answer the objection when it lands, not in the final ten seconds.</p>
+  </div>
+  <p class="muted">Reading that back: Con won because Pro left one argument unanswered. Both sides still got a score out of 100 and a note on what to fix. Nothing in it is a grade on the topic; it is a record of the argument.</p>
+
+  <!-- Two doors, and which one leads depends on the answer above. A
+       first-timer wants the AI: no account, no queue, nobody watching,
+       and they can stop halfway. Someone who competes wants the human.
+       The order swaps with CSS `order` rather than by rewriting the
+       DOM, so the markup, the data-cta attributes and the tab order in
+       the unanswered default state are all untouched. -->
+  <h2 id="start">Two doors</h2>
+  <div class="hero-ctas" id="startCtas">
+    <a class="btn-primary" href="/watch" data-cta="hiw-watch">
+      Watch a round <span aria-hidden="true">&rarr;</span>
+    </a>
+    <a class="btn-secondary" href="/spar" data-cta="hiw-spar">
+      Take a seat
+    </a>
+  </div>
+  <p class="muted">No one in the queue? <a href="/voice-debate">Run a judged AI practice round.</a> Live video against a real person requires Google sign-in.</p>
+
+  <div class="video-card video-card--hero">
+    <video class="video-el" controls playsinline preload="none"
+           poster="/assets/video/how-debatable-works-poster-round.jpg"
+           aria-label="How Debatable works: a walkthrough of the site">
+      <source src="/assets/video/how-debatable-works.mp4" type="video/mp4">
+    </video>
+    <p class="video-cap"><b>Watch it happen.</b> A walk through the site, start to ballot.</p>
+  </div>
+
+  <!-- Direct-answer block: the extractable "how does this work"
+       sentence for AI answer engines. Keep it literal and
+       self-contained. It sits here, after the plain steps and the
+       glossary, rather than above them: it is written for a machine
+       reading the page, and it was the densest paragraph a human met. -->
+  <p>How Debatable works: watch a live or published argument at <a href="/watch">itsdebatable.com/watch</a>, or take a seat through the live queue at <a href="/spar">itsdebatable.com/spar</a>. A question goes on the table and each person takes a side. When the round ends, an AI judge writes a full ballot, and ranked results feed the public leaderboard. If the queue is quiet, <a href="/voice-debate">AI practice</a> is available on demand.</p>
+
+  <nav class="jumpnav" aria-label="On this page">
+    <span class="jn-label">On this page</span>
+    <a href="#simple-h">What happens</a>
+    <a href="#lexicon-h">The words</a>
+    <a href="#start">Where to start</a>
+    <a href="#ways-in">Three ways in</a>
+    <a href="#the-round">The round</a>
+    <a href="#the-judge">The judge</a>
+    <a href="#after">Afterwards</a>
+    <a href="#cost">Cost</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+
+  <h2 id="ways-in">Three ways into a round</h2>
+
+  <!-- The three doors as cards rather than a paragraph that lists them:
+       a visitor deciding where to start is picking a seat, and a card
+       per seat is easier to pick from than three sentences. The prose
+       below still carries the detail and the internal links. -->
+  <div class="ways rv">
+    <div class="way">
+      <span class="wk">Against a person</span>
+      <h3>The live queue</h3>
+      <p>Press Find and wait a moment. Neither of you enters until you both confirm you are there, so nobody argues at an empty chair.</p>
+      <a class="wgo" href="/spar">Join the queue <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">Needs a free account, because the other seat is a real person.</p>
+    </div>
+    <div class="way">
+      <span class="wk">Against an AI</span>
+      <h3>The voice round</h3>
+      <p>Speak out loud and an AI opponent answers, follows the clash, and pushes back. Always labeled as AI, available at any hour.</p>
+      <a class="wgo" href="/voice-debate">Start a voice round <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">One round runs before you sign in.</p>
+    </div>
+    <div class="way">
+      <span class="wk">On the broadcast</span>
+      <h3>Ask for the stage</h3>
+      <p>While a debate is streaming, raise your hand from the player. If the host takes you, you argue live in front of whoever is watching.</p>
+      <a class="wgo" href="/watch">Watch and raise your hand <span aria-hidden="true">&rarr;</span></a>
+      <p class="wnote">18+, and the round is recorded.</p>
+    </div>
+  </div>
+
+  <p><a href="/spar">The live queue</a> matches you with a real person on video. Press Find, wait a moment, and you are in a room together. Neither of you enters until you both confirm you are actually there, so nobody ends up talking to an empty chair. Scheduled rounds and open invites use the same casual 1v1 structure.</p>
+  <p>If nobody else is waiting, you can keep your place in the live queue or choose the clearly labeled AI opponent after a short wait. <a href="/spar">Clash Hour</a> runs every day at 12:00 AM, 3:00 PM and 7:00 PM Eastern to concentrate more people in the queue at once.</p>
+  <p>Before you queue, six quick choices set who lands across the table. Pick viewpoint clash and the matcher looks for the other side of your take, so you <a href="/debate-someone-who-disagrees">debate someone who disagrees with you</a>. Skip them all and you take the next person waiting.</p>
+  <figure class="shot shot--tall">
+    <img src="/img/ambassadors/round.jpg" alt="A live argument in progress, with one person speaking while the room listens" loading="lazy" decoding="async" width="1400" height="1050">
+    <figcaption><b>A live round.</b> One person speaks and the other side listens for what to answer.</figcaption>
+  </figure>
+  <p><a href="/voice-debate">The voice round</a> is for when no partner is around. You speak out loud, and an AI opponent speaks back, follows the clash, and responds directly. It is always labeled as AI. Prefer typing? <a href="/practice">The typed surface</a> runs the same casual round in text.</p>
+
+  <figure class="shot shot--ui shot--band">
+    <img src="/img/voice/voice-round.jpg" alt="The Debatable voice round screen: two lecterns either side of a listening indicator, with a start-a-round button" loading="lazy" decoding="async" width="1280" height="800">
+    <figcaption><b>The voice round.</b> Name a question, pick a side, hit start. The AI opens on the mic.</figcaption>
+  </figure>
+  <p><b>The third door only exists while somebody is broadcasting.</b> When a debate is streaming on <a href="/watch">the watch hub</a>, the player carries a Join button. You say how you would rather argue, the host sees the hands that are up and picks, and if they take you, you get a seat on the live stream against the other guest. Two ways to argue there: <b>taking turns</b>, which is the same clock as any other round, or an <b>open floor</b>, where both microphones stay live for one stretch and cutting in is allowed. The judge reads an open floor as a conversation rather than as a set of speeches, and it says so on the ballot.</p>
+  <p class="muted">A stage round is 18+ and it is recorded, because it goes out on a public broadcast that can be replayed and restreamed. It gets a real ballot from the same judge panel, and it does not move your rating: the host chose who came on, and a seat somebody was given should not hand out ranking.</p>
+
+  <ul class="point-list">
+    <li>Live humans: video rounds from the queue, with both sides confirmed present before the room opens.</li>
+    <li>AI opponent: voice or typed, available at any hour, direct, and clearly labeled.</li>
+    <li>The broadcast stage: a seat on somebody else's stream, if the host takes your hand.</li>
+    <li>Every path ends in the same judge ballot.</li>
+  </ul>
+
+  <h2 id="the-round">The round itself</h2>
+  <p>Every round uses one casual 1v1 structure. Pro opens, Con answers and builds a case, then both sides get a closing turn. The clock keeps things moving without asking anyone to learn tournament procedure.</p>
+  <p><strong>The live show keeps the setup casual.</strong> One person argues Pro, one argues Con, and both speak on the same clock. There is no tournament rulebook to learn before starting.</p>
+  <p>In a live round with an audience, a fact checker reads the speech as it is delivered and raises a card to everyone watching when a number is checkably, badly wrong. It never scores, it never says who is winning, and the ballot never reads it. A card only goes up when a second pass, whose job is to refute the first, fails to knock it down.</p>
+
+  <figure class="shot shot--native">
+    <img src="/img/rooms/oxford-union.jpg" alt="A speaker at the despatch box addressing a full chamber at the Oxford Union" loading="lazy" decoding="async" width="703" height="288">
+    <figcaption><b>One person on each side.</b> Same simple turn order, same clock, same chance to answer.</figcaption>
+  </figure>
+
+  <h2 id="the-judge">The judge</h2>
+  <p>The AI judge tracks each claim, what answered it, and what went unanswered. The ballot states a decision with reasoning, scores each person out of 100, names the issue that decided it, and lists fixes for both sides. It decides on the argument in front of it, not on the side it likes.</p>
+  <p>An AI judge owned by the people running the contest is worth nothing unless you can check it, so the method is published rather than described. The criteria are versioned and hashed before the round, and a ballot stays attributable to the criteria that judged it.</p>
+
+  <div class="proof-row">
+    <div class="proof"><b>Published first</b><span>The rubric is public before you speak, and every ballot records the version that judged it.</span></div>
+    <div class="proof"><b>Three families</b><span>Ranked rounds go to a panel of models from different labs, not three calls to one.</span></div>
+    <div class="proof"><b>No tie-breaks</b><span>An even split records as unresolved. Nothing moves. A tie-break rule would be our thumb on the scale.</span></div>
+    <div class="proof"><b>A person hears appeals</b><span>72 hours to appeal, decided by someone who was not in the round. The original ballot is never deleted.</span></div>
+  </div>
+
+  <p>The full charter, the current model pins, and the agreement figures are on the <a href="/judge-integrity">judge integrity page</a>. How the judge is evaluated is public on the <a href="/benchmark">benchmark page</a>.</p>
+
+  <p>You can also bring it your own round: <a href="/judge">paste a transcript and get a ballot</a>, no round required.</p>
+
+  <h2 id="after">After the ballot</h2>
+  <p>Signed-in rounds save to your history and build your style profile over time. Ranked rounds move you on the <a href="/leaderboard">public leaderboard</a>. A judged voice assessment can become a <a href="/credentials">free certificate</a> with a public Communication Score and verify URL.</p>
+  <p>Rounds are public, so anyone can watch one running, and finished ones get their own page with the transcript and ballot on it. Live rooms, past rounds and clips all live on <a href="/watch">the watch hub</a>. If you want a crowd, Clash Hour runs every day at 12:00 AM, 3:00 PM and 7:00 PM Eastern, one session per side of the world: fixed hours when everyone queues at once, so matches land faster than they do at a random hour.</p>
+
+  <h2 id="cost">What it costs</h2>
+  <p>A Free plan is available. Paid tiers and current limits are listed on the <a href="/pricing">pricing page</a>. You can finish one AI round before signing in. Your first live video round needs no account. After that, live video requires Google sign-in before you enter the queue.</p>
+
+  <h2 id="faq">How it works FAQ</h2>
+  <div class="faq">
+    <details open><summary>I have never debated. Is this for me?</summary><p>Yes. Every round is a casual 1v1 with no format jargon, prepared case, or tournament rulebook. You make a point, say why it holds, and answer what the other person said. The judge writes its reasoning in plain English, so a round you lose still tells you what to fix.</p></details>
+    <details><summary>How does Debatable work?</summary><p>Pick an opponent, a real person from the live queue or an AI that argues out loud, take a side on a question, and argue a timed round. When it ends, an AI judge writes a full ballot: who won, why, a score out of 100 for each side, and what to fix.</p></details>
+    <details><summary>Do I debate a person or an AI?</summary><p>Your choice. The live queue pairs you with a real person on video, and neither side enters the room until both confirm they are there. The voice round puts you against an AI opponent that speaks and responds to your argument. AI opponents are always labeled as AI.</p></details>
+    <details><summary>Can I argue on the live stream?</summary><p>Yes, if a host takes your hand. While a debate is broadcasting on <a href="/watch">the watch hub</a>, the player carries a Join button: you say whether you want to take turns or argue on an open floor, and the host picks from the raised hands. A stage round is 18+ and recorded, it gets a full ballot from the same judge panel, and it does not move your rating, because the host chose who came on.</p></details>
+    <details><summary>What is the difference between taking turns and an open floor?</summary><p>Taking turns is the ordinary round: one person talks at a time, on a clock. An open floor leaves both microphones live for one stretch and cutting in is allowed. The judge scores an open floor by a method written for a conversation: interrupting never wins or loses a point, talking more is not arguing better, and a point that got cut off and was never finished counts for neither side. Dodging a direct question counts against you the same way an unanswered claim does.</p></details>
+    <details><summary>What if nobody else is online?</summary><p>You can keep waiting in the live queue or choose the clearly labeled AI opponent after a short wait. <a href="/voice-debate">The voice round</a> is available on demand at any hour. Clash Hour runs every day in three sessions: 12:00 AM, 3:00 PM and 7:00 PM Eastern.</p></details>
+    <details><summary>How does the AI judge decide who won?</summary><p>It tracks each claim, what answered it, and what went unanswered. The ballot states a decision with reasoning, gives each person a score out of 100, and lists what both sides should fix. It judges the argument in front of it, not the side it prefers.</p></details>
+    <details><summary>Can I check the judge, or appeal a decision?</summary><p>Yes. The rubric is published and versioned before the round, ranked rounds go to a panel of three different model families rather than one call, an even split records as unresolved instead of being tie-broken, and either debater can appeal within 72 hours to a person who was not in the round. Every ballot records which models judged it. Details are on <a href="/judge-integrity">the judge integrity page</a>.</p></details>
+    <details><summary>Which debate format does it use?</summary><p>Debatable uses one casual 1v1 structure. One person argues for, one argues against, and both get a fair chance to open, respond, and close. Competitive debate formats are not part of the public experience.</p></details>
+    <details><summary>How long does a round take?</summary><p>A round is four short turns and takes about twenty minutes including prep. The ballot lands in seconds.</p></details>
+    <details><summary>Do I need a microphone or a camera?</summary><p>A microphone for any spoken round, and the browser asks for it when you start. Camera is only for live human rounds on video, and you can turn it off there. If you would rather not speak at all, <a href="/practice">the typed surface</a> runs the same casual 1v1 in text.</p></details>
+    <details><summary>Do I need an account to start?</summary><p>For an AI round, no: you can finish one before signing in. Live video requires a Google or verified phone sign-in before you enter the queue, so another person is not paired with an unaccountable opponent. Signing in saves rounds, ballots, and your history across devices.</p></details>
+    <details><summary>What does it cost?</summary><p>A Free plan is available. Paid tiers and current limits are listed on <a href="/pricing">the pricing page</a>.</p></details>
+    <details><summary>Can other people watch my round?</summary><p>Live rounds are public, so anyone can <a href="/watch">spectate one that is running</a>. That is deliberate: rounds people can watch are rounds people can learn from.</p></details>
+    <details><summary>What happens after the ballot?</summary><p>Signed-in rounds save to your history and build your style profile. Ranked rounds move you on the <a href="/leaderboard">public leaderboard</a>, and a judged voice assessment can become a <a href="/credentials">free certificate</a> with a public verify URL. Completed public rounds get their own page with the transcript and ballot on it.</p></details>
+    <details><summary>Will a coach think this counts as cheating?</summary><p>It is practice, not a submission. You give the speeches yourself, on a clock, and the ballot tells you what to fix. Nothing here writes a case you then hand in as your own work. If your league has a rule about AI in prep, follow the league.</p></details>
+    <details><summary>When is everyone online?</summary><p>Clash Hour, every day at 12:00 AM, 3:00 PM and 7:00 PM Eastern. Fixed daily hours when everyone queues at once, so matches land faster than they do at a random hour.</p></details>
+  </div>
+
+  <div class="cross-links">
+    <a href="/spar">Debate a real person</a>
+    <a href="/voice-debate">Start a voice round</a>
+    <a href="/judge">Get a round judged</a>
+    <a href="/judge-integrity">How the judge is held to account</a>
+    <a href="/practice">Typed rounds</a>
+    <a href="/live">Live tournament rounds</a>
+    <a href="/watch">Watch past rounds</a>
+    <a href="/how-it-works">Argument basics</a>
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/credentials">Free certificate</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/">About Debatable</a>
+  </div>
+
+</div>
+</main>
+```
+
+```html
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
    same recipe as /pricing and /schools, per the founder: "it adds a nice
@@ -726,129 +826,5 @@ html.js-rv .bc-rfd.done .caret{display:none}
   html.js-rv .bc-rfd .caret{display:none}
 }
 
-
-/* Local 2026-09-05 explainer layout. Explicit readable px sizing avoids the
-   shared mobile root overrides shrinking interactive and body text. */
-.hiw{max-width:1220px;padding:74px 32px 64px}
-.hiw p,.hiw li,.hiw .faq details p{font:400 17px/1.6 'DM Sans',Arial,sans-serif}
-.hiw h1,.hiw h2,.hiw h3{font-family:'Archivo',Arial,sans-serif}
-.hiw h1{font-size:clamp(40px,5.2vw,66px);line-height:1.04;letter-spacing:-2px;margin:0 0 24px}
-.hiw h2{font-size:34px;line-height:1.15;letter-spacing:-.8px;margin:8px 0 18px}
-.hiw h3{font-size:20px;line-height:1.3;letter-spacing:-.25px}
-.hiw .brand-bar{font-size:14px;margin-bottom:42px}
-.hiw .brand-mark{color:var(--text)}.hiw .brand-mark strong{color:var(--accent)}
-.hiw .eyebrow{font-size:12px;letter-spacing:1.2px;border:0;padding:0;background:none;margin-bottom:20px}
-.hiw-hero{display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center;padding-bottom:54px}
-.hiw .lede{font-size:20px;line-height:1.55;margin-bottom:25px;max-width:540px}
-.hiw .hero-ctas{display:flex;margin:0 0 18px;gap:10px}
-.hiw .btn-primary,.hiw .btn-secondary{font:700 16px/1.3 'DM Sans',Arial,sans-serif;padding:15px 18px;border-radius:8px;min-height:48px}
-.hiw .hiw-small{font-size:15px;line-height:1.55;margin:16px 0 0}
-.hiw-example{border:1px solid var(--border-strong);background:var(--bg-card);border-radius:18px;padding:26px;box-shadow:var(--shadow-lg)}
-.hiw-example-label,.hiw-kicker{display:block;font:700 11px/1.4 'DM Sans',Arial,sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent)}
-.hiw-example h2{font-size:29px;line-height:1.22;margin:22px 0}
-.hiw-sides{display:grid;gap:14px}.hiw-sides>div{padding:16px 18px;border-radius:10px;background:var(--surf-2);border-left:3px solid var(--accent)}
-.hiw-sides>div:last-child{border-color:var(--text-ghost);margin-left:22px}
-.hiw-sides b{font:800 11px 'DM Sans',Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
-.hiw-sides p{margin:7px 0 0;font-size:16px}
-.hiw .hiw-example-end{font-size:14px;line-height:1.5;margin:20px 0 0;color:var(--text-ghost)}
-.hiw-section{border-top:1px solid var(--border-strong);padding:42px 0}
-.hiw-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:25px;list-style:none;padding:0;margin:30px 0 0}
-.hiw-steps>li>span{display:block;font:500 14px 'Geist Mono',monospace;color:var(--accent);margin-bottom:20px}
-.hiw-steps p{font-size:16px;margin:12px 0 0}
-.hiw-record,.hiw-watch{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
-.hiw-notes{border:1px solid var(--border);border-radius:12px;padding:24px;background:var(--bg-card)}
-.hiw-notes h3{margin:20px 0 8px;color:var(--accent);font-size:16px}
-.hiw-notes ul{padding-left:20px}.hiw-notes li{font-size:16px;margin:6px 0;color:var(--text-dim)}
-.hiw-ways{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:24px}
-.hiw-ways>a{display:block;border:1px solid var(--border);border-radius:10px;padding:22px;background:var(--bg-card)}
-.hiw-ways>a:hover{border-color:var(--accent)}.hiw-ways h3{display:flex;justify-content:space-between;gap:12px}.hiw-ways h3 span{color:var(--accent)}
-.hiw-ways p{font-size:16px;margin:12px 0 0}
-.hiw .video-card{margin:0;max-width:none;box-shadow:none;border-radius:10px}
-.hiw .faq{max-width:850px;gap:0;margin:28px 0 0}.hiw .faq details{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:19px 0;background:transparent;box-shadow:none}
-.hiw .faq summary{font:600 18px/1.4 'DM Sans',Arial,sans-serif;min-height:28px}.hiw .faq details p{max-width:750px}
-.hiw-end{border-top:1px solid var(--border-strong);text-align:center;padding:46px 0 10px}.hiw-end h2{font-size:44px;margin-bottom:24px}.hiw-end em{color:var(--accent)}
-.hiw a:focus-visible,.hiw summary:focus-visible{outline:3px solid var(--accent);outline-offset:5px}
-@media(max-width:1000px){.hiw-hero{gap:28px}.hiw-record,.hiw-watch{gap:32px}.hiw-steps{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:28px}}
-@media(max-width:720px){.hiw{padding:72px 20px 42px}.hiw .brand-bar{margin-bottom:30px}.hiw-hero,.hiw-record,.hiw-watch{grid-template-columns:1fr;gap:28px}.hiw-hero{padding-bottom:34px}.hiw h1{font-size:46px;letter-spacing:-1.4px}.hiw .lede{font-size:18px}.hiw .hero-ctas{display:grid;grid-template-columns:1fr;width:100%}.hiw-example{padding:22px}.hiw-example h2{font-size:25px}.hiw h2{font-size:29px}.hiw-section{padding:32px 0}.hiw-ways{grid-template-columns:1fr;gap:12px}.hiw-ways>a{padding:19px}.hiw-end h2{font-size:38px}.hiw .faq summary{font-size:17px}.hiw .btn-primary,.hiw .btn-secondary{width:100%;justify-content:center}.hiw-steps{gap:28px 22px}.hiw-steps h3{font-size:18px}}
-@media(max-width:390px){.hiw{padding-right:16px;padding-left:16px}.hiw h1{font-size:40px}.hiw-steps{grid-template-columns:1fr}.hiw-steps>li>span{margin-bottom:8px}.hiw-sides>div:last-child{margin-left:12px}}
-
 </style>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
-<script defer src="/js/track.js"></script>
-</head>
-<body>
-
-<div id="daTopbar"></div>
-<script defer src="/js/topbar.js"></script>
-<script defer src="/js/notifications.js"></script>
-
-<main id="main-content">
-<div class="wrap hiw">
-  <nav class="brand-bar" aria-label="Breadcrumb"><a class="brand-mark" href="/">Debat<strong>able</strong></a><span class="brand-sep">/</span><span aria-current="page">How it works</span></nav>
-  <section class="hiw-hero" aria-labelledby="hiw-title">
-    <div>
-      <span class="eyebrow">One question. Two people.</span>
-      <h1 id="hiw-title">Meet someone.<br><em>Argue it out.</em></h1>
-      <p class="lede">Pick something you disagree about. Talk face to face. An AI judge follows the conversation and explains who made the stronger case.</p>
-      <div class="hero-ctas" id="startCtas"><a class="btn-primary" href="/spar" data-cta="hiw-spar">Find someone to debate <span aria-hidden="true">→</span></a><a class="btn-secondary" href="/watch" data-cta="hiw-watch">Watch a round</a></div>
-      <p class="hiw-small">Have someone in mind? <a href="/private">Send a private invite.</a></p>
-    </div>
-    <aside class="hiw-example" aria-label="Example conversation">
-      <div class="hiw-example-label">An example of a round</div>
-      <h2>A four-day workweek should be the standard.</h2>
-      <div class="hiw-sides"><div><b>For</b><p>People can get the same work done and have more time to live.</p></div><div><b>Against</b><p>That works for offices. Who covers the fifth day at a hospital?</p></div></div>
-      <p class="hiw-example-end">You make a point. They push back. The conversation starts there.</p>
-    </aside>
-  </section>
-
-  <section class="hiw-section" aria-labelledby="simple-h">
-    <div class="hiw-section-head"><span class="hiw-kicker">From hello to decision</span><h2 id="simple-h">Four steps. Your own words.</h2></div>
-    <ol class="hiw-steps">
-      <li id="step-opponent"><span>01</span><h3>Meet your opponent</h3><p>Join the live queue or invite a friend. Optional questions help find someone with something to say about your interests.</p></li>
-      <li id="step-topic"><span>02</span><h3>Agree on a question</h3><p>Choose a topic together and take opposite sides. You can argue what you believe or try the other side.</p></li>
-      <li id="step-round"><span>03</span><h3>Start talking</h3><p>Choose <b>Start conversation</b> for an open exchange, or take timed turns. Check your microphone, then start the round.</p></li>
-      <li id="step-ballot"><span>04</span><h3>Read the decision</h3><p>The AI judge explains the result and scores the arguments. Ranked results appear on the leaderboard.</p></li>
-    </ol>
-  </section>
-
-  <section class="hiw-section hiw-record" aria-labelledby="after">
-    <div><span class="hiw-kicker">Keep the conversation</span><h2 id="after">What was said.<br>Why it mattered.</h2><p>Open <b>AI notes</b> on your phone or computer to see bullet points of what each side said. The judge’s decision is a separate part of the round.</p><p>Return to saved rounds from your <a href="/profile">profile</a>. Open a round and use <b>Export to Google Docs</b> to keep a copy.</p></div>
-    <div class="hiw-notes"><span class="hiw-kicker">Example AI notes</span><h3>For</h3><ul><li>Argued that a shorter week leaves more time outside work.</li><li>Said productivity could stay the same.</li></ul><h3>Against</h3><ul><li>Asked how hospitals would cover the extra day.</li><li>Distinguished office jobs from continuous services.</li></ul></div>
-  </section>
-
-  <section class="hiw-section" aria-labelledby="ways-in"><span class="hiw-kicker">Start where you like</span><h2 id="ways-in">There is more than one way in.</h2>
-    <div class="hiw-ways">
-      <a href="/private"><h3>Bring a friend <span aria-hidden="true">↗</span></h3><p>One private room. Send them the invite link.</p></a>
-      <a href="/newvoice"><h3>Talk to the AI <span aria-hidden="true">↗</span></h3><p>An opponent that speaks back, ready when you are.</p></a>
-      <a href="/watch"><h3>Watch first <span aria-hidden="true">↗</span></h3><p>See a live round or replay before taking a seat.</p></a>
-    </div>
-    <p class="hiw-small">Prefer typing? <a href="/practice">Start a typed round.</a> Have a transcript already? <a href="/judge">Get it judged.</a></p>
-  </section>
-
-  <section class="hiw-section hiw-watch" aria-labelledby="walkthrough-title"><div><span class="hiw-kicker">See the product</span><h2 id="walkthrough-title">Watch the walkthrough.</h2><p>A tour of a round, from joining to reading the decision. Some controls have moved as the site has changed.</p></div><div class="video-card"><video class="video-el" controls playsinline preload="none" poster="/assets/video/how-debatable-works-poster-round.jpg" aria-label="Debatable product walkthrough"><source src="/assets/video/how-debatable-works.mp4" type="video/mp4"></video></div></section>
-
-  <section class="hiw-section" aria-labelledby="faq"><span class="hiw-kicker">Before you start</span><h2 id="faq">A few practical things.</h2><div class="faq"><details><summary>Do I need to know how to debate?</summary><p>No. Make a point, explain your reason, and listen to the reply. You can have a natural conversation or take timed turns. One person is on each side.</p></details>
-<details><summary>Do I need an account?</summary><p>Sign in to start an AI round and keep your history across devices. Live video requires Google sign-in on web; the iOS app also supports Apple.</p></details>
-<details><summary>What if nobody is available?</summary><p>Keep the live queue open, enable match alerts, or invite a friend. You can also start an AI voice round whenever you want. An AI opponent is always labeled.</p></details>
-<details><summary>Can people watch or record me?</summary><p>Public live rounds can have spectators. Private invite rooms stay off the public board. Recording asks everyone in the room for permission before it starts. You can leave, report, or block someone from the room.</p></details>
-<details><summary>What does the judge use?</summary><p>The judge reads what both sides said and explains its decision. It considers arguments and responses, not which side it prefers. Ranked rounds use the published panel and rubric. You can read the method and appeal policy on the judge integrity page.</p></details>
-<details><summary>What does it cost?</summary><p>A Free plan is available. Private round judging includes two free uses per account, then requires a paid plan. Other limits and subscriptions are listed on the pricing page.</p></details>
-<details><summary>Where do my rounds go?</summary><p>Open your profile to return to saved rounds. You can reopen a live room to read its transcript, notes and decision. Public replays and clips are on Watch when recording was agreed.</p></details>
-</div><p class="hiw-small"><a href="/judge-integrity">Read the judge’s method</a> · <a href="/pricing">Plans and limits</a> · <a href="/privacy">Privacy</a></p></section>
-  <section class="hiw-end"><h2>Have a take?<br><em>Put it to someone.</em></h2><a class="btn-primary" href="/spar" data-cta="hiw-bottom-spar">Start debating <span aria-hidden="true">→</span></a></section>
-</div>
-</main>
-
-<footer class="foot">
-  <a href="/">itsdebatable.com</a> · <a href="/debate-online">Debate online</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · Match. Argue. Get scored.
-</footer>
-
-<script src="/js/home-magnet.js" defer></script>
-<!-- Shared neural-constellation background. Animates on this light
-     surface because <html> carries data-lightweb="web". -->
-
-
-<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
-<script defer src="/js/ui-neural.js"></script>
-</body>
-</html>
+```

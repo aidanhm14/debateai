@@ -514,18 +514,29 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   // Browser-alert row reuses the existing notifications.js helpers so this
   // page and the /spar nudge can never disagree about the stored value.
-  function paintBrowser(){
+  function paintBrowser(message){
     var host = document.getElementById('notifyFields');
     if (!host) return;
     var on = typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts();
+    var deviceState = window.daGetLiveAlertsState ? window.daGetLiveAlertsState() : 'ready';
+    var help = message || (on && deviceState === 'on' ? 'Alerts are on for this device.' : (window.daLiveAlertsHelp ? window.daLiveAlertsHelp() : 'Turn on notifications to meet people joining the live queue.'));
     host.innerHTML =
       '<label class="phone-kind"><input type="checkbox" id="nfLive"' + (on ? ' checked' : '') + '>' +
-      '<span>Browser and app notifications when someone goes live</span></label>';
+      '<span>Notify me when someone joins the live queue</span></label>' +
+      '<p role="status" style="font-size:.86rem;line-height:1.5">' + esc(help) + '</p>' +
+      (on && deviceState !== 'on' ? '<button type="button" id="nfDevice" class="sbtn">Set up this device</button>' : '');
+    function saveAlerts(next){
+      if (typeof window.daSetLiveAlerts !== 'function') { paintBrowser('Alert setup is still loading. Try again in a moment.'); return; }
+      host.querySelectorAll('input,button').forEach(function (el) { el.disabled = true; });
+      window.daSetLiveAlerts(next, function(actual, error){
+        paintBrowser(error ? (window.daLiveAlertsHelp ? window.daLiveAlertsHelp() : error) : (actual ? 'Alerts are on for this device.' : 'Live queue alerts are off.'));
+        ga(error ? 'settings_live_alerts_failed' : 'settings_live_alerts', { on: actual });
+      });
+    }
     var box = document.getElementById('nfLive');
-    if (box) box.addEventListener('change', function(){
-      if (typeof window.daSetLiveAlerts === 'function') window.daSetLiveAlerts(box.checked, function(){});
-      ga('settings_live_alerts', { on: box.checked });
-    });
+    if (box) box.addEventListener('change', function(){ saveAlerts(box.checked); });
+    var device = document.getElementById('nfDevice');
+    if (device) device.addEventListener('click', function(){ saveAlerts(true); });
   }
 
   function paintPhone(){
@@ -658,6 +669,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   function load(){
+    card.hidden = false;
+    paintBrowser();
     api('GET').then(function(res){
       if (!res.ok) return;
       st.phone = res.data;
