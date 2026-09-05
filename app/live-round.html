@@ -372,6 +372,13 @@ body.lr-mini .cv-tile,body.lr-pip .cv-tile{border-radius:8px}
 body.lr-mini .cv-plate,body.lr-pip .cv-plate{font-size:.6rem;padding:2px 6px;left:5px;bottom:5px}
 /* Camera converter pill (seated debaters only): Camera / Avatar / Design / Off.
    Floats over the Daily iframe, same overlay pattern as the mini timer. */
+.call-guidance{position:absolute;top:10px;left:12px;right:12px;z-index:30;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.call-guidance>*{pointer-events:auto}
+.call-guidance .cam-modes,.call-guidance .cam-hint,.call-guidance .lr-open-card{position:static;transform:none;max-width:100%;margin:0}
+.call-guidance .cam-modes{order:1}
+.call-guidance .cam-hint{order:2;max-width:420px}
+.call-guidance .lr-open-card{order:3;align-self:flex-start}
+body.lr-mini .call-guidance,body.lr-pip .call-guidance{display:none}
 .cam-modes{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;display:flex;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:rgba(10,10,14,.85);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.45)}
 .cam-modes button{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.72);font:600 .72rem/1 DM Sans,Archivo,Georgia,serif;letter-spacing:.06em;padding:9px 11px;cursor:pointer}
 .cam-modes button + button{border-left:1px solid rgba(255,255,255,.1)}
@@ -3355,15 +3362,15 @@ html.stage-mode .stage-ov{display:block}
 .draft-board{
   position:fixed;inset:0;z-index:400;display:grid;place-items:center;
   padding:20px;background:rgba(8,8,10,.82);backdrop-filter:blur(7px);
-  overflow-y:auto;
+  overflow-y:auto;overscroll-behavior:contain;
 }
 .draft-board.hidden{display:none}
 .draft-board .df-card{
   width:min(760px,100%);background:var(--bg,#fff);color:var(--text,#111);
   border:1px solid rgba(127,127,127,.22);border-radius:16px;
-  padding:26px 26px 22px;box-shadow:0 22px 60px rgba(0,0,0,.45);
+  padding:22px;box-shadow:0 22px 60px rgba(0,0,0,.45);max-height:calc(100dvh - 40px);overflow-y:auto;box-sizing:border-box;
 }
-.df-head{margin-bottom:18px}
+.df-head{margin-bottom:14px}
 .df-head .df-step{
   display:inline-block;font-size:.62rem;letter-spacing:.13em;text-transform:uppercase;
   font-weight:800;color:var(--accent,#ef4444);margin-bottom:8px;
@@ -3387,6 +3394,11 @@ html.stage-mode .stage-ov{display:block}
      continue without. Visibility is a base style here, not a frame. */
   animation:dfIn .26s ease both;animation-delay:calc(var(--i,0) * 45ms);
 }
+.df-motion[data-df-pool]{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.df-motion-copy{min-width:0;overflow-wrap:anywhere}
+.df-offer-action{flex-shrink:0;font-size:.75rem;font-weight:800;color:var(--accent,#ef4444)}
+.draft-board button:focus-visible{outline:3px solid var(--accent,#ef4444);outline-offset:3px}
+.draft-board[aria-busy="true"] button{cursor:wait}
 .df-motion:hover{transform:translateX(3px);border-color:rgba(127,127,127,.45)}
 /* The offered motion, and the reason the responder is looking at this
    screen at all. Bigger than a card in a list because it is the only
@@ -3409,7 +3421,8 @@ html.stage-mode .stage-ov{display:block}
 .df-choice[disabled]{opacity:.42;cursor:default}
 .df-choice b{display:block;font-size:1rem;font-weight:800;margin-bottom:2px}
 .df-choice i{font-style:normal;font-size:.82rem;line-height:1.45;opacity:.72}
-.df-choice.take b{color:#16a34a}
+.df-choice.take{background:var(--accent,#ef4444);border-color:var(--accent,#ef4444);color:#fff}
+.df-choice.take b,.df-choice.take i{color:#fff;opacity:1}
 .df-choice.counter b{color:var(--accent,#ef4444)}
 .df-motion.picked{
   border-color:var(--accent,#ef4444);background:rgba(239,68,68,.09);font-weight:700;
@@ -3449,7 +3462,11 @@ html.stage-mode .stage-ov{display:block}
 .df-add-err{color:var(--accent,#ef4444);opacity:1;font-weight:700}
 @keyframes dfIn{from{transform:translateY(7px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){.df-motion{animation:none}.df-motion:hover{transform:none}}
-.df-foot{display:flex;align-items:center;gap:14px;margin-top:18px}
+.df-foot{display:flex;align-items:center;gap:12px;margin-top:14px}
+.df-foot-note{font-size:.78rem;line-height:1.4;opacity:.75}
+.df-clock{flex-shrink:0}
+.df-status{margin:10px 0 0;font-size:.82rem;font-weight:700;line-height:1.4}
+.df-status.error{color:var(--accent,#ef4444)}
 .df-go{
   flex:1;font:inherit;font-weight:800;font-size:.95rem;padding:13px 18px;
   border:0;border-radius:11px;cursor:pointer;background:var(--accent,#ef4444);color:#fff;
@@ -3485,7 +3502,7 @@ html.stage-mode .stage-ov{display:block}
 .df-side.con b{color:var(--accent,#ef4444)}
 @media (max-width:600px){
   .draft-board{padding:12px}
-  .draft-board .df-card{padding:20px 17px 17px}
+  .draft-board .df-card{padding:18px 16px;max-height:calc(100dvh - 24px)}
   .df-head h3{font-size:1.22rem}
   .df-head p.df-head-motion{font-size:1.15rem}
   .df-motion{font-size:.94rem;padding:12px 13px}
@@ -9908,6 +9925,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var s = (state.mySideHint || '').toUpperCase().slice(0,3);
     return s || 'ANON';
   }
+  function callGuidance(shell){
+    var stack = shell.querySelector('.call-guidance');
+    if (!stack){
+      stack = document.createElement('div');
+      stack.className = 'call-guidance';
+      shell.appendChild(stack);
+    }
+    return stack;
+  }
   function buildCamModes(shell){
     if (camConv.bar) return;
     var bar = document.createElement('div');
@@ -9936,7 +9962,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     bar.addEventListener('pointerenter', function(){
       if (window.DebateCam && window.DebateCam.warm) window.DebateCam.warm();
     }, { once: true });
-    shell.appendChild(bar);
+    callGuidance(shell).appendChild(bar);
     camConv.bar = bar;
     buildCamHint(shell);
   }
@@ -9949,14 +9975,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     try { if (localStorage.getItem(CAM_HINT_KEY) === '1') return; } catch(e){}
     var hint = document.createElement('div');
     hint.className = 'cam-hint';
-    hint.innerHTML = '<b>You can debate anonymously.</b> Press Avatar and the room sees a mask that moves with you, never your camera.' +
+    hint.innerHTML = '<b>Keep your camera private.</b> Avatar shows a moving mask instead.' +
       '<button type="button" aria-label="Dismiss">Got it</button>';
     hint.addEventListener('click', function(ev){
       if (!ev.target.closest('button')) return;
       try { localStorage.setItem(CAM_HINT_KEY, '1'); } catch(e){}
       hint.remove(); camConv.hint = null;
     });
-    shell.appendChild(hint);
+    callGuidance(shell).appendChild(hint);
     camConv.hint = hint;
   }
   function openAvatarDesigner(){
@@ -16303,12 +16329,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // public to the room.
     var DF_SEC = { offer: 16, respond: 14, counter: 14, choose: 10, side: 9 }; // must match motion-draft.mjs
     var DRAFT_MOTION_MIN = 12, DRAFT_MOTION_MAX = 200;   // must match MOTION_MIN/MAX
-    var dfBusy = false, dfTimer = 0, dfOpened = false, dfLastPhase = '';
+    var dfBusy = false, dfTimer = 0, dfOpened = false, dfLastPhase = '', dfPreviousFocus = null;
     // Composer state for the offer and counter beats. Survives a re-render,
     // because the board repaints on every round snapshot and losing a
     // half-typed motion to somebody else's write would be the board eating
     // the one thing it just asked for.
-    var dfPick = '', dfWriteOpen = false, dfWriteText = '', dfErr = '';
+    var dfWriteOpen = false, dfWriteText = '', dfErr = '';
 
     function dfDraft(){ return state.draft || null; }
     function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
@@ -16434,6 +16460,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       el = document.createElement('div');
       el.id = 'draftBoard';
       el.className = 'draft-board hidden';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-labelledby', 'dfTitle');
+      el.tabIndex = -1;
       document.body.appendChild(el);
       return el;
     }
@@ -16445,40 +16475,40 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // resolution").
     function dfHead(step, title, sub, big){
       return '<div class="df-head"><span class="df-step">' + step + '</span>'
-        + '<h3>' + title + '</h3><p' + (big ? ' class="df-head-motion"' : '') + '>' + sub + '</p></div>';
+        + '<h3 id="dfTitle">' + title + '</h3><p' + (big ? ' class="df-head-motion"' : '') + '>' + sub + '</p>'
+        + (dfErr ? '<div class="df-status error" role="alert">' + escHtml(dfErr) + '</div>' : '')
+        + (dfBusy ? '<div class="df-status" role="status">Sending…</div>' : '') + '</div>';
     }
     function dfClockHtml(){
       var left = dfClock();
       if (left === null) return '';
-      return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '"><b>' + left + '</b>s</div>';
+      return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '" aria-label="Time remaining"><b id="dfSecs">' + left + '</b>s</div>';
     }
     function dfWaiting(step, title, sub, big){
       return '<div class="df-card">' + dfHead(step, title, sub, big) + dfClockHtml() + '</div>';
     }
     // The composer, shared by the offer beat and the counter beat because
     // "name the motion you want" is the same act either way.
-    function dfComposer(goLabel){
+    function dfComposer(){
       var cards = dfOfferable().map(function(m, i){
-        return '<button type="button" class="df-motion' + (dfPick === m.id ? ' picked' : '') + '" data-df-pool="'
-          + escHtml(m.id) + '" style="--i:' + i + '">' + escHtml(m.text) + '</button>';
+        return '<button type="button" class="df-motion" data-df-pool="' + escHtml(m.id)
+          + '" style="--i:' + i + '"><span class="df-motion-copy">' + escHtml(m.text)
+          + '</span><span class="df-offer-action">Offer →</span></button>';
       }).join('');
       var write = '';
       if (dfCanWrite()){
         write = dfWriteOpen
           ? '<div class="df-add open">'
-            + '<input type="text" id="dfWriteInput" maxlength="' + DRAFT_MOTION_MAX + '" placeholder="Write a claim or motion, e.g. Homework should be banned." value="' + escHtml(dfWriteText) + '" autocomplete="off" />'
-            + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfWriteGo">Offer this</button>'
+            + '<label for="dfWriteInput" class="df-add-hint">Your topic</label>'
+            + '<input type="text" id="dfWriteInput" maxlength="' + DRAFT_MOTION_MAX + '" placeholder="e.g. Homework should be banned." value="' + escHtml(dfWriteText) + '" autocomplete="off" />'
+            + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfWriteGo">Offer this topic</button>'
             + '<button type="button" class="df-add-cancel" id="dfWriteCancel">Cancel</button></div>'
-            + (dfErr ? '<p class="df-add-err">' + escHtml(dfErr) + '</p>' : '<p class="df-add-hint">Your opponent sees it and answers it like any other offer.</p>')
             + '</div>'
-          : '<button type="button" class="df-add-open" id="dfWriteOpen">+ Write your own instead</button>';
-      } else if (dfErr){
-        write = '<p class="df-add-err">' + escHtml(dfErr) + '</p>';
+          : '<button type="button" class="df-add-open" id="dfWriteOpen">+ Write your own topic</button>';
       }
-      return '<div class="df-motions">' + cards + '</div>' + write
+      return (dfWriteOpen ? '' : '<div class="df-motions">' + cards + '</div>') + write
         + '<div class="df-foot">' + dfClockHtml()
-        + '<button type="button" class="df-go" id="dfOfferGo"' + (dfPick ? '' : ' disabled') + '>'
-        + (dfPick ? escHtml(goLabel) : 'Pick one') + '</button></div>';
+        + '<span class="df-foot-note">A suggestion is offered when time runs out.</span></div>';
     }
 
     function renderDraft(){
@@ -16496,10 +16526,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           requestAnimationFrame(function(){ window.__lrRevealResolution(true); });
         }
         if (dfTimer){ clearInterval(dfTimer); dfTimer = 0; }
+        if (dfPreviousFocus && dfPreviousFocus.isConnected) dfPreviousFocus.focus();
+        dfPreviousFocus = null;
         return;
       }
+      if (!document.body.classList.contains('drafting')) dfPreviousFocus = document.activeElement;
+      host.setAttribute('aria-busy', dfBusy ? 'true' : 'false');
       document.body.classList.add('drafting');
       host.className = 'draft-board';
+      requestAnimationFrame(function(){
+        if (!host.classList.contains('hidden') && !host.contains(document.activeElement)) host.focus();
+      });
       if (!dfTimer) dfTimer = setInterval(function(){
         var left = dfClock();
         var n = document.getElementById('dfSecs');
@@ -16513,8 +16550,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // buttons they cannot press would be a lie about who decides.
       if (!dfIAmDebater()){
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Pre-round', 'The debaters are settling the motion.',
-                   'One offers a motion, the other takes it, sends it back, or counters with their own. Whoever decides the motion does not decide the side.')
+          + dfHead('Pre-round', 'They’re choosing a topic together.',
+                   'They agree on a topic, then pick who argues for and against it.')
           + '</div>';
         return;
       }
@@ -16525,19 +16562,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (ph === 'offer'){
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + (replacing ? ' owes you another motion.' : ' is choosing a motion to offer.'),
+            escHtml(dfOtherName()) + (replacing ? ' is picking a new topic.' : ' is suggesting a topic.'),
             replacing
-              ? 'You sent the last one back, so this one stands and you still pick your side.'
-              : 'You answer it next: take it, send it back once, or counter with your own.');
+              ? 'Their next topic is final. You pick your side.'
+              : 'You can accept it or suggest a change next.');
           return;
         }
         host.innerHTML = '<div class="df-card">'
           + dfHead('Step 1 of 2',
-                   replacing ? 'Offer a different one.' : 'Offer a motion.',
+                   replacing ? 'Suggest a new topic.' : 'What should you debate?',
                    replacing
-                     ? escHtml(dfOtherName()) + ' sent your first motion back. They have to take this one, and they still pick their side, so offer something you can argue either way.'
-                     : escHtml(dfOtherName()) + ' answers this: take it, send it back once, or counter with their own. If they take it, they pick their side, so offer something you can argue either way.')
-          + dfComposer(replacing ? 'Offer this instead' : 'Offer this motion')
+                     ? 'Tap a topic to offer it. This one is final, and ' + escHtml(dfOtherName()) + ' picks their side.'
+                     : 'Tap a topic to offer it. If ' + escHtml(dfOtherName()) + ' accepts, they pick their side.')
+          + dfComposer()
           + '</div>';
         dfFocusWrite();
         return;
@@ -16547,21 +16584,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         var offered = dfMotionText(d.offerId);
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + ' is answering.',
-            'On the table: ' + escHtml(offered), true);
+            escHtml(dfOtherName()) + ' is considering your topic.',
+            escHtml(offered), true);
           return;
         }
         var vetoLeft = Number(d.vetoesLeft || 0) > 0;
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Your call.',
-                   escHtml(dfOtherName()) + ' offered this. Whoever settles the motion does not settle the side, so every answer here costs something.')
+          + dfHead('Step 1 of 2', 'Want to debate this?',
+                   escHtml(dfOtherName()) + ' suggested this topic.')
           + '<div class="df-offer">' + escHtml(offered) + '</div>'
           + '<div class="df-choices">'
-          + '<button type="button" class="df-choice take" data-df-respond="take"><b>Take it</b><i>We debate this. You pick your side.</i></button>'
+          + '<button type="button" class="df-choice take" data-df-respond="take"><b>Yes, pick my side →</b><i>Agree on this topic and choose for or against.</i></button>'
           + (vetoLeft
-            ? '<button type="button" class="df-choice back" data-df-respond="back"><b>Send it back</b><i>They offer a different one and you have to take that. You still pick your side. One only.</i></button>'
-            : '<button type="button" class="df-choice back" disabled><b>Send it back</b><i>Used. You get one per round.</i></button>')
-          + '<button type="button" class="df-choice counter" data-df-respond="counter"><b>Counter with your own</b><i>You put a motion up too. Then they pick which one we debate, and they pick their side.</i></button>'
+            ? '<button type="button" class="df-choice back" data-df-respond="back"><b>Ask for another</b><i>Their next topic is final. You still pick your side. Once per round.</i></button>'
+            : '<button type="button" class="df-choice back" disabled><b>Ask for another</b><i>Already used this round.</i></button>')
+          + '<button type="button" class="df-choice counter" data-df-respond="counter"><b>Suggest my own</b><i>They choose between both topics, then pick their side.</i></button>'
           + '</div>'
           + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
         return;
@@ -16570,15 +16607,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (ph === 'counter'){
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + ' is countering.',
-            'They put a motion up too. You pick which of the two we debate, and you pick your side.');
+            escHtml(dfOtherName()) + ' is suggesting another topic.',
+            'You choose between both topics, then pick your side.');
           return;
         }
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Put your motion up.',
-                   'You gave up the side call for this. ' + escHtml(dfOtherName())
-                   + ' chooses between their motion and yours, so pick one they would actually take.')
-          + dfComposer('Counter with this')
+          + dfHead('Step 1 of 2', 'Suggest another topic.',
+                   'Tap a topic to offer it. ' + escHtml(dfOtherName()) + ' chooses between both topics, then picks their side.')
+          + dfComposer()
           + '</div>';
         dfFocusWrite();
         return;
@@ -16587,14 +16623,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (ph === 'choose'){
         var list = dfContenders();
         if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 2 of 2',
+          host.innerHTML = dfWaiting('Step 1 of 2',
             escHtml(dfOtherName()) + ' is choosing between the two.',
-            'They pick the motion and their side. That is what countering cost you.');
+            'They choose the topic and their side. You take the other side.');
           return;
         }
         host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 2 of 2', 'Pick the motion.',
-                   'They countered, so you take both calls: the motion now, and your side next.')
+          + dfHead('Step 1 of 2', 'Which topic should you debate?',
+                   'Tap one to choose it. You pick your side next.')
           + '<div class="df-motions">' + list.map(function(m, i){
               return '<button type="button" class="df-motion" data-df-motion="' + escHtml(m.id)
                 + '" style="--i:' + i + '">' + escHtml(m.text)
@@ -16609,15 +16645,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 2 of 2',
             escHtml(dfNameFor(d.sideUid)) + ' is picking their side.',
-            'The motion is settled: ' + escHtml(motion), true);
+            escHtml(motion), true);
           return;
         }
         host.innerHTML = '<div class="df-card">'
           + dfHead('Step 2 of 2', 'Pick your side.',
-                   'The round is: ' + escHtml(motion), true)
+                   escHtml(motion), true)
           + '<div class="df-sides">'
-          + '<button type="button" class="df-side pro" data-df-side="pro"><b>Pro</b><i>Argue for it</i></button>'
-          + '<button type="button" class="df-side con" data-df-side="con"><b>Con</b><i>Argue against it</i></button>'
+          + '<button type="button" class="df-side pro" data-df-side="pro"><b>For</b><i>I’ll support this claim</i></button>'
+          + '<button type="button" class="df-side con" data-df-side="con"><b>Against</b><i>I’ll challenge this claim</i></button>'
           + '</div><div class="df-foot">' + dfClockHtml() + '</div></div>';
       }
     }
@@ -16634,9 +16670,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (dfBusy) return;
       dfBusy = true;
       dfErr = '';
+      renderDraft();
       dfPost('offer', payload).then(function(res){
         if (res && res.ok){
-          dfPick = ''; dfWriteOpen = false; dfWriteText = '';
+          dfWriteOpen = false; dfWriteText = '';
           try { gtag('event', 'live_draft_offer', { format: state.formatKey, written: payload.text ? 1 : 0 }); } catch(e){}
         } else {
           dfErr = dfErrText(res && res.reason, res && res.message);
@@ -16649,6 +16686,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (ev.target && ev.target.id === 'dfWriteInput') dfWriteText = ev.target.value;
     }, true);
     document.addEventListener('keydown', function(ev){
+      var host = document.getElementById('draftBoard');
+      if (host && !host.classList.contains('hidden') && ev.key === 'Tab'){
+        var controls = host.querySelectorAll('button:not([disabled]), input:not([disabled])');
+        var first = controls[0], last = controls[controls.length - 1];
+        if (!first){ ev.preventDefault(); host.focus(); }
+        else if (ev.shiftKey && (document.activeElement === first || document.activeElement === host || !host.contains(document.activeElement))){ ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && (document.activeElement === last || document.activeElement === host || !host.contains(document.activeElement))){ ev.preventDefault(); first.focus(); }
+      }
       if (!ev.target || ev.target.id !== 'dfWriteInput') return;
       if (ev.key === 'Enter'){
         ev.preventDefault();
@@ -16665,6 +16710,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     document.addEventListener('click', function(ev){
       var host = document.getElementById('draftBoard');
       if (!host || host.classList.contains('hidden') || !host.contains(ev.target)) return;
+      if (dfBusy) return;
       if (ev.target.closest('#dfWriteOpen')){ dfWriteOpen = true; dfErr = ''; renderDraft(); return; }
       if (ev.target.closest('#dfWriteCancel')){ dfWriteOpen = false; dfWriteText = ''; dfErr = ''; renderDraft(); return; }
       if (ev.target.closest('#dfWriteGo')){
@@ -16675,42 +16721,42 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       }
       var pool = ev.target.closest('[data-df-pool]');
       if (pool){
-        var id = pool.getAttribute('data-df-pool');
-        dfPick = (dfPick === id) ? '' : id;
-        dfErr = '';
-        renderDraft();
-        return;
-      }
-      if (ev.target.closest('#dfOfferGo')){
-        if (!dfPick) return;
-        dfSendOffer({ poolId: dfPick });
+        dfSendOffer({ poolId: pool.getAttribute('data-df-pool') });
         return;
       }
       var answer = ev.target.closest('[data-df-respond]');
       if (answer){
         if (dfBusy) return;
         dfBusy = true;
+        dfErr = '';
         var choice = answer.getAttribute('data-df-respond');
+        renderDraft();
         dfPost('respond', { choice: choice }).then(function(res){
           if (res && !res.ok) dfErr = dfErrText(res.reason, res.message);
           try { gtag('event', 'live_draft_respond', { choice: choice, format: state.formatKey }); } catch(e){}
-        }).catch(function(){}).then(function(){ dfBusy = false; renderDraft(); });
+        }).catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
         return;
       }
       var pick = ev.target.closest('[data-df-motion]');
       if (pick){
         if (dfBusy) return;
         dfBusy = true;
+        dfErr = '';
+        renderDraft();
         dfPost('motion', { motionId: pick.getAttribute('data-df-motion') })
-          .catch(function(){}).then(function(){ dfBusy = false; });
+          .then(function(res){ if (res && !res.ok) dfErr = dfErrText(res.reason, res.message); })
+          .catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
         return;
       }
       var side = ev.target.closest('[data-df-side]');
       if (side){
         if (dfBusy) return;
         dfBusy = true;
+        dfErr = '';
+        renderDraft();
         dfPost('side', { side: side.getAttribute('data-df-side') })
-          .catch(function(){}).then(function(){ dfBusy = false; });
+          .then(function(res){ if (res && !res.ok) dfErr = dfErrText(res.reason, res.message); })
+          .catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
       }
     }, true);
 
@@ -16723,10 +16769,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // A new beat clears the composer: a pool card selected on the offer
       // beat means nothing on the counter beat, and carrying it across
       // would arm a button with somebody else's intent.
-      if (now !== dfLastPhase){ dfPick = ''; dfWriteOpen = false; dfWriteText = ''; dfErr = ''; }
-      // A suggestion that left the offerable set while it was selected
-      // would arm the go button against a motion the server will refuse.
-      if (dfPick && !dfOfferable().some(function(m){ return m.id === dfPick; })) dfPick = '';
+      if (now !== dfLastPhase){
+        dfWriteOpen = false; dfWriteText = ''; dfErr = '';
+        requestAnimationFrame(function(){ var host = dfHost(); if (dfPending()) host.focus(); });
+      }
       dfLastPhase = now;
       renderDraft();
     };
@@ -21100,7 +21146,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       card.id = 'openBeatCard';
       card.className = 'lr-open-card';
       card.setAttribute('role', 'status');
-      host.appendChild(card);
+      callGuidance(host).appendChild(card);
     }
     document.body.classList.add('lr-opening');
     card.classList.toggle('is-hot', !!(ctx.hot || ctx.late || ctx.nudgeFresh));

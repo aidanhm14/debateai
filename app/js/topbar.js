@@ -728,21 +728,12 @@
       handle: '@trydebatable',
       href: 'https://www.tiktok.com/@trydebatable',
       brand: '#FE2C55',
-      // TikTok's mark is black with cyan and magenta offset prints, so a
-      // monochrome version is the one thing it cannot be. The cyan-to-pink
-      // sweep is what those offsets read as at 16px. Pink is repeated so it
-      // takes the top half of the sweep rather than a third of it: cyan
-      // carries the recognition but is the palest colour in the rail
-      // against a white bar, and a two-stop version rendered visibly faint.
-      gradient: ['#25F4EE', '#FE2C55', '#FE2C55'],
-      // 2026-08-12, per the founder ("hard to see"): the note head is FILLED and
-      // the strokes are heavier than the rail default. This mark carries
-      // little ink by construction. At 16px the open ring reads faint, and
-      // the real mark's head is solid anyway, so outlining it was both weaker
-      // and less accurate. Filling the head roughly doubles the mark's ink.
-      strokeWidth: 2.5,
-      icon: '<circle cx="10.3" cy="14.4" r="4" fill="%PAINT%" stroke="none"/>'
-          + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
+      size: 26,
+      icon: '<rect width="24" height="24" rx="6" fill="#111" stroke="none"/>'
+          + '<g transform="translate(1.8 1.5) scale(.84)" stroke-width="2.7">'
+          + '<g transform="translate(-.7 .5)" stroke="#25F4EE"><circle cx="9.3" cy="16" r="3.5" fill="#25F4EE" stroke="none"/><path d="M12.8 16V4a5.5 5.5 0 0 0 5.5 5.5"/></g>'
+          + '<g transform="translate(.7 -.5)" stroke="#FE2C55"><circle cx="9.3" cy="16" r="3.5" fill="#FE2C55" stroke="none"/><path d="M12.8 16V4a5.5 5.5 0 0 0 5.5 5.5"/></g>'
+          + '<g stroke="#fff"><circle cx="9.3" cy="16" r="3.5" fill="#fff" stroke="none"/><path d="M12.8 16V4a5.5 5.5 0 0 0 5.5 5.5"/></g></g>',
     },
     // 2026-09-04, per the founder: DISCORD IS OUT of the nav rail. The
     // door moved onto the landing's Live chats card ("itll pull ppl in.
@@ -986,7 +977,7 @@
       var panel = el('div', { class: 'ui-topbar-more-panel', role: 'menu', 'aria-label': 'Explore Debatable', hidden: 'hidden' });
       var intro = el('div', { class: 'ui-topbar-more-intro' }, [
         el('div', { class: 'ui-topbar-more-intro-title' }, 'Explore Debatable'),
-        el('div', { class: 'ui-topbar-more-intro-sub' }, 'Practice, learn, watch, and debate.'),
+        el('div', { class: 'ui-topbar-more-intro-sub' }, 'Meet people, watch rounds, and debate.'),
         // Account actions do not belong under one of the four product
         // categories. Keep the picture action in the panel header, visible
         // only once auth confirms a named account, and deep-link straight

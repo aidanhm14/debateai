@@ -20,9 +20,8 @@
  *   - POST fails → input box turns amber, message stays in the
  *     textarea so the user can retry; no toast spam
  *
- * No firestore/auth on the client. Everything goes through the
- * Netlify function so abuse is bounded by the per-IP rate limit
- * there.
+ * The host's Firebase session supplies the account identity. Reads
+ * and writes still go through the rate-limited Netlify function.
  *
  * Reply privately (2026-08-23):
  *   A handle is a pseudonym, so "is anyone free for a round?" used to
@@ -142,7 +141,9 @@
   }
 
   function rowHtml(row, myHandle, ctx){
-    const mine = row.handle && myHandle && row.handle === myHandle;
+    const mine = row.uid && ctx && ctx.me
+      ? row.uid === ctx.me
+      : row.handle && myHandle && row.handle === myHandle;
     const canDm = !!(ctx && ctx.canDm && row.uid && row.uid !== ctx.me);
     const canAsk = !!(ctx && ctx.canAsk && row.named && !row.uid && !mine);
     return '<div class="chat-row chat-msg' + (mine ? ' chat-msg-mine' : '') + '" data-handle="' + escHtml(row.handle) + '">'
@@ -176,6 +177,18 @@
     styleInjected = true;
     const st = document.createElement('style');
     st.textContent =
+      '.commons-feed{min-width:0;overflow-x:hidden}' +
+      '.commons-feed>.chat-row{flex:0 0 auto;min-width:0;max-width:100%}' +
+      '.commons-feed .chat-msg-head{display:flex;align-items:center;gap:8px;min-width:0}' +
+      '.commons-feed .chat-msg-who{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:6px}' +
+      '.commons-feed .chat-av{display:block;width:22px;height:22px;flex:0 0 22px;border-radius:50%;overflow:hidden}' +
+      '.commons-feed .chat-av svg,.commons-feed .chat-av img{display:block;width:100%;height:100%;object-fit:cover}' +
+      '.commons-feed .chat-msg-handle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.commons-feed .chat-msg-time{flex:none;margin-left:auto;white-space:nowrap}' +
+      '.commons-feed .chat-msg-dm{flex:none;font-size:.65rem;font-weight:700;line-height:1.4;color:var(--accent,#dc2626);border:1px solid currentColor;border-radius:999px;padding:1px 6px;opacity:1}' +
+      '.commons-feed .chat-msg-who:hover .chat-msg-handle{text-decoration:underline}' +
+      '.commons-feed .chat-msg-who:focus-visible{outline:2px solid var(--accent,#dc2626);outline-offset:3px}' +
+      '.commons-feed .chat-msg-text{overflow-wrap:anywhere}' +
       '.chat-guest-note{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 0;padding:9px 12px;border:1px solid rgba(220,38,38,.28);border-radius:12px;font-size:.8rem;line-height:1.45;background:rgba(220,38,38,.06)}' +
       '.chat-guest-note b{font-weight:800}' +
       '.chat-guest-note-text{flex:1 1 200px;min-width:0}' +
@@ -215,6 +228,7 @@
     const onRows     = typeof opts.onRows === 'function' ? opts.onRows : null;
     if (!scroller || !inputEl || !sendBtn) return;
     injectStyle();
+    scroller.classList.add('commons-feed');
 
     let myHandle = ensureHandle();
     let lastIds = new Set();
@@ -233,8 +247,32 @@
     // Set after the first fetch answers, so the guest note never paints
     // before the server has had one chance to say who we are.
     let identityChecked = false;
+    let authSettled = !authToken;
+    let authVersion = 0;
+    let authKey = '';
+    let feedRequest = 0;
+    let resolveAuthReady;
+    const authReady = authToken ? new Promise(resolve => { resolveAuthReady = resolve; }) : Promise.resolve();
 
-    function ctx(){ return { canDm, me: meUid, canAsk: canAskSignIn && !meUid }; }
+    function namedUser(){
+      try {
+        const u = window.firebase && window.firebase.auth().currentUser;
+        return u && !u.isAnonymous ? u : null;
+      } catch { return null; }
+    }
+
+    function syncHandle(){
+      const u = namedUser();
+      const identity = u && window.DBIdentity && window.DBIdentity.forUser(u);
+      const next = u ? ((identity && identity.name) || ('Person ' + String(u.uid).slice(-4).toUpperCase())) : ensureHandle();
+      const changed = next !== myHandle;
+      myHandle = next;
+      if (handleEl) handleEl.textContent = myHandle;
+      if (rerollBtn){ rerollBtn.hidden = !!u; rerollBtn.style.display = u ? 'none' : ''; }
+      if (changed && firstFetchDone) applyRows(lastRows, true);
+    }
+
+    function ctx(){ return { canDm, me: meUid, canAsk: canAskSignIn && authSettled && !namedUser() && !meUid }; }
 
     // The poster's side of the same problem (2026-09-04). A guest in the
     // room cannot be messaged and gets no email, and nothing told them
@@ -244,7 +282,7 @@
     function paintGuestNote(){
       if (!canAskSignIn || !scroller.parentNode) return;
       let note = scroller.parentNode.querySelector('.chat-guest-note');
-      const show = identityChecked && !meUid;
+      const show = authSettled && identityChecked && !namedUser() && !meUid;
       if (!show){ if (note) note.remove(); return; }
       if (!note){
         note = document.createElement('div');
@@ -256,19 +294,24 @@
         });
         scroller.parentNode.insertBefore(note, scroller.nextSibling);
       }
-      note.querySelector('.chat-guest-note-text').innerHTML =
-        'You are posting as <b>' + escHtml(myHandle) + '</b>. Sign in with Google so people can message you privately, and you get an email when they do.';
+      note.querySelector('.chat-guest-note-text').textContent =
+        'Sign in so people can message you privately.';
     }
 
-    // Never blocks a fetch on auth. A token that is slow, missing or
-    // rejected just means this poll renders no DM buttons; the next one
-    // picks them up.
-    async function authHeaders(){
+    // Wait for restored auth before posting. A failed named-account token
+    // must not silently publish the message as a guest.
+    async function authHeaders(forSend){
       if (!authToken) return null;
+      await authReady;
+      syncHandle();
       try {
         const t = await authToken();
+        if (!t && forSend && namedUser()) throw new Error('Chat sign-in is reconnecting');
         return t ? { Authorization: 'Bearer ' + t } : null;
-      } catch { return null; }
+      } catch (error) {
+        if (forSend && namedUser()) throw error;
+        return null;
+      }
     }
 
     if (handleEl) handleEl.textContent = myHandle;
@@ -336,11 +379,15 @@
       }
     }
     async function fetchFeed(){
+      const request = ++feedRequest;
+      const version = authVersion;
       try {
         const headers = await authHeaders();
+        if (request !== feedRequest || version !== authVersion) return;
         const res = await fetch(ENDPOINT, headers ? { method: 'GET', headers } : { method: 'GET' });
         if (!res.ok){ renderEmptyOnce(); return; }
         const data = await res.json();
+        if (request !== feedRequest || version !== authVersion) return;
         if (!Array.isArray(data.rows)){ renderEmptyOnce(); return; }
         const nextMe = (typeof data.me === 'string' && data.me) ? data.me : null;
         const identityChanged = nextMe !== meUid;
@@ -361,7 +408,7 @@
       sendBtn.disabled = true;
       sendBtn.classList.remove('chat-send-fail');
       try {
-        const authed = await authHeaders();
+        const authed = await authHeaders(true);
         const res = await fetch(ENDPOINT, {
           method: 'POST',
           headers: Object.assign({ 'Content-Type': 'application/json' }, authed || {}),
@@ -374,6 +421,7 @@
         }
         const data = await res.json().catch(() => null);
         if (data && typeof data.me === 'string' && data.me) meUid = data.me;
+        paintGuestNote();
         inputEl.value = '';
         updateCharCount();
         // Optimistically render the row from the server response so
@@ -411,6 +459,7 @@
 
     if (rerollBtn){
       rerollBtn.addEventListener('click', () => {
+        if (namedUser()) return;
         myHandle = pickAnonHandle();
         writeHandle(myHandle);
         if (handleEl) handleEl.textContent = myHandle;
@@ -464,6 +513,29 @@
       pollTimer = setInterval(fetchFeed, interval);
     }
     startPoll();
+    function observeAuth(attempt){
+      try {
+        const auth = window.firebase && window.firebase.auth();
+        if (!auth || typeof auth.onAuthStateChanged !== 'function') throw new Error('Auth not ready');
+        auth.onAuthStateChanged(function(user){
+          const nextKey = user && !user.isAnonymous ? user.uid : '';
+          const changed = !authSettled || nextKey !== authKey;
+          authSettled = true;
+          authKey = nextKey;
+          if (changed){ authVersion++; meUid = null; }
+          syncHandle();
+          paintGuestNote();
+          if (resolveAuthReady){ resolveAuthReady(); resolveAuthReady = null; }
+          if (changed && !stopped) fetchFeed();
+        });
+      } catch {
+        if (attempt < 20){ setTimeout(() => observeAuth(attempt + 1), 250); return; }
+        authSettled = true;
+        if (resolveAuthReady){ resolveAuthReady(); resolveAuthReady = null; }
+      }
+    }
+    if (authToken) observeAuth(0);
+    window.addEventListener('dbidentity:change', () => { syncHandle(); paintGuestNote(); });
     document.addEventListener('visibilitychange', () => {
       if (stopped) return;
       // Fetch once when returning to foreground so the user sees fresh msgs
