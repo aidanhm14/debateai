@@ -32,9 +32,13 @@ function trackErrors(page) {
 }
 
 test.describe('public pages', () => {
+  // 2026-09-05: the first screen runs first_screen_claim_v1, a sticky 50/50.
+  // A cold browser lands in either arm, and the 'claim' arm keeps the doors
+  // hidden until a side is picked, so the door test pins the 'doors' arm
+  // and the claim arm gets its own test below. ?fsclaim= is the QA force.
   test('landing serves the first screen and the Debate door', async ({ page }) => {
     const errors = trackErrors(page);
-    const res = await page.goto('/');
+    const res = await page.goto('/?fsclaim=doors');
     // A 204 here means the edge filter classified the test browser as a bot
     // and served nothing; see the userAgent note in playwright.config.mjs.
     expect(res.status(), 'edge filter must serve the test browser').toBe(200);
@@ -43,6 +47,20 @@ test.describe('public pages', () => {
     const cta = page.locator('.fs-cta--primary:visible').first();
     await expect(cta).toBeVisible();
     expect(await cta.getAttribute('href')).toBe('/spar');
+    expect(errors, 'uncaught exceptions on the landing').toEqual([]);
+  });
+
+  test('landing claim arm: a pick reveals the Debate door and prefills the AI door', async ({ page }) => {
+    const errors = trackErrors(page);
+    await page.goto('/?fsclaim=claim');
+    await expect(page.locator('#fsClaim')).toBeVisible();
+    await expect(page.locator('.fs-cta--primary:visible')).toHaveCount(0);
+    await page.locator('.fs-claim-row').first().locator('[data-pick="against"]').click();
+    const cta = page.locator('.fs-cta--primary:visible').first();
+    await expect(cta).toBeVisible();
+    expect(await cta.getAttribute('href')).toBe('/spar');
+    const ai = page.locator('.fs-actions .fs-cta--ai');
+    expect(await ai.getAttribute('href')).toMatch(/^\/newvoice\?motion=.+&side=against&handoff=first-screen-claim$/);
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
