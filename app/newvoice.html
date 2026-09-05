@@ -2278,9 +2278,13 @@ async function start(){
       // no door in it. An account is the next step, so offer the one
       // action that clears the wall.
       if (mintRes.status === 401 && body.code === 'SIGN_IN_REQUIRED') {
-        try { if (typeof window.openAuthModal === 'function') window.openAuthModal('signup'); } catch (e) {}
+        // auth-modal.js is lazy-loaded by topbar.js and is often NOT on the
+        // page yet when the wall lands. Session replay 2026-09-05: a guest
+        // pressed "Sign in free" twice, nothing opened, and it took eight
+        // minutes and two detours to reach a round. Load it on demand.
+        openSignInDoor('signup');
         const errS = new Error('signin');
-        errS.html = 'That was your free voice round. <a href="#" onclick="if(window.openAuthModal){window.openAuthModal(\'signup\');return false}">Sign in free</a> to keep going, or keep sparring typed at <a href="/practice">/practice</a>.';
+        errS.html = 'That was your free voice round. <a href="#" onclick="window.openSignInDoor(\'signup\');return false">Sign in free</a> to keep going, or keep sparring typed at <a href="/practice">/practice</a>.';
         throw errS;
       }
       const upstream = body.openai || raw;
@@ -3440,16 +3444,48 @@ function restartWithMotion(raw){
 }
 $('topicEditBtn').addEventListener('click', openTopicEditor);
 $('topicEditCancel').addEventListener('click', closeTopicEditor);
+// Shuffle bag, not a random draw: one replay on 2026-09-05 showed a
+// person pressing New topic thirty times in a row, and a random pick
+// hands back repeats long before the deck is exhausted. Every motion in
+// the deck comes up once before any comes up twice.
+const topicBag = [];
 $('topicEditShuffle').addEventListener('click', () => {
-  let next = sanitizeTopic(randomClaim());
-  while (next === $('topicEditInput').value) next = sanitizeTopic(randomClaim());
-  $('topicEditInput').value = next;
+  const cur = $('topicEditInput').value;
+  let next = '';
+  for (let i = 0; i < 40 && (!next || next === cur); i++) {
+    if (!topicBag.length) {
+      const seen = new Set();
+      for (let k = 0; k < 200 && seen.size < 60; k++) seen.add(sanitizeTopic(randomClaim()));
+      topicBag.push(...Array.from(seen).sort(() => Math.random() - 0.5));
+    }
+    next = topicBag.pop();
+  }
+  if (next) $('topicEditInput').value = next;
 });
 $('topicEditor').addEventListener('submit', (e) => { e.preventDefault(); restartWithMotion($('topicEditInput').value); });
 $('topicEditInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); restartWithMotion($('topicEditInput').value); }
   if (e.key === 'Escape') { e.preventDefault(); closeTopicEditor(); }
 });
+
+/* One door to the shared sign-in chooser. auth-modal.js rides in lazily
+   through topbar.js, so any button that only checks window.openAuthModal
+   is dead until that load finishes; this loads it on demand instead. */
+window.openSignInDoor = function(mode){
+  if (window.openAuthModal) { try { window.openAuthModal(mode || 'signup'); } catch (_) {} return; }
+  if (document.querySelector('script[src="/js/auth-modal.js"]')) {
+    const t0 = Date.now();
+    const poll = setInterval(() => {
+      if (window.openAuthModal) { clearInterval(poll); try { window.openAuthModal(mode || 'signup'); } catch (_) {} }
+      else if (Date.now() - t0 > 6000) clearInterval(poll);
+    }, 150);
+    return;
+  }
+  const s = document.createElement('script');
+  s.src = '/js/auth-modal.js';
+  s.addEventListener('load', () => { if (window.openAuthModal) { try { window.openAuthModal(mode || 'signup'); } catch (_) {} } }, { once: true });
+  document.head.appendChild(s);
+};
 
 /* ── recap actions ───────────────────────────────────────────── */
 $('rematchBtn').addEventListener('click', () => { if (currentMotion) { claimInput.value = currentMotion; talkItOut = false; } show('setup'); start(); });
@@ -3534,11 +3570,7 @@ $('shareVerdictBtn').addEventListener('click', async () => {
   signBtn.hidden = false;
   signBtn.addEventListener('click', () => {
     try { window.track && window.track('recap_next_click', { to: 'signin' }); } catch (_) {}
-    if (window.openAuthModal) { window.openAuthModal(); return; }
-    const s = document.createElement('script');
-    s.src = '/js/auth-modal.js';
-    s.addEventListener('load', () => { if (window.openAuthModal) window.openAuthModal(); }, { once: true });
-    document.head.appendChild(s);
+    window.openSignInDoor();
   });
 })();
 

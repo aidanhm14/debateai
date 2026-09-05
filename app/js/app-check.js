@@ -252,15 +252,35 @@
   // Public API: callers can await this for a fresh App Check token. Activates
   // if needed. Returns null when App Check can't come up, so callers fall
   // through gracefully (which the server soft-passes until enforcement).
+  // One in-flight mint at a time, and a short cooldown after a failure.
+  // Measured 2026-09-05 in session replay: a page firing ~20 gated calls at
+  // once produced ~20 parallel getToken() calls, each logging its own
+  // ReCAPTCHA error, and the SDK then throttled the page for a day after a
+  // 403. Sharing the promise means one probe per page, and the cooldown
+  // means a page whose mint is refused stops hammering reCAPTCHA and lets
+  // the request go out tokenless (the server answers 401 either way).
+  var tokenInflight = null;
+  var tokenFailedAt = 0;
+  var TOKEN_FAIL_COOLDOWN_MS = 30000;
   window.getAppCheckToken = async function () {
     var ok = await ensureActivated();
     if (!ok) return null;
-    try {
-      var result = await firebase.appCheck().getToken(/* forceRefresh */ false);
-      return (result && result.token) || null;
-    } catch (e) {
-      return null;
-    }
+    if (tokenFailedAt && Date.now() - tokenFailedAt < TOKEN_FAIL_COOLDOWN_MS) return null;
+    if (tokenInflight) return tokenInflight;
+    tokenInflight = (async function () {
+      try {
+        var result = await firebase.appCheck().getToken(/* forceRefresh */ false);
+        var t = (result && result.token) || null;
+        if (t) tokenFailedAt = 0; else tokenFailedAt = Date.now();
+        return t;
+      } catch (e) {
+        tokenFailedAt = Date.now();
+        return null;
+      } finally {
+        tokenInflight = null;
+      }
+    })();
+    return tokenInflight;
   };
 
   // Token for a non-gated call: never starts activation, but does wait for one

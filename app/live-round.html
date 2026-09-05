@@ -8114,7 +8114,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (srv.on) srvSegment();
       srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0, heard);
     };
-    srv.rec.start();
+    // start() itself can throw NotSupportedError (Safari mid-teardown, a
+    // track that ended between construction and start). Measured in a
+    // replay on 2026-09-05: two uncaught throws on Leave call. Treat it the
+    // same as a constructor failure rather than crashing the leave path.
+    try { srv.rec.start(); }
+    catch(e){ srv.rec = null; if (srv.on) micFail('This browser will not let us record. Type the speech instead.'); return; }
     srv.timer = setTimeout(function(){
       if (srv.rec && srv.rec.state === 'recording') srv.rec.stop();
     }, SEG_MS);
@@ -9937,7 +9942,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       cam: camConv.cam,
       label: seatLabel(),
       onSave: function(){
-        toast('Avatar saved. Your look will follow you into future rooms.');
+        // Session replay 2026-09-05: in five of eight rooms the first thing a
+        // seated debater touched was Avatar or Design, and no speech ever
+        // started. When the designer closes onto an unstarted speech, point
+        // at the one button the round cannot continue without.
+        var awaiting = false;
+        try { awaiting = (typeof startCueAwaiting === 'function') && startCueAwaiting(); } catch(e){}
+        toast(awaiting ? 'Avatar saved. Now press Start my speech to begin.' : 'Avatar saved. Your look will follow you into future rooms.');
+        if (awaiting){
+          var b = $('playPauseBtn');
+          if (b){ b.classList.add('lr-await'); try { b.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch(e){} }
+        }
         try { gtag('event', 'live_round_avatar_designed'); } catch(e){}
       }
     });
@@ -10840,7 +10855,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     self.addEventListener('click', function(){
       room.selfHidden = !room.selfHidden;
       try { localStorage.setItem('lr-self-hidden', room.selfHidden ? '1' : '0'); } catch(e){}
-      paintParticipants();
+      paintRoom();
       paintTray();
     });
     var leave = trayBtn('cvLeave', 'Leave', 'Leave the video room');
