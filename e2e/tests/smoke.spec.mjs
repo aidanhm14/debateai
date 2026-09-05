@@ -46,7 +46,14 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
-  test('/spar signed out opens the Match Desk, then the Google gate', async ({ page }) => {
+  // /spar is a LIVE queue with humans in it, so these two tests stop one
+  // step short of writing a queue doc. The first-timer path (2026-09-04,
+  // 8231f5ab: one anonymous round before the Google door) mints a guest
+  // session and then asks the one-time age question; answering it is what
+  // queues, so neither test ever touches the age dialog. A CI browser that
+  // reaches the searching screen is an empty chair a real person can be
+  // paired with, which is the 2026-08-11 finding all over again.
+  test('/spar first-timer: Match Desk, then a guest session, then the age question', async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto('/spar');
     // 2026-09-02: a sessionless visitor meets the six-step Match Desk first.
@@ -55,26 +62,48 @@ test.describe('public pages', () => {
     await expect(skip).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/step 1 of \d/i).first()).toBeVisible();
     await skip.click();
-    // Skip lands on the gate (2026-08-27): one action, Google, no email or
-    // guest door, and the founder-called live count beside it.
-    const google = page.locator('#signInBtn');
-    await expect(google).toBeVisible({ timeout: 15_000 });
-    await expect(google).toContainText(/with Google/i);
-    await expect(page.locator('.gate-guest:visible, .gate-email:visible')).toHaveCount(0);
-    await expect(page.getByText(/live now/i).first()).toBeVisible();
-    // 2026-09-03 (f06ddddf): NOTHING pops over the gate. The gate is already
-    // a full Google sign-in card, so a chooser opening on top of it charged
-    // a dismissal for a door that was on screen anyway. This pop has been
-    // added and removed four times (08-23 in, 08-23 out, 08-31 in with a 5s
-    // delay, 09-03 out); the founder's last word is out, and this holds it
-    // there. The window is the old auto-pop delay plus slack, so a restored
-    // timer fails here rather than passing by arriving late.
+    // The free round is offered without a wall: the guest boot state, then
+    // the age question. The Google gate must NOT be what a first-timer sees.
+    const age = page.getByRole('dialog', { name: /how old are you/i });
+    await expect(age).toBeVisible({ timeout: 20_000 });
+    await expect(age.getByRole('button', { name: /18 or older/i })).toBeVisible();
+    await expect(page.locator('#signInBtn')).toHaveCount(0);
+    // STOP HERE. Do not answer the age question: it is the last gate before
+    // the queue doc is written.
+    await expect(page.locator('#globalDebateMap')).toHaveCount(0);
+    await expect(page.getByText(/keep this tab open/i)).toHaveCount(0);
+    // 2026-09-03 (f06ddddf): nothing pops over the page on a timer. This
+    // pop has been added and removed four times; the founder's last word
+    // is out. The window is the old auto-pop delay plus slack.
     const chooser = page.locator('#ditAuth');
     await page.waitForTimeout(6_500);
     await expect(chooser).toBeHidden();
+    expect(errors, 'uncaught exceptions on /spar').toEqual([]);
+  });
+
+  test('/spar without anonymous auth falls to the Google gate, and the chooser is Google-only', async ({ page }) => {
+    const errors = trackErrors(page);
+    // Refuse the anonymous sign-up at the network, which is the state of a
+    // browser where Firebase anonymous auth is blocked. The page's own
+    // fallback is the honest ask: the Google gate, not a boot state that
+    // never resolves. This is also the only way to reach the gate without
+    // spending the guest allowance of a real uid.
+    await page.route(/identitytoolkit\.googleapis\.com\/v1\/accounts:signUp/, (route) => route.abort());
+    await page.goto('/spar');
+    // The mint runs on load, before the desk; when it fails the page goes
+    // straight to the gate, so there is no Match Desk to skip on this path.
+    // One action, Google, no email or guest door, and the founder-called
+    // live count beside it (2026-08-27, kept for the post-trial gate).
+    const google = page.locator('#signInBtn');
+    await expect(google).toBeVisible({ timeout: 20_000 });
+    await expect(google).toContainText(/with Google/i);
+    await expect(page.locator('.gate-guest:visible, .gate-email:visible')).toHaveCount(0);
+    await expect(page.getByText(/live now/i).first()).toBeVisible();
     // The chooser still exists behind an explicit tap (topbar Sign in), and
     // there it must be Google-only: no email, phone, or guest door, because
     // the live queue refuses all three (178be072).
+    const chooser = page.locator('#ditAuth');
+    await expect(chooser).toBeHidden();
     await page.locator('#barSignIn').click();
     await expect(chooser).toBeVisible({ timeout: 10_000 });
     await expect(chooser).toContainText(/with Google/i);
