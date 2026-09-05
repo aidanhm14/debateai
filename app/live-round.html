@@ -1374,7 +1374,7 @@ body.lr-mini #jitsiPane.lrd-docked{
 /* Trigger buttons in the round motion bar. */
 /* 2026-08-22, the founder: the Minimize / Pop out buttons read as clutter
    at the top of a round, so they are hidden. The machinery underneath
-   (live-pip.js, the site shell, #lookingMin's delegate click) stays wired
+   (live-pip.js and the site shell) stays wired
    and working; restore = flip display back to inline-flex. */
 .lr-pip-controls{display:none;gap:7px;align-items:center}
 .lr-pip-btn{
@@ -5168,7 +5168,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
-    lookingEl: null,         // the calm "looking for your debater" strip
     participantAvatars: {}, // uid -> compact public avatar renderer config
     // Seeded from ?private=1; the round-doc snapshot overrides it the
     // moment the doc reveals the real value (either debater can flip it
@@ -20294,32 +20293,27 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       (state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready');
     // Only identified human-vs-human rounds, pre-speech, non-spectator.
     var eligible = me && oppUid && oppUid !== me && !isSpectator() && preSpeech;
-    if (!eligible){ hideNoShow(); hideLooking(); return; }
+    if (!eligible){ hideNoShow(); return; }
     // Trust the signal only once MY OWN presence write has round-tripped.
     // If the write is denied (rules) or hasn't landed, seatSeen[me] is
     // absent — bail rather than false-fire "opponent hasn't joined" at
     // everyone. This makes the feature degrade safely.
-    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); hideLooking(); return; }
-    if (state.seatSeen[oppUid]) { hideNoShow(); hideLooking(); return; }
+    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); return; }
+    if (state.seatSeen[oppUid]) { hideNoShow(); return; }
     // The Daily room is ground truth ahead of the doc beat: a remote
     // debater already on camera is present, whatever the 30s seat
-    // heartbeat has round-tripped so far. Without this the strip said
-    // "Looking for your debater" over a live picture of them.
-    if (room && room.remoteSeats > 0) { hideNoShow(); hideLooking(); return; }
-    // Opponent genuinely not here yet. The first ~28s is the normal case
-    // (they are still navigating in from /spar), so it gets a calm
-    // "still looking" strip rather than the alarm. Only after the grace
-    // does this escalate to the no-show prompt with a way out.
-    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); showLooking(); return; }
-    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) { showLooking(); return; }
-    hideLooking();
+    // heartbeat has round-tripped so far.
+    if (room && room.remoteSeats > 0) { hideNoShow(); return; }
+    // Normal arrival and an explicit choice to wait stay quiet. Only a
+    // missing opponent past the grace period gets the no-show exit controls.
+    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); return; }
+    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) { return; }
     showNoShow(oppUid);
   }
 
   // ── Is anybody still debating? (the quiet-room strip) ─────────────
   // The debaters have had a full no-show apparatus since 2026-08-11
-  // (checkOpponentPresence, the "Looking for your debater" strip, the
-  // no-show prompt with a way out). Every line of it is gated
+  // (checkOpponentPresence and the no-show prompt with a way out). Every line of it is gated
   // !isSpectator(), so the AUDIENCE had nothing: a spectator on a direct
   // link, or one who was watching when both tabs closed, sat in front of
   // "Speech 1 of 4" and a 5:00 clock forever. This says what is true and
@@ -20565,37 +20559,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // and stops the poll being the slowest part of the reaction.
   setInterval(function(){ try { paintRoundQuiet(); } catch(e){} }, 4000);
 
-  // ── "Looking for your debater" (pre-grace, and while snoozed) ─────
-  // Landing in an empty room with no explanation reads as broken. This
-  // says what is happening, and points at Minimize so the wait is spent
-  // on the rest of the site instead of on a blank tile. It is a strip,
-  // not a modal: the room behind it stays usable, because prep and the
-  // motion are worth reading before the opponent lands.
-  function showLooking(){
-    if (state.lookingEl){ state.lookingEl.style.display = 'flex'; return; }
-    var el = document.createElement('div');
-    el.id = 'lookingPrompt';
-    el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:540px;width:calc(100% - 32px);padding:13px 18px;background:var(--bg-elev,#16131a);border:1px solid var(--border-strong,rgba(255,255,255,.2));border-radius:14px;z-index:319;box-shadow:0 14px 40px rgba(0,0,0,.45);display:flex;align-items:center;gap:12px;font-family:inherit';
-    el.innerHTML =
-      '<span style="flex:none;width:9px;height:9px;border-radius:50%;background:var(--accent,#ef4444);animation:pulse 1.6s ease-in-out infinite"></span>' +
-      '<span style="flex:1;min-width:0;font-size:.86rem;line-height:1.45;color:var(--text,#fff)">' +
-        '<b style="font-weight:900;letter-spacing:.05em">LOOKING FOR YOUR DEBATER.</b> ' +
-        '<span style="color:var(--text-dim,rgba(255,255,255,.62))">They are on their way in. Read the motion, or minimize and keep browsing.</span>' +
-      '</span>' +
-      '<button type="button" id="lookingMin" style="flex:none;padding:8px 14px;border-radius:9px;border:1px solid var(--border-strong,rgba(255,255,255,.22));background:transparent;color:var(--text,#fff);font-family:inherit;font-size:.76rem;font-weight:700;cursor:pointer">Minimize</button>';
-    document.body.appendChild(el);
-    // Delegate to the real Minimize control so this stays one code path:
-    // the dock, the site shell and the surviving Daily iframe all come
-    // from there, and duplicating any of it would fork the call handling.
-    var mb = el.querySelector('#lookingMin');
-    if (mb) mb.addEventListener('click', function(){
-      var real = document.getElementById('lrMinBtn');
-      if (real) real.click();
-      try { gtag('event', 'live_looking_minimize', { format: state.formatKey }); } catch(e){}
-    });
-    state.lookingEl = el;
-  }
-  function hideLooking(){ if (state.lookingEl) state.lookingEl.style.display = 'none'; }
   function nsBtn(label, fn, primary){
     var b = document.createElement('button');
     b.type = 'button'; b.textContent = label;
