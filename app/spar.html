@@ -4841,9 +4841,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         try { return navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); } catch(_) { return false; }
       }
       function alertsOn(){ return typeof window.daGetLiveAlerts === 'function' && window.daGetLiveAlerts(); }
+      // 2026-09-04, the founder pressed Turn on and the card vanished:
+      // "how do i know it worked? maybe it didn't". A control that
+      // disappears on success is indistinguishable from one that failed,
+      // so a press in THIS session leaves a confirmation card behind. A
+      // visitor who already had alerts on from an earlier visit still gets
+      // no card, since a standing "alerts are on" is furniture.
+      var justTurnedOn = false;
       function stateNow(){
         if (typeof window.daSetLiveAlerts !== 'function') return '';  // notifications.js not up yet
-        if (alertsOn()) return '';
+        if (alertsOn()) return justTurnedOn ? 'on' : '';
         try { if (window.Notification && window.Notification.permission === 'denied') return 'denied'; } catch(_) {}
         if (!pushSupported()) return (isIOS() && !isStandalone()) ? 'install' : '';
         if (!isNamedUser(state.user)) return 'guest';
@@ -4853,7 +4860,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         ready:   ['Get pinged when someone goes live', 'Leave this page and we will notify you the moment someone is looking for a round, even in another app.', 'Turn on'],
         guest:   ['Get pinged when someone goes live', 'The ping is routed to your account, so it takes a free sign-in. You keep the rounds you have already played.', 'Sign in'],
         install: ['Get pinged when someone goes live', 'On iPhone this needs Debatable on your home screen. Tap Share, then Add to Home Screen, and turn alerts on from there.', ''],
-        denied:  ['Alerts are blocked in this browser', 'This site is blocked from sending notifications. Allow them in your browser site settings, then come back to this screen.', '']
+        denied:  ['Alerts are blocked in this browser', 'This site is blocked from sending notifications. Allow them in your browser site settings, then come back to this screen.', ''],
+        on:      ['Alerts are on', 'This device gets a ping the moment someone goes live, even if you leave this tab or close the browser.', '']
       };
       function paint(){
         var s = stateNow();
@@ -4887,8 +4895,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           doGoogleSignIn();
           return;
         }
-        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){ paint(); });
-        cta.hidden = true; shown = '';
+        justTurnedOn = true;
+        btn.textContent = 'Turning on\u2026';
+        // The card stays up. daSetLiveAlerts asks the browser for
+        // permission and calls back when it has an answer; paint() then
+        // shows 'on', or 'denied' if the browser prompt was refused.
+        if (window.daSetLiveAlerts) window.daSetLiveAlerts(true, function(){ shown = ''; paint(); });
         try { if (window.gtag) gtag('event', 'live_alerts_on', { from: 'spar_searching' }); } catch(e){}
       });
       // Someone who signed in FROM this card wanted the ping, not the

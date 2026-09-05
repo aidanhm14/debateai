@@ -2498,6 +2498,12 @@ body.round-running .rmb-change{display:none}
 .rmb-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
 .rmb-tools-q{font-size:.8rem;font-weight:700;color:var(--text-dim,rgba(255,255,255,.62));margin-right:2px}
 .rmb-tools .rmb-change{font-size:.8rem;font-weight:700;letter-spacing:0;padding:7px 12px;border-radius:10px;color:var(--text,#fff)}
+/* 2026-09-04, the founder: make the Draft-one-together mark stand out. The
+   scales ride as the colour emoji (VS16) at icon size on an accent-edged
+   button, so the door to the joint draft reads before the other two. */
+.rmb-tools .rmb-change--draft{display:inline-flex;align-items:center;gap:7px;border-color:var(--accent,#ef4444);background:color-mix(in srgb, var(--accent,#ef4444) 10%, transparent)}
+.rmb-tools .rmb-change--draft:hover{background:color-mix(in srgb, var(--accent,#ef4444) 18%, transparent);border-color:var(--accent,#ef4444)}
+.rmb-tools .rmb-change .rmb-ico{font-size:1.35rem;line-height:1;display:inline-block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 body.round-running .rmb-tools{display:none}
 .round-motion-bar .rmb-motion{
   font-family:'DM Sans','Inter',Arial,sans-serif;
@@ -3353,6 +3359,7 @@ html.stage-mode .stage-ov{display:block}
 .df-head h3{margin:0 0 6px;font-size:1.5rem;line-height:1.2;font-weight:800}
 .df-head h3 em{font-style:normal;color:var(--accent,#ef4444)}
 .df-head p{margin:0;font-size:.9rem;line-height:1.5;opacity:.72}
+.df-head p.df-head-motion{font-size:1.45rem;line-height:1.3;opacity:1;font-weight:700;margin-top:6px;letter-spacing:-.01em;text-wrap:balance}
 .df-motions{display:grid;gap:9px}
 .df-motion{
   width:100%;text-align:left;font:inherit;font-size:1rem;line-height:1.4;
@@ -3375,7 +3382,7 @@ html.stage-mode .stage-ov{display:block}
 .df-offer{
   margin:0 0 16px;padding:18px 20px;border-radius:13px;
   border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.07);
-  font-size:1.22rem;line-height:1.35;font-weight:700;
+  font-size:1.45rem;line-height:1.35;font-weight:700;
 }
 /* The three answers, each carrying its own price in the sub-line. The
    cost is the whole beat, so it is never in a tooltip. */
@@ -3468,6 +3475,7 @@ html.stage-mode .stage-ov{display:block}
   .draft-board{padding:12px}
   .draft-board .df-card{padding:20px 17px 17px}
   .df-head h3{font-size:1.22rem}
+  .df-head p.df-head-motion{font-size:1.15rem}
   .df-motion{font-size:.94rem;padding:12px 13px}
   .df-sides{grid-template-columns:1fr}
 }
@@ -3802,7 +3810,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <span class="rmb-tools-q">Not this one?</span>
               <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change it</button>
               <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose">&#127922; Roll one</button>
-              <button type="button" class="rmb-change" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters.">&#9878; Draft one together</button>
+              <button type="button" class="rmb-change rmb-change--draft" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters."><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span> Draft one together</button>
             </div>
           </div>
           <div class="speech-primary">
@@ -16377,17 +16385,22 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return el;
     }
 
-    function dfHead(step, title, sub){
+    // big=true renders the sub as the motion line: the resolution is the
+    // one thing on this card a person has to actually read before they
+    // pick, so it is set at headline weight, not caption weight
+    // (2026-09-04, the founder: "make text much larger for proposed
+    // resolution").
+    function dfHead(step, title, sub, big){
       return '<div class="df-head"><span class="df-step">' + step + '</span>'
-        + '<h3>' + title + '</h3><p>' + sub + '</p></div>';
+        + '<h3>' + title + '</h3><p' + (big ? ' class="df-head-motion"' : '') + '>' + sub + '</p></div>';
     }
     function dfClockHtml(){
       var left = dfClock();
       if (left === null) return '';
       return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '"><b>' + left + '</b>s</div>';
     }
-    function dfWaiting(step, title, sub){
-      return '<div class="df-card">' + dfHead(step, title, sub) + dfClockHtml() + '</div>';
+    function dfWaiting(step, title, sub, big){
+      return '<div class="df-card">' + dfHead(step, title, sub, big) + dfClockHtml() + '</div>';
     }
     // The composer, shared by the offer beat and the counter beat because
     // "name the motion you want" is the same act either way.
@@ -16482,7 +16495,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 1 of 2',
             escHtml(dfOtherName()) + ' is answering.',
-            'On the table: ' + escHtml(offered));
+            'On the table: ' + escHtml(offered), true);
           return;
         }
         var vetoLeft = Number(d.vetoesLeft || 0) > 0;
@@ -16543,12 +16556,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 2 of 2',
             escHtml(dfNameFor(d.sideUid)) + ' is picking their side.',
-            'The motion is settled: ' + escHtml(motion));
+            'The motion is settled: ' + escHtml(motion), true);
           return;
         }
         host.innerHTML = '<div class="df-card">'
           + dfHead('Step 2 of 2', 'Pick your side.',
-                   'The round is: ' + escHtml(motion))
+                   'The round is: ' + escHtml(motion), true)
           + '<div class="df-sides">'
           + '<button type="button" class="df-side pro" data-df-side="pro"><b>Pro</b><i>Argue for it</i></button>'
           + '<button type="button" class="df-side con" data-df-side="con"><b>Con</b><i>Argue against it</i></button>'
