@@ -18,12 +18,9 @@
 //     the bets subcollection); only this function sees them.
 //   - settlement is server-side + idempotent; payouts derive from the final
 //     pool, parimutuel.
-//   - the verdict is the round's AI-judge result. settle() prefers the
-//     verdict recorded on live_rounds/{room} (the canonical round result)
-//     and only falls back to the caller-supplied verdict. settle can only be
-//     called by a debater of that round (who is self-excluded from betting,
-//     so has no direct payout incentive). v-next hardening: re-judge the
-//     transcript server-side so settlement needs zero trust in any client.
+//   - only a recorded server judgment supplies the verdict. A participant
+//     may trigger settlement but cannot supply its outcome. Missing,
+//     untrusted, or tied verdicts return every stake without rating changes.
 //
 // Actions (POST { action, ... }): state | open | bet | settle.
 
@@ -50,10 +47,12 @@ function tierFor(r){
 // Seed a balance doc the first time we see a user. Returns the balance.
 async function ensureBalance(db, uid) {
   const ref = db.collection('predict_balances').doc(uid);
-  const snap = await ref.get();
-  if (snap.exists) return snap.data().balance || 0;
-  await ref.set({ balance: START_BALANCE, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-  return START_BALANCE;
+  return db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    if (snap.exists) return snap.data().balance || 0;
+    t.set(ref, { balance: START_BALANCE, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+    return START_BALANCE;
+  });
 }
 
 function ms(v){ return v ? (v.toMillis ? v.toMillis() : v) : null; }
@@ -165,8 +164,6 @@ export default async (request, context) => {
     // only a participant of the round may open its market
     if (uid !== proUid && uid !== conUid) return errorResponse('Not a participant', 403, request);
     const ref = db.collection('predict_markets').doc(room);
-    const existing = await ref.get();
-    if (existing.exists) return jsonResponse({ ok: true, market: publicMarket(existing.data(), room), already: true }, 200, request);
     let lockSec = parseInt(body.lockInSec, 10);
     if (!Number.isFinite(lockSec) || lockSec <= 0) lockSec = DEFAULT_LOCK_SEC;
     lockSec = Math.min(MAX_LOCK_SEC, lockSec);
@@ -191,8 +188,14 @@ export default async (request, context) => {
       priceHistory: [{ at: Date.now(), proPct: 50 }],
       verdict: null,
     };
-    await ref.set(doc);
-    return jsonResponse({ ok: true, market: publicMarket(doc, room) }, 200, request);
+    // A delayed duplicate open must never replace pools or a terminal status.
+    const result = await db.runTransaction(async (t) => {
+      const existing = await t.get(ref);
+      if (existing.exists) return { ok: true, market: publicMarket(existing.data(), room), already: true };
+      t.set(ref, doc);
+      return { ok: true, market: publicMarket(doc, room) };
+    });
+    return jsonResponse(result, 200, request);
   }
 
   // ── bet: place a points bet (server-authoritative, atomic) ──────────────
@@ -307,12 +310,17 @@ export default async (request, context) => {
     const room = body.room && String(body.room).slice(0, 80);
     if (!room) return errorResponse('Missing room', 400, request);
     const mRef = db.collection('predict_markets').doc(room);
-    const m = await mRef.get();
-    if (!m.exists) return errorResponse('No market', 404, request);
-    const md = m.data();
-    if (uid !== md.proUid && uid !== md.conUid) return errorResponse('Not a participant', 403, request);
-    if (md.status === 'open') await mRef.update({ status: 'locked', lockedAt: FieldValue.serverTimestamp() });
-    return jsonResponse({ ok: true, status: 'locked' }, 200, request);
+    const result = await db.runTransaction(async (t) => {
+      const m = await t.get(mRef);
+      if (!m.exists) return { error: 'No market', status: 404 };
+      const md = m.data();
+      if (uid !== md.proUid && uid !== md.conUid) return { error: 'Not a participant', status: 403 };
+      // A lock that races settlement must re-read instead of reopening it.
+      if (md.status === 'open') t.update(mRef, { status: 'locked', lockedAt: FieldValue.serverTimestamp() });
+      return { ok: true, status: md.status === 'open' ? 'locked' : md.status };
+    });
+    if (result.error) return errorResponse(result.error, result.status, request);
+    return jsonResponse(result, 200, request);
   }
 
   // ── settle: resolve the market by the AI verdict (idempotent) ───────────
@@ -321,98 +329,84 @@ export default async (request, context) => {
     if (!room) return errorResponse('Missing room', 400, request);
     const mRef = db.collection('predict_markets').doc(room);
 
-    // ── Verdict provenance ──────────────────────────────────────────
-    // This used to accept `body.verdict` from the caller, and the caller
-    // is required to be one of the two debaters. So a debater decided
-    // the outcome of a market that paid out other people's stakes. The
-    // self-exclusion rule stopped them betting on their own round and
-    // did nothing about them CALLING it, which is the larger of the two
-    // powers. lib/settle.mjs already refuses to move credits on a
-    // verdict an interested party authored (MONEY_VERDICT_SOURCES); this
-    // surface now holds the same line.
-    //
-    // The only accepted verdict is a recorded judgment stamped
-    // verdictSource:'server'. Note what that means today: lib/judgment.mjs
-    // stamps live-round ballots 'participant', because they are written
-    // by a debater's browser. So live-round markets VOID and refund until
-    // live ballots move server-side. That is the correct behaviour, not a
-    // regression. A market nobody can honestly settle should return
-    // everyone's stake, not pay out on the say-so of someone in the round.
-    let verdict = null;
     try {
-      const jSnap = await db.collection('judgments').doc(judgmentId('live', room)).get();
-      const j = jSnap.exists ? jSnap.data() : null;
-      if (j && j.verdictSource === 'server' && (j.winner === 'a' || j.winner === 'b')) {
-        const labels = j.sideLabels || { a: 'pro', b: 'con' };
-        const side = labels[j.winner];
-        if (side === 'pro' || side === 'con') verdict = side;
-      }
-    } catch (e) { /* no judgment recorded is the same as no verdict */ }
+      // Read the status, verdict and final pool in the same transaction as
+      // every credit and rating change. Competing settles, bets and locks
+      // all touch this market, so a retry sees the committed terminal state.
+      // Keep reads before writes and all economy effects inside the callback.
+      const result = await db.runTransaction(async (t) => {
+        const market = await t.get(mRef);
+        if (!market.exists) return { error: 'No market', status: 404 };
+        const pm = market.data();
+        if (uid !== pm.proUid && uid !== pm.conUid) return { error: 'Not a participant', status: 403 };
+        if (pm.status === 'settled') return { ok: true, already: true, verdict: pm.verdict };
+        if (pm.status === 'voided') return { ok: true, already: true, voided: true };
 
-    // Authorize: only a debater of this round may trigger settlement.
-    // They can no longer influence the OUTCOME, only ask us to close the
-    // market, so this stays a convenience trigger rather than a power.
-    const pre = await mRef.get();
-    if (!pre.exists) return errorResponse('No market', 404, request);
-    const pm = pre.data();
-    if (uid !== pm.proUid && uid !== pm.conUid) return errorResponse('Not a participant', 403, request);
-    if (pm.status === 'settled') return jsonResponse({ ok: true, already: true, verdict: pm.verdict }, 200, request);
-    if (pm.status === 'voided') return jsonResponse({ ok: true, already: true, voided: true }, 200, request);
-
-    // ── No server verdict: void and refund at face value ─────────────
-    // Side-neutral by construction. No rating moves, because a voided
-    // market measured nobody's read.
-    if (!verdict) {
-      const openBets = await mRef.collection('bets').get();
-      const vBatch = db.batch();
-      vBatch.update(mRef, {
-        status: 'voided',
-        liveKey: 'live_void',
-        voidReason: 'no_server_verdict',
-        voidedAt: FieldValue.serverTimestamp(),
-      });
-      openBets.forEach((b) => {
-        const d = b.data();
-        if (d.stake > 0) {
-          vBatch.update(db.collection('predict_balances').doc(d.uid), {
-            balance: FieldValue.increment(d.stake),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
+        // Participants can request settlement, never supply its outcome.
+        // Missing, participant-authored and tied ballots still void the
+        // market. A failed database read must abort, not masquerade as a
+        // missing verdict and permanently refund a valid market.
+        const jSnap = await t.get(db.collection('judgments').doc(judgmentId('live', room)));
+        const j = jSnap.exists ? jSnap.data() : null;
+        let verdict = null;
+        if (j && j.verdictSource === 'server' && (j.winner === 'a' || j.winner === 'b')) {
+          const labels = j.sideLabels || { a: 'pro', b: 'con' };
+          const side = labels[j.winner];
+          if (side === 'pro' || side === 'con') verdict = side;
         }
+        const bets = await t.get(mRef.collection('bets'));
+
+        // No rating moves on a void: return each stake at face value.
+        if (!verdict) {
+          t.update(mRef, {
+            status: 'voided',
+            liveKey: 'live_void',
+            voidReason: 'no_server_verdict',
+            voidedAt: FieldValue.serverTimestamp(),
+          });
+          bets.forEach((b) => {
+            const d = b.data();
+            if (d.stake > 0) {
+              t.update(db.collection('predict_balances').doc(d.uid), {
+                balance: FieldValue.increment(d.stake),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            }
+          });
+          return { ok: true, voided: true, reason: 'no_server_verdict', refunded: bets.size };
+        }
+
+        const total = (pm.poolPro || 0) + (pm.poolCon || 0);
+        const winnerPool = verdict === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0);
+        t.update(mRef, { status: 'settled', liveKey: 'live_settled', verdict, settledAt: FieldValue.serverTimestamp() });
+
+        bets.forEach((b) => {
+          const d = b.data();
+          const won = d.pick === verdict;
+          const impliedProb = total > 0 ? ((d.pick === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0)) / total) : 0.5;
+          const payout = (won && winnerPool > 0) ? Math.floor(d.stake * total / winnerPool) : 0;
+          const ratingDelta = won ? Math.round(6 + 30 * (1 - impliedProb)) : -Math.round(6 + 30 * impliedProb);
+          if (payout > 0) {
+            t.update(db.collection('predict_balances').doc(d.uid), { balance: FieldValue.increment(payout), updatedAt: FieldValue.serverTimestamp() });
+          }
+          const lbRef = db.collection('predict_leaderboard').doc(d.uid);
+          t.set(lbRef, {
+            uid: d.uid, name: d.name || 'Anon',
+            rating: FieldValue.increment(ratingDelta),
+            bets: FieldValue.increment(1),
+            wins: FieldValue.increment(won ? 1 : 0),
+            net: FieldValue.increment(won ? (payout - d.stake) : -d.stake),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+        });
+        return { ok: true, verdict, settled: bets.size, pool: total };
       });
-      await vBatch.commit();
-      return jsonResponse({ ok: true, voided: true, reason: 'no_server_verdict', refunded: openBets.size }, 200, request);
+      if (result.error) return errorResponse(result.error, result.status, request);
+      return jsonResponse(result, 200, request);
+    } catch (e) {
+      console.error('[predict] settlement failed', e.code || 'transaction-failed');
+      return errorResponse('Could not settle points. Try again.', 503, request);
     }
-
-    const bets = await mRef.collection('bets').get();
-    const total = (pm.poolPro || 0) + (pm.poolCon || 0);
-    const winnerPool = verdict === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0);
-
-    const batch = db.batch();
-    batch.update(mRef, { status: 'settled', liveKey: 'live_settled', verdict, settledAt: FieldValue.serverTimestamp() });
-
-    bets.forEach((b) => {
-      const d = b.data();
-      const won = d.pick === verdict;
-      const impliedProb = total > 0 ? ((d.pick === 'pro' ? (pm.poolPro || 0) : (pm.poolCon || 0)) / total) : 0.5;
-      const payout = (won && winnerPool > 0) ? Math.floor(d.stake * total / winnerPool) : 0;
-      const ratingDelta = won ? Math.round(6 + 30 * (1 - impliedProb)) : -Math.round(6 + 30 * impliedProb);
-      if (payout > 0) {
-        batch.update(db.collection('predict_balances').doc(d.uid), { balance: FieldValue.increment(payout), updatedAt: FieldValue.serverTimestamp() });
-      }
-      const lbRef = db.collection('predict_leaderboard').doc(d.uid);
-      batch.set(lbRef, {
-        uid: d.uid, name: d.name || 'Anon',
-        rating: FieldValue.increment(ratingDelta),
-        bets: FieldValue.increment(1),
-        wins: FieldValue.increment(won ? 1 : 0),
-        net: FieldValue.increment(won ? (payout - d.stake) : -d.stake),
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    });
-
-    await batch.commit();
-    return jsonResponse({ ok: true, verdict, settled: bets.size, pool: total }, 200, request);
   }
 
   // ── list: the board of markets on real rounds ──────────────────────────

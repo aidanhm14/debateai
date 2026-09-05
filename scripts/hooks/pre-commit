@@ -1207,6 +1207,18 @@ if [ -f "$FACTCHECK_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# A market's terminal state and points movements must commit together.
+# Exercise concurrent requests against the real handler before shipping.
+PREDICT_SETTLEMENT_GUARD="$REPO_ROOT/scripts/test-predict-settlement.mjs"
+if [ -f "$PREDICT_SETTLEMENT_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-predict-settlement.mjs >/tmp/predict-settlement-guard.log 2>&1); then
+    echo "[predict-settlement-guard] commit blocked - points settlement can run more than once:" >&2
+    tail -20 /tmp/predict-settlement-guard.log >&2
+    echo "[predict-settlement-guard] see scripts/test-predict-settlement.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 WAGER_GUARD="$REPO_ROOT/scripts/test-wager-eligibility.mjs"
 if [ -f "$WAGER_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-wager-eligibility.mjs >/tmp/wager-guard.log 2>&1); then
