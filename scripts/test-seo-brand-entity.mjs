@@ -135,8 +135,9 @@ check('robots policy leaves public facts crawlable',
 check('sitemap marks changed brand surfaces fresh',
   /path: '\/'[\s\S]{0,100}lastmod: '2026-08-29'/.test(sitemap)
   && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-29'/.test(sitemap));
-check('sitemap submits the current AI and learn entry pages',
-  /path: '\/debate-an-ai'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap)
+check('sitemap submits the canonical AI and learn entry pages',
+  /path: '\/practice'/.test(sitemap)
+  && !/path: '\/debate-an-ai'/.test(sitemap)
   && /path: '\/learn'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -4,8 +4,8 @@
 // turns into a hero, clash compass, pro/con argument arena, sample-round
 // transcript, judge ballot, and related-motions block. Content is the
 // single source of truth: edit a motion here and the rendered page,
-// JSON-LD, and hub all update. To add a motion, append an entry and add
-// its slug to the sitemap URLS array in netlify/functions/sitemap.mjs.
+// JSON-LD, hub, and sitemap all update. To add a motion, append an entry;
+// the sitemap reads listMotions() from this bank.
 //
 // Voice rules (soul.md): no em-dashes, no banned phrases, no villain
 // lines about other tools, impact-calculus arguments (magnitude /

@@ -17,6 +17,7 @@
 // the cache is purely for cost hygiene.
 
 import { listLibraryMotions } from './lib/motion-library.mjs';
+import { listMotions } from './lib/debate-bank.mjs';
 
 const SITE_ORIGIN = 'https://itsdebatable.com';
 
@@ -82,24 +83,8 @@ const URLS = [
   // submitting both would be two URLs for one page against one canonical.
   { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-27' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
-  // 2026-05-27 plane session: exhibition bumped 0.75 → 0.85 per
-  // the founder's brief ("promote exhibition debate via SEO improvements
-  // strategy"). The page now ships HowTo + SoftwareApplication
-  // JSON-LD targeting "ai vs ai debate" + "watch ai debate" intents.
-  // High-intent SEO landing pages targeting specific query clusters.
-  // /debate-an-ai and /debate-online are direct phrase-match doorways
-  // from Google for the "debate an ai" / "online debate" intents the
-  // existing /practice app surface can't claim because its slug is
-  // taken by the typed-mode product page. /compare positions Debatable
-  // next to general AI assistants without villain framing — anchor
-  // pages targeting comparison-query SERPs.
-  // 2026-08-24: priority 0.92 -> 0.95 and lastmod bumped. This page is
-  // now the site's single declared answer for the "debate ai / ai debate
-  // / ai debater / debating ai" family, which was sitting at positions
-  // 64-93 across every variant on 13 inbound internal links while six
-  // other pages on this site carried an AI opponent in their title. The
-  // dossier, guide and motion families now link it by name.
-  { path: '/debate-an-ai',                            changefreq: 'weekly',  priority: '0.95', lastmod: '2026-08-28' },
+  // /debate-an-ai now redirects to /practice, which is listed above.
+  // Submit only the canonical destination of each acquisition page.
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-28' },
   // Politics acquisition cluster. /political-debate is the product-intent
   // landing page; /political-debate-topics is the distinct browsable index.
@@ -158,10 +143,8 @@ const URLS = [
   { path: '/benchmark',                               changefreq: 'monthly', priority: '0.86', lastmod: '2026-07-23' },
   { path: '/judge-integrity',                         changefreq: 'monthly', priority: '0.80' },
   { path: '/engines',                                 changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-30' },
+  // The individual comparison pages redirect to this canonical hub.
   { path: '/compare/',                                changefreq: 'monthly', priority: '0.86' },
-  { path: '/compare/debatable-vs-chatgpt',             changefreq: 'monthly', priority: '0.88' },
-  { path: '/compare/debatable-vs-claude',              changefreq: 'monthly', priority: '0.84' },
-  { path: '/compare/best-ai-for-debate-practice',     changefreq: 'monthly', priority: '0.86', lastmod: '2026-08-12' },
   // /learn/formats/* pages deliberately canonicalize to the deeper
   // /topics/* pillars. They remain useful mechanics references linked
   // from /learn, but canonical alternates do not belong in a sitemap.
@@ -275,74 +258,8 @@ const URLS = [
   // three. Listing them costs nothing and stops discovery depending on
   // how deep a crawl happens to go.
   { path: '/early',                 changefreq: 'weekly',  priority: '0.60' },
-  // Issue-debate pages (/debate/{slug}). Two-sided sample AI debates on
-  // high-search-volume questions at the debate × AI/tech intersection.
-  // Each is an indexable, off-nav SEO landing whose only job is to rank
-  // for the question and funnel the reader into /practice. Kept out of
-  // the topbar nav on purpose; discoverability is sitemap + the /debate
-  // hub's internal cross-links. Add new slugs here as the cluster grows.
-  { path: '/debate',                                          changefreq: 'weekly',  priority: '0.86' },
-  { path: '/debate/should-ai-be-regulated',                   changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/will-ai-replace-human-jobs',               changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-students-be-allowed-to-use-ai',     changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-ai-generated-art-be-copyrighted',   changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-the-us-ban-tiktok',                 changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-social-media-be-banned-for-minors', changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/universal-basic-income',                   changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/is-nuclear-energy-worth-it',               changefreq: 'monthly', priority: '0.80' },
-  // 2026-05-22 SEO Pack 1 — 22 new motions: 10 AI-cluster (boosts "ai debate"
-  // exact-match topical authority), 8 high-volume political, 4 ed/debate-meta.
-  { path: '/debate/is-ai-a-threat-to-humanity',               changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-ai-be-banned',                      changefreq: 'monthly', priority: '0.82' },
-  { path: '/debate/should-ai-have-legal-rights',              changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/is-ai-conscious',                          changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-ai-replace-judges',                 changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-ai-doctors-replace-human-doctors',  changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-ai-content-be-labeled',             changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-the-government-control-ai',         changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-ai-be-allowed-in-warfare',          changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/is-ai-bad-for-the-environment',            changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-college-be-free',                   changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-the-minimum-wage-be-raised',        changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-the-electoral-college-be-abolished',changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-billionaires-exist',                changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-the-death-penalty-be-abolished',    changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-vaping-be-banned',                  changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-cars-be-banned-in-city-centers',    changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-prisons-be-abolished',              changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-schools-bring-back-oral-exams',     changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-debate-be-a-required-subject',      changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-homework-be-banned',                changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-standardized-tests-be-abolished',   changefreq: 'monthly', priority: '0.76' },
-  // 2026-05-27 SEO Pack 2 — 15 new motions: 7 AI/tech-adjacent (compound
-  // "ai debate" topical authority) + 8 evergreen high-volume staples.
-  { path: '/debate/should-deepfakes-be-illegal',              changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-self-driving-cars-be-legal',        changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-social-media-companies-be-broken-up', changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-the-government-monitor-citizens-online', changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-cryptocurrency-be-regulated',       changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-ai-be-used-in-policing',            changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-ai-be-used-in-hiring',              changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-marijuana-be-legalized',            changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-the-voting-age-be-lowered',         changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-zoos-be-banned',                    changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-animal-testing-be-banned',          changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-school-uniforms-be-required',       changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-genetic-engineering-be-allowed',    changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-junk-food-be-taxed',                changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/should-the-government-provide-universal-healthcare', changefreq: 'monthly', priority: '0.80' },
-  // 2026-07-14 SEO Pack 3 — 10 evergreen high-volume motions: 4 school-cluster
-  // (phones, start times, athletes, books) + 6 civic/culture/science staples.
-  { path: '/debate/should-cell-phones-be-allowed-in-school',  changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-the-school-day-start-later',        changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-college-athletes-be-paid',          changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/should-sports-betting-be-legal',           changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/do-violent-video-games-cause-violence',    changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/is-cancel-culture-good-for-society',       changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-voting-be-mandatory',               changefreq: 'monthly', priority: '0.78' },
-  { path: '/debate/should-books-be-banned-in-schools',        changefreq: 'monthly', priority: '0.80' },
-  { path: '/debate/is-space-exploration-worth-the-cost',      changefreq: 'monthly', priority: '0.76' },
-  { path: '/debate/is-veganism-better-for-the-environment',   changefreq: 'monthly', priority: '0.76' },
+  // Per-question dossier URLs are generated from the rendering bank below.
+  { path: '/debate',          changefreq: 'weekly',  priority: '0.86' },
   { path: '/india',           changefreq: 'monthly', priority: '0.90', lastmod: '2026-08-10' },
   { path: '/us',              changefreq: 'monthly', priority: '0.85' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-10' },
@@ -374,9 +291,7 @@ const URLS = [
   // Motion library hub (/motions). The per-motion URLs are appended
   // below from the bank rather than listed here, so adding a motion to
   // lib/motion-library.mjs is a one-file change and the sitemap cannot
-  // drift out of sync with what actually renders. The /debate entries
-  // above are still hand-listed because that bank predates this and a
-  // conversion is a separate change.
+  // drift out of sync with what actually renders.
   { path: '/motions',         changefreq: 'weekly',  priority: '0.86' },
   // 2026-08-10 orphan sweep: indexable, self-canonical pages that were
   // routed in netlify.toml but never listed here. /tournament was removed
@@ -390,6 +305,49 @@ const URLS = [
   { path: '/terms',             changefreq: 'yearly',  priority: '0.30' },
   { path: '/support',           changefreq: 'yearly',  priority: '0.30' },
 ];
+
+// Optional priority overrides preserve the established editorial weighting.
+// This is not the page inventory: only listMotions() can submit a dossier,
+// so removing or replacing a motion cannot leave a dead URL in the sitemap.
+const DOSSIER_PRIORITIES = {
+  'should-ai-be-regulated': '0.82',
+  'will-ai-replace-human-jobs': '0.82',
+  'should-students-be-allowed-to-use-ai': '0.82',
+  'should-ai-generated-art-be-copyrighted': '0.82',
+  'should-the-us-ban-tiktok': '0.82',
+  'is-ai-a-threat-to-humanity': '0.82',
+  'should-ai-be-banned': '0.82',
+  'should-billionaires-exist': '0.78',
+  'should-vaping-be-banned': '0.76',
+  'should-cars-be-banned-in-city-centers': '0.76',
+  'should-prisons-be-abolished': '0.76',
+  'should-schools-bring-back-oral-exams': '0.78',
+  'should-debate-be-a-required-subject': '0.78',
+  'should-homework-be-banned': '0.76',
+  'should-standardized-tests-be-abolished': '0.76',
+  'should-social-media-companies-be-broken-up': '0.78',
+  'should-the-government-monitor-citizens-online': '0.78',
+  'should-cryptocurrency-be-regulated': '0.78',
+  'should-marijuana-be-legalized': '0.78',
+  'should-the-voting-age-be-lowered': '0.76',
+  'should-zoos-be-banned': '0.76',
+  'should-animal-testing-be-banned': '0.76',
+  'should-school-uniforms-be-required': '0.76',
+  'should-genetic-engineering-be-allowed': '0.78',
+  'should-junk-food-be-taxed': '0.76',
+  'should-the-school-day-start-later': '0.78',
+  'should-sports-betting-be-legal': '0.78',
+  'do-violent-video-games-cause-violence': '0.78',
+  'is-cancel-culture-good-for-society': '0.78',
+  'should-voting-be-mandatory': '0.78',
+  'is-space-exploration-worth-the-cost': '0.76',
+  'is-veganism-better-for-the-environment': '0.76',
+};
+const DOSSIER_URLS = listMotions().map(m => ({
+  path: `/debate/${m.slug}`,
+  changefreq: 'monthly',
+  priority: DOSSIER_PRIORITIES[m.slug] || '0.80',
+}));
 
 // Every motion in the library, generated from the bank. These are
 // substantive pages (both cases, clash, mistakes), not thin templated
@@ -407,7 +365,7 @@ function todayUtc() {
 
 function buildXml() {
   const today = todayUtc();
-  const urls = URLS.concat(MOTION_URLS).map(u => {
+  const urls = URLS.concat(DOSSIER_URLS, MOTION_URLS).map(u => {
     const lastmod = u.lastmod || (DYNAMIC.has(u.path) ? today : STABLE_DATE);
     return `  <url>
     <loc>${SITE_ORIGIN}${u.path}</loc>

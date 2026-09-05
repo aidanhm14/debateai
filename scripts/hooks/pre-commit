@@ -298,6 +298,16 @@ if [ -f "$PUBLIC_IDENTITY_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Submitted URLs must remain crawlable, indexable canonical documents.
+SITEMAP_INDEXING_GUARD="$REPO_ROOT/scripts/test-sitemap-indexing.mjs"
+if [ -f "$SITEMAP_INDEXING_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-sitemap-indexing.mjs >/tmp/sitemap-indexing-guard.log 2>&1); then
+    echo "[sitemap-indexing] commit blocked - submitted URLs violate the crawl or canonical contract:" >&2
+    tail -30 /tmp/sitemap-indexing-guard.log >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Brand-entity guard. "Debatable" is a crowded, generic name, so the
 # homepage, canonical /debatable definition page, sitemap, and llms.txt
