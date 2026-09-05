@@ -85,7 +85,9 @@ const onboarding = read('app/js/onboarding.js');
 const native = read('app/native.html');
 check(!/key:\s*['"]formats?['"]/.test(onboarding), 'web onboarding has no retired format picker');
 check(!/key:\s*['"]format['"]/.test(native), 'native onboarding has no retired format picker');
-check(onboarding.includes('Build my confidence'), 'web onboarding offers a newcomer goal');
+// The label is copy and changes (2026-09-05: the questions went funny); the
+// guard is that a `learn` goal is still offered to newcomers.
+check(/v:\s*'learn',\s*label:\s*'[^']{4,}'/.test(onboarding), 'web onboarding offers a newcomer goal');
 
 const activeNavigationFiles = [
   'app/landing.html',

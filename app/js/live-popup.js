@@ -33,6 +33,28 @@
  * the debaters in the announced round; the card's own text carries the
  * real names and motion.
  *
+ * WHO SEES WHICH PICTURE (2026-09-05, the founder, off a card showing
+ * the audience-view screenshot with one big face and one small: "do a
+ * screenshot of the real room for signed in users, and then for non
+ * signed in, have images from the deck but ones the user hasn't seen
+ * yet so it feels real, have images be side by side, not one big one
+ * small"):
+ *   - SIGNED IN (Google): the live round's own frame from /api/room-shot
+ *     when one is fresh, else ROOM_SHOT, the real screenshot of the room
+ *     UI. This person can enter the room on one click, so the room is
+ *     what they see.
+ *   - SIGNED OUT: two DECK faces side by side, equal tiles, the way two
+ *     seats read in a 1v1 room. The deck is the landing's example-round
+ *     face bank (DECK_FACES below mirrors the landing pools exactly:
+ *     consented real stills plus the sanctioned generated bank, school
+ *     stills excluded). The landing board records every face it paints
+ *     in localStorage under SEEN_FACES_KEY, and this card draws only
+ *     faces that browser has NOT been shown yet, so the pair never reads
+ *     as a card the visitor already scrolled past. Tiles carry the side
+ *     chips only, never the live round's real names: a stand-in face
+ *     under a real person's name would be a fabricated record, and the
+ *     card's text line already carries the real names.
+ *
  * Copy is per source and never overstates. A replay says REPLAY and
  * "Watch the replay", not LIVE NOW. Only a round actually in progress
  * gets the live badge and the pulsing dot.
@@ -61,8 +83,10 @@
  *
  * QA: ?livepop=off disables. ?livepop=now skips the dwell, snooze and
  * caps. ?livepop=demo renders the no-picture tile and ?livepop=demopic
- * the picture layout, so both looks and the blur setting can be judged
- * on any page when nothing happens to be live.
+ * the picture layout as production would pick it (room for a Google
+ * user, deck pair for a guest); ?livepop=demopair and ?livepop=demoroom
+ * force either look, so all of them can be judged on any page when
+ * nothing happens to be live.
  */
 (function () {
   'use strict';
@@ -76,6 +100,17 @@
   /* Real screenshot of /live-round in the audience view (see header).
      Stands in on the LIVE card when /api/room-shot has no fresh frame. */
   var ROOM_SHOT = '/img/room-shot-live.jpg';
+
+  /* The deck: the landing example-round face bank, mirrored from
+     landing.html's FACE_M_REAL / FACE_M_GEN / FACE_W. Keep the three lists
+     in step with the landing when a face is added or pulled there. The
+     two 'tile' room faces (20, 32) share one backdrop and are left out
+     so a pair never shows the same wall behind two different people. */
+  var DECK_REAL = [46,47,48,49,51,52,53,54,63,65];
+  var DECK_GEN = [2,3,8,10,12,16,17,19,21,22,24,26,28,29,31,33,34,36,40,42,44,
+                  7,11,13,15,18,23,25,27,35,37,38,41,56,57,58,59,60,61,62];
+  var SEEN_FACES_KEY = 'da-faces-seen';
+  var FACE_DIR = '/img/round/faces/';
 
   /* LIVE-ONLY MODE (2026-08-31, the founder: when someone joins while a
      round is live, notify them asap).
@@ -165,8 +200,10 @@
   try { qs = (location.search || '').toLowerCase(); } catch (e) {}
   var off = /[?&]livepop=off(?:&|$)/.test(qs);
   var force = /[?&]livepop=now(?:&|$)/.test(qs);
-  var demo = /[?&]livepop=demo(?:&|$)/.test(qs);
+  var demo = /[?&]livepop=demo(?:&|$)/.test(qs) || /[?&]livepop=demo(?:pic|pair|room)(?:&|$)/.test(qs);
   var demoPic = /[?&]livepop=demopic(?:&|$)/.test(qs);
+  var demoPair = /[?&]livepop=demopair(?:&|$)/.test(qs);
+  var demoRoom = /[?&]livepop=demoroom(?:&|$)/.test(qs);
   if (demoPic) demo = true;
   if (off) return;
 
@@ -208,6 +245,47 @@
     try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(list.slice(-40))); } catch (e) {}
   }
   function unseen(key) { return seenItems().indexOf(key) < 0; }
+
+  function faceId(n) { return 'face' + (n < 10 ? '0' : '') + n; }
+  function seenFaces() {
+    try { var a = JSON.parse(localStorage.getItem(SEEN_FACES_KEY) || '[]'); return a && a.length ? a : []; }
+    catch (e) { return []; }
+  }
+  function markFacesSeen(ids) {
+    try {
+      var a = seenFaces();
+      for (var i = 0; i < ids.length; i++) if (a.indexOf(ids[i]) < 0) a.push(ids[i]);
+      localStorage.setItem(SEEN_FACES_KEY, JSON.stringify(a.slice(-400)));
+    } catch (e) {}
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  /* Two deck faces this browser has not been shown, real stills first.
+     Once the whole deck has been seen the seen list is reset rather than
+     repeating the last pair forever. */
+  function deckPair() {
+    var seen = seenFaces();
+    var fresh = function (n) { return seen.indexOf(faceId(n)) < 0; };
+    var real = shuffle(DECK_REAL.filter(fresh)), gen = shuffle(DECK_GEN.filter(fresh));
+    var pool = real.concat(gen);
+    if (pool.length < 2) {
+      try { localStorage.removeItem(SEEN_FACES_KEY); } catch (e) {}
+      pool = shuffle(DECK_REAL.slice()).concat(shuffle(DECK_GEN.slice()));
+    }
+    var pair = [faceId(pool[0]), faceId(pool[1])];
+    markFacesSeen(pair);
+    return pair;
+  }
+  function pairHtml(pair) {
+    return '<span class="da-livepop__pair">' +
+      '<span class="da-livepop__seat"><img src="' + FACE_DIR + esc(pair[0]) + '.jpg" alt="" loading="lazy" decoding="async"><span class="da-livepop__side">For</span></span>' +
+      '<span class="da-livepop__seat"><img src="' + FACE_DIR + esc(pair[1]) + '.jpg" alt="" loading="lazy" decoding="async"><span class="da-livepop__side da-livepop__side--con">Against</span></span>' +
+    '</span>';
+  }
 
   /* Mid-round in ANOTHER tab. SKIP above only knows this tab's path, so a
      debater who opened a second tab while speaking got the card anyway —
@@ -286,6 +364,17 @@
       'background:var(--bg-elev,#101014);overflow:hidden}',
       '.da-livepop__thumb img{width:100%;height:100%;object-fit:cover;display:block;',
       'filter:blur(' + BLUR_PX + 'px);transform:scale(' + (BLUR_PX ? 1.12 : 1.001) + ')}',
+
+      /* Two equal seats side by side (signed-out visitors). 2:1 so each
+         seat is square and neither reads as the small picture-in-picture
+         tile of a video call. */
+      '.da-livepop--pair .da-livepop__thumb{aspect-ratio:2/1}',
+      '.da-livepop__pair{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;gap:3px;background:var(--bg,#0a0a0c)}',
+      '.da-livepop__seat{position:relative;display:block;overflow:hidden;background:var(--bg-elev,#101014)}',
+      '.da-livepop__seat img{width:100%;height:100%;object-fit:cover;display:block;filter:none;transform:none}',
+      '.da-livepop__side{position:absolute;left:7px;bottom:7px;height:18px;padding:0 7px;border-radius:999px;',
+      'display:inline-flex;align-items:center;background:rgba(10,10,12,.78);color:#fff;font-size:.56rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}',
+      '.da-livepop__side--con{background:rgba(220,38,38,.86)}',
 
       /* Typographic fallback when there is no real frame. Reads as a
          deliberate tile, never as a broken image. */
@@ -416,6 +505,9 @@
       }
       if (!pick) return null;
       var needsSpectatorAuth = !googleUser();
+      // Signed out: two unseen deck faces, side by side. Signed in: the
+      // round's own frame, else the real room screenshot. See header.
+      var pair = needsSpectatorAuth ? deckPair() : null;
       return {
         kind: 'live',
         key: 'live:' + pick.room,
@@ -432,12 +524,13 @@
         spectatorAuth: needsSpectatorAuth,
         // Versioned by the shot timestamp: a new still is a new URL,
         // which is what lets room-shot cache the bytes for a minute.
-        img: pick.shot
+        img: pair ? null : (pick.shot
           ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot)
-          : ROOM_SHOT,
+          : ROOM_SHOT),
+        pair: pair,
         // Telemetry: had_pic stays "a live frame of THIS round"; the
-        // room screenshot is reported separately as stand_in.
-        liveFrame: !!pick.shot,
+        // room screenshot and the deck pair are reported as stand_in.
+        liveFrame: !!pick.shot && !pair,
         initials: [initial(pick.proName), initial(pick.conName)]
       };
     });
@@ -640,7 +733,7 @@
     injectCss();
 
     var card = document.createElement('a');
-    card.className = 'da-livepop da-livepop--' + item.kind + (item.img ? '' : ' da-livepop--nopic');
+    card.className = 'da-livepop da-livepop--' + item.kind + (item.pair ? ' da-livepop--pair' : (item.img ? '' : ' da-livepop--nopic'));
     card.href = item.href;
     card.setAttribute('role', 'region');
     card.setAttribute('aria-label', item.badge + '. ' + item.headline + '. ' + item.cta + '.');
@@ -649,7 +742,8 @@
     // inline plain-px bottom would drop it and sit under the home bar.
     if (off > 18) card.style.bottom = 'calc(' + off + 'px + env(safe-area-inset-bottom, 0px))';
 
-    var thumb = item.img
+    var thumb = item.pair ? pairHtml(item.pair)
+      : item.img
       ? '<img src="' + esc(item.img) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
       : fallbackHtml(item);
 
@@ -671,7 +765,32 @@
     // (round ended, went private, camera off, thumbnail not built yet)
     // collapses to the tile rather than leaving a broken frame under a
     // badge that says a round is there.
-    var img = card.querySelector('img');
+    if (item.pair) {
+      // A seat whose still 404s draws a replacement once, then gives up
+      // to the initials tile so nothing broken sits under LIVE NOW.
+      var seats = card.querySelectorAll('.da-livepop__seat img');
+      for (var si = 0; si < seats.length; si++) {
+        (function (seatImg) {
+          var swapped = false;
+          seatImg.addEventListener('error', function () {
+            if (!swapped) { swapped = true; seatImg.src = FACE_DIR + deckPair()[0] + '.jpg'; return; }
+            var holder = card.querySelector('.da-livepop__thumb');
+            var pairEl = card.querySelector('.da-livepop__pair');
+            if (!holder || !pairEl) return;
+            pairEl.remove();
+            var fb = document.createElement('span');
+            fb.className = 'da-livepop__fallback';
+            fb.innerHTML = '<span class="da-livepop__ini">' + esc(item.initials[0]) + '</span>' +
+              '<span class="da-livepop__vs">VS</span>' +
+              '<span class="da-livepop__ini">' + esc(item.initials[1]) + '</span>';
+            holder.insertBefore(fb, holder.firstChild);
+            card.classList.remove('da-livepop--pair');
+            card.classList.add('da-livepop--nopic');
+          });
+        })(seats[si]);
+      }
+    }
+    var img = item.pair ? null : card.querySelector('img');
     if (img) {
       img.addEventListener('error', function () {
         var holder = card.querySelector('.da-livepop__thumb');
@@ -740,7 +859,7 @@
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!(item.img || item.pair), pic: item.pair ? 'pair' : (item.liveFrame ? 'frame' : (item.img ? 'room' : 'none')), stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
 
     /* A live round is worth holding the corner for longer than a replay
        nudge: it is happening now and the invitation expires with it. */
@@ -793,7 +912,10 @@
       who: 'banaandebater vs Yael', meta: 'IN PROGRESS',
       cta: googleUser() ? 'Watch this round' : 'Sign in to watch', href: '/live-round?room=demo&spectate=1',
       spectatorAuth: !googleUser(),
-      img: demoPic ? ROOM_SHOT : null,
+      // demopic mirrors production: the room for a Google user, the
+      // deck pair for a guest. demopair / demoroom force either look.
+      img: (demoRoom || (demoPic && googleUser())) ? ROOM_SHOT : null,
+      pair: (demoPair || (demoPic && !googleUser() && !demoRoom)) ? deckPair() : null,
       initials: ['B', 'Y']
     };
     setTimeout(function () { render(fake); }, 400);

@@ -11974,7 +11974,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     if (src){ v.setAttribute('src', src); if (clipsHot) clipPlay(v); }
     else { v.removeAttribute('src'); try { v.load(); } catch(e){} }
   }
-  function setClips(faceA, faceB){ clipSet(vidA, faceA); clipSet(vidB, faceB); }
+  /* Every face the board paints is recorded under 'da-faces-seen' so the
+     sitewide live pop-up (js/live-popup.js) can draw a pair this browser
+     has NOT seen on the board yet. Same key, same 'faceNN' ids. */
+  function noteFacesSeen(faceA, faceB){
+    try {
+      var a = JSON.parse(localStorage.getItem('da-faces-seen') || '[]'); if (!a || !a.length) a = [];
+      [faceA, faceB].forEach(function(f){ if (f && /^face\d+$/.test(f) && a.indexOf(f) < 0) a.push(f); });
+      localStorage.setItem('da-faces-seen', JSON.stringify(a.slice(-400)));
+    } catch(e){}
+  }
+  function setClips(faceA, faceB){ noteFacesSeen(faceA, faceB); clipSet(vidA, faceA); clipSet(vidB, faceB); }
   function clipsOn(){ if (clipsHot || reduced) return; clipsHot = true; clipPlay(vidA); clipPlay(vidB); }
   function clipsOff(){ clipsHot = false; clipStop(vidA); clipStop(vidB); }
   var boardOnScreen = true;
