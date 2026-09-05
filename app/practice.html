@@ -7561,13 +7561,6 @@ function App() {
   var [daOnboarded, setDaOnboarded] = useState(() => {
     try {return localStorage.getItem('debateos-da-onboarded') === '1';} catch {return true;}
   });
-  // The first round now produces a two-sided flow automatically. Explain
-  // that once, at the moment someone presses Start Round, rather than
-  // interrupting a timed speech or spending their prep clock on a modal.
-  var [autoFlowNoticeSeen, setAutoFlowNoticeSeen] = useState(() => {
-    try {return localStorage.getItem('debatable-auto-flow-notice-v1') === '1';} catch {return true;}
-  });
-  var [autoFlowNoticeOpen, setAutoFlowNoticeOpen] = useState(false);
 
   // Use-case picker selection. null = picker is open (first-visit users).
   // Once the user picks (or the legacy onboarded flag is set), we never
@@ -7854,13 +7847,8 @@ function App() {
   };
 
   // Start debate
-  var startDebate = (skipAutoFlowNotice) => {
+  var startDebate = () => {
     if (!motion.trim()) return;
-    if (!skipAutoFlowNotice && !isCounterExt && !autoFlowNoticeSeen) {
-      setAutoFlowNoticeOpen(true);
-      try {window.gtag && gtag('event', 'auto_flow_notice_shown', { format: fmt.name });} catch (e) {}
-      return;
-    }
     // Out of credit? Say so HERE, before the person invests prep time.
     // The round is still charged once at goToSpeeches(); without this
     // check a creditless user walked through the full prep phase and
@@ -8891,14 +8879,14 @@ Rules:
         }).join('<br>') + '</p>';
       }).join('');
       var html = '<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body>' +
-      '<h1 style="font:700 17pt Arial;margin:0 0 4pt">Argument map</h1>' +
+      '<h1 style="font:700 17pt Arial;margin:0 0 4pt">Round notes</h1>' +
       '<p style="font:10pt Arial;color:#555;margin:0 0 16pt">' + esc(fmt.name) + ' &middot; ' + esc(motion || '') + '</p>' +
       body + '</body></html>';
       var blob = new Blob(['﻿', html], { type: 'application/msword' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
-      a.download = 'round-flow-' + (motion || 'debate').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) + '.doc';
+      a.download = 'round-notes-' + (motion || 'debate').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) + '.doc';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -8933,82 +8921,106 @@ Rules:
     }).join('\n\n');
   };
 
+  // Round notes, in plain words. The /api/flow result is a structured
+  // ledger (ids, statuses, warrants, judge notes); nobody outside a tab
+  // room reads a ledger, so it is rewritten here as the notes a friend
+  // who watched the round would hand you: your points, their points,
+  // where you disagreed, what went unanswered, how it went, next time.
+  // Sections are blocks; a section is one all-caps heading line followed
+  // by "- " bullet lines. The renderer, copy button and doc export all
+  // read that shape.
   var flowResultToText = (result) => {
     var r = result || {};
     var clean = (value) => String(value == null ? '' : value).trim().replace(/\u2014/g, ',');
-    var blocks = [];
-    var userSideLabel = fmt.sideLabels && fmt.sideLabels[side] || side;
-    var aiSideLabels = (fmt.sides || []).filter((sideKey) => sideKey !== side).map((sideKey) => fmt.sideLabels && fmt.sideLabels[sideKey] || sideKey);
-    blocks.push('ARGUMENT MAP · "' + clean(motion) + '"');
-    blocks.push('BOTH SIDES\nYou: ' + clean(userSideLabel) + '\nAI: ' + clean(aiSideLabels.join(', ') || 'Opposing side'));
-
-    var overview = r.overview || {};
-    var overviewLines = [];
-    if (overview.thesis) overviewLines.push('Thesis: ' + clean(overview.thesis));
-    if (overview.speech_role) overviewLines.push('Round shape: ' + clean(overview.speech_role));
-    if (r.scope && r.scope.note) overviewLines.push('Scope: ' + clean(r.scope.note));
-    if (overviewLines.length) {
-      blocks.push('ROUND SUMMARY');
-      blocks.push(overviewLines.join('\n'));
-    }
+    var sentence = (value) => {
+      var v = clean(value);
+      if (!v) return '';
+      v = v.charAt(0).toUpperCase() + v.slice(1);
+      return /[.!?]$/.test(v) ? v : v + '.';
+    };
+    var lower = (v) => clean(v).toLowerCase();
+    var userSideLabel = lower(fmt.sideLabels && fmt.sideLabels[side] || side);
+    var aiSideLabels = (fmt.sides || []).filter((sideKey) => sideKey !== side).map((sideKey) => lower(fmt.sideLabels && fmt.sideLabels[sideKey] || sideKey));
+    var isYou = (who) => {
+      var w = lower(who);
+      if (!w) return false;
+      if (/\byou\b|\buser\b/.test(w)) return true;
+      return !!userSideLabel && w.indexOf(userSideLabel) >= 0 && !aiSideLabels.some((l) => l && w.indexOf(l) >= 0);
+    };
+    var isThem = (who) => {
+      var w = lower(who);
+      if (!w) return false;
+      if (/\bai\b|\bmachine\b|\bopponent\b/.test(w)) return true;
+      return aiSideLabels.some((l) => l && w.indexOf(l) >= 0) && !(userSideLabel && w.indexOf(userSideLabel) >= 0);
+    };
+    var STATUS_WORDS = {
+      live: 'Still standing at the end.',
+      answered: 'The other side answered it.',
+      dropped: 'Nobody answered it.',
+      turned: 'It got turned around and used against the side that made it.',
+      conceded: 'The other side gave this one up.',
+      unclear: ''
+    };
 
     var flowRows = Array.isArray(r.flow) ? r.flow : [];
-    if (!flowRows.length) throw new Error('The argument map came back without any arguments. Try again.');
-    blocks.push('THE ARGUMENTS');
+    if (!flowRows.length) throw new Error('The notes came back with no arguments in them. Try again.');
+    var claimOf = (row, index) => clean(row.claim) || clean(row.tag) || 'Point ' + (index + 1);
+    var byId = {};
+    flowRows.forEach((row, index) => {byId[clean(row.id || 'A' + (index + 1))] = claimOf(row, index);});
+
+    var yours = [],theirs = [],others = [];
     flowRows.forEach((row, index) => {
-      var lines = [
-      clean(row.id || 'A' + (index + 1)) + ' · ' + clean(row.tag || 'Argument') + ' · ' + clean(row.speaker || 'Side unclear') + ' · ' + clean(row.status || 'unclear').toUpperCase()];
-      if (row.claim) lines.push('Claim: ' + clean(row.claim));
-      if (row.warrant) lines.push('Reasoning: ' + clean(row.warrant));
-      if (row.impact) lines.push('Consequence: ' + clean(row.impact));
-      if (row.evidence) lines.push('Support: ' + clean(row.evidence));
-      if (row.journey) lines.push('What happened: ' + clean(row.journey));
-      if (row.judge_note) lines.push('Decision value: ' + clean(row.judge_note));
-      blocks.push(lines.join('\n'));
+      var line = '- ' + sentence(claimOf(row, index));
+      var status = STATUS_WORDS[lower(row.status)] || '';
+      if (status) line += ' ' + status;
+      if (isYou(row.speaker)) yours.push(line);else
+      if (isThem(row.speaker)) theirs.push(line);else
+      others.push(line);
     });
+
+    var blocks = [];
+    if (yours.length) blocks.push(['YOUR POINTS'].concat(yours).join('\n'));
+    if (theirs.length) blocks.push(['THEIR POINTS'].concat(theirs).join('\n'));
+    if (others.length) blocks.push(['OTHER POINTS MADE'].concat(others).join('\n'));
 
     var clashes = Array.isArray(r.clashes) ? r.clashes : [];
     if (clashes.length) {
-      blocks.push('DIRECT DISAGREEMENTS');
-      clashes.forEach((row) => {
-        var lines = ['Question: ' + clean(row.name || 'Main disagreement')];
-        if (row.side_one) lines.push('Side one: ' + clean(row.side_one));
-        if (row.side_two) lines.push('Side two: ' + clean(row.side_two));
-        if (row.comparison) lines.push('Comparison: ' + clean(row.comparison));
-        if (row.edge) lines.push('Edge: ' + clean(row.edge));
-        if (row.reason) lines.push('Reason: ' + clean(row.reason));
-        blocks.push(lines.join('\n'));
-      });
+      blocks.push(['WHERE YOU DISAGREED'].concat(clashes.map((row) => {
+        var parts = [sentence(row.name || 'The main disagreement')];
+        if (row.comparison) parts.push(sentence(row.comparison));else
+        {
+          if (row.side_one) parts.push('One side: ' + sentence(row.side_one));
+          if (row.side_two) parts.push('The other: ' + sentence(row.side_two));
+        }
+        var edge = clean(row.edge);
+        if (edge && !/unresolved|unclear/i.test(edge)) parts.push('Edge to ' + edge + '.' + (row.reason ? ' ' + sentence(row.reason) : ''));else
+        if (row.reason) parts.push(sentence(row.reason));
+        return '- ' + parts.join(' ');
+      })).join('\n'));
     }
 
     var drops = Array.isArray(r.drops) ? r.drops : [];
     if (drops.length) {
-      blocks.push('MISSED RESPONSES');
-      drops.forEach((row) => {
-        var classification = clean(row.classification || 'unanswered_in_material').replace(/_/g, ' ');
-        var lines = [clean(row.argument_id || 'Argument') + ' · ' + classification.toUpperCase()];
-        if (row.dropped_by) lines.push('Missed by: ' + clean(row.dropped_by));
-        if (row.why_it_matters) lines.push('Why it matters: ' + clean(row.why_it_matters));
-        if (row.repair) lines.push('Repair: ' + clean(row.repair));
-        blocks.push(lines.join('\n'));
-      });
+      blocks.push(['WHAT WENT UNANSWERED'].concat(drops.map((row) => {
+        var what = byId[clean(row.argument_id)] || clean(row.argument_id) || 'One argument';
+        var who = clean(row.dropped_by);
+        var whoWord = isYou(who) ? 'You never answered it.' : isThem(who) ? 'They never answered it.' : 'Nobody answered it.';
+        var parts = [sentence(what), whoWord];
+        if (row.why_it_matters) parts.push(sentence(row.why_it_matters));
+        return '- ' + parts.join(' ');
+      })).join('\n'));
     }
 
-    if (overview.ballot_story) {
-      blocks.push('WHY ONE SIDE WON');
-      blocks.push(clean(overview.ballot_story));
-    }
+    var overview = r.overview || {};
+    if (overview.ballot_story) blocks.push('HOW IT WENT\n' + sentence(overview.ballot_story));
 
     var responses = Array.isArray(r.responses) ? r.responses : [];
     if (responses.length) {
-      blocks.push('REPAIRS FOR THE NEXT ROUND');
-      responses.forEach((row, index) => {
-        var lines = [index + 1 + '. ' + clean(row.target || 'Priority clash') + ' · ' + clean(row.response_type || 'response').toUpperCase()];
-        if (row.line) lines.push('Line: ' + clean(row.line));
-        if (row.why) lines.push('Why: ' + clean(row.why));
-        if (row.proof_needed) lines.push('Proof needed: ' + clean(row.proof_needed));
-        blocks.push(lines.join('\n'));
-      });
+      blocks.push(['NEXT TIME'].concat(responses.map((row) => {
+        var parts = [sentence(row.line || row.target || 'Say more on the main clash')];
+        if (row.why) parts.push(sentence(row.why));
+        return '- ' + parts.join(' ');
+      })).join('\n'));
     }
     return blocks.filter(Boolean).join('\n\n');
   };
@@ -9028,7 +9040,7 @@ Rules:
         body: JSON.stringify({ text: tx, motion: motion, format: fmt.name, perspective: 'round' })
       });
       var data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.result) throw new Error(data.error || 'The argument map could not be generated.');
+      if (!response.ok || !data.result) throw new Error(data.error || 'The notes could not be written.');
       var rendered = flowResultToText(data.result);
       setFlowSheet(rendered);
       try {window.gtag && gtag('event', 'auto_flow_complete', {
@@ -9037,7 +9049,7 @@ Rules:
           both_sides: (allLog || []).some((l) => l && l.who === 'You') && (allLog || []).some((l) => l && l.who === 'AI')
         });} catch (e) {}
     } catch (e) {
-      setFlowError(e && e.message || 'The automatic argument map did not finish. Try again.');
+      setFlowError(e && e.message || 'The notes did not finish. Try again.');
       try {window.gtag && gtag('event', 'auto_flow_failed', { format: fmt.name });} catch (err) {}
     } finally {
       flowRunRef.current = false;
@@ -10119,44 +10131,11 @@ Rules:
   )
   );
 
-  // One-time feature notice. It opens only after Start Round is pressed,
-  // while the setup screen is still idle, so it never consumes prep time or
-  // covers a live speech. Acknowledging it continues the exact start action.
-  var autoFlowNoticeOverlay = autoFlowNoticeOpen && el('div', {
-    onClick: () => setAutoFlowNoticeOpen(false),
-    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.78)', backdropFilter: 'blur(7px)', WebkitBackdropFilter: 'blur(7px)', zIndex: 1150, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
-    role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'autoFlowNoticeTitle'
-  },
-  el('div', {
-    onClick: (e) => e.stopPropagation(),
-    style: { maxWidth: 510, width: '100%', padding: '28px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.38)', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,.62)', textAlign: 'left' }
-  },
-  el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 12 } },
-  el('div', { style: { fontSize: '.62rem', fontWeight: 850, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444' } }, 'Auto flow'),
-  el('button', { type: 'button', onClick: () => setAutoFlowNoticeOpen(false), 'aria-label': 'Close auto flow notice', style: { background: 'transparent', border: 0, color: 'var(--c-muted)', fontSize: '1.35rem', lineHeight: 1, padding: 4, cursor: 'pointer' } }, '×')
-  ),
-  el('h2', { id: 'autoFlowNoticeTitle', style: { margin: '0 0 10px', color: 'var(--c-bright)', fontSize: '1.55rem', lineHeight: 1.16, letterSpacing: '-.025em' } }, 'Both sides, flowed for you.'),
-  el('p', { style: { margin: '0 0 18px', color: 'var(--c-text)', fontSize: '.9rem', lineHeight: 1.58 } }, 'Debatable tracks every completed speech from your side and the AI side. After the last speech, it builds the argument ledger, clashes, drops, and weighing automatically beside your ballot.'),
-  el('div', { style: { display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: 8, alignItems: 'center', marginBottom: 18, padding: '14px', background: 'var(--c-surface2)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'center' } },
-  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: '#fca5a5' } }, 'YOUR SIDE'),
-  el('span', { style: { color: 'var(--c-muted)' } }, '+'),
-  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-text)' } }, 'AI SIDE'),
-  el('span', { style: { color: 'var(--c-muted)' } }, '→'),
-  el('span', { style: { fontSize: '.7rem', fontWeight: 800, color: '#ef4444' } }, 'ONE FLOW')
-  ),
-  el('p', { style: { margin: '0 0 20px', color: 'var(--c-muted)', fontSize: '.76rem', lineHeight: 1.5 } }, 'During the round, tap Flow to revisit what each side has said.'),
-  el('button', {
-    type: 'button', className: 'cta', style: { width: '100%', justifyContent: 'center', margin: 0 },
-    onClick: () => {
-      try {localStorage.setItem('debatable-auto-flow-notice-v1', '1');} catch (e) {}
-      setAutoFlowNoticeSeen(true);
-      setAutoFlowNoticeOpen(false);
-      try {window.gtag && gtag('event', 'auto_flow_notice_acknowledged', { format: fmt.name });} catch (e) {}
-      startDebate(true);
-    }
-  }, 'Got it. Start prep')
-  )
-  );
+  // The round notes used to be announced by a one-time "Auto flow" modal
+  // at Start Round. Removed 2026-09-04 (the founder: no pop up, just do it
+  // for them). The notes are written after the last speech and render
+  // under the ballot; nothing needs explaining before the round.
+  var autoFlowNoticeOverlay = null;
 
   var brandPollOverlay = null;
 
@@ -13407,7 +13386,7 @@ Rules:
     // to is now genuinely inert: not a link, not focusable, and it says
     // why on hover.
     { id: 'fb-ballot', label: audienceCopy('Ballot', 'Feedback'), shown: true },
-    { id: 'fb-flow', label: flowLoading ? 'Mapping…' : 'Argument map', shown: true },
+    { id: 'fb-flow', label: flowLoading ? 'Notes…' : 'Notes', shown: true },
     { id: 'fb-patterns', label: 'Patterns', shown: !!patterns, why: 'Patterns appear once you have three rounds on record.' },
     { id: 'fb-drill', label: audienceCopy('Drill', 'Practice'), shown: !!drillPlan && !drillPlan.error, why: 'A drill is built from your patterns, so it needs three rounds first.' },
     { id: 'fb-transcript', label: 'Transcript', shown: true }].
@@ -14145,43 +14124,37 @@ Rules:
     })(),
 
     el('div', { id: 'fb-flow', style: { marginTop: 24, textAlign: 'center', scrollMarginTop: 80 } },
-    !flowSheet && !flowLoading && !flowError && el('div', { style: { fontSize: '.78rem', color: 'var(--c-muted)' } }, 'Your two-sided argument map is starting with the feedback.'),
+    !flowSheet && !flowLoading && !flowError && el('div', { style: { fontSize: '.78rem', color: 'var(--c-muted)' } }, 'Notes on the round are being written with the feedback.'),
     flowLoading && el('div', { style: { fontSize: '.78rem', color: 'var(--c-muted)' } },
     el('span', { className: 'spinner', style: { marginRight: 8 } }),
-    'Mapping the arguments…'
+    'Writing notes on the round…'
     )
     ),
     flowError && !flowLoading && !flowSheet && el('div', { style: { maxWidth: 520, margin: '12px auto 0', padding: '14px 16px', borderRadius: 12, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.32)', color: 'var(--c-text)' } },
-    el('div', { style: { fontSize: '.8rem', lineHeight: 1.5, marginBottom: 10 } }, 'The automatic argument map did not finish. ' + flowError),
-    el('button', { className: 'cta-ghost', style: { fontSize: '.72rem', margin: 0 }, onClick: () => genFlowSheet(log) }, 'Try the argument map again')
+    el('div', { style: { fontSize: '.8rem', lineHeight: 1.5, marginBottom: 10 } }, 'The notes did not finish. ' + flowError),
+    el('button', { className: 'cta-ghost', style: { fontSize: '.72rem', margin: 0 }, onClick: () => genFlowSheet(log) }, 'Try the notes again')
     ),
-    // The flow used to render as one tall monospace slab inside the
-    // 640px reading column, which is the wrong shape twice over: a flow
-    // sheet is a wide document, and a wall of pre-wrapped mono is not
-    // something anyone studies. It now breaks out of the column, lays
-    // the ledger out as cards, and can leave as a document.
-    flowSheet && el('div', { style: { marginTop: 12, width: 'min(94vw, 1140px)', marginLeft: '50%', transform: 'translateX(-50%)' } },
-    el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' } },
-    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => {navigator.clipboard.writeText(flowSheet).catch(() => {});} }, 'Copy argument map'),
+    // Plain notes under the ballot: one reading column, a small heading
+    // per section, bullets under it. The old card grid was built for a
+    // ledger; notes read top to bottom.
+    flowSheet && el('div', { style: { marginTop: 12, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto', textAlign: 'left' } },
+    el('div', { style: { display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' } },
+    el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => {navigator.clipboard.writeText(flowSheet).catch(() => {});} }, 'Copy notes'),
     el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => downloadFlowDoc() }, '⬇ Open in Docs or Word'),
-    !flowLoading && el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => genFlowSheet(log) }, 'Map again')
+    !flowLoading && el('button', { className: 'transcript-btn', style: { fontSize: '.65rem' }, onClick: () => genFlowSheet(log) }, 'Write them again')
     ),
-    el('div', { className: flowLoading ? 'type-stream-active' : '', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, alignItems: 'start', textAlign: 'left' } },
+    el('div', { className: flowLoading ? 'type-stream-active' : '', style: { padding: '18px 20px', borderRadius: 14, background: 'var(--c-surface2, rgba(0,0,0,.03))', border: '1px solid var(--c-border, rgba(0,0,0,.10))', fontSize: '.86rem', lineHeight: 1.6 } },
     flowSheet.split(/\n{2,}/).map((blk) => blk.trim()).filter(Boolean).map((blk, bi) => {
       var lines = blk.split('\n').map((l) => l.trim()).filter(Boolean);
-      // An all-caps line on its own is a section heading in the
-      // prompt's own format (ARGUMENT LEDGER, KEY CLASHES, ...), so it
-      // spans the grid rather than sitting in a column.
-      var isHeading = lines.length === 1 && /^[A-Z0-9 &'()-]{4,40}$/.test(lines[0]);
-      if (isHeading) return el('div', { key: 'fh' + bi, style: { gridColumn: '1 / -1', marginTop: bi === 0 ? 0 : 10, fontSize: '.68rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--c-accent, #ef4444)' } }, lines[0]);
-      return el('div', { key: 'fb' + bi, style: { padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface2, rgba(0,0,0,.03))', border: '1px solid var(--c-border, rgba(0,0,0,.10))', fontSize: '.82rem', lineHeight: 1.6 } },
-      lines.map((ln, li) => {
-        var m = ln.match(/^([A-Za-z][A-Za-z ]{2,24}):\s*(.*)$/);
-        return el('div', { key: 'fl' + li, style: { marginTop: li ? 5 : 0 } },
-        m ? el('span', { style: { fontWeight: 800 } }, m[1] + ': ') : null,
-        m ? m[2] : ln
-        );
-      })
+      var isHeading = /^[A-Z0-9 &'()-]{4,40}$/.test(lines[0]);
+      var head = isHeading ? lines[0] : null;
+      var rest = isHeading ? lines.slice(1) : lines;
+      var bullets = rest.filter((l) => /^- /.test(l));
+      return el('div', { key: 'fs' + bi, style: { marginTop: bi === 0 ? 0 : 16 } },
+      head && el('div', { style: { fontSize: '.66rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--c-accent, #ef4444)', marginBottom: 6 } }, head),
+      bullets.length ? el('ul', { style: { margin: 0, paddingLeft: 18 } },
+      bullets.map((l, li) => el('li', { key: 'fl' + li, style: { marginTop: li ? 6 : 0 } }, l.replace(/^- /, '')))
+      ) : rest.map((l, li) => el('p', { key: 'fp' + li, style: { margin: li ? '6px 0 0' : 0 } }, l))
       );
     })
     )
