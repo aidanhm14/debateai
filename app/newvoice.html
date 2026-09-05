@@ -730,12 +730,29 @@ html[data-theme="light"] .ts-body .tr-turn.judge .tr-who{color:#b91c1c}
   background:var(--card);padding:18px 20px;
   box-shadow:0 0 40px rgba(239,68,68,.06);
 }
-.ballot-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ballot-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
 .ballot-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#fca5a5}
+/* The winner is the headline of the card, not a chip in its corner.
+   2026-09-04: the founder wanted a visible winner, so the pill grew
+   into a verdict line above the reasoning. Same id and classes, so
+   the round snapshot (buildRoundDoc) still reads it back unchanged. */
 .ballot-pill{
-  font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:999px;padding:5px 12px;
+  display:block;width:fit-content;max-width:100%;
+  font-size:22px;font-weight:900;letter-spacing:-.01em;line-height:1.15;
+  border-radius:12px;padding:10px 16px;margin:0 0 12px;
   border:1px solid var(--card-line);color:var(--ink);background:var(--pill-fill);
 }
+.ballot-pill[hidden]{display:none}
+/* Who decided. The opponent is an OpenAI voice model and the ballot is
+   written by Claude, so the judge is a different AI from the one the
+   person argued against. That fact is what makes the verdict credible,
+   so it is printed on the card rather than left in the code. */
+.ballot-judge{
+  margin:14px 0 0;padding-top:10px;border-top:1px solid var(--card-line);
+  font-size:12px;line-height:1.5;color:var(--ink-dim);
+}
+.ballot-judge b{color:var(--ink);font-weight:700}
+.ballot-judge[hidden]{display:none}
 .ballot-pill.win-you{border-color:rgba(74,222,128,.5);color:#4ade80;background:rgba(74,222,128,.08)}
 html[data-theme="light"] .ballot-pill.win-you{color:#15803d;border-color:rgba(21,128,61,.45);background:rgba(21,128,61,.07)}
 .ballot-pill.win-ai{border-color:rgba(239,68,68,.55);color:#fca5a5;background:rgba(239,68,68,.08)}
@@ -1273,10 +1290,11 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
     <div class="ballot" id="ballotCard" hidden>
       <div class="ballot-head">
         <span class="ballot-eyebrow">Your result</span>
-        <span class="ballot-pill" id="ballotPill" hidden></span>
         <span class="ballot-score" id="ballotScore" hidden></span>
       </div>
+      <div class="ballot-pill" id="ballotPill" hidden></div>
       <div class="ballot-body loading" id="ballotBody">Reviewing what you said…</div>
+      <p class="ballot-judge" id="ballotJudge" hidden></p>
     </div>
     <p class="recap-lb" id="lbNote" hidden></p>
     <div class="transcript" id="transcriptBox"></div>
@@ -2984,6 +3002,8 @@ function judgeRound(){
   const youSpoke = t.filter((x) => x.who === 'you').length;
   const sc0 = $('ballotScore'); if (sc0) { sc0.hidden = true; sc0.textContent = ''; }
   const lb0 = $('lbNote'); if (lb0) { lb0.hidden = true; lb0.textContent = ''; }
+  const jn = $('ballotJudge');
+  if (jn) jn.hidden = true;
   if (!currentMotion) {
     card.hidden = false; pill.hidden = true; body.classList.remove('loading');
     body.textContent = 'No topic was locked in, so there is nothing to score. Next time, agree the claim with the AI out loud and it becomes a real round.';
@@ -2993,7 +3013,18 @@ function judgeRound(){
   card.hidden = false;
   pill.hidden = true;
   body.classList.add('loading');
-  body.textContent = 'Reviewing what you said…';
+  body.textContent = 'Claude is reading the transcript and picking a winner…';
+  // Say who is judging before the verdict lands. The opponent ran on an
+  // OpenAI realtime model and never sees this call; Claude reads the
+  // transcript cold. A verdict from the same model that argued the
+  // round would be the machine grading its own work.
+  if (jn) {
+    jn.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = 'Judged by Claude (Anthropic).';
+    jn.appendChild(b);
+    jn.appendChild(document.createTextNode(' A separate AI from the OpenAI voice you argued against. Your opponent had no say in this result.'));
+    jn.hidden = false;
+  }
   // The ballot header names the judge who heard the round.
   try {
     const eb = card.querySelector('.ballot-eyebrow');
@@ -3071,7 +3102,8 @@ function judgeRound(){
     body.textContent = text;
   }).catch(() => {
     body.classList.remove('loading');
-    body.textContent = 'We could not create feedback this time. Read the transcript below and decide how it went.';
+    if (jn) jn.hidden = true;
+    body.textContent = 'The judge could not reach a verdict this time, so no winner is declared. Read the transcript below and decide how it went.';
   });
 }
 
