@@ -4568,7 +4568,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (!text) return;
     var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
     var liveDisplay = GATE_LIVE_BASE + queueWaiting;
-    text.textContent = liveDisplay + ' live now';
+    text.textContent = liveDisplay + ' are live for debating.';
     if (pill) pill.hidden = false;
     if (!gateLiveViewTracked){
       gateLiveViewTracked = true;
@@ -4606,7 +4606,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // open a room to nobody and then dont come back". So the free guest
   // round is offered ONLY when somebody is actually waiting. With nobody
   // in the queue the desk still runs (the answers are saved), and the
-  // door after it is sign-in with an honest wait line, because a guest
+  // door after it is sign-in, because a guest
   // parked in an empty room leaves and never returns, while an account
   // can be pinged the moment someone shows up. A failed count reads as
   // empty: the safe direction is the door, not the empty room.
@@ -4619,7 +4619,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function guestDoorAfterDesk(){
     queueWaiting(function(waiting){
       if (waiting > 0 && mintGuestSession()) return;
-      state.gateEmpty = waiting === 0;
       renderGate();
     });
   }
@@ -4635,12 +4634,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // Guest with a session: queue if someone is there and a round is left,
-  // otherwise the door, with the wait said plainly.
+  // otherwise the sign-in door.
   function guestQueueOrGate(){
     queueWaiting(function(waiting){
       if (!state.user || state.named) return;
       if (waiting > 0 && canQueue(state.user)){ state.cancelled = false; joinQueue(); return; }
-      state.gateEmpty = waiting === 0;
       renderGate();
     });
   }
@@ -4684,11 +4682,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         (gateSpent()
           ? '<h2>That was your free round.</h2>' +
             '<p>Sign in to keep debating real people on video. One tap, and your matchmaker answers come with you.</p>'
-          : state.gateEmpty
-          ? '<h2>Nobody is free this minute.</h2>' +
-            '<p>Sign in and we ping you the moment someone is. Your matchmaker answers are saved and come with you.</p>'
-          : '<h2>Join a live debate.</h2>' +
-            '<p>Sign in for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>') +
+          : '<h2>Sign in to start debating.</h2>' +
+            '<p>Meet a real person for a casual 1v1 on video. Your matchmaker answers are saved and come with you.</p>') +
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
         // OAuth outright, and there is no second key on this door any
         // more, so the honest instruction is the one that works: open the

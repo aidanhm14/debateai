@@ -176,7 +176,7 @@ check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden 
 check(spar.includes('.gate-live[hidden]{display:none}') || /\.gate-live\[hidden\][^}]*display:none/.test(spar), 'gate pill must respect [hidden] against its display:flex');
 check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must fetch the fresh public queue count');
 check(spar.includes('var liveDisplay = GATE_LIVE_BASE + queueWaiting;'), 'signed-out gate must add the real waiting count to four');
-check(spar.includes("text.textContent = liveDisplay + ' live now';"), 'signed-out gate must render the combined live display');
+check(spar.includes("text.textContent = liveDisplay + ' are live for debating.';"), 'signed-out gate must clarify that the combined live display is for debating');
 check(spar.includes('live_display: liveDisplay, queue_waiting: queueWaiting'), 'gate analytics must preserve displayed and measured counts separately');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(!spar.includes('autoPopAuthModal'), 'signed-out gate must remain the sole sign-in prompt instead of opening a duplicate modal');
