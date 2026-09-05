@@ -1,5 +1,10 @@
 /* ──────────────────────────────────────────────────────────────────
-   Cross-page account sign-up nudge for unsigned visitors.
+   Shared account helpers. The custom sign-up nudge is retired as of
+   2026-09-05 at Aidan's request. Keep Google One Tap and explicit sign-in
+   buttons working; neither timed prompts nor repeat reminders may mount.
+   The nudge implementation below is dormant, including forced QA arms.
+
+   Historical behavior before retirement:
 
    Drop <script defer src="/js/signup-nudge.js"></script> on any
    page where you want a soft "sign up to save your stuff" prompt
@@ -43,10 +48,9 @@
   if (window.__debateaiSignupNudge) return;
   window.__debateaiSignupNudge = true;
 
-  // Restored 2026-08-10. The prompt remains dismissible, capped, and
-  // suppressed for signed-in visitors and pages with their own auth gate.
-  var DISABLED = false;
-  if (DISABLED) return;
+  // Do not return from the whole module: acquisition pages also use its
+  // public sign-in helper and Google One Tap independently of this popup.
+  var NUDGE_DISABLED = true;
 
   var DISMISS_KEY = 'debateos-signup-reminder-dismissed';
   var DISMISS_TS_KEY = 'debateos-signup-reminder-dismissed-at';
@@ -92,6 +96,7 @@
   var surfaceArm = 'modal';
   var surfaceForced = false;
   (function assignSurface(){
+    if (NUDGE_DISABLED) return;
     try {
       var qp = (location.search || '').toLowerCase();
       if (/[?&]nudge=modal(?:&|$)/.test(qp)) { surfaceArm = 'modal'; surfaceForced = true; return; }
@@ -649,6 +654,7 @@
   }
 
   function mount(attempt){
+    if (NUDGE_DISABLED) return;
     if (bar) return;
     // js/signin-wall.js is armed on this page, so a hard wall lands at
     // 45 seconds. A dismissible "not now" card first would spend the
@@ -830,6 +836,7 @@
   }
 
   function armReminder(attempt){
+    if (NUDGE_DISABLED) return;
     if (sessionAttempts() >= MAX_ATTEMPTS_PER_SESSION) return;
     bindActivity();
     var activeSeconds = 0;
@@ -848,6 +855,7 @@
   // dismissal to the same reminder cadence:
   //   window.dispatchEvent(new CustomEvent('debatable:maybe-later'))
   window.addEventListener('debatable:maybe-later', function(){
+    if (NUDGE_DISABLED) return;
     markDismissed();
     armReminder(Math.max(1, sessionAttempts()));
   });
@@ -913,6 +921,7 @@
   // sentence yet. A page too short to scroll waives that half rather than
   // suppressing the prompt forever.
   function armInitial(cfg){
+    if (NUDGE_DISABLED) return;
     // Tool pages that were already deliberately patient (voice rounds at 60s,
     // /learn at 30s) keep their delay: a full-screen modal 7 seconds into a
     // spoken round would interrupt the product mid-sentence.
