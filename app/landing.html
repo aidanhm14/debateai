@@ -8165,7 +8165,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      down every time a card settles. Re-measure this if the row metrics
      change: it wants to be the settled height and nothing more, or the
      waiting state pads the card out with dead space. */
-  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:147px}
+  /* Reserve sized for the four-row card (2026-09-04), so the slot does
+     not resize when the result lands and does not hold air before it. */
+  .fs-ballot{border-top:1px solid rgba(245,239,231,.16);padding-top:11px;min-height:121px}
   /* Small label over the decision so the card names its own author: the
      AI judge. */
   .fs-ballot-k{display:block;margin-bottom:5px;font-size:.58rem;font-weight:800;letter-spacing:.13em;
@@ -8244,7 +8246,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .fs-board .fs-card-k{font-size:.57rem}
     /* Narrow enough that the score line drops under the winner's name, so
        the settled card runs a line taller here than on desktop. */
-    .fs-ballot{min-height:165px}
+    .fs-ballot{min-height:139px}
   }
   /* A judged example is proof, then an invitation. Keep the prompt in the
      site's oxblood action language instead of introducing a blue CTA. */
@@ -12130,7 +12132,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      takes an axis outright when the round was close, draws one when it
      was clear, and takes none in a blowout, which is what a ballot
      actually looks like at each of those margins. */
-  var AXES = ['Logic','Rebuttal','Weighing','Clarity','Strategy','Persuasion'];
+  // 2026-09-04, the founder, on the settled card: "remove 1 or 2 of the
+  // eval mechanisms when the judge rules so the display thing here can
+  // look a bit wider instead of tall". Six rows down to four. Weighing
+  // and Strategy went: they are the two a stranger has to be taught, and
+  // the numbers are dealt from the same seed, so the card still cannot
+  // contradict the score above it.
+  var AXES = ['Logic','Response','Clarity','Persuasion'];
 
   function cardSeed(str){
     var h = 2166136261, i;
@@ -12162,9 +12170,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var W = winA ? A : B, L = winA ? B : A;
     var d = Math.max(W - L, 0);
     var tail = d < 1.5 ? -1 : (d < 3 ? 0 : 1);
-    var rest = (6 * d - tail) / 5;
-    var spread = [rest + 1, rest + 0.5, rest, rest - 0.5, rest - 1];
-    var jit = [0.8, 0.4, 0.1, -0.1, -0.4, -0.8];
+    // Sized off AXES.length, so adding or removing an axis is one edit.
+    var n = AXES.length;
+    var rest = (n * d - tail) / (n - 1);
+    var spread = [], jit = [], i0;
+    for (i0 = 0; i0 < n - 1; i0++) spread.push(rest + ((n - 2) / 2 - i0) * (2 / Math.max(1, n - 2)));
+    for (i0 = 0; i0 < n; i0++) jit.push(((n - 1) / 2 - i0) * (1.6 / Math.max(1, n - 1)));
     var rnd = cardRand(cardSeed(r.motion));
     cardShuffle(spread, rnd); cardShuffle(jit, rnd);
     // The loser's chance goes on the axis the winner is weakest on, which
