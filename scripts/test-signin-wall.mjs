@@ -29,8 +29,9 @@ function page({ path = '/', storage = new Map(), user = null, native = false, sd
   };
 }
 let p = page(); p.advance(39.75); assert.equal(p.asks.length, 0); p.advance(.25);
-assert.equal(p.asks.length, 1); assert.equal(p.asks[0].locked, true); assert.equal(p.asks[0].googleOnly, true);
-p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page locks at 40 seconds, once, with Google');
+assert.equal(p.asks.length, 1); assert.equal(p.asks[0].locked, true);
+assert.ok(!p.asks[0].googleOnly); assert.ok(!p.asks[0].liveVideo);
+p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page locks at 40 seconds, once, with every general sign-in option');
 p = page(); p.advance(18); p.leave(); p = page({ path: '/newvoice', storage: p.storage }); p.advance(21.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1);
 const refresh = page({ storage: p.storage }); refresh.advance(.25); assert.equal(refresh.asks.length, 1); console.log('PASS navigation and reload preserve the budget');
 p = page(); p.advance(15); p.hidden(true); p.advance(200); p.hidden(false); p.advance(24.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1); console.log('PASS background time does not count');

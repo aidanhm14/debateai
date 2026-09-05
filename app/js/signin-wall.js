@@ -1,4 +1,4 @@
-/* Google account wall, 2026-09-05. Forty visible seconds across pages.
+/* Account wall, 2026-09-05. Forty visible seconds across pages.
    A direct human round and a round in the site shell stay uninterrupted.
    AI starts have their own immediate account gate, including server checks. */
 (function () {
@@ -82,9 +82,8 @@
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });
     window.openAuthModal('signup', {
       locked: true,
-      googleOnly: true,
       headline: 'Sign in to keep going',
-      sub: 'Continue with Google to save your rounds, scores and progress. Your account is free.',
+      sub: 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
       onDone: function (user) { shown = false; decide(user); }
     });
   }
