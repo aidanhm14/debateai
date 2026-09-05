@@ -698,7 +698,7 @@
   // TikTok and X the same day once those handles were claimed (all five are
   // trydebatable). 2026-08-22, per the founder: INSTAGRAM IS OUT of the nav
   // rail. 2026-08-29: YouTube, Twitch and X are out while the live show runs
-  // on TikTok only; Discord sits beside TikTok as the community door. The
+  // on TikTok only; Discord left the rail 2026-09-04 for the landing card. The
   // paused accounts remain claimed. Restoring one is re-adding its entry
   // here and its public profile links, not rebuilding stream support.
   // Only accounts that ACTUALLY EXIST go in here: a nav
@@ -743,21 +743,11 @@
       icon: '<circle cx="10.3" cy="14.4" r="4" fill="%PAINT%" stroke="none"/>'
           + '<path d="M14.3 14.4V3.6a5.4 5.4 0 0 0 5.4 5.4"/>',
     },
-    {
-      key: 'discord',
-      label: 'Discord',
-      handle: 'Join the server',
-      href: 'https://discord.gg/WMHZW9BKvJ',
-      brand: '#5865F2',
-      size: 19,
-      // 2026-08-29, per the founder: use the supplied filled logo because
-      // the thin outline was hard to notice. White Clyde on its purple tile.
-      icon: '<rect x="1" y="1" width="22" height="22" rx="5.2" fill="#5865F2" stroke="none"/>'
-          + '<path d="M5.2 7.2c4.4-2.5 9.2-2.5 13.6 0 2.4 3 3.2 6.8 2.8 10.4l-3.5 2.1-1.8-3c-2.9 1-5.7 1-8.6 0l-1.8 3-3.5-2.1c-.4-3.6.4-7.4 2.8-10.4z" fill="#fff" stroke="none"/>'
-          + '<circle cx="9" cy="12.3" r="1.35" fill="#5865F2" stroke="none"/>'
-          + '<circle cx="15" cy="12.3" r="1.35" fill="#5865F2" stroke="none"/>'
-          + '<path d="M7.7 15.4c2.8 1.6 5.8 1.6 8.6 0" fill="none" stroke="#5865F2" stroke-width="1.25"/>',
-    },
+    // 2026-09-04, per the founder: DISCORD IS OUT of the nav rail. The
+    // door moved onto the landing's Live chats card ("itll pull ppl in.
+    // take it outta nav, just on front page like that"). The footer and
+    // the community page keep their links; restoring the rail icon is
+    // re-adding the entry that sat here (git: ship/discord-card).
   ];
 
   // Gradient ids have to be unique per document: socialIcon runs twice per

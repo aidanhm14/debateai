@@ -70,11 +70,12 @@ check('structured identity keeps Discord and TikTok but pauses X, Twitch and You
   && aboutOrg?.sameAs?.includes('https://www.tiktok.com/@trydebatable')
   && !landingOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url))
   && !aboutOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url)));
-check('shared social row is TikTok plus Discord',
+// 2026-09-04, per the founder: Discord left the rail for the landing's
+// Live chats card ("take it outta nav, just on front page like that").
+check('shared social row is TikTok only, and the Discord door sits on the landing chats card',
   topbar.includes("key: 'tiktok'")
-  && topbar.includes("key: 'discord'")
-  && topbar.includes('size: 19')
-  && topbar.includes('<rect x="1" y="1" width="22" height="22"')
+  && !topbar.includes("key: 'discord'")
+  && landing.includes('class="fs-chats-discord" href="https://discord.gg/WMHZW9BKvJ"')
   && !topbar.includes("key: 'x'")
   && !topbar.includes("key: 'twitch'")
   && !topbar.includes("key: 'youtube'"));
