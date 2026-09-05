@@ -1,21 +1,16 @@
 // ──────────────────────────────────────────────────────────────────
 // auth-modal.js — shared sign-in helper for Debatable.
 //
-// Web offers Google only. The native app adds Apple because App Store
-// rules require it, then exchanges either provider credential into the
-// same Firebase web session used by the live site.
+// Google, Apple, email/password and emailed links share one Firebase
+// session. Email/password stays signed in on this device by default;
+// visitors can untick "Keep me signed in" for a session-only login.
 //
 // Open it from anywhere with window.openAuthModal(). Self-bootstraps
 // Firebase (shared script ids with notifications.js so nothing double-loads).
 //
-// Public providers: Google on web; Google and Apple in the iOS shell.
-// The old email handlers stay dormant so an outstanding sign-in link can
-// finish safely, but no public chooser offers email or password.
-//
-// ONE DOOR. Google signs in or creates the account in one tap, so the card
-// does not ask a visitor to choose between sign-in and sign-up first.
-// Completing an already-sent email link is still handled on load by
-// completeEmailLink() below; that recovery path is not advertised.
+// Provider-specific admin and live-video gates keep their restrictions.
+// Returning email accounts get the password form, with account creation
+// and password recovery available in the same chooser.
 // ──────────────────────────────────────────────────────────────────
 (function () {
   'use strict';
@@ -135,6 +130,8 @@
       '#ditAuth .da-input::placeholder{color:' + sub + '}' +
       '#ditAuth .da-input:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 4px ' + focus + '}' +
       '#ditAuth .da-form-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 2px 0;color:' + sub + ';font-size:12px;line-height:1.4}' +
+      '#ditAuth .da-remember{display:flex;align-items:center;gap:9px;margin:14px 0 4px;color:' + ink + ';font-size:13px;cursor:pointer}' +
+      '#ditAuth .da-remember input{width:18px;height:18px;margin:0;accent-color:#dc2626}' +
       '#ditAuth .da-link{padding:0;border:0;background:transparent;color:#dc2626;font:inherit;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}' +
       '#ditAuth .da-switch{margin:16px 0 0;text-align:center;color:' + sub + ';font-size:13px}' +
       '#ditAuth .da-switch--row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}' +
@@ -369,32 +366,20 @@
   function renderChooser(mode, forceEmailMode) {
     var c = home(); if (!c) return;
     var last = lastMethod();
-    // Web no longer offers email, password, or phone. Do not point a
-    // returning device at a provider button that is no longer public.
-    if (last === 'email' || last === 'emaillink' || last === 'phone') last = '';
+    if (last === 'phone') last = '';
+    if ((googleOnly || liveVideo) && last !== 'google' && !(liveVideo && last === 'apple')) last = '';
     // No explicit mode: someone who has signed in on this device before
     // lands on sign-in, not "Create your account".
     if (mode !== 'signin' && mode !== 'signup') mode = last ? 'signin' : 'signup';
     var creating = mode === 'signup';
-    // WHICH EMAIL PATH LEADS, and this rule was backwards until
-    // 2026-08-26. It defaulted a returning visitor to the PASSWORD form
-    // unless their last method was a link, which meant the biggest group
-    // on this site (Google accounts, 204 of 215) was shown a password
-    // field for an account that HAS NO PASSWORD. Firebase cannot help
-    // there either: email-enumeration protection is on for this project,
-    // so a password attempt against a Google-only account comes back
-    // `auth/invalid-credential` and the only honest rendering of that is
-    // "email or password is incorrect", which is true and useless. The
-    // founder hit it on his own account and had nowhere to go.
-    //
-    // So the default inverts: the emailed LINK leads, because a link
-    // works for every account there is, and the password form is the
-    // specialisation for the one group that provably has a password,
-    // which is the group whose last sign-in on this device WAS one.
+    // Email/password is visible by default again (2026-09-05). Preserve
+    // a returning link user's choice and explicit link-recovery requests.
     var emailMode = forceEmailMode === 'link' || forceEmailMode === 'password'
       ? forceEmailMode
-      : last === 'email' ? 'password' : 'link';
+      : last === 'emaillink' ? 'link' : 'password';
     var linkMode = emailMode === 'link';
+    var keepSignedIn = true;
+    try { keepSignedIn = localStorage.getItem('debateos-auth-remember') !== '0'; } catch (e) {}
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
@@ -446,30 +431,21 @@
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
-    // 2026-09-03, Aidan: every public web account ask is Google-only.
-    // Keep the old form implementation below as a dormant recovery path
-    // for links already in flight, but never render it from the chooser.
-    var noEmail = true;
+    var noEmail = googleOnly || liveVideo;
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. Open the site in Safari or Chrome to sign in with Google. ' +
+      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
+        (noEmail ? 'Open the site in Safari or Chrome to sign in with Google. ' : 'Use email below, or open the site in Safari or Chrome. ') +
         '<button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
       : '';
-    // Google is the one provider button on web. Phone sign-in was
-    // retired 2026-09-03 (Aidan: Google plus what can be set up quickly,
-    // not text and not phone); Apple stays in the iOS shell only.
     var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
     var providerButtons = googleBtn + appleBtn + discordBtn;
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
-    // ONE DOOR. A Google tap signs in or creates the account, so the card
-    // never asks which one the visitor means. The dormant email markup
-    // below is retained for safe completion of links already in flight,
-    // not as a public provider choice.
     var headline = (lockCopy && lockCopy.headline) || 'Sign in to Debatable';
     var subline = (lockCopy && lockCopy.sub) ||
-      (window.__DB_NATIVE && !googleOnly
-        ? 'Continue with Google or Apple. The same buttons sign you in or create your account.'
-        : 'Continue with Google. The same button signs you in or creates your account. No password to remember.');
+      (noEmail
+        ? (googleOnly ? 'Continue with Google to access this page.' : 'Continue with Google or Apple to join live video.')
+        : 'Use Google, Apple, or your email and password. New here? Create an account below.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
       '<h2>' + esc(headline) + '</h2>' +
@@ -483,16 +459,17 @@
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
         '<label class="da-label" for="daEmail">Email</label>' +
-        '<input class="da-input" id="daEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +
+        '<input class="da-input" id="daEmail" name="username" type="email" inputmode="email" autocomplete="username" placeholder="you@email.com" />' +
         (linkMode ? '' :
           '<label class="da-label" for="daPassword">Password</label>' +
-          '<input class="da-input" id="daPassword" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />') +
+          '<input class="da-input" id="daPassword" name="password" type="password" autocomplete="' + (creating ? 'new-password' : 'current-password') + '" placeholder="' + (creating ? '8 characters minimum' : 'Your password') + '" />') +
         '<div class="da-form-meta">' +
           '<span>' + (linkMode
             ? 'We email you a link. It works whether you have an account or not.'
             : creating ? 'Use at least 8 characters.' : 'For accounts that already have a password.') + '</span>' +
           (linkMode || creating ? '' : '<button type="button" class="da-link" id="daForgot">Forgot password?</button>') +
         '</div>' +
+        (linkMode ? '' : '<label class="da-remember"><input id="daRemember" type="checkbox"' + (keepSignedIn ? ' checked' : '') + '> <span>Keep me signed in</span></label>') +
         '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
           (linkMode ? 'Email me a sign-in link' : creating ? 'Create account' : 'Sign in with email') + '</button>' +
         '<p class="da-switch da-switch--row" style="margin-top:11px">' +
@@ -503,7 +480,7 @@
           // or it is checked. The link door never renders it.
           (linkMode ? '' :
             '<button type="button" class="da-link" id="daModeSwitch">' +
-              (creating ? 'I already have a password' : 'No password yet? Create one') + '</button>') +
+              (creating ? 'I already have an account' : 'Create an account') + '</button>') +
         '</p>' +
       '</form>') +
       '<div class="da-status" role="status"></div>' +
@@ -541,6 +518,10 @@
     c.querySelector('#daG').addEventListener('click', doGoogle);
     var emailForm = c.querySelector('#daEmailForm');
     if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
+    var rememberInput = c.querySelector('#daRemember');
+    if (rememberInput) rememberInput.addEventListener('change', function () {
+      try { localStorage.setItem('debateos-auth-remember', rememberInput.checked ? '1' : '0'); } catch (e) {}
+    });
     // Carry what has been typed across either switch. Retyping an address
     // because you changed your mind about passwords is the kind of small
     // tax that loses people at the last step.
@@ -874,6 +855,7 @@
     if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'That email and password do not match. If you made this account with Google, use Continue with Google above, or email yourself a sign-in link.';
     if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
     if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
+    if (code === 'auth/web-storage-unsupported') return 'This browser could not save your sign-in. Turn off Keep me signed in and try again, or allow site storage in your browser.';
     if (code === 'auth/operation-not-allowed') return isInAppBrowser() ? 'Email sign-in is temporarily unavailable. Open the site in Safari or Chrome and try Google.' : 'Email sign-in is temporarily unavailable. Continue with Google.';
     return mode === 'signup' ? 'Could not create the account. Try again.' : 'Could not sign in. Try again.';
   }
@@ -891,6 +873,8 @@
     var nameInput = c && c.querySelector('#daName');
     var email = (emailInput && emailInput.value || '').trim();
     var password = passInput && passInput.value || '';
+    var rememberInput = c && c.querySelector('#daRemember');
+    var remember = !rememberInput || rememberInput.checked;
     var name = (nameInput && nameInput.value || '').trim().replace(/\s+/g, ' ').slice(0, 60);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErr('Enter a valid email.'); return; }
     if (mode === 'signup' && name.length < 2) { setErr('Enter your name.'); return; }
@@ -904,30 +888,36 @@
         auth = firebase.auth();
         if (auth.useDeviceLanguage) auth.useDeviceLanguage();
         track('sign_in_start', { method: 'email_password', action: mode });
-        var attempt, reused = false;
-        if (mode === 'signup') {
-          var current = auth.currentUser;
-          var credential = firebase.auth.EmailAuthProvider.credential(email, password);
-          // Nearly every visitor is already an anonymous Firebase user
-          // (notifications.js signs them in on page load), so the normal
-          // signup path is a link, not a create. When the email already
-          // has an account the link throws; sign in with the same
-          // password instead of dead-ending them, same as Google does.
-          var reuse = function (err) {
-            var code = (err && err.code) || '';
-            if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
-              reused = true;
-              return auth.signInWithEmailAndPassword(email, password);
-            }
-            throw err;
-          };
-          attempt = current && current.isAnonymous && current.linkWithCredential
-            ? current.linkWithCredential(credential).catch(reuse)
-            : auth.createUserWithEmailAndPassword(email, password).catch(reuse);
-        } else {
-          attempt = auth.signInWithEmailAndPassword(email, password);
-        }
-        attempt.then(function (result) {
+        var reused = false;
+        // Await persistence before linking or signing in: otherwise the
+        // page can navigate away before the returning session is saved.
+        Promise.resolve().then(function () {
+          return auth.setPersistence(remember ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+        }).then(function () {
+          var attempt;
+          if (mode === 'signup') {
+            var current = auth.currentUser;
+            var credential = firebase.auth.EmailAuthProvider.credential(email, password);
+            // Preserve work owned by an existing anonymous Firebase user
+            // by linking that account instead of creating a new uid. When the email already
+            // has an account the link throws; sign in with the same
+            // password instead of dead-ending them, same as Google does.
+            var reuse = function (err) {
+              var code = (err && err.code) || '';
+              if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+                reused = true;
+                return auth.signInWithEmailAndPassword(email, password);
+              }
+              throw err;
+            };
+            attempt = current && current.isAnonymous && current.linkWithCredential
+              ? current.linkWithCredential(credential).catch(reuse)
+              : auth.createUserWithEmailAndPassword(email, password).catch(reuse);
+          } else {
+            attempt = auth.signInWithEmailAndPassword(email, password);
+          }
+          return attempt;
+        }).then(function (result) {
           var user = result && result.user;
           if (mode === 'signup' && !reused && user && user.updateProfile) {
             return user.updateProfile({ displayName: name }).then(function () { return user; });

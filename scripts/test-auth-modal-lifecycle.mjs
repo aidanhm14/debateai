@@ -60,17 +60,17 @@ check(
   'phone sign-in stays retired from the shared chooser',
 );
 check(
-  source.includes('var noEmail = true;')
+  source.includes('var noEmail = googleOnly || liveVideo;')
     && source.includes('var providerButtons = googleBtn + appleBtn + discordBtn;')
     && source.includes('var DISCORD_SIGNIN_READY = false;')
-    && !source.includes("Use email below, or open the site in Safari or Chrome."),
-  'the public web chooser offers Google and Apple, Discord behind its ready flag, and no email door (2026-09-04)',
+    && source.includes("Use email below, or open the site in Safari or Chrome."),
+  'the public chooser restores email alongside Google and Apple while provider-specific gates stay restricted (2026-09-05)',
 );
 check(
   source.includes('#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center')
     && source.includes("'Sign in to Debatable'")
-    && source.includes('The same button signs you in or creates your account. No password to remember.'),
-  'the shared web sign-in is a centered Google dialog for new and returning accounts',
+    && source.includes('Use Google, Apple, or your email and password.'),
+  'the shared sign-in dialog offers account creation and returning email accounts',
 );
 check(
   source.includes('var appleBtn = !googleOnly')
@@ -123,3 +123,5 @@ check(
 );
 
 if (failures) process.exit(1);
+
+await import('./test-email-auth.mjs');

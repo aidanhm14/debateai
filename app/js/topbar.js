@@ -189,14 +189,15 @@
 
   function openSharedAuth(mode){
     mode = mode || 'signin';
+    var opts = /^\/(spar|live-round)(\.html)?$/.test(here) ? { liveVideo: true } : undefined;
     if (typeof window.openAuthModal === 'function'){
-      window.openAuthModal(mode);
+      window.openAuthModal(mode, opts);
       return;
     }
     var script = document.querySelector('script[src*="/js/auth-modal.js"]');
     if (script){
       script.addEventListener('load', function(){
-        if (typeof window.openAuthModal === 'function') window.openAuthModal(mode);
+        if (typeof window.openAuthModal === 'function') window.openAuthModal(mode, opts);
         else startGoogleSignIn().catch(function(){});
       }, { once: true });
       return;

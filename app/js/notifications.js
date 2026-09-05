@@ -2273,7 +2273,7 @@
       whenFirebaseReady(function () {
         var auth;
         try { auth = window.firebase.auth(); } catch (e) {}
-        if (!auth) { if (window.openAuthModal) window.openAuthModal(); return; }
+        if (!auth) { if (window.openAuthModal) window.openAuthModal('signin', { liveVideo: true }); return; }
         function use(u) {
           if (u) {
             myUid = u.uid;
