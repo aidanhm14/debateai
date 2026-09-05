@@ -876,6 +876,28 @@ h1 em{color:var(--accent);font-style:normal}
 /* The tournament ticker is hidden while the desk is open, so the flow
    must not keep reserving the 32px the ticker would have taken. */
 body.has-beta-strip.match-profile-open .afl{top:0;height:100dvh}
+/* Someone is waiting. Aidan, 2026-09-04: "if 2 ppl are actually in the
+   middle of questionnaire, just skip straight to meeting them. disrupt
+   questions by offering thru pop up: meet or question. someone is
+   literally waiting!" While the desk is open the queue count is polled,
+   and the first time it reports a person the step is interrupted with
+   this card. Meet runs the same skip path as the footer, so the answer
+   is the neutral profile and the queue. */
+.match-profile-flow .mp-wait{position:absolute;inset:0;z-index:8;display:grid;place-items:center;padding:20px;background:rgba(20,18,14,.42)}
+.match-profile-flow .mp-wait__card{width:min(100%,520px);padding:22px 24px 20px;background:var(--mp-paper);color:var(--mp-ink);border-top:5px solid var(--mp-red);box-shadow:0 24px 60px rgba(20,18,14,.35);font-family:Inter,sans-serif}
+.match-profile-flow .mp-wait__eyebrow{display:inline-flex;align-items:center;gap:7px;margin:0 0 10px;font-family:'Geist Mono',monospace;font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mp-red)}
+.match-profile-flow .mp-wait__eyebrow::before{content:'';width:8px;height:8px;border-radius:50%;background:#159447;box-shadow:0 0 0 3px rgba(21,148,71,.16);animation:mp-wait-pulse 1.4s ease-in-out infinite}
+@keyframes mp-wait-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+.match-profile-flow .mp-wait__title{margin:0 0 8px;font-family:Inter,'Instrument Sans',system-ui,sans-serif !important;font-size:clamp(26px,3.2vw,38px);font-weight:900;letter-spacing:.04em;line-height:1.05;text-transform:uppercase}
+.match-profile-flow .mp-wait__title small{display:block;margin-top:6px;font-family:'Source Serif 4',Georgia,serif;font-size:clamp(17px,1.6vw,21px);font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--mp-ink-2)}
+.match-profile-flow .mp-wait__body{margin:0 0 18px;font-size:15px;line-height:1.5;color:var(--mp-ink-2)}
+.match-profile-flow .mp-wait__actions{display:flex;flex-wrap:wrap;gap:10px}
+.match-profile-flow .mp-wait__meet{appearance:none;border:0;cursor:pointer;flex:1 1 220px;min-height:54px;padding:12px 20px;background:var(--mp-red);color:#fff;font:inherit;font-size:1rem;font-weight:800;letter-spacing:.02em}
+.match-profile-flow .mp-wait__meet:hover{background:#b91c1c}
+.match-profile-flow .mp-wait__keep{appearance:none;cursor:pointer;flex:1 1 160px;min-height:54px;padding:12px 18px;background:transparent;border:1px solid var(--mp-rule-mid);color:var(--mp-ink-2);font:inherit;font-size:.92rem;font-weight:700}
+.match-profile-flow .mp-wait__keep:hover{border-color:var(--mp-ink);color:var(--mp-ink)}
+.match-profile-flow .mp-wait__meet:focus-visible,.match-profile-flow .mp-wait__keep:focus-visible{outline:2px solid var(--mp-ink);outline-offset:2px}
+@media(max-height:540px){.match-profile-flow .mp-wait__card{padding:14px 16px 14px}.match-profile-flow .mp-wait__title{font-size:22px}.match-profile-flow .mp-wait__body{margin-bottom:12px;font-size:14px}.match-profile-flow .mp-wait__meet,.match-profile-flow .mp-wait__keep{min-height:44px}}
 .match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:repeat(2,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opts{grid-template-columns:repeat(3,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opt{min-height:108px;align-items:start}
@@ -3399,13 +3421,88 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return note;
   }
 
-  function paintMatchProfileLive(){
+  // Polls the live queue count while the desk is open. The endpoint is
+  // shared-cached 15s server-side, so a 10s client poll costs nothing
+  // extra and stops the moment the masthead leaves the DOM. `onWaiting`
+  // is called with the count on every reading; the interrupt card below
+  // decides what to do with it.
+  var DESK_QUEUE_POLL_MS = 10000;
+  function paintMatchProfileLive(onWaiting){
     var count = document.querySelector('.mp-masthead__live-count');
     if (!count) return;
-    fetch('/api/spar-queue').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
-      if (!count || !document.documentElement.contains(count)) return;
-      count.textContent = String(Math.max(0, Number(d && d.waiting) || 0));
-    }).catch(function(){});
+    var timer = null;
+    var stop = function(){ if (timer) clearTimeout(timer); timer = null; };
+    var tick = function(){
+      if (!document.documentElement.contains(count)) { stop(); return; }
+      if (document.hidden) { timer = setTimeout(tick, DESK_QUEUE_POLL_MS); return; }
+      fetch('/api/spar-queue').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+        if (!document.documentElement.contains(count)) { stop(); return; }
+        var n = Math.max(0, Number(d && d.waiting) || 0);
+        count.textContent = String(n);
+        if (onWaiting) onWaiting(n);
+      }).catch(function(){}).then(function(){
+        if (document.documentElement.contains(count)) timer = setTimeout(tick, DESK_QUEUE_POLL_MS);
+      });
+    };
+    tick();
+    return stop;
+  }
+
+  // The interrupt. Shown the first time the poll reports a person while
+  // the desk is open, and again only if the count went to zero and a NEW
+  // person arrived after a dismissal; a card that returns on every poll
+  // is a nag, and dismissing is an answer. Never shown while editing a
+  // saved profile (that person is not on the way to the queue) and never
+  // on the launch panel, whose own button is one tap from the same place.
+  function deskWaitingOffer(root, meet){
+    var card = null, dismissedAt = 0, lastCount = 0, offered = false;
+    function close(){
+      if (!card) return;
+      card.remove(); card = null;
+    }
+    function show(n){
+      if (card || root.classList.contains('mp-on-launch')) return;
+      offered = true;
+      card = document.createElement('div');
+      card.className = 'mp-wait';
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-modal', 'true');
+      card.setAttribute('aria-labelledby', 'mpWaitTitle');
+      var who = n === 1 ? 'Someone is waiting.' : n + ' people are waiting.';
+      var sub = 'They want a debate right now.';
+      card.innerHTML = '<div class="mp-wait__card">' +
+        '<p class="mp-wait__eyebrow">Live now</p>' +
+        '<h3 class="mp-wait__title" id="mpWaitTitle">' + escHtml(who) + '<small>' + escHtml(sub) + '</small></h3>' +
+        '<p class="mp-wait__body">Meet them and skip the rest of these, or finish your answers. They may not wait long.</p>' +
+        '<div class="mp-wait__actions">' +
+          '<button type="button" class="mp-wait__meet">MEET THEM NOW</button>' +
+          '<button type="button" class="mp-wait__keep">Keep answering</button>' +
+        '</div></div>';
+      card.querySelector('.mp-wait__meet').addEventListener('click', function(){
+        try { gtag('event', 'spar_desk_waiting_offer', { choice: 'meet', waiting: n }); } catch(e){}
+        close();
+        meet();
+      });
+      card.querySelector('.mp-wait__keep').addEventListener('click', function(){
+        try { gtag('event', 'spar_desk_waiting_offer', { choice: 'keep', waiting: n }); } catch(e){}
+        dismissedAt = Date.now();
+        close();
+      });
+      card.addEventListener('keydown', function(e){
+        if (e.key === 'Escape') { e.stopPropagation(); card.querySelector('.mp-wait__keep').click(); }
+      });
+      root.appendChild(card);
+      try { gtag('event', 'spar_desk_waiting_offer', { choice: 'shown', waiting: n }); } catch(e){}
+      try { card.querySelector('.mp-wait__meet').focus(); } catch(e){}
+    }
+    return {
+      onCount: function(n){
+        if (!document.documentElement.contains(root)) return;
+        if (n > 0 && (!offered || (dismissedAt && lastCount === 0))) show(n);
+        lastCount = n;
+      },
+      close: close
+    };
   }
 
   function matchProfileSteps(profile){
@@ -3681,7 +3778,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (root){
       root.classList.add('match-profile-flow');
       document.body.classList.add('match-profile-open');
-      paintMatchProfileLive();
+      var waitingOffer = null;
       // 2026-09-02, Aidan: the questionnaire must never read as a wall.
       // The rail's own skip button becomes a red pill, and a large fixed
       // bar at the bottom of every step says the same thing in words a
@@ -3702,6 +3799,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           railSkip.click();
         });
         root.appendChild(bar);
+        if (!opts.editing) waitingOffer = deskWaitingOffer(root, function(){ railSkip.click(); });
         // On the launch panel the on-panel button is the action, so the
         // footer stands down rather than stacking two red buttons.
         var launchPanel = root.querySelector('.afl-panel--launch');
@@ -3725,6 +3823,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           syncLaunch();
         }
       }
+      paintMatchProfileLive(waitingOffer ? waitingOffer.onCount : null);
     }
     return run;
   }
