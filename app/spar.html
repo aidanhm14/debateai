@@ -820,8 +820,8 @@ html:not([data-theme="light"]) .afl.match-profile-flow{
 .match-profile-flow .afl-panel-in{
   max-width:960px;display:grid;grid-template-columns:minmax(0,1fr);
   grid-template-columns:minmax(0,1fr) auto;column-gap:28px;
-  grid-template-areas:'step step' 'q aside' 'hint aside' 'opts opts' 'next next' 'back back';
-  grid-template-rows:auto auto auto auto auto 1fr;align-items:start;
+  grid-template-areas:'step step' 'q aside' 'hint aside' 'opts opts' 'write write' 'next next' 'back back';
+  grid-template-rows:auto auto auto auto auto auto 1fr;align-items:start;
 }
 .match-profile-flow .afl-step{
   grid-area:step;margin:0 0 clamp(16px,2.6vh,30px);padding-bottom:9px;border-bottom:1px solid var(--mp-rule);
@@ -856,6 +856,10 @@ html:not([data-theme="light"]) .afl.match-profile-flow{
 .match-profile-flow .afl-opt-s{margin-top:5px;color:var(--mp-ink-2);font-size:15px;line-height:1.5}
 .match-profile-flow .afl-opt-mark{width:24px;height:24px;border-radius:0;border-color:var(--mp-rule-mid);font-family:Inter,sans-serif}
 .match-profile-flow .afl-opt[aria-checked="true"] .afl-opt-mark{border-color:var(--mp-red);background:var(--mp-red)}
+.match-profile-flow .mp-opt--custom{grid-column:1/-1;min-height:64px;background:var(--mp-tint)}
+.match-profile-flow .afl-write{grid-area:write}
+.match-profile-flow .afl-write-area{border-radius:0;border-color:var(--mp-rule-mid);background:var(--mp-paper);color:var(--mp-ink)}
+.match-profile-flow input.afl-write-area{min-height:48px;resize:none;font-size:16px}
 .match-profile-flow .mp-opt--skip{grid-column:1/-1;min-height:54px;background:var(--mp-tint);color:var(--mp-muted)}
 .match-profile-flow .mp-opt--skip .afl-opt-t{font-family:Inter,sans-serif;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase}
 .match-profile-flow .mp-opt--skip .afl-opt-s{display:none}
@@ -952,7 +956,7 @@ body.has-beta-strip.match-profile-open .afl{top:0;height:100dvh}
 @media(max-width:980px){
   .match-profile-flow .afl-panel{justify-content:flex-start;padding-top:28px}
   .match-profile-flow .afl-panel-in{
-    max-width:760px;grid-template-columns:1fr;grid-template-areas:'step' 'q' 'hint' 'opts' 'back';
+    max-width:760px;grid-template-columns:1fr;grid-template-areas:'step' 'q' 'hint' 'aside' 'opts' 'write' 'next' 'back';
     row-gap:0;
   }
   .match-profile-flow .afl-step{margin-bottom:18px}
@@ -984,7 +988,7 @@ body.has-beta-strip.match-profile-open .afl{top:0;height:100dvh}
      each set their own column count at higher specificity, and a new panel
      added later would otherwise reintroduce exactly this bug. */
   .match-profile-flow .afl-opts{grid-template-columns:1fr !important}
-  .match-profile-flow .afl-panel-in{grid-template-columns:minmax(0,1fr);grid-template-areas:'step' 'q' 'hint' 'aside' 'opts' 'next' 'back';grid-template-rows:auto auto auto auto auto auto 1fr}
+  .match-profile-flow .afl-panel-in{grid-template-columns:minmax(0,1fr);grid-template-areas:'step' 'q' 'hint' 'aside' 'opts' 'write' 'next' 'back';grid-template-rows:auto auto auto auto auto auto auto 1fr}
   .match-profile-flow .afl-aside{justify-content:flex-start;padding-top:0;margin:0 0 14px}
   .match-profile-flow .afl-aside .mp-opt--skip{width:100%}
   /* The one exception, and it is safe for the reason the rule above gives:
@@ -3254,7 +3258,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return out;
   }
   var MATCH_PROFILE_LABELS = {
-    person: labelMap(MATCH_PROFILE_PEOPLE),
+    person: Object.assign(labelMap(MATCH_PROFILE_PEOPLE), { other: 'Someone else' }),
     topic: labelMap(MATCH_PROFILE_TOPICS),
     background: {
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
@@ -3343,6 +3347,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       mode: allowedProfileValue('mode', String(raw.mode || ''), 'viewpoint'),
       clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private')
     };
+    // Custom names stay with these local-only lists, outside every prompt
+    // and server payload. An empty or deselected write-in is not a pick.
+    ['agree', 'interest'].forEach(function(key){
+      var name = typeof raw[key + 'Other'] === 'string' ? raw[key + 'Other'] : '';
+      name = name.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+      out[key + 'Other'] = out[key].indexOf('other') !== -1 ? name : '';
+      if (!out[key + 'Other']) out[key] = out[key].filter(function(v){ return v !== 'other'; });
+    });
     ISSUE_KEYS.forEach(function(key){ out[key + 'Note'] = cleanIssueNote(out[key], politics[key + 'Note']); });
     return out;
   }
@@ -3545,8 +3557,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   function matchProfileSteps(profile){
     profile = profile || defaultMatchProfile();
-    function people(){
+    function people(key){
       return MATCH_PROFILE_PEOPLE.map(function(o){ return { value: o.value, img: o.img, label: o.label }; })
+        .concat([{ value: 'other', label: 'Add someone else', sub: 'Type a name that is not on the list.', className: 'mp-opt--custom', write: { key: key + 'Other', singleLine: true, maxLength: 80, placeholder: 'Their name', label: key === 'agree' ? 'Someone else you agree with' : 'Someone else to argue about' } }])
         .concat([{ value: 'none', label: 'None of them', sub: 'Skip this one.', exclusive: true, aside: true, className: 'mp-opt--skip' }]);
     }
     return [
@@ -3557,15 +3570,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         key: 'agree', q: 'Whose views do you actually agree with?',
         hint: 'Tap everyone you mostly agree with. Skip if none of them.',
         summaryLabel: 'Agree with', 'default': profile.agree, multi: true, emptyLabel: 'Nobody yet',
+        writeDefaults: { agreeOther: profile.agreeOther },
         className: 'mp-panel--figure',
-        options: people()
+        options: people('agree')
       },
       {
         key: 'interest', q: 'Whose views do you find interesting to argue about?',
         hint: 'Agree with them or not, tap the ones you have the most to say about.',
         summaryLabel: 'Argue about', 'default': profile.interest, multi: true, emptyLabel: 'Nobody yet',
+        writeDefaults: { interestOther: profile.interestOther },
         className: 'mp-panel--figure',
-        options: people()
+        options: people('interest')
       },
       {
         key: 'topics', q: 'What do you like talking about?',
@@ -3671,8 +3686,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function profileFromAnswers(a){
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
-      agree: a.agree,
-      interest: a.interest,
+      agree: a.agree, agreeOther: a.agreeOther,
+      interest: a.interest, interestOther: a.interestOther,
       topics: a.topics,
       background: a.background,
       conviction: a.conviction,

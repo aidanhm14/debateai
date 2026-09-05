@@ -114,6 +114,40 @@ for (const text of Object.values(POLITICAL_MOTIONS).flat()) {
 assert.ok(new Set(Array.from({ length: 30 }, (_, i) => matchDeskDraftConfig(left, right, 'rematch-' + i).recommendedMotion)).size > 1, 'rematches should vary relevant resolutions');
 
 const spar = fs.readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
+const profileContext = vm.createContext({});
+vm.runInContext(spar.slice(spar.indexOf('  var MATCH_PROFILE_VERSION'), spar.indexOf('  var matchProfile = null;')), profileContext);
+const customProfile = profileContext.cleanMatchProfile({
+  version: 5,
+  agree: ['stewart', 'other'], agreeOther: '  James\nBaldwin  ',
+  interest: ['other'], interestOther: 'bell hooks',
+});
+assert.deepEqual(Array.from(customProfile.agree), ['stewart', 'other'], 'custom and preset names must coexist');
+assert.equal(customProfile.agreeOther, 'James Baldwin');
+assert.equal(customProfile.interestOther, 'bell hooks', 'each people question keeps its own write-in');
+const restoredProfile = profileContext.cleanMatchProfile(JSON.parse(JSON.stringify(customProfile)));
+assert.equal(restoredProfile.agreeOther, 'James Baldwin', 'custom names must survive a save and reload');
+for (const key of ['agree', 'interest']) {
+  for (const name of ['', '  \n\t ', null, { name: 'Not a string' }]) {
+    const empty = profileContext.cleanMatchProfile({ version: 5, [key]: ['other'], [key + 'Other']: name });
+    assert.equal(empty[key].length, 0, 'an empty write-in is not a selected person');
+    assert.equal(empty[key + 'Other'], '');
+  }
+  const deselected = profileContext.cleanMatchProfile({ version: 5, [key]: ['none'], [key + 'Other']: 'Old name' });
+  assert.equal(deselected[key + 'Other'], '', 'None must clear the custom name');
+  const long = profileContext.cleanMatchProfile({ version: 5, [key]: ['other'], [key + 'Other']: 'a'.repeat(120) });
+  assert.equal(long[key + 'Other'].length, 80, 'saved input respects the field limit');
+}
+const legacyProfile = profileContext.cleanMatchProfile({ version: 4, figure: 'stewart' });
+assert.deepEqual(Array.from(legacyProfile.interest), ['stewart'], 'old roster choices still migrate');
+profileContext.matchProfile = customProfile;
+for (const name of ['wireStance', 'privateMatchProfilePayload']) {
+  const source = name === 'wireStance'
+    ? spar.match(/  function wireStance\(v\)\{[^\n]+/)[0]
+    : spar.match(/  function privateMatchProfilePayload\(\)\{[\s\S]*?\n  \}/)[0];
+  vm.runInContext(source, profileContext);
+}
+assert.ok(!/James Baldwin|bell hooks|agreeOther|interestOther/.test(JSON.stringify(profileContext.privateMatchProfilePayload())), 'custom names must remain outside the server payload');
+
 // An empty matchmaking queue must not overwrite broader site activity.
 const activityCount = { textContent: '', parentNode: { setAttribute(){} } };
 const activityLabel = { textContent: '' };

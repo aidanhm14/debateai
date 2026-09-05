@@ -102,6 +102,8 @@
     var steps = cfg.steps;
     var answers = {};
     steps.forEach(function (s) {
+      // Write-ins can accompany a single choice or a multi-select answer.
+      if (s.writeDefaults) Object.keys(s.writeDefaults).forEach(function (k) { answers[k] = String(s.writeDefaults[k] || ''); });
       if (s.multi) {
         // Multi-select (2026-09-04): the answer is an ARRAY of option
         // values. An empty array is a real answer ("none of them"), not a
@@ -110,8 +112,6 @@
         return;
       }
       answers[s.key] = s['default'] != null ? s['default'] : (s.options[0] && s.options[0].value);
-      // Saved write-in text comes back with its step (see opt.write).
-      if (s.writeDefaults) Object.keys(s.writeDefaults).forEach(function (k) { answers[k] = String(s.writeDefaults[k] || ''); });
     });
     function isPicked(step, value) {
       return step.multi ? answers[step.key].indexOf(value) !== -1 : answers[step.key] === value;
@@ -222,7 +222,7 @@
         var n = answers[step.key].filter(function (v) {
           var o = null;
           step.options.forEach(function (x) { if (x.value === v) o = x; });
-          return o && !o.exclusive;
+          return o && !o.exclusive && (!o.write || String(answers[o.write.key] || '').trim());
         }).length;
         nextCount.textContent = n ? (n + ' picked') : (step.emptyLabel || 'None picked');
       }
@@ -264,9 +264,15 @@
                 return !(o && o.exclusive);
               });
             }
+            if (step.writeKeys) step.writeKeys.forEach(function (key) {
+              var picked = step.options.some(function (o) { return o.write && o.write.key === key && isPicked(step, o.value); });
+              if (!picked) answers[key] = '';
+            });
+            if (writeFor && !isPicked(step, writeFor.value)) { writeBox.hidden = true; writeFor = null; }
             paintChecks();
             paintNext();
             play('select');
+            if (opt.write && isPicked(step, opt.value)) openWrite(opt, true);
             // Choosing "none" is a complete answer; move on like a radio.
             if (opt.exclusive && idx === -1) go(i + 1);
             return;
@@ -279,7 +285,7 @@
           // advancing. The text lives under opt.write.key; picking any
           // other option on this step clears it, so a note can never
           // outlive the answer it explains.
-          if (opt.write && opt.write.key) { openWrite(opt); return; }
+          if (opt.write && opt.write.key) { openWrite(opt, true); return; }
           if (writeBox) { writeBox.hidden = true; if (step.writeKeys) step.writeKeys.forEach(function (k) { answers[k] = ''; }); }
           go(i + 1);
         });
@@ -317,15 +323,17 @@
         step.writeKeys.forEach(function (k) { if (answers[k] == null) answers[k] = ''; });
         writeBox = el('div', 'afl-write');
         writeBox.hidden = true;
-        writeArea = el('textarea', 'afl-write-area');
-        writeArea.rows = 3;
+        var singleLine = writeOpts.every(function (o) { return o.write.singleLine; });
+        writeArea = el(singleLine ? 'input' : 'textarea', 'afl-write-area');
+        if (singleLine) writeArea.type = 'text';
+        else writeArea.rows = 3;
         writeArea.setAttribute('aria-label', step.q);
         var writeCount = el('span', 'afl-write-count');
         var writeGo = el('button', 'afl-write-go', 'Continue');
         writeGo.type = 'button';
         var writeRow = el('div', 'afl-write-row');
         writeRow.appendChild(writeCount);
-        writeRow.appendChild(writeGo);
+        if (!step.multi) writeRow.appendChild(writeGo);
         writeBox.appendChild(writeArea);
         writeBox.appendChild(writeRow);
         inner.insertBefore(writeBox, group.nextSibling);
@@ -339,25 +347,28 @@
           if (writeArea.value.length > max) writeArea.value = writeArea.value.slice(0, max);
           answers[writeFor.write.key] = writeArea.value;
           syncCount();
+          paintNext();
         });
         writeArea.addEventListener('keydown', function (e) {
           // Enter alone moves on; Shift+Enter keeps writing.
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); writeGo.click(); }
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); (nextBtn || writeGo).click(); }
         });
         writeGo.addEventListener('click', function () { play('select'); go(i + 1); });
       }
-      function openWrite(opt) {
+      function openWrite(opt, reveal) {
         writeFor = opt;
-        step.writeKeys.forEach(function (k) { if (k !== opt.write.key) answers[k] = ''; });
+        if (!step.multi) step.writeKeys.forEach(function (k) { if (k !== opt.write.key) answers[k] = ''; });
+        writeArea.setAttribute('aria-label', opt.write.label || step.q);
         writeArea.placeholder = opt.write.placeholder || 'Say it in a sentence or two.';
         writeArea.maxLength = opt.write.maxLength || 240;
         writeArea.value = answers[opt.write.key] || '';
         writeBox.hidden = false;
         syncCount();
+        if (reveal) writeBox.scrollIntoView({ block: 'nearest' });
         try { writeArea.focus({ preventScroll: true }); } catch (e) { writeArea.focus(); }
       }
       // A saved write-in comes back open on its option.
-      writeOpts.forEach(function (o) { if (answers[step.key] === o.value) openWrite(o); });
+      writeOpts.forEach(function (o) { if (isPicked(step, o.value)) openWrite(o); });
 
       if (i > 0) {
         var back = el('button', 'afl-back', '← Back');
@@ -407,7 +418,10 @@
         if (step.multi) {
           var names = [];
           step.options.forEach(function (o) {
-            if (answers[step.key].indexOf(o.value) !== -1 && !o.exclusive) names.push(o.summaryLabel || o.label);
+            if (answers[step.key].indexOf(o.value) !== -1 && !o.exclusive) {
+              var name = o.write ? String(answers[o.write.key] || '').trim() : (o.summaryLabel || o.label);
+              if (name) names.push(name);
+            }
           });
           li.appendChild(el('b', null, names.length ? names.join(', ') : (step.emptyLabel || 'None')));
           summary.appendChild(li);
