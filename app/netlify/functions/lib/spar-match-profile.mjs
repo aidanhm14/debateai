@@ -139,13 +139,16 @@ export function mutualPoliticalMotionPool(mine, theirs) {
     a.stances[key] !== 'skip' && b.stances[key] !== 'skip');
   if (!shared.length) return [];
 
+  const opposed = shared.filter((key) => a.stances[key] !== b.stances[key]);
+  const issues = opposed.length ? opposed : shared;
+
   // Interleave issue banks so a pair sharing two or more interests sees a
   // real mix after the seeded shuffle in motion-draft. Every source bank is
   // fixed and content-reviewed; no profile text becomes a motion.
   const out = [];
-  const width = Math.max(...shared.map((key) => POLITICAL_MOTIONS[key].length));
+  const width = Math.max(...issues.map((key) => POLITICAL_MOTIONS[key].length));
   for (let i = 0; i < width; i++) {
-    for (const key of shared) {
+    for (const key of issues) {
       const motion = POLITICAL_MOTIONS[key][i];
       if (motion) out.push(motion);
     }
@@ -153,3 +156,36 @@ export function mutualPoliticalMotionPool(mine, theirs) {
   return out;
 }
 
+// These claims directly express the choice asked at the Match Desk. The
+// wider banks supply alternatives, but a broad issue match alone should
+// not recommend an unrelated subtopic as the pair's actual disagreement.
+const DESK_RESOLUTIONS = Object.freeze({
+  economy: [POLITICAL_MOTIONS.economy[2], POLITICAL_MOTIONS.economy[1]],
+  immigration: [POLITICAL_MOTIONS.immigration[0], POLITICAL_MOTIONS.immigration[1]],
+  speech: [POLITICAL_MOTIONS.speech[1], POLITICAL_MOTIONS.speech[0]],
+  democracy: [POLITICAL_MOTIONS.democracy[7], POLITICAL_MOTIONS.democracy[2]],
+});
+
+export function matchDeskDraftConfig(mine, theirs, seed) {
+  const suggestions = mutualPoliticalMotionPool(mine, theirs);
+  if (suggestions.length < 2) return {};
+  const a = cleanSparMatchProfile(mine);
+  const b = cleanSparMatchProfile(theirs);
+  const opposed = STANCE_KEYS.filter((key) =>
+    a.stances[key] !== 'skip' && b.stances[key] !== 'skip'
+      && a.stances[key] !== b.stances[key]);
+  if (!opposed.length) return { suggestions };
+
+  // The room seed changes on a rematch and is stable across transaction
+  // retries. Neither caller order nor a real-time model call can reroll it.
+  let hash = 0x811c9dc5;
+  for (const ch of String(seed || '')) {
+    hash = Math.imul(hash ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  }
+  const issue = opposed[hash % opposed.length];
+  const claims = DESK_RESOLUTIONS[issue];
+  const recommendedMotion = claims[Math.floor(hash / opposed.length) % claims.length];
+  // Only motions leave this module, never issue ids, answers, inferred
+  // positions, or instructions about which side either person should take.
+  return { suggestions, recommendedMotion };
+}

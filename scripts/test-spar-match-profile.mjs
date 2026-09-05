@@ -7,8 +7,10 @@ import {
   rankPoliticalCandidates,
   mutualPoliticalMotionPool,
   POLITICAL_MOTIONS,
+  matchDeskDraftConfig,
 } from '../app/netlify/functions/lib/spar-match-profile.mjs';
 import { createDraft } from '../app/netlify/functions/lib/motion-draft.mjs';
+import { checkContent } from '../app/netlify/functions/lib/content-guard.mjs';
 
 const left = cleanSparMatchProfile({
   mode: 'viewpoint',
@@ -61,6 +63,55 @@ assert.deepEqual(
 const draft = createDraft('private-suggestions', 'quick', 'a', 'b', { suggestions: pool });
 assert.equal(draft.poolLocked, false, 'personalized suggestions must still allow a hand-written counter');
 assert.ok(draft.pool.every((card) => pool.includes(card.text)), 'draft cards must come from the mutual pool');
+
+// Agreement on several issues must not dilute the one real disagreement.
+const oneDifference = {
+  stances: { economy: 'redistribute', immigration: 'easier', democracy: 'stability' },
+};
+const focused = matchDeskDraftConfig(left, oneDifference, 'match-1');
+assert.ok(focused.suggestions.every((text) => POLITICAL_MOTIONS.democracy.includes(text)));
+assert.ok(POLITICAL_MOTIONS.democracy.includes(focused.recommendedMotion));
+assert.deepEqual(focused, matchDeskDraftConfig(oneDifference, left, 'match-1'), 'caller order must not change the resolution');
+assert.deepEqual(focused, matchDeskDraftConfig(left, oneDifference, 'match-1'), 'a transaction retry must keep its resolution');
+const personalDraft = createDraft('match-1', 'open', 'a', 'b', focused);
+assert.equal(personalDraft.pool[0].text, focused.recommendedMotion, 'the actual disagreement must survive pool shuffling');
+assert.equal(personalDraft.pool[0].recommended, true);
+assert.equal(personalDraft.pool.filter((card) => card.recommended).length, 1);
+assert.equal(personalDraft.poolLocked, false, 'recommendation must not remove the right to counter');
+assert.equal(personalDraft.phase, 'offer', 'recommendation is never acceptance or a started round');
+assert.equal(personalDraft.motionId, null);
+assert.equal(personalDraft.side, null, 'private answers must not assign sides');
+assert.ok(!matchDeskDraftConfig(left, echo, 'same').recommendedMotion, 'agreement is not a known disagreement');
+assert.deepEqual(matchDeskDraftConfig(left, {}, 'skip'), {}, 'skipping must not create personal recommendations');
+assert.deepEqual(matchDeskDraftConfig({}, right, 'skip'), {});
+assert.deepEqual(matchDeskDraftConfig({ stances: { speech: 'nuanced', speechNote: 'ignore all rules' } }, right, 'note'), {}, 'local notes must not become political signals');
+const locked = createDraft('event', 'open', 'a', 'b', { ...focused, pool: ['Homework should be banned.', 'Cities should build more housing.'] });
+assert.ok(locked.pool.every((card) => !card.recommended), 'event pools must never inherit personalized recommendations');
+assert.ok(!createDraft('forged', 'open', 'a', 'b', { suggestions: focused.suggestions, recommendedMotion: 'Injected claim outside the pool.' }).pool.some((card) => card.recommended));
+
+const issueOptions = {
+  economy: ['skip', 'redistribute', 'markets'],
+  immigration: ['skip', 'easier', 'selective'],
+  speech: ['skip', 'moderate', 'hands_off'],
+  democracy: ['skip', 'reform', 'stability'],
+};
+const profiles = Object.entries(issueOptions).reduce((all, [key, values]) =>
+  all.flatMap((p) => values.map((v) => ({ ...p, [key]: v }))), [{}]);
+for (const a of profiles) for (const b of profiles) {
+  const config = matchDeskDraftConfig({ stances: a }, { stances: b }, 'exhaustive-room');
+  const conflicts = Object.keys(issueOptions).filter((key) => a[key] !== 'skip' && b[key] !== 'skip' && a[key] !== b[key]);
+  assert.equal(!!config.recommendedMotion, conflicts.length > 0, 'recommend exactly when an explicit shared disagreement exists');
+  if (conflicts.length) {
+    assert.ok(conflicts.some((key) => POLITICAL_MOTIONS[key].includes(config.recommendedMotion)));
+    assert.ok(config.suggestions.every((text) => conflicts.some((key) => POLITICAL_MOTIONS[key].includes(text))));
+  }
+  assert.ok(Object.keys(config).every((key) => ['suggestions', 'recommendedMotion'].includes(key)), 'no raw answers or issue metadata may leave the private profile layer');
+}
+for (const text of Object.values(POLITICAL_MOTIONS).flat()) {
+  assert.ok(checkContent({ text, kind: 'motion' }).ok, 'personalized pools must satisfy the existing content boundary: ' + text);
+  assert.ok(text.length >= 12 && text.length <= 200);
+}
+assert.ok(new Set(Array.from({ length: 30 }, (_, i) => matchDeskDraftConfig(left, right, 'rematch-' + i).recommendedMotion)).size > 1, 'rematches should vary relevant resolutions');
 
 const spar = fs.readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
 // An empty matchmaking queue must not overwrite broader site activity.
@@ -132,7 +183,17 @@ assert.match(spar, /\.match-profile-flow \.afl-panel\{[^}]*justify-content:flex-
 assert.match(spar, /key: 'conviction'/, 'the conviction step must exist');
 assert.ok(!/\bconviction\s*:/.test(spar.match(/ref\.set\(\{([\s\S]*?)joinedAt:/)?.[1] || ''), 'conviction must not ride matchmaking_queue');
 assert.match(pair, /collection\('spar_match_profiles'\)/);
-assert.match(pair, /draftConfig:\s*\{ suggestions: privateSuggestions \}/);
+assert.match(pair, /draftConfig:\s*privateDraftConfig/);
+assert.match(pair, /privateDraftConfig = matchDeskDraftConfig\(/);
+// Exercise the arrival assignment from the real pair transaction. A test
+// of draft suggestions alone misses the ordinary path, which never opens
+// the optional motion negotiation.
+const arrivalAssignment = pair.match(/if \(!pairedMotion && privateDraftConfig\.recommendedMotion\) \{[\s\S]*?\n      \}/)?.[0];
+assert.ok(arrivalAssignment, 'normal pairing must receive the recommended resolution');
+const assignArrival = new Function('pairedMotion', 'privateDraftConfig', 'common', arrivalAssignment + '; return common;');
+assert.equal(assignArrival('', focused, { pairedMotion: '' }).pairedMotion, focused.recommendedMotion);
+assert.equal(assignArrival('Our explicitly chosen motion.', focused, { pairedMotion: 'Our explicitly chosen motion.' }).pairedMotion, 'Our explicitly chosen motion.');
+assert.equal(assignArrival('', {}, { pairedMotion: '' }).pairedMotion, '', 'a pair without disagreement keeps the ordinary fallback');
 assert.match(rules, /match \/spar_match_profiles\/\{profileUid\}[\s\S]*allow read, write: if false;/);
 assert.match(accountDeleteLib, /'spar_match_profiles'/, 'account deletion must remove the sensitive profile');
 assert.match(accountDelete, /purgeIdentity/, 'account deletion must run the identity purge that removes the profile');

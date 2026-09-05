@@ -7,7 +7,7 @@ import {
   cleanSparMatchProfile,
   hasPoliticalSignal,
   rankPoliticalCandidates,
-  mutualPoliticalMotionPool,
+  matchDeskDraftConfig,
 } from './lib/spar-match-profile.mjs';
 import {
   draftSeed, createDraft, advance as advanceDraft,
@@ -1260,13 +1260,20 @@ export default async (request) => {
       // downstream artifact is a reviewed set of motion suggestions, and
       // only when both queue docs prove the profiles synced for this search.
       // The judge sees the settled motion, never why it was suggested.
-      let privateSuggestions = [];
+      let privateDraftConfig = {};
       if (mine.matchProfileReady === true && theirs.matchProfileReady === true
           && myMatchProfileSnap.exists && peerMatchProfileSnap.exists) {
-        privateSuggestions = mutualPoliticalMotionPool(
+        privateDraftConfig = matchDeskDraftConfig(
           myMatchProfileSnap.data(),
           peerMatchProfileSnap.data(),
+          draftSeed(myUid, peerUid, room),
         );
+      }
+      // Negotiation is optional. Give both people the pertinent resolution
+      // on arrival, rather than hiding it behind the Change motion door.
+      // A motion someone deliberately queued with still takes precedence.
+      if (!pairedMotion && privateDraftConfig.recommendedMotion) {
+        common.pairedMotion = privateDraftConfig.recommendedMotion;
       }
 
       // The motion draft. Both docs must have opted in: a client that
@@ -1289,8 +1296,8 @@ export default async (request) => {
           format: pairedFormat,
           seed: draftSeed(myUid, peerUid, room),
           names: { [myUid]: myShort, [peerUid]: peerShort },
-          ...(privateSuggestions.length >= 2
-            ? { draftConfig: { suggestions: privateSuggestions } }
+          ...(privateDraftConfig.suggestions?.length >= 2
+            ? { draftConfig: privateDraftConfig }
             : {}),
           createdAt: FieldValue.serverTimestamp(),
         }, { merge: true });

@@ -153,7 +153,16 @@ export function buildPool(seed, format, options = {}) {
   const want = Math.max(2, Math.min(source.length, 8,
     Math.round(Number(options.poolSize) || POOL_SIZE)));
   const rand = mulberry32(hash32('pool:' + seed));
-  return shuffled(source, rand).slice(0, want).map((text, i) => ({ id: 'p' + (i + 1), text: String(text) }));
+  const recommended = !locked && suggestions.includes(options.recommendedMotion)
+    ? options.recommendedMotion : null;
+  const ordered = shuffled(source, rand);
+  const selected = recommended
+    ? [recommended, ...ordered.filter((text) => text !== recommended)].slice(0, want)
+    : ordered.slice(0, want);
+  return selected.map((text, i) => ({
+    id: 'p' + (i + 1), text: String(text),
+    ...(text === recommended ? { recommended: true } : {}),
+  }));
 }
 
 // Who offers first. A coin flip nobody can influence: derived from the seed
