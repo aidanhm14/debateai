@@ -14,13 +14,24 @@
  * and the arena stays invisible anyway. The other two sources are real
  * inventory that exists most of the time.
  *
- * EVERY PICTURE IS A REAL FRAME OF A REAL ROUND, or there is no picture.
  * A live round's still comes from /api/room-shot (the canvas the room is
  * already receiving, posted by a seated debater). A replay's comes from
- * /api/recording-thumb (a frame of the actual recording). When neither
- * exists the card falls back to a typographic tile and NEVER draws a
- * stand-in image: a stock photo under a LIVE badge is the one failure
- * this surface cannot absorb.
+ * /api/recording-thumb (a frame of the actual recording).
+ *
+ * THE LIVE CARD ALWAYS CARRIES A PICTURE OF THE ROOM (2026-09-04, the
+ * founder, off a card that showed "I vs J" initials under LIVE NOW: put
+ * an actual screenshot of the room there, so a signed-out visitor sees
+ * the room for a second before the Google door). When a round has no
+ * fresh /api/room-shot frame, which is most of the time (a still only
+ * exists once a speech is running with a camera on), the card shows
+ * ROOM_SHOT: a real screenshot of this site's own live-round page in the
+ * audience view, captured from the ?design=spectator scene, so the two
+ * faces are consented stills from the round bank and nobody real is on
+ * it. It is the product UI, not a stock photo, and it is used ONLY on
+ * the live card, only when no live frame exists, and never on the
+ * waiting or replay cards. Names on it are the scene's fake names, not
+ * the debaters in the announced round; the card's own text carries the
+ * real names and motion.
  *
  * Copy is per source and never overstates. A replay says REPLAY and
  * "Watch the replay", not LIVE NOW. Only a round actually in progress
@@ -61,6 +72,10 @@
 
   /* 0 = show the frame as it is. 10 = frost it. */
   var BLUR_PX = 0;
+
+  /* Real screenshot of /live-round in the audience view (see header).
+     Stands in on the LIVE card when /api/room-shot has no fresh frame. */
+  var ROOM_SHOT = '/img/room-shot-live.jpg';
 
   /* LIVE-ONLY MODE (2026-08-31, the founder: when someone joins while a
      round is live, notify them asap).
@@ -419,7 +434,10 @@
         // which is what lets room-shot cache the bytes for a minute.
         img: pick.shot
           ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot)
-          : null,
+          : ROOM_SHOT,
+        // Telemetry: had_pic stays "a live frame of THIS round"; the
+        // room screenshot is reported separately as stand_in.
+        liveFrame: !!pick.shot,
         initials: [initial(pick.proName), initial(pick.conName)]
       };
     });
@@ -658,6 +676,16 @@
       img.addEventListener('error', function () {
         var holder = card.querySelector('.da-livepop__thumb');
         if (!holder) return;
+        // A live frame that 404s (round-shot serve window lapsed between
+        // the list read and the request) drops to the room screenshot,
+        // not to initials: the round is still live and the card still
+        // shows the room. Only the screenshot itself failing collapses
+        // to the tile.
+        if (item.kind === 'live' && img.getAttribute('src') !== ROOM_SHOT) {
+          item.liveFrame = false;
+          img.setAttribute('src', ROOM_SHOT);
+          return;
+        }
         img.remove();
         var fb = document.createElement('span');
         fb.className = 'da-livepop__fallback';
@@ -712,7 +740,7 @@
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, page: here, fast: !!opts.fast });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.img, stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
 
     /* A live round is worth holding the corner for longer than a replay
        nudge: it is happening now and the invitation expires with it. */
@@ -765,7 +793,7 @@
       who: 'banaandebater vs Yael', meta: 'IN PROGRESS',
       cta: googleUser() ? 'Watch this round' : 'Sign in to watch', href: '/live-round?room=demo&spectate=1',
       spectatorAuth: !googleUser(),
-      img: demoPic ? '/landing-shot-live.jpg' : null,
+      img: demoPic ? ROOM_SHOT : null,
       initials: ['B', 'Y']
     };
     setTimeout(function () { render(fake); }, 400);
