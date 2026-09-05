@@ -97,12 +97,16 @@
          would make body a containing block for fixed children. */
       'html.da-auth-locked,html.da-auth-locked body{overflow:hidden!important}' +
       '#ditAuth.on{display:flex}' +
-      '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(408px,100%);max-height:calc(100vh - 32px);max-height:min(720px,calc(100dvh - 32px));overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:30px 26px 22px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
+      '#ditAuth .da-card{background:' + card + ';color:' + ink + ';width:min(480px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;border:1px solid ' + line + ';border-radius:22px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.38);position:relative}' +
+      '#ditAuth .da-card:has(.da-email-options){width:min(780px,100%)}' +
+      '#ditAuth .da-auth-methods,#ditAuth .da-provider-options,#ditAuth .da-email-options{min-width:0}' +
+      '#ditAuth .da-provider-buttons{display:grid;gap:10px}' +
+      '#ditAuth .da-provider-buttons .da-btn{margin:0}' +
       '#ditAuth .da-card::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:#ef4444}' +
       '#ditAuth .da-x{position:absolute;top:12px;right:12px;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:0;background:transparent;color:' + sub + ';font-size:22px;line-height:1;cursor:pointer;border-radius:10px;transition:background .16s ease,color .16s ease}' +
       '#ditAuth .da-x:hover{background:' + field + ';color:' + ink + '}' +
       '#ditAuth h2{font-size:26px;line-height:1.08;font-weight:800;margin:0 34px 8px 0;letter-spacing:0}' +
-      '#ditAuth .da-sub{font-size:15px;color:' + sub + ';margin:0 0 20px;line-height:1.5;max-width:32ch}' +
+      '#ditAuth .da-sub{font-size:15px;color:' + sub + ';margin:0 0 18px;line-height:1.5}' +
       '#ditAuth .da-live-person{display:inline-flex;align-items:center;gap:7px;margin:0 28px 14px 0;padding:7px 10px;border-radius:999px;background:rgba(22,163,74,.1);color:' + (dark ? '#bbf7d0' : '#166534') + ';font-family:"Archivo","Inter",system-ui,sans-serif;font-size:11px;font-weight:800;line-height:1.3;letter-spacing:.06em;text-transform:uppercase}' +
       '#ditAuth .da-live-person-dot{width:7px;height:7px;flex:none;border-radius:50%;background:#16a34a}' +
       '#ditAuth .da-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:13px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font-family:inherit;text-decoration:none;margin-top:10px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}' +
@@ -136,7 +140,7 @@
       '#ditAuth .da-remember input{width:18px;height:18px;margin:0;accent-color:#dc2626}' +
       '#ditAuth .da-link{padding:0;border:0;background:transparent;color:#dc2626;font:inherit;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}' +
       '#ditAuth .da-switch{margin:16px 0 0;text-align:center;color:' + sub + ';font-size:13px}' +
-      '#ditAuth .da-switch--row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}' +
+      '#ditAuth .da-switch--row{margin-top:11px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}' +
       '#ditAuth .da-status{font-size:13px;font-weight:700;color:#15803d;margin:10px 4px 0;text-align:center;line-height:1.35}' +
       '#ditAuth .da-status:empty{display:none}' +
       '#ditAuth .da-note{font-size:13px;color:' + sub + ';margin:14px 4px 0;line-height:1.45;text-align:center}' +
@@ -150,7 +154,9 @@
          has to act on, and red is the action colour on this card. */
       '#ditAuth .da-spam{font-size:13.5px;line-height:1.5;margin:0 0 4px;padding:11px 13px;border-radius:12px;border:1px solid rgba(245,158,11,.42);background:rgba(245,158,11,.10);color:' + ink + '}' +
       '#ditAuth .da-spam strong{display:block;margin-bottom:3px}' +
-      '@media (max-width:380px){#ditAuth{padding:10px}#ditAuth .da-card{padding:26px 20px 20px;border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-btn--hero{font-size:16px}}';
+      '@media (min-width:700px){#ditAuth .da-auth-methods:has(.da-email-options){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}#ditAuth .da-email-options{border-left:1px solid ' + line + ';padding-left:28px}#ditAuth .da-email-options .da-or{margin:0 0 12px}#ditAuth .da-email-options .da-form{margin:0}#ditAuth .da-email-options .da-label:first-child{margin-top:0}}' +
+      '@media (max-width:699px){#ditAuth{padding:12px}#ditAuth .da-card{padding:20px;max-height:calc(100dvh - 24px);border-radius:18px}#ditAuth h2{font-size:24px}#ditAuth .da-live-person{margin-bottom:10px;padding:5px 8px}#ditAuth .da-sub{font-size:14px;line-height:1.4;margin-bottom:12px}#ditAuth .da-terms{font-size:12px;line-height:1.4;padding:8px;margin-bottom:10px}#ditAuth .da-provider-buttons{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}#ditAuth .da-btn--hero{min-height:48px;padding:9px 8px;font-size:14px;gap:6px}#ditAuth .da-or{margin:12px 0 6px}#ditAuth .da-form{margin-top:0}#ditAuth .da-label{margin-top:8px;font-size:12px}#ditAuth .da-input{min-height:44px;padding:10px 12px;margin-top:4px}#ditAuth .da-form-meta{margin-top:6px}#ditAuth .da-remember{margin-top:10px}#ditAuth .da-btn--primary{min-height:44px;padding:10px 12px;margin-top:8px}#ditAuth .da-switch{font-size:12px}}' +
+      '@media (max-height:700px){#ditAuth .da-card{padding:16px}#ditAuth h2{margin-bottom:6px}#ditAuth .da-live-person{padding:5px 8px;margin-bottom:8px}#ditAuth .da-sub{margin-bottom:10px}#ditAuth .da-terms{padding:8px;margin-bottom:8px}#ditAuth .da-or{margin:8px 0 4px}#ditAuth .da-label{margin-top:6px}#ditAuth .da-input{min-height:44px;padding:10px 12px}#ditAuth .da-form-meta{margin-top:6px}#ditAuth .da-remember{margin-top:8px}#ditAuth .da-switch--row{margin-top:8px}}';
     document.head.appendChild(s);
   }
 
@@ -461,9 +467,11 @@
       '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
       inAppNote +
+      '<div class="da-auth-methods"><div class="da-provider-options">' +
       termsFieldHtml() +
       nativeButtons +
-      providerButtons +
+      '<div class="da-provider-buttons">' + providerButtons + '</div></div>' +
+      (noEmail ? '' : '<div class="da-email-options">') +
       (noEmail ? '' : '<div class="da-or">or use email</div>' +
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
         (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
@@ -481,7 +489,7 @@
         (linkMode ? '' : '<label class="da-remember"><input id="daRemember" type="checkbox"' + (keepSignedIn ? ' checked' : '') + '> <span>Keep me signed in</span></label>') +
         '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
           (linkMode ? 'Email me a sign-in link' : creating ? 'Create account' : 'Sign in with email') + '</button>' +
-        '<p class="da-switch da-switch--row" style="margin-top:11px">' +
+        '<p class="da-switch da-switch--row">' +
           '<button type="button" class="da-link" id="daEmailModeSwitch">' +
             (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button>' +
           // The only surviving sign-in/sign-up question, and it is asked
@@ -491,7 +499,8 @@
             '<button type="button" class="da-link" id="daModeSwitch">' +
               (creating ? 'I already have an account' : 'Create an account') + '</button>') +
         '</p>' +
-      '</form>') +
+      '</form></div>') +
+      '</div>' +
       '<div class="da-status" role="status"></div>' +
       '<div class="da-err" role="alert"></div>';
     var xBtn = c.querySelector('.da-x');
