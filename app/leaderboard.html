@@ -1120,6 +1120,20 @@ body.challenge-on .chal-banner{display:flex}
   border-radius:50%;animation:spin .8s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Board-shaped loading state (2026-09-04). Same grid as .board-row so the
+   real rows land in place with no shift; a blank card with a spinner
+   read as an empty board. */
+.sk-row{pointer-events:none;animation:none !important;opacity:1 !important;transform:none !important}
+.sk{display:inline-block;background:var(--text,#111);opacity:.11;border-radius:6px;height:12px;vertical-align:middle;animation:skPulse 1.3s ease-in-out infinite}
+.sk-rank{width:26px;height:26px;border-radius:8px}
+.sk-name{display:flex;align-items:center;gap:12px;min-width:0}
+.sk-avatar{width:34px;height:34px;border-radius:50%;flex:none}
+.sk-line{max-width:100%}
+.sk-num{width:48px;height:14px}
+.sk-pill{width:118px;height:28px;border-radius:999px}
+@keyframes skPulse{0%,100%{opacity:.08}50%{opacity:.16}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.state-failed .cta{cursor:pointer}
 
 /* ─── Sign-in CTA + footer ─── */
 .signin-strip{
@@ -2739,7 +2753,11 @@ async function loadWithFallback(primary, fallback){
 async function loadRatingLadder(){
   try{
     const res=await fetch('/api/leaderboard-ratings');
-    if(!res.ok) return [];
+    // 2026-09-04: a failed fetch is NOT an empty ladder. Returning [] here
+    // painted the "nobody on the board yet" pitch on every network blip,
+    // which reads as the site being empty rather than the request having
+    // failed. null means "did not answer"; loadView retries on it.
+    if(!res.ok) return null;
     const data=await res.json();
     const rows=(data.rows||[]).map(r=>({
       uid:r.uid,
@@ -2777,7 +2795,7 @@ async function loadRatingLadder(){
     return rows;
   }catch(e){
     console.warn('[leaderboard] rating ladder fetch failed:', e&&e.message);
-    return [];
+    return null;
   }
 }
 // Standings for the head-to-head tab: rated people first (placed rows
@@ -2795,20 +2813,120 @@ function liveStandings(){
   return ladder.concat(seeds);
 }
 
-async function loadView(view){
-  if(!db){
-    // No Firestore (offline / Firebase blocked). Show the same honest
-    // empty-state renderTable surfaces below — it's the right answer
-    // whether the board is empty because nobody's played yet or because
-    // we can't reach the network.
-    state.cache[view]=[];
-    renderFormatPills([]);
-    renderBoard([]);
-    renderHotFormats([]);
-    updateTabCounts();
-    signinStrip.hidden=false;
-    return;
+// ── load order (2026-09-04, the founder: "it shows an image of it empty
+// then loads. just load the leaderboard even if slower") ──────────
+// Three rules, in priority order:
+//   1. A repeat visitor sees the LAST GOOD BOARD at first paint, from
+//      localStorage, and the fresh load replaces it silently when it
+//      differs. No spinner, no empty board, no layout shift.
+//   2. A first visitor sees a board-shaped skeleton, never a spinner in
+//      a blank card and never the "nobody yet" pitch, until a request
+//      has actually answered.
+//   3. A load that FAILS is retried (1.2s, then 3s) behind the skeleton
+//      or the cached board. Only after that does a failure state render,
+//      and it says the load failed with a Retry button. The empty-state
+//      pitch is reserved for a request that resolved with zero rows,
+//      because "nobody is here" and "we could not ask" are different
+//      claims and only one of them is true on a network blip.
+const PAYLOAD_TTL_MS = 24*3600*1000;
+const LOAD_RETRY_MS = [1200, 3000];
+function payloadKey(view){ return 'da-lb-payload1:'+view; }
+function readPayload(view){
+  try{
+    const raw=localStorage.getItem(payloadKey(view));
+    if(!raw) return null;
+    const obj=JSON.parse(raw);
+    if(!obj || !obj.ts || (Date.now()-obj.ts) > PAYLOAD_TTL_MS) return null;
+    if(!Array.isArray(obj.rows)) return null;
+    return obj;
+  }catch(e){ return null; }
+}
+function writePayload(view, ratingRows, rows){
+  try{
+    localStorage.setItem(payloadKey(view), JSON.stringify({ts:Date.now(), ratingRows:ratingRows||null, rows:rows||[]}));
+  }catch(e){}
+}
+function payloadSig(ratingRows, rows){
+  try{ return JSON.stringify([ratingRows||null, rows||[]]); }catch(e){ return String(Math.random()); }
+}
+function renderSkeleton(){
+  let rowsHtml='';
+  for(let i=0;i<8;i++){
+    rowsHtml+=`<div class="board-row sk-row" aria-hidden="true">
+      <div><span class="sk sk-rank"></span></div>
+      <div class="sk-name"><span class="sk sk-avatar"></span><span class="sk sk-line" style="width:${52+((i*23)%38)}%"></span></div>
+      <div><span class="sk sk-line" style="width:70%"></span></div>
+      <div><span class="sk sk-line" style="width:55%"></span></div>
+      <div class="cell-rounds"><span class="sk sk-line" style="width:50%"></span></div>
+      <div class="cell-when"><span class="sk sk-line" style="width:60%"></span></div>
+      <div style="text-align:right"><span class="sk sk-line sk-num"></span></div>
+      <div class="cell-connect" style="text-align:right"><span class="sk sk-pill"></span></div>
+    </div>`;
   }
+  board.innerHTML=`<div class="skeleton" role="status" aria-live="polite" aria-label="Loading the board">${rowsHtml}</div>`;
+}
+function renderLoadFailed(view){
+  board.innerHTML=`
+    <div class="state state-failed">
+      <h3>The board did not load.</h3>
+      <p class="state-honest">The request did not get through. This is a connection problem on our side or yours, not an empty board.</p>
+      <button type="button" class="cta" id="boardRetry">Try again</button>
+    </div>`;
+  const b=document.getElementById('boardRetry');
+  if(b) b.addEventListener('click', ()=>{ state.loadFailed[view]=false; loadView(view); });
+}
+function paintView(view, ratingRows, rows){
+  if(view==='live') state.ratingRows=ratingRows||[];
+  state.cache[view]=rows;
+  if(view==='live') state.placedCount=(state.ratingRows||[]).filter(r=>r._placed).length;
+  renderFormatPills(rows);
+  renderBoard(rows);
+  renderHotFormats(rows);
+  renderYourRank();
+  updateTabCounts();
+  signinStrip.hidden=!!state.user;
+}
+async function fetchView(view){
+  // Resolves {ratingRows, rows} or throws. For the human tab the ladder is
+  // the standings, so a ladder that did not answer is a failed load; the
+  // round entries only feed the ticker, stats and subjects, so a failed
+  // entries read costs those and never the standings.
+  if(view==='live'){
+    const [ladder, entryRows]=await Promise.all([
+      loadRatingLadder(),
+      loadWithFallback(
+        db.collection('leaderboard_entries')
+          .where('kind','==','live')
+          .orderBy('score','desc')
+          .limit(100),
+        ()=>db.collection('leaderboard_entries')
+          .orderBy('score','desc')
+          .limit(500)
+      ).catch(e=>{
+        console.warn('[leaderboard] live entries load failed:', e&&e.message);
+        return [];
+      }),
+    ]);
+    if(ladder===null) throw new Error('ladder did not answer');
+    return { ratingRows: ladder, rows: entryRows.filter(r=>r.kind==='live').slice(0,100) };
+  }
+  let rows=await loadWithFallback(
+    db.collection('leaderboard_entries')
+      .where('kind','==','voice')
+      .orderBy('score','desc')
+      .limit(200),
+    ()=>db.collection('leaderboard_entries')
+      .orderBy('score','desc')
+      .limit(500)
+  );
+  return { ratingRows: null, rows: rows.filter(r=>r.kind==='voice').slice(0,100) };
+}
+state.loadFailed = state.loadFailed || {};
+state.loadSeq = state.loadSeq || {};
+async function loadView(view){
+  const seq = (state.loadSeq[view]||0)+1;
+  state.loadSeq[view]=seq;
+  const stale = ()=> state.loadSeq[view]!==seq || state.view!==view;
   if(state.cache[view] && (view==='live' ? state.ratingRows!==null : true)){
     renderBoard(state.cache[view]);
     renderFormatPills(state.cache[view]);
@@ -2816,65 +2934,61 @@ async function loadView(view){
     updateTabCounts();
     return;
   }
-  board.innerHTML=`<div class="state"><div class="spinner" aria-label="Loading"></div></div>`;
-  try{
-    let rows=[];
-    if(view==='live'){
-      // Ladder and round entries load in parallel. A failed entries read
-      // costs the ticker and stats, never the standings, and vice versa.
-      const [ladder, entryRows]=await Promise.all([
-        state.ratingRows!==null ? Promise.resolve(state.ratingRows) : loadRatingLadder(),
-        loadWithFallback(
-          db.collection('leaderboard_entries')
-            .where('kind','==','live')
-            .orderBy('score','desc')
-            .limit(100),
-          ()=>db.collection('leaderboard_entries')
-            .orderBy('score','desc')
-            .limit(500)
-        ).catch(e=>{
-          console.warn('[leaderboard] live entries load failed:', e&&e.message);
-          return [];
-        }),
-      ]);
-      state.ratingRows=ladder;
-      state.placedCount=ladder.filter(r=>r._placed).length;
-      rows=entryRows.filter(r=>r.kind==='live').slice(0,100);
-    }else if(view==='ai'){
-      rows=await loadWithFallback(
-        db.collection('leaderboard_entries')
-          .where('kind','==','voice')
-          .orderBy('score','desc')
-          .limit(200),
-        ()=>db.collection('leaderboard_entries')
-          .orderBy('score','desc')
-          .limit(500)
-      );
-      rows=rows.filter(r=>r.kind==='voice').slice(0,100);
-    }
-    // Seed merge removed 2026-05-25: the board now shows ONLY real
-    // entries. If that means an empty state, the empty state itself
-    // makes the honest pitch (early product, ~10 DAU, sign up to be
-    // among the first 100 ranked). See renderTable below.
-    state.cache[view]=rows;
-    renderFormatPills(rows);
-    renderBoard(rows);
-    renderHotFormats(rows);
-    renderYourRank();
-    updateTabCounts();
-    signinStrip.hidden=!!state.user;
-  }catch(e){
-    console.warn('[leaderboard] load failed:',e);
-    // Same honesty: a load failure shows the empty-state pitch, not a
-    // fake-pool fallback that pretends activity exists.
-    state.cache[view]=[];
-    renderFormatPills([]);
-    renderBoard([]);
-    renderHotFormats([]);
-    renderYourRank();
-    updateTabCounts();
-    signinStrip.hidden=!!state.user;
+  // Rule 1: the last good board paints before any request is made.
+  const cached=readPayload(view);
+  let paintedSig=null;
+  if(cached){
+    paintView(view, cached.ratingRows, cached.rows);
+    paintedSig=payloadSig(cached.ratingRows, cached.rows);
+    // paintView filled state.cache so the tab switch is instant; clear it
+    // again so the fresh load below still runs and can replace it.
+    state.cache[view]=null;
+    if(view==='live') state.ratingRows=null;
+  }else{
+    renderSkeleton();
   }
+  if(!db){
+    // No Firestore (offline / Firebase blocked). With a cached board on
+    // screen, keep it. Without one this is a failed load, not an empty
+    // board.
+    if(cached){ state.cache[view]=cached.rows; if(view==='live') state.ratingRows=cached.ratingRows||[]; return; }
+    renderLoadFailed(view);
+    return;
+  }
+  for(let attempt=0; attempt<=LOAD_RETRY_MS.length; attempt++){
+    try{
+      const got=await fetchView(view);
+      if(stale()) return;
+      const sig=payloadSig(got.ratingRows, got.rows);
+      writePayload(view, got.ratingRows, got.rows);
+      if(sig!==paintedSig){
+        paintView(view, got.ratingRows, got.rows);
+      }else{
+        state.cache[view]=got.rows;
+        if(view==='live') state.ratingRows=got.ratingRows||[];
+        renderYourRank();
+        updateTabCounts();
+        signinStrip.hidden=!!state.user;
+      }
+      state.loadFailed[view]=false;
+      return;
+    }catch(e){
+      console.warn('[leaderboard] load failed (attempt '+(attempt+1)+'):', e&&e.message||e);
+      if(attempt<LOAD_RETRY_MS.length){
+        await new Promise(r=>setTimeout(r, LOAD_RETRY_MS[attempt]));
+        if(stale()) return;
+      }
+    }
+  }
+  // Rule 3: every attempt failed. A cached board stays up; otherwise say
+  // the load failed. Never the empty-state pitch off a failure.
+  if(cached){
+    state.cache[view]=cached.rows;
+    if(view==='live') state.ratingRows=cached.ratingRows||[];
+    return;
+  }
+  state.loadFailed[view]=true;
+  renderLoadFailed(view);
 }
 
 // If /js/pfp-set.js lands after the board's first paint (both are
@@ -2886,7 +3000,11 @@ async function loadView(view){
   const tag=document.querySelector('script[src="/js/pfp-set.js"]');
   if(!tag) return;
   tag.addEventListener('load', function(){
-    try{ renderBoard(state.cache[state.view]||[]); }catch(_){}
+    // 2026-09-04: ONLY when rows exist. renderBoard([]) here painted the
+    // "nobody on the board yet" pitch whenever this script landed before
+    // the data did, which on a cold load is most of the time. That was
+    // the empty board people saw for a second before the rows arrived.
+    try{ if(state.cache[state.view] && state.cache[state.view].length) renderBoard(state.cache[state.view]); }catch(_){}
   }, {once:true});
 })();
 
