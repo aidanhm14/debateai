@@ -641,6 +641,19 @@ if [ -f "$SPAR_MATCH_PROFILE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# The generated Match Desk motion must converge before navigation, keep
+# private answers out of the prompt, and fail back without retrying spend.
+for spar_motion_guard in test-spar-motion-generation.mjs test-spar-motion-arrival.mjs; do
+  if [ -f "$REPO_ROOT/scripts/$spar_motion_guard" ] && command -v node >/dev/null 2>&1; then
+    if ! (cd "$REPO_ROOT" && node "scripts/$spar_motion_guard" >/tmp/spar-motion-guard.log 2>&1); then
+      echo "[spar-motion] commit blocked - generated motion or arrival guard failed:" >&2
+      tail -30 /tmp/spar-motion-guard.log >&2
+      exit 1
+    fi
+  fi
+done
+
+
 # ──────────────────────────────────────────────────────────────────
 # Silence-hallucination guard. A transcription model handed ten seconds
 # of silence returns the prompt it was given, not nothing, and our prompt
