@@ -1046,7 +1046,10 @@ input[type=text]:focus,select:focus,textarea:focus{
    One line, two names, two buttons. The dense arena above is untouched
    and comes back by flipping SIMPLE_ROUND in the script; these rules
    only reshape what is left on screen. */
-.arena--simple .arena-stage{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"you ai" "core core"; gap:10px 12px; max-width:900px; }
+/* 2026-09-04 (Aidan: "make it just the debate against the orb"): the two
+   name chips and the judge node no longer render in a simple round, so the
+   stage is one column: motion, the line, the clock. */
+.arena--simple .arena-stage{ grid-template-columns:minmax(0,1fr); grid-template-areas:"core"; gap:10px 12px; max-width:900px; }
 .arena--simple .player--you, .arena--simple .player--ai{ margin:0; max-width:none; }
 /* The card becomes a name chip. Portrait, energy rings and mic meter all
    go: the line is the only thing that should be moving. */
@@ -1081,6 +1084,50 @@ input[type=text]:focus,select:focus,textarea:focus{
 .arena--simple .stage-debaters, .arena--simple .arena-core .stage-debater{ display:none; }
 .roundclock{ font-family:'JetBrains Mono',monospace; font-size:.82rem; letter-spacing:.04em; color:#8a8a98; font-variant-numeric:tabular-nums; }
 [data-theme="light"] .roundclock, [data-theme="stone"] .roundclock{ color:#6a6a72; }
+
+/* ── Live notes rail (2026-09-04) ──────────────────────────────
+   Scratch notes typed during the round, tidied into bullets beside the
+   line. Desktop: a sticky column to the right of the arena. Under 1000px
+   it drops below the arena as a normal block. Private to this browser;
+   the sort call sends the notes, the motion and the side, nothing else. */
+.arena--simple.has-notes{ display:grid; grid-template-columns:minmax(0,1fr) 300px; column-gap:18px; align-items:start; }
+.arena--simple.has-notes > *{ grid-column:1; min-width:0; }
+.arena--simple.has-notes > .notes-rail{ grid-column:2; grid-row:1 / span 9; position:sticky; top:84px; }
+.notes-rail{ display:flex; flex-direction:column; gap:10px; padding:14px 14px 12px; border-radius:14px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); }
+.notes-rail__head{ display:flex; align-items:center; gap:8px; }
+.notes-rail__title{ font-size:.66rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#a9a9b8; }
+.notes-rail__hint{ margin-left:auto; font-size:.66rem; color:#7a7a8a; }
+.notes-rail__hide{ font-size:1.05rem; line-height:1; color:#7a7a8a; padding:0 2px; }
+.notes-rail__hide:hover{ color:#e6e6ee; }
+.notes-rail__compose{ margin-top:2px; }
+.notes-rail__empty{ font-size:.8rem; line-height:1.4; color:#7a7a8a; }
+.notes-rail__input{ width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); color:#fff; border-radius:9px; padding:9px 11px; font:13.5px/1.45 DM Sans,Archivo,Georgia,serif; outline:none; }
+.notes-rail__input:focus{ border-color:rgba(229,69,69,.55); background:rgba(255,255,255,.06); }
+.notes-rail__input::placeholder{ color:rgba(255,255,255,.55); }
+.notes-rail__sorted{ display:flex; flex-direction:column; gap:5px; font-size:.84rem; line-height:1.4; color:#e6e6ee; }
+.notes-rail__h{ margin-top:6px; font-size:.62rem; letter-spacing:.16em; text-transform:uppercase; font-weight:800; color:#fca5a5; }
+.notes-rail__h:first-child{ margin-top:0; }
+.notes-rail__b{ position:relative; padding-left:14px; }
+.notes-rail__b::before{ content:''; position:absolute; left:2px; top:.55em; width:5px; height:5px; border-radius:50%; background:#8a8a98; }
+.notes-rail__foot{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.notes-rail__link{ font-size:.68rem; color:#7a7a8a; text-decoration:underline; text-underline-offset:2px; }
+.notes-rail__link:hover{ color:#e6e6ee; }
+.notes-toggle{ font-size:.7rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#a9a9b8; padding:0; }
+.notes-toggle:hover{ color:#e6e6ee; }
+.notes-rail__copy{ font-size:.7rem; font-weight:700; letter-spacing:.04em; color:#e6e6ee; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 11px; }
+.notes-rail__copy:hover{ background:rgba(255,255,255,.1); }
+@media(max-width:1000px){ .arena--simple.has-notes{ display:block; } .notes-rail{ margin:14px auto 4px; max-width:640px; } }
+[data-theme="light"] .notes-rail, [data-theme="stone"] .notes-rail{ background:rgba(0,0,0,.03); border-color:rgba(0,0,0,.1); }
+[data-theme="light"] .notes-rail__input, [data-theme="stone"] .notes-rail__input{ background:#fff; border-color:rgba(0,0,0,.16); color:#1a1a1f; }
+[data-theme="light"] .notes-rail__input::placeholder, [data-theme="stone"] .notes-rail__input::placeholder{ color:rgba(0,0,0,.5); }
+[data-theme="light"] .notes-rail__sorted, [data-theme="stone"] .notes-rail__sorted{ color:#1a1a1f; }
+[data-theme="light"] .notes-rail__copy, [data-theme="stone"] .notes-rail__copy{ color:#1a1a1f; background:#fff; border-color:rgba(0,0,0,.16); }
+[data-theme="light"] .notes-rail__copy:hover, [data-theme="stone"] .notes-rail__copy:hover{ background:#f1f1ee; }
+[data-theme="light"] .notes-rail__h, [data-theme="stone"] .notes-rail__h{ color:#b91c1c; }
+[data-theme="light"] .notes-rail__b::before, [data-theme="stone"] .notes-rail__b::before{ background:#6a6a72; }
+[data-theme="light"] .notes-rail__title, [data-theme="stone"] .notes-rail__title, [data-theme="light"] .notes-toggle, [data-theme="stone"] .notes-toggle{ color:#52525b; }
+[data-theme="light"] .notes-rail__empty, [data-theme="stone"] .notes-rail__empty, [data-theme="light"] .notes-rail__hint, [data-theme="stone"] .notes-rail__hint, [data-theme="light"] .notes-rail__link, [data-theme="stone"] .notes-rail__link, [data-theme="light"] .notes-rail__hide, [data-theme="stone"] .notes-rail__hide{ color:#6a6a72; }
+[data-theme="light"] .notes-rail__hide:hover, [data-theme="stone"] .notes-rail__hide:hover, [data-theme="light"] .notes-toggle:hover, [data-theme="stone"] .notes-toggle:hover, [data-theme="light"] .notes-rail__link:hover, [data-theme="stone"] .notes-rail__link:hover{ color:#1a1a1f; }
 
 /* Transcript header as a fold. Closed by default in a simple round, so
    the round stays the tallest thing on the page. */
@@ -3973,6 +4020,48 @@ var SFX = {
 //
 // Pure 2D canvas, no WebGL. Costs one shadowBlur pass per frame; the
 // history buffer is fixed-size and allocated once.
+/* ── Live notes helpers ──────────────────────────────────────────
+   tidyNotesLocally: the no-model fallback. Splits scratch text on line
+   breaks and sentence ends, trims, dedupes, caps. Runs the instant the
+   debounce fires so the rail never sits empty, and is the whole sort for
+   guests, whose /api/claude allowance is reserved for the round itself.
+   parseSortedNotes: reads the model's plain-text answer back into
+   header and bullet rows and strips any formatting it was told not to use. */
+function tidyNotesLocally(raw) {
+  var parts = String(raw || '').split(/\n+|[.!?;]\s+|\s+\u2022\s*/);
+  var seen = {};var out = [];
+  parts.forEach(function (p) {
+    var t = String(p || '').replace(/^[\s\-\u2013\u2022*]+/, '').replace(/^\d+[.)]\s*/, '').replace(/\s+/g, ' ').trim();
+    if (t.length < 3) return;
+    t = t.charAt(0).toUpperCase() + t.slice(1);
+    var k = t.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!k || seen[k]) return;
+    seen[k] = 1;
+    out.push({ b: t.length > 140 ? t.slice(0, 137).replace(/\s+\S*$/, '') + '\u2026' : t });
+  });
+  return out.slice(0, 16);
+}
+function parseSortedNotes(text) {
+  var out = [];var bullets = 0;
+  String(text || '').split(/\r?\n/).forEach(function (line) {
+    var t = line.replace(/[*_#`]+/g, '').replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    if (/:$/.test(t) && !/^[-\u2022]/.test(t)) {
+      var head = t.slice(0, -1).trim();
+      // Only the four headers the prompt names are headers. Any other
+      // short colon line is an intro the model was told not to write.
+      if (/^(my points|their points|to answer|reminders)$/i.test(head)) {out.push({ h: head });return;}
+      if (head.split(' ').length <= 6) return;
+    }
+    t = t.replace(/^[-\u2022]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+    if (t.length < 2 || bullets >= 16) return;
+    bullets++;
+    out.push({ b: t });
+  });
+  // A header with nothing under it is noise.
+  return out.filter(function (row, i) {return !row.h || out[i + 1] && out[i + 1].b;});
+}
+
 function startOrbAnimation(canvas, getLevels, isUserSpeakingRef) {
   var ctx = canvas.getContext('2d');
   var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -4217,11 +4306,32 @@ function App() {
   var [motion, setMotion] = useState('');
   // Optional factual background for the motion. The user can either type
   // their own or click Generate background to have Claude Haiku write a
-  // 2-3 sentence factual primer that gets piped into the AI's system
+  // two-sentence factual primer that gets piped into the AI's system
   // prompt for the live round. Mirrors the same flow in debate-it.html.
   var [background, setBackground] = useState('');
   var [generatedBackground, setGeneratedBackground] = useState('');
   var [bgLoading, setBgLoading] = useState(false);
+  // Live notes rail state. Declared up here, above start(), so the reset
+  // in start() and the render further down both see assigned setters.
+  // Raw text survives a refresh through sessionStorage (the same
+  // lifetime as the round checkpoint); the sorted rows are recomputed.
+  var [notesRaw, setNotesRaw] = useState(() => {
+    try {return sessionStorage.getItem('debateos-voice-notes') || '';} catch (e) {return '';}
+  });
+  var [notesSorted, setNotesSorted] = useState([]);
+  var [notesBusy, setNotesBusy] = useState(false);
+  var [notesAi, setNotesAi] = useState(false);
+  var [notesCopied, setNotesCopied] = useState(false);
+  var [notesDraft, setNotesDraft] = useState('');
+  var [notesOpen, setNotesOpen] = useState(() => {
+    try {return localStorage.getItem('debateos-voice-notes-open') !== '0';} catch (e) {return true;}
+  });
+  var notesTimerRef = useRef(null);
+  var notesLastSortedRef = useRef('');
+  var notesCallsRef = useRef(0);
+  var notesInflightRef = useRef(false);
+  var notesLoggedRef = useRef(false);
+  var notesRawRef = useRef('');
   var generateBackground = useCallback(async () => {
     var m = (motion || '').trim();
     if (!m || bgLoading) return;
@@ -4232,8 +4342,8 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 220,
-          system: 'You write debate background primers. Given a motion, output 2-3 plain sentences of factual context: who decides, what the current state of the issue is, and what is actually contested. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only, never use markdown, headings, hash signs, asterisks, bullets, bold, italics, or any other formatting. Output is rendered as plain text directly to the screen.',
+          max_tokens: 110,
+          system: 'You write debate background primers. Given a motion, output at most two short plain sentences, under 40 words in total: who decides, and what is actually contested. Nothing else. No fluff, no opinion, no rhetoric, no "this house" framing. Plain prose only, never use markdown, headings, hash signs, asterisks, bullets, bold, italics, or any other formatting. Output is rendered as plain text directly to the screen.',
           messages: [{ role: 'user', content: `Motion: "${m}". Write the background.` }],
           stream: false,
           _feature: 'voice-debate-background-gen'
@@ -6086,6 +6196,14 @@ function App() {
       setInterruptCount(0);
       setAiSpeakingMs(0);
       setUserSpeakingMs(0);
+      // Notes belong to one round. A resumed round keeps them.
+      setNotesRaw('');
+      setNotesSorted([]);
+      setNotesAi(false);
+      notesLastSortedRef.current = '';
+      notesCallsRef.current = 0;
+      notesLoggedRef.current = false;
+      try {sessionStorage.removeItem('debateos-voice-notes');} catch (e) {}
     }
     // Reset rating state — last round's id/score doesn't apply to a new session.
     setLastVoiceRoundId(null);
@@ -6771,7 +6889,7 @@ function App() {
           `Introduce the round in character before any debating starts. Calm, warm, unhurried. Under 30 seconds total. Do NOT be pushy, salesy, or over-eager — you are setting up a round, not hyping it. Walk these beats in order, plainly, then STOP:
 (1) Read the motion exactly as written: "${m}". NEVER spell out "THBT" / "THW" / "THR" / "THS" / "THO" / "THP" — those abbreviations are already expanded for you, just read what is written. Do not invent or paraphrase the motion.
 (2) Say who is on what side in one short clause: you are on ${aiSideLabel}, the user is on ${userSideLabel}.
-(3) Offer, do not insist, to give a little background or framing on the motion if it helps: e.g. "I can give you a quick bit of context on this one if you'd like, or we can just go." One short offer.
+(3) Offer, do not insist, to give a little background or framing on the motion if it helps: e.g. "I can give you a quick bit of context on this one if you'd like, or we can just go." One short offer. If they say yes, give it in two sentences at most, then hand the floor back.
 (4) On prep: let them take their time${nameSuffix}. e.g. "Take a minute or two to prep, no rush — a minute or so is standard but go as long as you need." Be agreeable about it, not prescriptive.
 (5) One line on how the round runs: speeches with clash in between, and they can take points / you'll take points too. Keep it to a single sentence.
 (6) Close by handing control to them: their mic opens as soon as you stop talking, and they can just start speaking whenever they are ready. e.g. "Your mic opens the moment I stop talking, so start whenever you're ready." Do NOT tell them they are muted and do NOT ask them to press anything.
@@ -7293,6 +7411,133 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
     return header + body + '\n';
   }, [motion, side, mode, persona]);
   var [copiedFlash, setCopiedFlash] = useState(false);
+
+  /* ── Live notes: sort as you type ──────────────
+     The person types half sentences while listening; 1.8s after they
+     pause, the rail shows a local tidy at once, then a Haiku call
+     regroups the same notes into My points / Their points / To answer /
+     Reminders. The model is told to keep every point and add nothing:
+     these are the debater's own notes, not coaching, so the judge never
+     sees them and the AI opponent never sees them. Named accounts only
+     for the model call; a guest's /api/claude allowance pays for the
+     round, so guests get the local tidy and a line saying why. Any
+     failure (401, 402, 429, network) falls back to the local tidy, so
+     the rail never dead-ends. Capped at 40 calls a round. ─────────── */
+  notesRawRef.current = notesRaw;
+  var sortNotesNow = (raw) => {
+    var local = tidyNotesLocally(raw);
+    setNotesSorted(local);
+    setNotesAi(false);
+    var named = false;
+    try {var nu = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;named = !!(nu && !nu.isAnonymous);} catch (e) {}
+    if (!notesLoggedRef.current) {
+      notesLoggedRef.current = true;
+      try {if (window.gtag) gtag('event', 'voice_notes_used', { named: named ? 1 : 0, mode: mode });} catch (e) {}
+    }
+    if (!named || notesInflightRef.current || notesCallsRef.current >= 40 || raw.length < 12) return;
+    notesInflightRef.current = true;
+    notesCallsRef.current += 1;
+    setNotesBusy(true);
+    var sideWord = extMode === 'counter' ? 'the candidate defending my work' : side === 'gov' ? 'for the motion' : 'against the motion';
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 420,
+        system: 'You tidy a debater\'s live scratch notes into short bullet points while their round runs. Keep every point the notes contain and add nothing that is not in them: no new facts, arguments, or advice. Each bullet is one plain line under 14 words. Group under these headers only when the notes hold that kind of item: My points, Their points, To answer, Reminders. A note about what the other side said goes under Their points; a note about what to say back goes under To answer. Output plain text only: a header is a line ending with a colon, a bullet is a line starting with "- ". No other formatting, no opening or closing line. At most 14 bullets.',
+        messages: [{ role: 'user', content: 'Motion: "' + (motion || 'not set yet') + '". I am arguing ' + sideWord + '. My notes:\n' + raw.slice(0, 2400) }],
+        stream: false,
+        _feature: 'voice-debate-notes-sort'
+      })
+    }).then((r) => r.ok ? r.json() : null).then((d) => {
+      var text = d && d.content && d.content[0] && d.content[0].text || '';
+      var rows = parseSortedNotes(text);
+      // Only adopt the model's version while the notes it read are still
+      // the current notes; a newer keystroke already has its own timer.
+      if (rows.length && String(notesRawRef.current || '').trim() === raw) {
+        setNotesSorted(rows);
+        setNotesAi(true);
+      }
+    }).catch(() => {}).finally(() => {
+      notesInflightRef.current = false;
+      setNotesBusy(false);
+    });
+  };
+  useEffect(() => {
+    try {
+      if (notesRaw) sessionStorage.setItem('debateos-voice-notes', notesRaw.slice(0, 6000));else
+      sessionStorage.removeItem('debateos-voice-notes');
+    } catch (e) {}
+  }, [notesRaw]);
+  useEffect(() => {
+    if (status !== 'live') return;
+    var raw = String(notesRaw || '').trim();
+    if (notesTimerRef.current) {clearTimeout(notesTimerRef.current);notesTimerRef.current = null;}
+    if (!raw) {setNotesSorted([]);setNotesAi(false);notesLastSortedRef.current = '';return;}
+    if (raw === notesLastSortedRef.current) return;
+    notesTimerRef.current = setTimeout(() => {
+      notesTimerRef.current = null;
+      notesLastSortedRef.current = raw;
+      sortNotesNow(raw);
+    }, 1800);
+    return () => {if (notesTimerRef.current) {clearTimeout(notesTimerRef.current);notesTimerRef.current = null;}};
+  }, [notesRaw, status]);
+  var setNotesOpenPersist = (open) => {
+    setNotesOpen(open);
+    try {localStorage.setItem('debateos-voice-notes-open', open ? '1' : '0');} catch (e) {}
+  };
+  var copySortedNotes = () => {
+    var lines = notesSorted.map((r) => r.h ? '\n' + r.h + ':' : '- ' + r.b).join('\n').trim();
+    if (!lines) return;
+    try {navigator.clipboard.writeText(lines);setNotesCopied(true);setTimeout(() => setNotesCopied(false), 1400);} catch (e) {}
+  };
+  var renderNotesRail = () => {
+    if (!SIMPLE_ROUND || !notesOpen || viewMode !== 'full') return null;
+    return el('aside', { className: 'notes-rail', 'aria-label': 'Your notes' },
+    el('div', { className: 'notes-rail__head' },
+    el('span', { className: 'notes-rail__title' }, 'Notes'),
+    el('span', { className: 'notes-rail__hint' }, notesBusy ? 'Sorting' : notesSorted.length ? notesAi ? 'Sorted' : 'Tidied' : 'Private'),
+    el('button', { type: 'button', className: 'notes-rail__hide', onClick: () => setNotesOpenPersist(false), 'aria-label': 'Hide notes', title: 'Hide notes' }, '\u00d7')
+    ),
+    // Only the sorted notes show (Aidan, 2026-09-04: "just show the
+    // summary notes not transcript"). The raw text stays in state for
+    // the next sort and never renders.
+    notesSorted.length > 0 ? el('div', { className: 'notes-rail__sorted', 'aria-live': 'polite' },
+    notesSorted.map((row, i) => row.h ?
+    el('div', { key: 'h' + i, className: 'notes-rail__h' }, row.h) :
+    el('div', { key: 'b' + i, className: 'notes-rail__b' }, row.b))
+    ) : el('div', { className: 'notes-rail__empty' }, notesRaw.trim() ? 'Sorting your first note.' : 'Type a note below. It lands here, sorted.'),
+    el('form', {
+      className: 'notes-rail__compose',
+      onSubmit: (e) => {
+        e.preventDefault();
+        var t = notesDraft.trim();
+        if (!t) return;
+        setNotesRaw((prev) => (prev ? prev.replace(/\s+$/, '') + '\n' : '') + t);
+        setNotesDraft('');
+      }
+    },
+    el('input', {
+      type: 'text',
+      className: 'notes-rail__input',
+      value: notesDraft,
+      onChange: (e) => setNotesDraft(e.target.value),
+      placeholder: 'Add a note. Enter files it.',
+      maxLength: 400,
+      spellCheck: false,
+      'aria-label': 'Add a note'
+    })
+    ),
+    notesSorted.length > 0 && el('div', { className: 'notes-rail__foot' },
+    el('button', { type: 'button', className: 'notes-rail__copy', onClick: copySortedNotes, title: 'Copy the sorted notes' }, notesCopied ? '\u2713 Copied' : 'Copy'),
+    !notesAi && !notesBusy && el('button', {
+      type: 'button', className: 'notes-rail__link',
+      onClick: () => {try {if (window.openAuthModal) window.openAuthModal('signup');} catch (e) {}}
+    }, 'Sign in and the AI groups these for you.')
+    )
+    );
+  };
 
   /* ── Text-to-AI interject (live mode) ──────────
      Lets the user type a quick point while the AI is mid-speech.
@@ -8466,7 +8711,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     className: 'motion-chip',
     disabled: !motion.trim() || bgLoading,
     onClick: generateBackground,
-    title: !motion.trim() ? 'Type or roll a motion first' : 'Pull 2-3 sentences of factual context the AI will use this round',
+    title: !motion.trim() ? 'Type or roll a motion first' : 'Pull two short sentences of factual context the AI will use this round',
     style: {
       background: !motion.trim() ? 'rgba(255,255,255,.02)' : 'rgba(96,165,250,.10)',
       borderColor: !motion.trim() ? 'rgba(255,255,255,.12)' : 'rgba(96,165,250,.35)',
@@ -8491,7 +8736,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     value: background || generatedBackground,
     onChange: (e) => {setBackground(e.target.value);setGeneratedBackground('');},
     placeholder: 'Factual context for the motion',
-    rows: 3,
+    rows: 2,
     // className lets the light-theme rule (added below this
     // block) flip the color to a dark ink — the previous
     // inline `var(--c-text, #e5e5ea)` was a pale near-white
@@ -8919,7 +9164,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // notice; the full arena below stays mounted but display:none'd
   // (arena--stowed) so the orb canvas + analysers keep running.
   isLive && viewMode !== 'full' && renderMinimized(),
-  isLive && el('div', { className: 'arena' + (SIMPLE_ROUND ? ' arena--simple' : '') + (speaking === 'user' ? ' is-user' : '') + (interruptShock ? ' is-shock' : '') + (viewMode !== 'full' ? ' arena--stowed' : '') },
+  isLive && el('div', { className: 'arena' + (SIMPLE_ROUND ? ' arena--simple' : '') + (SIMPLE_ROUND && notesOpen && viewMode === 'full' ? ' has-notes' : '') + (speaking === 'user' ? ' is-user' : '') + (interruptShock ? ' is-shock' : '') + (viewMode !== 'full' ? ' arena--stowed' : '') },
   el('div', { className: 'arena__bg', 'aria-hidden': 'true' }),
   el('div', { className: 'arena__shock', 'aria-hidden': 'true' }),
 
@@ -8971,7 +9216,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
 
   // YOU — your entity card: portrait + reactive energy field, name,
   // side, live status, and your own mic meter.
-  el('div', { className: 'player player--you ' + (speaking === 'user' ? 'is-speaking' : 'is-listening') },
+  !SIMPLE_ROUND && el('div', { className: 'player player--you ' + (speaking === 'user' ? 'is-speaking' : 'is-listening') },
   el('div', { className: 'player__top' },
   el('div', { className: 'player__name' }, userFirstName || 'You'),
   el('div', { className: 'player__role' }, extMode === 'counter' ? 'Candidate' : side === 'gov' ? 'Pro' : 'Con')
@@ -8989,7 +9234,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // AI — opponent entity card. Same portrait + energy treatment, plus a
   // composing state (forming-argument nodes) in the think gap and a
   // cut-off state the instant the user interrupts.
-  el('div', { className: 'player player--ai ' + (interruptShock ? 'is-challenged ' : '') + (speaking === 'ai' ? 'is-speaking' : aiThinking ? 'is-thinking' : 'is-listening') },
+  !SIMPLE_ROUND && el('div', { className: 'player player--ai ' + (interruptShock ? 'is-challenged ' : '') + (speaking === 'ai' ? 'is-speaking' : aiThinking ? 'is-thinking' : 'is-listening') },
   el('div', { className: 'player__top' },
   el('div', { className: 'player__name' }, persona.name.split(' ')[0]),
   el('div', { className: 'player__role' }, persona.archetype)
@@ -9007,7 +9252,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // so the existing orb glow / label / timer / phase-pill / speech-ctrl
   // rules all still apply. Adds a neutral judge-presence node on top.
   el('div', { className: 'arena-core stage' + (speaking === 'user' ? ' user' : '') },
-  el('div', { className: 'judge-node', title: 'An AI judge tracks the round and writes the ballot at the end.' },
+  !SIMPLE_ROUND && el('div', { className: 'judge-node', title: 'An AI judge tracks the round and writes the ballot at the end.' },
   el('span', { className: 'eye', 'aria-hidden': 'true' }),
   el('span', { className: 'jl' }, 'Judge'),
   el('span', { className: 'js' }, phase === 'done' ? 'Reading the flow' : 'Tracking the round')
@@ -9086,6 +9331,10 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   })()
   )
   ),
+  // Notes rail. Beside the stage on desktop (grid column 2, see
+  // .arena--simple.has-notes), under it on a phone, above the controls
+  // either way so the End button stays last.
+  renderNotesRail(),
   // Argument flow — the live exchange as a row of connected nodes,
   // you (green) vs AI (red), oldest left / newest right, growing through
   // the round. Real `turns` only; hidden until there's a back-and-forth.
@@ -9149,6 +9398,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // Live controls — speed, mute, model badge, recording badge.
   // All tweakable mid-session.
   el('div', { className: 'live-controls' },
+  SIMPLE_ROUND && el('button', { type: 'button', className: 'notes-toggle', onClick: () => setNotesOpenPersist(!notesOpen), 'aria-pressed': notesOpen ? 'true' : 'false' }, notesOpen ? 'Hide notes' : 'Notes'),
   (() => {
     var aiTalking = !muted && speaking === 'ai';
     var cls = 'mute-btn' + (
