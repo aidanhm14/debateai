@@ -103,6 +103,8 @@
     var answers = {};
     steps.forEach(function (s) {
       answers[s.key] = s['default'] != null ? s['default'] : (s.options[0] && s.options[0].value);
+      // Saved write-in text comes back with its step (see opt.write).
+      if (s.writeDefaults) Object.keys(s.writeDefaults).forEach(function (k) { answers[k] = String(s.writeDefaults[k] || ''); });
     });
 
     var root = el('div', 'afl');
@@ -217,11 +219,67 @@
             sib.setAttribute('aria-checked', sib === b ? 'true' : 'false');
           });
           play('select');
+          // A write-in option (2026-09-04, the founder: "have options to
+          // do a 'nuanced' answer and write more") opens a box instead of
+          // advancing. The text lives under opt.write.key; picking any
+          // other option on this step clears it, so a note can never
+          // outlive the answer it explains.
+          if (opt.write && opt.write.key) { openWrite(opt); return; }
+          if (writeBox) { writeBox.hidden = true; if (step.writeKeys) step.writeKeys.forEach(function (k) { answers[k] = ''; }); }
           go(i + 1);
         });
         group.appendChild(b);
       });
       inner.appendChild(group);
+
+      var writeBox = null, writeArea = null, writeFor = null;
+      var writeOpts = step.options.filter(function (o) { return o.write && o.write.key; });
+      if (writeOpts.length) {
+        step.writeKeys = writeOpts.map(function (o) { return o.write.key; });
+        step.writeKeys.forEach(function (k) { if (answers[k] == null) answers[k] = ''; });
+        writeBox = el('div', 'afl-write');
+        writeBox.hidden = true;
+        writeArea = el('textarea', 'afl-write-area');
+        writeArea.rows = 3;
+        writeArea.setAttribute('aria-label', step.q);
+        var writeCount = el('span', 'afl-write-count');
+        var writeGo = el('button', 'afl-write-go', 'Continue');
+        writeGo.type = 'button';
+        var writeRow = el('div', 'afl-write-row');
+        writeRow.appendChild(writeCount);
+        writeRow.appendChild(writeGo);
+        writeBox.appendChild(writeArea);
+        writeBox.appendChild(writeRow);
+        inner.insertBefore(writeBox, group.nextSibling);
+        var syncCount = function () {
+          var max = (writeFor && writeFor.write.maxLength) || 240;
+          writeCount.textContent = writeArea.value.length + ' / ' + max;
+        };
+        writeArea.addEventListener('input', function () {
+          if (!writeFor) return;
+          var max = writeFor.write.maxLength || 240;
+          if (writeArea.value.length > max) writeArea.value = writeArea.value.slice(0, max);
+          answers[writeFor.write.key] = writeArea.value;
+          syncCount();
+        });
+        writeArea.addEventListener('keydown', function (e) {
+          // Enter alone moves on; Shift+Enter keeps writing.
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); writeGo.click(); }
+        });
+        writeGo.addEventListener('click', function () { play('select'); go(i + 1); });
+      }
+      function openWrite(opt) {
+        writeFor = opt;
+        step.writeKeys.forEach(function (k) { if (k !== opt.write.key) answers[k] = ''; });
+        writeArea.placeholder = opt.write.placeholder || 'Say it in a sentence or two.';
+        writeArea.maxLength = opt.write.maxLength || 240;
+        writeArea.value = answers[opt.write.key] || '';
+        writeBox.hidden = false;
+        syncCount();
+        try { writeArea.focus({ preventScroll: true }); } catch (e) { writeArea.focus(); }
+      }
+      // A saved write-in comes back open on its option.
+      writeOpts.forEach(function (o) { if (answers[step.key] === o.value) openWrite(o); });
 
       if (i > 0) {
         var back = el('button', 'afl-back', '← Back');
@@ -271,6 +329,10 @@
         var li = el('li');
         li.appendChild(el('span', null, step.summaryLabel || step.q));
         li.appendChild(el('b', null, picked ? (picked.summaryLabel || picked.label) : String(answers[step.key])));
+        // Write-in text is rendered as text, never markup.
+        if (picked && picked.write && picked.write.key && answers[picked.write.key]) {
+          li.appendChild(el('i', 'afl-summary-note', String(answers[picked.write.key])));
+        }
         summary.appendChild(li);
       });
       launchExtra.innerHTML = '';

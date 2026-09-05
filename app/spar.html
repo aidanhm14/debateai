@@ -3057,16 +3057,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
     },
     economy: {
-      redistribute: 'Government should do more', markets: 'Government should do less', skip: 'Skipped'
+      redistribute: 'Government should do more', markets: 'Government should do less', nuanced: 'Nuanced', skip: 'Skipped'
     },
     immigration: {
-      easier: 'Easier to move countries', selective: 'Keep limits on entry', skip: 'Skipped'
+      easier: 'Easier to move countries', selective: 'Keep limits on entry', nuanced: 'Nuanced', skip: 'Skipped'
     },
     speech: {
-      moderate: 'Take down more political posts', hands_off: 'Leave political posts up', skip: 'Skipped'
+      moderate: 'Take down more political posts', hands_off: 'Leave political posts up', nuanced: 'Nuanced', skip: 'Skipped'
     },
     democracy: {
-      reform: 'Big political changes', stability: 'Go slow on changes', skip: 'Skipped'
+      reform: 'Big political changes', stability: 'Go slow on changes', nuanced: 'Nuanced', skip: 'Skipped'
     },
     mode: {
       viewpoint: 'Someone who disagrees with me', rating: 'Someone at my level', fast: 'Whoever is free first'
@@ -3091,11 +3091,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     else if (hot === 'mod_hands_off' || hot === 'moderation') out.speech = 'hands_off';
     return out;
   }
+  // A nuanced answer carries a short note. It is text a person typed, so
+  // it never leaves this device: not the queue, not the private server
+  // profile, not the opponent, not the judge. Kept only while the answer
+  // it explains is still 'nuanced'.
+  var ISSUE_KEYS = ['economy', 'immigration', 'speech', 'democracy'];
+  function cleanIssueNote(stance, raw){
+    if (stance !== 'nuanced') return '';
+    return String(raw || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+  }
   function cleanMatchProfile(raw){
     var version = Number(raw && raw.version);
     if (!raw || (version !== 2 && version !== 3 && version !== MATCH_PROFILE_VERSION)) return null;
     var politics = version === MATCH_PROFILE_VERSION ? raw : legacyPolitics(raw.hotTake);
-    return {
+    var out = {
       version: MATCH_PROFILE_VERSION,
       // Added 2026-09-04; a v4 profile has no answer and reads as skipped.
       figure: allowedProfileValue('figure', String(raw.figure || ''), 'skip'),
@@ -3107,6 +3116,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       mode: allowedProfileValue('mode', String(raw.mode || ''), 'viewpoint'),
       clipIntent: allowedProfileValue('clipIntent', String(raw.clipIntent || ''), 'private')
     };
+    ISSUE_KEYS.forEach(function(key){ out[key + 'Note'] = cleanIssueNote(out[key], politics[key + 'Note']); });
+    return out;
   }
   function defaultMatchProfile(){
     return cleanMatchProfile({
@@ -3210,44 +3221,48 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       {
         key: 'economy', q: 'Should the government do more, or less?',
         hint: 'Pick what you really think, or skip it. This only helps us find someone who disagrees with you. The judge never sees it.',
-        summaryLabel: 'Economy', 'default': profile.economy,
+        summaryLabel: 'Economy', 'default': profile.economy, writeDefaults: { economyNote: profile.economyNote },
         className: 'mp-panel--politics',
         options: [
           { value: 'redistribute', label: 'More', sub: 'Tax the rich more. Spend more on public services.' },
           { value: 'markets', label: 'Less', sub: 'Lower taxes. Let businesses compete.' },
+          { value: 'nuanced', label: 'It is more nuanced', sub: 'Write a sentence or two. Stays on this device.', summaryLabel: 'Nuanced', write: { key: 'economyNote', maxLength: 240, placeholder: 'Depends what the money goes to. Fine on healthcare, not on subsidies.' } },
           { value: 'skip', label: 'Skip this one', sub: 'Leave it out.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
         ]
       },
       {
         key: 'immigration', q: 'Should it be easier to move to a new country?',
         hint: 'Pick the side you would rather argue, or skip it.',
-        summaryLabel: 'Immigration', 'default': profile.immigration,
+        summaryLabel: 'Immigration', 'default': profile.immigration, writeDefaults: { immigrationNote: profile.immigrationNote },
         className: 'mp-panel--politics',
         options: [
           { value: 'easier', label: 'Yes, easier', sub: 'More legal ways to come and stay.' },
           { value: 'selective', label: 'No, keep limits', sub: 'A country gets to choose who comes in.' },
+          { value: 'nuanced', label: 'It is more nuanced', sub: 'Write a sentence or two. Stays on this device.', summaryLabel: 'Nuanced', write: { key: 'immigrationNote', maxLength: 240, placeholder: 'Easier for workers and students, stricter on who gets to stay for good.' } },
           { value: 'skip', label: 'Skip this one', sub: 'Leave it out.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
         ]
       },
       {
         key: 'speech', q: 'Should social media take down more political posts?',
         hint: 'We mean normal political opinions, not threats or harassment.',
-        summaryLabel: 'Political speech', 'default': profile.speech,
+        summaryLabel: 'Political speech', 'default': profile.speech, writeDefaults: { speechNote: profile.speechNote },
         className: 'mp-panel--politics',
         options: [
           { value: 'moderate', label: 'Yes, take down more', sub: 'Remove more false and harmful posts.' },
           { value: 'hands_off', label: 'No, leave it up', sub: 'Let people argue politics without takedowns.' },
+          { value: 'nuanced', label: 'It is more nuanced', sub: 'Write a sentence or two. Stays on this device.', summaryLabel: 'Nuanced', write: { key: 'speechNote', maxLength: 240, placeholder: 'Label it, do not delete it. Takedowns only for clear lies about voting.' } },
           { value: 'skip', label: 'Skip this one', sub: 'Leave it out.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
         ]
       },
       {
         key: 'democracy', q: 'Does the political system need big changes?',
         hint: 'Pick the one closer to how you feel. The exact topic still gets picked in the room.',
-        summaryLabel: 'Democracy', 'default': profile.democracy,
+        summaryLabel: 'Democracy', 'default': profile.democracy, writeDefaults: { democracyNote: profile.democracyNote },
         className: 'mp-panel--politics',
         options: [
           { value: 'reform', label: 'Yes, big changes', sub: 'How we vote and who holds power needs a real fix.' },
           { value: 'stability', label: 'No, go slow', sub: 'Do not break what already works.' },
+          { value: 'nuanced', label: 'It is more nuanced', sub: 'Write a sentence or two. Stays on this device.', summaryLabel: 'Nuanced', write: { key: 'democracyNote', maxLength: 240, placeholder: 'Fix how districts are drawn and leave the rest alone.' } },
           { value: 'skip', label: 'Skip this one', sub: 'Leave it out.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
         ]
       },
@@ -3280,10 +3295,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       version: MATCH_PROFILE_VERSION,
       figure: a.figure,
       background: a.background,
-      economy: a.economy,
-      immigration: a.immigration,
-      speech: a.speech,
-      democracy: a.democracy,
+      economy: a.economy, economyNote: a.economyNote,
+      immigration: a.immigration, immigrationNote: a.immigrationNote,
+      speech: a.speech, speechNote: a.speechNote,
+      democracy: a.democracy, democracyNote: a.democracyNote,
       mode: a.mode,
       clipIntent: a.clipIntent
     }) || defaultMatchProfile();
@@ -3293,16 +3308,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { localStorage.setItem(MATCH_PROFILE_KEY, JSON.stringify(matchProfile)); } catch(e){}
   }
 
+  // 'nuanced' has no side, so it rides the wire as 'skip'. The note itself
+  // never rides at all (see cleanIssueNote).
+  function wireStance(v){ return v === 'nuanced' ? 'skip' : v; }
   function privateMatchProfilePayload(){
     var p = matchProfile || defaultMatchProfile();
     return {
       version: MATCH_PROFILE_VERSION,
       matchMode: p.mode,
       stances: {
-        economy: p.economy,
-        immigration: p.immigration,
-        speech: p.speech,
-        democracy: p.democracy
+        economy: wireStance(p.economy),
+        immigration: wireStance(p.immigration),
+        speech: wireStance(p.speech),
+        democracy: wireStance(p.democracy)
       }
     };
   }
