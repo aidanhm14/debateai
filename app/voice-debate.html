@@ -14,6 +14,7 @@
      screen. Hiding payment surfaces in the native build is Apple guideline
      3.1.1, and the bridge is what does the hiding. -->
 <script src="/js/native-bridge.js"></script>
+<script src="/js/auth-modal.js"></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -6174,6 +6175,12 @@ function App() {
   }
 
   var start = useCallback(async () => {
+    if (!window.hasDebatableAccount()) {
+      window.requireDebatableAccount({ source: 'voice_debate_start', onDone: function (user) {
+          if (user) start();
+        } });
+      return;
+    }
     setError('');
     setErrorKind('');
     var resumingSnapshot = resumeSnapshotRef.current;
@@ -8480,6 +8487,12 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       }, 40);
     };
     var launchMission = async () => {
+      if (!window.hasDebatableAccount()) {
+        window.requireDebatableAccount({ source: 'voice_debate_start', onDone: function (user) {
+            if (user) launchMission();
+          } });
+        return;
+      }
       try {if (window.gtag) gtag('event', 'voice_guided_start', { mission: activeMission.key, mode: mode });} catch (e) {}
       if (!String(motion || '').trim() && typeof SAMPLE_MOTIONS !== 'undefined' && SAMPLE_MOTIONS.length) {
         try {setMotion(expandMotionAcronyms(SAMPLE_MOTIONS[Math.floor(Math.random() * SAMPLE_MOTIONS.length)].text));} catch (e) {}

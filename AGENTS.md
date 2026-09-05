@@ -5,6 +5,17 @@
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
+## Sign-in policy (2026-09-05)
+
+Web visitors get a locked Google sign-in chooser after 40 cumulative visible
+seconds across pages and reloads. Existing named accounts are already identified.
+The one guest human round is uninterrupted, including the site-shell player.
+A required inline account gate does not get a second dialog over it. Legal text
+stays readable. AI debates require a named account before Start and server-side
+before a fresh generation or voice mint. Signed Realtime continuations can finish
+an already admitted round. Native provider choices are unchanged. This supersedes
+older anonymous-AI and disabled-wall language below; see soul.md section 4.
+
 ## First screen: stranger board for everyone (A/B called 2026-07-22)
 
 The 2026-07-22 `ticker` vs `current` first-screen A/B was **called by

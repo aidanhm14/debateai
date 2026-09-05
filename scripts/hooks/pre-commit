@@ -151,6 +151,16 @@ if [ -f "$AUTH_MODAL_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Account conversion gates: visible time, round exemptions and server refusal.
+for SIGNIN_GUARD in test-signin-wall test-ai-account-required; do
+  [ -f "$REPO_ROOT/scripts/$SIGNIN_GUARD.mjs" ] || continue
+  if ! (cd "$REPO_ROOT" && node "scripts/$SIGNIN_GUARD.mjs" >"/tmp/$SIGNIN_GUARD.log" 2>&1); then
+    echo "[signin-guard] commit blocked: $SIGNIN_GUARD failed" >&2
+    tail -25 "/tmp/$SIGNIN_GUARD.log" >&2
+    exit 1
+  fi
+done
+
 # Cross-page UX journey guard. These paths fail quietly when they drift:
 # checkout can lose plan intent at sign-in, an anonymous Firebase shadow
 # account can look paid-ready, and retired hash/format routes can still render

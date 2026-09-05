@@ -1421,6 +1421,18 @@
       modal.addEventListener('click', function (event) { if (event.target === modal) close(); });
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && modal.classList.contains('on')) close();
+        if (event.key === 'Tab' && modal.classList.contains('on')) {
+          var controls = Array.prototype.filter.call(modal.querySelectorAll('button, a[href], input, [tabindex="0"]'), function (control) {
+            return !control.disabled && control.getClientRects().length;
+          });
+          var first = controls[0], last = controls[controls.length - 1];
+          if (!first) return;
+          if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+            event.preventDefault(); last.focus();
+          } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+            event.preventDefault(); first.focus();
+          }
+        }
       });
     }
     lastFocus = document.activeElement;
@@ -1438,6 +1450,55 @@
     if (closeButton) closeButton.focus();
   }
   window.openAuthModal = openAuthModal;
+
+  window.hasDebatableAccount = function () {
+    try { var u = firebase.auth().currentUser; return !!(u && !u.isAnonymous); }
+    catch (e) { return false; }
+  };
+  window.closeDebatableSigninWall = function () {
+    // Firebase publishes auth before the popup promise resolves. Let the
+    // normal completion consume onDone first, or it falls through to a reload.
+    setTimeout(function () {
+      if (locked && window.hasDebatableAccount()) handOff('restored');
+    }, 0);
+  };
+
+  // Keep the initiating page and its topic/side choices alive through OAuth.
+  // Wait for Firebase's first answer so restored accounts never see a gate.
+  var accountRequestPending = false;
+  window.requireDebatableAccount = function (opts) {
+    opts = opts || {};
+    if (accountRequestPending) return;
+    accountRequestPending = true;
+    function done(user) {
+      accountRequestPending = false;
+      if (typeof opts.onDone === 'function') opts.onDone(user);
+    }
+    bootstrap(function () {
+      var settled = false, unsubscribe = null;
+      function decide(user) {
+        if (settled) return;
+        settled = true;
+        if (unsubscribe) unsubscribe();
+        if (user && !user.isAnonymous) { done(user); return; }
+        track('ai_signin_required', { path: location.pathname, source: opts.source || 'ai_start' });
+        openAuthModal('signup', {
+          googleOnly: !window.__DB_NATIVE,
+          headline: 'Sign in to debate the AI',
+          sub: 'Save your rounds, scores and progress with a free account.',
+          onDone: function (u) {
+            if (u && !u.isAnonymous) track('ai_signin_converted', { path: location.pathname, source: opts.source || 'ai_start' });
+            done(u && !u.isAnonymous ? u : null);
+          }
+        });
+      }
+      try {
+        unsubscribe = firebase.auth().onAuthStateChanged(decide);
+        if (settled && unsubscribe) unsubscribe();
+      } catch (e) { decide(null); }
+      setTimeout(function () { decide(null); }, 3000);
+    });
+  };
 
   // Someone arriving through an emailed link has already done the work;
   // finish it without making them open the modal and ask again.

@@ -201,6 +201,9 @@ export async function requirePaidPlan(request, featureName) {
 
   // Owner bypass — short-circuit before the firestore lookup so the
   // owner can use every paid model without a team record.
+  if (!isNamedAccount(decoded)) {
+    return { ok: false, status: 401, error: 'Sign in with Google to debate the AI.', code: 'SIGN_IN_REQUIRED' };
+  }
   if (isOwnerEmail(decoded.email)) {
     return { ok: true, uid: decoded.sub, plan: 'owner' };
   }

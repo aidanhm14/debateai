@@ -369,6 +369,14 @@ export default async (request, context) => {
     }
   }
 
+  if (!isNamedAccount(decoded)) {
+    return new Response(JSON.stringify({
+      error: 'Sign in with Google to debate the AI.',
+      code: 'SIGN_IN_REQUIRED',
+      signIn: true,
+    }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+
   if (decoded) {
     try {
       userId = decoded.sub;

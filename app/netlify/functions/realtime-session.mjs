@@ -982,6 +982,15 @@ export default async (request, context) => {
 
   // Only a NAMED account earns the per-UID lane. Anonymous-auth callers
   // fall back to the IP lane; see the note on VOICE_LAYERS_USER.
+  // An already admitted round may reconnect with its signed continuation.
+  // Every fresh AI round requires a durable account, before quota or minting.
+  if (!isNamedAccount(earlyDecoded) && !continued) {
+    return new Response(JSON.stringify({
+      error: 'Sign in with Google to debate the AI.',
+      code: 'SIGN_IN_REQUIRED',
+      signIn: true,
+    }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
   const meterUid = (signedInUid && isNamedAccount(earlyDecoded)) ? signedInUid : null;
   const rtCheck = meterUid
     ? await checkLayers('voice', 'uid_' + meterUid, VOICE_LAYERS_USER)

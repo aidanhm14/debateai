@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <script src="/js/native-bridge.js"></script>
+<script src="/js/auth-modal.js"></script>
 <title>Debate an AI Out Loud · Simple Voice Practice · Debatable</title>
 <meta name="description" content="Practice debating out loud with an AI. Choose a topic and side, respond in real time, and get clear feedback when you finish. Runs in your browser.">
 <link rel="canonical" href="https://itsdebatable.com/newvoice">
@@ -2182,6 +2183,12 @@ async function openPeer(session, onOpen, signal){
 let autoStartPending = false;
 async function start(){
   if (status !== 'idle') return;
+  if (!window.hasDebatableAccount()) {
+    window.requireDebatableAccount({ source: 'newvoice_start', onDone: function(user) {
+      if (user) { autoStartPending = true; start(); }
+    } });
+    return;
+  }
   // An unattended start (the ?autostart=1 handoff) has no user gesture behind
   // it, so a browser is entitled to refuse the microphone. That is not an
   // error the person did anything to cause, so it lands them on the setup
@@ -2284,7 +2291,7 @@ async function start(){
         // minutes and two detours to reach a round. Load it on demand.
         openSignInDoor('signup');
         const errS = new Error('signin');
-        errS.html = 'That was your free voice round. <a href="#" onclick="window.openSignInDoor(\'signup\');return false">Sign in free</a> to keep going, or keep sparring typed at <a href="/practice">/practice</a>.';
+        errS.html = '<a href="#" onclick="window.openSignInDoor(\'signup\');return false">Sign in with Google</a> to debate the AI and save your progress.';
         throw errS;
       }
       const upstream = body.openai || raw;

@@ -128,7 +128,7 @@
     document.head.appendChild(s);
   })();
 
-  // The 45-second account wall (2026-08-26). Rides every topbar page for
+  // The 40-second account wall (2026-09-05). Rides every topbar page for
   // the same reason auth-modal.js does: coverage is the point, and a
   // per-page include is how a site-wide rule ends up on 54 of 114 pages.
   // It self-excludes rounds, gated pages, legal text and admin.

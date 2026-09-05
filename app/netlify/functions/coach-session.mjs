@@ -18,7 +18,7 @@
 // direct WebRTC connection to OpenAI — server never sees audio.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
-import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 import {
   voiceGate, openVoiceSession, FREE_VOICE_NAMED,
@@ -275,6 +275,11 @@ export default async (request) => {
   let uid, email;
   try {
     const decoded = await verifyIdToken(token);
+    if (!isNamedAccount(decoded)) {
+      return new Response(JSON.stringify({
+        error: 'Sign in with Google to use the AI coach.', code: 'SIGN_IN_REQUIRED', requireAuth: true,
+      }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
     uid = decoded.sub;
     email = decoded.email || '';
   } catch (err) {

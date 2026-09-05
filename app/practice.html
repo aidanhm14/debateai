@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <script src="/js/native-bridge.js"></script>
+<script src="/js/auth-modal.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Debatable · Casual 1v1 Against an AI Opponent</title>
@@ -7849,6 +7850,12 @@ function App() {
   // Start debate
   var startDebate = () => {
     if (!motion.trim()) return;
+    if (!window.hasDebatableAccount()) {
+      window.requireDebatableAccount({ source: 'practice_start', onDone: function (user) {
+          if (user) startDebate();
+        } });
+      return;
+    }
     // Out of credit? Say so HERE, before the person invests prep time.
     // The round is still charged once at goToSpeeches(); without this
     // check a creditless user walked through the full prep phase and

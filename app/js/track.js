@@ -26,6 +26,15 @@
       document.head.appendChild(pt);
     }
   } catch (e) {}
+  // Cover pages without a topbar too, including /newvoice.
+  try {
+    if (!document.querySelector('script[src*="/js/signin-wall.js"]')) {
+      var wall = document.createElement('script');
+      wall.src = '/js/signin-wall.js';
+      wall.defer = true;
+      document.head.appendChild(wall);
+    }
+  } catch (e) {}
   // Session replay (PostHog) rides the same tag for the same reason:
   // track.js is the one script every public page carries, so injecting
   // here makes replay coverage equal to tracking coverage with no
