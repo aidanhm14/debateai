@@ -53,25 +53,38 @@ test.describe('public pages', () => {
   // queues, so neither test ever touches the age dialog. A CI browser that
   // reaches the searching screen is an empty chair a real person can be
   // paired with, which is the 2026-08-11 finding all over again.
-  test('/spar first-timer: Match Desk, then a guest session, then the age question', async ({ page }) => {
+  test('/spar first-timer: the Match Desk opens first, and closing it lands on a door, never the queue', async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto('/spar');
-    // 2026-09-02: a sessionless visitor meets the six-step Match Desk first.
-    // Its buttons carry no ids, so select by accessible name.
-    const skip = page.getByRole('button', { name: /meet someone asap/i }).first();
-    await expect(skip).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByText(/step 1 of \d/i).first()).toBeVisible();
-    await skip.click();
-    // The free round is offered without a wall: the guest boot state, then
-    // the age question. The Google gate must NOT be what a first-timer sees.
-    const age = page.getByRole('dialog', { name: /how old are you/i });
-    await expect(age).toBeVisible({ timeout: 20_000 });
-    await expect(age.getByRole('button', { name: /18 or older/i })).toBeVisible();
+    // 2026-09-04 (41ac4f86, 9ba3e8c7): a sessionless visitor meets the
+    // Match Desk dialog first, opening on the face question. Its buttons
+    // carry no ids, so select by role and accessible name.
+    const desk = page.getByRole('dialog', { name: /matchmaker profile/i });
+    await expect(desk).toBeVisible({ timeout: 25_000 });
+    await expect(desk.getByText(/step 1 of \d/i).first()).toBeVisible();
+    // The desk comes BEFORE any account ask: no Google card under it.
     await expect(page.locator('#signInBtn')).toHaveCount(0);
-    // STOP HERE. Do not answer the age question: it is the last gate before
-    // the queue doc is written.
+    // Closing the desk is the shortest path a real person takes past it.
+    // What follows is data-dependent by design (41ac4f86: the free guest
+    // round only runs into a queue with someone in it): either the
+    // one-time age question, or the Google gate saying the queue is
+    // empty. Both are doors. The searching screen is not, because a CI
+    // browser in the live queue is an empty chair a real person can be
+    // paired with (the 2026-08-11 finding).
+    await desk.getByRole('button', { name: /^close$/i }).first().click();
+    const age = page.getByRole('dialog', { name: /how old are you/i });
+    const gate = page.locator('#signInBtn');
+    await expect(age.or(gate).first()).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('#globalDebateMap')).toHaveCount(0);
     await expect(page.getByText(/keep this tab open/i)).toHaveCount(0);
+    if (await age.isVisible().catch(() => false)) {
+      // STOP HERE. Answering the age question is what writes the queue doc.
+      await expect(age.getByRole('button', { name: /18 or older/i })).toBeVisible();
+      await expect(gate).toHaveCount(0);
+    } else {
+      await expect(gate).toContainText(/with Google/i);
+      await expect(page.locator('.gate-guest:visible, .gate-email:visible')).toHaveCount(0);
+    }
     // 2026-09-03 (f06ddddf): nothing pops over the page on a timer. This
     // pop has been added and removed four times; the founder's last word
     // is out. The window is the old auto-pop delay plus slack.
