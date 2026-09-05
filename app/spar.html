@@ -773,6 +773,7 @@ html:not([data-theme="light"]) .afl.match-profile-flow{
   font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mp-ink);
 }
 .mp-masthead__live::before{content:'';width:7px;height:7px;border-radius:50%;background:#159447;box-shadow:0 0 0 3px rgba(21,148,71,.12)}
+.mp-masthead__live[data-active="false"]::before{background:var(--mp-muted);box-shadow:none}
 .mp-masthead__live b{font-size:.83rem;font-variant-numeric:tabular-nums}
 .mp-masthead__privacy{font-size:.64rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--mp-red)}
 .mp-masthead__line{
@@ -3385,8 +3386,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     top.appendChild(mpEl('strong', 'mp-masthead__name', 'Debatable Match Desk'));
     var status = mpEl('div', 'mp-masthead__status');
     var live = mpEl('span', 'mp-masthead__live');
-    live.appendChild(mpEl('b', 'mp-masthead__live-count', '0'));
-    live.appendChild(document.createTextNode(' live now'));
+    live.setAttribute('data-active', 'false');
+    live.setAttribute('title', 'People active across Debatable in the last 30 minutes. Updates every few minutes.');
+    live.appendChild(mpEl('b', 'mp-masthead__live-count', 'Checking activity'));
+    live.appendChild(mpEl('span', 'mp-masthead__live-label', ''));
     status.appendChild(live);
     status.appendChild(mpEl('span', 'mp-masthead__privacy', 'Politics stay private to matchmaking'));
     top.appendChild(status);
@@ -3443,6 +3446,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return note;
   }
 
+  function renderMatchProfileActivity(){
+    var count = document.querySelector('.mp-masthead__live-count');
+    var label = document.querySelector('.mp-masthead__live-label');
+    if (!count || !label) return;
+    var n = presenceLive && presenceLive.online30;
+    var available = typeof n === 'number' && Number.isFinite(n) && n >= 0;
+    count.parentNode.setAttribute('data-active', available && n > 0 ? 'true' : 'false');
+    count.textContent = available ? String(Math.floor(n)) : (presenceLoaded ? 'Activity unavailable' : 'Checking activity');
+    label.textContent = available ? ' active · last 30m' : '';
+  }
+
+  // The queue only feeds the match-available offer. The masthead reads
+  // sitewide activity from the shared presence poll instead.
   // Polls the live queue count while the desk is open. The endpoint is
   // shared-cached 15s server-side, so a 10s client poll costs nothing
   // extra and stops the moment the masthead leaves the DOM. `onWaiting`
@@ -3452,6 +3468,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function paintMatchProfileLive(onWaiting){
     var count = document.querySelector('.mp-masthead__live-count');
     if (!count) return;
+    renderMatchProfileActivity();
     var timer = null;
     var stop = function(){ if (timer) clearTimeout(timer); timer = null; };
     var tick = function(){
@@ -3460,7 +3477,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       fetch('/api/spar-queue').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
         if (!document.documentElement.contains(count)) { stop(); return; }
         var n = Math.max(0, Number(d && d.waiting) || 0);
-        count.textContent = String(n);
         if (onWaiting) onWaiting(n);
       }).catch(function(){}).then(function(){
         if (document.documentElement.contains(count)) timer = setTimeout(tick, DESK_QUEUE_POLL_MS);
@@ -6192,17 +6208,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // exactly as before. Server response is shared-cached 5 minutes, so the
   // 2-min repoll costs ~1 cache read.
   var presenceLive = null;
+  var presenceLoaded = false;
   var presencePollTimer = null;
   function fetchPresenceLive(){
     fetch('/api/presence-live').then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
       var had = !!(presenceLive && presenceLive.pins && presenceLive.pins.length);
       presenceLive = (d && Array.isArray(d.pins)) ? d : null;
+      presenceLoaded = true;
       var has = !!(presenceLive && presenceLive.pins.length);
       renderLiveNote();
+      renderMatchProfileActivity();
       // Remount only on a state change (ambient ↔ real pins) so the
       // globe doesn't visibly restart every poll.
       if (has !== had && document.getElementById('globalDebateMap')) mountGlobalMap('globalDebateMap');
-    }).catch(function(){});
+    }).catch(function(){
+      presenceLive = null;
+      presenceLoaded = true;
+      renderMatchProfileActivity();
+    });
   }
   function renderLiveNote(){
     var note = document.getElementById('globeLiveNote');
@@ -6252,7 +6275,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   fetchPresenceLive();
   if (!presencePollTimer) presencePollTimer = setInterval(function(){
     if (document.hidden) return;
-    if (!document.getElementById('globalDebateMap')) return;
+    if (!document.getElementById('globalDebateMap') && !document.querySelector('.mp-masthead__live-count')) return;
     fetchPresenceLive();
   }, 120000);
 

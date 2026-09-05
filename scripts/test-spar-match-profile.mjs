@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 import {
   cleanSparMatchProfile,
   politicalMatchScore,
@@ -62,6 +63,47 @@ assert.equal(draft.poolLocked, false, 'personalized suggestions must still allow
 assert.ok(draft.pool.every((card) => pool.includes(card.text)), 'draft cards must come from the mutual pool');
 
 const spar = fs.readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
+// An empty matchmaking queue must not overwrite broader site activity.
+const activityCount = { textContent: '', parentNode: { setAttribute(){} } };
+const activityLabel = { textContent: '' };
+const activityContext = vm.createContext({
+  presenceLive: null,
+  presenceLoaded: false,
+  DESK_QUEUE_POLL_MS: 10000,
+  document: {
+    hidden: false,
+    documentElement: { contains: () => true },
+    querySelector: (selector) => selector.endsWith('live-count') ? activityCount : activityLabel,
+  },
+  fetch: async () => ({ ok: true, json: async () => ({ waiting: 0 }) }),
+  setTimeout: () => 1,
+  clearTimeout(){},
+});
+for (const name of ['renderMatchProfileActivity', 'paintMatchProfileLive']) {
+  const source = spar.match(new RegExp('  function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n  \\}'))?.[0];
+  assert.ok(source, `${name} must exist`);
+  vm.runInContext(source, activityContext);
+}
+activityContext.renderMatchProfileActivity();
+assert.equal(activityCount.textContent, 'Checking activity', 'loading is not a measured zero');
+activityContext.presenceLoaded = true;
+for (const value of [null, {}, { online30: -1 }, { online30: '12' }, { online30: NaN }]) {
+  activityContext.presenceLive = value;
+  activityContext.renderMatchProfileActivity();
+  assert.equal(activityCount.textContent, 'Activity unavailable', 'missing or invalid readings must not become a count');
+  assert.equal(activityLabel.textContent, '');
+}
+activityContext.presenceLive = { online30: 0 };
+activityContext.renderMatchProfileActivity();
+assert.equal(activityCount.textContent, '0', 'a valid zero stays zero');
+activityContext.presenceLive = { online30: 3, online5: 1, online24: 143 };
+let queueOfferCount = null;
+activityContext.paintMatchProfileLive((n) => { queueOfferCount = n; });
+await new Promise(setImmediate);
+assert.equal(activityCount.textContent, '3', 'queue polling must preserve the sitewide 30-minute count');
+assert.equal(activityLabel.textContent, ' active · last 30m');
+assert.equal(queueOfferCount, 0, 'the immediate-match offer must still receive the real queue count');
+
 const pair = fs.readFileSync(new URL('../app/netlify/functions/spar-pair.mjs', import.meta.url), 'utf8');
 const rules = fs.readFileSync(new URL('../app/firestore.rules', import.meta.url), 'utf8');
 const accountDelete = fs.readFileSync(new URL('../app/netlify/functions/delete-account-data.mjs', import.meta.url), 'utf8');
