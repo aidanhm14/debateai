@@ -125,6 +125,19 @@ if [ -f "$ACCOUNT_DELETION_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Web Push key guard. The served VAPID public key is derived from the
+# private key; a separately configured public key drifted once and push
+# never delivered (2026-09-04).
+WEBPUSH_GUARD="$REPO_ROOT/scripts/test-webpush-keys.mjs"
+if [ -f "$WEBPUSH_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-webpush-keys.mjs >/tmp/webpush-guard.log 2>&1); then
+    echo "[webpush-guard] commit blocked - the served push key no longer derives from the private key:" >&2
+    tail -30 /tmp/webpush-guard.log >&2
+    echo "[webpush-guard] see scripts/test-webpush-keys.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Auth-modal lifecycle guard. Onboarding reacts to the completed Firebase
 # session immediately, so the higher-z-index sign-in card must come down before
 # same-page navigation or it can hide onboarding behind a completed login.

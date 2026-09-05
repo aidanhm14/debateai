@@ -12,15 +12,47 @@
 //   VAPID_PUBLIC_KEY   — optional; the public key is also baked below so the
 //                        client can read it from /api/push-subscribe.
 import webpush from 'web-push';
-import { createHash } from 'crypto';
+import { createHash, createECDH } from 'crypto';
 import { getDb, FieldValue } from './firestore.mjs';
 import { sendToUserNative } from './native-push.mjs';
 
 // The public key is safe to ship (it's the application server key the browser
 // subscribes against). The matching private key lives only in the env.
-export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ||
+const BAKED_PUBLIC_KEY =
   'BAdwbZkEl8RmNE1BT01QtVdlCJCF9b6B4uiQTr4Jr_txO170WqePABtMaFbJztyI-VqAnMo8GHx-l_FUpy6M1NA';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+
+// 2026-09-04: push had NEVER delivered. Measured against every one of the
+// founder's five subscribed devices with the production keys: FCM
+// "invalid JWT", Mozilla "InvalidSignature", Apple "BadJwtToken". The
+// VAPID_PUBLIC_KEY in the env was from a different pair than
+// VAPID_PRIVATE_KEY, so every browser since 2026-08-22 subscribed against
+// a key the server cannot sign for, and the 404/410 pruner never sees a
+// 403. Two env values that must agree will drift, so the served public
+// key is now DERIVED from the private key and the env public key is only
+// a cross-check that logs when it disagrees.
+export function derivePublicKey(privateB64u) {
+  try {
+    if (!privateB64u) return '';
+    const pad = '='.repeat((4 - privateB64u.length % 4) % 4);
+    const raw = Buffer.from((privateB64u + pad).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    if (raw.length !== 32) return '';
+    const ecdh = createECDH('prime256v1');
+    ecdh.setPrivateKey(raw);
+    return ecdh.getPublicKey().toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  } catch (e) { return ''; }
+}
+export function resolvePublicKey(privateKey, envPublic, baked) {
+  const derived = derivePublicKey(privateKey);
+  if (derived) {
+    if (envPublic && envPublic !== derived) {
+      console.error('[webpush] VAPID_PUBLIC_KEY does not match VAPID_PRIVATE_KEY; serving the key derived from the private key. Fix the env value.');
+    }
+    return derived;
+  }
+  return envPublic || baked || '';
+}
+export const VAPID_PUBLIC_KEY = resolvePublicKey(VAPID_PRIVATE_KEY, process.env.VAPID_PUBLIC_KEY || '', BAKED_PUBLIC_KEY);
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:hello@itsdebatable.com';
 
 export function pushConfigured() { return !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY); }
@@ -94,7 +126,7 @@ async function sendWebPush(uid, payload) {
     const snap = await subsCol(uid).get();
     if (snap.empty) return { sent: 0, subs: 0 };
     const body = JSON.stringify(payload || {});
-    let sent = 0;
+    let sent = 0, rejected = 0;
     await Promise.all(snap.docs.map(async (d) => {
       const s = d.data();
       try {
@@ -103,9 +135,16 @@ async function sendWebPush(uid, payload) {
       } catch (e) {
         const code = e && e.statusCode;
         if (code === 404 || code === 410) await d.ref.delete().catch(() => {});
+        // 401/403 is the push service refusing OUR signature: the device
+        // subscribed against a different application server key. The
+        // client re-subscribes on its next visit (notifications.js compares
+        // keys), so the row is left for it to replace, but it is counted
+        // and logged: a silent 403 is how this stayed broken for months.
+        else if (code === 401 || code === 403) rejected++;
       }
     }));
-    return { sent, subs: snap.size };
+    if (rejected) console.warn('[webpush] ' + rejected + ' of ' + snap.size + ' sends rejected the VAPID signature (401/403) for uid ' + uid + '; those devices need to re-subscribe');
+    return { sent, subs: snap.size, rejected };
   } catch (e) {
     return { sent: 0, error: true };
   }

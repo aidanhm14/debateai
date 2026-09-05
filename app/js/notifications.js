@@ -92,6 +92,19 @@
       ]);
     });
   }
+  // True when the subscription's applicationServerKey is the key we are
+  // about to subscribe with. A browser that does not expose the key at all
+  // counts as a match, so an old engine is not re-subscribed on every load.
+  function daSameServerKey(sub, want){
+    try {
+      var have = sub && sub.options && sub.options.applicationServerKey;
+      if (!have) return true;
+      var a = new Uint8Array(have);
+      if (a.length !== want.length) return false;
+      for (var i = 0; i < a.length; i++) if (a[i] !== want[i]) return false;
+      return true;
+    } catch (_) { return true; }
+  }
   function daB64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4); var s = (b + p).replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(s); var arr = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i); return arr; }
   function daCurrentUser(){ try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (_) { return null; } }
   // True inside the Capacitor native app (iOS/Android shell), false on web.
@@ -148,8 +161,20 @@
           .then(function (r) { return r.json(); })
           .then(function (cfg) {
             if (!cfg || !cfg.configured || !cfg.publicKey) throw new Error('push_not_configured');
+            var want = daB64ToU8(cfg.publicKey);
             return reg.pushManager.getSubscription().then(function (existing) {
-              return existing || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: daB64ToU8(cfg.publicKey) });
+              // 2026-09-04: an existing subscription was reused blindly, so a
+              // device that subscribed against a previous or wrong server
+              // key stayed on it forever and every send to it was refused
+              // with a 403 nobody saw. If the browser reports which key the
+              // subscription was made with and it is not the key the server
+              // is serving now, drop it and subscribe fresh. The old endpoint
+              // then answers 410 and the server prunes its row.
+              if (existing && daSameServerKey(existing, want)) return existing;
+              var drop = existing ? existing.unsubscribe().catch(function () {}) : Promise.resolve();
+              return drop.then(function () {
+                return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: want });
+              });
             }).then(function (sub) {
               if (!sub) throw new Error('subscription_missing');
               return user.getIdToken().then(function (tok) {
