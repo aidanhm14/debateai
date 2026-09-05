@@ -80,10 +80,14 @@
     shown = true;
     try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch (e) {}
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });
+    var livePerson = !/^\/(newvoice|practice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
     window.openAuthModal('signup', {
       locked: true,
+      livePerson: livePerson,
       headline: 'Sign in to keep going',
-      sub: 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
+      sub: livePerson
+        ? 'Debate real people face to face on live video. Sign in to keep your rounds. Your account is free.'
+        : 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
       onDone: function (user) { shown = false; decide(user); }
     });
   }

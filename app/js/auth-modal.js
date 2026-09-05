@@ -443,14 +443,20 @@
     var providerButtons = googleBtn + appleBtn + discordBtn;
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
+    // The general account door explains the social product. A specific
+    // account action keeps its own context, especially an AI round.
+    var aiPage = /^\/(newvoice|practice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
+    var showLivePerson = !!(lockCopy && lockCopy.livePerson) || liveVideo || (!lockCopy && !googleOnly && !aiPage);
     var headline = (lockCopy && lockCopy.headline) || 'Sign in to Debatable';
     var subline = (lockCopy && lockCopy.sub) ||
-      (noEmail
+      (showLivePerson
+        ? 'Debate real people face to face on live video. Sign in to keep your rounds and conversations.'
+        : noEmail
         ? (googleOnly ? 'Continue with Google to access this page.' : 'Continue with Google or Apple to join live video.')
         : 'Use Google, Apple, or your email and password. New here? Create an account below.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
-      (lockCopy && lockCopy.livePerson ? '<div class="da-live-person"><span class="da-live-person-dot" aria-hidden="true"></span>Real person · Live video</div>' : '') +
+      (showLivePerson ? '<div class="da-live-person"><span class="da-live-person-dot" aria-hidden="true"></span>Real person · Live video</div>' : '') +
       '<h2>' + esc(headline) + '</h2>' +
       '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
