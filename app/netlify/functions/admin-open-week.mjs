@@ -125,11 +125,11 @@ function renderEmail({ firstName, uid, tournamentName, leaderLine, signupCount }
   </p>
 
   <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
-    <strong>Show up at the three clash hours: 7 AM, 3 PM, and 8 PM
+    <strong>Show up at the three clash hours: 12 AM, 3 PM, and 7 PM
     Eastern, every day this week.</strong> Those are the windows we are
-    pointing everyone to, so that is when the queue fills. 7 AM Eastern
-    is 4:30 PM in Delhi and 9 PM in Sydney. 3 PM Eastern is 8 PM in
-    London. 8 PM Eastern is 5 PM on the West Coast.
+    pointing everyone to, so that is when the queue fills. 12 AM Eastern
+    is 9:30 AM in Delhi and 2 PM in Sydney. 3 PM Eastern is 8 PM in
+    London. 7 PM Eastern is 4 PM on the West Coast.
   </p>
 
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 14px">
