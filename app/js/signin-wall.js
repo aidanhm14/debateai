@@ -86,7 +86,7 @@
       livePerson: livePerson,
       headline: 'Sign in to keep going',
       sub: livePerson
-        ? 'Debate real people face to face on live video. Sign in to keep your rounds. Your account is free.'
+        ? 'Debate real people face to face on live video. For safety, sign in to continue. Your account is free.'
         : 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
       onDone: function (user) { shown = false; decide(user); }
     });
