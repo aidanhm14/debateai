@@ -746,7 +746,8 @@ h1 em{color:var(--accent);font-style:normal}
   font-family:'Source Serif 4',Georgia,serif;font-size:clamp(1.35rem,2.3vw,2.15rem);
   font-weight:600;letter-spacing:-.035em;line-height:1;
 }
-.mp-masthead__status{display:flex;align-items:center;gap:16px}
+.mp-masthead__status{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px 16px;min-width:0;text-align:right}
+.mp-masthead__live{white-space:nowrap}
 .mp-masthead__live{
   display:inline-flex;align-items:center;gap:6px;font-family:'Geist Mono',monospace;
   font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mp-ink);
@@ -760,7 +761,7 @@ h1 em{color:var(--accent);font-style:normal}
 }
 .mp-masthead__line em{font-family:'Source Serif 4',Georgia,serif;font-style:italic;text-transform:none;letter-spacing:0;color:var(--mp-ink);font-size:.82rem}
 .match-profile-flow .afl-rail{
-  min-height:48px;padding:8px clamp(18px,4vw,54px);gap:8px;background:rgba(252,251,248,.94);
+  min-height:48px;padding:8px clamp(18px,4vw,54px);gap:8px;flex-wrap:nowrap;background:rgba(252,251,248,.94);
   border-bottom:1px solid var(--mp-rule);
 }
 .match-profile-flow .afl-dots{gap:4px}
@@ -774,7 +775,12 @@ h1 em{color:var(--accent);font-style:normal}
 .match-profile-flow .afl-btn:hover{background:var(--mp-ink);border-color:var(--mp-ink);color:var(--mp-paper)}
 .match-profile-flow .afl-panel{
   height:100%;min-height:100%;overflow-y:auto;flex:none;
-  padding:clamp(28px,4.5vh,64px) clamp(20px,4vw,64px);
+  /* Top-anchored, never centred. Every panel opens with its step label at
+     the same y, so the eye lands in one place on all eight steps, and a
+     panel taller than the track scrolls from the top instead of clipping
+     its own heading off the screen. */
+  justify-content:flex-start;
+  padding:clamp(22px,3.5vh,44px) clamp(20px,4vw,64px) clamp(20px,3vh,32px);
 }
 .match-profile-flow .afl-panel-in{
   max-width:960px;display:grid;grid-template-columns:minmax(0,1fr);
@@ -782,7 +788,7 @@ h1 em{color:var(--accent);font-style:normal}
   grid-template-rows:auto auto auto auto 1fr;align-items:start;
 }
 .match-profile-flow .afl-step{
-  grid-area:step;margin:0 0 clamp(24px,4vh,48px);padding-bottom:9px;border-bottom:1px solid var(--mp-rule);
+  grid-area:step;margin:0 0 clamp(16px,2.6vh,30px);padding-bottom:9px;border-bottom:1px solid var(--mp-rule);
   font-size:13px;font-weight:800;letter-spacing:.1em;color:var(--mp-red);
 }
 .match-profile-flow .afl-step::before{content:'THE MATCH DESK  /  '}
@@ -814,20 +820,35 @@ h1 em{color:var(--accent);font-style:normal}
 .match-profile-flow .afl-back{grid-area:back;margin:17px 0 0;color:var(--mp-muted);font-size:.75rem;letter-spacing:.04em}
 .match-profile-flow .afl-back:hover{color:var(--mp-red)}
 /* The obvious way out. Aidan, 2026-09-02: "make the SKIP button much
-   bigger and obvious tho if users just meet someone asap." The rail pill
-   goes red, and a fixed bar at the foot of every step carries a large
-   SKIP. Panels pad their bottom so the bar never covers an option. */
-.match-profile-flow .afl-rail .afl-btn.mp-skip{background:var(--mp-paper);border-color:var(--mp-rule-mid);color:var(--mp-ink-2);font-family:Inter,sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.04em;text-transform:none;padding:8px 13px}
-.match-profile-flow .afl-rail .afl-btn.mp-skip:hover{background:var(--mp-ink);border-color:var(--mp-ink);color:var(--mp-paper)}
-.match-profile-flow .afl-panel{padding-bottom:132px}
-.match-profile-flow .mp-skip-bar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:center;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--mp-paper) 62%,rgba(255,255,255,0));pointer-events:none}
-.match-profile-flow .mp-skip-big{pointer-events:auto;appearance:none;border:0;cursor:pointer;width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px 16px 24px;border-radius:16px;background:var(--mp-red);color:#fff;text-align:left;font-family:Inter,sans-serif;box-shadow:0 18px 40px rgba(220,38,38,.35),0 0 0 1px rgba(0,0,0,.06);transition:transform .14s,background .14s}
-.match-profile-flow .mp-skip-big:hover{background:#b91c1c;transform:translateY(-1px)}
-.match-profile-flow .mp-skip-big:active{transform:translateY(0)}
-.match-profile-flow .mp-skip-big b{display:block;font-size:1.55rem;font-weight:900;letter-spacing:.16em;line-height:1}
-.match-profile-flow .mp-skip-big small{display:block;margin-top:5px;font-size:.82rem;font-weight:600;opacity:.92;line-height:1.3}
-.match-profile-flow .mp-skip-arrow{font-size:1.9rem;font-weight:900;line-height:1}
-@media(max-width:640px){.match-profile-flow .mp-skip-big b{font-size:1.3rem}.match-profile-flow .mp-skip-big small{font-size:.76rem}}
+   bigger and obvious tho if users just meet someone asap." A large SKIP
+   rides the foot of every step.
+   2026-09-04 positioning pass (Aidan, off a screenshot of the bar sitting
+   on top of the "None of them" row): the bar is a FOOTER ROW of the flow,
+   not a fixed overlay. .afl is a flex column and the track is flex:1, so
+   a footer appended after the track takes its height out of the track and
+   nothing can ever sit underneath it, at any viewport, on any step. The
+   old version was position:fixed over the track and relied on a 132px
+   panel padding to keep options clear; that padding lived inside a
+   vertically centred panel, so on any panel taller than the track the
+   centring pushed the step label off the top AND the last option under
+   the bar at the same time. Measured before the change: 1440x800 covered
+   steps 1 and 9, 1000x567 clipped the step label on 8 of 9 panels, a
+   landscape phone covered every step. The rail's own skip pill is hidden
+   in this flow because the footer says the same thing bigger; it stays in
+   the DOM as the click target ArcadeFlow wired. */
+.match-profile-flow .afl-rail .afl-btn.mp-skip{display:none}
+.match-profile-flow .mp-skip-bar{flex:none;position:relative;z-index:6;display:flex;justify-content:center;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--mp-paper);border-top:1px solid var(--mp-rule)}
+.match-profile-flow.mp-on-launch .mp-skip-bar{display:none}
+.match-profile-flow .mp-skip-big{appearance:none;border:0;cursor:pointer;width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px 12px 22px;border-radius:12px;background:var(--mp-red);color:#fff;text-align:left;font-family:Inter,sans-serif;box-shadow:0 10px 24px rgba(168,30,25,.22);transition:background .14s}
+.match-profile-flow .mp-skip-big:hover{background:#b91c1c}
+.match-profile-flow .mp-skip-big:focus-visible{outline:2px solid var(--mp-ink);outline-offset:2px}
+.match-profile-flow .mp-skip-big b{display:block;font-size:1.25rem;font-weight:900;letter-spacing:.16em;line-height:1}
+.match-profile-flow .mp-skip-big small{display:block;margin-top:4px;font-size:.8rem;font-weight:600;opacity:.92;line-height:1.3}
+.match-profile-flow .mp-skip-arrow{font-size:1.6rem;font-weight:900;line-height:1}
+@media(max-width:640px){.match-profile-flow .mp-skip-big b{font-size:1.1rem}.match-profile-flow .mp-skip-big small{font-size:.74rem}}
+/* The tournament ticker is hidden while the desk is open, so the flow
+   must not keep reserving the 32px the ticker would have taken. */
+body.has-beta-strip.match-profile-open .afl{top:0;height:100dvh}
 .match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:repeat(2,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opts{grid-template-columns:repeat(3,minmax(0,1fr))}
 .match-profile-flow .mp-panel--mode .afl-opt{min-height:108px;align-items:start}
@@ -873,7 +894,7 @@ h1 em{color:var(--accent);font-style:normal}
   .mp-masthead__line span:last-child{display:none}
   .match-profile-flow .afl-rail{padding:7px 10px}
   .match-profile-flow .afl-mute{display:none}
-  .match-profile-flow .afl-panel{padding:22px 15px calc(132px + env(safe-area-inset-bottom))}
+  .match-profile-flow .afl-panel{padding:18px 15px 22px}
   /* Sizes here are px, not rem, and that is deliberate. ui.css forces
      html{font-size:13.5px !important} under 560px, which beats the
      2026-08-18 readability floor's 15.5px even though that block is later
@@ -893,6 +914,18 @@ h1 em{color:var(--accent);font-style:normal}
      each set their own column count at higher specificity, and a new panel
      added later would otherwise reintroduce exactly this bug. */
   .match-profile-flow .afl-opts{grid-template-columns:1fr !important}
+  /* The one exception, and it is safe for the reason the rule above gives:
+     a portrait card puts the name on its own full-width row UNDER the
+     picture, so a 171px cell never wraps a name beside an image. Six
+     portraits become three rows instead of six, which is what keeps the
+     whole step above the fold on a phone. */
+  .match-profile-flow .mp-panel--figure .afl-opts{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .match-profile-flow .mp-panel--figure .afl-opt--img{grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:8px 8px;align-items:start;min-height:0;padding:12px 12px 12px}
+  .match-profile-flow .mp-panel--figure .afl-opt--img .afl-opt-img{grid-column:1;grid-row:1;width:56px;height:56px}
+  .match-profile-flow .mp-panel--figure .afl-opt--img > span:not(.afl-opt-mark){grid-column:1/-1;grid-row:2}
+  .match-profile-flow .mp-panel--figure .afl-opt--img .afl-opt-mark{grid-column:2;grid-row:1}
+  .match-profile-flow .mp-panel--figure .afl-opt--img .afl-opt-t{font-size:16px;line-height:1.2}
+  .match-profile-flow .mp-panel--figure .mp-opt--skip{grid-column:1/-1}
   .match-profile-flow .afl-opt{min-height:60px;padding:14px 16px}
   /* 17px. This is the text a person actually reads in order to answer,
      so it is the one that must clear the 16px floor. */
@@ -902,16 +935,68 @@ h1 em{color:var(--accent);font-style:normal}
   .match-profile-flow .mp-panel--topics .afl-opts{grid-template-columns:1fr}
   .match-profile-flow .mp-panel--mode .afl-opts{grid-template-columns:1fr}
   .match-profile-flow .mp-panel--mode .afl-opt{min-height:74px}
-  .match-profile-flow .afl-summary{grid-template-columns:1fr}
+  .match-profile-flow .afl-summary{grid-template-columns:1fr;margin:14px 0 6px}
+  /* On a phone the nine-row review pushes the one action under the fold,
+     so the button comes first and the review reads as what it is: a
+     receipt you can scroll. Desktop keeps review-then-button. */
+  .match-profile-flow .afl-panel--launch .afl-panel-in{display:flex;flex-direction:column;align-items:flex-start}
+  .match-profile-flow .afl-panel--launch .afl-step{order:1;align-self:stretch}
+  .match-profile-flow .afl-panel--launch .afl-q{order:2}
+  .match-profile-flow .afl-panel--launch .afl-hint{order:3}
+  .match-profile-flow .afl-panel--launch .afl-go{order:4;align-self:stretch;justify-content:center}
+  .match-profile-flow .afl-panel--launch .afl-back{order:5}
+  .match-profile-flow .afl-panel--launch .afl-summary{order:6;align-self:stretch}
+  .match-profile-flow .afl-panel--launch .afl-launch-extra{order:7;align-self:stretch}
   .mp-ai-summary{grid-template-columns:1fr}
   .mp-ai-summary__copy{grid-column:1;grid-row:auto;margin-top:5px}
 }
-@media(max-height:760px) and (min-width:981px){
-  .match-profile-flow .afl-panel{padding-top:24px;padding-bottom:132px}
-  .match-profile-flow .afl-step{margin-bottom:20px}
-  .match-profile-flow .afl-q{font-size:clamp(2.5rem,4vw,4rem)}
-  .match-profile-flow .afl-hint{margin-bottom:16px}
-  .match-profile-flow .afl-opt{min-height:62px;padding:11px 14px}
+/* Laptop and shorter (a 1440x800 MacBook is the common case): the masthead
+   drops its second line, headings tighten, and the footer stays slim, so
+   the tallest step (six portraits plus None) fits without its own scroll. */
+@media(max-height:820px){
+  .mp-masthead__line{display:none}
+  .match-profile-flow .mp-masthead{padding:9px clamp(18px,4vw,54px) 8px}
+  .mp-masthead__name{font-size:clamp(1.2rem,2vw,1.7rem)}
+  .match-profile-flow .afl-panel{padding-top:20px;padding-bottom:20px}
+  .match-profile-flow .afl-step{margin-bottom:16px;padding-bottom:7px}
+  .match-profile-flow .afl-q{font-size:clamp(2.2rem,3.8vw,3.4rem);margin-bottom:10px}
+  .match-profile-flow .afl-hint{margin:2px 0 16px;font-size:16px}
+  .match-profile-flow .afl-opt{min-height:60px;padding:10px 14px}
+  .match-profile-flow .afl-opt-t{font-size:19px}
+  .match-profile-flow .mp-opt--skip{min-height:44px}
+  .match-profile-flow .mp-panel--mode .afl-opt{min-height:92px}
+  .match-profile-flow .afl-panel--launch .afl-q{font-size:clamp(2.4rem,5vw,4rem)}
+  .match-profile-flow .afl-summary{margin:18px 0}
+}
+/* Landscape phone (844x390 and its neighbours): one-line masthead, a
+   44px rail, a one-line footer, and phone-sized type. Everything above
+   the options is held to roughly a third of the height so at least the
+   first row of answers is on screen before any scroll. */
+@media(max-height:540px){
+  .match-profile-flow .mp-masthead{padding:6px clamp(14px,3vw,40px) 5px;border-top-width:3px}
+  .mp-masthead__name{font-size:1.1rem}
+  .mp-masthead__privacy{display:none}
+  .match-profile-flow .afl-rail{min-height:42px;padding:5px clamp(14px,3vw,40px)}
+  .match-profile-flow .afl-panel{padding:12px clamp(14px,3vw,40px) 14px}
+  .match-profile-flow .afl-step{font-size:11px;margin-bottom:8px;padding-bottom:5px}
+  .match-profile-flow .afl-q{font-size:clamp(22px,3.4vw,30px);margin:0 0 6px;line-height:1.08}
+  .match-profile-flow .afl-hint{font-size:14px;line-height:1.4;margin:0 0 10px;max-width:70ch}
+  .match-profile-flow .afl-opt{min-height:50px;padding:8px 12px;gap:12px}
+  .match-profile-flow .afl-opt-t{font-size:16px}
+  .match-profile-flow .afl-opt-s{font-size:13px;margin-top:2px}
+  .match-profile-flow .afl-opt-img{width:40px;height:40px;border-radius:8px}
+  .match-profile-flow .mp-opt--skip{min-height:38px}
+  .match-profile-flow .mp-panel--mode .afl-opt{min-height:0}
+  .match-profile-flow .afl-back{margin-top:10px}
+  .match-profile-flow .mp-skip-bar{padding:6px 14px calc(6px + env(safe-area-inset-bottom))}
+  .match-profile-flow .mp-skip-big{padding:8px 14px 8px 16px;border-radius:9px;box-shadow:none}
+  .match-profile-flow .mp-skip-big b{font-size:.95rem;display:inline}
+  .match-profile-flow .mp-skip-big small{display:inline;margin:0 0 0 12px;font-size:.74rem}
+  .match-profile-flow .mp-skip-arrow{font-size:1.2rem}
+  .match-profile-flow .afl-panel--launch .afl-q{font-size:clamp(26px,4vw,34px)}
+  .match-profile-flow .afl-panel--launch .afl-hint{font-size:15px}
+  .match-profile-flow .afl-summary{margin:12px 0}
+  .match-profile-flow .afl-go{min-height:48px;padding:10px 22px}
 }
 
 .setup-card{
@@ -3056,6 +3141,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     background: {
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
     },
+    conviction: {
+      belief: 'Only what I believe', either: 'Any side, for the fun of it'
+    },
     economy: {
       redistribute: 'Government should do more', markets: 'Government should do less', nuanced: 'Nuanced', skip: 'Skipped'
     },
@@ -3109,6 +3197,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Added 2026-09-04; a v4 profile has no answer and reads as skipped.
       figure: allowedProfileValue('figure', String(raw.figure || ''), 'skip'),
       background: allowedProfileValue('background', String(raw.background || ''), 'first'),
+      // Added 2026-09-04 (Aidan: "do you care to argue what you believe in,
+      // or do you also want to argue opinions you dont believe for the fun
+      // of it"). Stays on the device like `figure`; nothing reads it into
+      // the queue or the private profile yet. A profile saved before it
+      // existed reads as the wider answer, which is also what the room's
+      // motion draft assumes of everyone today.
+      conviction: allowedProfileValue('conviction', String(raw.conviction || ''), 'either'),
       economy: allowedProfileValue('economy', String(politics.economy || ''), 'skip'),
       immigration: allowedProfileValue('immigration', String(politics.immigration || ''), 'skip'),
       speech: allowedProfileValue('speech', String(politics.speech || ''), 'skip'),
@@ -3122,7 +3217,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function defaultMatchProfile(){
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
-      figure: 'skip', background: 'first', economy: 'skip', immigration: 'skip',
+      figure: 'skip', background: 'first', conviction: 'either', economy: 'skip', immigration: 'skip',
       speech: 'skip', democracy: 'skip', mode: 'viewpoint', clipIntent: 'private'
     });
   }
@@ -3167,7 +3262,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     head.appendChild(top);
     var line = mpEl('div', 'mp-masthead__line');
     line.appendChild(mpEl('em', '', 'Find someone worth disagreeing with.'));
-    line.appendChild(mpEl('span', '', 'Private edition  /  Seven quick choices'));
+    var stepCount = matchProfileSteps(matchProfile).length;
+    var countWords = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+    line.appendChild(mpEl('span', '', 'Private edition  /  ' + (countWords[stepCount] || stepCount) + ' quick choices'));
     head.appendChild(line);
     return head;
   }
@@ -3205,6 +3302,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           { value: 'peterson', img: '/img/creator-watchlist/jordanpeterson.jpg', label: 'Jordan Peterson' },
           { value: 'mehdi',    img: '/img/creator-watchlist/mehdihasan.jpg',   label: 'Mehdi Hasan' },
           { value: 'skip', label: 'None of them', sub: 'Skip this one.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
+        ]
+      },
+      {
+        key: 'conviction', q: 'Do you only argue what you believe?',
+        hint: 'Some people want to defend their real views. Others will take a side they disagree with, just for the fun of it.',
+        summaryLabel: 'Sides', 'default': profile.conviction,
+        className: 'mp-panel--conviction',
+        options: [
+          { value: 'belief', label: 'Only what I believe', sub: 'I want to defend my real views.' },
+          { value: 'either', label: 'Any side, for the fun of it', sub: 'I will happily argue an opinion I do not hold.' }
         ]
       },
       {
@@ -3295,6 +3402,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       version: MATCH_PROFILE_VERSION,
       figure: a.figure,
       background: a.background,
+      conviction: a.conviction,
       economy: a.economy, economyNote: a.economyNote,
       immigration: a.immigration, immigrationNote: a.immigrationNote,
       speech: a.speech, speechNote: a.speechNote,
@@ -3397,7 +3505,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       launch: {
         title: 'Your side of the table is set.',
         hint: 'Entering the queue saves your issue answers to a private match profile. Debatable uses them only to rank viewpoint matches and suggest topics both people chose. Other people and the judge never see them.',
-        cta: opts.editing ? 'Save changes' : 'Skip to opponent'
+        cta: opts.editing ? 'Save changes' : 'Find my opponent'
       },
       onSkip: function(){
         document.body.classList.remove('match-profile-open');
@@ -3456,6 +3564,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           railSkip.click();
         });
         root.appendChild(bar);
+        // On the launch panel the on-panel button is the action, so the
+        // footer stands down rather than stacking two red buttons.
+        var launchPanel = root.querySelector('.afl-panel--launch');
+        var track = root.querySelector('.afl-track');
+        if (launchPanel && track){
+          // Scroll-driven, not IntersectionObserver: an observer never
+          // fires while the document is hidden, so a tab that lands on
+          // the launch panel in the background would come back with two
+          // red buttons stacked. Reading the scroll position is exact.
+          var launchTick = 0;
+          var syncLaunch = function(){
+            launchTick = 0;
+            var tr = track.getBoundingClientRect();
+            var lr = launchPanel.getBoundingClientRect();
+            var seen = Math.min(lr.bottom, tr.bottom) - Math.max(lr.top, tr.top);
+            root.classList.toggle('mp-on-launch', seen > tr.height * 0.5);
+          };
+          track.addEventListener('scroll', function(){
+            if (!launchTick) launchTick = requestAnimationFrame(syncLaunch);
+          }, { passive: true });
+          syncLaunch();
+        }
       }
     }
     return run;
@@ -3585,6 +3715,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '</div>' +
       '<div class="match-profile-stats">' +
         '<span class="match-profile-chip">Debates <b>' + escHtml(profileLabel('background', p.background)) + '</b></span>' +
+        '<span class="match-profile-chip">Sides <b>' + escHtml(profileLabel('conviction', p.conviction)) + '</b></span>' +
         '<span class="match-profile-chip">Match <b>' + escHtml(profileLabel('mode', p.mode)) + '</b></span>' +
         '<span class="match-profile-chip">Politics <b>' + (politicsCount ? politicsCount + ' topic' + (politicsCount === 1 ? '' : 's') : 'Neutral') + '</b></span>' +
         '<span class="match-profile-chip">Clips <b>' + escHtml(profileLabel('clipIntent', p.clipIntent)) + '</b></span>' +

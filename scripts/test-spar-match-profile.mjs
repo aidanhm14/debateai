@@ -78,7 +78,17 @@ for (const sensitive of ['economy', 'immigration', 'speech', 'democracy']) {
 assert.match(spar, /matchProfileReady:\s*state\.privateProfileReady === true/);
 assert.match(spar, /onSkip:\s*function\(\)\{[\s\S]*?matchProfile = defaultMatchProfile\(\);/, 'flow skip must erase partial political answers');
 assert.match(spar, /id="skipMatchProfileBtn"[\s\S]*?matchProfile = defaultMatchProfile\(\);/, 'gate skip must erase an older political profile');
-assert.match(spar, /@media\(max-width:620px\)[\s\S]*?\.match-profile-flow \.afl-panel\{padding:22px 15px calc\(132px/, 'mobile flow must clear the fixed skip bar');
+// 2026-09-04: the SKIP bar is a footer ROW of the flow, never a fixed
+// overlay, so the track shrinks around it and no panel padding has to
+// clear it. A fixed bar over a vertically centred panel is what covered
+// the last option on every step at laptop and landscape-phone heights.
+assert.match(spar, /\.match-profile-flow \.mp-skip-bar\{flex:none;position:relative/, 'skip bar must be a flow footer, not a fixed overlay');
+assert.ok(!/\.mp-skip-bar\{[^}]*position:fixed/.test(spar), 'skip bar must not be position:fixed');
+assert.match(spar, /root\.appendChild\(bar\)/, 'skip bar must be appended to the flow root so the track shrinks around it');
+assert.match(spar, /\.match-profile-flow \.afl-panel\{[^}]*justify-content:flex-start/, 'panels must anchor to the top so a tall panel never clips its own heading');
+// The belief-versus-fun answer stays on the device like `figure`.
+assert.match(spar, /key: 'conviction'/, 'the conviction step must exist');
+assert.ok(!/\bconviction\s*:/.test(spar.match(/ref\.set\(\{([\s\S]*?)joinedAt:/)?.[1] || ''), 'conviction must not ride matchmaking_queue');
 assert.match(pair, /collection\('spar_match_profiles'\)/);
 assert.match(pair, /draftConfig:\s*\{ suggestions: privateSuggestions \}/);
 assert.match(rules, /match \/spar_match_profiles\/\{profileUid\}[\s\S]*allow read, write: if false;/);
