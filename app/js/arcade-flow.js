@@ -102,10 +102,20 @@
     var steps = cfg.steps;
     var answers = {};
     steps.forEach(function (s) {
+      if (s.multi) {
+        // Multi-select (2026-09-04): the answer is an ARRAY of option
+        // values. An empty array is a real answer ("none of them"), not a
+        // missing one, so nothing is defaulted in for the caller.
+        answers[s.key] = Array.isArray(s['default']) ? s['default'].slice() : [];
+        return;
+      }
       answers[s.key] = s['default'] != null ? s['default'] : (s.options[0] && s.options[0].value);
       // Saved write-in text comes back with its step (see opt.write).
       if (s.writeDefaults) Object.keys(s.writeDefaults).forEach(function (k) { answers[k] = String(s.writeDefaults[k] || ''); });
     });
+    function isPicked(step, value) {
+      return step.multi ? answers[step.key].indexOf(value) !== -1 : answers[step.key] === value;
+    }
 
     var root = el('div', 'afl');
     root.setAttribute('role', 'dialog');
@@ -190,15 +200,39 @@
       if (step.hint) inner.appendChild(el('p', 'afl-hint', step.hint));
 
       var group = el('div', 'afl-opts');
-      group.setAttribute('role', 'radiogroup');
+      group.setAttribute('role', step.multi ? 'group' : 'radiogroup');
       group.setAttribute('aria-label', step.q);
+      /* Aside options (2026-09-04): an option flagged `aside` renders in
+         its own slot ABOVE the list, beside the question, instead of at
+         the foot of it. The founder's reason: "none of them" means the
+         person has nothing to pick, and making them scroll past every
+         option to say so is the opposite of what the answer means. Same
+         answer state and semantics; only the placement moves. */
+      var aside = null;
+      var optBtns = [];
+      function paintChecks() {
+        optBtns.forEach(function (pair) {
+          pair.btn.setAttribute('aria-checked', isPicked(step, pair.opt.value) ? 'true' : 'false');
+        });
+      }
+      var nextBtn = null;
+      var nextCount = null;
+      function paintNext() {
+        if (!nextBtn) return;
+        var n = answers[step.key].filter(function (v) {
+          var o = null;
+          step.options.forEach(function (x) { if (x.value === v) o = x; });
+          return o && !o.exclusive;
+        }).length;
+        nextCount.textContent = n ? (n + ' picked') : (step.emptyLabel || 'None picked');
+      }
 
       step.options.forEach(function (opt) {
         var b = el('button', 'afl-opt');
         if (opt.className) b.className += ' ' + opt.className;
         b.type = 'button';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', answers[step.key] === opt.value ? 'true' : 'false');
+        b.setAttribute('role', step.multi ? 'checkbox' : 'radio');
+        b.setAttribute('aria-checked', isPicked(step, opt.value) ? 'true' : 'false');
         // Optional portrait (2026-09-04): an option can carry an image,
         // for questions about a person. Decorative, so alt is empty; the
         // label carries the name.
@@ -214,10 +248,31 @@
         b.appendChild(txt);
         b.appendChild(el('span', 'afl-opt-mark', '✓'));
         b.addEventListener('click', function () {
+          if (step.multi) {
+            // Toggle. An `exclusive` option ("none of them") clears the
+            // rest and is cleared by any other pick, so the array never
+            // says both "none" and "these".
+            var cur = answers[step.key];
+            var idx = cur.indexOf(opt.value);
+            if (idx !== -1) cur.splice(idx, 1);
+            else if (opt.exclusive) answers[step.key] = cur = [opt.value];
+            else {
+              cur.push(opt.value);
+              answers[step.key] = cur = cur.filter(function (v) {
+                var o = null;
+                step.options.forEach(function (x) { if (x.value === v) o = x; });
+                return !(o && o.exclusive);
+              });
+            }
+            paintChecks();
+            paintNext();
+            play('select');
+            // Choosing "none" is a complete answer; move on like a radio.
+            if (opt.exclusive && idx === -1) go(i + 1);
+            return;
+          }
           answers[step.key] = opt.value;
-          Array.prototype.forEach.call(group.children, function (sib) {
-            sib.setAttribute('aria-checked', sib === b ? 'true' : 'false');
-          });
+          paintChecks();
           play('select');
           // A write-in option (2026-09-04, the founder: "have options to
           // do a 'nuanced' answer and write more") opens a box instead of
@@ -228,9 +283,32 @@
           if (writeBox) { writeBox.hidden = true; if (step.writeKeys) step.writeKeys.forEach(function (k) { answers[k] = ''; }); }
           go(i + 1);
         });
-        group.appendChild(b);
+        optBtns.push({ btn: b, opt: opt });
+        if (opt.aside) {
+          if (!aside) {
+            aside = el('div', 'afl-aside');
+            aside.setAttribute('role', step.multi ? 'group' : 'radiogroup');
+            aside.setAttribute('aria-label', step.q);
+          }
+          aside.appendChild(b);
+        } else {
+          group.appendChild(b);
+        }
       });
+      if (aside) inner.appendChild(aside);
       inner.appendChild(group);
+
+      if (step.multi) {
+        nextBtn = el('button', 'afl-next');
+        nextBtn.type = 'button';
+        nextBtn.appendChild(el('b', null, step.nextLabel || 'Next'));
+        nextCount = el('small');
+        nextBtn.appendChild(nextCount);
+        nextBtn.appendChild(el('span', 'afl-next-arrow', '→'));
+        nextBtn.addEventListener('click', function () { play('select'); go(i + 1); });
+        paintNext();
+        inner.appendChild(nextBtn);
+      }
 
       var writeBox = null, writeArea = null, writeFor = null;
       var writeOpts = step.options.filter(function (o) { return o.write && o.write.key; });
@@ -324,10 +402,19 @@
       summary.innerHTML = '';
       steps.forEach(function (step) {
         if (step.summary === false) return;
-        var picked = null;
-        step.options.forEach(function (o) { if (o.value === answers[step.key]) picked = o; });
         var li = el('li');
         li.appendChild(el('span', null, step.summaryLabel || step.q));
+        if (step.multi) {
+          var names = [];
+          step.options.forEach(function (o) {
+            if (answers[step.key].indexOf(o.value) !== -1 && !o.exclusive) names.push(o.summaryLabel || o.label);
+          });
+          li.appendChild(el('b', null, names.length ? names.join(', ') : (step.emptyLabel || 'None')));
+          summary.appendChild(li);
+          return;
+        }
+        var picked = null;
+        step.options.forEach(function (o) { if (o.value === answers[step.key]) picked = o; });
         li.appendChild(el('b', null, picked ? (picked.summaryLabel || picked.label) : String(answers[step.key])));
         // Write-in text is rendered as text, never markup.
         if (picked && picked.write && picked.write.key && answers[picked.write.key]) {

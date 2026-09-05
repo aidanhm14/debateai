@@ -101,3 +101,41 @@ metadata before download, crop generated from the Commons original.
 - `charliekirk.jpg`: Charlie Kirk, July 16, 2023. Photo by Gage Skidmore,
   [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/).
   [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Charlie_Kirk_2023_by_Gage_Skidmore.jpg).
+
+### Added 2026-09-04, second batch (the founder: the Match Desk now asks
+whose views you agree with and whose you find interesting to argue about;
+"include zizek", "include AOC", "include some other ppl that would be
+helpful"). These ride ONLY the Match Desk roster on /spar. They are not
+creator-sweepstakes targets and do not join the landing's watchlist band.
+Same bar: licence read off the Commons file's own metadata before download,
+square crop generated from the Commons original, nobody pictured has any
+connection to Debatable.
+
+- `zizek.jpg`: Slavoj Zizek, March 13, 2015. Photo by Amrei-Marie,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Slavoj_%C5%BDi%C5%BEek_2015_(closeup).jpg).
+- `aoc.jpg`: Alexandria Ocasio-Cortez, official House portrait, November 30,
+  2018. Franmarie Metzler, U.S. House Office of Photography. Public domain.
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Alexandria_Ocasio-Cortez_Official_Portrait.jpg).
+- `berniesanders.jpg`: Bernie Sanders, February 20, 2026. Photo by Anderseidesvik,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Bernie_Sanders_February_2026_(cropped).jpg).
+- `donaldtrump.jpg`: Donald Trump, official presidential portrait, June 2,
+  2025. Photo by Daniel Torok, The White House. Public domain.
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Official_Presidential_Portrait_of_President_Donald_J._Trump_(2025).jpg).
+- `tuckercarlson.jpg`: Tucker Carlson, July 11, 2025. Photo by Gage Skidmore,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Tucker_Carlson_(54670577849)_(cropped_2).jpg).
+- `noamchomsky.jpg`: Noam Chomsky, April 13, 2017. Photo by Σ, retouched by
+  Wugapodes and Jonnmann,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Noam_Chomsky_portrait_2017_retouched.jpg).
+- `samharris.jpg`: Sam Harris, 2016. Photo by Christopher Michel (Cmichel67),
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Sam_Harris_2016_(cropped).jpg).
+- `jonstewart.jpg`: Jon Stewart, December 18, 2025. Photo by PhilipRomanoPhoto,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Jon-stewart-cropped-portrait-2025.jpg).
+- `elonmusk.jpg`: Elon Musk, September 21, 2025. Photo by Gage Skidmore,
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Elon_Musk_-_54820081119_(cropped).jpg).
