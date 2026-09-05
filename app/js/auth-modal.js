@@ -103,6 +103,8 @@
       '#ditAuth .da-x:hover{background:' + field + ';color:' + ink + '}' +
       '#ditAuth h2{font-size:26px;line-height:1.08;font-weight:800;margin:0 34px 8px 0;letter-spacing:0}' +
       '#ditAuth .da-sub{font-size:15px;color:' + sub + ';margin:0 0 20px;line-height:1.5;max-width:32ch}' +
+      '#ditAuth .da-live-person{display:inline-flex;align-items:center;gap:7px;margin:0 28px 14px 0;padding:7px 10px;border-radius:999px;background:rgba(22,163,74,.1);color:' + (dark ? '#bbf7d0' : '#166534') + ';font-family:"Archivo","Inter",system-ui,sans-serif;font-size:11px;font-weight:800;line-height:1.3;letter-spacing:.06em;text-transform:uppercase}' +
+      '#ditAuth .da-live-person-dot{width:7px;height:7px;flex:none;border-radius:50%;background:#16a34a}' +
       '#ditAuth .da-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:13px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid ' + line + ';background:' + field + ';color:' + ink + ';font-family:inherit;text-decoration:none;margin-top:10px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}' +
       '#ditAuth .da-btn:hover{border-color:' + hover + ';box-shadow:0 8px 22px rgba(0,0,0,.08);transform:translateY(-1px)}' +
       '#ditAuth .da-btn:disabled{opacity:.62;cursor:not-allowed;transform:none;box-shadow:none}' +
@@ -448,6 +450,7 @@
         : 'Use Google, Apple, or your email and password. New here? Create an account below.');
     c.innerHTML =
       (locked ? '' : '<button class="da-x" aria-label="Close">×</button>') +
+      (lockCopy && lockCopy.livePerson ? '<div class="da-live-person"><span class="da-live-person-dot" aria-hidden="true"></span>Real person · Live video</div>' : '') +
       '<h2>' + esc(headline) + '</h2>' +
       '<p class="da-sub">' + esc(subline) + '</p>' +
       lastHint +
@@ -1411,8 +1414,8 @@
     locked = !!(opts && opts.locked);
     googleOnly = !!(opts && opts.googleOnly);
     liveVideo = !!(opts && opts.liveVideo) && !googleOnly;
-    lockCopy = (opts && (opts.headline || opts.sub))
-      ? { headline: opts.headline || '', sub: opts.sub || '' }
+    lockCopy = (opts && (opts.headline || opts.sub || opts.livePerson))
+      ? { headline: opts.headline || '', sub: opts.sub || '', livePerson: !!opts.livePerson }
       : null;
     injectStyles();
     if (!modal) {

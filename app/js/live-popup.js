@@ -601,13 +601,13 @@
       return {
         kind: 'wait',
         key: 'wait:' + pick.uid,
-        badge: 'WANTS TO DEBATE',
-        headline: name + ' wants to debate',
+        badge: 'REAL PERSON · LIVE VIDEO',
+        headline: name + ' is waiting for an opponent',
         who: more > 0
           ? ('Live in the queue now, and ' + more + ' other' + (more > 1 ? 's' : ''))
-          : 'Live in the queue right now, no opponent yet',
+          : 'One-on-one, face to face on live video',
         meta: needsAuth ? 'SIGN IN TO DEBATE' : 'OPEN SEAT',
-        cta: needsAuth ? 'Sign in to debate' : 'Debate them',
+        cta: needsAuth ? 'Sign in to debate' : 'Join the video queue',
         href: '/spar',
         needsAuth: needsAuth,
         name: name,
@@ -688,8 +688,9 @@
     });
     window.openAuthModal('signin', {
       liveVideo: true,
-      headline: (item.name || 'Someone') + ' wants to debate',
-      sub: 'Continue with Google to take the open seat. The same button works for new and returning accounts, with no password to remember.',
+      livePerson: true,
+      headline: (item.name || 'Someone') + ' is waiting for an opponent',
+      sub: 'Debate another person face to face on live video. Sign in to join the queue.',
       onDone: function (user) {
         if (!user) {
           write(localStorage, SNOOZE_KEY, now());
