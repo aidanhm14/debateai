@@ -8516,6 +8516,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-chats-rooms a{color:rgba(26,26,31,.66);border-color:rgba(26,26,31,.16)}
   [data-theme="light"] .fs-chats-rooms a:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
   .fs-chats.is-live .fs-chats-rooms{display:none}
+  /* Loading state (2026-09-04, the founder, off a screenshot of the
+     chip card sitting over 400px of empty panel: "things load in
+     before the actual thing"). While /api/live-chats is in flight the
+     list shows message-shaped skeleton rows, the same height and
+     rhythm as the real rows, so the swap to real messages is in place
+     rather than chips-then-feed. The chips remain the JS-off and
+     failed-fetch state; they never show while a fetch is pending. On
+     a return visit the last payload renders from sessionStorage at
+     parse time, so the real thing is usually first paint. */
+  .fs-chats-skel{display:flex;flex-direction:column;gap:4px;padding:0 2px}
+  .fs-chats-skel i{display:block;height:44px;border-radius:10px;
+    background:linear-gradient(90deg,rgba(245,239,231,.05) 0%,rgba(245,239,231,.1) 45%,rgba(245,239,231,.05) 90%);
+    background-size:220% 100%;animation:fsChatsSkel 1.3s ease-in-out infinite}
+  [data-theme="light"] .fs-chats-skel i{background-image:linear-gradient(90deg,rgba(26,26,31,.04) 0%,rgba(26,26,31,.09) 45%,rgba(26,26,31,.04) 90%)}
+  @keyframes fsChatsSkel{0%{background-position:120% 0}100%{background-position:-120% 0}}
+  @media(prefers-reduced-motion:reduce){.fs-chats-skel i{animation:none}}
   .fs-chats-cta{margin-top:11px;flex:none;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
     color:#fff;background:#dc2626;border-radius:10px;padding:9px 12px;
     transition:background .15s ease}
@@ -9309,6 +9325,29 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
       <a class="fs-chats-cta" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
+    <script>
+    /* Parse-time, before the panel's first paint: start the feed request
+       now (the renderer near the end of the file consumes it), read the
+       last payload back from sessionStorage, and if there is nothing to
+       paint yet swap the room chips for skeleton rows. The chips return
+       only if the fetch fails or returns nothing. */
+    (function(){
+      var mq = window.matchMedia && window.matchMedia('(min-width:1360px)');
+      if (!mq || !mq.matches || !window.fetch) return;
+      var list = document.getElementById('fsChatsList');
+      if (!list) return;
+      window.__fsChatsRooms = list.innerHTML;
+      try { window.__fsChatsReq = fetch('/api/live-chats'); } catch (e) {}
+      try {
+        var c = JSON.parse(sessionStorage.getItem('da-fs-chats') || 'null');
+        if (c && c.messages && c.messages.length && (Date.now() - (c.at || 0)) < 15 * 60 * 1000) window.__fsChatsCache = c.messages;
+      } catch (e) {}
+      if (window.__fsChatsCache) return;
+      var sk = '';
+      for (var i = 0; i < 9; i++) sk += '<i></i>';
+      list.innerHTML = '<div class="fs-chats-skel" aria-hidden="true">' + sk + '</div>';
+    })();
+    </script>
   </div>
   <!-- The audience chooser ("Do you compete in debate?") used to overlay
        the foot of this screen; 2026-08-18 (same day it shipped) the founder
@@ -20086,18 +20125,41 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       else list.scrollTop = Math.min(previousTop, Math.max(0, list.scrollHeight - list.clientHeight));
     }
 
+    // The chips are the honest no-feed state. They come back only when
+    // the FIRST fetch fails or answers empty with nothing cached; a later
+    // poll failing leaves the messages already on screen alone.
+    function restoreRooms(){
+      if (panel.classList.contains('is-live')) return;
+      if (window.__fsChatsRooms) list.innerHTML = window.__fsChatsRooms;
+    }
+
     function poll(){
-      fetch('/api/live-chats').then(function(r){ return r.ok ? r.json() : null; })
+      // The parse-time script beside the markup starts the first request
+      // so it is in flight before this renderer is even parsed.
+      var req = window.__fsChatsReq || fetch('/api/live-chats');
+      window.__fsChatsReq = null;
+      req.then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
-          if (d && d.messages && d.messages.length) realRows = d.messages;
+          if (d && d.messages && d.messages.length){
+            realRows = d.messages;
+            try { sessionStorage.setItem('da-fs-chats', JSON.stringify({ at: Date.now(), messages: d.messages.slice(0, MAX_ROWS) })); } catch(e){}
+          }
           renderAll();
+          if (!realRows.length) restoreRooms();
         })
-        .catch(function(){});
+        .catch(restoreRooms);
     }
 
     function start(){
       if (started) return;
       started = true;
+      // Return visit: the last payload paints synchronously, before the
+      // network answers. Ages are computed at render, so old rows read
+      // with their real ages, and the fetch below refreshes in place.
+      if (window.__fsChatsCache && window.__fsChatsCache.length){
+        realRows = window.__fsChatsCache;
+        renderAll();
+      }
       poll();
       setInterval(function(){
         if (!document.hidden && (!mq || mq.matches)){ poll(); renderAll(); }
