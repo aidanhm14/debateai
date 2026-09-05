@@ -78,18 +78,21 @@ check(
   'Apple renders on web and in the iOS shell (2026-09-04); the App Store option is intact',
 );
 check(
-  experienceAsk.includes('Are you a competitive debater or new?')
-    && experienceAsk.includes('Either is fine. This only helps us explain ideas clearly.')
-    && experienceAsk.includes('Competitive debater')
-    && experienceAsk.includes('New to debate'),
-  'the experience ask states its plain-language purpose',
+  experienceAsk.includes('Ever done organized debate?')
+    && experienceAsk.includes('Most people here have not. This only changes the words we use to explain things.')
+    && experienceAsk.includes('No, just here to argue')
+    && experienceAsk.includes('Yes, I compete')
+    && experienceAsk.indexOf('data-exp="new"') < experienceAsk.indexOf('data-exp="competitive">Yes'),
+  'the experience ask leads with the casual answer and states its plain-language purpose (2026-09-04)',
 );
 check(
-  experienceAsk.includes('var ASK_AFTER_MS = 60000;')
+  experienceAsk.includes('var ASK_AFTER_MS = 5 * 60000;')
+    && experienceAsk.includes('var MIN_PAGES = 2;')
     && experienceAsk.includes("sessionStorage.getItem(SPENT)")
     && experienceAsk.includes('if (document.hidden) return;')
+    && (experienceAsk.match(/elapsed >= ASK_AFTER_MS && pagesSeen\(\) >= MIN_PAGES/g) || []).length === 2
     && !experienceAsk.includes('}, 2200);'),
-  'the experience ask waits for one cumulative visible minute',
+  'the experience ask waits for five cumulative visible minutes and a second page (2026-09-04: it crowded the site and read as comp-debater-only)',
 );
 check(
   /function plainActive\(\) \{\s*return read\(\) !== 'competitive';\s*\}/.test(audienceMode),

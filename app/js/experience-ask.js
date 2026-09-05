@@ -1,6 +1,18 @@
 /* ──────────────────────────────────────────────────────────────────
-   "Are you a competitive debater or new?" — asked once, after one
-   visible minute of use, site-wide.
+   "Ever done organized debate?" — asked once, late, site-wide.
+
+   2026-09-04, Aidan, off a screenshot of the card a minute into a
+   visit: "only ask this later bc it crowds the site and makes ppl
+   think the site is for comp debaters. its not. rlly leave it to
+   later - so default to a structural casual language in explaining
+   debate and whats rewarded." The casual register is already the
+   default for everyone who has not answered (audience-mode.js treats
+   anything but an explicit "competitive" as plain), so this card
+   exists only so people who DO compete can opt into the vocabulary.
+   That is a question for someone who has used the site, not someone
+   who just arrived: it now waits for five cumulative visible minutes
+   AND a second page in the same session, and it leads with the casual
+   answer. The one-minute version is below in the history.
 
    Aidan, 2026-08-22: "when entering site ask ppl if they already
    debate or dont and are new (no worries if your not!)".
@@ -45,7 +57,9 @@
   var KEY = 'debateos-experience';
   var ASKED = 'debateos-experience-asked';
   var SPENT = 'debateos-experience-visible-ms';
-  var ASK_AFTER_MS = 60000;
+  var ASK_AFTER_MS = 5 * 60000;
+  var MIN_PAGES = 2;
+  var PAGES = 'debateos-experience-pages';
   var TICK_MS = 1000;
   var VALID = { competitive: 1, new: 1, unsure: 1 };
 
@@ -57,7 +71,7 @@
       var m = /[?&]experienceask=(\d{1,2})(?:&|$)/.exec(location.search);
       if (!m) return;
       var seconds = parseInt(m[1], 10);
-      if (seconds >= 1 && seconds <= 60) ASK_AFTER_MS = seconds * 1000;
+      if (seconds >= 1 && seconds <= 60) { ASK_AFTER_MS = seconds * 1000; MIN_PAGES = 1; }
     } catch (e) {}
   })();
 
@@ -105,6 +119,17 @@
   }
   function setSpent(value) {
     try { sessionStorage.setItem(SPENT, String(value)); } catch (e) {}
+  }
+  // Pages seen this session, counted once per full-page load. The ask
+  // waits for a second page: one page is a visit, two is someone using
+  // the site, and only the second person is worth interrupting.
+  function pagesSeen() {
+    try { return parseInt(sessionStorage.getItem(PAGES), 10) || 0; } catch (e) { return 0; }
+  }
+  function countPage() {
+    var n = pagesSeen() + 1;
+    try { sessionStorage.setItem(PAGES, String(n)); } catch (e) {}
+    return n;
   }
 
   function answered() { return !!VALID[read(KEY)] || read(ASKED) === '1'; }
@@ -205,11 +230,11 @@
     box.style.position = 'fixed';
     box.innerHTML =
       '<button type="button" class="dea-x" aria-label="Not now">&times;</button>' +
-      '<p class="dea-q">Are you a competitive debater or new?</p>' +
-      '<p class="dea-s">Either is fine. This only helps us explain ideas clearly.</p>' +
+      '<p class="dea-q">Ever done organized debate?</p>' +
+      '<p class="dea-s">Most people here have not. This only changes the words we use to explain things.</p>' +
       '<div class="dea-row">' +
-        '<button type="button" class="dea-b" data-exp="competitive">Competitive debater</button>' +
-        '<button type="button" class="dea-b" data-exp="new">New to debate</button>' +
+        '<button type="button" class="dea-b" data-exp="new">No, just here to argue</button>' +
+        '<button type="button" class="dea-b" data-exp="competitive">Yes, I compete</button>' +
       '</div>' +
       '<p class="dea-note">You can change this any time in settings.</p>';
 
@@ -231,8 +256,8 @@
       choose(v);
       track('audience_choice', { value: v, surface: 'entry_card' });
       box.innerHTML = '<p class="dea-q">' +
-        (v === 'competitive' ? 'Got it. We will keep the debate vocabulary.'
-                             : 'Got it. We will explain ideas in plain English.') +
+        (v === 'competitive' ? 'Got it. We will use the debate vocabulary.'
+                             : 'Got it. Plain words it is.') +
         '</p><p class="dea-s" style="margin:0">Change it any time in settings.</p>';
       setTimeout(function () { box.remove(); }, 2600);
     });
@@ -300,12 +325,13 @@
     if (document.hidden) return;
     elapsed += TICK_MS;
     setSpent(elapsed);
-    if (elapsed >= ASK_AFTER_MS) showWhenReady();
+    if (elapsed >= ASK_AFTER_MS && pagesSeen() >= MIN_PAGES) showWhenReady();
   }
 
   function start() {
+    countPage();
     if (answered()) return;
-    if (elapsed >= ASK_AFTER_MS) { showWhenReady(); return; }
+    if (elapsed >= ASK_AFTER_MS && pagesSeen() >= MIN_PAGES) { showWhenReady(); return; }
     timer = setInterval(tick, TICK_MS);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
