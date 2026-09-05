@@ -762,48 +762,6 @@
   })();
 </script>
 
-<!-- First-screen claim picker A/B (2026-09-05). From the outside audit's
-     one idea worth testing: ask a stranger whether they AGREE with a claim
-     before asking them to pick a product door. The 'claim' arm swaps the
-     three doors under the example board for three claims with Agree /
-     Disagree; a pick reveals the same doors with the AI door prefilled
-     with that claim and side. 'doors' is the 2026-09-03 sketch, byte-
-     identical. Sticky 50/50 in da-fsclaim-ab; ?fsclaim=claim|doors forces
-     QA (forced arms are excluded from telemetry by experiments.js).
-     Read first_screen_claim_pick and the door clicks against
-     ab_impression per arm; the number that matters is rounds STARTED per
-     visitor, which newvoice_autostart handoff='first-screen-claim' and
-     the /spar queue joins carry. -->
-<script>
-  (function(){
-    var v='',forced=false;
-    try{
-      var qp=(location.search||'').toLowerCase();
-      if(/[?&]fsclaim=claim(?:&|$)/.test(qp)){v='claim';forced=true;}
-      else if(/[?&]fsclaim=doors(?:&|$)/.test(qp)){v='doors';forced=true;}
-    }catch(e){}
-    /* Phones get #mhome, a separate composition with no picker in it, so
-       a phone bucketed into 'claim' would count an impression with no
-       treatment. Under 720px the page renders the doors and the experiment
-       is not registered at all (no impression, no conversion). */
-    var phone=false;
-    try{phone=window.matchMedia&&window.matchMedia('(max-width:720px)').matches;}catch(e){}
-    if(phone&&!forced){
-      document.documentElement.setAttribute('data-fsclaim','doors');
-      return;
-    }
-    if(!v){
-      try{
-        v=localStorage.getItem('da-fsclaim-ab')||'';
-        if(v!=='claim'&&v!=='doors'){v=Math.random()<0.5?'claim':'doors';localStorage.setItem('da-fsclaim-ab',v);}
-      }catch(e){v='doors';}
-    }
-    document.documentElement.setAttribute('data-fsclaim',v);
-    window.__abAssignments=window.__abAssignments||{};
-    window.__abAssignments.first_screen_claim_v1=forced?{variant:v,forced:true}:{variant:v};
-  })();
-</script>
-
 <!-- One-pager CALLED by the founder, 2026-08-10, same day the A/B shipped.
      He hit the `full` arm and read the page as a long unfocused deck:
      one simple screen, people choose to see more. So every visitor
@@ -7652,41 +7610,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .fs-actions-row .fs-cta{width:100%;padding:11px 16px}
   @media(max-width:520px){.fs-actions-row{grid-template-columns:1fr}}
-  /* Claim picker arm (first_screen_claim_v1, 2026-09-05). Hidden in the
-     doors arm; in the claim arm it stands where the doors stand until a
-     side is picked, then the doors return under the pick. */
-  .fs-claim{display:none;margin-top:12px}
-  .fs-claim-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 4px}
-  :root[data-fsclaim="claim"] .fs-claim{display:block}
-  :root[data-fsclaim="claim"]:not([data-fsclaim-picked]) .fs-actions{display:none}
-  .fs-claim-k{margin:0;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(26,26,31,.55)}
-  .fs-claim-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;
-    padding:6px 0;border-top:1px solid rgba(26,26,31,.1)}
-  .fs-claim-row:last-of-type{border-bottom:1px solid rgba(26,26,31,.1)}
-  .fs-claim-q{margin:0;font-size:clamp(.98rem,.9vw,1.08rem);font-weight:700;line-height:1.3;color:#1a1a1f}
-  .fs-claim-btn{font-family:inherit;font-size:.88rem;font-weight:800;padding:6px 13px;border-radius:999px;cursor:pointer;
-    background:#e9e6e3;border:1px solid #dcd8d4;color:#1a1a1f;white-space:nowrap;transition:transform .12s,background .12s,border-color .12s}
-  .fs-claim-btn:hover{border-color:#dc2626;color:#dc2626;transform:translateY(-1px)}
-  .fs-claim-btn.is-picked{background:#dc2626;border-color:#dc2626;color:#fff}
-  .fs-claim-skip{display:inline-block;font-size:.82rem;white-space:nowrap;font-weight:700;color:rgba(26,26,31,.6);text-decoration:underline;text-underline-offset:3px}
-  .fs-claim-skip:hover{color:#dc2626}
-  .fs-claim-picked{display:none;margin:2px 0 0}
-  :root[data-fsclaim-picked] .fs-claim-picked{display:block}
-  :root[data-fsclaim-picked] .fs-claim-row:not(.is-chosen),
-  :root[data-fsclaim-picked] .fs-claim-skip{display:none}
-  @media(max-width:520px){.fs-claim-head{flex-wrap:wrap}}
-  :root[data-fsclaim-picked] .fs-claim-row.is-chosen{border-bottom:1px solid rgba(26,26,31,.1)}
-  .fs-claim-next{margin:10px 0 0;font-size:clamp(1rem,.95vw,1.12rem);font-weight:800;color:#1a1a1f}
-  .fs-claim-again{font-family:inherit;background:none;border:0;padding:0;margin:6px 0 0;cursor:pointer;
-    font-size:.88rem;font-weight:700;color:rgba(26,26,31,.6);text-decoration:underline;text-underline-offset:3px}
-  .fs-claim-again:hover{color:#dc2626}
-  @media(max-width:520px){.fs-claim-row{grid-template-columns:1fr 1fr}.fs-claim-q{grid-column:1 / -1}}
-  :root:not([data-theme="light"]) .fs-claim-k,:root:not([data-theme="light"]) .fs-claim-skip,:root:not([data-theme="light"]) .fs-claim-again{color:rgba(245,239,231,.62)}
-  :root:not([data-theme="light"]) .fs-claim-q,:root:not([data-theme="light"]) .fs-claim-next{color:#f5efe7}
-  :root:not([data-theme="light"]) .fs-claim-row,:root:not([data-theme="light"]) .fs-claim-row:last-of-type,:root:not([data-theme="light"])[data-fsclaim-picked] .fs-claim-row.is-chosen{border-color:rgba(245,239,231,.16)}
-  :root:not([data-theme="light"]) .fs-claim-btn{background:rgba(245,239,231,.12);border-color:rgba(245,239,231,.18);color:#f5efe7}
-  :root:not([data-theme="light"]) .fs-claim-btn:hover{border-color:#f87171;color:#f87171}
-  :root:not([data-theme="light"]) .fs-claim-btn.is-picked{background:#dc2626;border-color:#dc2626;color:#fff}
   /* "remember - the big screen can widen" (the founder, 2026-09-03). 740px
      is what keeps the Google line above an 800px fold; a screen with the
      height to spare gets the wider board back. Height-gated, not just
@@ -9306,34 +9229,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          a pair. Same hrefs, data-cta and A/B tags as the doors that used
          to live in the headline column; the watch-live poll still finds
          the Watch door through data-fs-watch-live. -->
-    <!-- Claim picker (first_screen_claim_v1, 2026-09-05). Two claims from
-         the example-board deck (two, not three: the picker has to fit the
-         height of the three doors it stands in for, or the Google line
-         drops under an 800px fold, which is the 2026-09-03 constraint), so every one has already passed the motion
-         boundary. Agree / Disagree is the first action; the doors below
-         come back once a side is picked, with the AI door carrying the
-         claim and side into /newvoice. /spar cannot carry a motion (the
-         room drafts its own), so that door keeps its label and href. -->
-    <div class="fs-claim" id="fsClaim" data-nosnippet>
-      <div class="fs-claim-head">
-        <p class="fs-claim-k">Pick a side</p>
-        <a class="fs-claim-skip" href="/spar" data-cta="first-screen-claim-skip" data-ab-test="first_screen_claim_v1" data-ab-target="skip">Skip, just find me an opponent</a>
-      </div>
-      <div class="fs-claim-row" data-claim="Cities should make public transit free.">
-        <p class="fs-claim-q">Cities should make public transit free.</p>
-        <button type="button" class="fs-claim-btn" data-pick="for" data-ab-test="first_screen_claim_v1" data-ab-target="pick_agree">Agree</button>
-        <button type="button" class="fs-claim-btn" data-pick="against" data-ab-test="first_screen_claim_v1" data-ab-target="pick_disagree">Disagree</button>
-      </div>
-      <div class="fs-claim-row" data-claim="In your country, the working week should be four days.">
-        <p class="fs-claim-q">The working week should be four days.</p>
-        <button type="button" class="fs-claim-btn" data-pick="for" data-ab-test="first_screen_claim_v1" data-ab-target="pick_agree">Agree</button>
-        <button type="button" class="fs-claim-btn" data-pick="against" data-ab-test="first_screen_claim_v1" data-ab-target="pick_disagree">Disagree</button>
-      </div>
-      <div class="fs-claim-picked" aria-live="polite">
-        <p class="fs-claim-next" id="fsClaimNext">You disagree. Now defend it.</p>
-        <button type="button" class="fs-claim-again" id="fsClaimAgain">Pick a different claim</button>
-      </div>
-    </div>
     <div class="fs-actions">
       <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Join a debate <span aria-hidden="true">&rarr;</span></a>
       <div class="fs-actions-row">
@@ -20036,45 +19931,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   (function(){
     var badges = document.querySelectorAll('[data-live-count]');
     var inlines = document.querySelectorAll('[data-live-count-inline]');
-    /* Claim picker (first_screen_claim_v1). A pick marks the row, writes
-       the claim and side onto the AI door, and reveals the doors. */
-    (function(){
-      var root = document.documentElement;
-      var box = document.getElementById('fsClaim');
-      if (!box || root.getAttribute('data-fsclaim') !== 'claim') return;
-      var aiDoor = document.querySelector('.fs-actions .fs-cta--ai');
-      var aiHref = aiDoor ? aiDoor.getAttribute('href') : '';
-      var aiLabel = aiDoor ? aiDoor.textContent : '';
-      var nextEl = document.getElementById('fsClaimNext');
-      function ga(name, p){ try { if (typeof gtag === 'function') gtag('event', name, p || {}); } catch (e) {} }
-      box.addEventListener('click', function(ev){
-        var btn = ev.target && ev.target.closest ? ev.target.closest('.fs-claim-btn') : null;
-        if (!btn) return;
-        var row = btn.closest('.fs-claim-row');
-        var claim = row ? row.getAttribute('data-claim') || '' : '';
-        var side = btn.getAttribute('data-pick') === 'for' ? 'for' : 'against';
-        var rows = box.querySelectorAll('.fs-claim-row');
-        for (var i = 0; i < rows.length; i++) rows[i].classList.toggle('is-chosen', rows[i] === row);
-        var btns = box.querySelectorAll('.fs-claim-btn');
-        for (var j = 0; j < btns.length; j++) btns[j].classList.toggle('is-picked', btns[j] === btn);
-        if (nextEl) nextEl.textContent = (side === 'for' ? 'You agree.' : 'You disagree.') + ' Now defend it.';
-        if (aiDoor) {
-          aiDoor.setAttribute('href', '/newvoice?motion=' + encodeURIComponent(claim) + '&side=' + side + '&handoff=first-screen-claim');
-          aiDoor.textContent = 'Debate the AI on this';
-        }
-        root.setAttribute('data-fsclaim-picked', side);
-        var idx = row ? Array.prototype.indexOf.call(rows, row) : -1;
-        ga('first_screen_claim_pick', { claim: idx, side: side });
-      });
-      var again = document.getElementById('fsClaimAgain');
-      if (again) again.addEventListener('click', function(){
-        root.removeAttribute('data-fsclaim-picked');
-        var picked = box.querySelectorAll('.is-picked, .is-chosen');
-        for (var k = 0; k < picked.length; k++) picked[k].classList.remove('is-picked', 'is-chosen');
-        if (aiDoor) { aiDoor.setAttribute('href', aiHref); aiDoor.textContent = aiLabel; }
-        ga('first_screen_claim_reset', {});
-      });
-    })();
     var watchBtns = document.querySelectorAll('[data-fs-watch-live]');
     if (!badges.length && !inlines.length && !watchBtns.length) return;
     // The first-screen "Watch live round" door (2026-09-01). One live round
