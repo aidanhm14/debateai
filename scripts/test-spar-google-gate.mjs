@@ -127,7 +127,8 @@ check(watch.includes("headline:'Sign in to spectate live debates'"), 'Watch live
 check(watch.includes("destination:link.getAttribute('href')"), 'Watch sign-in must return to the exact live room');
 check(authModal.includes('liveVideo = !!(opts && opts.liveVideo) && !googleOnly;'), 'shared auth prompt must accept live-video mode');
 check(authModal.includes('var noEmail = true;'), 'every public prompt, including live video, must omit the email door');
-check(authModal.includes('var providerButtons = googleBtn;'), 'chooser must render Google as the one provider button on web');
+check(authModal.includes('var providerButtons = googleBtn + appleBtn + discordBtn;'), 'chooser renders Google, Apple (web, 2026-09-04) and Discord behind its ready flag');
+check(authModal.includes('var DISCORD_SIGNIN_READY = false;') || authModal.includes('var DISCORD_SIGNIN_READY = true;'), 'Discord button must stay behind an explicit ready flag until the OIDC provider exists');
 check(authModal.includes('Open the site in Safari or Chrome to sign in with Google.'), 'in-app live-video note must point at a real browser');
 check(!spar.includes('id="emailStartBtn"'), 'signed-out gate must not render an email alternative');
 check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the retired email form');

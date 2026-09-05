@@ -114,6 +114,8 @@
       '#ditAuth .da-btn--google{background:#fff;color:#16130f;border-color:rgba(0,0,0,.14)}' +
       '#ditAuth .da-btn--apple{background:#050505;color:#fff;border-color:#050505}' +
       '#ditAuth .da-btn--apple:hover{background:#1b1b1b;border-color:#1b1b1b}' +
+      '#ditAuth .da-btn--discord{background:#5865F2;color:#fff;border-color:#5865F2}' +
+      '#ditAuth .da-btn--discord:hover{background:#4752c4;border-color:#4752c4}' +
       '#ditAuth .da-btn--primary{background:#b91c1c;color:#fff;border-color:#ef4444}' +
       '#ditAuth .da-btn--primary:hover{background:#dc2626;border-color:#dc2626}' +
       '#ditAuth .da-btn--hero{min-height:54px;padding:14px 16px;font-size:17px;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.08)}' +
@@ -280,6 +282,8 @@
 
   var GOOGLE_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>';
 
+  var DISCORD_SIGNIN_READY = false;
+  var DISCORD_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M19.6 5.6A17 17 0 0 0 15.4 4.3l-.2.4a15.8 15.8 0 0 1 3.8 1.9 13.6 13.6 0 0 0-14 0 15.8 15.8 0 0 1 3.8-1.9l-.2-.4a17 17 0 0 0-4.2 1.3C1.9 9.6 1.2 13.5 1.5 17.3a17.2 17.2 0 0 0 5.2 2.6l1.1-1.8a11 11 0 0 1-1.8-.8l.4-.3a12.2 12.2 0 0 0 11.2 0l.4.3a11 11 0 0 1-1.8.8l1.1 1.8a17.2 17.2 0 0 0 5.2-2.6c.4-4.4-.7-8.3-2.9-11.7ZM8.7 15c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2S9.8 15 8.7 15Zm6.6 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2Z"/></svg>';
   var APPLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>';
 
   function home() { return document.getElementById('ditAuthCard'); }
@@ -391,7 +395,6 @@
       ? forceEmailMode
       : last === 'email' ? 'password' : 'link';
     var linkMode = emailMode === 'link';
-    if (last === 'apple' && !window.__DB_NATIVE) last = '';
     var lastHint = !creating && last
       ? '<p class="da-note" style="margin:0 0 14px;text-align:left">Last time you signed in with ' +
         (last === 'google' ? 'Google' : last === 'apple' ? 'Apple' :
@@ -418,9 +421,27 @@
     // the binary, not the website. Restoring it on web is one condition
     // (__DB_NATIVE) plus registering the sender with Apple so relay mail
     // is deliverable, in that order.
-    var nativeButtons = window.__DB_NATIVE && !googleOnly
+    // 2026-09-04, Aidan: Apple is BACK on web (a second door for the
+    // people the Google-only card was turning away). The Hide My Email
+    // caveat above still holds; the fix for it is registering the sender
+    // domain in the developer portal's Sign in with Apple configuration,
+    // which is his action and is noted in the decision log.
+    var appleBtn = !googleOnly
       ? '<button type="button" class="da-btn da-btn--apple da-btn--hero" id="daApple">' + APPLE_SVG + 'Continue with Apple</button>'
       : '';
+    // Discord (2026-09-04, Aidan: "can we get other platforms beyond
+    // google"). Discord publishes OpenID discovery at
+    // https://discord.com/.well-known/openid-configuration, so it rides
+    // Identity Platform as a generic OIDC provider named oidc.discord.
+    // The provider does not exist on the project yet: it needs a Discord
+    // application (his account) whose client id and secret go into
+    // identitytoolkit.googleapis.com/admin/v2/.../oauthIdpConfigs. Flip
+    // DISCORD_SIGNIN_READY once that config exists; before then the
+    // button would open a popup that errors.
+    var discordBtn = DISCORD_SIGNIN_READY && !googleOnly
+      ? '<button type="button" class="da-btn da-btn--discord da-btn--hero" id="daDiscord">' + DISCORD_SVG + 'Continue with Discord</button>'
+      : '';
+    var nativeButtons = '';
     // See isInAppBrowser(). Google and Apple are still rendered rather than
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
@@ -437,7 +458,7 @@
     // retired 2026-09-03 (Aidan: Google plus what can be set up quickly,
     // not text and not phone); Apple stays in the iOS shell only.
     var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
-    var providerButtons = googleBtn;
+    var providerButtons = googleBtn + appleBtn + discordBtn;
     // A locked chooser has no close control at all. Rendering a dead × is
     // worse than rendering none: it reads as a way out and is not one.
     // ONE DOOR. A Google tap signs in or creates the account, so the card
@@ -516,6 +537,7 @@
     // review guard pins.
     wireTermsField(c);
     if (c.querySelector('#daApple')) c.querySelector('#daApple').addEventListener('click', doAppleSignIn);
+    if (c.querySelector('#daDiscord')) c.querySelector('#daDiscord').addEventListener('click', doDiscordSignIn);
     c.querySelector('#daG').addEventListener('click', doGoogle);
     var emailForm = c.querySelector('#daEmailForm');
     if (emailForm) emailForm.addEventListener('submit', linkMode ? doEmailLink : doEmailPassword);
@@ -786,6 +808,54 @@
     });
   }
   window.dbAppleSignIn = doAppleSignIn;
+
+  // Discord through Identity Platform's generic OIDC provider. Same link-
+  // first shape as Google and Apple: an anonymous visitor's local state
+  // travels into the account; an existing Discord account signs in
+  // directly off the rejected link's credential.
+  function doDiscordSignIn() {
+    if (!requireTerms()) return;
+    setErr('');
+    bootstrap(function () {
+      try {
+        var provider = new firebase.auth.OAuthProvider('oidc.discord');
+        provider.addScope('identify');
+        provider.addScope('email');
+        track('sign_in_start', { method: 'discord' });
+        var t0 = Date.now();
+        auth = firebase.auth();
+        var current = auth.currentUser;
+        var linkRejected = false;
+        var attempt = current && current.isAnonymous && current.linkWithPopup
+          ? current.linkWithPopup(provider).catch(function (err) {
+              var code = (err && err.code) || '';
+              if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+                linkRejected = true;
+                var cred = err && err.credential;
+                if (cred && auth.signInWithCredential) return auth.signInWithCredential(cred);
+                return auth.signInWithPopup(provider);
+              }
+              throw err;
+            })
+          : auth.signInWithPopup(provider);
+        attempt.then(function () {
+          try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
+          track('sign_in_complete', { method: 'discord' });
+          if (handOff('discord')) return;
+          window.location.href = destination();
+        }).catch(function (err) {
+          var code = (err && err.code) || 'unknown';
+          if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
+          try {
+            var canLink = current && current.isAnonymous && current.linkWithRedirect && !linkRejected;
+            var redirect = canLink ? current.linkWithRedirect(provider) : auth.signInWithRedirect(provider);
+            Promise.resolve(redirect).catch(function () { setErr('Discord sign-in failed. Try again.'); });
+          } catch (e) { setErr('Discord sign-in failed: ' + code); }
+        });
+      } catch (e) { setErr('Discord sign-in unavailable, try again.'); }
+    });
+  }
+  window.dbDiscordSignIn = doDiscordSignIn;
 
   function emailAuthMessage(err, mode) {
     var code = (err && err.code) || '';

@@ -197,6 +197,15 @@
         b.type = 'button';
         b.setAttribute('role', 'radio');
         b.setAttribute('aria-checked', answers[step.key] === opt.value ? 'true' : 'false');
+        // Optional portrait (2026-09-04): an option can carry an image,
+        // for questions about a person. Decorative, so alt is empty; the
+        // label carries the name.
+        if (opt.img) {
+          var im = el('img', 'afl-opt-img');
+          im.src = opt.img; im.alt = ''; im.decoding = 'async';
+          b.appendChild(im);
+          b.classList.add('afl-opt--img');
+        }
         var txt = el('span');
         txt.appendChild(el('span', 'afl-opt-t', opt.label));
         if (opt.sub) txt.appendChild(el('span', 'afl-opt-s', opt.sub));

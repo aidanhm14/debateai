@@ -1732,6 +1732,9 @@ body.draft-live #daExpAsk{display:none !important}
   transition:transform .15s;margin-bottom:10px;
 }
 .gate-google:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.3)}
+.gate-apple{margin-top:10px;background:#050505;color:#fff;border-color:#050505}
+.gate-apple:hover{background:#1b1b1b}
+[data-theme="light"] .gate-apple{background:#050505;color:#fff}
 .gate-google svg{width:18px;height:18px;flex-shrink:0}
 /* In-app browser instruction. The Copy link button is inline because a
    webview has no address bar, so "open this in Safari" needs the link. */
@@ -3046,6 +3049,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   var LEGACY_MATCH_PROFILE_KEY = 'da-spar-match-profile-v3';
   var OLDEST_MATCH_PROFILE_KEY = 'da-spar-match-profile-v2';
   var MATCH_PROFILE_LABELS = {
+    figure: {
+      kirk: 'Charlie Kirk', shapiro: 'Ben Shapiro', hasan: 'Hasan Piker', owens: 'Candace Owens',
+      peterson: 'Jordan Peterson', mehdi: 'Mehdi Hasan', skip: 'Skipped'
+    },
     background: {
       first: 'Not really', occasional: 'Sometimes', regular: 'Yes, often', competitive: 'Yes, and I compete'
     },
@@ -3090,6 +3097,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var politics = version === MATCH_PROFILE_VERSION ? raw : legacyPolitics(raw.hotTake);
     return {
       version: MATCH_PROFILE_VERSION,
+      // Added 2026-09-04; a v4 profile has no answer and reads as skipped.
+      figure: allowedProfileValue('figure', String(raw.figure || ''), 'skip'),
       background: allowedProfileValue('background', String(raw.background || ''), 'first'),
       economy: allowedProfileValue('economy', String(politics.economy || ''), 'skip'),
       immigration: allowedProfileValue('immigration', String(politics.immigration || ''), 'skip'),
@@ -3102,7 +3111,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function defaultMatchProfile(){
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
-      background: 'first', economy: 'skip', immigration: 'skip',
+      figure: 'skip', background: 'first', economy: 'skip', immigration: 'skip',
       speech: 'skip', democracy: 'skip', mode: 'viewpoint', clipIntent: 'private'
     });
   }
@@ -3164,6 +3173,29 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function matchProfileSteps(profile){
     profile = profile || defaultMatchProfile();
     return [
+      {
+        // 2026-09-04, the founder: the first question has to "HIT HARD",
+        // "ask questions generic next to specific names - do you recognize
+        // this person", "there should be images attached. its a way of
+        // identifying the right user". Every portrait is a Wikimedia
+        // Commons file with its licence recorded in
+        // img/creator-watchlist/README.md; nothing here implies any of
+        // them has anything to do with Debatable. The answer stays on the
+        // device and never enters the queue or the private profile.
+        key: 'figure', q: 'Who do you actually want to argue about?',
+        hint: 'Tap the one you have the most to say about. Skip if none of them.',
+        summaryLabel: 'Person', 'default': profile.figure,
+        className: 'mp-panel--figure',
+        options: [
+          { value: 'kirk',     img: '/img/creator-watchlist/charliekirk.jpg',  label: 'Charlie Kirk' },
+          { value: 'shapiro',  img: '/img/creator-watchlist/benshapiro.jpg',   label: 'Ben Shapiro' },
+          { value: 'hasan',    img: '/img/creator-watchlist/hasanabi.jpg',     label: 'Hasan Piker' },
+          { value: 'owens',    img: '/img/creator-watchlist/candaceowens.jpg', label: 'Candace Owens' },
+          { value: 'peterson', img: '/img/creator-watchlist/jordanpeterson.jpg', label: 'Jordan Peterson' },
+          { value: 'mehdi',    img: '/img/creator-watchlist/mehdihasan.jpg',   label: 'Mehdi Hasan' },
+          { value: 'skip', label: 'None of them', sub: 'Skip this one.', summaryLabel: 'Skipped', className: 'mp-opt--skip' }
+        ]
+      },
       {
         key: 'background', q: 'Do you like watching debates?',
         summaryLabel: 'Debates', summary: false, 'default': profile.background,
@@ -3246,6 +3278,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function profileFromAnswers(a){
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
+      figure: a.figure,
       background: a.background,
       economy: a.economy,
       immigration: a.immigration,
@@ -3341,12 +3374,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var run = window.ArcadeFlow.start({
       label: 'Build your matchmaker profile',
       topSlot: matchProfileMasthead(),
-      skipLabel: 'Meet someone ASAP · SKIP',
+      skipLabel: 'Skip to opponent · SKIP',
       steps: matchProfileSteps(matchProfile),
       launch: {
         title: 'Your side of the table is set.',
         hint: 'Entering the queue saves your issue answers to a private match profile. Debatable uses them only to rank viewpoint matches and suggest topics both people chose. Other people and the judge never see them.',
-        cta: opts.editing ? 'Save changes' : 'Enter the queue'
+        cta: opts.editing ? 'Save changes' : 'Skip to opponent'
       },
       onSkip: function(){
         document.body.classList.remove('match-profile-open');
@@ -3392,7 +3425,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // so the result is the neutral profile and the queue.
       var railSkip = null;
       Array.prototype.forEach.call(root.querySelectorAll('.afl-rail .afl-btn'), function(b){
-        if (b.textContent.trim() === 'Meet someone ASAP · SKIP') railSkip = b;
+        if (b.textContent.trim() === 'Skip to opponent · SKIP') railSkip = b;
       });
       if (railSkip){
         railSkip.classList.add('mp-skip');
@@ -4127,6 +4160,28 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // Skip (large, on every step) writes the neutral profile and moves on.
   // DM, thread, inbox and friend-invite arrivals go straight to the gate:
   // they did not come to build a matchup.
+  // 2026-09-04, the founder: "we really need to get this right to
+  // optimize securing users while not scaring them away forever bc they
+  // open a room to nobody and then dont come back". So the free guest
+  // round is offered ONLY when somebody is actually waiting. With nobody
+  // in the queue the desk still runs (the answers are saved), and the
+  // door after it is sign-in with an honest wait line, because a guest
+  // parked in an empty room leaves and never returns, while an account
+  // can be pinged the moment someone shows up. A failed count reads as
+  // empty: the safe direction is the door, not the empty room.
+  function queueWaiting(cb){
+    fetch('/api/spar-queue', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ cb(Math.max(0, Math.floor(Number(d && d.waiting) || 0))); })
+      .catch(function(){ cb(0); });
+  }
+  function guestDoorAfterDesk(){
+    queueWaiting(function(waiting){
+      if (waiting > 0 && mintGuestSession()) return;
+      state.gateEmpty = waiting === 0;
+      renderGate();
+    });
+  }
   function renderSignedOutEntry(){
     if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')){
       renderGate();
@@ -4135,9 +4190,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0 }); } catch(e){}
     // Desk first, saved locally, THEN the door: a guest session for the free
     // round when one can be minted, the Google gate otherwise.
-    startMatchProfileFlow({ onDone: function(){ if (!mintGuestSession()) renderGate(); }, onClose: renderGate });
+    startMatchProfileFlow({ onDone: guestDoorAfterDesk, onClose: guestDoorAfterDesk });
   }
 
+  // Guest with a session: queue if someone is there and a round is left,
+  // otherwise the door, with the wait said plainly.
+  function guestQueueOrGate(){
+    queueWaiting(function(waiting){
+      if (!state.user || state.named) return;
+      if (waiting > 0 && canQueue(state.user)){ state.cancelled = false; joinQueue(); return; }
+      state.gateEmpty = waiting === 0;
+      renderGate();
+    });
+  }
   function renderGate(){
     if (document.getElementById('sparGateCard')) return;
     var inApp = inAppBrowser();
@@ -4177,9 +4242,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
         (gateSpent()
           ? '<h2>That was your free round.</h2>' +
-            '<p>Sign in with Google to keep debating real people on video. One tap, and your matchmaker answers come with you.</p>'
+            '<p>Sign in to keep debating real people on video. One tap, and your matchmaker answers come with you.</p>'
+          : state.gateEmpty
+          ? '<h2>Nobody is free this minute.</h2>' +
+            '<p>Sign in and we ping you the moment someone is. Your matchmaker answers are saved and come with you.</p>'
           : '<h2>Join a live debate.</h2>' +
-            '<p>Sign in with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>') +
+            '<p>Sign in for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>') +
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
         // OAuth outright, and there is no second key on this door any
         // more, so the honest instruction is the one that works: open the
@@ -4196,6 +4264,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
               '<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
               'Sign up with Google' +
             '</button>') +
+        // 2026-09-04, the founder: a second door. Apple works on web
+        // again (auth-modal.js has the relay-email caveat and its fix).
+        '<button class="gate-google gate-apple" id="appleInBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>Continue with Apple</button>' +
         // Age line. Live rounds pair strangers, so the standing 13-17
         // supervision rule from the terms belongs at this door, not only
         // in a legal page nobody opens. /safety is the readable version.
@@ -4209,6 +4280,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // card (mintGuestSession runs before it), and a returning guest has
     // spent the one free round.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
+    var appleIn = document.getElementById('appleInBtn');
+    if (appleIn) appleIn.addEventListener('click', function(){
+      if (inAppBrowser()){ doInAppSignIn(); return; }
+      try { gtag('event', 'spar_gate_apple_click', {}); } catch(e){}
+      if (typeof window.dbAppleSignIn === 'function') { window.dbAppleSignIn(); return; }
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin', { liveVideo: true }); return; }
+      location.href = '/profile';
+    });
     var gateCopy = document.getElementById('gateCopyLink');
     if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
     startGateLiveCount();
@@ -8936,9 +9015,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (!matchProfile && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite') && !state.profileFlowOpen){
           try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0, guest: 1 }); } catch(e){}
           startMatchProfileFlow({
-            onDone: function(){ if (canQueue(state.user)) { state.cancelled = false; joinQueue(); } else renderGate(); },
-            onClose: renderGate
+            onDone: function(){ guestQueueOrGate(); },
+            onClose: function(){ guestQueueOrGate(); }
           });
+          return;
+        }
+        // A returning guest with a saved profile: same rule, the free
+        // round only runs into a queue that has someone in it.
+        if (canQueue(state.user) && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite')){
+          guestQueueOrGate();
           return;
         }
         var queuedOptimistically = canQueue(state.user);

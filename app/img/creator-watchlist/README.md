@@ -92,3 +92,12 @@ their name comes off this speculative list and onto the real one.
 
 Living people only. Check before adding: a "who should we get" list is a
 grotesque place to find someone who has died.
+
+### Added 2026-09-04 (the founder: the Match Desk's first question shows a
+person and asks whether you want to argue about them; "there should be
+images attached"). Same bar: licence read off the Commons file's own
+metadata before download, crop generated from the Commons original.
+
+- `charliekirk.jpg`: Charlie Kirk, July 16, 2023. Photo by Gage Skidmore,
+  [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/).
+  [Wikimedia Commons source](https://commons.wikimedia.org/wiki/File:Charlie_Kirk_2023_by_Gage_Skidmore.jpg).

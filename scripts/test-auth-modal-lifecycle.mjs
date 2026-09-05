@@ -61,9 +61,10 @@ check(
 );
 check(
   source.includes('var noEmail = true;')
-    && source.includes('var providerButtons = googleBtn;')
+    && source.includes('var providerButtons = googleBtn + appleBtn + discordBtn;')
+    && source.includes('var DISCORD_SIGNIN_READY = false;')
     && !source.includes("Use email below, or open the site in Safari or Chrome."),
-  'the public web chooser offers Google only',
+  'the public web chooser offers Google and Apple, Discord behind its ready flag, and no email door (2026-09-04)',
 );
 check(
   source.includes('#ditAuth{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center')
@@ -72,9 +73,9 @@ check(
   'the shared web sign-in is a centered Google dialog for new and returning accounts',
 );
 check(
-  source.includes('window.__DB_NATIVE && !googleOnly')
+  source.includes('var appleBtn = !googleOnly')
     && source.includes('Continue with Apple'),
-  'the iOS shell keeps its required Apple option',
+  'Apple renders on web and in the iOS shell (2026-09-04); the App Store option is intact',
 );
 check(
   experienceAsk.includes('Are you a competitive debater or new?')
