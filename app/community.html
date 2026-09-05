@@ -3227,6 +3227,23 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       // Feeds the phone preview and the header status off this poll.
       // A second reader with its own fetch would be a second loop.
       onRows:      paintCommons,
+      // 2026-09-04, the founder: "make it possible to dm ppl from chat".
+      // /chat and /spar passed these since 2026-08-23; this page never
+      // did, so a named poster's name was plain text here. The token
+      // makes the server return posters' uids to a named reader; a click
+      // lands in the DM thread on /spar, which already handles ?dm=.
+      // Signed-out readers get the sign-in chooser (community-chat.js
+      // default) instead of a name that does nothing.
+      authToken: function(){
+        var u = null;
+        try { u = window.firebase && firebase.auth && firebase.auth().currentUser; } catch(e){}
+        if (!u || u.isAnonymous || typeof u.getIdToken !== 'function') return Promise.resolve(null);
+        return u.getIdToken().catch(function(){ return null; });
+      },
+      onDm: function(uid, name){
+        try { gtag('event', 'community_commons_dm', {}); } catch(e){}
+        location.href = '/spar?dm=' + encodeURIComponent(uid) + '&name=' + encodeURIComponent(name || '');
+      },
     }) || null;
     if (input){
       input.addEventListener('input', function(){

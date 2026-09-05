@@ -328,8 +328,9 @@ const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 
 // ── The guest lane ────────────────────────────────────────────────
 //
-// 2026-08-27 (the founder): no anonymous preview for human video pairing.
-// The /spar door is Google, or Apple in the iOS app (Apple added 2026-09-01
+// 2026-08-27 (the founder): no anonymous preview for human video pairing;
+// REOPENED 2026-09-04 at one metered round (see GUEST_FREE_ROUNDS below).
+// The /spar door after that round is Google, or Apple in the iOS app (Apple added 2026-09-01
 // because the App Store requires the Apple button and an accepted sign-in
 // that cannot reach the live queue is a dead end on the feature the app is
 // named for). Phone was a third key from 2026-09-01 to 2026-09-03 and was
@@ -337,9 +338,9 @@ const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 // token before either queue document can be paired. firestore.rules,
 // create-daily-room.mjs, spar.html, notifications.js, live-popup.js and
 // live-round.html carry the same two-provider set.
-// The old metering machinery is
-// retained only to read and preserve historical guest-round records; an env
-// override must not reopen the lane behind the current product decision.
+// 2026-09-04, the founder, after watching session replays: the Google-only
+// door "is detering ppl". One anonymous round, metered here, then Google.
+// GUEST_FREE_ROUNDS in the Netlify env moves it with no deploy; 0 closes it.
 //
 // Metered here rather than in the client because the client cannot hold a
 // limit: localStorage clears, and the counter it used to keep was the same
@@ -347,7 +348,9 @@ const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 // server-side (e874e61e). The identity metered is the anonymous Firebase
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
-const GUEST_FREE_ROUNDS = 0;
+const GUEST_FREE_ROUNDS = process.env.GUEST_FREE_ROUNDS !== undefined
+  ? Math.max(0, Number(process.env.GUEST_FREE_ROUNDS) || 0)
+  : 1;
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -726,11 +729,13 @@ export default async (request) => {
   }
 
   // Human video pairing takes Google, or Apple in the iOS app
-  // (LIVE_VIDEO_PROVIDERS). This is checked from the verified token, not
-  // from the client-written queue doc, so an anonymous session, email
-  // account, old tab, or handcrafted request cannot bypass the door.
+  // (LIVE_VIDEO_PROVIDERS), or an anonymous GUEST inside the metered
+  // allowance below (2026-09-04). Checked from the verified token, not from
+  // the client-written queue doc, so an email account, old tab, or
+  // handcrafted request cannot bypass the door. A guest past the allowance
+  // is refused a few lines down with SIGN_IN_REQUIRED.
   // The AI-only draft above remains available because it seats no stranger.
-  if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
+  if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
     return jsonResponse({
       error: 'Sign in with Google to join a live video round.',
       code: 'GOOGLE_SIGN_IN_REQUIRED',
@@ -756,8 +761,8 @@ export default async (request) => {
   // another free round, so the response has to say "make an account" rather
   // than imply patience.
   if (iAmGuest) {
-    // Allowance 0 (the 2026-08-23 default): refuse before the Firestore
-    // read, so a guest POST loop costs the throttle and nothing else.
+    // Allowance 0 (env-closed): refuse before the Firestore read, so a
+    // guest POST loop costs the throttle and nothing else.
     const used = GUEST_FREE_ROUNDS > 0 ? await guestRoundsUsed(db, myUid) : 0;
     if (used >= GUEST_FREE_ROUNDS) {
       return jsonResponse({
@@ -1103,14 +1108,17 @@ export default async (request) => {
       }
       // The caller's verified token proves MY provider above. The peer has
       // no token on this request, so require the queue marker that Firestore
-      // rules only let a Google or phone-authenticated owner write, and bind
-      // to their own verified provider. This keeps an old anonymous or email
-      // queue doc from becoming the passive seat when a current user
-      // initiates the transaction.
-      if (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider)) {
+      // rules only let a Google, Apple, or (since 2026-09-04) anonymous
+      // owner write, bound to their own verified provider. This keeps an
+      // email queue doc, or one written before the marker existed, from
+      // becoming the passive seat when a current user initiates the
+      // transaction. A guest peer's ALLOWANCE is checked separately
+      // (guestSpent, above), from the server's own record.
+      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || p === 'anonymous';
+      if (!seatOk(mine.authProvider)) {
         return { ok: false, reason: 'queue_auth_stale' };
       }
-      if (!LIVE_VIDEO_PROVIDERS.has(theirs.authProvider)) {
+      if (!seatOk(theirs.authProvider)) {
         tx.update(peerRef, {
           status: 'cancelled',
           cancelledAt: FieldValue.serverTimestamp(),

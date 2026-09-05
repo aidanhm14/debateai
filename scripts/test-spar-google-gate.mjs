@@ -48,24 +48,28 @@ function check(ok, message) {
 // create-daily-room, spar.html, notifications.js, live-popup.js,
 // live-round.html. Inside an in-app browser Google OAuth cannot complete
 // (measured 2026-08-24: 339/340 TikTok sessions, zero rounds), and with
-// phone gone the honest instruction is open-in-Safari plus Copy link. The
-// guest allowance stays at zero.
+// phone gone the honest instruction is open-in-Safari plus Copy link.
+// 2026-09-04 (the founder, off session replays: the Google-only door "is
+// detering ppl"): ONE anonymous round is metered server-side before that
+// door, Match Desk first. The guest lane is a metered exception on the
+// queue only; every other surface in this file stays Google or Apple.
 const dailyRoom = read('app/netlify/functions/create-daily-room.mjs');
 const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
 const watch = read('app/watch.html');
 
-check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client guest allowance must stay at zero');
-check(pair.includes('const GUEST_FREE_ROUNDS = 0;'), 'server guest allowance must stay at zero');
+check(spar.includes('var GUEST_FREE_ROUNDS = 1;'), 'client guest allowance must mirror the one-round server default');
+check(/const GUEST_FREE_ROUNDS = process\.env\.GUEST_FREE_ROUNDS !== undefined\s*\?[^;]*:\s*1;/.test(pair), 'server guest allowance must default to one round and read the env override');
 check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'spar must define the two-provider live-video set');
-check(spar.includes('return isLiveVideoUser(u);'), 'foreground queue must require a Google or Apple user');
+check(spar.includes('if (isLiveVideoUser(u)) return true;') && spar.includes('return !!(u && u.isAnonymous && guestRoundsLeft() > 0);'), 'foreground queue must take a Google or Apple user, or a guest with a free round left');
 check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'background pill must define the same two-provider set');
 check(notifications.includes('return !!liveVideoProvider(u);'), 'background queue must require a Google or Apple user');
 check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'matcher must define the two-provider set');
-check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token');
+check(pair.includes('if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token, guests excepted into the metered lane');
+check(pair.includes("const iAmGuest = decoded.firebase?.sign_in_provider === 'anonymous';") && pair.includes('if (used >= GUEST_FREE_ROUNDS) {'), 'matcher must meter guests against the server record before seating them');
 check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled gate code clients handle');
-check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider))'), 'matcher must reject a stale active seat marker');
-check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
+check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || p === 'anonymous';") && pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker while accepting a guest seat');
+check(pair.includes('if (!seatOk(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
 check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'video room minter must define the two-provider set');
 check(dailyRoom.includes("if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider))"), 'video room minter must gate every human role on the provider set');
 check(dailyRoom.includes("role === 'viewer'\n        ? 'Sign in with Google to spectate live debates.'"), 'viewer rejection must name the spectator Google door');
@@ -81,10 +85,11 @@ for (const [label, src] of [['rules', rules], ['spar-pair', pair], ['create-dail
 check(!authModal.includes("startWith === 'phone'"), 'shared chooser must not open on a retired phone step');
 check(!authModal.includes('id="daPhone"'), 'shared chooser must not render a phone button');
 check(!authModal.includes('PhoneAuthProvider'), 'shared chooser must not carry the phone provider');
-check(rules.includes('allow create: if isLiveVideoAccount()'), 'Firestore must reject queue creation outside the set');
+check(rules.includes('allow create: if (isLiveVideoAccount() || isGuestAccount())'), 'Firestore must accept queue creation only from the set or a guest');
+check(rules.includes("request.auth.token.firebase.sign_in_provider == 'anonymous'"), 'rules must define isGuestAccount as the anonymous provider');
 check(rules.includes("request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider"), 'Firestore must bind the queue marker to the caller\'s own verified provider');
 check(!rules.includes("request.resource.data.authProvider == 'google.com'"), 'rules must not pin the queue marker to Google alone');
-check(spar.includes('authProvider: liveVideoProvider(state.user),'), 'foreground queue must stamp the provider the account holds');
+check(spar.includes("authProvider: state.user.isAnonymous ? 'anonymous' : liveVideoProvider(state.user),"), 'foreground queue must stamp the provider the account holds');
 check(notifications.match(/authProvider: liveVideoProvider\(myUser\)/g)?.length >= 2, 'every background queue write must stamp the held provider');
 check(!spar.includes("authProvider: 'google.com'"), 'foreground queue must not hardcode Google');
 check(!notifications.includes("authProvider: 'google.com'"), 'background queue must not hardcode Google');
@@ -134,8 +139,8 @@ check(spar.includes('function queuePeerCanMatch(doc){'), 'spar must define one s
 check((spar.match(/if \(!queuePeerCanMatch\(d\)\) return;/g) || []).length === 2,
   'the available count and match candidate list must use the same eligibility check');
 check(spar.includes("peerBand !== myBand"), 'queue eligibility must separate adult and minor age pools');
-check(spar.includes("LIVE_VIDEO_PROVIDERS.indexOf(String(data.authProvider || '')) < 0"),
-  'queue eligibility must reject stale provider markers before counting them');
+check(spar.includes("if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0 && peerProvider !== 'anonymous') return false;"),
+  'queue eligibility must reject stale provider markers before counting them, guests excepted');
 check(!spar.includes('debaters available now'), 'the audience-facing queue count must call them people');
 const eligibilityStart = spar.indexOf('function queuePeerCanMatch(doc){');
 const eligibilityEnd = spar.indexOf('// ONE definition of "can this browser finish', eligibilityStart);
@@ -157,6 +162,7 @@ const peer = (id, ageBand, authProvider = 'google.com') => ({
 check(queuePeerCanMatch(peer('adult-peer', 'adult')), 'an eligible adult peer must be countable and matchable');
 check(!queuePeerCanMatch(peer('minor-peer', 'minor')), 'an adult must not count a minor as an available opponent');
 check(!queuePeerCanMatch(peer('email-peer', 'adult', 'password')), 'an ineligible provider must not count as an available opponent');
+check(queuePeerCanMatch(peer('guest-peer', 'adult', 'anonymous')), 'a guest on their free round must count as an available opponent');
 check(!queuePeerCanMatch(peer('me', 'adult')), 'the current user must not count as their own opponent');
 
 // 2026-08-31, later founder conversion call: the signed-out gate is the

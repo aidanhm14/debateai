@@ -117,9 +117,20 @@
   // messages stay plain — a DM to yourself is a dead end, and the
   // server tells us which uid is ours so we do not have to guess from
   // the handle (handles are not unique).
-  function headHtml(row, canDm){
+  function headHtml(row, canDm, canAsk){
     const inner = avChip(row.handle)
       + '<span class="chat-msg-handle">' + escHtml(row.handle || 'anon') + '</span>';
+    // 2026-09-04: a reader with no named account still sees Message on a
+    // poster who CAN be messaged (the server says so with a boolean and
+    // no uid). The click opens the sign-in chooser; once the token
+    // verifies, the next poll turns the same button into the real one.
+    if (!canDm && canAsk){
+      return '<button type="button" class="chat-msg-who chat-msg-who--signin" data-dm-signin="' + escHtml(row.handle || 'Debater') + '"'
+        +   ' title="Sign in to message ' + escHtml(row.handle || 'them') + ' privately">'
+        + inner
+        + '<span class="chat-msg-dm" aria-hidden="true">Message</span>'
+        + '</button>';
+    }
     if (!canDm) return inner;
     return '<button type="button" class="chat-msg-who" data-dm-uid="' + escHtml(row.uid) + '"'
       +   ' data-dm-name="' + escHtml(row.handle || 'Debater') + '"'
@@ -133,9 +144,10 @@
   function rowHtml(row, myHandle, ctx){
     const mine = row.handle && myHandle && row.handle === myHandle;
     const canDm = !!(ctx && ctx.canDm && row.uid && row.uid !== ctx.me);
+    const canAsk = !!(ctx && ctx.canAsk && row.named && !row.uid && !mine);
     return '<div class="chat-row chat-msg' + (mine ? ' chat-msg-mine' : '') + '" data-handle="' + escHtml(row.handle) + '">'
       + '<div class="chat-msg-head">'
-      +   headHtml(row, canDm)
+      +   headHtml(row, canDm, canAsk)
       +   '<span class="chat-msg-time">' + escHtml(timeAgo(row.at)) + '</span>'
       + '</div>'
       + '<div class="chat-msg-text">' + escHtml(row.text) + '</div>'
@@ -145,6 +157,32 @@
   function isPinnedToBottom(scroller){
     if (!scroller) return true;
     return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+  }
+
+  // The shared chooser, with the reason on it. A host without auth-modal.js
+  // falls back to the account page, which offers the same doors.
+  function defaultDmSignIn(name){
+    const headline = name ? 'Sign in to message ' + name : 'Sign in to be messaged';
+    const sub = 'Private messages need an account. You get an email when someone writes to you.';
+    if (typeof window.openAuthModal === 'function'){
+      try { window.openAuthModal('signin', { headline, sub }); return; } catch {}
+    }
+    location.href = '/profile';
+  }
+
+  let styleInjected = false;
+  function injectStyle(){
+    if (styleInjected) return;
+    styleInjected = true;
+    const st = document.createElement('style');
+    st.textContent =
+      '.chat-guest-note{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 0;padding:9px 12px;border:1px solid rgba(220,38,38,.28);border-radius:12px;font-size:.8rem;line-height:1.45;background:rgba(220,38,38,.06)}' +
+      '.chat-guest-note b{font-weight:800}' +
+      '.chat-guest-note-text{flex:1 1 200px;min-width:0}' +
+      '.chat-guest-note-btn{margin-left:auto;font:inherit;font-size:.78rem;font-weight:800;padding:7px 13px;border-radius:999px;border:0;background:#dc2626;color:#fff;cursor:pointer}' +
+      '.chat-guest-note-btn:hover{background:#b91c1c}' +
+      '.chat-msg-who--signin .chat-msg-dm{opacity:1}';
+    document.head.appendChild(st);
   }
 
   function scrollToBottom(scroller){
@@ -166,11 +204,17 @@
     // clicked. Without both, this is the room exactly as it was.
     const authToken  = typeof opts.authToken === 'function' ? opts.authToken : null;
     const onDm       = typeof opts.onDm === 'function' ? opts.onDm : null;
+    // Optional. What a signed-out or guest reader gets when they press
+    // Message, and what the guest note's Sign in button does. Default is
+    // the shared chooser (auth-modal.js rides topbar.js onto every host
+    // page); a host may pass its own.
+    const onDmSignIn = typeof opts.onDmSignIn === 'function' ? opts.onDmSignIn : defaultDmSignIn;
     // Optional. Called with the message rows this instance just read, so
     // a host can paint a preview off the SAME poll instead of opening a
     // second one.
     const onRows     = typeof opts.onRows === 'function' ? opts.onRows : null;
     if (!scroller || !inputEl || !sendBtn) return;
+    injectStyle();
 
     let myHandle = ensureHandle();
     let lastIds = new Set();
@@ -184,8 +228,37 @@
     // page where auth rehydrates slowly.
     let meUid = null;
     const canDm = !!(authToken && onDm);
+    // Sign-in asks only make sense where a DM can follow.
+    const canAskSignIn = !!(onDm && onDmSignIn);
+    // Set after the first fetch answers, so the guest note never paints
+    // before the server has had one chance to say who we are.
+    let identityChecked = false;
 
-    function ctx(){ return { canDm, me: meUid }; }
+    function ctx(){ return { canDm, me: meUid, canAsk: canAskSignIn && !meUid }; }
+
+    // The poster's side of the same problem (2026-09-04). A guest in the
+    // room cannot be messaged and gets no email, and nothing told them
+    // that. One line under the room, gone the moment a named account
+    // verifies. Injected here rather than in each host's markup so the
+    // three hosts cannot drift.
+    function paintGuestNote(){
+      if (!canAskSignIn || !scroller.parentNode) return;
+      let note = scroller.parentNode.querySelector('.chat-guest-note');
+      const show = identityChecked && !meUid;
+      if (!show){ if (note) note.remove(); return; }
+      if (!note){
+        note = document.createElement('div');
+        note.className = 'chat-guest-note';
+        note.innerHTML = '<span class="chat-guest-note-text"></span>'
+          + '<button type="button" class="chat-guest-note-btn">Sign in</button>';
+        note.querySelector('.chat-guest-note-btn').addEventListener('click', () => {
+          try { onDmSignIn(null); } catch {}
+        });
+        scroller.parentNode.insertBefore(note, scroller.nextSibling);
+      }
+      note.querySelector('.chat-guest-note-text').innerHTML =
+        'You are posting as <b>' + escHtml(myHandle) + '</b>. Sign in with Google so people can message you privately, and you get an email when they do.';
+    }
 
     // Never blocks a fetch on auth. A token that is slow, missing or
     // rejected just means this poll renders no DM buttons; the next one
@@ -272,6 +345,8 @@
         const nextMe = (typeof data.me === 'string' && data.me) ? data.me : null;
         const identityChanged = nextMe !== meUid;
         meUid = nextMe;
+        identityChecked = true;
+        paintGuestNote();
         // Joins are never rendered (2026-08-23). The server stopped
         // returning them; this filter covers any legacy row.
         const msgs = data.rows.filter(r => r.kind !== 'join');
@@ -350,8 +425,15 @@
     }
     // One delegated handler on the scroller, so it survives every
     // repaint and every appended row.
-    if (canDm){
+    if (canDm || canAskSignIn){
       scroller.addEventListener('click', (e) => {
+        const ask = e.target && e.target.closest ? e.target.closest('[data-dm-signin]') : null;
+        if (ask){
+          e.preventDefault();
+          try { onDmSignIn(ask.getAttribute('data-dm-signin') || ''); } catch {}
+          return;
+        }
+        if (!canDm) return;
         const btn = e.target && e.target.closest ? e.target.closest('[data-dm-uid]') : null;
         if (!btn) return;
         const uid = btn.getAttribute('data-dm-uid');

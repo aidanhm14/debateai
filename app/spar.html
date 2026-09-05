@@ -464,6 +464,7 @@ h1 em{color:var(--accent);font-style:normal}
   font-size:.76rem;line-height:1.5;text-align:center
 }
 .motion-wait-note strong{color:var(--text);font-weight:800}
+.motion-wait-note small{display:block;margin-top:6px;font-size:.78em;opacity:.7}
 /* On the dark themes the pill fill (--bg-card ~#13070a) sits almost on
    top of the near-black page, so the chip dissolves into the background.
    Lift the fill and use the stronger (theme-tinted) border so it reads as
@@ -3745,7 +3746,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (!doc || !state.user || doc.id === state.user.uid) return false;
     var data = doc.data ? (doc.data() || {}) : {};
     if (data.status && data.status !== 'waiting') return false;
-    if (LIVE_VIDEO_PROVIDERS.indexOf(String(data.authProvider || '')) < 0) return false;
+    var peerProvider = String(data.authProvider || '');
+    if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0 && peerProvider !== 'anonymous') return false;
     if (localSkipActive(doc.id) || docSkips(data, state.user.uid)) return false;
     var myBand = (window.daAgeBand && window.daAgeBand()) || '';
     var peerBand = data.ageBand || '';
@@ -3769,12 +3771,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-08-27 (the founder): the anonymous live-round preview is retired.
-  // Human video pairing now requires Google before the queue doc is written.
-  // Keep the old meter reads for historical guest records and clean recovery,
-  // but a zero allowance means this page never mints or queues a new guest.
-  // spar-pair.mjs and firestore.rules enforce the same door server-side.
-  var GUEST_FREE_ROUNDS = 0;
+  // 2026-09-04 (the founder, after watching session replays: the Google-only
+  // door "is detering ppl"): ONE anonymous round, then Google. The Match Desk
+  // runs first either way, so the profile is saved on the device before the
+  // account exists. spar-pair.mjs meters the allowance against
+  // guest_rounds/{uid} and firestore.rules lets a guest write its own queue
+  // doc; this constant mirrors the server default for paint only.
+  var GUEST_FREE_ROUNDS = 1;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -3825,7 +3828,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // surface asks for Google before putting another person on the other
   // side of a camera.
   function canQueue(u){
-    return isLiveVideoUser(u);
+    if (isLiveVideoUser(u)) return true;
+    // The one-round guest lane (2026-09-04). The server is the meter.
+    return !!(u && u.isAnonymous && guestRoundsLeft() > 0);
   }
 
   // Nothing on this page's script set mints an anonymous session, and
@@ -3854,7 +3859,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
   }
   function mintGuestSession(){
-    // Allowance 0 (2026-08-23): never mint a guest session this page
+    // Allowance 0 closes the lane: never mint a guest session this page
     // cannot use. A signed-out visitor goes straight to the gate.
     if (GUEST_FREE_ROUNDS <= 0) return false;
     if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
@@ -4084,7 +4089,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return;
     }
     try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0 }); } catch(e){}
-    startMatchProfileFlow({ onDone: renderGate, onClose: renderGate });
+    // Desk first, saved locally, THEN the door: a guest session for the free
+    // round when one can be minted, the Google gate otherwise.
+    startMatchProfileFlow({ onDone: function(){ if (!mintGuestSession()) renderGate(); }, onClose: renderGate });
   }
 
   function renderGate(){
@@ -4124,8 +4131,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '</div>' +
         '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
-        '<h2>Join a live debate.</h2>' +
-        '<p>Sign in with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>' +
+        (gateSpent()
+          ? '<h2>That was your free round.</h2>' +
+            '<p>Sign in with Google to keep debating real people on video. One tap, and your matchmaker answers come with you.</p>'
+          : '<h2>Join a live debate.</h2>' +
+            '<p>Sign in with Google for a casual 1v1 against a real person on video. The AI judge explains who won and scores both sides out of 100.</p>') +
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
         // OAuth outright, and there is no second key on this door any
         // more, so the honest instruction is the one that works: open the
@@ -4149,9 +4159,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div id="gateError"></div>' +
         '</div>' +
       '</div>';
-    // One door and no second: Google goes straight to Google. No email,
-    // phone, or anonymous door is rendered, because the queue would
-    // refuse all three.
+    // One door and no second: Google goes straight to Google. No email or
+    // phone door is rendered, because the queue would refuse both. The
+    // anonymous lane is not a door here: a first-timer never sees this
+    // card (mintGuestSession runs before it), and a returning guest has
+    // spent the one free round.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     var gateCopy = document.getElementById('gateCopyLink');
     if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
@@ -4599,7 +4611,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // The avatar promise still gets answered where the choice is made,
       // in the room's own camera bar.
       guestStripHtml() +
-      '<p class="motion-wait-note"><strong>Have your own claim?</strong> Wait until you meet your opponent. Then either of you can add one to the motion slate before strikes are locked.</p>' +
+      // 2026-09-04, the founder's own words for the wait, near verbatim:
+      // the searching screen says what is actually happening instead of
+      // explaining the motion slate to someone who has no opponent yet.
+      '<p class="motion-wait-note"><strong>Wait here and keep this tab open.</strong> We will ping you when someone is live. Sorry for the wait, this is still early: we get hundreds of visits a day, but the challenge is being here at the same time. Be a bit patient.' +
+        '<small>Desktop is the best way to enjoy this app.</small></p>' +
       // Globe of rooms opening worldwide — replaces the prior radar
       // sweep + fabricated-handles disc. Reads as "minds lighting up
       // across time zones," not "tracking targets." Self-contained
@@ -6319,10 +6335,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     ref.set({
       uid: state.user.uid,
       // Server matcher requires this marker on BOTH queue seats. Firestore
-      // rules bind it to the caller's OWN verified provider (Google or
-      // phone), so an old anonymous or email queue record cannot be pulled
-      // into a new match and a client cannot claim a provider it lacks.
-      authProvider: liveVideoProvider(state.user),
+      // rules bind it to the caller's OWN verified provider (Google, Apple,
+      // or 'anonymous' for the one-round guest lane), so an email queue
+      // record cannot be pulled into a match and a client cannot claim a
+      // provider it lacks.
+      authProvider: state.user.isAnonymous ? 'anonymous' : liveVideoProvider(state.user),
       displayName: shortName,
       username: publicUsername,
       photoURL: state.user.photoURL || '',
@@ -8782,6 +8799,17 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // otherwise get a free extra round on screen before spar-pair
         // refuses them, which is a worse moment than the honest one.
         loadGuestRounds(state.user.uid);
+        // 2026-09-04: a first-time guest builds the Match Desk profile
+        // BEFORE the free round, so it is saved on the device and comes
+        // with them into the account the gate asks for afterwards.
+        if (!matchProfile && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite') && !state.profileFlowOpen){
+          try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0, guest: 1 }); } catch(e){}
+          startMatchProfileFlow({
+            onDone: function(){ if (canQueue(state.user)) { state.cancelled = false; joinQueue(); } else renderGate(); },
+            onClose: renderGate
+          });
+          return;
+        }
         var queuedOptimistically = canQueue(state.user);
         // An anonymous uid is not a signed-in visitor, it is the
         // "anonymous profile" the Match Desk was reopened for. A previous
@@ -8852,8 +8880,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. The zero guest allowance makes
-        // mintGuestSession() refuse immediately, so Google is the door.
+        // No session at all. Mint the one-round guest session (the auth
+        // listener then runs the Match Desk and queues them); if anonymous
+        // auth is blocked, the desk-then-gate entry is the fallback.
         if (!mintGuestSession()) renderSignedOutEntry();
       }
     });
