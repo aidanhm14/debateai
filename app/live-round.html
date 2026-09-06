@@ -2593,6 +2593,29 @@ body.round-running .rmb-tools{display:none}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
+/* Topic choices share two aligned columns, even when the video leaves
+   a narrow console. The label has its own row instead of wrapping with
+   four buttons of unrelated widths. Scope this to the topic controls;
+   the recording/video tools also use .rmb-tools. */
+#rmbTools{display:block;container:topic-controls / inline-size;margin-top:12px;padding-top:12px}
+#rmbTools .rmb-tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px}
+#rmbTools .rmb-tools-q{display:block;margin:0 0 10px}
+#rmbTools .rmb-change{
+  display:flex;align-items:center;justify-content:flex-start;gap:8px;
+  width:100%;min-width:0;min-height:48px;margin:0;padding:10px 12px;
+  font-size:.82rem;line-height:1.25;text-align:left;white-space:normal;
+}
+#rmbTools .rmb-ico{flex:0 0 1.35rem;width:1.35rem;text-align:center;line-height:1}
+#rmbTools .rmb-change > span:last-child{min-width:0}
+@container topic-controls (max-width:340px){
+  #rmbTools .rmb-change--draft{grid-column:1/-1}
+}
+@container topic-controls (max-width:260px){
+  #rmbTools .rmb-tools-grid{grid-template-columns:minmax(0,1fr)}
+}
+#rmbTools[hidden],#rmbTools .rmb-change[hidden],
+body.round-running #rmbTools,body.spectator-mode #rmbTools{display:none}
+
 /* Full-round cloud recording. Ordinary rooms are off until every seat
    opts in. Tournament rooms require each assigned person to acknowledge
    the disclosed recording terms before Speech 1, then stay on the record
@@ -3847,16 +3870,18 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
             <!-- 2026-09-02: the pre-round negotiation no longer gates the
                  round. The resolution is on screen, the round can start,
-                 and these are the three doors for a pair that does not
-                 want to argue this one. All three are consent flows or
+                 and these are the topic choices for a pair that does not
+                 want to argue this one. They are consent flows or
                  the on-demand draft; none of them changes the motion for
                  one side alone. -->
-            <div class="rmb-tools" id="rmbTools" hidden>
-              <span class="rmb-tools-q">Not this one?</span>
-              <button type="button" class="rmb-change rmb-change--draft" id="rmbTalkBtn">Debate something else</button>
-              <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change it</button>
-              <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose">&#127922; Roll one</button>
-              <button type="button" class="rmb-change rmb-change--draft" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters."><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span> Draft one together</button>
+            <div class="rmb-tools" id="rmbTools" role="group" aria-labelledby="rmbToolsLabel" hidden>
+              <span class="rmb-tools-q" id="rmbToolsLabel">Not this one?</span>
+              <div class="rmb-tools-grid">
+                <button type="button" class="rmb-change rmb-change--draft" id="rmbTalkBtn"><span class="rmb-ico" aria-hidden="true">&#128172;</span><span>Debate something else</span></button>
+                <button type="button" class="rmb-change rmb-change--draft" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters."><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span><span>Draft one together</span></button>
+                <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes."><span class="rmb-ico" aria-hidden="true">&#9998;</span><span>Change it</span></button>
+                <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Roll one</span></button>
+              </div>
             </div>
           </div>
           <div class="speech-primary">
