@@ -7221,23 +7221,24 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }).join('') : '<p class="conversation-line">Listening. The conversation appears here as speech is captured.</p>';
   }
   var openSeg = { committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
-  var openNotesProgress = { count:0, segments:0, at:0 };
+  var openNotesProgress = { count:0, segments:0, seen:{}, at:0 };
   function maybeConversationNotes(){
     if (!openMode() || isSpectator() || state.timerState !== 'running') return;
     if (openNotesProgress.count >= 16 || Date.now()-openNotesProgress.at < 60000) return;
-    var fresh = openSeg.segs.slice(openNotesProgress.segments);
+    var fresh = openSeg.segs.filter(function(s){ return !openNotesProgress.seen[s.id || String(s.at || 0)+':'+s.text]; });
     var text = fresh.map(function(s){return s.text||''}).join(' ');
     if (text.trim().split(/\s+/).length < 30) return;
     var side = mySide();if (!side) return;
     var idx = 1000 + openNotesProgress.count*2 + (side==='con'?1:0);
     openNotesProgress.count++;openNotesProgress.segments=openSeg.segs.length;openNotesProgress.at=Date.now();
+    fresh.forEach(function(s){ openNotesProgress.seen[s.id || String(s.at || 0)+':'+s.text] = true; });
     generateRoundNotes({code:'Conversation',name:'Conversation excerpt',side:side,
       speakerName:side==='pro'?state.proName:state.conName,text:text},idx);
   }
   function openSegStart(){
     if (openSeg.timer) return;
     openSeg.committed = ''; openSeg.segs = []; openSeg.stableTicks = 0; openSeg.lastLen = 0;
-    openNotesProgress = { count:0, segments:0, at:Date.now() };
+    openNotesProgress = { count:0, segments:0, seen:{}, at:Date.now() };
     openSeg.timer = setInterval(function(){ try { openSegTick(false); } catch(e){} }, 2500);
   }
   function openSegStop(){
@@ -7246,10 +7247,28 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // Commit what has landed since the last tick. Sentence boundary first;
   // a tail that has not grown for two ticks (about 5s of quiet) commits
   // as it stands so a trailing clause is never stranded until End.
+  // Timestamp server ASR at microphone capture, not when its network
+  // request happens to finish. Late chunks update their own stable slot.
+  function openCapturedSegment(capture, seq, text){
+    if (!openMode() || isSpectator() || state.phase !== 'round') return;
+    var id = 'mic:' + capture.generation + ':' + seq;
+    openSeg.segs = openSeg.segs.filter(function(s){ return s.id !== id; });
+    if (String(text || '').trim()) openSeg.segs.push({
+      id:id, at:capture.at, endedAt:capture.endedAt, clock:'server',
+      speakerUid:state.user && state.user.uid || '', text:String(text).trim()
+    });
+    openSeg.segs.sort(function(a,b){return a.at-b.at});
+    openSeg.committed = mic.own;
+    paintConversationFlow(); maybeConversationNotes(); openScheduleSegPublish();
+  }
   function openSegTick(force){
     if (!openMode() || isSpectator() || state.phase !== 'round') return;
     if (state.timerState === 'ready' && !force) return;
     var ta = $('speechText'); var v = ta ? String(ta.value || '') : '';
+    if (state.micActive && state.micSupport && state.micSupport.engine === 'server' && v === mic.own) {
+      if (force) openPublishSegs();
+      return;
+    }
     if (v.length === openSeg.lastLen) openSeg.stableTicks++; else { openSeg.stableTicks = 0; openSeg.lastLen = v.length; }
     // The box was rewritten under us (a paste, an edit above the
     // committed line): restart from the top rather than double-count.
@@ -7916,6 +7935,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function micNoteUserEdit(){
     var ta = $('speechText');
     if (!ta || ta.value === mic.own) return;   // our own write, ignore
+    mic.generation++; // A delayed ASR response cannot undo a typed correction.
     // Typing is the speaker taking the box back. The backstop stops
     // overwriting them, for the same reason the mic stops fighting them.
     if (bk) bk.owning = false;
@@ -8180,7 +8200,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         try { srv.an.getFloatTimeDomainData(srv.buf); } catch(e){ return; }
         var sum = 0;
         for (var i = 0; i < srv.buf.length; i++) sum += srv.buf[i] * srv.buf[i];
-        if (Math.sqrt(sum / srv.buf.length) >= SPEECH_RMS && ++srv.loud >= SPEECH_SAMPLES) srv.heard = true;
+        if (Math.sqrt(sum / srv.buf.length) >= SPEECH_RMS && ++srv.loud >= SPEECH_SAMPLES) {
+          if (!srv.heard) srv.heardAt = window.DBRoomClock ? DBRoomClock.now() : Date.now();
+          srv.heard = true;
+        }
       }, Math.round(1000 / LEVEL_HZ));
     } catch(e){ srv.ac = null; srv.an = null; }   // gate open on failure
   }
@@ -8220,6 +8243,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         state.micFinal = mic.finals.filter(Boolean).join(' ');
         srv.fails = 0;
         micRender('');
+        if (openMode()) openCapturedSegment(capture, mySeq, txt);
         micState(txt ? 'live' : 'idle', 'Listening');
       })
       .catch(function(){
@@ -8248,13 +8272,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     var mySeq = mic.offset + (srv.seq++);
-    var capture = { generation: mic.generation, speechIdx: state.speechIdx, side: mySide() };
+    var capture = { generation: mic.generation, speechIdx: state.speechIdx, side: mySide(), at:window.DBRoomClock ? DBRoomClock.now() : Date.now() };
     // Per-segment verdict. Read and reset before the next segment arms, so
     // one segment's voice can never vouch for the next one's silence.
-    srv.loud = 0; srv.heard = false;
+    srv.loud = 0; srv.heard = false; srv.heardAt = 0;
     srv.rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
     srv.rec.onstop = function(){
       var heard = srvHeardSpeech();
+      capture.at = srv.heardAt || capture.at;
+      capture.endedAt = window.DBRoomClock ? DBRoomClock.now() : Date.now();
       // Reopen the mic BEFORE uploading, so the gap between segments is
       // milliseconds rather than a network round trip.
       if (srv.on) srvSegment();
@@ -8727,6 +8753,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function setMicActive(on){
+    if (on && !state.micActive && openMode()) { try { openSegTick(true); } catch(e){} }
     if (on !== state.micActive) mic.generation++;
     // The room already captures an echo-cancelled local microphone. In a
     // conversation reuse that track instead of opening Web Speech's

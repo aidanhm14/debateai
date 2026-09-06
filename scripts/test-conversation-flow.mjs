@@ -18,3 +18,20 @@ assert.equal(calls.length,1);assert.equal(calls[0].entry.side,'pro');assert.equa
 clock+=60001;context.maybeConversationNotes();assert.equal(calls.length,1,'An unchanged transcript is never summarized twice');
 context.openSeg.segs.push({text:Array(40).fill('response').join(' ')});context.maybeConversationNotes();assert.equal(calls.length,2);assert.equal(calls[1].idx,1002);
 console.log('Conversation flow: interleaving, escaped names, speaker attribution and bounded new-excerpt notes passed.');
+
+// Earlier audio can finish transcribing after a later chunk. Its capture
+// clock must put it back before the intervening peer response.
+Object.assign(context,{mic:{own:'First point An answer'},openSeg:{segs:[]},
+  openScheduleSegPublish(){},maybeConversationNotes(){},state:{...state,phase:'round',user:{uid:'own-uid'}}});
+vm.runInContext(source.slice(source.indexOf('  function openCapturedSegment('),source.indexOf('  function openSegTick(')),context);
+context.openCapturedSegment({generation:1,at:30,endedAt:35},1,'An answer');
+context.openCapturedSegment({generation:1,at:10,endedAt:15},0,'First point');
+assert.equal(context.openSeg.segs[0].text,'First point');
+assert.equal(context.openSeg.segs[0].speakerUid,'own-uid');
+context.paintConversationFlow();
+assert.ok(host.innerHTML.indexOf('First point') < host.innerHTML.indexOf('A reply'));
+assert.ok(host.innerHTML.indexOf('A reply') < host.innerHTML.indexOf('An answer'));
+context.openCapturedSegment({generation:1,at:10,endedAt:15},0,'Corrected first point');
+assert.equal(context.openSeg.segs.length,2,'a retry replaces its own slot, never duplicates');
+assert.equal(context.openSeg.segs[0].text,'Corrected first point');
+console.log('Conversation capture: out-of-order transcription retains microphone-time order and retry identity.');
