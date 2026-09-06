@@ -142,6 +142,9 @@
       '#ditAuth .da-link{padding:0;border:0;background:transparent;color:#dc2626;font:inherit;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}' +
       '#ditAuth .da-switch{margin:16px 0 0;text-align:center;color:' + sub + ';font-size:13px}' +
       '#ditAuth .da-switch--row{margin-top:11px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 18px}' +
+      '#ditAuth .da-btn--create{flex-basis:100%;min-height:54px;margin:0;padding:14px 18px;border:2px solid #dc2626;background:' + (dark ? 'rgba(220,38,38,.16)' : '#fff1f2') + ';color:' + (dark ? '#fca5a5' : '#b91c1c') + ';font-size:18px;line-height:1.25;font-weight:850}' +
+      '#ditAuth .da-btn--create:hover{background:' + (dark ? 'rgba(220,38,38,.26)' : '#ffe4e6') + ';border-color:#b91c1c}' +
+      '#ditAuth .da-btn--create:focus-visible{outline:3px solid ' + (dark ? '#fca5a5' : '#b91c1c') + ';outline-offset:3px}' +
       '#ditAuth .da-status{font-size:13px;font-weight:700;color:#15803d;margin:10px 4px 0;text-align:center;line-height:1.35}' +
       '#ditAuth .da-status:empty{display:none}' +
       '#ditAuth .da-note{font-size:13px;color:' + sub + ';margin:14px 4px 0;line-height:1.45;text-align:center}' +
@@ -494,14 +497,14 @@
         '<button type="submit" class="da-btn da-btn--primary" id="daEmailBtn">' +
           (linkMode ? 'Email me a sign-in link' : creating ? 'Create account' : 'Sign in with email') + '</button>' +
         '<p class="da-switch da-switch--row">' +
-          '<button type="button" class="da-link" id="daEmailModeSwitch">' +
-            (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button>' +
           // The only surviving sign-in/sign-up question, and it is asked
           // where the answer changes what happens: a password is created
           // or it is checked. The link door never renders it.
           (linkMode ? '' :
-            '<button type="button" class="da-link" id="daModeSwitch">' +
+            '<button type="button" class="' + (creating ? 'da-link' : 'da-btn da-btn--create') + '" id="daModeSwitch">' +
               (creating ? 'I already have an account' : 'Create an account') + '</button>') +
+          '<button type="button" class="da-link" id="daEmailModeSwitch">' +
+            (linkMode ? 'Use a password instead' : 'Email me a link instead') + '</button>' +
         '</p>' +
       '</form></div>') +
       '</div>' +
