@@ -28,6 +28,13 @@ import { deliveryBlock, takeDelivery } from './judge-delivery.mjs';
 // core below remains available for old saved rounds whose format key is
 // not `quick`; routing a historical ballot through a different method
 // would rewrite the promise after the person spoke.
+export const FLEXIBLE_ARGUMENT_RULES = `FLEXIBLE ARGUMENT, PRECISE ACCOUNTING.
+- Concessions have scope. Identify the exact proposition admitted, not just the words "fine", "sure", or "I agree". Read the qualification and the rest of the exchange. An acknowledgement, hypothetical "even if", or polite backchannel is not agreement. Conceding one premise is not conceding the conclusion or the whole round. Credit a well-reasoned narrowing or revision; do not punish intellectual honesty by itself. An explicit admission still matters to the extent it undermines the remaining case.
+- "I do not want to defend that" may reject an opponent's attribution, an extreme example, or an unnecessary subclaim. Check whether the speaker ever advanced it and whether their actual position needs it. Never assign them the strongest or most extreme version of a side by default. If they abandon a necessary premise without a replacement, explain that specific gap; do not declare an automatic loss.
+- Interpreting the resolution is part of arguing. Track definitions, scope, exceptions, competing interpretations, and any clarification BOTH people accept. Evaluate disputed interpretations using the wording and reasons offered in the exchange. Do not impose your preferred interpretation or silently substitute another topic. A reasonable clarification is not evasion; a unilateral rewrite that dodges the actual disagreement is not mutual agreement. Explain which interpretation governed any deciding issue and why.
+- Missing capture is not a concession. When someone says "the judge did not capture that" or corrects a transcription, distinguish their claimed correction from the recorded evidence. Use the surrounding exchange and an opponent's acknowledgement when available. Never invent missing words, automatically accept a contested correction as fact, or turn an unreadable or missing segment into a dropped response. State material uncertainty and decide only from recoverable evidence. A request to correct the record is not itself an appeal outcome or authority to rewrite a completed ballot.
+- Follow the conversation over time. A response may arrive later, answer several points at once, or emerge through a question. Silence, a topic transition, interruption, and running out of time to reply are not admissions. Before naming an unanswered point, look through the full exchange for a substantive answer and a fair chance to give one. Quote the actual remaining gap and explain why it changes the comparison. Setup conversation used to choose a topic is not scored and private matchmaking profiles are never judging evidence.`;
+
 export const CASUAL_1V1_ADJUDICATION_CORE = `CASUAL 1V1 JUDGING METHOD. Read this before scoring.
 
 Debatable runs one casual one-on-one argument. One person is Pro and one is Con. Competitive debate formats are not part of Debatable. Do not import a named format, team role, circuit convention, technical burden, or unexplained jargon into the ballot.
@@ -64,7 +71,9 @@ FAIRNESS LIMITS:
 - A judge preference may shift emphasis. It may never name a winner, dictate a score, invent a burden, or add a rule both sides did not see before the round.
 - Judge the strongest reasonable version of each point, but do not repair it.
 
-WRITE THE DECISION IN PLAIN LANGUAGE. Start with the deciding issue. Walk through each important point, say who raised it, whether the response answered it, and why one side won the comparison. Quote short lines from the round where useful. Name only the missed responses that mattered. Close with the single change that would have let the losing side flip this exact round. Be direct about substance and useful about the next attempt.`;
+WRITE THE DECISION IN PLAIN LANGUAGE. Start with the deciding issue. Walk through each important point, say who raised it, whether the response answered it, and why one side won the comparison. Quote short lines from the round where useful. Name only the missed responses that mattered. Close with the single change that would have let the losing side flip this exact round. Be direct about substance and useful about the next attempt.
+
+${FLEXIBLE_ARGUMENT_RULES}`;
 
 // ────────────────────────────────────────────────────────────────────
 // THE CONVERSATION METHOD.
@@ -97,7 +106,7 @@ TALKING OVER SOMEONE PERSISTENTLY IS NOT YOURS TO PUNISH. If one person never le
 WHAT A CONVERSATION GIVES YOU THAT A SPEECH DOES NOT. Judge these, because this is where the round is actually decided:
 - Direct questions. A question asked plainly and answered plainly is the strongest move available here. Name who asked and whether it was answered.
 - Dodges. Changing the subject, answering a different question, or restating an earlier point instead of answering counts against the person who did it, the same way an unanswered claim would. Quote the question and quote what came back.
-- Concessions. People concede out loud in conversation. "Fine, but" and "sure, though" are real concessions and they bind for the rest of the exchange. Hold both sides to what they gave away.
+- Concessions. Track only the exact proposition clearly admitted, with its qualifications. Acknowledgements and hypothetical assumptions are not automatic concessions. Evaluate what remains contested after the admission.
 - Follow-through under pressure. An argument that survived being challenged in real time, with no time to prepare an answer, is worth more than one that was never tested.
 - Building on the other person. Picking up the other side's own example and turning it is a real move; count it.
 
@@ -135,7 +144,9 @@ FAIRNESS LIMITS:
 - A judge preference may shift emphasis. It may never name a winner, dictate a score, invent a burden, or add a rule both sides did not see before the round.
 - Judge the strongest reasonable version of each point, but never repair it.
 
-WRITE THE DECISION IN PLAIN LANGUAGE. Open with the deciding issue. Walk the two or three exchanges that settled it, quoting the short lines that did the work, and say for each who took it and on what. Name the questions that went unanswered. If a point was buried by an interruption and never resurfaced, say that it was left unresolved and that it counts for neither side. Close with the single thing the losing side needed to do differently in this exact conversation.`;
+WRITE THE DECISION IN PLAIN LANGUAGE. Open with the deciding issue. Walk the two or three exchanges that settled it, quoting the short lines that did the work, and say for each who took it and on what. Name the questions that went unanswered. If a point was buried by an interruption and never resurfaced, say that it was left unresolved and that it counts for neither side. Close with the single thing the losing side needed to do differently in this exact conversation.
+
+${FLEXIBLE_ARGUMENT_RULES}`;
 
 export const ADJUDICATION_CORE = `ADJUDICATION METHOD — read before you score anything.
 
@@ -284,7 +295,7 @@ export function buildAdjudicationBlock(opts = {}) {
   // An open-floor argument is a different artifact from a speech round,
   // not a looser one, so it gets its own method rather than a relaxed
   // reading of the speech method. See CONVERSATION_ADJUDICATION_CORE.
-  if (format === 'conversation') {
+  if (format === 'conversation' || format === 'open') {
     return CONVERSATION_ADJUDICATION_CORE;
   }
   if (format === 'quick' || format === 'quickclash' || format === 'casual') {

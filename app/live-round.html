@@ -3532,6 +3532,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   <!-- Tells every OTHER tab this person is mid-round, so nothing sitewide
        invites them into a second one. See js/round-presence.js. -->
   <script defer src="/js/round-presence.js"></script>
+<link rel="stylesheet" href="/css/room-topic.css">
 </head>
 <body class="lr-setup">
 
@@ -3852,6 +3853,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
                  one side alone. -->
             <div class="rmb-tools" id="rmbTools" hidden>
               <span class="rmb-tools-q">Not this one?</span>
+              <button type="button" class="rmb-change rmb-change--draft" id="rmbTalkBtn">Debate something else</button>
               <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes.">&#9998; Change it</button>
               <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose">&#127922; Roll one</button>
               <button type="button" class="rmb-change rmb-change--draft" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters."><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span> Draft one together</button>
@@ -6821,6 +6823,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (hint) hint.style.display = '';
   }
   function startSpeechTimer(){
+    if (window.RoomTopic && window.RoomTopic.isPending()){ toast('Finish choosing the resolution together, or cancel the topic discussion.'); return; }
     if (state.timerState === 'running' || state.timerState === 'ended') return;
     // A modal is not a security boundary. Tournament Speech 1 also stops
     // here unless the server-backed room state says the required capture
@@ -17238,6 +17241,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       publishRoundMeta();
     }
     window.__lrSetMotion = setMotion;
+    window.__lrTopicContext = function(){
+      return { room: state.room, user: state.user, uid: myUid(), spectator: isSpectator(),
+        canChoose: state.phase === 'round' && !isSpectator() && !motionChangeLocked(), audioTrack: srvBorrowTrack() };
+    };
+    window.__lrTopicNotice = toast;
     // Options disclosure: the summary line stays, the tools grid toggles.
     // State lives in the DOM (hidden attr), so renderRound re-runs leave
     // an open panel open.
@@ -21693,6 +21701,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // round starts immediately). It opens only when a debater asks for it
     // from the resolution bar; a doc that already carries one still renders.
     // Pending resolution change, if either side has asked for one.
+    window.__lrTopicSnapshot = d.topicConversation || null;
+    if (window.RoomTopic && d.topicConversation) window.RoomTopic.render(d.topicConversation);
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
     // Pending side swap, same shape: one debater asked to trade sides.
     if (window.__lrRenderSideSwap) { try { window.__lrRenderSideSwap(d); } catch(e){} }
@@ -24019,5 +24029,6 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
      These pages have no topbar, which is what loads it everywhere
      else, so they carry it themselves. -->
 <script defer src="/js/auth-modal.js"></script>
+<script src="/js/room-topic.js"></script>
 </body>
 </html>

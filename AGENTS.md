@@ -9,12 +9,31 @@
 
 Web visitors get a locked Google sign-in chooser after 40 cumulative visible
 seconds across pages and reloads. Existing named accounts are already identified.
-The one guest human round is uninterrupted, including the site-shell player.
+New human matches require Google or Apple sign-in before entering the queue. The Match Desk runs first and preserves answers through the cumulative sign-in wall. Existing live rooms stay uninterrupted, including the site-shell player.
 A required inline account gate does not get a second dialog over it. Legal text
 stays readable. AI debates require a named account before Start and server-side
 before a fresh generation or voice mint. Signed Realtime continuations can finish
 an already admitted round. Native provider choices are unchanged. This supersedes
 older anonymous-AI and disabled-wall language below; see soul.md section 4.
+
+## Conversational judging and topic discovery (2026-09-06)
+
+The shared judging method routes `open` and `conversation` to conversational
+judging. Concessions have exact scope; rejecting an attributed position is not
+a concession, interpretation of the resolution is part of the exchange, and
+missing transcription is not proof of a dropped response. The published
+`adjudication-2026-09-flex` rubric and its new season preserve all old hashes,
+score weights and panel pins. Never edit a historical rubric in place.
+
+Before the first speech, “Debate something else” starts a shared AI topic
+conversation. Both people consent; each explicitly enables AI microphone
+listening or types. The server reads only the room's eligibility stamp and
+private Match Desk issue areas to choose a question, then generates from the
+new conversation. Setup text stays server-only and outside the scored transcript.
+Both people must accept the proposal before the motion changes. Speech start,
+tournament locks, cancellation, stale generations and concurrent approvals
+must preserve the current motion. `scripts/test-room-topic.mjs` exercises those
+boundaries offline.
 
 ## First screen: stranger board for everyone (A/B called 2026-07-22)
 

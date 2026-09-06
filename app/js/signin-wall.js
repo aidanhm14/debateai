@@ -77,6 +77,7 @@
         document.querySelector('.ob-modal.is-open') ||
         document.documentElement.getAttribute('data-intro') === '1') return;
     if (!window.openAuthModal) { ensureChooser(); return; }
+    if (window.__sparSaveDeskProgress) window.__sparSaveDeskProgress();
     shown = true;
     try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch (e) {}
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });

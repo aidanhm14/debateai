@@ -58,8 +58,8 @@ const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
 const watch = read('app/watch.html');
 
-check(spar.includes('var GUEST_FREE_ROUNDS = 1;'), 'client guest allowance must mirror the one-round server default');
-check(/const GUEST_FREE_ROUNDS = process\.env\.GUEST_FREE_ROUNDS !== undefined\s*\?[^;]*:\s*1;/.test(pair), 'server guest allowance must default to one round and read the env override');
+check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client must require sign-in before a live match');
+check(pair.includes('const GUEST_FREE_ROUNDS = 0;'), 'server must close guest pairing even if a stale environment override remains');
 check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'spar must define the two-provider live-video set');
 check(spar.includes('if (isLiveVideoUser(u)) return true;') && spar.includes('return !!(u && u.isAnonymous && guestRoundsLeft() > 0);'), 'foreground queue must take a Google or Apple user, or a guest with a free round left');
 check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];"), 'background pill must define the same two-provider set');
@@ -68,7 +68,7 @@ check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.
 check(pair.includes('if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token, guests excepted into the metered lane');
 check(pair.includes("const iAmGuest = decoded.firebase?.sign_in_provider === 'anonymous';") && pair.includes('if (used >= GUEST_FREE_ROUNDS) {'), 'matcher must meter guests against the server record before seating them');
 check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled gate code clients handle');
-check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || p === 'anonymous';") && pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker while accepting a guest seat');
+check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);") && pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker and refuse a guest seat');
 check(pair.includes('if (!seatOk(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
 check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);"), 'video room minter must define the two-provider set');
 check(dailyRoom.includes("if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider))"), 'video room minter must gate every human role on the provider set');
@@ -140,8 +140,8 @@ check(spar.includes('function queuePeerCanMatch(doc){'), 'spar must define one s
 check((spar.match(/if \(!queuePeerCanMatch\(d\)\) return;/g) || []).length === 2,
   'the available count and match candidate list must use the same eligibility check');
 check(spar.includes("peerBand !== myBand"), 'queue eligibility must separate adult and minor age pools');
-check(spar.includes("if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0 && peerProvider !== 'anonymous') return false;"),
-  'queue eligibility must reject stale provider markers before counting them, guests excepted');
+check(spar.includes("if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0) return false;"),
+  'queue eligibility must reject stale provider markers before counting them, including guests');
 check(!spar.includes('debaters available now'), 'the audience-facing queue count must call them people');
 const eligibilityStart = spar.indexOf('function queuePeerCanMatch(doc){');
 const eligibilityEnd = spar.indexOf('// ONE definition of "can this browser finish', eligibilityStart);
@@ -163,7 +163,7 @@ const peer = (id, ageBand, authProvider = 'google.com') => ({
 check(queuePeerCanMatch(peer('adult-peer', 'adult')), 'an eligible adult peer must be countable and matchable');
 check(!queuePeerCanMatch(peer('minor-peer', 'minor')), 'an adult must not count a minor as an available opponent');
 check(!queuePeerCanMatch(peer('email-peer', 'adult', 'password')), 'an ineligible provider must not count as an available opponent');
-check(queuePeerCanMatch(peer('guest-peer', 'adult', 'anonymous')), 'a guest on their free round must count as an available opponent');
+check(!queuePeerCanMatch(peer('guest-peer', 'adult', 'anonymous')), 'a guest must not count as an available opponent');
 check(!queuePeerCanMatch(peer('me', 'adult')), 'the current user must not count as their own opponent');
 
 // 2026-08-31, later founder conversion call: the signed-out gate is the

@@ -290,6 +290,22 @@ export const RUBRICS = {
   },
 };
 
+// Publish new criteria without changing any historical rubric or its hash.
+RUBRICS['adjudication-2026-09-flex'] = {
+  ...RUBRICS['adjudication-2026-08c'],
+  version: 'adjudication-2026-09-flex',
+  publishedAt: Date.UTC(2026, 8, 6, 16, 10),
+  title: 'How an evolving casual 1v1 argument is judged',
+  summary: 'The judge follows the positions people actually defend, including qualified concessions, revisions and argued interpretations of the resolution. A missing transcript is not an admission. Conversation is judged through exchanges, without speech-format penalties. The six scoring dimensions and their weights remain unchanged.',
+  tests: [...RUBRICS['adjudication-2026-08c'].tests,
+    { key: 'concession-scope', label: 'Scoped concessions', body: 'An admission counts only for the proposition clearly conceded, with its qualifications. Acknowledgements and hypothetical assumptions do not concede the round. A reasoned revision has no automatic penalty.' },
+    { key: 'actual-position', label: 'Actual position', body: 'Declining to defend a position is judged against what the speaker actually claimed and what their case needs. An opponent cannot assign an extreme position to them. Abandoning a necessary premise leaves a specific gap to explain.' },
+    { key: 'interpretation', label: 'Interpreting the resolution', body: 'Definitions and scope are part of the argument. The judge follows mutual clarifications and evaluates contested interpretations from the wording and reasons given, without imposing a new topic or rewarding a unilateral evasion.' },
+    { key: 'capture', label: 'Incomplete capture', body: 'Missing or unreadable transcription is not a concession or proof of an unanswered point. A claimed correction is checked against recoverable evidence and any acknowledgement. The ballot names material uncertainty without inventing words or automatically accepting disputed corrections.' },
+    { key: 'exchange', label: 'The whole exchange', body: 'Answers may come later or cover several points. The judge checks the full exchange and opportunity to respond. In open conversation there is no required speech structure, no overtime deduction, and no credit for airtime or interruptions.' },
+  ],
+};
+
 // ── seasons ─────────────────────────────────────────────────────────
 //
 // A season pins a rubric version AND a judge panel for a fixed window.
@@ -525,6 +541,17 @@ SEASONS.push({
   },
   note:
     'Same rubric, same weighing order, same two-vote majority, same refusal to tie-break a split. Three independent labs, re-pinned to models verified against the real ballot prompt: Anthropic, xAI and Google. The council reads the round for about a quarter of what the previous bench cost and returns faster.',
+});
+
+const FLEX_FROM = Date.UTC(2026, 8, 6, 16, 10);
+const previousFlexSeason = SEASONS[SEASONS.length - 1];
+const flexTo = previousFlexSeason.to;
+previousFlexSeason.to = FLEX_FROM;
+SEASONS.push({
+  ...previousFlexSeason,
+  id: '2026-autumn-flex', from: FLEX_FROM, to: flexTo,
+  rubricVersion: 'adjudication-2026-09-flex',
+  note: 'Conversational flexibility is explicit: scoped concessions, actual defended positions, argued interpretations and incomplete capture. The verified panel, effort, score weights, majority and appeal policy are unchanged.',
 });
 
 export const SEASON_IDS = SEASONS.map((s) => s.id);

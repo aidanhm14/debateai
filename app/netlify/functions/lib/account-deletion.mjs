@@ -96,6 +96,7 @@ export const BULK_QUERIES = [
   // Private transcripts and derived explanations are disposable caches.
   // Either participant's deletion removes a shared cache; the live_rounds
   // record itself follows the existing retention policy below.
+  { collection: 'room_topic_talks', field: 'uids', op: 'array-contains' },
   { collection: 'private_judge_receipts', field: 'uids', op: 'array-contains' },
   { collection: 'judge_explanation_sources', field: 'uids', op: 'array-contains' },
 ];

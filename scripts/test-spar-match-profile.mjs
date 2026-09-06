@@ -203,7 +203,7 @@ for (const sensitive of ['economy', 'immigration', 'speech', 'democracy']) {
   assert.ok(!new RegExp('\\b' + sensitive + '\\s*:').test(queueWrite), `${sensitive} must not ride matchmaking_queue`);
 }
 assert.match(spar, /matchProfileReady:\s*state\.privateProfileReady === true/);
-assert.match(spar, /onSkip:\s*function\(\)\{[\s\S]*?matchProfile = defaultMatchProfile\(\);/, 'flow skip must erase partial political answers');
+assert.match(spar, /onSkip:\s*function\(answers\)\{[\s\S]*?profileFromAnswers\(answers\)/, 'save-and-continue must preserve the answers already given');
 assert.match(spar, /id="skipMatchProfileBtn"[\s\S]*?matchProfile = defaultMatchProfile\(\);/, 'gate skip must erase an older political profile');
 // 2026-09-04: the SKIP bar is a footer ROW of the flow, never a fixed
 // overlay, so the track shrinks around it and no panel padding has to

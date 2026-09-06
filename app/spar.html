@@ -3395,7 +3395,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function matchProfileMasthead(){
     var head = mpEl('header', 'mp-masthead');
     var top = mpEl('div', 'mp-masthead__top');
-    top.appendChild(mpEl('strong', 'mp-masthead__name', 'Debatable Match Desk'));
+    top.appendChild(mpEl('strong', 'mp-masthead__name', 'AI MATCHMAKING'));
     var status = mpEl('div', 'mp-masthead__status');
     var live = mpEl('span', 'mp-masthead__live');
     live.setAttribute('data-active', 'false');
@@ -3407,7 +3407,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     top.appendChild(status);
     head.appendChild(top);
     var line = mpEl('div', 'mp-masthead__line');
-    line.appendChild(mpEl('em', '', 'Find someone worth disagreeing with.'));
+    line.appendChild(mpEl('em', '', 'Opinion opposition matching. Find someone worth disagreeing with.'));
     var stepCount = matchProfileSteps(matchProfile).length;
     var countWords = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
     line.appendChild(mpEl('span', '', 'Private edition  /  ' + (countWords[stepCount] || stepCount) + ' quick choices'));
@@ -3523,9 +3523,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       card.innerHTML = '<div class="mp-wait__card">' +
         '<p class="mp-wait__eyebrow">Live now</p>' +
         '<h3 class="mp-wait__title" id="mpWaitTitle">' + escHtml(who) + '<small>' + escHtml(sub) + '</small></h3>' +
-        '<p class="mp-wait__body">Meet them and skip the rest of these, or finish your answers. They may not wait long.</p>' +
+        '<p class="mp-wait__body">Save your answers and sign in to join the queue, or keep answering for a more personal match.</p>' +
         '<div class="mp-wait__actions">' +
-          '<button type="button" class="mp-wait__meet">MEET THEM NOW</button>' +
+          '<button type="button" class="mp-wait__meet">SIGN IN TO MEET</button>' +
           '<button type="button" class="mp-wait__keep">Keep answering</button>' +
         '</div></div>';
       card.querySelector('.mp-wait__meet').addEventListener('click', function(){
@@ -3786,18 +3786,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return;
     }
     var run = window.ArcadeFlow.start({
-      label: 'Build your matchmaker profile',
+      label: 'AI MATCHMAKING',
       topSlot: matchProfileMasthead(),
-      skipLabel: 'Skip to opponent · SKIP',
+      skipLabel: 'Save and continue · SIGN IN',
       steps: matchProfileSteps(matchProfile),
       launch: {
         title: 'Your side of the table is set.',
         hint: 'Entering the queue saves your issue answers to a private match profile. Debatable uses them to rank viewpoint matches and generate a motion from a shared disagreement. Other people and the judge never see them.',
-        cta: opts.editing ? 'Save changes' : 'Find my opponent'
+        cta: opts.editing ? 'Save changes' : (state.named ? 'Find my opponent' : 'Sign in and find my opponent')
       },
-      onSkip: function(){
+      onSkip: function(answers){
         document.body.classList.remove('match-profile-open');
-        matchProfile = defaultMatchProfile();
+        matchProfile = answers ? profileFromAnswers(answers) : (matchProfile || defaultMatchProfile());
         saveMatchProfileLocal();
         applyMatchProfileExperience();
         state.profileReady = true;
@@ -3827,9 +3827,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (opts.onClose) opts.onClose();
       }
     });
+    window.__sparSaveDeskProgress = function(){
+      if (!state.profileFlowOpen) return;
+      matchProfile = profileFromAnswers(run.answers);
+      saveMatchProfileLocal();
+    };
     var root = document.querySelector('.afl');
     if (root){
       root.classList.add('match-profile-flow');
+      root.addEventListener('change', window.__sparSaveDeskProgress);
+      root.addEventListener('input', window.__sparSaveDeskProgress);
       document.body.classList.add('match-profile-open');
       var waitingOffer = null;
       // 2026-09-02, Aidan: the questionnaire must never read as a wall.
@@ -3839,14 +3846,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // so the result is the neutral profile and the queue.
       var railSkip = null;
       Array.prototype.forEach.call(root.querySelectorAll('.afl-rail .afl-btn'), function(b){
-        if (b.textContent.trim() === 'Skip to opponent · SKIP') railSkip = b;
+        if (b.textContent.trim() === 'Save and continue · SIGN IN') railSkip = b;
       });
       if (railSkip){
         railSkip.classList.add('mp-skip');
         var bar = document.createElement('div');
         bar.className = 'mp-skip-bar';
         bar.innerHTML = '<button type="button" class="mp-skip-big">' +
-          '<span><b>SKIP</b><small>Just meet someone right now. Answers stay optional.</small></span>' +
+          '<span><b>CONTINUE</b><small>Save your answers. Sign in before meeting.</small></span>' +
           '<span class="mp-skip-arrow" aria-hidden="true">&rarr;</span></button>';
         bar.querySelector('button').addEventListener('click', function(){
           railSkip.click();
@@ -4265,7 +4272,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var data = doc.data ? (doc.data() || {}) : {};
     if (data.status && data.status !== 'waiting') return false;
     var peerProvider = String(data.authProvider || '');
-    if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0 && peerProvider !== 'anonymous') return false;
+    if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0) return false;
     if (localSkipActive(doc.id) || docSkips(data, state.user.uid)) return false;
     var myBand = (window.daAgeBand && window.daAgeBand()) || '';
     var peerBand = data.ageBand || '';
@@ -4295,7 +4302,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // account exists. spar-pair.mjs meters the allowance against
   // guest_rounds/{uid} and firestore.rules lets a guest write its own queue
   // doc; this constant mirrors the server default for paint only.
-  var GUEST_FREE_ROUNDS = 1;
+  var GUEST_FREE_ROUNDS = 0;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -4617,10 +4624,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       .catch(function(){ cb(0); });
   }
   function guestDoorAfterDesk(){
-    queueWaiting(function(waiting){
-      if (waiting > 0 && mintGuestSession()) return;
-      renderGate();
-    });
+    renderGate();
   }
   function renderSignedOutEntry(){
     if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')){
@@ -4635,13 +4639,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // Guest with a session: queue if someone is there and a round is left,
   // otherwise the sign-in door.
-  function guestQueueOrGate(){
-    queueWaiting(function(waiting){
-      if (!state.user || state.named) return;
-      if (waiting > 0 && canQueue(state.user)){ state.cancelled = false; joinQueue(); return; }
-      renderGate();
-    });
-  }
+  function guestQueueOrGate(){ renderGate(); }
   function renderGate(){
     if (document.getElementById('sparGateCard')) return;
     var inApp = inAppBrowser();
@@ -5173,6 +5171,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function renderSearching(){
     shell.innerHTML =
       '<h1>Finding your <em>match...</em></h1>' +
+      '<p><strong>AI MATCHMAKING</strong>. Opinion opposition matching uses your answers to look for a meaningful disagreement.</p>' +
+      '<p id="deskWaitingNote" role="status" hidden></p>' +
       '<section class="keep-open" aria-label="While you wait">' +
         '<p><strong>Keep this tab open.</strong> Give people a moment to join. We&#8217;ll chime when your match is ready.</p>' +
       '</section>' +
@@ -9539,5 +9539,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
+<script defer src="/js/spar-onboarding.js"></script>
 </body>
 </html>

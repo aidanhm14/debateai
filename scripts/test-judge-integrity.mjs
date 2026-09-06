@@ -165,7 +165,7 @@ function t(label, cond) {
   // Open: a council still carries on two matching votes through one
   // provider outage, and still refuses to break a 1-1.
   t('the live council lets two matching votes carry through one provider outage',
-    current.id === '2026-autumn-council'
+    current.id === '2026-autumn-flex'
       && current.panel.quorum === 2
       && current.panel.minimumVotes === 2);
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);

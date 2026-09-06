@@ -351,9 +351,8 @@ const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
 // server-side (e874e61e). The identity metered is the anonymous Firebase
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
-const GUEST_FREE_ROUNDS = process.env.GUEST_FREE_ROUNDS !== undefined
-  ? Math.max(0, Number(process.env.GUEST_FREE_ROUNDS) || 0)
-  : 1;
+// 2026-09-06: questionnaire first, account before any new human pairing.
+const GUEST_FREE_ROUNDS = 0;
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -915,6 +914,11 @@ export default async (request) => {
           tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
           return { ok: true, freed: true };
         }
+        if (accept && (!LIVE_VIDEO_PROVIDERS.has(mine.authProvider) || !LIVE_VIDEO_PROVIDERS.has(theirs.authProvider))) {
+          tx.update(myRef, { ...revert });
+          tx.update(peerRef, { ...revert });
+          return { ok: false, reason: 'peer_ineligible', skipPeer: peerUid };
+        }
         if (!accept) {
           // Ghost detection: my idle timer fired, the peer never acted
           // on a proposal older than the deciding window, so their tab
@@ -1165,7 +1169,7 @@ export default async (request) => {
       // becoming the passive seat when a current user initiates the
       // transaction. A guest peer's ALLOWANCE is checked separately
       // (guestSpent, above), from the server's own record.
-      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || p === 'anonymous';
+      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);
       if (!seatOk(mine.authProvider)) {
         return { ok: false, reason: 'queue_auth_stale' };
       }
