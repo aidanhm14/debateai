@@ -10,6 +10,7 @@ export function progressFromAggregate(data) {
 export async function fetchAccountProgress(db, uid) {
   const snap = await withDeadline(db.collection('leaderboard_entries')
     .where('uid', '==', uid)
+    .orderBy('score', 'desc')
     .aggregate({ points: AggregateField.sum('score') }).get(), 2500);
   return progressFromAggregate(snap.data());
 }

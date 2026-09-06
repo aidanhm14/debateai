@@ -9,7 +9,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v7';
+const CACHE_KEY = 'leaderboard-top-v8';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const ROWS = 8;
 

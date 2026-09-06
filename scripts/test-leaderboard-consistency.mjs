@@ -18,7 +18,10 @@ const db = {
     if (name === 'leaderboard_entries') return {
       where(field, operator, uid) {
         assert.equal(field, 'uid'); assert.equal(operator, '==');
-        return { aggregate: () => ({ get: async () => ({ data: () => ({ points: histories[uid].reduce((a, b) => a + b, 0) }) }) }) };
+        return { orderBy(field, direction) {
+          assert.equal(field, 'score'); assert.equal(direction, 'desc');
+          return { aggregate: () => ({ get: async () => ({ data: () => ({ points: histories[uid].reduce((a, b) => a + b, 0) }) }) }) };
+        } };
       },
     };
     throw new Error('Unexpected collection: ' + name);
