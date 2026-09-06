@@ -1,145 +1,152 @@
-# Debatable — App Store Listing (draft, ready to paste)
+# Debatable App Store submission copy
 
-Copy for App Store Connect. Brand voice: punchy, debater-register, no
-em-dashes, no banned phrases (see soul.md). Edit freely before submitting.
-
----
+Updated 2026-09-06 against the current product. Public fields below are ready
+to enter. The privacy inventory and submission checks are internal working
+notes, not a claim that App Store Connect has been updated.
 
 ## Identity
-- **App Store name:** Debatable: Live Debates
-- **In-app product name:** Debatable
-- **Name constraint:** App Store Connect reports that the exact `Debatable`
-  listing name is already in use. The descriptive store title above was
-  accepted on 2026-08-27, then shortened to "Live Debates" per Aidan on 2026-09-02. Do not restore `TryDebatable` or "Live Voice Debate".
-- **Subtitle (30 char max):** Voice debate coach + rounds
-- **Bundle ID:** com.debateai.debateit
-- **Primary category:** see the note below. Education reaches people
-  searching "debate"; Social Networking matches the 2026-08-16 decision that
-  this is a social app, and invites heavier guideline 1.2 review on a first
-  submission. Both are editable after release.
-- **Secondary category:** the other one.
-- **Age rating:** Complete the App Store Connect questionnaire honestly. The
-  app includes live user interaction and direct messages, so do not submit it
-  as a passive 4+ utility.
 
-## Promotional text (170 char, updatable anytime)
-Pick a motion, take a side, and argue out loud against an opponent that fights
-back and takes your points. Every round ends with a written verdict.
+- **App Store name:** Debatable: Live Debates
+- **Subtitle:** Real people. Different sides.
+- **In-app product name:** Debatable
+- **Bundle ID:** com.debateai.debateit
+- **App Store Connect app ID:** 6791712877
+- **Primary category:** Social Networking
+- **Secondary category:** Entertainment
+
+Use the existing app record. The exact name `Debatable` was unavailable;
+Aidan chose the descriptive title above on 2026-09-02. Preserve the bundle
+ID. Confirm the saved title in App Store Connect before editing.
+
+## Promotional text
+
+Take a side and debate someone live. Hear the other argument, make your case, and see how the AI judge calls it. Watch rounds or debate the AI on your own.
 
 ## Description
-Debatable is a voice-first debate trainer. Pick a motion, take a side, and
-argue out loud against an opponent that actually fights back, takes your
-points, interrupts, and writes the judge ballot when the round ends.
 
-Built by an APDA Pro-Ams champion, and format-accurate where it counts:
-Asian Parliamentary, WSDC, BP, APDA, Policy, LD, PF, Congress, MUN, Karl
-Popper, and Quick Clash, plus courtroom, negotiation, and pitch-defense
-drills for professionals.
+Got a different take? Talk it out.
 
-What you get:
-- A live AI coach you can talk to any hour. It runs targeted drills, hears
-  your speeches against a clock, and tells you exactly what to fix.
-- Real speeches against a real timer, with pushback and POIs.
-- A judge that flows the round and gives you a written ballot with reasons.
-- Six AI brains and HD voices so no two opponents sound the same.
-- Live rounds against real people, with replays and a public ladder.
+Debatable brings two people together for a live, one-on-one debate. Pick a question, take opposite sides, and make your case out loud. An AI judge explains its verdict after a judged round.
 
-Whether you compete, coach, or just want to think faster on your feet,
-Debatable gives you reps you cannot get anywhere else.
+DEBATE SOMEONE LIVE
+Meet someone with a different view. Agree on the question, choose your side, and get into the argument. No debate experience needed.
 
-## Keywords (100 char, comma-separated, no spaces)
-debate,speech,coach,APDA,parliamentary,argument,forensics,public speaking,LD,PF,MUN,rebuttal
+WATCH THE ARGUMENT
+Watch live debates when a round is on air. Follow the exchange and see how each side makes its case.
+
+SEE WHERE YOU STAND
+Explore the leaderboard, with separate standings for rounds against people and rounds against AI. Keep your round history and read the judge's feedback.
+
+DEBATE THE AI
+Choose a topic and argue out loud with an AI opponent. It responds in real time, challenges your reasoning, and gives you another side to answer. Finish the debate to see your transcript and feedback.
+
+KEEP THE CONVERSATION GOING
+Find people, connect with friends, and use direct messages to arrange another round.
+
+REPORT AND BLOCK
+Report abusive behavior from a live round and block the other account. Community rules, privacy information, and support are available in the app.
+
+Sign in to start a round. Live rounds with another person depend on an opponent being available. An internet connection is required; voice and video features need microphone and camera access when used.
+
+## Keywords
+
+argument,voice,discussion,opinions,conversation,speaking,rebuttal,community,video,ai
 
 ## URLs
-- **Support URL:** https://itsdebatable.com/contact (must reach a human; /coach is a product page, not support)
+
+- **Support URL:** https://itsdebatable.com/support
 - **Marketing URL:** https://itsdebatable.com
 - **Privacy Policy URL:** https://itsdebatable.com/privacy
 
-## What's New (v1.0)
-First release. Your voice debate coach, live rounds, and AI judge, now on
-your phone.
+The support page publishes `hello@itsdebatable.com`. The old `/contact`
+URL returned 404 in the 2026-09-06 handoff; do not restore it.
 
----
+## What's New (if requested for this version)
 
-## App Privacy answers (App Store Connect questionnaire)
+Live one-on-one debates, an AI opponent, judge feedback, friends, and separate leaderboards for rounds against people and AI.
 
-Data the app collects (be truthful; the site already discloses these in
-/privacy — GA4, Firebase, Clarity behind a flag):
+## App Privacy: reconcile before saving answers
 
-| Data type | Collected | Linked to user | Used for | Notes |
-|---|---|---|---|---|
-| Email address | Yes | Yes | App Functionality | Google / Apple sign-in |
-| Name | Yes | Yes | App Functionality | display name from sign-in |
-| User ID | Yes | Yes | App Functionality, Analytics | Firebase uid |
-| Audio data | Yes | No | App Functionality | voice rounds; processed via OpenAI Realtime, not stored as raw audio for ads |
-| Other user content | Yes | Yes | App Functionality, Safety | live-round messages, reports, and debate files users choose to add |
-| Product interaction | Yes | Yes | Analytics, Product Personalization | rounds, features used |
-| Crash data | Yes | No | App Functionality | |
-| Performance data | Yes | No | Analytics | |
+This inventory replaces the old table, which omitted private political
+preferences, uploaded pictures, stored live recordings, and PostHog replay.
+Compare it with the exact iOS-accessible features, deployed SDK settings,
+and the answers currently saved in App Store Connect. It is not a completed
+privacy audit. Include third-party collection as well as our own storage.
+Sources: `app/privacy.html`, `app/js/auth-modal.js`, and
+[Apple's App Privacy definitions](https://developer.apple.com/app-store/app-privacy-details/).
 
-- **Tracking (IDFA / cross-app):** No. Do not enable App Tracking
-  Transparency unless you add an ad SDK.
-- **Third parties:** Google/Firebase (auth, analytics, messaging), OpenAI
-  (voice), Google Analytics 4. All disclosed in /privacy.
+| Apple data type | Collection to account for | Linked to user | Purpose to verify |
+|---|---|---|---|
+| Email Address, Name | Account identity; account and opted-in lifecycle emails | Yes | App Functionality; Developer's Advertising or Marketing where used for promotional emails |
+| User ID | Firebase uid, public handle, account-linked analytics and push registration | Yes | App Functionality, Analytics |
+| Sensitive Info | Optional political opinions saved by Match Desk for matchmaking | Yes | Product Personalization, App Functionality |
+| Photos or Videos | Public profile picture uploads and consented live-round recordings | Yes | App Functionality |
+| Audio Data | Audio retained with consented live-round recordings at Daily.co | Yes | App Functionality |
+| Emails or Text Messages | Stored direct messages, including sender and recipient | Yes | App Functionality |
+| Other User Content | Debate transcripts, posts, saved rounds and safety reports | Yes for account-linked content | App Functionality; confirm other uses such as opted-in research |
+| Product Interaction | Page/feature events and PostHog session replay | Yes when identified by account id | Analytics, Product Personalization where applicable |
+| Customer Support | Support requests and associated account information | Yes when identified | App Functionality |
 
-Encryption: `ITSAppUsesNonExemptEncryption = NO` is set in Info.plist
-(standard HTTPS only), so the export-compliance step is answered.
+AI voice streamed in real time is distinct from retained human-round audio.
+Do not answer that all audio is unlinked simply because the AI audio bypasses
+our servers. Confirm providers' retention against Apple's collection definition.
 
----
+Verify Device ID, diagnostics, approximate location derived from IP, purchase
+history exposed to existing web subscribers, and any other SDK collection
+before including or excluding those categories. The absence of a checkout
+does not prove that purchase history is absent. The previous draft's blanket
+unlinked crash/performance answers were not backed by a current SDK audit.
 
-## Submit checklist (does the Xcode/ASC dance in order)
-1. Paid Developer Program team selected in Xcode signing (Personal Team can't submit).
-2. App Store Connect → New App → bundle `com.debateai.debateit`, name Debatable.
-3. Paste the copy above; add screenshots (6.9" iPhone; generate from the
-   simulator with `xcrun simctl io booted screenshot`, then polish/frame).
-4. Fill App Privacy with the table above.
-5. Xcode → Product > Archive (Release, device target) → Distribute > App Store Connect.
-6. In ASC, attach the build, answer export compliance (No), submit for review.
-7. Sign in with Apple must be live before review (Apple 4.8) — see handover §5.
-8. Use a review account with at least one saved round, and put its credentials
-   in App Review Information. Keep the voice backend and Firebase project live.
+The policy says there are no advertising trackers. Confirm actual SDK data
+sharing before saving the Tracking answer; absence of IDFA alone is not
+proof of no tracking. Processor inventory includes Firebase, GA4, PostHog,
+GoatCounter, Netlify, Daily.co, Resend, and the AI providers reached by the
+enabled features. Use the current policy's processor list, not this list as
+an exhaustive substitute.
 
-## Notes for Review (paste and personalize)
+## Age rating and encryption
 
-Debatable is a voice-first debate training app. Reviewers can start a voice
-round without creating an account. The app uses the microphone only after the
-reviewer taps Start, then provides a timed debate and an AI judge ballot.
+Complete Apple's current questionnaire from actual features, including user
+content, messaging, live voice/video, and any contest or prediction surfaces
+reachable in the app. Do not copy a competitor's rating or choose an age
+rating to avoid disclosing functionality.
 
-Native iOS features include Sign in with Apple, push alerts for live opponents,
-native sharing, app deep links, a persistent app tab bar, and microphone and
-camera permission handling. The app includes a free round allowance. It
-contains no web checkout, pricing link, or external purchase call to action.
+Build 10 declares `ITSAppUsesNonExemptEncryption = NO`. Confirm that the
+selected uploaded build matches the verified artifact and answer Apple's
+export-compliance questions for that build.
 
-Before registration or login, every sign-in method requires the user to agree
-to the Terms of Use. The agreement states that Debatable has zero tolerance
-for objectionable content or abusive users.
+## Submission checklist
 
-Live human rounds include a visible Report control on the opponent card. The
-report dialog filters reports by safety reason and includes a Block option,
-checked by default. Blocking sends the safety report to Debatable, removes the
-user from the current round immediately, and prevents the two accounts from
-being matched again. Debatable reviews safety reports within 24 hours and
-removes confirmed offending content and users.
+1. Open the existing app record and read the latest review conversation.
+   The 2026-08-25 rejection is historical until checked against today's UI.
+2. Confirm the selected build and test it on a physical iPhone: Apple login,
+   Google login, a full voice round and verdict, live video, Report and Block,
+   and account deletion with a disposable account.
+3. Capture Apple's requested physical-device recording. Follow
+   `APP_REVIEW_RESPONSE_2026-09-01.md`; a simulator recording is insufficient.
+4. Enter the public fields above. Reconcile privacy answers, age rating,
+   screenshots for supported iPhone/iPad sizes, and current product screens.
+5. Use the reviewer Notes in `APP_REVIEW_RESPONSE_2026-09-01.md` as the single
+   source. Test the saved reviewer credentials without putting them in git.
+   AI rounds require sign-in. Live video needs a Google or Apple account;
+   an email/password account alone does not cover the whole app.
+6. Attach the device recording to the review response and App Review
+   Information. Verify the attachments are present before claiming they are.
+7. Resolve any account-level agreement or distribution requirements shown
+   by Apple. Aidan handles legal agreement acceptance.
+8. Reuse build 10 if it still matches the intended release and no native
+   defect requires a rebuild. Only Claude's native lane should allocate a
+   new build number. Follow the actual resubmission controls and verify the
+   resulting review status; saving metadata does not submit the app.
 
-## Account deletion (Guideline 5.1.1(v))
+## Account deletion evidence
 
-Account deletion is available in the app at Me > Account & settings > Delete
-account. It is reachable on a brand-new account with no rounds played, which
-is the state a review account will be in.
+Path: Me > Account and settings > Delete account. The implementation cancels
+active subscriptions, removes public identity and the Firebase Auth account,
+and purges associated data. A server-side continuation completes remaining
+cleanup if the first request runs out of time. Some shared-round and legally
+required records are retained as disclosed by the deletion screen and policy.
+Do not describe every data deletion as completing synchronously in one tap.
 
-The control opens a confirmation panel that states what is removed, warns if
-an active subscription will be cancelled, lists what is retained and why, and
-offers a data export first. Deletion requires typing DELETE and then completes
-in the app. It is not a deactivation, it is not queued for manual approval, and
-it does not ask the person to email support.
-
-On confirmation the server deletes the Firebase Auth credential itself, so the
-account can no longer be signed into, along with the profile, public profile,
-handle, saved rounds and transcripts, leaderboard entries, rating, direct
-messages, matchmaking records, push and email preferences. Any active paid
-subscription is cancelled at the same moment, before the account is destroyed.
-Rounds debated against another person are kept as that person's own record with
-the deleted user's seat relabelled. Financial records required for tax and
-accounting are retained without a name.
-
-A test account can be created and deleted end to end without contacting us.
+Verify the flow on a disposable account before representing it as a completed
+device test. Do not delete the reviewer account during that test.

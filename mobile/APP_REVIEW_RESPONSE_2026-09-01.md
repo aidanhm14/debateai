@@ -1,155 +1,184 @@
 # Responding to the 2026-08-25 rejection of build 10
 
-Written 2026-09-01 against the live App Store Connect record and the live
-site. Supersedes the "Waiting for Review" state in
-`IOS_HANDOFF_FOR_GPT_2026-08-26.md`.
+Updated 2026-09-06 against current source and Claude's same-day handoff.
+This is a preparation document, not a record of a reply or resubmission.
 
-## Where it stands (read from App Store Connect on 2026-09-01)
+## Last verified Apple record
 
-- App name in ASC: **Debatable: Live Voice Debate**. Version 1.0, build 10,
-  status **Rejected**, submission `612e4cb5-e6f9-4a34-87d4-1148a36769d0`.
-- Apple's message (2026-08-25 12:45 PM) cites two guidelines:
-  - **2.2 Performance, Beta Testing.** The reviewer saw beta-testing
-    language in a production submission.
-  - **1.2 Safety, User-Generated Content.** Missing precautions: terms
-    agreement before registering or logging in, filtering, flagging,
-    blocking that notifies the developer and removes the person instantly,
-    and 24-hour action on reports.
-- Apple asks for a **screen recording captured on a physical device**
-  showing the terms agreement, the flag mechanism, and the block mechanism.
-  It must be attached to the reply, and to the Notes attachment for future
-  submissions.
+The 2026-09-01 read of App Store Connect recorded version 1.0, build 10,
+status **Rejected**, submission `612e4cb5-e6f9-4a34-87d4-1148a36769d0`.
+Apple's message was dated 2026-08-25, 12:45 PM:
 
-## Every fix is already live on origin/main, and none needs a new binary
+- **2.2, Performance, Beta Testing:** production submission displayed
+  beta-testing language.
+- **1.2, Safety, User-Generated Content:** terms agreement, filtering,
+  flagging, developer notification, immediate blocking, and 24-hour action.
+- Apple requested a **physical-device screen recording** showing terms
+  agreement, flagging, and blocking, attached to the reply and to App Review
+  Information for future submissions.
 
-The app loads `https://itsdebatable.com/native`, so the shell picks up web
-changes without a rebuild. Verified on production on 2026-09-01 with a
-browser user agent (the edge returns 204 to curl):
+Read the latest conversation before using this response. A newer Apple
+message takes precedence. The current reply, attachment, and resubmission
+status was not verified by Codex on 2026-09-06.
 
-| Requirement | Where it lives | Shipped | Verified live |
-|---|---|---|---|
-| Terms agreement before sign-in or sign-up | `js/auth-modal.js`: checkbox `#daTerms` disables Apple, Google, and email buttons until ticked; receipt versioned `2026-08-26` | `4cab5570` | `daTerms` present in the served file |
-| Zero-tolerance wording in the terms | `/terms`, section "User-generated content and live-round safety" | `4cab5570` | "zero tolerance" present |
-| Flag mechanism | `/live-round` Report button on the opponent card, reasons: harassment, hate or threats, sexual content, spam or impersonation, AI use, other | pre-existing, copy tightened `4cab5570` | `#safetyBlock` present |
-| Block that notifies the developer and removes instantly | Same modal, "Block this person" ticked by default; writes `safety_reports` and `user_blocks`, leaves the round, `spar-pair` refuses the pair in both directions server-side | `4cab5570` | test `scripts/test-ios-review-compliance.mjs` 9/9 on origin/main |
-| Filtering | Community and channel text screened before write; on-device camera safety check in live rounds | `ee96a40a` | in the compliance test |
-| No beta language in the native shell | `data-native-hide` on the coach meter, "Voice · Beta" becomes "Voice" when `__DB_NATIVE` | `73ed88fd` | `/native` serves zero occurrences of "beta" |
+## Current implementation and evidence
 
-**Do not build 11.** Same binary, same build number, resubmitted after the
-reply. Building again would only restart the queue.
+The submitted shell loads `https://itsdebatable.com/native`. Web fixes
+reach that shell, but code presence is not an end-to-end device test.
 
-## Step 1: record the video (Aidan, physical iPhone, ~10 minutes)
+| Requirement | Current implementation | Evidence available |
+|---|---|---|
+| Affirmative terms acceptance | Shared chooser renders `#daTerms`; each auth handler checks `requireTerms()` before Firebase authentication | Source; Claude observed unchecked field on a clean simulator |
+| Terms error feedback | Buttons remain enabled. An attempt without agreement is refused, displays an error, and focuses the checkbox | Source; deliberate 2026-09-02 change |
+| Zero tolerance and 24-hour action | Published terms include both and describe moderation | Served terms checked in Claude's 2026-09-06 handoff |
+| Flagging and blocking | Report dialog, reason and note, block checked by default; safety report and durable two-way matchmaking exclusion | Source and existing compliance guard |
+| Filtering | Community writes use content screening; live camera safety-check integration is present | Source; device behavior still needs validation |
+| Production language | Previously reported native beta meter/label removed or hidden in the native branch | Served-file checks in Claude's handoff |
+| AI account requirement | Named sign-in before starting a fresh AI round | Current sign-in policy and source |
+| Native navigation | Friends, Watch, Debate, Board, Me; tab bar hidden in immersive rounds | Native bridge source and Claude's simulator observation |
 
-Use Control Center screen recording on the iPhone with the app installed
-from TestFlight (build 10). Keep it one continuous clip, under three
-minutes, no audio needed. Second device: a laptop signed into
-`itsdebatable.com/spar` with a different Google account, so a live round
-actually pairs.
+For this rejection's web changes, a new binary is not inherently required.
+Reuse build 10 if Claude's device checks confirm it is the intended release.
+If the cold-start blank screen or another native defect needs a shell fix,
+Claude owns the rebuild and next build number. Do not promise that rebuilding
+always restarts a queue, or that build 11 can never be necessary.
 
-1. **Terms gate.** Open the app signed out. Tap Debate, choose a stranger
-   round (or Me, then Sign in). The chooser opens with the checkbox
-   unticked and every sign-in button disabled. Tap the Terms of Use link,
-   scroll to "User-generated content and live-round safety" so the
-   zero-tolerance line is on screen, come back, tick the box, and sign in
-   with Apple.
-2. **Flag.** From the laptop join the queue on the other account. On the
-   phone join from Debate. When the room opens, tap **Report** on the
-   opponent card. Show the reason list, pick "Harassment or bullying",
-   type a short note.
-3. **Block.** Leave "Block this person" ticked. Tap **Send report**. Show
-   the "Reported and blocked. Leaving this round." message and the phone
-   landing back on the queue screen.
-4. Optional but cheap: Me tab, Account and settings, show Delete account.
+## Step 1: capture the requested evidence on an iPhone
 
-Export from Photos. Keep it under 500 MB. If ASC refuses the size, trim in
-Photos rather than re-recording.
+Use the selected TestFlight build on a physical iPhone. Confirm the build
+number first. Use two controlled accounts belonging to the test participants,
+with their agreement to the recording. Do not report an unrelated person to
+demonstrate the feature.
 
-## Step 2: paste the reply to Apple
+Keep Apple passwords, verification codes, and unrelated notifications out of
+the clip. If authentication is visible, stop before secrets appear and explain
+the recording segments. The important evidence is the real device and the
+actual terms, Report, and Block controls, not an artificial uninterrupted take.
 
-App Store Connect, App Review, open the submission dated Aug 19, click
-**Reply to App Review**, attach the recording, paste this:
+1. **Terms gate:** open Me and the sign-in chooser while signed out. A new
+   device has an unticked field; a returning device may restore a previous
+   acceptance. Untick it if needed. Tap a sign-in button and show the refusal:
+   "Tick the box to agree to the Terms of Use, then continue." Open Terms of
+   Use and show the user-generated-content safety section. Return, agree,
+   and use Apple or Google sign-in.
+2. **Enter a controlled live round:** the Watch page contains
+   "Get in a debate yourself. Join a live room!" linking to `/spar`.
+   Verify its exact position on the device before recording. The Friends
+   tab also supports a Challenge to an existing friend. Prefer that direct
+   invitation to testing against an unrelated person in the public queue.
+   The second controlled account must be signed in with Google or Apple.
+3. **Flag:** once the intended second participant is in the room, tap Report
+   on their card. Show the reason list and note field. Label the note
+   "App Review test with two controlled accounts; no actual abuse" so the
+   real moderation queue receives an accurately identified test.
+4. **Block:** leave "Block this person" ticked and send the report. Show
+   "Reported and blocked. Leaving this round." and the return to `/spar`.
+   Verify the server recorded the safety report and block, then confirm the
+   accounts cannot be paired again. Label code-only verification honestly.
+5. Separately verify a full AI voice round, Apple and Google login, camera/
+   microphone, and account deletion on a disposable account. Do not delete
+   either reviewer account. These checks support release readiness; Apple's
+   requested clip specifically concerns terms, flagging, and blocking.
 
-```
+Do not fabricate abuse, successful verification, or a recording that does not
+exist. Attach the real recording in both required places, inspect playback,
+and replace any old attachments showing a different flow.
+
+## Step 2: prepare the reply to Apple
+
+Use this draft only after the recording and the stated fixes have been
+verified. Attach the clip first. Update the final sentence only after the
+Notes and their attachment have actually been saved.
+
+```text
 Hello,
 
-Thank you for the review. Both issues are resolved in the same build, 1.0 (10), because the app renders its interface from https://itsdebatable.com/native and the changes below are live on that server. No new binary is needed.
+We have addressed the issues reported for version 1.0 (10). The app loads its interface from https://itsdebatable.com/native, and the fixes described below are deployed there.
 
 Guideline 2.2, Beta Testing
-All beta-testing language has been removed from the app. The "Free in beta" meter and the "Voice · Beta" label that the reviewer saw are gone in the iOS app, and the pricing pages already describe live subscriptions rather than a beta. There is no beta feedback or beta enrollment feature in the app.
+The previously reported "Free in beta" meter and "Voice · Beta" label no longer appear in the iOS app. This is the production service.
 
 Guideline 1.2, User-Generated Content
-The following precautions are implemented and shown in the attached recording, captured on an iPhone:
+1. Terms agreement: before registration or login, the shared sign-in sheet requires agreement to the Terms of Use and Privacy Policy and states that Debatable has zero tolerance for objectionable content or abusive users. Every sign-in method refuses to proceed and highlights the checkbox until it is checked. The recording demonstrates the refusal and subsequent acceptance.
 
-1. Terms agreement before registering or logging in. The sign-in sheet now contains a required checkbox, "I agree to the Terms of Use and Privacy Policy. Debatable has zero tolerance for objectionable content or abusive users." Every sign-in method (Apple, Google, email) stays disabled until it is checked. The Terms of Use (https://itsdebatable.com/terms, section "User-generated content and live-round safety") state the zero-tolerance policy, the filtering, the flag and block controls, and the 24-hour response.
+2. Filtering: community posts, comments, and channel messages are screened for objectionable content before storage. Live video also includes an on-device camera safety check.
 
-2. Filtering. Community posts, comments, and channel messages are screened for objectionable content before they are stored. Live video in human rounds runs an on-device safety check that cuts the camera when it trips.
+3. Flagging: the opponent's card in a live round has a Report control with a reason list and a note field. Submitting it creates a safety report for Debatable to review.
 
-3. Flagging. In every live round, a Report button sits on the opponent's card. It opens a form with a reason list (harassment, hate speech or threats, sexual content, spam or impersonation, and others) and a note field, and files a safety report to us.
+4. Blocking: the report form includes "Block this person", checked by default. Sending a report with blocking enabled notifies Debatable, immediately leaves the current round, and records a server-side block. Matchmaking checks blocks in both directions to prevent these accounts from being paired again across devices.
 
-4. Blocking. The same form has "Block this person", checked by default. Sending it notifies us through the safety report, removes the reporter from the round immediately, and records a server-side block so the two accounts can never be matched again, on any device. The recording shows the round ending the moment the report is sent.
+5. Response: our Terms of Use commit to reviewing objectionable-content reports within 24 hours and removing offending content and suspending or terminating offending accounts when a violation is confirmed.
 
-5. 24-hour action. We review every objectionable-content report within 24 hours and remove the content and eject the user who provided it. This commitment is written into the Terms of Use.
+The attached iPhone recording demonstrates the terms, flagging, and blocking flows using two controlled test accounts. The report is labeled as an App Review test.
 
-Additional safety controls: users can delete their account from Me, Account and settings, Delete account. The support page is https://itsdebatable.com/support.
+Terms: https://itsdebatable.com/terms
+Support: https://itsdebatable.com/support
+Account deletion: Me > Account and settings > Delete account.
 
-The App Review notes have been updated with the same information and the recording is attached there for future submissions.
+We have also updated App Review Information with the current instructions and attached the same recording there.
 
 Thank you,
-Aidan
+Debatable
 ```
 
-## Step 3: replace the reviewer Notes and attach the recording
+## Step 3: replace App Review Notes
 
-Version page, App Review Information. Keep the existing Sign-In
-Information as it is (the demo account already saved there still works).
-Replace the Notes field with the text below, then use **Attachment,
-Choose File** to attach the same recording, then **Save**.
+Test the saved Sign-In Information before relying on it. Do not copy
+credentials into git or this document. Email/password is an account method
+for general features but does not grant live-video access. Confirm Apple
+Review can access every reviewable feature through the supplied accounts
+and instructions; a quota-exhausted or email-only account is not full access.
 
-```
-Debatable runs timed debate rounds. You pick a motion, take a side, and argue out loud against an AI opponent that pushes back and takes points of information. An AI judge returns a written verdict at the end. You can also be matched with a real person for a live round.
+The draft below assumes the device checks passed and the recording is
+attached. It deliberately does not claim an anonymous AI round, disabled
+sign-in buttons, a three-tab shell, or a verdict after a single speech.
 
-HOW TO SEE THE CORE FLOW IN UNDER TWO MINUTES
-1. Debate tab. Choose "AI" as the opponent and any motion. Start the round.
-2. Speak, or type, for the first speech. The AI answers, then the judge writes the verdict.
-3. Me tab shows the round history, profile, and account settings.
+```text
+Debatable is a social app for one-on-one spoken debates. People can debate each other live, watch rounds, message friends, and view separate leaderboards for rounds against people and AI. The app also offers an AI voice opponent and judge feedback.
 
-SIGN-IN
-A signed-out visitor gets one free AI round, then a sign-in wall. Use the sign-in credentials above to get past it. Before any sign-in or registration, the app requires agreement to the Terms of Use through a checkbox on the sign-in sheet. All sign-in buttons stay disabled until it is checked.
+AI VOICE FLOW
+1. Sign in using the supplied review access. In the iOS chooser, Apple and Google are available. Agree to the Terms of Use before continuing.
+2. Open Debate, then Start a round. Choose a topic, side, and voice in the setup, then tap Start debating.
+3. Allow microphone access and exchange arguments with the AI. Tap Finish debate to request the transcript and feedback.
+4. Me contains the profile, round history, and account settings.
 
-USER-GENERATED CONTENT PRECAUTIONS (Guideline 1.2)
-- Terms: https://itsdebatable.com/terms states zero tolerance for objectionable content or abusive users, and describes filtering, flagging, blocking, and 24-hour review.
-- Filtering: community text is screened before it is stored; live video runs an on-device safety check.
-- Flagging: every live round has a Report button on the opponent's card with a reason list and note field.
-- Blocking: the same form blocks the person. Sending it notifies Debatable, removes you from the round immediately, and prevents that account from ever being matched with you again (server-side, survives reinstall).
-- Response: reports are reviewed within 24 hours. Confirmed reports lead to content removal and ejection of the user.
-Live rounds need two people, so the attached recording shows the Report and Block flow end to end on a physical iPhone. To reproduce it yourself, open https://itsdebatable.com/spar in a browser on a second account, join the queue, and join from the app at the same time.
+LIVE HUMAN FLOW
+Live video requires a Google or Apple account. From Watch, use "Get in a debate yourself. Join a live room!" to reach matching. Complete or skip the Match Desk questions and join the queue. Availability depends on another person being present. An existing friend can also be challenged from Friends.
 
-NO BETA FEATURES (Guideline 2.2)
-The beta labels seen in the previous review have been removed from the app. There is no beta enrollment or beta feedback feature.
+The attached physical-iPhone recording demonstrates the terms, Report, and Block controls using two controlled accounts. To reproduce a live round, use a second Google or Apple account on another device. Confirm the intended test participant before submitting a test report.
 
-NATIVE FUNCTIONALITY
-Sign in with Apple, push notifications, native share sheet, deep links, camera and microphone permission handling, and a persistent native tab bar (Watch, Debate, Me).
+TERMS AND USER SAFETY
+Before registration or login, an affirmative checkbox accepts the Terms of Use and Privacy Policy. It states zero tolerance for objectionable content or abusive users. With the checkbox unticked, a sign-in attempt is refused and highlights the field; the buttons are not disabled.
+
+Community text is screened before storage. Live video includes an on-device camera safety check. Every live round has Report on the opponent's card, a reason list, a note field, and "Block this person", checked by default. A report with blocking enabled notifies Debatable, immediately leaves the round, and prevents the accounts being paired again through a server-side block.
+
+Our terms commit to reviewing objectionable-content reports within 24 hours and removing offending content and suspending or terminating offending accounts when a violation is confirmed.
+https://itsdebatable.com/terms
+
+PRODUCTION APP
+The labels identified in the previous 2.2 review have been removed from the iOS app.
+
+NATIVE FEATURES
+Apple sign-in, push notifications, native sharing, deep links, camera and microphone permission handling, and the persistent Friends, Watch, Debate, Board, Me tabs. Immersive rounds hide the tabs. An internet connection is required.
 
 ACCOUNT DELETION
-Me tab, Account and settings, Delete account.
+Me > Account and settings > Delete account. This deletes the account in the app without requiring a support email; the confirmation explains data removal and retention.
 
 SUPPORT
 https://itsdebatable.com/support
 ```
 
-## Step 4: resubmit
+## Step 4: submit and verify
 
-Back on the submission page, **Resubmit to App Review** becomes active
-once the reply is sent. Click it. Same build 10, no new upload.
+Confirm the live version status, selected build, corrected listing, privacy
+answers, supported-device screenshots, working review access, and both video
+attachments. Resolve account-level requirements actually shown by Apple;
+historical agreement or trader-status warnings are not proof they remain open.
 
-## What could still go wrong
+Send the reviewed response and follow the resubmission controls presented in
+App Store Connect. Record the resulting status and timestamp. Saving metadata
+or sending a reply alone is not evidence that a build entered review.
 
-- The reviewer may test live matching on a single device and see no
-  opponent. The notes explain that, and the recording is the demonstration
-  Apple asked for.
-- If Apple wants a second demo account for the live round, say so and add
-  a second Google account to the notes. Do not create it before they ask.
-- The two account-level items in the 08-26 handoff (Program License
-  Agreement, EU trader status) are unchanged and still Aidan's browser
-  tasks. They do not block replying, but they can hold an approved app
-  from going live.
+If a newer rejection exists, respond to that message first. If the version is
+already Waiting for Review or In Review, do not withdraw it merely to follow
+this historical checklist.
