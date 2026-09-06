@@ -4507,7 +4507,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return '<div class="waitlist">' +
       '<div class="waitlist-head">' +
         '<span><strong>' + others.length + '</strong> available now</span>' +
-        '<span class="wl-fmt">Ready to debate</span>' +
+        '<span class="wl-fmt">Round terms proposed</span>' +
       '</div>' +
       '<ul class="wl-list">' + rows + '</ul>' +
       more +
@@ -6380,7 +6380,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="eyebrow" style="background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.4);color:#4ade80;opacity:0;transition:opacity .4s ease"><span class="pip" style="background:#22c55e;box-shadow:0 0 8px #22c55e"></span>Match found</div>' +
         avatarMarkup(peerAvatar, 'match-avatar', '', peerName || 'Debater', '') +
         '<h1 style="opacity:0;transition:opacity .4s ease .08s">You\'re paired with <em>' + escHtml(peerName || 'your opponent') + '</em>' + nameDot(peerName || 'your opponent') + '</h1>' +
-        '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining your round now.</p>' +
+        '<p class="lede" style="opacity:0;transition:opacity .4s ease .16s">Joining the round room now. Camera + mic prompt in a sec; accept and you\'re live.</p>' +
         '<div class="orb-wrap matched" id="orbWrap" style="opacity:0;transition:opacity .4s ease .24s"><div class="orb-glow"></div><div class="orb-ring"></div><div class="orb-core"></div></div>' +
         '<div class="status" style="opacity:0;transition:opacity .4s ease .32s">Loading round…</div>';
 
@@ -7083,17 +7083,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // strand a successfully-paired user on the search screen.
         try { renderMatched(d.room, d.matchedWithName || 'your opponent', d.matchedWithAvatar); }
         catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
-        navigateToRound(d, 0);
+        navigateToRound(d, 900);
       } else if (d.status === 'consent' && d.matchedWith){
-        // Compatibility status for a brief server-side motion reservation,
-        // or an old open proposal. Neither needs a person's acceptance.
-        state.lastConsentDoc = d;
-        if (state.consentKey !== d.room) {
-          state.consentKey = d.room;
-          state.inConsent = true;
-          removeWaitRail();
-          shell.innerHTML = '<div class="eyebrow">Match found</div><h1>Joining your round.</h1>';
-          sendConsent(d.matchedWith, true, true);
+        pingMatchFound(d.matchedWithName || '');
+        // Two-phase match: someone's judge-paradigm note needs eyes
+        // before the round exists. spar-pair wrote the full proposal
+        // onto both docs; render the accept/pass card off mine.
+        try { renderConsentGate(d); }
+        catch (e) {
+          // Log only. Auto-passing here used to dissolve the pair with
+          // a MUTUAL skip on a transient render bug, which silently
+          // bricked rematching for the whole session. The peer's
+          // timers (20s/30s) unwind a genuinely dead handshake anyway.
+          console.warn('[spar] renderConsentGate failed', e);
         }
       } else if (d.status === 'waiting' && state.inConsent){
         // Proposal fell through (opponent passed, withdrew, or timed
@@ -7737,7 +7739,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // next person in the same second, which reads as the queue arguing with
     // you. A timer-fired pass is nobody's decision, so it earns nothing.
     if (!accept && !auto) state.declineUntil = Date.now() + DECLINE_COOLDOWN_MS;
-    try { gtag('event', accept && auto ? 'spar_match_join' : accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
+    try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
     return firebaseAuth.currentUser.getIdToken().then(function(idToken){
       return fetch('/.netlify/functions/spar-pair', {
         method: 'POST',
@@ -7746,7 +7748,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           'Authorization': 'Bearer ' + idToken,
         },
         body: JSON.stringify({
-          action: accept && auto ? 'join' : 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid,
+          action: 'consent', accept: !!accept, auto: !!auto, peerUid: peerUid,
           // Only on a drafting pair. The server sanitises this hard (an
           // over-long set would hand one side the whole draft) and fills a
           // short one from the shared seed.
@@ -7760,10 +7762,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return j;
       });
     }).then(function(j){
-      if (j && j.ok) {
-        if (j.matched && j.room) navigateToRound(j, 0);
-        return true;
-      }
+      if (j && j.ok) return true;
       // The allowance ran out between queueing and accepting (another tab
       // spent the last round, or the optimistic local count was stale).
       // recoverConsentCard would hand back buttons that cannot work, so take
@@ -7829,12 +7828,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // Re-render the consent card from the last doc snapshot after a
   // failed POST — fresh buttons, fresh countdown, user can retry.
   function recoverConsentCard(){
-    if (!state.inConsent || !state.lastConsentDoc || state.roundNavPending || state.cancelled) return;
-    var room = state.lastConsentDoc.room;
-    setTimeout(function(){
-      if (!state.inConsent || state.roundNavPending || state.cancelled || !state.lastConsentDoc || state.lastConsentDoc.room !== room) return;
-      sendConsent(state.lastConsentDoc.matchedWith, true, true);
-    }, 2000);
+    if (!state.inConsent || !state.lastConsentDoc) return;
+    state.consentKey = '';
+    try { renderConsentGate(state.lastConsentDoc); } catch(e){}
   }
 
   function exitConsentToSearch(d){
@@ -8153,7 +8149,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return;
       }
       clearPairError();
-      if (r.body.pending === 'consent' || r.body.pending === 'joining'){
+      if (r.body.pending === 'consent'){
         // Not a match yet — a judge-note proposal both sides now have
         // to sign off on. My own doc snapshot renders the consent
         // card; spar_consent_accept/pass instrument the outcome. Stamp

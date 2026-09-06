@@ -2812,18 +2812,38 @@
           if (!document.hidden) requeue();
           return;
         }
-        // Queue entry is the decision to meet. A reserved motion is finished
-        // automatically, and every matched snapshot navigates immediately.
+        // READY-CHECK (2026-08-12). spar-pair now lands EVERY pair in
+        // 'consent' first, background sessions included, so this is the
+        // state an invite arrives in. 'matched' only appears once both
+        // sides have accepted, and that is the one we navigate on.
+        //
+        // Accepting writes `consents` onto this same doc, which fires
+        // another snapshot with the status still 'consent' — so the
+        // card must not be re-rendered (it would restart the countdown
+        // and re-chime). consentRoom is that guard.
         var pending = d.status === 'consent' && d.room && d.matchedWith;
         var matched = d.status === 'matched' && d.room && d.matchedWith;
         if (pending) {
-          pendingMatch = d;
-          if (consentRoom === d.room || navigating) return;
+          if (consentRoom === d.room || navigating) {
+            // Same proposal, another snapshot. Re-rendering is still
+            // banned (it would restart the countdown and re-chime), but
+            // one thing on this snapshot IS worth reading: whether they
+            // have now accepted. Patch that in place instead.
+            if (consentRoom === d.room && !navigating) {
+              pendingMatch = d;
+              markPeerAccepted(d);
+            }
+            return;
+          }
+          if (Date.now() < declineUntil) {
+            if (d.background === true) sendConsent(d.matchedWith, false, true);
+            return;
+          }
           consentRoom = d.room;
-          awaitingPeer = true;
-          closeOverlay();
-          pendingMatch = d;
-          sendConsent(d.matchedWith, true, true);
+          showMatch(d);
+          // Their accept can already be on the first snapshot we see, if
+          // they answered before this listener attached.
+          markPeerAccepted(d);
           return;
         }
         if (matched) {
@@ -2834,8 +2854,12 @@
           if (Date.now() < declineUntil) { releaseMatch(); return; }
           handledRoom = d.room;
           consentRoom = null;
-          awaitingPeer = false;
-          goToRound(d);
+          // Both sides are in. If our own card is still up (we accepted
+          // and were waiting on them) close it and go; if this is a
+          // legacy instant match with no consent phase, showMatch still
+          // covers it.
+          if (awaitingPeer || overlay) { awaitingPeer = false; goToRound(d); }
+          else showMatch(d);
           return;
         }
         if (!pending && !matched && (overlay || awaitingPeer) && !navigating) {
@@ -2857,7 +2881,7 @@
 
     // ── peer scan → server pair ──
     function scan() {
-      if (!available || !db || !myUid || navigating || awaitingPeer || overlay || scanning || Date.now() < declineUntil) return;
+      if (!available || !db || !myUid || navigating || overlay || scanning || Date.now() < declineUntil) return;
       scanning = true;
       db.collection('matchmaking_queue')
         .where('broaden', '==', true)
@@ -2894,11 +2918,7 @@
         });
       }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
         .then(function (r) {
-          pairing = false;
-          if (r && r.ok && r.body && r.body.ok && r.body.room && !r.body.pending) {
-            goToRound(r.body);
-            return;
-          }
+          pairing = false; // success drives via own-doc listener; soft-fails retry next scan
           // No server-recorded age band for this account. Heal it from the
           // stored answer; with no stored answer either, stand down — the
           // question lives on /spar's card, and an "Available" pill that
@@ -3035,20 +3055,17 @@
     // peer never entered is the whole bug this gate exists to close.
     function sendConsent(peerUid, ok, auto) {
       if (!peerUid) return Promise.resolve(false);
-      try { if (window.gtag) gtag('event', ok && auto ? 'spar_bg_match_join' : ok ? 'spar_bg_consent_accept' : 'spar_bg_consent_pass', { auto: !!auto }); } catch (e) {}
+      try { if (window.gtag) gtag('event', ok ? 'spar_bg_consent_accept' : 'spar_bg_consent_pass', { auto: !!auto }); } catch (e) {}
       try {
         return window.firebase.auth().currentUser.getIdToken().then(function (tok) {
           return fetch('/.netlify/functions/spar-pair', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ action: ok && auto ? 'join' : 'consent', accept: !!ok, auto: !!auto, peerUid: peerUid })
+            body: JSON.stringify({ action: 'consent', accept: !!ok, auto: !!auto, peerUid: peerUid })
           });
         }).then(function (r) { return r.json().catch(function () { return {}; }); })
           .then(function (j) {
-            if (j && j.ok) {
-              if (j.matched && j.room) goToRound(j);
-              return true;
-            }
+            if (j && j.ok) return true;
             // 'consent_state_gone' needs nothing: my own snapshot has
             // already moved me. Any other failure left the proposal
             // alive but my click dead, so put the card back rather than
@@ -3069,11 +3086,13 @@
 
     function recoverBackgroundConsent(peerUid) {
       if (navigating || !pendingMatch || pendingMatch.matchedWith !== peerUid) return;
-      var room = pendingMatch.room;
-      setTimeout(function () {
-        if (navigating || !pendingMatch || pendingMatch.room !== room || pendingMatch.matchedWith !== peerUid) return;
-        sendConsent(peerUid, true, true);
-      }, 2000);
+      var latest = pendingMatch, seen = pendingSeenAt;
+      awaitingPeer = false;
+      showMatch(latest);
+      pendingSeenAt = seen;
+      consentRoom = latest.room;
+      var sub = overlay && overlay.querySelector('.da-match-sub');
+      if (sub) sub.textContent = 'Your acceptance did not reach us. Check your connection and press Accept again.';
     }
 
     // Patch the live invite card to say they have already committed.
@@ -3262,7 +3281,7 @@
           rn.onclick = function () { window.focus(); rn.close(); };
         }
       } catch (e) {}
-      location.href = href;
+      setTimeout(function () { location.href = href; }, 2200);
     }
     // Release the current match back to the queue (the peer returns to
     // 'waiting' via the admin SDK, so their card closes instead of landing in

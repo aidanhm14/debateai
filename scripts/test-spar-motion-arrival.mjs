@@ -34,7 +34,7 @@ assert.equal(draft.poolLocked,false);
 assert.equal(draft.motionId,null);
 assert.equal(draft.side,null);
 const source=fs.readFileSync(new URL('../app/netlify/functions/spar-pair.mjs',import.meta.url),'utf8');
-const accept=source.slice(source.indexOf("async function finishReservedPair("),source.indexOf('// The queue-doc draft is GONE'));
+const accept=source.slice(source.indexOf("if (action === 'consent')"),source.indexOf('// The queue-doc draft is GONE'));
 assert.ok(accept.indexOf('await ensurePairMotion(')<accept.indexOf('const result = await db.runTransaction('),'provider call is outside retried transaction');
 assert.match(accept,/preparedMotionRef \? tx.get\(preparedMotionRef\)/,'finalization reads durable result');
 assert.match(accept,/finals.pairedMotion = generatedMotion/);
