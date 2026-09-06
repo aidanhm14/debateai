@@ -40,3 +40,5 @@ the newer layout adjusted around it.
   was chapter 09 of the `/landing` tour.
 
 - [2026-09-05 — how-it-works long guide](2026-09-05-how-it-works.md) — replaced the repeated guide with a shorter path into a round.
+
+- [2026-09-06 — homepage voice greeting](2026-09-06-home-voice-prompt.md) — removed the greeting orb, rose AI button and italic serif treatment.

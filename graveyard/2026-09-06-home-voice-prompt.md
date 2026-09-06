@@ -1,3 +1,18 @@
+# Homepage voice greeting and rose AI entry
+
+Removed from `app/landing.html` on 2026-09-06. Aidan: “get rid of this its not what i wanted”, then “make the watch blend in white, debate the AI be gray”.
+
+The greeting appeared before `.mh-row` on mobile and `.fs-actions` on desktop. `/css/ai-entry.css` supplied the orb, rose gradient and italic serif type. Both stylesheet mirrors were removed after their only import was removed.
+
+## Removed markup
+
+```html
+<a class="home-voice-prompt" href="/newvoice?handoff=landing-orb"><span class="home-voice-orb" aria-hidden="true"></span><span>Hey, how do you want to debate today?</span></a>
+```
+
+## Removed CSS
+
+```css
 /* AI entry uses its own rose accent and voice orb, on both home layouts. */
 html body .fs-actions-row .fs-cta--ai,
 html body .mh-card[data-cta="mhome-ai"]{
@@ -19,3 +34,9 @@ html body .mh-card[data-cta="mhome-ai"] .mh-card-sub{color:#fff0f5}
   box-shadow:inset -4px -5px 8px #650c4438,0 0 18px #e5377130}
 .home-voice-prompt:focus-visible{outline:2px solid #b8154c;outline-offset:5px;border-radius:8px}
 @media(max-width:720px){.home-voice-prompt{justify-content:flex-start;margin:16px 0 8px;font-size:16px}.home-voice-orb{flex-basis:32px;width:32px;height:32px}}
+
+```
+
+## Restore notes
+
+Restoring requires a new design decision. The current homepage has white Watch and gray Debate the AI buttons, with their original sans-serif type. To restore this experiment, put the markup before each row above, recreate both `app/css/ai-entry.css` and `css/ai-entry.css`, and restore its stylesheet link in the landing head. The old CSS overrides the neutral AI styling.
