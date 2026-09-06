@@ -98,8 +98,163 @@ function finalPatch(draft, uids, names) {
     conUid: res.conUid,
     proName: nameOf(res.proUid),
     conName: nameOf(res.conUid),
-    draftResolvedAt: FieldValue.serverTimestamp(),
   };
+}
+
+// Every reply includes the public control state committed by this request.
+// Clients can advance immediately without waiting for the subscription, and
+// revision orders HTTP replies and snapshots that arrive out of order.
+function draftReply(draft, phaseAt, revision, round) {
+  const patch = { draft: publicDraft(draft, phaseAt), draftRevision: revision, draftPhaseAt: phaseAt };
+  for (const key of ['motion', 'proUid', 'conUid', 'proName', 'conName']) {
+    if (round[key] != null) patch[key] = round[key];
+  }
+  return { draft: patch.draft, round: patch };
+}
+
+export async function runDraftAction(db, uid, body) {
+  const room = roomName(body && body.room);
+  const action = String((body && body.action) || '').toLowerCase();
+  const stateRef = db.collection('round_drafts').doc(room);
+  const roundRef = db.collection('live_rounds').doc(room);
+
+  return db.runTransaction(async (tx) => {
+    const [stateSnap, roundSnap] = await Promise.all([tx.get(stateRef), tx.get(roundRef)]);
+    // No stamp, no draft. This is the eligibility gate and it is the
+    // reason a /live challenge round keeps the motion its poster chose.
+    if (!stateSnap.exists) return { ok: false, reason: 'not_eligible' };
+    const st = stateSnap.data() || {};
+    if (st.eligible !== true) return { ok: false, reason: 'not_eligible' };
+
+    const uids = (Array.isArray(st.uids) ? st.uids : []).map(String);
+    if (uids.length !== 2 || uids.indexOf(uid) === -1) return { ok: false, reason: 'not_a_debater' };
+    const round = roundSnap.exists ? (roundSnap.data() || {}) : {};
+
+    // A round that already started is past the point where the motion is
+    // still up for grabs. Nothing here may rewrite a round in progress.
+    const started = (round.speechIdx || 0) > 0
+      || (Array.isArray(round.speeches) && round.speeches.length > 0)
+      || round.status === 'ballot' || round.status === 'complete';
+    if (started) return { ok: false, reason: 'round_started' };
+
+    let draft = st.draft || null;
+    let phaseAt = atMs(st.phaseAt);
+    const names = st.names || {};
+    let revision = Number(st.revision) || 0;
+    const current = () => draftReply(draft, phaseAt, revision, round);
+
+    if (!draft) {
+      if (action !== 'open') return { ok: false, reason: 'no_draft' };
+      draft = createDraft(
+        String(st.seed || room),
+        String(st.format || ''),
+        uids[0],
+        uids[1],
+        st.draftConfig || {},
+      );
+      phaseAt = Date.now();
+      revision++;
+      tx.set(stateRef, {
+        draft, revision,
+        phaseAt: FieldValue.serverTimestamp(),
+        openedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      tx.set(roundRef, {
+        draft: publicDraft(draft, phaseAt),
+        draftRevision: revision,
+        draftPhaseAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { ok: true, opened: true, ...current() };
+    }
+
+    // Already settled. Idempotent so a duplicate click, a retry, or the
+    // second debater's client arriving late all get the same answer.
+    if (draft.phase === 'done') return { ok: true, done: true, ...current() };
+    if (action === 'open') return { ok: true, opened: false, ...current() };
+    if (body.draftRevision != null && body.draftRevision !== revision) {
+      return { ok: false, reason: 'stale_draft', ...current() };
+    }
+
+    const before = draft.phase;
+    const openedAt = atMs(st.openedAt) || phaseAt;
+    const stale = openedAt && (Date.now() - openedAt) > DRAFT_MAX_MS;
+
+    if (action === 'offer') {
+      // One act, two beats: putting your motion up as the offerer, and
+      // putting your counter up as the responder. The pure layer decides
+      // which of the two this caller is entitled to.
+      const poolId = String((body && body.poolId) || '');
+      let input = { poolId };
+      if (!poolId) {
+        const text = String((body && body.text) || '').replace(/\s+/g, ' ').trim().slice(0, MOTION_MAX + 1);
+        // The site motion boundary applies before anything is stored. A
+        // hand-written motion is the one place a heavy subject can enter
+        // a round that every seeded bank already refuses.
+        const guard = checkContent({ text, kind: 'motion' });
+        if (!guard.ok) return { ok: false, reason: 'blocked', message: guard.reason || 'Pick a different motion.' };
+        input = { text };
+      }
+      const res = applyOffer(draft, uid, input);
+      if (!res.ok) return { ok: false, reason: res.reason };
+      draft = advance(res.draft);
+    } else if (action === 'respond') {
+      const res = applyResponse(draft, uid, body && body.choice);
+      if (!res.ok) return { ok: false, reason: res.reason };
+      draft = advance(res.draft);
+    } else if (action === 'motion') {
+      const res = applyMotionPick(draft, uid, body && body.motionId);
+      if (!res.ok) return { ok: false, reason: res.reason };
+      draft = advance(res.draft);
+    } else if (action === 'side') {
+      const res = applySidePick(draft, uid, body && body.side);
+      if (!res.ok) return { ok: false, reason: res.reason };
+      draft = advance(res.draft);
+    } else if (action === 'expire') {
+      const elapsed = Date.now() - (phaseAt || 0);
+      if (!stale && phaseAt && elapsed < (phaseMs(draft.phase) - EXPIRE_GRACE_MS)) {
+        return { ok: false, reason: 'too_early' };
+      }
+      // Before the responder has answered, exactly ONE person has moved,
+      // so resolving the beat for the other is how a room opens onto an
+      // empty chair. Only the debater whose own clock ran out may expire
+      // those two beats; a silent peer unwinds through the ghost path.
+      // A stale draft is the exception: a room stuck forever on a dead
+      // beat is worse than a resolution nobody watched.
+      if (!stale && !eitherMayExpire(draft) && String(actorFor(draft)) !== uid) {
+        return { ok: false, reason: 'not_your_clock' };
+      }
+      draft = advance(autoResolve(draft));
+      // A stale draft runs itself out to the end rather than handing the
+      // next caller another dead beat to expire.
+      if (stale) {
+        for (let i = 0; i < PHASES_MAX && draft.phase !== 'done'; i++) {
+          draft = advance(autoResolve(draft));
+        }
+      }
+    } else {
+      return { ok: false, reason: 'bad_action' };
+    }
+
+    const phaseMoved = draft.phase !== before || !phaseAt;
+    if (phaseMoved) phaseAt = Date.now();
+
+    revision++;
+    const statePatch = { draft, revision };
+    if (phaseMoved) statePatch.phaseAt = FieldValue.serverTimestamp();
+    tx.set(stateRef, statePatch, { merge: true });
+
+    const roundPatch = { draft: publicDraft(draft, phaseAt), draftRevision: revision };
+    if (phaseMoved) roundPatch.draftPhaseAt = FieldValue.serverTimestamp();
+    if (draft.phase === 'done') {
+      const final = finalPatch(draft, uids, names);
+      // A draft that reaches 'done' without a usable result would open a
+      // room on no motion at all. Leave the round as it was instead.
+      if (final) Object.assign(roundPatch, final, { draftResolvedAt: FieldValue.serverTimestamp() });
+    }
+    tx.set(roundRef, roundPatch, { merge: true });
+
+    return { ok: true, ...draftReply(draft, phaseAt, revision, { ...round, ...roundPatch }) };
+  });
 }
 
 export default async (request) => {
@@ -110,7 +265,6 @@ export default async (request) => {
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
 
   const room = roomName(body && body.room);
-  const action = String((body && body.action) || '').toLowerCase();
   if (!room) return errorResponse('Missing room', 400, request);
 
   const token = extractBearerToken(request);
@@ -132,141 +286,8 @@ export default async (request) => {
   // draft than an anonymous one.
   const uid = String(decoded.uid);
 
-  const db = getDb();
-  const stateRef = db.collection('round_drafts').doc(room);
-  const roundRef = db.collection('live_rounds').doc(room);
-
   try {
-    const out = await db.runTransaction(async (tx) => {
-      const [stateSnap, roundSnap] = await Promise.all([tx.get(stateRef), tx.get(roundRef)]);
-      // No stamp, no draft. This is the eligibility gate and it is the
-      // reason a /live challenge round keeps the motion its poster chose.
-      if (!stateSnap.exists) return { ok: false, reason: 'not_eligible' };
-      const st = stateSnap.data() || {};
-      if (st.eligible !== true) return { ok: false, reason: 'not_eligible' };
-
-      const uids = (Array.isArray(st.uids) ? st.uids : []).map(String);
-      if (uids.length !== 2 || uids.indexOf(uid) === -1) return { ok: false, reason: 'not_a_debater' };
-      const round = roundSnap.exists ? (roundSnap.data() || {}) : {};
-
-      // A round that already started is past the point where the motion is
-      // still up for grabs. Nothing here may rewrite a round in progress.
-      const started = (round.speechIdx || 0) > 0
-        || (Array.isArray(round.speeches) && round.speeches.length > 0)
-        || round.status === 'ballot' || round.status === 'complete';
-      if (started) return { ok: false, reason: 'round_started' };
-
-      let draft = st.draft || null;
-      let phaseAt = atMs(st.phaseAt);
-      const names = st.names || {};
-
-      if (!draft) {
-        if (action !== 'open') return { ok: false, reason: 'no_draft' };
-        draft = createDraft(
-          String(st.seed || room),
-          String(st.format || ''),
-          uids[0],
-          uids[1],
-          st.draftConfig || {},
-        );
-        phaseAt = Date.now();
-        tx.set(stateRef, {
-          draft,
-          phaseAt: FieldValue.serverTimestamp(),
-          openedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-        tx.set(roundRef, {
-          draft: publicDraft(draft, phaseAt),
-          draftPhaseAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-        return { ok: true, opened: true, draft: publicDraft(draft, phaseAt) };
-      }
-
-      // Already settled. Idempotent so a duplicate click, a retry, or the
-      // second debater's client arriving late all get the same answer.
-      if (draft.phase === 'done') return { ok: true, done: true, draft: publicDraft(draft, phaseAt) };
-      if (action === 'open') return { ok: true, opened: false, draft: publicDraft(draft, phaseAt) };
-
-      const before = draft.phase;
-      const openedAt = atMs(st.openedAt) || phaseAt;
-      const stale = openedAt && (Date.now() - openedAt) > DRAFT_MAX_MS;
-
-      if (action === 'offer') {
-        // One act, two beats: putting your motion up as the offerer, and
-        // putting your counter up as the responder. The pure layer decides
-        // which of the two this caller is entitled to.
-        const poolId = String((body && body.poolId) || '');
-        let input = { poolId };
-        if (!poolId) {
-          const text = String((body && body.text) || '').replace(/\s+/g, ' ').trim().slice(0, MOTION_MAX + 1);
-          // The site motion boundary applies before anything is stored. A
-          // hand-written motion is the one place a heavy subject can enter
-          // a round that every seeded bank already refuses.
-          const guard = checkContent({ text, kind: 'motion' });
-          if (!guard.ok) return { ok: false, reason: 'blocked', message: guard.reason || 'Pick a different motion.' };
-          input = { text };
-        }
-        const res = applyOffer(draft, uid, input);
-        if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft);
-      } else if (action === 'respond') {
-        const res = applyResponse(draft, uid, body && body.choice);
-        if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft);
-      } else if (action === 'motion') {
-        const res = applyMotionPick(draft, uid, body && body.motionId);
-        if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft);
-      } else if (action === 'side') {
-        const res = applySidePick(draft, uid, body && body.side);
-        if (!res.ok) return { ok: false, reason: res.reason };
-        draft = advance(res.draft);
-      } else if (action === 'expire') {
-        const elapsed = Date.now() - (phaseAt || 0);
-        if (!stale && phaseAt && elapsed < (phaseMs(draft.phase) - EXPIRE_GRACE_MS)) {
-          return { ok: false, reason: 'too_early' };
-        }
-        // Before the responder has answered, exactly ONE person has moved,
-        // so resolving the beat for the other is how a room opens onto an
-        // empty chair. Only the debater whose own clock ran out may expire
-        // those two beats; a silent peer unwinds through the ghost path.
-        // A stale draft is the exception: a room stuck forever on a dead
-        // beat is worse than a resolution nobody watched.
-        if (!stale && !eitherMayExpire(draft) && String(actorFor(draft)) !== uid) {
-          return { ok: false, reason: 'not_your_clock' };
-        }
-        draft = advance(autoResolve(draft));
-        // A stale draft runs itself out to the end rather than handing the
-        // next caller another dead beat to expire.
-        if (stale) {
-          for (let i = 0; i < PHASES_MAX && draft.phase !== 'done'; i++) {
-            draft = advance(autoResolve(draft));
-          }
-        }
-      } else {
-        return { ok: false, reason: 'bad_action' };
-      }
-
-      const phaseMoved = draft.phase !== before || !phaseAt;
-      if (phaseMoved) phaseAt = Date.now();
-
-      const statePatch = { draft };
-      if (phaseMoved) statePatch.phaseAt = FieldValue.serverTimestamp();
-      tx.set(stateRef, statePatch, { merge: true });
-
-      const roundPatch = { draft: publicDraft(draft, phaseAt) };
-      if (phaseMoved) roundPatch.draftPhaseAt = FieldValue.serverTimestamp();
-      if (draft.phase === 'done') {
-        const final = finalPatch(draft, uids, names);
-        // A draft that reaches 'done' without a usable result would open a
-        // room on no motion at all. Leave the round as it was instead.
-        if (final) Object.assign(roundPatch, final);
-      }
-      tx.set(roundRef, roundPatch, { merge: true });
-
-      return { ok: true, draft: publicDraft(draft, phaseAt) };
-    });
-
+    const out = await runDraftAction(getDb(), uid, body);
     if (!out.ok) return jsonResponse(out, out.reason === 'not_a_debater' ? 403 : 200, request);
     return jsonResponse(out, 200, request);
   } catch (err) {

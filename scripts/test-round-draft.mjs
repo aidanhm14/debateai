@@ -161,5 +161,45 @@ const offered = () => go(fresh(), (x) => applyOffer(x, O, { poolId: offerablePoo
   eq(secondsFor('side'), 9, 'side clock matches the client constant');
 }
 
+// The actual transaction's reply must be usable before Firestore delivers
+// another snapshot. Ordering also prevents a duplicate click acting on a
+// different beat after the first request has already committed.
+{
+  const { draftFixture } = await import('./test-support/draft-fixture.mjs');
+  const f = draftFixture();
+  eq((await f.action('outsider', 'open')).reason, 'not_a_debater', 'strangers cannot open drafts');
+  let res = await f.action('a', 'open');
+  eq(res.round.draftRevision, 1, 'opening publishes revision one');
+  eq(res.round.draft, f.round().draft, 'HTTP and Firestore publish the same opening');
+  const offerer = res.draft.offerUid, responder = res.draft.respondUid;
+  res = await f.action(offerer, 'offer', { poolId: res.draft.pool[0].id, draftRevision: 1 });
+  eq(res.round.draftRevision, 2, 'offer advances the revision');
+  const before = f.writes();
+  const repeated = await f.action(offerer, 'offer', { poolId: res.draft.pool[0].id, draftRevision: 1 });
+  eq(repeated.reason, 'stale_draft', 'a delayed command does not act on a new beat');
+  eq(repeated.round.draft.phase, 'respond', 'stale command returns the current controls');
+  eq(f.writes(), before, 'stale command makes no writes');
+  res = await f.action(responder, 'respond', { choice: 'take', draftRevision: 2 });
+  eq(res.round.draftRevision, 3, 'acceptance arrives in the HTTP reply');
+  res = await f.action(responder, 'side', { side: responder === 'a' ? 'con' : 'pro', draftRevision: 3 });
+  eq(res.draft.phase, 'done', 'side selection completes immediately');
+  eq(res.round.draftRevision, 4, 'settlement has one shared revision');
+  for (const key of ['draft', 'draftRevision', 'motion', 'proUid', 'conUid', 'proName', 'conName']) {
+    eq(res.round[key], f.round()[key], key + ' is identical in the reply and committed round');
+  }
+  eq(res.round.proUid, 'b', 'the reply carries the selected new seats');
+  eq(res.round.conUid, 'a', 'both seats change together');
+  const done = await f.action(responder, 'side', { side: 'con', draftRevision: 3 });
+  eq(done.round.draftRevision, res.round.draftRevision, 'completed duplicate keeps the settled revision');
+  eq(done.round.motion, res.round.motion, 'completed duplicate keeps the settled motion');
+  eq(done.round.proUid, res.round.proUid, 'completed duplicate cannot change sides');
+  ok(!JSON.stringify(res).includes('Transform'), 'no Firestore write sentinels reach the client');
+  const legacy = draftFixture();
+  await legacy.action('a', 'open');
+  delete legacy.rows.get('round_drafts/room').revision;
+  const d = legacy.round().draft;
+  eq((await legacy.action(d.offerUid, 'offer', { poolId: d.pool[0].id })).ok, true, 'old clients and unversioned drafts still advance');
+}
+
 if (fail) { console.error('\nround-draft guard: ' + fail + ' FAILED of ' + n); process.exit(1); }
 console.log('round-draft guard: ' + n + ' assertions passed');

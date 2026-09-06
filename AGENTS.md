@@ -636,6 +636,15 @@ Things that are easy to break by accident:
   It is the one place a heavy subject can enter a round that every seeded
   bank already refuses. The /spar AI fallback offers pool cards only for
   exactly this reason.
+- **Topic choices synchronize through one revisioned control state** (2026-09-06).
+  `round-draft` returns the committed public draft, motion, and seats in
+  `round`, with the same `draftRevision` written to `live_rounds`.
+  Apply that reply immediately through the normal snapshot path. Daily's
+  `draft-changed` message only wakes a server read; never trust peer-sent
+  draft state. Older revisions cannot restore an old topic or old seats.
+  While a draft is open, a two-second catch-up read covers delayed streams;
+  it stops when the draft settles. `e2e/tests/round-draft-sync.spec.mjs`
+  runs two browsers with subscription delivery withheld.
 - **Nothing may start a speech while a draft is pending.**
   `startSpeechTimer` refuses, ahead of the judge lock.
 - **`publicDraft()` is no longer blindness.** Every beat has one actor and

@@ -49,6 +49,11 @@ It uses the shipped invitation code with an in-memory queue and consent
 endpoint. It covers delivery, concurrent page loads, mutual acceptance,
 decline ordering, and Voice AI continuation without touching real accounts.
 
+`tests/round-draft-sync.spec.mjs` uses the shipped topic chooser and actual
+server transaction logic with an in-memory store. Two browsers receive no
+subscription snapshots, exercising HTTP updates, call wake-ups, catch-up
+reads, and stale-message ordering without entering a live room.
+
 One promise per test. Assert what a visitor would see, not what the DOM
 happens to contain. Prefer ids the page already owns (`#signInBtn`,
 `#first-screen`, `#root`) over text, and collect `pageerror` so an uncaught

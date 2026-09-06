@@ -11395,8 +11395,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         try { gtag('event', 'live_round_cam_unified'); } catch(e){}
       }
       paintRoom();
+      if (window.__lrRefreshDraft) window.__lrRefreshDraft();
     });
-    call.on('participant-joined', paintRoom);
+    call.on('participant-joined', function(){
+      paintRoom();
+      if (window.__lrAnnounceDraft) window.__lrAnnounceDraft();
+    });
     call.on('participant-updated', function(ev){ paintRoom(); if (!room.viewer) reassertMask(ev); });
     call.on('app-message', function(ev){
       var data = ev && ev.data;
@@ -11404,6 +11408,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (data.t === 'guard-review'){ try { showGuardReviewCard(); } catch(e){} }
       else if (data.t === 'guard-clear'){ try { onGuardCleared(); } catch(e){} }
       else if (data.t === 'seat-left'){ try { noteOppSaidGone(data.uid); } catch(e){} }
+      else if (data.t === 'draft-changed' && data.room === state.room){
+        var sender = call.participants()[ev.fromId];
+        if (sender && sender.user_id && (sender.user_id === state.proUid || sender.user_id === state.conUid)){
+          if (window.__lrDraftChanged) window.__lrDraftChanged(data.revision);
+        }
+      }
     });
     call.on('participant-left', paintRoom);
     call.on('track-started', paintRoom);
@@ -16278,6 +16288,53 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // half-typed motion to somebody else's write would be the board eating
     // the one thing it just asked for.
     var dfWriteOpen = false, dfWriteText = '', dfErr = '';
+    var dfRevision = -1, dfLatestRound = null, dfLastSyncAt = 0;
+    var dfRead = null, dfReadAgain = false, dfReadAt = 0, dfReadTimer = 0, dfExpireAt = 0;
+
+    // The API reply and the subscription carry the same server revision.
+    // Keep unrelated snapshot fields, but never let a delayed snapshot put
+    // an old draft, motion, or pair of seats back over a newer decision.
+    window.__lrMergeDraftSnapshot = function(d){
+      var revision = Number(d.draftRevision) || 0;
+      dfLastSyncAt = Date.now();
+      if (revision < dfRevision) return Object.assign({}, d, dfLatestRound);
+      dfRevision = revision;
+      dfLatestRound = {};
+      ['draft', 'draftRevision', 'draftPhaseAt', 'motion', 'proUid', 'conUid', 'proName', 'conName'].forEach(function(key){
+        if (Object.prototype.hasOwnProperty.call(d, key)) dfLatestRound[key] = d[key];
+      });
+      return d;
+    };
+    function dfAnnounce(){
+      try {
+        if (state.dailyFrame) state.dailyFrame.sendAppMessage({ t:'draft-changed', room:state.room, revision:dfRevision }, '*');
+      } catch(e){} // Firestore remains the delivery path before video joins.
+    }
+    // Daily is a wake-up signal only. All state still comes from Firestore
+    // or the authenticated endpoint, never from another browser's message.
+    function dfRefresh(){
+      if (dfRead){ dfReadAgain = true; return dfRead; }
+      var ref = getRoundDocRef();
+      if (!ref || document.hidden) return Promise.resolve();
+      if (Date.now() - dfReadAt < 250){
+        if (!dfReadTimer) dfReadTimer = setTimeout(function(){ dfReadTimer = 0; dfRefresh(); }, 250);
+        return Promise.resolve();
+      }
+      dfReadAt = Date.now();
+      dfRead = ref.get({ source:'server' }).then(function(doc){
+        if (doc && doc.exists) onRoundSnapshot(doc.data() || {});
+      }).catch(function(e){ console.warn('[Draft sync] refresh failed', e); }).then(function(){
+        dfRead = null;
+        if (dfReadAgain){ dfReadAgain = false; dfRefresh(); }
+      });
+      return dfRead;
+    }
+    window.__lrRefreshDraft = dfRefresh;
+    window.__lrDraftChanged = function(revision){
+      if (Number.isSafeInteger(revision) && revision > dfRevision) dfRefresh();
+    };
+    window.__lrAnnounceDraft = function(){ if (dfPending()) dfAnnounce(); };
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) dfRefresh(); });
 
     function dfDraft(){ return state.draft || null; }
     function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
@@ -16337,18 +16394,32 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         no_veto_left: 'You have used your one send-back.',
         not_your_call: 'That call is not yours this round.',
         wrong_phase: 'That beat has moved on.',
+        stale_draft: 'The topic choice has moved on.',
       })[code] || 'Could not do that. Try again.';
     }
 
     function dfPost(action, extra){
       if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('no-user'));
+      var payload = Object.assign({ action:action, room:state.room }, extra || {});
+      if (action !== 'open' && dfRevision >= 0) payload.draftRevision = dfRevision;
       return state.user.getIdToken().then(function(tok){
         return fetch('/api/round-draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-          body: JSON.stringify(Object.assign({ action: action, room: state.room }, extra || {})),
+          body: JSON.stringify(payload),
         });
-      }).then(function(r){ return r.json().catch(function(){ return {}; }); });
+      }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(res){
+        if (res && res.round){
+          // Apply the committed topic and seats together before closing the
+          // board. Waiting for a second network delivery caused split screens.
+          if ((Number(res.round.draftRevision) || 0) > dfRevision){
+            try { onRoundSnapshot(Object.assign({}, state.lastRoundDoc || {}, res.round)); }
+            catch(e){ console.warn('[Draft sync] round repaint failed', e); }
+          }
+          dfAnnounce();
+        }
+        return res;
+      });
     }
 
     // Ask the server to open one. It refuses unless the pair was stamped
@@ -16388,13 +16459,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // resolving for the other is how a room opens onto an empty chair. Past
     // the answer either side may, because both have proven they are here.
     function dfOnZero(){
-      if (dfBusy || !dfIAmDebater()) return;
+      if (dfBusy || !dfIAmDebater() || Date.now() - dfExpireAt < 2000) return;
       var d = dfDraft(); if (!d) return;
       var eitherMay = d.phase === 'counter' || d.phase === 'choose' || d.phase === 'side'
         || (d.phase === 'offer' && !!d.response);
       if (!eitherMay && !dfMine()) return;
       dfBusy = true;
-      dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; });
+      dfExpireAt = Date.now();
+      dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; renderDraft(); });
     }
 
     function dfHost(){
@@ -16488,6 +16560,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if (n) n.textContent = left === null ? '' : left;
         var c = n && n.parentNode;
         if (c && left !== null && left <= 3) c.classList.add('hot');
+        // While choosing, recover a delayed/missed stream within two
+        // seconds. The timer ends with the draft; normal rooms do not poll.
+        if (!document.hidden && Date.now() - Math.max(dfLastSyncAt, dfReadAt) >= 2000) dfRefresh();
         if (left === 0) dfOnZero();
       }, 250);
 
@@ -16529,7 +16604,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         var offered = dfMotionText(d.offerId);
         if (!dfMine()){
           host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + ' is considering your topic.',
+            'Waiting for ' + escHtml(dfOtherName()) + ' to answer.',
             escHtml(offered), true);
           return;
         }
@@ -16705,9 +16780,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       }
     }, true);
 
-    // Snapshot hook. The round doc is the only source of draft truth.
+    // Snapshot hook. The round doc and committed API reply share one path.
     window.__lrRenderDraft = function(d){
-      var next = (d && d.draft) || null;
+      var next = d && d.draft ? Object.assign({}, d.draft) : null;
       if (next && d.draftPhaseAt && d.draftPhaseAt.toMillis) next.phaseAt = d.draftPhaseAt.toMillis();
       state.draft = next;
       var now = next ? String(next.phase || '') : '';
@@ -21542,7 +21617,42 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   var nudgedUnlisted = false;   // one unlisted telling per round, per device
   function onRoundSnapshot(d){
+    if (window.__lrMergeDraftSnapshot) d = window.__lrMergeDraftSnapshot(d);
+    state.lastRoundDoc = d;
     var changedSetup = false;
+    // Deliver time-sensitive controls first. A presence/avatar repaint must
+    // not leave the other person waiting on an already-completed choice.
+    // Adopt participant UIDs from the round doc when the URL didn't
+    // carry them (the /spar watch list and the landing live feed hand
+    // off only ?room=…). Only visitors with no seat claim adopt, and a
+    // real participant's own uid matches one of the adopted values
+    // anyway — so this can only flip genuine third parties into
+    // audience mode. Direct-entry rounds never write UIDs, so
+    // shared-URL opponents are untouched.
+    if (d.proUid && d.conUid && !state.proUid && !state.conUid && !prefill.mySide){
+      state.proUid = d.proUid;
+      state.conUid = d.conUid;
+      if (isSpectator()) enterAudienceMode();
+    }
+    // A committed side swap arrives as the two seat uids in the other
+    // order. The block above only ever FILLS empty seats, so without
+    // this the debater who pressed agree would be the only one whose
+    // screen moved. Narrow by construction: the incoming pair has to be
+    // a permutation of the pair already held, so this can flip a swap
+    // and can do nothing else.
+    if (d.proUid && d.conUid && state.proUid && state.conUid
+        && d.proUid === state.conUid && d.conUid === state.proUid
+        && !tournamentControlsLocked() && window.__lrApplySeatSwap){
+      try { window.__lrApplySeatSwap(); } catch(e){}
+    }
+    var fixedTournamentMotion = tournamentDraftMotion(d);
+    var incomingMotion = fixedTournamentMotion || d.motion;
+    if (incomingMotion && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
+    // The pre-round motion draft. Read before the proposal surfaces
+    // below: while a draft is live the motion is not a thing either side
+    // may propose changing, it is a thing they are still settling.
+    if (window.__lrRenderDraft) { try { window.__lrRenderDraft(d); } catch(e){ console.warn('[Draft sync] board repaint failed', e); } }
+
     // ── Snapshot repaint gating ──────────────────────────────────────
     // This listener fires on EVERY write to the round doc, and during a
     // speech the live transcript republishes about once a second, so the
@@ -21627,29 +21737,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       : ((d.endedAt && d.endedAt.toMillis) ? d.endedAt.toMillis() : 0);
     if (endMs !== state.endedAtMs) state.endedAtMs = endMs;
     try { paintRoundQuiet(); } catch(e){}
-    // Adopt participant UIDs from the round doc when the URL didn't
-    // carry them (the /spar watch list and the landing live feed hand
-    // off only ?room=…). Only visitors with no seat claim adopt, and a
-    // real participant's own uid matches one of the adopted values
-    // anyway — so this can only flip genuine third parties into
-    // audience mode. Direct-entry rounds never write UIDs, so
-    // shared-URL opponents are untouched.
-    if (d.proUid && d.conUid && !state.proUid && !state.conUid && !prefill.mySide){
-      state.proUid = d.proUid;
-      state.conUid = d.conUid;
-      if (isSpectator()) enterAudienceMode();
-    }
-    // A committed side swap arrives as the two seat uids in the other
-    // order. The block above only ever FILLS empty seats, so without
-    // this the debater who pressed agree would be the only one whose
-    // screen moved. Narrow by construction: the incoming pair has to be
-    // a permutation of the pair already held, so this can flip a swap
-    // and can do nothing else.
-    if (d.proUid && d.conUid && state.proUid && state.conUid
-        && d.proUid === state.conUid && d.conUid === state.proUid
-        && !tournamentControlsLocked() && window.__lrApplySeatSwap){
-      try { window.__lrApplySeatSwap(); } catch(e){}
-    }
     if (typeof d.isPrivate === 'boolean' && d.isPrivate !== state.isPrivate){ state.isPrivate = d.isPrivate; paintPrivacyToggle(); }
     // UNLISTED HAS A COST AND IT WAS INVISIBLE (2026-09-02). Measured that
     // evening: the only live round on the site was two real people on a
@@ -21684,19 +21771,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       state.ballotDetail = d.ballotDetail;
       try { renderJudgeDraft(); } catch(e){}
     }
-    var fixedTournamentMotion = tournamentDraftMotion(d);
     // Mutual time extension + captured interjections ride the doc.
     if (d.timeExt && JSON.stringify(d.timeExt) !== JSON.stringify(state.timeExt || {})){
       state.timeExt = d.timeExt;
       try { applyTimeExt(); } catch(e){}
     }
     if (Array.isArray(d.interjections)) state.interjections = d.interjections;
-    var incomingMotion = fixedTournamentMotion || d.motion;
-    if (incomingMotion && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
-    // The pre-round motion draft. Read before the proposal surfaces
-    // below: while a draft is live the motion is not a thing either side
-    // may propose changing, it is a thing they are still settling.
-    if (window.__lrRenderDraft) { try { window.__lrRenderDraft(d); } catch(e){} }
     // The draft is NOT opened here any more (2026-09-02, the founder: the
     // round starts immediately). It opens only when a debater asks for it
     // from the resolution bar; a doc that already carries one still renders.
