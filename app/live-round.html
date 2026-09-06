@@ -1323,6 +1323,12 @@ body.lr-mini #lrDock{display:block}
 .lrd-ico:hover{background:rgba(127,127,127,.2);color:var(--text)}
 .lrd-msgbtn{width:auto;padding:0 9px;gap:6px}
 .lrd-msgbtn[aria-expanded="true"]{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.48);color:#fff}
+.lrd-close{color:var(--text-dim)}
+.lrd-close .lrd-closex{font-size:.78rem;font-weight:800}
+.lrd-close .lrd-closelabel{display:none;font-size:.58rem;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.lrd-close:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.48);color:#fff}
+.lrd-close.is-armed{width:auto;padding:0 9px;gap:6px;background:#b91c1c;border-color:#b91c1c;color:#fff;animation:lrMiniPulse 1.6s infinite}
+.lrd-close.is-armed .lrd-closelabel{display:inline}
 .lrd-msgicon{font-size:.82rem}
 .lrd-msglabel{font-size:.58rem;font-weight:800;letter-spacing:.04em}
 .lrd-body{display:flex;flex-direction:column;align-items:stretch}
@@ -23980,16 +23986,29 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
           // Mark the seat empty before the navigation tears the page
           // down, so the round stops reading as live at once instead of
           // waiting out the presence window.
-          onLeave: function (path) {
-            if (window.__lrLeaveRoundThen) window.__lrLeaveRoundThen(path || '/');
-            else window.location.assign(path || '/');
-          }
+          onLeave: function (path) { leaveForReal(path); }
         });
         shellStartUrl = '/';
       }
     }
     function closeSiteShell() {
       if (window.LivePiP && window.LivePiP.closeShell) window.LivePiP.closeShell();
+    }
+    // The real exit. Navigates the host page, which tears the call down,
+    // landing wherever the person was browsing in the shell (or the board
+    // when there is no shell). Marks the seat empty first so the round
+    // stops reading as live at once instead of waiting out the presence
+    // window. Reached only from the console X and the shell bar's "Leave
+    // round", both double-press.
+    function leaveForReal(path) {
+      if (!path && window.LivePiP && window.LivePiP.shellPath) {
+        try { path = window.LivePiP.shellPath(); } catch (e) {}
+      }
+      // Landing back on this same round would re-seat the person they
+      // just left; the board is the honest destination in that case.
+      if (!path || path.indexOf('/live-round') === 0) path = '/live';
+      if (window.__lrLeaveRoundThen) window.__lrLeaveRoundThen(path);
+      else window.location.assign(path);
     }
 
     // Build the docked console once: resolution + timer header, an AI-judge
@@ -24006,6 +24025,7 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
           '<button type="button" class="lrd-ico lrd-msgbtn" id="lrdMessages" title="Message your opponent" aria-label="Messages" aria-controls="dmModal" aria-expanded="false"><span class="lrd-msgicon" aria-hidden="true">&#9993;</span><span class="lrd-msglabel">Messages</span></button>' +
           '<button type="button" class="lrd-ico" id="lrdPop" title="Pop out into a floating window">&#9112;</button>' +
           '<button type="button" class="lrd-ico" id="lrdRestore" title="Back to the round">&#10530;</button>' +
+          '<button type="button" class="lrd-ico lrd-close" id="lrdClose" title="Leave the round" aria-label="Leave the round"><span class="lrd-closex" aria-hidden="true">&#10005;</span><span class="lrd-closelabel">Leave round?</span></button>' +
         '</div>' +
         '<div class="lrd-body">' +
           '<div class="lrd-judge">' +
@@ -24020,6 +24040,29 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
       var pop = d.querySelector('#lrdPop'), rest = d.querySelector('#lrdRestore');
       if (pop) { if (!pipOk) pop.style.display = 'none'; pop.addEventListener('click', enterPip); }
       if (rest) rest.addEventListener('click', exitAll);
+      // The X leaves the round for real. Minimizing keeps the call alive
+      // on purpose, so this is the one control on the console that ends
+      // it, and it takes two presses like every other exit: the first
+      // arms it ("Leave round?"), the second within 4s goes. A stray
+      // click on a draggable header can never end someone's round.
+      var closeBtn = d.querySelector('#lrdClose');
+      if (closeBtn) {
+        var closeTimer = null;
+        closeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (!closeBtn.classList.contains('is-armed')) {
+            closeBtn.classList.add('is-armed');
+            closeBtn.setAttribute('aria-label', 'Leave the round? Press again to confirm');
+            closeTimer = setTimeout(function () {
+              closeBtn.classList.remove('is-armed');
+              closeBtn.setAttribute('aria-label', 'Leave the round');
+            }, 4000);
+            return;
+          }
+          if (closeTimer) clearTimeout(closeTimer);
+          leaveForReal();
+        });
+      }
       var messages = d.querySelector('#lrdMessages');
       if (messages && dmModal) {
         messages.addEventListener('click', function () {
@@ -24254,44 +24297,21 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
       enterMini();
     });
 
-    // "Back to board" is the one explicit "get me out of here" control, so
-    // it LEAVES the round instead of docking it. Every other link still
-    // docks (the intercept above), keeping the round alive while the user
-    // browses. Leaving abandons a live opponent, so when a call is up the
-    // first press arms the button and a second within 4s confirms — the
-    // same guard the shell bar's "Leave round" uses. With no call up there
-    // is nothing to protect, so it navigates to /live straight away.
+    // "Back to board" used to be the one link that LEFT the round outright
+    // (armed, then confirmed). It now does what every other link does:
+    // docks the video and browses the board inside the site shell, so
+    // going back to Debatable never ends someone's round by itself. The
+    // way out for real is the X on the docked console or the shell bar's
+    // "Leave round", both deliberate two-press exits. With no call up
+    // there is nothing to keep alive, so it navigates to /live as before.
     var backLink = document.querySelector('.bar-back');
     if (backLink) {
-      var backFull = backLink.querySelector('.bar-back-full');
-      var backShort = backLink.querySelector('.bar-back-short');
-      var backFullText = backFull ? backFull.textContent : '';
-      var backShortText = backShort ? backShort.textContent : '';
-      var backArmed = false, backTimer = null;
-      function disarmBack() {
-        backArmed = false;
-        if (backTimer) { clearTimeout(backTimer); backTimer = null; }
-        if (backFull) backFull.textContent = backFullText;
-        if (backShort) backShort.textContent = backShortText;
-        backLink.classList.remove('bar-back--arming');
-      }
       backLink.addEventListener('click', function (e) {
-        // A modified or non-primary click is the user asking for a new tab;
-        // honor it (opens /live, round stays here) and never arm.
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-        if (!callLive()) { disarmBack(); return; } // no live round → plain navigate
+        if (!callLive()) return; // no live round → plain navigate
         e.preventDefault();
-        if (!backArmed) {
-          backArmed = true;
-          backLink.classList.add('bar-back--arming');
-          if (backFull) backFull.textContent = '← Leave round?';
-          if (backShort) backShort.textContent = 'Leave?';
-          backTimer = setTimeout(disarmBack, 4000);
-          return;
-        }
-        disarmBack();
-        if (window.__lrLeaveRoundThen) window.__lrLeaveRoundThen('/live');
-        else window.location.assign('/live');
+        shellStartUrl = '/live';
+        enterMini();
       });
     }
 

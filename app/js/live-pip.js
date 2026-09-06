@@ -239,8 +239,7 @@
         return;
       }
       if (leaveTimer) clearTimeout(leaveTimer);
-      var path = '';
-      try { var loc = shellFrame && shellFrame.contentWindow.location; if (loc) path = loc.pathname + loc.search; } catch (e) {}
+      var path = shellPath();
       if (typeof opts.onLeave === 'function') { try { opts.onLeave(path || '/'); } catch (e) {} }
       else { try { window.location.assign(path || '/'); } catch (e) {} }
     });
@@ -274,6 +273,15 @@
 
   function shellActive() { return !!shellFrame; }
 
+  // Where the person is inside the shell, so a real exit can land there
+  // instead of on '/'. Empty when there is no shell or the frame moved
+  // off-origin (reading its location would throw).
+  function shellPath() {
+    var path = '';
+    try { var loc = shellFrame && shellFrame.contentWindow.location; if (loc) path = loc.pathname + loc.search; } catch (e) {}
+    return path;
+  }
+
   window.LivePiP = {
     supported: supported,
     openWindow: openWindow,
@@ -282,6 +290,7 @@
     makeDraggable: makeDraggable,
     openShell: openShell,
     closeShell: closeShell,
-    shellActive: shellActive
+    shellActive: shellActive,
+    shellPath: shellPath
   };
 })();
