@@ -102,15 +102,17 @@ check(spar.includes('liveVideo: true') && !spar.includes('googleOnly: true'), 's
 check(livePopup.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com'"), 'wants-to-debate popup must accept Google and Apple accounts only');
 check(livePopup.includes('liveVideo: true'), 'wants-to-debate popup must open live-video mode');
 check(
-  livePopup.includes("if (item.kind === 'wait' && item.needsAuth)")
-    && livePopup.includes('if (openWaitingSignIn(item, opts)) return;')
+  livePopup.includes("if (item.kind === 'wait') { renderWaitingInvite(item, opts); return; }")
+    && livePopup.includes('dialog.showModal();')
+    && livePopup.includes("dialog.querySelector('[data-accept]').addEventListener('click'")
     && livePopup.includes("placement: 'center'")
     && livePopup.includes("window.openAuthModal('signin',"),
-  'a signed-out wants-to-debate alert must open the centered auth dialog instead of a corner card',
+  'a waiting-person alert must offer a centered invitation before asking for sign-in on Accept',
 );
 check(
   livePopup.includes('onDone: function (user)')
-    && livePopup.includes("if (!user) {")
+    && livePopup.includes('if (user) window.location.href = item.href;')
+    && livePopup.includes('else write(localStorage, SNOOZE_KEY, now());')
     && livePopup.includes("write(localStorage, SNOOZE_KEY, now());"),
   'dismissing the centered sign-in dialog must not send a guest to the queue or immediately reprompt',
 );

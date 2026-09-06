@@ -73,6 +73,8 @@
     if (named(currentUser())) { decide(currentUser()); return; }
     // Let an existing account ask finish. Dismissal does not reset the budget.
     if (document.body.classList.contains('signin-modal-open') ||
+        document.documentElement.classList.contains('da-debate-invite-open') ||
+        document.querySelector('.da-match-overlay') ||
         document.getElementById('sparGateCard') ||
         document.querySelector('.ob-modal.is-open') ||
         document.documentElement.getAttribute('data-intro') === '1') return;

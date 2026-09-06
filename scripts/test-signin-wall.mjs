@@ -42,3 +42,6 @@ p = page(); p.advance(30); p.nodes.set('lpip-mini', {}); p.advance(100); assert.
 p = page({ path: '/spar' }); p.nodes.set('sparGateCard', {}); p.advance(60); assert.equal(p.asks.length, 0); p.nodes.delete('sparGateCard'); p.window.__debatableRoundInFlight = true; p.advance(10); assert.equal(p.asks.length, 0); console.log('PASS no duplicate inline Google gate or interruption during room handoff');
 p = page(); p.busy.add('signin-modal-open'); p.advance(40); assert.equal(p.asks.length, 0); p.busy.delete('signin-modal-open'); p.advance(.25); assert.equal(p.asks.length, 1); p.auth({ isAnonymous: false }); p.auth({ isAnonymous: false }); assert.equal(p.events.filter(e => e[1] === 'signin_wall_converted').length, 1); console.log('PASS existing dialog is not stacked; one conversion event');
 p = page({ sdk: false }); p.advance(40); assert.equal(p.asks.length, 1); console.log('PASS unavailable Firebase does not disable the timer');
+p = page(); p.busy.add('da-debate-invite-open'); p.advance(45); assert.equal(p.asks.length, 0);
+p.busy.delete('da-debate-invite-open'); p.advance(.25); assert.equal(p.asks.length, 1);
+console.log('PASS a debate invitation gets an answer before the account wall opens');

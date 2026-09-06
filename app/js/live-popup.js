@@ -62,9 +62,7 @@
  * Live spectating requires Google on web, or Apple in the iOS app. The
  * live card opens that account door before handing the visitor into the
  * room. Replays remain outside this live-video gate. A waiting person
- * also needs a real opponent, so a signed-out visitor gets the shared
- * account dialog in the middle of the screen instead of a second
- * bottom-corner card.
+ * first gets a centered invitation; accepting opens sign-in if needed.
  *
  * Blur: BLUR_PX below. 0 ships frames as they are, which is what the
  * live strip and /watch already do. 10 gives the frosted treatment.
@@ -128,11 +126,10 @@
   /* 2026-09-01, the founder: "tell anonymous user someone is live in a
      pop up 'wants to debate' and then do 'need to sign in'". The WAITING
      source (someone is in the /spar queue right now) is armed SITEWIDE
-     again, not only on the intent pages. 2026-09-03 refines the signed-out
-     treatment: open the shared centered Google dialog directly. Do not
-     make a guest click a bottom-corner teaser and then face a second card.
-     A signed-in person still gets the compact open-seat card because they
-     can take the seat immediately. The REPLAY source stays retired. */
+     again, not only on the intent pages. 2026-09-06: everyone first gets
+     a centered Accept / Not now invitation, even over an account chooser.
+     Only accepting asks for an account, using the current auth state.
+     The REPLAY source stays retired. */
   var WAITING_SITEWIDE = true;
 
   /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
@@ -428,6 +425,23 @@
       'background:#dc2626;color:#fff;font-size:.78rem;font-weight:800}',
       '.da-livepop__meta{font-size:.64rem;font-weight:700;letter-spacing:.08em;color:var(--text-ghost,#8a8a95)}',
 
+      '.da-wait-invite{box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);',
+      'padding:32px;margin:auto;border:1px solid var(--border-strong,rgba(255,255,255,.18));border-radius:24px;',
+      'background:var(--bg-card,#19191f);color:var(--text,#fff);box-shadow:0 24px 90px rgba(0,0,0,.45);',
+      'font-family:"Archivo","Inter",system-ui,sans-serif;text-align:center;overflow:auto}',
+      '.da-wait-invite::backdrop{background:rgba(0,0,0,.58);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}',
+      '.da-wait-invite__label{margin:0 0 22px;color:#22c55e;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}',
+      '.da-wait-invite__avatar{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 20px;',
+      'border:1px solid rgba(34,197,94,.45);border-radius:50%;background:rgba(34,197,94,.1);font-size:28px;font-weight:800}',
+      '.da-wait-invite h2{margin:0;font-size:28px;line-height:1.2;overflow-wrap:anywhere}',
+      '.da-wait-invite__sub{margin:14px 0 26px;color:var(--text-dim,#aeb0bb);font-size:15px;line-height:1.5}',
+      '.da-wait-invite__buttons{display:flex;gap:12px}.da-wait-invite button{flex:1;min-height:48px;padding:12px;',
+      'border:1px solid var(--border-strong,rgba(255,255,255,.2));border-radius:12px;background:transparent;color:inherit;',
+      'font:700 16px "Archivo","Inter",system-ui,sans-serif;cursor:pointer}',
+      '.da-wait-invite button[data-accept]{background:#dc2626;color:#fff;border-color:#dc2626}',
+      '.da-wait-invite button:focus-visible{outline:3px solid #22c55e;outline-offset:4px}',
+      'html.da-debate-invite-open,html.da-debate-invite-open body{overflow:hidden!important}',
+
       /* Light themes: the card is a surface, not a hole. */
       '[data-theme="light"] .da-livepop,[data-lighting="light"] .da-livepop,body.light-theme .da-livepop{',
       'box-shadow:0 18px 46px rgba(0,0,0,.16),0 0 0 1px rgba(239,68,68,.1)}',
@@ -578,6 +592,7 @@
   }
 
   function waitingItem() {
+    try { if (localStorage.getItem('da-spar-bg') === '0') return Promise.resolve(null); } catch (e) {}
     return getJSON('/api/live-now').then(function (j) {
       var all = (j && j.debaters) || [];
       var me = selfUid();
@@ -597,7 +612,6 @@
       if (!pick) return null;
       var name = pick.name || 'Someone';
       var more = list.length - 1;
-      var needsAuth = !googleUser();
       return {
         kind: 'wait',
         key: 'wait:' + pick.uid,
@@ -606,10 +620,9 @@
         who: more > 0
           ? ('Live in the queue now, and ' + more + ' other' + (more > 1 ? 's' : ''))
           : 'One-on-one, face to face on live video',
-        meta: needsAuth ? 'SIGN IN TO DEBATE' : 'OPEN SEAT',
-        cta: needsAuth ? 'Sign in to debate' : 'Join the video queue',
+        meta: 'OPEN SEAT',
+        cta: 'Accept',
         href: '/spar',
-        needsAuth: needsAuth,
         name: name,
         img: null,
         initials: [initial(name), '?']
@@ -674,56 +687,76 @@
       '</span>';
   }
 
-  function openWaitingSignIn(item, opts) {
-    if (typeof window.openAuthModal !== 'function') return false;
+  function renderWaitingInvite(item, opts) {
+    if (cardVisible || busyInRound() || document.querySelector('.da-match-overlay')) return;
     shown = true;
+    cardVisible = true;
+    injectCss();
+    var previousFocus = document.activeElement;
+    var dialog = document.createElement('dialog');
+    dialog.className = 'da-wait-invite';
+    dialog.setAttribute('aria-labelledby', 'da-wait-title');
+    dialog.setAttribute('aria-describedby', 'da-wait-sub');
+    dialog.innerHTML = '<p class="da-wait-invite__label">Available to debate</p>' +
+      '<div class="da-wait-invite__avatar" aria-hidden="true">' + esc(initial(item.name)) + '</div>' +
+      '<h2 id="da-wait-title">' + esc(item.name || 'Someone') + ' wants to debate</h2>' +
+      '<p id="da-wait-sub" class="da-wait-invite__sub">They are looking for an opponent right now. Up for a live one-on-one round?</p>' +
+      '<div class="da-wait-invite__buttons"><button type="button" data-decline>Not now</button>' +
+      '<button type="button" data-accept autofocus>Accept</button></div>';
+    document.body.appendChild(dialog);
+    document.documentElement.classList.add('da-debate-invite-open');
+    dialog.showModal();
+    var life = setTimeout(function () { close('timeout'); }, 45000);
+    function close(reason) {
+      clearTimeout(life);
+      dialog.close();
+      dialog.remove();
+      document.documentElement.classList.remove('da-debate-invite-open');
+      cardVisible = false;
+      window.removeEventListener('debatable:match-found', onMatch);
+      window.removeEventListener('storage', onStorage);
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+      if (reason === 'dismiss') write(localStorage, SNOOZE_KEY, now());
+    }
+    function onMatch() { close('match'); }
+    function onStorage() {
+      var off = false;
+      try { off = localStorage.getItem('da-spar-bg') === '0'; } catch (e) {}
+      if (busyInRound() || off) close('busy');
+    }
+    window.addEventListener('debatable:match-found', onMatch);
+    window.addEventListener('storage', onStorage);
+    dialog.addEventListener('cancel', function (event) { event.preventDefault(); close('dismiss'); });
+    dialog.querySelector('[data-decline]').addEventListener('click', function () { close('dismiss'); });
+    dialog.querySelector('[data-accept]').addEventListener('click', function () {
+      close('accept');
+      emit('live_popup_accept', { kind: 'wait', page: here });
+      // Auth can finish in another tab, or in the chooser under this
+      // invitation. Never reuse the state from when the poll started.
+      if (googleUser()) { window.location.href = item.href; return; }
+      if (typeof window.openAuthModal !== 'function') { window.location.href = item.href; return; }
+      window.openAuthModal('signin', {
+        liveVideo: true,
+        livePerson: true,
+        locked: document.documentElement.classList.contains('da-auth-locked'),
+        destination: item.href,
+        headline: 'Sign in to accept the debate',
+        sub: 'Sign in to join the live queue. Your account is free.',
+        onDone: function (user) {
+          if (user) window.location.href = item.href;
+          else write(localStorage, SNOOZE_KEY, now());
+        }
+      });
+    });
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_auth_open', {
-      page: here,
-      placement: 'center',
-      automatic: true,
-      fast: !!(opts && opts.fast)
-    });
-    window.openAuthModal('signin', {
-      liveVideo: true,
-      livePerson: true,
-      headline: (item.name || 'Someone') + ' is waiting for an opponent',
-      sub: 'Debate another person face to face on live video. Sign in to join the queue.',
-      onDone: function (user) {
-        if (!user) {
-          write(localStorage, SNOOZE_KEY, now());
-          emit('live_popup_auth_dismiss', { page: here, placement: 'center' });
-          return;
-        }
-        emit('live_popup_auth_done', { page: here, placement: 'center' });
-        window.location.href = '/spar';
-      }
-    });
-    return true;
+    emit('live_popup_shown', { kind: 'wait', page: here, placement: 'center', fast: !!opts.fast });
   }
 
   function render(item, opts) {
     opts = opts || {};
-    /* A guest waiting invitation IS the sign-in ask. Open the shared
-       centered dialog directly instead of rendering the bottom-right
-       live card first. auth-modal.js is injected just ahead of this file
-       by topbar.js, but allow a short load race without falling back to a
-       second corner treatment. */
-    if (item.kind === 'wait' && item.needsAuth) {
-      if (openWaitingSignIn(item, opts)) return;
-      var attempt = Number(opts.authAttempt || 0);
-      if (attempt < 20) {
-        setTimeout(function () {
-          var retryOpts = {};
-          for (var k in opts) retryOpts[k] = opts[k];
-          retryOpts.authAttempt = attempt + 1;
-          render(item, retryOpts);
-        }, 250);
-      }
-      return;
-    }
+    if (item.kind === 'wait') { renderWaitingInvite(item, opts); return; }
     if (cardVisible) return;
     /* The slow loop spends its one card and stops. The fast lane may
        render again later in the visit (a NEW round going live is new
@@ -941,9 +974,15 @@
        mounts around the same 2s mark). Retry sooner than the poll: no
        fetch is spent while gated, and the chooser being answered should
        not cost a live round a whole minute of invisibility. */
-    if (cardVisible || liveGated()) return scheduleLive(15000);
-    liveItem().then(function (it) {
-      if (it && !cardVisible && !liveGated()) render(it, { fast: true });
+    if (cardVisible || busyInRound() || snoozed() || document.querySelector('.da-match-overlay')) return scheduleLive(15000);
+    // An open seat gets the first read, even with sign-in already open.
+    // No interaction gate: someone can arrive and receive an invitation.
+    waitingItem().then(function (it) {
+      if (it) return it;
+      return liveGated() ? null : liveItem();
+    }).then(function (it) {
+      if (it && !document.hidden && !cardVisible && !busyInRound() && !snoozed() &&
+          !document.querySelector('.da-match-overlay') && (it.kind === 'wait' || !liveGated())) render(it, { fast: true });
       scheduleLive(LIVE_POLL_MS);
     }).catch(function () { scheduleLive(LIVE_POLL_MS); });
   }
@@ -959,16 +998,9 @@
   });
   scheduleLive(LIVE_FIRST_DELAY_MS);
 
-  /* Visible dwell, not wall clock: a tab opened in the background and
-     never looked at should not spend a read, and should not have its
-     card time out unseen before anyone sees it. In LIVE_ONLY mode the
-     slow waiting chain starts ONLY on the organic-intent pages (see
-     INTENT_PATHS above); everywhere else the fast lane above is the
-     whole surface. Intent pages use a shorter dwell — the visitor
-     searched for exactly this — but it stays a VISIBLE dwell, so a
-     pogo-sticker who bounces back to the results in three seconds
-     never sees a card and the ranking that delivered them is safe. */
-  if (LIVE_ONLY && !intentPage && !WAITING_SITEWIDE) return;
+  /* The fast lane now owns live rounds and waiting invitations. The
+     legacy replay chain remains dormant while LIVE_ONLY is set. */
+  if (LIVE_ONLY) return;
   var firstDelay = intentPage ? 6000 : FIRST_DELAY_MS;
   var dwell = 0;
   var since = document.hidden ? 0 : now();

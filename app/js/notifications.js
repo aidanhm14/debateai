@@ -875,10 +875,10 @@
       '.da-spar-pill--floating{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:62px;z-index:99996;height:36px;background:var(--dab-surface);box-shadow:0 6px 22px rgba(0,0,0,.4)}' +
       '@media(max-width:560px){.da-spar-pill--floating .da-spar-pill__lab{display:none}.da-spar-pill--floating{padding:0 11px;right:58px}}' +
       '@keyframes daSparPulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}' +
-      '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:daMatchFade .2s ease-out}' +
+      '.da-match-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:16px;border:0;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}' +
       '@keyframes daMatchFade{from{opacity:0}to{opacity:1}}' +
       '.da-match-card{width:340px;max-width:88vw;background:var(--dab-surface);border:1px solid rgba(34,197,94,.4);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:24px 22px;text-align:center;animation:daMatchPop .24s cubic-bezier(.2,.8,.2,1)}' +
-      '@keyframes daMatchPop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}' +
+      '@keyframes daMatchPop{from{transform:translateY(10px) scale(.96)}to{transform:none}}' +
       '.da-match-eyebrow{font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#22c55e;margin-bottom:12px}' +
       '.da-match-ring{position:relative;width:72px;height:72px;margin:0 auto 14px}' +
       '.da-match-ring svg{transform:rotate(-90deg);width:72px;height:72px}' +
@@ -2869,9 +2869,10 @@
       // cannot take this round, and passing frees the peer now instead of
       // stranding them for the length of the countdown.
       if (busyElsewhere()) { decline(d, true); return; }
-      pendingMatch = d;
       stopTimers();
       closeOverlay();
+      pendingMatch = d;
+      window.dispatchEvent(new Event('debatable:match-found'));
       daAlert(daAway() ? 3 : 1); // repeats only when away, so it carries from another tab/room
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
@@ -2887,8 +2888,9 @@
       var oppAv = oppPhoto
         ? '<img class="da-match-av" src="' + escHtml(oppPhoto) + '" alt="" referrerpolicy="no-referrer">'
         : '<span class="da-match-av">' + escHtml(oppInitial) + '</span>';
-      overlay = document.createElement('div');
+      overlay = document.createElement('dialog');
       overlay.className = 'da-match-overlay';
+      overlay.setAttribute('aria-label', 'Debate request');
       overlay.innerHTML =
         '<div class="da-match-card" role="alertdialog" aria-label="Match found">' +
           // Nobody is in the room yet at this point: the server has paired
@@ -2896,7 +2898,7 @@
           // "opponent in the room" here promised a person who was not
           // there, and the room could still end up empty if they decline.
           // Name what actually happened.
-          '<div class="da-match-eyebrow">Debater found</div>' +
+          '<div class="da-match-eyebrow">Debate request</div>' +
           '<div class="da-match-ring">' +
             '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
             '<circle class="da-match-ring__bar" cx="36" cy="36" r="32" stroke-dasharray="' + C + '" stroke-dashoffset="0"/></svg>' +
@@ -2904,13 +2906,16 @@
             '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
           '</div>' +
           '<div class="da-match-name">vs ' + escHtml(oppNm) + '</div>' +
-          '<div class="da-match-sub">Live round · ' + escHtml((d.pairedFormat || fmt()).toUpperCase()) + '</div>' +
+          '<div class="da-match-sub">Up for a live one-on-one round?</div>' +
           '<div class="da-match-btns">' +
             '<button type="button" class="da-match-btn da-match-btn--decline">Decline</button>' +
             '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
           '</div>' +
         '</div>';
       document.body.appendChild(overlay);
+      overlay.showModal();
+      overlay.querySelector('.da-match-btn--accept').focus();
+      overlay.addEventListener('cancel', function (event) { event.preventDefault(); decline(d); });
       var bar = overlay.querySelector('.da-match-ring__bar');
       var num = overlay.querySelector('.da-match-ring__num');
       overlay.querySelector('.da-match-btn--accept').addEventListener('click', function () { accept(d); });
@@ -2934,6 +2939,7 @@
       stopWaitPhases();
       if (overlay) {
         if (overlay.__tick) clearInterval(overlay.__tick);
+        if (overlay.open) overlay.close();
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         overlay = null;
       }
@@ -3035,6 +3041,13 @@
 
     function accept(d) {
       if (navigating || awaitingPeer) return;
+      var current = window.firebase.auth().currentUser;
+      if (!isQueueUser(current) || current.uid !== myUid) {
+        closeOverlay();
+        if (window.openAuthModal) window.openAuthModal('signin', { liveVideo: true, destination: '/spar' });
+        else window.location.href = '/spar';
+        return;
+      }
       try { if (window.gtag) gtag('event', 'spar_bg_accept'); } catch (e) {}
       // Legacy instant match (no consent phase): go straight in.
       if (d && d.status === 'matched') { goToRound(d); return; }

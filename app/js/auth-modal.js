@@ -1445,6 +1445,9 @@
       document.body.appendChild(modal);
       modal.addEventListener('click', function (event) { if (event.target === modal) close(); });
       document.addEventListener('keydown', function (event) {
+        // The live invitation is a native modal above this chooser.
+        // Its own focus and Escape handling must get the keyboard.
+        if (document.querySelector('dialog.da-wait-invite[open],dialog.da-match-overlay[open]')) return;
         if (event.key === 'Escape' && modal.classList.contains('on')) close();
         if (event.key === 'Tab' && modal.classList.contains('on')) {
           var controls = Array.prototype.filter.call(modal.querySelectorAll('button, a[href], input, [tabindex="0"]'), function (control) {
