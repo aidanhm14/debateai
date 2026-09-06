@@ -139,6 +139,19 @@ export-compliance questions for that build.
    new build number. Follow the actual resubmission controls and verify the
    resulting review status; saving metadata does not submit the app.
 
+## Safety evidence
+
+Before registration or login, every sign-in method requires the user to agree
+to the Terms of Use. The agreement states that Debatable has zero tolerance
+for objectionable content or abusive users.
+
+Live human rounds include a visible Report control on the opponent card. The
+report dialog includes safety reasons and a Block option, checked by default.
+Blocking sends the safety report to Debatable, removes the user from the
+current round immediately, and prevents the two accounts from being matched
+again. Debatable reviews safety reports within 24 hours and removes confirmed
+offending content and users.
+
 ## Account deletion evidence
 
 Path: Me > Account and settings > Delete account. The implementation cancels
