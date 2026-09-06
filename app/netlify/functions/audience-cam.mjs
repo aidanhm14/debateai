@@ -1,6 +1,6 @@
-// /api/audience-cam — mints a video-only Daily meeting token so a
-// verified spectator can appear ON CAMERA in a live round while their
-// mic stays impossible to open.
+// /api/audience-cam grants camera access to verified spectators.
+// Casual-call guests can also enable audio after a seated participant
+// approves their explicit microphone request. They always join muted.
 //
 //   GET  → { siteKey }            Turnstile site key (null when unset)
 //   POST { room, turnstileToken } + Authorization: Bearer <firebase idToken>
@@ -31,9 +31,8 @@
 //   3. video_bans — same identity derivation as create-daily-room, so
 //      a strike earned anywhere in the video system blocks the camera
 //      here too.
-//   4. The token itself: permissions.canSend = ['video'] is enforced by
-//      Daily's media server, not our UI. A hostile client with this
-//      token cannot publish audio no matter what it runs.
+//   4. Daily enforces canSend. Camera-only and self-serve invitations
+//      cannot publish audio. Casual audio requires a fresh seat approval.
 //   5. The on-device NSFW watchdog (nsfw-guard.js) runs client-side on
 //      the outgoing feed, same as debater cameras.
 //
@@ -50,6 +49,7 @@ import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkLayers, callerIp } from './lib/rate-limit.mjs';
+import { audienceAudioAllowed } from './lib/audience-media.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const MAX_CAMS = 4;
@@ -101,7 +101,7 @@ async function approvedToJoin(db, room, uid, roundData) {
     const at = r.respondedAt && r.respondedAt.toMillis ? r.respondedAt.toMillis() : 0;
     // An approval that has aged out is not a live invitation. Ask again.
     if (!at || Date.now() - at > APPROVAL_TTL_MS) return false;
-    return true;
+    return r;
   } catch (e) {
     // Fail CLOSED. Every other gate here fails open because it is a
     // courtesy; this one is the human check.
@@ -226,12 +226,14 @@ export default async (request) => {
   }
 
   // 6. The other human check: a debater in this round let them in.
-  if (!human && !(await approvedToJoin(db, room, uid, roundData))) {
+  const approval = await approvedToJoin(db, room, uid, roundData);
+  if (!human && !approval) {
     return jsonResponse({
       error: 'Ask the debaters to let you into the call first.',
       needApproval: true,
     }, 403, request);
   }
+  const allowAudio = audienceAudioAllowed(roundData, approval);
 
   // 7. Concurrency cap over fresh camAt heartbeats.
   try {
@@ -247,8 +249,7 @@ export default async (request) => {
     }
   } catch (e) { /* fail open — the cap is a courtesy, not a security line */ }
 
-  // 8. Mint the video-only token. canSend:['video'] is the hard rule:
-  // Daily's media server refuses an audio publish from this token.
+  // 8. Mint only the media permissions granted by this invitation.
   const firstName = String(payload.name || 'Guest').trim().split(/\s+/)[0].slice(0, 20) || 'Guest';
   try {
     const tr = await fetch(DAILY_API + '/meeting-tokens', {
@@ -260,7 +261,7 @@ export default async (request) => {
         user_name: 'Audience · ' + firstName,
         start_audio_off: true,
         start_video_off: false,
-        permissions: { canSend: ['video'] },
+        permissions: { canSend: allowAudio ? ['video', 'audio'] : ['video'] },
         exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC,
       } }),
     });
@@ -270,7 +271,7 @@ export default async (request) => {
       return errorResponse('Could not set up the camera join. Try again.', 502, request);
     }
     const tj = await tr.json();
-    return jsonResponse({ token: tj.token || null, name: 'Audience · ' + firstName }, 200, request);
+    return jsonResponse({ token: tj.token || null, name: 'Audience · ' + firstName, allowAudio }, 200, request);
   } catch (e) {
     return errorResponse('Could not reach the video service', 502, request);
   }

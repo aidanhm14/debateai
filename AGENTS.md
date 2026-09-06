@@ -7,6 +7,25 @@
 
 ## Sign-in policy (2026-09-05)
 
+## Casual room capture and audience calls (2026-09-06)
+
+Casual rooms display shared AI notes beside the video and keep the full
+conversation in a transcript disclosure. The display may omit timestamps
+and side labels, but capture and judging must preserve speaker identity
+and chronological order. Each side records its own room microphone;
+backstop capture selects the verified Daily seat UID, never a display name.
+Late transcription must stay attached to its original speech and mic
+generation. Finishing a speech waits briefly for captured final words.
+
+Approved audience guests in `open` / `conversation` rooms may speak.
+Their request must explicitly include microphone access and be accepted
+by a seated participant. Existing camera-only approvals and self-serve
+camera checks never grant audio. Guests join muted and enable their own
+microphone. They remain outside both scored sides. Other formats keep
+camera-only audience tokens. Test with scripts/test-audience-call.mjs,
+scripts/test-live-transcript-attribution.mjs, scripts/test-room-clock.mjs
+and scripts/test-conversation-flow.mjs.
+
 ## The "want to debate?" step is back (2026-09-06, evening)
 
 The direct-matching change from the same morning (commit `ca3543db`,

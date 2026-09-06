@@ -3554,6 +3554,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   <script defer src="/js/round-presence.js"></script>
 <link rel="stylesheet" href="/css/room-topic.css">
 <script src="/js/standings-refresh.js"></script>
+<script src="/js/room-clock.js"></script>
+<link rel="stylesheet" href="/css/room-conversation.css">
 </head>
 <body class="lr-setup">
 
@@ -3931,7 +3933,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
              the round is running the transport is the one button below. -->
         <div class="row mode-doors" id="modeDoors" hidden>
           <button class="btn btn-play" id="startConvoBtn" type="button">▶ Start conversation</button>
-          <button class="btn btn-play" id="startFormalBtn" type="button">▶ Start formal speeches</button>
+          <button class="btn btn-play" id="startFormalBtn" type="button">▶ Start timed speeches</button>
         </div>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
@@ -3954,6 +3956,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
              hidden whenever the room is beating. -->
         <div class="round-quiet" id="roundQuiet" hidden></div>
       </div>
+      <div id="conversationNotes" hidden><p id="conversationNotesEmpty">Shared AI notes appear here as the conversation develops.</p></div>
       <div class="round-motion-bar" id="roundMotionBar">
         <div class="rmb-text">
           <!-- The resolution itself moved up beside the clock (see the
@@ -4617,7 +4620,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       tag: 'The standard ballot',
       deep: true,
       deepWords: [700, 1100],
-      rfd: '8-14 sentence RFD. Open with the deciding issue, walk the clashes that carried weight, name drops, do explicit weighing, and close with what the losing side needed to win. Quote specific lines from the transcript.',
+      rfd: '8-14 sentence RFD. Open with the deciding issue, walk the clashes that carried weight, name drops, do explicit weighing, and close with what the losing side needed to win. Cite short verbatim transcript excerpts with the speaker name and the quoted words in **bold**. Never invent a quote, replace missing capture, or assign words to the other speaker.',
       rfd4: '10-18 sentence RFD. Lead with the 1st-place team and why. Walk OG-vs-CG and OO-vs-CO explicitly, do the half-call diagonals, name drops, weigh magnitude against probability against timeframe, and quote specific lines.',
       feedback: '3-5 sentences: what they did right, what they needed to beat the team above them, one concrete fix.'
     },
@@ -5048,7 +5051,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var t = String(s || '')
       .replace(/\s*—\s*/g, ', ')
       .replace(/,\s*,/g, ', ');
-    return escHtml(t).replace(/\*\*([^*\n]{1,120}?)\*\*/g, '<strong>$1</strong>');
+    return escHtml(t).replace(/\*\*([^*\n]{1,600}?)\*\*/g, '<strong>$1</strong>');
   }
   // For surfaces that must stay plain text (read-aloud, clipboard, the
   // canvas reel): drop the bold markers, keep the words.
@@ -5809,6 +5812,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   var lastOverlayIdx = -1;
   function flashTurnOverlay(){
     if (state.phase !== 'round') return;
+    if (openMode()) return;
     if (lastOverlayIdx === state.speechIdx) return;
     lastOverlayIdx = state.speechIdx;
     var f = FORMATS[state.formatKey];
@@ -5912,6 +5916,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // check driver, room-audio backstop, POI capture) have nobody to run
     // on. Skipped outright rather than left to discover that on a timer.
     document.body.classList.toggle('lr-open', !!f.open);
+    setupConversationPanel(!!f.open);
     if (!f.open) try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
     // Deterministic per-speech reset for the room-audio backstop. bkTick
     // carries the same guard, but it runs on a 3s timer and the flag it
@@ -6648,7 +6653,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // A single currentTranscript would be the two of them overwriting
       // each other a few words at a time.
       var oside = mySide(); if (!oside) return;
-      var live = {}; live[oside] = { text: text, lang: myLang(), updatedAtMs: Date.now() };
+      var live = {}; live[oside] = { text: text, lang: myLang(), updatedAtMs: Date.now(), updatedAtServer: firebase.firestore.FieldValue.serverTimestamp() };
       ref.set({ openLive: live }, { merge: true }).catch(function(){});
       return;
     }
@@ -6976,6 +6981,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         // updatedAtMs lets the off-side detect a stale timer from a
         // prior speech and ignore it across speech boundaries.
         updatedAtMs: Date.now(),
+        updatedAtServer: firebase.firestore.FieldValue.serverTimestamp(),
       },
     };
     ref.set(payload, { merge: true }).catch(function(e){ console.warn('[timer sync]', e); });
@@ -6988,28 +6994,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function applyRemoteTimer(t){
     if (!t || typeof t !== 'object') return;
     if (t.speechIdx !== state.speechIdx) return; // stale from a prior speech
-    // startMs/updatedAtMs are the ACTIVE SPEAKER'S Date.now(), and real
-    // client clocks disagree by more than the "couple of seconds" the
-    // publish comment hopes for: a live round shipped a 22-second skew,
-    // so the off-side clock read 5:14 / 5:00 and ran 22s apart from the
-    // recording board all speech. updatedAtMs was stamped in the same
-    // write as startMs, so (our now - updatedAtMs) AT DELIVERY is that
-    // skew plus snapshot latency; rebasing startMs by it cancels the
-    // skew to within the latency. Measured once per DISTINCT payload —
-    // the round snapshot re-delivers the same currentTimer on every
-    // unrelated doc write, and re-measuring against an aged stamp would
-    // grow the "skew" by the age of the payload.
-    var tKey = [t.speechIdx, t.state, t.startMs, t.accumulatedMs, t.updatedAtMs].join('|');
-    if (tKey !== state.remoteTimerKey){
-      state.remoteTimerKey = tKey;
-      state.remoteTimerSkewMs = (t.state === 'running' && typeof t.updatedAtMs === 'number' && t.updatedAtMs > 0 && t.startMs)
-        ? (Date.now() - t.updatedAtMs) : 0;
-    }
+    if (t.state === 'running' && (!Number.isFinite(t.startMs) || t.startMs <= 0)) return;
+    // Arrival time is not clock skew: a watcher may join minutes after
+    // this write. Translate the original start via the shared server clock.
+    state.remoteTimerPayload = t;
     state.timerTotalSec = t.totalSec || state.timerTotalSec;
     state.timerState = t.state || 'ready';
     state.timerElapsed = (t.accumulatedMs || 0) / 1000;
     state.timerStart = t.state === 'running'
-      ? (t.startMs ? t.startMs + (state.remoteTimerSkewMs || 0) : Date.now())
+      ? (window.DBRoomClock ? DBRoomClock.localStart(t) : t.startMs)
       : 0;
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
     if (state.timerState === 'running'){
@@ -7024,6 +7017,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     drawTimer();
     updatePlayPauseBtn();
   }
+  document.addEventListener('room-clock-ready', function(){
+    if (state.remoteTimerPayload && (isSpectator() || !isMyTurn())) applyRemoteTimer(state.remoteTimerPayload);
+  });
   function togglePlayPause(){
     if (state.timerState === 'ready' || state.timerState === 'paused') startSpeechTimer();
     else if (state.timerState === 'running') pauseSpeechTimer();
@@ -7065,8 +7061,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var firstName = (sp && sideBench(f, sp.side) === 'gov')
         ? (state.proName || 'Pro') : (state.conName || 'Con');
       formal.innerHTML = firstIsMine
-        ? '\u25b6 Start formal speeches<span class="md-sub">4 timed speeches. You speak first.</span>'
-        : '\u25b6 Switch to formal speeches<span class="md-sub">4 timed speeches. ' + escHtml(firstName) + ' speaks first.</span>';
+        ? '\u25b6 Start timed speeches<span class="md-sub">Back and forth. You speak first.</span>'
+        : '\u25b6 Switch to timed speeches<span class="md-sub">Back and forth. ' + escHtml(firstName) + ' speaks first.</span>';
     }
   }
   // The round type, to the round doc, so the other screen follows. Narrow
@@ -7119,7 +7115,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       updatePlayPauseBtn();
       var who = (FORMATS[key].speeches[0] && sideBench(FORMATS[key], FORMATS[key].speeches[0].side) === 'gov')
         ? (state.proName || 'Pro') : (state.conName || 'Con');
-      toast('Formal speeches it is. ' + who + ' starts.');
+      toast('Timed speeches it is. ' + who + ' starts.');
     }
   }
   // The prep offer that follows the formal door. Local to this screen: the
@@ -7187,10 +7183,58 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // time. Timestamps are absolute Date.now(); the reader corrects the
   // peer's by the skew it measures on each openLive write, the same
   // rebase applyRemoteTimer does for the clock.
+  function setupConversationPanel(on){
+    var area = document.querySelector('.transcript-area');
+    var det = $('conversationTranscript');
+    if (on && area && !det){
+      det = document.createElement('details');det.id = 'conversationTranscript';det.className = 'conversation-transcript';
+      var summary = document.createElement('summary');summary.textContent = 'Conversation transcript';
+      det.appendChild(summary);area.parentNode.insertBefore(det,area);
+      var flow = document.createElement('div');flow.id = 'conversationFlow';flow.className = 'conversation-flow';
+      area.appendChild(flow);
+    }
+    if (det && area){
+      det.hidden = !on;
+      if (on && area.parentNode !== det) det.appendChild(area);
+      if (!on && area.parentNode === det) det.parentNode.insertBefore(area,det);
+    }
+    var notes = $('conversationNotes');if (notes) notes.hidden = !on;
+    paintConversationFlow();
+  }
+  function paintConversationFlow(){
+    var host = $('conversationFlow');if (!host || !openMode()) return;
+    var rows = [], mine = mySide(), peer = openPeerSide();
+    if (isSpectator()){
+      ['pro','con'].forEach(function(side){
+        ((state.openSpectatorSegs || {})[side] || []).forEach(function(s){ rows.push({at:s.at||0,side:side,text:s.text}); });
+      });
+    }else{
+      (openSeg.segs || []).forEach(function(s){ rows.push({at:s.at||0,side:mine,text:s.text}); });
+      (state.openPeerSegs || []).forEach(function(s){ rows.push({at:(s.at||0)+(s.clock==='server'?0:state.openPeerSkew||0),side:peer,text:s.text}); });
+    }
+    rows.sort(function(a,b){return a.at-b.at});
+    host.innerHTML = rows.length ? rows.map(function(r){
+      return '<p class="conversation-line"><b>'+escHtml((r.side==='pro'?state.proName:state.conName)||'Speaker')+'</b>'+escHtml(r.text||'')+'</p>';
+    }).join('') : '<p class="conversation-line">Listening. The conversation appears here as speech is captured.</p>';
+  }
   var openSeg = { committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
+  var openNotesProgress = { count:0, segments:0, at:0 };
+  function maybeConversationNotes(){
+    if (!openMode() || isSpectator() || state.timerState !== 'running') return;
+    if (openNotesProgress.count >= 16 || Date.now()-openNotesProgress.at < 60000) return;
+    var fresh = openSeg.segs.slice(openNotesProgress.segments);
+    var text = fresh.map(function(s){return s.text||''}).join(' ');
+    if (text.trim().split(/\s+/).length < 30) return;
+    var side = mySide();if (!side) return;
+    var idx = 1000 + openNotesProgress.count*2 + (side==='con'?1:0);
+    openNotesProgress.count++;openNotesProgress.segments=openSeg.segs.length;openNotesProgress.at=Date.now();
+    generateRoundNotes({code:'Conversation',name:'Conversation excerpt',side:side,
+      speakerName:side==='pro'?state.proName:state.conName,text:text},idx);
+  }
   function openSegStart(){
     if (openSeg.timer) return;
     openSeg.committed = ''; openSeg.segs = []; openSeg.stableTicks = 0; openSeg.lastLen = 0;
+    openNotesProgress = { count:0, segments:0, at:Date.now() };
     openSeg.timer = setInterval(function(){ try { openSegTick(false); } catch(e){} }, 2500);
   }
   function openSegStop(){
@@ -7212,7 +7256,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var take = m ? m[0] : ((force || openSeg.stableTicks >= 2) ? rest : '');
     if (!take.trim()) return;
     openSeg.committed = v.slice(0, openSeg.committed.length + take.length);
-    openSeg.segs.push({ at: Date.now(), text: take.trim() });
+    openSeg.segs.push({ at: window.DBRoomClock ? DBRoomClock.now() : Date.now(), clock: 'server', speakerUid: state.user && state.user.uid || '', text: take.trim() });
+    paintConversationFlow();
+    maybeConversationNotes();
     if (force) openPublishSegs(); else openScheduleSegPublish();
   }
   function openScheduleSegPublish(){
@@ -7237,7 +7283,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         var pl = d.openLive[peer];
         if (typeof pl.updatedAtMs === 'number' && pl.updatedAtMs !== state.openPeerStamp){
           state.openPeerStamp = pl.updatedAtMs;
-          state.openPeerSkew = Date.now() - pl.updatedAtMs;
+          state.openPeerSkew = window.DBRoomClock ? -DBRoomClock.publisherOffset(pl) : 0;
         }
         var body = $('openPeerBody');
         if (body && body.textContent !== (pl.text || '')){
@@ -7258,6 +7304,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       }
     }
     if (d.openSegs && peer && Array.isArray(d.openSegs[peer])) state.openPeerSegs = d.openSegs[peer];
+    if (d.openSegs && isSpectator()) state.openSpectatorSegs = d.openSegs;
+    paintConversationFlow();
   }
   function openAdoptRemoteTimer(t){
     if (!t || t.speechIdx !== state.speechIdx) return;
@@ -7295,7 +7343,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var skew = state.openPeerSkew || 0;
     var rows = openSeg.segs.map(function(sg){ return { at: sg.at, side: mine, text: sg.text }; });
     (state.openPeerSegs || []).forEach(function(sg){
-      if (sg && sg.text) rows.push({ at: (sg.at || 0) + skew, side: peer, text: String(sg.text) });
+      if (sg && sg.text) rows.push({ at: (sg.at || 0) + (sg.clock === 'server' ? 0 : skew), side: peer, text: String(sg.text) });
     });
     rows.sort(function(a, b){ return a.at - b.at; });
     // Merge consecutive rows from the same person into one line.
@@ -7798,7 +7846,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // offset carries indices across restarts, because a restarted engine
   // begins a fresh results list at 0 and would otherwise overwrite the
   // sentences already captured.
-  var mic = { base:'', own:'', finals:[], offset:0, lastAt:0, startedAt:0, restarts:0, running:false, everHeard:false, timer:0 };
+  var mic = { generation:0, base:'', own:'', finals:[], offset:0, lastAt:0, startedAt:0, restarts:0, running:false, everHeard:false, timer:0 };
 
   function micState(kind, text){
     var el = $('micState'), t = $('micStateText');
@@ -7852,6 +7900,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     updateWordCount();
   }
   function micResetBuffer(){
+    mic.generation++;
     mic.base = ''; mic.own = ''; mic.everHeard = false;
     mic.lastScrollTop = 0;   // a new speech starts following again
     mic.restarts = 0; mic.lastAt = 0; mic.startedAt = 0;
@@ -8019,6 +8068,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (state.micActive) micState(mic.everHeard ? 'live' : 'idle', mic.everHeard ? 'Listening' : 'Listening');
     };
     rec.onresult = function(e){
+      if (!state.micActive || !isMyTurn() || isSpectator()) return;
       var interim = '';
       for (var i = e.resultIndex; i < e.results.length; i++){
         var r = e.results[i];
@@ -8081,6 +8131,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // pipeline never ran and a fresh getUserMedia is correct.
   function srvBorrowTrack(){
     try {
+      var local = room.call && room.call.participants().local;
+      var localTrack = local && trackOf(local.tracks && local.tracks.audio);
+      if (localTrack && localTrack.readyState === 'live') return localTrack;
+    } catch(e){}
+    try {
       var src = camConv && camConv.cam && camConv.cam.srcStream;
       var t = src && src.getAudioTracks && src.getAudioTracks()[0];
       if (t && t.readyState === 'live') return t;
@@ -8135,8 +8190,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // that refused the context, keeps exactly the behaviour it had.
   function srvHeardSpeech(){ return !srv.an || srv.heard; }
 
-  function srvUpload(blob, mySeq, attempt, heard){
-    if (!blob || blob.size < 2048) return;
+  function srvUpload(blob, mySeq, attempt, heard, capture){
+    if (!capture) capture = { generation: mic.generation, speechIdx: state.speechIdx, side: mySide() };
+    function current(){ return capture.generation === mic.generation && capture.speechIdx === state.speechIdx && capture.side === mySide() && isMyTurn() && !isSpectator(); }
+    if (!current() || !blob || blob.size < 2048) return;
     // Silence is a hole in the transcript, not a request for words. Ten
     // seconds of opus comfort noise clears the size floor above, so the
     // level meter is what actually stops it.
@@ -8150,9 +8207,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // nonsense on the browsers that have no Web Speech API (Firefox,
     // Brave, most of iOS) — the exact browsers this engine exists for.
     fd.append('language', myLang());
-    fetch('/api/transcribe', { method:'POST', body: fd })
+    var request = fetch('/api/transcribe', { method:'POST', body: fd })
       .then(function(r){ if (!r.ok) throw new Error('transcribe ' + r.status); return r.json(); })
       .then(function(d){
+        if (!current()) return;
         var txt = (d && d.text) ? String(d.text).trim() : '';
         mic.finals[mySeq] = txt;
         if (txt){ mic.everHeard = true; mic.lastAt = Date.now(); }
@@ -8162,7 +8220,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         micState(txt ? 'live' : 'idle', 'Listening');
       })
       .catch(function(){
-        if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1, heard);
+        if (!current()) return;
+        if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1, heard, capture);
         mic.finals[mySeq] = '';        // a 10s hole beats stalling the speech
         // Two dead segments with nothing heard yet means the service is
         // down, not that the room is quiet. Say so while the round can
@@ -8171,6 +8230,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           micFail('Transcription is not responding. Type the speech instead; the judge reads what you write.');
         }
       });
+    srv.pending = srv.pending || [];
+    srv.pending.push(request);
+    request.then(function(){ srv.pending = srv.pending.filter(function(p){return p!==request}); });
+    return request;
   }
   function srvSegment(){
     if (!srv.on || !srv.stream) return;
@@ -8182,6 +8245,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     var mySeq = mic.offset + (srv.seq++);
+    var capture = { generation: mic.generation, speechIdx: state.speechIdx, side: mySide() };
     // Per-segment verdict. Read and reset before the next segment arms, so
     // one segment's voice can never vouch for the next one's silence.
     srv.loud = 0; srv.heard = false;
@@ -8191,7 +8255,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // Reopen the mic BEFORE uploading, so the gap between segments is
       // milliseconds rather than a network round trip.
       if (srv.on) srvSegment();
-      srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0, heard);
+      srvUpload(new Blob(chunks, { type: srv.mime || 'audio/webm' }), mySeq, 0, heard, capture);
     };
     // start() itself can throw NotSupportedError (Safari mid-teardown, a
     // track that ended between construction and start). Measured in a
@@ -8201,7 +8265,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     catch(e){ srv.rec = null; if (srv.on) micFail('This browser will not let us record. Type the speech instead.'); return; }
     srv.timer = setTimeout(function(){
       if (srv.rec && srv.rec.state === 'recording') srv.rec.stop();
-    }, SEG_MS);
+    }, openMode() ? 5000 : SEG_MS);
   }
   function srvStart(){
     if (srv.on) return;
@@ -8248,6 +8312,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       srv.stream = null;
     }
     srv.borrowed = false;
+  }
+  function finishPendingTranscription(){
+    srv.on = false;
+    if (srv.timer){clearTimeout(srv.timer);srv.timer=0;}
+    var stopped = new Promise(function(resolve){
+      var recorder = srv.rec;
+      if (!recorder || recorder.state !== 'recording'){resolve();return;}
+      recorder.addEventListener('stop', resolve, {once:true});
+      try {recorder.stop();} catch(e){resolve();}
+    });
+    var timer;
+    return Promise.race([
+      stopped.then(function(){return Promise.all(srv.pending || []);}),
+      new Promise(function(resolve){timer=setTimeout(resolve,6000);})
+    ]).then(function(){clearTimeout(timer);});
   }
 
   // ── Backstop transcription: the ROOM's audio, heard by the other side
@@ -8307,7 +8386,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches && f.speeches[state.speechIdx];
     if (!sp || !room.call) return null;
-    var wantName = sideBench(f, sp.side) === 'gov' ? state.proName : state.conName;
+    var wantUid = sideBench(f, sp.side) === 'gov' ? state.proUid : state.conUid;
     var ps = {};
     try { ps = room.call.participants() || {}; } catch(e){ return null; }
     var others = [];
@@ -8317,12 +8396,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (isAudienceName(p.user_name)) return;        // audience cams are not debaters
       var t = trackOf(p.tracks && p.tracks.audio);
       if (!t) return;                                 // muted or not yet playable
-      others.push({ name: p.user_name, track: t });
+      if (wantUid && p.user_id !== wantUid) return;
+      others.push({ uid: p.user_id, track: t });
     });
     for (var i = 0; i < others.length; i++){
-      if (wantName && others[i].name === wantName) return others[i].track;
+      if (wantUid && others[i].uid === wantUid) return others[i].track;
     }
-    return others.length === 1 ? others[0].track : null;
+    return !wantUid && others.length === 1 ? others[0].track : null;
   }
   function bkStopCapture(){
     if (bk.timer){ clearTimeout(bk.timer); bk.timer = 0; }
@@ -8644,6 +8724,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function setMicActive(on){
+    if (on !== state.micActive) mic.generation++;
+    // The room already captures an echo-cancelled local microphone. In a
+    // conversation reuse that track instead of opening Web Speech's
+    // separate, uncontrolled microphone capture.
+    if (on && openMode() && micCanServer() && srvBorrowTrack()) state.micSupport.engine = 'server';
     var btn = $('micBtn');
     var engine = (state.micSupport && state.micSupport.engine) || 'browser';
     if (engine === 'server'){
@@ -12097,13 +12182,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var sec = $('roundNotes');
     var list = $('rnList');
     if (!sec || !list) return;
-    var host = state.phase === 'ballot' ? $('ballotNotesHost') : ($('moreOptions') || {}).firstElementChild;
+    var host = state.phase === 'ballot' ? $('ballotNotesHost') : (openMode() ? $('conversationNotes') : ($('moreOptions') || {}).firstElementChild);
     if (host && sec.parentNode !== host) host.appendChild(sec);
     var on = roundNotesOn();
     var btn = $('rnOffBtn');
     if (btn) btn.textContent = on ? 'Hide' : 'Show';   // never let the button disagree with the switch
     setTimeout(function(){ try { window.__lrSyncSectionStatus(); } catch(e){} }, 0);
     var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
+    var empty = $('conversationNotesEmpty');if (empty) empty.hidden = notes.length > 0;
     var pending = state.rnPending || {};
     var pendingIdx = Object.keys(pending).filter(function(k){ return pending[k]; });
     var sub = $('rnSub');
@@ -12119,11 +12205,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     if (sub) sub.textContent = 'Bullet points of what each side said. Both sides see the same notes.';
     var f = FORMATS[state.formatKey];
-    if (notes.length) renderNotePreview(notes[notes.length - 1]);
+    if (notes.length && !openMode()) renderNotePreview(notes[notes.length - 1]);
     var sides = (f && f.sides || ['pro','con']).slice();
     notes.forEach(function(n){ if (sides.indexOf(n.side) < 0) sides.push(n.side); });
     var html = sides.map(function(side){
       var sideNotes = notes.filter(function(n){ return n.side === side; });
+      if (openMode()) sideNotes = sideNotes.slice(-1);
       var label = ({pro:'For',con:'Against',gov:'For',opp:'Against'})[side] || (f && f.sideLabels && f.sideLabels[side]) || side;
       var content = sideNotes.map(function(n){
         var pts = (Array.isArray(n.points) ? n.points : []).filter(function(p){ return p && p.note; }).map(function(p){
@@ -12205,7 +12292,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     ].concat(roundLangs().some(function(c){ return c !== 'en'; })
         ? ["- Speeches may be in any language; write the notes in English."] : []).join('\n');
     var user = "MOTION: " + state.motion
-      + "\n\nTHE SPEECH THAT JUST ENDED (" + entry.code + " — " + entry.name + ", " + (entry.speakerName || entry.side) + "):\n\n" + entry.text
+      + "\n\nTRANSCRIPT EXCERPT (" + entry.code + ", " + entry.name + ", " + (entry.speakerName || entry.side) + "):\n\n" + entry.text
       + "\n\nReturn the JSON now.";
     fetch('/api/claude', {
       method: 'POST',
@@ -12578,6 +12665,22 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function endSpeech(opts){
     opts = opts || {};
     if (isSpectator()) return; // spectators can't advance the round
+    if (state.endingSpeech) return;
+    // Finish the captured tail before freezing this speech for the judge.
+    // Generation fencing still drops anything that arrives after the cap
+    // or after another client has advanced the room.
+    if (!opts._flushed && (srv.on || (srv.pending && srv.pending.length))){
+      var endingIdx=state.speechIdx, endingRoom=state.room, endingElapsed=getElapsed();
+      state.endingSpeech=true;stopTimer();
+      var endBtn=$('endSpeechBtn');
+      if(endBtn){endBtn.disabled=true;endBtn.textContent='Finishing transcript…';}
+      finishPendingTranscription().then(function(){
+        state.endingSpeech=false;if(endBtn)endBtn.disabled=false;
+        if(state.phase!=='round'||state.speechIdx!==endingIdx||state.room!==endingRoom)return;
+        endSpeech(Object.assign({},opts,{_flushed:true,_elapsed:endingElapsed}));
+      });
+      return;
+    }
     // The storage ask, moved off the doorway. One speech is on the
     // record by now, the ballot is minutes away, and the question
     // ("keep your own rounds?") finally refers to something that
@@ -12586,7 +12689,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var f = FORMATS[state.formatKey];
     var sp = f.speeches[state.speechIdx];
     if (!sp) return;
-    var elapsed = getElapsed();
+    var elapsed = typeof opts._elapsed==='number' ? opts._elapsed : getElapsed();
     stopTimer();
     setMicActive(false);
     var sideKey = sp.side;
@@ -18673,6 +18776,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // the IIFE and take the whole round page with it.
   var audCam = {
     active: false, joining: false,
+    allowAudio: false, micOn: false, micButton: null,
     stream: null, frame: null, guard: null, guardVideo: null,
     pill: null, beatNow: null, cfg: null, cfgPending: false,
     // Ask-to-join state. 'none' | 'pending' | 'accepted' | 'rejected'.
@@ -18709,9 +18813,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   // ── Audience cameras: a verified spectator can BE SEEN watching ──
-  // Video only. The mic can never open: the server mints a Daily token
-  // with permissions.canSend = ['video'], enforced by Daily's media
-  // server rather than by anything a client could patch out. The gate
+  // Camera access is server-granted. In a casual round, an explicitly
+  // approved microphone request also grants audio, initially muted. The gate
   // (named account, optional Turnstile, video_bans, slot cap) lives in
   // /api/audience-cam; this side handles the join UX, publishes a
   // deliberately low-res track (320x240 @ 12fps so N audience tiles
@@ -18721,8 +18824,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // participant to the lowest simulcast layer so four extra faces cost
   // the debaters four thumbnails of decode instead of four more HD
   // streams. Daily's prebuilt layout promotes the active speaker, and
-  // an audience token can never send audio, so a downgraded audience
-  // tile can never be the thing someone is trying to look at.
+  // guest video remains a small tile even when a casual-call guest speaks.
   function wireAudienceReceiveSettings(frame){
     if (!frame) return;
     var applied = {};
@@ -18785,11 +18887,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (audCam.req === 'accepted'){ joinAudienceCam(); return; }
     // Turnstile configured means the self-serve door is open and there
     // is nobody to wait on.
-    if (audCam.cfg && audCam.cfg.selfServe){ joinAudienceCam(); return; }
+    if (!openMode() && audCam.cfg && audCam.cfg.selfServe){ joinAudienceCam(); return; }
     requestCallJoin();
   }
 
   function paintAudCamPill(){
+    paintAudienceMic();
     var btn = audCam.pill;
     if (!btn) return;
     var off = state.allowAudienceCams === false;
@@ -18801,12 +18904,36 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     else if (audCam.reqSending) label = '<b>Asking&hellip;</b>';
     else if (audCam.req === 'pending') label = '<span class="acp-dot" aria-hidden="true"></span> <b>Waiting to be let in</b>';
     else if (audCam.req === 'accepted') label = '<span aria-hidden="true">&#128247;</span> <b>You are in &middot; turn camera on</b>';
-    else if (audCam.cfg && audCam.cfg.selfServe) label = '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>';
+    else if (!openMode() && audCam.cfg && audCam.cfg.selfServe) label = '<span aria-hidden="true">&#128247;</span> <b>Join on camera</b>';
     else label = '<span aria-hidden="true">&#9995;</span> <b>Ask to join the call</b>';
     btn.innerHTML = label;
     btn.title = audCam.req === 'pending'
       ? 'The debaters have been asked. Tap to take the request back.'
-      : 'Join the call on camera. Video only, your mic never turns on.';
+      : (openMode() ? 'Ask to join with your camera and microphone. You start muted.' : 'Join the call on camera. Your microphone stays off.');
+  }
+
+  function paintAudienceMic(){
+    if (!audCam.micButton && room.tray){
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.id = 'audienceMic'; btn.className = 'cv-btn';
+      btn.addEventListener('click', function(){
+        if (!audCam.active || !audCam.allowAudio || !room.call) return;
+        var next = !audCam.micOn;
+        var track = audCam.stream && audCam.stream.getAudioTracks()[0];
+        if (!track || track.readyState === 'ended'){ toast('Microphone unavailable. Leave the call and ask to join again.'); return; }
+        track.enabled = next;
+        try { room.call.setLocalAudio(next); audCam.micOn = next; }
+        catch(e){ track.enabled = false; audCam.micOn = false; toast('Could not turn on the microphone.'); }
+        paintAudienceMic();
+      });
+      audCam.micButton = btn;
+    }
+    var b = audCam.micButton;
+    if (!b) return;
+    if (room.tray && b.parentNode !== room.tray) room.tray.appendChild(b);
+    b.hidden = !audCam.active || !audCam.allowAudio;
+    b.textContent = audCam.micOn ? 'Mute microphone' : 'Turn microphone on';
+    b.setAttribute('aria-pressed', audCam.micOn ? 'true' : 'false');
   }
 
   // ── Ask to join the call (watcher side) ──────────────────────────
@@ -18836,6 +18963,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     paintAudCamPill();
     ref.set({
       kind: 'cam',
+      audio: openMode(),
       status: 'pending',
       name: publicNameOf(state.user || u),
       requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -18873,7 +19001,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var d = snap.exists ? (snap.data() || {}) : null;
       if (!d || d.kind !== 'cam'){ return; }
       if (d.status === 'accepted'){
-        var wasWaiting = audCam.req !== 'accepted';
+        var wasWaiting = audCam.req === 'pending' || audCam.reqSending;
         audCam.req = 'accepted';
         paintAudCamPill();
         // Only auto-join off a fresh accept. A reload with a standing
@@ -18968,7 +19096,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         // The captcha is the SELF-SERVE door. When it is not configured
         // the human check is the debaters' accept, which the server
         // re-reads for itself, so there is nothing to run here.
-        if (!cfg.selfServe || !cfg.siteKey) return null;
+        if (audCam.req === 'accepted' || !cfg.selfServe || !cfg.siteKey) return null;
         return audCamVerify(cfg.siteKey);
       })
       .then(function(tsToken){
@@ -18987,16 +19115,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         }
         tokenOut = res.body.token;
         audCam.name = res.body.name || '';
+        audCam.allowAudio = res.body.allowAudio === true;
+        audCam.micOn = false;
         // Low-res on purpose: audience texture, not broadcast quality.
         // Keeps encode cost near-zero for the spectator and decode cost
         // bounded for everyone rendering up to 4 audience tiles.
         return navigator.mediaDevices.getUserMedia({
-          audio: false,
+          audio: audCam.allowAudio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
           video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 }, facingMode: 'user' },
         });
       })
       .then(function(ms){
         audCam.stream = ms;
+        ms.getAudioTracks().forEach(function(t){ t.enabled = false; });
         return mountAudCamFrame(tokenOut, audCam.name);
       })
       .then(function(){
@@ -19004,7 +19135,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         startAudCamGuard();
         if (audCam.beatNow) audCam.beatNow();
         paintAudCamPill();
-        toast('You are on camera as audience. Your mic stays off.');
+        toast(audCam.allowAudio ? 'You joined the call. Press Turn microphone on when you want to speak.' : 'You are on camera as audience. Your microphone stays off.');
         try { gtag('event', 'aud_cam_on', { room: state.room }); } catch(e){}
       })
       .catch(function(e){
@@ -19032,7 +19163,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       url: state.dailyUrl,
       userName: props.userName,
       videoSource: props.videoSource,
-      audioSource: false,
+      audioSource: props.audioSource || false,
+      startAudioOff: true,
     };
     // Key omitted rather than undefined: daily-js validates on presence.
     if (typeof props.token === 'string' && props.token) join.token = props.token;
@@ -19050,36 +19182,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (room.call && room.viewer){
       var track = audCam.stream && audCam.stream.getVideoTracks()[0];
       if (!track) return Promise.reject(new Error('Camera unavailable'));
-      return rejoinViewerCall({ token: token, userName: name || 'Audience · Watcher', videoSource: track });
+      var audio = audCam.allowAudio && audCam.stream.getAudioTracks()[0];
+      return rejoinViewerCall({ token: token, userName: name || 'Audience · Watcher', videoSource: track, audioSource: audio || false });
     }
-    // Legacy: a browser where the call object never came up is still on
-    // the Prebuilt iframe, and this is the only path it has.
-    // Retire whatever the watcher was already watching through, or two
-    // joins from one tab double the audio and spend the seat twice.
-    destroyViewerMount();
-    var old = shell.querySelector('iframe.daily-frame');
-    if (old) old.remove();
-    var frame = window.DailyIframe.createFrame(shell, {
-      showLeaveButton: false,
-      iframeStyle: { width:'100%', height:'100%', border:'0', background:'#000', position:'absolute', top:'0', left:'0' },
-    });
-    audCam.frame = frame;
-    window.__lrDailyWrapper = true; // pop-out must not adopt this iframe
-    frame.on('left-meeting', function(){ if (audCam.active) stopAudienceCam('left'); });
-    wireAudienceReceiveSettings(frame);
-    return frame.join({ url: state.dailyUrl, token: token, startAudioOff: true })
-      .then(function(){
-        var track = audCam.stream && audCam.stream.getVideoTracks()[0];
-        if (!track) throw new Error('Camera unavailable');
-        return frame.setInputDevicesAsync({ videoSource: track });
-      })
-      .then(function(){
-        frame.setLocalVideo(true);
-        try { frame.setLocalAudio(false); } catch(e){}
-      });
+    // External MediaStreamTracks are supported by Daily's call object,
+    // not Prebuilt. Never claim a successful camera join that publishes
+    // nothing, or start a second invisible call in the same tab.
+    return Promise.reject(new Error('Reconnect to the room before joining the call.'));
   }
 
   function audCamCleanupMedia(){
+    audCam.micOn = false; audCam.allowAudio = false;
     if (audCam.guard){ try { audCam.guard.stop(); } catch(e){} audCam.guard = null; }
     if (audCam.guardVideo){ try { audCam.guardVideo.remove(); } catch(e){} audCam.guardVideo = null; }
     if (audCam.stream){
@@ -19675,13 +19788,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var timed = !isWatch && !isCam;
     var name = escHtml(req.name || (timed ? 'A debater' : 'Someone'));
     var comment = req.comment ? '<div class="join-req-comment">“' + escHtml(req.comment) + '”</div>' : '';
-    var asks = isCam ? 'wants to join the call on camera'
+    var wantsAudio = isCam && req.audio === true && openMode();
+    var asks = isCam ? (wantsAudio ? 'wants to join with camera and microphone' : 'wants to join the call on camera')
              : (isWatch ? 'wants to watch this round' : 'wants to join this round');
     // Say what accepting actually grants, because "Let in" alone does
     // not tell a debater mid-round that a stranger's face is about to
     // appear in their video call.
     var note = isCam
-      ? '<div class="join-req-note">They appear on camera beside you. Their mic cannot open.</div>'
+      ? '<div class="join-req-note">' + (wantsAudio ? 'They join muted and can turn their microphone on. They remain an audience guest, outside either scored side.' : 'They appear on camera beside you. Their microphone stays off.') + '</div>'
       : '';
     // Say why it arrived late, so a card landing 25 seconds after the ask
     // does not read as the round asking the same person twice.
@@ -21568,7 +21682,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         state.log = [logEntry(0, P1, 287), logEntry(1, C1, 296)];
         state.roundNotes = [NOTES_P1, NOTES_C1];
         state.factChecks = [FACT];
-        enterRound(2, { text: P2, watching: 23, clock: 62 });
+        enterRound(openMode() ? 0 : 2, { text: P2, watching: 23, clock: 62 });
         return;
       }
       // waiting + spectator: Jordan's first speech is running.
@@ -21581,7 +21695,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         enterBallot();
         return;
       }
-      enterRound(1, { text: C1.slice(0, 420), watching: 23, clock: 143 });
+      enterRound(openMode() ? 0 : 1, { text: C1.slice(0, 420), watching: 23, clock: 143 });
     }
     // After every DOMContentLoaded handler (init() registers later in the
     // file), so the dock and the audience rail exist before the paint.

@@ -447,6 +447,7 @@ export function buildPrompt(d) {
     // surface owns format): the RFD renders **bold** as real bold, and
     // the em-dash tic is the tell that makes a ballot read machine-made.
     'RFD STYLE: punctuation is periods, commas, semicolons; never an em dash, never a dash used as a pause. Wrap the three to six phrases that actually decided the round in **double asterisks** (they render bold on the ballot); no other markdown. You may use \\n between issue paragraphs.',
+    'TRANSCRIPT CITATIONS: when explaining a deciding exchange, cite one or two short verbatim excerpts, identify the speaker, and put the quoted words in **double asterisks** inside quotation marks. Copy the captured words exactly. Never turn a paraphrase into a quote, assign one person another person\'s words, or invent words to fill a capture gap. If no reliable excerpt supports a point, explain the uncertainty in plain language without a quotation.',
   ].filter(Boolean).join('\n\n');
 
   const user = [

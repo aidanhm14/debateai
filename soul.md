@@ -22,6 +22,15 @@
 
 **A living document of what this product is, who it's for, how it sounds, and why the decisions were made the way they were. When a new contributor (or a new Claude session) loads this repo, read this file first. If a change would contradict something here, either the change or this file is wrong. don't ship the change without reconciling.**
 
+**Casual room clarity, 2026-09-06:** the founder asked for the question,
+shared clock and simple AI notes together, with the conversation readable
+as an exchange. The full capture retains speaker identities and times for
+judging even when that metadata is omitted from the display. Casual-call
+audience guests can use their microphone after explicitly requesting it
+and receiving a seated participant's approval. They join muted and remain
+outside the two scored sides. This supersedes camera-only audience rules
+for approved casual-call guests only.
+
 ---
 
 ## 1. What this is (one sentence)
