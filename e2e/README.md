@@ -7,8 +7,8 @@ the API contract checks still read the real public endpoints.
 push to `main` (`.github/workflows/e2e-smoke.yml`) once the Netlify deploy is
 live, and fails loudly if a promise the site makes to a stranger stops being
 true: the first screen and its three doors (including returning visitors
-from the retired claim experiment), `/spar` onboarding followed by required
-sign-in, `/watch` static copy, `/practice` mounting, retired
+from the retired claim experiment), `/spar` sign-in without a required
+questionnaire, `/watch` static copy, `/practice` mounting, retired
 routes redirecting, `sw.js` parsing with a `CACHE_NAME`, `/api/claude`
 refusing a tokenless call, the public read endpoints, and the judge season
 calendar not having expired.
@@ -52,8 +52,8 @@ run; anonymous uids are never counted as signups (soul.md section 8).
 
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
 It uses the shipped matching code with an in-memory queue and pairing
-endpoints. It covers direct room entry, old pending proposals, concurrent
-page loads, automatic join retries, and Voice AI opt-outs that leave the
+endpoints. It covers mutual acceptance before room entry, existing matches, concurrent
+page loads, acceptance retries, and Voice AI opt-outs that leave the
 queue without touching real accounts.
 
 `tests/round-draft-sync.spec.mjs` uses the shipped topic chooser and actual

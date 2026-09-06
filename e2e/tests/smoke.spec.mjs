@@ -75,20 +75,17 @@ test.describe('public pages', () => {
   });
 
   // /spar is a LIVE queue with humans in it. Keep these browsers signed
-  // out: the questionnaire comes first, then Google/Apple before any queue
+  // out: Google/Apple comes before any queue
   // entry. Neither test authenticates or writes a queue document.
-  test('/spar first-timer: AI MATCHMAKING opens first, and closing it requires sign-in', async ({ page }) => {
+  test('/spar first-timer: sign-in opens directly without a questionnaire', async ({ page }) => {
     const errors = trackErrors(page);
     // A deterministic empty queue keeps the waiting-person invitation
-    // from covering Close while this test checks the dismissal path.
+    // from covering the account door.
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 0 } }));
     await page.goto('/spar');
     const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
-    await expect(desk).toBeVisible({ timeout: 25_000 });
-    await expect(desk.getByText(/step 1 of \d/i).first()).toBeVisible();
-    await expect(page.locator('#signInBtn')).toHaveCount(0);
-    await desk.getByRole('button', { name: /^close$/i }).first().click();
     await expect(page.locator('#signInBtn')).toBeVisible({ timeout: 20_000 });
+    await expect(desk).toHaveCount(0);
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toBeVisible();
     await expect(page.getByRole('dialog', { name: /how old are you/i })).toHaveCount(0);
@@ -96,7 +93,7 @@ test.describe('public pages', () => {
     await expect(page.locator('#globalDebateMap')).toHaveCount(0);
     await expect(page.getByText(/keep this tab open/i)).toHaveCount(0);
     // The inline sign-in gate owns this step. The cumulative timed wall
-    // runs during the questionnaire, never over an existing account gate.
+    // never stacks over an existing account gate.
     await page.waitForTimeout(6_500);
     await expect(page.locator('#ditAuth')).toBeHidden();
     expect(errors, 'uncaught exceptions on /spar').toEqual([]);
@@ -113,10 +110,8 @@ test.describe('public pages', () => {
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 1 } }));
     await page.goto('/spar');
     const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
-    await expect(desk).toBeVisible({ timeout: 25_000 });
-    await expect(desk.locator('.mp-wait')).toBeVisible();
-    await desk.getByRole('button', { name: /^sign in to meet$/i }).click();
     await expect(page.locator('#signInBtn')).toBeVisible({ timeout: 20_000 });
+    await expect(desk).toHaveCount(0);
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toContainText(/with Apple/i);
     await expect(page.locator('.gate-guest:visible, .gate-email:visible')).toHaveCount(0);

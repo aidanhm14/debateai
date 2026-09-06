@@ -552,13 +552,13 @@ h1 em{color:var(--accent);font-style:normal}
 .ai-wait-offer .awo-go{background:#dc2626;color:#fff;border:0;border-radius:10px;padding:9px 16px;font-weight:800;font-size:.82rem;cursor:pointer}
 .ai-wait-offer .awo-go:hover{background:#b91c1c}
 @media (max-width:520px){.ai-wait-offer{flex-direction:column;gap:10px}}
-.quiet-links{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
+.quiet-links{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 24px;margin-top:12px}
 /* Padding + negative margin: same visual rhythm, ~3x the tap height.
    These are the only controls on screen while someone is in the queue
    (Cancel especially), and a 15px-tall text link is a miss on a phone.
    Horizontal pad stays at 5px so hit areas meet, never overlap, across
    the 10px flex gap. */
-.quiet-links .link-btn{background:none;border:none;padding:8px 5px;margin:-8px -5px;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;color:var(--text-ghost);text-decoration:none;transition:color .14s}
+.quiet-links .link-btn{background:none;border:none;padding:8px 5px;min-height:44px;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;color:var(--text-ghost);text-decoration:none;transition:color .14s}
 .quiet-links .link-btn:hover{color:var(--text-dim)}
 .quiet-links .ql-sep{color:var(--text-ghost);opacity:.5}
 .btn{
@@ -3366,7 +3366,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return cleanMatchProfile({
       version: MATCH_PROFILE_VERSION,
       agree: [], interest: [], topics: [], background: 'first', conviction: 'either', economy: 'skip', immigration: 'skip',
-      speech: 'skip', democracy: 'skip', mode: 'viewpoint', clipIntent: 'private'
+      speech: 'skip', democracy: 'skip', mode: 'fast', clipIntent: 'private'
     });
   }
   function matchProfilePoliticsCount(profile){
@@ -3776,6 +3776,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(value);
   }
 
+  var activeMatchProfileRun = null;
+  function closeMatchProfileForMatch(){
+    if (!state.profileFlowOpen || !activeMatchProfileRun) return;
+    matchProfile = profileFromAnswers(activeMatchProfileRun.answers);
+    saveMatchProfileLocal();
+    activeMatchProfileRun.close();
+    activeMatchProfileRun = null;
+    state.profileFlowOpen = false;
+    state.profileReady = true;
+    state.privateProfileSyncKey = '';
+    state.privateProfileReady = false;
+    document.body.classList.remove('match-profile-open');
+  }
+
   function startMatchProfileFlow(opts){
     opts = opts || {};
     if (state.profileFlowOpen) return;
@@ -3801,6 +3815,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         cta: opts.editing ? 'Save changes' : (state.named ? 'Find my opponent' : 'Sign in and find my opponent')
       },
       onSkip: function(answers){
+        activeMatchProfileRun = null;
         document.body.classList.remove('match-profile-open');
         matchProfile = answers ? profileFromAnswers(answers) : (matchProfile || defaultMatchProfile());
         saveMatchProfileLocal();
@@ -3814,6 +3829,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (opts.onDone) opts.onDone();
       },
       onDone: function(answers){
+        activeMatchProfileRun = null;
         document.body.classList.remove('match-profile-open');
         matchProfile = profileFromAnswers(answers);
         saveMatchProfileLocal();
@@ -3827,11 +3843,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (opts.onDone) opts.onDone();
       },
       onClose: function(){
+        activeMatchProfileRun = null;
         document.body.classList.remove('match-profile-open');
         state.profileFlowOpen = false;
         if (opts.onClose) opts.onClose();
       }
     });
+    activeMatchProfileRun = run;
     window.__sparSaveDeskProgress = function(){
       if (!state.profileFlowOpen) return;
       matchProfile = profileFromAnswers(run.answers);
@@ -3934,7 +3952,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     voiceReason: '',               // server's word for why, logged with the click
     aiLeaving: false,              // one navigation even if the write is slow
     zombieParked: false,           // queue parked after hours unattended; first touch rejoins
-    profileReady: !!matchProfile,  // first visit completes the player-build before queueing
+    profileReady: !!matchProfile,  // optional preferences; a new search uses neutral defaults
     profileFlowOpen: false,        // auth refreshes must not open or paint beneath the flow
     ratings: null,                 // public ladder rows, loaded only for Closest rating
     ratingsLoading: null,
@@ -4606,40 +4624,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     gateLivePollTimer = setInterval(refresh, 15000);
   }
 
-  // 2026-09-02, Aidan: "make sure to use [the matchmaker] even for
-  // anonymous profiles." A signed-out visitor meets the Match Desk first
-  // and the sign-in gate second, so the profile is on the device before
-  // the account exists and joinQueue honours it the moment sign-in lands.
-  // Skip (large, on every step) writes the neutral profile and moves on.
-  // DM, thread, inbox and friend-invite arrivals go straight to the gate:
-  // they did not come to build a matchup.
-  // 2026-09-04, the founder: "we really need to get this right to
-  // optimize securing users while not scaring them away forever bc they
-  // open a room to nobody and then dont come back". So the free guest
-  // round is offered ONLY when somebody is actually waiting. With nobody
-  // in the queue the desk still runs (the answers are saved), and the
-  // door after it is sign-in, because a guest
-  // parked in an empty room leaves and never returns, while an account
-  // can be pinged the moment someone shows up. A failed count reads as
-  // empty: the safe direction is the door, not the empty room.
-  function queueWaiting(cb){
-    fetch('/api/spar-queue', { cache: 'no-cache' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ cb(Math.max(0, Math.floor(Number(d && d.waiting) || 0))); })
-      .catch(function(){ cb(0); });
-  }
-  function guestDoorAfterDesk(){
-    renderGate();
-  }
+  // 2026-09-06: meeting someone takes priority over the optional Match
+  // Desk. Sign in, search, then enter once both people confirm readiness.
   function renderSignedOutEntry(){
-    if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')){
-      renderGate();
-      return;
-    }
-    try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0 }); } catch(e){}
-    // Desk first, saved locally, THEN the door: a guest session for the free
-    // round when one can be minted, the Google gate otherwise.
-    startMatchProfileFlow({ onDone: guestDoorAfterDesk, onClose: guestDoorAfterDesk });
+    renderGate();
   }
 
   // Guest with a session: queue if someone is there and a round is left,
@@ -5176,7 +5164,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function renderSearching(){
     shell.innerHTML =
       '<h1>Finding your <em>match...</em></h1>' +
-      '<p><strong>AI MATCHMAKING</strong>. Opinion opposition matching uses your answers to look for a meaningful disagreement.</p>' +
+      '<p>We\'ll offer you a live matchup. Once you both say yes, the room opens.</p>' +
       '<p id="deskWaitingNote" role="status" hidden></p>' +
       '<section class="keep-open" aria-label="While you wait">' +
         '<p><strong>Keep this tab open.</strong> Give people a moment to join. We&#8217;ll chime when your match is ready.</p>' +
@@ -5270,6 +5258,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // searching screen is the globe and Cancel. The offer timer below
       // still runs and finds no element, which is a no-op by its own guard.
       '<div class="quiet-links">' +
+        '<button type="button" class="link-btn" id="editMatchProfileBtn">Matching preferences (optional)</button>' +
         '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
       '</div>' +
       // 2026-09-04, the founder: Challenge a friend sits under the globe,
@@ -6864,12 +6853,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // rounds block). Everyone else — no session at all, or a guest who is
     // out of rounds — gets the gate.
     if (!canQueue(state.user)){ renderGate(); return; }
-    // First visit gets the player-build before the queue doc exists. A
-    // returning visitor keeps the saved device profile and can change it
-    // from the searching screen without losing their place.
+    // No questionnaire before the queue. Saved answers still help match;
+    // a first visit takes the first available person with neutral defaults.
     if (!state.profileReady || !matchProfile){
-      startMatchProfileFlow({ onDone: joinQueue, onClose: renderProfileGate });
-      return;
+      matchProfile = matchProfile || defaultMatchProfile();
+      state.profileReady = true;
     }
     // Age band before the first queue join, asked once ever
     // (js/age-gate.js). The answer rides the queue doc below and
@@ -7075,6 +7063,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         });
       }
       if (d.status === 'matched' && d.room && d.matchedWith){
+        closeMatchProfileForMatch();
         pingMatchFound(d.matchedWithName || '');
         teardownQueue();
         // The matched-state render is cosmetic; navigation into the
@@ -7085,6 +7074,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         catch (e) { console.warn('[spar] renderMatched failed, navigating anyway', e); }
         navigateToRound(d, 900);
       } else if (d.status === 'consent' && d.matchedWith){
+        closeMatchProfileForMatch();
         pingMatchFound(d.matchedWithName || '');
         // Two-phase match: someone's judge-paradigm note needs eyes
         // before the round exists. spar-pair wrote the full proposal
@@ -7621,14 +7611,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // the count is framed as the match expiring rather than as a
     // deadline to decide by, because there is nothing to decide.
     //
-    // peerConsent splits it in two. Both sides start at false, so for
-    // the first seconds neither of us has answered and the honest line
-    // is the empty-room warning. The moment they accept, the doc says
-    // so and this card should stop being a symmetric ready-check: a
-    // person is now standing in a room waiting on one click of mine.
-    // That fact was already in the snapshot and the card threw it away,
-    // showing the same screen either way. It is the most persuasive
-    // true thing available here, so it leads.
+    // Only their acceptance proves readiness. The room opens after both
+    // answers; a proposed pair alone is not a person sitting in a room.
     if (d.readyCheck && !theirNote && !myNote && !crossFmt){
       shell.innerHTML =
         '<div class="consent-wrap mf" id="consentCard">' +
@@ -7637,14 +7621,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           faceoffMarkup(d.matchedWithAvatar, d.matchedWith, peerName, { locked: peerConsent }) +
           (peerConsent ? lockedBadge(peerName) : '') +
           '<h1>' + (peerConsent
-            ? '<em>' + peerName + '</em> is waiting on you.'
-            : '<em>' + peerName + '</em> is ready.') + '</h1>' +
+            ? '<em>' + peerName + '</em> is ready.'
+            : 'Want to debate <em>' + peerName + '</em>?') + '</h1>' +
           '<p class="lede">' + (peerConsent
-            ? 'They said yes and the room is open. One click puts you in the <strong>' + fmtLabel + '</strong> round. Leave it and they sit in an empty room, then go back to the queue.'
-            : 'Confirm you\'re here and the <strong>' + fmtLabel + '</strong> round starts. If you don\'t, they go back in the queue instead of waiting in an empty room.') + '</p>' +
+            ? 'They said yes. Join them and the <strong>' + fmtLabel + '</strong> room opens.'
+            : 'Say yes if you\'re ready. The <strong>' + fmtLabel + '</strong> room opens once you both confirm.') + '</p>' +
           '<div class="btn-row">' +
             '<button class="btn primary mf-go" id="consentAcceptBtn" style="--mf-dur:' + decideSec + 's">' +
-              (peerConsent ? 'Join them, start the round' : 'I\'m here, start the round') +
+              (peerConsent ? 'Join the room' : 'Yes, I\'m ready') +
               '<span class="mf-drain" aria-hidden="true"></span>' +
             '</button>' +
             '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
@@ -9480,17 +9464,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // otherwise get a free extra round on screen before spar-pair
         // refuses them, which is a worse moment than the honest one.
         loadGuestRounds(state.user.uid);
-        // 2026-09-04: a first-time guest builds the Match Desk profile
-        // BEFORE the free round, so it is saved on the device and comes
-        // with them into the account the gate asks for afterwards.
-        if (!matchProfile && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite') && !state.profileFlowOpen){
-          try { gtag('event', 'spar_match_profile_prompt', { signed_in: 0, guest: 1 }); } catch(e){}
-          startMatchProfileFlow({
-            onDone: function(){ guestQueueOrGate(); },
-            onClose: function(){ guestQueueOrGate(); }
-          });
-          return;
-        }
         // A returning guest with a saved profile: same rule, the free
         // round only runs into a queue that has someone in it.
         if (canQueue(state.user) && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite')){
@@ -9567,9 +9540,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session at all. Mint the one-round guest session (the auth
-        // listener then runs the Match Desk and queues them); if anonymous
-        // auth is blocked, the desk-then-gate entry is the fallback.
+        // No session: show the live-video account door. Matching
+        // preferences remain optional after sign-in.
         if (!mintGuestSession()) renderSignedOutEntry();
       }
     });

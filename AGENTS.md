@@ -29,7 +29,7 @@ deleting the declining person's queue record.
 
 Web visitors get a locked Google sign-in chooser after 40 cumulative visible
 seconds across pages and reloads. Existing named accounts are already identified.
-New human matches require Google or Apple sign-in before entering the queue. The Match Desk runs first and preserves answers through the cumulative sign-in wall. Existing live rooms stay uninterrupted, including the site-shell player.
+New human matches require Google or Apple sign-in before entering the queue. The Match Desk is optional: first-time visitors search with neutral, first-available preferences after sign-in. Saved preferences still apply, and the waiting screen offers an optional editor. An arriving match saves local answers and closes that editor so the ready check is visible. Both people still confirm before the room opens. Existing live rooms stay uninterrupted, including the site-shell player.
 A required inline account gate does not get a second dialog over it. Legal text
 stays readable. AI debates require a named account before Start and server-side
 before a fresh generation or voice mint. Signed Realtime continuations can finish
