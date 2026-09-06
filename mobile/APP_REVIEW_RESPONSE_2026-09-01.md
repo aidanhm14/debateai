@@ -115,6 +115,8 @@ Terms: https://itsdebatable.com/terms
 Support: https://itsdebatable.com/support
 Account deletion: Me > Account and settings > Delete account.
 
+The app's tab bar is Friends, Watch, Debate, Board, Me. Immersive rounds hide the tabs.
+
 We have also updated App Review Information with the current instructions and attached the same recording there.
 
 Thank you,
