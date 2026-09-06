@@ -16,6 +16,23 @@
   'use strict';
   var talk = null, strip = null, signature = '', busy = false, opening = false;
   var voice = null;
+  // Nudge timers, host only. The judge is a pre-round helper, so while
+  // people just chat it reminds them, casually, that the round is one tap
+  // away: Start conversation (no clock) or Start timed speeches.
+  var nudge = { timer: null, count: 0, key: '' };
+  function clearNudge() { clearTimeout(nudge.timer); nudge.timer = null; }
+  function armNudge(key, delay, instructions, max) {
+    if (!voice || !isHost()) return;
+    if (nudge.key !== key) { nudge.count = 0; nudge.key = key; }
+    clearNudge();
+    if (nudge.count >= max) return;
+    nudge.timer = setTimeout(function() {
+      if (!voice || !talk || !active(talk)) return;
+      nudge.count += 1;
+      say(instructions);
+      armNudge(key, delay, instructions, max);
+    }, delay);
+  }
   function ctx() { return window.__lrTopicContext ? window.__lrTopicContext() : {}; }
   function active(t) { return !!t && ['listening', 'proposed'].indexOf(t.phase) >= 0 && Date.now() < t.expiresAt; }
   function isHost() { return !!talk && talk.host === ctx().uid; }
@@ -157,6 +174,7 @@
     if (v.audio) { try { v.audio.srcObject = null; v.audio.remove(); } catch (_) {} }
   }
   function stopVoice(farewell) {
+    clearNudge();
     var v = voice; if (!v) return;
     voice = null;
     if (farewell && v.dc && v.dc.readyState === 'open') {
@@ -193,7 +211,7 @@
     if (!active(talk)) {
       var was = talk.phase;
       close();
-      if (voice) stopVoice(was === 'done' ? 'Say one short line: locked in, good luck to you both. Then stop.' : null);
+      if (voice) stopVoice(was === 'done' ? 'Say one short casual line and nothing more: locked in, now tap Start conversation to just talk it out, or Start timed speeches for turns on a clock. Good luck. Then stop.' : null);
       if (talk.error) notice(talk.error);
       return;
     }
@@ -201,6 +219,11 @@
     var key = JSON.stringify([talk.id, talk.phase, talk.accepts, talk.proposal, talk.proposals]);
     if (signature === key) return;
     signature = key;
+    if (talk.phase === 'listening') {
+      armNudge('listen:' + talk.id, 75000, 'They have been chatting a while. In one casual line under twenty words, remind them you can suggest a topic whenever they land on a disagreement, or they can just tap Start conversation and argue the resolution on screen. Then keep listening.', 2);
+    } else if (talk.phase === 'proposed') {
+      armNudge('proposed:' + talk.id + ':' + talk.proposals, 30000, 'The suggestion is still on their screens and nobody has tapped. In one casual line under twenty words: tap Use it if you are both in, then Start conversation or Start timed speeches. Or say something else. Then keep listening.', 2);
+    }
     var s = mount(); s.replaceChildren();
     s.classList.toggle('topic-strip--proposed', talk.phase === 'proposed');
     var lead = el('div', null, 'topic-strip-lead');
@@ -225,8 +248,13 @@
     }
     row.appendChild(button(talk.phase === 'proposed' ? 'Keep our topic' : 'Stop the judge', function() { ga('live_topic_voice_cancel', { phase: talk.phase }); act('cancel'); }, 'topic-strip-quiet'));
   }
+  function dismiss() {
+    if (talk && active(talk)) api('cancel').catch(function() {});
+    close(); stopVoice();
+  }
   window.RoomTopic = {
     render: render,
+    dismiss: dismiss,
     isPending: function() { return opening || active(talk || window.__lrTopicSnapshot); },
     open: function() {
       if (opening || !ctx().canChoose) return;

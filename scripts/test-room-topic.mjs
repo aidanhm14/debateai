@@ -100,7 +100,7 @@ await assert.rejects(bad.action('a', 'open'), /Only the two/);
 assert.equal(TOPIC_TOOLS.length, 1); assert.equal(TOPIC_TOOLS[0].name, 'propose_motion');
 assert.ok(!/Example:/.test(TOPIC_TOOLS[0].parameters.properties.motion.description), 'no example motion in the schema: the mini model proposed it verbatim before anyone spoke');
 const brief = buildTopicJudgeInstructions({ names: ['Ari', 'Bea'], from: 'Old claim here.', context: { issue: 'speech' }, attempt: 2 });
-for (const line of ['Never take a side', 'Never assign sides', 'propose_motion', 'three tries', 'abortion', 'Ari', 'Bea', 'not their first attempt']) assert.ok(brief.includes(line), 'brief: ' + line);
+for (const line of ['Never take a side', 'Never assign sides', 'propose_motion', 'three tries', 'abortion', 'Ari', 'Bea', 'not their first attempt', 'Start conversation', 'Start timed speeches', 'only BEFORE the round starts']) assert.ok(brief.includes(line), 'brief: ' + line);
 assert.ok(!brief.includes('—'), 'no em dashes in the brief');
 assert.ok(brief.includes(TOPIC_GREETING) && brief.includes('NEVER call propose_motion before'));
 assert.equal(validateProposedMotion('  Cities  should build more housing near transit. ', '').motion, 'Cities should build more housing near transit.');
@@ -139,6 +139,7 @@ assert.deepEqual(RUBRICS['adjudication-2026-09-flex'].dimensions, RUBRICS['adjud
 assert.deepEqual(SEASONS.at(-1).panel, SEASONS.at(-2).panel);
 assert.notEqual(rubricHash('adjudication-2026-09-flex'), rubricHash('adjudication-2026-08c'));
 const page = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
-assert.ok(page.includes('window.RoomTopic.isPending()'), 'a pending topic discussion blocks speech start');
+assert.ok(page.includes('window.RoomTopic.dismiss()'), 'starting a speech sends the judge away rather than being refused by it');
+assert.ok(!/isPending\(\)\)\{ toast\(/.test(page), 'the old blocking toast is gone');
 assert.ok(page.includes('Debate something else'));
 console.log('room topic: voice judge host, private hint, proposal relay, two votes, proposal cap, cancellations, stale replies, lock checks, mint shape and conversational judge routing passed');

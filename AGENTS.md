@@ -99,7 +99,10 @@ must accept; either can Stop the judge. Three proposals per talk, three
 minutes, `gpt-realtime-2.1-mini` by default (`OPENAI_TOPIC_REALTIME_MODEL`),
 6 mints an hour per uid. The judge never sees profile answers, only the
 issue name as a hint. There is no consent step and no textarea: the other
-person hears the judge announce itself and has Stop. Speech start,
+person hears the judge announce itself and has Stop. **It is pre-round
+only:** pressing Start dismisses the judge (`RoomTopic.dismiss()`) rather
+than being refused by it, and while people only chat it nudges, at most
+twice, toward Start conversation or Start timed speeches. Speech start,
 tournament locks, cancellation, stale proposals and concurrent accepts must
 preserve the current motion. `scripts/test-room-topic.mjs` exercises the
 state machine, the validator and the mint shape offline; the voice loop

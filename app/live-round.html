@@ -6873,7 +6873,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (hint) hint.style.display = '';
   }
   function startSpeechTimer(){
-    if (window.RoomTopic && window.RoomTopic.isPending()){ toast('Finish choosing the resolution together, or cancel the topic discussion.'); return; }
+    // The voice judge is a PRE-ROUND helper (2026-09-06, Aidan: "it cant
+    // happen once a round has started"). Pressing Start is the decision
+    // to argue the resolution on screen, so it sends the judge away rather
+    // than being refused by it.
+    if (window.RoomTopic && window.RoomTopic.isPending()){ try { window.RoomTopic.dismiss(); } catch(e){} }
     if (state.timerState === 'running' || state.timerState === 'ended') return;
     // A modal is not a security boundary. Tournament Speech 1 also stops
     // here unless the server-backed room state says the required capture
