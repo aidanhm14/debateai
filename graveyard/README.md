@@ -42,3 +42,5 @@ the newer layout adjusted around it.
 - [2026-09-05 — how-it-works long guide](2026-09-05-how-it-works.md) — replaced the repeated guide with a shorter path into a round.
 
 - [2026-09-06 — homepage voice greeting](2026-09-06-home-voice-prompt.md) — removed the greeting orb, rose AI button and italic serif treatment.
+
+- [Live popup photographic fallback](2026-09-06-live-popup-photo-fallback.md): replaced with current room snapshots and labeled animated illustrations.

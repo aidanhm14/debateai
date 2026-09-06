@@ -1,19 +1,15 @@
 // /api/room-shot — the still that lets a live strip show the room
 // instead of a text card.
 //
-// POST (seated debater, signed in): publishes a small JPEG of the canvas
-//   the room is ALREADY receiving. Nothing new leaves the device: in
-//   Camera mode that canvas is the camera feed the other side sees, in
-//   Avatar mode it is the mask, and in Off mode nothing is posted at all.
-//   Refused unless the round is public (isPrivate !== true) and still
-//   running, and unless the poster is one of the two seated UIDs.
+// POST (seated debater, signed in): publishes a small JPEG composed from
+// the two assigned, published room tiles, names and current motion. The
+// local Avatar tile is the mask, never the hidden camera. Public, live
+// rounds only; both assigned participants must have fresh presence.
 //
-// GET ?room=<id>: serves the freshest seat frame as image/jpeg.
-//
-// Why a 75s serve window: a still is only honest while the round it came
-// from is still live and still public. Debaters re-post every ~25s, so a
-// round that ends, empties, or flips to Private stops refreshing and the
-// image 404s inside a minute rather than lingering on the front page.
+// GET ?room=<id>: serves the freshest composite, at most 75s old. Current
+// privacy, status, motion draft and both seats are rechecked before bytes
+// leave the server. Responses are not cached, so an old image URL cannot
+// serve a room that has since become private or empty.
 //
 // Bytes live in live_shots/{room} rather than on the round doc: the round
 // doc is under a realtime listener held by every participant and watcher,
@@ -22,8 +18,9 @@
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
+import { roomShotPublic } from './lib/room-shot-eligibility.mjs';
 
-const MAX_B64 = 90_000;        // ~65KB of JPEG. A 320x180 q0.55 frame is ~12KB.
+const MAX_B64 = 90_000;        // ~65KB of JPEG; client composes a 640x360 preview.
 const MIN_GAP_MS = 12_000;     // per-seat write throttle
 const SERVE_TTL_MS = 75_000;   // older than this is not "live" any more
 const ROOM_RE = /^[A-Za-z0-9_-]{1,80}$/;
@@ -69,6 +66,7 @@ async function post(request) {
   // there is nobody who can be said to have agreed to be on the page.
   const seat = d.proUid === uid ? 'pro' : (d.conUid === uid ? 'con' : '');
   if (!seat) return errorResponse('Not a debater in this round', 403, request);
+  if (!roomShotPublic(d)) return errorResponse('Both debaters must be present', 409, request);
 
   const shotRef = db.collection('live_shots').doc(room);
   const now = Date.now();
@@ -80,11 +78,10 @@ async function post(request) {
 
   await shotRef.set({
     room,
-    // Stamped at write time so GET never has to re-read the round doc,
-    // and so a flip to Private simply stops the refresh.
+    // GET rechecks current privacy and presence before returning bytes.
     public: true,
     at: now,
-    seats: { [seat]: { b64, at, name: String((seat === 'pro' ? d.proName : d.conName) || '').slice(0, 40) } },
+    seats: { [seat]: { b64, at: now, name: String((seat === 'pro' ? d.proName : d.conName) || '').slice(0, 40) } },
   }, { merge: true });
 
   return jsonResponse({ ok: true, at: now }, 200, request);
@@ -95,6 +92,8 @@ async function get(request) {
   if (!ROOM_RE.test(room)) return new Response('Bad room', { status: 400 });
 
   const db = getDb();
+  const round = await withDeadline(db.collection('live_rounds').doc(room).get(), 2500);
+  if (!round.exists || !roomShotPublic(round.data())) return new Response('No public live room', { status: 404 });
   const snap = await withDeadline(db.collection('live_shots').doc(room).get(), 2500);
   if (!snap.exists) return new Response('No still', { status: 404 });
   const d = snap.data() || {};
@@ -112,9 +111,8 @@ async function get(request) {
     status: 200,
     headers: {
       'Content-Type': 'image/jpeg',
-      // The caller versions the URL with the shot timestamp, so a long
-      // cache on the bytes is safe and a new still is a new URL.
-      'Cache-Control': 'public, max-age=60',
+      // A timestamp alone cannot prove the room is still public.
+      'Cache-Control': 'no-store',
     },
   });
 }

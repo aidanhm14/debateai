@@ -18,42 +18,10 @@
  * already receiving, posted by a seated debater). A replay's comes from
  * /api/recording-thumb (a frame of the actual recording).
  *
- * THE LIVE CARD ALWAYS CARRIES A PICTURE OF THE ROOM (2026-09-04, the
- * founder, off a card that showed "I vs J" initials under LIVE NOW: put
- * an actual screenshot of the room there, so a signed-out visitor sees
- * the room for a second before the Google door). When a round has no
- * fresh /api/room-shot frame, which is most of the time (a still only
- * exists once a speech is running with a camera on), the card shows
- * ROOM_SHOT: a real screenshot of this site's own live-round page in the
- * audience view, captured from the ?design=spectator scene, so the two
- * faces are consented stills from the round bank and nobody real is on
- * it. It is the product UI, not a stock photo, and it is used ONLY on
- * the live card, only when no live frame exists, and never on the
- * waiting or replay cards. Names on it are the scene's fake names, not
- * the debaters in the announced round; the card's own text carries the
- * real names and motion.
- *
- * WHO SEES WHICH PICTURE (2026-09-05, the founder, off a card showing
- * the audience-view screenshot with one big face and one small: "do a
- * screenshot of the real room for signed in users, and then for non
- * signed in, have images from the deck but ones the user hasn't seen
- * yet so it feels real, have images be side by side, not one big one
- * small"):
- *   - SIGNED IN (Google): the live round's own frame from /api/room-shot
- *     when one is fresh, else ROOM_SHOT, the real screenshot of the room
- *     UI. This person can enter the room on one click, so the room is
- *     what they see.
- *   - SIGNED OUT: two DECK faces side by side, equal tiles, the way two
- *     seats read in a 1v1 room. The deck is the landing's example-round
- *     face bank (DECK_FACES below mirrors the landing pools exactly:
- *     consented real stills plus the sanctioned generated bank, school
- *     stills excluded). The landing board records every face it paints
- *     in localStorage under SEEN_FACES_KEY, and this card draws only
- *     faces that browser has NOT been shown yet, so the pair never reads
- *     as a card the visitor already scrolled past. Tiles carry the side
- *     chips only, never the live round's real names: a stand-in face
- *     under a real person's name would be a fabricated record, and the
- *     card's text line already carries the real names.
+ * A fresh frame always comes from the advertised public room, for every
+ * visitor. Without one, show clearly illustrated people debating. Never
+ * substitute a demo screenshot or unrelated photographic faces.
+ * The illustration is labeled; the live claim comes only from watch-live.
  *
  * Copy is per source and never overstates. A replay says REPLAY and
  * "Watch the replay", not LIVE NOW. Only a round actually in progress
@@ -79,12 +47,9 @@
  *   - excluded outright from round surfaces, the queue, and the pages
  *     that already list rounds (see SKIP)
  *
- * QA: ?livepop=off disables. ?livepop=now skips the dwell, snooze and
- * caps. ?livepop=demo renders the no-picture tile and ?livepop=demopic
- * the picture layout as production would pick it (room for a Google
- * user, deck pair for a guest); ?livepop=demopair and ?livepop=demoroom
- * force either look, so all of them can be judged on any page when
- * nothing happens to be live.
+ * QA: ?livepop=off disables. ?livepop=now skips dwell, snooze and
+ * caps. ?livepop=demo renders the animated illustration when no public
+ * round is available. Older demo variants remain aliases.
  */
 (function () {
   'use strict';
@@ -94,21 +59,6 @@
 
   /* 0 = show the frame as it is. 10 = frost it. */
   var BLUR_PX = 0;
-
-  /* Real screenshot of /live-round in the audience view (see header).
-     Stands in on the LIVE card when /api/room-shot has no fresh frame. */
-  var ROOM_SHOT = '/img/room-shot-live.jpg';
-
-  /* The deck: the landing example-round face bank, mirrored from
-     landing.html's FACE_M_REAL / FACE_M_GEN / FACE_W. Keep the three lists
-     in step with the landing when a face is added or pulled there. The
-     two 'tile' room faces (20, 32) share one backdrop and are left out
-     so a pair never shows the same wall behind two different people. */
-  var DECK_REAL = [46,47,48,49,51,52,53,54,63,65];
-  var DECK_GEN = [2,3,8,10,12,16,17,19,21,22,24,26,28,29,31,33,34,36,40,42,44,
-                  7,11,13,15,18,23,25,27,35,37,38,41,56,57,58,59,60,61,62];
-  var SEEN_FACES_KEY = 'da-faces-seen';
-  var FACE_DIR = '/img/round/faces/';
 
   /* LIVE-ONLY MODE (2026-08-31, the founder: when someone joins while a
      round is live, notify them asap).
@@ -198,10 +148,6 @@
   var off = /[?&]livepop=off(?:&|$)/.test(qs);
   var force = /[?&]livepop=now(?:&|$)/.test(qs);
   var demo = /[?&]livepop=demo(?:&|$)/.test(qs) || /[?&]livepop=demo(?:pic|pair|room)(?:&|$)/.test(qs);
-  var demoPic = /[?&]livepop=demopic(?:&|$)/.test(qs);
-  var demoPair = /[?&]livepop=demopair(?:&|$)/.test(qs);
-  var demoRoom = /[?&]livepop=demoroom(?:&|$)/.test(qs);
-  if (demoPic) demo = true;
   if (off) return;
 
   /* Never inside a frame. live-pip.js keeps a round alive in a
@@ -251,45 +197,33 @@
   }
   function unseen(key) { return seenItems().indexOf(key) < 0; }
 
-  function faceId(n) { return 'face' + (n < 10 ? '0' : '') + n; }
-  function seenFaces() {
-    try { var a = JSON.parse(localStorage.getItem(SEEN_FACES_KEY) || '[]'); return a && a.length ? a : []; }
-    catch (e) { return []; }
-  }
-  function markFacesSeen(ids) {
-    try {
-      var a = seenFaces();
-      for (var i = 0; i < ids.length; i++) if (a.indexOf(ids[i]) < 0) a.push(ids[i]);
-      localStorage.setItem(SEEN_FACES_KEY, JSON.stringify(a.slice(-400)));
-    } catch (e) {}
-  }
-  function shuffle(a) {
-    for (var i = a.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t;
+  // Illustrations are fictional, with varied pairings. No real profile
+  // or inferred gender controls the artwork; names stay in the card body.
+  function illustrationHtml() {
+    var variant = (readNum(sessionStorage, 'da-livepop-art') + 1) % 4;
+    write(sessionStorage, 'da-livepop-art', variant);
+    var hair = [[false, true], [true, false], [true, true], [false, false]][variant];
+    function person(x, longHair, skin, shirt, delay) {
+      return '<g class="da-debate-person" style="--talk-delay:' + delay + 's" transform="translate(' + x + ',0)">' +
+        '<g class="da-debate-head">' +
+          (longHair ? '<path d="M39 130V83c0-51 76-51 76 0v55z" fill="#29252d"/>' : '') +
+          '<rect x="64" y="119" width="27" height="30" rx="9" fill="' + skin + '"/>' +
+          '<ellipse cx="77" cy="90" rx="30" ry="38" fill="' + skin + '"/>' +
+          (longHair ? '<path d="M47 90c-9-53 62-63 63-4-15-7-25-17-31-29-8 18-16 25-32 33" fill="#29252d"/>' : '<path d="M47 80c-8-39 21-49 46-35 17-1 27 18 13 40l-7-22c-18 12-27-3-47 14z" fill="#382f33"/>') +
+          '<path d="M62 91h3m24 0h3" stroke="#30272a" stroke-width="4" stroke-linecap="round"/>' +
+          '<path class="da-debate-mouth" d="M71 109q7 6 14-1" fill="none" stroke="#783d3c" stroke-width="3" stroke-linecap="round"/>' +
+        '</g>' +
+        '<path d="M22 210v-37c0-47 110-47 110 0v37" fill="' + shirt + '"/>' +
+        '<path class="da-debate-hand" d="M117 178l20-29m-3 0 5-15m-2 15 13-9" fill="none" stroke="' + skin + '" stroke-width="13" stroke-linecap="round"/>' +
+        '<g class="da-debate-bubble"><rect x="105" y="49" width="49" height="25" rx="12" fill="#fffaf2"/><path d="m114 70-4 10 15-8" fill="#fffaf2"/><path d="M116 60h4m7 0h4m7 0h4" stroke="#494351" stroke-width="3" stroke-linecap="round"/></g>' +
+      '</g>';
     }
-    return a;
-  }
-  /* Two deck faces this browser has not been shown, real stills first.
-     Once the whole deck has been seen the seen list is reset rather than
-     repeating the last pair forever. */
-  function deckPair() {
-    var seen = seenFaces();
-    var fresh = function (n) { return seen.indexOf(faceId(n)) < 0; };
-    var real = shuffle(DECK_REAL.filter(fresh)), gen = shuffle(DECK_GEN.filter(fresh));
-    var pool = real.concat(gen);
-    if (pool.length < 2) {
-      try { localStorage.removeItem(SEEN_FACES_KEY); } catch (e) {}
-      pool = shuffle(DECK_REAL.slice()).concat(shuffle(DECK_GEN.slice()));
-    }
-    var pair = [faceId(pool[0]), faceId(pool[1])];
-    markFacesSeen(pair);
-    return pair;
-  }
-  function pairHtml(pair) {
-    return '<span class="da-livepop__pair">' +
-      '<span class="da-livepop__seat"><img src="' + FACE_DIR + esc(pair[0]) + '.jpg" alt="" loading="lazy" decoding="async"><span class="da-livepop__side">For</span></span>' +
-      '<span class="da-livepop__seat"><img src="' + FACE_DIR + esc(pair[1]) + '.jpg" alt="" loading="lazy" decoding="async"><span class="da-livepop__side da-livepop__side--con">Against</span></span>' +
-    '</span>';
+    return '<span class="da-livepop__illustration" role="img" aria-label="Illustration of two people debating">' +
+      '<svg viewBox="0 0 400 225" aria-hidden="true"><rect width="400" height="225" fill="#e8e4ed"/>' +
+      '<rect x="6" y="7" width="192" height="211" rx="16" fill="#f0d9ce"/><rect x="202" y="7" width="192" height="211" rx="16" fill="#d0deda"/>' +
+      person(13, hair[0], variant % 2 ? '#b97552' : '#edb991', '#b84d4b', 0) +
+      person(210, hair[1], variant % 2 ? '#e9b394' : '#8c543f', '#486d68', 1.6) +
+      '</svg><span class="da-livepop__art-label">Illustration</span></span>';
   }
 
   /* Mid-round in ANOTHER tab. SKIP above only knows this tab's path, so a
@@ -371,16 +305,17 @@
       '.da-livepop__thumb img{width:100%;height:100%;object-fit:cover;display:block;',
       'filter:blur(' + BLUR_PX + 'px);transform:scale(' + (BLUR_PX ? 1.12 : 1.001) + ')}',
 
-      /* Two equal seats side by side (signed-out visitors). 2:1 so each
-         seat is square and neither reads as the small picture-in-picture
-         tile of a video call. */
-      '.da-livepop--pair .da-livepop__thumb{aspect-ratio:2/1}',
-      '.da-livepop__pair{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;gap:3px;background:var(--bg,#0a0a0c)}',
-      '.da-livepop__seat{position:relative;display:block;overflow:hidden;background:var(--bg-elev,#101014)}',
-      '.da-livepop__seat img{width:100%;height:100%;object-fit:cover;display:block;filter:none;transform:none}',
-      '.da-livepop__side{position:absolute;left:7px;bottom:7px;height:18px;padding:0 7px;border-radius:999px;',
-      'display:inline-flex;align-items:center;background:rgba(10,10,12,.78);color:#fff;font-size:.56rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}',
-      '.da-livepop__side--con{background:rgba(220,38,38,.86)}',
+      '.da-livepop__illustration{position:absolute;inset:0;display:block;background:#e8e4ed}',
+      '.da-livepop__illustration svg{display:block;width:100%;height:100%;object-fit:cover}',
+      '.da-livepop__art-label{position:absolute;right:9px;bottom:9px;padding:3px 6px;border-radius:4px;background:rgba(255,250,242,.88);color:#4c4644;font-size:9px;font-weight:700}',
+      '.da-livepop__room-note{position:absolute;left:9px;bottom:9px;padding:5px 8px;border-radius:6px;background:rgba(10,10,12,.8);color:#fff;font-size:11px;font-weight:700}',
+      '.da-debate-head{transform-box:fill-box;transform-origin:50% 90%;animation:daDebateNod 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
+      '.da-debate-hand{transform-box:fill-box;transform-origin:0% 100%;animation:daDebateHand 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
+      '.da-debate-bubble{opacity:.3;animation:daDebateTalk 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
+      '@keyframes daDebateNod{0%,50%,100%{transform:rotate(0)}20%{transform:rotate(-4deg)}35%{transform:rotate(2deg)}}',
+      '@keyframes daDebateHand{0%,50%,100%{transform:rotate(0)}22%{transform:rotate(-12deg)}}',
+      '@keyframes daDebateTalk{0%,45%,100%{opacity:.3}12%,32%{opacity:1}}',
+      '.da-livepop.is-paused .da-livepop__illustration *{animation-play-state:paused}',
 
       /* Typographic fallback when there is no real frame. Reads as a
          deliberate tile, never as a broken image. */
@@ -458,7 +393,7 @@
       '@media(max-width:560px){.da-livepop{left:12px;right:12px;width:auto;',
       'bottom:calc(12px + env(safe-area-inset-bottom,0px))}}',
       '@media(prefers-reduced-motion:reduce){.da-livepop{transition:opacity .2s ease}',
-      '.da-livepop.in{transform:none}.da-livepop__dot{animation:none}}'
+      '.da-livepop.in{transform:none}.da-livepop__dot,.da-livepop__illustration *{animation:none!important}}'
     ].join('');
     document.head.appendChild(st);
   }
@@ -523,17 +458,14 @@
         var r = list[i];
         if (!r || !r.room) continue;
         if (!unseen('live:' + r.room) || inUrl(r.room)) continue;
-        if (r.shot) { pick = r; break; }   // a real frame is the better card
-        if (!pick) pick = r;
+        var rank = (r.started ? 2 : 0) + (r.shot ? 1 : 0);
+        if (!pick || rank > ((pick.started ? 2 : 0) + (pick.shot ? 1 : 0))) pick = r;
       }
       if (!pick) return null;
       var needsSpectatorAuth = !googleUser();
-      // Signed out: two unseen deck faces, side by side. Signed in: the
-      // round's own frame, else the real room screenshot. See header.
-      var pair = needsSpectatorAuth ? deckPair() : null;
       return {
         kind: 'live',
-        key: 'live:' + pick.room,
+        key: 'live:' + pick.room, room: pick.room, shot: pick.shot || 0,
         badge: 'LIVE NOW',
         headline: pick.motion || 'A debate is running',
         who: (pick.proName || 'Debater') + ' vs ' + (pick.conName || 'Debater'),
@@ -545,15 +477,8 @@
         cta: needsSpectatorAuth ? 'Sign in to watch' : 'Watch this round',
         href: '/live-round?room=' + encodeURIComponent(pick.room) + '&spectate=1',
         spectatorAuth: needsSpectatorAuth,
-        // Versioned by the shot timestamp: a new still is a new URL,
-        // which is what lets room-shot cache the bytes for a minute.
-        img: pair ? null : (pick.shot
-          ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot)
-          : ROOM_SHOT),
-        pair: pair,
-        // Telemetry: had_pic stays "a live frame of THIS round"; the
-        // room screenshot and the deck pair are reported as stand_in.
-        liveFrame: !!pick.shot && !pair,
+        img: pick.shot ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot) : null,
+        liveFrame: !!pick.shot,
         initials: [initial(pick.proName), initial(pick.conName)]
       };
     });
@@ -805,7 +730,7 @@
     injectCss();
 
     var card = document.createElement('a');
-    card.className = 'da-livepop da-livepop--' + item.kind + (item.pair ? ' da-livepop--pair' : (item.img ? '' : ' da-livepop--nopic'));
+    card.className = 'da-livepop da-livepop--' + item.kind + (item.kind === 'live' || item.img ? '' : ' da-livepop--nopic');
     card.href = item.href;
     card.setAttribute('role', 'region');
     card.setAttribute('aria-label', item.badge + '. ' + item.headline + '. ' + item.cta + '.');
@@ -814,14 +739,14 @@
     // inline plain-px bottom would drop it and sit under the home bar.
     if (off > 18) card.style.bottom = 'calc(' + off + 'px + env(safe-area-inset-bottom, 0px))';
 
-    var thumb = item.pair ? pairHtml(item.pair)
-      : item.img
-      ? '<img src="' + esc(item.img) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
-      : fallbackHtml(item);
+    var thumb = item.img
+      ? '<img src="' + esc(item.img) + '" alt="' + (item.kind === 'live' ? 'Snapshot of this live room' : 'Round replay') + '" decoding="async" referrerpolicy="no-referrer">'
+      : item.kind === 'live' ? illustrationHtml() : fallbackHtml(item);
 
     card.innerHTML =
       '<span class="da-livepop__thumb">' + thumb +
         '<span class="da-livepop__badge"><span class="da-livepop__dot"></span>' + esc(item.badge) + '</span>' +
+        (item.kind === 'live' ? '<span class="da-livepop__room-note">Real people in the room</span>' : '') +
       '</span>' +
       '<span class="da-livepop__body">' +
         '<span class="da-livepop__motion">' + esc(item.headline) + '</span>' +
@@ -833,64 +758,65 @@
       '</span>' +
       '<button type="button" class="da-livepop__x" aria-label="Not now">&#10005;</button>';
 
-    // A frame that 404s between the list read and the image request
-    // (round ended, went private, camera off, thumbnail not built yet)
-    // collapses to the tile rather than leaving a broken frame under a
-    // badge that says a round is there.
-    if (item.pair) {
-      // A seat whose still 404s draws a replacement once, then gives up
-      // to the initials tile so nothing broken sits under LIVE NOW.
-      var seats = card.querySelectorAll('.da-livepop__seat img');
-      for (var si = 0; si < seats.length; si++) {
-        (function (seatImg) {
-          var swapped = false;
-          seatImg.addEventListener('error', function () {
-            if (!swapped) { swapped = true; seatImg.src = FACE_DIR + deckPair()[0] + '.jpg'; return; }
-            var holder = card.querySelector('.da-livepop__thumb');
-            var pairEl = card.querySelector('.da-livepop__pair');
-            if (!holder || !pairEl) return;
-            pairEl.remove();
-            var fb = document.createElement('span');
-            fb.className = 'da-livepop__fallback';
-            fb.innerHTML = '<span class="da-livepop__ini">' + esc(item.initials[0]) + '</span>' +
-              '<span class="da-livepop__vs">VS</span>' +
-              '<span class="da-livepop__ini">' + esc(item.initials[1]) + '</span>';
-            holder.insertBefore(fb, holder.firstChild);
-            card.classList.remove('da-livepop--pair');
-            card.classList.add('da-livepop--nopic');
-          });
-        })(seats[si]);
-      }
+    function showIllustration() {
+      var holder = card.querySelector('.da-livepop__thumb');
+      if (!holder) return;
+      imageVersion++;
+      var old = holder.querySelector('img, .da-livepop__illustration');
+      if (old) old.remove();
+      holder.insertAdjacentHTML('afterbegin', illustrationHtml());
+      item.img = null; item.liveFrame = false;
     }
-    var img = item.pair ? null : card.querySelector('img');
-    if (img) {
+    var imageVersion = 0;
+    function watchImage(img) {
+      var version = ++imageVersion;
       img.addEventListener('error', function () {
+        if (version !== imageVersion) return;
+        if (item.kind === 'live') showIllustration();
+        else { img.remove(); card.classList.add('da-livepop--nopic'); }
+      }, { once: true });
+      return version;
+    }
+    var img = card.querySelector('.da-livepop__thumb img');
+    if (img) watchImage(img);
+    // A card already on screen upgrades as soon as the room publishes its
+    // first snapshot. Finished/private rooms disappear on the next read.
+    var refreshTimer = null, refreshing = false;
+    function refreshRoom() {
+      card.classList.toggle('is-paused', document.hidden);
+      if (document.hidden || refreshing || !cardVisible || !item.room) return;
+      refreshing = true;
+      getJSON('/api/watch-live').then(function (data) {
+        if (!cardVisible || !data || !Array.isArray(data.rounds) || data.error) return;
+        var live = data.rounds.filter(function (r) { return r.room === item.room; })[0];
+        if (!live) { close('ended'); return; }
+        var meta = card.querySelector('.da-livepop__meta');
+        if (meta) meta.textContent = live.status === 'ballot' ? 'JUDGING' : live.started ? 'IN PROGRESS' : 'STARTING';
+        var headline = card.querySelector('.da-livepop__motion');
+        if (headline && live.motion) headline.textContent = live.motion;
+        if (!live.shot) { if (item.liveFrame) showIllustration(); return; }
+        if (live.shot === item.shot && item.liveFrame) return;
+        item.shot = live.shot;
+        item.img = '/api/room-shot?room=' + encodeURIComponent(item.room) + '&v=' + encodeURIComponent(live.shot);
         var holder = card.querySelector('.da-livepop__thumb');
-        if (!holder) return;
-        // A live frame that 404s (round-shot serve window lapsed between
-        // the list read and the request) drops to the room screenshot,
-        // not to initials: the round is still live and the card still
-        // shows the room. Only the screenshot itself failing collapses
-        // to the tile.
-        if (item.kind === 'live' && img.getAttribute('src') !== ROOM_SHOT) {
-          item.liveFrame = false;
-          img.setAttribute('src', ROOM_SHOT);
-          return;
-        }
-        img.remove();
-        var fb = document.createElement('span');
-        fb.className = 'da-livepop__fallback';
-        fb.innerHTML = '<span class="da-livepop__ini">' + esc(item.initials[0]) + '</span>' +
-          '<span class="da-livepop__vs">VS</span>' +
-          '<span class="da-livepop__ini">' + esc(item.initials[1]) + '</span>';
-        holder.insertBefore(fb, holder.firstChild);
-        card.classList.add('da-livepop--nopic');
-      });
+        var fresh = new Image();
+        fresh.alt = 'Snapshot of this live room'; fresh.decoding = 'async';
+        var version = watchImage(fresh);
+        fresh.addEventListener('load', function () {
+          if (!cardVisible || version !== imageVersion) return;
+          var old = holder.querySelector('img, .da-livepop__illustration');
+          if (old && old.parentNode) old.remove();
+          holder.insertBefore(fresh, holder.firstChild); item.liveFrame = true;
+        }, { once: true });
+        fresh.src = item.img;
+      }).catch(function () {}).then(function () { refreshing = false; });
     }
 
     var life = null;
     function close(reason) {
       if (life) { clearTimeout(life); life = null; }
+      if (refreshTimer) clearInterval(refreshTimer);
+      document.removeEventListener('visibilitychange', refreshRoom);
       cardVisible = false;
       card.classList.remove('in');
       setTimeout(function () { if (card.parentNode) card.remove(); }, 340);
@@ -920,6 +846,10 @@
     });
 
     document.body.appendChild(card);
+    if (item.kind === 'live' && item.room) {
+      refreshTimer = setInterval(refreshRoom, 15000);
+      document.addEventListener('visibilitychange', refreshRoom);
+    }
     // rAF is the clean frame boundary, but it does not fire at all in a
     // backgrounded tab, and a card stuck at opacity:0 with a 30s life
     // would expire without ever being seen. The timeout is the floor.
@@ -931,7 +861,7 @@
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { kind: item.kind, had_pic: !!(item.img || item.pair), pic: item.pair ? 'pair' : (item.liveFrame ? 'frame' : (item.img ? 'room' : 'none')), stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.liveFrame, pic: item.liveFrame ? 'frame' : (item.kind === 'live' ? 'illustration' : 'none'), stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
 
     /* A live round is worth holding the corner for longer than a replay
        nudge: it is happening now and the invitation expires with it. */
@@ -985,10 +915,7 @@
       who: 'banaandebater vs Yael', meta: 'IN PROGRESS',
       cta: googleUser() ? 'Watch this round' : 'Sign in to watch', href: '/live-round?room=demo&spectate=1',
       spectatorAuth: !googleUser(),
-      // demopic mirrors production: the room for a Google user, the
-      // deck pair for a guest. demopair / demoroom force either look.
-      img: (demoRoom || (demoPic && googleUser())) ? ROOM_SHOT : null,
-      pair: (demoPair || (demoPic && !googleUser() && !demoRoom)) ? deckPair() : null,
+      img: null, liveFrame: false,
       initials: ['B', 'Y']
     };
     setTimeout(function () { render(fake); }, 400);

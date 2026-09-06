@@ -113,6 +113,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script defer src="/vendor/daily-iframe-0.92.2.js"></script>
 <script defer src="/js/daily-loader.js"></script>
 <script defer src="/js/cam-avatar.js"></script>
+<script src="/js/room-snapshot.js"></script>
 <!-- On-device NSFW watchdog over the outgoing camera + the report →
      strike → ban pipeline (/api/video-moderate). Scores only, never
      frames. Optional: video works fine if this fails to load. -->
@@ -6944,6 +6945,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // reads this and starts its own ticking display so they can see
     // the active speaker's clock count up.
     publishTimerState();
+    // Refresh the public preview promptly when the debate actually starts.
+    try { pushRoomShot(); } catch(e){}
   }
   function pauseSpeechTimer(){
     if (state.timerState !== 'running') return;
@@ -10482,19 +10485,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // option while the room ran on the prebuilt iframe. joinRoomCall() now
   // hands the canvas to join() itself, so there is no window in which
   // Daily owns a camera of its own and nothing to unify afterwards.
-  // ── Room still. A public round with a camera on posts a 320x180 frame
-  // every 25s so the homepage live strip can show the actual room
-  // instead of a text card. The source is camConv.cam.canvas — the exact
-  // surface the room is already receiving — so this publishes nothing
-  // the other side isn't already seeing: the mask in Avatar mode, the
-  // camera in Camera mode, and nothing at all in Off mode or in a
-  // Private round. The server re-checks all of that before it stores.
+  // ── Public room preview. Compose the two assigned, published video
+  // tiles with their public names and current motion every 25s, and when
+  // a speech starts. Avatar mode uses the published mask. Off mode and
+  // private rounds never upload. The server rechecks both seats and
+  // current privacy on upload AND image retrieval.
   // Six refusals at 25s is about two and a half minutes of trying, which
   // comfortably covers a second debater arriving and the seats landing on
   // the doc, and still gives up long before a genuinely ineligible round
   // burns a request a minute for its whole length.
   var REFUSAL_LIMIT = 6;
-  var roomShot = { timer:null, cv:null, busy:false, fails:0 };
+  var roomShot = { timer:null, busy:false, fails:0 };
   function roomShotEligible(){
     if (isSpectator() || state.isPrivate) return false;
     if (camConv.mode === 'off' || !camConv.cam || !camConv.cam.canvas) return false;
@@ -10503,17 +10504,27 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
   function pushRoomShot(){
     if (roomShot.busy || document.hidden || !roomShotEligible()) return;
-    var src = camConv.cam.canvas;
-    if (!src.width || !src.height) return;
-    if (!roomShot.cv){
-      roomShot.cv = document.createElement('canvas');
-      roomShot.cv.width = 320; roomShot.cv.height = 180;
-    }
-    var data;
-    try {
-      roomShot.cv.getContext('2d').drawImage(src, 0, 0, roomShot.cv.width, roomShot.cv.height);
-      data = roomShot.cv.toDataURL('image/jpeg', 0.55);
-    } catch(e){ return; }
+    if (!window.DBRoomSnapshot || !room.call || !room.joined) return;
+    var ps;
+    try { ps = room.call.participants() || {}; } catch(e){ return; }
+    var seats = ['pro', 'con'].map(function(side){
+      var uid = state[side + 'Uid'];
+      var person = Object.keys(ps).map(function(k){ return ps[k]; }).filter(function(p){
+        return uid && p && p.user_id === uid && !isAudienceName(p.user_name);
+      }).sort(function(a,b){ return Number(!!b.local) - Number(!!a.local); })[0];
+      if (!person) return null;
+      var tile = room.tiles && room.tiles['seat:' + person.session_id];
+      var source = null;
+      if (trackOf(person.tracks && person.tracks.video)) {
+        // The local canvas is the published camera/avatar. A remote tile
+        // is the received track, never a raw or hidden camera source.
+        if (person.local) source = camConv.mode === 'off' ? null : camConv.cam.canvas;
+        else if (tile && tile.video && tile.video.readyState >= 2) source = tile.video;
+      }
+      return { name: state[side + 'Name'], source: source, active: room.active === person.session_id };
+    });
+    if (!seats[0] || !seats[1]) return;
+    var data = window.DBRoomSnapshot.capture(seats, state.motion);
     if (!data || data.length < 200) return;
     roomShot.busy = true;
     state.user.getIdToken().then(function(tok){
