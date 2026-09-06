@@ -190,6 +190,23 @@ export async function getAuthUserByUid(uid) {
   };
 }
 
+// Public display-name fallback for accounts whose profile write never
+// completed. This deliberately returns no email, provider or login data.
+export async function getAuthDisplayNames(uids) {
+  const ids = [...new Set((uids || []).filter(uid => typeof uid === 'string' && uid.length >= 20 && uid.length <= 128))].slice(0,100);
+  if (!ids.length) return new Map();
+  const { projectId } = resolveCreds();
+  const token = await getAccessToken();
+  const response = await fetch(`${IDENTITY_TOOLKIT_BASE}/projects/${projectId}/accounts:lookup`, {
+    method:'POST', headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({localId:ids}), signal:AbortSignal.timeout(2500),
+  });
+  if (!response.ok) throw new Error(`Display-name lookup ${response.status}`);
+  const data = await response.json();
+  return new Map((data.users || []).filter(u => ids.includes(u.localId) && typeof u.displayName === 'string' && u.displayName.trim())
+    .map(u => [u.localId,u.displayName.trim().slice(0,40)]));
+}
+
 export async function listAllAuthUsers({ pageSize = 1000, maxPages = 50 } = {}) {
   const { projectId } = resolveCreds();
   const token = await getAccessToken();

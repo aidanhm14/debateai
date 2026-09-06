@@ -37,6 +37,13 @@ assert.equal(rows[0].xp, 6350, 'XP includes every round, beyond top-100 and prof
 assert.deepEqual(await fetchAccountProgress(db, placedUid), { xp: rows[0].xp });
 assert.deepEqual(composeTopRows(rows.slice().reverse(), [], 8), rows, 'Teaser and full board agree');
 assert.deepEqual(composeTopRows([], [], 8), []);
+delete profiles[newUid];
+const recovered = await fetchRatingRows(db, {lookupNames:async ids => {
+  assert.deepEqual(ids,[newUid]);
+  return new Map([[newUid,'Apple account name']]);
+}});
+assert.equal(recovered[1].name,'Apple account name','An account without a profile keeps its actual signup name');
+assert.equal(recovered[0].name,'Current name','Chosen public profile name always wins');
 
 let projected = false;
 const fallbackDb = { collection: () => ({ where: () => ({

@@ -12,13 +12,14 @@
 import { withDeadline } from './firestore.mjs';
 import { displayRating, isRankable, tierFor, MIN_RATED_GAMES } from './rating.mjs';
 import { fetchAccountProgress } from './account-progress.mjs';
+import { getAuthDisplayNames } from './auth-admin.mjs';
 
 // The rating ladder, ordered placed-first (3+ real rated rounds) then
 // rating. Names joined
 // from user_profiles with a rating_changes fallback so a row never
 // renders blank. Returns [] on an empty ladder; throws on a failed
 // primary query so callers keep their own error posture.
-export async function fetchRatingRows(db, { limit = 100 } = {}) {
+export async function fetchRatingRows(db, { limit = 100, lookupNames = getAuthDisplayNames } = {}) {
   // Single-field orderBy rides the automatic index; no composite needed.
   const snap = await withDeadline(db.collection('user_ratings')
     .orderBy('rating', 'desc')
@@ -71,6 +72,12 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     }));
   }
 
+  let accountNames = new Map();
+  const missingNames = nameless.filter(r => !changeNames.get(r.uid)).map(r => r.uid);
+  if (missingNames.length){
+    try { accountNames = await withDeadline(lookupNames(missingNames), 3000); }
+    catch { /* Keep an unnamed row if Auth is unavailable; never expose an email. */ }
+  }
   const progress = new Map();
   await Promise.all(raw.map(async ({ uid }) => {
     try { progress.set(uid, await fetchAccountProgress(db, uid)); }
@@ -88,7 +95,7 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     return {
       uid,
       xp: progress.get(uid)?.xp ?? null,
-      name: String(p.displayName || p.name || changeNames.get(uid) || 'A debater').slice(0, 40),
+      name: String(p.displayName || p.name || changeNames.get(uid) || accountNames.get(uid) || 'A debater').slice(0, 40),
       photoURL: typeof p.photoURL === 'string' ? p.photoURL.slice(0, 500) : '',
       avatarIdentity: p.avatarIdentity || null,
       rating: disp.rating,

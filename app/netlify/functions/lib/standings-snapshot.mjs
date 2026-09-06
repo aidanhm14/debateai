@@ -14,7 +14,7 @@ export async function fetchStandingsSnapshot(db, {
   const marker = await withDeadline(db.collection('admin_cache').doc(STANDINGS_VERSION).get(), 2500);
   const version = marker.exists ? String(marker.data().version || 'initial') : 'initial';
   const revision = createHash('sha256').update(version).digest('hex').slice(0, 24);
-  const key = 'standings-v1-' + revision;
+  const key = 'standings-v2-' + revision;
   const cached = await readCache(key);
   if (cached && cached.revision === revision && Array.isArray(cached.rows)) return cached;
   const rows = await readRows(db, { limit: 100 });
