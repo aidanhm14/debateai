@@ -1186,6 +1186,10 @@ body.has-beta-strip.match-profile-open .afl{top:0;height:100dvh}
 /* Consent card — a proposed round with judge instructions, awaiting
    the opponent's accept/pass. */
 .consent-wrap{max-width:580px;margin:0 auto}
+.consent-wrap .btn{min-height:48px;font-size:16px;white-space:normal}
+.consent-availability{font-size:15px;line-height:1.5;margin:16px 0 0}
+.consent-availability button{font:inherit;font-weight:700;min-height:44px;padding:8px 12px;color:var(--text);background:transparent;border:1px solid var(--border);border-radius:10px}
+@media(max-width:600px){.consent-wrap .btn-row{gap:10px}.consent-wrap .btn{flex:1 1 100%}#consentDmBtn{font-size:17px}}
 .consent-note{
   max-width:480px;margin:14px auto 0;padding:13px 16px;text-align:left;
   background:rgba(239,68,68,.07);border:1px solid var(--accent-glow);border-radius:12px;
@@ -7046,6 +7050,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
       if (!doc.exists) return;
       var d = doc.data();
+      if (state.pausingMatch) { state.pausedMatchDoc = d; return; }
       // Mirror my mutual-skip list (declined consent proposals) so
       // tryMatch stops POSTing at peers the server will refuse anyway.
       // Stamps ride along so local checks expire in step with the
@@ -7549,7 +7554,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<p class="lede">' + (crossFmt
             ? 'You\'re in. They\'re confirming the <strong>' + fmtLabel + '</strong> round, and it starts the second they do.'
             : (myNote
-              ? 'You\'re in. They\'re reading your judge instructions, and the round starts the second they accept.'
+              ? 'You\'re in. They can review your judge instructions. The round starts when they accept.'
               : 'You\'re in. The round starts the second they confirm they\'re at their desk.')) + '</p>' +
           (crossFmt ? formatBlock : '') +
           (myNote ? '<div class="consent-note mine"><div class="consent-note-label">Your instructions to the judge</div>' + escHtml(myNote) + '</div>' : '') +
@@ -7572,6 +7577,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           '<div class="btn-row">' +
             '<button class="btn ghost" id="consentDmBtn">Message ' + peerName + '</button>' +
             '<button class="btn ghost" id="consentPassBtn">Withdraw &amp; keep searching</button>' +
+            '<button class="btn ghost" data-consent-unavailable>Unavailable</button>' +
           '</div>' +
         '</div>';
       var wb = document.getElementById('consentPassBtn');
@@ -7642,6 +7648,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
               '<span class="mf-drain" aria-hidden="true"></span>' +
             '</button>' +
             '<button class="btn ghost" id="consentDeclineBtn">Not now</button>' +
+            '<button class="btn ghost" data-consent-unavailable>Unavailable</button>' +
           '</div>' +
           '<div class="countdown">Match expires in <strong id="consentCountNum">' + decideSec + '</strong>s</div>' +
         '</div>';
@@ -7692,6 +7699,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div class="btn-row">' +
           '<button class="btn primary" id="consentAcceptBtn">Accept &amp; start</button>' +
           '<button class="btn ghost" id="consentDeclineBtn">Pass</button>' +
+          '<button class="btn ghost" data-consent-unavailable>Unavailable</button>' +
         '</div>' +
         // 2026-08-26: this said "Auto-join in Ns" while the timer at the
         // end of it auto-PASSES. The copy was true until 2026-08-10, when
@@ -7726,13 +7734,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function sendConsent(peerUid, accept, auto, strikes){
-    if (!firebaseAuth || !firebaseAuth.currentUser) return;
+    if (!firebaseAuth || !firebaseAuth.currentUser) return Promise.resolve(false);
     // A human pass buys a breather. Without it the poll loop proposes the
     // next person in the same second, which reads as the queue arguing with
     // you. A timer-fired pass is nobody's decision, so it earns nothing.
     if (!accept && !auto) state.declineUntil = Date.now() + DECLINE_COOLDOWN_MS;
     try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
-    firebaseAuth.currentUser.getIdToken().then(function(idToken){
+    return firebaseAuth.currentUser.getIdToken().then(function(idToken){
       return fetch('/.netlify/functions/spar-pair', {
         method: 'POST',
         headers: {
@@ -7754,7 +7762,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return j;
       });
     }).then(function(j){
-      if (j && j.ok) return;
+      if (j && j.ok) return true;
       // The allowance ran out between queueing and accepting (another tab
       // spent the last round, or the optimistic local count was stale).
       // recoverConsentCard would hand back buttons that cannot work, so take
@@ -7775,17 +7783,47 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       var reason = (j && (j.reason || j.error)) || 'unknown';
       if (reason === 'consent_state_gone'){
         console.info('[spar] consent state gone before my ' + (accept ? 'accept' : 'pass'));
-        return;
+        return true;
       }
       console.warn('[spar] consent POST soft-failed:', reason);
       recoverConsentCard();
+      return false;
     }).catch(function(err){
       // Network blip mid-click: same recovery. The auto-pass timers
       // (mine or the peer's) still backstop a never-delivered decline.
       console.warn('[spar] consent POST failed', err);
       recoverConsentCard();
+      return false;
     });
   }
+
+  document.addEventListener('click', function(event){
+    var button = event.target.closest && event.target.closest('[data-consent-unavailable]');
+    if (!button || state.pausingMatch) return;
+    button.disabled = true;
+    var proposal = state.lastConsentDoc;
+    state.pausingMatch = true;
+    state.pausedMatchDoc = null;
+    var released = proposal ? sendConsent(proposal.matchedWith, false) : Promise.resolve(true);
+    released.then(function(ok){
+      state.pausingMatch = false;
+      if (!ok) { button.disabled = false; recoverConsentCard(); return; }
+      var latest = state.pausedMatchDoc;
+      // If the handshake completed before our pass reached the server,
+      // release that completed match too, before removing our queue doc.
+      var unmatch = latest && latest.status === 'matched'
+        ? firebaseAuth.currentUser.getIdToken().then(function(token){
+          return fetch('/api/spar-unmatch', {method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}, body:'{}'}).then(function(response){ if (!response.ok) throw new Error('Could not pause matching'); });
+        }) : Promise.resolve();
+      state.cancelled = true;
+      return unmatch.then(function(){
+        leaveQueueQuietly();
+        try { localStorage.setItem('da-spar-bg','0'); } catch(e){}
+        shell.innerHTML = '<div class="consent-wrap"><h1>You are unavailable.</h1><p class="lede">New match requests are paused. Come back whenever you feel like a conversation.</p><div class="btn-row"><button class="btn primary" id="availableAgain">I am available again</button><a class="btn ghost" href="/newvoice">Talk to AI</a></div></div>';
+        document.getElementById('availableAgain').onclick = function(){ state.cancelled = false; joinQueue(); };
+      }).catch(function(){ state.cancelled = false; button.disabled = false; recoverConsentCard(); });
+    });
+  });
 
   // Re-render the consent card from the last doc snapshot after a
   // failed POST — fresh buttons, fresh countdown, user can retry.
@@ -7796,6 +7834,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function exitConsentToSearch(d){
+    var proposalAt = stampMs(state.lastConsentDoc && state.lastConsentDoc.proposedAt);
+    var passed = d && d.lastPassBy && stampMs(d.lastPassAt) >= proposalAt && proposalAt > 0;
+    var iPassed = passed && state.user && d.lastPassBy === state.user.uid;
     document.body.classList.remove('draft-live');
     state.inConsent = false;
     state.consentKey = '';
@@ -7813,13 +7854,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     state.joinedAtMs = Date.now();
     renderSearching();
     startMatchPolling();
-    if (d && d.lastPassBy){
+    if (d){
       var stats = document.getElementById('queueStats');
       if (stats){
         // Hold the notice on screen — tryMatch repaints the stats slot
         // every ~2s and would otherwise blink this away unread.
         state.noticeUntil = Date.now() + 7000;
-        stats.innerHTML = '<div style="margin-top:14px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-dim);font-size:.78rem;font-weight:600">The other person declined. You\'re back in the live queue.</div>';
+        stats.innerHTML = '<div class="consent-availability">' + (iPassed ? 'Match declined. Looking for someone else.' : passed ? 'The other person declined. Looking for someone else.' : 'This match expired or became unavailable. Looking for someone else.') + ' Busy? <button type="button" data-consent-unavailable>Unavailable</button> pauses matching.</div>';
       }
     }
   }
@@ -8011,7 +8052,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // full fallback clock in silence.
   var PAIR_REQUEST_TIMEOUT_MS = 15000;
   function attemptMatch(peerUid, peerData, privateCandidates){
-    if (state.cancelled || !state.user || !firebaseAuth) return;
+    if (state.cancelled || state.pausingMatch || !state.user || !firebaseAuth) return;
     // Guard against re-firing while a pair attempt is in flight —
     // tryMatch polls every 2s and the snapshot listener also pokes
     // it; without this we'd fan out duplicate POSTs.

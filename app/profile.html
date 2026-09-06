@@ -1460,7 +1460,7 @@ function computeStreak(daySet){
   return streak;
 }
 
-function compute(rows){
+function compute(rows, progress){
   const scores = rows.map(r => r.score).filter(s => typeof s === 'number');
   const total = rows.length;
   const sum = scores.reduce((a,b)=>a+b, 0);
@@ -1516,11 +1516,11 @@ function compute(rows){
   if(sideStats.gov.count) sideStats.gov.avg = sideStats.gov.sum/sideStats.gov.count;
   if(sideStats.opp.count) sideStats.opp.avg = sideStats.opp.sum/sideStats.opp.count;
 
-  const xp = Math.round(sum);
+  const xp = progress && Number.isFinite(progress.xp) ? progress.xp : Math.round(sum);
   const level = computeLevel(xp);
 
   return {
-    total, avg, best, lowest, wins, live, formats, xp, level,
+    total, avg, best, lowest, wins, live, formats, xp, level, xpExact: !!(progress && Number.isFinite(progress.xp)),
     streak, days: days.size, scores: scores.length,
     dailyCounts, sideStats, lastRoundAt, bestVoice,
   };
@@ -2731,8 +2731,8 @@ function renderEmpty(user, profileData){
   hydrateProfileAvatar();
 }
 
-function renderDashboard(user, rows, profileData){
-  const s = compute(rows);
+function renderDashboard(user, rows, profileData, progress){
+  const s = compute(rows, progress);
   const ach = computeAchievements(s);
   const avatar = renderAvatar(user);
   // Display-name override wins over Google name on the dashboard hero
@@ -2816,7 +2816,7 @@ function renderDashboard(user, rows, profileData){
       </div>
       <div class="xp-bar"><div class="xp-fill" style="width:${s.level.pct.toFixed(1)}%"></div></div>
       <div class="xp-foot">
-        <span>${s.xp} XP total</span>
+        <span>${s.xp} ${s.xpExact ? "XP total" : "XP in recent rounds"}</span>
         <span>${s.level.nxt ? `${s.level.cur.min} → ${s.level.nxt.min} XP` : 'Max tier'}</span>
       </div>
     </section>
@@ -3734,7 +3734,7 @@ async function loadProfile(user){
     // in parallel with the leaderboard entries. Both are best-effort —
     // a profile-doc miss falls through to defaults; an entries miss
     // surfaces the empty state.
-    const [entriesSnap, profileSnap] = await Promise.all([
+    const [entriesSnap, profileSnap, progress] = await Promise.all([
       db.collection('leaderboard_entries')
         .where('uid', '==', user.uid)
         .orderBy('completedAt', 'desc')
@@ -3744,6 +3744,8 @@ async function loadProfile(user){
         console.warn('[profile] profile-doc read failed:', err && err.message);
         return null;
       }),
+      user.getIdToken().then(token => fetch('/api/account-progress', {headers:{Authorization:'Bearer '+token}}))
+        .then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     const rows = entriesSnap.docs.map(d => d.data());
     const profileData = (profileSnap && profileSnap.exists) ? profileSnap.data() : null;
@@ -3751,7 +3753,7 @@ async function loadProfile(user){
       renderEmpty(user, profileData);
       return;
     }
-    renderDashboard(user, rows, profileData);
+    renderDashboard(user, rows, profileData, progress);
     try { window.SFX && window.SFX.success && window.SFX.success(); } catch(_){}
   } catch(e){
     console.warn('[profile] query failed:', e && e.message);

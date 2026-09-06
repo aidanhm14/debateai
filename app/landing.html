@@ -5754,6 +5754,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     --font-legacy-serif:'Archivo',system-ui,-apple-system,sans-serif;
   }
   </style>
+<link rel="stylesheet" href="/css/ai-entry.css">
 </head>
 <body>
 
@@ -8801,6 +8802,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          first over every id on the card. Desktop never runs the move. -->
     <div id="mhBoardSlot"></div>
 
+    <a class="home-voice-prompt" href="/newvoice?handoff=landing-orb"><span class="home-voice-orb" aria-hidden="true"></span><span>Hey, how do you want to debate today?</span></a>
     <div class="mh-row">
       <a class="mh-card" href="/newvoice?handoff=landing-mobile-ai" data-cta="mhome-ai">
         <span class="mh-card-top"><span class="mh-card-label">Debate the AI</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
@@ -9229,6 +9231,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          a pair. Same hrefs, data-cta and A/B tags as the doors that used
          to live in the headline column; the watch-live poll still finds
          the Watch door through data-fs-watch-live. -->
+    <a class="home-voice-prompt" href="/newvoice?handoff=landing-orb"><span class="home-voice-orb" aria-hidden="true"></span><span>Hey, how do you want to debate today?</span></a>
     <div class="fs-actions">
       <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Join a debate <span aria-hidden="true">&rarr;</span></a>
       <div class="fs-actions-row">
@@ -15385,10 +15388,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var chalHref = r.uid
         ? '/spar?dm=' + encodeURIComponent(r.uid) + '&challenge=1'
         : '/leaderboard?challenge=1';
-      html += '<div class="rb-row' + (i === 0 ? ' rb-row--top' : '') + '" data-href="/leaderboard" data-rb="leaderboard-row">'
-        + '<span class="rb-rk' + medal + '">' + (i + 1) + '</span>'
+      html += '<div class="rb-row' + (r.rank === 1 ? ' rb-row--top' : '') + '" data-href="/leaderboard" data-rb="leaderboard-row">'
+        + '<span class="rb-rk' + medal + '">' + (r.rank || '·') + '</span>'
         + avaCell(r, i, avaUsed, avaTaken)
-        + '<span class="rb-who"><span class="rb-nm">' + esc(r.name) + '</span></span>'
+        + '<span class="rb-who"><span class="rb-nm">' + esc(r.name) + '</span><small>' + (r.rank ? 'Rank ' + r.rank : 'In placement') + (typeof r.xp === 'number' ? ' · ' + r.xp.toLocaleString() + ' XP' : '') + '</small></span>'
         + '<span class="rb-pts"><b>' + (isRated ? Math.round(r.rating) : fmtScore(r.score)) + '</b>'
         + '<a class="rb-chal-btn" href="' + chalHref + '" data-rb="leaderboard-challenge">Challenge</a>'
         + '</span></div>';
@@ -15435,7 +15438,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       .then(function(r){ return r.ok ? r.json() : null; });
     req
       .then(function(j){
-        if (!j || !Array.isArray(j.rows)) return renderBoard([], 0, 'error');
+        if (!j || j.error || !Array.isArray(j.rows)) return renderBoard([], 0, 'error');
         boardPicturesReady().then(function(){ renderBoard(j.rows, j.total, 'ready'); });
       })
       .catch(function(){ renderBoard([], 0, 'error'); });
@@ -15544,7 +15547,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function face(r, i, taken){
     var f = faceInner(r, i, taken);
     return '<span class="lbr-pic"><span class="lbr-ava"' + f.attrs + '>' + f.inner + '</span>'
-      + '<span class="lbr-rk">' + (i + 1) + '</span></span>';
+      + '<span class="lbr-rk">' + (r.rank || '·') + '</span></span>';
   }
   /* The phone strip (#mhBoard in the mobile home). Same rows, same
      three-real-rows floor, same picture tiers; five tiles in a row that
@@ -15565,15 +15568,16 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var name = anon(r.name) ? 'Anonymous' : esc(r.name);
       var f = faceInner(r, i, taken);
       html += '<span class="mh-tile">'
-        + '<span class="mh-ava"' + f.attrs + '>' + f.inner + '<b class="mh-rk">' + (i + 1) + '</b></span>'
+        + '<span class="mh-ava"' + f.attrs + '>' + f.inner + '<b class="mh-rk">' + (r.rank || '·') + '</b></span>'
         + '<span class="mh-nm">' + name + '</span>'
-        + '<span class="mh-sc">' + esc(num) + '</span>'
+        + '<span class="mh-sc">' + esc(num) + ' rating</span>'
+        + '<span class="mh-sc">' + (typeof r.xp === 'number' ? r.xp.toLocaleString() + ' XP' : (r.rank ? '' : 'In placement')) + '</span>'
         + '</span>';
     }
     row.innerHTML = html;
     if (wantsEngine){ try { upgradeAvatars(row); } catch (e) {} }
     var tot = board.querySelector('[data-mh-total]');
-    if (tot && typeof total === 'number' && total > n) tot.textContent = total + ' ranked';
+    if (tot && typeof total === 'number' && total > n) tot.textContent = 'View the full board';
     board.hidden = false;
     return true;
   }
@@ -15621,16 +15625,17 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var r = rows[i] || {};
       var rated = r.kind === 'rating' && typeof r.rating === 'number';
       var num = rated ? String(Math.round(r.rating)) : score(r.score);
-      var lab = rated ? 'Rating' : 'Casual 1v1';
+      var lab = r.rank ? 'Rating' : 'Placement rating';
       var name = anon(r.name) ? 'Anonymous' : esc(r.name);
       html += '<a class="lbr-item" href="/leaderboard" data-lbr="row' + (i + 1) + '" style="--i:' + (i + 1) + '">'
         + '<span class="lbr-card" aria-hidden="true">'
         + '<span class="lbr-nm">' + name + '</span>'
         + '<span class="lbr-meta"><b class="lbr-sc">' + esc(num) + '</b>'
         + '<span class="lbr-fmt">' + esc(lab) + '</span></span>'
+        + (typeof r.xp === 'number' ? '<span class="lbr-fmt">' + r.xp.toLocaleString() + ' XP</span>' : '')
         + '</span>'
         + face(r, i, taken)
-        + '<span class="lbr-sr">' + (i + 1) + '. ' + name + '</span>'
+        + '<span class="lbr-sr">' + (r.rank ? 'Rank ' + r.rank : 'In placement') + '. ' + name + '</span>'
         + '</a>';
     }
     list.innerHTML = html;
@@ -15638,7 +15643,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var more = rail.querySelector('.lbr-more');
     if (more && typeof total === 'number' && total > n){
       var lab = more.querySelector('[data-lbr-total]');
-      if (lab) lab.textContent = total + ' ranked';
+      if (lab) lab.textContent = 'View the full board';
       more.style.setProperty('--i', n + 1);
       more.hidden = false;
     }

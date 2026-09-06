@@ -30,7 +30,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-ratings-v2'; // v2: placed-first order + `placed`/tier fields. Shared cache survives deploys, so an unchanged key would serve the old order for a full TTL
+const CACHE_KEY = 'leaderboard-ratings-v3'; // v2: placed-first order + `placed`/tier fields. Shared cache survives deploys, so an unchanged key would serve the old order for a full TTL
 const CACHE_TTL_MS = 5 * 60 * 1000;  // ratings move round-by-round, not second-by-second
 const QUERY_LIMIT = 100;
 

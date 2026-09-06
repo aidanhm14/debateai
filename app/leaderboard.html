@@ -1567,7 +1567,7 @@ function subjectChip(r){
 function levelChip(r){
   const L=r&&r._level;
   if(!L) return '';
-  return `<span class="lvl-chip" title="${L.xp.toLocaleString()} XP">L${L.level} ${escapeHtml(L.title)}</span>`;
+  return `<span class="lvl-chip" title="${L.xp.toLocaleString()} XP">${L.xp.toLocaleString()} XP · L${L.level}</span>`;
 }
 // The board is seeded texture until real rounds land on it, so on most
 // days there is nobody here to call out. Sending a user from /live into
@@ -2756,7 +2756,8 @@ async function loadRatingLadder(){
     // failed. null means "did not answer"; loadView retries on it.
     if(!res.ok) return null;
     const data=await res.json();
-    const rows=(data.rows||[]).map(r=>({
+    if(data.error || !Array.isArray(data.rows)) return null;
+    const rows=data.rows.map(r=>({
       uid:r.uid,
       displayName:r.name||'A debater',
       photoURL:r.photoURL||'',
@@ -2765,6 +2766,8 @@ async function loadRatingLadder(){
       completedAt:r.lastEventAt||null,
       kind:'live',
       _ratingRow:true,
+      _xp:Number.isFinite(r.xp)?r.xp:null,
+      _level:Number.isFinite(r.xp) && window.DBDomains ? DBDomains.levelFor(r.xp) : null,
       _rankable:r.rankable===true,
       // Placed = 3+ real rated rounds; that is what earns a numbered
       // rank. Derived from games as a fallback so a stale cached payload
@@ -2801,13 +2804,7 @@ async function loadRatingLadder(){
 // ratings, so their number is blanked rather than rendered under a
 // Rating header.
 function liveStandings(){
-  const ladder=state.ratingRows||[];
-  const onLadder=new Set(ladder.map(r=>r.uid));
-  const seeds=rankPeople(state.cache.live||[])
-    .filter(r=>r.seed===true && !onLadder.has(r.uid||r.displayName||''))
-    .slice(0,8)
-    .map(r=>Object.assign({},r,{score:null}));
-  return ladder.concat(seeds);
+  return state.ratingRows||[];
 }
 
 // ── load order (2026-09-04, the founder: "it shows an image of it empty
@@ -2827,7 +2824,7 @@ function liveStandings(){
 //      claims and only one of them is true on a network blip.
 const PAYLOAD_TTL_MS = 24*3600*1000;
 const LOAD_RETRY_MS = [1200, 3000];
-function payloadKey(view){ return 'da-lb-payload1:'+view; }
+function payloadKey(view){ return 'da-lb-payload2:'+view; }
 function readPayload(view){
   try{
     const raw=localStorage.getItem(payloadKey(view));

@@ -11,6 +11,7 @@
 // scripts/test-judge-integrity.mjs asserts this stays true.
 import { withDeadline } from './firestore.mjs';
 import { displayRating, isRankable, tierFor, MIN_RATED_GAMES } from './rating.mjs';
+import { fetchAccountProgress } from './account-progress.mjs';
 
 // The rating ladder, ordered placed-first (3+ real rated rounds) then
 // rating. Names joined
@@ -70,6 +71,11 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     }));
   }
 
+  const progress = new Map();
+  await Promise.all(raw.map(async ({ uid }) => {
+    try { progress.set(uid, await fetchAccountProgress(db, uid)); }
+    catch { /* Unavailable XP stays absent; it is never a fake zero. */ }
+  }));
   const rows = raw.map(({ uid, d }) => {
     const disp = displayRating(d);
     const p = profiles.get(uid) || {};
@@ -81,6 +87,7 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
     const placed = games >= MIN_RATED_GAMES;
     return {
       uid,
+      xp: progress.get(uid)?.xp ?? null,
       name: String(p.displayName || p.name || changeNames.get(uid) || 'A debater').slice(0, 40),
       photoURL: typeof p.photoURL === 'string' ? p.photoURL.slice(0, 500) : '',
       avatarIdentity: p.avatarIdentity || null,
@@ -117,26 +124,23 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
   // 1-0 wonder top the board — is done by the games bar instead: one win
   // leaves you unplaced and unnumbered below every real record, and a
   // /claim seed cannot fake the bar because seeding never writes `games`.
-  rows.sort((a, b) => (Number(b.placed) - Number(a.placed)) || (b.rating - a.rating));
+  rows.sort(compareRatingRows);
+  rows.forEach((row, i) => { row.rank = row.placed ? i + 1 : null; });
   return rows;
 }
 
-// Composes the top-of-board teaser: rated debaters FIRST, ordered by the
-// rating printed on the teaser, then judge-score entry rows filling the
-// remaining places while the ladder is thin. The full leaderboard keeps
-// the uncertainty-aware rankable/provisional order from fetchRatingRows;
-// this compact surface prints a simple number and rank badge, so those two
-// visible values must agree. Pure, so the integrity suite can assert the
-// ordering property directly: no speaker score, however high, ever
-// outranks a rated debater, and nobody appears twice.
+export function compareRatingRows(a, b) {
+  return (Number(b?.placed === true) - Number(a?.placed === true))
+    || ((Number.isFinite(b?.rating) ? b.rating : -Infinity) - (Number.isFinite(a?.rating) ? a.rating : -Infinity))
+    || String(a?.uid || '').localeCompare(String(b?.uid || ''));
+}
+
+// The teaser preserves placed-first standings and deterministic ties.
+// Legacy callers may supply entry rows; the public teaser supplies none.
 export function composeTopRows(ratingRows, entryRows, n) {
   const out = [];
   const seen = new Set();
-  const orderedRatings = (ratingRows || []).slice().sort((a, b) => {
-    const ar = a && Number.isFinite(a.rating) ? a.rating : -Infinity;
-    const br = b && Number.isFinite(b.rating) ? b.rating : -Infinity;
-    return br - ar;
-  });
+  const orderedRatings = (ratingRows || []).slice().sort(compareRatingRows);
   for (const r of orderedRatings) {
     if (out.length >= n) break;
     if (!r || typeof r !== 'object') continue;
