@@ -10,6 +10,7 @@
   var c=document.getElementById('uiNeuralCanvas');
   if(!c) return;
   var ctx=c.getContext('2d');
+  var depth=document.createElement('canvas'),depthCtx=depth.getContext('2d');
   var nodes=[],edges=[],pulses=[];
   // Render at full Retina (DPR=2) for the wide, high-resolution look.
   // Chrome-specific density cuts were rolled back — the founder's read is
@@ -97,8 +98,8 @@
     // Dark carries the same small contrast lift the light arm got: the
     // sharper render alone does not compensate for red-on-near-black,
     // where the edges were sitting a couple of levels off the backdrop.
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.34:(isLight?.07:.22))+')';
-    NODE_COLOR='rgba('+rgb+','+(lightWeb?.68:(isLight?.2:.46))+')';
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.12:(isLight?.07:.22))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.3:(isLight?.2:.46))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
     PULSE_COLOR=lightWeb?'rgba(200,60,60,.7)':'rgba('+rgb+','+(isLight?.3:.55)+')';
@@ -109,14 +110,55 @@
     // nothing, so the web arm keeps them at full size rather than the
     // light theme's .9 shrink.
     nodeRMul=(isLight&&!lightWeb)?.9:1;
+    paintDepth(isLight);
     // The constellation stays off on light surfaces that do not explicitly
     // opt in. Stop the frame loop instead of painting a transparent canvas.
     if(!themeActive){
       if(rafId){cancelAnimationFrame(rafId);rafId=0}
       ctx.clearRect(0,0,W,H);
+    }else if(reduced){
+      ctx.clearRect(0,0,W,H);ctx.drawImage(depth,0,0,W,H);
     }else if(running&&themeInitialized){
       start();
     }
+  }
+
+  // Approved rose edge treatment. Cache the geometry once per size/theme:
+  // it stays in the exposed margins instead of drifting behind the cards.
+  function paintDepth(light){
+    depth.width=c.width;depth.height=c.height;
+    depthCtx.setTransform(dpr,0,0,dpr,0,0);
+    var ink=light?'169,92,100':'239,105,123';
+    [[0,H*.3,W*.38],[W,H*.73,W*.36]].forEach(function(p){
+      var glow=depthCtx.createRadialGradient(p[0],p[1],0,p[0],p[1],p[2]);
+      glow.addColorStop(0,'rgba('+(light?'222,164,166':'163,40,70')+','+(light?.19:.14)+')');
+      glow.addColorStop(1,'rgba('+ink+',0)');
+      depthCtx.fillStyle=glow;depthCtx.fillRect(0,0,W,H);
+    });
+    var sx=W/1440,sy=H/1000;
+    var paths=[[[0,65],[78,112],[153,45],[203,158],[105,238],[17,198],[0,315]],[[78,112],[105,238],[44,364],[166,442],[214,320],[105,238]],[[0,506],[85,566],[171,520],[205,670],[125,750],[30,668],[0,796]],[[85,566],[30,668],[125,750],[68,885],[170,974],[0,934]]];
+    depthCtx.beginPath();
+    [false,true].forEach(function(right){
+      paths.forEach(function(points){points.forEach(function(p,i){
+        var x=(right?1440-p[0]:p[0])*sx,y=p[1]*sy;
+        if(i)depthCtx.lineTo(x,y);else depthCtx.moveTo(x,y);
+      });});
+    });
+    depthCtx.strokeStyle='rgba('+ink+','+(light?.34:.38)+')';
+    depthCtx.lineWidth=isMobile?.85:1.3;depthCtx.stroke();
+    depthCtx.beginPath();
+    [[32,475,80],[1438,850,110]].forEach(function(p){
+      depthCtx.moveTo((p[0]+p[2])*sx,p[1]*sy);
+      depthCtx.ellipse(p[0]*sx,p[1]*sy,p[2]*sx,p[2]*sy,0,0,TWO_PI);
+    });
+    depthCtx.stroke();depthCtx.beginPath();
+    [false,true].forEach(function(right){
+      [[78,112],[153,45],[105,238],[44,364],[166,442],[85,566],[30,668],[125,750],[68,885]].forEach(function(p){
+        var x=(right?1440-p[0]:p[0])*sx,y=p[1]*sy,r=isMobile?1.8:3.5;
+        depthCtx.moveTo(x+r,y);depthCtx.arc(x,y,r,0,TWO_PI);
+      });
+    });
+    depthCtx.fillStyle='rgba('+(light?'171,61,74':'250,137,151')+',.52)';depthCtx.fill();
   }
 
   function resize(){
@@ -158,6 +200,7 @@
     }
     lastDrawAt = now;
     ctx.clearRect(0,0,W,H);
+    ctx.drawImage(depth,0,0,W,H);
 
     // Pass 1: physics + collect edge endpoints. Squared-dist gate skips
     // most sqrts; only the close-pair repulsion needs the actual distance.
@@ -248,24 +291,23 @@
     }
     rafId=requestAnimationFrame(tick);
   }
-  function start(){if(!rafId&&running){rafId=requestAnimationFrame(tick)}}
+  function start(){if(!reduced&&themeActive&&!rafId&&running){rafId=requestAnimationFrame(tick)}}
   function stop(){running=false;if(rafId){cancelAnimationFrame(rafId);rafId=0}}
-  if(reduced){init();return}
   init();
   themeInitialized=true;
-  window.addEventListener('resize',resize,{passive:true});
+  window.addEventListener('resize',function(){resize();refreshTheme()},{passive:true});
   // Canvas paints compete directly with scrolling on the main thread.
   // Freeze the decorative loop while the user is actively scrolling,
   // then resume after the scroll has settled.
   var scrollResumeTimer=0;
   window.addEventListener('scroll',function(){
-    if(!running||!themeActive)return;
+    if(reduced||!running||!themeActive)return;
     if(rafId){cancelAnimationFrame(rafId);rafId=0}
     if(scrollResumeTimer)clearTimeout(scrollResumeTimer);
     scrollResumeTimer=setTimeout(start,140);
   },{passive:true});
   document.addEventListener('visibilitychange',function(){
-    if(document.hidden){stop()}else{running=true;start()}
+    if(document.hidden){stop()}else{running=true;if(!reduced)start()}
   });
   // Re-tint the constellation when the theme flips. Two observers because
   // landing flips `data-theme` on <html> while /app + /high-school flip a
@@ -274,5 +316,5 @@
     new MutationObserver(refreshTheme).observe(document.body,{attributes:true,attributeFilter:['class']});
     new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','data-lightweb']});
   }
-  tick();
+  if(!reduced)tick();
 })();
