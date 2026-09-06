@@ -509,7 +509,7 @@ body.has-beta-strip .shell{padding-top:98px}
 
 /* ─── Podium ─── */
 /* Championship podium: staggered 2-1-3 silhouette, metallic medal
-   discs, gold halo + light sweep on #1, cards rise in on load.
+   discs and a gold rule on #1. Cards and ratings are visible immediately.
    Gold/silver/bronze is rank semantics here, not decoration. */
 .podium{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
@@ -520,12 +520,7 @@ body.has-beta-strip .shell{padding-top:98px}
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius-md);padding:18px 18px 16px;
   transition:border-color .2s,transform .2s,box-shadow .2s;
-  animation:pod-rise .6s cubic-bezier(.2,.7,.2,1) backwards;
 }
-@keyframes pod-rise{from{opacity:0;transform:translateY(22px)}}
-.pod--2{animation-delay:.06s}
-.pod--3{animation-delay:.14s}
-.pod--1{animation-delay:.24s}
 .pod:hover{transform:translateY(-3px);border-color:var(--border-strong)}
 .pod::before{
   content:"";position:absolute;top:0;left:0;right:0;height:3px;
@@ -1110,7 +1105,6 @@ body.challenge-on .chal-banner{display:flex}
   border:1.5px dashed var(--border-strong);border-bottom:none;
   border-radius:10px 10px 0 0;
   color:var(--text-ghost);
-  animation:pod-rise .6s cubic-bezier(.2,.7,.2,1) backwards;
 }
 .ghost-slot.g1{height:100px;animation-delay:.15s}
 .ghost-slot.g2{height:72px;animation-delay:.05s}
@@ -2108,30 +2102,9 @@ function renderPodium(rows){
   podium.hidden=false;
   // Visual order: 2nd, 1st, 3rd → classic podium left-tall-right
   podium.innerHTML = podHTML(top[1],2) + podHTML(top[0],1) + podHTML(top[2],3);
-  animatePodScores();
 }
 
-// Count the podium scores up from zero on render. Skipped under
-// prefers-reduced-motion; final text is always the exact score.
-function animatePodScores(){
-  try{
-    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    podium.querySelectorAll('.pod-score[data-count]').forEach(el=>{
-      const target=parseFloat(el.getAttribute('data-count'));
-      if(!isFinite(target)) return;
-      const asInt=el.getAttribute('data-int')==='1';
-      const fmt=v=>asInt?String(Math.round(v)):v.toFixed(1);
-      const dur=950, t0=performance.now();
-      function tick(t){
-        const p=Math.min(1,(t-t0)/dur);
-        const eased=1-Math.pow(1-p,3);
-        el.textContent=fmt(target*eased);
-        if(p<1) requestAnimationFrame(tick); else el.textContent=fmt(target);
-      }
-      requestAnimationFrame(tick);
-    });
-  }catch(_){}
-}
+// The podium displays its actual ratings on the first frame, just like the rows.
 
 // ── render: table rows 4..N ────────────────────────────────────────
 function moveBadge(uid, idx){
