@@ -7,6 +7,14 @@
 
 ## Sign-in policy (2026-09-05)
 
+**Voice AI invitations (2026-09-06):** `/newvoice` and `/voice-debate`
+may show a human debate request during the AI session. Rejecting it keeps
+the AI session running and pauses further invitations on that page visit.
+The `voice-ai` presence marker reserves invitation handling for that tab.
+Human rounds and tournament seats still suppress new matches. Preserve
+pending queue pairs transactionally, and release a declined peer before
+deleting the declining person's queue record.
+
 Web visitors get a locked Google sign-in chooser after 40 cumulative visible
 seconds across pages and reloads. Existing named accounts are already identified.
 New human matches require Google or Apple sign-in before entering the queue. The Match Desk runs first and preserves answers through the cumulative sign-in wall. Existing live rooms stay uninterrupted, including the site-shell player.

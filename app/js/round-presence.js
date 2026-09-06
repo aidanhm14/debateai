@@ -16,13 +16,15 @@
  * other tab reads it before offering a round. Two kinds, because they
  * mean different things to the matchmaker:
  *
- *   'round' — already debating or watching the tournament broadcast.
+ *   'round' — in a human round or watching the tournament broadcast.
  *             Nothing may offer a round, and the queue doc should be
  *             dropped: that tab has no card to answer with, so a peer
  *             accepting into it lands in an empty room.
  *   'spar'  — the matchmaker page is open in another tab. It owns the
  *             queue doc there, so a second tab must stay off the doc
  *             rather than delete it.
+ *   'voice-ai' — invitations belong on the Voice AI tab. A rejection
+ *                keeps that session going; other tabs leave its queue alone.
  *
  * INCLUDE THIS on any page that is a live round or the matchmaker. It
  * self-detects by path, so it is inert (and harmless) anywhere else. Keep
@@ -45,7 +47,8 @@
   // long window is a crashed tab holding matchmaking off for ~2 minutes.
   var BEAT_MS = 20 * 1000;
   var FRESH_MS = 150 * 1000;
-  var ROUND_RE = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge)/;
+  var ROUND_RE = /\/(live-round|exhibition|casual-room|room-judge)/;
+  var VOICE_AI_RE = /^\/(?:newvoice|voice-debate)(?:\.html)?(?:\/|$)/;
   var SPAR_RE = /\/spar(?:\.html)?(?:[/?#]|$)/;
   // Public tournament pages are spectator surfaces for now. Publishing the
   // same busy signal here also pauses a general Spar matcher left open in a
@@ -59,6 +62,7 @@
   function myKind() {
     var p = path();
     if (ROUND_RE.test(p) || SPECTATOR_RE.test(p)) return 'round';
+    if (VOICE_AI_RE.test(p)) return 'voice-ai';
     if (SPAR_RE.test(p)) return 'spar';
     return '';
   }
@@ -85,7 +89,7 @@
   }
 
   window.DARoundPresence = {
-    kind: read,                                   // '' | 'round' | 'spar', anywhere
+    kind: read,                                   // '' | 'round' | 'spar' | 'voice-ai'
     mine: function () { return kind; },
     clear: clear
   };

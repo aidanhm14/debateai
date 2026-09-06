@@ -338,8 +338,8 @@ ok(cleanLiveDesign({ style:'face3d' }).style === 'face2d',
 {
   const notices = read('app/js/notifications.js');
   ok(/avatarIdentity:\s*avatarIdentity/.test(notices)
-    && /avatarIdentity:\s*publicAvatarIdentity\(\)/.test(notices),
-    'background queue writes do not both carry avatarIdentity');
+    && notices.includes('writeAvailableDoc(publicAvatarIdentity())'),
+    'background join and requeue must carry avatarIdentity through the shared writer');
   ok(/id\.kind === 'pfp' \? \{kind:'pfp',id:id\.id\}/.test(read('app/spar.html')),
     '/spar fallback drops pfp identities');
   ok(/DBAvatar\.setPfp\(faceChoice\.id\)/.test(read('app/js/onboarding.js')),

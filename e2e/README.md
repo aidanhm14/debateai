@@ -44,6 +44,11 @@ run; anonymous uids are never counted as signups (soul.md section 8).
 
 ## Adding a test
 
+`tests/match-invitations.spec.mjs` is an offline two-person browser suite.
+It uses the shipped invitation code with an in-memory queue and consent
+endpoint. It covers delivery, concurrent page loads, mutual acceptance,
+decline ordering, and Voice AI continuation without touching real accounts.
+
 One promise per test. Assert what a visitor would see, not what the DOM
 happens to contain. Prefer ids the page already owns (`#signInBtn`,
 `#first-screen`, `#root`) over text, and collect `pageerror` so an uncaught

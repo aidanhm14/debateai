@@ -2181,15 +2181,11 @@
     var COUNTDOWN_S = 45;                     // accept window
     var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
     var VALID =['open','quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
-    // Don't run the matcher ON an active round (notifications.js loads on
-    // /live-round + /voice-debate too) — you're already debating; being
-    // re-queued as "waiting" there would pop a match mid-round.
-    // newvoice + room-judge added 2026-08-23: both are live-round surfaces
-    // (a voice round, and judging someone else's round). They were missing
-    // here, so anyone on them stayed matchable and could be pulled into a
-    // second round mid-round. The pill now floats on bar-less pages, which
-    // would have made that reachable rather than theoretical.
-    var ON_ROUND = /\/(live-round|voice-debate|exhibition|casual-room|newvoice|room-judge)/.test(location.pathname);
+    // Voice AI may receive a human invitation. Only accepting a completed
+    // match navigates away; declining leaves the AI session running.
+    var ON_VOICE_AI = /^\/(?:newvoice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
+    var ON_ROUND = /\/(live-round|exhibition|casual-room|room-judge)/.test(location.pathname);
+    var voiceDeclined = ON_VOICE_AI && !!window.__daVoiceInvitesPaused;
     // /spar runs its OWN foreground matchmaker against the same queue doc.
     // Suppress the background matcher there so the two don't fight over the
     // doc; /spar instead sets the availability flag + sends the user to
@@ -2213,7 +2209,7 @@
     // stay off it rather than delete it).
     function inRound() { return ON_ROUND || daPresenceKind() === 'round'; }
     function inSpar() { return ON_SPAR || daPresenceKind() === 'spar'; }
-    function busyElsewhere() { return inRound() || inSpar() || !!tournamentSeat; }
+    function busyElsewhere() { return inRound() || inSpar() || !!tournamentSeat || (daPresenceKind() === 'voice-ai' && !ON_VOICE_AI); }
 
     var available = false;
     try { available = localStorage.getItem(LSKEY) === '1'; } catch (e) {}
@@ -2231,7 +2227,7 @@
     // After a decline (or a timed-out invite) we step out of the queue and stay
     // quiet until declineUntil, so an available user is never re-pinged in a
     // tight loop. A manual "go available" toggle clears it (see setAvailable).
-    var declineUntil = 0, cooldownTimer = null;
+    var declineUntil = voiceDeclined ? Infinity : 0, cooldownTimer = null;
     var docGone = false; // own queue doc reaped/cancelled while we still think we're available
 
     function fmt() {
@@ -2367,7 +2363,7 @@
           location.href = tournamentSeat.deskUrl || '/tournaments';
           return;
         }
-        setAvailable(!available);
+        setAvailable(voiceDeclined || !available);
       });
       return b;
     }
@@ -2418,6 +2414,7 @@
       pill.style.display = show ? 'inline-flex' : 'none';
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (tournamentSeat) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Tournament match'; pill.title = 'Your tournament room has your seat. General matching is paused until the result is in. Tap to open the tournament desk.'; pill.setAttribute('aria-label', 'Reserved for your tournament match. Open the tournament desk.'); }
+      else if (voiceDeclined) { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Voice AI'; pill.title = 'Live invitations are paused while you continue with the AI. Tap to receive them again.'; pill.setAttribute('aria-label', pill.title); }
       else if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
     }
@@ -2501,7 +2498,7 @@
       paintPill();
       // A manual opt-in is an explicit "match me now", so it clears any
       // lingering post-decline quiet window.
-      if (on) { declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } }
+      if (on) { voiceDeclined = false; window.__daVoiceInvitesPaused = false; declineUntil = 0; if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; } paintPill(); }
       if (available && myUid && busyElsewhere()) {
         // Already debating (or already queued from the matchmaker tab).
         // Keep the standing intent, leave that tab's queue doc alone, and
@@ -2527,6 +2524,8 @@
     window.DASparLive = {
       setAvailable: setAvailable,
       isAvailable: function () { return available; },
+      voiceInvitesPaused: function () { return voiceDeclined; },
+      pauseVoiceInvites: pauseVoiceInvites,
       // The viewer's own uid, published so sitewide cards can tell "someone
       // is waiting" from "you are waiting". /api/live-now is shared-cached
       // and therefore cannot personalise; its header says self-filtering is
@@ -2536,7 +2535,7 @@
       uid: function () { return myUid || null; }
     };
     function goAvailable() {
-      if (!myUid || busyElsewhere() || MATCHING_PAUSED) return;
+      if (!myUid || busyElsewhere() || MATCHING_PAUSED || Date.now() < declineUntil) return;
       // Going available is a click. That click is the last user gesture we
       // are guaranteed before a match lands, and browsers only unlock audio
       // on a gesture — so load + unlock the sound bank here, not at ping
@@ -2550,21 +2549,22 @@
         try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
         preparePublicAvatar(function (avatarIdentity) {
           if (!available || !myRef) return;
-          // Read before write (see foreignLiveDoc): a /spar tab on any
-          // device may already be mid-handshake on this uid's doc. Booting
-          // a page with the pill armed must not reset that to 'waiting'.
-          myRef.get().then(function (snap) {
-            var cur = snap && snap.exists ? (snap.data() || {}) : null;
-            if (foreignLiveDoc(cur)) { watchOwnDoc(); return; }
-            return writeAvailableDoc(avatarIdentity);
-          }).catch(function (err) { console.warn('[spar-live] join read failed', err && err.message); });
+          writeAvailableDoc(avatarIdentity);
         });
       });
     }
     function writeAvailableDoc(avatarIdentity) {
       var blockedUids = [];
       try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
-      return myRef.set({
+      var ref = myRef;
+      // A new tab and the pairing server can race. The read must be in
+      // the same transaction as the write, including background-owned pairs.
+      return db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (snap) {
+          var cur = snap && snap.exists ? (snap.data() || {}) : null;
+          if (!available || busyElsewhere() || Date.now() < declineUntil || activePair(cur) || foreignLiveDoc(cur)) return false;
+          if (cur && cur.status === 'waiting' && stampMs(cur.joinedAt) > Date.now() - FOREIGN_FRESH_MS) return true;
+          tx.set(ref, {
             uid: myUid,
             authProvider: liveVideoProvider(myUser),
             displayName: shortNm(myUser),
@@ -2578,9 +2578,14 @@
             background: true,
             blockedUids: blockedUids.slice(-100),
             joinedAt: ts()
-          }).then(function () {
-            if (!available) { myRef.delete().catch(function () {}); return; } // toggled off mid-write
-            watchOwnDoc(); startTimers(); scan();
+          });
+          return true;
+        });
+      }).then(function (waiting) {
+            if (!available || busyElsewhere() || ref !== myRef) return;
+            stopTimers();
+            watchOwnDoc();
+            if (waiting && !overlay && !navigating) { startTimers(); scan(); }
           })
             .catch(function (err) { console.warn('[spar-live] join failed', err && err.message); });
     }
@@ -2610,20 +2615,13 @@
     // stale_peer_skip), so a green "Available" pill can never sit on a doc
     // peers can't see. Guards mirror goAvailable + the overlay/nav states.
     // ── Doc ownership (2026-09-03) ──────────────────────────────────
-    // The queue doc is keyed by uid, and two surfaces write it: /spar's
-    // joinQueue and this pill. The presence marker above only reaches tabs
-    // that share localStorage, so a second device, a private window or the
-    // iOS shell could not see that /spar owned the doc and rewrote it here
-    // as a fresh 'waiting' record mid-handshake. Measured live 2026-09-03:
-    // a consent proposal got clobbered by a background set() about 30s in,
-    // both sides were re-proposed, and the pair chimed in a loop that never
-    // opened a room. Ownership is read off the DOC now: a doc without
-    // background:true belongs to /spar. While it is live (mid-handshake,
-    // matched, or waiting with a fresh heartbeat) this pill never writes it
-    // and never renders or answers its cards; /spar does. A stale one
-    // (heartbeat older than the matcher's own 3-minute cutoff) is dead and
-    // may be taken over.
+    // Queue writes preserve live foreground records and every active pair.
+    // Invitations may be answered from the current page, regardless of the
+    // page that created the queue record. Local /spar presence still owns it.
     var FOREIGN_FRESH_MS = 3 * 60 * 1000;
+    function activePair(d) {
+      return !!(d && d.room && d.matchedWith && (d.status === 'consent' || d.status === 'matched'));
+    }
     function stampMs(v) {
       try {
         if (!v) return 0;
@@ -2648,28 +2646,34 @@
       if (Date.now() < declineUntil) return; // honour the post-decline quiet window
       if (!humanAround()) return;            // zombie-screen guard: rejoin on next real touch
       docGone = false;
-      var blockedUids = [];
-      try { blockedUids = JSON.parse(localStorage.getItem('dit-blocked-users') || '[]'); if (!Array.isArray(blockedUids)) blockedUids = []; } catch (e) { blockedUids = []; }
-      // Read before write: never bulldoze a doc /spar is running a
-      // handshake on (see foreignLiveDoc). Watching it is enough; the
-      // snapshot handler requeues when it dies.
-      myRef.get().then(function (snap) {
-        var cur = snap && snap.exists ? (snap.data() || {}) : null;
-        if (foreignLiveDoc(cur)) { stopTimers(); watchOwnDoc(); return; }
-        return myRef.set({
-          uid: myUid, authProvider: liveVideoProvider(myUser), displayName: shortNm(myUser), username: publicUsername(myUser), photoURL: (myUser && myUser.photoURL) || '', avatarIdentity: publicAvatarIdentity(),
-          ageBand: agBand(),
-          format: fmt(), status: 'waiting', broaden: true, background: true,
-          blockedUids: blockedUids.slice(-100), joinedAt: ts()
-        }).then(function () { startTimers(); scan(); });
-      }).catch(function () {});
+      writeAvailableDoc(publicAvatarIdentity());
     }
     function goOffline() {
       stopTimers();
       if (ownUnsub) { try { ownUnsub(); } catch (e) {} ownUnsub = null; }
       closeOverlay();
       handledRoom = null;
-      if (myRef) { myRef.delete().catch(function () {}); }
+      dropWaitingDoc();
+    }
+    function dropWaitingDoc() {
+      if (!db || !myRef) return Promise.resolve();
+      var ref = myRef;
+      return db.runTransaction(function (tx) {
+        return tx.get(ref).then(function (snap) {
+          var d = snap.exists ? snap.data() : null;
+          if (d && d.background === true && d.status === 'waiting') tx.delete(ref);
+        });
+      }).catch(function () {});
+    }
+    function pauseVoiceInvites() {
+      if (!ON_VOICE_AI) return;
+      voiceDeclined = true;
+      window.__daVoiceInvitesPaused = true;
+      declineUntil = Infinity;
+      if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
+      stopTimers();
+      dropWaitingDoc();
+      paintPill();
     }
     function startTimers() {
       stopTimers();
@@ -2698,7 +2702,7 @@
       if (busyElsewhere()) {
         if (!available || pausedForRound) return;
         pausedForRound = true;
-        if (overlay && pendingMatch) decline(pendingMatch, true);   // frees the peer
+        if (overlay && pendingMatch && daPresenceKind() !== 'voice-ai') decline(pendingMatch, true);   // frees the peer
         else closeOverlay();
         consentRoom = null; awaitingPeer = false; handledRoom = null;
         stopTimers();
@@ -2719,24 +2723,26 @@
       if (!myRef) return;
       if (ownUnsub) { try { ownUnsub(); } catch (e) {} }
       ownUnsub = myRef.onSnapshot(function (doc) {
-        if (!available) return;
+        if (!available || busyElsewhere()) return;
         // Reaped (deleted) or cancelled server-side while the tab sat hidden
         // past the reaper window: heartbeat alone can't fix the status, so
         // re-queue. Hidden tabs defer to the visibilitychange handler (cost
         // guard: no Firestore churn while nobody's looking).
         if (!doc.exists || (doc.data() || {}).status === 'cancelled') {
+          if (overlay && !navigating) {
+            closeOverlay(); consentRoom = null; awaitingPeer = false; handledRoom = null;
+            sparNote('The invitation ended. Still looking.');
+          }
           docGone = true;
           if (!document.hidden) requeue();
           return;
         }
         docGone = false;
         var d = doc.data() || {};
-        // /spar owns this doc (no background marker). Its own tab renders
-        // the card and answers it; this pill must neither show a duplicate
-        // nor auto-pass it from a post-decline cooldown, which is what
-        // turned one clobbered proposal into a chime loop. A stale foreign
-        // 'waiting' doc means that tab is gone: take the seat back.
-        if (d.background !== true) {
+        // Preserve /spar's waiting record, but deliver an active invitation
+        // on this page when no local foreground matcher owns the screen.
+        // The queue's background flag records its origin, not its audience.
+        if (d.background !== true && !activePair(d) && !overlay && !awaitingPeer) {
           if (foreignLiveDoc(d)) { stopTimers(); return; }
           // Stale waiting, matched_ai, an old matched: that surface is done
           // with the doc. requeue() re-reads before it writes.
@@ -2764,7 +2770,10 @@
             if (consentRoom === d.room && !navigating) markPeerAccepted(d);
             return;
           }
-          if (Date.now() < declineUntil) { sendConsent(d.matchedWith, false, true); return; }
+          if (Date.now() < declineUntil) {
+            if (d.background === true) sendConsent(d.matchedWith, false, true);
+            return;
+          }
           consentRoom = d.room;
           showMatch(d);
           // Their accept can already be on the first snapshot we see, if
@@ -2798,7 +2807,7 @@
           consentRoom = null;
           awaitingPeer = false;
           sparNote('Opponent passed. Still looking.');
-          if (available && !busyElsewhere()) { startTimers(); scan(); }
+          if (available && !busyElsewhere() && d.background === true) { startTimers(); scan(); }
         }
       }, function (err) { console.warn('[spar-live] own-doc listen failed', err && err.message); });
     }
@@ -2905,10 +2914,10 @@
             oppAv +
             '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
           '</div>' +
-          '<div class="da-match-name">vs ' + escHtml(oppNm) + '</div>' +
+          '<div class="da-match-name">' + escHtml(oppNm) + ' wants to debate</div>' +
           '<div class="da-match-sub">Up for a live one-on-one round?</div>' +
           '<div class="da-match-btns">' +
-            '<button type="button" class="da-match-btn da-match-btn--decline">Decline</button>' +
+            '<button type="button" class="da-match-btn da-match-btn--decline">' + (ON_VOICE_AI ? 'Keep talking to AI' : 'Decline') + '</button>' +
             '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
           '</div>' +
         '</div>';
@@ -2967,10 +2976,10 @@
     // 'matched' snapshot is what navigates. Accepting into a room the
     // peer never entered is the whole bug this gate exists to close.
     function sendConsent(peerUid, ok, auto) {
-      if (!peerUid) return;
+      if (!peerUid) return Promise.resolve(false);
       try { if (window.gtag) gtag('event', ok ? 'spar_bg_consent_accept' : 'spar_bg_consent_pass', { auto: !!auto }); } catch (e) {}
       try {
-        window.firebase.auth().currentUser.getIdToken().then(function (tok) {
+        return window.firebase.auth().currentUser.getIdToken().then(function (tok) {
           return fetch('/.netlify/functions/spar-pair', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
@@ -2978,21 +2987,21 @@
           });
         }).then(function (r) { return r.json().catch(function () { return {}; }); })
           .then(function (j) {
-            if (j && j.ok) return;
+            if (j && j.ok) return true;
             // 'consent_state_gone' needs nothing: my own snapshot has
             // already moved me. Any other failure left the proposal
             // alive but my click dead, so put the card back rather than
             // leave the user staring at a spinner until a timer unwinds
             // it. Mirrors spar.html's recoverConsentCard.
             var reason = (j && (j.reason || j.error)) || 'unknown';
-            if (reason === 'consent_state_gone') return;
+            if (reason === 'consent_state_gone') return true;
             console.warn('[spar-live] consent POST soft-failed:', reason);
             if (ok) { awaitingPeer = false; consentRoom = null; }
           }).catch(function (err) {
             console.warn('[spar-live] consent POST failed', err);
             if (ok) { awaitingPeer = false; consentRoom = null; }
           });
-      } catch (e) { /* auth missing: the peer's own timeout backstops us */ }
+      } catch (e) { return Promise.resolve(false); }
     }
 
     // Patch the live invite card to say they have already committed.
@@ -3056,18 +3065,21 @@
       // countdown stops pretending to be a deadline we still own.
       awaitingPeer = true;
       showWaitingForPeer(d);
-      sendConsent(d && d.matchedWith, true, false);
+      sendConsent(d && d.matchedWith, true, false).then(function (ok) {
+        if (ok || navigating || !overlay || !pendingMatch || pendingMatch.room !== d.room) return;
+        awaitingPeer = false;
+        consentRoom = d.room;
+        showMatch(d);
+        sparNote('Could not send your answer. Please try again.');
+      });
     }
 
-    // Captions for the waiting card, stepped against their real window
-    // rather than invented. Everything here is something we know: the
-    // proposal is on their screen, their window is COUNTDOWN_S wide,
-    // and past it we are into the ghost sweep. Cleared by closeOverlay
-    // via waitPhaseTimer.
+    // No delivery/read receipt exists here. Captions describe the pending
+    // answer without claiming that the other person has seen the card.
     var waitPhaseTimer = null;
     var WAIT_PHASES = [
-      { until: 5, text: 'Card is on their screen' },
-      { until: 18, text: 'Reading it' },
+      { until: 5, text: 'Waiting for their response' },
+      { until: 18, text: 'They have not accepted yet' },
       { until: 32, text: 'Still their move' },
       { until: COUNTDOWN_S, text: 'Their window is almost up' },
       { until: Infinity, text: 'No answer yet. Holding your place.' },
@@ -3224,7 +3236,7 @@
       // proposal behind. An `auto` pass (our 20s ran out) additionally
       // feeds the server's ghost-cancel heuristic, which is how a peer
       // waiting on a dead tab gets released instead of stranded.
-      if (wasPending) sendConsent(d && d.matchedWith, false, !!auto);
+      var released = wasPending ? sendConsent(d && d.matchedWith, false, !!auto) : null;
       if (!available || busyElsewhere()) return;
       // Don't re-invite someone who just declined (or let an invite time out).
       // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
@@ -3233,13 +3245,30 @@
       // requeue()/scan() both self-guard on declineUntil, so an inbound pair or
       // a tab-focus can't sneak a card in during the window.
       declineUntil = Date.now() + REINVITE_COOLDOWN_MS;
+      if (ON_VOICE_AI && !auto) {
+        pauseVoiceInvites();
+        try { localStorage.setItem('da-livepop-snooze', String(Date.now())); } catch (e) {}
+        paintPill();
+      }
       stopTimers();
       // A consent pass has already reverted the peer server-side, so
       // only drop our own doc; calling releaseMatch would fire
       // spar-unmatch against a match that never completed.
-      if (wasPending) { if (myRef) myRef.delete().catch(function () {}); }
+      // The consent transaction needs both docs to release the peer. Deleting
+      // ours before it finishes leaves the other person waiting for a ghost.
+      if (wasPending) {
+        var declinedRef = myRef;
+        released.then(function (ok) {
+          if (!ok || !declinedRef) return;
+          return db.runTransaction(function (tx) {
+            return tx.get(declinedRef).then(function (snap) {
+              if (snap.exists && (snap.data() || {}).status === 'waiting') tx.delete(declinedRef);
+            });
+          }).catch(function () {});
+        });
+      }
       else releaseMatch();
-      pauseForCooldown();
+      if (!voiceDeclined) pauseForCooldown();
     }
 
     // The scroll-triggered 'be live for live debates?' bottom card was
@@ -3273,7 +3302,7 @@
         // loud, because being silently matchable is not consent.
         // Match cards still always require an Accept; nothing here can
         // pull anyone into a round without a tap.
-        if (queueUser && !available && !busyElsewhere() && !MATCHING_PAUSED) {
+        if (queueUser && !available && !voiceDeclined && !busyElsewhere() && !MATCHING_PAUSED) {
           var optedOut = false;
           try { optedOut = localStorage.getItem(LSKEY) === '0'; } catch (e) {}
           if (!optedOut && agBand()) {
@@ -3315,7 +3344,7 @@
     // navigating into an accepted match (live-round needs the matched doc)
     // and while the match card is open (decline/timeout owns that path).
     window.addEventListener('pagehide', function () {
-      if (myRef && available && !navigating && !overlay) { try { myRef.delete(); } catch (e) {} }
+      if (myRef && available && !navigating && !overlay) dropWaitingDoc();
     });
   }
 

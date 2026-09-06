@@ -90,7 +90,9 @@ check(rules.includes("request.auth.token.firebase.sign_in_provider == 'anonymous
 check(rules.includes("request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider"), 'Firestore must bind the queue marker to the caller\'s own verified provider');
 check(!rules.includes("request.resource.data.authProvider == 'google.com'"), 'rules must not pin the queue marker to Google alone');
 check(spar.includes("authProvider: state.user.isAnonymous ? 'anonymous' : liveVideoProvider(state.user),"), 'foreground queue must stamp the provider the account holds');
-check(notifications.match(/authProvider: liveVideoProvider\(myUser\)/g)?.length >= 2, 'every background queue write must stamp the held provider');
+const backgroundWriter = notifications.slice(notifications.indexOf('function writeAvailableDoc('), notifications.indexOf('// Zombie-screen guard'));
+check(backgroundWriter.includes('authProvider: liveVideoProvider(myUser)'), 'the shared background queue writer must stamp the held provider');
+check(!notifications.includes('myRef.set(') && notifications.includes('writeAvailableDoc(publicAvatarIdentity())'), 'requeue must use the same transactional provider-stamped writer');
 check(!spar.includes("authProvider: 'google.com'"), 'foreground queue must not hardcode Google');
 check(!notifications.includes("authProvider: 'google.com'"), 'background queue must not hardcode Google');
 check(spar.includes('function inAppBrowser(){'), 'spar must detect in-app browsers');

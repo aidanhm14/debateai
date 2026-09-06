@@ -187,7 +187,7 @@
      pulling them out costs them the match); and the pages that already
      list rounds and replays, where a floating duplicate is noise. */
   var SKIP = [
-    '/live-round', '/voice-debate', '/newvoice', '/room-judge', '/casual-room',
+    '/live-round', '/room-judge', '/casual-room',
     '/voice-rfd', '/practice', '/exhibition', '/coach', '/brain',
     '/spectate', '/watch', '/replays', '/live', '/livedebates',
     '/spar', '/debate-chat', '/partners', '/app', '/index'
@@ -217,6 +217,7 @@
   if (!force && !demo && SKIP.indexOf(here) >= 0) return;
 
   var intentPage = INTENT_PATHS.indexOf(here) >= 0;
+  var voiceAI = here === '/newvoice' || here === '/voice-debate';
 
   // Recheck at poll and render time: the bridge can establish native mode
   // while a request is in flight (including the local responsive preview).
@@ -302,6 +303,7 @@
     try {
       var d = JSON.parse(localStorage.getItem('da-round-presence') || 'null');
       if (!d || !d.kind) return false;
+      if (voiceAI && d.kind === 'voice-ai') return false;
       return (now() - (d.at || 0)) <= 150000;
     } catch (e) { return false; }
   }
@@ -609,6 +611,7 @@
 
   function waitingItem() {
     if (nativeBoard() || !namedUser()) return Promise.resolve(null);
+    if (voiceAI && window.__daVoiceInvitesPaused) return Promise.resolve(null);
     try { if (localStorage.getItem('da-spar-bg') === '0') return Promise.resolve(null); } catch (e) {}
     return getJSON('/api/live-now').then(function (j) {
       var all = (j && j.debaters) || [];
@@ -718,7 +721,7 @@
       '<div class="da-wait-invite__avatar" aria-hidden="true">' + esc(initial(item.name)) + '</div>' +
       '<h2 id="da-wait-title">' + esc(item.name || 'Someone') + ' wants to debate</h2>' +
       '<p id="da-wait-sub" class="da-wait-invite__sub">They are looking for an opponent right now. Up for a live one-on-one round?</p>' +
-      '<div class="da-wait-invite__buttons"><button type="button" data-decline>Not now</button>' +
+      '<div class="da-wait-invite__buttons"><button type="button" data-decline>' + (voiceAI ? 'Keep talking to AI' : 'Not now') + '</button>' +
       '<button type="button" data-accept autofocus>Accept</button></div>';
     document.body.appendChild(dialog);
     document.documentElement.classList.add('da-debate-invite-open');
@@ -739,6 +742,10 @@
       window.removeEventListener('storage', onStorage);
       if (previousFocus && previousFocus.isConnected) previousFocus.focus();
       if (reason === 'dismiss') write(localStorage, SNOOZE_KEY, now());
+      if (reason === 'dismiss' && voiceAI) {
+        window.__daVoiceInvitesPaused = true;
+        if (window.DASparLive && window.DASparLive.pauseVoiceInvites) window.DASparLive.pauseVoiceInvites();
+      }
     }
     function onMatch() { close('match'); }
     function onStorage() {
@@ -1012,7 +1019,7 @@
     // No interaction gate: someone can arrive and receive an invitation.
     waitingItem().then(function (it) {
       if (it) return it;
-      return liveGated() ? null : liveItem();
+      return voiceAI || liveGated() ? null : liveItem();
     }).then(function (it) {
       if (it && !document.hidden && !cardVisible && !busyInRound() && !snoozed() &&
           !document.querySelector('.da-match-overlay') && (it.kind === 'wait' || !liveGated())) render(it, { fast: true });
