@@ -1592,7 +1592,10 @@ function syncChallengeBanner(){
 // ── small utils ───────────────────────────────────────────────────
 function fmtAgo(ts){
   if(!ts)return '';
-  const d=ts.toDate?ts.toDate():new Date(ts);
+  let d;
+  try { d=typeof ts.toDate==='function'?ts.toDate():new Date(ts); }
+  catch(e) { return ''; }
+  if(!d || typeof d.getTime!=='function' || !Number.isFinite(d.getTime()))return '';
   const diff=Date.now()-d.getTime();
   const mins=Math.floor(diff/60000);
   if(mins<1)return 'just now';
