@@ -80,17 +80,31 @@ missing transcription is not proof of a dropped response. The published
 score weights and panel pins. Never edit a historical rubric in place.
 
 Before the first speech, “Debate something else” is the single visible
-entry to topic changes. It expands Spin a motion, Let AI suggest, and Draft one together. The AI
-option listens to both people before proposing; the draft supports an offer,
-veto or counter. The AI option starts a shared topic conversation.
-Both people consent; each explicitly enables AI microphone
-listening or types. The server reads only the room's eligibility stamp and
-private Match Desk issue areas to choose a question, then generates from the
-new conversation. Setup text stays server-only and outside the scored transcript.
-Both people must accept the proposal before the motion changes. Speech start,
-tournament locks, cancellation, stale generations and concurrent approvals
-must preserve the current motion. `scripts/test-room-topic.mjs` exercises those
-boundaries offline.
+entry to topic changes. It expands Spin a motion, Ask the judge, and Draft one
+together; the draft supports an offer, veto or counter.
+
+**Ask the judge is a VOICE in the room, not a modal (2026-09-06, Aidan on
+the 09-02 popup: "this is horrible ... not another pop up to read").** One
+seat taps it; that browser (the host) mints an OpenAI Realtime session
+through `POST /api/room-topic` (`open`), dials it over WebRTC with a Web
+Audio mix of its own mic plus the opponent's Daily audio track, plays the
+judge locally, and publishes the judge's voice into the Daily room as a
+custom audio track named `judge` (`js/room-topic.js`; `paintAudio` in
+live-round plays `tracks.judge` for everyone else). The judge says one
+literal greeting, listens, and calls the `propose_motion` tool; the host
+relays that as `propose`, the server validates it (`validateProposedMotion`:
+one side only, no "but", no names, content guard, not the current motion),
+and both seats get a one-tap Use it on a strip above the disclosure. Both
+must accept; either can Stop the judge. Three proposals per talk, three
+minutes, `gpt-realtime-2.1-mini` by default (`OPENAI_TOPIC_REALTIME_MODEL`),
+6 mints an hour per uid. The judge never sees profile answers, only the
+issue name as a hint. There is no consent step and no textarea: the other
+person hears the judge announce itself and has Stop. Speech start,
+tournament locks, cancellation, stale proposals and concurrent accepts must
+preserve the current motion. `scripts/test-room-topic.mjs` exercises the
+state machine, the validator and the mint shape offline; the voice loop
+itself was verified in a browser against the live model and is not in the
+hook.
 
 ## First screen: stranger board for everyone (A/B called 2026-07-22)
 

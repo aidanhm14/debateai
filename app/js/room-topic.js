@@ -1,12 +1,27 @@
+// The voice judge that helps two people pick a resolution (2026-09-06).
+//
+// One seat taps Let AI suggest. This browser (the HOST) dials OpenAI
+// Realtime over WebRTC, feeds it a mix of the host's own mic and the
+// opponent's Daily audio, plays the judge's voice locally, and publishes
+// that same voice into the Daily room as a custom audio track named
+// "judge" so the opponent and any spectators hear it too. The judge
+// greets the room, asks what they want to argue about, and calls the
+// propose_motion tool; the host relays that to /api/room-topic, the
+// round doc carries the proposal, and each seat gets a one-tap Use it
+// on the resolution bar. No modal, nothing to read.
+//
+// The 09-02 modal (consent step, textarea, "I am ready" button) is gone.
+// See lib/room-topic.mjs for the founder's verdict on it.
 (function () {
   'use strict';
-  var talk = null, dialog = null, signature = '', busy = false, opening = false;
-  var micStarting = false, speaking = false;
-  var capture = null, uploads = [], captured = '', captureError = false, lastSpoken = '';
+  var talk = null, strip = null, signature = '', busy = false, opening = false;
+  var voice = null;
   function ctx() { return window.__lrTopicContext ? window.__lrTopicContext() : {}; }
-  function active(t) { return !!t && ['invited', 'listening', 'generating', 'proposed'].indexOf(t.phase) >= 0 && Date.now() < t.expiresAt; }
+  function active(t) { return !!t && ['listening', 'proposed'].indexOf(t.phase) >= 0 && Date.now() < t.expiresAt; }
+  function isHost() { return !!talk && talk.host === ctx().uid; }
   function el(tag, text, cls) { var n = document.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; }
-  function error(text) { var n = dialog && dialog.querySelector('.topic-error'); if (n) n.textContent = text; }
+  function ga(name, extra) { try { if (window.gtag) gtag('event', name, extra || {}); } catch (_) {} }
+  function notice(msg) { if (window.__lrTopicNotice) window.__lrTopicNotice(msg); }
   function api(action, extra) {
     var c = ctx();
     if (!c.user) return Promise.reject(Error('Sign in to choose a topic.'));
@@ -19,180 +34,196 @@
   function act(action) {
     if (busy) return;
     busy = true;
-    if (action === 'cancel') stopListening();
-    api(action).catch(function(e) { error(e.message); }).then(function() { busy = false; });
+    api(action).catch(function(e) { notice(e.message); }).then(function() { busy = false; });
   }
-  function speak(text, key) {
-    if (!window.speechSynthesis || lastSpoken === key) return;
-    lastSpoken = key;
-    // Each person hears the same chair locally; this audio is not sent to Daily.
-    var utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1; speaking = true;
-    utterance.onend = utterance.onerror = function(){ speaking = false; };
-    speechSynthesis.speak(utterance);
+
+  // ── The voice session (host only) ────────────────────────────────
+  function send(msg) { try { if (voice && voice.dc && voice.dc.readyState === 'open') voice.dc.send(JSON.stringify(msg)); } catch (_) {} }
+  function say(instructions) { send({ type: 'response.create', response: { instructions: instructions } }); }
+  // Mix every voice in the room into the one track the judge hears. The
+  // opponent's track arrives over Daily and can be replaced when they
+  // mute and unmute, so this is re-run on a short poll and swaps sources
+  // by track id.
+  function addSource(v, track, key) {
+    if (!track || track.readyState !== 'live') return;
+    var cur = v.sources[key];
+    if (cur && cur.id === track.id) return;
+    if (cur) { try { cur.node.disconnect(); } catch (_) {} }
+    try {
+      var node = v.ac.createMediaStreamSource(new MediaStream([track]));
+      node.connect(v.dest);
+      v.sources[key] = { id: track.id, node: node };
+    } catch (_) {}
   }
-  function cleanupCapture(c) {
-    clearTimeout(c.timer); clearInterval(c.meter);
-    c.stream.getTracks().forEach(function(t) { t.stop(); });
-    if (c.audio) c.audio.close().catch(function() {});
+  function refreshSources(v) {
+    var c = ctx();
+    addSource(v, c.audioTrack, 'me');
+    var peer = c.peerAudioTrack ? c.peerAudioTrack() : null;
+    if (peer) addSource(v, peer, 'peer');
   }
-  function stopListening() {
-    var listenButton = dialog && dialog.querySelector('.topic-listen');
-    if (listenButton) { listenButton.textContent = 'Let the AI listen to my microphone'; listenButton.setAttribute('aria-pressed', 'false'); }
-    var c = capture;
-    if (!c) return Promise.resolve();
-    capture = null; c.stopping = true;
-    return new Promise(function(resolve) {
-      c.stopped = resolve;
-      if (c.rec && c.rec.state !== 'inactive') c.rec.stop();
-      else { cleanupCapture(c); resolve(); }
+  function publish(v, track) {
+    var c = ctx();
+    if (!c.call || !c.joined || v.published) return;
+    v.published = true;
+    try {
+      var p = c.call.startCustomTrack({ track: track, trackName: 'judge' });
+      if (p && p.catch) p.catch(function(e) { console.warn('[room-topic] judge track publish failed', e); v.published = false; });
+    } catch (e) { console.warn('[room-topic] judge track publish failed', e); v.published = false; }
+  }
+  function handleEvent(ev) {
+    var msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
+    if (msg.type === 'error') { console.warn('[room-topic] realtime error', msg.error); return; }
+    if (msg.type !== 'response.function_call_arguments.done' || msg.name !== 'propose_motion') return;
+    var args = {}; try { args = JSON.parse(msg.arguments || '{}'); } catch (_) {}
+    var callId = msg.call_id;
+    if (!talk) return;
+    ga('live_topic_voice_propose', { attempt: talk.proposals + 1 });
+    api('propose', { motion: String(args.motion || '') }).then(function() {
+      send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: callId, output: JSON.stringify({ ok: true, shown: true }) } });
+      say('The resolution is now on both screens. Read it out loud word for word, then say only: tap Use it if you are both in, or say something else. No commentary, nothing about why you picked it.');
+    }).catch(function(e) {
+      send({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: callId, output: JSON.stringify({ ok: false, error: e.message }) } });
+      say('That one was not accepted: ' + e.message + ' Try a different resolution, without repeating this problem to them.');
     });
   }
-  function upload(blob, heard, id) {
-    if (!heard || blob.size < 2048) return Promise.resolve();
-    var fd = new FormData(); fd.append('audio', blob, 'topic-segment');
-    return fetch('/api/transcribe', { method: 'POST', body: fd }).then(function(r) {
-      if (!r.ok) throw Error('Could not capture part of that. Add the missing words below before continuing.');
-      return r.json();
-    }).then(function(d) {
-      var text = String(d.text || '').trim();
-      if (!text || !talk || talk.id !== id || talk.phase !== 'listening') return;
-      return api('line', { text: text, lineId: crypto.randomUUID() }).then(function() {
-        captured += (captured ? '\n' : '') + text;
-        var n = dialog && dialog.querySelector('.topic-captured'); if (n) n.textContent = captured;
-      });
-    }).catch(function(e) { captureError = true; error(e.message); });
-  }
-  function recordChunk(c) {
-    if (capture !== c || c.stopping) return;
-    c.samples = 0; var chunks = [];
-    var mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].filter(function(m) { return MediaRecorder.isTypeSupported(m); })[0];
-    try { c.rec = new MediaRecorder(c.stream, mime ? { mimeType: mime } : undefined); }
-    catch (_) { stopListening(); error('AI listening could not start. Type your view below.'); return; }
-    c.rec.ondataavailable = function(e) { if (e.data.size) chunks.push(e.data); };
-    c.rec.onstop = function() {
-      clearTimeout(c.timer);
-      var blob = new Blob(chunks, { type: c.rec.mimeType }), heard = c.samples >= 8;
-      var previous = uploads.length ? uploads[uploads.length - 1] : Promise.resolve();
-      uploads.push(previous.then(function(){ return upload(blob, heard, c.id); }));
-      if (capture === c && !c.stopping && active(talk) && talk.phase === 'listening') recordChunk(c);
-      else { cleanupCapture(c); if (c.stopped) c.stopped(); }
-    };
-    c.rec.start();
-    c.timer = setTimeout(function() { if (c.rec.state !== 'inactive') c.rec.stop(); }, 12000);
-  }
-  function startListening() {
-    if (capture || micStarting || !talk || talk.phase !== 'listening' || talk.ready[ctx().uid]) return;
-    if (!navigator.mediaDevices || !window.MediaRecorder) { error('This browser cannot listen here. Type your view below.'); return; }
-    var id = talk.id, source = ctx().audioTrack;
-    if (source && !source.enabled) { error('Your room microphone is muted. Unmute it to let the AI listen, or type below.'); return; }
-    micStarting = true;
-    var get = source && source.readyState === 'live'
-      ? Promise.resolve(new MediaStream([source.clone()]))
-      : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    get.then(function(stream) {
-      micStarting = false;
-      if (document.hidden || !talk || talk.id !== id || talk.phase !== 'listening') { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
-      var c = { stream: stream, source: source, id: id, samples: 0, stopping: false };
-      try {
-        var AC = window.AudioContext || window.webkitAudioContext;
-        c.audio = new AC(); var analyser = c.audio.createAnalyser(); analyser.fftSize = 2048;
-        c.audio.createMediaStreamSource(stream).connect(analyser);
-        var values = new Float32Array(analyser.fftSize);
-        c.audio.resume();
-        c.meter = setInterval(function() {
-          if (c.source && (!c.source.enabled || c.source.readyState !== 'live')) { stopListening(); return; }
-          analyser.getFloatTimeDomainData(values);
-          var sum = 0; for (var i = 0; i < values.length; i++) sum += values[i] * values[i];
-          if (Math.sqrt(sum / values.length) >= 0.012) c.samples++;
-        }, 50);
-      } catch (_) { cleanupCapture(c); error('AI listening could not start. Type your view below.'); return; }
-      capture = c; recordChunk(c);
-      var b = dialog.querySelector('.topic-listen'); if (b) { b.textContent = 'AI is listening to your microphone. Stop'; b.setAttribute('aria-pressed', 'true'); }
-    }).catch(function() { micStarting = false; error('Microphone access was unavailable. Type your view below.'); });
-  }
-  async function ready() {
-    if (busy) return; busy = true; error('');
+  async function startVoice(mint) {
+    stopVoice();
+    var c = ctx();
+    var v = { pc: null, dc: null, ac: null, dest: null, sources: {}, audio: null, poll: null, published: false, stopped: false };
+    voice = v;
     try {
-      await stopListening(); await Promise.all(uploads); uploads = [];
-      var input = dialog.querySelector('textarea'); var text = input ? input.value.trim() : '';
-      if (text) {
-        await api('line', { text: text, lineId: crypto.randomUUID() });
-        captured += (captured ? '\n' : '') + text;
-        input.value = ''; captureError = false;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      v.ac = new AC();
+      v.dest = v.ac.createMediaStreamDestination();
+      try { v.ac.resume(); } catch (_) {}
+      if (!c.audioTrack) {
+        // Off the call-object path there is no borrowed track. Ask once.
+        var got = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        v.ownMic = got;
+        addSource(v, got.getAudioTracks()[0], 'me');
       }
-      if (captureError) throw Error('Add a correction for the missing capture before continuing.');
-      await api('ready');
-    } catch (e) { error(e.message); }
-    busy = false;
+      refreshSources(v);
+      v.poll = setInterval(function() { if (voice === v) refreshSources(v); }, 1500);
+
+      var pc = new RTCPeerConnection();
+      v.pc = pc;
+      pc.addTrack(v.dest.stream.getAudioTracks()[0], v.dest.stream);
+      v.audio = document.createElement('audio');
+      v.audio.autoplay = true; v.audio.playsInline = true; v.audio.setAttribute('playsinline', '');
+      v.audio.style.display = 'none';
+      document.body.appendChild(v.audio);
+      pc.ontrack = function(ev) {
+        var stream = ev.streams && ev.streams[0];
+        if (!stream) return;
+        v.audio.srcObject = stream;
+        var p = v.audio.play(); if (p && p.catch) p.catch(function() {});
+        publish(v, stream.getAudioTracks()[0]);
+      };
+      var dc = pc.createDataChannel('oai-events');
+      v.dc = dc;
+      dc.onmessage = handleEvent;
+      dc.onopen = function() {
+        send({ type: 'session.update', session: { type: 'realtime', output_modalities: ['audio'],
+          audio: { input: { turn_detection: { type: 'server_vad', threshold: 0.72, prefix_padding_ms: 300, silence_duration_ms: 1000, create_response: true, interrupt_response: true } },
+            output: { voice: mint.voice || 'marin', speed: 1.05 } } } });
+        say('Say exactly this, once, and nothing else: "' + String(mint.greeting || 'Hi, I am your judge. What do you two actually disagree on?').replace(/"/g, '') + '" Then stop and listen. Do not call any tool yet.');
+      };
+      var offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      var res = await fetch(mint.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
+        method: 'POST', body: offer.sdp,
+        headers: { Authorization: 'Bearer ' + mint.client_secret.value, 'Content-Type': 'application/sdp' },
+      });
+      if (!res.ok) throw Error('The judge could not connect (' + res.status + ').');
+      await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+      if (voice !== v) { teardown(v); return; }
+      ga('live_topic_voice_start', { model: mint.model || '' });
+    } catch (e) {
+      teardown(v); if (voice === v) voice = null;
+      notice(e.message || 'The judge could not join. Try Spin a motion.');
+      api('cancel').catch(function() {});
+    }
   }
+  function teardown(v) {
+    if (!v || v.stopped) return;
+    v.stopped = true;
+    clearInterval(v.poll);
+    var c = ctx();
+    if (v.published && c.call) { try { c.call.stopCustomTrack('judge'); } catch (_) {} }
+    try { if (v.dc) v.dc.close(); } catch (_) {}
+    try { if (v.pc) v.pc.close(); } catch (_) {}
+    try { if (v.ac) v.ac.close(); } catch (_) {}
+    if (v.ownMic) v.ownMic.getTracks().forEach(function(t) { t.stop(); });
+    if (v.audio) { try { v.audio.srcObject = null; v.audio.remove(); } catch (_) {} }
+  }
+  function stopVoice(farewell) {
+    var v = voice; if (!v) return;
+    voice = null;
+    if (farewell && v.dc && v.dc.readyState === 'open') {
+      try { v.dc.send(JSON.stringify({ type: 'response.create', response: { instructions: farewell } })); } catch (_) {}
+      setTimeout(function() { teardown(v); }, 4500);
+    } else teardown(v);
+  }
+
+  // ── The strip on the resolution bar ─────────────────────────────
   function button(label, fn, cls) { var b = el('button', label, cls); b.type = 'button'; b.addEventListener('click', fn); return b; }
+  function mount() {
+    if (strip && strip.isConnected) return strip;
+    strip = el('div', null, 'topic-strip');
+    strip.id = 'topicJudgeStrip';
+    strip.setAttribute('role', 'status');
+    var anchor = document.getElementById('rmbTools');
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(strip, anchor);
+    else document.body.appendChild(strip);
+    return strip;
+  }
   function close() {
-    stopListening();
-    if (speaking && window.speechSynthesis) { speechSynthesis.cancel(); speaking = false; }
-    if (dialog) { dialog.close(); dialog.remove(); dialog = null; }
+    if (strip) { strip.remove(); strip = null; }
     signature = '';
+  }
+  function otherName() {
+    var c = ctx(); var names = c.names || {};
+    return names[Object.keys(names).filter(function(id) { return id !== c.uid; })[0]] || 'the other person';
   }
   function render(next) {
     if (!next) return;
     var c = ctx(); if (c.spectator || !c.uid) return;
     var changed = !talk || talk.id !== next.id;
     talk = next;
-    if (changed) { captured = ''; captureError = false; uploads = []; }
     if (!active(talk)) {
+      var was = talk.phase;
       close();
-      if (talk.error && window.__lrTopicNotice) window.__lrTopicNotice(talk.error);
+      if (voice) stopVoice(was === 'done' ? 'Say one short line: locked in, good luck to you both. Then stop.' : null);
+      if (talk.error) notice(talk.error);
       return;
     }
-    if (talk.phase !== 'listening') stopListening();
-    var key = JSON.stringify([talk.id, talk.phase, talk.consents, talk.ready, talk.accepts, talk.proposal]);
+    if (changed && voice && !isHost()) stopVoice();
+    var key = JSON.stringify([talk.id, talk.phase, talk.accepts, talk.proposal, talk.proposals]);
     if (signature === key) return;
     signature = key;
-    var draftText = dialog && dialog.querySelector('textarea') ? dialog.querySelector('textarea').value : '';
-    if (!dialog) {
-      dialog = el('dialog', null, 'topic-dialog');
-      dialog.setAttribute('aria-labelledby', 'topicTitle');
-      dialog.addEventListener('cancel', function(e) { e.preventDefault(); act('cancel'); });
-      document.body.appendChild(dialog); dialog.showModal();
+    var s = mount(); s.replaceChildren();
+    s.classList.toggle('topic-strip--proposed', talk.phase === 'proposed');
+    var lead = el('div', null, 'topic-strip-lead');
+    lead.appendChild(el('span', '🎙', 'topic-strip-ico'));
+    var text = el('div', null, 'topic-strip-text');
+    lead.appendChild(text); s.appendChild(lead);
+    var row = el('div', null, 'topic-strip-row'); s.appendChild(row);
+    if (talk.phase === 'listening') {
+      text.appendChild(el('strong', 'The judge is in the room.'));
+      text.appendChild(el('span', isHost()
+        ? ' It hears you through your mic and ' + otherName() + ' through the call. Just talk about what you want to argue.'
+        : ' It is listening to you both. Just talk about what you want to argue.'));
+    } else {
+      text.appendChild(el('strong', 'Judge suggests: '));
+      text.appendChild(el('span', talk.proposal, 'topic-strip-motion'));
+      var mine = !!talk.accepts[c.uid];
+      var theirs = Object.keys(talk.accepts).some(function(id) { return id !== c.uid && talk.accepts[id]; });
+      if (!mine) row.appendChild(button('Use it', function() { ga('live_topic_voice_accept'); act('accept'); }, 'topic-strip-primary'));
+      else row.appendChild(el('span', theirs ? 'Both in.' : 'You are in. Waiting for ' + otherName() + '.', 'topic-strip-wait'));
+      if (theirs && !mine) row.appendChild(el('span', otherName() + ' is in.', 'topic-strip-wait'));
+      if (talk.proposals < 3) row.appendChild(el('span', 'Want another? Just say so.', 'topic-strip-hint'));
     }
-    dialog.replaceChildren();
-    dialog.appendChild(el('strong', 'AI TOPIC MATCHMAKING', 'topic-kicker'));
-    var title = el('h2', talk.phase === 'proposed' ? 'I think this might suit you two.' : 'Debate something else'); title.id = 'topicTitle'; dialog.appendChild(title);
-    var status = el('p', '', 'topic-status'); status.setAttribute('role', 'status'); dialog.appendChild(status);
-    if (talk.phase === 'invited') {
-      status.textContent = 'The AI can listen while you both talk through a question, then suggest a resolution. This setup discussion is separate from the scored round.';
-      dialog.appendChild(el('p', 'Both people must agree. Each microphone stays off for AI listening until its owner turns it on. You can also type.'));
-      if (!talk.consents[c.uid]) dialog.appendChild(button('Talk it through together', function() { act('consent'); }, 'topic-primary'));
-      else dialog.appendChild(el('p', 'Waiting for the other person to agree.'));
-    } else if (talk.phase === 'listening') {
-      status.textContent = talk.ready[c.uid] ? 'Your view is saved. Waiting for the other person to finish.' : 'Tell each other what you think. Turn on AI listening or type your view.';
-      dialog.appendChild(el('p', talk.question, 'topic-question'));
-      if (!talk.ready[c.uid]) {
-        dialog.appendChild(button(capture ? 'AI is listening to your microphone. Stop' : 'Let the AI listen to my microphone', function() {
-          if (capture) stopListening().then(function() { var b = dialog && dialog.querySelector('.topic-listen'); if (b) { b.textContent = 'Let the AI listen to my microphone'; b.setAttribute('aria-pressed', 'false'); } });
-          else startListening();
-        }, 'topic-listen'));
-        var label = el('label', 'Your view, or anything the AI missed'); label.htmlFor = 'topicView'; dialog.appendChild(label);
-        var input = el('textarea'); input.id = 'topicView'; input.maxLength = 1800; input.rows = 3; input.value = draftText; dialog.appendChild(input);
-        var details = el('details'); details.appendChild(el('summary', 'What the AI captured from you'));
-        details.appendChild(el('p', captured || 'No words captured yet.', 'topic-captured')); dialog.appendChild(details);
-        dialog.appendChild(button('I am ready for a suggestion', ready, 'topic-primary'));
-      }
-      if (talk.ready[c.uid]) dialog.appendChild(el('p', 'AI listening is off for your microphone.'));
-      if (Object.keys(talk.ready).some(function(id){ return id !== c.uid && talk.ready[id]; })) dialog.appendChild(el('p', 'The other person is ready.'));
-    } else if (talk.phase === 'generating') {
-      status.textContent = 'Both views are in. The AI is looking for a question that gives each of you something worth arguing.';
-    } else if (talk.phase === 'proposed') {
-      status.textContent = 'The AI proposes:';
-      dialog.appendChild(el('p', talk.proposal, 'topic-question'));
-      dialog.appendChild(el('p', 'The resolution changes only if you both accept. You can trade sides before starting the round.'));
-      if (!talk.accepts[c.uid]) dialog.appendChild(button('Accept this resolution', function() { act('accept'); }, 'topic-primary'));
-      else dialog.appendChild(el('p', 'Accepted. Waiting for the other person.'));
-      speak('Okay, I think I have an idea that might suit you two. ' + talk.proposal, talk.id + ':proposal');
-    }
-    var err = el('p', '', 'topic-error'); err.setAttribute('role', 'alert'); dialog.appendChild(err);
-    dialog.appendChild(button(talk.phase === 'proposed' ? 'Keep the current resolution' : 'Cancel topic discussion', function() { act('cancel'); }));
-    if (talk.phase === 'listening') speak(talk.question, talk.id + ':question');
+    row.appendChild(button(talk.phase === 'proposed' ? 'Keep our topic' : 'Stop the judge', function() { ga('live_topic_voice_cancel', { phase: talk.phase }); act('cancel'); }, 'topic-strip-quiet'));
   }
   window.RoomTopic = {
     render: render,
@@ -200,14 +231,15 @@
     open: function() {
       if (opening || !ctx().canChoose) return;
       opening = true;
-      api('open').catch(function(e) { if (window.__lrTopicNotice) window.__lrTopicNotice(e.message); }).then(function() { opening = false; });
+      api('open').then(function(d) {
+        if (d.voice && d.talk && d.talk.host === ctx().uid) return startVoice(d.voice);
+      }).catch(function(e) { notice(e.message); }).then(function() { opening = false; });
     }
   };
   document.addEventListener('click', function(e) { if (e.target.closest('#rmbTalkBtn')) window.RoomTopic.open(); });
   setInterval(function() {
-    if (talk && dialog && (!active(talk) || !ctx().canChoose)) { api('cancel').catch(function() {}); close(); }
+    if (talk && strip && (!active(talk) || !ctx().canChoose)) { api('cancel').catch(function() {}); close(); stopVoice(); }
   }, 1000);
-  document.addEventListener('visibilitychange', function() { if (document.hidden) stopListening(); });
-  window.addEventListener('pagehide', stopListening);
+  window.addEventListener('pagehide', function() { stopVoice(); });
   if (window.__lrTopicSnapshot) render(window.__lrTopicSnapshot);
 })();

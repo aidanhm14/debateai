@@ -232,3 +232,27 @@ export async function ensurePairMotion(db, room, uid, options = {}) {
   controller.abort();
   return finish(result, claim.state.claimId);
 }
+
+// A resolution the voice judge proposed from what two people SAID in the
+// room (lib/room-topic.mjs, 2026-09-06). Unlike validateGeneratedMotion
+// there is no questionnaire context to bind it to: the judge follows the
+// conversation, so relevance to a signup answer would reject the right
+// answer. Shape, safety, and "not the one they already have" still hold.
+export function validateProposedMotion(value, current) {
+  const motion = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  if (!safeText(motion, 200)) return { ok: false, reason: 'unsafe_output' };
+  if (/[?!]/.test(motion) || /[.;]\s+\S/.test(motion) || motion.split(/\s+/).length < 4) {
+    return { ok: false, reason: 'malformed_output' };
+  }
+  if (/\b(you|your|yours|opponents?|participants?|these people|both people|the pair)\b/i.test(motion)) {
+    return { ok: false, reason: 'attributed_output' };
+  }
+  // A resolution takes a side. "X, but Y" grants both and leaves nothing
+  // to argue; the mini model reached for that shape on its first live run.
+  if (/\b(but|however|although|whereas|on the other hand|on one hand)\b/i.test(motion)) {
+    return { ok: false, reason: 'hedged_output' };
+  }
+  const key = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (current && key(motion) === key(current)) return { ok: false, reason: 'same' };
+  return { ok: true, motion };
+}

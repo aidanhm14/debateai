@@ -38,6 +38,8 @@
     // gated route missing from this list fails SILENTLY as a working
     // fallback, which is why it took driving the live form to catch.
     '/api/signin-link',
+    // The voice judge mint for the pre-round topic pick (real Realtime money).
+    '/api/room-topic',
     // The stage: a viewer asking to argue on the live broadcast, and the
     // ballot for the round that follows. Both call checkAppCheck().
     '/api/stage', '/api/stage-judge',

@@ -3909,7 +3909,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <summary class="rmb-change rmb-change--draft rmb-tools-toggle" id="rmbToolsLabel">Debate something else</summary>
               <div class="rmb-tools-grid">
                 <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin a motion<small>Suggest a random topic.</small></span></button>
-                <button type="button" class="rmb-change" id="rmbTalkBtn"><span class="rmb-ico" aria-hidden="true">&#128172;</span><span>Let AI suggest<small>Talk for a bit. AI listens to you both.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbTalkBtn"><span class="rmb-ico" aria-hidden="true">&#128172;</span><span>Ask the judge<small>The judge joins by voice and helps you pick.</small></span></button>
                 <button type="button" class="rmb-change" id="rmbDraftBtn"><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span><span>Draft one together<small>Offer, veto, or counter a motion.</small></span></button>
               </div>
             </details>
@@ -11233,25 +11233,31 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var seen = {};
     list.forEach(function(p){
       if (p.local) return;
-      var track = trackOf(p.tracks && p.tracks.audio);
-      if (!track) return;
-      seen[p.session_id] = true;
-      var a = room.audios[p.session_id];
-      if (!a){
-        a = document.createElement('audio');
-        a.autoplay = true; a.playsInline = true;
-        a.setAttribute('playsinline', '');
-        room.audioHost.appendChild(a);
-        room.audios[p.session_id] = a;
-      }
-      attachTrack(a, track);
-      if (room.viewer){
-        // Start immediately. Some browsers may still enforce their own
-        // autoplay policy, but the spectator surface never interrupts the
-        // broadcast with a separate sound-gate button.
-        var pr = a.play && a.play();
-        if (pr && pr.catch) pr.catch(function(){});
-      }
+      // The mic, plus the voice judge the topic host publishes as a
+      // custom track named "judge" (js/room-topic.js, 2026-09-06). Same
+      // element rules: one <audio> per track, never for ourselves.
+      [['audio', p.tracks && p.tracks.audio], ['judge', p.tracks && p.tracks.judge]].forEach(function(pair){
+        var track = trackOf(pair[1]);
+        if (!track) return;
+        var key = pair[0] === 'audio' ? p.session_id : p.session_id + ':' + pair[0];
+        seen[key] = true;
+        var a = room.audios[key];
+        if (!a){
+          a = document.createElement('audio');
+          a.autoplay = true; a.playsInline = true;
+          a.setAttribute('playsinline', '');
+          room.audioHost.appendChild(a);
+          room.audios[key] = a;
+        }
+        attachTrack(a, track);
+        if (room.viewer){
+          // Start immediately. Some browsers may still enforce their own
+          // autoplay policy, but the spectator surface never interrupts the
+          // broadcast with a separate sound-gate button.
+          var pr = a.play && a.play();
+          if (pr && pr.catch) pr.catch(function(){});
+        }
+      });
     });
     Object.keys(room.audios).forEach(function(sid){
       if (seen[sid]) return;
@@ -17501,9 +17507,30 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       publishRoundMeta();
     }
     window.__lrSetMotion = setMotion;
+    // The opponent's mic as the room receives it, for the voice judge to
+    // listen to. Same rules as the backup transcript: never our own,
+    // never an audience cam, only a playable track.
+    function topicPeerTrack(){
+      if (!room.call) return null;
+      var me = myUid(), ps = {};
+      try { ps = room.call.participants() || {}; } catch(e){ return null; }
+      var keys = Object.keys(ps);
+      for (var i = 0; i < keys.length; i++){
+        var p = ps[keys[i]];
+        if (!p || p.local || isAudienceName(p.user_name)) continue;
+        if (p.user_id && me && p.user_id === me) continue;
+        var t = trackOf(p.tracks && p.tracks.audio);
+        if (t) return t;
+      }
+      return null;
+    }
     window.__lrTopicContext = function(){
+      var names = {};
+      if (state.proUid) names[state.proUid] = state.proName || 'Pro';
+      if (state.conUid) names[state.conUid] = state.conName || 'Con';
       return { room: state.room, user: state.user, uid: myUid(), spectator: isSpectator(),
-        canChoose: state.phase === 'round' && !isSpectator() && !motionChangeLocked(), audioTrack: srvBorrowTrack() };
+        canChoose: state.phase === 'round' && !isSpectator() && !motionChangeLocked(), audioTrack: srvBorrowTrack(),
+        call: room.call, joined: !!room.joined, peerAudioTrack: topicPeerTrack, names: names };
     };
     window.__lrTopicNotice = toast;
     // Options disclosure: the summary line stays, the tools grid toggles.
