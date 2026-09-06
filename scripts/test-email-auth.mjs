@@ -310,6 +310,21 @@ test('an existing email account is recovered after guest-link or account-create 
   }
 });
 
+test('a signup collision with a different provider explains account recovery', async () => {
+  const h = harness({ createError: 'auth/email-already-in-use', signinError: 'auth/invalid-credential' });
+  h.render('signup');
+  h.fill();
+  h.submit();
+  await settle();
+  assert.deepEqual(methods(h), ['persistence', 'create', 'signin']);
+  assert.equal(completed(h).length, 0);
+  assert.equal(h.query('#daEmailBtn').disabled, false);
+  assert.equal(h.query('#daEmailBtn').textContent, 'Create account');
+  assert.match(h.query('.da-err').textContent, /already has an account/i);
+  assert.match(h.query('.da-err').textContent, /Google or Apple|sign-in link/i);
+  h.noPasswordSaved();
+});
+
 test('returning sign-in honors local versus session persistence before checking the password', async () => {
   for (const remember of [true, false]) {
     const persistence = deferred();

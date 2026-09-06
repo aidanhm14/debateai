@@ -797,10 +797,7 @@
             })
           : auth.signInWithPopup(provider);
         attempt.then(function () {
-          try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
-          track('sign_in_complete', { method: 'apple' });
-          if (handOff('apple')) return;
-          window.location.href = destination();
+          finishSignIn('apple');
         }).catch(function (err) {
           var code = (err && err.code) || 'unknown';
           if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
@@ -845,10 +842,7 @@
             })
           : auth.signInWithPopup(provider);
         attempt.then(function () {
-          try { localStorage.setItem('debateos-feedback-given', '1'); } catch (e) {}
-          track('sign_in_complete', { method: 'discord' });
-          if (handOff('discord')) return;
-          window.location.href = destination();
+          finishSignIn('discord');
         }).catch(function (err) {
           var code = (err && err.code) || 'unknown';
           if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
@@ -866,6 +860,7 @@
   function emailAuthMessage(err, mode) {
     var code = (err && err.code) || '';
     if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') return 'That email already has an account. If you made it with Google, use Continue with Google above.';
+    if (mode === 'signup' && err && err.signupCollision) return 'That email already has an account. Sign in instead, use Continue with Google or Apple, or email yourself a sign-in link.';
     if (code === 'auth/user-disabled') return 'That account is disabled. Contact support.';
     if (code === 'auth/invalid-email') return 'Enter a valid email.';
     if (code === 'auth/weak-password') return 'Use a stronger password with at least 8 characters.';
@@ -931,7 +926,11 @@
               var code = (err && err.code) || '';
               if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
                 reused = true;
-                return auth.signInWithEmailAndPassword(email, password);
+                return auth.signInWithEmailAndPassword(email, password).catch(function (signinErr) {
+                  signinErr = signinErr || new Error('signin-failed');
+                  signinErr.signupCollision = true;
+                  throw signinErr;
+                });
               }
               throw err;
             };

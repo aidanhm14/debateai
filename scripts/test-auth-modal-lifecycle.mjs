@@ -50,6 +50,13 @@ check(
   /attempt\.then\(function \(\) \{[\s\S]*?finishSignIn\('google'\);/.test(google),
   'successful Google popup sign-in uses the guarded completion path',
 );
+const apple = functionBody('doAppleSignIn', 'doDiscordSignIn');
+check(
+  /nativePlugin\.signInWithApple[\s\S]*?finishSignIn\('apple_native'\);/.test(apple)
+    && /attempt\.then\(function \(\) \{[\s\S]*?finishSignIn\('apple'\);/.test(apple)
+    && !/track\('sign_in_complete', \{ method: 'apple' \}\)[\s\S]{0,180}window\.location\.href = destination\(\);/.test(apple),
+  'successful Apple sign-in uses the same guarded completion path as Google',
+);
 
 // Phone sign-in was retired 2026-09-03 (Aidan: Google plus whatever else is
 // quick, not text and not phone). The check that used to pin its reCAPTCHA
