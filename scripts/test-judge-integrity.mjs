@@ -817,7 +817,7 @@ function t(label, cond) {
   t('the row cap holds', composeTopRows(rated, entries, 2).length === 2);
 
   const boardSrc = {};
-  for (const f of ['leaderboard-top.mjs', 'leaderboard-ratings.mjs', 'lib/rating-board.mjs']) {
+  for (const f of ['leaderboard-top.mjs', 'leaderboard-ratings.mjs', 'lib/rating-board.mjs', 'lib/standings-snapshot.mjs']) {
     try {
       boardSrc[f] = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
     } catch {
@@ -828,10 +828,12 @@ function t(label, cond) {
   t('the ladder orders on rating', /orderBy\('rating'/.test(boardSrc['lib/rating-board.mjs']));
   t('the ladder never orders on judge score', !/orderBy\('score'/.test(boardSrc['lib/rating-board.mjs']));
   t('/api/leaderboard-ratings serves the shared ladder',
-    /fetchRatingRows/.test(boardSrc['leaderboard-ratings.mjs'])
+    /fetchStandingsSnapshot/.test(boardSrc['leaderboard-ratings.mjs'])
+    && /fetchRatingRows/.test(boardSrc['lib/standings-snapshot.mjs'])
     && !/orderBy\('score'/.test(boardSrc['leaderboard-ratings.mjs']));
   t('/api/leaderboard-top puts the ladder first',
-    /fetchRatingRows/.test(boardSrc['leaderboard-top.mjs'])
+    /fetchStandingsSnapshot/.test(boardSrc['leaderboard-top.mjs'])
+    && /fetchRatingRows/.test(boardSrc['lib/standings-snapshot.mjs'])
     && /composeTopRows/.test(boardSrc['leaderboard-top.mjs']));
   t('the ladder never ranks an AI seat', /doc\.id\.length < 20/.test(boardSrc['lib/rating-board.mjs']));
 

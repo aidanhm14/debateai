@@ -5754,6 +5754,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     --font-legacy-serif:'Archivo',system-ui,-apple-system,sans-serif;
   }
   </style>
+<script src="/js/standings-refresh.js"></script>
 </head>
 <body>
 
@@ -9650,68 +9651,41 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      viewport is wide enough) because #ranked-band's lazy loader reads it
      to avoid a second request for the same payload. */
   window.__lbTop = (function(){
-    var mq = null;
-    try { mq = window.matchMedia ? window.matchMedia('(min-width:1101px)') : null; } catch (e) { mq = null; }
-    var req = null, waiting = [];
-    // `force` is the phone strip (#mhBoard) asking for the same payload
-    // (2026-09-03). The request is shared and 5-minute-cached upstream,
-    // so a second consumer costs nothing; what must NOT happen on a
-    // phone is the hero shift, which is why the class is keyed on width
-    // and the fetch on width-or-force, separately.
-    function start(force){
+    var mq = window.matchMedia ? window.matchMedia('(min-width:1101px)') : null;
+    var req = null, inFlight = false, again = false, waiting = [], subscribers = [], latest = null;
+    function start(force, fresh){
       var wide = !mq || mq.matches;
-      // Same tick as the width crossing, so the hero is already in its
-      // shifted position the first time it paints with the rail. See
-      // the note on html.lbr-ready in the first-screen styles. Idempotent,
-      // and evaluated before the early return so a phone that started the
-      // request and is later dragged wide still gets the shift.
       if (wide) document.documentElement.classList.add('lbr-ready');
-      if (req) return;
       if (!wide && !force) return;
-      try {
-        req = fetch('/api/leaderboard-top', { cache: 'no-cache' })
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .catch(function(){ return null; });
-      } catch (e) { req = null; return; }
+      if (inFlight){ if (fresh) again = true; return; }
+      if (req && !fresh) return;
+      inFlight = true;
+      req = fetch('/api/leaderboard-top', { cache: 'no-cache' })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .catch(function(){ return null; })
+        .then(function(data){
+          // A failed refresh leaves the last real board visible.
+          var good = data && !data.error && Array.isArray(data.rows);
+          if (good || !latest){
+            latest = good ? data : null;
+            subscribers.forEach(function(fn){ try { fn(data); } catch (_) {} });
+          }
+          return data;
+        });
       window.__lbTopReq = req;
-      var pending = waiting.splice(0);
-      for (var i = 0; i < pending.length; i++) req.then(pending[i]);
+      waiting.splice(0).forEach(function(fn){ req.then(fn); });
+      req.then(function(){ inFlight = false; if (again){ again = false; start(true, true); } });
     }
-    // Null until the viewport is wide enough. The renderers below both
-    // treat that as "not yet", never as "never".
     window.__lbTopReq = null;
     start();
-    /* Bound to more than one signal on purpose. A media-query `change` is
-       the right instrument and is enough in a real browser; it is NOT
-       dispatched by every embedded or automated viewport resize, which is
-       exactly where this was verified, so `resize` and
-       `orientationchange` back it up. All three run the same idempotent
-       start(), and every listener drops itself the moment it fires while
-       wide, so the ongoing cost after that is nothing. */
-    if (!req){
-      var armed = true;
-      var recheck = function(){
-        if (!armed) return;
-        start();
-        // Stay armed until the viewport is actually wide: a phone-forced
-        // request must not disarm the hero shift for a later widen.
-        if (!req || (mq && !mq.matches)) return;
-        armed = false;
-        try {
-          window.removeEventListener('resize', recheck);
-          window.removeEventListener('orientationchange', recheck);
-          if (mq && mq.removeEventListener) mq.removeEventListener('change', recheck);
-          else if (mq && mq.removeListener) mq.removeListener(recheck);
-        } catch (e) {}
-      };
-      try {
-        if (mq && mq.addEventListener) mq.addEventListener('change', recheck);
-        else if (mq && mq.addListener) mq.addListener(recheck);
-      } catch (e) {}
-      window.addEventListener('resize', recheck, { passive: true });
-      window.addEventListener('orientationchange', recheck, { passive: true });
-    }
-    return { start: start, then: function(fn){ if (req) req.then(fn); else waiting.push(fn); }, started: function(){ return !!req; } };
+    window.addEventListener('resize', function(){ start(); }, { passive: true });
+    if (window.DBStandings) DBStandings.watch(function(){ if (req) start(true, true); });
+    return {
+      start: start,
+      then: function(fn){ if (req) req.then(fn); else waiting.push(fn); },
+      subscribe: function(fn){ subscribers.push(fn); if (latest) fn(latest); else if (req && !inFlight) req.then(fn); },
+      started: function(){ return !!req; }
+    };
   })();
 </script>
 
@@ -15425,18 +15399,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   }
   function loadOnce(){
     if (fired) return; fired = true;
-    /* The rail already asked for this above the fold, so reuse its
-       promise instead of spending a second request on the same
-       5-minute-cached payload. Falls back to its own fetch when the rail
-       never ran (narrow viewport, or the element is gone). */
-    var req = window.__lbTopReq || fetch('/api/leaderboard-top', { cache: 'no-cache' })
-      .then(function(r){ return r.ok ? r.json() : null; });
-    req
-      .then(function(j){
-        if (!j || j.error || !Array.isArray(j.rows)) return renderBoard([], 0, 'error');
-        boardPicturesReady().then(function(){ renderBoard(j.rows, j.total, 'ready'); });
-      })
-      .catch(function(){ renderBoard([], 0, 'error'); });
+    var received = false;
+    function paint(j){
+      if (!j || j.error || !Array.isArray(j.rows)) { if (!received) renderBoard([], 0, 'error'); return; }
+      received = true;
+      boardPicturesReady().then(function(){ renderBoard(j.rows, j.total, 'ready'); });
+    }
+    if (window.__lbTop && window.__lbTop.subscribe){
+      window.__lbTop.subscribe(paint);
+      window.__lbTop.start(true);
+    } else {
+      fetch('/api/leaderboard-top', { cache: 'no-cache' }).then(function(r){ return r.json(); }).then(paint).catch(function(){ paint(null); });
+    }
   }
   // Paint an explicit loading skeleton immediately. The board is now in
   // the main landing flow, so unlabeled sample names would flash before
@@ -15552,7 +15526,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var board = document.getElementById('mhBoard');
     var row = board && document.getElementById('mhBoardRow');
     if (!board || !row) return false;
-    if (!rows || rows.length < 3) return false;
+    if (!rows || rows.length < 3) { board.hidden = true; row.innerHTML = ""; return false; }
     var n = Math.min(rows.length, PHONE_ROWS);
     var taken = {};
     var html = '';
@@ -15612,7 +15586,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // rather than borrowing the board's sample names: a labelled sample
     // works inside a card that can carry the label, and a face hanging
     // off the edge of the window cannot.
-    if (!rows || rows.length < 3) return false;
+    if (!rows || rows.length < 3) { rail.hidden = true; list.innerHTML = ""; return false; }
     var n = Math.min(rows.length, ROWS);
     var taken = {};  // set pictures spent on this rail
     var html = '';
@@ -15701,22 +15675,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var phone = false;
   try { phone = !!(window.matchMedia && window.matchMedia('(max-width:720px)').matches); } catch (e) {}
   function paint(j){
-    if (painted) return;
-    if (phone){
-      // The rail is display:none under 720px, so painting it would only
-      // fire a view event for a thing nobody saw. The strip takes the rows.
-      if (!renderMobile(j && j.rows, j && j.total)) return;
+    if (!j || j.error || !Array.isArray(j.rows)) return;
+    // Keep both layouts current so resizing does not reveal an old board.
+    renderMobile(j.rows, j.total);
+    var shown = render(j.rows, j.total);
+    if (!painted && shown){
       painted = true;
-      try { if (window.gtag) gtag('event', 'mhome_board_view'); } catch (e) {}
-      return;
+      watch();
+      try { if (window.gtag) gtag('event', phone ? 'mhome_board_view' : 'lb_rail_view'); } catch (e) {}
     }
-    if (!render(j && j.rows, j && j.total)) return;
-    painted = true;
-    watch();
-    try { if (window.gtag) gtag('event', 'lb_rail_view'); } catch (e) {}
   }
   function paintWhenReady(j){ setReady().then(function(){ paint(j); }); }
-  if (window.__lbTop && window.__lbTop.then) window.__lbTop.then(paintWhenReady);
+  if (window.__lbTop && window.__lbTop.subscribe) window.__lbTop.subscribe(paintWhenReady);
   else if (window.__lbTopReq) window.__lbTopReq.then(paintWhenReady).catch(function(){});
   // On a phone nothing else asks for the board, so the strip asks. Off the
   // first paint on purpose: the mobile home is one screen and this sits

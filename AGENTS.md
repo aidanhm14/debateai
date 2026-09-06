@@ -45,8 +45,11 @@ missing transcription is not proof of a dropped response. The published
 `adjudication-2026-09-flex` rubric and its new season preserve all old hashes,
 score weights and panel pins. Never edit a historical rubric in place.
 
-Before the first speech, “Debate something else” starts a shared AI topic
-conversation. Both people consent; each explicitly enables AI microphone
+Before the first speech, “Debate something else” is the single visible
+entry to topic changes. It expands Spin a motion, Let AI suggest, and Draft one together. The AI
+option listens to both people before proposing; the draft supports an offer,
+veto or counter. The AI option starts a shared topic conversation.
+Both people consent; each explicitly enables AI microphone
 listening or types. The server reads only the room's eligibility stamp and
 private Match Desk issue areas to choose a question, then generates from the
 new conversation. Setup text stays server-only and outside the scored transcript.

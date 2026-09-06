@@ -29,6 +29,7 @@
 // round is a no-op rather than a double credit.
 // ─────────────────────────────────────────────────────────────
 import { applyRound, defaultRatingDoc } from './rating.mjs';
+import { markStandingsChanged } from './standings-version.mjs';
 
 export const SOURCES = ['async', 'live'];
 
@@ -212,6 +213,7 @@ export async function applyRoundRating(db, {
     tx.set(rateB, merge(preB, next.b, rowB.result), { merge: true });
     tx.set(changeA, rowA);
     tx.set(changeB, rowB);
+    markStandingsChanged(tx, db, 'applied_' + idA, at);
 
     return { applied: true, changes: [rowA, rowB] };
   });
@@ -300,6 +302,7 @@ export async function reverseRoundRating(db, { source, eventId, uids, now, rev, 
       tx.set(row.ref.rebate, rebate);
       out.push(rebate);
     }
+    markStandingsChanged(tx, db, 'reversed_' + refs[0].change.id, at);
     return { reversed: true, changes: out };
   });
 }

@@ -843,18 +843,19 @@ html[data-theme="light"] .ctl-saved{border-color:rgba(21,128,61,.45);color:#1580
 .wiz-top{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:8px}
 .wiz-top .brand{margin-bottom:0}
 .wiz-progress{list-style:none;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-.wiz-progress li{
+.wiz-progress li{position:relative}
+.wiz-progress li button{
   display:inline-flex;align-items:center;gap:7px;cursor:pointer;
   font:700 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
-  padding:8px 12px;border-radius:999px;border:1px solid transparent;transition:color .2s,border-color .2s,background .2s;
+  width:100%;background:transparent;padding:8px 12px;border-radius:999px;border:1px solid transparent;transition:color .2s,border-color .2s,background .2s;
 }
 .wiz-progress li b{
   width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;
   font:800 11px/1 var(--sans);letter-spacing:0;background:var(--pill-fill);color:var(--ink-dim);
 }
-.wiz-progress li.done{color:var(--ink-dim)}
+.wiz-progress li.done button{color:var(--ink-dim)}
 .wiz-progress li.done b{background:rgba(34,197,94,.18);color:#86efac}
-.wiz-progress li.on{color:var(--ink);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08)}
+.wiz-progress li.on button{color:var(--ink);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08)}
 .wiz-progress li.on b{background:var(--red);color:#fff}
 .wiz-step{display:none}
 .wiz-step.on{display:flex;flex-direction:column;align-items:center;width:100%;animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
@@ -1026,7 +1027,9 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
 @media (max-width:720px){
   .wiz-q{font-size:clamp(30px,9.4vw,40px);max-width:14ch}
   .wiz-sub{font-size:15px}
-  .wiz-progress li{padding:7px 9px;font-size:10px}
+  .wiz-progress{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:3px}
+  .wiz-progress li button{padding:7px 3px;min-height:48px;gap:5px;justify-content:center;font-size:10px;letter-spacing:.04em}
+  @media(max-width:360px){.wiz-progress li button{flex-direction:column}}
   .wiz-progress li b{width:18px;height:18px;font-size:10px}
   .wiz-talk{padding:16px;gap:12px;border-radius:18px}
   .wiz-talk-icon{width:44px;height:44px;border-radius:13px}
@@ -1080,11 +1083,11 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
         <span class="live-tag"><span class="live-dot"></span>LIVE</span>
       </div>
       <ol class="wiz-progress" id="wizProgress" aria-label="Setup steps">
-        <li data-go="1" class="on"><b>1</b>How</li>
-        <li data-go="2"><b>2</b>Topic</li>
-        <li data-go="3"><b>3</b>Side</li>
-        <li data-go="4"><b>4</b>Voice</li>
-        <li data-go="5"><b>5</b>Go</li>
+        <li data-go="1" class="on"><button type="button" aria-current="step"><b>1</b>How</button></li>
+        <li data-go="2"><button type="button"><b>2</b>Topic</button></li>
+        <li data-go="3"><button type="button"><b>3</b>Side</button></li>
+        <li data-go="4"><button type="button"><b>4</b>Voice</button></li>
+        <li data-go="5"><button type="button"><b>5</b>Go</button></li>
       </ol>
     </div>
 
@@ -3941,6 +3944,8 @@ function goStep(n){
   Array.from(document.querySelectorAll('#wizProgress li')).forEach((li) => {
     const k = Number(li.dataset.go);
     li.classList.toggle('on', k === n);
+    const stepButton=li.querySelector('button');
+    if(stepButton){ if(k===n) stepButton.setAttribute('aria-current','step'); else stepButton.removeAttribute('aria-current'); }
     li.classList.toggle('done', k < n);
   });
   if (n === 3) { const echo = $('wizClaimEcho'); if (echo) echo.textContent = sanitizeTopic(claimInput.value) || ''; }

@@ -6,11 +6,9 @@
 // the full board. Sample score entries never fill ranked positions.
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
-import { fetchRatingRows, composeTopRows } from './lib/rating-board.mjs';
+import { fetchStandingsSnapshot } from './lib/standings-snapshot.mjs';
+import { composeTopRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-top-v9';
-const CACHE_TTL_MS = 5 * 60 * 1000;
 const ROWS = 8;
 
 // A debater's own face, and nothing else. Two fields reach the landing
@@ -96,9 +94,6 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const cached = await getCachedShared(CACHE_KEY);
-  if (cached) return jsonResponse(cached, 200, request);
-
   let db;
   try { db = getDb(); }
   catch (err) { return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request); }
@@ -106,7 +101,7 @@ export default async (request) => {
   try {
     // Identical pool, order, names and XP to the full human standings.
     // A thin board stays thin: sample score rows are not ranked people.
-    const ladder = await fetchRatingRows(db, { limit: 100 });
+    const { rows: ladder, at, revision } = await fetchStandingsSnapshot(db);
     const ratingRows = ladder.map((r) => ({
       ...r, kind: 'rating', score: null, rounds: r.games,
       completedAt: r.lastEventAt || null,
@@ -116,15 +111,12 @@ export default async (request) => {
     const rows = composeTopRows(ratingRows, [], ROWS);
     const payload = {
       rows, realRows: rows, total: ladder.length,
-      placed: ladder.filter((r) => r.placed).length, at: Date.now(),
+      placed: ladder.filter((r) => r.placed).length, at, revision,
     };
-    await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[leaderboard-top] query failed', err && err.message);
     const payload = emptyPayload(err && err.message);
-    // Negative-cache 60s so a broken read doesn't get hammered.
-    setCached(CACHE_KEY, payload, 60_000);
     return jsonResponse(payload, 200, request);
   }
 };

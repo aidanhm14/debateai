@@ -2593,13 +2593,16 @@ body.round-running .rmb-tools{display:none}
   padding-top:12px;border-top:1px solid var(--border);
 }
 
-/* Topic choices share two aligned columns, even when the video leaves
-   a narrow console. The label has its own row instead of wrapping with
-   four buttons of unrelated widths. Scope this to the topic controls;
-   the recording/video tools also use .rmb-tools. */
+/* One topic entry expands into three readable choices. Scope it to
+   this disclosure; recording/video tools also use .rmb-tools. */
 #rmbTools{display:block;container:topic-controls / inline-size;margin-top:12px;padding-top:12px}
-#rmbTools .rmb-tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:8px}
-#rmbTools .rmb-tools-q{display:block;margin:0 0 10px}
+#rmbTools .rmb-tools-grid{display:grid;grid-template-columns:1fr;align-items:stretch;gap:8px}
+#rmbTools summary.rmb-tools-toggle{list-style:none;cursor:pointer;justify-content:space-between}
+#rmbTools .rmb-tools-toggle::-webkit-details-marker{display:none}
+#rmbTools .rmb-tools-toggle::after{content:'⌄';font-size:1.1rem;line-height:1}
+#rmbTools[open] .rmb-tools-toggle::after{content:'⌃'}
+#rmbTools .rmb-tools-grid{margin-top:8px}
+#rmbTools .rmb-change small{display:block;margin-top:3px;color:var(--text-dim);font-size:.73rem;font-weight:400;line-height:1.35}
 #rmbTools .rmb-change{
   display:flex;align-items:center;justify-content:flex-start;gap:8px;
   width:100%;min-width:0;min-height:48px;margin:0;padding:10px 12px;
@@ -2607,12 +2610,6 @@ body.round-running .rmb-tools{display:none}
 }
 #rmbTools .rmb-ico{flex:0 0 1.35rem;width:1.35rem;text-align:center;line-height:1}
 #rmbTools .rmb-change > span:last-child{min-width:0}
-@container topic-controls (max-width:340px){
-  #rmbTools .rmb-change--draft{grid-column:1/-1}
-}
-@container topic-controls (max-width:260px){
-  #rmbTools .rmb-tools-grid{grid-template-columns:minmax(0,1fr)}
-}
 #rmbTools[hidden],#rmbTools .rmb-change[hidden],
 body.round-running #rmbTools,body.spectator-mode #rmbTools{display:none}
 
@@ -3556,6 +3553,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
        invites them into a second one. See js/round-presence.js. -->
   <script defer src="/js/round-presence.js"></script>
 <link rel="stylesheet" href="/css/room-topic.css">
+<script src="/js/standings-refresh.js"></script>
 </head>
 <body class="lr-setup">
 
@@ -3874,15 +3872,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
                  want to argue this one. They are consent flows or
                  the on-demand draft; none of them changes the motion for
                  one side alone. -->
-            <div class="rmb-tools" id="rmbTools" role="group" aria-labelledby="rmbToolsLabel" hidden>
-              <span class="rmb-tools-q" id="rmbToolsLabel">Not this one?</span>
+            <details class="rmb-tools" id="rmbTools" hidden>
+              <summary class="rmb-change rmb-change--draft rmb-tools-toggle" id="rmbToolsLabel">Debate something else</summary>
               <div class="rmb-tools-grid">
-                <button type="button" class="rmb-change rmb-change--draft" id="rmbTalkBtn"><span class="rmb-ico" aria-hidden="true">&#128172;</span><span>Debate something else</span></button>
-                <button type="button" class="rmb-change rmb-change--draft" id="rmbDraftBtn" title="Open a short draft: one of you offers a motion, the other takes it, sends it back, or counters."><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span><span>Draft one together</span></button>
-                <button type="button" class="rmb-change" id="rmbChangeBtn" title="Suggest a different resolution. Your opponent has to agree before it changes."><span class="rmb-ico" aria-hidden="true">&#9998;</span><span>Change it</span></button>
-                <button type="button" class="rmb-change" id="rmbRollBtn" title="Roll a random resolution to propose"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Roll one</span></button>
+                <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin a motion<small>Suggest a random topic.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbTalkBtn"><span class="rmb-ico" aria-hidden="true">&#128172;</span><span>Let AI suggest<small>Talk for a bit. AI listens to you both.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbDraftBtn"><span class="rmb-ico" aria-hidden="true">&#9878;&#65039;</span><span>Draft one together<small>Offer, veto, or counter a motion.</small></span></button>
               </div>
-            </div>
+            </details>
           </div>
           <div class="speech-primary">
             <div class="speaker-line" style="margin-bottom:0">
@@ -17371,10 +17368,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // flips.
     var rmbChange = $('rmbChangeBtn'), rmbRoll = $('rmbRollBtn'), rmbLock = $('rmbLockNote');
     var rmbTools = $('rmbTools'), rmbDraft = $('rmbDraftBtn');
+    // One entry point on the round. Choosing any existing action closes
+    // the disclosure before its dialog opens; the actions retain their IDs.
+    if (rmbTools) rmbTools.addEventListener('click', function(e){
+      if (e.target.closest('button')) { rmbTools.open = false; $('rmbToolsLabel').focus(); }
+    }, true);
     function syncMotionChangeBtns(){
       var seated = state.phase === 'round' && !isSpectator();
       var show = seated && !motionChangeLocked();
-      if (rmbTools) rmbTools.hidden = !show;
+      if (rmbTools){ rmbTools.hidden = !show; if (!show) rmbTools.open = false; }
       if (rmbChange) rmbChange.hidden = !show;
       if (rmbRoll) rmbRoll.hidden = !show;
       // The draft needs a second person on the other bench; a solo or
@@ -22141,8 +22143,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // Rating deltas — written by live-judge after it applies the round
     // to the ladder. Arrives on its own beat (rating applies while the
     // ballot renders), so the after-round band fills its slot late.
-    if (d.ratingChanges && d.ratingChanges !== state.ratingChanges){
+    if (d.ratingChanges && JSON.stringify(d.ratingChanges) !== JSON.stringify(state.ratingChanges)){
       state.ratingChanges = d.ratingChanges;
+      if (window.DBStandings) DBStandings.changed();
       try { renderAfterRating(); } catch(e){}
     }
 

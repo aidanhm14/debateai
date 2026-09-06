@@ -27,12 +27,8 @@
 // concept, and `provisional` still discloses an unsettled rating.
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
-import { fetchRatingRows } from './lib/rating-board.mjs';
+import { fetchStandingsSnapshot } from './lib/standings-snapshot.mjs';
 
-const CACHE_KEY = 'leaderboard-ratings-v5'; // Complete XP survives an unavailable aggregation index.
-const CACHE_TTL_MS = 5 * 60 * 1000;  // ratings move round-by-round, not second-by-second
-const QUERY_LIMIT = 100;
 
 function emptyPayload(error) {
   const out = { rows: [], rankable: 0, at: Date.now() };
@@ -44,9 +40,6 @@ export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405, request);
 
-  const cached = await getCachedShared(CACHE_KEY);
-  if (cached) return jsonResponse(cached, 200, request);
-
   let db;
   try { db = getDb(); }
   catch (err) { return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request); }
@@ -55,16 +48,13 @@ export default async (request) => {
     // Query, filters, name join and rankable-first ordering all live in
     // lib/rating-board.mjs, shared with /api/leaderboard-top so the two
     // standings surfaces cannot drift onto different ladders.
-    const rows = await fetchRatingRows(db, { limit: QUERY_LIMIT });
+    const { rows, at, revision } = await fetchStandingsSnapshot(db);
 
-    const payload = { rows, rankable: rows.filter((r) => r.rankable).length, at: Date.now() };
-    await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
+    const payload = { rows, rankable: rows.filter((r) => r.rankable).length, at, revision };
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[leaderboard-ratings] query failed', err && err.message);
     const payload = emptyPayload(err && err.message);
-    // Negative-cache 60s so a broken read doesn't get hammered.
-    setCached(CACHE_KEY, payload, 60_000);
     return jsonResponse(payload, 200, request);
   }
 };

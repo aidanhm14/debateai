@@ -1231,6 +1231,7 @@ html:not([data-theme="light"]) .board{ background:rgba(17,15,22,.66)!important;b
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
   <link rel="stylesheet" href="/css/social-depth.css?v=2">
+<script src="/js/standings-refresh.js"></script>
 </head>
 <body class="social-leaderboard">
 
@@ -2482,7 +2483,7 @@ async function renderYourRank(){
     const i=ladder.findIndex(r=>r.uid===uid);
     let line, sub;
     if(i<0){
-      line='You are unrated. Win a judged round against a real person to get on the board.';
+      line='You are unrated. Finish a rated round against a real person to get on the board.';
       sub='';
     } else {
       const me=ladder[i];
@@ -2749,7 +2750,7 @@ async function loadWithFallback(primary, fallback){
 // bottom with no rank and no number in the rating column.
 async function loadRatingLadder(){
   try{
-    const res=await fetch('/api/leaderboard-ratings');
+    const res=await fetch('/api/leaderboard-ratings', { cache:'no-cache' });
     // 2026-09-04: a failed fetch is NOT an empty ladder. Returning [] here
     // painted the "nobody on the board yet" pitch on every network blip,
     // which reads as the site being empty rather than the request having
@@ -2886,23 +2887,9 @@ async function fetchView(view){
   // round entries only feed the ticker, stats and subjects, so a failed
   // entries read costs those and never the standings.
   if(view==='live'){
-    const [ladder, entryRows]=await Promise.all([
-      loadRatingLadder(),
-      loadWithFallback(
-        db.collection('leaderboard_entries')
-          .where('kind','==','live')
-          .orderBy('score','desc')
-          .limit(100),
-        ()=>db.collection('leaderboard_entries')
-          .orderBy('score','desc')
-          .limit(500)
-      ).catch(e=>{
-        console.warn('[leaderboard] live entries load failed:', e&&e.message);
-        return [];
-      }),
-    ]);
+    const ladder=await loadRatingLadder();
     if(ladder===null) throw new Error('ladder did not answer');
-    return { ratingRows: ladder, rows: entryRows.filter(r=>r.kind==='live').slice(0,100) };
+    return { ratingRows: ladder, rows: state.cache.live || [] };
   }
   let rows=await loadWithFallback(
     db.collection('leaderboard_entries')
@@ -2915,6 +2902,44 @@ async function fetchView(view){
   );
   return { ratingRows: null, rows: rows.filter(r=>r.kind==='voice').slice(0,100) };
 }
+// Activity decorates the board after the standings are already readable.
+// A slow or blocked Firestore SDK must never hold the public ladder hostage.
+let liveActivityRequest=null;
+function loadLiveActivity(){
+  if(!db || liveActivityRequest) return;
+  liveActivityRequest=loadWithFallback(
+    db.collection('leaderboard_entries').where('kind','==','live').orderBy('score','desc').limit(100),
+    ()=>db.collection('leaderboard_entries').orderBy('score','desc').limit(500)
+  ).then(rows=>{
+    const entries=rows.filter(r=>r.kind==='live').slice(0,100);
+    state.cache.live=entries;
+    if(state.ratingRows!==null){
+      writePayload('live',state.ratingRows,entries);
+      if(state.view==='live') paintView('live',state.ratingRows,entries);
+    }
+  }).catch(e=>{ liveActivityRequest=null; console.warn('[leaderboard] activity unavailable:',e&&e.message); });
+}
+// Refresh only the rating ladder. The expensive activity feed stays cached.
+let standingsRefreshing = false, standingsAgain = false;
+async function refreshStandings(){
+  if(document.hidden || state.view!=='live') return;
+  if(!state.cache.live || state.ratingRows===null){ standingsAgain=true; return; }
+  if(standingsRefreshing){ standingsAgain=true; return; }
+  standingsRefreshing=true;
+  const seq=state.loadSeq.live;
+  try {
+    const rows=await loadRatingLadder();
+    if(rows===null || state.view!=='live' || state.loadSeq.live!==seq) return;
+    if(payloadSig(rows,state.cache.live)!==payloadSig(state.ratingRows,state.cache.live)){
+      writePayload('live', rows, state.cache.live);
+      paintView('live', rows, state.cache.live);
+    }
+  } finally {
+    standingsRefreshing=false;
+    if(standingsAgain){ standingsAgain=false; refreshStandings(); }
+  }
+}
+if(window.DBStandings) DBStandings.watch(refreshStandings);
 state.loadFailed = state.loadFailed || {};
 state.loadSeq = state.loadSeq || {};
 async function loadView(view){
@@ -2926,6 +2951,7 @@ async function loadView(view){
     renderFormatPills(state.cache[view]);
     renderHotFormats(state.cache[view]);
     updateTabCounts();
+    if(view==='live') refreshStandings();
     return;
   }
   // Rule 1: the last good board paints before any request is made.
@@ -2941,7 +2967,7 @@ async function loadView(view){
   }else{
     renderSkeleton();
   }
-  if(!db){
+  if(!db && view!=='live'){
     // No Firestore (offline / Firebase blocked). With a cached board on
     // screen, keep it. Without one this is a failed load, not an empty
     // board.
@@ -2965,6 +2991,10 @@ async function loadView(view){
         signinStrip.hidden=!!state.user;
       }
       state.loadFailed[view]=false;
+      if(view==='live'){
+        loadLiveActivity();
+        if(standingsAgain){ standingsAgain=false; refreshStandings(); }
+      }
       return;
     }catch(e){
       console.warn('[leaderboard] load failed (attempt '+(attempt+1)+'):', e&&e.message||e);
