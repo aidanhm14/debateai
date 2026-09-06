@@ -126,10 +126,10 @@
   /* 2026-09-01, the founder: "tell anonymous user someone is live in a
      pop up 'wants to debate' and then do 'need to sign in'". The WAITING
      source (someone is in the /spar queue right now) is armed SITEWIDE
-     again, not only on the intent pages. 2026-09-06: everyone first gets
-     a centered Accept / Not now invitation, even over an account chooser.
-     Only accepting asks for an account, using the current auth state.
-     The REPLAY source stays retired. */
+     again, not only on the intent pages. 2026-09-06 correction: only named
+     accounts get the centered Accept / Not now invitation. Guest sessions
+     never receive a person-to-person challenge, and the native Board stays
+     free of unsolicited live popups. The REPLAY source stays retired. */
   var WAITING_SITEWIDE = true;
 
   /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
@@ -217,6 +217,13 @@
   if (!force && !demo && SKIP.indexOf(here) >= 0) return;
 
   var intentPage = INTENT_PATHS.indexOf(here) >= 0;
+
+  // Recheck at poll and render time: the bridge can establish native mode
+  // while a request is in flight (including the local responsive preview).
+  function nativeBoard() {
+    return here === '/leaderboard' && !!(window.__DB_NATIVE ||
+      document.documentElement.classList.contains('dbnative'));
+  }
 
   function now() { return Date.now(); }
   function readNum(store, key) {
@@ -576,6 +583,15 @@
     return '';
   }
 
+  function namedUser() {
+    try {
+      var fb = window.firebase;
+      if (!(fb && fb.apps && fb.apps.length && typeof fb.auth === 'function')) return false;
+      var user = fb.auth().currentUser;
+      return !!(user && user.uid && !user.isAnonymous);
+    } catch (e) { return false; }
+  }
+
   /* Has this visitor a live-video account? The website uses Google. Apple
      remains valid in the iOS app because App Store rules require it.
      Anything else needs the centered sign-in step before the video room. */
@@ -592,6 +608,7 @@
   }
 
   function waitingItem() {
+    if (nativeBoard() || !namedUser()) return Promise.resolve(null);
     try { if (localStorage.getItem('da-spar-bg') === '0') return Promise.resolve(null); } catch (e) {}
     return getJSON('/api/live-now').then(function (j) {
       var all = (j && j.debaters) || [];
@@ -688,7 +705,7 @@
   }
 
   function renderWaitingInvite(item, opts) {
-    if (cardVisible || busyInRound() || document.querySelector('.da-match-overlay')) return;
+    if (nativeBoard() || !namedUser() || cardVisible || busyInRound() || document.querySelector('.da-match-overlay')) return;
     shown = true;
     cardVisible = true;
     injectCss();
@@ -706,9 +723,14 @@
     document.body.appendChild(dialog);
     document.documentElement.classList.add('da-debate-invite-open');
     dialog.showModal();
+    var closed = false;
+    var stopAuthWatch = null;
     var life = setTimeout(function () { close('timeout'); }, 45000);
     function close(reason) {
+      if (closed) return;
+      closed = true;
       clearTimeout(life);
+      if (stopAuthWatch) { stopAuthWatch(); stopAuthWatch = null; }
       dialog.close();
       dialog.remove();
       document.documentElement.classList.remove('da-debate-invite-open');
@@ -726,6 +748,14 @@
     }
     window.addEventListener('debatable:match-found', onMatch);
     window.addEventListener('storage', onStorage);
+    try {
+      var auth = window.firebase.auth();
+      if (typeof auth.onAuthStateChanged === 'function') {
+        stopAuthWatch = auth.onAuthStateChanged(function (user) {
+          if (!user || user.isAnonymous) close('signed-out');
+        });
+      }
+    } catch (e) {}
     dialog.addEventListener('cancel', function (event) { event.preventDefault(); close('dismiss'); });
     dialog.querySelector('[data-decline]').addEventListener('click', function () { close('dismiss'); });
     dialog.querySelector('[data-accept]').addEventListener('click', function () {
@@ -756,6 +786,7 @@
 
   function render(item, opts) {
     opts = opts || {};
+    if (nativeBoard()) return;
     if (item.kind === 'wait') { renderWaitingInvite(item, opts); return; }
     if (cardVisible) return;
     /* The slow loop spends its one card and stops. The fast lane may
@@ -923,6 +954,7 @@
   }
 
   function check() {
+    if (nativeBoard()) return;
     // cornerBusy is checked before the counter so being deferred by
     // someone else's card never spends one of the six cycles.
     if (shown || document.hidden || gated() || cornerBusy()) return schedule();
@@ -969,6 +1001,7 @@
     liveTimer = setTimeout(function () { liveTimer = null; liveCheck(); }, ms);
   }
   function liveCheck() {
+    if (nativeBoard()) return;
     if (document.hidden) return scheduleLive(LIVE_POLL_MS);
     /* Gated is usually another corner card (the experience chooser
        mounts around the same 2s mark). Retry sooner than the poll: no
