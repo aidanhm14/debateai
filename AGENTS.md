@@ -5,6 +5,21 @@
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
+
+**Voice preview and both BYOK providers (2026-09-06, explicit founder approval):**
+`/newvoice` offers signed-out visitors one approximately ten-second voice
+preview, then requires an account. The server creates that call and queues
+its hangup before returning SDP; guests never receive reusable mint keys.
+All normal AI mints remain named-account gated. This page owns its account
+ask so the general browsing wall does not cover the preview setup.
+Paid plans include OpenAI BYOK for live voice, alongside existing Anthropic
+BYOK for typed Claude. The founder explicitly approved entering an OpenAI
+key and forwarding it only to OpenAI for voice sessions. Voice keys remain
+in the current tab, are never persisted or logged, and errors never fall
+back to platform funding. OpenAI bills usage; Debatable minutes and tokens
+are not consumed. Funding domains are separate for continuation signatures.
+
+
 ## Sign-in policy (2026-09-05)
 
 ## Casual room capture and audience calls (2026-09-06)
@@ -566,8 +581,8 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
   "Three reasons they're wrong. One: ... Two: ... Three: ..." The
   numbers ARE the structure; the preface is dead weight. Same for
   "Here's why this fails" → cut "Here's why," start with the reason.
-- **BYOK is Anthropic-only.** Don't add OpenAI/Gemini BYOK. Cross-provider
-  BYOK attempts must throw a labeled error.
+- **BYOK supports Anthropic for typed Claude and OpenAI for voice.**
+  Keep each credential scoped to its provider and surface. Gemini BYOK is not supported.
 - **APDA never goes in the Topics Hub.** It's impromptu — no rolling
   motion. Routes to the Motions tab.
 - **No JSX** in `practice.html` or `landing.html`. React-via-CDN means

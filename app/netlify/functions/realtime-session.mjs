@@ -39,6 +39,7 @@ import {
   FREE_VOICE_NAMED, FREE_VOICE_ANON,
 } from './lib/voice-usage.mjs';
 import { planBypassesVoiceCap } from './lib/plans.mjs';
+import { realtimeFunding, fundingSecret, byokVoiceUsage } from './lib/realtime-funding.mjs';
 
 // Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
 // and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
@@ -924,13 +925,6 @@ export default async (request, context) => {
     });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured.' }), {
-      status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
-    });
-  }
-
   const appCheckResult = await checkAppCheck(request);
   if (!appCheckResult.ok) {
     return new Response(JSON.stringify({
@@ -971,7 +965,19 @@ export default async (request, context) => {
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
   if (!body || typeof body !== 'object') body = {};
-  const continueSecret = process.env.VOICE_CONTINUE_SECRET || process.env.EMAIL_UNSUB_SECRET || '';
+  let funding;
+  try {
+    funding = await realtimeFunding(body, earlyDecoded, {
+      platformKey: process.env.OPENAI_API_KEY,
+      membership: uid => withTimeout(getUserTeam(uid), 2500, 'BYOK plan read'),
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message, code: error.code || 'VOICE_UNAVAILABLE' }), {
+      status: error.status || 503, headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
+  const { apiKey, byok } = funding;
+  const continueSecret = fundingSecret(process.env.VOICE_CONTINUE_SECRET || process.env.EMAIL_UNSUB_SECRET || '', byok);
   let continued = false;
   let continuedIat = 0;
   if (signedInUid && continueSecret && typeof body.continuation === 'string') {
@@ -1055,7 +1061,7 @@ export default async (request, context) => {
   const freeLimit = freeVoiceLimit(callerIsNamed);
   try {
     const decoded = earlyDecoded;
-    if (decoded){
+    if (decoded && !byok){
       if (isOwnerEmail(decoded.email)){
         // Owner bypass BEFORE the Firestore reads: with quota blown those
         // reads stall ~10s each before failing, which delays the mint.
@@ -1654,7 +1660,9 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
           }
           break outer;
         }
-        lastErrText = await r.text().catch(() => '');
+        lastErrText = byok
+          ? JSON.stringify({ error: { message: 'Your OpenAI key could not start voice. Check its Realtime access, API balance, and permissions.' } })
+          : await r.text().catch(() => '');
         console.error(`Realtime mint failed [${lastLabel}]:`, r.status, lastErrText.slice(0, 300));
         if (r.status === 401 || r.status === 403) { upstream = r; break outer; }
       }
@@ -1711,7 +1719,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // replaces (the next mint stamps the close) and keeps the minutes
     // metered by server time across the switch.
     let openInfo = null;
-    if (signedInUid && !isPro){
+    if (signedInUid && !isPro && !byok){
       try {
         openInfo = await withTimeout(openVoiceSession(getDb(), signedInUid, {
           named: callerIsNamed, hasPlan, sessionId: sessionId || '',
@@ -1730,7 +1738,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // timeout the round goes unspent (logged, acceptable failure mode,
     // mirrors the usage-counter contract above).
     let tokensAfter = null;
-    if (tokenFunded && signedInUid && !continued){
+    if (tokenFunded && signedInUid && !continued && !byok){
       try {
         const spendRes = await withTimeout(spendTokens({
           uid: signedInUid,
@@ -1772,7 +1780,8 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       endpoint: lastLabel,
       sdpUrl,
       sdpHeaders,
-      voiceUsage: signedInUid ? {
+      byok,
+      voiceUsage: byok ? byokVoiceUsage() : signedInUid ? {
         // Minutes. `limit` null only for the owner bypass; a plan has a
         // monthly budget and reports it.
         unit: 'minutes',
@@ -1794,7 +1803,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       headers: { 'Content-Type': 'application/json', ...CORS },
     });
   } catch (err) {
-    console.error('realtime-session handler error:', err);
+    console.error('realtime-session handler error:', byok ? 'BYOK upstream request failed' : err);
     return new Response(JSON.stringify({ error: 'Realtime session failed.' }), {
       status: 500, headers: { 'Content-Type': 'application/json', ...CORS },
     });

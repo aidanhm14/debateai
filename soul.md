@@ -31,6 +31,21 @@ and receiving a seated participant's approval. They join muted and remain
 outside the two scored sides. This supersedes camera-only audience rules
 for approved casual-call guests only.
 
+
+**Voice preview and both BYOK providers (2026-09-06, explicit founder approval):**
+`/newvoice` offers signed-out visitors one approximately ten-second voice
+preview, then requires an account. The server creates that call and queues
+its hangup before returning SDP; guests never receive reusable mint keys.
+All normal AI mints remain named-account gated. This page owns its account
+ask so the general browsing wall does not cover the preview setup.
+Paid plans include OpenAI BYOK for live voice, alongside existing Anthropic
+BYOK for typed Claude. The founder explicitly approved entering an OpenAI
+key and forwarding it only to OpenAI for voice sessions. Voice keys remain
+in the current tab, are never persisted or logged, and errors never fall
+back to platform funding. OpenAI bills usage; Debatable minutes and tokens
+are not consumed. Funding domains are separate for continuation signatures.
+
+
 ---
 
 ## 1. What this is (one sentence)
@@ -112,7 +127,7 @@ Five things, in order of importance:
 
 3. **Arguments that actually push back.** The AI stays on its side, responds to what was said, and does not turn the round into a lecture. **The founder's name and photo are sanctioned, and the credential stack remains retired, as of 2026-08-31** (see the decision log: this reversed the 2026-08-22 anonymity call on his explicit instruction). They are not required on every surface: the landing founder quote is text-only by his later call that evening. Champion titles, school, and year stay off public surfaces.
 
-4. **Six brains + HD voice on paid.** Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. DeepSeek (added 2026-05-15) routes direct to the DeepSeek API and pins to `deepseek-chat`; Open Lab (added same day) routes through OpenRouter and defaults to Nous Hermes 4 405B with an env-overrideable pool that also covers Mistral Large, Qwen3-235B, and Llama 4 Maverick/Scout. The $10/year Individual tier is where users get the full engine. BYOK is Anthropic-only and labeled as such. (Currently in beta — every tier is $0 while we figure out pricing; see §7.)
+4. **Six brains + HD voice on paid.** Claude, GPT, Gemini, Grok, DeepSeek, Open Lab. DeepSeek (added 2026-05-15) routes direct to the DeepSeek API and pins to `deepseek-chat`; Open Lab (added same day) routes through OpenRouter and defaults to Nous Hermes 4 405B with an env-overrideable pool that also covers Mistral Large, Qwen3-235B, and Llama 4 Maverick/Scout. The $10/year Individual tier is where users get the full engine. BYOK supports Anthropic for typed Claude and OpenAI for live voice. Consumer billing is live; see §7.
 
 5. **A learning loop wired to sharpen from rated rounds** (capture live since 2026-05-13; the nightly distillation has NEVER produced an artifact, see the 2026-08-11 decision-log entry, so do not claim it externally). Every typed AI turn and every voice-round transcript writes to `generations`. Admin-weighted past rounds get pulled back into the system prompt of future rounds matching the same motion + format. A nightly Haiku pass distills the top-rated rounds per format into a "PATTERNS THAT WORK" block that also feeds back into prompts. INTENDED behavior is that the AI on motion X today differs from the AI on motion X last month. As of 2026-08-11 that has never happened: `learning_distillations` is empty because only 3 rating labels exist in total and the distill needs 3 per format.
 
@@ -122,7 +137,7 @@ These are the rules that override other considerations. Any change that violates
 
 - **Sign-in after 40 visible seconds; AI debates require an account before starting (2026-09-05).** The browsing budget is cumulative across pages and reloads in one tab session, including the arrival page. Hidden tabs do not count. The shared chooser opens locked with Google, Apple and email, including account creation, password sign-in and emailed links. Aidan retained the timed requirement and expanded its provider choices on 2026-09-05. Existing named accounts already supply a durable identity and are not interrupted; the native app retains its provider choices. A person who goes straight into their one guest human round is not interrupted, including a round carried in the site shell. The privacy and terms pages remain readable, and a page already showing its required inline account gate does not stack another dialog. `/newvoice`, `/voice-debate` and `/practice` require sign-in before starting an AI debate, preserving the selected topic and side through the shared chooser. The Claude and Realtime endpoints reject anonymous fresh calls server-side; paid brain gates and the coach refuse anonymous tokens too. A signed, unexpired Realtime continuation may finish an already admitted round. This supersedes the old anonymous AI trial and disabled 45/90-second browsing wall.
 - **Free tier, then paywall. ENFORCED SERVER-SIDE as of 2026-08-19.** AI rounds require a named account as of 2026-09-05; the previous anonymous one-round allowance is retired. The one guest human round remains separately metered by spar-pair. Signed-in: 10 total. Before 2026-08-19 every number in this bullet was a client-side suggestion — the server's only anonymous ceiling was a per-IP layer set at ~160 rounds a day, so clearing storage refilled the free tier forever. Historical caps, all client-side and all bypassable at the time: the 5→15 bump on 2026-05-14 was a conversion-funnel move that didn't survive a credit-burn audit four days later; the 10→50 bump on 2026-05-26 was reverted same-day, per Aidan "10 free rounds not 50 correct that." The 5→15 bump on 2026-05-14 was a conversion-funnel move that didn't survive a credit-burn audit four days later. The 10→50 bump on 2026-05-26 was reverted same-day before drain materialized, per Aidan "10 free rounds not 50 correct that." With the product still in beta (every tier $0), the conversion argument carried less weight than the credit argument — paid tiers can't be the answer to drain when nobody is paying yet. Pricing-surface softening from 2026-05-14 (lighter Upgrade pill, banner gated to 75%, no jumpnav Pricing link) is left in place — the issue was the cap size, not how loud the pricing surfaces were.
-- **BYOK is Claude-only.** Label it Claude-only on the card, the input form, and the error message. Cross-provider attempts throw a specific error.
+- **BYOK supports typed Claude with Anthropic and live voice with OpenAI.** Label each input by its provider. Never send a key to another provider.
 - **APDA does NOT belong in the Topics Hub.** It's impromptu, no rolling motion. Only PF / LD / Policy / Congress belong there. APDA users go to the Motions tab (random generator).
 - **Debatable is a SOCIAL APP, not ed-tech (Aidan, 2026-08-16).** The category is social: people arguing with people, live, with an audience, replays, clips, and a ladder. Machine-readable identity says so everywhere (JSON-LD applicationCategory: SocialNetworkingApplication, manifest categories social/entertainment) and new copy leads with the social loop, never with practice/training/learning outcomes. AI stays the infrastructure (judge, ballot, fallback opponent), never the headline. The ed-framed SEO funnel pages (/learn, /practice, /schools, Counter) survive as acquisition doors that capture ed search intent, but they funnel INTO the arena and don't define the product.
 - **No em-dashes in user-facing copy.** Copy was swept to remove them. New copy shouldn't reintroduce them.
@@ -176,7 +191,7 @@ These are the rules that override other considerations. Any change that violates
 | Tier | Price | What you get |
 |---|---|---|
 | Free | $0 | 1 anonymous round, then 10 signed-in requests. 1 anonymous voice round, 2 signed in |
-| BYOK | $1/mo | Unlimited Claude (Anthropic-only, user's key) |
+| BYOK | $1/mo | Typed Claude with an Anthropic key; voice with an OpenAI key. Provider usage billed separately |
 | Individual | $10/year | 250 requests/mo, 6 brains, typed practice |
 | Voice | $12/mo | 120 minutes of live voice a month, metered by the minute and refilled on the 1st (2026-09-03; was "no lifetime cap"). Monthly because voice costs real money to run. LIVE and purchasable since 2026-08-26; before that it was advertised but did not exist as a plan |
 | Tokens | $4.99/mo | The one thing on sale during beta |

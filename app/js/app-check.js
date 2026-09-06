@@ -41,7 +41,7 @@
     // The stage: a viewer asking to argue on the live broadcast, and the
     // ballot for the round that follows. Both call checkAppCheck().
     '/api/stage', '/api/stage-judge',
-    '/api/openai-chat', '/api/openlab', '/api/realtime-session',
+    '/api/openai-chat', '/api/openlab', '/api/realtime-session', '/api/voice-preview',
     '/api/room-judge-session', '/api/submit-audience-question',
     '/api/suggest-topic', '/api/topic-vote', '/api/transcribe',
     '/api/translate', '/api/tts', '/api/upvote-question',

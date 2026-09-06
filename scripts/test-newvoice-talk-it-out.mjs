@@ -58,8 +58,8 @@ check('both walls read the one decision', /if \(walled && !callerIsNamed\)\{/.te
 // Under the minutes model a continuation is still metered: opening a
 // session is what settles the one it replaces by server time. A guard that
 // asserted "not charged" would be asserting a free round.
-check('a continuation still opens a metered session', /if \(signedInUid && !isPro\)\{\s*try \{\s*openInfo = await withTimeout\(openVoiceSession\(/.test(realtime));
-check('a continuation spends no tokens', /if \(tokenFunded && signedInUid && !continued\)\{/.test(realtime));
+check('a platform-funded continuation still opens a metered session', /if \(signedInUid && !isPro && !byok\)\{\s*try \{\s*openInfo = await withTimeout\(openVoiceSession\(/.test(realtime));
+check('a continuation spends no tokens', /if \(tokenFunded && signedInUid && !continued && !byok\)\{/.test(realtime));
 check('the token is bound to the verified caller, never the body', !/verifyContinuation\([^)]*body\.uid/.test(realtime));
 check('a continuation is re-signed with the FIRST mint time', /signContinuation\(continueSecret, signedInUid, continued \? continuedIat : Date\.now\(\)\)/.test(realtime));
 check('the token is only issued to a caller with a uid', /roundToken: \(signedInUid && continueSecret\)/.test(realtime));
@@ -108,7 +108,7 @@ check('a claim cannot close the lock-in quote early', /replace\(\/"\/g, '\\u201c
 check('the scoping opener is a literal question', page.includes('"Alright. What do you want to argue about?"'));
 check('the round starts counting from the lock-in, not the chat', page.includes('roundStartIdx = turns.length;') && page.includes('turns.slice(roundStartIdx)'));
 check('a follow-up response waits for response.done', page.includes('if (afterResponseDone) { const f = afterResponseDone; afterResponseDone = null; setTimeout(f, 80); }'));
-check('a voice switch needs the continuation token', page.includes("if (status !== 'live' || switching || !roundToken) return;"));
+check('a platform-funded voice switch needs the continuation token', page.includes("if (status !== 'live' || switching || (!roundToken && !voiceByok)) return;"));
 check('a voice switch sends the token and the record', page.includes('continuation: roundToken,') && page.includes('priorTranscript: priorTranscriptText(),'));
 check('a voice switch adopts the new server session id so the end call settles the right one', page.includes('if (vu && vu.sessionId) voiceSessionId = vu.sessionId;'));
 check('a voice switch keeps the mic (no track stop in switchVoice)', (() => {

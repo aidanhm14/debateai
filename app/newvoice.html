@@ -1218,7 +1218,14 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
           <div class="tune-help">Adds brief judge notes to your feedback at the end.</div>
         </div>
       </div>
+      <div class="tune voice-byok rr-block" data-private="true">
+        <label class="tune-label" for="openaiVoiceKey">Use your OpenAI key</label>
+        <input id="openaiVoiceKey" type="password" autocomplete="off" spellcheck="false" placeholder="OpenAI API key" aria-describedby="voiceKeyHelp" style="width:100%;min-height:48px;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-size:16px">
+        <p class="tune-help" id="voiceKeyHelp">Included with paid plans. No Debatable voice-minute cap. OpenAI bills your API usage. Your key stays in this tab and is sent only to OpenAI through our session service. Reload to forget it.</p>
+        <button id="clearVoiceKey" type="button" class="wiz-back" style="min-height:44px">Forget key</button>
+      </div>
       </details>
+      <p class="setup-note" id="voicePreviewNote">Try a 10-second voice exchange, then create a free account to keep talking.</p>
       <button id="startBtn" class="rise rise-6" type="button">
       <svg class="mic-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
       <span id="startLabel">Start debating</span>
@@ -1695,6 +1702,38 @@ const HARD_CAP_MS = 8 * 60_000;    // realtime audio is billed by the minute
 // this is the client honouring the reserve it was given, not enforcing it.
 let roundCapMs = HARD_CAP_MS;
 let voiceSessionId = '';
+let previewRound = false, previewUsed = false, previewConnectedAt = 0, previewStopTimer = null;
+let voiceByok = false, peerStartedAt = 0, activeVoiceKey = '';
+function hasVoiceAccount(){ try { const u = firebase.auth().currentUser; return !!(u && !u.isAnonymous); } catch { return false; } }
+function voiceKeyBody(){
+  const value = ($('openaiVoiceKey').value || '').trim();
+  return value ? { openaiApiKey: value } : {};
+}
+$('clearVoiceKey').addEventListener('click', () => {
+  if (voiceByok && status === 'live') endRound();
+  if (status === 'connecting') { try { connectAbort.abort(); } catch (e) {} }
+  activeVoiceKey = '';
+  $('openaiVoiceKey').value = '';
+  $('voiceKeyHelp').textContent = 'Key forgotten. Your next round uses your Debatable allowance.';
+});
+function askAfterPreview(){
+  if (!window.requireDebatableAccount) {
+    const script = document.createElement('script'); script.src = '/js/auth-modal.js';
+    script.onload = askAfterPreview;
+    script.onerror = () => fail('Sign-in could not load. Reload to create your account.');
+    document.head.appendChild(script); return;
+  }
+  window.requireDebatableAccount({ source: 'newvoice_preview', onDone: function(user) {
+    if (user) { previewRound = false; autoStartPending = true; start(); }
+  } });
+}
+function finishPreview(){
+  if (!previewRound || !['live', 'connecting'].includes(status)) return;
+  previewUsed = true;
+  fail('Your preview is finished. Create a free account to keep talking.');
+  askAfterPreview();
+}
+
 
 function show(name){
   Object.values(views).forEach(v => v.classList.remove('on'));
@@ -2088,6 +2127,13 @@ function fail(msg, html, quiet){
 let openingSent = false;
 function requestOpeningTurn(){
   if (openingSent || status !== 'live' || !dc || dc.readyState !== 'open') return;
+  if (previewRound) {
+    openingSent = true;
+    dc.send(JSON.stringify({ type: 'response.create', response: { instructions: currentMotion
+      ? 'In one short sentence, ask what they think about this literal topic: ' + JSON.stringify(currentMotion)
+      : 'Ask exactly: Hey, how do you want to debate today?' } }));
+    return;
+  }
   openingSent = true;
   awaitingResponse = true;
   if (scopingRound) {
@@ -2152,7 +2198,7 @@ let voiceRoundsLeft = null;       // null = no cap applies (paid) or unknown
    channel opens (session.update + the first response.create). */
 async function openPeer(session, onOpen, signal){
   const ephemeralKey = session && session.client_secret && session.client_secret.value;
-  if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
+  if (!ephemeralKey && !session.preview) throw new Error('Session came back without a key. Try again.');
     // 3. Peer connection. STUN so NAT'd networks can reach OpenAI.
     const stun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
     const iceServers = Array.isArray(session.iceServers) && session.iceServers.length ? session.iceServers.concat(stun) : stun;
@@ -2178,12 +2224,32 @@ async function openPeer(session, onOpen, signal){
     // 4. Data channel: config + a short, interruptible welcome.
     dc = pc.createDataChannel('oai-events');
     dc.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch (err) {} };
-    dc.onopen = () => { try { onOpen && onOpen(); } catch (e) {} };
+    dc.onopen = () => {
+      if (previewRound) {
+        previewConnectedAt = Date.now();
+        previewStopTimer = setTimeout(finishPreview, 10_000);
+      }
+      try { onOpen && onOpen(); } catch (e) {}
+    };
 
     // OpenAI's WebRTC call exchange accepts the offer immediately. Waiting
     // for every STUN candidate added up to three seconds before this POST.
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    if (session.preview) {
+      const result = await fetch('/api/voice-preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...session.authHeader },
+        body: JSON.stringify({ ...session.previewBody, sdp: pc.localDescription.sdp || offer.sdp }),
+        ...(signal ? { signal } : {}),
+      });
+      const answer = await result.json();
+      if (!result.ok) {
+        if (answer.code === 'PREVIEW_USED') { previewUsed = true; askAfterPreview(); }
+        throw new Error(answer.error || 'The voice preview could not connect.');
+      }
+      previewUsed = true;
+      await pc.setRemoteDescription({ type: 'answer', sdp: answer.sdp });
+    } else {
     const sdpRes = await fetch(session.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
       method: 'POST',
       body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
@@ -2198,16 +2264,16 @@ async function openPeer(session, onOpen, signal){
       throw new Error('Handshake failed (' + sdpRes.status + '). Try again.');
     }
     await pc.setRemoteDescription({ type: 'answer', sdp: await sdpRes.text() });
+    }
+    peerStartedAt = Date.now();
 }
 
 let autoStartPending = false;
 async function start(){
   if (status !== 'idle') return;
-  if (!window.hasDebatableAccount()) {
-    window.requireDebatableAccount({ source: 'newvoice_start', onDone: function(user) {
-      if (user) { autoStartPending = true; start(); }
-    } });
-    return;
+  previewRound = !hasVoiceAccount();
+  if (previewRound && (previewUsed || voiceKeyBody().openaiApiKey)) {
+    askAfterPreview(); return;
   }
   // An unattended start (the ?autostart=1 handoff) has no user gesture behind
   // it, so a browser is entitled to refuse the microphone. That is not an
@@ -2255,7 +2321,13 @@ async function start(){
     // 2. Mint the ephemeral session.
     let authHeader = {};
     try {
-      const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      const auth = firebase.auth();
+      let u = await new Promise(resolve => {
+        let off = null;
+        off = auth.onAuthStateChanged(user => { resolve(user); if (off) off(); });
+      });
+      if (!u && previewRound) u = (await auth.signInAnonymously()).user;
+      if (u && !u.isAnonymous) previewRound = false;
       if (u) { const tok = await u.getIdToken(); if (tok) authHeader = { Authorization: 'Bearer ' + tok }; }
     } catch (e) {}
     // English-first by design. Reading the shared debateos-locale key
@@ -2269,10 +2341,17 @@ async function start(){
     } catch (e) {}
     roundLang = aiLanguage;
 
+    let session;
+    if (previewRound) {
+      session = { preview: true, model: 'gpt-realtime', authHeader, previewBody: {
+        motion: scopingRound ? '' : motion, side: side === 'for' ? 'gov' : 'opp', voice: currentVoice,
+      } };
+    } else {
     const mintRes = await fetch('/api/realtime-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader },
       body: JSON.stringify({
+        ...voiceKeyBody(),
         mode: 'clash',
         motion: scopingRound ? '' : motion,
         side: side === 'for' ? 'gov' : 'opp',
@@ -2320,7 +2399,11 @@ async function start(){
       }
       throw new Error('Could not start: ' + (body.openai || body.error || ('HTTP ' + mintRes.status)));
     }
-    const session = await mintRes.json();
+    session = await mintRes.json();
+    }
+    voiceByok = session.byok === true;
+    activeVoiceKey = voiceByok ? voiceKeyBody().openaiApiKey || '' : '';
+    $('openaiVoiceKey').disabled = voiceByok;
     // The free-round count rides the mint (voiceUsage.used / .limit; limit
     // is null on a plan that bypasses the cap). Kept so the Change-topic
     // editor can say what a restart costs: it re-mints, and on the free
@@ -2329,11 +2412,11 @@ async function start(){
       const u = session && session.voiceUsage;
       voiceRoundsLeft = (u && typeof u.minutesLeft === 'number') ? Math.max(0, u.minutesLeft) : null;
       voiceSessionId = (u && u.sessionId) || '';
-      roundCapMs = (u && Number.isFinite(Number(u.reserveMinutes)) && Number(u.reserveMinutes) > 0)
+      roundCapMs = voiceByok ? Infinity : (u && Number.isFinite(Number(u.reserveMinutes)) && Number(u.reserveMinutes) > 0)
         ? Math.min(HARD_CAP_MS, Number(u.reserveMinutes) * 60_000) : HARD_CAP_MS;
     } catch (e) { voiceRoundsLeft = null; voiceSessionId = ''; roundCapMs = HARD_CAP_MS; }
     const ephemeralKey = session && session.client_secret && session.client_secret.value;
-    if (!ephemeralKey) throw new Error('Session came back without a key. Try again.');
+    if (!ephemeralKey && !session.preview) throw new Error('Session came back without a key. Try again.');
     negotiatedModel = session.model || '';
     negotiatedReasoningEffort = session.reasoningEffort || null;
     roundToken = session.roundToken || null;
@@ -2364,7 +2447,7 @@ async function start(){
   // and turns spoken before it resolves are replayed from `turns` so the
   // opening exchange is not lost to the round-trip.
   vtSession = null; vtPending = []; vtResolved = false;
-  if (window.VoiceTranscript) {
+  if (window.VoiceTranscript && !previewRound) {
     VoiceTranscript.start({
       surface: 'newvoice', motion: currentMotion, mode: 'clash',
       format: 'clash', side: side, persona: 'clash',
@@ -2406,7 +2489,11 @@ async function start(){
   startArena();
   timerIv = setInterval(() => {
     const el = Date.now() - startedAt;
-    statusText.textContent = 'LIVE · ' + fmtTime(el);
+    statusText.textContent = previewRound
+      ? 'PREVIEW · ' + Math.max(0, Math.ceil((10_000 - (Date.now() - (previewConnectedAt || startedAt))) / 1000)) + 's'
+      : 'LIVE · ' + fmtTime(el);
+    if (previewRound) return;
+    if (voiceByok && !switching && !aiTalking && !awaitingResponse && !vadSpeechActive && Date.now() - peerStartedAt > 50 * 60_000) switchVoice(currentVoice, 'renewal');
     if (el > roundCapMs) endRound('cap');
   }, 500);
   bargeMs = 0;
@@ -2804,7 +2891,7 @@ function renderTs(){
    actually argued something (two turns, ~25 words). */
 let turnsJudged = 0, lastJudgeAt = 0, judgeBusy = false;
 function maybeLiveJudge(){
-  if (!liveJudge || judgeBusy || status !== 'live') return;
+  if (previewRound || !liveJudge || judgeBusy || status !== 'live') return;
   const spoken = turns.slice(roundStartIdx).filter((t) => t && t.who !== 'judge' && t.who !== 'note' && (t.text || '').trim());
   if (spoken.length < 2 || spoken.length - turnsJudged < 2) return;
   const userTurns = spoken.filter((t) => t.who === 'you');
@@ -2950,6 +3037,8 @@ function reportSessionEnd(){
 }
 window.addEventListener('pagehide', reportSessionEnd);
 function cleanup(){
+  $('openaiVoiceKey').disabled = false; activeVoiceKey = '';
+  clearTimeout(previewStopTimer); previewStopTimer = null;
   reportSessionEnd();
   try { const ed = $('topicEditor'); if (ed) ed.hidden = true; const tb = $('topicEditBtn'); if (tb) tb.hidden = true; } catch (e) {}
   try { if (timerIv) clearInterval(timerIv); } catch (e) {}
@@ -2974,6 +3063,7 @@ function cleanup(){
 
 function endRound(){
   if (status !== 'live') return;
+  if (previewRound) { finishPreview(); return; }
   status = 'ended';
   const elapsed = Date.now() - startedAt;
   roundElapsedMs = elapsed;
@@ -3671,7 +3761,7 @@ function applySpokenVoice(callId, args){
     afterResponseDone = () => requestAiTurn('Say in one sentence that this already is the ' + voiceName(v) + ' voice, name one or two others, and keep going.');
     return;
   }
-  if (!roundToken || switching) {
+  if ((!roundToken && !voiceByok) || switching) {
     sendToolOutput(callId, { ok: false, error: 'voice switching unavailable right now' });
     afterResponseDone = () => requestAiTurn('Say in one short sentence that you cannot switch voices in this round, then pick the argument back up.');
     return;
@@ -3706,7 +3796,7 @@ function paintVoiceMenu(){
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'voice-opt-mini' + (v.id === currentVoice ? ' active' : '');
-    b.disabled = switching || v.id === currentVoice || !roundToken;
+    b.disabled = switching || v.id === currentVoice || (!roundToken && !voiceByok);
     b.setAttribute('role', 'option');
     b.setAttribute('aria-selected', v.id === currentVoice ? 'true' : 'false');
     const name = document.createElement('b'); name.textContent = v.name;
@@ -3717,7 +3807,7 @@ function paintVoiceMenu(){
   });
   const note = document.createElement('div');
   note.className = 'voice-menu-note';
-  note.textContent = roundToken
+  note.textContent = (roundToken || voiceByok)
     ? 'Or just say "change your voice". The switch takes a second; the clock keeps running.'
     : 'Voice switching is unavailable in this round.';
   menu.appendChild(note);
@@ -3742,8 +3832,9 @@ function priorTranscriptText(){
     .join('\n')
     .slice(-5000);
 }
-async function reconnectSession(v){
+async function reconnectSession(v, renewal){
   try {
+    if (voiceByok && !activeVoiceKey) return false;
     let authHeader = {};
     try {
       const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
@@ -3753,6 +3844,7 @@ async function reconnectSession(v){
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader },
       body: JSON.stringify({
+        ...(voiceByok ? { openaiApiKey: activeVoiceKey } : {}),
         mode: 'clash',
         motion: currentMotion,
         side: side === 'for' ? 'gov' : 'opp',
@@ -3781,14 +3873,14 @@ async function reconnectSession(v){
     } catch (e) {}
     await openPeer(session, () => {
       sendSessionConfig(vadFallbackSent ? 'server' : 'semantic');
-      resumeAfterSwitch(v);
+      resumeAfterSwitch(v, renewal);
     });
     return true;
   } catch (e) {
     return false;
   }
 }
-function resumeAfterSwitch(v){
+function resumeAfterSwitch(v, renewal){
   if (!dc || dc.readyState !== 'open') return;
   awaitingResponse = true; pendingTurn = false;
   const rest = currentMotion
@@ -3796,18 +3888,18 @@ function resumeAfterSwitch(v){
     : 'ask again what they want to argue about.';
   try {
     dc.send(JSON.stringify({ type: 'response.create', response: { instructions:
-      'Your voice just changed to ' + voiceName(v) + ' at their request. Say one short sentence acknowledging the new voice, then ' + rest +
+      (renewal ? 'The voice connection renewed. Do not mention the connection. ' : 'Your voice just changed to ' + voiceName(v) + ' at their request. Say one short sentence acknowledging the new voice, then ') + rest +
       ' Do not restart, do not re-introduce the topic, do not explain how the round works.' } }));
   } catch (e) { awaitingResponse = false; }
 }
 async function switchVoice(v, via){
-  if (status !== 'live' || switching || !roundToken) return;
-  if (!VOICES.some((x) => x.id === v) || v === currentVoice) return;
+  if (status !== 'live' || switching || (!roundToken && !voiceByok)) return;
+  if (!VOICES.some((x) => x.id === v) || (v === currentVoice && via !== 'renewal')) return;
   switching = true;
   const prev = currentVoice;
   setVoice(v);
-  statusText.textContent = 'SWITCHING VOICE';
-  capAiText.textContent = 'Changing voice to ' + voiceName(v) + '.';
+  statusText.textContent = via === 'renewal' ? 'RECONNECTING' : 'SWITCHING VOICE';
+  capAiText.textContent = via === 'renewal' ? 'Keeping the conversation going.' : 'Changing voice to ' + voiceName(v) + '.';
   capAiText.classList.add('idle');
   // Tear down the session only. The mic, the clock, the transcript, the
   // barge gate and the arena all stay; openPeer builds a fresh pc + dc.
@@ -3818,10 +3910,10 @@ async function switchVoice(v, via){
   aiTalking = false; awaitingResponse = false; pendingTurn = false; aiLive = '';
   bargeMs = 0; aiHold = 0; aiTurnAt = 0; afterResponseDone = null;
   setSpeaking('ai', false);
-  let ok = await reconnectSession(v);
+  let ok = await reconnectSession(v, via === 'renewal');
   if (!ok) {
     setVoice(prev);
-    ok = await reconnectSession(prev);
+    ok = await reconnectSession(prev, via === 'renewal');
     if (!ok) { switching = false; paintVoiceControl(); endRound('dropped'); return; }
     capAiText.textContent = 'Could not switch voices. Kept ' + voiceName(prev) + '.';
   }
@@ -3962,7 +4054,7 @@ function paintWizSummary(){
     b.addEventListener('click', () => goStep(r.go));
     box.appendChild(b);
   });
-  if (status === 'idle') startLabel.textContent = talkItOut ? 'Start talking' : (debateStyle === 'conversation' ? 'Start conversation' : 'Start debating');
+  if (status === 'idle') startLabel.textContent = !hasVoiceAccount() ? (previewUsed ? 'Create account to keep talking' : 'Try voice for 10 seconds') : talkItOut ? 'Start talking' : (debateStyle === 'conversation' ? 'Start conversation' : 'Start debating');
   const title = $('wizGoTitle');
   if (title) title.textContent = talkItOut ? 'Ready to talk it out?' : 'Ready?';
 }
@@ -4016,6 +4108,10 @@ paintVoiceGrid();
 paintVoiceControl();
 goStep(handedMotion ? 5 : 1);
 
+try { firebase.auth().onAuthStateChanged(user => {
+  $('voicePreviewNote').hidden = !!(user && !user.isAnonymous);
+  if (status === 'idle') { if (user && !user.isAnonymous) startLabel.textContent = 'Start debating'; }
+}); } catch (e) {}
 startBtn.addEventListener('click', start);
 claimInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); talkItOut = false; if (!sanitizeTopic(claimInput.value)) claimInput.value = sanitizeTopic(randomClaim()); goStep(3); }

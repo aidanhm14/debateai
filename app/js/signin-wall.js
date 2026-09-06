@@ -9,6 +9,8 @@
   var SKIP_PATHS = [
     // Human rooms own entry. Never put an account ask over a live speech.
     /^\/(live-round|live|casual-room|stage|studio|room-judge)(?:\.html)?(?:\/|$)/,
+    // Voice owns its ten-second preview and the account ask that follows.
+    /^\/newvoice(?:\.html)?(?:\/|$)/,
     // These pages already require an account at the door.
     /^\/(partners|debate-chat)(?:\.html)?(?:\/|$)/,
     /^\/(privacy|terms)(?:\.html)?(?:\/|$)/,
