@@ -1,257 +1,295 @@
-/* ──────────────────────────────────────────────────────────────────
-   One-time research-corpus opt-in nudge.
-
-   Fires after the user has rated 3+ AI rounds (typed or voice), if and
-   only if they haven't already opted in via the profile toggle and
-   haven't dismissed the nudge before.
-
-   Drop <script defer src="/js/corpus-nudge.js"></script> on any page
-   where rating happens (index.html, voice-debate.html). The script:
-
-     1. Exposes window.bumpRatedCount() for the rate signal call site
-        to call after a successful rate. Increments a localStorage
-        counter; if the count crosses the threshold, maybeShow() runs.
-     2. Suppresses itself if the user is anonymous, already opted in,
-        or already saw + dismissed the nudge.
-     3. Mounts a centered modal with three actions: opt in (writes
-        users/{uid}.contributeToCorpus + localStorage mirror), not now
-        (sets dismissed=1, leaves contribute=0), learn more (opens
-        /privacy#corpus in a new tab and dismisses).
-
-   Dismissal is sticky (no TTL) — this isn't a re-nag prompt. The user
-   can always flip the toggle back on in /profile if they change their
-   mind.
-   ────────────────────────────────────────────────────────────── */
-(function(){
+/* Research sharing defaults on in the chooser, but no round is eligible
+   until the person confirms 18+. Saved opt-outs always win. The question
+   follows repeat use across pages; active rounds are never interrupted. */
+(function () {
+  'use strict';
   if (window.__debateaiCorpusNudge) return;
   window.__debateaiCorpusNudge = true;
 
-  var SHOWN_KEY    = 'debateos-corpus-nudge-shown';
-  var COUNT_KEY    = 'debateos-rated-count';
-  var ROUND_KEY    = 'debateos-corpus-rounds-done';
-  var CONSENT_KEY  = 'debateos-corpus-contribute';
-  var THRESHOLD    = 3;   // rated rounds (legacy trigger, see below)
-  var ROUND_THRESHOLD = 2; // COMPLETED rounds (the trigger that actually fires)
-  var BALLOT_DELAY_MS = 4000; // let them read the verdict before we ask
+  var CONSENT_KEY = 'debateos-corpus-contribute';
+  var STATE_KEY = 'debateos-corpus-prompt-v2:';
+  var DAY = 86400000;
+  var VISIT_GAP = 30 * 60 * 1000;
+  var BALLOT_DELAY = 4000;
+  var RETURN_DELAY = 20000;
+  var user = null, profile = null, activity = {}, mounted = false;
+  var timer = null, saving = false, ballotReady = false, previousFocus = null;
+  var roundNoted = false, authAttached = false, firestoreLoading = null;
+  var pageReadyAt = Date.now() + RETURN_DELAY;
+  var dismissedHere = false;
 
-  // WHY TWO TRIGGERS. The rating trigger above was the only one for
-  // months and it never fired: it wants 3 rate signals and the whole
-  // database held 4 of them, so the corpus opt-in was asked once, ever,
-  // and `contributable` sat at 0 while 189 rounds carried a transcript.
-  // Rating is a thing almost nobody does. Finishing a round is the thing
-  // everybody who matters does, so that is what we count now. The rating
-  // path stays because a rating is still a real signal of engagement and
-  // removing it would only lose the rare user who does both.
-
-  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-
-  function alreadyOptedIn(){ return get(CONSENT_KEY) === '1'; }
-  function alreadyDismissed(){ return get(SHOWN_KEY) === '1'; }
-  function ratedCount(){ var n = parseInt(get(COUNT_KEY) || '0', 10); return isFinite(n) ? n : 0; }
-
-  // Called from the rating signal site (index.html captureTurn rate
-  // path + voice-debate.html postRate). Each successful rate signal
-  // bumps the counter once.
-  window.bumpRatedCount = function(){
-    if (alreadyOptedIn() || alreadyDismissed()) return;
-    var n = ratedCount() + 1;
-    set(COUNT_KEY, String(n));
-    if (n >= THRESHOLD) maybeShow();
-  };
-
-  function roundCount(){ var n = parseInt(get(ROUND_KEY) || '0', 10); return isFinite(n) ? n : 0; }
-
-  // Called at the BALLOT, once per completed round, by every surface
-  // that finishes one. Delayed rather than instant: the verdict is the
-  // reason they are still on the page, and covering it the millisecond
-  // it renders trades a corpus row for the thing they came for.
-  window.noteRoundComplete = function(){
-    if (alreadyOptedIn() || alreadyDismissed()) return;
-    var n = roundCount() + 1;
-    set(ROUND_KEY, String(n));
-    if (n >= ROUND_THRESHOLD) setTimeout(maybeShow, BALLOT_DELAY_MS);
-  };
-
-  // Pages that would rather not reach for a global can dispatch this on
-  // document instead. Same call, one line, no load-order dependency.
-  try {
-    document.addEventListener('debatable:round-complete', function(){
-      if (typeof window.noteRoundComplete === 'function') window.noteRoundComplete();
+  function get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+  function put(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+  function count(k) { return Math.max(0, parseInt(get(k), 10) || 0); }
+  function currentUser() {
+    try { return firebase.auth().currentUser; } catch (_) { return null; }
+  }
+  function sameUser(uid) {
+    var u = currentUser();
+    return !!(u && !u.isAnonymous && u.uid === uid && user && user.uid === uid);
+  }
+  function saveActivity() {
+    if (user) put(STATE_KEY + user.uid, JSON.stringify(activity));
+  }
+  function timestamp(value) {
+    if (value && typeof value.toMillis === 'function') return value.toMillis();
+    return Number(value) || 0;
+  }
+  function eligible() {
+    return (activity.rounds || 0) >= 2 || count('debateos-corpus-rounds-done') >= 2
+      || count('debateos-rated-count') >= 3 || (activity.visits || 0) >= 3
+      || ((activity.visits || 0) >= 2 && Date.now() - activity.firstSeen >= DAY);
+  }
+  function answered() {
+    if (!profile) return true;
+    return profile.contributeToCorpus === false
+      || (profile.contributeToCorpus === true && profile.corpusAgeAttested === true);
+  }
+  function snoozed() {
+    var last = Math.max(activity.dismissedAt || 0, timestamp(profile && profile.corpusNudgeDismissedAt));
+    return last > 0 && Date.now() - last < 14 * DAY;
+  }
+  function ensureFirestore() {
+    if (firebase.firestore) return Promise.resolve();
+    if (firestoreLoading) return firestoreLoading;
+    firestoreLoading = new Promise(function (resolve, reject) {
+      var src = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
+      var tag = document.querySelector('script[src="' + src + '"]');
+      if (!tag) { tag = document.createElement('script'); tag.src = src; document.head.appendChild(tag); }
+      tag.addEventListener('load', function () { resolve(); }, { once: true });
+      tag.addEventListener('error', reject, { once: true });
     });
-  } catch (e) {}
-
-  // LOAD-ORDER DRAIN. This module is deferred, but a ballot page can
-  // finish rendering inside a parse-time inline script, which runs
-  // BEFORE any deferred script exists. A direct call from there would
-  // hit undefined and the round would never be counted. So a page may
-  // instead bump window.__corpusRoundsPending and we settle up on load,
-  // the same queue pattern /js/stance-panel.js uses on the same page.
-  function drainPending(){
-    var n = 0;
-    try { n = parseInt(window.__corpusRoundsPending || 0, 10) || 0; } catch (e) { n = 0; }
-    if (n <= 0) return;
-    try { window.__corpusRoundsPending = 0; } catch (e) {}
-    for (var i = 0; i < n && i < 5; i++) window.noteRoundComplete();
+    return firestoreLoading;
   }
-
-  // Also expose a manual trigger for the rare case a page wants to
-  // force the prompt (e.g. a "tell me about the research corpus" link).
-  window.showCorpusNudge = maybeShow;
-
-  // NAMED accounts only. notifications.js calls signInAnonymously() on
-  // nearly every page, so `currentUser` is truthy for a visitor with no
-  // account at all. Asking them is worse than useless: privacy policy
-  // s7 excludes anonymous traffic from the licensed corpus outright, so
-  // an anonymous yes contributes nothing AND burns the sticky dismissal
-  // that would otherwise catch them after they sign up.
-  function isSignedIn(){
-    try {
-      if (typeof firebase === 'undefined' || !firebase.auth) return false;
-      var u = firebase.auth().currentUser;
-      return !!(u && !u.isAnonymous);
-    } catch (e) { return false; }
+  async function readProfile(u) {
+    await ensureFirestore();
+    var snap = await firebase.firestore().collection('user_profiles').doc(u.uid).get({ source: 'server' });
+    if (!sameUser(u.uid)) return false;
+    profile = snap.exists ? snap.data() : {};
+    put(CONSENT_KEY, profile.contributeToCorpus === true && profile.corpusAgeAttested === true ? '1' : '0');
+    return true;
   }
-
-  var mounted = false;
-  function maybeShow(){
-    if (mounted || alreadyOptedIn() || alreadyDismissed()) return;
-    if (!isSignedIn()) {
-      // Anonymous users can't write to user_profiles; skip silently.
-      // The next rate after sign-in will re-trigger.
-      return;
+  function pageBlocked() {
+    if (document.hidden || window.top !== window.self) return true;
+    var path = location.pathname.replace(/\.html$/, '');
+    if (/^\/(privacy|terms|research|profile|messages|admin[^/]*|auth[^/]*|signin|login|checkout)(\/|$)/.test(path)) return true;
+    if (!ballotReady && /^\/(app|index|spar|live|live-round|practice|newvoice|voice-debate|debate-chat|coach|tournament)(\/|$)/.test(path)) return true;
+    var overlays = document.querySelectorAll('[aria-modal="true"],dialog[open],#onboardOverlay,#daAuthOverlay');
+    for (var i = 0; i < overlays.length; i++) {
+      if (overlays[i].closest('#corpusNudgeRoot')) continue;
+      var css = getComputedStyle(overlays[i]);
+      if (css.display !== 'none' && css.visibility !== 'hidden' && overlays[i].getClientRects().length) return true;
     }
-    mount();
+    return false;
   }
-
-  // Server-side consent ledger (append-only consent_events). The profile
-  // write is the state; this is the receipt: when, on which surface,
-  // under which policy version. Fire and forget.
-  function ledger(event, extra){
+  function schedule(delay) {
+    clearTimeout(timer);
+    timer = setTimeout(maybeShow, Math.max(delay || 0, pageReadyAt - Date.now()));
+  }
+  async function maybeShow() {
+    if (!user || mounted || saving || dismissedHere || answered() || snoozed() || !eligible()) return;
+    if (Date.now() < pageReadyAt) { schedule(); return; }
+    if (pageBlocked()) { schedule(5000); return; }
+    var u = user;
     try {
-      var u = firebase.auth().currentUser;
-      if (!u) return;
-      u.getIdToken().then(function(t){
-        fetch('/api/log-consent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-          body: JSON.stringify(Object.assign({ event: event, surface: 'corpus-nudge' }, extra || {}))
-        }).catch(function(){});
-      }).catch(function(){});
-    } catch (e) {}
+      // A choice on another device must beat a stale local cache.
+      if (!await readProfile(u) || mounted || answered() || snoozed() || pageBlocked()) return;
+      mount();
+    } catch (_) { /* A failed read is not permission to assume a choice. */ }
   }
+  window.showCorpusNudge = function () { schedule(); };
+  window.bumpRatedCount = function () {
+    put('debateos-rated-count', String(count('debateos-rated-count') + 1));
+    schedule(BALLOT_DELAY);
+  };
+  window.noteRoundComplete = function () {
+    if (roundNoted) return;
+    roundNoted = true;
+    ballotReady = true;
+    pageReadyAt = Date.now() + BALLOT_DELAY;
+    put('debateos-corpus-rounds-done', String(count('debateos-corpus-rounds-done') + 1));
+    if (user) { activity.rounds = (activity.rounds || 0) + 1; saveActivity(); }
+    schedule(BALLOT_DELAY);
+  };
+  document.addEventListener('debatable:round-complete', window.noteRoundComplete);
 
-  function close(persistDismissed){
-    if (persistDismissed && !alreadyOptedIn()) ledger('corpus_nudge_dismissed', { contribute: false });
-    if (persistDismissed) set(SHOWN_KEY, '1');
+  async function record(event, extra, u) {
+    var token = await u.getIdToken();
+    if (!sameUser(u.uid)) throw new Error('Your account changed. Please try again.');
+    var res = await fetch('/api/log-consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(Object.assign({ event: event, surface: 'corpus-nudge' }, extra || {}))
+    });
+    if (!res.ok) throw new Error('Could not save your choice. Please try again.');
+    return res.json();
+  }
+  function close() {
     var root = document.getElementById('corpusNudgeRoot');
-    if (root && root.parentNode) root.parentNode.removeChild(root);
+    if (root) root.remove();
     mounted = false;
+    saving = false;
+    if (previousFocus && previousFocus.isConnected) previousFocus.focus();
   }
-
-  function optIn(){
-    // The 18+ attestation is a hard prerequisite, not a formality: the
-    // server refuses to mark any round contributable without
-    // corpusAgeAttested on the profile, so an opt-in written without it
-    // would silently do nothing. Minors' rounds are never licensable.
-    var ageBox = document.getElementById('corpusNudgeAge');
-    if (!ageBox || !ageBox.checked) return;
-    set(CONSENT_KEY, '1');
-    set(SHOWN_KEY, '1');
+  function later() {
+    if (saving) return;
+    activity.dismissedAt = Date.now();
+    saveActivity();
+    dismissedHere = true;
+    record('corpus_nudge_dismissed', {}, user).catch(function () {});
+    close();
+  }
+  async function saveChoice() {
+    if (saving) return;
+    var u = user;
+    var sharing = document.getElementById('corpusNudgeSharing').checked;
+    var age = document.getElementById('corpusNudgeAge').checked;
+    if (sharing && !age) return;
+    saving = true;
+    document.getElementById('corpusNudgeYes').disabled = true;
+    document.getElementById('corpusNudgeLater').disabled = true;
+    document.getElementById('corpusNudgeSharing').disabled = true;
+    document.getElementById('corpusNudgeAge').disabled = true;
+    document.getElementById('corpusNudgeStatus').textContent = 'Saving your choice…';
     try {
-      var user = firebase.auth().currentUser;
-      if (user && firebase.firestore) {
-        firebase.firestore().collection('user_profiles').doc(user.uid).set({
-          contributeToCorpus: true,
-          corpusAgeAttested: true,
-          contributeToCorpusUpdatedAt: new Date(),
-        }, { merge: true }).catch(function(e){ console.warn('[corpus-nudge] save failed:', e && e.message); });
-      }
-    } catch (e) { console.warn('[corpus-nudge] firestore write skipped:', e.message); }
-    ledger('corpus_opt_in', { contribute: true, ageAttested: true });
-    // Visual confirmation: swap modal content to a thank-you for 2s
-    // then close. Keeps the moment of consent from feeling like a
-    // disappear-on-click.
-    var body = document.getElementById('corpusNudgeBody');
-    var btns = document.getElementById('corpusNudgeBtns');
-    if (body) body.innerHTML = '<div style="font-size:1.4rem;font-weight:800;margin-bottom:8px">Thanks.</div><div>Your future rounds are now part of the licensable corpus. Toggle off any time in profile settings.</div>';
-    if (btns) btns.innerHTML = '';
-    setTimeout(function(){ close(true); }, 2400);
+      // State and its receipt are one server batch. Never show success or
+      // enable the local capture flag for a write that failed.
+      await record(sharing ? 'corpus_opt_in' : 'corpus_opt_out', {
+        contribute: sharing, ageAttested: age, applyCorpusChoice: true
+      }, u);
+      if (!sameUser(u.uid) || !mounted) return;
+      profile.contributeToCorpus = sharing;
+      if (sharing) profile.corpusAgeAttested = true;
+      put(CONSENT_KEY, sharing ? '1' : '0');
+      dismissedHere = true;
+      document.getElementById('corpusNudgeBody').textContent = sharing
+        ? 'Research sharing is on. Only future rounds can contribute. You can turn it off in Account & settings on your profile.'
+        : 'Research sharing is off. Your rounds will not be added to the research corpus. You can change this in your profile.';
+      document.getElementById('corpusNudgeTitle').textContent = 'Your choice is saved.';
+      document.getElementById('corpusNudgeControls').hidden = true;
+      document.getElementById('corpusNudgeStatus').textContent = '';
+      var done = document.getElementById('corpusNudgeYes');
+      done.disabled = false;
+      done.textContent = 'Done';
+      done.onclick = close;
+      document.getElementById('corpusNudgeLater').hidden = true;
+      done.focus();
+      saving = false;
+    } catch (_) {
+      if (!sameUser(u.uid) || !mounted) return;
+      saving = false;
+      document.getElementById('corpusNudgeLater').disabled = false;
+      document.getElementById('corpusNudgeSharing').disabled = false;
+      document.getElementById('corpusNudgeAge').disabled = false;
+      updateChoice();
+      document.getElementById('corpusNudgeStatus').textContent = 'Could not save your choice. Please try again.';
+    }
   }
-
-  function mount(){
+  function updateChoice() {
+    var sharing = document.getElementById('corpusNudgeSharing').checked;
+    var age = document.getElementById('corpusNudgeAge').checked;
+    document.getElementById('corpusNudgeSharingLabel').textContent = sharing ? 'Research sharing on' : 'Research sharing off';
+    document.getElementById('corpusNudgeAgeRow').hidden = !sharing;
+    var yes = document.getElementById('corpusNudgeYes');
+    yes.textContent = sharing ? 'Confirm and keep sharing on' : 'Turn sharing off';
+    yes.disabled = sharing && !age;
+  }
+  function mount() {
     mounted = true;
+    previousFocus = document.activeElement;
     var root = document.createElement('div');
     root.id = 'corpusNudgeRoot';
-    root.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:Archivo,Inter,-apple-system,sans-serif;animation:corpusFadeIn .18s ease-out';
-
-    root.innerHTML = ''
-      + '<style>'
-      + '@keyframes corpusFadeIn{from{opacity:0}to{opacity:1}}'
-      + '@keyframes corpusSlideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}'
-      + '#corpusNudgeCard{animation:corpusSlideUp .22s ease-out}'
-      + '#corpusNudgeCard .cb{cursor:pointer;border:none;font:inherit;transition:filter .15s,transform .1s}'
-      + '#corpusNudgeCard .cb:active{transform:translateY(1px)}'
-      + '#corpusNudgeCard .cb.primary{background:#b91c1c;color:#fff;padding:12px 22px;border-radius:10px;font-weight:700;font-size:.95rem}'
-      + '#corpusNudgeCard .cb.primary:hover{filter:brightness(1.08)}'
-      + '#corpusNudgeCard .cb.ghost{background:transparent;color:rgba(247,245,238,.68);padding:12px 16px;font-size:.9rem;font-weight:500}'
-      + '#corpusNudgeCard .cb.ghost:hover{color:#fff}'
-      + '#corpusNudgeCard a.cb{display:inline-block;text-decoration:none}'
-      + '#corpusNudgeCard .cb.primary:disabled{opacity:.45;cursor:not-allowed;filter:none}'
-      + '#corpusNudgeAgeRow{display:flex;align-items:flex-start;gap:9px;margin-top:14px;padding:10px 12px;border:1px solid rgba(239,68,68,.22);border-radius:10px;background:rgba(239,68,68,.06);font-size:.88rem;line-height:1.45;color:rgba(247,245,238,.85);cursor:pointer}'
-      + '#corpusNudgeAgeRow input{margin-top:3px;accent-color:#ef4444;cursor:pointer}'
-      + '</style>'
-      + '<div id="corpusNudgeCard" role="dialog" aria-modal="true" aria-labelledby="corpusNudgeTitle" style="background:#1a0808;color:#f7f5ee;border:1px solid rgba(239,68,68,.25);border-radius:18px;padding:32px 30px;max-width:520px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.6)">'
-      +   '<div style="font-size:.72rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#ef4444;margin-bottom:10px">A quick ask</div>'
-      +   '<h2 id="corpusNudgeTitle" style="font-family:Georgia,serif;font-size:1.7rem;line-height:1.15;font-weight:700;margin:0 0 14px;letter-spacing:-.01em">Help train better AIs?</h2>'
-      +   '<div id="corpusNudgeBody" style="color:rgba(247,245,238,.78);font-size:.98rem;line-height:1.55">'
-      +     '<p style="margin:0 0 10px">You\'ve finished a couple of rounds now. The rounds you\'re generating here are exactly the data AI research orgs are looking for: structured, format-aware, judge-graded argumentative speech that they can\'t get from reddit or podcasts.</p>'
-      +     '<p style="margin:0 0 10px">If you opt in, your <strong>future</strong> rounds (typed and voice) become part of an anonymized corpus we may license to those research orgs. Anonymized means stripped of name, email, account id. Past rounds are never affected. Off by default. Toggle off any time in profile settings.</p>'
-      +   '</div>'
-      +   '<label id="corpusNudgeAgeRow"><input type="checkbox" id="corpusNudgeAge"><span>I confirm I am 18 or older. Rounds from anyone under 18 are never licensed, so this box is required.</span></label>'
-      +   '<div id="corpusNudgeBtns" style="margin-top:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end">'
-      +     '<a href="/privacy#corpus" target="_blank" rel="noopener" class="cb ghost" id="corpusNudgeLearn">Read terms</a>'
-      +     '<button class="cb ghost" id="corpusNudgeLater">Not now</button>'
-      +     '<button class="cb primary" id="corpusNudgeYes" disabled>Yes, count me in</button>'
-      +   '</div>'
-      + '</div>';
-
+    root.innerHTML = '<style>'
+      + '#corpusNudgeRoot{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.64);font-family:Archivo,Inter,-apple-system,sans-serif}'
+      + '#corpusNudgeCard{box-sizing:border-box;max-width:520px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;background:var(--bg,#faf9f6);color:var(--text,#222);border:1px solid var(--border,#777);border-radius:18px;padding:28px;box-shadow:0 24px 80px #0005;font-size:15px;line-height:1.5}'
+      + '#corpusNudgeCard h2{font-size:26px;line-height:1.15;margin:6px 0 16px;letter-spacing:-.025em}'
+      + '#corpusNudgeCard p{margin:0 0 12px}#corpusNudgeCard a{color:inherit;text-decoration:underline}'
+      + '#corpusNudgeCard .corpus-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}'
+      + '#corpusNudgeControls{padding:14px;border:1px solid var(--border,#aaa);border-radius:10px;margin-top:16px}'
+      + '#corpusNudgeControls label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}#corpusNudgeControls input{flex:0 0 auto;margin:4px 0 0;accent-color:#b91c1c;width:18px;height:18px}'
+      + '#corpusNudgeAgeRow{margin-top:14px;font-size:14px}#corpusNudgeCard [hidden]{display:none!important}'
+      + '#corpusNudgeBtns{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}#corpusNudgeCard button{font:inherit;min-height:44px;border-radius:9px;padding:10px 14px;cursor:pointer;border:1px solid var(--border,#aaa);background:transparent;color:inherit}'
+      + '#corpusNudgeYes{flex:1;background:#b91c1c!important;color:#fff!important;border-color:#b91c1c!important;font-weight:700!important}#corpusNudgeCard button:disabled{opacity:.5;cursor:default}'
+      + '#corpusNudgeCard :focus-visible{outline:2px solid #dc2626;outline-offset:3px}#corpusNudgeStatus{font-size:14px;margin:12px 0 0}#corpusNudgeStatus:empty{display:none}'
+      + '@media(max-width:400px){#corpusNudgeCard{padding:20px}#corpusNudgeBtns{flex-direction:column}#corpusNudgeCard h2{font-size:24px}}'
+      + '</style><section id="corpusNudgeCard" role="dialog" aria-modal="true" aria-labelledby="corpusNudgeTitle" aria-describedby="corpusNudgeBody" tabindex="-1">'
+      + '<div class="corpus-label">Your research sharing setting</div><h2 id="corpusNudgeTitle">Help AI understand real disagreements?</h2>'
+      + '<div id="corpusNudgeBody"><p>You have spent some time on Debatable, so we are asking about research sharing now.</p>'
+      + '<p>Real arguments help researchers study how AI responds to opposing views and test whether its judgments are consistent.</p>'
+      + '<p>Sharing is <strong>on by default</strong>. Once you confirm you are 18 or older, future typed rounds and voice transcripts can join a research dataset we may <strong>license to AI labs</strong>. We remove account identifiers and scrub personal details before export. Audio and video are excluded.</p>'
+      + '<p>Past rounds stay out. This is optional and does not affect access to Debatable. Turn it off any time in your profile. <a href="/privacy#corpus" target="_blank" rel="noopener">Read the privacy details</a>.</p></div>'
+      + '<div id="corpusNudgeControls"><label><input type="checkbox" role="switch" id="corpusNudgeSharing" checked><span><strong id="corpusNudgeSharingLabel">Research sharing on</strong><br>Confirm your age before any rounds contribute.</span></label>'
+      + '<label id="corpusNudgeAgeRow"><input type="checkbox" id="corpusNudgeAge"><span>I confirm I am 18 or older. Rounds from anyone under 18 are never included.</span></label></div>'
+      + '<p id="corpusNudgeStatus" role="status" aria-live="polite"></p><div id="corpusNudgeBtns"><button id="corpusNudgeLater" type="button">Not now</button><button id="corpusNudgeYes" type="button" disabled>Confirm and keep sharing on</button></div></section>';
     document.body.appendChild(root);
-
-    document.getElementById('corpusNudgeAge').addEventListener('change', function(e){
-      document.getElementById('corpusNudgeYes').disabled = !e.target.checked;
-    });
-    document.getElementById('corpusNudgeYes').addEventListener('click', optIn);
-    document.getElementById('corpusNudgeLater').addEventListener('click', function(){ close(true); });
-    document.getElementById('corpusNudgeLearn').addEventListener('click', function(){
-      // Dismiss when they go read the terms — if they come back wanting
-      // to opt in, the profile toggle is the right surface.
-      close(true);
-    });
-    // Backdrop click = "not now" (same as the button).
-    root.addEventListener('click', function(e){
-      if (e.target === root) close(true);
-    });
-  }
-
-  // If a user navigates to a page when they're already past the
-  // threshold (e.g. they rated on /app then opened /voice-debate),
-  // try to show on auth state changing to signed-in. Wrap in a
-  // listener so it doesn't fight with the host page's auth setup.
-  function attachAuthListener(){
-    try {
-      if (typeof firebase === 'undefined' || !firebase.auth) return;
-      firebase.auth().onAuthStateChanged(function(user){
-        if (user && !user.isAnonymous && (ratedCount() >= THRESHOLD || roundCount() >= ROUND_THRESHOLD)) maybeShow();
+    document.getElementById('corpusNudgeAge').checked = profile.corpusAgeAttested === true;
+    document.getElementById('corpusNudgeAge').onchange = updateChoice;
+    document.getElementById('corpusNudgeSharing').onchange = updateChoice;
+    document.getElementById('corpusNudgeYes').onclick = saveChoice;
+    document.getElementById('corpusNudgeLater').onclick = later;
+    root.addEventListener('click', function (e) { if (e.target === root) later(); });
+    root.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); later(); }
+      if (e.key !== 'Tab') return;
+      var controls = Array.prototype.filter.call(root.querySelectorAll('a,button,input'), function (el) {
+        return !el.disabled && el.getClientRects().length;
       });
-    } catch (e) { /* host page handles its own auth */ }
+      var first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement.id === 'corpusNudgeCard')) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    updateChoice();
+    document.getElementById('corpusNudgeCard').focus();
   }
-
-  function init(){ drainPending(); attachAuthListener(); }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  async function onAuth(u) {
+    if (user && u && user.uid === u.uid) return;
+    clearTimeout(timer);
+    close();
+    user = u && !u.isAnonymous ? u : null;
+    profile = null;
+    dismissedHere = false;
+    put(CONSENT_KEY, '0');
+    if (!user) return;
+    try { activity = JSON.parse(get(STATE_KEY + user.uid) || '{}') || {}; } catch (_) { activity = {}; }
+    var now = Date.now();
+    if (!activity.firstSeen) activity.firstSeen = now;
+    if (!activity.lastSeen || now - activity.lastSeen >= VISIT_GAP) activity.visits = (activity.visits || 0) + 1;
+    activity.lastSeen = now;
+    saveActivity();
+    try { if (await readProfile(user)) schedule(); } catch (_) {}
   }
+  function boot(attempt) {
+    if (authAttached) return;
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth && firebase.apps.length) {
+        firebase.auth().onAuthStateChanged(onAuth);
+        authAttached = true;
+        return;
+      }
+    } catch (_) {}
+    if (attempt < 120) setTimeout(function () { boot(attempt + 1); }, 500);
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      if (user) {
+        var now = Date.now();
+        if (now - (activity.lastSeen || now) >= VISIT_GAP) activity.visits = (activity.visits || 0) + 1;
+        activity.lastSeen = now;
+        saveActivity();
+      }
+      schedule(5000);
+      boot(0);
+    }
+  });
+  window.addEventListener('debatable:corpus-choice-saved', function () {
+    dismissedHere = true;
+    close();
+    if (user) readProfile(user).catch(function () {});
+  });
+  function init() {
+    if (window.__corpusRoundsPending > 0) { window.__corpusRoundsPending = 0; window.noteRoundComplete(); }
+    boot(0);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

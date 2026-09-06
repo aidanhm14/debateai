@@ -7,7 +7,7 @@
 // way that alters what consent means; the ledger then shows which users
 // consented under which text. Never reuse an old value.
 
-export const CONSENT_POLICY_VERSION = '2026-08-10';
+export const CONSENT_POLICY_VERSION = '2026-09-06';
 
 export const CONSENT_EVENTS = new Set([
   'corpus_opt_in',          // research-corpus licensing consent granted
@@ -27,7 +27,7 @@ export const CONSENT_EVENTS = new Set([
 ]);
 
 export const CONSENT_SURFACES = new Set([
-  'corpus-nudge',  // the post-rating opt-in modal
+  'corpus-nudge',  // the repeat-use research sharing question
   'profile',       // /profile settings toggles
   'round-entry',   // the TranscriptConsent modal before a round
   'panel',         // the opinion-panel widget

@@ -115,7 +115,8 @@ export default async (request) => {
       consent: {
         currentPolicyVersion: CONSENT_POLICY_VERSION,
         storeTranscripts: profile?.transcriptCapture === true,
-        researchCorpusOptIn: profile?.contributeToCorpus === true,
+        researchSharingPreference: profile?.contributeToCorpus !== false,
+        researchCorpusOptIn: profile?.contributeToCorpus === true && profile?.corpusAgeAttested === true,
         ageAttested18Plus: profile?.corpusAgeAttested === true,
         // The receipts. Every grant and withdrawal, with the surface it
         // happened on and the policy text in force at the time.

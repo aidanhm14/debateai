@@ -69,8 +69,9 @@
     // here, or that one answer quietly stays on one machine.
     'da-brain-level', 'da-brain-format', 'da-brain-style',
     'da-brain-register', 'da-brain-side', 'da-brain-goal', 'da-brain-built',
-    // consent + identity
-    'debateos-corpus-contribute', 'debateos-use-case', 'debateos-use-case-confirmed',
+    // Identity only. Corpus eligibility is hydrated from the dedicated
+    // profile fields by corpus-nudge.js, never from a stale prefs blob.
+    'debateos-use-case', 'debateos-use-case-confirmed',
     // Age band for live pairing (js/age-gate.js). Losing this on a second
     // device would re-ask the question and could split one person across
     // two pools, so it syncs like any other identity answer.

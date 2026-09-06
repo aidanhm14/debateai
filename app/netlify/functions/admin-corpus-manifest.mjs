@@ -31,11 +31,12 @@ export default async (request) => {
   const { db } = gate;
 
   try {
-    // ── counts that have single-field indexes: cheap aggregates ────
+    // Count eligible adults, not default-on preferences awaiting age.
     const [contributableCount, optInCount, captureCount, ledgerCount] = await Promise.all([
       db.collection('generations').where('contributable', '==', true).count().get()
         .then((s) => s.data().count || 0).catch(() => 0),
-      db.collection('user_profiles').where('contributeToCorpus', '==', true).count().get()
+      db.collection('user_profiles').where('contributeToCorpus', '==', true)
+        .where('corpusAgeAttested', '==', true).count().get()
         .then((s) => s.data().count || 0).catch(() => 0),
       db.collection('user_profiles').where('transcriptCapture', '==', true).count().get()
         .then((s) => s.data().count || 0).catch(() => 0),

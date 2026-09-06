@@ -67,6 +67,16 @@ export default async (request) => {
   const event = typeof body.event === 'string' ? body.event : '';
   if (!CONSENT_EVENTS.has(event)) return errorResponse('Invalid event', 400, request);
   const surface = CONSENT_SURFACES.has(body.surface) ? body.surface : 'other';
+  const applyCorpusChoice = body.applyCorpusChoice === true;
+  if (applyCorpusChoice && !['corpus_opt_in', 'corpus_opt_out'].includes(event)) {
+    return errorResponse('Invalid corpus choice', 400, request);
+  }
+  if (applyCorpusChoice && event === 'corpus_opt_in' && body.ageAttested !== true) {
+    return errorResponse('Confirm you are 18 or older before contributing', 400, request);
+  }
+  if (applyCorpusChoice && body.contribute !== (event === 'corpus_opt_in')) {
+    return errorResponse('Corpus choice does not match event', 400, request);
+  }
 
   // Corpus licensing events only mean something for named accounts:
   // anonymous rows are excluded from the corpus unconditionally, so an
@@ -88,17 +98,29 @@ export default async (request) => {
       ageAttested: typeof body.ageAttested === 'boolean' ? body.ageAttested : null,
       createdAt: FieldValue.serverTimestamp(),
     };
-    await db.collection('consent_events').add(doc);
+    const batch = db.batch();
+    batch.set(db.collection('consent_events').doc(), doc);
 
     // Stamp the policy version the user last acted under onto the
     // profile, so the manifest can report version coverage without
     // scanning the ledger.
     if (event === 'corpus_opt_in' || event === 'corpus_opt_out') {
-      await db.collection('user_profiles').doc(uid).set({
+      batch.set(db.collection('user_profiles').doc(uid), {
         corpusPolicyVersion: CONSENT_POLICY_VERSION,
         corpusConsentLedgerAt: FieldValue.serverTimestamp(),
-      }, { merge: true }).catch(() => {});
+        ...(applyCorpusChoice ? {
+          contributeToCorpus: event === 'corpus_opt_in',
+          contributeToCorpusUpdatedAt: FieldValue.serverTimestamp(),
+          ...(event === 'corpus_opt_in' ? { corpusAgeAttested: true } : {}),
+        } : {}),
+      }, { merge: true });
     }
+    if (event === 'corpus_nudge_dismissed') {
+      batch.set(db.collection('user_profiles').doc(uid), {
+        corpusNudgeDismissedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    await batch.commit();
 
     return jsonResponse({ ok: true, policyVersion: CONSENT_POLICY_VERSION }, 200, request);
   } catch (err) {

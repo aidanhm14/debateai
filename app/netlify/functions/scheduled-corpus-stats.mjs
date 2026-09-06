@@ -37,11 +37,12 @@ export default async () => {
     const db = getDb();
     const now = new Date();
 
-    // ── 1. count user_profiles with contributeToCorpus = true ──────
+    // Default-on preferences awaiting age are not eligible contributors.
     let optInMembers = 0;
     try {
       const optIn = await db.collection('user_profiles')
         .where('contributeToCorpus', '==', true)
+        .where('corpusAgeAttested', '==', true)
         .count().get();
       optInMembers = optIn.data().count || 0;
     } catch (e) {

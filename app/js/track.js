@@ -17,6 +17,16 @@
 // only registers handlers once.
 // ──────────────────────────────────────────────────────────────────
 (function () {
+  // The research question needs return visits, including pages without
+  // a topbar or a ballot. The module handles timing and round exclusion.
+  try {
+    if (!document.querySelector('script[src="/js/corpus-nudge.js"]')) {
+      var corpus = document.createElement('script');
+      corpus.src = '/js/corpus-nudge.js';
+      corpus.defer = true;
+      document.head.appendChild(corpus);
+    }
+  } catch (e) {}
   try {
     var existing = document.querySelector('script[src="/js/page-transition.js"]');
     if (!existing) {
