@@ -22,14 +22,22 @@
   // is the canonical check; fall back to a couple of tells for older shells.
   function detectNative() {
     try {
-      var C = window.Capacitor;
-      if (C && typeof C.isNativePlatform === 'function') return C.isNativePlatform();
-      if (C && C.platform && C.platform !== 'web') return true;
-      // Last-ditch: a custom UA marker the shell can set, or the app scheme.
+      // The user-agent marker comes FIRST. The shell appends " DebatableApp/"
+      // to every request it makes (capacitor.config.ts appendUserAgent), and
+      // it cannot be absent or stale inside the app. Capacitor's own
+      // isNativePlatform() used to be consulted first and, when it answered
+      // false, its answer was FINAL: the marker below was never reached. On
+      // 2026-09-06 an iPhone 17e simulator running the shell rendered the
+      // web-only sign-in wall on /leaderboard, complete with the "does not
+      // work inside this app's browser" note, which only happens when this
+      // returns false. The marker is the shell's own signature, so it wins.
       var ua = navigator.userAgent || '';
       if (/ DebatableApp\//.test(ua)) return true;
       /* Keep recognizing the user-agent token sent by the first native build. */
       if (new RegExp(' Debate' + 'ItApp/').test(ua)) return true;
+      var C = window.Capacitor;
+      if (C && typeof C.isNativePlatform === 'function' && C.isNativePlatform()) return true;
+      if (C && C.platform && C.platform !== 'web') return true;
       // Responsive QA without a simulator. The query switch is accepted on
       // local origins only, so it can never turn the public website into the
       // native shell.
@@ -49,6 +57,26 @@
   if (!isNative) return; // web: do nothing.
 
   document.documentElement.classList.add('dbnative');
+
+  // ── Splash: hold it until the page has painted, then hide ──────────
+  // A clean install of build 10 showed a blank cream screen for 10 to 15
+  // seconds on the simulator (2026-09-06, screenshots at 3/6/10/15s): the
+  // splash hid itself at 750ms and the remote page had not painted yet.
+  // capacitor.config.ts now holds the splash for up to 20s (launchAutoHide
+  // stays on as the ceiling, so a page that never runs this cannot hang the
+  // app), and this hides it as soon as the first frame of the page exists.
+  // hide() is idempotent, so calling it on every navigation is harmless.
+  (function hideSplashWhenPainted() {
+    function hide() {
+      try {
+        var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen;
+        if (P && typeof P.hide === 'function') P.hide({ fadeOutDuration: 150 });
+      } catch (e) {}
+    }
+    function afterPaint() { requestAnimationFrame(function () { requestAnimationFrame(hide); }); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', afterPaint);
+    else afterPaint();
+  })();
 
   // ── Service worker: DOES NOT RUN IN THE APP. Measured, not assumed ──
   // Only index.html ('/app') registers /sw.js, and none of the five tabs

@@ -19,8 +19,6 @@ const config: CapacitorConfig = {
       '*.firebaseio.com',
       'apis.google.com',
       'accounts.google.com',
-      'js.stripe.com',
-      'checkout.stripe.com',
     ],
     // Shown when the remote load fails (no signal, DNS, origin down).
     // Without this the WebView renders a blank page offline. The target
@@ -41,7 +39,12 @@ const config: CapacitorConfig = {
 
   plugins: {
     SplashScreen: {
-      launchShowDuration: 750,
+      // Ceiling, not the normal path: native-bridge.js hides the splash as
+      // soon as the remote page paints (2 to 15s on a cold install). The
+      // 20s cap only matters if that script never runs.
+      launchShowDuration: 20000,
+      launchAutoHide: true,
+      launchFadeOutDuration: 150,
       backgroundColor: '#F7F6F2',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
