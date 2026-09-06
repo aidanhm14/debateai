@@ -14,11 +14,17 @@ refusing a tokenless call, the public read endpoints, and the judge season
 calendar not having expired.
 
 ```bash
+npm ci --prefix app --omit=dev --ignore-scripts
 cd e2e && npm ci && npx playwright install chromium
 npm test                       # against https://itsdebatable.com
 BASE_URL=https://deploy-preview-123--debateos1.netlify.app npm test
 npm run report                 # open the last HTML report
 ```
+
+Run the first command from the repository root. The offline draft tests
+import server modules from `app/`, so their runtime dependencies must be
+installed there as well. `--ignore-scripts` skips the unused ffmpeg download;
+these tests do not need server credentials or a live database.
 
 ## Why it runs against production
 
@@ -45,9 +51,10 @@ run; anonymous uids are never counted as signups (soul.md section 8).
 ## Adding a test
 
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
-It uses the shipped invitation code with an in-memory queue and consent
-endpoint. It covers delivery, concurrent page loads, mutual acceptance,
-decline ordering, and Voice AI continuation without touching real accounts.
+It uses the shipped matching code with an in-memory queue and pairing
+endpoints. It covers direct room entry, old pending proposals, concurrent
+page loads, automatic join retries, and Voice AI opt-outs that leave the
+queue without touching real accounts.
 
 `tests/round-draft-sync.spec.mjs` uses the shipped topic chooser and actual
 server transaction logic with an in-memory store. Two browsers receive no

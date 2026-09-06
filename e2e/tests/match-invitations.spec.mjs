@@ -1,4 +1,4 @@
-// Offline two-person browser regression. Firebase and the consent endpoint
+// Offline two-person browser regression. Firebase and the pairing endpoints
 // share an in-memory ledger; no real accounts, queues, or AI calls are used.
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -10,13 +10,13 @@ const presence = readFileSync(new URL('../../app/js/round-presence.js', import.m
 const popup = readFileSync(new URL('../../app/js/live-popup.js', import.meta.url), 'utf8');
 
 async function world(browser, background = true) {
-  const contexts = [], pages = [], docs = new Map(), writes = [], errors = [];
-  let version = 0, releaseDecline, failAccept = false, race = null;
+  const contexts = [], pages = [], docs = new Map(), writes = [], errors = [], requests = [];
+  let version = 0, failJoin = false, race = null;
   const stamp = () => ({ seconds: Date.now() / 1000 });
-  const pair = () => {
+  const pair = (status = 'matched') => {
     for (const [uid, peer] of [['a', 'b'], ['b', 'a']]) docs.set('matchmaking_queue/' + uid, {
-      uid, background, status: 'consent', room: 'test-room', matchedWith: peer,
-      matchedWithName: peer === 'a' ? 'Alex' : 'Otto', consents: { a: false, b: false },
+      uid, background, status, room: 'test-room', matchedWith: peer,
+      matchedWithName: peer === 'a' ? 'Alex' : 'Otto',
       proposedAt: stamp(), joinedAt: stamp(), authProvider: 'google.com',
     });
     version++;
@@ -39,19 +39,15 @@ async function world(browser, background = true) {
       if (operations.length) { version++; await publish(); }
       return true;
     });
-    await p.exposeFunction('testConsent', async body => {
-      if (body.action !== 'consent') return { ok: true };
-      if (body.accept && failAccept) return { ok: false, reason: 'temporary_failure' };
-      if (!body.accept && releaseDecline) await new Promise(resolve => { releaseDecline = resolve; });
+    await p.exposeFunction('testPairRequest', async ({ url, body }) => {
+      requests.push({ uid, url, ...body });
+      if (body.action !== 'join') return { ok: true };
+      if (failJoin) { failJoin = false; return { ok: false, reason: 'temporary_failure' }; }
       const mine = docs.get('matchmaking_queue/' + uid), peer = docs.get('matchmaking_queue/' + body.peerUid);
       if (!mine || !peer) return { ok: false, reason: 'consent_state_gone' };
-      if (!body.accept) {
-        for (const d of [mine, peer]) { d.status = 'waiting'; delete d.room; delete d.matchedWith; }
-      } else {
-        for (const d of [mine, peer]) d.consents[uid] = true;
-        if (mine.consents.a && mine.consents.b) for (const d of [mine, peer]) d.status = 'matched';
-      }
-      version++; await publish(); return { ok: true };
+      for (const d of [mine, peer]) d.status = 'matched';
+      const result = { ...mine, ok: true, matched: true };
+      version++; await publish(); return result;
     });
     await p.goto('https://match.test' + path);
     await p.evaluate(({ uid }) => {
@@ -98,7 +94,7 @@ async function world(browser, background = true) {
       window.daAway = window.daCanOsNotify = () => false;
       window.daPresenceKind = () => { const d = JSON.parse(localStorage.getItem('da-round-presence') || 'null'); return d && Date.now() - d.at < 150000 ? d.kind : ''; };
       window.escHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-      window.fetch = async (url, options) => ({ ok: true, json: async () => options?.body ? testConsent(JSON.parse(options.body)) : { debaters: [{ uid: 'b', name: 'Otto' }], rounds: [] } });
+      window.fetch = async (url, options) => ({ ok: true, json: async () => options?.body ? testPairRequest({ url, body: JSON.parse(options.body) }) : { debaters: [{ uid: 'b', name: 'Otto' }], rounds: [] } });
       document.querySelector('#audio').onclick = async () => {
         window.aiAudio = new AudioContext(); const osc = aiAudio.createOscillator(), gain = aiAudio.createGain();
         gain.gain.value = 0; osc.connect(gain).connect(aiAudio.destination); osc.start(); await aiAudio.resume();
@@ -110,26 +106,34 @@ async function world(browser, background = true) {
     if (loadPopup) await p.addScriptTag({ content: popup });
     return p;
   }
-  return { docs, writes, pair, page, publish, race: fn => { race = fn; }, failAccept: () => { failAccept = true; },
-    holdDecline: () => { releaseDecline = true; }, release: () => releaseDecline(),
-    declinePending: () => typeof releaseDecline === 'function', close: async () => { await Promise.all(contexts.map(c => c.close())); expect(errors).toEqual([]); } };
+  return { docs, writes, requests, pair, page, publish, race: fn => { race = fn; }, failJoinOnce: () => { failJoin = true; },
+    close: async () => { await Promise.all(contexts.map(c => c.close())); expect(errors).toEqual([]); } };
 }
 
-for (const background of [true, false]) test(`both sides receive an existing ${background ? 'background' : 'foreground'} request`, async ({ browser }) => {
+// 2026-09-06: queue entry is the decision to meet. The Accept gate is retired.
+for (const background of [true, false]) test(`both sides enter an existing ${background ? 'background' : 'foreground'} match without another acceptance`, async ({ browser }) => {
   const w = await world(browser, background);
   try {
     w.pair();
     const a = await w.page('a'), b = await w.page('b');
-    await expect(a.getByText('Otto wants to debate')).toBeVisible();
-    await expect(b.getByText('Alex wants to debate')).toBeVisible();
-    expect(w.writes.filter(w => w.kind === 'set')).toEqual([]);
-    await a.getByRole('button', { name: 'Accept', exact: true }).click();
-    await expect(a.getByText('Waiting for Otto')).toBeVisible();
-    await expect(b.getByText('Waiting on you')).toBeVisible();
-    await expect(b.getByText('Alex already accepted')).toBeVisible();
-    await b.getByRole('button', { name: 'Join them' }).click();
     await expect(a).toHaveURL(/live-round\.html\?.*room=test-room/);
     await expect(b).toHaveURL(/live-round\.html\?.*room=test-room/);
+    expect(w.writes.filter(w => w.kind === 'set')).toEqual([]);
+    expect(w.requests.filter(r => r.action === 'consent' || r.action === 'join')).toEqual([]);
+  } finally { await w.close(); }
+});
+
+test('an old pending proposal resumes automatically and delivers both sides to one room', async ({ browser }) => {
+  const w = await world(browser);
+  try {
+    w.pair('consent');
+    const a = await w.page('a');
+    await expect(a).toHaveURL(/live-round\.html\?.*room=test-room/);
+    const b = await w.page('b');
+    await expect(b).toHaveURL(/live-round\.html\?.*room=test-room/);
+    expect(w.requests.filter(r => r.action === 'join')).toHaveLength(1);
+    expect(w.requests.filter(r => r.action === 'consent')).toEqual([]);
+    expect(w.writes.filter(w => w.kind === 'set')).toEqual([]);
   } finally { await w.close(); }
 });
 
@@ -138,8 +142,8 @@ test('a pairing that races a new queue write survives the transaction retry', as
   try {
     w.race(w.pair);
     const p = await w.page('a');
-    await expect(p.getByText('Otto wants to debate')).toBeVisible();
-    expect(w.docs.get('matchmaking_queue/a').status).toBe('consent');
+    await expect(p).toHaveURL(/live-round\.html\?.*room=test-room/);
+    expect(w.docs.get('matchmaking_queue/a').status).toBe('matched');
     expect(w.writes.filter(w => w.kind === 'set')).toEqual([]);
   } finally { await w.close(); }
 });
@@ -153,54 +157,59 @@ test('a fresh background queue carries the held provider', async ({ browser }) =
   } finally { await w.close(); }
 });
 
-test('another tab yields an invitation to the Voice AI tab without declining it', async ({ browser }) => {
+test('another tab leaves a match for the Voice AI tab without declining it', async ({ browser }) => {
   const w = await world(browser);
   try {
-    w.pair(); const p = await w.page('a');
-    await expect(p.getByText('Otto wants to debate')).toBeVisible();
+    const p = await w.page('a');
+    await expect.poll(() => w.docs.get('matchmaking_queue/a')?.status).toBe('waiting');
     await p.clock.install();
     await p.evaluate(() => localStorage.setItem('da-round-presence', JSON.stringify({ kind: 'voice-ai', at: Date.now() })));
     await p.clock.fastForward(11000);
+    w.pair(); await w.publish();
     await expect(p.locator('.da-match-overlay')).toHaveCount(0);
-    expect(w.docs.get('matchmaking_queue/a').status).toBe('consent');
-    expect(w.docs.get('matchmaking_queue/b').status).toBe('consent');
+    await expect(p).toHaveURL('https://match.test/');
+    expect(w.docs.get('matchmaking_queue/a').status).toBe('matched');
+    expect(w.docs.get('matchmaking_queue/b').status).toBe('matched');
+    expect(w.requests).toEqual([]);
+    const voice = await w.page('a', '/newvoice');
+    await expect(voice).toHaveURL(/live-round\.html\?.*room=test-room/);
+    await expect(p).toHaveURL('https://match.test/');
   } finally { await w.close(); }
 });
 
-for (const path of ['/newvoice', '/voice-debate']) test(`${path}: rejecting releases the waiting peer and keeps AI audio running`, async ({ browser }) => {
+for (const path of ['/newvoice', '/voice-debate']) test(`${path}: declining an open-seat invitation leaves the queue and keeps AI audio running`, async ({ browser }) => {
   const w = await world(browser);
   try {
-    w.pair(); const a = await w.page('a'), b = await w.page('b', path);
-    await a.getByRole('button', { name: 'Accept', exact: true }).click();
-    await expect(b.getByText('Waiting on you')).toBeVisible();
-    if (path === '/newvoice') await b.setViewportSize({ width: 390, height: 844 });
-    await expect(b.getByRole('button', { name: 'Keep talking to AI' })).toBeInViewport();
-    await expect(b.getByRole('button', { name: 'Join them' })).toBeInViewport();
-    await b.screenshot({ path: test.info().outputPath('voice-invitation.png') });
-    w.holdDecline();
-    await b.getByRole('button', { name: 'Keep talking to AI' }).click();
-    await expect(b.locator('.da-match-overlay')).toHaveCount(0);
-    expect(w.docs.has('matchmaking_queue/b')).toBe(true);
-    await expect(a.getByText('Waiting for Otto')).toBeVisible();
-    await expect.poll(w.declinePending).toBe(true);
-    w.release();
+    const peer = { uid: 'b', status: 'waiting', background: true };
+    w.docs.set('matchmaking_queue/b', peer);
+    const a = await w.page('a', path, { loadPopup: true });
+    await expect.poll(() => w.docs.get('matchmaking_queue/a')?.status).toBe('waiting');
+    if (path === '/newvoice') await a.setViewportSize({ width: 390, height: 844 });
+    await expect(a.getByRole('button', { name: 'Keep talking to AI' })).toBeInViewport();
+    await a.screenshot({ path: test.info().outputPath('voice-invitation.png') });
+    await a.getByRole('button', { name: 'Keep talking to AI' }).click();
+    await expect(a.locator('.da-wait-invite')).toHaveCount(0);
+    await expect.poll(() => w.docs.has('matchmaking_queue/a')).toBe(false);
+    await expect(a).toHaveURL('https://match.test' + path);
+    expect(w.docs.get('matchmaking_queue/b')).toEqual(peer);
+    expect(w.requests).toEqual([]);
+    expect(await a.evaluate(() => aiAudio.state)).toBe('running');
+    await a.clock.install(); await a.clock.fastForward(180000);
+    expect(await a.evaluate(() => DASparLive.voiceInvitesPaused())).toBe(true);
+    expect(w.docs.has('matchmaking_queue/a')).toBe(false);
+    expect(w.docs.get('matchmaking_queue/b')).toEqual(peer);
+  } finally { await w.close(); }
+});
+
+test('a failed automatic join retries and enters the reserved room', async ({ browser }) => {
+  const w = await world(browser);
+  try {
+    w.pair('consent'); w.failJoinOnce(); const a = await w.page('a');
+    await expect.poll(() => w.requests.filter(r => r.action === 'join').length).toBe(1);
+    await expect(a).toHaveURL('https://match.test/');
     await expect(a.locator('.da-match-overlay')).toHaveCount(0);
-    await expect.poll(() => w.docs.has('matchmaking_queue/b')).toBe(false);
-    await expect(b).toHaveURL('https://match.test' + path);
-    expect(await b.evaluate(() => aiAudio.state)).toBe('running');
-    await b.clock.install(); await b.clock.fastForward(180000);
-    expect(await b.evaluate(() => DASparLive.voiceInvitesPaused())).toBe(true);
-    expect(w.docs.has('matchmaking_queue/b')).toBe(false);
-  } finally { await w.close(); }
-});
-
-test('failed acceptance restores an actionable request', async ({ browser }) => {
-  const w = await world(browser);
-  try {
-    w.pair(); w.failAccept(); const a = await w.page('a');
-    await a.getByRole('button', { name: 'Accept', exact: true }).click();
-    await expect(a.getByRole('button', { name: 'Accept', exact: true })).toBeVisible();
-    await expect(a.getByText('Could not send your answer. Please try again.')).toBeVisible();
+    await expect(a).toHaveURL(/live-round\.html\?.*room=test-room/);
+    expect(w.requests.filter(r => r.action === 'join')).toHaveLength(2);
   } finally { await w.close(); }
 });
 
