@@ -25,21 +25,21 @@ test('homepage card, rail and phone strip refresh together and preserve real row
  await page.addScriptTag({content:read('js/standings-refresh.js')});
  for(const script of [feed,band,rail])await page.addScriptTag({content:script});
  expect(errors).toEqual([]);
- await expect(page.locator('#ranked-band .rb-pts > b').first()).toHaveText('1600');
+ await expect(page.locator('#ranked-band .rb-metric-value').first()).toHaveText('1600');
  await expect(page.locator('#lbRail .lbr-sc').first()).toHaveText('1600');
  await expect(page.locator('#mhBoard .mh-sc').first()).toHaveText('1600 rating');
  expect(requests).toBe(1);
  const peer=await context.newPage();await peer.route('**/*',r=>r.fulfill({contentType:'text/html',body:'<p>Finished round</p>'}));await peer.goto('https://standings.test/round');
  data=payload(1700);await peer.evaluate(()=>localStorage.setItem('da-standings-changed','new result'));
- await expect(page.locator('#ranked-band .rb-pts > b').first()).toHaveText('1700');
+ await expect(page.locator('#ranked-band .rb-metric-value').first()).toHaveText('1700');
  await expect(page.locator('#lbRail .lbr-sc').first()).toHaveText('1700');
  await expect(page.locator('#mhBoard .mh-sc').first()).toHaveText('1700 rating');
  data={rows:[],error:'unavailable'};const before=requests;await page.evaluate(()=>DBStandings.changed());
  await expect.poll(()=>requests).toBeGreaterThan(before);
- await expect(page.locator('#ranked-band .rb-pts > b').first()).toHaveText('1700');
+ await expect(page.locator('#ranked-band .rb-metric-value').first()).toHaveText('1700');
  data=payload(1800,0);await page.evaluate(()=>DBStandings.changed());
  await expect(page.locator('#lbRail')).toBeHidden();await expect(page.locator('#mhBoard')).toBeHidden();
- await expect(page.locator('#ranked-band .rb-pts > b')).toHaveCount(0);expect(errors).toEqual([]);
+ await expect(page.locator('#ranked-band .rb-metric-value')).toHaveCount(0);expect(errors).toEqual([]);
 });
 
 test('human standings render without Firestore and refresh independently of stalled activity',async({page})=>{
