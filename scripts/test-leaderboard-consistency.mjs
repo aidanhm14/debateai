@@ -38,6 +38,17 @@ assert.deepEqual(await fetchAccountProgress(db, placedUid), { xp: rows[0].xp });
 assert.deepEqual(composeTopRows(rows.slice().reverse(), [], 8), rows, 'Teaser and full board agree');
 assert.deepEqual(composeTopRows([], [], 8), []);
 
+let projected = false;
+const fallbackDb = { collection: () => ({ where: () => ({
+  orderBy: () => ({ aggregate: () => ({ get: async () => { throw Object.assign(new Error('Index unavailable'), { code: 9 }); } }) }),
+  select(field) {
+    assert.equal(field, 'score'); projected = true;
+    return { get: async () => ({ forEach: cb => [...histories[placedUid], null, 'bad'].forEach(score => cb({ data: () => ({ score }) })) }) };
+  },
+}) }) };
+assert.deepEqual(await fetchAccountProgress(fallbackDb, placedUid), { xp: 6350 }, 'Index failure retains complete XP through a scores-only query');
+assert.equal(projected, true);
+
 const source = readFileSync('app/leaderboard.html', 'utf8');
 const fn = source.slice(source.indexOf('async function loadRatingLadder(){'), source.indexOf('// Standings for the head-to-head tab:'));
 const ctx = { window: { DBDomains: true }, DBDomains: { levelFor: xp => ({ xp, level: 10 }) },

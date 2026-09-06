@@ -8,9 +8,20 @@ export function progressFromAggregate(data) {
 }
 
 export async function fetchAccountProgress(db, uid) {
-  const snap = await withDeadline(db.collection('leaderboard_entries')
-    .where('uid', '==', uid)
-    .orderBy('score', 'desc')
-    .aggregate({ points: AggregateField.sum('score') }).get(), 2500);
-  return progressFromAggregate(snap.data());
+  const history = db.collection('leaderboard_entries').where('uid', '==', uid);
+  try {
+    const snap = await withDeadline(history.orderBy('score', 'desc')
+      .aggregate({ points: AggregateField.sum('score') }).get(), 2500);
+    return progressFromAggregate(snap.data());
+  } catch (error) {
+    // An index still building or an unavailable aggregation transport must
+    // not erase XP. A uid-only projection uses the automatic single-field
+    // index and reads scores only, with no history truncation. Public board
+    // callers cache the result, so this fallback is not a per-visitor scan.
+    console.warn('[account-progress] aggregate fallback', error?.code || error?.name || 'unavailable');
+    const snap = await withDeadline(history.select('score').get(), 2500);
+    let points = 0;
+    snap.forEach(doc => { const score = doc.data()?.score; if (Number.isFinite(score)) points += score; });
+    return progressFromAggregate({ points });
+  }
 }

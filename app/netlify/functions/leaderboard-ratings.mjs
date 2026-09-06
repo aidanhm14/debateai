@@ -30,7 +30,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 import { fetchRatingRows } from './lib/rating-board.mjs';
 
-const CACHE_KEY = 'leaderboard-ratings-v4'; // Complete XP uses the deployed uid + score-desc index.
+const CACHE_KEY = 'leaderboard-ratings-v5'; // Complete XP survives an unavailable aggregation index.
 const CACHE_TTL_MS = 5 * 60 * 1000;  // ratings move round-by-round, not second-by-second
 const QUERY_LIMIT = 100;
 
