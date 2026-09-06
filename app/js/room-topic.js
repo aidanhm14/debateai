@@ -19,6 +19,7 @@
   function act(action) {
     if (busy) return;
     busy = true;
+    if (action === 'cancel') stopListening();
     api(action).catch(function(e) { error(e.message); }).then(function() { busy = false; });
   }
   function speak(text, key) {
@@ -36,6 +37,8 @@
     if (c.audio) c.audio.close().catch(function() {});
   }
   function stopListening() {
+    var listenButton = dialog && dialog.querySelector('.topic-listen');
+    if (listenButton) { listenButton.textContent = 'Let the AI listen to my microphone'; listenButton.setAttribute('aria-pressed', 'false'); }
     var c = capture;
     if (!c) return Promise.resolve();
     capture = null; c.stopping = true;
@@ -81,15 +84,16 @@
   function startListening() {
     if (capture || micStarting || !talk || talk.phase !== 'listening' || talk.ready[ctx().uid]) return;
     if (!navigator.mediaDevices || !window.MediaRecorder) { error('This browser cannot listen here. Type your view below.'); return; }
-    micStarting = true;
     var id = talk.id, source = ctx().audioTrack;
+    if (source && !source.enabled) { error('Your room microphone is muted. Unmute it to let the AI listen, or type below.'); return; }
+    micStarting = true;
     var get = source && source.readyState === 'live'
       ? Promise.resolve(new MediaStream([source.clone()]))
       : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     get.then(function(stream) {
       micStarting = false;
       if (document.hidden || !talk || talk.id !== id || talk.phase !== 'listening') { stream.getTracks().forEach(function(t) { t.stop(); }); return; }
-      var c = { stream: stream, id: id, samples: 0, stopping: false };
+      var c = { stream: stream, source: source, id: id, samples: 0, stopping: false };
       try {
         var AC = window.AudioContext || window.webkitAudioContext;
         c.audio = new AC(); var analyser = c.audio.createAnalyser(); analyser.fftSize = 2048;
@@ -97,6 +101,7 @@
         var values = new Float32Array(analyser.fftSize);
         c.audio.resume();
         c.meter = setInterval(function() {
+          if (c.source && (!c.source.enabled || c.source.readyState !== 'live')) { stopListening(); return; }
           analyser.getFloatTimeDomainData(values);
           var sum = 0; for (var i = 0; i < values.length; i++) sum += values[i] * values[i];
           if (Math.sqrt(sum / values.length) >= 0.012) c.samples++;
