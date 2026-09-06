@@ -2179,6 +2179,20 @@
     // worst. Must stay BELOW spar-pair's GHOST_CONSENT_MS (55s) so a
     // live tab always answers before the server calls it a ghost.
     var COUNTDOWN_S = 45;                     // accept window
+    // Match /spar and the server: 45 < 55 < 75, or 120 < 130 < 150
+    // after a notification was delivered. Always use the latest snapshot.
+    function consentWindowSeconds(d, waiting) {
+      return d && d.pinged ? (waiting ? 150 : 120) : (waiting ? 75 : COUNTDOWN_S);
+    }
+    function consentTimeMs(value) {
+      return value && typeof value.toMillis === 'function' ? value.toMillis()
+        : value && typeof value.seconds === 'number' ? value.seconds * 1000
+        : typeof value === 'number' ? value : 0;
+    }
+    function consentSecondsLeft(d, waiting, firstSeen, now) {
+      var start = consentTimeMs(d && d.proposedAt) || firstSeen;
+      return Math.max(0, Math.ceil((start + consentWindowSeconds(d, waiting) * 1000 - now) / 1000));
+    }
     var REINVITE_COOLDOWN_MS = 2 * 60 * 1000; // after a decline/timeout, stay quiet this long before any re-invite
     var VALID =['open','quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual']; // MUST match spar-pair.mjs VALID_FORMATS or the pair POST 400s
     // Voice AI may receive a human invitation. Only accepting a completed
@@ -2767,7 +2781,10 @@
             // banned (it would restart the countdown and re-chime), but
             // one thing on this snapshot IS worth reading: whether they
             // have now accepted. Patch that in place instead.
-            if (consentRoom === d.room && !navigating) markPeerAccepted(d);
+            if (consentRoom === d.room && !navigating) {
+              pendingMatch = d;
+              markPeerAccepted(d);
+            }
             return;
           }
           if (Date.now() < declineUntil) {
@@ -2802,11 +2819,13 @@
           // out, or the server ghost-cancelled a side that never acted.
           // The doc is back to 'waiting' (or cancelled), so drop the
           // card and resume scanning.
+          var proposalAt = consentTimeMs(pendingMatch && pendingMatch.proposedAt) || pendingSeenAt;
+          var wasDeclined = d.lastPassBy && consentTimeMs(d.lastPassAt) >= proposalAt;
           closeOverlay();
           handledRoom = null;
           consentRoom = null;
           awaitingPeer = false;
-          sparNote('Opponent passed. Still looking.');
+          sparNote(wasDeclined ? 'They declined this match. Still looking for you.' : 'This match expired or became unavailable. Still looking for you.');
           if (available && !busyElsewhere() && d.background === true) { startTimers(); scan(); }
         }
       }, function (err) { console.warn('[spar-live] own-doc listen failed', err && err.message); });
@@ -2873,6 +2892,7 @@
     // below can pass on it properly (release the peer) instead of just
     // yanking the card off the screen.
     var pendingMatch = null;
+    var pendingSeenAt = 0;
     function showMatch(d) {
       // Mid-round in another tab. Pass rather than render: the debater
       // cannot take this round, and passing frees the peer now instead of
@@ -2881,6 +2901,7 @@
       stopTimers();
       closeOverlay();
       pendingMatch = d;
+      pendingSeenAt = Date.now();
       window.dispatchEvent(new Event('debatable:match-found'));
       daAlert(daAway() ? 3 : 1); // repeats only when away, so it carries from another tab/room
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
@@ -2912,7 +2933,7 @@
             '<svg viewBox="0 0 72 72"><circle class="da-match-ring__track" cx="36" cy="36" r="32"/>' +
             '<circle class="da-match-ring__bar" cx="36" cy="36" r="32" stroke-dasharray="' + C + '" stroke-dashoffset="0"/></svg>' +
             oppAv +
-            '<span class="da-match-ring__num">' + COUNTDOWN_S + '</span>' +
+            '<span class="da-match-ring__num">' + consentWindowSeconds(d, false) + '</span>' +
           '</div>' +
           '<div class="da-match-name">' + escHtml(oppNm) + ' wants to debate</div>' +
           '<div class="da-match-sub">Up for a live one-on-one round?</div>' +
@@ -2920,6 +2941,7 @@
             '<button type="button" class="da-match-btn da-match-btn--decline">' + (ON_VOICE_AI ? 'Keep talking to AI' : 'Decline') + '</button>' +
             '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
           '</div>' +
+          '<p class="da-match-availability" style="font-size:14px;line-height:1.5">Busy today? <button type="button" class="da-match-unavailable" style="font:inherit;font-weight:700;text-decoration:underline;min-height:44px;padding:8px">Unavailable</button> pauses new requests.</p>' +
         '</div>';
       document.body.appendChild(overlay);
       overlay.showModal();
@@ -2929,14 +2951,22 @@
       var num = overlay.querySelector('.da-match-ring__num');
       overlay.querySelector('.da-match-btn--accept').addEventListener('click', function () { accept(d); });
       overlay.querySelector('.da-match-btn--decline').addEventListener('click', function () { decline(d); });
-      var left = COUNTDOWN_S;
+      overlay.querySelector('.da-match-unavailable').addEventListener('click', function () {
+        var match = pendingMatch || d;
+        Promise.resolve(decline(match, false)).then(function () {
+          setAvailable(false);
+          sparNote('You are unavailable. Turn on Available when you want another match.');
+        });
+      });
       overlay.__tick = setInterval(function () {
-        left--;
+        var latest = pendingMatch || d;
+        var left = consentSecondsLeft(latest, false, pendingSeenAt, Date.now());
         if (num) num.textContent = left > 0 ? left : 0;
-        if (bar) bar.style.strokeDashoffset = (C * (COUNTDOWN_S - left) / COUNTDOWN_S);
+        var total = consentWindowSeconds(latest, false);
+        if (bar) bar.style.strokeDashoffset = C * Math.max(0, total - left) / total;
         // Timed out with nobody at the keyboard. Pass as `auto` so the
         // server can tell a silent tab from a human choosing to skip.
-        if (left <= 0) { decline(d, true); }
+        if (left <= 0) { decline(latest, true); }
       }, 1000);
     }
     function closeOverlay() {
@@ -2996,12 +3026,25 @@
             var reason = (j && (j.reason || j.error)) || 'unknown';
             if (reason === 'consent_state_gone') return true;
             console.warn('[spar-live] consent POST soft-failed:', reason);
-            if (ok) { awaitingPeer = false; consentRoom = null; }
+            if (ok) recoverBackgroundConsent(peerUid);
+            return false;
           }).catch(function (err) {
             console.warn('[spar-live] consent POST failed', err);
-            if (ok) { awaitingPeer = false; consentRoom = null; }
+            if (ok) recoverBackgroundConsent(peerUid);
+            return false;
           });
-      } catch (e) { return Promise.resolve(false); }
+      } catch (e) { if (ok) recoverBackgroundConsent(peerUid); return Promise.resolve(false); }
+    }
+
+    function recoverBackgroundConsent(peerUid) {
+      if (navigating || !pendingMatch || pendingMatch.matchedWith !== peerUid) return;
+      var latest = pendingMatch, seen = pendingSeenAt;
+      awaitingPeer = false;
+      showMatch(latest);
+      pendingSeenAt = seen;
+      consentRoom = latest.room;
+      var sub = overlay && overlay.querySelector('.da-match-sub');
+      if (sub) sub.textContent = 'Your acceptance did not reach us. Check your connection and press Accept again.';
     }
 
     // Patch the live invite card to say they have already committed.
@@ -3050,6 +3093,7 @@
 
     function accept(d) {
       if (navigating || awaitingPeer) return;
+      d = pendingMatch || d;
       var current = window.firebase.auth().currentUser;
       if (!isQueueUser(current) || current.uid !== myUid) {
         closeOverlay();
@@ -3065,13 +3109,7 @@
       // countdown stops pretending to be a deadline we still own.
       awaitingPeer = true;
       showWaitingForPeer(d);
-      sendConsent(d && d.matchedWith, true, false).then(function (ok) {
-        if (ok || navigating || !overlay || !pendingMatch || pendingMatch.room !== d.room) return;
-        awaitingPeer = false;
-        consentRoom = d.room;
-        showMatch(d);
-        sparNote('Could not send your answer. Please try again.');
-      });
+      sendConsent(d && d.matchedWith, true, false);
     }
 
     // No delivery/read receipt exists here. Captions describe the pending
@@ -3094,7 +3132,11 @@
         var el = card && card.querySelector('#daMatchPhase');
         if (!el) { stopWaitPhases(); return; }
         var secs = (Date.now() - t0) / 1000, text = '';
+        if (pendingMatch && pendingMatch.pinged) {
+          text = 'We notified them. Holding the match while they come back.';
+        }
         for (var i = 0; i < WAIT_PHASES.length; i++) {
+          if (text) break;
           if (secs < WAIT_PHASES[i].until) { text = WAIT_PHASES[i].text; break; }
         }
         if (text === last) return;
@@ -3152,10 +3194,12 @@
       // 75s, above the server's 55s ghost sweep, which is above the peer's
       // 45s decide window. Those three have to stay in that order or the
       // backstop starts reporting live peers as ghosts.
-      overlay.__tick = setTimeout(function () {
-        decline(d, true);
+      overlay.__tick = setInterval(function () {
+        var latest = pendingMatch || d;
+        if (consentSecondsLeft(latest, true, pendingSeenAt, Date.now()) > 0) return;
+        decline(latest, true);
         sparNote('No answer from ' + nm + '. Back in the queue.');
-      }, 75000);
+      }, 1000);
     }
 
     function goToRound(d) {
@@ -3229,6 +3273,7 @@
       consentRoom = null;
       awaitingPeer = false;
       try { if (window.gtag) gtag('event', 'spar_bg_decline', { auto: !!auto }); } catch (e) {}
+      if (!auto) sparNote('Match declined. Choose Unavailable on a request, or turn off Available, to pause matching.');
       // In the ready-check phase the pass goes through the consent API,
       // which reverts BOTH docs to 'waiting' with a mutual skip so the
       // pair isn't re-proposed immediately. spar-unmatch is for a match
@@ -3236,8 +3281,8 @@
       // proposal behind. An `auto` pass (our 20s ran out) additionally
       // feeds the server's ghost-cancel heuristic, which is how a peer
       // waiting on a dead tab gets released instead of stranded.
-      var released = wasPending ? sendConsent(d && d.matchedWith, false, !!auto) : null;
-      if (!available || busyElsewhere()) return;
+      var sent = wasPending ? sendConsent(d && d.matchedWith, false, !!auto) : Promise.resolve(true);
+      if (!available || busyElsewhere()) return sent;
       // Don't re-invite someone who just declined (or let an invite time out).
       // Stay quiet for REINVITE_COOLDOWN_MS: stop scanning, release the peer
       // back to 'waiting' so they aren't stranded, drop our own queue doc so
@@ -3258,7 +3303,7 @@
       // ours before it finishes leaves the other person waiting for a ghost.
       if (wasPending) {
         var declinedRef = myRef;
-        released.then(function (ok) {
+        sent = sent.then(function (ok) {
           if (!ok || !declinedRef) return;
           return db.runTransaction(function (tx) {
             return tx.get(declinedRef).then(function (snap) {
@@ -3269,6 +3314,7 @@
       }
       else releaseMatch();
       if (!voiceDeclined) pauseForCooldown();
+      return sent;
     }
 
     // The scroll-triggered 'be live for live debates?' bottom card was

@@ -64,14 +64,13 @@ check('title fits search display', title.length >= 45 && title.length <= 60);
 check('description begins with the current watch-or-join intent', description.startsWith('Watch live arguments'));
 check('description fits search display', description.length >= 120 && description.length <= 160);
 check('one transactional H1 is present', h1 === 'Debate online. Climb the leaderboard.' && (page.match(/<h1\b/g) || []).length === 1);
-check('hero directly answers the watch-or-join intent', page.includes('Watch a live round, or take a seat against another person'));
-check('first screen offers honest human queue and AI fallback',
-  page.includes('Live, when someone is waiting')
-  && page.includes('Debate a real person')
-  && page.includes('Argue with the AI'));
-check('first screen exposes direct Google sign-in',
-  page.includes('id="doGoogle"')
-  && page.includes("button.addEventListener('click'"));
+check('hero offers the watch-or-join intent', page.includes('Watch a real debate') && page.includes('Debate someone live now'));
+check('entry uses live activity and offers an AI route',
+  page.includes('id="onlineActivity"') && page.includes('/js/debate-discovery.js')
+  && page.includes('href="/newvoice?from=debate-online"'));
+check('human entry preserves questions, account creation and mutual consent',
+  page.includes('href="/spar?from=debate-online"')
+  && page.includes('Your answers carry through sign-in.') && page.includes('Both accept, then meet'));
 check('page loads shared One Tap and account-linking module', page.includes('/js/signup-nudge.js'));
 check('One Tap route uses inline auth without a competing nudge',
   signupNudge.includes("match: /^\\/debate-online")
@@ -114,7 +113,7 @@ check('alias is not submitted as a competing sitemap URL',
 check('live sitemap marks canonical page fresh and primary',
   /path: '\/debate-online'[\s\S]{0,140}priority: '0\.92'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
 check('live sitemap marks branded homepage fresh and primary',
-  /path: '\/'[\s\S]{0,100}priority: '1\.0'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
+  /path: '\/'[\s\S]{0,100}priority: '1\.0'[\s\S]{0,80}lastmod: '2026-08-29'/.test(sitemap));
 check('static sitemap names both query word orders', staticSitemap.includes('"online debate" / "debate online"'));
 check('static sitemap marks homepage and debate page fresh',
   /<loc>https:\/\/itsdebatable\.com\/<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap)
