@@ -38,52 +38,17 @@ import {
 // trust the caller's uid from the verified token, NOT from the body.
 // Body only supplies peerUid + format (for format-mismatch defense).
 //
-// CONSENT HANDSHAKE (2026-06-12) / READY-CHECK (2026-08-10). EVERY
-// foreground pair lands in a two-phase state instead of matching
-// instantly, and both sides must affirmatively accept before a room
-// opens. Two jobs share the one gate:
-//   - PRESENCE. Proving a human is actually at the keyboard before a
-//     round doc goes live. This is the 2026-08-10 addition and it is
-//     why the gate is now unconditional; see the measurement in the
-//     needsConsent block below.
-//   - CONSENT. A judge-paradigm note (`paradigm` on the queue doc: how
-//     the AI judge should weigh the round) only ever reaches the judge
-//     with BOTH debaters' eyes on it, and a cross-format pair never
-//     silently forces one side into the other's format.
-// Phases:
-//   phase 1 (action 'pair', default): both docs get status 'consent'
-//     with every matched-shape field already in place (room, sides,
-//     names, pairedFormat) plus `paradigms` (note per uid), `consents`
-//     (per-uid booleans, BOTH starting false), and `readyCheck` (true
-//     when there is nothing to review, so the client renders a plain
-//     "are you there" card instead of a review card). Clients render
-//     off their own doc snapshot.
-//   phase 2 (action 'consent'): accept flips my consent flag; when
-//     both are true the docs flip to status 'matched' and the agreed
-//     notes collapse into `pairedParadigm` (name-attributed, what
-//     /live-round feeds the ballot). Pass/timeout reverts both docs
-//     to 'waiting' with a mutual `skipUids` entry so the queue doesn't
-//     immediately re-propose the same pair.
-// Background-matched sessions (js/notifications.js "Spar live") have
-// no consent surface — those pairs complete instantly and any notes
-// stay OUT of the round rather than ride along unconsented.
+// DIRECT MATCHING (2026-09-06, founder call): joining the queue is the
+// decision to meet. Eligible pairs open one shared room without a proposal,
+// ready-check or acceptance. Custom judge notes are not silently agreed to.
+// A personalized motion may briefly reserve the pair under the legacy
+// `consent` status, then this SAME request finalizes it. That status remains
+// readable by old clients; neither person's consent flag is required.
+// Either client can resume an interrupted reservation with action `join`.
 
 const VALID_FORMATS = new Set([
   'open','quick','apda','bp','worlds','asian','ld','pf','policy','congress','casual',
 ]);
-
-// Judge-paradigm note hygiene: single line, hard cap, control chars
-// out. The cap plus the consent gate (the opponent reads the exact
-// note before the round exists) are the injection defense; live-round
-// adds its own "a note never names a winner" guard on the judge side.
-const PARADIGM_MAX = 240;
-function cleanParadigm(s) {
-  return String(s || '')
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, PARADIGM_MAX);
-}
 
 // ── motion draft ────────────────────────────────────────────────────
 // THE DRAFT NO LONGER RUNS HERE. It ran on the queue docs for one day and
@@ -142,18 +107,6 @@ function phaseAtMs(doc) {
 // Rebuilt from the shared allow-list in lib/avatar-design.mjs. This used
 // to be a local copy of those keys, which fell behind the designer and
 // rewrote people's saved avatars to the defaults.
-
-// The agreed-paradigm string /live-round passes into the ballot
-// prompt. Name-attributed so the judge can tell whose lens is whose
-// when both sides filed one.
-function buildPairedParadigm(paradigms, doc) {
-  const notes = [];
-  const proNote = cleanParadigm(paradigms?.[doc.proUid]);
-  const conNote = cleanParadigm(paradigms?.[doc.conUid]);
-  if (proNote) notes.push((doc.proName || 'Pro') + ': ' + proNote);
-  if (conNote) notes.push((doc.conName || 'Con') + ': ' + conNote);
-  return notes.join(' | ');
-}
 
 // Per-key throttle so a misbehaving client can't fan out pair attempts.
 // Pair polling and consent clicks get SEPARATE keys: the client polls
@@ -360,9 +313,8 @@ const GUEST_FREE_ROUNDS = 0;
 // side that finalizes a match has to charge the other side too, and the only
 // thing it can trust about them is what the server itself recorded on one of
 // their own authenticated calls. Every guest makes such a call before a room
-// can open: the consent handshake is mandatory (needsConsent is true for all
-// pairs), so both sides POST here with their own token before anyone walks
-// into a round.
+// can open. Guest matching is currently disabled; keep this accounting
+// dormant until a future guest policy defines passive-seat verification.
 const GUEST_COLLECTION = 'guest_rounds';
 
 function guestRef(db, uid) {
@@ -631,7 +583,7 @@ export default async (request) => {
   const format = String(body?.format || '').trim().toLowerCase();
   // Separate throttle lanes — see the isThrottled comment. A consent
   // click must never 429 because the queue poller POSTed recently.
-  if (action === 'consent' || action === 'solo') {
+  if (action === 'consent' || action === 'join' || action === 'solo') {
     // Draft moves share the consent lane, not the pair lane: both are human
     // clicks on a clock, and a 429 on either one strands a live handshake.
     if (isThrottled(myUid + ':consent', CONSENT_THROTTLE_MS)) {
@@ -820,13 +772,9 @@ export default async (request) => {
     return jsonResponse({ ok: false, reason: 'availability_check_failed' }, 200, request);
   }
 
-  // ── action: 'consent' — phase 2 of the handshake ───────────────
-  if (action === 'consent') {
-    const accept = !!body?.accept;
-    // True when a client TIMER fired this decline (auto-pass nets),
-    // false for a human clicking Pass/Withdraw. Timers feed the
-    // ghost-cancel heuristic below; human passes never do.
-    const auto = !!body?.auto;
+  // Finalize a reserved pair automatically. The old consent action stays
+  // compatible with already-open tabs, including a deliberate withdrawal.
+  async function finishReservedPair(accept, auto) {
     // Prepare once outside the transaction: Firestore may retry its callback.
     // No provider spend on Pass, an explicit queued motion, or a stale pair.
     // Both accept requests share the private room stamp and its deadline.
@@ -910,7 +858,7 @@ export default async (request) => {
         // Peer evaporated mid-handshake (tab close deletes the queue
         // doc; pagehide fires for live navigations too). Free MYSELF
         // unilaterally — there is no proposal left to act on.
-        if (!theirs || theirs.status !== 'consent' || theirs.matchedWith !== myUid) {
+        if (!theirs || theirs.status !== 'consent' || theirs.matchedWith !== myUid || theirs.room !== mine.room) {
           tx.update(myRef, { ...revert, skipUids: FieldValue.arrayUnion(peerUid), ['skipAt.' + peerUid]: FieldValue.serverTimestamp() });
           return { ok: true, freed: true };
         }
@@ -973,30 +921,17 @@ export default async (request) => {
           });
           return { ok: true, declined: true };
         }
-        const consents = { ...(mine.consents || {}) };
-        consents[myUid] = true;
-
-        // The motion negotiation does not live here. It runs in the room
-        // (round-draft.mjs) against the eligibility stamp this function
-        // writes, so accepting is a plain consent again and the queue doc
-        // carries no draft state at all.
-
-        if (!consents[peerUid]) {
-          // I'm in; the peer still has my note to read. Mirror the flag
-          // onto both docs so both clients can render progress.
-          tx.update(myRef, { consents });
-          tx.update(peerRef, { consents });
-          return { ok: true, pending: 'peer' };
-        }
-
-        // Both sides in — finalize. Every matched-shape field was
-        // already written in phase 1; this flip is what subscribeMyDoc
-        // navigates on.
+        // Queue entry authorizes joining, never custom instructions for the
+        // judge. Do not manufacture consent flags for either participant.
         const finals = {
           status: 'matched',
           matchedAt: FieldValue.serverTimestamp(),
-          consents,
-          pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
+          directMatch: true,
+          consents: FieldValue.delete(),
+          paradigms: FieldValue.delete(),
+          readyCheck: FieldValue.delete(),
+          crossFormat: false,
+          pairedParadigm: '',
         };
         const motionStamp = motionSnap?.exists ? motionSnap.data() : null;
         const generatedMotion = motionForPairArrival(
@@ -1021,19 +956,46 @@ export default async (request) => {
           skipUids: FieldValue.arrayUnion(myUid),
           ['matchSkipAt.' + myUid]: FieldValue.serverTimestamp(),
         });
-        return { ok: true, matched: true, room: mine.room };
+        return {
+          ok: true, matched: true, room: mine.room,
+          proUid: mine.proUid, conUid: mine.conUid,
+          proName: mine.proName, conName: mine.conName,
+          pairedFormat: mine.pairedFormat,
+          pairedMotion: generatedMotion || mine.pairedMotion || '',
+          pairedParadigm: '',
+          matchedWithName: mine.matchedWithName,
+          matchedWithPhoto: mine.matchedWithPhoto,
+          matchedWithAvatar: mine.matchedWithAvatar,
+        };
       });
       // The room just opened, so this is where guest rounds are spent — one
       // per guest side, charged once. Only the second acceptor's request
       // reaches this line (the first got pending:'peer' above, and a re-POST
       // after the flip fails the status guard inside the transaction), so
       // there is exactly one charge per side per match.
-      if (result?.matched) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
+      if (result?.matched) {
+        await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
+        await notifyMatch(peerUid, result.proUid === myUid ? result.proName : result.conName);
+      }
       return jsonResponse(result, 200, request);
     } catch (err) {
       console.error('[spar-pair] consent transaction error:', err?.message || err);
       return errorResponse('Consent transaction failed: ' + (err?.message || 'unknown'), 500, request);
     }
+  }
+
+  async function notifyMatch(uid, from) {
+    try {
+      await sendToUser(uid, {
+        title: 'Match found',
+        body: (from || 'Your opponent') + ' is joining your round.',
+        url: '/spar', tag: 'da-spar-match',
+      });
+    } catch (_) { /* push must never fail the match */ }
+  }
+
+  if (action === 'consent' || action === 'join') {
+    return finishReservedPair(action === 'join' || !!body?.accept, !!body?.auto);
   }
 
   // The queue-doc draft is GONE. It moved into the room on 2026-08-26
@@ -1196,10 +1158,7 @@ export default async (request) => {
         });
         return { ok: false, reason: 'stale_peer' };
       }
-      // Format preferences are proposals, not matching filters. If the
-      // two queued formats differ, route the pair through the consent
-      // handshake so the proposed format is accepted before the round.
-      const formatMatches = mine.format === theirs.format;
+      // Style preferences do not add a second decision after matching.
       // Mutual-skip defense: a passed proposal earlier in this queue
       // session means these two don't get re-proposed to each other.
       if (skipActive(mine, peerUid) || skipActive(theirs, myUid)) {
@@ -1240,12 +1199,6 @@ export default async (request) => {
       const theirFormat = String(theirs.format || '').toLowerCase();
       const myFormat = String(mine.format || '').toLowerCase();
       const pairedFormat = VALID_FORMATS.has(theirFormat) ? theirFormat : format;
-      // Cross-format pair: the two debaters proposed different styles.
-      // We don't silently force the older joiner's format on the newer
-      // one. crossFormat routes the pair through the same consent
-      // handshake as judge-paradigm notes, with a "they prefer X, OK?"
-      // card on both sides.
-      const crossFormat = !formatMatches;
       const common = {
         room,
         proUid,
@@ -1254,52 +1207,13 @@ export default async (request) => {
         conName: conUid === myUid ? myShort : peerShort,
         pairedMotion,
         pairedFormat,
-        crossFormat,
+        crossFormat: false,
+        directMatch: true,
+        pairedParadigm: '',
+        paradigms: FieldValue.delete(),
+        consents: FieldValue.delete(),
+        readyCheck: FieldValue.delete(),
       };
-
-      // Judge-paradigm notes ride through the same gate: a note only
-      // ever reaches the judge with both debaters' eyes on it.
-      const myParadigm = cleanParadigm(mine.paradigm);
-      const theirParadigm = cleanParadigm(theirs.paradigm);
-      // READY-CHECK (2026-08-10): the gate fires for EVERY pair, not
-      // just ones carrying a judge note or a format conflict.
-      //
-      // Measured on 411 live rounds: only ~85 ever had both people
-      // actually present, 215 had exactly one, and 390 never completed a
-      // single speech (median room lifetime 1.5 min). Names are written
-      // at match time, not arrival, so the round doc looked complete
-      // while one side had never walked in. The product was not losing
-      // people mid-round or at the ballot: past speech one, ~43% of
-      // rounds finish. It was matching them against nobody.
-      //
-      // So presence has to be proven before a room opens.
-      //
-      // BACKGROUND SESSIONS NO LONGER SKIP THE GATE (2026-08-12). The
-      // original exemption said js/notifications.js had "no consent
-      // surface to render", which was not true: it has always shown a
-      // 20-second accept/decline overlay. It simply was not wired into
-      // the handshake, so the pair flipped straight to 'matched' and
-      // the FOREGROUND side navigated into the room ~0.9s later while
-      // the background side still had an un-clicked popup. When that
-      // popup timed out, the foreground debater had already been alone
-      // in the room for 19 seconds. That is the empty-room bug the
-      // ready-check was built to stop, arriving through the one door
-      // the ready-check left open.
-      //
-      // Measured before this change: 27 of 60 live queue docs carried
-      // background:true, so roughly 70% of pairs included at least one
-      // and bypassed the gate entirely. Post-ready-check rounds where
-      // both debaters actually arrived: 17.1%, against 23.4% before it
-      // — i.e. the gate was not reaching the pairs that needed it.
-      //
-      // Every caller must now handle status 'consent'. spar.html always
-      // did; js/notifications.js and debate-chat.html were taught to in
-      // the same commit as this line. A caller that cannot render the
-      // card leaves its users spinning until the reaper sweeps them,
-      // which is exactly what /debate-chat did from 2026-08-10 until
-      // this commit.
-      const readyCheck = !(myParadigm || theirParadigm) && !crossFormat;
-      const needsConsent = true;
 
       // Political answers never leave the private collection. The only
       // public artifact is a motion. An anonymous disagreement also feeds
@@ -1320,7 +1234,7 @@ export default async (request) => {
         );
       }
       // Negotiation is optional. Give both people the pertinent resolution
-      // as a timeout fallback. Fresh generation replaces it at final consent.
+      // as a timeout fallback. Fresh generation replaces it before automatic room entry.
       // A motion someone deliberately queued with still takes precedence.
       if (!pairedMotion && privateDraftConfig.recommendedMotion) {
         common.pairedMotion = privateDraftConfig.recommendedMotion;
@@ -1360,7 +1274,9 @@ export default async (request) => {
       }
       const draft = null;
 
-      if (needsConsent) {
+      // Only motion generation needs a reservation. The same HTTP request
+      // finishes it below; the clients display Joining, never Accept/Pass.
+      if (DRAFT_ENABLED && motionContext) {
         const proposal = {
           ...common,
           status: 'consent',
@@ -1374,15 +1290,6 @@ export default async (request) => {
           // handshake while their fresh peer survives, splitting the
           // pair into two half-states.
           joinedAt: FieldValue.serverTimestamp(),
-          paradigms: { [myUid]: myParadigm, [peerUid]: theirParadigm },
-          readyCheck,
-          // BOTH sides start false, always. The old rule auto-yessed the
-          // side with nothing to review, which is exactly the side that
-          // could be an empty chair: a debater who filed no note was
-          // consented into a room without ever proving they were there.
-          // Presence is the thing being checked now, so having nothing
-          // to read no longer answers it.
-          consents: { [myUid]: false, [peerUid]: false },
           // A drafting pair carries no motion until the draft names one.
           // `common.pairedMotion` is whatever either side queued with, and
           // showing it here would put a motion on screen that the strikes
@@ -1407,7 +1314,7 @@ export default async (request) => {
           myFormatPref: theirFormat,
           peerFormat: myFormat,
         });
-        return { ok: true, pending: 'consent', room, pairedFormat, notifyUid: peerUid, notifyFrom: myShort };
+        return { ok: true, pending: 'joining', room, pairedFormat };
       }
 
       const matched = {
@@ -1437,6 +1344,7 @@ export default async (request) => {
 
       return {
         ok: true,
+        matched: true,
         room,
         proUid,
         conUid,
@@ -1446,50 +1354,18 @@ export default async (request) => {
         matchedWithPhoto: peerPhoto,
         matchedWithAvatar: peerAvatar,
         pairedFormat,
+        pairedMotion: common.pairedMotion,
+        pairedParadigm: '',
+        notifyUid: peerUid, notifyFrom: myShort,
       };
     });
 
-    // Same charge as the consent finalize above. needsConsent is currently
-    // true for every pair so this path is unreachable today, but it is the
-    // branch that opens a room without a second POST, so it has to charge or
-    // the lane leaks the day that flag changes.
-    if (result?.ok && !result.pending) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
-
-    // Web Push, on the PROPOSAL. This used to be gated on
-    // `result.ok && !result.pending` — the instant-match branch — and the
-    // comment three lines above that gate already conceded the branch is
-    // unreachable, because needsConsent is unconditionally true. So the
-    // one mechanism built to pull an away debater back to a live match
-    // has never fired for anybody. It belongs here anyway: the moment
-    // that needs a human is the proposal, where a card with a countdown
-    // on it dies unanswered if nobody looks.
-    //
-    // Sent to the PEER only. The caller just POSTed from a live client,
-    // so they are demonstrably at a keyboard; the peer is the one who may
-    // be on another tab, another app, or a locked phone. Best-effort and
-    // awaited (Lambda freezes the context on return, so an unawaited send
-    // is abandoned rather than deferred), and sendToUser no-ops for
-    // anyone without a subscription.
-    if (result && result.ok && result.notifyUid) {
-      try {
-        const from = result.notifyFrom ? String(result.notifyFrom) : 'A debater';
-        const pushed = await sendToUser(result.notifyUid, {
-          title: 'Match found',
-          body: from + ' is ready to debate. You have 2 minutes to accept.',
-          url: '/spar',
-          tag: 'da-spar-match',
-        });
-        // Only a push the service ACCEPTED earns the longer door; a peer
-        // with no working device gets the ordinary 45s, and the waiting
-        // side is told which one it is.
-        if (pushed && pushed.sent > 0) {
-          const stamp = { pinged: true, pingedAt: FieldValue.serverTimestamp() };
-          await Promise.all([
-            db.collection('matchmaking_queue').doc(myUid).set(stamp, { merge: true }).catch(() => {}),
-            db.collection('matchmaking_queue').doc(result.notifyUid).set(stamp, { merge: true }).catch(() => {}),
-          ]);
-        }
-      } catch (e) { /* push is best-effort; never fail the pair on it */ }
+    if (result?.ok && result.pending === 'joining') {
+      return finishReservedPair(true, false);
+    }
+    if (result?.ok) {
+      await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
+      await notifyMatch(result.notifyUid, result.notifyFrom);
     }
 
     return jsonResponse(result, 200, request);

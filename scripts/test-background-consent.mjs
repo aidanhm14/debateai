@@ -25,7 +25,7 @@ assert.equal(left(notified, true, 150), 0);
 assert.equal(left(notified, true, 100, start + 90000), 50);
 assert.equal(left({ pinged: true }, false, 100, start + 90000), 110);
 assert.equal(left({ proposedAt: { toMillis: () => start }, pinged: true }, false, 76), 44);
-assert.match(source, /pendingMatch = d;\s+markPeerAccepted\(d\)/);
+assert.match(source, /closeOverlay\(\);\s+pendingMatch = d;\s+sendConsent\(d.matchedWith, true, true\)/);
 assert.match(source, /consentSecondsLeft\(latest, true, pendingSeenAt, Date\.now\(\)\)/);
 assert.match(source, /sent = sent\.then\(function \(ok\) \{\s+if \(!ok \|\| !declinedRef\) return;\s+return db\.runTransaction/);
 assert.match(source, /recoverBackgroundConsent\(peerUid\)/);

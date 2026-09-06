@@ -22,6 +22,17 @@
 
 **A living document of what this product is, who it's for, how it sounds, and why the decisions were made the way they were. When a new contributor (or a new Claude session) loads this repo, read this file first. If a change would contradict something here, either the change or this file is wrong. don't ship the change without reconciling.**
 
+**Direct matching, 2026-09-06:** joining the queue is the decision to meet.
+Aidan removed the proposal/acceptance gate after it held two matched people
+on a waiting screen. Eligible foreground and background pairs now enter one
+shared room automatically. Different style preferences use one server-chosen
+style without another question. Custom judge instructions are not treated as
+agreed. A personalized motion may use the existing four-second preparation
+budget and reviewed fallback, but neither participant has to approve joining.
+Old open proposals can resume automatically. This supersedes the historical
+ready-check and background acceptance policy; account, age, block, stale-seat,
+room-arrival rescue, and in-room microphone permissions remain in force.
+
 ---
 
 ## 1. What this is (one sentence)

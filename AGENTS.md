@@ -5,15 +5,26 @@
 > for product/voice/decision context. If a change would contradict either
 > file, fix the change or fix the doc — don't leave the contradiction.
 
+## Direct matching (2026-09-06)
+
+Aidan removed the queue proposal and acceptance gate: when two eligible
+people match, both enter the same room automatically. This supersedes the
+older ready-check and background invitation acceptance instructions below.
+Do not restore Accept, Pass, or waiting-for-acceptance screens on /spar or
+the Available matcher. Older `consent` queue records are resumed automatically.
+Personalized motions retain their bounded preparation before navigation;
+that is server work, never a second user decision. Unreviewed custom judge
+notes stay out of the ballot. Account, age-band, block, stale-queue and
+exclusive-seat checks still apply. In-room microphone consent and optional
+topic changes are separate controls. Run scripts/test-spar-direct-match.mjs.
+
 ## Sign-in policy (2026-09-05)
 
-**Voice AI invitations (2026-09-06):** `/newvoice` and `/voice-debate`
-may show a human debate request during the AI session. Rejecting it keeps
-the AI session running and pauses further invitations on that page visit.
-The `voice-ai` presence marker reserves invitation handling for that tab.
-Human rounds and tournament seats still suppress new matches. Preserve
-pending queue pairs transactionally, and release a declined peer before
-deleting the declining person's queue record.
+**Voice AI availability (2026-09-06):** the `voice-ai` presence marker
+reserves match handling for that tab. An available person now joins their
+human match automatically under the direct-matching policy above. Human
+rounds and tournament seats still suppress new matches. Preserve pending
+queue pairs transactionally.
 
 Web visitors get a locked Google sign-in chooser after 40 cumulative visible
 seconds across pages and reloads. Existing named accounts are already identified.
