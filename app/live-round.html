@@ -6540,12 +6540,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var hit = m.match(HOUSE_FORMS[i].re);
       if (hit){ line = HOUSE_FORMS[i].say(hit); break; }
     }
-    // A link, not a paragraph (2026-09-06, the founder: "just build a
-    // hyperlink so it doesn't take up such space"). The gloss opens
-    // under it on demand; closed, it is one line of small type.
     var body = HOUSE_BASE + (line ? ' ' + line : '');
     if (state.contextFrame) body += ' Agreed setting: ' + escHtml(String(state.contextFrame)) + '.';
-    return '<details class="rh"><summary class="rh-lab">What This House means</summary><div class="rh-body">' + body + '</div></details>';
+    // 2026-09-06, the founder: no description on the page. The label
+    // alone shows; the answer is a hover box (focus/tap on touch).
+    return '<span class="rh-wrap"><span class="rh-lab" tabindex="0" role="button" aria-describedby="rhTip">What This House means</span><span class="rh-body" id="rhTip" role="tooltip">' + body + '</span></span>';
   }
   function renderHouseGloss(){
     var html = houseGlossHtml(state.motion);
@@ -23109,11 +23108,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 .rmb-house{margin-top:8px;padding:0;font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.7))}
 .rmb-house[hidden]{display:none}
 .rmb-house b{color:var(--text,#fff);font-weight:800}
-.rmb-house .rh-lab{display:inline;font-size:.78rem;font-weight:600;letter-spacing:0;text-transform:none;margin:0;
-  color:var(--accent,#ef4444);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;cursor:pointer;list-style:none}
-.rmb-house .rh-lab::-webkit-details-marker{display:none}
-.rmb-house .rh-lab:hover{color:var(--text,#fff)}
-.rmb-house .rh-body{margin-top:6px;padding:2px 0 2px 11px;border-left:2px solid var(--accent,#ef4444)}
+.rmb-house .rh-wrap{position:relative;display:inline-block}
+.rmb-house .rh-lab{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;letter-spacing:0;
+  text-transform:none;margin:0;color:var(--text-dim,rgba(255,255,255,.6));cursor:help;outline:none}
+.rmb-house .rh-lab::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+  border-radius:50%;border:1px solid currentColor;font-size:.6rem;font-weight:800;line-height:1}
+.rmb-house .rh-lab:hover,.rmb-house .rh-lab:focus-visible{color:var(--text,#fff)}
+.rmb-house .rh-body{position:absolute;left:0;top:calc(100% + 8px);z-index:40;width:min(360px,80vw);
+  padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));
+  background:var(--bg,#0b0b0d);color:var(--text-dim,rgba(255,255,255,.7));font-size:.8rem;line-height:1.5;
+  box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;visibility:hidden;transform:translateY(-4px);
+  transition:opacity .12s,transform .12s,visibility .12s;pointer-events:none}
+.rmb-house .rh-wrap:hover .rh-body,.rmb-house .rh-wrap:focus-within .rh-body{opacity:1;visibility:visible;transform:none}
+/* The bar clips its overflow for the glow strip; lift the clip only while
+   the hover box is open so it can extend past the bar's bottom edge. */
+.round-motion-bar:has(.rh-wrap:hover),.round-motion-bar:has(.rh-wrap:focus-within){overflow:visible}
 #setupHouse{margin-bottom:12px}
 .dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
 .dm-modal.is-open{display:flex}
