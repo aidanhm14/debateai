@@ -1647,6 +1647,8 @@ let bargeIv = null, bargeMs = 0;   // sustained-speech interrupt gate
 /* Turn engine state. The AI never auto-fills a gap: it speaks when the
    user hands the floor over ("your turn" and friends) or after a real
    stretch of silence. */
+let vadSpeechActive = false;
+let responseRequestedAt = 0;
 let pendingTurn = false;           // the user has said something the AI hasn't answered
 let awaitingResponse = false;      // response.create sent, response.created not yet seen
 let lastActiveAt = 0;              // last moment the mic carried speech-level audio
@@ -2178,17 +2180,10 @@ async function openPeer(session, onOpen, signal){
     dc.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch (err) {} };
     dc.onopen = () => { try { onOpen && onOpen(); } catch (e) {} };
 
-    // 5. SDP exchange. Single POST, so wait for ICE gathering (max 3s).
+    // OpenAI's WebRTC call exchange accepts the offer immediately. Waiting
+    // for every STUN candidate added up to three seconds before this POST.
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await new Promise((resolve) => {
-      if (pc.iceGatheringState === 'complete') return resolve();
-      let done = false;
-      const finish = () => { if (done) return; done = true; pc.removeEventListener('icegatheringstatechange', onChange); resolve(); };
-      const onChange = () => { if (pc.iceGatheringState === 'complete') finish(); };
-      pc.addEventListener('icegatheringstatechange', onChange);
-      setTimeout(finish, 3000);
-    });
     const sdpRes = await fetch(session.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
       method: 'POST',
       body: (pc.localDescription && pc.localDescription.sdp) || offer.sdp,
@@ -2389,7 +2384,7 @@ async function start(){
       : 'Mic is live. Make your case. Say "your turn" or pause to hand it back.');
   capYouText.classList.add('idle');
   capAiText.textContent = 'Waking up.'; capAiText.classList.add('idle');
-  pendingTurn = false; awaitingResponse = false; nudgeFired = false;
+  pendingTurn = false; vadSpeechActive = false; responseRequestedAt = 0; awaitingResponse = false; nudgeFired = false;
   // The floor starts closed in tap mode, so the AI opens into a dead mic and
   // nothing the user says over the top of it is half-captured.
   pttOpen = false; spokeOnFloor = false;
@@ -2487,7 +2482,7 @@ function bargeSustainMs(){
 }
 function turnWaitMs(){
   const base = pref('turnWait', 'ms', TURN_SILENCE_MS);
-  return typeof debateStyle !== 'undefined' && debateStyle === 'conversation' ? Math.max(base, 3200) : base;
+  return base;
 }
 // ECHO GUARD (2026-07-22, per "the AI stops mid-sentence when nobody is
 // talking"). BARGE_LEVEL alone was a FIXED floor, so the gate could not tell
@@ -2524,21 +2519,9 @@ let aiHold = 0;
 // opening its mouth is not a real thing.
 const BARGE_GRACE_MS = 400;
 let aiTurnAt = 0;              // response.created timestamp for the grace window
-// Genuine quiet before the AI answers an un-handed floor. Was 3000ms, which
-// read as a long lag after the user stopped; 1500 stays clear of a mid-
-// thought breath while feeling responsive. Handoff phrases ("your turn")
-// still answer instantly. (2026-07-09, per "delayed response takes a while".)
-// Raised 1500 → 2000 on 2026-07-29. 1500 was set on 2026-07-09 because 3000
-// read as lag, and that still holds, but at 1500 an ordinary breath between
-// clauses reads as a finished turn and the AI starts talking over the second
-// half of the thought. Raised again 2000 → 2400 on 2026-08-26, same report
-// from the other side ("too interruptive, it needs to listen better"): 2000
-// still clips someone who thinks in two-part sentences. This only affects the
-// UN-HANDED floor. A spoken handoff ("your turn", "over to you") still answers
-// instantly, so the deliberate case is unchanged and only the guessing case
-// got more patient. Anyone who wants zero guessing has tap to speak, where
-// silence never hands the floor over at all.
-const TURN_SILENCE_MS = 2400;
+// The local minimum overlaps the server's semantic pause. It never starts
+// a second wait when speech_stopped arrives. Long pause remains selectable.
+const TURN_SILENCE_MS = 1200;
 const NUDGE_AFTER_MS = 16000;  // dead air before one gentle re-engage
 // PTT_HANDOFF_MS: after the tap that closes the floor, how long to let the
 // server's VAD commit the trailing audio before the AI is asked to answer.
@@ -2594,7 +2577,7 @@ function bargeTick(){
   // handoff phrase answers immediately (handled in handleEvent); this
   // path covers "they finished and went quiet": three seconds of real
   // mic silence after their last audio reads as "not mid-thought".
-  if (pendingTurn && !awaitingResponse && now - lastActiveAt >= turnWaitMs()) {
+  if (pendingTurn && !vadSpeechActive && !awaitingResponse && now - lastActiveAt >= turnWaitMs()) {
     requestAiTurn('');
     return;
   }
@@ -2618,6 +2601,7 @@ function requestAiTurn(instructions){
   if (!dc || dc.readyState !== 'open' || aiTalking || awaitingResponse) return;
   pendingTurn = false;
   awaitingResponse = true;
+  responseRequestedAt = Date.now();
   try {
     dc.send(JSON.stringify({
       type: 'response.create',
@@ -2637,25 +2621,16 @@ function requestAiTurn(instructions){
    "mm" kills a paragraph mid-argument. The barge gate below replaces
    it: the AI only yields after sustained speech (several words).
 
-   create_response is ALSO off. The server would otherwise answer the
-   moment VAD scores a turn-end, which reads as jumping down the user's
-   throat. The turn engine in turnTick() replaces it: the AI responds
-   when the user hands the floor over out loud ("your turn", "go
-   ahead", ...) or after ~3 seconds of genuine mic silence. VAD still
-   runs for commits + transcription; it just stops driving replies. */
+   create_response stays off so tap-to-speak and the existing echo-aware
+   interruption controls own the floor. The local pause overlaps VAD's
+   thought-end detection; it is measured from actual microphone activity. */
 function sendSessionConfig(kind){
   if (!dc || dc.readyState !== 'open') return;
   const turnDetection = kind === 'semantic'
-    // Both configs got less trigger-happy on 2026-07-29. VAD still drives
-    // commits and transcription here, not replies, but a spurious
-    // speech_started/stopped pair flips pendingTurn and hands the floor over,
-    // so a jumpy detector reads to the user as the AI interrupting them.
-    // 'low' eagerness waits for the thought to actually close; the server_vad
-    // fallback wants a louder onset and a longer tail before it agrees the
-    // turn ended. In tap-to-speak the mic track is off between turns, so
-    // neither detector sees anything at all until the floor is open.
-    ? { type: 'semantic_vad', eagerness: 'low', create_response: false, interrupt_response: false }
-    : { type: 'server_vad', threshold: 0.68, prefix_padding_ms: 300, silence_duration_ms: 1300, create_response: false, interrupt_response: false };
+    // Normal uses semantic turn completion. The explicit Long setting
+    // remains patient; the fallback still waits for a real audio pause.
+    ? { type: 'semantic_vad', eagerness: turnWaitMs() >= 3000 ? 'low' : 'medium', create_response: false, interrupt_response: false }
+    : { type: 'server_vad', threshold: 0.68, prefix_padding_ms: 300, silence_duration_ms: 700, create_response: false, interrupt_response: false };
   const sess = {
     type: 'realtime',
     output_modalities: ['audio'],
@@ -2687,13 +2662,17 @@ let vadFallbackSent = false;
 function handleEvent(e){
   switch (e.type) {
     case 'input_audio_buffer.speech_started':
+      vadSpeechActive = true;
+      pendingTurn = false;
       setSpeaking('you', true);
       lastActiveAt = Date.now();
       nudgeFired = false;
       break;
     case 'input_audio_buffer.speech_stopped':
+      vadSpeechActive = false;
       setSpeaking('you', false);
-      lastActiveAt = Date.now();
+      // VAD already waited for the thought to end. Keep the last actual
+      // microphone activity; resetting it here added a second full pause.
       if (!aiTalking && !awaitingResponse) pendingTurn = true;
       break;
     case 'conversation.item.input_audio_transcription.completed': {
@@ -2706,11 +2685,21 @@ function handleEvent(e){
         renderTs();
         if (!aiTalking && !awaitingResponse) {
           pendingTurn = true;
-          if (HANDOFF_RE.test(text)) requestAiTurn('');
+          if (!(pttMode && pttOpen) && HANDOFF_RE.test(text)) requestAiTurn('');
         }
       }
       break;
     }
+    case 'output_audio_buffer.started':
+      if (responseRequestedAt) {
+        try { if (window.gtag) gtag('event', 'voice_reply_latency', {
+          request_to_audio_ms: Math.max(0, Date.now() - responseRequestedAt),
+          quiet_to_audio_ms: Math.max(0, Date.now() - lastActiveAt),
+          surface: 'newvoice', mode: pttMode ? 'tap' : 'hands_free',
+        }); } catch (err) {}
+        responseRequestedAt = 0;
+      }
+      break;
     case 'response.created':
       aiLive = '';
       aiTalking = true;
@@ -2967,7 +2956,7 @@ function cleanup(){
   timerIv = null;
   try { if (bargeIv) clearInterval(bargeIv); } catch (e) {}
   bargeIv = null; bargeMs = 0; aiTalking = false; aiHold = 0; aiTurnAt = 0; openingAiTurns = 0; openingSent = false;
-  pendingTurn = false; awaitingResponse = false; nudgeFired = false;
+  pendingTurn = false; vadSpeechActive = false; responseRequestedAt = 0; awaitingResponse = false; nudgeFired = false;
   stopArena();
   try { if (dc) dc.close(); } catch (e) {}
   try { if (pc) { pc.onconnectionstatechange = null; pc.close(); } } catch (e) {}

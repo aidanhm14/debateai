@@ -61,7 +61,6 @@ check('direct newvoice names three real debate paths',
 check('conversation path reaches the realtime prompt',
   newvoice.includes("debateStyle = btn.dataset.path === 'conversation'") &&
   newvoice.includes('debateStyle,') &&
-  newvoice.includes("debateStyle === 'conversation' ? Math.max(base, 3200) : base") &&
   realtimeSession.includes("body.debateStyle === 'conversation'") &&
   realtimeSession.includes('CONVERSATION MODE:'));
 check('competitive voice path opens formats instead of realtime minting',
