@@ -9299,7 +9299,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          (founder: make it "a mix of all the public chats going on
          rtight now and have a smal title to it about which chat its
          from - so it feels more dense of past times"). Real messages
-         arrive from /api/live-chats (shared-cached server read; the
+         are selected for the homepage by /api/live-chats (shared-cached server read; the
          landing opens no Firestore connection of its own, the
          2026-08-18 rule), drawn from EVERY public room at once: The
          Commons, the named /community channels, and Discord when its
@@ -9312,10 +9312,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          rows from quiet rooms render with their real ages, which is
          the "past times" density he asked for, not padding. Hidden
          under 1360px, where there is no third column to hold it. -->
-    <aside class="fs-chats" id="fsChats" aria-label="Live chats">
+    <aside class="fs-chats" id="fsChats" aria-label="Community chat highlights">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
-        <span class="fs-chats-title">Live chats</span>
+        <span class="fs-chats-title">Highlights</span>
         <!-- 2026-09-04, Aidan off a screenshot of this header: "put a discord
              button right there actually its better. itll pull ppl in. take it
              outta nav, just on front page like that." The Discord door left the
@@ -9351,7 +9351,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       window.__fsChatsRooms = list.innerHTML;
       try { window.__fsChatsReq = fetch('/api/live-chats'); } catch (e) {}
       try {
-        var c = JSON.parse(sessionStorage.getItem('da-fs-chats') || 'null');
+        var c = JSON.parse(sessionStorage.getItem('da-fs-chats-v2') || 'null');
         if (c && c.messages && c.messages.length && (Date.now() - (c.at || 0)) < 15 * 60 * 1000) window.__fsChatsCache = c.messages;
       } catch (e) {}
       if (window.__fsChatsCache) return;
@@ -19995,10 +19995,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
   })();
 
-  /* fsChats: the "Live chats" column between the board and the
+  /* fsChats: the "Chat highlights" column between the board and the
      leaderboard rail (2026-08-29 founder sketch; remixed 2026-08-31
      into a deliberate MIX of every public room, each row chipped with
-     the chat it came from). One source, REAL messages from
+     the chat it came from). One source, selected REAL messages from
      /api/live-chats (shared-cached 45s server-side, handles never
      uids), rendered in CONVERSATION ORDER, oldest at the top and
      newest at the bottom.
@@ -20068,7 +20068,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 
     function renderAll(){
       var msgs = realRows.filter(function(m){ return m && m.text; });
-      if (!msgs.length) return; // keep the honest room-chip card
+      if (!msgs.length){
+        panel.classList.remove('is-live');
+        if (window.__fsChatsRooms) list.innerHTML = window.__fsChatsRooms;
+        return;
+      }
       var wasLive = panel.classList.contains('is-live');
       var nearLatest = !wasLive || list.scrollTop + list.clientHeight >= list.scrollHeight - 28;
       var previousTop = list.scrollTop;
@@ -20135,9 +20139,9 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       window.__fsChatsReq = null;
       req.then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
-          if (d && d.messages && d.messages.length){
+          if (d && !d.error && Array.isArray(d.messages)){
             realRows = d.messages;
-            try { sessionStorage.setItem('da-fs-chats', JSON.stringify({ at: Date.now(), messages: d.messages.slice(0, MAX_ROWS) })); } catch(e){}
+            try { sessionStorage.setItem('da-fs-chats-v2', JSON.stringify({ at: Date.now(), messages: d.messages.slice(0, MAX_ROWS) })); } catch(e){}
           }
           renderAll();
           if (!realRows.length) restoreRooms();

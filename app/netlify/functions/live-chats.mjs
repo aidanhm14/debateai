@@ -1,8 +1,8 @@
-// /api/live-chats → GET. Public, keyless: the most recently active
-// community chats, for the landing first screen's "Live chats" panel
+// /api/live-chats → GET. Public, keyless: selected recent community
+// messages, for the landing first screen's "Chat highlights" panel
 // (the column between the example round board and the leaderboard
 // rail, founder sketch 2026-08-29). Answers one question for a cold
-// visitor: is anyone actually talking here right now?
+// visitor: what are people talking about in the community?
 //
 // Sources, all public by design:
 //   - community_chat        The Commons, the open room /community mounts
@@ -22,14 +22,9 @@
 //     slash-command install used only `applications.commands`, which
 //     does not add one.
 //
-// Honesty: nothing HERE is seeded or padded. Messages are returned
-// with their real timestamps; never add invented rows to this payload.
-// The landing panel does layer a client-side ambient conversation
-// between the confirmed-fictional personas on top of these rows
-// (founder's call, 2026-08-29, recorded in soul.md); that layer lives
-// entirely in landing.html and must never move server-side, because a
-// fake row in this payload would be indistinguishable from a real one
-// to every consumer.
+// Homepage highlights are selected from real messages. Inactivity and
+// product complaints stay in their source rooms; they are not promotional
+// excerpts. Never invent rows, rewrite a speaker, or change timestamps.
 //
 // Privacy: handles and channel display names only. uid and photo are
 // NEVER returned — this endpoint is keyless, and chat-feed.mjs already
@@ -57,8 +52,9 @@
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
+import { isChatPreviewEligible } from './lib/chat-preview.mjs';
 
-const CACHE_KEY = 'live-chats-v1';
+const CACHE_KEY = 'live-chats-preview-v2';
 const CACHE_TTL_MS = 45 * 1000;
 
 // Discord mix-in. Channel ids are snowflakes; anything else is dropped
@@ -118,8 +114,10 @@ async function discordRows() {
           .replace(/<@[!&]?\d+>/g, '')         // user and role mentions
           .replace(/<#\d+>/g, '')              // channel mentions
           .replace(/(\*\*|__|~~|`{1,3})/g, ''); // markdown pairs
+        // Select from the complete message, before an excerpt can hide
+        // a complaint or a URL beyond the display-length boundary.
+        if (!isChatPreviewEligible(text) || /https?:\/\//i.test(text)) continue;
         text = clean(text, TEXT_MAX);
-        if (!text || /https?:\/\//i.test(text)) continue;
         const at = Date.parse(m.timestamp || '');
         if (!at) continue;
         rows.push({
@@ -133,8 +131,8 @@ async function discordRows() {
     } catch { state = 'error'; }
   }));
   // A silent configured integration is worth telling apart from a
-  // silent room: empty-but-on usually means the MESSAGE CONTENT intent
-  // is off in the dev portal, so content comes back blank.
+  // silent room: empty-but-on means no eligible excerpts, either because
+  // content was filtered or MESSAGE CONTENT intent returned blank text.
   if (state === 'on' && !rows.length) state = 'on-empty';
   return { state, rows };
 }
@@ -167,6 +165,7 @@ export default async (request) => {
     commonsSnap.forEach((doc) => {
       const d = doc.data() || {};
       if (d.kind === 'join') return;  // history-only rows, never rendered
+      if (!isChatPreviewEligible(d.text)) return;
       const text = clean(d.text, TEXT_MAX);
       if (!text) return;
       rows.push({
@@ -181,6 +180,7 @@ export default async (request) => {
     channelSnaps.forEach((snap, i) => {
       snap.forEach((doc) => {
         const d = doc.data() || {};
+        if (!isChatPreviewEligible(d.text)) return;
         const text = clean(d.text, TEXT_MAX);
         if (!text) return;
         rows.push({
@@ -195,7 +195,7 @@ export default async (request) => {
 
     rows.push(...discord.rows);
     rows.sort((a, b) => b.at - a.at);
-    const out = { messages: rows.slice(0, MAX_MESSAGES), discord: discord.state, at: Date.now() };
+    const out = { messages: rows.slice(0, MAX_MESSAGES), curated: true, discord: discord.state, at: Date.now() };
     await setCachedShared(CACHE_KEY, out, CACHE_TTL_MS);
     return jsonResponse(out, 200, request);
   } catch (err) {
