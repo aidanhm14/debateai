@@ -85,6 +85,7 @@
     window.openAuthModal('signup', {
       locked: true,
       livePerson: livePerson,
+      liveVideo: /^\/spar(?:\.html)?(?:\/|$)/.test(location.pathname),
       headline: 'Sign in to keep going',
       sub: livePerson
         ? 'Debate real people face to face on live video. For safety, sign in to continue. Your account is free.'
