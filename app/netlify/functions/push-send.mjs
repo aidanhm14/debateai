@@ -1,48 +1,65 @@
-// Send a Web Push notification for a new DM.
+// Compatibility for DM composers that also call the old device notifier.
 //
 // Security: the caller is token-verified, and BOTH the caller and the
 // recipient must be participants of the named dm_thread — so you can only
 // push someone you already share a thread with. The notification text is
 // SERVER-CONSTRUCTED (never caller-supplied), so there is no phishing /
-// spoofing vector. No-ops cleanly if push isn't configured (VAPID unset).
+// spoofing vector. Shares per-message device deduplication with notify-dm;
+// existing opted-in SMS delivery stays on this compatibility route.
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { sendToUser, pushConfigured } from './lib/webpush.mjs';
-import { sendSmsToUser, smsConfigured } from './lib/sms.mjs';
+import { deliverDmPush, DM_NOTIFY_RATE_LAYERS } from './lib/dm-push.mjs';
+import { isRecentDmMessage } from './lib/dm-email.mjs';
+import { checkLayers } from './lib/rate-limit.mjs';
+import { sendSmsToUser } from './lib/sms.mjs';
 import { getDb } from './lib/firestore.mjs';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
-  // Either lane live is enough to be worth doing the participant checks.
-  if (!pushConfigured() && !smsConfigured()) {
-    return jsonResponse({ ok: false, configured: false }, 200, request);
-  }
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Authorization required', 401, request);
   let decoded;
   try { decoded = await verifyIdToken(token); } catch (e) { return errorResponse('Invalid token', 401, request); }
   const callerUid = decoded.sub;
+  if (!callerUid) return errorResponse('Invalid token', 401, request);
+  const rate = await checkLayers('dm-notify', `uid_${callerUid}`, DM_NOTIFY_RATE_LAYERS);
+  if (!rate.ok) return errorResponse('Message notification rate limit reached', 429, request);
 
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
   const recipientUid = body && body.recipientUid;
   const threadId = body && body.threadId;
-  if (!recipientUid || typeof recipientUid !== 'string' || recipientUid === callerUid) {
+  if (!recipientUid || typeof recipientUid !== 'string' || recipientUid.length > 200 || recipientUid.includes('/') || recipientUid === callerUid) {
     return errorResponse('Bad recipient', 400, request);
   }
-  if (!threadId || typeof threadId !== 'string') return errorResponse('Missing threadId', 400, request);
+  if (!threadId || typeof threadId !== 'string' || threadId.length > 200 || threadId.includes('/')) return errorResponse('Valid threadId required', 400, request);
 
   // Both sides must be participants of this thread.
   const db = getDb();
-  const t = await db.collection('dm_threads').doc(threadId).get();
+  const threadRef = db.collection('dm_threads').doc(threadId);
+  const t = await threadRef.get();
   if (!t.exists) return errorResponse('No thread', 403, request);
   const data = t.data() || {};
   const parts = Array.isArray(data.participants) ? data.participants : [];
   if (parts.indexOf(callerUid) === -1 || parts.indexOf(recipientUid) === -1) {
     return errorResponse('Not a participant', 403, request);
   }
+
+  // Older open tabs supplied only a thread. New callers name the exact
+  // message. Both paths must prove a recent message by this caller.
+  let message;
+  if (body.messageId !== undefined) {
+    if (typeof body.messageId !== 'string' || !body.messageId || body.messageId.length > 200 || body.messageId.includes('/')) return errorResponse('Valid messageId required', 400, request);
+    message = await threadRef.collection('messages').doc(body.messageId).get();
+  } else {
+    const latest = await threadRef.collection('messages').orderBy('createdAt', 'desc').limit(1).get();
+    message = latest.docs[0];
+  }
+  if (!message || !message.exists) return errorResponse('Message not found', 404, request);
+  if (message.data().fromUid !== callerUid) return errorResponse('Not the message sender', 403, request);
+  if (!isRecentDmMessage(message.data())) return errorResponse('Message is too old to notify', 409, request);
 
   // A muted thread makes no noise on any of the recipient's devices.
   // Read before the payload is built so a mute costs one read and no
@@ -57,30 +74,17 @@ export default async (request) => {
   } catch (e) { /* prefs unreadable — send rather than drop */ }
 
   const info = (data.participantInfo && data.participantInfo[callerUid]) || {};
-  const callerName = String(info.name || (decoded.name || '').split(/\s+/)[0] || 'A debater').slice(0, 40);
-  // Group threads say the group's name, because "New message from Priya"
-  // with no room attached is unreadable once you are in three groups.
-  // Still server-constructed, so nothing here is caller-supplied.
-  const isGroup = !!data.isGroup || parts.length > 2;
-  const groupName = String(data.groupName || 'your group').slice(0, 60);
-  const payload = {
-    title: isGroup ? (callerName + ' posted in ' + groupName) : ('New message from ' + callerName),
-    body: 'Tap to reply on Debatable.',
-    // /messages is the inbox both surfaces read; the old /spar link
-    // predates it and lands group threads on the wrong page.
-    url: '/messages?thread=' + encodeURIComponent(threadId),
-    tag: 'da-dm-' + threadId,
-  };
+  const callerName = String(info.name || 'Someone').slice(0, 40);
   // The same participant check above gates both lanes, so the text can
   // only ever reach someone the sender already shares a thread with. The
   // message TEXT is never included: a DM's contents belong in the app, not
   // on a lock screen and not in a carrier's logs.
   const [r, smsR] = await Promise.all([
-    sendToUser(recipientUid, payload),
+    deliverDmPush({ db, threadRef, thread: data, messageId: message.id, callerUid, recipientUid }),
     sendSmsToUser(recipientUid, {
       kind: 'dm',
       body: `${callerName} messaged you on Debatable. https://itsdebatable.com/spar?thread=${encodeURIComponent(threadId)}\n\nReply STOP to stop.`,
     }).catch(() => ({ sent: 0 })),
   ]);
-  return jsonResponse({ ok: true, ...r, sms: smsR }, 200, request);
+  return jsonResponse({ ok: r.status !== 'failed', ...r, sms: smsR }, r.status === 'failed' ? 502 : 200, request);
 };

@@ -291,6 +291,38 @@
     if (state === 'guest') return 'Sign in to receive alerts on your devices.';
     return _daLiveAlertsError || 'Get a notification when someone joins the live queue. Tap it to meet them.';
   }
+  // Device permission also serves DMs. Enabling it does not subscribe the
+  // account to broadcasts about other people's rounds.
+  var _daMessageAlertsPending = false, _daMessageAlertsError = '';
+  function daGetMessageAlertsState(){
+    var state = daGetLiveAlertsState();
+    if (/^(guest|install|denied|unsupported)$/.test(state)) return state;
+    if (_daMessageAlertsPending) return 'working';
+    if (daDevicePushReady()) return 'on';
+    return _daMessageAlertsError ? 'error' : 'ready';
+  }
+  function daMessageAlertsHelp(){
+    var state = daGetMessageAlertsState();
+    if (/^(guest|install|denied|unsupported)$/.test(state)) return daLiveAlertsHelp();
+    if (state === 'on') return 'On for this device. Manage notification permissions in your device settings.';
+    if (state === 'working') return 'Allow notifications when your device asks.';
+    return _daMessageAlertsError || 'Get DMs on this phone or computer, even when Debatable is closed.';
+  }
+  function daEnableMessageAlerts(){
+    var state = daGetMessageAlertsState();
+    if (state === 'on') return Promise.resolve(true);
+    if (/^(guest|install|denied|unsupported|working)$/.test(state)) return Promise.resolve(false);
+    _daMessageAlertsPending = true;
+    _daMessageAlertsError = '';
+    return daAskNotify().then(function (saved) {
+      _daMessageAlertsPending = false;
+      if (!saved) _daMessageAlertsError = 'Could not register this device. Check notification permissions and try again.';
+      return saved;
+    });
+  }
+  window.daEnableMessageAlerts = daEnableMessageAlerts;
+  window.daGetMessageAlertsState = daGetMessageAlertsState;
+  window.daMessageAlertsHelp = daMessageAlertsHelp;
   function daSetLiveAlerts(on, cb) {
     on = !!on;
     if (_daLiveAlertsPending) { if (cb) cb(daGetLiveAlerts(), 'Setup is already running.'); return Promise.resolve(false); }
@@ -1122,7 +1154,6 @@
     bell.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      daAskNotify(); // request permission (if needed) + register Web Push on grant
       if (!panel) openPanel();
       else if (!canHover()) closePanel();
     });
@@ -1324,7 +1355,7 @@
         signedInReal = !!(u && !u.isAnonymous);
         if (!u || u.uid !== myUid) {
           _daPushRegistered = ''; _daPushPromise = null; _daNativeRegistered = ''; _daNativePromise = null;
-          _daLiveAlertsError = '';
+          _daLiveAlertsError = ''; _daMessageAlertsError = '';
           try { localStorage.removeItem(DA_LIVE_ALERTS_KEY); } catch (_) {}
         }
         if (!u || u.isAnonymous) {
@@ -1338,7 +1369,7 @@
           return;
         }
         myUid = u.uid;
-        daRegisterPush(); // Web Push: subscribe a signed-in device on load (no-op if permission/VAPID absent)
+        daRegisterPush().then(function () { if (panel || pageEl) paintPanel(); }); // no permission prompt on load
         // Reconcile the live-alert toggle with the server copy so it reads
         // right across devices (localStorage is only this device's cache).
         u.getIdToken().then(function (tok) {
@@ -1525,7 +1556,7 @@
       renderBadge();
       if (panel || pageEl) paintPanel();
       if (!firstSnap && newest) {
-        announce(threadDisplay(newest.data, myUid, newest.id), newest.data.lastMessage || 'sent a message');
+        announce(threadDisplay(newest.data, myUid, newest.id), newest.data.lastMessage || 'sent a message', true);
       }
       firstSnap = false;
     }
@@ -1719,6 +1750,13 @@
       '</button>' + (on && !daDevicePushReady() ? '<button type="button" class="ui-bell-la-device" style="margin:8px 14px 12px;padding:8px 12px;border-radius:8px;cursor:pointer">Set up this device</button>' : '');
     }
     function bindLiveAlertToggle() {
+      var messageBtns = document.querySelectorAll('.ui-bell-dm-device');
+      for (var m = 0; m < messageBtns.length; m++) messageBtns[m].addEventListener('click', function (e) {
+        e.stopPropagation();
+        var setup = daEnableMessageAlerts(); // request permission in this gesture
+        paintPanel();
+        setup.then(function () { paintPanel(); });
+      });
       // Class-based so the panel and the /notifications page can both carry
       // the toggle without fighting over one element id.
       var deviceBtns = document.querySelectorAll('.ui-bell-la-device');
@@ -1864,6 +1902,14 @@
     // list rendered every thread, so on an account with a dozen
     // conversations the Rounds, Replies and Updates sections sat below
     // hundreds of pixels of DMs and were, in practice, invisible.
+    function messageAlertRowHtml() {
+      var state = daGetMessageAlertsState();
+      var label = state === 'on' ? 'Message notifications are on' : state === 'working' ? 'Setting up notifications' : 'Turn on message notifications';
+      return '<button type="button" class="ui-bell-dm-device"' + (/^(on|working)$/.test(state) ? ' disabled' : '') +
+        ' style="display:block;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--dab-border);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer">' +
+        '<span style="display:block;font-size:.96rem;font-weight:700;color:var(--dab-text)">' + label + '</span>' +
+        '<span style="display:block;font-size:.82rem;color:var(--dab-dim)">' + escHtml(daMessageAlertsHelp()) + '</span></button>';
+    }
     function messagesFeedHtml(showEmpty, limit) {
       if (!myUid) {
         return showEmpty
@@ -1875,15 +1921,15 @@
         var hidden = dmRows.length - shown.length;
         return '<div class="ui-bell-head ui-bell-head--mid">Messages' +
             (dmRows.length ? '<span class="ui-bell-head__n">' + dmRows.length + '</span>' : '') + '</div>' +
-          '<div class="ui-bell-list">' + shown.map(dmRowHtml).join('') + '</div>' +
+          messageAlertRowHtml() + '<div class="ui-bell-list">' + shown.map(dmRowHtml).join('') + '</div>' +
           (hidden > 0
             ? '<button type="button" class="ui-bell-foot ui-bell-foot--btn" data-bell-filter="messages">' +
                 hidden + ' more conversation' + (hidden === 1 ? '' : 's') + '</button>'
             : '<a class="ui-bell-foot" href="/messages">Open all messages</a>');
       }
-      return showEmpty
-        ? '<div class="ui-bell-head ui-bell-head--mid">Messages</div><div class="ui-bell-empty">No messages yet.<br>Open a debater profile or the live board to start one.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
-        : '';
+      return '<div class="ui-bell-head ui-bell-head--mid">Messages</div>' + messageAlertRowHtml() + (showEmpty
+        ? '<div class="ui-bell-empty">No messages yet.<br>Open a profile or the live board to start one.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
+        : '');
     }
 
     function updatesFeedHtml(expanded) {
@@ -2069,18 +2115,20 @@
       daFlashTitle('Friend request');
     }
 
-    function announce(disp, preview) {
+    function announce(disp, preview, devicePush) {
       showToast(disp, preview);
       daPing();
       daFlashTitle('New message'); // cross-platform (incl. iOS) tab-title ping
+      // The server sends the persistent OS notification through Web Push
+      // or native FCM, including on mobile and with no tab open. A second
+      // Notification constructor here fails on mobile and duplicates Mac
+      // banners; private previews stay inside the app's toast and inbox.
+      if (devicePush) return;
+      // Public forum replies still use the existing open-tab alert.
       try {
         if (daCanOsNotify()) {
           var title = disp.isGroup ? disp.name : ('New message from ' + disp.name);
-          var n = new Notification(title, {
-            body: preview,
-            icon: '/favicon.svg',
-            tag: 'da-thread-' + disp.href,
-          });
+          var n = new Notification(title, { body: preview, icon: '/favicon.svg', tag: 'da-thread-' + disp.href });
           n.onclick = function () { window.focus(); location.href = disp.href; n.close(); };
         }
       } catch (_) {}

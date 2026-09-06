@@ -8978,11 +8978,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var btn = document.getElementById('wlSchedSend');
     if (!wl.dm) return;
     if (btn) btn.disabled = true;
-    wl.dm.send(msg, { preview: '📅 ' + label + ' at ' + timeLabel }).then(function(){
+    wl.dm.send(msg, { preview: '📅 ' + label + ' at ' + timeLabel }).then(function(res){
       if (btn) btn.disabled = false;
       toggleSchedulePanel(null, false);
       try { gtag('event', 'dm_schedule_propose', {}); } catch(e){}
-      firePushDM(at2.participants, at2.id); // Web Push the recipient(s)
+      firePushDM(at2.participants, at2.id, res && res.id); // Web Push the recipient(s)
       window.open(calUrl, '_blank', 'noopener');
     }).catch(function(err){
       if (btn) btn.disabled = false;
@@ -8996,7 +8996,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // bell toast + the email nudge. The server verifies both sides share the
   // thread and builds the notification text, so there's no spoofing vector.
   // No-ops until VAPID is configured server-side.
-  function firePushDM(participants, threadId){
+  function firePushDM(participants, threadId, messageId){
     try {
       if (!state.user || !threadId || !Array.isArray(participants)) return;
       var me = state.user.uid;
@@ -9007,7 +9007,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           fetch('/.netlify/functions/push-send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
+            body: JSON.stringify({ recipientUid: uid, threadId: threadId, messageId: messageId }),
           }).catch(function(){});
         });
       }).catch(function(){});
@@ -9033,7 +9033,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (sendBtn) sendBtn.disabled = false;
       input.focus();
       try { gtag('event', at.isGroup ? 'group_send' : 'dm_send', {}); } catch(e){}
-      firePushDM(at.participants, at.id); // Web Push the recipient(s)
+      firePushDM(at.participants, at.id, res && res.id); // Web Push the recipient(s)
       if (res) at.lastMessage = res.preview;
     }).catch(function(e){
       if (sendBtn) sendBtn.disabled = false;

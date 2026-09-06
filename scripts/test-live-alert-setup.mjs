@@ -87,3 +87,24 @@ assert.deepEqual(attempted, ['registered', 'no-device'], 'native alerts fan out 
 assert.equal(result.delivered, 1, 'recipient count reflects accepted devices only');
 assert.equal(result.sent, 1);
 console.log('test-live-alert-setup: native-only broadcast and accepted-delivery counting passed');
+
+// Message device setup must not opt anyone into unrelated queue broadcasts.
+f = fixture();
+assert.equal(await f.context.daEnableMessageAlerts(), true);
+assert.equal(f.context.daGetMessageAlertsState(), 'on');
+assert.equal(f.context.daGetLiveAlerts(), false);
+assert.equal(f.writes.some(w => w.url.includes('notify-prefs')), false);
+for (const options of [{ grant: 'denied' }, { configured: false }, { saveFail: true }]) {
+  f = fixture(options);
+  assert.equal(await f.context.daEnableMessageAlerts(), false);
+  assert.notEqual(f.context.daGetMessageAlertsState(), 'on');
+}
+f = fixture({ native: true });
+assert.equal(await f.context.daEnableMessageAlerts(), true);
+assert.equal(f.context.daGetMessageAlertsState(), 'on');
+assert.equal(f.context.daGetLiveAlerts(), false);
+f = fixture({ ua: 'iPhone' });
+assert.equal(await f.context.daEnableMessageAlerts(), false);
+assert.match(f.context.daMessageAlertsHelp(), /Add to Home Screen/);
+assert.equal(f.calls.includes('permission'), false);
+console.log('test-live-alert-setup: DM device setup, failure states, native registration, and iPhone instructions passed');

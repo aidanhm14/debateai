@@ -1,4 +1,5 @@
-// Email the recipients of a newly written private message — at most one nudge
+// Push every new private message to its recipients' registered devices.
+// Separately email at most one nudge
 // per recipient per cooldown window (DM_EMAIL_COOLDOWN_MS, default 6h),
 // however many messages arrive across all threads. Per-message email was the
 // founder complaint on 2026-09-01; the email is generic, so one nudge covers
@@ -18,6 +19,7 @@ import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { sendEmail, isOptedOut } from './lib/email.mjs';
 import { buildDmEmail, isRecentDmMessage, dmEmailCooldownOk, DM_EMAIL_COOLDOWN_MS } from './lib/dm-email.mjs';
+import { deliverDmPush, DM_NOTIFY_RATE_LAYERS } from './lib/dm-push.mjs';
 
 const MAX_PARTICIPANTS = 12;
 const CLAIM_LEASE_MS = 2 * 60 * 1000;
@@ -26,32 +28,26 @@ const CLAIM_LEASE_MS = 2 * 60 * 1000;
 const COOLDOWN_MS = process.env.DM_EMAIL_COOLDOWN_MS !== undefined
   ? Math.max(0, Number(process.env.DM_EMAIL_COOLDOWN_MS) || 0)
   : DM_EMAIL_COOLDOWN_MS;
-const RATE_LAYERS = [
-  { window: 60_000, max: 20, label: 'minute' },
-  { window: 24 * 60 * 60_000, max: 100, label: 'day' },
-];
 
 function validId(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 200 && !value.includes('/');
 }
 
 async function claimDelivery(db, ref) {
-  let claimed = false;
   const now = Date.now();
-  await db.runTransaction(async (tx) => {
+  return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.exists ? (snap.data() || {}) : {};
-    if (data.status === 'sent' || data.status === 'skipped') return;
-    if (data.status === 'sending' && now - Number(data.claimedAtMs || 0) < CLAIM_LEASE_MS) return;
+    if (data.status === 'sent' || data.status === 'skipped') return false;
+    if (data.status === 'sending' && now - Number(data.claimedAtMs || 0) < CLAIM_LEASE_MS) return false;
     tx.set(ref, {
       status: 'sending',
       claimedAtMs: now,
       attempts: FieldValue.increment(1),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
-    claimed = true;
+    return true;
   });
-  return claimed;
 }
 
 async function finishDelivery(ref, status, details = {}) {
@@ -70,14 +66,13 @@ async function finishDelivery(ref, status, details = {}) {
 async function claimCooldown(db, recipientUid, now) {
   const ref = db.collection('dm_email_state').doc(recipientUid);
   if (COOLDOWN_MS <= 0) return { ref, claimed: true, prevMs: 0 };
-  let claimed = false;
   let prevMs = 0;
-  await db.runTransaction(async (tx) => {
+  const claimed = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     prevMs = snap.exists ? Number((snap.data() || {}).lastSentAtMs) || 0 : 0;
-    if (!dmEmailCooldownOk(prevMs, now, COOLDOWN_MS)) return;
+    if (!dmEmailCooldownOk(prevMs, now, COOLDOWN_MS)) return false;
     tx.set(ref, { lastSentAtMs: now, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    claimed = true;
+    return true;
   });
   return { ref, claimed, prevMs };
 }
@@ -165,8 +160,8 @@ export default async (request) => {
   const callerUid = decoded && decoded.sub;
   if (!callerUid) return errorResponse('Invalid token', 401, request);
 
-  const rate = await checkLayers('dm-email', `uid_${callerUid}`, RATE_LAYERS);
-  if (!rate.ok) return errorResponse('Email notification rate limit reached', 429, request);
+  const rate = await checkLayers('dm-notify', `uid_${callerUid}`, DM_NOTIFY_RATE_LAYERS);
+  if (!rate.ok) return errorResponse('Message notification rate limit reached', 429, request);
 
   let body;
   try { body = await request.json(); }
@@ -205,21 +200,23 @@ export default async (request) => {
   }
 
   const recipients = participants.filter((uid) => uid !== callerUid);
-  const results = await Promise.all(recipients.map((recipientUid) => deliverToRecipient({
-    db,
-    threadRef,
-    messageId,
-    recipientUid,
-  })));
+  const [pushResults, results] = await Promise.all([
+    Promise.all(recipients.map((recipientUid) => deliverDmPush({ db, threadRef, thread, messageId, callerUid, recipientUid }))),
+    Promise.all(recipients.map((recipientUid) => deliverToRecipient({ db, threadRef, messageId, recipientUid }))),
+  ]);
+  const push = {
+    sent: pushResults.reduce((sum, r) => sum + r.sent, 0),
+    failed: pushResults.filter((r) => r.status === 'failed').length,
+  };
 
   const sent = results.filter((r) => r.status === 'sent').length;
   const failed = results.filter((r) => r.status === 'failed').length;
   const skipped = results.length - sent - failed;
-  if (failed) {
-    console.warn('[notify-dm] delivery failures:', results.filter((r) => r.status === 'failed'));
-    return jsonResponse({ ok: false, sent, skipped, failed }, 502, request);
+  if (failed || push.failed) {
+    console.warn('[notify-dm] delivery failures:', { email: failed, push: push.failed });
+    return jsonResponse({ ok: false, sent, skipped, failed, push }, 502, request);
   }
-  return jsonResponse({ ok: true, sent, skipped, failed: 0 }, 200, request);
+  return jsonResponse({ ok: true, sent, skipped, failed: 0, push }, 200, request);
 };
 
 export const config = { path: '/api/notify-dm' };

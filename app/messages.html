@@ -635,7 +635,7 @@ img.msg-av{display:block}
   // open, so group activity went unseen. The server checks that both
   // sides are in the thread and writes the notification text itself; it
   // no-ops when push is unconfigured. Mute lives on the bell row.
-  function firePushThread(participants, threadId){
+  function firePushThread(participants, threadId, messageId){
     try {
       if (!me || !threadId || !Array.isArray(participants)) return;
       var others = participants.filter(function(uid){ return uid && uid !== me.uid; });
@@ -645,7 +645,7 @@ img.msg-av{display:block}
           fetch('/.netlify/functions/push-send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-            body: JSON.stringify({ recipientUid: uid, threadId: threadId }),
+            body: JSON.stringify({ recipientUid: uid, threadId: threadId, messageId: messageId }),
           }).catch(function(){});
         });
       }).catch(function(){});
@@ -669,7 +669,7 @@ img.msg-av{display:block}
       if (res) activeThread.lastMessage = res.preview;
       input.focus();
       try { gtag('event', 'dm_send', { surface: 'messages' }); } catch(e){}
-      firePushThread(activeThread.participants, activeThread.id);
+      firePushThread(activeThread.participants, activeThread.id, res && res.id);
     }).catch(function(e){
       btn.disabled = false;
       console.warn('[messages] send failed', e && e.code, e && e.message);

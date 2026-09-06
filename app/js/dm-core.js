@@ -339,15 +339,15 @@
           msgDoc.replyToText = entry.replyToText || '';
         }
         return msgsRef.doc(entry.id).set(msgDoc).then(function () {
-          notifyByEmail(entry.id, 0);
+          notifyRecipients(entry.id, 0);
         });
       });
     }
 
-    // The email carries no DM content or thread metadata, only a generic
-    // "new message" notice linking to /chat. keepalive lets the request
-    // finish if the sender navigates away immediately after the write.
-    function notifyByEmail(messageId, attempt) {
+    // Every composer triggers device push and the separate email nudge here.
+    // keepalive lets the request finish if the sender navigates away
+    // immediately after the message write. The server deduplicates retries.
+    function notifyRecipients(messageId, attempt) {
       var authUser = null;
       try { authUser = firebase.auth().currentUser; } catch (e) {}
       if (!authUser || authUser.uid !== uid || !messageId) return;
@@ -360,10 +360,10 @@
         });
       }).then(function (response) {
         if (attempt < 1 && (response.status === 401 || response.status >= 500)) {
-          setTimeout(function () { notifyByEmail(messageId, attempt + 1); }, 1500);
+          setTimeout(function () { notifyRecipients(messageId, attempt + 1); }, 1500);
         }
       }).catch(function () {
-        if (attempt < 1) setTimeout(function () { notifyByEmail(messageId, attempt + 1); }, 1500);
+        if (attempt < 1) setTimeout(function () { notifyRecipients(messageId, attempt + 1); }, 1500);
       });
     }
 

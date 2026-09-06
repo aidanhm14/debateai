@@ -262,13 +262,13 @@ body.has-beta-strip{padding-top:84px}
           senderPhoto: function(){ return me.photoURL || ''; },
         });
         if (!h) return resolve(false);
-        h.send(text, preview ? { preview: preview } : undefined).then(function(){
+        h.send(text, preview ? { preview: preview } : undefined).then(function(res){
           // Web Push to the recipient; server constructs the text.
           me.getIdToken().then(function(tok){
             fetch('/.netlify/functions/push-send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
-              body: JSON.stringify({ recipientUid: otherUid, threadId: threadId }),
+              body: JSON.stringify({ recipientUid: otherUid, threadId: threadId, messageId: res && res.id }),
             }).catch(function(){});
           }).catch(function(){});
           setTimeout(function(){ try { h.close(); } catch(e){} }, 4000);
