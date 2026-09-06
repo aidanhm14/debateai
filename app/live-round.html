@@ -2452,6 +2452,17 @@ body.round-running .sg-swap{display:none}
   .rmb-propose .rmbp-actions{width:100%}
   .rmb-propose .rmbp-actions button{flex:1}
 }
+/* Inside the resolution slot (2026-09-06) the card is a compact chip
+   under the sentence it wants to replace, not a full-width band. */
+.sh-motion .rmb-propose{
+  margin-top:8px;padding:10px 14px;gap:10px;border-radius:10px;
+  border:1px solid rgba(217,164,65,.38);border-left:3px solid #d9a441;
+}
+.sh-motion .rmb-propose .rmbp-text{min-width:180px}
+.sh-motion .rmb-propose .rmbp-eyebrow{margin-bottom:3px}
+.sh-motion .rmb-propose .rmbp-motion{font-size:.95rem}
+.sh-motion .rmb-propose button{min-height:34px;padding:7px 13px;font-size:.76rem}
+body.spectator-mode .sh-motion .rmb-propose .rmbp-motion{font-size:.88rem}
 /* Motion context (US / world). Same consent-card shape as the resolution
    proposal, blue instead of amber so the two things a round settles before
    Speech 1 read as different asks. Options are buttons; the agreed frame
@@ -3869,6 +3880,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <span class="rmb-lock-note" id="rmbLockNote" hidden>Resolution locked after the round starts</span>
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
+            <!-- Pending resolution change (moved here 2026-09-06, the
+                 founder: "the change proposed should go right next to
+                 the resolution"). Hidden until one side proposes one;
+                 the motion itself does not move until both have agreed.
+                 Same ids, same renderer (renderMotionProposal). -->
+            <div class="rmb-propose" id="rmbPropose" hidden>
+              <div class="rmbp-text">
+                <span class="rmbp-eyebrow" id="rmbpEyebrow">Resolution change proposed</span>
+                <div class="rmbp-motion" id="rmbpMotion"></div>
+                <span class="rmbp-by" id="rmbpBy"></span>
+              </div>
+              <div class="rmbp-actions" id="rmbpActions"></div>
+            </div>
             <!-- 2026-09-02: the pre-round negotiation no longer gates the
                  round. The resolution is on screen, the round can start,
                  and these are the topic choices for a pair that does not
@@ -3999,16 +4023,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             <button type="button" class="lr-pip-btn" id="lrPopBtn" title="Pop the video into a floating window that stays on top across tabs">⧉ Pop out</button>
           </div>
         </div>
-      </div>
-      <!-- Pending resolution change. Hidden until one side proposes one;
-           the motion itself does not move until both have agreed. -->
-      <div class="rmb-propose" id="rmbPropose" hidden>
-        <div class="rmbp-text">
-          <span class="rmbp-eyebrow" id="rmbpEyebrow">Resolution change proposed</span>
-          <div class="rmbp-motion" id="rmbpMotion"></div>
-          <span class="rmbp-by" id="rmbpBy"></span>
-        </div>
-        <div class="rmbp-actions" id="rmbpActions"></div>
       </div>
       <!-- Pending side swap. Hidden until one debater asks to trade; the
            seats do not move until the other one agrees. -->
@@ -6520,9 +6534,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var hit = m.match(HOUSE_FORMS[i].re);
       if (hit){ line = HOUSE_FORMS[i].say(hit); break; }
     }
-    var out = '<span class="rh-lab">What This House means</span>' + HOUSE_BASE + (line ? ' ' + line : '');
-    if (state.contextFrame) out += ' Agreed setting: ' + escHtml(String(state.contextFrame)) + '.';
-    return out;
+    // A link, not a paragraph (2026-09-06, the founder: "just build a
+    // hyperlink so it doesn't take up such space"). The gloss opens
+    // under it on demand; closed, it is one line of small type.
+    var body = HOUSE_BASE + (line ? ' ' + line : '');
+    if (state.contextFrame) body += ' Agreed setting: ' + escHtml(String(state.contextFrame)) + '.';
+    return '<details class="rh"><summary class="rh-lab">What This House means</summary><div class="rh-body">' + body + '</div></details>';
   }
   function renderHouseGloss(){
     var html = houseGlossHtml(state.motion);
@@ -23083,11 +23100,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 /* The This House gloss. Quieter than the brief (no card fill, a rule
    down the left) because it is a footnote on the sentence above it,
    not a second piece of content competing with the resolution. */
-.rmb-house{margin-top:10px;padding:2px 0 2px 11px;border-left:2px solid var(--accent,#ef4444);font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.7))}
+.rmb-house{margin-top:8px;padding:0;font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.7))}
 .rmb-house[hidden]{display:none}
 .rmb-house b{color:var(--text,#fff);font-weight:800}
+.rmb-house .rh-lab{display:inline;font-size:.78rem;font-weight:600;letter-spacing:0;text-transform:none;margin:0;
+  color:var(--accent,#ef4444);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;cursor:pointer;list-style:none}
+.rmb-house .rh-lab::-webkit-details-marker{display:none}
+.rmb-house .rh-lab:hover{color:var(--text,#fff)}
+.rmb-house .rh-body{margin-top:6px;padding:2px 0 2px 11px;border-left:2px solid var(--accent,#ef4444)}
 #setupHouse{margin-bottom:12px}
-.rmb-house .rh-lab{display:block;font-size:.63rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:3px}
 .dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
 .dm-modal.is-open{display:flex}
 .dm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}

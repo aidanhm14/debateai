@@ -2989,7 +2989,7 @@
             '<button type="button" class="da-match-btn da-match-btn--decline">' + (ON_VOICE_AI ? 'Keep talking to AI' : 'Decline') + '</button>' +
             '<button type="button" class="da-match-btn da-match-btn--accept">Accept</button>' +
           '</div>' +
-          '<p class="da-match-availability" style="font-size:14px;line-height:1.5">Busy today? <button type="button" class="da-match-unavailable" style="font:inherit;font-weight:700;text-decoration:underline;min-height:44px;padding:8px">Unavailable</button> pauses new requests.</p>' +
+          '<p class="da-match-availability" style="font-size:13px;line-height:1.5;color:var(--dab-dim)">Busy today? <button type="button" class="da-match-unavailable" style="font:inherit;font-weight:500;color:inherit;background:none;border:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;min-height:44px;padding:8px 4px">Unavailable</button> pauses new requests.</p>' +
         '</div>';
       document.body.appendChild(overlay);
       overlay.showModal();
