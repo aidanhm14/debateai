@@ -1,10 +1,14 @@
 # e2e: browser smoke against production
 
-Real Chromium, real site, no mocks. `tests/smoke.spec.mjs` runs after every
+Real Chromium against the live site. Page tests stub waiting-person reads
+so real queue traffic cannot cover navigation controls with invitations;
+the API contract checks still read the real public endpoints.
+`tests/smoke.spec.mjs` runs after every
 push to `main` (`.github/workflows/e2e-smoke.yml`) once the Netlify deploy is
 live, and fails loudly if a promise the site makes to a stranger stops being
-true: the first screen and its Debate door, the signed-out `/spar` gate with
-no auto-popped chooser, `/watch` static copy, `/practice` mounting, retired
+true: the first screen and its three doors (including returning visitors
+from the retired claim experiment), `/spar` onboarding followed by required
+sign-in, `/watch` static copy, `/practice` mounting, retired
 routes redirecting, `sw.js` parsing with a `CACHE_NAME`, `/api/claude`
 refusing a tokenless call, the public read endpoints, and the judge season
 calendar not having expired.

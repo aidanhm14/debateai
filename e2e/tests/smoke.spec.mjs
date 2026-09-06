@@ -32,13 +32,19 @@ function trackErrors(page) {
 }
 
 test.describe('public pages', () => {
-  // 2026-09-05: the first screen runs first_screen_claim_v1, a sticky 50/50.
-  // A cold browser lands in either arm, and the 'claim' arm keeps the doors
-  // hidden until a side is picked, so the door test pins the 'doors' arm
-  // and the claim arm gets its own test below. ?fsclaim= is the QA force.
+  test.beforeEach(async ({ page }) => {
+    // A real waiting-person invitation must not cover navigation controls
+    // during these signed-out checks. Queue entry is never exercised here.
+    await page.route('**/api/live-now', route => route.fulfill({
+      json: { count: 0, debaters: [], windowSec: 360, at: Date.now() },
+    }));
+  });
+
+  // 517173c5 retired first_screen_claim_v1 on 2026-09-05. The doors now
+  // appear on arrival; test the ordinary URL without a retired QA override.
   test('landing serves the first screen and the Debate door', async ({ page }) => {
     const errors = trackErrors(page);
-    const res = await page.goto('/?fsclaim=doors');
+    const res = await page.goto('/');
     // A 204 here means the edge filter classified the test browser as a bot
     // and served nothing; see the userAgent note in playwright.config.mjs.
     expect(res.status(), 'edge filter must serve the test browser').toBe(200);
@@ -50,17 +56,21 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
-  test('landing claim arm: a pick reveals the Debate door and prefills the AI door', async ({ page }) => {
+  test('landing keeps all three doors visible for a returning claim-arm visitor', async ({ page }) => {
     const errors = trackErrors(page);
+    await page.addInitScript(() => localStorage.setItem('da-fsclaim-ab', 'claim'));
     await page.goto('/?fsclaim=claim');
-    await expect(page.locator('#fsClaim')).toBeVisible();
-    await expect(page.locator('.fs-cta--primary:visible')).toHaveCount(0);
-    await page.locator('.fs-claim-row').first().locator('[data-pick="against"]').click();
-    const cta = page.locator('.fs-cta--primary:visible').first();
-    await expect(cta).toBeVisible();
-    expect(await cta.getAttribute('href')).toBe('/spar');
-    const ai = page.locator('.fs-actions .fs-cta--ai');
-    expect(await ai.getAttribute('href')).toMatch(/^\/newvoice\?motion=.+&side=against&handoff=first-screen-claim$/);
+    await expect(page.locator('#first-screen')).toBeVisible();
+    const actions = page.locator('#first-screen .fs-actions');
+    for (const [selector, href] of [
+      ['.fs-cta--primary', '/spar'],
+      ['.fs-cta--watch', '/watch'],
+      ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
+    ]) {
+      const cta = actions.locator(selector);
+      await expect(cta).toBeVisible();
+      await expect(cta).toHaveAttribute('href', href);
+    }
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
