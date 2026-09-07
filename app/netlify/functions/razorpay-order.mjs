@@ -13,7 +13,7 @@
 // import, and Netlify Functions v2 ships fine with built-in fetch.
 
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
-import { getUserTeam } from './lib/firestore.mjs';
+import { ensureWorkspace } from './lib/workspace.mjs';
 import { razorpayPlanAmount } from './lib/geo.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -56,15 +56,17 @@ export default async (request) => {
     return errorResponse('A permanent account is required for checkout.', 403, request);
   }
 
-  // Team-first funnel matches the Stripe path. NEEDS_TEAM is the signal
-  // the client uses to route into the team-creation flow with the
-  // upgrade-intent preserved.
-  const result = await getUserTeam(decoded.sub);
-  if (!result) return errorResponse('NEEDS_TEAM', 404, request);
-
-  const { team, membership } = result;
+  // The workspace a plan settles onto is created on first use, same as
+  // the Stripe path (lib/workspace.mjs). No NEEDS_TEAM round trip.
+  let team, membership;
+  try {
+    ({ team, membership } = await ensureWorkspace(decoded));
+  } catch (err) {
+    console.error('razorpay-order: ensureWorkspace failed:', err.message);
+    return errorResponse('Billing setup failed. Please try again.', 500, request);
+  }
   if (membership.role !== 'owner') {
-    return errorResponse('Only the team owner can manage billing', 403, request);
+    return errorResponse('Your plan is managed by the owner of your team workspace.', 403, request);
   }
 
   let body;

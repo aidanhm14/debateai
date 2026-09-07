@@ -137,6 +137,13 @@ const VOICE_SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
 const KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
 
 export function planBypassesVoiceCap(team) {
+  return hasActivePaidPlan(team);
+}
+
+// The same question asked by checkout: does this workspace already hold
+// a live paid plan? If so a new Checkout session is a duplicate
+// subscription, and the billing portal is the right door.
+export function hasActivePaidPlan(team) {
   if (!team || !team.plan) return false;
   if (!VOICE_PRO_PLANS.includes(team.plan)) return false;
   if (VOICE_SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) return false;

@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
-import { getUserTeam } from './lib/firestore.mjs';
+import { ensureWorkspace } from './lib/workspace.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { PURCHASABLE_PLANS, envKeyForPlan, priceMatchesCanonical } from './lib/plans.mjs';
+import { PURCHASABLE_PLANS, envKeyForPlan, priceMatchesCanonical, hasActivePaidPlan } from './lib/plans.mjs';
 
 // Server-side beta no-charge gate, mirroring the client flags
 // (pricing.html BETA_NO_CHARGE, index.html CHECKOUT_BETA_NO_CHARGE).
@@ -38,19 +38,23 @@ export default async (request) => {
     return errorResponse('A permanent account is required for checkout.', 403, request);
   }
 
-  // Team-first funnel: requiring a team before checkout is intentional.
-  // Teams are Debatable's social/tracking layer — create one, invite peers,
-  // track your cases and analytics together. Returning 404 here is the
-  // signal the client uses to route to the team-creation flow with
-  // upgrade-intent preserved, rather than letting people pay in isolation.
-  const result = await getUserTeam(decoded.sub);
-  if (!result) {
-    return errorResponse('NEEDS_TEAM', 404, request);
+  // The plan settles onto a `teams` doc, so one has to exist. It used to
+  // be the CLIENT's job to make one first (404 NEEDS_TEAM, then a "Name
+  // your workspace" modal on /pricing), which put a naming question
+  // between a person and the card form. The workspace is created here
+  // on first use now; see lib/workspace.mjs. A user who is a non-owner
+  // member of somebody else's Team workspace is the one case that still
+  // cannot buy from this account, because their entitlement is that
+  // team's to manage.
+  let team, membership;
+  try {
+    ({ team, membership } = await ensureWorkspace(decoded));
+  } catch (err) {
+    console.error('create-checkout: ensureWorkspace failed:', err.message);
+    return errorResponse('Billing setup failed. Please try again.', 500, request);
   }
-
-  const { team, membership } = result;
   if (membership.role !== 'owner') {
-    return errorResponse('Only the team owner can manage billing', 403, request);
+    return errorResponse('Your plan is managed by the owner of your team workspace.', 403, request);
   }
 
   let body;
@@ -67,6 +71,31 @@ export default async (request) => {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  // Someone who already holds a live paid plan gets the billing portal,
+  // not a second checkout. Measured 2026-09-07: a Voice subscriber came
+  // back to /pricing the morning after paying, pressed Get Voice again
+  // and minted a fresh Checkout session for the plan they already had.
+  // Stripe would have happily opened a SECOND subscription on the same
+  // customer, and the webhook would have overwritten the team's plan
+  // with whichever invoice landed last. The portal is the right door
+  // for an existing subscriber: card, invoices, cancellation.
+  if (hasActivePaidPlan(team) && team.stripeCustomerId) {
+    try {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: team.stripeCustomerId,
+        return_url: `${process.env.SITE_URL || 'https://itsdebatable.com'}/pricing`,
+      });
+      return jsonResponse({ url: portal.url, portal: true, currentPlan: team.plan }, 200, request);
+    } catch (err) {
+      console.error('create-checkout: portal for existing subscriber failed:', err.message);
+      return jsonResponse({
+        error: 'ALREADY_SUBSCRIBED',
+        message: `You already have the ${team.plan} plan. Manage it from your account.`,
+        currentPlan: team.plan,
+      }, 409, request);
+    }
+  }
 
   // Confirm Stripe charges what the site says it charges, BEFORE anyone
   // reaches a card form. See the header of lib/plans.mjs: on 2026-08-24

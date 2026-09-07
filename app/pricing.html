@@ -238,20 +238,6 @@
   .status{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#17171b;padding:12px 20px;border-radius:12px;font-size:.85rem;z-index:1000;display:none;box-shadow:0 10px 40px rgba(20,20,30,.15)}
   .status.err{border-color:var(--accent);color:#b91c1c}
   .status.show{display:block}
-  .billing-setup{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(12,8,9,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-  .billing-setup.on{display:flex}
-  .billing-setup-card{position:relative;width:min(460px,100%);padding:30px;border-radius:20px;background:#fff;color:#17171b;border:1px solid rgba(220,38,38,.3);box-shadow:0 28px 80px rgba(0,0,0,.34)}
-  .billing-setup-card h2{margin:0 36px 8px 0;font-size:1.45rem;letter-spacing:-.025em}
-  .billing-setup-card p{margin:0 0 20px;color:#5f6068;font-size:.9rem;line-height:1.55}
-  .billing-setup-card label{display:block;margin-bottom:7px;font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-  .billing-setup-card input{width:100%;min-height:48px;padding:11px 13px;border:1px solid #d4d4d8;border-radius:11px;background:#fff;color:#17171b;font:650 .95rem/1.3 Archivo,Inter,sans-serif}
-  .billing-setup-card input:focus{outline:2px solid rgba(220,38,38,.24);border-color:#dc2626}
-  .billing-setup-actions{display:flex;align-items:center;gap:10px;margin-top:18px}
-  .billing-setup-actions button{min-height:46px;padding:10px 17px;border-radius:999px;font:800 .86rem/1 Archivo,Inter,sans-serif;cursor:pointer}
-  .billing-setup-go{flex:1;border:1px solid #dc2626;background:#dc2626;color:#fff}
-  .billing-setup-cancel{border:1px solid #d4d4d8;background:transparent;color:#52525b}
-  .billing-setup-close{position:absolute;top:13px;right:13px;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:#71717a;font-size:1.35rem;cursor:pointer}
-  .billing-setup-error{min-height:18px;margin-top:10px;color:#b91c1c;font-size:.8rem;font-weight:700}
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.2);border-top-color:var(--fg);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .theme-dots{display:none!important}
@@ -321,7 +307,7 @@
     <p class="lede" id="heroLede">Individual gives you 250 typed requests each month, six AI brains, deeper cases, and memory across rounds. It is $10 for the year.</p>
     <div class="hero-actions">
       <a class="cta primary" href="/pricing#plans" data-checkout="individual" data-pricing-cta="individual_hero">Get Individual · $10/year</a>
-      <a class="cta ghost" href="/voice-tokens" data-pricing-cta="tokens_hero">Buy 10 voice rounds · $4.99</a>
+      <a class="cta ghost" href="/voice-tokens" data-checkout="tokens" data-pricing-cta="tokens_hero">Buy 10 voice rounds · $4.99</a>
     </div>
     <p class="beta-state" data-beta-copy><span class="live-dot" aria-hidden="true"></span><span><strong>Plans are live.</strong> Voice, Tokens, and BYOK are monthly. Individual and Team are annual.</span></p>
     <div class="signal-row" aria-label="What paid plans unlock">
@@ -344,7 +330,7 @@
       <li>Granted tokens stay in your account</li>
       <li>Cancel anytime</li>
     </ul>
-    <a class="cta" href="/voice-tokens" data-pricing-cta="tokens_card">Get 10 extra rounds</a>
+    <a class="cta" href="/voice-tokens" data-checkout="tokens" data-pricing-cta="tokens_card">Get 10 extra rounds</a>
     <p class="purchase-note">Tokens pay for extra voice rounds. Cancel anytime.</p>
   </article>
 </section>
@@ -526,20 +512,6 @@
 </footer>
 
 <div id="status" class="status"></div>
-<div id="billingSetup" class="billing-setup" role="dialog" aria-modal="true" aria-labelledby="billingSetupTitle">
-  <div class="billing-setup-card">
-    <button id="billingSetupClose" class="billing-setup-close" type="button" aria-label="Close">×</button>
-    <h2 id="billingSetupTitle">Name your workspace</h2>
-    <p id="billingSetupCopy">Your plan, usage, and billing history live in a private workspace. Give it a name before checkout.</p>
-    <label for="billingSetupName">Workspace name</label>
-    <input id="billingSetupName" type="text" maxlength="100" autocomplete="organization" />
-    <div id="billingSetupError" class="billing-setup-error" role="alert"></div>
-    <div class="billing-setup-actions">
-      <button id="billingSetupCancel" class="billing-setup-cancel" type="button">Cancel</button>
-      <button id="billingSetupGo" class="billing-setup-go" type="button">Continue to checkout</button>
-    </div>
-  </div>
-</div>
 
 <script>
   // Wire up the checkout buttons. Each CTA with data-checkout="<plan>"
@@ -683,72 +655,6 @@
     open();
   }
 
-  var pendingTeamSetup = null;
-  var billingSetup = document.getElementById('billingSetup');
-  var billingSetupName = document.getElementById('billingSetupName');
-  var billingSetupCopy = document.getElementById('billingSetupCopy');
-  var billingSetupError = document.getElementById('billingSetupError');
-  var billingSetupGo = document.getElementById('billingSetupGo');
-
-  function closeBillingSetup() {
-    billingSetup.classList.remove('on');
-    document.body.style.overflow = '';
-    if (pendingTeamSetup && pendingTeamSetup.button) resetCheckoutButton(pendingTeamSetup.button);
-    pendingTeamSetup = null;
-    billingSetupError.textContent = '';
-  }
-
-  function openBillingSetup(plan, button, user) {
-    resetCheckoutButton(button);
-    pendingTeamSetup = { plan: plan, button: button, user: user };
-    var first = String(user.displayName || '').trim().split(/\s+/)[0];
-    billingSetupName.value = first ? first + (plan === 'team' ? "'s group" : "'s workspace") : (plan === 'team' ? 'My group' : 'My workspace');
-    billingSetupCopy.textContent = plan === 'team'
-      ? 'Team billing needs a group workspace for seats, usage, and invoices. Name it, then checkout opens.'
-      : 'Your plan and usage live in a private workspace. Name it, then checkout opens.';
-    billingSetup.classList.add('on');
-    document.body.style.overflow = 'hidden';
-    setTimeout(function () { billingSetupName.focus(); billingSetupName.select(); }, 0);
-  }
-
-  async function createBillingWorkspace() {
-    if (!pendingTeamSetup) return;
-    var name = billingSetupName.value.trim();
-    if (!name) { billingSetupError.textContent = 'Enter a workspace name.'; billingSetupName.focus(); return; }
-    var pending = pendingTeamSetup;
-    billingSetupGo.disabled = true;
-    billingSetupGo.innerHTML = '<span class="spinner"></span>Creating workspace';
-    billingSetupError.textContent = '';
-    try {
-      var token = await pending.user.getIdToken();
-      var res = await fetch('/api/teams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ name: name }),
-      });
-      var data = await res.json().catch(function () { return {}; });
-      if (!res.ok && res.status !== 409) throw new Error(data.error || 'Could not create the workspace.');
-      billingSetup.classList.remove('on');
-      document.body.style.overflow = '';
-      pendingTeamSetup = null;
-      billingSetupGo.disabled = false;
-      billingSetupGo.textContent = 'Continue to checkout';
-      startCheckout(pending.plan, pending.button);
-    } catch (err) {
-      billingSetupError.textContent = err && err.message ? err.message : 'Could not create the workspace. Try again.';
-      billingSetupGo.disabled = false;
-      billingSetupGo.textContent = 'Continue to checkout';
-    }
-  }
-
-  document.getElementById('billingSetupClose').addEventListener('click', closeBillingSetup);
-  document.getElementById('billingSetupCancel').addEventListener('click', closeBillingSetup);
-  billingSetupGo.addEventListener('click', createBillingWorkspace);
-  billingSetupName.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter') { event.preventDefault(); createBillingWorkspace(); }
-  });
-  billingSetup.addEventListener('click', function (event) { if (event.target === billingSetup) closeBillingSetup(); });
-  document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && billingSetup.classList.contains('on')) closeBillingSetup(); });
 
   // Razorpay Checkout opens a hosted modal. On success it calls our
   // handler with { razorpay_payment_id, razorpay_order_id,
@@ -769,10 +675,6 @@
       body: JSON.stringify({ plan }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 404 && data.error === 'NEEDS_TEAM') {
-      openBillingSetup(plan, button, user);
-      return;
-    }
     if (!res.ok) throw new Error(data.error || 'Checkout failed (' + res.status + ')');
 
     const rzp = new window.Razorpay({
@@ -855,7 +757,7 @@
     }
 
     const originalText = originalButtonText(button);
-    const isIndia = regionInfo.provider === 'razorpay';
+    const isIndia = regionInfo.provider === 'razorpay' && plan !== 'tokens';
     button.innerHTML = '<span class="spinner"></span>' + (isIndia ? 'Opening Razorpay…' : 'Opening Stripe…');
     button.disabled = true;
 
@@ -866,23 +768,63 @@
       }
 
       const token = await user.getIdToken();
-      const res = await fetch('/api/billing/checkout', {
+      // One POST, then Stripe. The server creates the billing workspace
+      // itself on first use and hands back a Checkout URL; a subscriber
+      // who already holds a live plan gets the billing portal instead
+      // (data.portal), so a second press can never open a second
+      // subscription.
+      const endpoint = plan === 'tokens' ? '/api/tokens/checkout' : '/api/billing/checkout';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify(plan === 'tokens' ? {} : { plan }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 404 && data.error === 'NEEDS_TEAM') {
-        openBillingSetup(plan, button, user);
+      if (res.status === 403 && data.error === 'NAMED_ACCOUNT_REQUIRED') {
+        requestCheckoutSignIn(plan, button);
         return;
       }
-      if (!res.ok) throw new Error(data.error || 'Checkout failed (' + res.status + ')');
+      if (!res.ok) throw new Error(data.message || data.error || 'Checkout failed (' + res.status + ')');
+      if (!data.url) throw new Error('Checkout did not return a payment link. Try again.');
+      if (data.portal) {
+        showStatus('You already have the ' + (data.currentPlan || plan) + ' plan. Opening your billing page.', false);
+      }
       location.href = data.url;
     } catch (err) {
       showStatus(err.message || 'Something went wrong', true);
       button.textContent = originalText;
       button.disabled = false;
     }
+  }
+
+  // A signed-in subscriber sees which plan is theirs and a button that
+  // opens billing, instead of a second "Get" door for a plan they hold.
+  var PAID_PLANS = ['byok', 'individual', 'voice', 'team', 'lifetime'];
+  var INACTIVE = ['canceled', 'cancelled', 'incomplete_expired', 'unpaid'];
+  async function markCurrentPlan(user) {
+    if (!namedUser(user)) return;
+    try {
+      var tok = await user.getIdToken();
+      var r = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + tok } });
+      if (!r.ok) return;
+      var usage = await r.json();
+      var plan = usage && usage.plan;
+      if (PAID_PLANS.indexOf(plan) === -1 || INACTIVE.indexOf(usage.status) !== -1) return;
+      document.querySelectorAll('[data-checkout="' + plan + '"]').forEach(function (btn) {
+        btn.textContent = 'Your plan · Manage billing';
+        btn.dataset.checkoutLabel = btn.textContent;
+      });
+      var card = document.querySelector('.card[data-plan="' + plan + '"], .compact-card[data-plan="' + plan + '"]');
+      if (card) {
+        var state = card.querySelector('.billing-state');
+        if (state) state.textContent = 'Current plan';
+      }
+    } catch (_) { /* unknown plan: the buttons keep their default labels */ }
+  }
+  function watchAuthForPlan() {
+    initAuth();
+    if (!auth || !auth.onAuthStateChanged) return;
+    auth.onAuthStateChanged(function (u) { markCurrentPlan(u); });
   }
 
   document.querySelectorAll('[data-pricing-cta]').forEach(btn => {
@@ -909,6 +851,7 @@
   // Wait a tick for Firebase compat scripts to load, then init.
   window.addEventListener('load', () => {
     setTimeout(initAuth, 50);
+    setTimeout(watchAuthForPlan, 400);
     loadRegion();
     var params = new URLSearchParams(location.search);
     if (params.get('billing') === 'success') {

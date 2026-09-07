@@ -4822,6 +4822,38 @@ function App() {
     try {return Math.max(0, parseInt(localStorage.getItem(ANON_USAGE_KEY), 10) || 0);}
     catch (e) {return 0;}
   }
+
+  // The wall's buttons open Stripe in one press for a signed-in user.
+  // /pricing used to be the middle stop, where the same "Get Voice"
+  // button had to be found and pressed again. A guest still lands on
+  // /pricing, which owns the sign-in-then-checkout hand-off; any
+  // failure here falls through to that page too, so nobody is stranded
+  // on a dead button.
+  function directCheckout(e, plan) {
+    var u = null;
+    try {u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;} catch (err) {u = null;}
+    if (!u || u.isAnonymous) return;
+    e.preventDefault();
+    var a = e.currentTarget;
+    var orig = a.textContent;
+    var fallback = plan === 'tokens' ? '/voice-tokens' : '/pricing#plans';
+    a.textContent = 'Opening Stripe…';
+    u.getIdToken().then(function (tok) {
+      return fetch(plan === 'tokens' ? '/api/tokens/checkout' : '/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify(plan === 'tokens' ? {} : { plan: plan })
+      });
+    }).then(function (r) {
+      return r.json().catch(function () {return {};}).then(function (d) {return { ok: r.ok, d: d };});
+    }).then(function (x) {
+      if (x.ok && x.d && x.d.url) {location.href = x.d.url;return;}
+      throw new Error('no checkout url');
+    }).catch(function () {
+      a.textContent = orig;
+      location.href = fallback;
+    });
+  }
   function bumpAnonUsed() {
     try {localStorage.setItem(ANON_USAGE_KEY, String(readAnonUsed() + 1));} catch (e) {}
   }
@@ -9104,7 +9136,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   'Your ' + (voiceGate.limit || FREE_VOICE_LIMIT) + ' free voice minutes are used. Voice is $12 a month for two hours of live rounds a month; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
   ),
   el('a', {
-    href: '/pricing#plans', className: 'cta vg-cta'
+    href: '/pricing#plans', className: 'cta vg-cta',
+    onClick: function (e) {directCheckout(e, 'voice');}
   }, 'Get Voice · $12/mo →'),
   // The middle door. The server's own refusal says "or top up with
   // tokens" and the mint spends a token balance, so the wall should
@@ -9112,7 +9145,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // Tokens, heavy users buy Voice, and the $12 ask stops being
   // all-or-nothing (2026-09-01, the founder, on promoting paying at
   // the point of use).
-  el('a', { href: '/tokens', className: 'vg-fallback', style: { opacity: .85 } }, 'or pay as you go · Tokens $4.99/mo →'),
+  el('a', { href: '/voice-tokens', className: 'vg-fallback', style: { opacity: .85 }, onClick: function (e) {directCheckout(e, 'tokens');} }, 'or pay as you go · Tokens $4.99/mo →'),
   el('a', { href: '/practice', className: 'vg-fallback' }, 'or keep going in typed practice →')
   ) :
   el(React.Fragment, null,

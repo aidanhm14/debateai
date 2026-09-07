@@ -42,8 +42,16 @@ check(
   'signed-out checkout resumes on the pricing page after authentication',
 );
 check(
-  pricing.includes("data.error === 'NEEDS_TEAM'") && pricing.includes('openBillingSetup(plan, button, user)'),
-  'missing workspaces open an in-place setup instead of dead-ending',
+  !pricing.includes('NEEDS_TEAM') && !pricing.includes('billingSetup'),
+  'pricing has no workspace-naming step between the button and Stripe',
+);
+check(
+  pricing.includes('data-checkout="tokens"') && pricing.includes("'/api/tokens/checkout'"),
+  'tokens buttons on pricing open Stripe directly',
+);
+check(
+  pricing.includes('data.portal'),
+  'an existing subscriber is routed to the billing portal, not a second checkout',
 );
 
 const checkout = read('app/netlify/functions/create-checkout.mjs');
