@@ -6818,12 +6818,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var on = $('overtimeNote'); if (on) on.hidden = true;
       return;
     }
-    num.textContent = remaining >= 0 ? fmtTime(remaining) : '+' + fmtTime(-remaining);
+    num.textContent = fmtTime(Math.max(0, Math.ceil(remaining)));
     var pct = Math.min(100, Math.max(0, 100 * elapsed / Math.max(1, state.timerTotalSec)));
     bar.style.width = pct + '%';
     var warnClass = '';
     if (state.timerState === 'paused') warnClass = 'paused';
-    else if (remaining < 0) warnClass = 'over';
+    else if (remaining <= 0) warnClass = 'over';
     else if (remaining < 30 && state.timerState === 'running') warnClass = 'warn';
     num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
     bar.className = 'timer-bar' + (warnClass && warnClass !== 'paused' ? ' ' + warnClass : '');
@@ -8920,8 +8920,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (recording){
       box.classList.add('recording');
       label.textContent = 'Stop';
-      elapsed.hidden = false;
-      elapsed.textContent = fmtElapsed(elapsedMs || 0);
+      elapsed.hidden = !openMode();
+      elapsed.textContent = openMode() ? fmtElapsed(elapsedMs || 0) : '';
     } else {
       box.classList.remove('recording');
       label.textContent = 'Record';
@@ -9272,8 +9272,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // Capture running is not permission to publish. While the yeses are
       // outstanding the pill says so, so nobody reads a red dot as "this
       // is going public".
-      detail.textContent = fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now()))) +
-        (d.recordingPublishAllowed === true ? '' : (required ? ' · stored privately' : ' · not publishing yet'));
+      var recordingClock = openMode() ? fmtElapsed(Math.max(0, Date.now() - (d.recordingStartedAtMs || Date.now()))) : '';
+      var privacyNote = d.recordingPublishAllowed === true ? '' : (required ? 'Stored privately' : 'Not publishing yet');
+      detail.textContent = [recordingClock, privacyNote].filter(Boolean).join(' · ');
+      detail.hidden = !detail.textContent;
       if (!cloudRec.tick){
         cloudRec.tick = setInterval(function(){ if (cloudRec.doc) setCloudRecordingUi(cloudRec.doc); }, 1000);
       }
@@ -9939,13 +9941,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       ctx.fillStyle = 'rgba(240,237,230,.5)';
       ctx.fillText(('Speech ' + (state.speechIdx + 1) + ' of ' + f.speeches.length + ' · ' + (sp.name || '')).toUpperCase(), REEL_W / 2, 576);
       ctx.font = '800 62px "Archivo", sans-serif';
-      ctx.fillStyle = (remaining < 30 && state.timerState === 'running') ? '#dd2e2e' : '#f0ede6';
-      ctx.fillText(fmtTime(Math.ceil(remaining)), REEL_W / 2, 648);
+      ctx.fillStyle = (!f.open && remaining < 30 && state.timerState === 'running') ? '#dd2e2e' : '#f0ede6';
+      ctx.fillText(fmtTime(f.open ? elapsed : Math.ceil(remaining)), REEL_W / 2, 648);
       var bw = 360, bx = REEL_W / 2 - bw / 2, by = 668;
       ctx.fillStyle = 'rgba(240,237,230,.13)';
-      ctx.fillRect(bx, by, bw, 6);
+      if (!f.open) ctx.fillRect(bx, by, bw, 6);
       ctx.fillStyle = '#dd2e2e';
-      ctx.fillRect(bx, by, bw * Math.min(1, elapsed / Math.max(1, totalSec)), 6);
+      if (!f.open) ctx.fillRect(bx, by, bw * Math.min(1, elapsed / Math.max(1, totalSec)), 6);
     }
     if (reelWatchers > 0){
       ctx.textAlign = 'right';

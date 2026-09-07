@@ -230,6 +230,15 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **Timed speeches always count down (2026-09-07, Aidan).** Every timed
+  speech clock shows minutes and seconds remaining and holds at `0:00`
+  after expiry. It never flips to a positive or negative overtime clock.
+  The same rule covers audience views, floating players, recordings and
+  practice drills. Conversational mode is the only running count-up
+  exception. Internal elapsed duration and the existing overtime grace,
+  transcript cutoff and judging rules are unchanged. This supersedes the
+  red overtime count-up described in the 2026-08-29 entry.
+
 - **A calm moving red start button, and a plain FAQ heading** (2026-09-07, Aidan, after approving an image preview). The current mode's red start button carries an eight-second red wave with a faint curved white sheen beneath stationary text. The other mode stays quiet; hidden controls, background tabs, and reduced-motion preferences stop the animation. The FAQ's oversized “Good questions. Straight answers.” slogan becomes a smaller “Frequently asked questions” heading, with its answers and contact action preserved.
 
 - **Save round screenshots for thumbnails and later design work** (2026-09-07, Aidan). Each public recorded 1v1 can retain up to eight 1280×720 image pairs, sampled at least a minute apart: a labelled thumbnail and a clean composite of the two published tiles. The recording dialog discloses still storage and each person's versioned consent is stored server-side. Existing consent from an older client does not authorize this new library. Avatar stays masked; spectators, chat, transcripts, screen shares and hidden cameras are excluded. `/round-images.html` is the admin library, with both downloads. Replay thumbnails prefer saved images unless an admin chose a manual thumbnail. Front-page publication is a later, separate permission decision, and no generated images are published by this change. Withdrawal deletes the stored set atomically; either account's deletion purges the images and permissions.

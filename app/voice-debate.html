@@ -8260,15 +8260,15 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // body-level portal (so it stacks above the site-shell iframe) when docked
   // in-page, or into the PiP window when popped out. The orb is a lightweight
   // CSS pulse so the real arena canvas can stay stowed + untouched.
+  function activeClockText() {
+    if (mode !== 'apda') return fmtTime(elapsed);
+    var sp = APDA_SEQUENCE[speechIdx] || null;
+    var duration = phase === 'prep' ? GRACE_SEC : sp ? sp.durSec : 0;
+    return fmtTime(phase === 'done' ? 0 : Math.max(0, Math.ceil(duration - phaseElapsed)));
+  }
   function renderMinimized() {
     var miniSp = mode === 'apda' ? APDA_SEQUENCE[speechIdx] || null : null;
-    var miniTimer;
-    if (mode === 'apda') {
-      var pdur = phase === 'prep' ? GRACE_SEC : miniSp ? miniSp.durSec : 0;
-      miniTimer = phase === 'done' ? '—' : fmtTime(Math.max(0, Math.round(pdur - phaseElapsed)));
-    } else {
-      miniTimer = fmtTime(elapsed);
-    }
+    var miniTimer = activeClockText();
     var whoLabel = speaking === 'user' ? (userFirstName || 'You') + ' speaking' :
     speaking === 'ai' ? persona.name.split(' ')[0] + ' speaking' :
     'Listening';
@@ -9279,21 +9279,20 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   ),
   // The round clock lived in the stats strip, which the simple round
   // folds away. It is the one number worth keeping on screen.
-  SIMPLE_ROUND && el('span', { className: 'roundclock' }, fmtTime(elapsed))
+  SIMPLE_ROUND && el('span', { className: 'roundclock' }, activeClockText())
   ),
   // ── Speech-phase block ─────────────────────────────────
   // Per-speech timer (compressed clocks: PMC 4:00, LOC 4:30, etc.)
   // + 30s grace window, driven by the speechIdx/phase state machine.
   // Pressing Start Speech ends prep early; End Speech advances to
-  // the next speech. The cumulative session clock lives below as
-  // muted secondary info.
+  // the next speech. Every live clock uses the same remaining time.
   // Full Round only — the other modes are free-form drills with no speech
   // sequence (their server prompts say "NOT APDA"). They keep the orb, the
   // mic meter, the stats row, and the End button; just no PMC/LOC clock.
   mode === 'apda' && (() => {
     var sp = APDA_SEQUENCE[speechIdx] || null;
     var phaseDur = phase === 'prep' ? GRACE_SEC : sp ? sp.durSec : 0;
-    var remaining = Math.max(0, Math.round(phaseDur - phaseElapsed));
+    var remaining = Math.max(0, Math.ceil(phaseDur - phaseElapsed));
     var phaseLabel = phase === 'prep' ? 'PREP · ' + GRACE_SEC + 's GRACE' :
     phase === 'speaking' ? 'SPEAKING' :
     'ROUND COMPLETE';
@@ -9386,8 +9385,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', { className: 'tl' }, 'You ' + userSharePct + ' / AI ' + aiSharePct)
   ),
   el('div', { className: 'timing-cell' },
-  el('div', { className: 'tv' }, fmtTime(elapsed)),
-  el('div', { className: 'tl' }, 'Round')
+  el('div', { className: 'tv' }, activeClockText()),
+  el('div', { className: 'tl' }, mode === 'apda' ? 'Time left' : 'Round')
   )
   ),
   // Entrance ceremony — opponent steps up + 3-2-1 over the stage on the

@@ -1,5 +1,11 @@
 # AGENTS.md
 
+**Speech clocks (2026-09-07):** Timed speeches show minutes and seconds
+remaining and stop at `0:00`, including overtime, audience views, floating
+players and recordings. Only conversational mode may display a running
+elapsed clock. Keep elapsed measurements internally for duration, capture
+and existing overtime rules; a display change must not change judging.
+
 > **BETTING PAUSED (Aidan, 2026-09-06).** Remove betting from the site entirely for now, including navigation, audience/debater controls, public market pages, and promotional copy. This supersedes earlier points-only restores and the merge of voice-token purchases into /predict. Voice tokens remain paid AI usage at /voice-tokens. Existing ledgers and settlement/refund logic remain for history; no new markets or stakes may be created.
 
 

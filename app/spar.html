@@ -5231,7 +5231,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // The status sub-line element stays (startStatusCycle writes both
       // spans and bails if either is missing) but is display:none in CSS.
       '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Looking for a human opponent who is available now.</span></div>' +
-      '<div class="countdown">Searching <strong id="countdownNum">0:00</strong> &middot; no time limit</div>' +
+      '<div class="countdown" id="countdownNum">Searching for an opponent. No time limit.</div>' +
       // 2026-09-04, the founder: "say we're pinging the network via
       // notifications, let's be transparent and readable". Painted by
       // updatePingedLine only once the server reports a push it actually
@@ -6634,7 +6634,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     setTimeout(function(){ location.href = '/practice'; }, 1200);
   }
 
-  // ── Count-up timer (no forced AI fallback) ───────────
+  // ── Search reminders (no forced AI fallback) ───────────
   // The user can leave the page and come back — no 4-minute wall.
   // AI fallback is still reachable via the "Skip to AI" link.
   // Notification permission is requested at 8s so the OS can ping
@@ -6645,12 +6645,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     state.sipAsked = false;
     state.countdownInterval = setInterval(function(){
       var elapsed = Math.floor((Date.now() - state.joinedAtMs) / 1000);
-      var num = document.getElementById('countdownNum');
-      if (num){
-        var mm = Math.floor(elapsed / 60);
-        var ss = elapsed % 60;
-        num.textContent = mm + ':' + (ss < 10 ? '0' : '') + ss;
-      }
       if (elapsed >= 8 && !state.pingAsked){
         state.pingAsked = true;
         requestPingPermission();
