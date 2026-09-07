@@ -63,3 +63,22 @@ for (const broken of ['user_profiles', 'team', 'voice_usage', 'tokens']) {
 fail = ''; process.env.VOICE_AI_ENABLED = 'false'; assert.equal((await call()).reason, 'voice_disabled'); delete process.env.VOICE_AI_ENABLED;
 hooks.deregister(); delete globalThis.__voiceAllowanceTest;
 console.log('Voice allowance: auth, owner, minute budgets, legacy migration, monthly cap/reset, tokens, read failures and no-store passed.');
+
+// 2026-09-07: one authority for the client too. /voice-debate's gate reads
+// this endpoint instead of keeping its own mirror (voice_usage + the legacy
+// profile field + /api/teams/usage), and /room-judge opens the shared
+// sign-in chooser on the minter's 401 rather than printing the raw line.
+{
+  const { readFileSync } = await import('node:fs');
+  const vd = readFileSync('app/voice-debate.html', 'utf8');
+  assert.ok(vd.includes("fetch('/api/voice-allowance'"), '/voice-debate reads /api/voice-allowance');
+  assert.ok(!vd.includes("collection('voice_usage')"), '/voice-debate no longer reads voice_usage client-side');
+  assert.ok(!vd.includes("fetch('/api/teams/usage'"), '/voice-debate no longer derives the plan from /api/teams/usage');
+  assert.ok(!/localStorage\.(get|set)Item\('da-voice-anon-used'\)/.test(vd), 'no client-side anonymous voice counter survives (guests get no minted round)');
+  assert.ok(vd.includes('var ANON_VOICE_LIMIT = 0;'), 'the client agrees a guest has no minted allowance');
+  const rj = readFileSync('app/room-judge.html', 'utf8');
+  assert.ok(/mintRes\.status === 401 && \(mint\.requireAuth \|\| mint\.code === 'SIGN_IN_REQUIRED'\)/.test(rj), '/room-judge recognises the named-account refusal');
+  assert.ok(/window\.openAuthModal\('signup'\)/.test(rj), '/room-judge opens the shared chooser on that refusal');
+  assert.ok(rj.includes('if (user && user.isAnonymous) user = null;'), '/room-judge treats an anonymous Firebase user as signed out');
+  console.log('Client authority: /voice-debate reads the allowance endpoint, /room-judge routes the guest refusal to sign-in.');
+}

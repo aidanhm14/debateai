@@ -540,6 +540,11 @@ textarea.ctl{min-height:76px;resize:vertical}
   }
 
   function updateAuth(user){
+    // An anonymous Firebase user is not a signed-in one: js/notifications.js
+    // mints one on nearly every page, and the room-judge minter refuses it
+    // (401 SIGN_IN_REQUIRED, 2026-09-07). Treat it as signed out here so the
+    // button never offers a start the server will refuse.
+    if (user && user.isAnonymous) user = null;
     state.user = user || null;
     if (user) {
       els.authBox.classList.add('signed');
@@ -724,6 +729,14 @@ textarea.ctl{min-height:76px;resize:vertical}
     var raw = await mintRes.text();
     var mint = {};
     try { mint = JSON.parse(raw); } catch(e) {}
+    if (mintRes.status === 401 && (mint.requireAuth || mint.code === 'SIGN_IN_REQUIRED')) {
+      // The guard answered before any budget read: this identity is not a
+      // named account. Open the shared chooser instead of printing the raw
+      // server line with no door in it.
+      updateAuth(null);
+      if (typeof window.openAuthModal === 'function') { try { window.openAuthModal('signup'); } catch (e) {} }
+      throw new Error('Sign in to add the AI judge to a room.');
+    }
     if (!mintRes.ok) throw new Error(mint.openai || mint.error || raw.slice(0, 200) || ('HTTP ' + mintRes.status));
     var ephemeralKey = mint.client_secret && mint.client_secret.value;
     if (!ephemeralKey) throw new Error('Mint response missing client secret.');

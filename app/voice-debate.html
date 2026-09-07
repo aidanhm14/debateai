@@ -4777,28 +4777,23 @@ function App() {
   //   • Voice ($12/mo), Individual, Team, BYOK, Lifetime: a monthly budget
   //
   // THE CLIENT GATE IS UX-ONLY. Real enforcement is realtime-session.mjs,
-  // which meters against voice_usage/{uid} — a collection no client can
-  // write. It used to meter against user_profiles/{uid}.voiceSessionsUsed,
-  // which firestore.rules lets the owner write, so the counter could be
-  // reset from the console.
+  // which meters against voice_usage/{uid}, a collection no client can
+  // write.
   //
-  // THESE TWO NUMBERS USED TO LIE. The client said 3 and 8 while the
-  // server enforced 2, and the comment that sat here described the
-  // mismatch as a known flag rather than fixing it, so the page told
-  // people they had 8 rounds and cut them off at 2. They now match the
-  // server defaults. The server values are env-tunable
-  // (ANON_VOICE_ROUNDS / FREE_VOICE_ROUNDS), so if those are ever moved
-  // without touching this file the page under-promises rather than
-  // over-promises, and the server response is what actually decides.
-  // MINUTES since 2026-09-03 (lib/voice-minutes.mjs). Same env defaults
-  // as the server; UX-only, the server is authoritative.
+  // ONE AUTHORITY (2026-09-07). This gate used to keep its own mirror of
+  // the numbers and its own reads (voice_usage, the legacy profile field,
+  // /api/teams/usage), and on 2026-08-26 the mirror was found advertising
+  // 8 rounds while the server enforced 2. It now asks the same read-only
+  // endpoint /newvoice's meter uses, GET /api/voice-allowance, which runs
+  // the minter's own gate (budget, plan, tokens) and reports exactly what
+  // a mint would decide. FREE_VOICE_LIMIT survives only as the number to
+  // print while that read is unresolved; the server value replaces it.
   var ANON_VOICE_LIMIT = 0;
   var FREE_VOICE_LIMIT = 20;
-  var ANON_USAGE_KEY = 'da-voice-anon-used';
-  // Owner allowlist — bypasses the voice cap on the client so the gate
-  // never shows the upgrade card to these accounts. Server enforces the
-  // same allowlist in realtime-session.mjs; this just keeps the UI
-  // honest when the owner is signed in.
+  // Owner entitlement, hashed so no email ships in the page source
+  // (scripts/test-public-identity.mjs pins it). The endpoint reports the
+  // owner as reason 'owner'; this is the fallback for an unresolved read,
+  // so the owner never meets the upgrade card because a probe timed out.
   var OWNER_EMAIL_HASHES = new Set(['2a7460e5']);
   function emailIdentityHash(email) {
     var value = String(email || '').trim().toLowerCase();
@@ -4815,13 +4810,12 @@ function App() {
     isPro: false,
     used: 0,
     limit: ANON_VOICE_LIMIT,
+    remaining: null,
+    period: 'lifetime', // 'lifetime' | 'month'
+    resolved: false,
+    tokenFunded: false,
     state: 'ok' // 'ok' | 'sign-in' | 'upgrade'
   });
-
-  function readAnonUsed() {
-    try {return Math.max(0, parseInt(localStorage.getItem(ANON_USAGE_KEY), 10) || 0);}
-    catch (e) {return 0;}
-  }
 
   // The wall's buttons open Stripe in one press for a signed-in user.
   // /pricing used to be the middle stop, where the same "Get Voice"
@@ -4854,9 +4848,6 @@ function App() {
       location.href = fallback;
     });
   }
-  function bumpAnonUsed() {
-    try {localStorage.setItem(ANON_USAGE_KEY, String(readAnonUsed() + 1));} catch (e) {}
-  }
 
   // Recompute gate state from current auth + counter. Called on
   // mount, on auth state change, and after a successful session
@@ -4866,60 +4857,53 @@ function App() {
     var isPro = false;
     var used = 0;
     var limit = ANON_VOICE_LIMIT;
+    var remaining = null;
+    var period = 'lifetime';
+    var resolved = false;
+    var tokenFunded = false;
     var state = 'ok';
     try {
       var u = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
       // currentUser can be the anonymous guest this page mints before a
       // round (see the mint block in connect()), so a truthy user is not
-      // a signed-in one. Reading it as signed in handed a guest the
-      // larger allowance and hid every sign-in prompt. isAnonymous is
-      // the difference.
+      // a signed-in one. isAnonymous is the difference, and a guest has
+      // no minted allowance at all (ANON_VOICE_LIMIT is 0; the taste is
+      // the /newvoice preview), so the answer for them needs no read.
       var named = !!(u && !u.isAnonymous);
       if (named) {
         signedIn = true;
         limit = FREE_VOICE_LIMIT;
         try {
-          var db = firebase.firestore();
-          // voice_usage is the server-written counter. The old profile
-          // field is read only so rounds spent before 2026-08-26 still
-          // show; nothing writes it any more.
-          var snap = await db.collection('voice_usage').doc(u.uid).get();
-          if (snap.exists) {var vd = snap.data();used = Math.max(0, parseInt(vd.minutes, 10) || 0, (parseInt(vd.rounds, 10) || 0) * 8);}
-          if (!used) {
-            var legacy = await db.collection('user_profiles').doc(u.uid).get();
-            if (legacy.exists) used = Math.max(0, parseInt(legacy.data().voiceSessionsUsed, 10) || 0);
-          }
-        } catch (e) {/* read failure → treat as fresh; server enforces the real cap */}
-        // Plan lives on TEAMS, never on user_profiles. This used to read
-        // user_profiles.plan, which is never written, so it resolved to
-        // false for everyone — including a paying subscriber, who would
-        // have been shown the upgrade card for a cap the server was
-        // about to let them past.
-        try {
           var tok = await u.getIdToken();
-          var r = await fetch('/api/teams/usage', { headers: { Authorization: 'Bearer ' + tok } });
+          var r = await fetch('/api/voice-allowance', { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' });
           if (r.ok) {
-            var usage = await r.json();
-            isPro = ['individual', 'team', 'lifetime', 'byok', 'voice'].indexOf(usage.plan) !== -1;
+            var a = await r.json();
+            resolved = !!a.resolved;
+            if (resolved) {
+              // The endpoint runs the minter's own gate. isPro here means
+              // "a plan or the owner", which is what the copy branches on;
+              // a plan can still be out of minutes for the month, and then
+              // ok is false with period 'month'.
+              isPro = !!(a.isPro || a.hasPlan || a.reason === 'owner');
+              tokenFunded = !!a.tokenFunded;
+              if (Number.isFinite(a.used)) used = a.used;
+              if (Number.isFinite(a.limit)) limit = a.limit;
+              if (Number.isFinite(a.remaining)) remaining = a.remaining;
+              if (a.period === 'month') period = 'month';
+              if (a.ok) state = 'ok';else
+              if (a.reason === 'sign_in_required') state = 'sign-in';else
+              if (a.reason === 'voice_disabled') state = 'ok';else
+              state = 'upgrade';
+            }
           }
-        } catch (e) {/* unknown plan → fall through; the server still decides */}
-        if (OWNER_EMAIL_HASHES.has(emailIdentityHash(u.email))) {
-          isPro = true;
-        }
+        } catch (e) {/* unresolved: never manufacture a paywall from a failed read; the mint decides */}
+        if (OWNER_EMAIL_HASHES.has(emailIdentityHash(u.email))) {isPro = true;state = 'ok';}
+        if (!resolved) state = 'ok';
       } else {
-        used = readAnonUsed();
-      }
-      if (isPro) {
-        state = 'ok';
-      } else if (signedIn && used >= FREE_VOICE_LIMIT) {
-        state = 'upgrade';
-      } else if (!signedIn && used >= ANON_VOICE_LIMIT) {
         state = 'sign-in';
-      } else {
-        state = 'ok';
       }
     } catch (e) {/* fall through with defaults */}
-    setVoiceGate({ loading: false, signedIn, isPro, used, limit, state });
+    setVoiceGate({ loading: false, signedIn, isPro, used, limit, remaining, period, resolved, tokenFunded, state });
   }, []);
 
   // Watch Firebase auth so the greeting personalizes once sign-in resolves
@@ -7209,16 +7193,10 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
     addSystem('Live. Speak whenever. Interrupting the AI is the whole point.');
     // Voice usage counter — incremented client-side on successful
     // session start so the gate UI updates immediately. Anon goes to
-    // localStorage; signed-in is server-truth (incremented by
-    // realtime-session.mjs on the next request) so we just refresh
-    // the gate to pull the post-mint count from Firestore.
+    // server-truth (the minter opened the session against voice_usage),
+    // so refresh the gate to pull the post-mint allowance.
     try {
-      if (firebase.auth && firebase.auth().currentUser) {
-        refreshVoiceGate();
-      } else {
-        bumpAnonUsed();
-        refreshVoiceGate();
-      }
+      refreshVoiceGate();
     } catch (e) {console.warn('[start] gate refresh skipped:', e);}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, motion, persona, side, userFirstName, bondCount, smartness, background, generatedBackground, playbackRate, addSystem, handleEvent, cleanup, runPreflight]);
@@ -9126,13 +9104,15 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 6 } }, 'Or use typed practice instead →')
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
-  el('div', { className: 'vg-eyebrow' }, 'Free voice minutes used'),
+  el('div', { className: 'vg-eyebrow' }, voiceGate.period === 'month' ? 'This month\'s voice minutes used' : 'Free voice minutes used'),
   el('div', { className: 'vg-h' }, 'Keep going with Voice'),
   // The copy used to promise 8 free rounds against a server cap of 2,
   // and linked bare /pricing, whose hero sells Individual, the one plan
   // that does NOT lift this cap. Real numbers, and the plan that fixes
   // the thing that just stopped.
   el('p', { className: 'vg-body' },
+  voiceGate.period === 'month' ?
+  'You have used this month\'s ' + (voiceGate.limit || 120) + ' minutes of live voice. They refill on the 1st, or tokens top you up now. Typed practice stays open either way.' :
   'Your ' + (voiceGate.limit || FREE_VOICE_LIMIT) + ' free voice minutes are used. Voice is $12 a month for two hours of live rounds a month; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
   ),
   el('a', {
@@ -9171,13 +9151,15 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   'Start voice debate'
   ),
   el('div', { className: 'helper' },
-  voiceGate.isPro ?
-  'Pro · unlimited voice rounds. Interrupt the AI mid-sentence.' :
-  voiceGate.signedIn ?
-  voiceGate.limit - voiceGate.used + ' of ' + voiceGate.limit + ' free rounds left.' :
-  voiceGate.used > 0 ?
-  'Sample round available. Sign in after and the AI starts learning your voice.' :
-  'One free round before sign-in. After that, sign in and the AI starts learning how you argue.'
+  !voiceGate.signedIn ?
+  'Voice rounds need a free account. Sign in and your free minutes start.' :
+  !voiceGate.resolved ?
+  'Your voice minutes are checked when you start.' :
+  voiceGate.tokenFunded ?
+  'Your tokens cover the next round. Interrupt the AI mid-sentence.' :
+  voiceGate.period === 'month' ?
+  voiceGate.remaining + ' of ' + voiceGate.limit + ' voice minutes left this month. Interrupt the AI mid-sentence.' :
+  voiceGate.remaining + ' of ' + voiceGate.limit + ' free voice minutes left.'
   )
   )
   )
