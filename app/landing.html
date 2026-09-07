@@ -8027,6 +8027,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        whole board on every swap. */
     min-height:2.16em}
   [data-theme="light"] .fs-board h2.fs-motion{color:#0f0f12}
+  .fs-board h2.fs-motion.is-open-topic{color:#ef4444;font-weight:700}
+  [data-theme="light"] .fs-board h2.fs-motion.is-open-topic{color:#b91c1c}
 
 
   /* Round panel: two tiles, the speaking one ringed. */
@@ -8296,6 +8298,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-open-fig{display:none;position:absolute;left:0;right:0;bottom:0;top:0;z-index:1;
     color:#f5efe7;pointer-events:none}
   [data-theme="light"] .fs-open-fig{color:#1a1a1f}
+  .fs-you-avatar{display:none;position:absolute;inset:0;z-index:1;place-items:center;background:#171719}
+  [data-theme="light"] .fs-you-avatar{background:#f1efeb}
+  .fs-board.is-you .fs-you-avatar{display:grid}
+  .fs-you-avatar > span{width:62% !important;max-width:140px;height:auto !important;aspect-ratio:1}
+  .fs-you-avatar > svg{width:72%;height:100%;opacity:.35}
   .fs-board.is-chal .fs-tile--open .fs-open-fig{display:block}
   .fs-open-fig svg{position:absolute;left:50%;bottom:0;width:72%;height:auto;opacity:.3;
     transform:translateX(-50%);transform-origin:50% 100%;
@@ -8734,6 +8741,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      the card. */
   #mhome .fs-board h2.fs-motion{font-size:21px;line-height:1.1;margin-bottom:10px;
     -webkit-line-clamp:4;font-weight:400}
+  #mhome .fs-board h2.fs-motion.is-open-topic{font-weight:700}
 
   /* THE CARD IS THE RESOLUTION AND TWO NUMBERS (2026-09-02, the founder:
      "have it just be the resolution without the judge - just have the
@@ -9109,6 +9117,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face52.jpg" alt="" decoding="async">
           <video class="fs-vid" id="fsVidB" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
           <span class="fs-open-fig" id="fsOpenFig" aria-hidden="true"></span>
+          <span class="fs-you-avatar" id="fsYouAvatar" aria-hidden="true"></span>
           <span class="fs-tile-nm"><b id="fsNameB"></b> &middot; <span id="fsSideB">Con</span></span>
         </div>
       </div>
@@ -11594,10 +11603,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       a:{ nm:'Lex Fridman', img:'lexfridman' }, b:{ nm:'Open seat' } }
   ];
 
-  /* Wildcard matchups use the same no-verdict card as an open challenge,
-     but both seats are filled from the ordinary rotating portrait cast.
-     They make the open-topic invitation recur with two matched people too,
-     without pretending either creator challenge has already been accepted. */
+  /* Wildcard matchups use the no-verdict invitation card. Untitled cards
+     put the visitor in the second seat and recur throughout the deck. */
   ROUNDS.push(
     { kind:'challenge', matched:true, openTopic:true, fmt:'Open match', motion:'Round of your choice.',
       a:{ nm:'Sarah' }, b:{ nm:'Victor' } },
@@ -11666,6 +11673,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         break;
       }
     }
+  })();
+
+  /* Keep the finished-round opener, then offer the visitor's own round on
+     card two and every third card. Only ordinary wildcard pairs repeat;
+     creator invitations are never duplicated. */
+  (function featureYourRound(){
+    var choices = [], examples = [], featured = [], next = 0;
+    ROUNDS.forEach(function(r){
+      (r.matched && r.openTopic && !r.title ? choices : examples).push(r);
+    });
+    examples.forEach(function(r, i){
+      featured.push(r);
+      if (choices.length && i % 2 === 0) featured.push(choices[next++ % choices.length]);
+    });
+    ROUNDS = featured;
   })();
 
   /* 2026-08-22, per the founder: circulate the FACES too, not just the deck.
@@ -11832,7 +11854,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
    'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
-   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig',
+   'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig','fsYouAvatar',
    'fsChalLine','fsChalAlt','fsChalNote']
     .forEach(function(id){ el[id] = document.getElementById(id); });
   var board = document.getElementById('fsBoard');
@@ -11997,6 +12019,32 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     return '<svg viewBox="0 0 120 84" fill="currentColor" xmlns="http://www.w3.org/2000/svg">'
       + SEAT_BUILD[(n || 0) % SEAT_BUILD.length] + '</svg>';
   }
+  function paintYouSeat(){
+    if (!board.classList.contains('is-you') || !el.fsYouAvatar) return;
+    var user = null;
+    try { user = window.firebase && firebase.auth().currentUser; } catch(e){}
+    el.fsYouAvatar.innerHTML = seatFigure(0);
+    if (!user || user.isAnonymous) return;
+    if (window.DBAvatar && DBAvatar.mountIdentity){
+      var picture = document.createElement('span');
+      el.fsYouAvatar.textContent = '';
+      el.fsYouAvatar.appendChild(picture);
+      DBAvatar.mountIdentity(picture, {
+        uid:user.uid, name:'You', photo:user.photoURL, size:140,
+        publicIdentity:DBAvatar.getPublicIdentity()
+      });
+      return;
+    }
+    var tag = document.querySelector('script[src="/js/avatar.js"]');
+    if (tag){ tag.addEventListener('load', paintYouSeat, { once:true }); return; }
+    tag = document.createElement('script');
+    tag.src = '/js/avatar.js'; tag.defer = true;
+    tag.onload = paintYouSeat;
+    document.head.appendChild(tag);
+  }
+  window.__fsRefreshYou = paintYouSeat;
+  window.addEventListener('debatable-avatar-change', paintYouSeat);
+  window.addEventListener('debatable-avatar-account-ready', paintYouSeat);
   var idx = 0, price = 50, hist = [], volHist = [], tick = null, slot = null, elapsed = 0;
   var viewers = 0, vol = 0;
   /* Whether the card in the slot actually has a decision to show. The
@@ -12220,6 +12268,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   function paintRound(i){
     var r = ROUNDS[i];
     el.fsMotion.textContent = r.motion;
+    el.fsMotion.classList.toggle('is-open-topic', !!r.openTopic && !r.title);
     if (el.fsTitle){ el.fsTitle.textContent = r.title || ''; el.fsTitle.hidden = !r.title; }
 
     /* Challenge card. Everything a judged card asserts (a result, points,
@@ -12228,19 +12277,22 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
        hiding it. */
     var isChal = r.kind === 'challenge';
     var isMatched = isChal && !!r.matched;
+    var isYou = isMatched && r.openTopic && !r.title;
     board.classList.toggle('is-chal', isChal);
     board.classList.toggle('is-matched', isMatched);
+    board.classList.toggle('is-you', !!isYou);
     tileA.classList.toggle('fs-tile--open', false);
     tileB.classList.toggle('fs-tile--open', isChal && !isMatched);
     if (isChal){
       if (isMatched){
         el.fsFaceA.src = '/img/round/faces/' + r.a.face + '.jpg';
-        el.fsFaceB.src = '/img/round/faces/' + r.b.face + '.jpg';
-        setClips(r.a.face, r.b.face);
+        el.fsFaceB.src = isYou ? BLANK_PX : '/img/round/faces/' + r.b.face + '.jpg';
+        setClips(r.a.face, isYou ? null : r.b.face);
         el.fsFaceA.alt = ''; el.fsFaceB.alt = '';
         if (el.fsOpenFig) el.fsOpenFig.innerHTML = '';
-        el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Matched';
-        el.fsNameB.textContent = r.b.nm; el.fsSideB.textContent = 'Matched';
+        el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = isYou ? 'Opponent' : 'Matched';
+        el.fsNameB.textContent = isYou ? 'You' : r.b.nm; el.fsSideB.textContent = isYou ? 'Your seat' : 'Matched';
+        if (isYou) paintYouSeat();
         if (el.fsChalLine) el.fsChalLine.textContent = 'Choose the topic. We match you with someone ready to argue the other side.';
         if (el.fsChalAlt){
           el.fsChalAlt.textContent = 'How matching works'; el.fsChalAlt.href = '/how-it-works';
@@ -22122,6 +22174,7 @@ window.addEventListener('load', function(){
     // this the creed + (now-hidden) sign-in row + ctas leave a ~170px
     // empty band between the H1 and the pill rail.
     try { document.body.classList.toggle('signed-in', !!realUser); } catch(e){}
+    if (window.__fsRefreshYou) window.__fsRefreshYou();
   });
 
   // Shared sign-in action. reused by the main button AND the hero timer animation.
