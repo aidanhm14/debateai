@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Round images | Debatable</title>
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+body{margin:0;background:#111114;color:#f4f0ea;font:16px/1.5 system-ui,sans-serif}
+main{max-width:1200px;margin:auto;padding:100px 24px 48px}h1{font-size:36px;margin:0 0 8px}p{color:#b9b5bf;max-width:760px}
+button,a.download{font:inherit;cursor:pointer;border:1px solid #55505d;border-radius:8px;padding:9px 14px;background:#25232b;color:#fff;text-decoration:none}
+button:hover,a.download:hover{background:#3a3540}button:disabled{opacity:.6;cursor:wait}button.primary{background:#b93436;border-color:#d74547}
+.rooms{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}.rooms button{text-align:left;max-width:360px}.rooms button[aria-pressed=true]{border-color:#ff7774;background:#49292e}
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}figure{margin:0;border:1px solid #39353f;border-radius:12px;overflow:hidden;background:#1c1a21}
+img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#29272e}figcaption{padding:16px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.frame-note{font-size:14px;color:#b9b5bf}
+#status{min-height:24px}#more{margin:18px 0}#selection{font-size:24px}nav a{color:#ff8580;margin-right:18px}
+@media(max-width:640px){main{padding:80px 16px 32px}.gallery{grid-template-columns:1fr}h1{font-size:30px}.rooms button{max-width:100%}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+</head>
+<body>
+<main>
+<nav><a href="/watch">Watch</a><a href="/admin">Admin</a></nav>
+<h1>Round images</h1>
+<p>Screenshots from recorded rounds. Download a thumbnail with names and the topic, or a clean frame for later design work. Front-page publication needs separate permission from the people shown.</p>
+<button id="signin" class="primary" hidden>Sign in with Google</button>
+<p id="status" role="status">Loading your account…</p>
+<div id="rooms" class="rooms" aria-label="Saved rounds"></div>
+<button id="more" hidden>Load older rounds</button>
+<h2 id="selection"></h2><div id="gallery" class="gallery"></div>
+</main>
+<script>
+(function(){
+  'use strict';
+  if (!firebase.apps.length) firebase.initializeApp({
+    apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
+    authDomain:'debateos-78ac5.firebaseapp.com', projectId:'debateos-78ac5',
+    appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'
+  });
+  var auth = firebase.auth(), next = null, urls = [], generation = 0;
+  var status = document.getElementById('status'), rooms = document.getElementById('rooms');
+  var gallery = document.getElementById('gallery'), more = document.getElementById('more');
+  function api(path){
+    if (!auth.currentUser) return Promise.reject(new Error('Sign in to open the image library.'));
+    return auth.currentUser.getIdToken().then(function(token){
+      return fetch('/api/round-stills' + path, { headers:{ Authorization:'Bearer ' + token } });
+    }).then(function(r){
+      if (!r.ok) throw new Error(r.status === 403 ? 'This library is available to admins.' : r.status === 404 ? 'These screenshots are no longer available.' : 'Could not load screenshots. Try again.');
+      return r;
+    });
+  }
+  function clearImages(){ urls.forEach(URL.revokeObjectURL); urls = []; gallery.replaceChildren(); }
+  function openRound(round, button){
+    var run = ++generation;
+    clearImages(); status.textContent = 'Loading screenshots…';
+    document.querySelectorAll('.rooms button').forEach(function(b){ b.setAttribute('aria-pressed', String(b === button)); });
+    document.getElementById('selection').textContent = round.motion || 'Round';
+    api('?room=' + encodeURIComponent(round.room)).then(function(r){ return r.json(); }).then(function(set){
+      if (run !== generation) return;
+      return Promise.all(set.frames.map(function(frame, i){
+        var figure = document.createElement('figure'), img = document.createElement('img');
+        img.alt = 'Round screenshot ' + (i + 1); figure.appendChild(img);
+        var caption = document.createElement('figcaption');
+        var note = document.createElement('div'); note.className = 'frame-note';
+        note.textContent = new Date(frame.at).toLocaleString() + ' · 1280 × 720'; caption.appendChild(note);
+        var actions = document.createElement('div'); actions.className = 'actions'; caption.appendChild(actions);
+        figure.appendChild(caption); gallery.appendChild(figure);
+        var path = '?room=' + encodeURIComponent(round.room) + '&frame=' + i;
+        function download(kind, label){
+          var b = document.createElement('button'); b.textContent = label; actions.appendChild(b);
+          b.onclick = function(){
+            b.disabled = true;
+            api(path + '&kind=' + kind).then(function(r){ return r.blob(); }).then(function(blob){
+              var url = URL.createObjectURL(blob), a = document.createElement('a');
+              a.href = url; a.download = round.room + '-' + (i + 1) + '-' + kind + '.jpg';
+              document.body.appendChild(a); a.click(); a.remove();
+              setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+            }).catch(function(e){ status.textContent = e.message; }).finally(function(){ b.disabled = false; });
+          };
+        }
+        download('thumbnail', 'Download thumbnail'); download('clean', 'Download clean frame');
+        return api(path).then(function(r){ return r.blob(); }).then(function(blob){
+          if (run !== generation) return;
+          var url = URL.createObjectURL(blob); urls.push(url); img.src = url;
+        });
+      }));
+    }).then(function(){ if (run === generation) status.textContent = 'Saved privately. Front-page permission has not been granted.'; })
+      .catch(function(e){ if (run === generation) status.textContent = e.message; });
+  }
+  function load(){
+    more.disabled = true;
+    api(next ? '?before=' + next : '').then(function(r){ return r.json(); }).then(function(data){
+      data.rounds.forEach(function(round){
+        var b = document.createElement('button'); b.setAttribute('aria-pressed', 'false');
+        b.textContent = (round.proName || 'For') + ' vs ' + (round.conName || 'Against') + ' · ' + new Date(round.createdAt).toLocaleDateString();
+        b.title = round.motion; b.onclick = function(){ openRound(round, b); }; rooms.appendChild(b);
+      });
+      next = data.next; more.hidden = !next;
+      status.textContent = rooms.children.length ? 'Choose a round to see its saved images.' : 'No saved screenshots yet. New recorded rounds will appear here after both people agree.';
+    }).catch(function(e){ status.textContent = e.message; }).finally(function(){ more.disabled = false; });
+  }
+  more.onclick = load;
+  document.getElementById('signin').onclick = function(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){ status.textContent = e.message; }); };
+  auth.onAuthStateChanged(function(user){
+    ++generation; clearImages(); rooms.replaceChildren(); next = null; more.hidden = true;
+    document.getElementById('selection').textContent = '';
+    document.getElementById('signin').hidden = !!user;
+    if (user) load(); else status.textContent = 'Sign in to open the image library.';
+  });
+})();
+</script>
+</body>
+</html>

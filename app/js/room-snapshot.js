@@ -2,12 +2,15 @@
    chat, transcript, hidden camera, or additional media permission. */
 (function () {
   'use strict';
-  function capture(seats, motion) {
+  function capture(seats, motion, options) {
+    options = options || {};
+    var large = options.large === true, clean = options.clean === true;
     if (!seats || seats.length !== 2 || !seats.some(function (s) { return s.source; })) return null;
     var canvas = document.createElement('canvas');
-    canvas.width = 640; canvas.height = 360;
+    canvas.width = large ? 1280 : 640; canvas.height = large ? 720 : 360;
     var ctx = canvas.getContext('2d');
     if (!ctx) return null;
+    if (large) ctx.scale(2, 2);
     function text(value, width) {
       var s = String(value || '');
       if (ctx.measureText(s).width <= width) return s;
@@ -17,11 +20,14 @@
     try {
       ctx.fillStyle = '#151519'; ctx.fillRect(0, 0, 640, 360);
       ctx.font = '700 13px sans-serif'; ctx.fillStyle = '#f4f0ea';
-      ctx.fillText('DEBATABLE', 15, 23);
-      ctx.fillStyle = '#ff605d'; ctx.fillText('LIVE ROOM', 540, 23);
+      if (!clean) {
+        ctx.fillText('DEBATABLE', 15, 23);
+        ctx.fillStyle = '#ff605d'; ctx.fillText(large ? 'ROUND' : 'LIVE ROOM', 540, 23);
+      }
       var drawn = 0;
       seats.forEach(function (seat, i) {
         var x = 8 + i * 316, y = 36, w = 308, h = 267;
+        if (clean) { x = i * 320; y = 0; w = 320; h = 360; }
         ctx.fillStyle = '#29282e'; ctx.fillRect(x, y, w, h);
         var src = seat.source;
         var vw = src && (src.videoWidth || src.width), vh = src && (src.videoHeight || src.height);
@@ -29,11 +35,12 @@
           var scale = Math.max(w / vw, h / vh), sw = w / scale, sh = h / scale;
           ctx.drawImage(src, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, w, h);
           drawn++;
-        } else {
+        } else if (!clean) {
           ctx.fillStyle = '#a6a2ad'; ctx.font = '700 60px sans-serif';
           ctx.fillText(String(seat.name || '?').slice(0, 1).toUpperCase(), x + 130, y + 142);
           ctx.font = '13px sans-serif'; ctx.fillText('Camera off', x + 116, y + 172);
         }
+        if (clean) return;
         ctx.fillStyle = 'rgba(12,12,16,.78)'; ctx.fillRect(x, y + h - 33, w, 33);
         ctx.font = '700 15px sans-serif'; ctx.fillStyle = '#fff';
         ctx.fillText(text(seat.name || (i ? 'Against' : 'For'), w - 24), x + 12, y + h - 12);
@@ -49,10 +56,12 @@
         if (ctx.measureText(next).width > 608 && at === 0) lines.push(word);
         else lines[at] = next;
       });
-      lines.forEach(function (line, i) { ctx.fillText(text(line, 608), 16, 326 + i * 21); });
-      var data = canvas.toDataURL('image/jpeg', 0.65);
-      if (data.length > 90000) data = canvas.toDataURL('image/jpeg', 0.42);
-      return data.length > 200 && data.length < 90000 ? data : null;
+      if (!clean) lines.forEach(function (line, i) { ctx.fillText(text(line, 608), 16, 326 + i * 21); });
+      var limit = large ? 350000 : 90000;
+      var data = canvas.toDataURL('image/jpeg', large ? 0.86 : 0.65);
+      if (data.length > limit) data = canvas.toDataURL('image/jpeg', large ? 0.65 : 0.42);
+      if (large && data.length > limit) data = canvas.toDataURL('image/jpeg', 0.45);
+      return data.length > 200 && data.length < limit ? data : null;
     } catch (e) { return null; }
   }
   window.DBRoomSnapshot = { capture: capture };

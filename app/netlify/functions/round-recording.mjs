@@ -15,6 +15,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
+import { STILL_CONSENT_VERSION, clearRoundStills } from './lib/round-stills.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const CONSENT_VERSION = 'round-recording-v3-2026-08-28';
@@ -323,6 +324,13 @@ export default async (req) => {
           publishOnWatchApproved: tournamentRequired ? publishConsents[decoded.sub] === true : body.consent,
         };
         update.recordingConsents = consents;
+        const stillsApproved = body.consent && body.stillConsentVersion === STILL_CONSENT_VERSION;
+        tx.set(db.collection('round_still_permissions').doc(room), {
+          room, uids: participants, consents: { [decoded.sub]: stillsApproved ? STILL_CONSENT_VERSION : false },
+        }, { merge: true });
+        receipt.stillsVersion = stillsApproved ? STILL_CONSENT_VERSION : '';
+        receipt.stillsScope = stillsApproved ? 'Save round screenshots for replay thumbnails and a private image library. Front-page use requires separate permission.' : '';
+        if (!body.consent) clearRoundStills(tx, db, room);
         // The round doc is publicly readable for spectators, so the full
         // legal receipt belongs in a server-only collection. The public
         // round state carries only the booleans needed to paint the UI.

@@ -38,6 +38,7 @@ import { getStore } from '@netlify/blobs';
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse, corsResponse } from './lib/response.mjs';
+import { clearRoundStills } from './lib/round-stills.mjs';
 
 const DAILY_API = 'https://api.daily.co/v1';
 const AUTO_PUBLISH_MIN_SEC = 45;
@@ -228,6 +229,14 @@ export async function syncFromDaily(db, limit = 100){
 // first (it is the thing that must not stay up), then the clips that
 // point at it, then the index doc, then the tombstone.
 async function destroyRecording(db, id){
+  const recording = await db.collection('recordings').doc(id).get();
+  const room = recording.data()?.roomName;
+  if (room) {
+    const batch = db.batch();
+    clearRoundStills(batch, db, room);
+    batch.set(db.collection('round_still_permissions').doc(room), { disabled: true }, { merge: true });
+    await batch.commit();
+  }
   let dailyDeleted = false;
   let dailyError = '';
   if (!process.env.DAILY_API_KEY){

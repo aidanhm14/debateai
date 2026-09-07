@@ -52,6 +52,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { getDb } from './lib/firestore.mjs';
 import { errorResponse } from './lib/response.mjs';
 import { callerIp, checkLayers } from './lib/rate-limit.mjs';
+import { savedRoundThumbnail } from './lib/round-stills.mjs';
 
 export const config = { path: '/api/recording-thumb' };
 
@@ -131,6 +132,22 @@ export default async (req) => {
   if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) return errorResponse('Bad id', 400, req);
   const versioned = !!params.get('v');
 
+  const db = getDb();
+  const snap = await db.collection('recordings').doc(id).get();
+  const d = snap.exists ? (snap.data() || {}) : null;
+  if (!d || !d.published) return errorResponse('Not found', 404, req);
+  if (!d.thumbV && !d.youtubeId) {
+    const still = await savedRoundThumbnail(db, d.roomName);
+    if (still) {
+      if (!d.thumbnailUrl) await db.collection('recordings').doc(id).set({
+        thumbnailUrl: SITE + '/api/recording-thumb?id=' + encodeURIComponent(id),
+      }, { merge: true });
+      return new Response(Buffer.from(still, 'base64'), {
+        headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' },
+      });
+    }
+  }
+
   const store = getStore('recording-thumbs');
   const cached = await store.get(id, { type: 'arrayBuffer' });
   if (cached && cached.byteLength) return imageResponse(cached, versioned);
@@ -142,10 +159,6 @@ export default async (req) => {
     return r;
   }
 
-  const db = getDb();
-  const snap = await db.collection('recordings').doc(id).get();
-  const d = snap.exists ? (snap.data() || {}) : null;
-  if (!d || !d.published) return errorResponse('Not found', 404, req);
   if (!process.env.DAILY_API_KEY) return softFail(req);
 
   const linkResp = await fetch(DAILY_API + '/recordings/' + encodeURIComponent(id) + '/access-link', {

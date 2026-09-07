@@ -85,6 +85,9 @@ export const IDENTITY_QUERIES = [
 
 // Bulk, private-to-them, resumable.
 export const BULK_QUERIES = [
+  { collection: 'round_stills', field: 'uids', op: 'array-contains' },
+  { collection: 'round_still_sets', field: 'uids', op: 'array-contains' },
+  { collection: 'round_still_permissions', field: 'uids', op: 'array-contains' },
   { collection: 'generations', field: 'uid' },        // every AI turn captured
   { collection: 'voice_rounds', field: 'uid' },
   { collection: 'voice_transcripts', field: 'uid' },

@@ -9149,6 +9149,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       action: 'consent',
       consent: !!consent,
       adultOrGuardianApproved: !!adultOrGuardianApproved,
+      stillConsentVersion: 'round-stills-v1-2026-09-07',
       ...(tournamentRecordingRequired() ? { publishConsent: !!publishConsent } : {}),
     }).then(function(){
       if (tournamentRecordingRequired() && consent) holdMandatoryRecordingModal();
@@ -9201,7 +9202,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         '</div>' +
         '<div class="rec-consent-body">' +
           '<div class="rec-consent-facts" aria-label="Recording details">' +
-            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, including questions and interruptions, plus display names, resolution, and ballot reveal.</span></span></div>' +
+            '<div class="rec-consent-fact"><span class="rec-consent-fact-num">1</span><span><strong>What gets recorded</strong><span>The room\'s video and audio, including questions and interruptions, plus display names, resolution, and ballot reveal. Public replays also keep screenshots for thumbnails and a private image library. Front-page use needs separate permission.</span></span></div>' +
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">2</span><span><strong>Who can see it</strong><span>' +
               (required ? 'Preliminary footage and generated clips are private by default. Elimination-round broadcast and clips follow the published tournament rules.' : 'The finished replay is posted on Watch. Signed-in people can make clips, and replay or clip links can be shared outside Debatable.') + '</span></span></div>' +
             '<div class="rec-consent-fact"><span class="rec-consent-fact-num">3</span><span><strong>When recording starts</strong><span>' +
@@ -10542,11 +10543,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // the doc, and still gives up long before a genuinely ineligible round
   // burns a request a minute for its whole length.
   var REFUSAL_LIMIT = 6;
-  var roomShot = { timer:null, busy:false, fails:0 };
+  var roomShot = { timer:null, busy:false, fails:0, archiveAt:0, archiveDone:false, archiveBusy:false };
   function roomShotEligible(){
     if (isSpectator() || state.isPrivate) return false;
     if (camConv.mode === 'off' || !camConv.cam || !camConv.cam.canvas) return false;
-    if (state.phase !== 'round') return false;
+    if (state.phase !== 'round' && state.phase !== 'ballot') return false;
     return !!(state.user && state.user.getIdToken && state.room);
   }
   function pushRoomShot(){
@@ -10573,6 +10574,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (!seats[0] || !seats[1]) return;
     var data = window.DBRoomSnapshot.capture(seats, state.motion);
     if (!data || data.length < 200) return;
+    saveRoundStills(seats);
     roomShot.busy = true;
     state.user.getIdToken().then(function(tok){
       return fetch('/api/room-shot', {
@@ -10605,6 +10607,33 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }).catch(function(){
       if (++roomShot.fails >= REFUSAL_LIMIT) stopRoomShots();
     }).then(function(){ roomShot.busy = false; });
+  }
+  function saveRoundStills(seats){
+    var d = cloudRec.doc || {};
+    if (roomShot.archiveBusy || roomShot.archiveDone || Date.now() - roomShot.archiveAt < 60000
+      || d.recordingPublishAllowed !== true || ['starting', 'recording'].indexOf(d.recordingStatus) < 0) return;
+    var thumbnail = window.DBRoomSnapshot.capture(seats, state.motion, { large: true });
+    var clean = window.DBRoomSnapshot.capture(seats, state.motion, { large: true, clean: true });
+    if (!thumbnail || !clean) return;
+    roomShot.archiveBusy = true;
+    var capturedRoom = state.room;
+    state.user.getIdToken().then(function(token){
+      return fetch('/api/round-stills', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ room: capturedRoom, thumbnail: thumbnail, clean: clean,
+          visibleSeats: seats.filter(function(s){ return !!s.source; }).length }),
+      });
+    }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok) throw new Error(j.error || 'Screenshot could not be saved');
+        if (state.room !== capturedRoom) return;
+        roomShot.archiveAt = Date.now();
+        roomShot.archiveDone = j.skipped === 'complete' || j.count >= 8;
+      });
+    }).catch(function(error){
+      roomShot.archiveAt = Date.now();
+      console.warn('[round-stills]', error.message);
+    }).then(function(){ roomShot.archiveBusy = false; });
   }
   // Both guard on the object itself: these are called from mode changes
   // that can fire before this literal has run, and a throw here would
