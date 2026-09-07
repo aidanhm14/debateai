@@ -3229,6 +3229,7 @@
   function go(){
     var path = (location.pathname || '/').replace(/\/$/, '') || '/';
     if (QUIET.test(path)) return;
+    if (document.body.classList.contains('match-profile-open')) return;
     var bucket = assignArm();
     try { if (!bucket.forced && localStorage.getItem(KEY) === '1') return; } catch (e) { return; }
 
